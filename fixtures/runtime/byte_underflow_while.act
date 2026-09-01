@@ -1,0 +1,72 @@
+; Byte WHILE underflow loops execute through zero and finish at $FF.
+
+BYTE count0=$0600
+BYTE final0=$0601
+BYTE count1=$0602
+BYTE final1=$0603
+BYTE count128=$0604
+BYTE final128=$0605
+BYTE count129=$0606
+BYTE final129=$0607
+BYTE count255=$0608
+BYTE final255=$0609
+BYTE signature=$060A
+
+BYTE counter
+BYTE iterations
+
+PROC Main()
+  counter=0
+  iterations=0
+  WHILE counter#$FF
+  DO
+    iterations==+1
+    counter==-1
+  OD
+  count0=iterations
+  final0=counter
+
+  counter=1
+  iterations=0
+  WHILE counter#$FF
+  DO
+    iterations==+1
+    counter==-1
+  OD
+  count1=iterations
+  final1=counter
+
+  counter=$80
+  iterations=0
+  WHILE counter#$FF
+  DO
+    iterations==+1
+    counter==-1
+  OD
+  count128=iterations
+  final128=counter
+
+  counter=$81
+  iterations=0
+  WHILE counter#$FF
+  DO
+    iterations==+1
+    counter==-1
+  OD
+  count129=iterations
+  final129=counter
+
+  counter=$FF
+  iterations=0
+  WHILE counter#$FF
+  DO
+    iterations==+1
+    counter==-1
+  OD
+  count255=iterations
+  final255=counter
+
+  signature=$A5
+  DO
+  OD
+RETURN

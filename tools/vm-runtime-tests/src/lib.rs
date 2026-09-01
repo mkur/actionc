@@ -774,6 +774,27 @@ mod tests {
     }
 
     #[test]
+    fn byte_underflow_while_boundaries_execute_in_mir6502() {
+        let max_steps = 50_000;
+        let outcome =
+            run_standalone_fixture("byte_underflow_while.act", CompileMode::Mir6502, max_steps);
+        assert_eq!(
+            outcome.stop_reason(),
+            StopReason::StepLimit { max_steps },
+            "{:?}",
+            outcome.report
+        );
+        assert_eq!(
+            (0..11)
+                .map(|offset| outcome.memory().read(RESULT_START + offset))
+                .collect::<Vec<_>>(),
+            [1, 0xFF, 2, 0xFF, 129, 0xFF, 130, 0xFF, 0, 0xFF, 0xA5],
+            "{:?}",
+            outcome.report
+        );
+    }
+
+    #[test]
     fn record_assignments_execute_in_all_public_modes() {
         let max_steps = 20_000;
         for mode in [

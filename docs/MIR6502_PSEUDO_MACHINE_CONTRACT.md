@@ -419,6 +419,16 @@ original guard. This preserves both the source-visible final zero and the exit
 machine state. Countdown-to-one head-tested loops use the corresponding
 `DEC/BNE` form when entry and liveness proofs permit it.
 
+A head-tested unsigned byte loop with the exact guard `induction != $FF`, a
+unit `DEC` latch, and a constant start in `0..=$80` may use `DEC/BPL` without a
+restoration block. The branch observes the post-decrement value, so `$80` is
+safe (`$80 -> $7F`) while `$81` is not. The terminal decrement naturally
+stores the source-visible `$FF`. Selection requires a canonical natural loop,
+dead incoming A/flags at the body and exit, and a body free of induction
+writes, address aliases, calls, runtime helpers, machine blocks, and barriers.
+Dynamic or initially `$FF` entries keep their entry guard; higher proven
+entries retain the exact byte comparison.
+
 The analysis also names the proven-entered inclusive unsigned range `255 TO
 0 STEP -1` as a full-range descending byte shape. When its bottom guard
 reloads the exact induction home immediately before `CMP #1`, the target may

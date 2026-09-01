@@ -191,6 +191,13 @@ machine flags remain on the general path. The old initialized-countdown scanner
 is removed; its `DEC/BNE` case is now selected from the shared counted-loop
 facts.
 
+The shared analysis also names head-tested byte-underflow loops guarded by
+`induction != $FF`. For constant starts in `0..=$80`, a canonical body that
+cannot modify or alias the induction home selects `DEC/BPL`; the terminal
+decrement already leaves the required `$FF`, so no restoration is needed.
+Starts above `$80`, dynamic starts, calls, opaque effects, and address-taken
+induction homes retain the exact compare path.
+
 ## Slice 4: exact A/X/Y facts across simple CFG edges
 
 Extend machine-value availability with exact byte identities for:

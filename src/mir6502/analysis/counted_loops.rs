@@ -15,6 +15,7 @@ pub(in crate::mir6502) enum MirCountDirection {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirCountedLoopShape {
     HeadTested,
+    HeadTestedByteUnderflow { sentinel: u8 },
     FullRangeAscending { guard: MirBlockId },
     FullRangeDescending { guard: MirBlockId },
     BottomGuarded { guard: MirBlockId },
@@ -51,11 +52,89 @@ pub(in crate::mir6502) fn analyze_counted_loops(routine: &MirRoutine) -> Vec<Mir
         if let Some(candidate) = analyze_bottom_guarded_loop(routine, &cfg, header) {
             loops.push(candidate);
         }
+        if let Some(candidate) = analyze_head_tested_byte_underflow_loop(routine, &cfg, header) {
+            loops.push(candidate);
+            continue;
+        }
         if let Some(candidate) = analyze_head_tested_loop(routine, &cfg, header) {
             loops.push(candidate);
         }
     }
     loops
+}
+
+fn analyze_head_tested_byte_underflow_loop(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    header: &MirBlock,
+) -> Option<MirCountedLoop> {
+    let (induction, compare) = header_compare(header)?;
+    if compare.op != MirCompareOp::Ne
+        || compare.signed
+        || compare.width != MirWidth::Byte
+        || compare.left != &MirValue::Def(MirDef::Reg(MirReg::A))
+    {
+        return None;
+    }
+    let sentinel = u8::try_from(byte_constant(compare.right)?).ok()?;
+    if sentinel != u8::MAX {
+        return None;
+    }
+    let MirTerminator::Branch {
+        cond,
+        then_edge,
+        else_edge,
+    } = &header.terminator
+    else {
+        return None;
+    };
+    if branch_flag_test(header, cond, 1) != Some(MirFlagTest::ZClear)
+        || !then_edge.args.is_empty()
+        || !else_edge.args.is_empty()
+    {
+        return None;
+    }
+    let body = then_edge.target;
+    let exit = else_edge.target;
+    let predecessors = cfg.predecessors(header.id);
+    if predecessors.len() != 2 {
+        return None;
+    }
+
+    let mut preheader = None;
+    let mut latch = None;
+    let mut initial_value = None;
+    for predecessor in predecessors {
+        let block = block_by_id(routine, *predecessor)?;
+        if latch_update(block, header.id, &induction) == Some((MirCountDirection::Descending, 1)) {
+            latch = Some(block.id);
+        } else if let Some(initial) = preheader_initial(block, header.id, &induction) {
+            preheader = Some(block.id);
+            initial_value = Some(initial);
+        }
+    }
+    let (preheader, latch, initial_value) = (preheader?, latch?, initial_value?);
+    let initial_guard_required = !matches!(
+        byte_constant(&initial_value),
+        Some(value) if value != u16::from(sentinel)
+    );
+    Some(MirCountedLoop {
+        preheader,
+        header: header.id,
+        body,
+        latch,
+        exit,
+        induction: induction.clone(),
+        width: MirWidth::Byte,
+        initial_value,
+        bound: u16::from(sentinel),
+        direction: MirCountDirection::Descending,
+        step: 1,
+        signed: false,
+        initial_guard_required,
+        final_value_observable: mem_may_be_read_from(routine, cfg, exit, &induction),
+        shape: MirCountedLoopShape::HeadTestedByteUnderflow { sentinel },
+    })
 }
 
 fn analyze_full_range_ascending_loop(

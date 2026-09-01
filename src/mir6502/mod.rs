@@ -11254,6 +11254,75 @@ mod tests {
     }
 
     #[test]
+    fn source_nested_byte_underflow_while_loops_select_dec_bpl_latches() {
+        let source = "
+            CONST BYTE UNDERFLOW=$FF
+            BYTE outer,inner,total,observed
+            PROC Main()
+              outer=1
+              WHILE outer#UNDERFLOW DO
+                inner=9
+                WHILE inner#UNDERFLOW DO
+                  total==+1
+                  inner==-1
+                OD
+                outer==-1
+              OD
+              total=0
+              observed=outer+inner
+            RETURN
+            ";
+        let materialized = materialize_mir6502_source(source);
+        let main = materialized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main routine");
+        let n_clear_latches = main
+            .blocks
+            .iter()
+            .filter(|block| {
+                matches!(
+                    block.ops.last(),
+                    Some(MirOp::UpdateMem {
+                        op: MirUpdateOp::Dec,
+                        width: MirWidth::Byte,
+                        ..
+                    })
+                ) && matches!(
+                    block.terminator,
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(MirFlagTest::NClear),
+                        ..
+                    }
+                )
+            })
+            .count();
+
+        assert_eq!(n_clear_latches, 2, "{}", format_program(&materialized));
+        assert_eq!(
+            main.blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .filter(|op| matches!(op, MirOp::Compare { .. }))
+                .count(),
+            0,
+            "underflow loop guards should be eliminated:\n{}",
+            format_program(&materialized)
+        );
+
+        let output = generate_mir6502_source(source);
+        assert!(
+            output
+                .bytes
+                .iter()
+                .filter(|byte| **byte == crate::codegen::opcode::BPL_REL)
+                .count()
+                >= 2
+        );
+    }
+
+    #[test]
     fn source_range_proven_countdown_uses_bpl_and_restores_final_zero() {
         let materialized = materialize_mir6502_source(
             "
