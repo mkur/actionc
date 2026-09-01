@@ -41,6 +41,10 @@ available when deliberately overriding the source placement.
 rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 `MATH.Sin` native REAL procedures.
 
+`graphics/landscape.act` draws a procedurally perturbed, layered landscape in
+GTIA mode 9 and leaves the completed image on screen. Its source is also
+accepted by the original Action! cartridge compiler.
+
 [`benchmarks/`](benchmarks/README.md) contains the Action! port of the Atari
 Mad Pascal benchmark suite, including complete, compatibility, and
 non-graphics runners.

@@ -187,6 +187,24 @@ fn vbxe_gradient_sample_compiles_standalone_with_both_backends() {
 }
 
 #[test]
+fn landscape_graphics_sample_compiles_with_cart_and_standalone_runtimes() {
+    let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/graphics/landscape.act");
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let options = CompileOptions::for_mode(mode).with_runtime(runtime);
+            compile_file(&sample, &options).unwrap_or_else(|error| {
+                panic!("compile landscape graphics sample in {mode:?}/{runtime:?}: {error}")
+            });
+        }
+    }
+}
+
+#[test]
 fn unlimited_bobs_sample_compiles_at_its_fixed_memory_layout_in_all_modes() {
     let samples = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/demoscene");
     let file_name = "unlimited-bobs.act";

@@ -1,0 +1,65 @@
+; Draw a procedurally perturbed, layered landscape in GTIA mode 9.
+; The source uses only syntax and built-ins accepted by the original Action!
+; cartridge compiler.
+BYTE ATRACT=$004D
+
+; startingHeights gives the initial vertical extent of each color band.
+; bandHeights is the mutable profile that evolves as columns are drawn.
+BYTE ARRAY startingHeights(14)=[170 150 144 144 122 122 110
+                                110 94 94 86 86 82 80],
+           bandHeights(14)
+
+BYTE stopRow,startRow,swapRow,band,column
+
+PROC DrawLandscape()
+  ; Start every picture from the same recognizable set of band heights.
+  MoveBlock(bandHeights,startingHeights,14)
+
+  ; Draw the 80 vertical pixel columns from right to left. Each band is filled
+  ; from the preceding band's height down to its own current height.
+  FOR column=79 TO 0 STEP -1 DO
+    startRow=0
+
+    FOR band=13 TO 0 STEP -1 DO
+      stopRow=bandHeights(band)
+      IF startRow>stopRow THEN
+        ; Randomly moved band edges can cross. Swap the limits so the overlap
+        ; is still drawn rather than leaving a gap in the column.
+        swapRow=startRow
+        startRow=stopRow
+        stopRow=swapRow
+      FI
+
+      color=band
+      WHILE startRow<stopRow DO
+        Plot(column,startRow)
+        startRow==+1
+      OD
+
+      startRow=stopRow
+      ; Evolve this band's height by a one-row random walk. The next pixel
+      ; column therefore starts from a related but slightly changed profile,
+      ; producing continuous, irregular ridges across the screen.
+      IF Rand(0)<128 THEN
+        bandHeights(band)==-1
+      FI
+      IF Rand(0)<128 THEN
+        bandHeights(band)==+1
+      FI
+    OD
+  OD
+RETURN
+
+PROC Main()
+  ; Graphics 9 provides 80 by 192 pixels in 16 luminance levels. Register 4
+  ; supplies their common hue; each Plot uses COLOR as the luminance value.
+  Graphics(9)
+  SetColor(4,11,0)
+
+  DrawLandscape()
+
+  ; Keep the picture and palette stable after rendering completes.
+  DO
+    ATRACT=0
+  OD
+RETURN
