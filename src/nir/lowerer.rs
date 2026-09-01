@@ -104,10 +104,16 @@ impl NirLowerer {
                     }
                     crate::semantic::ir::SemItem::Declaration(declaration) => {
                         let id = self.global_id(&declaration.symbol.name);
-                        let address_initializer = declaration
-                            .initializer
-                            .as_ref()
-                            .and_then(|expr| self.const_u16_expr(expr));
+                        let address_initializer = match &declaration.storage {
+                            SemDeclarationStorage::Array {
+                                fixed_address: Some(address),
+                                ..
+                            } => Some(*address),
+                            _ => declaration
+                                .initializer
+                                .as_ref()
+                                .and_then(|expr| self.const_u16_expr(expr)),
+                        };
                         if let Some(ty) =
                             declaration_symbol_storage_type(declaration, address_initializer)
                         {
@@ -246,10 +252,16 @@ impl NirLowerer {
                         builder.param_ids_by_symbol = param_ids_by_symbol.clone();
                         builder.local_ids_by_symbol = local_ids_by_symbol.clone();
                         for (index, local) in all_locals.into_iter().enumerate() {
-                            let address_initializer = local
-                                .initializer
-                                .as_ref()
-                                .and_then(|expr| self.const_u16_expr(expr));
+                            let address_initializer = match &local.storage {
+                                SemDeclarationStorage::Array {
+                                    fixed_address: Some(address),
+                                    ..
+                                } => Some(*address),
+                                _ => local
+                                    .initializer
+                                    .as_ref()
+                                    .and_then(|expr| self.const_u16_expr(expr)),
+                            };
                             let backing = self.local_backing(
                                 local,
                                 &record_storage_sizes,
@@ -3086,6 +3098,7 @@ fn declaration_kind(declaration: &SemDeclaration) -> String {
             length,
             action_storage,
             origin,
+            fixed_address: _,
         } => format!(
             "array {:?} length={} storage={action_storage:?} origin={}",
             array_type,

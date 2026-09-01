@@ -135,6 +135,16 @@ selects the effective origin using command-line override precedence. `ORG` does
 not become a `SemItem`, executable NIR operation, or target instruction; NIR and
 MIR6502 receive the already selected materialization origin.
 
+Sized-array backing expressions follow the same ownership rule. Semantic
+analysis resolves literal and qualified-`CONST` arithmetic to the structured
+`SemDeclarationStorage::Array.fixed_address` fact, rejecting runtime-dependent
+or out-of-range expressions. NIR projects that exact address to
+`NirGlobalBacking::Absolute` and `NirArrayFact::address_initializer`; it does
+not re-evaluate source syntax or ask MIR6502 to resolve a SemIR name. The source
+expression remains only as readable initializer metadata. Verifier-clean NIR
+therefore guarantees that executable fixed-array consumers use the resolved
+storage identity and 16-bit address.
+
 When that procedure also has a current-location (`=*`) entry, MIR6502 retains a
 combined program-entry/observable-ABI classification; choosing it for `RUNAD`
 must not enable private-entry parameter-home optimizations.

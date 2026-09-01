@@ -234,6 +234,10 @@ pub enum SemDeclarationStorage {
     Array {
         array_type: ArrayType,
         length: Option<SemExpr>,
+        /// Exact numeric element-backing address resolved by semantic
+        /// constant evaluation. Source syntax remains in the declaration's
+        /// initializer as debug metadata.
+        fixed_address: Option<u16>,
         action_storage: VarStorage,
         origin: SemArrayOrigin,
     },
@@ -1370,9 +1374,16 @@ impl SemIrFormatter {
                         ));
                     }
                 }
-                SemDeclarationStorage::Array { length, .. } => {
+                SemDeclarationStorage::Array {
+                    length,
+                    fixed_address,
+                    ..
+                } => {
                     if let Some(length) = length {
                         this.line(format!("length {}", expr_summary(length)));
+                    }
+                    if let Some(address) = fixed_address {
+                        this.line(format!("fixed-backing ${address:04X}"));
                     }
                 }
                 SemDeclarationStorage::Scalar => {}
@@ -1855,14 +1866,19 @@ fn declaration_storage_summary(storage: &SemDeclarationStorage) -> String {
         SemDeclarationStorage::Scalar => "scalar".to_string(),
         SemDeclarationStorage::Array {
             array_type,
+            fixed_address,
             action_storage,
             origin,
             ..
         } => {
-            format!(
+            let mut summary = format!(
                 "array {}/{action_storage:?}/{origin:?}",
                 array_type_summary(array_type)
-            )
+            );
+            if let Some(address) = fixed_address {
+                summary.push_str(&format!("/fixed=${address:04X}"));
+            }
+            summary
         }
         SemDeclarationStorage::Type {
             record_type,
@@ -2417,6 +2433,11 @@ impl<'a> IrBuilder<'a> {
                             entry.size.as_ref(),
                         ),
                         length: entry.size.as_ref().map(|size| self.lower_expr(scope, size)),
+                        fixed_address: self
+                            .model
+                            .fixed_array_backing_addresses
+                            .get(&symbol.id)
+                            .copied(),
                         action_storage: VarStorage::Array,
                         origin: self.array_origin_for_symbol(&symbol),
                     }
@@ -2643,6 +2664,7 @@ impl<'a> IrBuilder<'a> {
                                 .and_then(|expr| self.const_u16_expr_in_scope(scope, expr)),
                         ),
                         length: entry.size.as_ref().map(|size| self.lower_expr(scope, size)),
+                        fixed_address: None,
                         action_storage: field.storage,
                         origin: SemArrayOrigin::RecordField,
                     }

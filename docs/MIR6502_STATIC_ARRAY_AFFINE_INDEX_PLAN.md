@@ -1,6 +1,6 @@
 # MIR6502 Static-Array Affine Index Plan
 
-Status: active. Created 2026-09-01.
+Status: implemented. Created and completed 2026-09-01.
 
 This plan continues
 [`MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md`](MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md)

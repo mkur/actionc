@@ -344,6 +344,10 @@ impl SemIrAstLowerer<'_> {
                 .iter()
                 .map(|decl| {
                     self.project_static_initializer(decl);
+                    let fixed_address = match &decl.storage {
+                        SemDeclarationStorage::Array { fixed_address, .. } => *fixed_address,
+                        _ => None,
+                    };
                     DeclEntry {
                         name: self.symbol_name(&decl.symbol),
                         size: match &decl.storage {
@@ -354,10 +358,13 @@ impl SemIrAstLowerer<'_> {
                             SemDeclarationStorage::Type { .. }
                             | SemDeclarationStorage::Record { .. } => None,
                         },
-                        initializer: decl
-                            .initializer
-                            .as_ref()
-                            .and_then(|initializer| self.expr(initializer)),
+                        initializer: fixed_address
+                            .map(|address| fixed_array_address_expr(address, decl.span))
+                            .or_else(|| {
+                                decl.initializer
+                                    .as_ref()
+                                    .and_then(|initializer| self.expr(initializer))
+                            }),
                         span: decl.span,
                     }
                 })
@@ -1797,6 +1804,19 @@ fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -
     } else {
         value
     })
+}
+
+fn fixed_array_address_expr(address: u16, span: Span) -> Expr {
+    let text = format!("${address:04X}");
+    Expr {
+        kind: ExprKind::Number(NumberLiteral {
+            text: text.clone(),
+            kind: crate::lexer::NumberKind::Card,
+            value: Some(address),
+        }),
+        text,
+        span,
+    }
 }
 
 fn classic_static_initializer_real_value(

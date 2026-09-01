@@ -102,6 +102,27 @@ impl NirVerifier {
                     global.name
                 )));
             }
+            if let Some(array) = &global.array
+                && let Some(initializer) = array.address_initializer
+                && !array.pointer_backed
+            {
+                match global.backing {
+                    super::ir::NirGlobalBacking::Absolute(address)
+                        if address == initializer => {}
+                    super::ir::NirGlobalBacking::Absolute(address) => {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "direct fixed array `{}` has backing ${address:04X} but address initializer ${initializer:04X}",
+                            global.name
+                        )));
+                    }
+                    _ => {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "direct fixed array `{}` must have absolute backing ${initializer:04X}",
+                            global.name
+                        )));
+                    }
+                }
+            }
             if let super::ir::NirGlobalBacking::Alias { target, .. } = global.backing {
                 if !self.global_ids.contains(&target) {
                     self.diagnostics.push(NirDiagnostic::program(format!(

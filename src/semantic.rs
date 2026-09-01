@@ -46,6 +46,9 @@ pub struct SemanticModel {
     pub routine_signatures_by_symbol: HashMap<SymbolId, SemanticCallableSignature>,
     pub constants: HashMap<SymbolId, ConstValue>,
     pub real_constants: HashMap<SymbolId, RealConstValue>,
+    /// Exact numeric backing addresses for sized arrays whose initializer was
+    /// proven to be a compile-time scalar expression.
+    pub fixed_array_backing_addresses: HashMap<SymbolId, u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -439,6 +442,7 @@ impl Analyzer {
             routine_signatures_by_symbol: self.routines_by_symbol,
             constants: self.constants,
             real_constants: self.real_constants,
+            fixed_array_backing_addresses: self.fixed_array_backing_addresses,
         })
     }
 }
@@ -466,6 +470,7 @@ struct Analyzer {
     expression_observations: Vec<ExpressionObservation>,
     constants: HashMap<SymbolId, ConstValue>,
     real_constants: HashMap<SymbolId, RealConstValue>,
+    fixed_array_backing_addresses: HashMap<SymbolId, u16>,
 }
 
 #[derive(Clone, Copy)]
@@ -534,6 +539,7 @@ impl Analyzer {
             expression_observations: Vec::new(),
             constants: HashMap::new(),
             real_constants: HashMap::new(),
+            fixed_array_backing_addresses: HashMap::new(),
         }
     }
 
@@ -3185,6 +3191,12 @@ impl Analyzer {
                         .is_some_and(|id| self.symbols.symbols[id.0].is_volatile);
                 self.symbols.symbols[symbol_id.0].is_volatile =
                     declaration.qualifiers.is_volatile || inherits_volatile;
+                self.record_fixed_array_backing_address(
+                    scope,
+                    symbol_id,
+                    declaration,
+                    entry,
+                );
             }
             if let Some(size) = &entry.size {
                 self.lower_expr(scope, size);
@@ -3413,8 +3425,65 @@ impl Analyzer {
                 if decl.storage == VarStorage::Array || is_string_type_ref(&decl.ty) {
                     self.array_symbols.insert(symbol_id);
                 }
+                if !is_param {
+                    self.record_fixed_array_backing_address(scope, symbol_id, decl, entry);
+                }
             }
             self.validate_initializer_elements(scope, decl, entry);
+        }
+    }
+
+    fn record_fixed_array_backing_address(
+        &mut self,
+        scope: ScopeId,
+        symbol: SymbolId,
+        declaration: &VarDecl,
+        entry: &DeclEntry,
+    ) {
+        if declaration.storage != VarStorage::Array || entry.size.is_none() {
+            return;
+        }
+        let Some(initializer) = &entry.initializer else {
+            return;
+        };
+        if matches!(
+            initializer.kind,
+            ExprKind::InitializerList(_) | ExprKind::String(_) | ExprKind::Raw
+        ) {
+            return;
+        }
+
+        let subject = self.classify_subject(scope, initializer);
+        let expression = self.expr_from_subject(initializer, &subject);
+        match evaluate_fixed_array_backing_address(&expression) {
+            Ok(address) => {
+                self.fixed_array_backing_addresses.insert(symbol, address);
+            }
+            Err(FixedArrayAddressError::Relocatable) => {}
+            Err(FixedArrayAddressError::RuntimeDependent) => self.diagnostics.push(
+                Diagnostic::new(
+                    initializer.span,
+                    format!(
+                        "fixed array backing address for `{}` must be a compile-time scalar expression",
+                        entry.name
+                    ),
+                ),
+            ),
+            Err(FixedArrayAddressError::Unsupported) => self.diagnostics.push(Diagnostic::new(
+                initializer.span,
+                format!(
+                    "fixed array backing address for `{}` uses unsupported constant arithmetic",
+                    entry.name
+                ),
+            )),
+            Err(FixedArrayAddressError::Overflow) => self.diagnostics.push(Diagnostic::new(
+                initializer.span,
+                format!(
+                    "fixed array backing address for `{}` is outside the 16-bit address space",
+                    entry.name
+                ),
+            )),
+            Err(FixedArrayAddressError::Invalid) => {}
         }
     }
 
@@ -4201,6 +4270,149 @@ fn constant_binary_result(
         BinaryOp::Sub => left.wrapping_sub(right),
         _ => unreachable!("only addition and subtraction reach constant-result typing"),
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FixedArrayAddressError {
+    Relocatable,
+    RuntimeDependent,
+    Unsupported,
+    Overflow,
+    Invalid,
+}
+
+fn evaluate_fixed_array_backing_address(
+    expr: &subject::SemExpr,
+) -> Result<u16, FixedArrayAddressError> {
+    let value = evaluate_exact_fixed_address_expr(expr)?;
+    u16::try_from(value).map_err(|_| FixedArrayAddressError::Overflow)
+}
+
+fn evaluate_exact_fixed_address_expr(
+    expr: &subject::SemExpr,
+) -> Result<i64, FixedArrayAddressError> {
+    match &expr.kind {
+        subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
+            .value
+            .map(i64::from)
+            .ok_or(FixedArrayAddressError::Invalid),
+        subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => source_char_byte(*ch)
+            .map(i64::from)
+            .ok_or(FixedArrayAddressError::Invalid),
+        subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)) => {
+            Ok(exact_const_value(*value))
+        }
+        subject::SemExprKind::Cast { ty, expr: inner } => {
+            let value = evaluate_exact_fixed_address_expr(inner)?;
+            let scalar = ty.as_scalar().ok_or(FixedArrayAddressError::Invalid)?;
+            Ok(exact_scalar_cast(value, scalar))
+        }
+        subject::SemExprKind::Unary { op, expr: inner } => {
+            let value = evaluate_exact_fixed_address_expr(inner)?;
+            match op {
+                UnaryOp::Plus => Ok(value),
+                UnaryOp::Neg => value.checked_neg().ok_or(FixedArrayAddressError::Overflow),
+                UnaryOp::AddressOf | UnaryOp::Deref => Err(FixedArrayAddressError::Relocatable),
+            }
+        }
+        subject::SemExprKind::Binary { op, left, right } => {
+            let left = evaluate_exact_fixed_address_expr(left);
+            let right = evaluate_exact_fixed_address_expr(right);
+            let (left, right) = match (left, right) {
+                (Err(FixedArrayAddressError::RuntimeDependent), _)
+                | (_, Err(FixedArrayAddressError::RuntimeDependent)) => {
+                    return Err(FixedArrayAddressError::RuntimeDependent);
+                }
+                (Err(FixedArrayAddressError::Relocatable), _)
+                | (_, Err(FixedArrayAddressError::Relocatable)) => {
+                    return Err(FixedArrayAddressError::Relocatable);
+                }
+                (Err(error), _) | (_, Err(error)) => return Err(error),
+                (Ok(left), Ok(right)) => (left, right),
+            };
+            match op {
+                BinaryOp::Add => left
+                    .checked_add(right)
+                    .ok_or(FixedArrayAddressError::Overflow),
+                BinaryOp::Sub => left
+                    .checked_sub(right)
+                    .ok_or(FixedArrayAddressError::Overflow),
+                BinaryOp::Mul => left
+                    .checked_mul(right)
+                    .ok_or(FixedArrayAddressError::Overflow),
+                BinaryOp::Div if right != 0 => Ok(left / right),
+                BinaryOp::Mod if right != 0 => Ok(left % right),
+                BinaryOp::Div | BinaryOp::Mod => Err(FixedArrayAddressError::Invalid),
+                BinaryOp::Lsh | BinaryOp::Rsh => {
+                    let shift = u32::try_from(right).map_err(|_| FixedArrayAddressError::Invalid)?;
+                    if shift >= 16 {
+                        return Ok(0);
+                    }
+                    let bits = u16::try_from(left)
+                        .map_err(|_| FixedArrayAddressError::Overflow)?;
+                    Ok(i64::from(if *op == BinaryOp::Lsh {
+                        bits.wrapping_shl(shift)
+                    } else {
+                        bits.wrapping_shr(shift)
+                    }))
+                }
+                BinaryOp::And | BinaryOp::Or | BinaryOp::Xor => {
+                    let left = u16::try_from(left).map_err(|_| FixedArrayAddressError::Overflow)?;
+                    let right =
+                        u16::try_from(right).map_err(|_| FixedArrayAddressError::Overflow)?;
+                    Ok(i64::from(match op {
+                        BinaryOp::And => left & right,
+                        BinaryOp::Or => left | right,
+                        BinaryOp::Xor => left ^ right,
+                        _ => unreachable!("guarded bitwise operator"),
+                    }))
+                }
+                BinaryOp::Eq
+                | BinaryOp::Ne
+                | BinaryOp::Lt
+                | BinaryOp::Le
+                | BinaryOp::Gt
+                | BinaryOp::Ge => Err(FixedArrayAddressError::Unsupported),
+            }
+        }
+        subject::SemExprKind::Load(_)
+        | subject::SemExprKind::AddressOf(_)
+        | subject::SemExprKind::AddressOfSymbol(_) => Err(FixedArrayAddressError::Relocatable),
+        subject::SemExprKind::Call { .. } => Err(FixedArrayAddressError::RuntimeDependent),
+        subject::SemExprKind::Literal(subject::SemLiteral::Real { .. })
+        | subject::SemExprKind::Literal(subject::SemLiteral::String(_))
+        | subject::SemExprKind::CurrentLocation
+        | subject::SemExprKind::Raw(_)
+        | subject::SemExprKind::Error => Err(FixedArrayAddressError::Invalid),
+    }
+}
+
+fn exact_const_value(value: ConstValue) -> i64 {
+    if value.ty.signedness() == ScalarSignedness::Signed {
+        if value.ty.width_bytes() == 1 {
+            i64::from(value.bits as u8 as i8)
+        } else {
+            i64::from(value.bits as i16)
+        }
+    } else if value.ty.width_bytes() == 1 {
+        i64::from(value.bits as u8)
+    } else {
+        i64::from(value.bits)
+    }
+}
+
+fn exact_scalar_cast(value: i64, target: ScalarType) -> i64 {
+    let modulus = if target.width_bytes() == 1 {
+        0x100_i64
+    } else {
+        0x1_0000_i64
+    };
+    let bits = value.rem_euclid(modulus);
+    if target.signedness() == ScalarSignedness::Signed && bits >= modulus / 2 {
+        bits - modulus
+    } else {
+        bits
+    }
 }
 
 fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
@@ -5058,7 +5270,7 @@ mod tests {
                 "MODULE APP\n\
                  USE LIB.DATA\n\
                  DATA.Pair item\n\
-                 BYTE ARRAY buffer(DATA.Width)\n\
+                 BYTE ARRAY buffer(DATA.Width)=DATA.Base-31\n\
                  CARD ARRAY refs=[@DATA.Table,@DATA.Touch]\n\
                  SET $4EE=DATA.Touch\n\
                  PROC Handler=DATA.Width() RETURN\n\
@@ -5072,9 +5284,10 @@ mod tests {
                  ENDMODULE\n",
             ),
             (
-                "project/lib/data.act",
-                "MODULE LIB.DATA\n\
+                 "project/lib/data.act",
+                 "MODULE LIB.DATA\n\
                  PUBLIC CONST BYTE Width=4\n\
+                 PUBLIC CONST CARD Base=$8410\n\
                  PUBLIC VOLATILE BYTE Register=$D400\n\
                  PUBLIC TYPE Pair=[BYTE x]\n\
                  PUBLIC BYTE ARRAY Table(4)\n\
@@ -5087,6 +5300,12 @@ mod tests {
         let data = named_module(&model, "LIB.DATA");
         let register = data.public_symbol("Register").unwrap();
         assert!(model.symbols.symbols[register.0].is_volatile);
+        let app_model = named_module(&model, "APP");
+        let buffer = model.symbols.lookup_exact(app_model.scope, "buffer").unwrap();
+        assert_eq!(
+            model.fixed_array_backing_addresses.get(&buffer),
+            Some(&0x83F1)
+        );
 
         let semir = ir::lower_compilation(&compilation, &model);
         assert_eq!(semir.modules.len(), 2);
@@ -5106,6 +5325,17 @@ mod tests {
             .unwrap();
         assert!(app.items.iter().any(|item| matches!(
             item,
+            ir::SemItem::Declaration(ir::SemDeclaration {
+                symbol,
+                storage: ir::SemDeclarationStorage::Array {
+                    fixed_address: Some(0x83F1),
+                    ..
+                },
+                ..
+            }) if symbol.id == buffer
+        )));
+        assert!(app.items.iter().any(|item| matches!(
+            item,
             ir::SemItem::Routine(routine)
                 if routine.body.iter().any(|stmt| matches!(
                     stmt,
@@ -5114,6 +5344,25 @@ mod tests {
                             target.symbol.id == register)
                 ))
         )));
+    }
+
+    #[test]
+    fn fixed_array_backing_addresses_reject_overflow_and_runtime_values() {
+        let overflow = analyze_source_err(
+            "CONST CARD Base=$FFFF BYTE ARRAY data(4)=Base+1 PROC Main() RETURN",
+        );
+        assert!(overflow.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("fixed array backing address for `data` is outside the 16-bit address space")),
+            "{overflow:?}"
+        );
+
+        let runtime = analyze_source_err(
+            "CARD FUNC Address() RETURN($8000) BYTE ARRAY data(4)=Address() PROC Main() RETURN",
+        );
+        assert!(runtime.iter().any(|diagnostic| diagnostic.message.contains(
+            "fixed array backing address for `data` must be a compile-time scalar expression"
+        )), "{runtime:?}");
     }
 
     #[test]
