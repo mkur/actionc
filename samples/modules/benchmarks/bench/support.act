@@ -45,13 +45,12 @@ PUBLIC PROC StopTimer(BYTE resultIndex)
 
   ReadClock()
   highDifference=endMiddle-startMiddle
-  IF endLow<startLow THEN
-    highDifference==-1
-  FI
-
   highPart=highDifference
   highPart=highPart*256
-  lowPart=endLow-startLow
+  ; lowPart is a CARD, so its subtraction already contributes the borrow
+  ; when RTCLOK_LOW wraps.  Do not also decrement highDifference.
+  lowPart=endLow
+  lowPart==-startLow
   results(resultIndex)=highPart+lowPart
   resultKinds(resultIndex)=RESULT_TICKS
 RETURN

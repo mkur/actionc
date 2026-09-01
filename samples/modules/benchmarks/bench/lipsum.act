@@ -27,7 +27,7 @@ PUBLIC PROC Run()
   SYS.Graphics(24)
   screenAddress=OS.SAVMSC
   FOR row=23 TO 0 STEP -1 DO
-    WriteGraphics8(0,row,"Lorem ipsum dolor sit amet orci aliquam.")
+    WriteGraphics8(0,row,"\{SCREEN:Lorem ipsum dolor sit amet orci aliquam.}")
   OD
 RETURN
 
