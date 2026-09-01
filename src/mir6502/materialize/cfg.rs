@@ -3042,6 +3042,66 @@ mod tests {
         }
     }
 
+    fn merge_bottom_guard_body(routine: &mut MirRoutine) {
+        let body_id = MirBlockId(2);
+        let guard_id = MirBlockId(3);
+        let header = routine
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == MirBlockId(1))
+            .expect("countdown header");
+        let MirTerminator::Branch { then_edge, .. } = &mut header.terminator else {
+            panic!("countdown header branch");
+        };
+        assert_eq!(then_edge.target, body_id);
+        then_edge.target = guard_id;
+        let guard = routine
+            .blocks
+            .iter_mut()
+            .find(|block| block.id == guard_id)
+            .expect("countdown guard");
+        guard.ops.insert(
+            0,
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirValue::ConstU8(42),
+                width: MirWidth::Byte,
+            },
+        );
+        routine.blocks.retain(|block| block.id != body_id);
+    }
+
+    #[test]
+    fn merged_bottom_guard_recognizes_a_body_that_reloads_the_counter() {
+        let mut routine = bottom_guarded_countdown(MirValue::ConstU8(255), true);
+        merge_bottom_guard_body(&mut routine);
+
+        let counted = analyze_counted_loops(&routine);
+        assert_eq!(counted.len(), 1);
+        assert!(matches!(
+            counted[0].shape,
+            MirCountedLoopShape::BottomGuarded {
+                guard: MirBlockId(3)
+            }
+        ));
+        assert_eq!(counted[0].body, MirBlockId(3));
+
+        let layout = layout_for(&routine);
+        assert_eq!(select_counted_loop_latches(&mut routine, &layout), 1);
+        assert!(!routine.blocks.iter().any(|block| block.id == MirBlockId(1)));
+        assert!(routine.blocks.iter().any(|block| {
+            block.id == MirBlockId(4)
+                && matches!(
+                    block.ops.as_slice(),
+                    [MirOp::UpdateMem {
+                        op: MirUpdateOp::Dec,
+                        width: MirWidth::Byte,
+                        ..
+                    }]
+                )
+        }));
+    }
+
     #[test]
     fn bottom_guarded_countdowns_select_dec_for_byte_boundaries() {
         for initial in [0, 1, 127, 128, 255] {

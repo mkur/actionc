@@ -539,7 +539,7 @@ fn bottom_decrement_guard(
     if *limit != guard_limit {
         return None;
     }
-    let guard_prefix_end = if let Some(MirOp::Load {
+    let guard_reloads_induction = if let Some(MirOp::Load {
         dst: MirDef::Reg(MirReg::A),
         src: MirAddr::Direct(guard_mem),
         width: MirWidth::Byte,
@@ -550,16 +550,18 @@ fn bottom_decrement_guard(
         if guard_mem != induction {
             return None;
         }
-        compare_index - 1
+        true
     } else {
-        compare_index
+        false
     };
-    if guard.ops[..guard_prefix_end].iter().any(|op| {
-        let machine = &classify_op(op).machine;
-        machine.register_writes.a
-            || machine.register_clobbers.a
-            || machine.conservative_register_clobbers.a
-    }) {
+    if !guard_reloads_induction
+        && guard.ops[..compare_index].iter().any(|op| {
+            let machine = &classify_op(op).machine;
+            machine.register_writes.a
+                || machine.register_clobbers.a
+                || machine.conservative_register_clobbers.a
+        })
+    {
         return None;
     }
     let MirTerminator::Branch {

@@ -296,6 +296,15 @@ mir6502: accumulate fixed-pointer byte loads in A
 
 ## Slice 3: exact fixed-pointer regions for alias checks
 
+Implementation finding: the Flame loop was not rejected by the latch
+selector's alias check. Its body and bottom guard had coalesced into one block,
+and counted-loop recognition rejected any A-writing prefix even though an exact
+counter reload immediately preceded the comparison. The implemented Slice 3
+therefore teaches bottom-guard recognition that a counter reload kills the
+prefix A value. It deliberately leaves arbitrary pointer writes conservative;
+the range-proof design below remains a deferred option for transformations
+that actually require it.
+
 ### Goal
 
 Prove the address interval written by a narrow class of canonical fixed-pointer
