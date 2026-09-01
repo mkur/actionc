@@ -135,6 +135,17 @@ fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
             dst: MirAddr::Direct(mem),
             ..
         } => collect_mem_fixed_zero_page(mem, slots),
+        MirOp::Load {
+            src: MirAddr::FixedIndirectIndexedY { zp },
+            ..
+        }
+        | MirOp::Store {
+            dst: MirAddr::FixedIndirectIndexedY { zp },
+            ..
+        } => collect_consumer_fixed_zero_page(
+            MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: *zp }),
+            slots,
+        ),
         MirOp::UpdateMem { mem, .. } | MirOp::UpdateIndexedMem { base: mem, .. } => {
             collect_mem_fixed_zero_page(mem, slots)
         }

@@ -252,6 +252,42 @@ fn pointer_scratch_avoids_source_owned_zero_page_globals() {
 }
 
 #[test]
+fn fixed_zero_page_pointer_indexes_use_the_declared_pair_directly() {
+    let (formatted, bytes) = compile_materialized_mir6502_source(
+        "BYTE POINTER p=$F0 BYTE i=$E0 BYTE x \
+         PROC Main() x=p(i) p(i)=x RETURN",
+    );
+
+    assert!(
+        formatted.contains("a =.b load (fixed_zp $F0),y"),
+        "{formatted}"
+    );
+    assert!(
+        formatted.contains("store.b (fixed_zp $F0),y, a"),
+        "{formatted}"
+    );
+    assert!(!formatted.contains("store.b fixed_zp $AC"), "{formatted}");
+    assert!(!formatted.contains("store.b fixed_zp $AD"), "{formatted}");
+    assert!(bytes.windows(2).any(|bytes| bytes == [0xB1, 0xF0]));
+    assert!(bytes.windows(2).any(|bytes| bytes == [0x91, 0xF0]));
+}
+
+#[test]
+fn fixed_pointer_at_end_of_zero_page_retains_the_scratch_pair() {
+    let (formatted, _) = compile_materialized_mir6502_source(
+        "BYTE POINTER p=$FF BYTE i=$E0 BYTE x PROC Main() x=p(i) RETURN",
+    );
+
+    assert!(formatted.contains("store.b fixed_zp $AC"), "{formatted}");
+    assert!(formatted.contains("store.b fixed_zp $AD"), "{formatted}");
+    assert!(
+        formatted.contains("a =.b load (fixed_zp $AC),y"),
+        "{formatted}"
+    );
+    assert!(!formatted.contains("(fixed_zp $FF),y"), "{formatted}");
+}
+
+#[test]
 fn address_of_local_materializes_directly_to_word_store_home() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("address_of_local.act");
 
@@ -978,6 +1014,34 @@ fn stress_control_flow_word_compare_temps_materialize() {
 
 fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
     compile_materialized_mir6502_fixture_with_runtime(name, Runtime::ActionCart)
+}
+
+fn compile_materialized_mir6502_source(source: &str) -> (String, Vec<u8>) {
+    let tokens = actionc::lexer::tokenize(source).expect("tokenize source");
+    let program = actionc::parser::parse(&tokens).expect("parse source");
+    let model = analyze(&program).expect("analyze source");
+    let semir = ir::lower_program(&program, &model);
+    let nir_program = nir::lower_program(&semir);
+    nir::verify_program(&nir_program).expect("verify source NIR");
+    let mir = mir6502::lower_program(&nir_program).expect("lower source MIR6502");
+    let materialized = mir6502::materialize_program_with_origin_and_runtime(
+        mir,
+        &mir6502::Mir6502Config::default(),
+        CODE_ORIGIN,
+        Runtime::ActionCart,
+    )
+    .expect("materialize source MIR6502");
+    mir6502::verify_program(&materialized, mir6502::MirPhase::PreEmission)
+        .expect("verify materialized source MIR6502");
+    let formatted = mir6502::format_program(&materialized);
+    let output = mir6502::generate_output_with_config_and_runtime(
+        &nir_program,
+        CODE_ORIGIN,
+        &mir6502::Mir6502Config::default(),
+        Runtime::ActionCart,
+    )
+    .expect("emit source MIR6502");
+    (formatted, output.bytes)
 }
 
 fn compile_materialized_mir6502_fixture_with_runtime(

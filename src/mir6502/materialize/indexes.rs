@@ -446,12 +446,15 @@ pub(super) fn materialize_delayed_byte_indexed_read(
         return;
     }
     if offset == 0 {
-        materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
+        let fixed_zp = fixed_pointer_pair_from_value(&base, layout);
+        if fixed_zp.is_none() {
+            materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
+        }
         materialize_delayed_byte_index_to_y(index, out);
         out.push(MirOp::Load {
             dst,
             src: MirAddr::FixedIndirectIndexedY {
-                zp: MirFixedZpSlot(POINTER_SCRATCH_LO),
+                zp: fixed_zp.unwrap_or(MirFixedZpSlot(POINTER_SCRATCH_LO)),
             },
             width: MirWidth::Byte,
         });
@@ -491,12 +494,15 @@ pub(super) fn materialize_delayed_byte_indexed_write(
         return;
     }
     if offset == 0 {
-        materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
+        let fixed_zp = fixed_pointer_pair_from_value(&base, layout);
+        if fixed_zp.is_none() {
+            materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
+        }
         materialize_delayed_byte_index_to_y(index, out);
         let src = materialize_byte_value_to_a(src, out);
         out.push(MirOp::Store {
             dst: MirAddr::FixedIndirectIndexedY {
-                zp: MirFixedZpSlot(POINTER_SCRATCH_LO),
+                zp: fixed_zp.unwrap_or(MirFixedZpSlot(POINTER_SCRATCH_LO)),
             },
             src,
             width: MirWidth::Byte,
@@ -1747,7 +1753,11 @@ pub(super) fn indexed_word_copy_rematerialized_producer_ops(
     producers
 }
 
-fn resolve_indexed_base_producer(ops: &[MirOp], use_index: usize, value: MirValue) -> MirValue {
+pub(super) fn resolve_indexed_base_producer(
+    ops: &[MirOp],
+    use_index: usize,
+    value: MirValue,
+) -> MirValue {
     let MirValue::Def(MirDef::VTemp(temp)) = value else {
         return value;
     };
@@ -3273,6 +3283,17 @@ pub(super) fn materialize_computed_index_read(
     if (width == MirWidth::Byte || split_dst.as_ref().is_some_and(Option::is_some))
         && let Some(offset) = folded_const_index_offset(&index, elem_size, offset, width)
     {
+        if width == MirWidth::Byte
+            && let Some(zp) = fixed_pointer_pair_from_value(&base, layout)
+        {
+            materialize_index_to_y(MirValue::ConstU8(offset as u8), out);
+            out.push(MirOp::Load {
+                dst,
+                src: MirAddr::FixedIndirectIndexedY { zp },
+                width: MirWidth::Byte,
+            });
+            return;
+        }
         materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
         match width {
             MirWidth::Byte => out.push(MirOp::LoadIndirect {
@@ -3412,6 +3433,18 @@ pub(super) fn materialize_computed_index_write(
     out: &mut Vec<MirOp>,
 ) {
     if let Some(offset) = folded_const_index_offset(&index, elem_size, offset, width) {
+        if width == MirWidth::Byte
+            && let Some(zp) = fixed_pointer_pair_from_value(&base, layout)
+        {
+            materialize_index_to_y(MirValue::ConstU8(offset as u8), out);
+            let src = materialize_byte_value_to_a(src, out);
+            out.push(MirOp::Store {
+                dst: MirAddr::FixedIndirectIndexedY { zp },
+                src,
+                width: MirWidth::Byte,
+            });
+            return;
+        }
         materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
         match width {
             MirWidth::Byte => {
@@ -3512,6 +3545,15 @@ fn materialize_byte_indexed_read(
         });
         return;
     }
+    if let Some(zp) = fixed_pointer_pair_from_value(&base, layout) {
+        materialize_index_to_y(index, out);
+        out.push(MirOp::Load {
+            dst,
+            src: MirAddr::FixedIndirectIndexedY { zp },
+            width: MirWidth::Byte,
+        });
+        return;
+    }
     materialize_base_address(base, DEFAULT_POINTER_PAIR, layout, out);
     materialize_index_to_y(index, out);
     out.push(MirOp::Load {
@@ -3545,6 +3587,16 @@ fn materialize_byte_indexed_write(
             consumer,
             src,
             offset: 0,
+        });
+        return;
+    }
+    if let Some(zp) = fixed_pointer_pair_from_value(&base, layout) {
+        materialize_index_to_y(index, out);
+        let src = materialize_byte_value_to_a(src, out);
+        out.push(MirOp::Store {
+            dst: MirAddr::FixedIndirectIndexedY { zp },
+            src,
+            width: MirWidth::Byte,
         });
         return;
     }
@@ -3625,6 +3677,34 @@ fn address_value_mem(value: &MirValue) -> Option<MirMem> {
         }
         _ => None,
     }
+}
+
+fn fixed_pointer_pair_from_value(
+    value: &MirValue,
+    layout: &MaterializeLayout,
+) -> Option<MirFixedZpSlot> {
+    let MirValue::Word { lo, hi } = value else {
+        return None;
+    };
+    let (MirValue::PointerCell(lo), MirValue::PointerCell(hi)) = (lo.as_ref(), hi.as_ref()) else {
+        return None;
+    };
+    if offset_mem(lo, 1) != *hi {
+        return None;
+    }
+    let lo_address = fixed_zero_page_mem_address(lo, layout)?;
+    let hi_address = fixed_zero_page_mem_address(hi, layout)?;
+    (lo_address.checked_add(1) == Some(hi_address)).then_some(MirFixedZpSlot(lo_address))
+}
+
+fn fixed_zero_page_mem_address(mem: &MirMem, layout: &MaterializeLayout) -> Option<u8> {
+    let address = match mem {
+        MirMem::Absolute(address) => *address,
+        MirMem::Global { id, offset } => layout.global_address(*id)?.checked_add(*offset)?,
+        MirMem::FixedZeroPage(slot) => return Some(slot.0),
+        _ => return None,
+    };
+    u8::try_from(address).ok()
 }
 
 fn materialize_indexed_address(

@@ -856,26 +856,46 @@ fn delayed_byte_index_rewrite_candidate_at(
     layout: &MaterializeLayout,
     delayed_byte_indexes: &indexes::DelayedByteIndexPlan,
 ) -> Option<IndexRewriteCandidate> {
+    let indexed_addr = match ops.get(index)? {
+        MirOp::Load {
+            src: src @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
+            ..
+        } => src,
+        MirOp::Store {
+            dst: dst @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
+            ..
+        } => dst,
+        _ => return None,
+    };
+    let mut parts = indexed_addr_parts(indexed_addr)?;
+    let original_base = parts.base.clone();
+    parts.base = indexes::resolve_indexed_base_producer(ops, index, parts.base);
+    let base_producer = (parts.base != original_base)
+        .then(|| {
+            let MirValue::Def(MirDef::VTemp(temp)) = original_base else {
+                return None;
+            };
+            ops[..index]
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(producer_index, op)| {
+                    (op_def(op).and_then(split_def_as_temp) == Some(temp)).then_some(producer_index)
+                })
+        })
+        .flatten();
     let mut replacement = Vec::new();
     let used_delayed_index = match ops.get(index)? {
-        MirOp::Load {
-            dst,
-            src: src @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
-            width,
-        } => materialize_indexed_read_to_def(
+        MirOp::Load { dst, width, .. } => materialize_indexed_read_to_def(
             dst.clone(),
-            indexed_addr_parts(src)?,
+            parts,
             *width,
             layout,
             Some(delayed_byte_indexes),
             &mut replacement,
         ),
-        MirOp::Store {
-            dst: dst @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
-            src,
-            width,
-        } => materialize_indexed_write_from_value(
-            indexed_addr_parts(dst)?,
+        MirOp::Store { src, width, .. } => materialize_indexed_write_from_value(
+            parts,
             src.clone(),
             *width,
             layout,
@@ -885,7 +905,12 @@ fn delayed_byte_index_rewrite_candidate_at(
         _ => false,
     };
     used_delayed_index.then(|| {
-        expand_delayed_index_rewrite_window(
+        let mut producer_ops = delayed_producer_ops_for_window(ops, index, 1, delayed_byte_indexes);
+        let delayed_producer_count = producer_ops.len();
+        if let Some(base_producer) = base_producer {
+            producer_ops.insert(base_producer);
+        }
+        let mut candidate = expand_index_rewrite_window_with_producers(
             ops,
             index,
             IndexRewriteCandidate {
@@ -897,8 +922,14 @@ fn delayed_byte_index_rewrite_candidate_at(
                 family_priority: 150,
                 required_upper_bound: None,
             },
-            delayed_byte_indexes,
-        )
+            producer_ops,
+        );
+        if delayed_producer_count != 0 {
+            candidate
+                .observations
+                .push(("delayed-byte-index-producer", delayed_producer_count));
+        }
+        candidate
     })
 }
 
@@ -1295,6 +1326,7 @@ pub(super) fn materialize_program(
                 &layout,
             );
         }
+        reserve_used_fixed_zero_page_slots(routine);
         materialize_word_compare_temp_ops(routine, &layout);
         run_pre_home_cleanup_fixed_point(routine, &layout, &mut peephole_stats);
         let home_liveness = analyze_temp_liveness(routine);
@@ -4737,7 +4769,8 @@ fn materialize_ops_impl(
                 src: src @ (MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }),
                 width,
             } => {
-                let parts = indexed_addr_parts(&src).expect("indexed load matched above");
+                let mut parts = indexed_addr_parts(&src).expect("indexed load matched above");
+                parts.base = indexes::resolve_indexed_base_producer(&ops, index, parts.base);
                 let (parts, narrowed_byte_index) =
                     if delayed_byte_indexes.expr_for_value(&parts.index).is_some() {
                         (parts, false)
@@ -4822,7 +4855,8 @@ fn materialize_ops_impl(
                 src,
                 width,
             } => {
-                let parts = indexed_addr_parts(&dst).expect("indexed store matched above");
+                let mut parts = indexed_addr_parts(&dst).expect("indexed store matched above");
+                parts.base = indexes::resolve_indexed_base_producer(&ops, index, parts.base);
                 let (parts, narrowed_byte_index) =
                     if delayed_byte_indexes.expr_for_value(&parts.index).is_some() {
                         (parts, false)

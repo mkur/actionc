@@ -1,0 +1,8 @@
+BYTE POINTER p=$F0
+BYTE i=$E0
+BYTE x
+
+PROC Main()
+  x=p(i)
+  p(i)=x
+RETURN
