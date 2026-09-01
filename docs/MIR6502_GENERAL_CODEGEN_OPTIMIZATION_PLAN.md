@@ -2,6 +2,11 @@
 
 Status: active. Created 2026-08-31.
 
+The completed first sequence is followed by the focused
+[`MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md`](MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md),
+which covers widened byte-index displacement folding, direct indexed
+accumulation, and full-range register-carried loops.
+
 This plan turns the code-generation gaps exposed by the Action!/Mad Pascal
 benchmark comparison into general MIR6502 improvements. The benchmark suite is
 an observation workload, not an optimization contract: no matcher may depend

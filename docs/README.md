@@ -42,6 +42,12 @@ crowding the active reference set.
 - [MIR6502_REWRITE_WORKFLOW_PLAN.md](MIR6502_REWRITE_WORKFLOW_PLAN.md) -
   implementation plan for routine-aware analyses and transactional MIR6502
   rewrites.
+- [MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md](MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md)
+  - active general plan for counted loops, register facts, and direct value
+  consumers.
+- [MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md](MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md)
+  - focused follow-on for widened byte indexes, direct indexed accumulation,
+  and full-range Y-carried loops.
 - [MIR6502 rewrite workflow baseline](../surveys/tn/mir6502-rewrite-workflow-baseline.md)
   - reproducible TN artifacts and the checked migration inventory for that
   plan.

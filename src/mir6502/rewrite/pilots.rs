@@ -935,6 +935,9 @@ pub(in crate::mir6502) fn discover_index_rewrites(
                 continue;
             }
             let plan = match candidate.stat {
+                "affine-static-byte-index" => {
+                    index_rewrite_plan(block.id, &block.ops, index, candidate, context)
+                }
                 "delayed-byte-index-consumer" => {
                     delayed_byte_index_plan(block.id, &block.ops, index, candidate, context)
                 }
@@ -959,6 +962,24 @@ pub(in crate::mir6502) fn discover_index_rewrites(
                 _ => None,
             };
             if let Some(plan) = plan {
+                plans.push(plan);
+            }
+        }
+    }
+    plans
+}
+
+pub(in crate::mir6502) fn discover_affine_static_byte_indexes(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+) -> Vec<MirRewritePlan> {
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        for (index, candidate) in
+            crate::mir6502::materialize::analyzed_affine_static_byte_index_candidates(block)
+        {
+            if let Some(plan) = index_rewrite_plan(block.id, &block.ops, index, candidate, context)
+            {
                 plans.push(plan);
             }
         }

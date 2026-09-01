@@ -1,0 +1,28 @@
+; Runtime proof for widened byte indexes into directly backed byte arrays.
+
+BYTE ARRAY data(512)=$4000
+BYTE ARRAY results(5)=$0600
+BYTE index=$E0
+
+PROC Sample(BYTE slot, value)
+  index=value
+  results(slot)=data(CARD(index)+30)
+  data(CARD(index)+63)=results(slot)+1
+RETURN
+
+PROC Main()
+  data(30)=10
+  data(255)=20
+  data(256)=30
+  data(284)=40
+  data(285)=50
+
+  Sample(0,0)
+  Sample(1,225)
+  Sample(2,226)
+  Sample(3,254)
+  Sample(4,255)
+
+  DO
+  OD
+RETURN

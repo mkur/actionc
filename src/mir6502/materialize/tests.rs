@@ -9793,6 +9793,149 @@ fn delayed_byte_index_write_uses_absolute_y_for_storage_address_base() {
     )));
 }
 
+fn widened_static_byte_index_ops(signed: bool, shared_index: bool) -> Vec<MirOp> {
+    let byte = MirTempId(900);
+    let extended = MirTempId(901);
+    let affine = MirTempId(902);
+    let loaded = MirTempId(903);
+    let mut ops = vec![
+        MirOp::Load {
+            dst: MirDef::VTemp(byte),
+            src: MirAddr::Direct(MirMem::Global {
+                id: SymbolId(1),
+                offset: 0,
+            }),
+            width: MirWidth::Byte,
+        },
+        MirOp::Extend {
+            dst: MirDef::VTemp(extended),
+            src: MirValue::Def(MirDef::VTemp(byte)),
+            from_width: MirWidth::Byte,
+            to_width: MirWidth::Word,
+            signed,
+        },
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst: MirDef::VTemp(affine),
+            left: MirValue::ConstU16(30),
+            right: MirValue::Def(MirDef::VTemp(extended)),
+            width: MirWidth::Word,
+            carry_in: None,
+            carry_out: MirCarryOut::Ignore,
+        },
+    ];
+    if shared_index {
+        ops.push(MirOp::Move {
+            dst: MirDef::VTemp(MirTempId(904)),
+            src: MirValue::Def(MirDef::VTemp(affine)),
+            width: MirWidth::Word,
+        });
+    }
+    ops.push(MirOp::Load {
+        dst: MirDef::VTemp(loaded),
+        src: MirAddr::ComputedIndex {
+            base: MirValue::GlobalAddr(SymbolId(2)),
+            index: MirValue::Def(MirDef::VTemp(affine)),
+            elem_size: 1,
+            offset: 0,
+        },
+        width: MirWidth::Byte,
+    });
+    ops
+}
+
+#[test]
+fn widened_byte_index_constant_folds_into_static_base() {
+    let ops = widened_static_byte_index_ops(false, false);
+    let indexes = collect_delayed_byte_index_plan(&ops);
+    let use_index = ops.len() - 1;
+    let MirOp::Load { src, .. } = &ops[use_index] else {
+        panic!("expected indexed load");
+    };
+
+    let affine = indexes::canonical_static_affine_byte_index(&ops, use_index, src, &indexes)
+        .expect("widened affine byte index");
+
+    assert_eq!(
+        affine.indexed_base,
+        MirMem::Global {
+            id: SymbolId(2),
+            offset: 30,
+        }
+    );
+    assert_eq!(
+        affine.root,
+        MirValue::Def(MirDef::VTempByte {
+            id: MirTempId(900),
+            byte: 0,
+        })
+    );
+    assert_eq!(affine.producer_ops, BTreeSet::from([1, 2]));
+}
+
+#[test]
+fn widened_byte_index_rewrite_selects_absolute_indexed_y() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let ops = widened_static_byte_index_ops(false, false);
+    let indexes = collect_delayed_byte_index_plan(&ops);
+
+    let candidate = analyzed_index_rewrite_candidate_at(
+        RoutineId(0),
+        &ops,
+        ops.len() - 1,
+        &layout,
+        &indexes,
+        true,
+    )
+    .expect("affine static index rewrite");
+
+    assert_eq!(candidate.start, 1);
+    assert_eq!(candidate.consumed, 3);
+    assert_eq!(candidate.stat, "affine-static-byte-index");
+    assert!(matches!(
+        candidate.replacement.as_slice(),
+        [
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirValue::Def(MirDef::VTempByte {
+                    id: MirTempId(900),
+                    byte: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                src: MirAddr::AbsoluteIndexedY {
+                    base: MirMem::Global {
+                        id: SymbolId(2),
+                        offset: 30,
+                    },
+                },
+                width: MirWidth::Byte,
+                ..
+            }
+        ]
+    ));
+}
+
+#[test]
+fn signed_or_shared_widened_index_keeps_general_addressing() {
+    for ops in [
+        widened_static_byte_index_ops(true, false),
+        widened_static_byte_index_ops(false, true),
+    ] {
+        let indexes = collect_delayed_byte_index_plan(&ops);
+        let use_index = ops.len() - 1;
+        let MirOp::Load { src, .. } = &ops[use_index] else {
+            panic!("expected indexed load");
+        };
+        assert!(
+            indexes::canonical_static_affine_byte_index(&ops, use_index, src, &indexes).is_none(),
+            "unsafe affine expression should not be selected"
+        );
+    }
+}
+
 #[test]
 fn indirect_const_store_skips_private_pointer_slots() {
     let lo = MirMem::Local {

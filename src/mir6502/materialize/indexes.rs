@@ -14,6 +14,8 @@ pub(super) struct DelayedByteIndexPlan {
     producer_ops: BTreeSet<usize>,
     exprs: BTreeMap<MirTempId, DelayedByteIndexExpr>,
     producer_ops_by_temp: BTreeMap<MirTempId, BTreeSet<usize>>,
+    static_affine_exprs: BTreeMap<MirTempId, StaticAffineByteIndexExpr>,
+    static_affine_producer_ops_by_temp: BTreeMap<MirTempId, BTreeSet<usize>>,
 }
 
 impl DelayedByteIndexPlan {
@@ -23,6 +25,8 @@ impl DelayedByteIndexPlan {
             producer_ops: BTreeSet::new(),
             exprs: BTreeMap::new(),
             producer_ops_by_temp: BTreeMap::new(),
+            static_affine_exprs: BTreeMap::new(),
+            static_affine_producer_ops_by_temp: BTreeMap::new(),
         }
     }
 
@@ -44,6 +48,20 @@ impl DelayedByteIndexPlan {
         };
         self.producer_ops_by_temp.get(temp)
     }
+
+    fn static_affine_expr_for_value(&self, value: &MirValue) -> Option<&StaticAffineByteIndexExpr> {
+        let MirValue::Def(MirDef::VTemp(temp)) = value else {
+            return None;
+        };
+        self.static_affine_exprs.get(temp)
+    }
+
+    fn static_affine_producer_ops_for_value(&self, value: &MirValue) -> Option<&BTreeSet<usize>> {
+        let MirValue::Def(MirDef::VTemp(temp)) = value else {
+            return None;
+        };
+        self.static_affine_producer_ops_by_temp.get(temp)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +73,19 @@ pub(super) enum DelayedByteIndexExpr {
         right: MirValue,
         carry_in: Option<MirCarryIn>,
     },
+}
+
+#[derive(Debug, Clone)]
+struct StaticAffineByteIndexExpr {
+    root: MirValue,
+    displacement: u16,
+}
+
+#[derive(Debug, Clone)]
+struct StaticAffineByteIndexCandidate {
+    producer_index: usize,
+    expr: StaticAffineByteIndexExpr,
+    temps: BTreeSet<MirTempId>,
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +120,13 @@ pub(super) struct CanonicalStaticByteIndex {
 }
 
 #[derive(Debug, Clone)]
+pub(super) struct CanonicalStaticAffineByteIndex {
+    pub indexed_base: MirMem,
+    pub root: MirValue,
+    pub producer_ops: BTreeSet<usize>,
+}
+
+#[derive(Debug, Clone)]
 pub(super) struct AdjacentStaticIndexedByteCopyCandidate {
     pub consumed: usize,
     pub replacement: Vec<MirOp>,
@@ -117,11 +155,17 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
 
     let temp_widths = collect_temp_widths(ops);
     let mut candidates = BTreeMap::<MirTempId, DelayedByteIndexCandidate>::new();
+    let mut static_affine_candidates = BTreeMap::<MirTempId, StaticAffineByteIndexCandidate>::new();
     for (index, op) in ops.iter().enumerate() {
         if let Some((temp, candidate)) =
             delayed_byte_index_candidate(op, index, &candidates, &temp_widths)
         {
             candidates.insert(temp, candidate);
+        }
+        if let Some((temp, candidate)) =
+            static_affine_byte_index_candidate(op, index, &static_affine_candidates, &temp_widths)
+        {
+            static_affine_candidates.insert(temp, candidate);
         }
     }
 
@@ -129,33 +173,54 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
     let mut producer_ops = BTreeSet::new();
     let mut exprs = BTreeMap::new();
     let mut producer_ops_by_temp = BTreeMap::new();
+    let mut static_affine_exprs = BTreeMap::new();
+    let mut static_affine_producer_ops_by_temp = BTreeMap::new();
     for (use_index, op) in ops.iter().enumerate() {
         let Some(root) = indexed_addr_temp_index(op) else {
             continue;
         };
-        let Some(candidate) = candidates.get(&root) else {
-            continue;
-        };
-        if !delayed_byte_index_candidate_is_safe(ops, use_index, candidate, &candidates) {
-            continue;
-        }
-        #[cfg(test)]
+        if let Some(candidate) = candidates.get(&root)
+            && delayed_byte_index_candidate_is_safe(ops, use_index, candidate, &candidates)
         {
-            for temp in &candidate.temps {
-                if let Some(dep) = candidates.get(temp) {
-                    producer_ops.insert(dep.producer_index);
+            #[cfg(test)]
+            {
+                for temp in &candidate.temps {
+                    if let Some(dep) = candidates.get(temp) {
+                        producer_ops.insert(dep.producer_index);
+                    }
                 }
             }
+            producer_ops_by_temp.insert(
+                root,
+                candidate
+                    .temps
+                    .iter()
+                    .filter_map(|temp| candidates.get(temp).map(|dep| dep.producer_index))
+                    .collect(),
+            );
+            exprs.insert(root, candidate.expr.clone());
         }
-        producer_ops_by_temp.insert(
-            root,
-            candidate
+
+        if let Some(candidate) = static_affine_candidates.get(&root)
+            && static_affine_byte_index_candidate_is_safe(
+                ops,
+                use_index,
+                candidate,
+                &static_affine_candidates,
+            )
+        {
+            let affine_producers = candidate
                 .temps
                 .iter()
-                .filter_map(|temp| candidates.get(temp).map(|dep| dep.producer_index))
-                .collect(),
-        );
-        exprs.insert(root, candidate.expr.clone());
+                .filter_map(|temp| {
+                    static_affine_candidates
+                        .get(temp)
+                        .map(|dep| dep.producer_index)
+                })
+                .collect::<BTreeSet<_>>();
+            static_affine_producer_ops_by_temp.insert(root, affine_producers);
+            static_affine_exprs.insert(root, candidate.expr.clone());
+        }
     }
 
     DelayedByteIndexPlan {
@@ -163,7 +228,41 @@ pub(super) fn collect_delayed_byte_index_plan(ops: &[MirOp]) -> DelayedByteIndex
         producer_ops,
         exprs,
         producer_ops_by_temp,
+        static_affine_exprs,
+        static_affine_producer_ops_by_temp,
     }
+}
+
+pub(super) fn canonical_static_affine_byte_index(
+    ops: &[MirOp],
+    use_index: usize,
+    addr: &MirAddr,
+    indexes: &DelayedByteIndexPlan,
+) -> Option<CanonicalStaticAffineByteIndex> {
+    let parts = indexed_addr_parts(addr)?;
+    if parts.elem_size != 1 {
+        return None;
+    }
+    let expr = indexes.static_affine_expr_for_value(&parts.index)?;
+
+    let resolved_base = resolve_indexed_base_producer(ops, use_index, parts.base.clone());
+    let base = address_value_mem(&resolved_base)?;
+    let address_offset = parts.offset.checked_add(expr.displacement)?;
+    let indexed_base = checked_offset_mem(&base, address_offset)?;
+    let mut producer_ops = indexes
+        .static_affine_producer_ops_for_value(&parts.index)?
+        .clone();
+    if resolved_base != parts.base
+        && let MirValue::Def(MirDef::VTemp(temp)) = parts.base
+        && let Some((producer_index, _)) = find_temp_producer(ops, use_index, temp)
+    {
+        producer_ops.insert(producer_index);
+    }
+    Some(CanonicalStaticAffineByteIndex {
+        indexed_base,
+        root: expr.root.clone(),
+        producer_ops,
+    })
 }
 
 pub(super) fn canonical_static_byte_index(
@@ -573,6 +672,139 @@ fn delayed_byte_index_candidate(
         }
         _ => None,
     }
+}
+
+fn static_affine_byte_index_candidate(
+    op: &MirOp,
+    producer_index: usize,
+    candidates: &BTreeMap<MirTempId, StaticAffineByteIndexCandidate>,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+) -> Option<(MirTempId, StaticAffineByteIndexCandidate)> {
+    match op {
+        MirOp::Extend {
+            dst,
+            src,
+            from_width: MirWidth::Byte,
+            to_width: MirWidth::Word,
+            signed: false,
+        } => {
+            let temp = split_def_as_temp(dst)?;
+            let root = static_affine_byte_root(src, temp_widths)?;
+            let mut temps = BTreeSet::new();
+            temps.insert(temp);
+            Some((
+                temp,
+                StaticAffineByteIndexCandidate {
+                    producer_index,
+                    expr: StaticAffineByteIndexExpr {
+                        root,
+                        displacement: 0,
+                    },
+                    temps,
+                },
+            ))
+        }
+        MirOp::Binary {
+            op: MirBinaryOp::Add,
+            dst,
+            left,
+            right,
+            width: MirWidth::Word,
+            carry_in: None | Some(MirCarryIn::Clear),
+            carry_out: MirCarryOut::Ignore,
+        } => {
+            let temp = split_def_as_temp(dst)?;
+            let (prior, delta) = static_affine_add_operands(left, right, candidates)?;
+            let displacement = prior.expr.displacement.checked_add(delta)?;
+            let mut temps = prior.temps.clone();
+            temps.insert(temp);
+            Some((
+                temp,
+                StaticAffineByteIndexCandidate {
+                    producer_index,
+                    expr: StaticAffineByteIndexExpr {
+                        root: prior.expr.root.clone(),
+                        displacement,
+                    },
+                    temps,
+                },
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn static_affine_byte_root(
+    value: &MirValue,
+    temp_widths: &BTreeMap<MirTempId, MirWidth>,
+) -> Option<MirValue> {
+    match value {
+        MirValue::Def(MirDef::VTemp(id)) if temp_widths.get(id) == Some(&MirWidth::Byte) => {
+            Some(MirValue::Def(MirDef::VTempByte { id: *id, byte: 0 }))
+        }
+        MirValue::Def(MirDef::VTempByte { byte: 0, .. }) | MirValue::ConstU8(_) => {
+            Some(value.clone())
+        }
+        _ => None,
+    }
+}
+
+fn static_affine_add_operands<'a>(
+    left: &MirValue,
+    right: &MirValue,
+    candidates: &'a BTreeMap<MirTempId, StaticAffineByteIndexCandidate>,
+) -> Option<(&'a StaticAffineByteIndexCandidate, u16)> {
+    static_affine_candidate_and_constant(left, right, candidates)
+        .or_else(|| static_affine_candidate_and_constant(right, left, candidates))
+}
+
+fn static_affine_candidate_and_constant<'a>(
+    candidate_value: &MirValue,
+    constant_value: &MirValue,
+    candidates: &'a BTreeMap<MirTempId, StaticAffineByteIndexCandidate>,
+) -> Option<(&'a StaticAffineByteIndexCandidate, u16)> {
+    let MirValue::Def(MirDef::VTemp(temp)) = candidate_value else {
+        return None;
+    };
+    Some((candidates.get(temp)?, constant_value_u16(constant_value)?))
+}
+
+fn static_affine_byte_index_candidate_is_safe(
+    ops: &[MirOp],
+    use_index: usize,
+    candidate: &StaticAffineByteIndexCandidate,
+    candidates: &BTreeMap<MirTempId, StaticAffineByteIndexCandidate>,
+) -> bool {
+    let producer_indices = candidate
+        .temps
+        .iter()
+        .filter_map(|temp| {
+            candidates
+                .get(temp)
+                .map(|candidate| candidate.producer_index)
+        })
+        .collect::<BTreeSet<_>>();
+    let Some(first_producer) = producer_indices.iter().next().copied() else {
+        return false;
+    };
+    if first_producer >= use_index {
+        return false;
+    }
+
+    let mut allowed_users = producer_indices.clone();
+    allowed_users.insert(use_index);
+    candidate.temps.iter().all(|temp| {
+        let Some(producer) = candidates.get(temp) else {
+            return false;
+        };
+        ops.iter()
+            .enumerate()
+            .skip(producer.producer_index + 1)
+            .filter(|(_, op)| op_uses_temp(op, *temp))
+            .all(|(op_index, op)| {
+                allowed_users.contains(&op_index) && !op_uses_temp_more_than_once(op, *temp)
+            })
+    })
 }
 
 #[derive(Debug, Clone)]

@@ -54,7 +54,7 @@ use super::rewrite::driver::{
 #[cfg(test)]
 use super::rewrite::pilots::discover_dual_indirect_compares;
 use super::rewrite::pilots::{
-    byte_binary_compare_consumer_rank, compare_narrowing_rank,
+    byte_binary_compare_consumer_rank, compare_narrowing_rank, discover_affine_static_byte_indexes,
     discover_byte_binary_compare_consumers, discover_compare_narrowing, discover_compare_producers,
     discover_dual_indirect_compares_with_layout, discover_inclusive_compare_reversals,
     discover_index_rewrites, discover_pointer_rewrites, discover_unused_lea_addrs,
@@ -564,6 +564,19 @@ pub(in crate::mir6502) fn analyzed_index_rewrite_candidates(
         .collect()
 }
 
+pub(in crate::mir6502) fn analyzed_affine_static_byte_index_candidates(
+    block: &super::ir::MirBlock,
+) -> Vec<(usize, IndexRewriteCandidate)> {
+    let ops = &block.ops;
+    let indexes = collect_delayed_byte_index_plan(ops);
+    (0..ops.len())
+        .filter_map(|index| {
+            affine_static_byte_index_rewrite_candidate_at(ops, index, &indexes)
+                .map(|candidate| (candidate.start, candidate))
+        })
+        .collect()
+}
+
 pub(in crate::mir6502) fn analyzed_indexed_to_indirect_word_copy_candidates(
     block: &super::ir::MirBlock,
     layout: &MaterializeLayout,
@@ -684,6 +697,12 @@ fn analyzed_index_rewrite_candidate_at(
             })
         };
 
+    if let Some(candidate) =
+        affine_static_byte_index_rewrite_candidate_at(ops, index, delayed_byte_indexes)
+    {
+        return Some(candidate);
+    }
+
     if allow_adjacent_direct_copy
         && let Some(direct) =
             indexes::adjacent_static_indexed_byte_copy_candidate(ops, index, delayed_byte_indexes)
@@ -772,6 +791,63 @@ fn analyzed_index_rewrite_candidate_at(
     }
 
     delayed_byte_index_rewrite_candidate_at(ops, index, layout, delayed_byte_indexes)
+}
+
+fn affine_static_byte_index_rewrite_candidate_at(
+    ops: &[MirOp],
+    index: usize,
+    indexes: &indexes::DelayedByteIndexPlan,
+) -> Option<IndexRewriteCandidate> {
+    let addr = match ops.get(index)? {
+        MirOp::Load {
+            src,
+            width: MirWidth::Byte,
+            ..
+        } => src,
+        MirOp::Store {
+            dst,
+            width: MirWidth::Byte,
+            ..
+        } => dst,
+        _ => return None,
+    };
+    let affine = indexes::canonical_static_affine_byte_index(ops, index, addr, indexes)?;
+    let mut replacement = Vec::new();
+    indexes::materialize_index_to_y(affine.root, &mut replacement);
+    match ops.get(index)? {
+        MirOp::Load { dst, .. } => replacement.push(MirOp::Load {
+            dst: dst.clone(),
+            src: MirAddr::AbsoluteIndexedY {
+                base: affine.indexed_base,
+            },
+            width: MirWidth::Byte,
+        }),
+        MirOp::Store { src, .. } => {
+            let src = materialize_byte_value_to_a(src.clone(), &mut replacement);
+            replacement.push(MirOp::Store {
+                dst: MirAddr::AbsoluteIndexedY {
+                    base: affine.indexed_base,
+                },
+                src,
+                width: MirWidth::Byte,
+            });
+        }
+        _ => unreachable!("affine address was selected from a byte load or store"),
+    }
+    Some(expand_index_rewrite_window_with_producers(
+        ops,
+        index,
+        IndexRewriteCandidate {
+            start: index,
+            consumed: 1,
+            replacement,
+            stat: "affine-static-byte-index",
+            observations: Vec::new(),
+            family_priority: 89,
+            required_upper_bound: None,
+        },
+        affine.producer_ops,
+    ))
 }
 
 fn delayed_byte_index_rewrite_candidate_at(
@@ -2269,6 +2345,10 @@ fn run_prehome_selection_group(
     run_analyzed_indexed_to_indirect_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_indirect_to_indexed_word_copies(routine, layout, peephole_stats)?;
     run_analyzed_pointer_rewrites(routine, layout, peephole_stats)?;
+    // Canonicalize address expressions before store-consumer selection can
+    // absorb them into a wider arithmetic transaction. A later index pass
+    // still handles computed addresses exposed by those rewrites.
+    run_analyzed_affine_static_byte_indexes(routine, peephole_stats)?;
     run_analyzed_call_arg_producers(routine, peephole_stats)?;
     run_analyzed_return_slot_call_arg_forwards(routine, peephole_stats)?;
     run_analyzed_param_home_consumers(routine, peephole_stats)?;
@@ -3076,6 +3156,27 @@ fn run_analyzed_index_rewrites(
             vec![MirDiagnostic::routine(
                 &routine.name,
                 format!("index selection failed: {error:?}"),
+            )]
+        })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_affine_static_byte_indexes(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let mut driver = MirPreHomeRewriteDriver::default();
+    let result = driver
+        .run_fixed_point_by_key(
+            routine,
+            discover_affine_static_byte_indexes,
+            super::rewrite::pilots::index_rewrite_rank,
+        )
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("affine static byte-index selection failed: {error:?}"),
             )]
         })?;
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
