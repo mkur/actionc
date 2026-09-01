@@ -1,0 +1,88 @@
+; Shared GTIA mode 9 presentation for the two flame kernels.
+MODULE BENCH.FLAMES_DISPLAY
+
+USE SYS
+USE ATARI.ANTIC
+USE ATARI.GTIA
+USE ATARI.OS
+
+PUBLIC CONST CARD WORKSPACE_BASE=$8000,
+                  WORKSPACE_SIZE=$1000,
+                  FIRE_CHARSET=WORKSPACE_BASE,
+                  DISPLAY_BASE=WORKSPACE_BASE+$400,
+                  FIRE_ANCHOR=DISPLAY_BASE+$10
+
+; Five blank rows replace the Mad Pascal suite's counter row and its surrounding
+; spacing.  The visible part is otherwise the same: 21 ANTIC mode 2 rows whose
+; LMS is DISPLAY_BASE.  Narrow playfield DMA makes every row 32 characters wide,
+; matching the flame kernel's neighbor offsets.
+BYTE ARRAY displayList(31)=[
+  $70 $70 $70 $70 $70
+  $42 $00 $84
+  $02 $02 $02 $02 $02 $02 $02 $02 $02 $02
+  $02 $02 $02 $02 $02 $02 $02 $02 $02 $02
+  $41 <displayList >displayList]
+
+BYTE ARRAY workspace(WORKSPACE_SIZE)=WORKSPACE_BASE
+
+CARD savedDisplayList
+BYTE savedDmaControl,savedPriority,savedBackground,savedCharset,
+     character,row,offset,shade
+
+PUBLIC PROC Start()
+  savedDisplayList=OS.SDLST
+  savedDmaControl=OS.SDMCTL
+  savedPriority=OS.GPRIOR
+  savedBackground=OS.COLOR4
+  savedCharset=OS.CHBAS
+
+  ; Stop ANTIC while the shared workspace and display state are rebuilt.
+  OS.SDMCTL=0
+  ANTIC.DMACTL=0
+  SYS.Zero(workspace,WORKSPACE_SIZE)
+
+  ; GTIA mode 9 takes its luminance from each pair of bitmap bits.  Character
+  ; codes 0..15 therefore select solid glyphs $00,$11,...,$FF.
+  offset=0
+  shade=0
+  FOR character=0 TO 15 DO
+    FOR row=0 TO 7 DO
+      workspace(offset)=shade
+      offset==+1
+    OD
+    shade==+$11
+  OD
+
+  OS.SDLST=displayList
+  OS.CHBAS=FIRE_CHARSET RSH 8
+  OS.GPRIOR=GTIA.MODE_9
+  OS.COLOR4=$20
+  OS.SDMCTL=ANTIC.NARROW_PLAYFIELD_DMA
+
+  ; Publish immediately as well as through the OS shadows.  This keeps display
+  ; startup outside the RTC window without waiting for another vertical blank.
+  ANTIC.DLIST=displayList
+  ANTIC.CHBASE=FIRE_CHARSET RSH 8
+  GTIA.PRIOR=GTIA.MODE_9
+  GTIA.COLBAK=$20
+  ANTIC.DMACTL=ANTIC.NARROW_PLAYFIELD_DMA
+RETURN
+
+PUBLIC PROC Stop()
+  OS.SDMCTL=0
+  ANTIC.DMACTL=0
+
+  OS.SDLST=savedDisplayList
+  OS.CHBAS=savedCharset
+  OS.GPRIOR=savedPriority
+  OS.COLOR4=savedBackground
+
+  ANTIC.DLIST=savedDisplayList
+  ANTIC.CHBASE=savedCharset
+  GTIA.PRIOR=savedPriority
+  GTIA.COLBAK=savedBackground
+  OS.SDMCTL=savedDmaControl
+  ANTIC.DMACTL=savedDmaControl
+RETURN
+
+ENDMODULE

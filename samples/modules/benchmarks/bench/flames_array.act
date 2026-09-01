@@ -1,23 +1,20 @@
 MODULE BENCH.FLAMES_ARRAY
 
-USE SYS
 USE ATARI.OS
 USE ATARI.POKEY
+USE BENCH.FLAMES_DISPLAY
 USE BENCH.SUPPORT
 
-CONST CARD FIRE_SCREEN=$8400
-
-BYTE ARRAY workspace=$8000,
-           row0(256)=FIRE_SCREEN-31,
-           row1(256)=FIRE_SCREEN-31+$100,
-           row2(256)=FIRE_SCREEN-31+$200,
-           row3(256)=FIRE_SCREEN+$2E0
+BYTE ARRAY row0(256)=FLAMES_DISPLAY.FIRE_ANCHOR-31,
+           row1(256)=FLAMES_DISPLAY.FIRE_ANCHOR-31+$100,
+           row2(256)=FLAMES_DISPLAY.FIRE_ANCHOR-31+$200,
+           row3(256)=FLAMES_DISPLAY.FIRE_ANCHOR+$2E0
 
 BYTE index=$E0
 BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF
 
 PUBLIC PROC Run(BYTE resultIndex)
-  SYS.Zero(workspace,$1000)
+  FLAMES_DISPLAY.Start()
   tenThousands=0
   thousands=0
   hundreds=0
@@ -27,12 +24,12 @@ PUBLIC PROC Run(BYTE resultIndex)
 
   WHILE OS.RTCLOK_LO<250 DO
     FOR index=0 TO 255 DO
-      row1(index)=BYTE(row1(index+30)+row1(index+31)+
-                       row1(index+32)+row1(index+63)) RSH 2
-      row2(index)=BYTE(row2(index+30)+row2(index+31)+
-                       row2(index+32)+row2(index+63)) RSH 2
-      row0(index)=BYTE(row0(index+30)+row0(index+31)+
-                       row0(index+32)+row0(index+63)) RSH 2
+      row1(index)=BYTE(row1(CARD(index)+30)+row1(CARD(index)+31)+
+                       row1(CARD(index)+32)+row1(CARD(index)+63)) RSH 2
+      row2(index)=BYTE(row2(CARD(index)+30)+row2(CARD(index)+31)+
+                       row2(CARD(index)+32)+row2(CARD(index)+63)) RSH 2
+      row0(index)=BYTE(row0(CARD(index)+30)+row0(CARD(index)+31)+
+                       row0(CARD(index)+32)+row0(CARD(index)+63)) RSH 2
     OD
 
     FOR index=31 TO 0 STEP -1 DO
@@ -46,6 +43,7 @@ PUBLIC PROC Run(BYTE resultIndex)
     IF thousands=10 THEN tenThousands==+1 thousands=0 FI
   OD
 
+  FLAMES_DISPLAY.Stop()
   SUPPORT.SaveIterations(resultIndex,tenThousands,thousands,hundreds,tens,ones)
 RETURN
 
