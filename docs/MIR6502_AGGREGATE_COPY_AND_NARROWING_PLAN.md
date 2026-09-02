@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-02.
 
-Status: in progress; Slice 1 implemented.
+Status: in progress; Slices 1-2 implemented.
 
 This plan addresses the general MIR6502 code-generation problems exposed by
 `samples/demoscene/unlimited-bobs.act::SelectEffect`. `SelectEffect` is a
@@ -272,7 +272,7 @@ of immediately expanding it into scalar byte operations.
 mir6502: retain aggregate copies through target selection
 ```
 
-## Slice 2: prepare indexed copy addresses once
+## Slice 2 (complete): prepare indexed copy addresses once
 
 ### Goal
 

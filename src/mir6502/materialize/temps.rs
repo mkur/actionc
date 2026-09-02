@@ -631,10 +631,31 @@ fn materialize_temp_ops_with_widths(
                 value: value_non_word,
             } => {
                 staged_address = None;
-                out.push(MirOp::MaterializeAddress {
-                    consumer,
-                    value: value_non_word,
-                });
+                let value = materialize_address_word_value(value_non_word, spills);
+                match (consumer, value) {
+                    (
+                        MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo: slot }),
+                        MirValue::Word { lo, hi },
+                    ) => {
+                        let lo = materialize_value_to_a(&mut out, *lo, spills);
+                        out.push(MirOp::Store {
+                            dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                            src: lo,
+                            width: MirWidth::Byte,
+                        });
+                        let hi = materialize_value_to_a(&mut out, *hi, spills);
+                        out.push(MirOp::Store {
+                            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                                slot.0.saturating_add(1),
+                            ))),
+                            src: hi,
+                            width: MirWidth::Byte,
+                        });
+                    }
+                    (consumer, value) => {
+                        out.push(MirOp::MaterializeAddress { consumer, value });
+                    }
+                }
             }
             MirOp::AdvanceAddress {
                 consumer,

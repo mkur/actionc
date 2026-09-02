@@ -63,7 +63,9 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
                 source,
                 destination,
                 ..
-            } => addr_contains_deref(source) || addr_contains_deref(destination),
+            } => {
+                addr_requires_pointer_scratch(source) || addr_requires_pointer_scratch(destination)
+            }
             MirOp::PackedRealCopy {
                 source,
                 destination,
@@ -113,11 +115,35 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
 
 fn routine_uses_address_advance(routine: &MirRoutine) -> bool {
     routine.blocks.iter().any(|block| {
-        block
-            .ops
-            .iter()
-            .any(|op| matches!(op, MirOp::AdvanceAddress { .. }))
+        block.ops.iter().any(|op| match op {
+            MirOp::AdvanceAddress { .. } => true,
+            MirOp::CopyBytes {
+                source,
+                destination,
+                ..
+            } => {
+                addr_requires_address_advance(source) || addr_requires_address_advance(destination)
+            }
+            _ => false,
+        })
     })
+}
+
+fn addr_requires_pointer_scratch(addr: &MirAddr) -> bool {
+    matches!(
+        addr,
+        MirAddr::ComputedIndex { .. }
+            | MirAddr::PointerCell { .. }
+            | MirAddr::PointerIndex { .. }
+            | MirAddr::Deref { .. }
+    )
+}
+
+fn addr_requires_address_advance(addr: &MirAddr) -> bool {
+    matches!(
+        addr,
+        MirAddr::ComputedIndex { .. } | MirAddr::PointerIndex { .. }
+    )
 }
 
 fn addr_contains_deref(addr: &MirAddr) -> bool {
