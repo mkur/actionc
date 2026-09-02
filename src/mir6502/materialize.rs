@@ -32,6 +32,7 @@ mod layout;
 mod lea;
 mod machine_value_census;
 mod memory;
+mod narrowing;
 mod peepholes;
 mod pointers;
 mod regs;
@@ -150,6 +151,7 @@ pub(in crate::mir6502) use memory::op_may_write_mem;
 #[cfg(test)]
 use memory::{mem_is_read_after, op_definitely_writes_mem};
 use memory::{op_may_have_unknown_memory_effects, op_reads_mem};
+use narrowing::narrow_discarded_high_constant_products;
 #[cfg(test)]
 use peepholes::{
     dead_private_scratch_store_at, fixed_pointer_consumer, fold_dead_private_scratch_stores,
@@ -1334,7 +1336,43 @@ pub(super) fn materialize_program(
             aggregate_copies.blocked_offset_range,
         );
         run_cfg_group(routine, &layout)?;
-        strength_reduce_constant_multiplications(routine, &layout, &mut peephole_stats);
+        let narrow_products = narrow_discarded_high_constant_products(routine);
+        peephole_stats.record_many(
+            routine.id,
+            "discarded-high-product-candidate",
+            narrow_products.candidates,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "discarded-high-product-narrowed",
+            narrow_products.applied,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "discarded-high-product-blocked-high-lane-live",
+            narrow_products.blocked_high_lane_live,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "discarded-high-product-blocked-multiple-definitions",
+            narrow_products.blocked_multiple_definitions,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "discarded-high-product-blocked-operand-width",
+            narrow_products.blocked_operand_width,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "discarded-high-product-blocked-carry-contract",
+            narrow_products.blocked_carry_contract,
+        );
+        strength_reduce_constant_multiplications(
+            routine,
+            &layout,
+            &narrow_products.low_only_results,
+            &mut peephole_stats,
+        );
         run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
         lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
         lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
@@ -1539,6 +1577,7 @@ pub(super) fn materialize_program(
 fn strength_reduce_constant_multiplications(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
+    proven_low_only_results: &BTreeSet<MirTempId>,
     peephole_stats: &mut MirPeepholeStats,
 ) {
     let temp_widths = collect_routine_temp_widths(routine);
@@ -1592,14 +1631,8 @@ fn strength_reduce_constant_multiplications(
                 continue;
             }
 
-            let result_width = if width == MirWidth::Byte && split_def(dst.clone()).is_some() {
-                // Action!'s byte multiply helper returns A:X. Preserve that
-                // word result when later consumers use the synthetic high
-                // lane of a byte-typed multiply temp.
-                MirWidth::Word
-            } else {
-                width
-            };
+            let result_width =
+                strength_reduced_multiply_width(width, &dst, proven_low_only_results);
 
             let replacement = match result_width {
                 MirWidth::Byte => strength_reduce_byte_multiply(dst.clone(), operand, factor),
@@ -1633,6 +1666,25 @@ fn strength_reduce_constant_multiplications(
     }
 
     peephole_stats.record_many(routine.id, "constant-multiply-strength-reduction", reduced);
+}
+
+fn strength_reduced_multiply_width(
+    width: MirWidth,
+    dst: &MirDef,
+    proven_low_only_results: &BTreeSet<MirTempId>,
+) -> MirWidth {
+    let result_is_proven_low_only = match dst {
+        MirDef::VTemp(id) | MirDef::VTempByte { id, .. } => proven_low_only_results.contains(id),
+        MirDef::Reg(_) => false,
+    };
+    if width == MirWidth::Byte && split_def(dst.clone()).is_some() && !result_is_proven_low_only {
+        // Action!'s byte multiply helper returns A:X. Preserve that word
+        // result unless an analyzed rewrite proved the synthetic high lane
+        // unobservable throughout the complete routine.
+        MirWidth::Word
+    } else {
+        width
+    }
 }
 
 fn constant_multiply_parts(left: MirValue, right: MirValue) -> Option<(MirValue, u16)> {

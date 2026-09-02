@@ -1,10 +1,12 @@
 CARD input,timesTwo,timesEight,times256
 BYTE byteInput
 CARD byteTimesEight
+BYTE truncatedTimes32
 
 PROC Main()
   timesTwo = input * 2
   timesEight = 8 * input
   times256 = input * 256
   byteTimesEight = byteInput * 8
+  truncatedTimes32 = byteInput * 32
 RETURN

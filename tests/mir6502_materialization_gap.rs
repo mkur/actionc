@@ -487,6 +487,11 @@ fn constant_power_of_two_multiplications_are_strength_reduced() {
          a =.b load global g0+0\n  store.b global g3+1, a"
     ));
     assert!(formatted.contains("a =.b a add #$00 carry_in=previous carry_out=ignore"));
+    assert!(formatted.contains(
+        "a =.b load global g4+0\n  \
+         a =.b a lsh #$05 carry_in=- carry_out=ignore\n  \
+         store.b global g6+0, a"
+    ));
 }
 
 #[test]

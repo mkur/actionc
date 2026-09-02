@@ -801,6 +801,23 @@ Rules:
 - Add a new pseudo-op only when it represents a stable target-level decision that
   NIR should not know about and emission should not rediscover.
 
+### Discarded-high constant products
+
+An analyzed pre-home rewrite may narrow a word constant multiplication to byte
+width when its single routine-wide use is the immediately following explicit
+word-to-byte truncation. The initial proof requires a byte-derived operand, a
+byte-sized power-of-two constant, one reaching product definition, ignored
+carry output, and no complete-word or additional CFG use. Pointer-cell and
+unknown-width operands remain on the word path.
+
+The rewrite records the truncated destination as a proven low-only result for
+the immediately following constant-multiply strength reducer. That proof
+suppresses the usual synthetic high result of an Action byte multiply, allowing
+the low lane to become a byte `Lsh`. With factor 32 this emits five `ASL`
+instructions and no high-lane carry chain. Without the explicit proof, byte
+multiplication retains its complete A:X result for word stores, word call
+arguments, comparisons, and other full-width consumers.
+
 ### Adjacent direct byte indexing
 
 MIR6502 may canonicalize `base[index + delta]` to

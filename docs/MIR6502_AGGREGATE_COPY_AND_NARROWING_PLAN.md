@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-02.
 
-Status: in progress; Slices 1-3 implemented.
+Status: implementation complete; measurement and follow-up decision pending.
 
 This plan addresses the general MIR6502 code-generation problems exposed by
 `samples/demoscene/unlimited-bobs.act::SelectEffect`. `SelectEffect` is a
@@ -392,7 +392,7 @@ For scale twelve, an acceptable plan is equivalent to `index * (8 + 4)` or
 mir6502: strength reduce constant indexed-address scales
 ```
 
-## Slice 4: narrow discarded-high constant products
+## Slice 4 (complete): narrow discarded-high constant products
 
 ### Goal
 
