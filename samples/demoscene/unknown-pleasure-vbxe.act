@@ -1,0 +1,361 @@
+; Antialiased VBXE SR320 rendering of the CP1919 pulse plot associated with
+; the Unknown Pleasures cover.
+;
+; SR320 maps all 300 source measurements directly to 300 independent screen
+; pixels with ten-pixel side margins. Heights retain two fractional bits after
+; applying the 5/8 vertical scale. A box-filtered one-pixel stroke converts the
+; quarter-scanline coverage into grayscale palette values.
+;
+; Fifty profiles are selected evenly from the 80 source profiles and placed on
+; three-scanline baselines. The top profile retains enough margin for every
+; scaled peak in the selected data.
+;
+; The dataset publisher does not know the earlier provenance of the CSV, so this
+; is described as a digitization of Harold Craft's plot, not verified raw data
+; from Arecibo. Full source and conversion details are in the generated include.
+;
+; A per-column horizon hides rear traces. VBXE FX 1.2x is required. Press any
+; key to return to the normal Atari display.
+; Compile with --mode mir6502 --runtime standalone.
+
+MODULE UNKNOWN_PLEASURES_VBXE
+
+USE ATARI.OS
+USE ATARI.PIA
+USE ATARI.VBXE
+USE SYS
+
+
+CONST CARD PULSE_DATA_SIZE=24000,
+           SAMPLES_PER_TRACE=300,
+           SCREEN_WIDTH=320,
+           SCREEN_STRIDE=$0200,
+           SCREEN_FIXED_HEIGHT=768,
+           WINDOW_BASE=$A000,
+           WINDOW_SIZE=$2000
+
+CONST BYTE SCREEN_HEIGHT=192,
+           SOURCE_TRACE_COUNT=80,
+           VISIBLE_TRACE_COUNT=50,
+           TRACE_SPACING=3,
+           FIRST_BASELINE=181,
+           LEFT_MARGIN=10,
+           FIXED_SHIFT=2,
+           FIXED_ONE=4,
+           PULSE_DATA_BIAS=16,
+           BAND_MASK=$0F,
+           XDL_BANK=$00,
+           FRAMEBUFFER_FIRST_BANK=$04,
+           MEMAC_CONTROL_VALUE=$A9,
+           BASIC_ROM_DISABLE=$02,
+           TOP_MARGIN_REPEAT=23,
+           DISPLAY_REPEAT=191,
+           BOTTOM_MARGIN_REPEAT=23,
+           NO_BANK=$FF
+
+
+BYTE ARRAY Window(WINDOW_SIZE)=WINDOW_BASE,
+           horizon(SAMPLES_PER_TRACE),
+           coverageShades(5)=[$00 $40 $80 $C0 $FF]
+
+BYTE currentBank,
+     savedPortB
+
+CARD currentSample,
+     currentColumn
+
+STRING missing(0)="VBXE FX 1.2x is required."
+STRING keyText(0)="Press any key to continue."
+
+INCLUDE "unknown-pleasure-vbxe-data.inc"
+
+
+PROC MapLocal(BYTE bank)
+  ; MEMAC exposes one 8KB window of VBXE local memory at $A000-$BFFF.
+
+  IF currentBank=bank THEN
+    RETURN
+  FI
+  VBXE.Write(VBXE.REG_MEMAC_CONTROL,MEMAC_CONTROL_VALUE)
+  VBXE.Write(VBXE.REG_MEMAC_BANK_SEL,VBXE.MEMAC_BANK_ENABLE%bank)
+  currentBank=bank
+RETURN
+
+
+PROC Unmap()
+  VBXE.Write(VBXE.REG_MEMAC_BANK_SEL,0)
+  VBXE.Write(VBXE.REG_MEMAC_CONTROL,0)
+  currentBank=NO_BANK
+RETURN
+
+
+PROC MapBand(BYTE band)
+  BYTE localBank
+
+  ; Each 8KB bank holds sixteen 512-byte framebuffer rows. MEMAC bank numbers
+  ; advance in 4KB units, hence the two-bank step between display bands.
+
+  localBank=FRAMEBUFFER_FIRST_BANK+(band LSH 1)
+  MapLocal(localBank)
+RETURN
+
+
+CARD FUNC RowAddress(BYTE y)
+  BYTE band,row
+  CARD offset
+
+  band=y RSH 4
+  row=y&BAND_MASK
+  MapBand(band)
+  offset=row
+  offset=offset LSH 9
+RETURN(WINDOW_BASE+offset)
+
+
+PROC BuildXdl()
+  MapLocal(XDL_BANK)
+
+  ; Leave 24 scanlines above and below the 192-line overlay.
+  Window(0)=VBXE.XDLC_OVERLAY_OFF%VBXE.XDLC_REPEAT
+  Window(1)=0
+  Window(2)=TOP_MARGIN_REPEAT
+
+  ; Display 320 independent 8-bit pixels from each padded framebuffer row.
+  Window(3)=VBXE.XDLC_GRAPHICS%VBXE.XDLC_REPEAT%VBXE.XDLC_OVERLAY_ADDRESS
+  Window(4)=VBXE.XDLC_STANDARD_RES%VBXE.XDLC_OVERLAY_ATTRIBUTES
+  Window(5)=DISPLAY_REPEAT
+  Window(6)=0
+  Window(7)=$40
+  Window(8)=0
+  Window(9)=0
+  Window(10)=2
+  Window(11)=$11 ; overlay palette 1, normal width
+  Window(12)=VBXE.OVERLAY_PRIORITY_ALL
+
+  Window(13)=VBXE.XDLC_OVERLAY_OFF%VBXE.XDLC_REPEAT
+  Window(14)=VBXE.XDLC_END
+  Window(15)=BOTTOM_MARGIN_REPEAT
+RETURN
+
+
+PROC SetGrayscalePalette()
+  BYTE color
+
+  ; Palette index is also coverage: black at 0 through white at 255.
+
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  VBXE.Write(VBXE.REG_CSEL,0)
+  color=0
+  DO
+    VBXE.Write(VBXE.REG_CR,color)
+    VBXE.Write(VBXE.REG_CG,color)
+    VBXE.Write(VBXE.REG_CB,color)
+    color==+1
+  UNTIL color=0
+  OD
+RETURN
+
+
+PROC ClearScreen()
+  BYTE y
+  CARD x
+  BYTE POINTER row
+
+  ; Clear only the visible 320 bytes, leaving the stride padding untouched.
+
+  y=0
+  WHILE y<SCREEN_HEIGHT DO
+    row=RowAddress(y)
+    x=0
+    WHILE x<SCREEN_WIDTH DO
+      row(x)=0
+      x==+1
+    OD
+    y==+1
+  OD
+RETURN
+
+
+BYTE FUNC InitVideo()
+  currentBank=NO_BANK
+  IF VBXE.Detect()=VBXE.NO_VBXE THEN
+    RETURN(0)
+  FI
+  IF VBXE.Is20Family()=0 THEN
+    RETURN(0)
+  FI
+
+  ; BASIC has priority over MEMAC at $A000, so reveal RAM before mapping VBXE.
+  savedPortB=PIA.PORTB
+  PIA.PORTB=savedPortB%BASIC_ROM_DISABLE
+
+  VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
+  BuildXdl()
+  SetGrayscalePalette()
+  ClearScreen()
+
+  VBXE.Write(VBXE.REG_XDL_ADR0,0)
+  VBXE.Write(VBXE.REG_XDL_ADR1,0)
+  VBXE.Write(VBXE.REG_XDL_ADR2,0)
+  VBXE.Write(VBXE.REG_VIDEO_CONTROL,
+             VBXE.VIDEO_XDL_ENABLE%VBXE.VIDEO_NO_TRANSPARENCY)
+RETURN(1)
+
+
+PROC ShutdownVideo()
+  VBXE.Write(VBXE.REG_VIDEO_CONTROL,0)
+  Unmap()
+  PIA.PORTB=savedPortB
+RETURN
+
+
+PROC DrawVisible(INT y1,y2)
+  INT top,bottom,coverTop,coverBottom
+  INT rowStart,rowEnd,partStart,partEnd
+  BYTE limit,rowNumber,coverage,shade
+  BYTE POINTER pixel
+
+  ; Treat the segment between the two quarter-scanline sample positions as a
+  ; one-pixel-wide vertical stroke. Each row receives the fraction of the stroke
+  ; covering it: 1/4, 1/2, 3/4, or full intensity.
+
+  IF y1<y2 THEN
+    top=y1
+    bottom=y2
+  ELSE
+    top=y2
+    bottom=y1
+  FI
+
+  coverTop=top
+  coverBottom=bottom+FIXED_ONE
+  IF coverTop<0 THEN coverTop=0 FI
+  IF coverBottom>SCREEN_FIXED_HEIGHT THEN
+    coverBottom=SCREEN_FIXED_HEIGHT
+  FI
+  IF coverTop>=coverBottom THEN RETURN FI
+
+  rowNumber=BYTE(coverTop RSH FIXED_SHIFT)
+  limit=horizon(currentSample)
+  IF rowNumber<limit THEN
+    pixel=RowAddress(rowNumber)
+    pixel==+currentColumn
+    rowStart=coverTop
+    rowStart=(rowStart RSH FIXED_SHIFT) LSH FIXED_SHIFT
+
+    WHILE rowStart<coverBottom AND rowNumber<limit DO
+      partStart=rowStart
+      IF coverTop>partStart THEN partStart=coverTop FI
+
+      rowEnd=rowStart+FIXED_ONE
+      partEnd=rowEnd
+      IF coverBottom<partEnd THEN partEnd=coverBottom FI
+
+      coverage=BYTE(partEnd-partStart)
+      shade=coverageShades(coverage)
+      IF pixel^<shade THEN pixel^=shade FI
+
+      rowStart==+FIXED_ONE
+      rowNumber=BYTE(rowStart RSH FIXED_SHIFT)
+
+      IF rowStart<coverBottom AND rowNumber<limit THEN
+        IF (rowNumber&BAND_MASK)=0 THEN
+          pixel=RowAddress(rowNumber)
+          pixel==+currentColumn
+        ELSE
+          pixel==+SCREEN_STRIDE
+        FI
+      FI
+    OD
+
+    horizon(currentSample)=BYTE(coverTop RSH FIXED_SHIFT)
+  FI
+RETURN
+
+
+PROC PrepareHorizon()
+  CARD sample
+
+  sample=0
+  WHILE sample<SAMPLES_PER_TRACE DO
+    horizon(sample)=SCREEN_HEIGHT
+    sample==+1
+  OD
+RETURN
+
+
+PROC DrawTrace(CARD dataIndex INT baseline)
+  CARD sample
+  INT baselineFixed,heightFixed,y,previousY
+
+  baselineFixed=baseline LSH FIXED_SHIFT
+  sample=0
+  previousY=baselineFixed
+
+  WHILE sample<SAMPLES_PER_TRACE DO
+    heightFixed=INT(pulseData(dataIndex))-PULSE_DATA_BIAS
+    y=baselineFixed-heightFixed
+
+    currentSample=sample
+    currentColumn=LEFT_MARGIN+sample
+    DrawVisible(previousY,y)
+
+    previousY=y
+    dataIndex==+1
+    sample==+1
+  OD
+RETURN
+
+
+PROC DrawPulses()
+  CARD dataIndex
+  BYTE sourceTrace,selector
+  INT baseline
+
+  dataIndex=0
+  baseline=FIRST_BASELINE
+  sourceTrace=0
+  selector=SOURCE_TRACE_COUNT-VISIBLE_TRACE_COUNT
+
+  ; Distribute 50 selected profiles evenly over the complete observation.
+
+  WHILE sourceTrace<SOURCE_TRACE_COUNT DO
+    selector==+VISIBLE_TRACE_COUNT
+    IF selector>=SOURCE_TRACE_COUNT THEN
+      selector==-SOURCE_TRACE_COUNT
+      DrawTrace(dataIndex,baseline)
+      baseline==-TRACE_SPACING
+    FI
+
+    dataIndex==+SAMPLES_PER_TRACE
+    sourceTrace==+1
+  OD
+RETURN
+
+
+PROC WaitKey()
+  OS.CH=OS.NO_KEY
+  WHILE OS.CH=OS.NO_KEY DO
+    OS.ATRACT=0
+  OD
+RETURN
+
+
+PROC Main()
+  SYS.Graphics(0)
+  IF InitVideo()=0 THEN
+    SYS.PrintE(missing)
+    SYS.PrintE(keyText)
+    WaitKey()
+    RETURN
+  FI
+
+  PrepareHorizon()
+  DrawPulses()
+  WaitKey()
+
+  ShutdownVideo()
+  SYS.Graphics(0)
+RETURN
+
+ENDMODULE

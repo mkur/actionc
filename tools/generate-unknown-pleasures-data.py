@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""Convert the CP1919 CSV into data tables used by the graphics variants."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import math
+from pathlib import Path
+
+
+EXPECTED_SHA256 = "77b3c342840c7b63286303a7bbeec399862b9684b25eafb638d57095ac30c400"
+SOURCE_URL = (
+    "https://raw.githubusercontent.com/pachadotdev/cp1919/"
+    "ede09bbbdf6f8d7f88ea8c530866bf6cdb3064b1/cp1919.csv"
+)
+TRACE_COUNT = 80
+SOURCE_SAMPLES = 300
+COMPACT_SAMPLES = SOURCE_SAMPLES // 2
+DEFAULT_SCALE = 0.5
+BIAS = 4
+MIN_HEIGHT = -4
+MAX_HEIGHT = 47
+
+
+def round_away_from_zero(value: float) -> int:
+    if value < 0:
+        return math.ceil(value - 0.5)
+    return math.floor(value + 0.5)
+
+
+def read_source(path: Path) -> list[list[float]]:
+    source = path.read_bytes()
+    digest = hashlib.sha256(source).hexdigest()
+    if digest != EXPECTED_SHA256:
+        raise SystemExit(
+            f"unexpected source SHA-256 {digest}; expected {EXPECTED_SHA256}"
+        )
+
+    traces: list[list[float]] = [[] for _ in range(TRACE_COUNT)]
+    with path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames != ["x", "y", "z"]:
+            raise SystemExit(f"unexpected CSV columns: {reader.fieldnames!r}")
+
+        for row in reader:
+            x = int(row["x"])
+            trace = int(row["y"])
+            if not 1 <= trace <= TRACE_COUNT:
+                raise SystemExit(f"trace number out of range: {trace}")
+            expected_x = len(traces[trace - 1]) + 1
+            if x != expected_x:
+                raise SystemExit(
+                    f"trace {trace}: expected sample {expected_x}, found {x}"
+                )
+            traces[trace - 1].append(float(row["z"]))
+
+    lengths = {len(trace) for trace in traces}
+    if lengths != {SOURCE_SAMPLES}:
+        raise SystemExit(f"unexpected trace lengths: {sorted(lengths)}")
+    return traces
+
+
+def encode(
+    traces: list[list[float]],
+    full_resolution: bool,
+    pair_mode: str,
+    scale: float,
+    fraction_bits: int,
+) -> list[int]:
+    encoded: list[int] = []
+    fixed_scale = 1 << fraction_bits
+    fixed_bias = BIAS * fixed_scale
+    fixed_min = MIN_HEIGHT * fixed_scale
+    fixed_max = MAX_HEIGHT * fixed_scale
+    for trace in traces:
+        if full_resolution:
+            values = trace
+        elif pair_mode == "sample-first":
+            values = trace[::2]
+        elif pair_mode == "sample-second":
+            values = trace[1::2]
+        else:
+            values = [
+                (trace[sample] + trace[sample + 1]) / 2.0
+                for sample in range(0, SOURCE_SAMPLES, 2)
+            ]
+
+        for value in values:
+            height = round_away_from_zero(value * scale * fixed_scale)
+            height = max(fixed_min, min(fixed_max, height))
+            encoded.append(height + fixed_bias)
+    return encoded
+
+
+def render_include(
+    encoded: list[int],
+    full_resolution: bool,
+    pair_mode: str,
+    scale: float,
+    fraction_bits: int,
+    display_mode: str,
+) -> str:
+    if full_resolution:
+        sampling_note = [
+            "; All 300 source samples are retained for each of the 80 pulses.",
+        ]
+        if display_mode == "graphics8":
+            sampling_note.append(
+                "; In Atari Graphics 8 mode each sample byte drives one screen pixel."
+            )
+        elif fraction_bits:
+            sampling_note.append(
+                "; In VBXE SR320 mode each sample byte drives one screen pixel."
+            )
+        else:
+            sampling_note.append(
+                "; In VBXE HR640 mode each sample byte drives two adjacent pixels."
+            )
+        if scale != DEFAULT_SCALE:
+            rounding = "fixed-point" if fraction_bits else "integer"
+            sampling_note.append(
+                f"; Heights use a vertical scale of {scale:g} before {rounding} rounding."
+            )
+    elif pair_mode == "sample-first":
+        sampling_note = [
+            "; Samples 1, 3, 5, ... of each 300-point pulse are retained, giving",
+            "; 150 direct source samples for each of the 80 successive pulses.",
+            f"; Heights use a vertical scale of {scale:g} before integer rounding.",
+        ]
+    elif pair_mode == "sample-second":
+        sampling_note = [
+            "; Samples 2, 4, 6, ... of each 300-point pulse are retained, giving",
+            "; 150 direct source samples for each of the 80 successive pulses.",
+            f"; Heights use a vertical scale of {scale:g} before integer rounding.",
+        ]
+    else:
+        sampling_note = [
+            "; Adjacent pairs of the 300 source samples are averaged, retaining 150",
+            "; samples for each of the 80 successive pulses.",
+        ]
+
+    if fraction_bits:
+        sampling_note.append(
+            f"; Heights retain {fraction_bits} fractional bits; PULSE_DATA_BIAS is fixed-point too."
+        )
+
+    lines = [
+        "; Generated by tools/generate-unknown-pleasures-data.py.",
+        ";",
+        "; Source: CP1919 pulse-profile dataset published by pachadotdev:",
+        f"; {SOURCE_URL}",
+        f"; Source SHA-256: {EXPECTED_SHA256}",
+        "; The source repository applies CC0-1.0 to the dataset, but notes that",
+        "; its earlier provenance is unknown. Treat this as a digitization of",
+        "; Harold Craft's plot rather than verified raw Arecibo samples.",
+        ";",
+        "; Each byte is one globally scaled signed height plus PULSE_DATA_BIAS.",
+        *sampling_note,
+        "",
+        "BYTE ARRAY pulseData(PULSE_DATA_SIZE)=[",
+    ]
+
+    for offset in range(0, len(encoded), 16):
+        chunk = encoded[offset : offset + 16]
+        suffix = "]" if offset + len(chunk) == len(encoded) else ""
+        lines.append("  " + " ".join(f"${value:02X}" for value in chunk) + suffix)
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("source", type=Path, help="the pinned cp1919.csv")
+    parser.add_argument("output", type=Path, help="generated Action! include")
+    parser.add_argument(
+        "--full-resolution",
+        action="store_true",
+        help="retain all 300 samples instead of averaging adjacent pairs",
+    )
+    parser.add_argument(
+        "--pair-mode",
+        choices=("average", "sample-first", "sample-second"),
+        default="average",
+        help="how to reduce each adjacent pair when not using full resolution",
+    )
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=DEFAULT_SCALE,
+        help=f"vertical scale applied before rounding (default: {DEFAULT_SCALE})",
+    )
+    parser.add_argument(
+        "--fraction-bits",
+        type=int,
+        choices=(0, 1, 2),
+        default=0,
+        help="fractional height bits retained in each output byte (default: 0)",
+    )
+    parser.add_argument(
+        "--display-mode",
+        choices=("auto", "graphics8"),
+        default="auto",
+        help="override the generated display-mode note (default: infer VBXE mode)",
+    )
+    args = parser.parse_args()
+
+    if args.full_resolution and args.pair_mode != "average":
+        parser.error("--pair-mode cannot be combined with --full-resolution")
+    if args.display_mode != "auto" and not args.full_resolution:
+        parser.error("--display-mode requires --full-resolution")
+    if args.scale <= 0:
+        parser.error("--scale must be positive")
+
+    encoded = encode(
+        read_source(args.source),
+        args.full_resolution,
+        args.pair_mode,
+        args.scale,
+        args.fraction_bits,
+    )
+    output_samples = SOURCE_SAMPLES if args.full_resolution else COMPACT_SAMPLES
+    expected_size = TRACE_COUNT * output_samples
+    if len(encoded) != expected_size:
+        raise SystemExit(f"encoded {len(encoded)} bytes, expected {expected_size}")
+
+    args.output.write_text(
+        render_include(
+            encoded,
+            args.full_resolution,
+            args.pair_mode,
+            args.scale,
+            args.fraction_bits,
+            args.display_mode,
+        ),
+        encoding="utf-8",
+    )
+
+
+if __name__ == "__main__":
+    main()

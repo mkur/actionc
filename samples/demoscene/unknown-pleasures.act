@@ -1,0 +1,208 @@
+; Full-resolution Graphics 8 rendering of the CP1919 pulse plot associated
+; with the Unknown Pleasures cover.
+;
+; All 300 source measurements are retained and mapped directly to individual
+; bitmap pixels, with ten-pixel margins on the 320-pixel display. A 5/8
+; vertical scale preserves the strongest source peak without exceeding the
+; signed-height range stored in the data table.
+;
+; Fifty profiles are selected evenly from the 80 source profiles. Their
+; three-scanline spacing leaves enough room above the top baseline for the
+; increased peak height while preserving the full observation interval.
+;
+; Single Graphics 8 pixels can produce artifact colors on a composite display;
+; RGB, monochrome, and emulator output retain the intended white-on-black plot.
+; A per-column horizon hides rear traces. Press any key to return to text mode.
+; Compile with --mode mir6502 --runtime standalone.
+
+MODULE UNKNOWN_PLEASURES
+
+USE SYS
+USE ATARI.OS
+USE ATARI.PIA
+
+
+CONST CARD PULSE_DATA_SIZE=24000,
+           SAMPLES_PER_TRACE=300
+
+CONST BYTE SCREEN_HEIGHT=192,
+           BYTES_PER_ROW=40,
+           SOURCE_TRACE_COUNT=80,
+           VISIBLE_TRACE_COUNT=50,
+           TRACE_SPACING=3,
+           FIRST_BASELINE=181,
+           LEFT_MARGIN=10,
+           PULSE_DATA_BIAS=4,
+           FULL_RAMTOP=$C0,
+           BASIC_ROM_DISABLE=$02
+
+
+BYTE ARRAY screen,
+           horizon(SAMPLES_PER_TRACE),
+           pixelMasks(8)=[$80 $40 $20 $10 $08 $04 $02 $01]
+
+BYTE currentScreenByte,
+     currentMaskIndex,
+     savedPortB,
+     savedRamTop
+
+CARD currentSample
+
+CARD ARRAY rowOffsets(SCREEN_HEIGHT)
+
+INCLUDE "unknown-pleasures-data.inc"
+
+
+PROC DrawVisible(INT y1,y2)
+  INT top,bottom
+  CARD offset
+  BYTE limit,mask
+  BYTE POINTER pixel
+
+  ; Join successive samples vertically so steep radio-intensity changes do not
+  ; leave holes. The horizon retains only the portion visible above nearer data.
+
+  IF y1<y2 THEN
+    top=y1
+    bottom=y2
+  ELSE
+    top=y2
+    bottom=y1
+  FI
+
+  IF top<0 THEN top=0 FI
+  IF bottom>=SCREEN_HEIGHT THEN bottom=SCREEN_HEIGHT-1 FI
+  IF top>bottom THEN RETURN FI
+
+  limit=horizon(currentSample)
+  IF top<limit THEN
+    offset=rowOffsets(BYTE(top))+currentScreenByte
+    pixel=screen
+    pixel==+offset
+    mask=pixelMasks(currentMaskIndex)
+
+    y1=top
+    WHILE y1<=bottom AND y1<limit DO
+      pixel^=pixel^%mask
+      pixel==+BYTES_PER_ROW
+      y1==+1
+    OD
+    horizon(currentSample)=BYTE(top)
+  FI
+RETURN
+
+
+PROC PrepareTables()
+  CARD rowOffset,sample
+  BYTE row
+
+  ; SAVMSC is only known after Graphics, but offsets within the bitmap are
+  ; fixed. Build them once instead of multiplying a row number for each pixel.
+
+  rowOffset=0
+  row=0
+  WHILE row<SCREEN_HEIGHT DO
+    rowOffsets(row)=rowOffset
+    rowOffset==+BYTES_PER_ROW
+    row==+1
+  OD
+
+  sample=0
+  WHILE sample<SAMPLES_PER_TRACE DO
+    horizon(sample)=SCREEN_HEIGHT
+    sample==+1
+  OD
+RETURN
+
+
+PROC DrawTrace(CARD dataIndex INT baseline)
+  CARD sample
+  BYTE maskIndex
+  INT height,y,previousY
+
+  currentScreenByte=LEFT_MARGIN RSH 3
+  maskIndex=LEFT_MARGIN&7
+  sample=0
+  previousY=baseline
+
+  WHILE sample<SAMPLES_PER_TRACE DO
+    height=INT(pulseData(dataIndex))-PULSE_DATA_BIAS
+    y=baseline-height
+
+    currentSample=sample
+    currentMaskIndex=maskIndex
+    DrawVisible(previousY,y)
+
+    previousY=y
+    dataIndex==+1
+    sample==+1
+
+    maskIndex==+1
+    IF maskIndex=8 THEN
+      maskIndex=0
+      currentScreenByte==+1
+    FI
+  OD
+RETURN
+
+
+PROC DrawPulses()
+  CARD dataIndex
+  BYTE sourceTrace,selector
+  INT baseline
+
+  dataIndex=0
+  baseline=FIRST_BASELINE
+  sourceTrace=0
+  selector=SOURCE_TRACE_COUNT-VISIBLE_TRACE_COUNT
+
+  ; This accumulator distributes 50 selected profiles evenly over all 80
+  ; source profiles, including the beginning and end of the observation.
+
+  WHILE sourceTrace<SOURCE_TRACE_COUNT DO
+    selector==+VISIBLE_TRACE_COUNT
+    IF selector>=SOURCE_TRACE_COUNT THEN
+      selector==-SOURCE_TRACE_COUNT
+      DrawTrace(dataIndex,baseline)
+      baseline==-TRACE_SPACING
+    FI
+
+    dataIndex==+SAMPLES_PER_TRACE
+    sourceTrace==+1
+  OD
+RETURN
+
+
+PROC Main()
+  ; XL/XE machines normally keep the BASIC/cartridge window out of the OS
+  ; display-memory pool. Reveal its RAM and let Graphics 8 use the complete
+  ; 48K main-memory range; VBXE remains disabled and does not affect the map.
+
+  savedPortB=PIA.PORTB
+  savedRamTop=OS.RAMTOP
+  PIA.PORTB=savedPortB%BASIC_ROM_DISABLE
+  OS.RAMTOP=FULL_RAMTOP
+
+  SYS.Graphics(24)
+
+  SYS.SetColor(1,0,14)
+  SYS.SetColor(2,0,0)
+
+  screen=OS.SAVMSC
+
+  PrepareTables()
+  DrawPulses()
+
+  OS.CH=OS.NO_KEY
+  DO
+  UNTIL OS.CH#OS.NO_KEY
+  OD
+
+  ; Restore the normal OS ceiling before allocating the text screen again.
+
+  OS.RAMTOP=savedRamTop
+  SYS.Graphics(0)
+  PIA.PORTB=savedPortB
+RETURN
+
+ENDMODULE
