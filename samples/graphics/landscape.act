@@ -2,6 +2,7 @@
 ; The source uses only syntax and built-ins accepted by the original Action!
 ; cartridge compiler.
 BYTE ATRACT=$004D
+BYTE CH=$02FC
 
 ; startingHeights gives the initial vertical extent of each color band.
 ; bandHeights is the mutable profile that evolves as columns are drawn.
@@ -9,18 +10,22 @@ BYTE ARRAY startingHeights(14)=[170 150 144 144 122 122 110
                                 110 94 94 86 86 82 80],
            bandHeights(14)
 
-BYTE stopRow,startRow,swapRow,band,column
+BYTE stopRow,startRow,swapRow,band,bandPass,column
 
 PROC DrawLandscape()
   ; Start every picture from the same recognizable set of band heights.
   MoveBlock(bandHeights,startingHeights,14)
 
-  ; Draw the 80 vertical pixel columns from right to left. Each band is filled
+  ; Draw the 80 vertical pixel columns from left to right. Each band is filled
   ; from the preceding band's height down to its own current height.
-  FOR column=79 TO 0 STEP -1 DO
+  FOR column=0 TO 79 DO
     startRow=0
 
-    FOR band=13 TO 0 STEP -1 DO
+    ; The loop control increases because the original cartridge compiler
+    ; generates an incorrect entry test for STEP -1. Convert the pass number
+    ; to the descending color-band number needed by the picture instead.
+    FOR bandPass=0 TO 13 DO
+      band=13-bandPass
       stopRow=bandHeights(band)
       IF startRow>stopRow THEN
         ; Randomly moved band edges can cross. Swap the limits so the overlap
@@ -56,10 +61,18 @@ PROC Main()
   Graphics(9)
   SetColor(4,11,0)
 
+  ; CH holds the most recent OS keyboard code. Discard the key that launched
+  ; the program so that only a new keypress ends the demonstration.
+  CH=$FF
   DrawLandscape()
 
-  ; Keep the picture and palette stable after rendering completes.
+  ; Keep the picture and palette stable until any key is pressed.
   DO
     ATRACT=0
+  UNTIL CH#$FF
   OD
+
+  ; Return to a readable display before handing control back to DOS or the
+  ; Action! cartridge monitor.
+  Graphics(0)
 RETURN
