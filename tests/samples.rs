@@ -63,7 +63,13 @@ fn is_latent_named_module_sample(path: &Path, samples_dir: &Path) -> bool {
 fn check_sample(path: &Path, samples_dir: &Path) {
     if is_action_source(path) {
         let raytracer_root = samples_dir.join("vbxe/raytracer");
-        let options = if path.starts_with(&raytracer_root) {
+        let benchmark_root = samples_dir.join("benchmarks");
+        let options = if path.starts_with(&benchmark_root) {
+            ModuleLoadOptions {
+                project_root: Some(benchmark_root),
+                ..ModuleLoadOptions::default()
+            }
+        } else if path.starts_with(&raytracer_root) {
             ModuleLoadOptions {
                 module_paths: vec![samples_dir.join("vbxe")],
                 ..ModuleLoadOptions::default()
