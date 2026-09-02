@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-02.
 
-Status: implementation complete; measurement and follow-up decision pending.
+Status: complete; compact-copy follow-up deferred by the measurement gate.
 
 This plan addresses the general MIR6502 code-generation problems exposed by
 `samples/demoscene/unlimited-bobs.act::SelectEffect`. `SelectEffect` is a
@@ -463,7 +463,7 @@ store.b destination, v2
 mir6502: narrow constant products with dead high lanes
 ```
 
-## Slice 5: measurement and compact-copy decision gate
+## Slice 5 (complete): measurement and compact-copy decision gate
 
 ### Goal
 
@@ -521,6 +521,50 @@ Unknown pointer ranges must retain overlap-safe staging.
 ```text
 docs: record aggregate-copy optimization results
 ```
+
+### Measured result
+
+The final 2026-09-02 MIR6502 cartridge build uses the same source and target
+profile as the baseline analysis. The standalone build produces the same
+226-byte `SelectEffect` body at a different origin.
+
+| Region or image | Before | After | Change |
+|---|---:|---:|---:|
+| `SelectEffect` | 2,448 bytes | 226 bytes | -2,222 (-90.8%) |
+| Indexed 12-byte record copy | 2,211 bytes | 181 bytes | -2,030 (-91.8%) |
+| Four multiply/truncate results | 237 bytes | 45 bytes | -192 (-81.0%) |
+| Cartridge XEX | 6,898 bytes | 4,465 bytes | -2,433 (-35.3%) |
+| Standalone XEX | not recorded in the baseline | 4,677 bytes | n/a |
+
+The final cartridge routine occupies `$8D9A..$8E7C`. It contains one source
+pointer preparation, one scale-twelve address advance, two word additions and
+three word shifts for that scale, twelve indirect reads, and twelve direct
+writes. The overlap-safe value staging uses twelve one-byte virtual zero-page
+homes (`$E0..$EB`) and no spills. Each of the four multiply-by-32 results is one
+byte load, five accumulator `ASL` instructions, and one byte store.
+
+The Mad Pascal comparison body remains smaller at 91 bytes, but it operates on
+an explicitly packed byte table and calls its shared `Move` implementation
+because Mad Pascal 1.7.9 cannot express the original array-of-record source.
+The final ActionC body retains general array-of-record addressing, exact
+single-evaluation semantics, arbitrary-overlap safety, and conservative
+volatile behavior.
+
+Semantic coverage includes the runtime record-assignment fixture in all three
+public compiler modes and both cart/standalone runtimes. It exercises dynamic
+indexed sources and destinations, pointer destinations, self-copy, both
+overlap directions, and single evaluation. The selected copy keeps all twelve
+reads before every write, while exhaustive scale and low-product tests cover
+all 16-bit indexes for representative scales and every byte harmonic value for
+factors 2, 4, 32, and 128. The MIR6502 sweep also materializes every indexed
+record-copy and arithmetic fixture successfully.
+
+No compact-copy operation is added in this work. The remaining twelve staging
+homes are visible, but the motivating routine is cold and the current data does
+not show material pressure across ordinary programs. A stack-staged or
+directional operation should therefore remain a separately measured follow-up,
+using the safety gate above rather than being introduced solely to approach
+the comparison compiler's byte count.
 
 ## Required validation after every implementation slice
 
