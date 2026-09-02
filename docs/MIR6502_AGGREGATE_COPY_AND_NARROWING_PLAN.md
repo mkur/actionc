@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-02.
 
-Status: in progress; Slices 1-2 implemented.
+Status: in progress; Slices 1-3 implemented.
 
 This plan addresses the general MIR6502 code-generation problems exposed by
 `samples/demoscene/unlimited-bobs.act::SelectEffect`. `SelectEffect` is a
@@ -337,7 +337,7 @@ addresses are each prepared once and shared by all byte consumers.
 mir6502: reuse prepared addresses for aggregate copies
 ```
 
-## Slice 3: strength-reduce constant address scales
+## Slice 3 (complete): strength-reduce constant address scales
 
 ### Goal
 
@@ -347,8 +347,10 @@ not its numeric value.
 
 ### Implementation
 
-1. Add a target-local constant-scale planner beside indexed-address
-   materialization in `src/mir6502/materialize/indexes.rs`.
+1. Add a target-local constant-scale planner to the `AdvanceAddress` encoding
+   path in `src/mir6502/emit.rs`. `AdvanceAddress` is already the explicit
+   MIR6502-selected target operation; this planner chooses its instruction
+   encoding and does not reconstruct source semantics.
 2. Model these legal strategies:
    - no work for scale one;
    - shifts for powers of two;
@@ -358,10 +360,10 @@ not its numeric value.
      are legal at the site.
 3. Compute the scaled value at full index width, then add it to the base once.
    Preserve 16-bit wrap and carry across page boundaries.
-4. Keep the choice in materialization. Emission receives an explicit selected
-   operation sequence and does not run an instruction-text peephole.
-5. Use the MIR6502 size/cycle cost model and record the chosen family and
-   rejected alternatives.
+4. Keep the choice local to encoding the explicit `AdvanceAddress` operation;
+   do not run an instruction-text peephole over unrelated instructions.
+5. Use byte and cycle costs to retain the repeated-add fallback whenever the
+   binary plan does not improve both dimensions.
 
 For scale twelve, an acceptable plan is equivalent to `index * (8 + 4)` or
 `(index * 3) << 2`; it must not emit twelve full word additions.

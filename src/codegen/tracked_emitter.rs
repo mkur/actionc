@@ -636,6 +636,11 @@ impl TrackedEmitter {
         self.state.arithmetic_a();
     }
 
+    pub(crate) fn emit_asl_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emitter.emit_asl_zero_page(zero_page);
+        self.state.mutate_memory(u16::from(zero_page.address()));
+    }
+
     pub(crate) fn emit_lsr_a(&mut self) {
         self.emitter.emit_lsr_a();
         self.state.arithmetic_a();
@@ -644,6 +649,11 @@ impl TrackedEmitter {
     pub(crate) fn emit_rol_a(&mut self) {
         self.emitter.emit_rol_a();
         self.state.arithmetic_a();
+    }
+
+    pub(crate) fn emit_rol_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emitter.emit_rol_zero_page(zero_page);
+        self.state.mutate_memory(u16::from(zero_page.address()));
     }
 
     pub(crate) fn emit_ror_a(&mut self) {

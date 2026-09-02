@@ -576,8 +576,11 @@ Rules:
 - `Deref` lowering should materialize pointer values into an explicit address
   strategy, usually a zero-page pointer pair plus `Y` for indirect-indexed work.
 - `AdvanceAddress` accepts any nonzero byte scale representable by the MIR form.
-  Scale 1/2 retain their compact paths; larger aggregate strides stage the
-  index and add it to the address the required number of times.
+  Scale 1/2 retain their compact paths. Larger strides stage the index and use
+  a costed binary shift/add encoding when it improves both bytes and cycles,
+  with repeated word addition retained as a conservative fallback. The
+  calculation wraps at 16 bits before updating the prepared pointer, matching
+  MIR address arithmetic across page and `$FFFF` boundaries.
 
 ### Index-preserving indirect-Y consumers
 

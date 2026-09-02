@@ -773,6 +773,11 @@ impl Emitter {
         self.emit_u8(opcode::ASL_A);
     }
 
+    pub fn emit_asl_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emit_u8(opcode::ASL_ZP);
+        self.emit_u8(zero_page.address());
+    }
+
     pub fn emit_asl_absolute(&mut self, absolute: Absolute) {
         self.emit_u8(opcode::ASL_ABS);
         self.emit_absolute_operand(absolute);
@@ -789,6 +794,11 @@ impl Emitter {
 
     pub fn emit_rol_a(&mut self) {
         self.emit_u8(opcode::ROL_A);
+    }
+
+    pub fn emit_rol_zero_page(&mut self, zero_page: ZeroPage) {
+        self.emit_u8(opcode::ROL_ZP);
+        self.emit_u8(zero_page.address());
     }
 
     pub fn emit_rol_absolute(&mut self, absolute: Absolute) {
@@ -2211,11 +2221,13 @@ pub(super) fn le_u16(bytes: &[u8]) -> u16 {
 
 pub mod opcode {
     pub const ASL_A: u8 = 0x0A;
+    pub const ASL_ZP: u8 = 0x06;
     pub const ASL_ABS: u8 = 0x0E;
     pub const PHP: u8 = 0x08;
     pub const CLC: u8 = 0x18;
     pub const CLD: u8 = 0xD8;
     pub const ROL_A: u8 = 0x2A;
+    pub const ROL_ZP: u8 = 0x26;
     pub const ROL_ABS: u8 = 0x2E;
     pub const PLP: u8 = 0x28;
     pub const PHA: u8 = 0x48;

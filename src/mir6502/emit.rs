@@ -4304,20 +4304,23 @@ fn emit_scaled_index_advance_pointer(
         if !emit_scaled_index_to_scratch(ctx, routine, block, index, 1, emitter) {
             return false;
         }
-        for _ in 0..scale {
-            emitter.emit_clc();
-            emit_lda_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
-            emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_LO));
-            emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
-            emit_lda_mem(
-                ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
-                emitter,
-            );
-            emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_HI));
-            emit_sta_mem(
-                ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
-                emitter,
-            );
+        let plan = constant_scale_plan(scale);
+        if !constant_scale_plan_is_profitable(scale, &plan) {
+            for _ in 0..scale {
+                emit_index_scratch_add_to_pointer(pointer_slot, emitter);
+            }
+            return true;
+        }
+        for step in plan {
+            match step {
+                ConstantScaleStep::Shift => {
+                    emitter.emit_asl_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_LO));
+                    emitter.emit_rol_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_HI));
+                }
+                ConstantScaleStep::Add => {
+                    emit_index_scratch_add_to_pointer(pointer_slot, emitter);
+                }
+            }
         }
         return true;
     }
@@ -4349,6 +4352,62 @@ fn emit_scaled_index_advance_pointer(
         emitter,
     );
     true
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConstantScaleStep {
+    Shift,
+    Add,
+}
+
+const WORD_POINTER_ADD_BYTES: usize = 13;
+const WORD_SCRATCH_SHIFT_BYTES: usize = 4;
+const WORD_POINTER_ADD_CYCLES: usize = 20;
+const WORD_SCRATCH_SHIFT_CYCLES: usize = 10;
+
+fn constant_scale_plan(scale: u8) -> Vec<ConstantScaleStep> {
+    debug_assert!(scale > 2);
+    let mut remaining = scale;
+    let mut plan = Vec::new();
+    loop {
+        if remaining & 1 != 0 {
+            plan.push(ConstantScaleStep::Add);
+        }
+        remaining >>= 1;
+        if remaining == 0 {
+            break;
+        }
+        plan.push(ConstantScaleStep::Shift);
+    }
+    plan
+}
+
+fn constant_scale_plan_is_profitable(scale: u8, plan: &[ConstantScaleStep]) -> bool {
+    let (plan_bytes, plan_cycles) = plan.iter().fold((0usize, 0usize), |cost, step| {
+        let step_cost = match step {
+            ConstantScaleStep::Shift => (WORD_SCRATCH_SHIFT_BYTES, WORD_SCRATCH_SHIFT_CYCLES),
+            ConstantScaleStep::Add => (WORD_POINTER_ADD_BYTES, WORD_POINTER_ADD_CYCLES),
+        };
+        (cost.0 + step_cost.0, cost.1 + step_cost.1)
+    });
+    plan_bytes < usize::from(scale) * WORD_POINTER_ADD_BYTES
+        && plan_cycles < usize::from(scale) * WORD_POINTER_ADD_CYCLES
+}
+
+fn emit_index_scratch_add_to_pointer(pointer_slot: u8, emitter: &mut TrackedEmitter) {
+    emitter.emit_clc();
+    emit_lda_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+    emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_LO));
+    emit_sta_mem(ResolvedMem::ZeroPage(pointer_slot), emitter);
+    emit_lda_mem(
+        ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+        emitter,
+    );
+    emitter.emit_adc_zero_page(ZeroPage::new(ADDRESS_INDEX_SCRATCH_HI));
+    emit_sta_mem(
+        ResolvedMem::ZeroPage(pointer_slot.saturating_add(1)),
+        emitter,
+    );
 }
 
 fn can_emit_value_to_a(ctx: &MirEmitContext<'_>, routine: RoutineId, value: &MirValue) -> bool {
@@ -6305,5 +6364,52 @@ mod tests {
                 0xAA,
             ]
         );
+    }
+
+    #[test]
+    fn scale_twelve_uses_two_adds_and_three_shifts() {
+        let plan = constant_scale_plan(12);
+        assert_eq!(
+            plan,
+            [
+                ConstantScaleStep::Shift,
+                ConstantScaleStep::Shift,
+                ConstantScaleStep::Add,
+                ConstantScaleStep::Shift,
+                ConstantScaleStep::Add,
+            ]
+        );
+        assert!(constant_scale_plan_is_profitable(12, &plan));
+    }
+
+    #[test]
+    fn constant_scale_plans_match_wrapping_word_multiplication() {
+        for scale in [3u8, 4, 5, 7, 12, 16, 31, 64, 127, 255] {
+            let plan = constant_scale_plan(scale);
+            assert!(constant_scale_plan_is_profitable(scale, &plan));
+            for index in 0..=u16::MAX {
+                let mut shifted = index;
+                let mut result = 0u16;
+                for step in &plan {
+                    match step {
+                        ConstantScaleStep::Shift => shifted = shifted.wrapping_shl(1),
+                        ConstantScaleStep::Add => result = result.wrapping_add(shifted),
+                    }
+                }
+                let expected = index.wrapping_mul(u16::from(scale));
+                assert_eq!(result, expected);
+                for base in [0u16, 0x00ff, 0xff00, 0xffff] {
+                    assert_eq!(base.wrapping_add(result), base.wrapping_add(expected));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unprofitable_constant_scale_plan_keeps_the_fallback_available() {
+        assert!(!constant_scale_plan_is_profitable(
+            3,
+            &[ConstantScaleStep::Shift; 10]
+        ));
     }
 }
