@@ -814,6 +814,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::IndirectWordCompound { .. })
         | Some(MirOp::RuntimeHelper { .. }) => true,
         Some(MirOp::Load { .. })
+        | Some(MirOp::CopyBytes { .. })
         | Some(MirOp::LoadImm { .. })
         | Some(MirOp::Move { .. })
         | Some(MirOp::LeaAddr { .. })
@@ -953,6 +954,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::CompareIndirectWords { .. }
         | MirOp::PackedRealCompare { .. }
         | MirOp::PackedRealCopy { .. }
+        | MirOp::CopyBytes { .. }
         | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::MaterializeAddress { .. }
@@ -2262,6 +2264,14 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
             remap_addr_spills(dst, remap);
             remap_value_spills(src, remap);
         }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            remap_addr_spills(source, remap);
+            remap_addr_spills(destination, remap);
+        }
         MirOp::PackedRealCopy {
             source,
             destination,
@@ -2404,6 +2414,14 @@ fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &BTreeMap<MirSpillId, Mir
         MirOp::Store { dst, src, .. } => {
             remap_addr_spills_to_zero_page(dst, remap);
             remap_value_spills_to_zero_page(src, remap);
+        }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            remap_addr_spills_to_zero_page(source, remap);
+            remap_addr_spills_to_zero_page(destination, remap);
         }
         MirOp::PackedRealCopy {
             source,
@@ -2556,6 +2574,14 @@ where
             visit_addr_mems(dst, visitor);
             visit_value_mems(src, visitor);
         }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_mems(source, visitor);
+            visit_addr_mems(destination, visitor);
+        }
         MirOp::PackedRealCopy {
             source,
             destination,
@@ -2680,6 +2706,14 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         MirOp::Store { dst, src, .. } => {
             collect_addr_spills(dst, spills);
             collect_value_spills(src, spills);
+        }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            collect_addr_spills(source, spills);
+            collect_addr_spills(destination, spills);
         }
         MirOp::PackedRealCopy {
             source,

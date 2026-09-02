@@ -681,6 +681,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::Binary { .. } => "binary",
         MirOp::BinaryDirectIndexedByte { .. } => "binary-direct-indexed-byte",
         MirOp::Store { .. } => "store",
+        MirOp::CopyBytes { .. } => "copy-bytes",
         MirOp::Compare { .. } => "compare",
         MirOp::CompareDirectIndexedBytes { .. } => "compare-direct-indexed-bytes",
         MirOp::CompareIndirectBytes { .. } => "compare-indirect-bytes",
@@ -1422,6 +1423,14 @@ fn record_op_uses(
 ) {
     match op {
         MirOp::Load { src, .. } => record_addr_uses(src, block, op_index, widths, facts),
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            record_addr_uses(source, block, op_index, widths, facts);
+            record_addr_uses(destination, block, op_index, widths, facts);
+        }
         MirOp::PackedRealCopy {
             source,
             destination,

@@ -92,6 +92,7 @@ pub(in crate::mir6502) enum MirOpKind {
     LoadImm,
     Load,
     Store,
+    CopyBytes,
     Move,
     LeaAddr,
     Extend,
@@ -322,6 +323,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::LoadImm { .. } => MirOpKind::LoadImm,
         MirOp::Load { .. } => MirOpKind::Load,
         MirOp::Store { .. } => MirOpKind::Store,
+        MirOp::CopyBytes { .. } => MirOpKind::CopyBytes,
         MirOp::Move { .. } => MirOpKind::Move,
         MirOp::LeaAddr { .. } => MirOpKind::LeaAddr,
         MirOp::Extend { .. } => MirOpKind::Extend,
@@ -374,6 +376,15 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         } => {
             record_store_addr(dst, *width, &mut summary);
             record_value(src, &mut summary);
+        }
+        MirOp::CopyBytes {
+            destination,
+            source,
+            size,
+            ..
+        } => {
+            record_aggregate_copy_read(source, *size, &mut summary);
+            record_aggregate_copy_write(destination, *size, &mut summary);
         }
         MirOp::Move { dst, src, width }
         | MirOp::Unary {
@@ -1153,6 +1164,26 @@ fn record_packed_real_read(addr: &MirAddr, base_offset: u16, summary: &mut MirOp
             summary.memory.indirect_reads = true;
         }
         _ => record_load_addr(addr, MirWidth::Byte, summary),
+    }
+}
+
+fn record_aggregate_copy_read(addr: &MirAddr, size: u16, summary: &mut MirOpEffectSummary) {
+    if let MirAddr::Direct(mem) = addr {
+        for offset in 0..size {
+            record_memory_read(&offset_mem(mem, offset), summary);
+        }
+    } else {
+        record_load_addr(addr, MirWidth::Byte, summary);
+    }
+}
+
+fn record_aggregate_copy_write(addr: &MirAddr, size: u16, summary: &mut MirOpEffectSummary) {
+    if let MirAddr::Direct(mem) = addr {
+        for offset in 0..size {
+            record_definite_memory_write(&offset_mem(mem, offset), summary);
+        }
+    } else {
+        record_store_addr(addr, MirWidth::Byte, summary);
     }
 }
 

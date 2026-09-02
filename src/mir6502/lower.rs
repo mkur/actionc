@@ -1446,36 +1446,13 @@ fn lower_ops(
                 else {
                     continue;
                 };
-
-                if *source_volatile {
-                    lowered.push(volatile_memory_barrier());
-                }
-                let mut staged = Vec::with_capacity(usize::from(*size));
-                for offset in 0..*size {
-                    let byte = generated_temp(next_generated_temp, generated_temps);
-                    lowered.push(MirOp::Load {
-                        dst: MirDef::VTemp(byte),
-                        src: offset_addr(&source, offset),
-                        width: MirWidth::Byte,
-                    });
-                    staged.push(byte);
-                }
-                if *source_volatile {
-                    lowered.push(volatile_memory_barrier());
-                }
-                if *destination_volatile {
-                    lowered.push(volatile_memory_barrier());
-                }
-                for (offset, byte) in staged.into_iter().enumerate() {
-                    lowered.push(MirOp::Store {
-                        dst: offset_addr(&destination, offset as u16),
-                        src: MirValue::Def(MirDef::VTemp(byte)),
-                        width: MirWidth::Byte,
-                    });
-                }
-                if *destination_volatile {
-                    lowered.push(volatile_memory_barrier());
-                }
+                lowered.push(MirOp::CopyBytes {
+                    destination,
+                    source,
+                    size: *size,
+                    destination_volatile: *destination_volatile,
+                    source_volatile: *source_volatile,
+                });
             }
             NirOpKind::Cast {
                 dest,
@@ -4054,7 +4031,7 @@ mod tests {
     }
 
     #[test]
-    fn lowers_record_copy_through_staged_byte_temporaries() {
+    fn retains_record_copy_until_target_selection() {
         let nir = lower_modern_source(
             "TYPE Pair=[BYTE tag CARD word] Pair ARRAY table(2) Pair current PROC Main() current=table(1) RETURN",
         );
@@ -4062,28 +4039,27 @@ mod tests {
 
         let mir = lower_program(&nir).expect("record copy lowers to MIR");
         crate::mir6502::verify_program(&mir, crate::mir6502::MirPhase::PreMaterialization)
-            .expect("staged record-copy MIR verifies");
+            .expect("aggregate record-copy MIR verifies");
 
         let ops = &mir.routines[0].blocks[0].ops;
-        let memory_ops = ops
+        let copies = ops
             .iter()
-            .filter(|op| matches!(op, MirOp::Load { .. } | MirOp::Store { .. }))
+            .filter(|op| matches!(op, MirOp::CopyBytes { .. }))
             .collect::<Vec<_>>();
-        assert_eq!(memory_ops.len(), 6);
-        assert!(memory_ops[..3].iter().all(|op| matches!(
-            op,
-            MirOp::Load {
-                width: MirWidth::Byte,
+        assert_eq!(copies.len(), 1);
+        assert!(matches!(
+            copies[0],
+            MirOp::CopyBytes {
+                size: 3,
+                destination_volatile: false,
+                source_volatile: false,
                 ..
             }
-        )));
-        assert!(memory_ops[3..].iter().all(|op| matches!(
-            op,
-            MirOp::Store {
-                width: MirWidth::Byte,
-                ..
-            }
-        )));
+        ));
+        assert!(
+            !ops.iter()
+                .any(|op| matches!(op, MirOp::Load { .. } | MirOp::Store { .. }))
+        );
     }
 
     #[test]

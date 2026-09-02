@@ -726,6 +726,7 @@ fn update_fixed_zero_page_values(
             remove_fixed_zero_page_slot(state, mem);
         }
         MirOp::Store { .. }
+        | MirOp::CopyBytes { .. }
         | MirOp::UpdateIndexedMem { .. }
         | MirOp::StoreIndirect { .. }
         | MirOp::CopyIndirectWord { .. }

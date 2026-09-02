@@ -351,6 +351,28 @@ fn op_summary(op: &MirOp) -> String {
                 value_summary(src)
             )
         }
+        MirOp::CopyBytes {
+            destination,
+            source,
+            size,
+            destination_volatile,
+            source_volatile,
+        } => format!(
+            "copy_bytes {} = {} size={}{}{}",
+            addr_summary(destination),
+            addr_summary(source),
+            size,
+            if *destination_volatile {
+                " destination_volatile"
+            } else {
+                ""
+            },
+            if *source_volatile {
+                " source_volatile"
+            } else {
+                ""
+            }
+        ),
         MirOp::MaterializeAddress { consumer, value } => {
             format!(
                 "materialize {} <- {}",

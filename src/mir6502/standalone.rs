@@ -356,6 +356,14 @@ fn visit_op_storage(
             visit_addr_storage(dst, globals, statics);
             visit_value_storage(src, globals, statics);
         }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_storage(source, globals, statics);
+            visit_addr_storage(destination, globals, statics);
+        }
         MirOp::PackedRealCopy {
             source,
             destination,
@@ -603,6 +611,14 @@ fn rebase_op(
         MirOp::Store { dst, src, .. } => {
             rebase_addr(dst, routines, globals, statics)?;
             rebase_value(src, routines, globals, statics)?;
+        }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            rebase_addr(source, routines, globals, statics)?;
+            rebase_addr(destination, routines, globals, statics)?;
         }
         MirOp::PackedRealCopy {
             source,
@@ -1557,6 +1573,14 @@ fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
         MirOp::Store { dst, src, .. } => {
             visit_addr_routines(dst, routines);
             visit_value_routines(src, routines);
+        }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            visit_addr_routines(source, routines);
+            visit_addr_routines(destination, routines);
         }
         MirOp::PackedRealCopy {
             source,

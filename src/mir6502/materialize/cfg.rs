@@ -1318,6 +1318,11 @@ fn operation_takes_induction_address(
     match op {
         MirOp::Load { src, .. } => addr(src),
         MirOp::Store { dst, src, .. } => addr(dst) || value(src),
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => addr(source) || addr(destination),
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }

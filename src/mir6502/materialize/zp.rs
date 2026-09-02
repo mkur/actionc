@@ -59,6 +59,11 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
     routine.blocks.iter().any(|block| {
         block.ops.iter().any(|op| match op {
             MirOp::Load { src, .. } | MirOp::Store { dst: src, .. } => addr_contains_deref(src),
+            MirOp::CopyBytes {
+                source,
+                destination,
+                ..
+            } => addr_contains_deref(source) || addr_contains_deref(destination),
             MirOp::PackedRealCopy {
                 source,
                 destination,

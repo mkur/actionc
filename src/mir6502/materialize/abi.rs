@@ -571,6 +571,11 @@ fn op_references_param_storage(op: &MirOp) -> bool {
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => false,
         MirOp::Load { src, .. } => addr_references_param_storage(src),
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => addr_references_param_storage(source) || addr_references_param_storage(destination),
         MirOp::PackedRealCopy {
             source,
             destination,

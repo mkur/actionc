@@ -267,6 +267,9 @@ impl SsaLiteValueEnv {
             MirOp::Store { .. } => {
                 self.kill_memory_dependencies();
             }
+            MirOp::CopyBytes { .. } => {
+                self.kill_memory_dependencies();
+            }
             MirOp::UpdateMem { mem, width, .. } => {
                 self.kill_mem(mem);
                 self.kill_value(&SsaLiteValueKey::DirectMem(mem.clone()));
@@ -561,6 +564,9 @@ impl SsaLiteV2ObserveEnv {
                 self.kill_def(&MirDef::Reg(MirReg::A), SsaLiteV2KillReason::Unknown);
             }
             MirOp::Store { .. } => {
+                self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
+            }
+            MirOp::CopyBytes { .. } => {
                 self.kill_memory_dependencies(SsaLiteV2KillReason::Unknown);
             }
             MirOp::AddByteToWordMem { mem, .. } | MirOp::SubByteFromWordMem { mem, .. } => {
@@ -1269,6 +1275,15 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
             values.extend(addr_values(destination));
             values
         }
+        MirOp::CopyBytes {
+            source,
+            destination,
+            ..
+        } => {
+            let mut values = addr_values(source);
+            values.extend(addr_values(destination));
+            values
+        }
         MirOp::Move { src, .. }
         | MirOp::Extend { src, .. }
         | MirOp::Truncate { src, .. }
@@ -1935,6 +1950,14 @@ impl LiveTempByteLanes {
     fn observe_op_uses(&mut self, op: &MirOp) {
         match op {
             MirOp::Load { src, .. } => self.observe_addr(src),
+            MirOp::CopyBytes {
+                source,
+                destination,
+                ..
+            } => {
+                self.observe_addr(source);
+                self.observe_addr(destination);
+            }
             MirOp::Store {
                 dst, src, width, ..
             } => {

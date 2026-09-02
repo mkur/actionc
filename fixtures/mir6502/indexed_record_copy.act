@@ -1,0 +1,12 @@
+; Keep an indexed aggregate assignment intact until MIR6502 selects its copy
+; strategy. The twelve-byte extent also covers non-power-of-two address scale.
+
+TYPE Effect=[BYTE a,b,c,d,e,f,g,h CARD lo,hi]
+
+Effect ARRAY table(4)
+Effect current
+BYTE index
+
+PROC Main()
+  current=table(index)
+RETURN

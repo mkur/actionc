@@ -3862,6 +3862,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
             "binary-store-forward-word-temp-producer-load-indirect",
         ),
         MirOp::Store { .. }
+        | MirOp::CopyBytes { .. }
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }

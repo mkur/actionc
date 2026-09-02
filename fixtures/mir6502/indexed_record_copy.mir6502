@@ -1,0 +1,12 @@
+mir6502 program
+global g0 Effect: byte storage global+0 size=0
+global g1 table: array ArrayType { element: ValueType { base: Named("Effect"), pointer: false }, length: Some(4) } length=4 storage=Array origin=global storage global+0 size=48 init zero_fill=48 section=global mutable=true
+global g2 current: Effect storage global+48 size=12
+global g3 index: byte storage global+60
+
+routine r0 Main
+b0 bb0:
+  v0 =.w lea global g1+0
+  v1 =.b load global g3+0
+  copy_bytes global g2+0 = computed global_addr g1[v1;12]+0 size=12
+  return

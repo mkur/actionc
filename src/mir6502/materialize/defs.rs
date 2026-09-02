@@ -20,6 +20,7 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::LoadIndirect { dst, .. } => Some(dst),
         MirOp::Call { result, .. } => result.as_ref().map(|result| &result.dst),
         MirOp::Store { .. }
+        | MirOp::CopyBytes { .. }
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }
         | MirOp::UpdateIndexedMem { .. }

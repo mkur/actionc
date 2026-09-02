@@ -1300,6 +1300,13 @@ pub(super) fn materialize_program(
     }
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
+        let aggregate_copies = expand_aggregate_copy_fallbacks(routine);
+        peephole_stats.record_many(routine.id, "aggregate-copy-retained", aggregate_copies);
+        peephole_stats.record_many(
+            routine.id,
+            "aggregate-copy-scalar-fallback",
+            aggregate_copies,
+        );
         run_cfg_group(routine, &layout)?;
         strength_reduce_constant_multiplications(routine, &layout, &mut peephole_stats);
         run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
@@ -1501,6 +1508,128 @@ pub(super) fn materialize_program(
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
     maybe_report_peepholes(&program, &peephole_stats, config);
     Ok(program)
+}
+
+fn expand_aggregate_copy_fallbacks(routine: &mut super::ir::MirRoutine) -> usize {
+    let mut fresh = FreshTemps::new(&routine.temps);
+    let (temps, blocks) = (&mut routine.temps, &mut routine.blocks);
+    let mut expanded = 0usize;
+
+    for block in blocks {
+        let mut out = Vec::with_capacity(block.ops.len());
+        for op in std::mem::take(&mut block.ops) {
+            let MirOp::CopyBytes {
+                destination,
+                source,
+                size,
+                destination_volatile,
+                source_volatile,
+            } = op
+            else {
+                out.push(op);
+                continue;
+            };
+
+            if source_volatile {
+                out.push(aggregate_copy_volatile_barrier());
+            }
+            let mut staged = Vec::with_capacity(usize::from(size));
+            for offset in 0..size {
+                let byte = fresh.fresh(temps);
+                out.push(MirOp::Load {
+                    dst: MirDef::VTemp(byte),
+                    src: offset_aggregate_addr(&source, offset),
+                    width: MirWidth::Byte,
+                });
+                staged.push(byte);
+            }
+            if source_volatile {
+                out.push(aggregate_copy_volatile_barrier());
+            }
+            if destination_volatile {
+                out.push(aggregate_copy_volatile_barrier());
+            }
+            for (offset, byte) in staged.into_iter().enumerate() {
+                out.push(MirOp::Store {
+                    dst: offset_aggregate_addr(&destination, offset as u16),
+                    src: MirValue::Def(MirDef::VTemp(byte)),
+                    width: MirWidth::Byte,
+                });
+            }
+            if destination_volatile {
+                out.push(aggregate_copy_volatile_barrier());
+            }
+            expanded += 1;
+        }
+        block.ops = out;
+    }
+
+    expanded
+}
+
+fn aggregate_copy_volatile_barrier() -> MirOp {
+    MirOp::Barrier {
+        effects: MirEffects {
+            memory_reads: MirMemoryEffect::All,
+            memory_writes: MirMemoryEffect::All,
+            opaque: true,
+            ..MirEffects::default()
+        },
+    }
+}
+
+fn offset_aggregate_addr(addr: &MirAddr, offset: u16) -> MirAddr {
+    match addr {
+        MirAddr::Direct(mem) => MirAddr::Direct(offset_mem(mem, offset)),
+        MirAddr::AbsoluteIndexedX { base } => MirAddr::AbsoluteIndexedX {
+            base: offset_mem(base, offset),
+        },
+        MirAddr::AbsoluteIndexedY { base } => MirAddr::AbsoluteIndexedY {
+            base: offset_mem(base, offset),
+        },
+        MirAddr::ComputedIndex {
+            base,
+            index,
+            elem_size,
+            offset: base_offset,
+        } => MirAddr::ComputedIndex {
+            base: base.clone(),
+            index: index.clone(),
+            elem_size: *elem_size,
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::PointerCell {
+            ptr,
+            offset: base_offset,
+        } => MirAddr::PointerCell {
+            ptr: ptr.clone(),
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::PointerIndex {
+            ptr,
+            index,
+            elem_size,
+            offset: base_offset,
+        } => MirAddr::PointerIndex {
+            ptr: ptr.clone(),
+            index: index.clone(),
+            elem_size: *elem_size,
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::Deref {
+            ptr,
+            offset: base_offset,
+        } => MirAddr::Deref {
+            ptr: ptr.clone(),
+            offset: base_offset.saturating_add(offset),
+        },
+        MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => {
+            unreachable!("pre-home aggregate copy has an unsupported indexed address")
+        }
+    }
 }
 
 fn strength_reduce_constant_multiplications(

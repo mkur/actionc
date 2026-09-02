@@ -919,6 +919,48 @@ impl MirVerifier {
                 self.verify_addr(routine, block, dst, static_ids, global_ids, routine_ids);
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
             }
+            MirOp::CopyBytes {
+                destination,
+                source,
+                size,
+                ..
+            } => {
+                self.verify_addr(
+                    routine,
+                    block,
+                    destination,
+                    static_ids,
+                    global_ids,
+                    routine_ids,
+                );
+                self.verify_addr(routine, block, source, static_ids, global_ids, routine_ids);
+                if *size == 0 {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "aggregate copy extent must be nonzero",
+                    ));
+                } else {
+                    for (role, addr) in [("source", source), ("destination", destination)] {
+                        if !aggregate_copy_extent_fits(addr, *size) {
+                            self.diagnostics.push(MirDiagnostic::block(
+                                &routine.name,
+                                block,
+                                format!(
+                                    "aggregate copy {role} offset plus extent exceeds 16-bit address space"
+                                ),
+                            ));
+                        }
+                    }
+                }
+                if !matches!(self.phase, MirPhase::PreMaterialization) {
+                    self.diagnostics.push(MirDiagnostic::block(
+                        &routine.name,
+                        block,
+                        "aggregate copy must be selected before materialized MIR",
+                    ));
+                }
+            }
             MirOp::PackedRealCopy {
                 source,
                 destination,
@@ -2662,6 +2704,31 @@ impl MirVerifier {
     }
 }
 
+fn aggregate_copy_extent_fits(addr: &MirAddr, size: u16) -> bool {
+    let offset = match addr {
+        MirAddr::Direct(mem) => match mem {
+            MirMem::Absolute(address) => *address,
+            MirMem::Static { offset, .. }
+            | MirMem::Global { offset, .. }
+            | MirMem::Local { offset, .. }
+            | MirMem::Param { offset, .. }
+            | MirMem::Spill { offset, .. } => *offset,
+            MirMem::ZeroPage(_) | MirMem::FixedZeroPage(_) => 0,
+        },
+        MirAddr::ComputedIndex { offset, .. }
+        | MirAddr::PointerCell { offset, .. }
+        | MirAddr::PointerIndex { offset, .. }
+        | MirAddr::Deref { offset, .. } => *offset,
+        MirAddr::Label(_)
+        | MirAddr::ZeroPageIndexedX { .. }
+        | MirAddr::AbsoluteIndexedX { .. }
+        | MirAddr::AbsoluteIndexedY { .. }
+        | MirAddr::IndirectIndexedY { .. }
+        | MirAddr::FixedIndirectIndexedY { .. } => 0,
+    };
+    offset.checked_add(size - 1).is_some()
+}
+
 fn storage_init_size(init: &MirStorageInit) -> u16 {
     match init {
         MirStorageInit::Bytes {
@@ -3275,6 +3342,83 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.message.contains("static storage `s99`"))
         );
+    }
+
+    #[test]
+    fn aggregate_copy_is_pre_materialization_only() {
+        let copy = MirOp::CopyBytes {
+            destination: MirAddr::Direct(MirMem::Absolute(0x3000)),
+            source: MirAddr::Direct(MirMem::Absolute(0x3100)),
+            size: 12,
+            destination_volatile: false,
+            source_volatile: false,
+        };
+        let program = program_with_routines(vec![routine(
+            RoutineId(0),
+            "Main",
+            vec![block_with_ops(
+                MirBlockId(0),
+                "bb0",
+                vec![copy],
+                MirTerminator::Return,
+            )],
+        )]);
+
+        verify_program(&program, MirPhase::PreMaterialization)
+            .expect("pre-materialization aggregate copy is valid");
+        for phase in [
+            MirPhase::PostMaterialization,
+            MirPhase::PostHome,
+            MirPhase::PreEmission,
+        ] {
+            let diagnostics = verify_program(&program, phase)
+                .expect_err("aggregate copy must not survive target selection");
+            assert!(diagnostics.iter().any(|diagnostic| {
+                diagnostic
+                    .message
+                    .contains("aggregate copy must be selected before materialized MIR")
+            }));
+        }
+    }
+
+    #[test]
+    fn aggregate_copy_rejects_zero_and_overflowing_extents() {
+        for (source, size, message) in [
+            (
+                MirAddr::Direct(MirMem::Absolute(0x3000)),
+                0,
+                "aggregate copy extent must be nonzero",
+            ),
+            (
+                MirAddr::Direct(MirMem::Absolute(0xffff)),
+                2,
+                "aggregate copy source offset plus extent exceeds 16-bit address space",
+            ),
+        ] {
+            let program = program_with_routines(vec![routine(
+                RoutineId(0),
+                "Main",
+                vec![block_with_ops(
+                    MirBlockId(0),
+                    "bb0",
+                    vec![MirOp::CopyBytes {
+                        destination: MirAddr::Direct(MirMem::Absolute(0x3200)),
+                        source,
+                        size,
+                        destination_volatile: false,
+                        source_volatile: false,
+                    }],
+                    MirTerminator::Return,
+                )],
+            )]);
+            let diagnostics = verify_program(&program, MirPhase::PreMaterialization)
+                .expect_err("invalid aggregate extent rejected");
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains(message))
+            );
+        }
     }
 
     #[test]

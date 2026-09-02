@@ -394,6 +394,19 @@ pub enum MirOp {
         src: MirValue,
         width: MirWidth,
     },
+    /// Copy a complete aggregate value between two lowered addresses.
+    ///
+    /// This operation is valid only before MIR6502 target-copy selection.
+    /// Both effective addresses are evaluated once, every source byte is read
+    /// before the first destination write, and arbitrary overlap therefore has
+    /// value-copy semantics.
+    CopyBytes {
+        destination: MirAddr,
+        source: MirAddr,
+        size: u16,
+        destination_volatile: bool,
+        source_volatile: bool,
+    },
     Move {
         dst: MirDef,
         src: MirValue,
