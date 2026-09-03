@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::nir::{NirCallEffects, NirCallableSignature, NirCallee};
+use crate::nir::{
+    NirCallEffects, NirCallableSignature, NirCallee, NirRuntimeTarget, RuntimeSymbolId,
+};
 
 use super::abi::{
     action_arg_home, action_arg_width_bytes, action_call_clobbers, mir_memory_effect,
@@ -31,6 +33,7 @@ pub(super) fn plan_call(
     effects: &NirCallEffects,
     _routine_ids: &BTreeMap<&str, RoutineId>,
     routine_system_addresses: &BTreeMap<u32, u16>,
+    runtime_targets: &BTreeMap<RuntimeSymbolId, NirRuntimeTarget>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallPlan> {
     let target = lower_call_target(
@@ -39,6 +42,7 @@ pub(super) fn plan_call(
         callee,
         indirect_target,
         routine_system_addresses,
+        runtime_targets,
         diagnostics,
     )?;
     if signature.variadic.is_none() && args.len() > signature.params.len() {
@@ -110,6 +114,7 @@ fn lower_call_target(
     callee: &NirCallee,
     indirect_target: Option<(MirValue, MirWidth)>,
     routine_system_addresses: &BTreeMap<u32, u16>,
+    runtime_targets: &BTreeMap<RuntimeSymbolId, NirRuntimeTarget>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallTarget> {
     match callee {
@@ -122,13 +127,22 @@ fn lower_call_target(
             }
             Some(MirCallTarget::Routine(RoutineId(*id)))
         }
-        NirCallee::Runtime { name, address } => Some(MirCallTarget::Runtime {
-            name: name.clone(),
-            address: address.map(|address| {
-                u16::try_from(address.value)
-                    .expect("verified Atari NIR code address fits in 16 bits")
+        NirCallee::Runtime { symbol, name } => match runtime_targets.get(symbol) {
+            Some(NirRuntimeTarget::Absolute(address)) => Some(MirCallTarget::Runtime {
+                name: name.clone(),
+                address: Some(
+                    u16::try_from(address.value)
+                        .expect("verified Atari NIR code address fits in 16 bits"),
+                ),
             }),
-        }),
+            Some(NirRuntimeTarget::Routine(id)) => {
+                Some(MirCallTarget::Routine(RoutineId(*id)))
+            }
+            None => Some(MirCallTarget::Runtime {
+                name: name.clone(),
+                address: None,
+            }),
+        },
         NirCallee::Builtin(name) => Some(MirCallTarget::Builtin {
             name: name.clone(),
             address: None,
@@ -154,7 +168,7 @@ fn mir_call_effects(effects: &NirCallEffects) -> MirEffects {
         clobbers: action_call_clobbers(),
         preserves: MirRegisterSet::default(),
         stack_depth_delta: None,
-        may_call_os: effects.may_call_os,
+        may_call_os: effects.may_call_external,
         opaque: effects.opaque,
     }
 }
@@ -227,7 +241,7 @@ mod tests {
                 reads: NirMemoryAccess::Unknown,
                 writes: NirMemoryAccess::Unknown,
             },
-            may_call_os: true,
+            may_call_external: true,
             opaque: true,
         }
     }
@@ -246,8 +260,8 @@ mod tests {
         let cases = [
             (
                 NirCallee::Runtime {
+                    symbol: crate::nir::runtime_symbol_id("External"),
                     name: "External".to_string(),
-                    address: Some(crate::nir::AddressValue::code(0xE456)),
                 },
                 None,
             ),
@@ -268,6 +282,10 @@ mod tests {
                 (MirValue::ConstU8(4), MirWidth::Byte),
             ];
             let mut diagnostics = Vec::new();
+            let runtime_targets = BTreeMap::from([(
+                crate::nir::runtime_symbol_id("External"),
+                NirRuntimeTarget::Absolute(crate::nir::AddressValue::code(0xE456)),
+            )]);
             let plan = plan_call(
                 "Main",
                 "entry",
@@ -279,6 +297,7 @@ mod tests {
                 &opaque_effects(),
                 &BTreeMap::new(),
                 &BTreeMap::new(),
+                &runtime_targets,
                 &mut diagnostics,
             )
             .expect("external Action call plan");

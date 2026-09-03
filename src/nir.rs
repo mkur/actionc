@@ -22,7 +22,7 @@ pub use analysis::storage::{
 };
 pub use facts::{
     BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SignatureId,
-    SymbolId, TempId, direct_storage_id,
+    RuntimeSymbolId, SymbolId, TempId, direct_storage_id, runtime_symbol_id,
 };
 pub use ir::{
     NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallEffects, NirCallResult,
@@ -33,8 +33,9 @@ pub use ir::{
     NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects,
     NirMachineItem, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp,
     NirParam, NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine,
-    NirRoutineNote, NirRoutineNoteKind, NirRuntimeHelperTarget, NirStaticData, NirStorageBacking,
-    NirLinkValue, NirStorageClass, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
+    NirRoutineNote, NirRoutineNoteKind, NirRuntimeBinding, NirRuntimeTarget, NirStaticData,
+    NirStorageBacking, NirLinkValue, NirStorageClass, NirStorageInit, NirTemp, NirTempDef,
+    NirTerminator, NirUnaryOp,
 };
 pub use stats::{
     NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,

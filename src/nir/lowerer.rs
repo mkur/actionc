@@ -23,7 +23,7 @@ use crate::target::{AddressValue, ByteOffset, ByteSize, TargetLayout};
 use super::classifier::NirClassifier;
 use super::facts::{
     BlockId, LocalId, NirFacts, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SymbolId,
-    TempId, signature_id, type_summary,
+    TempId, runtime_symbol_id, signature_id, type_summary,
 };
 use super::ir::*;
 
@@ -54,7 +54,7 @@ impl NirLowerer {
         let mut globals = Vec::new();
         let mut statics = Vec::new();
         let mut routines = Vec::new();
-        let mut top_level_ops = Vec::new();
+        let mut runtime_bindings = Vec::new();
         let mut top_level = Vec::new();
 
         self.collect_global_ids(program);
@@ -102,8 +102,8 @@ impl NirLowerer {
                             continue;
                         }
                         self.apply_compatible_set(set);
-                        if let Some(op) = self.runtime_helper_override(set) {
-                            top_level_ops.push(op);
+                        if let Some(binding) = self.runtime_helper_binding(set) {
+                            record_runtime_binding(&mut runtime_bindings, binding);
                         }
                     }
                     crate::semantic::ir::SemItem::Declaration(declaration) => {
@@ -356,9 +356,13 @@ impl NirLowerer {
                         }
                         builder.stmt_list(&routine.body, self);
                         builder.finish_open_with(NirTerminator::Fallthrough);
-                        let (routine, routine_statics, next_static) = builder.finish();
+                        let (routine, routine_statics, routine_bindings, next_static) =
+                            builder.finish();
                         self.next_static = next_static;
                         statics.extend(routine_statics);
+                        for binding in routine_bindings {
+                            record_runtime_binding(&mut runtime_bindings, binding);
+                        }
                         routines.push(routine);
                     }
                     crate::semantic::ir::SemItem::Statement(stmt) => top_level.push(stmt.clone()),
@@ -372,7 +376,7 @@ impl NirLowerer {
             }
         }
 
-        if !top_level_ops.is_empty() || !top_level.is_empty() {
+        if !top_level.is_empty() {
             let mut builder = NirBuilder::new(
                 "<program>",
                 self.next_block_label(),
@@ -390,15 +394,20 @@ impl NirLowerer {
                 self.machine_define_names.clone(),
                 self.target_layout,
             );
-            for op in top_level_ops {
-                builder.push(op);
-            }
             builder.stmt_list(&top_level, self);
             builder.finish_open_with(NirTerminator::Fallthrough);
-            let (routine, routine_statics, next_static) = builder.finish();
+            let (routine, routine_statics, routine_bindings, next_static) = builder.finish();
             self.next_static = next_static;
             statics.extend(routine_statics);
+            for binding in routine_bindings {
+                record_runtime_binding(&mut runtime_bindings, binding);
+            }
             routines.insert(0, routine);
+            for binding in &mut runtime_bindings {
+                if let Some(NirRuntimeTarget::Routine(id)) = &mut binding.target {
+                    *id = id.saturating_add(1);
+                }
+            }
             for routine in &mut routines {
                 for local in &mut routine.locals {
                     if let Some(init) = &mut local.init {
@@ -408,10 +417,6 @@ impl NirLowerer {
                 for block in &mut routine.blocks {
                     for op in &mut block.ops {
                         match op {
-                            NirOp::RuntimeHelperOverride {
-                                target: NirRuntimeHelperTarget::Routine(id),
-                                ..
-                            } => *id = id.saturating_add(1),
                             NirOp::Call {
                                 callee: NirCallee::User { id, .. },
                                 ..
@@ -454,6 +459,7 @@ impl NirLowerer {
 
         let mut nir = NirProgram {
             target_layout: program.target_layout,
+            runtime_bindings,
             globals,
             statics,
             routines,
@@ -613,11 +619,9 @@ impl NirLowerer {
         }
     }
 
-    fn runtime_helper_override(&self, set: &SemSet) -> Option<NirOp> {
+    fn runtime_helper_binding(&self, set: &SemSet) -> Option<NirRuntimeBinding> {
         let slot = self.const_u16_expr(&set.address)?;
-        if !is_runtime_helper_slot(slot) {
-            return None;
-        }
+        let name = runtime_helper_name_from_slot(slot)?;
         let target = match &set.value.kind {
             SemExprKind::Symbol(symbol) | SemExprKind::AddressOfSymbol(symbol)
                 if matches!(
@@ -628,20 +632,21 @@ impl NirLowerer {
                         | SymbolClass::BuiltinFunc
                 ) =>
             {
-                NirRuntimeHelperTarget::Routine(
+                NirRuntimeTarget::Routine(
                     *self
                         .routine_ids
                         .get(&storage_key(&symbol.name))
                         .expect("resolved helper override must have a routine id"),
                 )
             }
-            _ => NirRuntimeHelperTarget::Absolute(AddressValue::code(u64::from(
+            _ => NirRuntimeTarget::Absolute(AddressValue::code(u64::from(
                 self.const_u16_expr(&set.value)?,
             ))),
         };
-        Some(NirOp::RuntimeHelperOverride {
-            slot: AddressValue::data(u64::from(slot)),
-            target,
+        Some(NirRuntimeBinding {
+            symbol: runtime_symbol_id(name),
+            name: name.to_string(),
+            target: Some(target),
         })
     }
 
@@ -900,8 +905,7 @@ fn apply_target_layout_to_op(op: &mut NirOp, layout: TargetLayout) {
                 }
             }
         }
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::MachineBlock { .. }
+        NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
     }
@@ -1180,6 +1184,7 @@ pub(super) struct NirBuilder {
     next_block: u32,
     next_temp: u32,
     statics: Vec<NirStaticData>,
+    runtime_bindings: Vec<NirRuntimeBinding>,
     next_static: u32,
 }
 
@@ -1235,11 +1240,12 @@ impl NirBuilder {
             next_block: 1,
             next_temp: 0,
             statics: Vec::new(),
+            runtime_bindings: Vec::new(),
             next_static,
         }
     }
 
-    fn finish(self) -> (NirRoutine, Vec<NirStaticData>, u32) {
+    fn finish(self) -> (NirRoutine, Vec<NirStaticData>, Vec<NirRuntimeBinding>, u32) {
         (
             NirRoutine {
                 name: self.name,
@@ -1250,6 +1256,7 @@ impl NirBuilder {
                 blocks: self.blocks,
             },
             self.statics,
+            self.runtime_bindings,
             self.next_static,
         )
     }
@@ -2742,10 +2749,23 @@ impl NirBuilder {
                 target: self.nir_value(target),
                 ty: NirFacts::type_from_value(&target.ty),
             },
-            SemCallable::Runtime { name, address, .. } => NirCallee::Runtime {
-                name: name.clone(),
-                address: address.map(|address| AddressValue::code(u64::from(address))),
-            },
+            SemCallable::Runtime { name, address, .. } => {
+                let symbol = runtime_symbol_id(name);
+                record_runtime_binding(
+                    &mut self.runtime_bindings,
+                    NirRuntimeBinding {
+                        symbol,
+                        name: name.clone(),
+                        target: address.map(|address| {
+                            NirRuntimeTarget::Absolute(AddressValue::code(u64::from(address)))
+                        }),
+                    },
+                );
+                NirCallee::Runtime {
+                    symbol,
+                    name: name.clone(),
+                }
+            }
         }
     }
 
@@ -2755,7 +2775,7 @@ impl NirBuilder {
                 reads: self.nir_read_effects(&effects.reads, effects.opaque),
                 writes: self.nir_write_effects(&effects.writes, effects.opaque),
             },
-            may_call_os: effects.may_call_os,
+            may_call_external: effects.may_call_os,
             opaque: effects.opaque,
         }
     }
@@ -2766,7 +2786,7 @@ impl NirBuilder {
                 reads: self.nir_read_effects(&effects.reads, effects.opaque),
                 writes: self.nir_write_effects(&effects.writes, effects.opaque),
             },
-            may_call_os: effects.may_call_os,
+            may_call_external: effects.may_call_os,
             opaque: true,
         }
     }
@@ -2874,7 +2894,7 @@ impl NirBuilder {
                     reads: NirMemoryAccess::Unknown,
                     writes: NirMemoryAccess::Unknown,
                 },
-                may_call_os: true,
+                may_call_external: true,
                 opaque: true,
             };
         }
@@ -2920,7 +2940,7 @@ impl NirBuilder {
                 reads: inline_asm_memory_access(reads, reads_unknown),
                 writes: inline_asm_memory_access(writes, writes_unknown),
             },
-            may_call_os: code
+            may_call_external: code
                 .relocations
                 .iter()
                 .any(|relocation| relocation.symbol_use == InlineAsmSymbolUse::Call),
@@ -2935,7 +2955,7 @@ impl NirBuilder {
         collect_memory_regions(effects.iter().map(|effect| match effect {
             SemReadEffect::Storage(storage) => self.nir_storage_region(storage),
             SemReadEffect::ZeroPage { start, end } => Some(inclusive_region(
-                NirMemoryRegionKind::ZeroPage,
+                NirMemoryRegionKind::AbsoluteRange(self.target_layout.data_pointer.address_space),
                 u16::from(*start),
                 u16::from(*end),
             )),
@@ -2956,7 +2976,7 @@ impl NirBuilder {
         collect_memory_regions(effects.iter().map(|effect| match effect {
             SemWriteEffect::Storage(storage) => self.nir_storage_region(storage),
             SemWriteEffect::ZeroPage { start, end } => Some(inclusive_region(
-                NirMemoryRegionKind::ZeroPage,
+                NirMemoryRegionKind::AbsoluteRange(self.target_layout.data_pointer.address_space),
                 u16::from(*start),
                 u16::from(*end),
             )),
@@ -2981,7 +3001,9 @@ impl NirBuilder {
                 size: ByteSize::from(size),
             }),
             SemAddressSpace::ZeroPage | SemAddressSpace::RuntimeZeroPage => Some(NirMemoryRegion {
-                kind: NirMemoryRegionKind::ZeroPage,
+                kind: NirMemoryRegionKind::AbsoluteRange(
+                    self.target_layout.data_pointer.address_space,
+                ),
                 offset: ByteOffset::from(storage.address?.checked_add(storage.offset)?),
                 size: ByteSize::from(size),
             }),
@@ -3460,8 +3482,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Store { .. }
+        NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
@@ -5061,8 +5082,29 @@ fn sanitize_static_owner(owner: &str) -> String {
     }
 }
 
-fn is_runtime_helper_slot(address: u16) -> bool {
-    matches!(address, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE)
+fn runtime_helper_name_from_slot(address: u16) -> Option<&'static str> {
+    Some(match address {
+        0x04E4 => "ACTION.RUNTIME.HELPER.LSH",
+        0x04E6 => "ACTION.RUNTIME.HELPER.RSH",
+        0x04E8 => "ACTION.RUNTIME.HELPER.MUL",
+        0x04EA => "ACTION.RUNTIME.HELPER.DIV",
+        0x04EC => "ACTION.RUNTIME.HELPER.MOD",
+        0x04EE => "ACTION.RUNTIME.HELPER.SARGS",
+        _ => return None,
+    })
+}
+
+fn record_runtime_binding(bindings: &mut Vec<NirRuntimeBinding>, binding: NirRuntimeBinding) {
+    if let Some(existing) = bindings
+        .iter_mut()
+        .find(|existing| existing.symbol == binding.symbol)
+    {
+        if existing.target.is_none() {
+            existing.target = binding.target;
+        }
+        return;
+    }
+    bindings.push(binding);
 }
 
 #[cfg(test)]

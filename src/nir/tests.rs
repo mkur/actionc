@@ -35,6 +35,40 @@ fn lower_modern_source_for_target(source: &str, target: crate::target::TargetId)
 }
 
 #[test]
+fn runtime_helper_sets_become_verified_program_bindings() {
+    let program = lower_modern_source(include_str!(
+        "../../fixtures/mir6502/runtime_helper_set_sargs.act"
+    ));
+    verify_program(&program).expect("runtime helper binding NIR should verify");
+
+    assert!(
+        program.routines.iter().all(|routine| routine.name != "<program>"),
+        "a metadata-only SET must not create an executable routine"
+    );
+    assert_eq!(program.runtime_bindings.len(), 1);
+    let binding = &program.runtime_bindings[0];
+    assert_eq!(binding.name, "ACTION.RUNTIME.HELPER.SARGS");
+    assert_eq!(binding.symbol, runtime_symbol_id(&binding.name));
+    assert_eq!(binding.target, Some(NirRuntimeTarget::Routine(0)));
+    assert_eq!(program.routines[0].name, "r_Par");
+}
+
+#[test]
+fn verifier_rejects_runtime_symbol_identity_mismatches() {
+    let mut program = lower_modern_source(include_str!(
+        "../../fixtures/mir6502/runtime_helper_set_sargs.act"
+    ));
+    program.runtime_bindings[0].symbol = RuntimeSymbolId(0);
+
+    let diagnostics = verify_program(&program).expect_err("mismatched runtime id must fail");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("runtime symbol `ACTION.RUNTIME.HELPER.SARGS` has a mismatched stable id")
+    }));
+}
+
+#[test]
 fn record_assignment_lowers_to_verified_copy_bytes() {
     let program = lower_modern_source(
         "TYPE Pair=[BYTE tag CARD word] Pair ARRAY table(2) Pair current PROC Main() current=table(1) RETURN",
@@ -854,6 +888,7 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
 fn formats_labeled_blocks() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: vec![NirGlobal {
             id: SymbolId(0),
             name: "counter".to_string(),
@@ -1489,6 +1524,7 @@ fn identical_direct_real_operands_share_one_static_across_routines() {
 fn verifier_accepts_valid_targets() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -1628,6 +1664,7 @@ fn optimizer_folds_uniform_typed_block_arguments_and_rebuilds_temp_definitions()
 fn verifier_rejects_open_block() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -1952,6 +1989,7 @@ fn data_relocation_targets_are_address_observable_storage_roots() {
 fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
     let mut program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: vec![NirGlobal {
             id: SymbolId(0),
             name: "data".to_string(),
@@ -2023,6 +2061,7 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
 fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents() {
     let mut program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: vec![NirGlobal {
             id: SymbolId(0),
             name: "data".to_string(),
@@ -2084,6 +2123,7 @@ fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents()
 fn verifier_keeps_large_nir_sizes_without_card_truncation() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::motorola_68000(),
+        runtime_bindings: Vec::new(),
         globals: vec![NirGlobal {
             id: SymbolId(0),
             name: "large_buffer".to_string(),
@@ -2116,6 +2156,7 @@ fn verifier_checks_absolute_extents_against_the_selected_target() {
     };
     let program_for = |target_layout, address| NirProgram {
         target_layout,
+        runtime_bindings: Vec::new(),
         globals: vec![absolute_global(address)],
         statics: Vec::new(),
         routines: Vec::new(),
@@ -2161,6 +2202,7 @@ fn verifier_checks_absolute_extents_against_the_selected_target() {
 fn verifier_requires_global_byte_initializers_to_match_their_storage_extent() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: vec![NirGlobal {
             id: SymbolId(0),
             name: "data".to_string(),
@@ -2593,6 +2635,7 @@ fn verifier_rejects_executable_error_type() {
     let error = error_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2643,6 +2686,7 @@ fn verifier_rejects_executable_error_type() {
 fn verifier_rejects_missing_branch_target() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2678,6 +2722,7 @@ fn verifier_rejects_missing_branch_target() {
 fn verifier_rejects_non_bool_branch_condition() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2728,6 +2773,7 @@ fn verifier_rejects_non_bool_branch_condition() {
 fn verifier_rejects_duplicate_block_labels() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2768,6 +2814,7 @@ fn verifier_rejects_duplicate_block_labels() {
 fn verifier_rejects_duplicate_block_ids() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2808,6 +2855,7 @@ fn verifier_rejects_duplicate_block_ids() {
 fn verifier_rejects_store_with_untyped_place() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2846,6 +2894,7 @@ fn verifier_rejects_store_with_untyped_place() {
 fn verifier_accepts_literal_that_fits_narrow_store() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2875,6 +2924,7 @@ fn verifier_accepts_literal_that_fits_narrow_store() {
 fn verifier_accepts_defined_temp_use() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2913,6 +2963,7 @@ fn verifier_accepts_defined_temp_use() {
 fn verifier_accepts_store_with_defined_temp_use() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2951,6 +3002,7 @@ fn verifier_accepts_store_with_defined_temp_use() {
 fn verifier_rejects_store_width_mismatch() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -2986,6 +3038,7 @@ fn verifier_rejects_store_width_mismatch() {
 fn verifier_rejects_undefined_temp_use() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3021,6 +3074,7 @@ fn verifier_rejects_undefined_temp_use() {
 fn verifier_accepts_temp_use_from_dominating_block() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3065,6 +3119,7 @@ fn verifier_accepts_temp_use_from_dominating_block() {
 fn verifier_rejects_temp_use_from_non_dominating_block() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3126,6 +3181,7 @@ fn verifier_rejects_temp_use_from_non_dominating_block() {
 fn verifier_rejects_missing_static_addr() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3161,6 +3217,7 @@ fn verifier_rejects_missing_static_addr() {
 fn verifier_rejects_duplicate_temp_definition() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3207,6 +3264,7 @@ fn verifier_rejects_duplicate_temp_definition() {
 fn optimizer_removes_unreachable_blocks() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3249,6 +3307,7 @@ fn optimizer_folds_constants_and_simplifies_branches() {
     };
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3342,6 +3401,7 @@ fn optimizer_threads_repeated_param_predicates_from_both_edges() {
 fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3436,6 +3496,7 @@ fn optimizer_keeps_pure_temp_used_in_successor_block() {
     let ty = byte_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3504,6 +3565,7 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
     let ty = byte_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3828,6 +3890,7 @@ fn optimizer_aliases_algebraic_identity_temps() {
     let ty = byte_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3926,6 +3989,7 @@ fn optimizer_aliases_word_all_ones_identity() {
     let ty = card_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -3974,6 +4038,7 @@ fn optimizer_cancels_local_constant_offsets() {
     let ty = card_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -4030,6 +4095,7 @@ fn optimizer_canonicalizes_local_constant_offset_chains() {
     let ty = card_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -4100,6 +4166,7 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
     let pointer = byte_pointer_type();
     let program = NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -4215,6 +4282,7 @@ fn verifier_rejects_missing_and_malformed_memory_effect_regions() {
 fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
     NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
@@ -4246,7 +4314,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
                             reads: NirMemoryAccess::None,
                             writes: NirMemoryAccess::Regions(vec![region]),
                         },
-                        may_call_os: false,
+                        may_call_external: false,
                         opaque: false,
                     },
                 }],
@@ -4315,6 +4383,7 @@ fn typed_block_argument_program() -> NirProgram {
     let pointer = byte_pointer_type();
     NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: vec![NirStaticData {
             id: SymbolId(0),
@@ -4406,6 +4475,7 @@ fn typed_block_argument_program() -> NirProgram {
 fn optimizer_program(temps: Vec<NirTemp>, blocks: Vec<NirBlock>) -> NirProgram {
     NirProgram {
         target_layout: crate::target::TargetLayout::atari_6502(),
+        runtime_bindings: Vec::new(),
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {

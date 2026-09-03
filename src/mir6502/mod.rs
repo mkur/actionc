@@ -1215,6 +1215,7 @@ mod tests {
     fn lowers_shell_program() {
         let nir = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -1255,6 +1256,7 @@ mod tests {
         };
         let nir = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -1375,12 +1377,13 @@ mod tests {
                         size: crate::target::ByteSize::ONE,
                     }]),
                 },
-                may_call_os: false,
+                may_call_external: false,
                 opaque: false,
             },
         });
         let nir = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: vec![crate::nir::NirGlobal {
                 id: SymbolId(0),
                 name: "g".to_string(),
@@ -1418,6 +1421,7 @@ mod tests {
     fn lowers_structured_machine_block_address_items() {
         let nir = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -1443,7 +1447,7 @@ mod tests {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,
                             },
-                            may_call_os: false,
+                            may_call_external: false,
                             opaque: true,
                         },
                     }],

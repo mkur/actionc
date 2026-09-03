@@ -400,8 +400,7 @@ fn analyze_routine_storage(
                         facts.calls_may_write = true;
                     }
                 }
-                NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Unary { .. }
+                NirOp::Unary { .. }
                 | NirOp::Cast { .. }
                 | NirOp::PointerOffset { .. }
                 | NirOp::Binary { .. }
@@ -680,8 +679,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
             visit(source);
         }
         NirOp::Real(real) => for_each_real_place(real, visit),
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Unary { .. }
+        NirOp::Unary { .. }
         | NirOp::Cast { .. }
         | NirOp::PointerOffset { .. }
         | NirOp::Binary { .. }
@@ -824,8 +822,7 @@ fn mark_read_before_definition(
                         }
                     }
                 }
-                NirOp::RuntimeHelperOverride { .. }
-                | NirOp::AddrOf { .. }
+                NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
                 | NirOp::PointerOffset { .. }
@@ -969,6 +966,7 @@ mod tests {
     fn program(routine: NirRoutine) -> NirProgram {
         NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![routine],
@@ -1201,7 +1199,7 @@ mod tests {
                             reads: NirMemoryAccess::Unknown,
                             writes: NirMemoryAccess::Unknown,
                         },
-                        may_call_os: false,
+                        may_call_external: false,
                         opaque: true,
                     },
                 }],
@@ -1248,7 +1246,7 @@ mod tests {
                                 size: ByteSize::ONE,
                             }]),
                         },
-                        may_call_os: false,
+                        may_call_external: false,
                         opaque: false,
                     },
                 }],

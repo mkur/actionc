@@ -191,8 +191,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 | NirOp::MachineBlock { .. }
                 | NirOp::InlineAsm { .. }
                 | NirOp::Unsupported { .. } => facts.kill_storage(None),
-                NirOp::RuntimeHelperOverride { .. }
-                | NirOp::Load { .. }
+                NirOp::Load { .. }
                 | NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
@@ -396,8 +395,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         | NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => true,
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Load { .. }
+        NirOp::Load { .. }
         | NirOp::AddrOf { .. }
         | NirOp::Unary { .. }
         | NirOp::Cast { .. }
@@ -531,6 +529,7 @@ mod tests {
     fn predicate_program(left_ops: Vec<NirOp>) -> NirProgram {
         NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -643,7 +642,7 @@ mod tests {
                     reads: NirMemoryAccess::Unknown,
                     writes: NirMemoryAccess::Unknown,
                 },
-                may_call_os: false,
+                may_call_external: false,
                 opaque: true,
             },
         };
@@ -683,7 +682,7 @@ mod tests {
                         reads: NirMemoryAccess::Unknown,
                         writes: NirMemoryAccess::Unknown,
                     },
-                    may_call_os: false,
+                    may_call_external: false,
                     opaque: true,
                 },
             },

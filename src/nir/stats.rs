@@ -127,8 +127,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                         stats.loads.record(source);
                         stats.stores.record(destination);
                     }
-                    NirOp::RuntimeHelperOverride { .. }
-                    | NirOp::Real(_)
+                    NirOp::Real(_)
                     | NirOp::AddrOf { .. }
                     | NirOp::Unary { .. }
                     | NirOp::Cast { .. }
@@ -300,7 +299,6 @@ fn increment(counts: &mut BTreeMap<&'static str, usize>, key: &'static str) {
 
 fn op_kind(op: &NirOp) -> &'static str {
     match op {
-        NirOp::RuntimeHelperOverride { .. } => "runtime-helper-override",
         NirOp::Load { .. } => "load",
         NirOp::VolatileLoad { .. } => "volatile_load",
         NirOp::AddrOf { .. } => "addr_of",
@@ -372,6 +370,7 @@ mod tests {
         let temp = TempId(0);
         let program = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -446,6 +445,7 @@ mod tests {
         let ty = byte_type();
         let program = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {

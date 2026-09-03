@@ -198,7 +198,7 @@ fn transfer_op_backwards(
             callee, effects, ..
         } => {
             if effects.opaque
-                || effects.may_call_os
+                || effects.may_call_external
                 || matches!(callee, NirCallee::Indirect { .. })
                 || matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name))
             {
@@ -214,7 +214,7 @@ fn transfer_op_backwards(
                 apply_effects_backwards(&effects.memory, live, candidates);
             }
         }
-        NirOp::Real(_) | NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
+        NirOp::Real(_) | NirOp::Unsupported { .. } => {
             live.extend(candidates.iter().copied())
         }
         NirOp::Unary { .. }
@@ -402,6 +402,7 @@ mod tests {
         };
         NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -463,7 +464,7 @@ mod tests {
                 }]),
                 writes: NirMemoryAccess::None,
             },
-            may_call_os: false,
+            may_call_external: false,
             opaque: false,
         };
         let elided = elide_program(&program(vec![

@@ -23,6 +23,17 @@ impl NirPrinter {
                 program.target_layout.abi,
             ));
         }
+        for binding in &program.runtime_bindings {
+            let target = match binding.target {
+                Some(NirRuntimeTarget::Absolute(address)) => format!("${address:04X}"),
+                Some(NirRuntimeTarget::Routine(id)) => format!("r{id}"),
+                None => "unbound".to_string(),
+            };
+            self.line(format!(
+                "runtime rs{} {} -> {target}",
+                binding.symbol.0, binding.name
+            ));
+        }
         for global in &program.globals {
             let backing = match global.backing {
                 super::ir::NirGlobalBacking::Ordinary => String::new(),
@@ -358,13 +369,6 @@ fn fragments_summary(image: &NirDataImage) -> String {
 
 fn op_summary(op: &NirOp) -> String {
     match op {
-        NirOp::RuntimeHelperOverride { slot, target } => format!(
-            "runtime_helper_override ${slot:04X} {}",
-            match target {
-                NirRuntimeHelperTarget::Absolute(address) => format!("${address:04X}"),
-                NirRuntimeHelperTarget::Routine(id) => format!("r{id}"),
-            }
-        ),
         NirOp::Load { dest, ty, place } => {
             format!(
                 "{}:{} = load {}",
@@ -606,7 +610,7 @@ fn real_source_summary(source: &NirRealSource) -> String {
 
 fn call_effects_suffix(effects: &NirCallEffects) -> String {
     if !effects.opaque
-        && !effects.may_call_os
+        && !effects.may_call_external
         && matches!(effects.memory.reads, NirMemoryAccess::None)
         && matches!(effects.memory.writes, NirMemoryAccess::None)
     {
@@ -616,13 +620,17 @@ fn call_effects_suffix(effects: &NirCallEffects) -> String {
         " effects=reads:{} writes:{}{}{}",
         memory_access_summary(&effects.memory.reads),
         memory_access_summary(&effects.memory.writes),
-        if effects.may_call_os { " os" } else { "" },
+        if effects.may_call_external {
+            " external"
+        } else {
+            ""
+        },
         if effects.opaque { " opaque" } else { "" },
     )
 }
 
 fn machine_effects_summary(effects: &NirMachineEffects) -> String {
-    if effects.opaque || effects.may_call_os {
+    if effects.opaque || effects.may_call_external {
         "opaque".to_string()
     } else if matches!(effects.memory.reads, NirMemoryAccess::None)
         && matches!(effects.memory.writes, NirMemoryAccess::None)
@@ -662,7 +670,6 @@ fn memory_region_summary(region: &NirMemoryRegion) -> String {
             "absolute".to_string()
         }
         NirMemoryRegionKind::AbsoluteRange(space) => format!("absolute-as{}", space.0),
-        NirMemoryRegionKind::ZeroPage => "zeropage".to_string(),
     };
     format!("{kind}+{}:{}", region.offset, region.size)
 }
@@ -671,9 +678,7 @@ fn callee_summary(callee: &NirCallee) -> String {
     match callee {
         NirCallee::User { name, .. } | NirCallee::Builtin(name) => name.clone(),
         NirCallee::Indirect { target, .. } => format!("indirect({})", value_summary(target)),
-        NirCallee::Runtime { name, address } => address
-            .map(|address| format!("{name}@${address:04X}"))
-            .unwrap_or_else(|| name.clone()),
+        NirCallee::Runtime { symbol, name } => format!("{name}[rs{}]", symbol.0),
     }
 }
 

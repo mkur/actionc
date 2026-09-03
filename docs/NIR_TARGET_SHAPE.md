@@ -243,6 +243,7 @@ pub struct LocalId(pub u32);
 pub struct GlobalId(pub u32);
 pub struct StaticId(pub u32);
 pub struct SignatureId(pub u32);
+pub struct RuntimeSymbolId(pub u32);
 pub struct MachineBlockId(pub u32);
 pub struct BuiltinId(pub u32);
 ```
@@ -702,9 +703,8 @@ pub enum NirCallee {
     User(RoutineId),
     Builtin(BuiltinId),
     Runtime {
+        symbol: RuntimeSymbolId,
         name: String,
-        address: Option<AddressValue>,
-        signature: SignatureId,
     },
     Indirect {
         target: NirValue,
@@ -726,6 +726,27 @@ Rules:
 - Call argument count and types are verified against the signature.
 - Call result temps are verified against the signature result type.
 - ABI class is known to NIR, but physical ABI placement belongs to MIR6502.
+- Runtime calls use a stable `RuntimeSymbolId`; the readable name is debug/link
+  metadata and the selected runtime target comes from the verified program
+  binding table.
+
+Runtime declarations and classic helper overrides are program metadata:
+
+```rust
+pub struct NirRuntimeBinding {
+    pub symbol: RuntimeSymbolId,
+    pub name: String,
+    pub target: Option<NirRuntimeTarget>,
+}
+
+pub enum NirRuntimeTarget {
+    Absolute(AddressValue),
+    Routine(RoutineId),
+}
+```
+
+They must not appear as executable operations. An unbound target names a
+service that the selected runtime or linker must resolve below NIR.
 
 ## Effects
 
@@ -736,7 +757,7 @@ hardware, runtime calls, OS calls, and machine blocks.
 pub struct NirEffects {
     pub memory_reads: NirMemoryEffect,
     pub memory_writes: NirMemoryEffect,
-    pub may_call_os: bool,
+    pub may_call_external: bool,
     pub opaque: bool,
 }
 
@@ -756,7 +777,8 @@ Rules:
   represented in NIR. MIR derives those facts from the selected target and ABI.
 - Unknown or opaque effects are full ordering barriers unless a later effect model
   proves a narrower behavior.
-- Runtime and OS calls should be conservative by default.
+- Runtime and platform/environment calls should be conservative by default.
+- The external-call flag does not name a particular operating system.
 - Absolute memory and hardware-register interactions must not be optimized away
   unless facts prove it is safe.
 - Machine blocks are opaque by default.

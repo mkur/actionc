@@ -153,8 +153,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
             result: Some(result),
             ..
         } => Some(result.dest),
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Store { .. }
+        NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
@@ -267,8 +266,7 @@ fn record_op_uses(
                 record_value(uses, value, site(NirUseKind::CallArgument(argument)));
             }
         }
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::MachineBlock { .. }
+        NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
     }
@@ -430,7 +428,7 @@ mod tests {
                                 reads: NirMemoryAccess::None,
                                 writes: NirMemoryAccess::None,
                             },
-                            may_call_os: false,
+                            may_call_external: false,
                             opaque: false,
                         },
                     },

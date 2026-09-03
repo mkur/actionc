@@ -164,6 +164,20 @@ pub struct SymbolId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SignatureId(pub u32);
 
+/// Stable identity for a compiler/runtime service. The readable name is debug
+/// metadata; calls and late bindings use this identity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RuntimeSymbolId(pub u32);
+
+pub fn runtime_symbol_id(name: &str) -> RuntimeSymbolId {
+    let mut hash = 2_166_136_261u32;
+    for byte in name.bytes() {
+        hash ^= u32::from(byte.to_ascii_uppercase());
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    RuntimeSymbolId(hash)
+}
+
 pub(super) fn signature_id(callable: &CallableType) -> SignatureId {
     fn byte(hash: &mut u32, value: u8) {
         *hash ^= u32::from(value);

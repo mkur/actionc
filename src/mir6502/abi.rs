@@ -87,8 +87,13 @@ pub(super) fn mir_memory_effect(effect: &NirMemoryAccess) -> MirMemoryEffect {
                             MirMemoryRegionKind::Global(id)
                         }
                         NirMemoryRegionKind::Static(id) => MirMemoryRegionKind::Static(id),
+                        NirMemoryRegionKind::AbsoluteRange(space)
+                            if space == crate::target::TargetLayout::DATA_ADDRESS_SPACE
+                                && region.offset.get().saturating_add(region.size.get()) <= 0x100 =>
+                        {
+                            MirMemoryRegionKind::ZeroPage
+                        }
                         NirMemoryRegionKind::AbsoluteRange(_) => MirMemoryRegionKind::AbsoluteRange,
-                        NirMemoryRegionKind::ZeroPage => MirMemoryRegionKind::ZeroPage,
                     },
                     offset: u16::try_from(region.offset)
                         .expect("verified Atari NIR effect offset fits in 16 bits"),
@@ -186,5 +191,31 @@ mod tests {
                 size: 2,
             }])
         );
+    }
+
+    #[test]
+    fn atari_backend_recognizes_page_zero_from_generic_absolute_ranges() {
+        let effect = mir_memory_effect(&NirMemoryAccess::Regions(vec![
+            crate::nir::NirMemoryRegion {
+                kind: NirMemoryRegionKind::AbsoluteRange(
+                    crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+                ),
+                offset: crate::nir::ByteOffset::new(0xa0),
+                size: crate::nir::ByteSize::new(4),
+            },
+            crate::nir::NirMemoryRegion {
+                kind: NirMemoryRegionKind::AbsoluteRange(
+                    crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+                ),
+                offset: crate::nir::ByteOffset::new(0x100),
+                size: crate::nir::ByteSize::ONE,
+            },
+        ]));
+
+        let MirMemoryEffect::Regions(regions) = effect else {
+            panic!("expected precise memory regions")
+        };
+        assert_eq!(regions[0].kind, MirMemoryRegionKind::ZeroPage);
+        assert_eq!(regions[1].kind, MirMemoryRegionKind::AbsoluteRange);
     }
 }

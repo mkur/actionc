@@ -1,5 +1,6 @@
 use super::facts::{
-    BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, SignatureId, SymbolId, TempId,
+    BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, RuntimeSymbolId, SignatureId,
+    SymbolId, TempId,
 };
 use crate::asm6502::{InlineAsmRelocationKind, InlineAsmSymbolUse};
 use crate::source::Span;
@@ -8,6 +9,7 @@ use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirProgram {
     pub target_layout: crate::target::TargetLayout,
+    pub runtime_bindings: Vec<NirRuntimeBinding>,
     pub globals: Vec<NirGlobal>,
     pub statics: Vec<NirStaticData>,
     pub routines: Vec<NirRoutine>,
@@ -300,21 +302,30 @@ pub enum NirCallee {
         ty: NirType,
     },
     Runtime {
+        symbol: RuntimeSymbolId,
         name: String,
-        address: Option<AddressValue>,
     },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NirRuntimeHelperTarget {
+pub enum NirRuntimeTarget {
     Absolute(AddressValue),
     Routine(u32),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirRuntimeBinding {
+    pub symbol: RuntimeSymbolId,
+    /// Debug/link metadata only; `symbol` is the executable identity.
+    pub name: String,
+    /// `None` is a declared service that the selected runtime must bind later.
+    pub target: Option<NirRuntimeTarget>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirCallEffects {
     pub memory: NirMemoryEffects,
-    pub may_call_os: bool,
+    pub may_call_external: bool,
     pub opaque: bool,
 }
 
@@ -350,7 +361,6 @@ pub enum NirMemoryRegionKind {
     Storage(NirStorageId),
     Static(SymbolId),
     AbsoluteRange(AddressSpaceId),
-    ZeroPage,
 }
 
 fn ranges_overlap(
@@ -496,10 +506,6 @@ pub struct NirBlockParam {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirOp {
-    RuntimeHelperOverride {
-        slot: AddressValue,
-        target: NirRuntimeHelperTarget,
-    },
     Load {
         dest: TempId,
         ty: NirType,
@@ -722,7 +728,7 @@ pub enum NirMachineByteSelector {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirMachineEffects {
     pub memory: NirMemoryEffects,
-    pub may_call_os: bool,
+    pub may_call_external: bool,
     pub opaque: bool,
 }
 

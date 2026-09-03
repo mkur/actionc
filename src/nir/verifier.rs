@@ -4,8 +4,8 @@ use super::analysis::cfg::NirCfg;
 use super::analysis::dominance::NirDominance;
 use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    NirStorageId, NirType, NirTypeKind, NirValue, SignatureId, SymbolId, TempId,
-    value_is_oversized_literal, value_width,
+    NirStorageId, NirType, NirTypeKind, NirValue, RuntimeSymbolId, SignatureId, SymbolId, TempId,
+    runtime_symbol_id, value_is_oversized_literal, value_width,
 };
 use super::ir::*;
 use crate::target::{AddressValue, ByteSize, TargetLayout};
@@ -53,6 +53,7 @@ struct NirVerifier {
     global_types: BTreeMap<SymbolId, NirType>,
     global_ids: BTreeSet<SymbolId>,
     signatures: BTreeMap<SignatureId, NirCallableSignature>,
+    runtime_symbols: BTreeMap<RuntimeSymbolId, String>,
     routine_count: usize,
     target_layout: TargetLayout,
 }
@@ -93,6 +94,45 @@ impl NirVerifier {
             }
         }
         self.routine_count = program.routines.len();
+        for binding in &program.runtime_bindings {
+            if binding.name.is_empty() {
+                self.diagnostics
+                    .push(NirDiagnostic::program("runtime symbol name must not be empty"));
+            }
+            if runtime_symbol_id(&binding.name) != binding.symbol {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "runtime symbol `{}` has a mismatched stable id",
+                    binding.name
+                )));
+            }
+            if let Some(previous) = self
+                .runtime_symbols
+                .insert(binding.symbol, binding.name.clone())
+            {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "duplicate or colliding runtime symbol id {} for `{previous}` and `{}`",
+                    binding.symbol.0, binding.name
+                )));
+            }
+            match binding.target {
+                Some(NirRuntimeTarget::Absolute(address))
+                    if address.address_space != self.target_layout.code_pointer.address_space
+                        || !self.address_fits_target(address) =>
+                {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "runtime binding `{}` is outside the selected target code address space",
+                        binding.name
+                    )));
+                }
+                Some(NirRuntimeTarget::Routine(id)) if id as usize >= self.routine_count => {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "runtime binding `{}` references missing routine id {id}",
+                        binding.name
+                    )));
+                }
+                _ => {}
+            }
+        }
         self.global_ids = program.globals.iter().map(|global| global.id).collect();
         let mut globals = BTreeSet::new();
         let mut global_ids = BTreeSet::new();
@@ -955,39 +995,6 @@ impl NirVerifier {
         temp_facts: &NirTempFacts<'_>,
     ) {
         match op {
-            NirOp::RuntimeHelperOverride { slot, target } => {
-                if slot.address_space != self.target_layout.data_pointer.address_space
-                    || !matches!(slot.value, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE)
-                {
-                    self.diagnostics.push(NirDiagnostic::block(
-                        &routine.name,
-                        &block.label,
-                        format!("unknown runtime helper slot ${slot:04X}"),
-                    ));
-                }
-                match target {
-                    NirRuntimeHelperTarget::Absolute(address)
-                        if address.address_space != self.target_layout.code_pointer.address_space
-                            || !self.address_fits_target(*address) =>
-                    {
-                        self.diagnostics.push(NirDiagnostic::block(
-                            &routine.name,
-                            &block.label,
-                            "runtime helper override target is outside the selected target code address space",
-                        ));
-                    }
-                    NirRuntimeHelperTarget::Routine(id)
-                        if *id as usize >= self.routine_count =>
-                    {
-                        self.diagnostics.push(NirDiagnostic::block(
-                            &routine.name,
-                            &block.label,
-                            format!("runtime helper override references missing routine id {id}"),
-                        ));
-                    }
-                    _ => {}
-                }
-            }
             NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
                 self.op_type(routine, block, ty, "load result");
                 self.place_type(routine, block, place, "load place");
@@ -2096,19 +2103,16 @@ impl NirVerifier {
                     ));
                 }
             }
-            NirCallee::Runtime {
-                address: Some(address),
-                ..
-            } if address.address_space != self.target_layout.code_pointer.address_space
-                || !self.address_fits_target(*address) =>
-            {
-                self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    "runtime call address is outside the selected target code address space",
-                ));
+            NirCallee::Runtime { symbol, name } => {
+                if self.runtime_symbols.get(symbol) != Some(name) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "runtime call references a missing or mismatched runtime symbol",
+                    ));
+                }
             }
-            NirCallee::Builtin(_) | NirCallee::Runtime { .. } => {}
+            NirCallee::Builtin(_) => {}
         }
     }
 
@@ -2306,16 +2310,6 @@ impl NirVerifier {
                         &routine.name,
                         &block.label,
                         format!("{label} absolute region exceeds the selected target address space"),
-                    ));
-                }
-                return;
-            }
-            NirMemoryRegionKind::ZeroPage => {
-                if end.get() > u32::from(u8::MAX) {
-                    self.diagnostics.push(NirDiagnostic::block(
-                        &routine.name,
-                        &block.label,
-                        format!("{label} zero-page region extends past $00FF"),
                     ));
                 }
                 return;

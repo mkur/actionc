@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 6 completed on 2026-09-03; later slices
+Status: active. Slices 0 through 7 completed on 2026-09-03; later slices
 remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
@@ -436,6 +436,13 @@ nir: retain typed static data until target lowering
 ```
 
 ### Slice 7: generic address-space effects and runtime symbols
+
+Status: complete. NIR effect regions now use address-space-qualified absolute
+ranges; page-zero recognition is an Atari MIR concern. Calls and machine
+payloads expose a platform-neutral external/environment effect. Runtime calls
+use stable symbol IDs backed by verified program-level late bindings, and
+classic helper `SET` directives populate that binding table without creating
+executable metadata operations or a synthetic top-level routine.
 
 1. Replace the generic `ZeroPage` effect region with address-space-qualified
    absolute ranges. The 6502 backend may recognize page zero; the 65816 backend

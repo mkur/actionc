@@ -354,8 +354,7 @@ fn real_local_accesses(routine: &NirRoutine) -> BTreeMap<LocalId, RealLocalAcces
                     }
                     record_effect_local_references(&effects.memory, &mut accesses);
                 }
-                NirOpKind::RuntimeHelperOverride { .. }
-                | NirOpKind::Unary { .. }
+                NirOpKind::Unary { .. }
                 | NirOpKind::Cast { .. }
                 | NirOpKind::PointerOffset { .. }
                 | NirOpKind::Binary { .. }
@@ -552,6 +551,11 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         })
         .collect::<BTreeMap<_, _>>();
     let machine_numeric_defines = collect_machine_numeric_defines(nir_program);
+    let runtime_targets = nir_program
+        .runtime_bindings
+        .iter()
+        .filter_map(|binding| binding.target.map(|target| (binding.symbol, target)))
+        .collect::<BTreeMap<_, _>>();
     let mut machine_blocks = Vec::new();
     let routines =
         nir_program
@@ -614,6 +618,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                             &block.ops,
                             &routine_ids,
                             &routine_system_addresses_by_id,
+                            &runtime_targets,
                             &routine_system_addresses,
                             &global_array_pointer_backing,
                             &local_array_pointer_backing,
@@ -853,7 +858,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
         return Err(diagnostics);
     }
 
-    let runtime_helpers = runtime_helper_decls_from_sets(nir_program);
+    let runtime_helpers = runtime_helper_decls_from_bindings(nir_program);
     let program = MirProgram {
         statics: nir_program
             .statics
@@ -955,50 +960,47 @@ fn parse_system_address_note(value: &str) -> Option<u16> {
     value.parse::<u16>().ok()
 }
 
-fn runtime_helper_decls_from_sets(nir_program: &NirProgram) -> Vec<MirRuntimeHelperDecl> {
+fn runtime_helper_decls_from_bindings(nir_program: &NirProgram) -> Vec<MirRuntimeHelperDecl> {
     let mut decls = Vec::<MirRuntimeHelperDecl>::new();
-    for routine in &nir_program.routines {
-        for block in &routine.blocks {
-            for op in &block.ops {
-                let NirOpKind::RuntimeHelperOverride { slot, target } = op else {
-                    continue;
-                };
-                let Some(helper) = runtime_helper_from_slot(nir_address_u16(*slot)) else {
-                    continue;
-                };
-                if decls.iter().any(|decl| decl.helper == helper) {
-                    continue;
-                }
-                let target = match target {
-                    crate::nir::NirRuntimeHelperTarget::Absolute(address) => {
-                        MirRuntimeHelperTarget::KnownAbsolute(nir_address_u16(*address))
-                    }
-                    crate::nir::NirRuntimeHelperTarget::Routine(id) => {
-                        MirRuntimeHelperTarget::Routine(RoutineId(*id))
-                    }
-                };
-                decls.push(MirRuntimeHelperDecl {
-                    effects: super::materialize::helper_effects(&helper),
-                    helper,
-                    target,
-                    abi: super::materialize::helper_abi(),
-                });
+    for binding in &nir_program.runtime_bindings {
+        let Some(helper) = runtime_helper_from_symbol(binding.symbol) else {
+            continue;
+        };
+        let Some(target) = binding.target else {
+            continue;
+        };
+        let target = match target {
+            crate::nir::NirRuntimeTarget::Absolute(address) => {
+                MirRuntimeHelperTarget::KnownAbsolute(nir_address_u16(address))
             }
-        }
+            crate::nir::NirRuntimeTarget::Routine(id) => {
+                MirRuntimeHelperTarget::Routine(RoutineId(id))
+            }
+        };
+        decls.push(MirRuntimeHelperDecl {
+            effects: super::materialize::helper_effects(&helper),
+            helper,
+            target,
+            abi: super::materialize::helper_abi(),
+        });
     }
     decls
 }
 
-fn runtime_helper_from_slot(slot: u16) -> Option<MirRuntimeHelper> {
-    match slot {
-        0x04E4 => Some(MirRuntimeHelper::Lsh),
-        0x04E6 => Some(MirRuntimeHelper::Rsh),
-        0x04E8 => Some(MirRuntimeHelper::Mul),
-        0x04EA => Some(MirRuntimeHelper::Div),
-        0x04EC => Some(MirRuntimeHelper::Mod),
-        0x04EE => Some(MirRuntimeHelper::SArgs),
-        _ => None,
+fn runtime_helper_from_symbol(symbol: crate::nir::RuntimeSymbolId) -> Option<MirRuntimeHelper> {
+    for (name, helper) in [
+        ("ACTION.RUNTIME.HELPER.LSH", MirRuntimeHelper::Lsh),
+        ("ACTION.RUNTIME.HELPER.RSH", MirRuntimeHelper::Rsh),
+        ("ACTION.RUNTIME.HELPER.MUL", MirRuntimeHelper::Mul),
+        ("ACTION.RUNTIME.HELPER.DIV", MirRuntimeHelper::Div),
+        ("ACTION.RUNTIME.HELPER.MOD", MirRuntimeHelper::Mod),
+        ("ACTION.RUNTIME.HELPER.SARGS", MirRuntimeHelper::SArgs),
+    ] {
+        if crate::nir::runtime_symbol_id(name) == symbol {
+            return Some(helper);
+        }
     }
+    None
 }
 
 fn lower_global_init(
@@ -1400,6 +1402,7 @@ fn lower_ops(
     ops: &[NirOpKind],
     routine_ids: &BTreeMap<&str, RoutineId>,
     routine_system_addresses_by_id: &BTreeMap<u32, u16>,
+    runtime_targets: &BTreeMap<crate::nir::RuntimeSymbolId, crate::nir::NirRuntimeTarget>,
     routine_system_addresses: &BTreeMap<&str, u16>,
     global_array_pointer_backing: &BTreeMap<crate::nir::SymbolId, bool>,
     local_array_pointer_backing: &[LocalId],
@@ -1418,7 +1421,6 @@ fn lower_ops(
     let mut addr_defs = BTreeMap::<TempId, MirAddrDef>::new();
     for op in ops {
         match op {
-            NirOpKind::RuntimeHelperOverride { .. } => {}
             NirOpKind::Load { dest, ty, place } | NirOpKind::VolatileLoad { dest, ty, place } => {
                 let is_volatile = matches!(op, NirOpKind::VolatileLoad { .. });
                 let Some(width) = mir_width(ty) else {
@@ -1823,6 +1825,7 @@ fn lower_ops(
                     effects,
                     routine_ids,
                     routine_system_addresses_by_id,
+                    runtime_targets,
                     diagnostics,
                 ) else {
                     continue;
@@ -3507,7 +3510,7 @@ fn lower_machine_effects(effects: &NirMachineEffects) -> MirEffects {
         clobbers: super::abi::opaque_machine_clobbers(),
         preserves: Default::default(),
         stack_depth_delta: None,
-        may_call_os: effects.may_call_os,
+        may_call_os: effects.may_call_external,
         opaque: effects.opaque,
     }
 }
@@ -3538,7 +3541,7 @@ fn lower_inline_asm_effects(code: &NirInlineAsm, effects: &NirMachineEffects) ->
         clobbers: inline_register_set(machine.clobbers),
         preserves: Default::default(),
         stack_depth_delta: machine.stack_depth_delta,
-        may_call_os: effects.may_call_os,
+        may_call_os: effects.may_call_external,
         opaque: false,
     }
 }
@@ -4167,6 +4170,7 @@ mod tests {
     fn lowers_six_byte_real_local_as_address_only_storage() {
         let program = nir::NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![nir::NirRoutine {

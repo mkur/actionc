@@ -835,8 +835,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
             let result = eval_compare(*op, left, right, operand_ty)?;
             Some((*dest, NirValue::ConstU8(u8::from(result))))
         }
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Real(_)
+        NirOp::Real(_)
         | NirOp::Load { .. }
         | NirOp::VolatileLoad { .. }
         | NirOp::AddrOf { .. }
@@ -986,8 +985,7 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
         }
         NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::RuntimeHelperOverride { .. } => {}
+        | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -1174,8 +1172,7 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
                 collect_value_use(arg, out);
             }
         }
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::MachineBlock { .. }
+        NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
     }
@@ -1317,8 +1314,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Store { .. }
+        NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)

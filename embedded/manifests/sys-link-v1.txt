@@ -10,7 +10,6 @@ source	runtime:sysmisc.act	3008ba6bd95a69334659b754fb58d3b4c34df910d7aa8c8ad26c6
 source	runtime:sysreal.act	e05fbceef3b3a27d878869a1705a834843bf122f0dc67fe01a06afbf5c9669c0
 source	runtime:sysrealc.act	c93d63bb4a58626de1c3930b7697ff0425749e3d08e2252846b74e037c628ea6
 source	runtime:sysstr.act	4eb152fba0970e303f82e76fc7e4816a0fed7959edc752474b9836fe2c8ebe92
-node	routine	<PROGRAM>
 node	routine	BREAK
 node	routine	BREAK1
 node	routine	CARTINPUTR
@@ -143,7 +142,6 @@ node	global	STRING
 node	global	SYSREALACCUMULATOR
 node	global	SYSREALTEXTINDEX
 node	global	SYSREALTEXTPOINTER
-edge	routine	<PROGRAM>	routine	CLOS	entry-alias
 edge	routine	BREAK	routine	ERROR	machine-relocation
 edge	routine	BREAK1	routine	BREAK	machine-relocation
 edge	routine	CARTINPUTR	routine	SYSVALR	direct-call

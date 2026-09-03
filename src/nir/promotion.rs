@@ -398,7 +398,7 @@ fn rename_block(
                     });
                 }
             }
-            NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
+            NirOp::Unsupported { .. } => {
                 let Some(value) = current.clone() else {
                     return false;
                 };
@@ -625,7 +625,7 @@ impl HomeAccess {
                             definition_blocks.insert(block.id);
                         }
                     }
-                    NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
+                    NirOp::Unsupported { .. } => {
                         uses_before_definition |= !defines;
                         defines = true;
                         definition_blocks.insert(block.id);
@@ -703,7 +703,7 @@ fn call_access(
     routine_name: &str,
 ) -> (bool, bool) {
     if effects.opaque
-        || effects.may_call_os
+        || effects.may_call_external
         || matches!(callee, NirCallee::Indirect { .. })
         || matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name))
     {
@@ -1046,6 +1046,7 @@ mod tests {
         routine.temps = collect_temps(&routine.blocks);
         NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![routine],
@@ -1197,6 +1198,7 @@ mod tests {
         routine.temps = collect_temps(&routine.blocks);
         let program = NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![routine],

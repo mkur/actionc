@@ -274,8 +274,7 @@ fn transfer_op(
         }
         NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. }
-        | NirOp::RuntimeHelperOverride { .. } => {
+        | NirOp::Unsupported { .. } => {
             facts.storage.clear();
         }
         NirOp::AddrOf { dest, .. }
@@ -328,7 +327,7 @@ fn apply_call_barrier(
     trackable: &BTreeMap<NirStorageId, ByteSize>,
     routine_name: &str,
 ) {
-    if effects.opaque || effects.may_call_os || matches!(callee, NirCallee::Indirect { .. }) {
+    if effects.opaque || effects.may_call_external || matches!(callee, NirCallee::Indirect { .. }) {
         facts.storage.clear();
         return;
     }
@@ -447,8 +446,7 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
                 rewrite_value(arg, replacements);
             }
         }
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::MachineBlock { .. }
+        NirOp::MachineBlock { .. }
         | NirOp::InlineAsm { .. }
         | NirOp::Unsupported { .. } => {}
     }
@@ -582,8 +580,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
             result: Some(result),
             ..
         } => Some((result.dest, &result.ty)),
-        NirOp::RuntimeHelperOverride { .. }
-        | NirOp::Store { .. }
+        NirOp::Store { .. }
         | NirOp::VolatileStore { .. }
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
@@ -703,6 +700,7 @@ mod tests {
         routine.temps = collect_temps(&routine.blocks);
         NirProgram {
             target_layout: crate::target::TargetLayout::atari_6502(),
+            runtime_bindings: Vec::new(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![routine],
@@ -1028,7 +1026,7 @@ mod tests {
                 reads: NirMemoryAccess::None,
                 writes: NirMemoryAccess::None,
             },
-            may_call_os: false,
+            may_call_external: false,
             opaque: false,
         };
         let unknown_writes = NirCallEffects {
@@ -1036,7 +1034,7 @@ mod tests {
                 reads: NirMemoryAccess::Unknown,
                 writes: NirMemoryAccess::Unknown,
             },
-            may_call_os: false,
+            may_call_external: false,
             opaque: true,
         };
         let routine = optimized(program(
@@ -1105,7 +1103,7 @@ mod tests {
                                     size: ByteSize::ONE,
                                 }]),
                             },
-                            may_call_os: false,
+                            may_call_external: false,
                             opaque: false,
                         },
                     },
@@ -1161,7 +1159,7 @@ mod tests {
                                 reads: NirMemoryAccess::Unknown,
                                 writes: NirMemoryAccess::Unknown,
                             },
-                            may_call_os: false,
+                            may_call_external: false,
                             opaque: true,
                         },
                     },
