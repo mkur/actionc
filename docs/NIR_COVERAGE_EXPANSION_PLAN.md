@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 1 through 6 are implemented.
+Status: complete. All seven slices are implemented.
 
 ## Objective
 
@@ -74,9 +74,14 @@ optimization barriers.
 
 ### Slice 7: broad corpus gate
 
-Extend the NIR sweep to verify both lowered and optimized programs across NIR,
-SemIR, MIR6502, runtime, and module-aware sample entry points. Report explicit
-load, semantic, lowering, verification, and optimization outcomes.
+Status: complete. The NIR sweep now verifies both lowered and optimized NIR and
+reports load, semantic, lowering, verification, and optimization failures as
+separate outcomes. The corpus gate covers 287 standalone fixtures across NIR,
+SemIR, MIR6502, and runtime directories. Five library-style named-module files
+are declared explicitly as non-entry-points until the sweep becomes
+module-aware. The sample gate now lowers, verifies, and optimizes NIR for all
+sample entry points, including named modules loaded through their project and
+module paths.
 
 ## Completion Gates
 

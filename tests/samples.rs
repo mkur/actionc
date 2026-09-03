@@ -3,7 +3,8 @@ use std::path::Path;
 
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc::includes::{ModuleLoadOptions, load_compilation};
-use actionc::semantic::{SemanticOptions, analyze_compilation_with_options};
+use actionc::nir;
+use actionc::semantic::{SemanticOptions, analyze_compilation_with_options, ir};
 
 #[test]
 fn parses_all_sample_programs() {
@@ -13,7 +14,7 @@ fn parses_all_sample_programs() {
 
     for path in entries {
         if is_known_action_macro_expansion_sample(&path)
-            || is_latent_named_module_sample(&path, &samples_dir)
+            || is_support_module_without_entry_point(&path, &samples_dir)
         {
             continue;
         }
@@ -53,11 +54,9 @@ fn native_real_tutorial_sample_compiles_with_both_backends() {
     }
 }
 
-fn is_latent_named_module_sample(path: &Path, samples_dir: &Path) -> bool {
+fn is_support_module_without_entry_point(path: &Path, samples_dir: &Path) -> bool {
     path.strip_prefix(samples_dir)
-        .ok()
-        .and_then(|relative| relative.components().next())
-        .is_some_and(|component| component.as_os_str() == "modules")
+        .is_ok_and(|relative| relative == Path::new("modules/project/demo/color.act"))
 }
 
 fn check_sample(path: &Path, samples_dir: &Path) {
@@ -79,8 +78,14 @@ fn check_sample(path: &Path, samples_dir: &Path) {
         };
         let compilation = load_compilation(path, &options)
             .unwrap_or_else(|err| panic!("load compilation {}: {err:?}", path.display()));
-        analyze_compilation_with_options(&compilation, SemanticOptions::modern())
+        let model = analyze_compilation_with_options(&compilation, SemanticOptions::modern())
             .unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));
+        let semir = ir::lower_compilation(&compilation, &model);
+        let lowered = nir::lower_program(&semir);
+        nir::verify_program(&lowered)
+            .unwrap_or_else(|err| panic!("verify lowered NIR for {}: {err:?}", path.display()));
+        nir::optimize_program(&lowered)
+            .unwrap_or_else(|err| panic!("verify optimized NIR for {}: {err:?}", path.display()));
     }
 }
 

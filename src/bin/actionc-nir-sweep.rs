@@ -19,7 +19,9 @@ enum Outcome {
     Ok,
     LoadFailed,
     SemFailed,
-    NirFailed,
+    LowerFailed,
+    VerifyFailed,
+    OptimizeFailed,
 }
 
 #[derive(Debug)]
@@ -34,7 +36,9 @@ struct SweepCounts {
     ok: usize,
     load_failed: usize,
     sem_failed: usize,
-    nir_failed: usize,
+    lower_failed: usize,
+    verify_failed: usize,
+    optimize_failed: usize,
 }
 
 fn main() {
@@ -61,11 +65,22 @@ fn main() {
 
     let counts = count_results(&results);
     println!(
-        "NIR sweep summary: ok={} load_failed={} sem_failed={} nir_failed={}",
-        counts.ok, counts.load_failed, counts.sem_failed, counts.nir_failed
+        "NIR sweep summary: ok={} load_failed={} sem_failed={} lower_failed={} verify_failed={} optimize_failed={}",
+        counts.ok,
+        counts.load_failed,
+        counts.sem_failed,
+        counts.lower_failed,
+        counts.verify_failed,
+        counts.optimize_failed
     );
 
-    if counts.sem_failed + counts.nir_failed > 0 {
+    if counts.load_failed
+        + counts.sem_failed
+        + counts.lower_failed
+        + counts.verify_failed
+        + counts.optimize_failed
+        > 0
+    {
         process::exit(1);
     }
 }
@@ -118,24 +133,52 @@ fn sweep_file(path: &Path) -> SweepResult {
         }
     };
 
-    match catch_unwind(AssertUnwindSafe(|| {
+    let program = match catch_unwind(AssertUnwindSafe(|| {
         let semir = ir::lower_program(&loaded.program, &model);
-        let program = nir::lower_program(&semir);
-        nir::verify_program(&program)
+        nir::lower_program(&semir)
     })) {
-        Ok(Ok(())) => SweepResult {
+        Ok(program) => program,
+        Err(payload) => {
+            return SweepResult {
+                path: path.to_path_buf(),
+                outcome: Outcome::LowerFailed,
+                detail: format!("panic: {}", panic_payload_summary(payload)),
+            };
+        }
+    };
+
+    match catch_unwind(AssertUnwindSafe(|| nir::verify_program(&program))) {
+        Ok(Ok(())) => {}
+        Ok(Err(diagnostics)) => {
+            return SweepResult {
+                path: path.to_path_buf(),
+                outcome: Outcome::VerifyFailed,
+                detail: nir_diagnostic_summary(&diagnostics),
+            };
+        }
+        Err(payload) => {
+            return SweepResult {
+                path: path.to_path_buf(),
+                outcome: Outcome::VerifyFailed,
+                detail: format!("panic: {}", panic_payload_summary(payload)),
+            };
+        }
+    }
+
+    match catch_unwind(AssertUnwindSafe(|| nir::optimize_program(&program))) {
+        Ok(Ok(_)) => SweepResult {
             path: path.to_path_buf(),
             outcome: Outcome::Ok,
-            detail: "verified".to_string(),
+            detail: "lowered and optimized NIR verified".to_string(),
         },
         Ok(Err(diagnostics)) => SweepResult {
             path: path.to_path_buf(),
-            outcome: Outcome::NirFailed,
+            outcome: Outcome::OptimizeFailed,
             detail: nir_diagnostic_summary(&diagnostics),
         },
         Err(payload) => SweepResult {
             path: path.to_path_buf(),
-            outcome: Outcome::NirFailed,
+            outcome: Outcome::OptimizeFailed,
             detail: format!("panic: {}", panic_payload_summary(payload)),
         },
     }
@@ -146,7 +189,9 @@ fn print_result(result: &SweepResult, verbose: bool) {
         Outcome::Ok => "OK",
         Outcome::LoadFailed => "LOADFAIL",
         Outcome::SemFailed => "SEMFAIL",
-        Outcome::NirFailed => "NIRFAIL",
+        Outcome::LowerFailed => "LOWERFAIL",
+        Outcome::VerifyFailed => "VERIFYFAIL",
+        Outcome::OptimizeFailed => "OPTFAIL",
     };
     if result.outcome == Outcome::Ok && !verbose {
         println!("{label:<8} {}", result.path.display());
@@ -162,7 +207,9 @@ fn count_results(results: &[SweepResult]) -> SweepCounts {
             Outcome::Ok => counts.ok += 1,
             Outcome::LoadFailed => counts.load_failed += 1,
             Outcome::SemFailed => counts.sem_failed += 1,
-            Outcome::NirFailed => counts.nir_failed += 1,
+            Outcome::LowerFailed => counts.lower_failed += 1,
+            Outcome::VerifyFailed => counts.verify_failed += 1,
+            Outcome::OptimizeFailed => counts.optimize_failed += 1,
         }
     }
     counts
@@ -268,16 +315,23 @@ mod tests {
                 detail: String::new(),
             },
             SweepResult {
-                path: PathBuf::from("nirfail.act"),
-                outcome: Outcome::NirFailed,
+                path: PathBuf::from("verifyfail.act"),
+                outcome: Outcome::VerifyFailed,
+                detail: String::new(),
+            },
+            SweepResult {
+                path: PathBuf::from("optfail.act"),
+                outcome: Outcome::OptimizeFailed,
                 detail: String::new(),
             },
         ];
 
         let counts = count_results(&results);
         assert_eq!(counts.ok, 1);
-        assert_eq!(counts.nir_failed, 1);
+        assert_eq!(counts.verify_failed, 1);
+        assert_eq!(counts.optimize_failed, 1);
         assert_eq!(counts.load_failed, 0);
         assert_eq!(counts.sem_failed, 0);
+        assert_eq!(counts.lower_failed, 0);
     }
 }
