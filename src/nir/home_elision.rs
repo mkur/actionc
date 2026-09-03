@@ -406,6 +406,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: vec![NirLocal {
@@ -471,12 +475,12 @@ mod tests {
             store(1),
             NirOp::Call {
                 callee: NirCallee::User {
-                    id: 0,
+                    id: crate::nir::RoutineId(0),
                     name: "Observe".to_string(),
                 },
                 args: Vec::new(),
                 result: None,
-                signature: None,
+                signature: Some(crate::nir::NirCallableSignature::default()),
                 effects,
             },
         ]))

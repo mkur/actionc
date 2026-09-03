@@ -501,15 +501,13 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
     let routine_ids = nir_program
         .routines
         .iter()
-        .enumerate()
-        .map(|(index, routine)| (routine.name.as_str(), RoutineId(index as u32)))
+        .map(|routine| (routine.name.as_str(), RoutineId(routine.id.0)))
         .collect::<BTreeMap<_, _>>();
     let routine_system_addresses_by_id = nir_program
         .routines
         .iter()
-        .enumerate()
-        .filter_map(|(index, routine)| {
-            routine_system_address(routine).map(|address| (index as u32, address))
+        .filter_map(|routine| {
+            routine_system_address(routine).map(|address| (routine.id, address))
         })
         .collect::<BTreeMap<_, _>>();
     let routine_system_addresses = nir_program
@@ -546,8 +544,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
         nir_program
             .routines
             .iter()
-            .enumerate()
-            .map(|(routine_index, routine)| {
+            .map(|routine| {
                 let block_ids = routine
                     .blocks
                     .iter()
@@ -711,7 +708,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     .count();
 
                 MirRoutine {
-                id: RoutineId(routine_index as u32),
+                id: RoutineId(routine.id.0),
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
                     MirRoutineAbi::ExternalInterface
@@ -766,7 +763,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                             let init = lower_local_storage_init(
                                 local,
                                 &routine_ids,
-                                RoutineId(routine_index as u32),
+                                RoutineId(routine.id.0),
                             );
                             MirStorageSlot {
                             id: MirStorageId(index as u32),
@@ -907,42 +904,25 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
 }
 
 fn routine_system_address(routine: &nir::NirRoutine) -> Option<u16> {
-    routine.notes.iter().find_map(|note| {
-        let value = note.text.strip_prefix("system-address ")?;
-        parse_system_address_note(value)
-    })
+    match routine.entry.placement {
+        nir::NirRoutinePlacement::Absolute(address) => Some(nir_address_u16(address)),
+        nir::NirRoutinePlacement::Relocatable | nir::NirRoutinePlacement::CurrentLocation => None,
+    }
 }
 
 fn routine_has_observable_action_entry(routine: &nir::NirRoutine) -> bool {
-    routine
-        .notes
-        .iter()
-        .any(|note| note.text.starts_with("system-address "))
+    !matches!(
+        routine.entry.placement,
+        nir::NirRoutinePlacement::Relocatable
+    )
 }
 
 fn routine_is_program_entry(routine: &nir::NirRoutine) -> bool {
-    routine
-        .notes
-        .iter()
-        .any(|note| note.kind == nir::NirRoutineNoteKind::ProgramEntry)
+    routine.entry.program
 }
 
 fn routine_has_external_interface(routine: &nir::NirRoutine) -> bool {
-    routine
-        .notes
-        .iter()
-        .any(|note| note.kind == nir::NirRoutineNoteKind::ExternalInterface)
-}
-
-fn parse_system_address_note(value: &str) -> Option<u16> {
-    let value = value.trim();
-    if value == "*" {
-        return None;
-    }
-    if let Some(hex) = value.strip_prefix('$') {
-        return u16::from_str_radix(hex, 16).ok();
-    }
-    value.parse::<u16>().ok()
+    routine.entry.external
 }
 
 fn runtime_helper_decls_from_bindings(nir_program: &NirProgram) -> Vec<MirRuntimeHelperDecl> {
@@ -959,7 +939,7 @@ fn runtime_helper_decls_from_bindings(nir_program: &NirProgram) -> Vec<MirRuntim
                 MirRuntimeHelperTarget::KnownAbsolute(nir_address_u16(address))
             }
             crate::nir::NirRuntimeTarget::Routine(id) => {
-                MirRuntimeHelperTarget::Routine(RoutineId(id))
+                MirRuntimeHelperTarget::Routine(RoutineId(id.0))
             }
         };
         decls.push(MirRuntimeHelperDecl {
@@ -1058,7 +1038,7 @@ fn lower_global_init(
             mutable,
             section,
         } => MirGlobalInit::RoutineAddress {
-            routine: RoutineId(*routine),
+            routine: RoutineId(routine.0),
             descriptor_size: nir_size_u16(*descriptor_size),
             size_word: *size_word,
             mutable: *mutable,
@@ -1182,7 +1162,7 @@ fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) 
                         id: *id,
                     },
                     crate::nir::NirDataAddressTarget::Routine(id) => {
-                        MirDataRelocationTarget::Routine(RoutineId(*id))
+                        MirDataRelocationTarget::Routine(RoutineId(id.0))
                     }
                     crate::nir::NirDataAddressTarget::Absolute(address) => {
                         MirDataRelocationTarget::Absolute(nir_address_u16(*address))
@@ -1386,7 +1366,7 @@ fn lower_ops(
     block: &str,
     ops: &[NirOpKind],
     routine_ids: &BTreeMap<&str, RoutineId>,
-    routine_system_addresses_by_id: &BTreeMap<u32, u16>,
+    routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
     runtime_targets: &BTreeMap<crate::nir::RuntimeSymbolId, crate::nir::NirRuntimeTarget>,
     routine_system_addresses: &BTreeMap<&str, u16>,
     global_array_pointer_backing: &BTreeMap<crate::nir::SymbolId, bool>,
@@ -3380,7 +3360,7 @@ fn lower_inline_asm_target(target: NirForeignCodeTarget) -> MirInlineAsmTarget {
         NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
         }
-        NirForeignCodeTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
+        NirForeignCodeTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id.0)),
         NirForeignCodeTarget::Absolute(address) => {
             MirInlineAsmTarget::Absolute(nir_address_u16(address))
         }
@@ -3937,16 +3917,7 @@ fn mir_compare_op(op: NirCompareOp) -> MirCompareOp {
 }
 
 fn routine_return_width(routine: &nir::NirRoutine) -> Option<MirWidth> {
-    routine.notes.iter().find_map(|note| {
-        note.text
-            .strip_prefix("return-width ")
-            .and_then(|width| width.parse::<u16>().ok())
-            .and_then(|width| match width {
-                1 => Some(MirWidth::Byte),
-                2 => Some(MirWidth::Word),
-                _ => None,
-            })
-    })
+    routine.signature.result.as_ref().and_then(mir_width)
 }
 
 fn value_width(value: &NirValueKind) -> Option<MirWidth> {
@@ -4206,6 +4177,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![nir::NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: vec![nir::NirLocal {

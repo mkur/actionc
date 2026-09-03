@@ -21,20 +21,22 @@ pub use analysis::storage::{
     NirStorageBackingClass, NirStorageFacts, analyze_program_storage,
 };
 pub use facts::{
-    BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SignatureId,
-    RuntimeSymbolId, SymbolId, TempId, direct_storage_id, runtime_symbol_id,
+    BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, RoutineId,
+    RuntimeSymbolId, SignatureId, SymbolId, TempId, direct_storage_id, runtime_symbol_id,
 };
 pub use ir::{
-    NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallEffects, NirCallResult,
-    NirCallableSignature, NirCallee, NirCastKind, NirCompareOp, NirDataAddressEncoding,
+    ExternalAbiId, NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallConvention,
+    NirCallEffects, NirCallResult, NirCallableSignature, NirCallee, NirCastKind, NirCompareOp,
+    NirDataAddressEncoding,
     NirDataAddressTarget, NirDataBacking, NirDataFragment, NirDataImage, NirEdge, NirForeignCode,
     NirForeignCodeKind, NirForeignCodePayload, NirForeignCodeTarget, NirForeignRelocation,
     NirGlobal, NirGlobalBacking, NirGlobalInit, NirLinkValue, NirLocal, NirLocalBacking,
     NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
     NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirParam,
-    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirRoutineNote,
-    NirRoutineNoteKind, NirRuntimeBinding, NirRuntimeTarget, NirStaticData, NirStorageBacking,
-    NirStorageClass, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
+    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirRoutineEntry,
+    NirRoutineNote, NirRoutineNoteKind, NirRoutinePlacement, NirRuntimeBinding, NirRuntimeTarget,
+    NirStaticData, NirStorageBacking, NirStorageClass, NirStorageInit, NirTemp, NirTempDef,
+    NirTerminator, NirUnaryOp,
 };
 pub use stats::{
     NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,

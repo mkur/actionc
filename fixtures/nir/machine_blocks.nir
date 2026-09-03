@@ -1,15 +1,13 @@
 nir program
 global Nop: define [$EA]
 
-routine Raw params=[-] locals=[-]
-  note system-address *
+routine r0 Raw signature=s2726028260 convention=target-public entry=current-location params=[-] locals=[-]
 bb0:
   machine target=atari-6502 items=3 effects=opaque
   fallthrough
 
-routine Main params=[-] locals=[-]
-  note Action program entry (last source PROC)
+routine r1 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
 bb1:
   machine target=atari-6502 items=1 effects=opaque
-  call Raw()
+  call Raw() signature=s2726028260 convention=target-public
   return

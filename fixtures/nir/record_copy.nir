@@ -3,8 +3,7 @@ global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some
 global pairs: array ArrayType { element: ValueType { base: Named("Pair"), pointer: false }, length: Some(2) } length=2 storage=Array origin=global init zero_fill=6 section=global mutable=true
 global current: Pair
 
-routine Main params=[-] locals=[-]
-  note Action program entry (last source PROC)
+routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
 bb0:
   %t0:Pair* = addr pairs
   copy_bytes current = %t0[1;3] size=3

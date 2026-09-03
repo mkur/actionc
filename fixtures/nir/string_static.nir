@@ -2,15 +2,14 @@ nir program
 global b: Byte
 static __nir_str_Main_0:Char* bytes=[$02 $48 $49] = "HI"
 
-routine Take params=[s] locals=[-]
+routine r0 Take signature=s2726584377 convention=target-public entry=relocatable params=[s] locals=[-]
 bb0:
   %t0:Char* = load s
   %t1:Char = load %t0[1;1]
   store b = %t1
   return
 
-routine Main params=[-] locals=[-]
-  note Action program entry (last source PROC)
+routine r1 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
 bb1:
-  call Take(&__nir_str_Main_0)
+  call Take(&__nir_str_Main_0) signature=s2726584377 convention=target-public
   return

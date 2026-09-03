@@ -4,8 +4,8 @@ use super::analysis::cfg::NirCfg;
 use super::analysis::dominance::NirDominance;
 use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    NirStorageId, NirType, NirTypeKind, NirValue, RuntimeSymbolId, SignatureId, SymbolId, TempId,
-    runtime_symbol_id, value_is_oversized_literal, value_width,
+    NirStorageId, NirType, NirTypeKind, NirValue, RoutineId, RuntimeSymbolId, SignatureId,
+    SymbolId, TempId, runtime_symbol_id, value_is_oversized_literal, value_width,
 };
 use super::ir::*;
 use crate::target::{AddressValue, ByteSize, TargetLayout};
@@ -54,7 +54,7 @@ struct NirVerifier {
     global_ids: BTreeSet<SymbolId>,
     signatures: BTreeMap<SignatureId, NirCallableSignature>,
     runtime_symbols: BTreeMap<RuntimeSymbolId, String>,
-    routine_count: usize,
+    routine_signatures: BTreeMap<RoutineId, NirCallableSignature>,
     target_layout: TargetLayout,
 }
 
@@ -93,7 +93,18 @@ impl NirVerifier {
                 )));
             }
         }
-        self.routine_count = program.routines.len();
+        for routine in &program.routines {
+            if self
+                .routine_signatures
+                .insert(routine.id, routine.signature.clone())
+                .is_some()
+            {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "duplicate routine id `{}`",
+                    routine.id.0
+                )));
+            }
+        }
         for binding in &program.runtime_bindings {
             if binding.name.is_empty() {
                 self.diagnostics
@@ -124,7 +135,9 @@ impl NirVerifier {
                         binding.name
                     )));
                 }
-                Some(NirRuntimeTarget::Routine(id)) if id as usize >= self.routine_count => {
+                Some(NirRuntimeTarget::Routine(id))
+                    if !self.routine_signatures.contains_key(&id) =>
+                {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "runtime binding `{}` references missing routine id {id}",
                         binding.name
@@ -297,12 +310,7 @@ impl NirVerifier {
         let program_entry_count = program
             .routines
             .iter()
-            .filter(|routine| {
-                routine
-                    .notes
-                    .iter()
-                    .any(|note| note.kind == NirRoutineNoteKind::ProgramEntry)
-            })
+            .filter(|routine| routine.entry.program)
             .count();
         if program_entry_count > 1 {
             self.diagnostics.push(NirDiagnostic::program(
@@ -324,6 +332,58 @@ impl NirVerifier {
     }
 
     fn routine(&mut self, routine: &NirRoutine) {
+        if routine.signature.convention != routine.convention {
+            self.diagnostics.push(NirDiagnostic::routine(
+                &routine.name,
+                "routine signature convention does not match its entry convention",
+            ));
+        }
+        self.intern_signature(
+            &routine.name,
+            None,
+            &routine.signature,
+            "routine signature",
+        );
+        if routine.signature.params.len() != routine.params.len() {
+            self.diagnostics.push(NirDiagnostic::routine(
+                &routine.name,
+                "routine parameter table does not match its callable signature",
+            ));
+        }
+        for (param, signature_param) in routine.params.iter().zip(&routine.signature.params) {
+            if param.ty != *signature_param {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "parameter `{}` type does not match the routine signature",
+                        param.name
+                    ),
+                ));
+            }
+        }
+        for (index, param) in routine.signature.params.iter().enumerate() {
+            self.type_shape_static(param, &format!("routine signature param {index}"));
+        }
+        if let Some(variadic) = &routine.signature.variadic {
+            self.type_shape_static(variadic, "routine signature variadic param");
+        }
+        if let Some(result) = &routine.signature.result {
+            self.type_shape_static(result, "routine signature result");
+        }
+        match routine.entry.placement {
+            NirRoutinePlacement::Absolute(address)
+                if address.address_space != self.target_layout.code_pointer.address_space
+                    || !self.address_fits_target(address) =>
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    "absolute routine entry is outside the selected target code address space",
+                ));
+            }
+            NirRoutinePlacement::Relocatable
+            | NirRoutinePlacement::CurrentLocation
+            | NirRoutinePlacement::Absolute(_) => {}
+        }
         let mut params = BTreeSet::new();
         let mut param_ids = BTreeSet::new();
         for param in &routine.params {
@@ -694,7 +754,7 @@ impl NirVerifier {
                 section,
                 ..
             } => {
-                if *routine as usize >= self.routine_count {
+                if !self.routine_signatures.contains_key(routine) {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` routine-address init references missing routine id {}",
                         global.name, routine
@@ -929,7 +989,7 @@ impl NirVerifier {
                     }
                 }
                 NirDataAddressTarget::Routine(id) => {
-                    if usize::try_from(*id).map_or(true, |id| id >= self.routine_count) {
+                    if !self.routine_signatures.contains_key(id) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} address fragment references unknown routine id {id}"
                         )));
@@ -1381,25 +1441,27 @@ impl NirVerifier {
                     }
                 }
                 if let Some(signature) = signature {
-                    self.call_signature(routine, block, args, result.as_ref(), signature);
+                    self.call_signature(routine, block, callee, args, result.as_ref(), signature);
                     if let NirCallee::Indirect { ty, .. } = callee
                         && let NirTypeKind::Callable {
                             signature: callee_signature,
+                            convention: callee_convention,
                             ..
                         } = ty.kind
-                        && callee_signature != signature.id
+                        && (callee_signature != signature.id
+                            || callee_convention != signature.convention)
                     {
                         self.diagnostics.push(NirDiagnostic::block(
                             &routine.name,
                             &block.label,
-                            "indirect callee signature id does not match the call signature",
+                            "indirect callee signature or convention does not match the call signature",
                         ));
                     }
-                } else if matches!(callee, NirCallee::Indirect { .. }) {
+                } else {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
-                        "indirect call has no callable signature",
+                        "call has no callable signature or convention",
                     ));
                 }
                 self.call_effects(routine, block, effects);
@@ -2009,7 +2071,9 @@ impl NirVerifier {
                         format!("inline assembler references unknown global id {}", id.0),
                     ));
                 }
-                NirForeignCodeTarget::Routine(id) if id as usize >= self.routine_count => {
+                NirForeignCodeTarget::Routine(id)
+                    if !self.routine_signatures.contains_key(&id) =>
+                {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -2105,7 +2169,7 @@ impl NirVerifier {
                     format!("{label} references unknown global id {}", id.0),
                 ));
             }
-            NirForeignCodeTarget::Routine(id) if id as usize >= self.routine_count => {
+            NirForeignCodeTarget::Routine(id) if !self.routine_signatures.contains_key(&id) => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
@@ -2181,7 +2245,7 @@ impl NirVerifier {
                 }
             }
             NirCallee::User { id, .. } => {
-                if *id as usize >= self.routine_count {
+                if !self.routine_signatures.contains_key(id) {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -2202,40 +2266,79 @@ impl NirVerifier {
         }
     }
 
-    fn call_signature(
+    fn intern_signature(
         &mut self,
-        routine: &NirRoutine,
-        block: &NirBlock,
-        args: &[NirValue],
-        result: Option<&NirCallResult>,
+        routine: &str,
+        block: Option<&str>,
         signature: &NirCallableSignature,
+        label: &str,
     ) {
         if let Some(existing) = self.signatures.get(&signature.id) {
             if existing != signature {
-                self.diagnostics.push(NirDiagnostic::block(
-                    &routine.name,
-                    &block.label,
-                    format!(
-                        "signature id {} is reused for different callable facts",
-                        signature.id.0
-                    ),
-                ));
+                let message = format!(
+                    "signature id {} is reused for different callable facts",
+                    signature.id.0
+                );
+                self.diagnostics.push(match block {
+                    Some(block) => NirDiagnostic::block(routine, block, message),
+                    None => NirDiagnostic::routine(routine, message),
+                });
             }
         } else {
             self.signatures.insert(signature.id, signature.clone());
         }
-        if signature.abi.is_empty() {
+        if signature.kind.is_empty() {
+            let message = format!("{label} kind must not be empty");
+            self.diagnostics.push(match block {
+                Some(block) => NirDiagnostic::block(routine, block, message),
+                None => NirDiagnostic::routine(routine, message),
+            });
+        }
+    }
+
+    fn call_signature(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        callee: &NirCallee,
+        args: &[NirValue],
+        result: Option<&NirCallResult>,
+        signature: &NirCallableSignature,
+    ) {
+        self.intern_signature(
+            &routine.name,
+            Some(&block.label),
+            signature,
+            "call signature",
+        );
+        let expected_convention = match callee {
+            NirCallee::User { id, .. } => self
+                .routine_signatures
+                .get(id)
+                .map(|callee| callee.convention),
+            NirCallee::Indirect { ty, .. } => match ty.kind {
+                NirTypeKind::Callable { convention, .. } => Some(convention),
+                _ => None,
+            },
+            NirCallee::Builtin(_) | NirCallee::Runtime { .. } => {
+                Some(NirCallConvention::Runtime)
+            }
+        };
+        if expected_convention.is_some_and(|expected| expected != signature.convention) {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
-                "call signature ABI must not be empty",
+                "call convention does not match its callee",
             ));
         }
-        if signature.kind.is_empty() {
+        if let NirCallee::User { id, .. } = callee
+            && let Some(callee_signature) = self.routine_signatures.get(id)
+            && callee_signature != signature
+        {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
-                "call signature kind must not be empty",
+                "direct call signature does not match its callee",
             ));
         }
         if signature.variadic.is_none() && args.len() > signature.params.len() {
@@ -2586,10 +2689,7 @@ impl NirVerifier {
                         format!("{label} routine address must have code-pointer type"),
                     ));
                 }
-                if usize::try_from(*id)
-                    .ok()
-                    .is_none_or(|id| id >= self.routine_count)
-                {
+                if !self.routine_signatures.contains_key(id) {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,

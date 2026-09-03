@@ -7,7 +7,7 @@ global rounded: Int
 static __nir_real_Main_0:REAL bytes=[$40 $01 $25 $00 $00 $00] = "1.25"
 static __nir_real_Main_1:REAL bytes=[$3F $50 $00 $00 $00 $00] = "0.5"
 
-routine Main params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_tmp_2, __nir_real_tmp_3, __nir_real_tmp_4, __nir_real_tmp_5, __nir_real_tmp_6]
+routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_tmp_2, __nir_real_tmp_3, __nir_real_tmp_4, __nir_real_tmp_5, __nir_real_tmp_6]
   local __nir_real_tmp_0: hidden REAL evaluation
   local __nir_real_tmp_1: hidden REAL evaluation
   local __nir_real_tmp_2: hidden REAL evaluation
@@ -15,7 +15,6 @@ routine Main params=[-] locals=[__nir_real_tmp_0, __nir_real_tmp_1, __nir_real_t
   local __nir_real_tmp_4: hidden REAL evaluation
   local __nir_real_tmp_5: hidden REAL evaluation
   local __nir_real_tmp_6: hidden REAL evaluation
-  note Action program entry (last source PROC)
 bb0:
   real.copy x = &__nir_real_Main_0
   real.convert y = 2:Byte

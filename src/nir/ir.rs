@@ -1,6 +1,6 @@
 use super::facts::{
-    BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, RuntimeSymbolId, SignatureId,
-    SymbolId, TempId,
+    BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, RoutineId, RuntimeSymbolId,
+    SignatureId, SymbolId, TempId, signature_id,
 };
 use crate::foreign::{ForeignRelocationEncoding, ForeignSymbolUse};
 use crate::source::Span;
@@ -62,7 +62,7 @@ pub enum NirGlobalInit {
         section: String,
     },
     RoutineAddress {
-        routine: u32,
+        routine: RoutineId,
         descriptor_size: ByteSize,
         size_word: Option<u16>,
         mutable: bool,
@@ -213,7 +213,7 @@ impl NirDataAddressEncoding {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirDataAddressTarget {
     Storage(NirStorageId),
-    Routine(u32),
+    Routine(RoutineId),
     Absolute(AddressValue),
 }
 
@@ -292,7 +292,7 @@ pub enum NirCompareOp {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirCallee {
     User {
-        id: u32,
+        id: RoutineId,
         /// Readable backend/link name; `id` is the executable identity.
         name: String,
     },
@@ -310,7 +310,7 @@ pub enum NirCallee {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirRuntimeTarget {
     Absolute(AddressValue),
-    Routine(u32),
+    Routine(RoutineId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -390,8 +390,51 @@ pub struct NirCallableSignature {
     pub variadic: Option<NirType>,
     pub result: Option<NirType>,
     pub kind: String,
-    pub abi: String,
+    pub convention: NirCallConvention,
 }
+
+impl Default for NirCallableSignature {
+    fn default() -> Self {
+        Self::empty_proc(NirCallConvention::TargetPublic)
+    }
+}
+
+impl NirCallableSignature {
+    pub fn empty_proc(convention: NirCallConvention) -> Self {
+        Self {
+            id: signature_id(&crate::semantic::CallableType::unknown_proc(), convention),
+            params: Vec::new(),
+            variadic: None,
+            result: None,
+            kind: "Proc".to_string(),
+            convention,
+        }
+    }
+}
+
+/// Target-independent class of a callable boundary. Physical argument and
+/// result placement remains a MIR decision for the selected target ABI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirCallConvention {
+    TargetInternal,
+    TargetPublic,
+    Runtime,
+    External(ExternalAbiId),
+}
+
+impl NirCallConvention {
+    pub(crate) const fn identity_byte(self) -> u8 {
+        match self {
+            Self::TargetInternal => 1,
+            Self::TargetPublic => 2,
+            Self::Runtime => 3,
+            Self::External(_) => 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ExternalAbiId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirLocal {
@@ -456,12 +499,6 @@ pub struct NirRoutineNote {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirRoutineNoteKind {
     Informational,
-    /// The last source procedure selected as the Action! program entry.
-    ProgramEntry,
-    CurrentLocationEntry,
-    /// Signature-only declaration that runtime binding must resolve before
-    /// emission.
-    ExternalInterface,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -481,12 +518,40 @@ pub struct NirTempDef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirRoutine {
+    pub id: RoutineId,
+    pub signature: NirCallableSignature,
+    pub convention: NirCallConvention,
+    pub entry: NirRoutineEntry,
     pub name: String,
     pub params: Vec<NirParam>,
     pub locals: Vec<NirLocal>,
     pub temps: Vec<NirTemp>,
     pub notes: Vec<NirRoutineNote>,
     pub blocks: Vec<NirBlock>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NirRoutineEntry {
+    pub program: bool,
+    pub external: bool,
+    pub placement: NirRoutinePlacement,
+}
+
+impl Default for NirRoutineEntry {
+    fn default() -> Self {
+        Self {
+            program: false,
+            external: false,
+            placement: NirRoutinePlacement::Relocatable,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NirRoutinePlacement {
+    Relocatable,
+    CurrentLocation,
+    Absolute(AddressValue),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -691,7 +756,7 @@ pub struct NirForeignRelocation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirForeignCodeTarget {
     Storage(NirStorageId),
-    Routine(u32),
+    Routine(RoutineId),
     Absolute(AddressValue),
     InlineOffset(ByteOffset),
 }

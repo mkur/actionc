@@ -90,7 +90,7 @@ pub(super) fn classify_value(value: &NirValue) -> MirValueShape {
         NirValue::Temp { id, .. } => MirValueShape::Temp(*id),
         NirValue::StaticAddr { id, .. } => MirValueShape::StaticAddress(*id),
         NirValue::GlobalAddr(id) => MirValueShape::GlobalAddress(*id),
-        NirValue::RoutineAddr { id, .. } => MirValueShape::RoutineAddress(*id),
+        NirValue::RoutineAddr { id, .. } => MirValueShape::RoutineAddress(id.0),
         NirValue::Param(id) => MirValueShape::ParamValue(*id),
     }
 }

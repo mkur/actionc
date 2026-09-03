@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::nir::{
-    NirCallEffects, NirCallableSignature, NirCallee, NirRuntimeTarget, RuntimeSymbolId,
+    NirCallEffects, NirCallableSignature, NirCallee, NirRuntimeTarget,
+    RoutineId as NirRoutineId, RuntimeSymbolId,
 };
 
 use super::abi::{
@@ -32,7 +33,7 @@ pub(super) fn plan_call(
     indirect_target: Option<(MirValue, MirWidth)>,
     effects: &NirCallEffects,
     _routine_ids: &BTreeMap<&str, RoutineId>,
-    routine_system_addresses: &BTreeMap<u32, u16>,
+    routine_system_addresses: &BTreeMap<NirRoutineId, u16>,
     runtime_targets: &BTreeMap<RuntimeSymbolId, NirRuntimeTarget>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallPlan> {
@@ -113,7 +114,7 @@ fn lower_call_target(
     block: &str,
     callee: &NirCallee,
     indirect_target: Option<(MirValue, MirWidth)>,
-    routine_system_addresses: &BTreeMap<u32, u16>,
+    routine_system_addresses: &BTreeMap<NirRoutineId, u16>,
     runtime_targets: &BTreeMap<RuntimeSymbolId, NirRuntimeTarget>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallTarget> {
@@ -125,7 +126,7 @@ fn lower_call_target(
                     address: Some(*address),
                 });
             }
-            Some(MirCallTarget::Routine(RoutineId(*id)))
+            Some(MirCallTarget::Routine(RoutineId(id.0)))
         }
         NirCallee::Runtime { symbol, name } => match runtime_targets.get(symbol) {
             Some(NirRuntimeTarget::Absolute(address)) => Some(MirCallTarget::Runtime {
@@ -136,7 +137,7 @@ fn lower_call_target(
                 ),
             }),
             Some(NirRuntimeTarget::Routine(id)) => {
-                Some(MirCallTarget::Routine(RoutineId(*id)))
+                Some(MirCallTarget::Routine(RoutineId(id.0)))
             }
             None => Some(MirCallTarget::Runtime {
                 name: name.clone(),
@@ -216,6 +217,7 @@ mod tests {
             kind: NirTypeKind::Callable {
                 kind: "Proc".to_string(),
                 signature: crate::nir::SignatureId(0),
+                convention: crate::nir::NirCallConvention::TargetPublic,
                 address_space: crate::target::TargetLayout::CODE_ADDRESS_SPACE,
             },
             summary: "Proc".to_string(),
@@ -231,7 +233,7 @@ mod tests {
             variadic: None,
             result: None,
             kind: "Proc".to_string(),
-            abi: "action".to_string(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
         }
     }
 

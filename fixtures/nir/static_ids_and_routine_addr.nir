@@ -3,25 +3,23 @@ global menu_ptr: Byte*
 static __nir_str_First_0:Char* bytes=[$03 $4F $4E $45] = "ONE"
 static __nir_str_Second_1:Char* bytes=[$03 $54 $57 $4F] = "TWO"
 
-routine Use params=[s] locals=[-]
+routine r0 Use signature=s2726584377 convention=target-public entry=relocatable params=[s] locals=[-]
 bb0:
   return
 
-routine First params=[-] locals=[-]
+routine r1 First signature=s2726028260 convention=target-public entry=relocatable params=[-] locals=[-]
 bb1:
-  call Use(&__nir_str_First_0)
+  call Use(&__nir_str_First_0) signature=s2726584377 convention=target-public
   return
 
-routine Menu params=[-] locals=[-]
-  note system-address *
+routine r2 Menu signature=s2726028260 convention=target-public entry=current-location params=[-] locals=[-]
 bb2:
   machine target=atari-6502 items=3 effects=opaque
   fallthrough
 
-routine Second params=[-] locals=[-]
-  note Action program entry (last source PROC)
+routine r3 Second signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
 bb3:
-  call Use(&__nir_str_Second_1)
+  call Use(&__nir_str_Second_1) signature=s2726584377 convention=target-public
   %t0:Byte* = cast Proc -> Byte* routine_addr2(Menu)
   store menu_ptr = %t0
   return

@@ -532,6 +532,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Test".to_string(),
                 params: vec![NirParam {
                     id: ParamId(0),
@@ -635,7 +639,9 @@ mod tests {
             callee: NirCallee::Builtin("Touch".to_string()),
             args: Vec::new(),
             result: None,
-            signature: None,
+            signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                crate::nir::NirCallConvention::Runtime,
+            )),
             effects: NirCallEffects {
                 memory: NirMemoryEffects {
                     reads: NirMemoryAccess::Unknown,

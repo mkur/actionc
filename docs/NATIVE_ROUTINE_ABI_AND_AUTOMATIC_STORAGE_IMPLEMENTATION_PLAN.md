@@ -2,7 +2,8 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slice 0 was implemented and verified on 2026-09-03.
+Status: in progress. Slices 0 and 1 were implemented and verified on
+2026-09-03.
 
 ## Objective
 
@@ -342,6 +343,15 @@ docs: define native routine activation and ABI contract
 ```
 
 ### Slice 1: structured call-convention and routine identity
+
+Status: complete. NIR now uses `RoutineId` for executable routine references,
+and every routine and call carries a structured convention-bearing signature.
+Callable pointer types include the same convention identity. Routine entry,
+external-interface, and current/absolute placement facts are structured on the
+routine, and MIR6502 consumes those facts without parsing note strings. The
+verifier rejects duplicate/missing routine identities, absent call signatures,
+and direct or indirect convention mismatches. Printer and NIR fixtures expose
+the new contract; the Slice 0 MIR6502 object remains byte-identical.
 
 1. Introduce `RoutineId` everywhere NIR currently uses a raw routine `u32`.
 2. Replace `NirCallableSignature.abi: String` with a structured convention or

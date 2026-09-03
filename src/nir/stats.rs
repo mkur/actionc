@@ -375,6 +375,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: vec![local],
@@ -450,6 +454,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),

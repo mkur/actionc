@@ -1278,6 +1278,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),
@@ -1319,6 +1323,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),
@@ -1397,7 +1405,11 @@ mod tests {
             width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         };
-        let empty_routine = |name: &str, block_id: u32| NirRoutine {
+        let empty_routine = |name: &str, routine_id: u32, block_id: u32| NirRoutine {
+            id: crate::nir::RoutineId(routine_id),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: name.to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -1411,22 +1423,15 @@ mod tests {
                 terminator: NirTerminator::Return(None),
             }],
         };
-        let mut main = empty_routine("Main", 0);
+        let mut main = empty_routine("Main", 1, 0);
         main.blocks[0].ops.push(NirOp::Call {
             callee: crate::nir::NirCallee::User {
-                id: 1,
+                id: crate::nir::RoutineId(0),
                 name: "Touch".to_string(),
             },
             args: Vec::new(),
             result: None,
-            signature: Some(crate::nir::NirCallableSignature {
-                id: crate::nir::SignatureId(0),
-                params: Vec::new(),
-                variadic: None,
-                result: None,
-                kind: "Proc".to_string(),
-                abi: "action".to_string(),
-            }),
+            signature: Some(crate::nir::NirCallableSignature::default()),
             effects: crate::nir::NirCallEffects {
                 memory: NirMemoryEffects {
                     reads: NirMemoryAccess::None,
@@ -1454,7 +1459,7 @@ mod tests {
                 backing: crate::nir::NirGlobalBacking::Ordinary,
             }],
             statics: Vec::new(),
-            routines: vec![empty_routine("Touch", 0), main],
+            routines: vec![empty_routine("Touch", 0, 0), main],
         };
 
         let mir = lower_program(&nir).expect("lower exact call effects");
@@ -1484,6 +1489,10 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),

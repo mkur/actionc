@@ -250,7 +250,7 @@ pub fn lower_verified(
 fn relocation_target(target: NirDataAddressTarget) -> Mir68kRelocationTarget {
     match target {
         NirDataAddressTarget::Storage(storage) => Mir68kRelocationTarget::Data(storage),
-        NirDataAddressTarget::Routine(routine) => Mir68kRelocationTarget::Code(routine),
+        NirDataAddressTarget::Routine(routine) => Mir68kRelocationTarget::Code(routine.0),
         NirDataAddressTarget::Absolute(address) => Mir68kRelocationTarget::Absolute(address),
     }
 }

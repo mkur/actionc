@@ -385,6 +385,10 @@ mod tests {
     #[test]
     fn indexes_definitions_and_distinct_operand_positions() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -420,7 +424,9 @@ mod tests {
                             dest: TempId(3),
                             ty: byte_type(),
                         }),
-                        signature: None,
+                        signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                            crate::nir::NirCallConvention::Runtime,
+                        )),
                         effects: NirCallEffects {
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,
@@ -495,6 +501,10 @@ mod tests {
             ty: Some(byte_type()),
         };
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -582,6 +592,10 @@ mod tests {
     #[test]
     fn indexes_edge_arguments_as_uses_and_block_parameters_as_entry_definitions() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),

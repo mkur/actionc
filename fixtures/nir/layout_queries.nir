@@ -11,8 +11,7 @@ global elementCount: Card
 global recordAlign: Card
 global wordOffset: Card
 
-routine Main params=[-] locals=[-]
-  note Action program entry (last source PROC)
+routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
 bb0:
   store byteSize = $1
   store cardSize = $2

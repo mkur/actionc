@@ -2,7 +2,7 @@ use crate::ast::RoutineKind;
 use crate::semantic::{CallableType, ScalarType, ValueType, ValueTypeBase, ValueTypeKind};
 use crate::target::{AddressSpaceId, ByteSize, TargetLayout};
 
-use super::ir::{NirPlace, NirPlaceKind};
+use super::ir::{NirCallConvention, NirPlace, NirPlaceKind};
 
 pub(super) struct NirFacts;
 
@@ -64,6 +64,7 @@ pub enum NirTypeKind {
     Callable {
         kind: String,
         signature: SignatureId,
+        convention: NirCallConvention,
         address_space: AddressSpaceId,
     },
     Error,
@@ -80,7 +81,8 @@ impl NirTypeKind {
             },
             ValueTypeKind::CallablePointer(callable) => Self::Callable {
                 kind: format!("{:?}", callable.kind),
-                signature: signature_id(&callable),
+                signature: signature_id(&callable, NirCallConvention::TargetPublic),
+                convention: NirCallConvention::TargetPublic,
                 address_space: TargetLayout::CODE_ADDRESS_SPACE,
             },
             ValueTypeKind::Record(name) => Self::Record { name, size: None },
@@ -160,6 +162,16 @@ pub struct BlockId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SymbolId(pub u32);
 
+/// Stable identity for a routine within one verified NIR program.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RoutineId(pub u32);
+
+impl std::fmt::Display for RoutineId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
 /// Stable structural identity for an Action! callable signature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SignatureId(pub u32);
@@ -178,7 +190,10 @@ pub fn runtime_symbol_id(name: &str) -> RuntimeSymbolId {
     RuntimeSymbolId(hash)
 }
 
-pub(super) fn signature_id(callable: &CallableType) -> SignatureId {
+pub(super) fn signature_id(
+    callable: &CallableType,
+    convention: NirCallConvention,
+) -> SignatureId {
     fn byte(hash: &mut u32, value: u8) {
         *hash ^= u32::from(value);
         *hash = hash.wrapping_mul(16_777_619);
@@ -232,6 +247,12 @@ pub(super) fn signature_id(callable: &CallableType) -> SignatureId {
     }
 
     let mut hash = 2_166_136_261;
+    byte(&mut hash, convention.identity_byte());
+    if let NirCallConvention::External(id) = convention {
+        for byte_value in id.0.to_le_bytes() {
+            byte(&mut hash, byte_value);
+        }
+    }
     callable_type(&mut hash, callable);
     SignatureId(hash)
 }
@@ -290,7 +311,7 @@ pub enum NirValue {
     Param(ParamId),
     GlobalAddr(SymbolId),
     RoutineAddr {
-        id: u32,
+        id: RoutineId,
         name: String,
         ty: NirType,
     },

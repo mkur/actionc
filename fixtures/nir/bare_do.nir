@@ -1,8 +1,7 @@
 nir program
 global x: Byte
 
-routine Spin params=[-] locals=[-]
-  note Action program entry (last source PROC)
+routine r0 Spin signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
 bb0:
   goto bb1
 bb1:

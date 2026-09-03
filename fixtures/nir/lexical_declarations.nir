@@ -5,7 +5,7 @@ global wordResult: Card
 global escaped: Byte*
 static __nir_real_Main_0:REAL bytes=[$40 $01 $50 $00 $00 $00] = "1.5"
 
-routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, Main::block0::absolute, Main::block0::data, Main::block0::addresses, Main::block0::item, Main::block0::itemPointer, Main::block0::realValue, Main::block0::block1::item, Main::block0::block1::data, Main::block2::data, __nir_real_tmp_12]
+routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[root, Main::block0::value, Main::block0::alias, Main::block0::absolute, Main::block0::data, Main::block0::addresses, Main::block0::item, Main::block0::itemPointer, Main::block0::realValue, Main::block0::block1::item, Main::block0::block1::data, Main::block2::data, __nir_real_tmp_12]
   local root: Byte
   local Main::block0::value: Byte
   local Main::block0::alias: Byte alias Main::block0::value
@@ -19,7 +19,6 @@ routine Main params=[-] locals=[root, Main::block0::value, Main::block0::alias, 
   local Main::block0::block1::data: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init descriptor size=4 backing=local bytes=[$00 $00 $00 $00] fragments=[0:int16=$5, 2:int16=$6] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
   local Main::block2::data: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local init bytes=[$07 $08] zero_fill=0 section=local mutable=true
   local __nir_real_tmp_12: hidden REAL evaluation
-  note Action program entry (last source PROC)
 bb0:
   store root = 1
   store volatile Main::block0::value = 2

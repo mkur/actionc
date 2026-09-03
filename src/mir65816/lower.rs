@@ -51,7 +51,7 @@ pub(super) fn lower_program(
                     offset: ByteOffset::ZERO,
                     width: layout.code_pointer.size_bytes,
                     address_space: layout.code_pointer.address_space,
-                    target: Mir65816RelocationTarget::Code(*routine),
+                    target: Mir65816RelocationTarget::Code(routine.0),
                     addend: 0,
                 }],
             }),
@@ -527,7 +527,7 @@ fn lower_value(
         NirValue::Param(id) => Mir65816Value::Param(*id),
         NirValue::GlobalAddr(id) => Mir65816Value::GlobalAddress(*id, data_pointer_width),
         NirValue::RoutineAddr { id, ty, .. } => {
-            Mir65816Value::RoutineAddress(*id, ty.width.unwrap_or(code_pointer_width))
+            Mir65816Value::RoutineAddress(id.0, ty.width.unwrap_or(code_pointer_width))
         }
     }
 }
@@ -538,7 +538,7 @@ fn lower_callee(
     code_pointer_width: ByteSize,
 ) -> Mir65816CallTarget {
     match callee {
-        NirCallee::User { id, .. } => Mir65816CallTarget::Direct(*id),
+        NirCallee::User { id, .. } => Mir65816CallTarget::Direct(id.0),
         NirCallee::Builtin(name) => Mir65816CallTarget::Builtin(name.clone()),
         NirCallee::Runtime { symbol, .. } => Mir65816CallTarget::Runtime(*symbol),
         NirCallee::Indirect { target, ty } => Mir65816CallTarget::Indirect(
@@ -690,7 +690,7 @@ RETURN
                             address_space: crate::target::TargetLayout::CODE_ADDRESS_SPACE,
                             width: ByteSize::new(3),
                         },
-                        target: NirDataAddressTarget::Routine(code),
+                        target: NirDataAddressTarget::Routine(crate::nir::RoutineId(code)),
                         addend: 0,
                         span: Span { start: 0, end: 0 },
                     },

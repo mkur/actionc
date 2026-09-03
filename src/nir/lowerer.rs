@@ -22,8 +22,8 @@ use crate::target::{AddressValue, ByteOffset, ByteSize, TargetLayout};
 
 use super::classifier::NirClassifier;
 use super::facts::{
-    BlockId, LocalId, NirFacts, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SymbolId,
-    TempId, runtime_symbol_id, signature_id, type_summary,
+    BlockId, LocalId, NirFacts, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, RoutineId,
+    SymbolId, TempId, runtime_symbol_id, signature_id, type_summary,
 };
 use super::ir::*;
 
@@ -35,7 +35,7 @@ pub(super) struct NirLowerer {
     next_static: u32,
     global_ids: BTreeMap<String, SymbolId>,
     global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
-    routine_ids: BTreeMap<String, u32>,
+    routine_ids: BTreeMap<String, RoutineId>,
     routine_types: BTreeMap<String, NirType>,
     symbol_storage_types: BTreeMap<String, NirType>,
     semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
@@ -188,6 +188,30 @@ impl NirLowerer {
                         } else {
                             &routine.symbol.name
                         };
+                        let routine_id = *self
+                            .routine_ids
+                            .get(&storage_key(&routine.symbol.name))
+                            .expect("collected routine must have a stable NIR id");
+                        let convention = NirCallConvention::TargetPublic;
+                        let signature =
+                            nir_callable_signature(&routine.callable_type, convention);
+                        let placement = match routine.system_address.as_ref() {
+                            Some(address) if matches!(address.kind, SemExprKind::CurrentLocation) => {
+                                NirRoutinePlacement::CurrentLocation
+                            }
+                            Some(address) => NirRoutinePlacement::Absolute(AddressValue::code(
+                                u64::from(
+                                    self.const_u16_expr(address)
+                                        .expect("resolved routine address must be constant"),
+                                ),
+                            )),
+                            None => NirRoutinePlacement::Relocatable,
+                        };
+                        let entry = NirRoutineEntry {
+                            program: program_entry == Some(routine.symbol.id),
+                            external: routine.is_external,
+                            placement,
+                        };
                         let mut builder = NirBuilder::new(
                             routine_name,
                             self.next_block_label(),
@@ -195,6 +219,9 @@ impl NirLowerer {
                             self.global_ids.clone(),
                             self.global_ids_by_symbol.clone(),
                             self.routine_ids.clone(),
+                            routine_id,
+                            signature,
+                            entry,
                             self.routine_types.clone(),
                             self.symbol_storage_types.clone(),
                             self.semantic_storage_types.clone(),
@@ -320,37 +347,6 @@ impl NirLowerer {
                                 ),
                             );
                         }
-                        if let Some(return_type) = routine.callable_type.return_type.as_ref() {
-                            let return_type = NirFacts::type_from_value(return_type);
-                            if let Some(width) = return_type.width {
-                                builder.notes.push(NirRoutineNote {
-                                    text: format!("return-width {width}"),
-                                    kind: NirRoutineNoteKind::Informational,
-                                });
-                            }
-                        }
-                        if routine.is_external {
-                            builder.notes.push(NirRoutineNote {
-                                text: routine.symbol.canonical_qualified_key.clone(),
-                                kind: NirRoutineNoteKind::ExternalInterface,
-                            });
-                        }
-                        if program_entry == Some(routine.symbol.id) {
-                            builder.notes.push(NirRoutineNote {
-                                text: "Action program entry (last source PROC)".to_string(),
-                                kind: NirRoutineNoteKind::ProgramEntry,
-                            });
-                        }
-                        if let Some(address) = &routine.system_address {
-                            builder.notes.push(NirRoutineNote {
-                                text: format!("system-address {}", expr_summary(address)),
-                                kind: if matches!(address.kind, SemExprKind::CurrentLocation) {
-                                    NirRoutineNoteKind::CurrentLocationEntry
-                                } else {
-                                    NirRoutineNoteKind::Informational
-                                },
-                            });
-                        }
                         for (name, items) in machine_define_names_from_statements(&routine.body) {
                             builder.machine_define_names.insert(name, items);
                         }
@@ -384,6 +380,12 @@ impl NirLowerer {
                 self.global_ids.clone(),
                 self.global_ids_by_symbol.clone(),
                 self.routine_ids.clone(),
+                RoutineId(0),
+                nir_callable_signature(
+                    &crate::semantic::CallableType::unknown_proc(),
+                    NirCallConvention::TargetPublic,
+                ),
+                NirRoutineEntry::default(),
                 self.routine_types.clone(),
                 self.symbol_storage_types.clone(),
                 self.semantic_storage_types.clone(),
@@ -403,9 +405,12 @@ impl NirLowerer {
                 record_runtime_binding(&mut runtime_bindings, binding);
             }
             routines.insert(0, routine);
+            for routine in &mut routines[1..] {
+                routine.id = increment_routine_id(routine.id);
+            }
             for binding in &mut runtime_bindings {
                 if let Some(NirRuntimeTarget::Routine(id)) = &mut binding.target {
-                    *id = id.saturating_add(1);
+                    *id = increment_routine_id(*id);
                 }
             }
             for routine in &mut routines {
@@ -420,7 +425,7 @@ impl NirLowerer {
                             NirOp::Call {
                                 callee: NirCallee::User { id, .. },
                                 ..
-                            } => *id = id.saturating_add(1),
+                            } => *id = increment_routine_id(*id),
                             NirOp::ForeignCode { code, .. } => {
                                 match &mut code.payload {
                                     NirForeignCodePayload::Structured(items) => {
@@ -430,7 +435,7 @@ impl NirLowerer {
                                                 ..
                                             } = item
                                             {
-                                                *id = id.saturating_add(1);
+                                                *id = increment_routine_id(*id);
                                             }
                                         }
                                     }
@@ -439,7 +444,7 @@ impl NirLowerer {
                                             if let NirForeignCodeTarget::Routine(id) =
                                                 &mut relocation.target
                                             {
-                                                *id = id.saturating_add(1);
+                                                *id = increment_routine_id(*id);
                                             }
                                         }
                                     }
@@ -533,7 +538,7 @@ impl NirLowerer {
         for module in &program.modules {
             for item in &module.items {
                 if let crate::semantic::ir::SemItem::Routine(routine) = item {
-                    let id = self.routine_ids.len() as u32;
+                    let id = RoutineId(self.routine_ids.len() as u32);
                     self.routine_ids
                         .insert(storage_key(&routine.symbol.name), id);
                     self.routine_types.insert(
@@ -799,6 +804,15 @@ fn apply_target_layout_to_program(program: &mut NirProgram) {
         static_data.ty.apply_target_layout(layout);
     }
     for routine in &mut program.routines {
+        for param in &mut routine.signature.params {
+            param.apply_target_layout(layout);
+        }
+        if let Some(variadic) = &mut routine.signature.variadic {
+            variadic.apply_target_layout(layout);
+        }
+        if let Some(result) = &mut routine.signature.result {
+            result.apply_target_layout(layout);
+        }
         for param in &mut routine.params {
             param.ty.apply_target_layout(layout);
         }
@@ -1168,7 +1182,10 @@ pub(super) struct NirBuilder {
     locals: Vec<NirLocal>,
     global_ids: BTreeMap<String, SymbolId>,
     global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
-    routine_ids: BTreeMap<String, u32>,
+    routine_ids: BTreeMap<String, RoutineId>,
+    routine_id: RoutineId,
+    signature: NirCallableSignature,
+    entry: NirRoutineEntry,
     routine_types: BTreeMap<String, NirType>,
     symbol_storage_types: BTreeMap<String, NirType>,
     semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
@@ -1198,7 +1215,10 @@ impl NirBuilder {
         next_static: u32,
         global_ids: BTreeMap<String, SymbolId>,
         global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
-        routine_ids: BTreeMap<String, u32>,
+        routine_ids: BTreeMap<String, RoutineId>,
+        routine_id: RoutineId,
+        signature: NirCallableSignature,
+        entry: NirRoutineEntry,
         routine_types: BTreeMap<String, NirType>,
         symbol_storage_types: BTreeMap<String, NirType>,
         semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
@@ -1219,6 +1239,9 @@ impl NirBuilder {
             global_ids,
             global_ids_by_symbol,
             routine_ids,
+            routine_id,
+            signature,
+            entry,
             routine_types,
             symbol_storage_types,
             semantic_storage_types,
@@ -1251,6 +1274,10 @@ impl NirBuilder {
     fn finish(self) -> (NirRoutine, Vec<NirStaticData>, Vec<NirRuntimeBinding>, u32) {
         (
             NirRoutine {
+                id: self.routine_id,
+                convention: self.signature.convention,
+                signature: self.signature,
+                entry: self.entry,
                 name: self.name,
                 params: self.params,
                 locals: self.locals,
@@ -1380,7 +1407,7 @@ impl NirBuilder {
                     callee,
                     args,
                     result,
-                    signature: Some(nir_call_signature(call)),
+                    signature: Some(nir_call_signature(call, &self.routine_ids)),
                     effects: self.nir_call_effects(&call.effects),
                 });
             }
@@ -2250,7 +2277,7 @@ impl NirBuilder {
                         dest,
                         ty: ty.clone(),
                     }),
-                    signature: Some(nir_call_signature(call)),
+                    signature: Some(nir_call_signature(call, &self.routine_ids)),
                     effects: self.nir_call_effects(&call.effects),
                 });
                 Some(NirValue::Temp { id: dest, ty })
@@ -3822,7 +3849,7 @@ fn declaration_global_init(
     backing: &NirGlobalBacking,
     address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,
-    routine_ids: &BTreeMap<String, u32>,
+    routine_ids: &BTreeMap<String, RoutineId>,
     target_layout: TargetLayout,
 ) -> Option<NirGlobalInit> {
     if matches!(backing, NirGlobalBacking::Absolute(_)) {
@@ -4020,7 +4047,7 @@ fn declaration_local_init(
     record_storage_sizes: &BTreeMap<String, u16>,
     backing: &NirLocalBacking,
     global_ids: &BTreeMap<String, SymbolId>,
-    routine_ids: &BTreeMap<String, u32>,
+    routine_ids: &BTreeMap<String, RoutineId>,
     param_ids: &BTreeMap<SemSymbolId, ParamId>,
     local_ids: &BTreeMap<SemSymbolId, LocalId>,
     target_layout: TargetLayout,
@@ -4402,7 +4429,7 @@ fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> O
 fn global_data_relocation_target(
     target: &SemSymbolRef,
     global_ids: &BTreeMap<String, SymbolId>,
-    routine_ids: &BTreeMap<String, u32>,
+    routine_ids: &BTreeMap<String, RoutineId>,
 ) -> Option<NirDataAddressTarget> {
     if matches!(
         target.class,
@@ -4430,7 +4457,7 @@ fn global_data_relocation_target(
 fn local_data_relocation_target(
     target: &SemSymbolRef,
     global_ids: &BTreeMap<String, SymbolId>,
-    routine_ids: &BTreeMap<String, u32>,
+    routine_ids: &BTreeMap<String, RoutineId>,
     param_ids: &BTreeMap<SemSymbolId, ParamId>,
     local_ids: &BTreeMap<SemSymbolId, LocalId>,
 ) -> Option<NirDataAddressTarget> {
@@ -4454,7 +4481,7 @@ fn increment_data_image_routine_ids_in_global_init(init: &mut NirGlobalInit) {
             increment_data_image_routine_ids(&mut backing.image)
         }
         NirGlobalInit::RoutineAddress { routine, .. } => {
-            *routine = routine.saturating_add(1);
+            *routine = increment_routine_id(*routine);
         }
         NirGlobalInit::ZeroFill { .. } | NirGlobalInit::LinkValue { .. } => {}
     }
@@ -4477,9 +4504,13 @@ fn increment_data_image_routine_ids(image: &mut NirDataImage) {
             ..
         } = fragment
         {
-            *id = id.saturating_add(1);
+            *id = increment_routine_id(*id);
         }
     }
+}
+
+fn increment_routine_id(id: RoutineId) -> RoutineId {
+    RoutineId(id.0.saturating_add(1))
 }
 
 fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u16>> {
@@ -4897,27 +4928,52 @@ fn lvalue_symbol(lvalue: &SemLValue) -> Option<&SemSymbolRef> {
     }
 }
 
-fn nir_call_signature(call: &SemCall) -> NirCallableSignature {
+fn nir_callable_signature(
+    callable: &crate::semantic::CallableType,
+    convention: NirCallConvention,
+) -> NirCallableSignature {
     NirCallableSignature {
-        id: signature_id(&call.callable_type),
-        params: call
-            .callable_type
+        id: signature_id(callable, convention),
+        params: callable
             .params
             .iter()
             .map(NirFacts::type_from_value)
             .collect(),
-        variadic: call
-            .callable_type
+        variadic: callable
             .variadic
             .as_ref()
             .map(NirFacts::type_from_value),
-        result: call
-            .callable_type
+        result: callable
             .return_type
             .as_ref()
             .map(NirFacts::type_from_value),
-        kind: format!("{:?}", call.callable_type.kind),
-        abi: "action".to_string(),
+        kind: format!("{:?}", callable.kind),
+        convention,
+    }
+}
+
+fn nir_call_signature(
+    call: &SemCall,
+    routine_ids: &BTreeMap<String, RoutineId>,
+) -> NirCallableSignature {
+    nir_callable_signature(
+        &call.callable_type,
+        nir_call_convention(&call.callee, routine_ids),
+    )
+}
+
+fn nir_call_convention(
+    callee: &SemCallable,
+    routine_ids: &BTreeMap<String, RoutineId>,
+) -> NirCallConvention {
+    match callee {
+        SemCallable::User(_) | SemCallable::Indirect { .. } => NirCallConvention::TargetPublic,
+        SemCallable::Builtin(symbol)
+            if routine_ids.contains_key(&storage_key(&symbol.name)) =>
+        {
+            NirCallConvention::TargetPublic
+        }
+        SemCallable::Builtin(_) | SemCallable::Runtime { .. } => NirCallConvention::Runtime,
     }
 }
 
@@ -5171,6 +5227,9 @@ mod memory_effect_tests {
             global_ids,
             BTreeMap::new(),
             BTreeMap::new(),
+            RoutineId(0),
+            NirCallableSignature::default(),
+            NirRoutineEntry::default(),
             BTreeMap::new(),
             storage_types,
             BTreeMap::new(),

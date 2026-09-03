@@ -1897,9 +1897,7 @@ pub(super) fn lower_runtime_image(
 fn lower_runtime_nir(semir: &crate::semantic::ir::SemProgram) -> crate::nir::NirProgram {
     let mut nir = crate::nir::lower_program(semir);
     for routine in &mut nir.routines {
-        routine
-            .notes
-            .retain(|note| note.kind != crate::nir::NirRoutineNoteKind::ProgramEntry);
+        routine.entry.program = false;
     }
     nir
 }

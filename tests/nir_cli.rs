@@ -14,7 +14,7 @@ fn emit_nir_prints_nir_output() {
 
     let output = run_actionc("--emit-nir", &fixture);
 
-    assert!(output.contains("routine Main"));
+    assert!(output.contains("routine r0 Main"));
 }
 
 #[test]

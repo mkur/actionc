@@ -56,8 +56,8 @@ above must remain stable.
 
 | Inspection | Bytes | SHA-256 |
 | --- | ---: | --- |
-| unoptimized NIR | 2314 | `8d6f7654ecad10ce1a8fea39128afa50b325a962b257fbe3ca8d4c7a3daf3d11` |
-| optimized NIR | 2209 | `5da7842a9ca913510717434e9b20eeb795d12b29543e16b56fea10893730c666` |
+| unoptimized NIR | 2620 | `afc0e2737deafc3fd7fb25253f4f0ae74833577e4efb75c9c20cf7e8df61d6f1` |
+| optimized NIR | 2515 | `54db5545899cd1039c52c1fa014025a2b65cfa2355a899acddf48182d3dc0595` |
 | pre-materialization MIR6502 | 2050 | `a2b7abc8ca89f05c9966be2557cd30a0caa227efbcdfbcd4b419037719b2e079` |
 | classic/cart map | 1057 | `5314a371aa671b6971448b633bf3727957e147d30984c5db01f7a9104b5a0701` |
 | MIR6502/cart map | 206 | `f20f17a251c88e73be32621125b90747074e3a656b83507ea655d6f459a70270` |

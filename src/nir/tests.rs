@@ -69,7 +69,10 @@ fn runtime_helper_sets_become_verified_program_bindings() {
     let binding = &program.runtime_bindings[0];
     assert_eq!(binding.name, "ACTION.RUNTIME.HELPER.SARGS");
     assert_eq!(binding.symbol, runtime_symbol_id(&binding.name));
-    assert_eq!(binding.target, Some(NirRuntimeTarget::Routine(0)));
+    assert_eq!(
+        binding.target,
+        Some(NirRuntimeTarget::Routine(RoutineId(0)))
+    );
     assert_eq!(program.routines[0].name, "r_Par");
 }
 
@@ -653,12 +656,7 @@ fn program_entry_note_tracks_the_last_proc_instead_of_main_or_a_function() {
     let entries = program
         .routines
         .iter()
-        .filter(|routine| {
-            routine
-                .notes
-                .iter()
-                .any(|note| note.kind == NirRoutineNoteKind::ProgramEntry)
-        })
+        .filter(|routine| routine.entry.program)
         .map(|routine| routine.name.as_str())
         .collect::<Vec<_>>();
     assert_eq!(entries, ["Start"]);
@@ -667,10 +665,7 @@ fn program_entry_note_tracks_the_last_proc_instead_of_main_or_a_function() {
 #[test]
 fn verifier_rejects_more_than_one_program_entry() {
     let mut program = lower_modern_source("PROC First() RETURN PROC Second() RETURN");
-    program.routines[0].notes.push(NirRoutineNote {
-        text: "invalid second program entry".to_string(),
-        kind: NirRoutineNoteKind::ProgramEntry,
-    });
+    program.routines[0].entry.program = true;
 
     let diagnostics = verify_program(&program).expect_err("duplicate entry must fail");
     assert!(diagnostics.iter().any(|diagnostic| {
@@ -939,6 +934,10 @@ fn formats_labeled_blocks() {
         }],
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![NirLocal {
@@ -970,7 +969,7 @@ fn formats_labeled_blocks() {
     let formatted = format_program(&program);
     assert!(formatted.contains("nir program"));
     assert!(formatted.contains("global counter: Byte"));
-    assert!(formatted.contains("routine Main"));
+    assert!(formatted.contains("routine r0 Main"));
     assert!(formatted.contains("bb0:"));
     assert!(formatted.contains("store i = 0"));
     assert!(formatted.contains("return"));
@@ -1027,7 +1026,7 @@ fn named_module_executable_references_lower_to_stable_ids() {
     assert!(matches!(
         callback.init,
         Some(NirGlobalInit::RoutineAddress { routine, .. })
-            if (routine as usize) < program.routines.len()
+            if (routine.0 as usize) < program.routines.len()
     ));
 
     let main = program
@@ -1566,6 +1565,10 @@ fn verifier_accepts_valid_targets() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -1706,6 +1709,10 @@ fn verifier_rejects_open_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -1882,7 +1889,7 @@ fn lowers_word_routine_addresses_to_descriptor_backing_relocations() {
                 address_space: crate::target::TargetLayout::CODE_ADDRESS_SPACE,
                 width,
             },
-            target: NirDataAddressTarget::Routine(0),
+            target: NirDataAddressTarget::Routine(RoutineId(0)),
             addend: 0,
             ..
         }] if *width == ByteSize::new(2)
@@ -2075,7 +2082,7 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
             target: crate::target::TargetId::Atari6502,
             byte_index: 1,
         },
-        target: NirDataAddressTarget::Routine(9),
+        target: NirDataAddressTarget::Routine(RoutineId(9)),
         addend: 0,
         span: crate::source::Span::new(0, 0),
     });
@@ -2668,6 +2675,10 @@ fn verifier_rejects_executable_error_type() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![NirLocal {
@@ -2719,6 +2730,10 @@ fn verifier_rejects_missing_branch_target() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -2755,6 +2770,10 @@ fn verifier_rejects_non_bool_branch_condition() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -2806,6 +2825,10 @@ fn verifier_rejects_duplicate_block_labels() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -2847,6 +2870,10 @@ fn verifier_rejects_duplicate_block_ids() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -2888,6 +2915,10 @@ fn verifier_rejects_store_with_untyped_place() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -2927,6 +2958,10 @@ fn verifier_accepts_literal_that_fits_narrow_store() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -2957,6 +2992,10 @@ fn verifier_accepts_defined_temp_use() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -2996,6 +3035,10 @@ fn verifier_accepts_store_with_defined_temp_use() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -3035,6 +3078,10 @@ fn verifier_rejects_store_width_mismatch() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3071,6 +3118,10 @@ fn verifier_rejects_undefined_temp_use() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3107,6 +3158,10 @@ fn verifier_accepts_temp_use_from_dominating_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -3152,6 +3207,10 @@ fn verifier_rejects_temp_use_from_non_dominating_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3214,6 +3273,10 @@ fn verifier_rejects_missing_static_addr() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3250,6 +3313,10 @@ fn verifier_rejects_duplicate_temp_definition() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3297,6 +3364,10 @@ fn optimizer_removes_unreachable_blocks() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3340,6 +3411,10 @@ fn optimizer_folds_constants_and_simplifies_branches() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -3434,6 +3509,10 @@ fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -3529,6 +3608,10 @@ fn optimizer_keeps_pure_temp_used_in_successor_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -3598,6 +3681,10 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -3923,6 +4010,10 @@ fn optimizer_aliases_algebraic_identity_temps() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -4022,6 +4113,10 @@ fn optimizer_aliases_word_all_ones_identity() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -4071,6 +4166,10 @@ fn optimizer_cancels_local_constant_offsets() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -4128,6 +4227,10 @@ fn optimizer_canonicalizes_local_constant_offset_chains() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -4199,6 +4302,10 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],
@@ -4315,6 +4422,10 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![NirLocal {
@@ -4337,7 +4448,9 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
                     callee: NirCallee::Builtin("Touch".to_string()),
                     args: Vec::new(),
                     result: None,
-                    signature: None,
+                    signature: Some(NirCallableSignature::empty_proc(
+                        NirCallConvention::Runtime,
+                    )),
                     effects: NirCallEffects {
                         memory: NirMemoryEffects {
                             reads: NirMemoryAccess::None,
@@ -4425,6 +4538,10 @@ fn typed_block_argument_program() -> NirProgram {
             section: "data".to_string(),
         }],
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -4508,6 +4625,10 @@ fn optimizer_program(temps: Vec<NirTemp>, blocks: Vec<NirBlock>) -> NirProgram {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: vec![byte_local()],

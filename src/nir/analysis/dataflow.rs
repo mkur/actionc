@@ -227,6 +227,10 @@ mod tests {
     #[test]
     fn forward_solver_joins_diamond_predecessors_deterministically() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -269,6 +273,10 @@ mod tests {
     #[test]
     fn forward_solver_excludes_non_executable_edges_from_joins() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),
@@ -310,6 +318,10 @@ mod tests {
     #[test]
     fn sparse_forward_solver_converges_with_a_dead_loop_exit() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals: Vec::new(),

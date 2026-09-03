@@ -101,8 +101,14 @@ impl NirPrinter {
                 .join(", ")
         };
         self.line(format!(
-            "routine {} params=[{}] locals=[{}]",
-            routine.name, params, locals
+            "routine r{} {} signature=s{} convention={} entry={} params=[{}] locals=[{}]",
+            routine.id.0,
+            routine.name,
+            routine.signature.id.0,
+            convention_summary(routine.convention),
+            routine_entry_summary(routine.entry),
+            params,
+            locals
         ));
         for local in &routine.locals {
             let backing = match local.backing {
@@ -493,7 +499,7 @@ fn op_summary(op: &NirOp) -> String {
             callee,
             args,
             result,
-            signature: _,
+            signature,
             effects,
         } => {
             let callee = callee_summary(callee);
@@ -512,7 +518,14 @@ fn op_summary(op: &NirOp) -> String {
                     )
                 })
                 .unwrap_or_else(|| format!("call {callee}({args})"));
-            format!("{call}{}", call_effects_suffix(effects))
+            let signature = signature.as_ref().map_or_else(String::new, |signature| {
+                format!(
+                    " signature=s{} convention={}",
+                    signature.id.0,
+                    convention_summary(signature.convention)
+                )
+            });
+            format!("{call}{signature}{}", call_effects_suffix(effects))
         }
         NirOp::ForeignCode { code, effects } => match &code.payload {
             NirForeignCodePayload::Structured(items) => format!(
@@ -530,6 +543,29 @@ fn op_summary(op: &NirOp) -> String {
             ),
         },
         NirOp::Unsupported { note } => format!("unsupported {note}"),
+    }
+}
+
+fn convention_summary(convention: NirCallConvention) -> String {
+    match convention {
+        NirCallConvention::TargetInternal => "target-internal".to_string(),
+        NirCallConvention::TargetPublic => "target-public".to_string(),
+        NirCallConvention::Runtime => "runtime".to_string(),
+        NirCallConvention::External(id) => format!("external-{}", id.0),
+    }
+}
+
+fn routine_entry_summary(entry: NirRoutineEntry) -> String {
+    let placement = match entry.placement {
+        NirRoutinePlacement::Relocatable => "relocatable".to_string(),
+        NirRoutinePlacement::CurrentLocation => "current-location".to_string(),
+        NirRoutinePlacement::Absolute(address) => format!("${address:04X}"),
+    };
+    match (entry.program, entry.external) {
+        (false, false) => placement,
+        (true, false) => format!("program+{placement}"),
+        (false, true) => format!("external+{placement}"),
+        (true, true) => format!("program+external+{placement}"),
     }
 }
 

@@ -174,8 +174,10 @@ routine storage to its established fixed locations. An automatic object must
 never acquire a load-time relocation or be silently promoted to static storage
 because its address escapes.
 
-The current executable implementation still models classic fixed routine
-storage. The sliced migration to the native contract is specified in
+The executable NIR now carries structured routine IDs, callable signatures,
+call-convention identities, and entry classifications. It still models classic
+fixed routine storage; activation and storage-duration facts are the next
+migration slice. The complete sliced migration is specified in
 [`NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md`](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md).
 
 The detailed migration order is recorded in
@@ -207,7 +209,9 @@ pub struct NirProgram {
 pub struct NirRoutine {
     pub id: RoutineId,
     pub name: String,
-    pub signature: SignatureId,
+    pub signature: NirCallableSignature,
+    pub convention: NirCallConvention,
+    pub entry: NirRoutineEntry,
     pub params: Vec<NirParam>,
     pub locals: Vec<NirLocal>,
     pub temps: Vec<NirTemp>,
@@ -256,11 +260,12 @@ printer strings. In particular, a source `=*` entry carries a structured
 current-location entry kind so MIR6502 can preserve the public Action ABI
 boundary without parsing a displayed note.
 
-The `ProgramEntry` routine note records Action!'s source rule that the last
-code-emitting `PROC` is the program entry. `Main` has no special entry-point
-meaning, a trailing function cannot replace the entry, and runtime routines
-linked after the application must not inherit or override this note. MIR6502
-uses the preserved fact when it emits Atari `RUNAD`.
+The structured `NirRoutineEntry.program` fact records Action!'s source rule
+that the last code-emitting `PROC` is the program entry. `Main` has no special
+entry-point meaning, a trailing function cannot replace the entry, and runtime
+routines linked after the application must not inherit or override this fact.
+MIR6502 uses it when emitting Atari `RUNAD`; any corresponding note is debug
+metadata only.
 
 Source `ORG` is root-program placement metadata owned by SemIR. SemIR resolves
 its constant expression to a numeric address, after which compiler orchestration
@@ -331,6 +336,7 @@ pub enum NirType {
     },
     Callable {
         signature: SignatureId,
+        convention: NirCallConvention,
         address_space: AddressSpaceId,
     },
 }
@@ -769,7 +775,7 @@ pub struct NirSignature {
     pub id: SignatureId,
     pub params: Vec<NirType>,
     pub result: Option<NirType>,
-    pub abi: NirAbiClass,
+    pub convention: NirCallConvention,
 }
 ```
 
@@ -778,7 +784,9 @@ Rules:
 - Indirect callees use typed values, not expression summary strings.
 - Call argument count and types are verified against the signature.
 - Call result temps are verified against the signature result type.
-- ABI class is known to NIR, but physical ABI placement belongs to MIR6502.
+- Calling-convention class is structured and participates in signature
+  identity and indirect-call verification; physical ABI placement belongs to
+  the selected MIR backend.
 - Runtime calls use a stable `RuntimeSymbolId`; the readable name is debug/link
   metadata and the selected runtime target comes from the verified program
   binding table.

@@ -687,6 +687,10 @@ mod tests {
 
     fn program(locals: Vec<NirLocal>, blocks: Vec<NirBlock>) -> NirProgram {
         let mut routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),
             locals,
@@ -1045,7 +1049,9 @@ mod tests {
                         callee: NirCallee::Builtin("Pure".to_string()),
                         args: Vec::new(),
                         result: None,
-                        signature: None,
+                        signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                            crate::nir::NirCallConvention::Runtime,
+                        )),
                         effects: no_effects,
                     },
                     load(0, 0, "x"),
@@ -1054,7 +1060,9 @@ mod tests {
                         callee: NirCallee::Builtin("Unknown".to_string()),
                         args: Vec::new(),
                         result: None,
-                        signature: None,
+                        signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                            crate::nir::NirCallConvention::Runtime,
+                        )),
                         effects: unknown_writes,
                     },
                     load(1, 0, "x"),
@@ -1088,7 +1096,9 @@ mod tests {
                         callee: NirCallee::Builtin("WritesX".to_string()),
                         args: Vec::new(),
                         result: None,
-                        signature: None,
+                        signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                            crate::nir::NirCallConvention::Runtime,
+                        )),
                         effects: NirCallEffects {
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,

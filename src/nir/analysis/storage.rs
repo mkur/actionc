@@ -996,6 +996,10 @@ mod tests {
         let mut array = local(5, "array");
         array.storage = NirStorageClass::Array;
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: vec![
                 NirParam {
@@ -1135,6 +1139,10 @@ mod tests {
     #[test]
     fn definite_assignment_intersects_diamond_predecessors() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Diamond".to_string(),
             params: Vec::new(),
             locals: vec![local(0, "value")],
@@ -1188,6 +1196,10 @@ mod tests {
     #[test]
     fn opaque_machine_blocks_make_storage_visible() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Machine".to_string(),
             params: Vec::new(),
             locals: vec![local(0, "value")],
@@ -1234,6 +1246,10 @@ mod tests {
     #[test]
     fn structured_call_regions_mark_only_overlapping_storage() {
         let routine = NirRoutine {
+            id: crate::nir::RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: crate::nir::NirCallConvention::TargetPublic,
+            entry: crate::nir::NirRoutineEntry::default(),
             name: "Effects".to_string(),
             params: Vec::new(),
             locals: vec![local(0, "x"), local(1, "y")],
@@ -1246,7 +1262,9 @@ mod tests {
                     callee: crate::nir::NirCallee::Builtin("TouchX".to_string()),
                     args: Vec::new(),
                     result: None,
-                    signature: None,
+                    signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                        crate::nir::NirCallConvention::Runtime,
+                    )),
                     effects: crate::nir::NirCallEffects {
                         memory: NirMemoryEffects {
                             reads: NirMemoryAccess::None,
