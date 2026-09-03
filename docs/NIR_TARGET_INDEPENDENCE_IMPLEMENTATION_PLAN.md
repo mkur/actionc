@@ -2,8 +2,8 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 8 completed on 2026-09-03; later slices
-remain planned.
+Status: active. Slices 0 through 9 completed on 2026-09-03; the final slice
+remains planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
 65816, and Motorola 68k backends. It also revises the initial record-layout
@@ -490,6 +490,13 @@ nir: isolate target-specific machine payloads
 ```
 
 ### Slice 9: independent backend boundary
+
+Status: complete. `backend::VerifiedNir` now gates target lowering behind the
+full NIR verifier and exposes only the verified program, resolved target
+layout, and runtime bindings. MIR6502 consumes that token without consulting
+SemIR. Independent MIR65816 and MIR68K modules advertise their own target
+entry points and currently stop at explicit canary-not-yet-implemented
+diagnostics; they do not extend or reuse MIR6502.
 
 1. Extract a backend interface that consumes only verified NIR, target layout,
    and selected runtime bindings.

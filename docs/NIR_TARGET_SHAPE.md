@@ -96,6 +96,21 @@ needed by a backend. A backend must not consult SemIR to recompute field
 offsets, element strides, storage extents, pointer classes, signatures, or
 effects.
 
+### Verified backend handoff
+
+`backend::VerifiedNir` is the only unchecked-to-backend transition. Its
+constructor runs the complete NIR verifier and exposes three read-only inputs:
+the verifier-clean program, its resolved `TargetLayout`, and its selected
+`NirRuntimeBinding` table. The common `NirBackend` interface rejects a target
+that the selected backend does not advertise before target lowering begins.
+
+MIR6502, MIR65816, and MIR68K implement separate entry points behind this
+boundary. They may share analyses whose inputs and outputs remain entirely in
+NIR vocabulary, but they must not share register models, instruction forms,
+physical calling conventions, object formats, linker policy, or listing
+syntax. Compatibility wrappers may accept an unchecked `NirProgram`, but must
+construct a `VerifiedNir` token before invoking target lowering.
+
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, and `CARD`
 and `INT` are 16-bit. Pointer and callable widths are selected by their address
 spaces and are not aliases for `CARD` on native 65816 or 68k targets. The

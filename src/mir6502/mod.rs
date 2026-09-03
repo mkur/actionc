@@ -33,10 +33,69 @@ pub use passes::{Mir6502Config, MirPeepholeReportMode};
 
 use std::collections::BTreeSet;
 
+use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
 use crate::nir::NirProgram;
+use crate::target::TargetId;
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Mir6502Backend;
+
+impl NirBackend for Mir6502Backend {
+    type Output = MirProgram;
+    type Diagnostic = MirDiagnostic;
+
+    fn supports_target(&self, target: TargetId) -> bool {
+        target == TargetId::Atari6502
+    }
+
+    fn lower(
+        &self,
+        input: VerifiedNir<'_>,
+    ) -> Result<Self::Output, Vec<Self::Diagnostic>> {
+        if !self.supports_target(input.target()) {
+            return Err(vec![MirDiagnostic {
+                routine: None,
+                block: None,
+                message: format!("MIR6502 cannot lower target `{}`", input.target()),
+            }]);
+        }
+        lower::lower_program(input)
+    }
+}
 
 pub fn lower_program(nir: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    lower::lower_program(nir)
+    match crate::backend::lower_program(&Mir6502Backend, nir) {
+        Ok(program) => Ok(program),
+        Err(BackendLoweringError::InvalidNir(diagnostics)) => Err(diagnostics
+            .into_iter()
+            .map(|diagnostic| MirDiagnostic {
+                routine: diagnostic.routine,
+                block: diagnostic.block,
+                message: format!("NIR verification failed: {}", diagnostic.message),
+            })
+            .collect()),
+        Err(BackendLoweringError::UnsupportedTarget(target)) => Err(vec![MirDiagnostic {
+            routine: None,
+            block: None,
+            message: format!("MIR6502 cannot lower target `{target}`"),
+        }]),
+        Err(BackendLoweringError::Backend(diagnostics)) => Err(diagnostics),
+    }
+}
+
+pub fn lower_verified(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    match crate::backend::lower_verified(&Mir6502Backend, input) {
+        Ok(program) => Ok(program),
+        Err(BackendLoweringError::UnsupportedTarget(target)) => Err(vec![MirDiagnostic {
+            routine: None,
+            block: None,
+            message: format!("MIR6502 cannot lower target `{target}`"),
+        }]),
+        Err(BackendLoweringError::Backend(diagnostics)) => Err(diagnostics),
+        Err(BackendLoweringError::InvalidNir(_)) => {
+            unreachable!("a VerifiedNir token cannot contain unverified NIR")
+        }
+    }
 }
 
 #[doc(hidden)]

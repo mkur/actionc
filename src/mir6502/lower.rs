@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::machine_address_symbolic_offset;
+use crate::backend::VerifiedNir;
 use crate::codegen::runtime_zp;
 use crate::nir::{
     self, AddressValue, BlockId, ByteOffset, ByteSize, LocalId, NirBinaryOp, NirCompareOp,
@@ -493,27 +494,9 @@ fn record_storage_init_local_references(
     }
 }
 
-pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    if let Err(diagnostics) = nir::verify_program(nir_program) {
-        return Err(diagnostics
-            .into_iter()
-            .map(|diagnostic| MirDiagnostic {
-                routine: diagnostic.routine,
-                block: diagnostic.block,
-                message: format!("NIR verification failed: {}", diagnostic.message),
-            })
-            .collect());
-    }
-    if nir_program.target_layout.target != crate::target::TargetId::Atari6502 {
-        return Err(vec![MirDiagnostic {
-            routine: None,
-            block: None,
-            message: format!(
-                "MIR6502 cannot lower target `{}`",
-                nir_program.target_layout.target
-            ),
-        }]);
-    }
+pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    let nir_program = input.program();
+    debug_assert_eq!(input.target(), crate::target::TargetId::Atari6502);
     let mut diagnostics = Vec::new();
     let routine_ids = nir_program
         .routines
@@ -4189,7 +4172,8 @@ mod tests {
         );
         crate::nir::verify_program(&nir).expect("record-copy NIR verifies");
 
-        let mir = lower_program(&nir).expect("record copy lowers to MIR");
+        let verified = crate::backend::verify_program(&nir).expect("record-copy NIR verifies");
+        let mir = lower_program(verified).expect("record copy lowers to MIR");
         crate::mir6502::verify_program(&mir, crate::mir6502::MirPhase::PreMaterialization)
             .expect("aggregate record-copy MIR verifies");
 
@@ -4251,7 +4235,9 @@ mod tests {
             }],
         };
 
-        let mir = lower_program(&program).expect("address-only REAL local lowers to MIR");
+        let verified =
+            crate::backend::verify_program(&program).expect("address-only REAL NIR verifies");
+        let mir = lower_program(verified).expect("address-only REAL local lowers to MIR");
         let slot = &mir.routines[0].frame.locals[0];
         assert_eq!(slot.storage_size, 6);
         assert_eq!(slot.scalar_width, None);
