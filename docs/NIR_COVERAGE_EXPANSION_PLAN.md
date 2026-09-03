@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 1 through 4 are implemented.
+Status: in progress. Slices 1 through 5 are implemented.
 
 ## Objective
 
@@ -56,10 +56,12 @@ to every target.
 
 ### Slice 5: verifier-negative matrix
 
-Use directly constructed or deliberately mutated NIR to cover invalid stable
-IDs, CFG and use-def errors, types, calls, storage facts, aliases, relocations,
-effects, and target/address-space mismatches. Pair rejection tests with nearby
-accepted shapes.
+Status: complete. A table-driven rejection test starts from verifier-clean
+fixtures and introduces one fault for each contract family: stable storage IDs,
+CFG edges, use-def ordering, operation types, call signatures, activation and
+storage duration, alias cycles, data-fragment bounds, effect-region bounds,
+typed address spaces, and foreign-code targets. Lowering each base fixture first
+keeps an accepted shape adjacent to every rejected mutation.
 
 ### Slice 6: optimizer transformations and barriers
 
