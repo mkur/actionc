@@ -47,6 +47,7 @@ pub struct SemanticArrayLayout {
     pub symbol: SymbolId,
     pub name: String,
     pub element_type: ValueType,
+    pub length: Option<u16>,
     pub pointer_type: ValueType,
     pub origin: SemanticArrayOrigin,
     pub span: Span,
@@ -64,11 +65,12 @@ impl SemanticLayoutFacts {
     pub fn build(
         symbols: &SymbolTable,
         array_symbols: &HashSet<SymbolId>,
+        array_lengths: &HashMap<SymbolId, u16>,
         fields: &[SemanticField],
     ) -> Self {
         let mut facts = Self::default();
         facts.collect_records(symbols, fields);
-        facts.collect_arrays(symbols, array_symbols);
+        facts.collect_arrays(symbols, array_symbols, array_lengths);
         facts
     }
 
@@ -149,7 +151,12 @@ impl SemanticLayoutFacts {
         }
     }
 
-    fn collect_arrays(&mut self, symbols: &SymbolTable, array_symbols: &HashSet<SymbolId>) {
+    fn collect_arrays(
+        &mut self,
+        symbols: &SymbolTable,
+        array_symbols: &HashSet<SymbolId>,
+        array_lengths: &HashMap<SymbolId, u16>,
+    ) {
         let mut ids: Vec<_> = array_symbols.iter().copied().collect();
         ids.sort_by_key(|id| id.0);
         for symbol_id in ids {
@@ -165,6 +172,7 @@ impl SemanticLayoutFacts {
                 id,
                 symbol: symbol_id,
                 name: symbol.name.clone(),
+                length: array_lengths.get(&symbol_id).copied(),
                 pointer_type: ValueType::pointer_to(element_type.clone()),
                 element_type,
                 origin: array_origin(symbols, symbol_id, &symbol.class),

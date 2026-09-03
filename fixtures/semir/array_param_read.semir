@@ -2,19 +2,19 @@ program modules=1
   module #0 items=6
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Char text#77/scope1:Array:Char array Char ARRAY(0)->Char POINTER/Array/Global
+    decl Char text#81/scope1:Array:Char array Char ARRAY(0)->Char POINTER/Array/Global
       init "HI":Char POINTER:Value:eval5:facts=w2,ptr,to=Char,pointee_w1
       length 0:Byte:Value:eval4:facts=w1,Unsigned
-    decl Byte b#78/scope1:Var:Byte scalar
-    routine PROC Take#79/scope1:Proc:?
+    decl Byte b#82/scope1:Var:Byte scalar
+    routine PROC Take#83/scope1:Proc:?
       callable PROC(Char POINTER)
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       params:
-        Char s#80/scope2:Param:Char Array Char ARRAY(?)->Char POINTER
+        Char s#84/scope2:Param:Char Array Char ARRAY(?)->Char POINTER
       body:
         assign b:Byte:facts=w1,Unsigned = array_decay/Parameter s:Char:facts=w1,Unsigned:Char POINTER:Value:eval6:facts=w2,ptr,to=Char,pointee_w1(1:Byte:Value:eval7:facts=w1,Unsigned):Char:facts=w1,Unsigned:Char:LValue:eval8:facts=w1,Unsigned
         return
-    routine PROC Main#81/scope1:Proc:?
+    routine PROC Main#85/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

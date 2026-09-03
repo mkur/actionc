@@ -683,6 +683,7 @@ impl Generator {
                 self.collect_modern_hidden_expr(index);
             }
             ExprKind::Number(_)
+            | ExprKind::TypeRef(_)
             | ExprKind::Char(_)
             | ExprKind::Name(_)
             | ExprKind::CurrentLocation
@@ -937,6 +938,7 @@ fn expr_contains_string_literal(expr: &Expr) -> bool {
             expr_contains_string_literal(base) || expr_contains_string_literal(index)
         }
         ExprKind::Number(_)
+        | ExprKind::TypeRef(_)
         | ExprKind::Char(_)
         | ExprKind::Name(_)
         | ExprKind::CurrentLocation

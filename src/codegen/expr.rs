@@ -364,7 +364,10 @@ impl Generator {
                 TypeBase::Callable(_) => Some(ScalarType::Card),
                 TypeBase::NativeReal | TypeBase::Named(_) => None,
             },
-            ExprKind::Missing | ExprKind::Raw | ExprKind::InitializerList(_) => None,
+            ExprKind::Missing
+            | ExprKind::Raw
+            | ExprKind::InitializerList(_)
+            | ExprKind::TypeRef(_) => None,
         }
     }
 

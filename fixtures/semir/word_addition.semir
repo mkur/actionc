@@ -2,9 +2,9 @@ program modules=1
   module #0 items=5
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Card a#77/scope1:Var:Card scalar
-    decl Card b#78/scope1:Var:Card scalar
-    routine PROC Main#79/scope1:Proc:?
+    decl Card a#81/scope1:Var:Card scalar
+    decl Card b#82/scope1:Var:Card scalar
+    routine PROC Main#83/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

@@ -2,16 +2,16 @@ program modules=1
   module #0 items=8
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Byte cartrun#77/scope1:Var:Byte scalar
+    decl Byte cartrun#81/scope1:Var:Byte scalar
       init $BFFA:Card:Value:eval4:facts=w2,Unsigned
-    decl Byte oldrun#78/scope1:Var:Byte scalar
-    decl Card dosini#79/scope1:Var:Card scalar
+    decl Byte oldrun#82/scope1:Var:Byte scalar
+    decl Card dosini#83/scope1:Var:Card scalar
       init $0C:Byte:Value:eval5:facts=w1,Unsigned
-    decl Card dosvec#80/scope1:Var:Card scalar
+    decl Card dosvec#84/scope1:Var:Card scalar
       init $0A:Byte:Value:eval6:facts=w1,Unsigned
-    decl Card setini#81/scope1:Var:Card scalar
+    decl Card setini#85/scope1:Var:Card scalar
       init $1BBE:Card:Value:eval7:facts=w2,Unsigned
-    routine PROC Main#82/scope1:Proc:?
+    routine PROC Main#86/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

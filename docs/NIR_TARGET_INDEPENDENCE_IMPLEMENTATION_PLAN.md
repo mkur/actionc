@@ -2,7 +2,8 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slice 0 completed on 2026-09-03; later slices remain planned.
+Status: active. Slices 0 and 1 completed on 2026-09-03; later slices remain
+planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
 65816, and Motorola 68k backends. It also revises the initial record-layout
@@ -252,6 +253,14 @@ docs: define portable NIR data-layout contract
 ```
 
 ### Slice 1: compile-time layout queries
+
+Status: complete. The four compiler-owned `SYS` symbols use ordinary semantic
+lookup, their short aliases remain shadowable, and successful queries are
+cached as compiler constants before SemIR/NIR lowering. The initial evaluator
+uses the Atari compatibility layout; it retains the computed result in a wide
+compiler integer until conversion to the current `CARD` result type. Semantic
+array facts now retain declared element counts, including through SemIR layout
+facts. The NIR fixture proves that no query operation or runtime call survives.
 
 1. Declare `SYS.SIZEOF`, `SYS.ELEMENTS`, `SYS.ALIGNOF`, and `SYS.OFFSETOF` as
    stable compile-time intrinsic symbols and expose shadowable unqualified

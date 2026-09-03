@@ -238,6 +238,7 @@ impl Generator {
                 ExpressionSideEffectFacts::unknown_raw()
             }
             ExprKind::CurrentLocation
+            | ExprKind::TypeRef(_)
             | ExprKind::Number(_)
             | ExprKind::String(_)
             | ExprKind::Char(_) => ExpressionSideEffectFacts::pure(),

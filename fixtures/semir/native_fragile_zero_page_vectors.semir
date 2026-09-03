@@ -2,24 +2,24 @@ program modules=1
   module #0 items=9
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Byte ioerr#77/scope1:Var:Byte scalar
+    decl Byte ioerr#81/scope1:Var:Byte scalar
       init $341:Card:Value:eval4:facts=w2,Unsigned
-    decl Card dosvec#78/scope1:Var:Card scalar
+    decl Card dosvec#82/scope1:Var:Card scalar
       init $0A:Byte:Value:eval5:facts=w1,Unsigned
-    decl Card dosini#79/scope1:Var:Card scalar
+    decl Card dosini#83/scope1:Var:Card scalar
       init $0C:Byte:Value:eval6:facts=w1,Unsigned
-    decl PROC() ErrorHandler#80/scope1:Var:PROC() scalar
-    routine PROC Error#81/scope1:Proc:?
+    decl PROC() ErrorHandler#84/scope1:Var:PROC() scalar
+    routine PROC Error#85/scope1:Proc:?
       callable PROC()
       flow always_returns=false may_fall_through=true contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
       body:
-    routine PROC Handler#82/scope1:Proc:?
+    routine PROC Handler#86/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:
         assign ioerr:Byte:facts=w1,Unsigned = 1:Byte:Value:eval7:facts=w1,Unsigned
         return
-    routine PROC Main#83/scope1:Proc:?
+    routine PROC Main#87/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

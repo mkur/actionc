@@ -2200,6 +2200,7 @@ impl Generator {
             | ExprKind::Raw
             | ExprKind::InitializerList(_)
             | ExprKind::CurrentLocation
+            | ExprKind::TypeRef(_)
             | ExprKind::Number(_)
             | ExprKind::String(_)
             | ExprKind::Char(_)

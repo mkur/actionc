@@ -563,6 +563,10 @@ pub enum ExprKind {
     Raw,
     InitializerList(Vec<InitializerElement>),
     CurrentLocation,
+    /// A type used as a compile-time expression operand. Ordinary value
+    /// semantics reject it; compiler intrinsics such as `SYS.SIZEOF` consume
+    /// it only after their callee identity has been resolved.
+    TypeRef(TypeRef),
     Number(NumberLiteral),
     String(String),
     Char(char),

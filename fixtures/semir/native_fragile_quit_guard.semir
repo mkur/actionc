@@ -2,20 +2,20 @@ program modules=1
   module #0 items=5
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Byte observed#77/scope1:Var:Byte scalar
-    routine PROC Guard#78/scope1:Proc:?
+    decl Byte observed#81/scope1:Var:Byte scalar
+    routine PROC Guard#82/scope1:Proc:?
       callable PROC()
       system *:Card:Value:eval17:facts=w2,Unsigned
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       locals:
-        decl Byte cartrun#79/scope2:Var:Byte scalar
+        decl Byte cartrun#83/scope2:Var:Byte scalar
           init $BFFA:Card:Value:eval4:facts=w2,Unsigned
-        decl Byte oldrun#80/scope2:Var:Byte scalar
-        decl Card setini#81/scope2:Var:Card scalar
+        decl Byte oldrun#84/scope2:Var:Byte scalar
+        decl Card setini#85/scope2:Var:Card scalar
           init $1BBE:Card:Value:eval5:facts=w2,Unsigned
-        decl Card dosini#82/scope2:Var:Card scalar
+        decl Card dosini#86/scope2:Var:Card scalar
           init $0C:Byte:Value:eval6:facts=w1,Unsigned
-        decl Card dosvec#83/scope2:Var:Card scalar
+        decl Card dosvec#87/scope2:Var:Card scalar
           init $0A:Byte:Value:eval7:facts=w1,Unsigned
       body:
         assign oldrun:Byte:facts=w1,Unsigned = cartrun:Byte:LValue:eval8:facts=w1,Unsigned
@@ -28,7 +28,7 @@ program modules=1
           else
             assign observed:Byte:facts=w1,Unsigned = 2:Byte:Value:eval16:facts=w1,Unsigned
         return
-    routine PROC Main#84/scope1:Proc:?
+    routine PROC Main#88/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

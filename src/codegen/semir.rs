@@ -1862,6 +1862,7 @@ fn expr_text(kind: &ExprKind) -> String {
                 .join(" ")
         ),
         ExprKind::CurrentLocation => "*".to_string(),
+        ExprKind::TypeRef(ty) => type_ref_text(ty),
         ExprKind::Number(NumberLiteral { text, .. }) => text.clone(),
         ExprKind::String(text) => format!("{text:?}"),
         ExprKind::Char(ch) => format!("'{ch}'"),

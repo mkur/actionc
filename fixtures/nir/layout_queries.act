@@ -1,0 +1,17 @@
+TYPE Pair=[BYTE tag CARD word]
+
+BYTE ARRAY bytes(7)
+CARD byteSize, cardSize, pointerSize, recordPointerSize, recordSize, arraySize
+CARD elementCount, recordAlign, wordOffset
+
+PROC Main()
+  byteSize=SIZEOF(BYTE)
+  cardSize=SIZEOF(CARD)
+  pointerSize=SIZEOF(BYTE POINTER)
+  recordPointerSize=SIZEOF(Pair POINTER)
+  recordSize=SIZEOF(Pair)
+  arraySize=SIZEOF(bytes)
+  elementCount=ELEMENTS(bytes)
+  recordAlign=ALIGNOF(Pair)
+  wordOffset=OFFSETOF(Pair,word)
+RETURN

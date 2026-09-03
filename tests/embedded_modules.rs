@@ -773,6 +773,58 @@ fn implicit_sys_compatibility_aliases_compile_in_all_backend_runtime_pairs() {
 }
 
 #[test]
+fn layout_queries_fold_and_unqualified_aliases_remain_shadowable() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "layout-queries.act",
+        r#"MODULE LAYOUT_QUERY_TEST
+USE SYS
+
+TYPE Pair=[BYTE tag CARD word]
+BYTE ARRAY values(7)
+BYTE ARRAY SizeOf(2)=[11 12]
+CARD a,b,c,d,e,f
+
+CARD FUNC Elements(CARD value)
+RETURN(value+1)
+
+PROC Main()
+  a=SizeOf(1)
+  b=Elements(4)
+  c=SYS.SizeOf(Pair)
+  d=SYS.Elements(values)
+  e=SYS.AlignOf(Pair)
+  f=SYS.OffsetOf(Pair,word)
+RETURN
+
+ENDMODULE
+"#,
+    );
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_or_else(|error| {
+                panic!("compile layout queries in {mode:?}/{runtime:?}: {error}")
+            });
+        }
+    }
+
+    let loaded = load_compilation(&source, &ModuleLoadOptions::default())
+        .expect("load layout-query module");
+    let model = analyze_compilation(&loaded).expect("analyze layout-query module");
+    let semir = ir::lower_compilation(&loaded, &model);
+    let printed = ir::format_program(&semir);
+    assert!(!printed.contains("call SYS.SizeOf"));
+    assert!(!printed.contains("call SYS.Elements"));
+    assert!(!printed.contains("call SYS.AlignOf"));
+    assert!(!printed.contains("call SYS.OffsetOf"));
+}
+
+#[test]
 fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
     let temp = TestDir::new();
     for (name, named) in [("legacy.act", false), ("named.act", true)] {

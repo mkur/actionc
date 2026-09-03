@@ -37,6 +37,9 @@ pub struct SemanticModel {
     pub routine_scopes: Vec<RoutineScope>,
     pub lexical_blocks: Vec<SemanticLexicalBlock>,
     pub array_symbols: HashSet<SymbolId>,
+    /// Declared element counts for statically sized arrays. Unsized array
+    /// parameters and pointer-backed arrays deliberately have no entry.
+    pub array_lengths: HashMap<SymbolId, u16>,
     pub fields: Vec<SemanticField>,
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
     pub layout: SemanticLayoutFacts,
@@ -49,6 +52,24 @@ pub struct SemanticModel {
     /// Exact numeric backing addresses for sized arrays whose initializer was
     /// proven to be a compile-time scalar expression.
     pub fixed_array_backing_addresses: HashMap<SymbolId, u16>,
+    /// Compile-time layout-query results, keyed by the semantic scope and
+    /// source expression. SemIR consumes these as ordinary constants.
+    layout_query_values: HashMap<LayoutQueryKey, ConstValue>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct LayoutQueryKey {
+    scope: ScopeId,
+    start: usize,
+    end: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LayoutIntrinsic {
+    SizeOf,
+    Elements,
+    AlignOf,
+    OffsetOf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +126,22 @@ impl SemanticModel {
         self.lexical_blocks
             .iter()
             .find(|block| block.routine == routine && block.syntax_id == syntax_id)
+    }
+
+    pub(crate) fn layout_query_value(&self, scope: ScopeId, span: Span) -> Option<ConstValue> {
+        self.layout_query_values
+            .get(&LayoutQueryKey::new(scope, span))
+            .copied()
+    }
+}
+
+impl LayoutQueryKey {
+    const fn new(scope: ScopeId, span: Span) -> Self {
+        Self {
+            scope,
+            start: span.start,
+            end: span.end,
+        }
     }
 }
 
@@ -427,7 +464,12 @@ impl Analyzer {
             return Err(self.diagnostics);
         }
 
-        let layout = SemanticLayoutFacts::build(&self.symbols, &self.array_symbols, &self.fields);
+        let layout = SemanticLayoutFacts::build(
+            &self.symbols,
+            &self.array_symbols,
+            &self.array_lengths,
+            &self.fields,
+        );
         Ok(SemanticModel {
             symbols: self.symbols,
             modules: self.modules,
@@ -435,6 +477,7 @@ impl Analyzer {
             routine_scopes: self.routine_scopes,
             lexical_blocks: self.lexical_blocks,
             array_symbols: self.array_symbols,
+            array_lengths: self.array_lengths,
             fields: self.fields,
             field_lookup: self.field_lookup,
             layout,
@@ -443,6 +486,7 @@ impl Analyzer {
             constants: self.constants,
             real_constants: self.real_constants,
             fixed_array_backing_addresses: self.fixed_array_backing_addresses,
+            layout_query_values: self.layout_query_values,
         })
     }
 }
@@ -464,6 +508,7 @@ struct Analyzer {
     routine_scopes: Vec<RoutineScope>,
     lexical_blocks: Vec<SemanticLexicalBlock>,
     array_symbols: HashSet<SymbolId>,
+    array_lengths: HashMap<SymbolId, u16>,
     fields: Vec<SemanticField>,
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
     diagnostics: Vec<Diagnostic>,
@@ -471,6 +516,8 @@ struct Analyzer {
     constants: HashMap<SymbolId, ConstValue>,
     real_constants: HashMap<SymbolId, RealConstValue>,
     fixed_array_backing_addresses: HashMap<SymbolId, u16>,
+    layout_intrinsics: HashMap<SymbolId, LayoutIntrinsic>,
+    layout_query_values: HashMap<LayoutQueryKey, ConstValue>,
 }
 
 #[derive(Clone, Copy)]
@@ -533,6 +580,7 @@ impl Analyzer {
             routine_scopes: Vec::new(),
             lexical_blocks: Vec::new(),
             array_symbols: HashSet::new(),
+            array_lengths: HashMap::new(),
             fields: Vec::new(),
             field_lookup: HashMap::new(),
             diagnostics: Vec::new(),
@@ -540,6 +588,8 @@ impl Analyzer {
             constants: HashMap::new(),
             real_constants: HashMap::new(),
             fixed_array_backing_addresses: HashMap::new(),
+            layout_intrinsics: HashMap::new(),
+            layout_query_values: HashMap::new(),
         }
     }
 
@@ -563,6 +613,36 @@ impl Analyzer {
         }
 
         self.seed_resident_interface();
+
+        for (name, intrinsic) in [
+            ("SIZEOF", LayoutIntrinsic::SizeOf),
+            ("ELEMENTS", LayoutIntrinsic::Elements),
+            ("ALIGNOF", LayoutIntrinsic::AlignOf),
+            ("OFFSETOF", LayoutIntrinsic::OffsetOf),
+        ] {
+            let Some(symbol_id) = self.declare(
+                self.builtin_scope,
+                name.to_string(),
+                SymbolClass::BuiltinFunc,
+                Some(fund_value(FundType::Card)),
+                Span::new(0, 0),
+            ) else {
+                continue;
+            };
+            self.layout_intrinsics.insert(symbol_id, intrinsic);
+            self.remember_routine_signature(
+                symbol_id,
+                SemanticCallableSignature {
+                    kind: RoutineKind::Func {
+                        return_type: FundType::Card,
+                    },
+                    params: Vec::new(),
+                    variadic: None,
+                    return_type: Some(fund_value(FundType::Card)),
+                    source: SemanticCallableSource::Unknown,
+                },
+            );
+        }
 
         for variable in RESIDENT_VARIABLES {
             let class = match variable.kind {
@@ -652,6 +732,7 @@ impl Analyzer {
         if self.modules.len() != compilation.modules.len() {
             return;
         }
+        self.install_sys_layout_intrinsics();
 
         // Allocate every defining SymbolId before USE clauses or bodies are
         // resolved. This is the semantic interface boundary: aliases always
@@ -712,6 +793,7 @@ impl Analyzer {
         if self.modules.len() != compilation.modules.len() {
             return;
         }
+        self.install_sys_layout_intrinsics();
 
         for loaded in &compilation.modules {
             if loaded.id != compilation.root {
@@ -783,6 +865,49 @@ impl Analyzer {
                 public_symbols: BTreeMap::new(),
                 module_aliases: BTreeMap::new(),
             });
+        }
+    }
+
+    fn install_sys_layout_intrinsics(&mut self) {
+        let Some(module_index) = self
+            .modules
+            .iter()
+            .position(|module| module.path.canonical_name() == "sys")
+        else {
+            return;
+        };
+        let module_id = self.modules[module_index].id;
+        let scope = self.modules[module_index].scope;
+        let module_path = self.modules[module_index].path.clone();
+        let intrinsics = self
+            .layout_intrinsics
+            .keys()
+            .copied()
+            .collect::<Vec<_>>();
+
+        for symbol_id in intrinsics {
+            let name = self.symbols.symbols[symbol_id.0].name.clone();
+            if let Err(existing) = self.symbols.bind_alias(scope, name.clone(), symbol_id)
+                && existing != symbol_id
+            {
+                self.diagnostics.push(Diagnostic::new(
+                    self.symbols.symbols[existing.0].span,
+                    format!("SYS layout intrinsic `{name}` conflicts with a declaration"),
+                ));
+                continue;
+            }
+            self.modules[module_index]
+                .public_symbols
+                .insert(normalize_name(&name), symbol_id);
+            let symbol = &mut self.symbols.symbols[symbol_id.0];
+            symbol.defining_module = Some(module_id);
+            symbol.visibility = Visibility::Public;
+            symbol.canonical_qualified_key = format!(
+                "{}::{}",
+                module_path.canonical_name(),
+                name.to_ascii_lowercase()
+            );
+            symbol.qualified_name = format!("{}.{}", module_path.display_name(), name);
         }
     }
 
@@ -1957,6 +2082,11 @@ impl Analyzer {
                 kind: subject::SemExprKind::Literal(subject::SemLiteral::Char(*value)),
                 span: expr.span,
             }),
+            ExprKind::TypeRef(ty) => subject::SemSubject::TypeRef(subject::SemTypeRef {
+                ty: self.value_type_from_type_ref(scope, ty),
+                kind: subject::SemTypeRefKind::Inline(ty.clone()),
+                span: expr.span,
+            }),
             ExprKind::Name(name) => self.classify_name_subject(scope, name, expr.span),
             ExprKind::Cast { ty, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
@@ -1993,6 +2123,15 @@ impl Analyzer {
                     })
                 }
                 subject::SemSubject::Callable(callable) => match callable.kind {
+                    subject::SemCallableKind::Builtin(symbol_id)
+                        if self.layout_intrinsics.contains_key(&symbol_id) =>
+                    {
+                        self.diagnostics.push(Diagnostic::new(
+                            expr.span,
+                            "compile-time layout queries have no runtime address",
+                        ));
+                        subject::SemSubject::Expr(self.error_expr(expr.span))
+                    }
                     subject::SemCallableKind::Function(symbol_id)
                     | subject::SemCallableKind::Builtin(symbol_id) => {
                         let ty = ValueType::callable_pointer(callable.ty);
@@ -2114,6 +2253,14 @@ impl Analyzer {
                 })
             }
             ExprKind::Call { callee, args }
+                if self.layout_intrinsic_for_callee(scope, callee).is_some() =>
+            {
+                let intrinsic = self
+                    .layout_intrinsic_for_callee(scope, callee)
+                    .expect("guarded layout intrinsic");
+                self.classify_layout_query(scope, intrinsic, args, expr.span)
+            }
+            ExprKind::Call { callee, args }
                 if args.len() == 1 && self.can_subject_be_indexed(scope, callee) =>
             {
                 let base = self.expect_place(scope, callee, callee.span);
@@ -2203,6 +2350,227 @@ impl Analyzer {
                 }
             }
         }
+    }
+
+    fn layout_intrinsic_for_callee(
+        &self,
+        scope: ScopeId,
+        callee: &Expr,
+    ) -> Option<LayoutIntrinsic> {
+        let symbol = match &callee.kind {
+            ExprKind::Name(name) => self.symbols.lookup(scope, name),
+            ExprKind::Field { base, field } => {
+                let ExprKind::Name(alias) = &base.kind else {
+                    return None;
+                };
+                let name = QualifiedName::new(vec![alias.clone(), field.clone()]);
+                match resolve_semantic_name(&self.symbols, &self.modules, scope, &name) {
+                    SemanticNameResolution::Symbol(symbol) => Some(symbol),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }?;
+        self.layout_intrinsics.get(&symbol).copied()
+    }
+
+    fn classify_layout_query(
+        &mut self,
+        scope: ScopeId,
+        intrinsic: LayoutIntrinsic,
+        args: &[Expr],
+        span: Span,
+    ) -> subject::SemSubject {
+        let key = LayoutQueryKey::new(scope, span);
+        if let Some(value) = self.layout_query_values.get(&key).copied() {
+            return self.layout_query_subject(value, span);
+        }
+
+        let expected = match intrinsic {
+            LayoutIntrinsic::OffsetOf => 2,
+            LayoutIntrinsic::SizeOf | LayoutIntrinsic::Elements | LayoutIntrinsic::AlignOf => 1,
+        };
+        if args.len() != expected {
+            let name = self.layout_intrinsic_name(intrinsic);
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!("`{name}` expects exactly {expected} argument(s), got {}", args.len()),
+            ));
+            return subject::SemSubject::Expr(self.error_expr(span));
+        }
+
+        let value = match intrinsic {
+            LayoutIntrinsic::SizeOf => self.layout_size_of(scope, &args[0]),
+            LayoutIntrinsic::Elements => self.layout_elements(scope, &args[0]),
+            LayoutIntrinsic::AlignOf => self.layout_align_of(scope, &args[0]),
+            LayoutIntrinsic::OffsetOf => self.layout_offset_of(scope, &args[0], &args[1]),
+        };
+        let Some(value) = value else {
+            return subject::SemSubject::Expr(self.error_expr(span));
+        };
+        let Ok(bits) = u16::try_from(value) else {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!(
+                    "{} result {value} does not fit the current CARD result type",
+                    self.layout_intrinsic_name(intrinsic)
+                ),
+            ));
+            return subject::SemSubject::Expr(self.error_expr(span));
+        };
+        let value = ConstValue {
+            ty: ScalarType::Card,
+            bits,
+        };
+        self.layout_query_values.insert(key, value);
+        self.layout_query_subject(value, span)
+    }
+
+    fn layout_intrinsic_name(&self, intrinsic: LayoutIntrinsic) -> &'static str {
+        match intrinsic {
+            LayoutIntrinsic::SizeOf => "SIZEOF",
+            LayoutIntrinsic::Elements => "ELEMENTS",
+            LayoutIntrinsic::AlignOf => "ALIGNOF",
+            LayoutIntrinsic::OffsetOf => "OFFSETOF",
+        }
+    }
+
+    fn layout_query_subject(&self, value: ConstValue, span: Span) -> subject::SemSubject {
+        subject::SemSubject::Expr(subject::SemExpr {
+            ty: value.value_type(),
+            kind: subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)),
+            span,
+        })
+    }
+
+    fn layout_size_of(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
+        match self.classify_subject(scope, operand) {
+            subject::SemSubject::TypeRef(type_ref) => {
+                self.complete_layout_width(&type_ref.ty, operand.span).map(u64::from)
+            }
+            subject::SemSubject::Place(place) => {
+                if let subject::SemPlaceKind::Symbol(symbol) = place.kind
+                    && self.array_symbols.contains(&symbol)
+                {
+                    let Some(length) = self.array_lengths.get(&symbol).copied() else {
+                        self.diagnostics.push(Diagnostic::new(
+                            operand.span,
+                            "SIZEOF requires a statically sized array object",
+                        ));
+                        return None;
+                    };
+                    let width = self.complete_layout_width(&place.ty, operand.span)?;
+                    return Some(u64::from(length) * u64::from(width));
+                }
+                self.complete_layout_width(&place.ty, operand.span).map(u64::from)
+            }
+            subject::SemSubject::Error(_) => None,
+            _ => {
+                self.diagnostics.push(Diagnostic::new(
+                    operand.span,
+                    "SIZEOF expects a type or addressable object",
+                ));
+                None
+            }
+        }
+    }
+
+    fn layout_elements(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
+        let subject = self.classify_subject(scope, operand);
+        let subject::SemSubject::Place(place) = subject else {
+            if !matches!(subject, subject::SemSubject::Error(_)) {
+                self.diagnostics.push(Diagnostic::new(
+                    operand.span,
+                    "ELEMENTS expects a statically sized array object",
+                ));
+            }
+            return None;
+        };
+        let subject::SemPlaceKind::Symbol(symbol) = place.kind else {
+            self.diagnostics.push(Diagnostic::new(
+                operand.span,
+                "ELEMENTS expects a direct statically sized array object",
+            ));
+            return None;
+        };
+        if !self.array_symbols.contains(&symbol) {
+            self.diagnostics.push(Diagnostic::new(
+                operand.span,
+                "ELEMENTS expects an array object",
+            ));
+            return None;
+        }
+        self.array_lengths.get(&symbol).copied().map(u64::from).or_else(|| {
+            self.diagnostics.push(Diagnostic::new(
+                operand.span,
+                "ELEMENTS cannot determine the count of an unsized or pointer-backed array",
+            ));
+            None
+        })
+    }
+
+    fn layout_align_of(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
+        let ty = match self.classify_subject(scope, operand) {
+            subject::SemSubject::TypeRef(type_ref) => type_ref.ty,
+            subject::SemSubject::Place(place) => place.ty,
+            subject::SemSubject::Error(_) => return None,
+            _ => {
+                self.diagnostics.push(Diagnostic::new(
+                    operand.span,
+                    "ALIGNOF expects a type or addressable object",
+                ));
+                return None;
+            }
+        };
+        self.complete_layout_width(&ty, operand.span)?;
+        // The first implementation evaluates against the established Atari
+        // compatibility ABI, where every type and packed record is byte-aligned.
+        Some(1)
+    }
+
+    fn layout_offset_of(
+        &mut self,
+        scope: ScopeId,
+        record_operand: &Expr,
+        field_operand: &Expr,
+    ) -> Option<u64> {
+        let record = match self.classify_subject(scope, record_operand) {
+            subject::SemSubject::TypeRef(type_ref) => type_ref.ty,
+            subject::SemSubject::Error(_) => return None,
+            _ => {
+                self.diagnostics.push(Diagnostic::new(
+                    record_operand.span,
+                    "OFFSETOF first argument must be a record type",
+                ));
+                return None;
+            }
+        };
+        let ExprKind::Name(field_name) = &field_operand.kind else {
+            self.diagnostics.push(Diagnostic::new(
+                field_operand.span,
+                "OFFSETOF second argument must be an unqualified field name",
+            ));
+            return None;
+        };
+        let Some(field) = self.record_field_descriptor(&record, field_name) else {
+            let record_name = record.as_record_base_name().unwrap_or("<non-record>");
+            self.diagnostics.push(Diagnostic::new(
+                field_operand.span,
+                format!("record `{record_name}` has no field `{field_name}`"),
+            ));
+            return None;
+        };
+        Some(u64::from(field.offset))
+    }
+
+    fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u16> {
+        self.value_storage_width(ty).or_else(|| {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "layout is incomplete for this type",
+            ));
+            None
+        })
     }
 
     fn classify_module_member_subject(
@@ -2319,7 +2687,13 @@ impl Analyzer {
             }
             SymbolClass::Type | SymbolClass::Record => {
                 subject::SemSubject::TypeRef(subject::SemTypeRef {
-                    ty: symbol.ty.clone().unwrap_or_else(ValueType::error),
+                    ty: symbol.ty.clone().unwrap_or_else(|| {
+                        if symbol.name.eq_ignore_ascii_case("STRING") {
+                            fund_value(FundType::Char)
+                        } else {
+                            ValueType::record(symbol.qualified_name.clone())
+                        }
+                    }),
                     kind: subject::SemTypeRefKind::Symbol(symbol_id),
                     span,
                 })
@@ -2599,6 +2973,10 @@ impl Analyzer {
 
     fn lower_expr(&mut self, scope: ScopeId, expr: &Expr) -> subject::SemExpr {
         let subject = self.classify_subject(scope, expr);
+        if matches!(subject, subject::SemSubject::TypeRef(_)) {
+            self.diagnostics
+                .push(Diagnostic::new(expr.span, "expected value expression"));
+        }
         self.record_subject_types(expr, &subject);
         self.expr_from_subject(expr, &subject)
     }
@@ -3197,9 +3575,7 @@ impl Analyzer {
                     declaration,
                     entry,
                 );
-            }
-            if let Some(size) = &entry.size {
-                self.lower_expr(scope, size);
+                self.record_declared_array_length(scope, symbol_id, declaration, entry);
             }
             self.validate_initializer_elements(scope, declaration, entry);
         }
@@ -3428,8 +3804,28 @@ impl Analyzer {
                 if !is_param {
                     self.record_fixed_array_backing_address(scope, symbol_id, decl, entry);
                 }
+                self.record_declared_array_length(scope, symbol_id, decl, entry);
             }
             self.validate_initializer_elements(scope, decl, entry);
+        }
+    }
+
+    fn record_declared_array_length(
+        &mut self,
+        scope: ScopeId,
+        symbol: SymbolId,
+        declaration: &VarDecl,
+        entry: &DeclEntry,
+    ) {
+        let Some(size) = &entry.size else {
+            return;
+        };
+        let expression = self.lower_expr(scope, size);
+        if declaration.storage != VarStorage::Array && !is_string_type_ref(&declaration.ty) {
+            return;
+        }
+        if let Ok(value) = evaluate_const_expr(&expression) {
+            self.array_lengths.insert(symbol, value.bits);
         }
     }
 
@@ -6697,7 +7093,8 @@ mod tests {
                 )
             })
             .count();
-        assert_eq!(builtin_routine_count, interface_count);
+        assert_eq!(analyzer.layout_intrinsics.len(), 4);
+        assert_eq!(builtin_routine_count, interface_count + 4);
     }
 
     #[test]
@@ -8919,6 +9316,28 @@ mod tests {
     #[test]
     fn allows_known_widening_return_type() {
         analyze_source("CARD FUNC F() RETURN(255)");
+    }
+
+    #[test]
+    fn layout_queries_require_complete_static_operands() {
+        let errors = analyze_source_err(
+            "BYTE ARRAY values CARD result PROC Main() result=ELEMENTS(values) RETURN",
+        );
+        assert!(errors.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("unsized or pointer-backed array")));
+
+        let errors = analyze_source_err("CARD result PROC Main() result=SIZEOF(1) RETURN");
+        assert!(errors.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("expects a type or addressable object")));
+
+        let errors = analyze_source_err(
+            "TYPE Pair=[BYTE tag] CARD result PROC Main() result=OFFSETOF(Pair,missing) RETURN",
+        );
+        assert!(errors
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("has no field `missing`")));
     }
 
     fn analyze_source(source: &str) -> SemanticModel {

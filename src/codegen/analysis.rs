@@ -192,6 +192,7 @@ fn expr_tree_any(expr: &Expr, predicate: &impl Fn(&Expr) -> bool) -> bool {
         }
         ExprKind::Field { base, .. } => expr_tree_any(base, predicate),
         ExprKind::Number(_)
+        | ExprKind::TypeRef(_)
         | ExprKind::Char(_)
         | ExprKind::String(_)
         | ExprKind::Name(_)
@@ -220,6 +221,7 @@ fn expr_references_names(expr: &Expr, names: &HashSet<String>) -> bool {
         }
         ExprKind::Field { base, .. } => expr_references_names(base, names),
         ExprKind::Number(_)
+        | ExprKind::TypeRef(_)
         | ExprKind::Char(_)
         | ExprKind::String(_)
         | ExprKind::CurrentLocation

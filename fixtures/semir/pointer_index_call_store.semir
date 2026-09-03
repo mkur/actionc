@@ -2,25 +2,25 @@ program modules=1
   module #0 items=6
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Byte bytes#77/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
+    decl Byte bytes#81/scope1:Array:Byte array Byte ARRAY(4)->Byte POINTER/Array/Global
       length 4:Byte:Value:eval4:facts=w1,Unsigned
-    routine Byte FUNC Inc#78/scope1:Func:Byte
+    routine Byte FUNC Inc#82/scope1:Func:Byte
       callable Byte FUNC(Byte)
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       params:
-        Byte x#79/scope2:Param:Byte Value
+        Byte x#83/scope2:Param:Byte Value
       body:
         return (x:Byte:LValue:eval5:facts=w1,Unsigned + 1:Byte:Value:eval6:facts=w1,Unsigned):Byte:Value:eval7:facts=w1,Unsigned
-    routine PROC Store#80/scope1:Proc:?
+    routine PROC Store#84/scope1:Proc:?
       callable PROC(Byte POINTER,Byte)
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       params:
-        Byte POINTER p#81/scope3:Param:Byte POINTER Value
-        Byte i#82/scope3:Param:Byte Value
+        Byte POINTER p#85/scope3:Param:Byte POINTER Value
+        Byte i#86/scope3:Param:Byte Value
       body:
         assign p:Byte POINTER:LValue:eval8:facts=w2,ptr,to=Byte,pointee_w1(i:Byte:LValue:eval9:facts=w1,Unsigned):Byte:facts=w1,Unsigned = user Inc(...):Byte:Value:eval11:facts=w1,Unsigned
         return
-    routine PROC Main#83/scope1:Proc:?
+    routine PROC Main#87/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, UnaryOp};
+use crate::ast::{BinaryOp, TypeRef, UnaryOp};
 use crate::atari_real::AtariReal;
 use crate::lexer::NumberLiteral;
 use crate::source::Span;
@@ -128,6 +128,7 @@ pub struct SemTypeRef {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemTypeRefKind {
     Symbol(SymbolId),
+    Inline(TypeRef),
     Error,
 }
 

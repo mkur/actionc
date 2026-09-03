@@ -1,10 +1,10 @@
 program modules=1
   module #0 items=4
-    decl Byte Pair#77/scope1:Type:? type Pair(3 bytes) fields=2
+    decl Byte Pair#81/scope1:Type:? type Pair(3 bytes) fields=2
       field +0 Byte tag
       field +1 Card word
-    decl Byte target#78/scope1:Var:Byte scalar
-    decl Pair pairs#79/scope1:Array:Pair array Pair ARRAY(2)->Pair POINTER/Array/Global
+    decl Byte target#82/scope1:Var:Byte scalar
+    decl Pair pairs#83/scope1:Array:Pair array Pair ARRAY(2)->Pair POINTER/Array/Global
       init init[1 $2345 2 @target]:<error>:Value:eval1:facts=error
       static-init extent=6 writes=4
         write +0 width=1 pairs(0).tag <- 1
@@ -12,7 +12,7 @@ program modules=1
         write +3 width=1 pairs(1).tag <- 2
         write +4 width=2 pairs(1).word <- @target
       length 2:Byte:Value:eval0:facts=w1,Unsigned
-    routine PROC Main#80/scope1:Proc:?
+    routine PROC Main#84/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:

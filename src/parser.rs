@@ -2791,19 +2791,21 @@ impl<'a> ExprParser<'a> {
             TokenKind::Keyword(keyword) if fundamental_type_from_keyword(*keyword).is_some() => {
                 let fund = fundamental_type_from_keyword(*keyword)?;
                 let pointer = self.eat(TokenKind::Keyword(Keyword::Pointer));
-                if !self.eat(TokenKind::LParen) {
-                    return None;
-                }
-                let inner = self.parse_expr(0)?;
-                if !self.eat(TokenKind::RParen) {
-                    return None;
-                }
-                ExprKind::Cast {
-                    ty: TypeRef {
-                        base: TypeBase::Fund(fund),
-                        pointer,
-                    },
-                    expr: Box::new(expr_from_kind(inner)),
+                let ty = TypeRef {
+                    base: TypeBase::Fund(fund),
+                    pointer,
+                };
+                if self.eat(TokenKind::LParen) {
+                    let inner = self.parse_expr(0)?;
+                    if !self.eat(TokenKind::RParen) {
+                        return None;
+                    }
+                    ExprKind::Cast {
+                        ty,
+                        expr: Box::new(expr_from_kind(inner)),
+                    }
+                } else {
+                    ExprKind::TypeRef(ty)
                 }
             }
             TokenKind::Star => ExprKind::CurrentLocation,
@@ -2872,6 +2874,12 @@ impl<'a> ExprParser<'a> {
                     base: Box::new(expr_from_kind(expr)),
                     field: field.clone(),
                 };
+            } else if self.eat(TokenKind::Keyword(Keyword::Pointer)) {
+                let name = qualified_name_from_expr_kind(&expr)?;
+                expr = ExprKind::TypeRef(TypeRef {
+                    base: TypeBase::Named(name),
+                    pointer: true,
+                });
             } else {
                 break;
             }
@@ -2935,6 +2943,18 @@ impl<'a> ExprParser<'a> {
     }
 }
 
+fn qualified_name_from_expr_kind(kind: &ExprKind) -> Option<QualifiedName> {
+    match kind {
+        ExprKind::Name(name) => Some(QualifiedName::simple(name.clone())),
+        ExprKind::Field { base, field } => {
+            let mut name = qualified_name_from_expr_kind(&base.kind)?;
+            name.components.push(field.clone());
+            Some(name)
+        }
+        _ => None,
+    }
+}
+
 fn binary_op_precedence(op: BinaryOp) -> u8 {
     match op {
         BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod | BinaryOp::Lsh | BinaryOp::Rsh => 6,
@@ -2983,6 +3003,7 @@ fn normalize_expr_spans(expr: &mut Expr, fallback: Span) {
         | ExprKind::Raw
         | ExprKind::InitializerList(_)
         | ExprKind::CurrentLocation
+        | ExprKind::TypeRef(_)
         | ExprKind::Number(_)
         | ExprKind::String(_)
         | ExprKind::Char(_)

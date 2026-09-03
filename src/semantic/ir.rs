@@ -3151,6 +3151,7 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Number(number) => SemExprKind::Literal(SemLiteral::Number(number.clone())),
             ExprKind::String(value) => SemExprKind::Literal(SemLiteral::String(value.clone())),
             ExprKind::Char(value) => SemExprKind::Literal(SemLiteral::Char(*value)),
+            ExprKind::TypeRef(_) => SemExprKind::Raw(expr.text.clone()),
             ExprKind::Name(name) => self
                 .direct_symbol_ref_for_expr(scope, expr)
                 .map(|symbol| self.expr_kind_for_symbol(scope, expr, symbol))
@@ -3203,6 +3204,15 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             ExprKind::Binary { op, left, right } => self.lower_binary_expr(scope, *op, left, right),
+            ExprKind::Call { .. }
+                if self.model.layout_query_value(scope, expr.span).is_some() =>
+            {
+                SemExprKind::Literal(SemLiteral::Constant(
+                    self.model
+                        .layout_query_value(scope, expr.span)
+                        .expect("guarded layout-query value"),
+                ))
+            }
             ExprKind::Call { callee, args }
                 if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
             {
@@ -3952,6 +3962,7 @@ impl<'a> IrBuilder<'a> {
             | ExprKind::Raw
             | ExprKind::InitializerList(_)
             | ExprKind::CurrentLocation
+            | ExprKind::TypeRef(_)
             | ExprKind::Number(_)
             | ExprKind::String(_)
             | ExprKind::Char(_)

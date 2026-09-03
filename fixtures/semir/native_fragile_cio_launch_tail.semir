@@ -2,26 +2,26 @@ program modules=1
   module #0 items=7
     set $491:Card:Value:eval0:facts=w2,Unsigned = $3000:Card:Value:eval1:facts=w2,Unsigned
     set $E:Byte:Value:eval2:facts=w1,Unsigned = $3000:Card:Value:eval3:facts=w2,Unsigned
-    decl Byte fname#77/scope1:Array:Byte array Byte ARRAY(15)->Byte POINTER/Array/Global
+    decl Byte fname#81/scope1:Array:Byte array Byte ARRAY(15)->Byte POINTER/Array/Global
       length 15:Byte:Value:eval4:facts=w1,Unsigned
-    routine PROC SwapScr#78/scope1:Proc:?
+    routine PROC SwapScr#82/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:
         return
-    routine PROC _StrNam#79/scope1:Proc:?
+    routine PROC _StrNam#83/scope1:Proc:?
       callable PROC()
       system *:Card:Value:eval5:facts=w2,Unsigned
       flow always_returns=true may_fall_through=false contains_return=false contains_exit=false contains_loop=false max_loop_depth=0
       body:
         machine items=1 effects=none
-    routine PROC Launch#80/scope1:Proc:?
+    routine PROC Launch#84/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       locals:
-        decl Card dosvec#81/scope4:Var:Card scalar
+        decl Card dosvec#85/scope4:Var:Card scalar
           init $0A:Byte:Value:eval6:facts=w1,Unsigned
-        decl Card r#82/scope4:Var:Card scalar
+        decl Card r#86/scope4:Var:Card scalar
           init $86:Byte:Value:eval7:facts=w1,Unsigned
       body:
         call user SwapScr -> ? callable=PROC() effects=none
@@ -31,7 +31,7 @@ program modules=1
         machine items=4 effects=none
         machine items=22 effects=none
         return
-    routine PROC Main#83/scope1:Proc:?
+    routine PROC Main#87/scope1:Proc:?
       callable PROC()
       flow always_returns=true may_fall_through=false contains_return=true contains_exit=false contains_loop=false max_loop_depth=0
       body:
