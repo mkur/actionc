@@ -207,10 +207,7 @@ fn inline_asm_self_modification_labels_emit_in_all_backends() {
     let mir = mir6502::generate_output(&nir, 0x3000)
         .expect("emit MADS self-modification labels from MIR6502");
 
-    for (backend, output) in [
-        ("classic", classic),
-        ("MIR6502", mir),
-    ] {
+    for (backend, output) in [("classic", classic), ("MIR6502", mir)] {
         let start = output
             .bytes
             .windows(3)
@@ -245,8 +242,7 @@ fn inline_asm_self_code_writes_have_conservative_nir_effects() {
         .expect("self-modifying inline assembler NIR operation");
 
     assert!(relocations.iter().any(|relocation| {
-        relocation.target
-            == nir::NirForeignCodeTarget::InlineOffset(nir::ByteOffset::new(1))
+        relocation.target == nir::NirForeignCodeTarget::InlineOffset(nir::ByteOffset::new(1))
             && relocation.symbol_use == actionc::foreign::ForeignSymbolUse::Write
     }));
     assert_eq!(effects.memory.writes, nir::NirMemoryAccess::Unknown);

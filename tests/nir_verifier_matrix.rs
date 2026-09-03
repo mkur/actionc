@@ -49,12 +49,15 @@ fn verifier_rejects_one_fault_from_each_contract_family() {
     cases.push(("stable storage ID", missing_global, "unknown global id 999"));
 
     let mut missing_block = fixture("scalar_assignments");
-    missing_block.routines[0].blocks[0].terminator =
-        NirTerminator::Goto(nir::NirEdge {
-            target: BlockId(999),
-            args: Vec::new(),
-        });
-    cases.push(("CFG edge", missing_block, "target block id `999` does not exist"));
+    missing_block.routines[0].blocks[0].terminator = NirTerminator::Goto(nir::NirEdge {
+        target: BlockId(999),
+        args: Vec::new(),
+    });
+    cases.push((
+        "CFG edge",
+        missing_block,
+        "target block id `999` does not exist",
+    ));
 
     let mut undefined_temp = fixture("scalar_assignments");
     let NirOp::Store { src, .. } = &mut undefined_temp.routines[0].blocks[0].ops[2] else {
@@ -133,14 +136,26 @@ fn verifier_rejects_one_fault_from_each_contract_family() {
         panic!("address fragment")
     };
     *offset = ByteOffset::new(4);
-    cases.push(("data relocation", bad_fragment, "exceeds 4 initialized bytes"));
+    cases.push((
+        "data relocation",
+        bad_fragment,
+        "exceeds 4 initialized bytes",
+    ));
 
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut bad_effect = structural_coverage_programs(repo_root).remove(1);
     let builtin = bad_effect.routines[0].blocks[0]
         .ops
         .iter_mut()
-        .find(|op| matches!(op, NirOp::Call { callee: nir::NirCallee::Builtin(_), .. }))
+        .find(|op| {
+            matches!(
+                op,
+                NirOp::Call {
+                    callee: nir::NirCallee::Builtin(_),
+                    ..
+                }
+            )
+        })
         .expect("builtin effect call");
     let NirOp::Call { effects, .. } = builtin else {
         unreachable!()

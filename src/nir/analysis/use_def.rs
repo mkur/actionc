@@ -265,8 +265,7 @@ fn record_op_uses(
                 record_value(uses, value, site(NirUseKind::CallArgument(argument)));
             }
         }
-        NirOp::ForeignCode { .. }
-        | NirOp::Unsupported { .. } => {}
+        NirOp::ForeignCode { .. } | NirOp::Unsupported { .. } => {}
     }
 }
 

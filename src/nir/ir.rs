@@ -112,7 +112,10 @@ pub struct NirStorageBacking {
 pub enum NirGlobalBacking {
     Ordinary,
     Absolute(AddressValue),
-    Alias { target: SymbolId, offset: ByteOffset },
+    Alias {
+        target: SymbolId,
+        offset: ByteOffset,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -495,7 +498,9 @@ pub enum NirLocalPurpose {
     /// Invocation-local element storage owned by an automatic array
     /// descriptor. The descriptor and backing deliberately have distinct
     /// identities so native MIRs can place both in the current frame.
-    AggregateBacking { owner: LocalId },
+    AggregateBacking {
+        owner: LocalId,
+    },
     RealTemporary,
 }
 

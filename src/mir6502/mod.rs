@@ -48,10 +48,7 @@ impl NirBackend for Mir6502Backend {
         target == TargetId::Atari6502
     }
 
-    fn lower(
-        &self,
-        input: VerifiedNir<'_>,
-    ) -> Result<Self::Output, Vec<Self::Diagnostic>> {
+    fn lower(&self, input: VerifiedNir<'_>) -> Result<Self::Output, Vec<Self::Diagnostic>> {
         if !self.supports_target(input.target()) {
             return Err(vec![MirDiagnostic {
                 routine: None,
@@ -1278,11 +1275,11 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
-            id: crate::nir::RoutineId(0),
-            signature: crate::nir::NirCallableSignature::default(),
-            convention: crate::nir::NirCallConvention::TargetPublic,
-            activation: crate::nir::NirActivationModel::ClassicStatic,
-            entry: crate::nir::NirRoutineEntry::default(),
+                id: crate::nir::RoutineId(0),
+                signature: crate::nir::NirCallableSignature::default(),
+                convention: crate::nir::NirCallConvention::TargetPublic,
+                activation: crate::nir::NirActivationModel::ClassicStatic,
+                entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),
@@ -1324,11 +1321,11 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
-            id: crate::nir::RoutineId(0),
-            signature: crate::nir::NirCallableSignature::default(),
-            convention: crate::nir::NirCallConvention::TargetPublic,
-            activation: crate::nir::NirActivationModel::ClassicStatic,
-            entry: crate::nir::NirRoutineEntry::default(),
+                id: crate::nir::RoutineId(0),
+                signature: crate::nir::NirCallableSignature::default(),
+                convention: crate::nir::NirCallConvention::TargetPublic,
+                activation: crate::nir::NirActivationModel::ClassicStatic,
+                entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),
@@ -1492,11 +1489,11 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
-            id: crate::nir::RoutineId(0),
-            signature: crate::nir::NirCallableSignature::default(),
-            convention: crate::nir::NirCallConvention::TargetPublic,
-            activation: crate::nir::NirActivationModel::ClassicStatic,
-            entry: crate::nir::NirRoutineEntry::default(),
+                id: crate::nir::RoutineId(0),
+                signature: crate::nir::NirCallableSignature::default(),
+                convention: crate::nir::NirCallConvention::TargetPublic,
+                activation: crate::nir::NirActivationModel::ClassicStatic,
+                entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: Vec::new(),

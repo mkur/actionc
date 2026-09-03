@@ -169,8 +169,7 @@ fn uniform_value_dominates(
     dominance: &NirDominance,
 ) -> bool {
     match value {
-        NirValue::ConstU8(_)
-        | NirValue::ConstU16(_)
+        NirValue::IntegerConst { .. }
         | NirValue::Null { .. }
         | NirValue::AddressConst { .. }
         | NirValue::StaticAddr { .. }
@@ -483,10 +482,9 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
                 let mut condition = condition.clone();
                 rewrite_value(&mut condition, &facts.replacements);
                 match condition {
-                    NirValue::ConstU8(0) => else_edge.target == to,
-                    NirValue::ConstU8(_) => then_edge.target == to,
-                    NirValue::ConstU16(_)
-                    | NirValue::Null { .. }
+                    NirValue::IntegerConst { bits: 0, .. } => else_edge.target == to,
+                    NirValue::IntegerConst { .. } => then_edge.target == to,
+                    NirValue::Null { .. }
                     | NirValue::AddressConst { .. }
                     | NirValue::StaticAddr { .. }
                     | NirValue::Temp { .. }
@@ -546,7 +544,7 @@ fn simplify_op_with_facts(mut op: NirOp, facts: &mut NirValueFacts) -> Option<Ni
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct OffsetAlias {
     base: NirValue,
-    offset: u16,
+    offset: u64,
     width: ByteSize,
 }
 
@@ -617,14 +615,14 @@ fn offset_simplification(
     let mask = width_mask(width)?;
     let (base, offset, uses_prior_offset) = match op {
         NirBinaryOp::Add => {
-            if let Some(right_const) = const_u16(right) {
+            if let Some(right_const) = const_integer_bits(right) {
                 let left = offset_base(left, ty, offsets)?;
                 (
                     left.base,
                     left.offset.wrapping_add(right_const) & mask,
                     left.uses_prior_offset,
                 )
-            } else if let Some(left_const) = const_u16(left) {
+            } else if let Some(left_const) = const_integer_bits(left) {
                 let right = offset_base(right, ty, offsets)?;
                 (
                     right.base,
@@ -636,7 +634,7 @@ fn offset_simplification(
             }
         }
         NirBinaryOp::Sub => {
-            let right_const = const_u16(right)?;
+            let right_const = const_integer_bits(right)?;
             let left = offset_base(left, ty, offsets)?;
             (
                 left.base,
@@ -687,7 +685,7 @@ fn offset_simplification(
 
 struct OffsetBase {
     base: NirValue,
-    offset: u16,
+    offset: u64,
     uses_prior_offset: bool,
 }
 
@@ -722,28 +720,25 @@ fn alias_value_for_type(value: &NirValue, ty: &NirType) -> Option<NirValue> {
 }
 
 fn is_optimizable_integer_type(ty: &NirType) -> bool {
-    matches!(
-        ty.kind,
-        NirTypeKind::U8 | NirTypeKind::I8 | NirTypeKind::U16 | NirTypeKind::I16
-    ) && matches!(ty.width.map(ByteSize::get), Some(1 | 2))
-        && !ty.pointer
+    ty.kind.integer().is_some() && ty.width.is_some_and(|width| width.get() <= 8) && !ty.pointer
 }
 
 fn is_zero(value: &NirValue) -> bool {
-    matches!(const_u16(value), Some(0))
+    matches!(const_integer_bits(value), Some(0))
 }
 
 fn is_all_ones(value: &NirValue, ty: &NirType) -> bool {
     let Some(mask) = ty.width.and_then(width_mask) else {
         return false;
     };
-    matches!(const_u16(value), Some(value) if value == mask)
+    matches!(const_integer_bits(value), Some(value) if value == mask)
 }
 
-fn width_mask(width: ByteSize) -> Option<u16> {
+fn width_mask(width: ByteSize) -> Option<u64> {
     match width.get() {
-        1 => Some(0x00FF),
-        2 => Some(0xFFFF),
+        0 => None,
+        1..=7 => Some((1u64 << (width.get() * 8)) - 1),
+        8 => Some(u64::MAX),
         _ => None,
     }
 }
@@ -751,7 +746,7 @@ fn width_mask(width: ByteSize) -> Option<u16> {
 fn simplify_constant_branches(routine: &mut NirRoutine) {
     for block in &mut routine.blocks {
         if let NirTerminator::Branch {
-            condition: NirValue::ConstU8(value),
+            condition: NirValue::IntegerConst { bits: value, .. },
             then_edge,
             else_edge,
         } = &block.terminator
@@ -805,21 +800,26 @@ fn eliminate_dead_pure_temps(routine: &mut NirRoutine) {
 fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
     match op {
         NirOp::Unary { dest, ty, op, src } => {
-            let value = const_u16(src)?;
+            let value = const_integer_bits(src)?;
             let result = match op {
                 NirUnaryOp::Plus => value,
                 NirUnaryOp::Neg => value.wrapping_neg(),
             };
             Some((*dest, value_for_type(result, ty)?))
         }
-        NirOp::Cast { dest, src, to, .. } => Some((*dest, value_for_type(const_u16(src)?, to)?)),
+        NirOp::Cast { dest, src, to, .. } => {
+            Some((*dest, value_for_type(const_integer_bits(src)?, to)?))
+        }
         NirOp::Binary {
             dest,
             ty,
             op,
             left,
             right,
-        } => Some((*dest, value_for_type(eval_binary(*op, left, right)?, ty)?)),
+        } => Some((
+            *dest,
+            value_for_type(eval_binary(*op, left, right, ty)?, ty)?,
+        )),
         NirOp::PointerOffset { .. } => None,
         NirOp::Compare {
             dest,
@@ -860,12 +860,17 @@ fn eval_compare(
         return (left.address_space == right.address_space)
             .then(|| apply_compare(op, left.value, right.value));
     }
-    let left = const_u16(left)?;
-    let right = const_u16(right)?;
-    Some(match &operand_ty.kind {
-        NirTypeKind::I8 => apply_compare(op, left as u8 as i8, right as u8 as i8),
-        NirTypeKind::I16 => apply_compare(op, left as i16, right as i16),
-        _ => apply_compare(op, left, right),
+    let left = const_integer_bits(left)?;
+    let right = const_integer_bits(right)?;
+    let integer = operand_ty.kind.integer()?;
+    Some(if integer.signed {
+        apply_compare(
+            op,
+            signed_integer_value(left, integer.bits),
+            signed_integer_value(right, integer.bits),
+        )
+    } else {
+        apply_compare(op, left, right)
     })
 }
 
@@ -876,8 +881,7 @@ fn const_address(value: &NirValue) -> Option<crate::target::AddressValue> {
             0,
         )),
         NirValue::AddressConst { address, .. } => Some(*address),
-        NirValue::ConstU8(_)
-        | NirValue::ConstU16(_)
+        NirValue::IntegerConst { .. }
         | NirValue::StaticAddr { .. }
         | NirValue::Temp { .. }
         | NirValue::Param(_)
@@ -905,17 +909,21 @@ fn apply_compare<T: Ord>(op: NirCompareOp, left: T, right: T) -> bool {
     }
 }
 
-fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16> {
-    let left = const_u16(left)?;
-    let right = const_u16(right)?;
+fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue, ty: &NirType) -> Option<u64> {
+    let left = const_integer_bits(left)?;
+    let right = const_integer_bits(right)?;
+    let mask = ty.width.and_then(width_mask)?;
+    let width_bits = ty.width?.get() * 8;
     match op {
-        NirBinaryOp::Add => Some(left.wrapping_add(right)),
-        NirBinaryOp::Sub => Some(left.wrapping_sub(right)),
-        NirBinaryOp::Mul => Some(left.wrapping_mul(right)),
+        NirBinaryOp::Add => Some(left.wrapping_add(right) & mask),
+        NirBinaryOp::Sub => Some(left.wrapping_sub(right) & mask),
+        NirBinaryOp::Mul => Some(left.wrapping_mul(right) & mask),
         NirBinaryOp::Div if right != 0 => Some(left / right),
         NirBinaryOp::Mod if right != 0 => Some(left % right),
-        NirBinaryOp::Lsh if right < 16 => Some(left.wrapping_shl(u32::from(right))),
-        NirBinaryOp::Rsh if right < 16 => Some(left.wrapping_shr(u32::from(right))),
+        NirBinaryOp::Lsh if right < u64::from(width_bits) => {
+            Some(left.wrapping_shl(right as u32) & mask)
+        }
+        NirBinaryOp::Rsh if right < u64::from(width_bits) => Some(left.wrapping_shr(right as u32)),
         NirBinaryOp::And => Some(left & right),
         NirBinaryOp::Or => Some(left | right),
         NirBinaryOp::Xor => Some(left ^ right),
@@ -923,18 +931,13 @@ fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16
     }
 }
 
-fn value_for_type(value: u16, ty: &NirType) -> Option<NirValue> {
-    match ty.width.map(ByteSize::get) {
-        Some(1) => u8::try_from(value & 0x00FF).ok().map(NirValue::ConstU8),
-        Some(2) => Some(NirValue::ConstU16(value)),
-        _ => None,
-    }
+fn value_for_type(value: u64, ty: &NirType) -> Option<NirValue> {
+    Some(NirValue::integer_const(value, ty.kind.integer()?))
 }
 
-fn const_u16(value: &NirValue) -> Option<u16> {
+fn const_integer_bits(value: &NirValue) -> Option<u64> {
     match value {
-        NirValue::ConstU8(value) => Some(u16::from(*value)),
-        NirValue::ConstU16(value) => Some(*value),
+        NirValue::IntegerConst { bits, .. } => Some(*bits),
         NirValue::StaticAddr { .. }
         | NirValue::Null { .. }
         | NirValue::AddressConst { .. }
@@ -943,6 +946,14 @@ fn const_u16(value: &NirValue) -> Option<u16> {
         | NirValue::GlobalAddr(_)
         | NirValue::RoutineAddr { .. } => None,
     }
+}
+
+fn signed_integer_value(bits: u64, width: u8) -> i64 {
+    if width == 0 {
+        return 0;
+    }
+    let shift = 64u32.saturating_sub(u32::from(width));
+    ((bits << shift) as i64) >> shift
 }
 
 fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
@@ -982,8 +993,7 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
                 rewrite_value(arg, constants);
             }
         }
-        NirOp::ForeignCode { .. }
-        | NirOp::Unsupported { .. } => {}
+        NirOp::ForeignCode { .. } | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -1170,8 +1180,7 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
                 collect_value_use(arg, out);
             }
         }
-        NirOp::ForeignCode { .. }
-        | NirOp::Unsupported { .. } => {}
+        NirOp::ForeignCode { .. } | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -1557,7 +1566,7 @@ mod value_fact_tests {
         assert!(routine.blocks[3].params.is_empty());
         assert!(matches!(
             routine.blocks[3].terminator,
-            NirTerminator::Return(Some(NirValue::ConstU8(7)))
+            NirTerminator::Return(Some(NirValue::IntegerConst { bits: 7, .. }))
         ));
         assert!(matches!(
             &routine.blocks[1].terminator,

@@ -108,7 +108,7 @@ impl Generator {
             match &items[index] {
                 MachineItem::Number(number) => {
                     if let Some(value) = number.value {
-                        self.emit_machine_number(value, pending_operand_bytes);
+                        self.emit_machine_number(value as u16, pending_operand_bytes);
                     } else {
                         self.diagnostics.push(Diagnostic::new(
                             span,
@@ -414,7 +414,11 @@ impl Generator {
             match &items[index] {
                 MachineItem::Number(number) => {
                     let value = number.value?;
-                    push_machine_effect_number(&mut bytes, value, &mut pending_operand_bytes);
+                    push_machine_effect_number(
+                        &mut bytes,
+                        value as u16,
+                        &mut pending_operand_bytes,
+                    );
                 }
                 MachineItem::StringLiteral(value) => {
                     pending_operand_bytes = 0;
@@ -923,8 +927,8 @@ fn machine_block_name_offset(items: &[MachineItem]) -> (u16, usize) {
         return (0, 0);
     };
     match op.as_str() {
-        "+" => (*value, 2),
-        "-" => (0u16.wrapping_sub(*value), 2),
+        "+" => (*value as u16, 2),
+        "-" => (0u16.wrapping_sub(*value as u16), 2),
         _ => (0, 0),
     }
 }
@@ -1026,7 +1030,7 @@ fn machine_number_with_offset(
     let value = number
         .value
         .ok_or_else(|| format!("machine block item `{text}` does not fit in 16 bits"))?;
-    machine_apply_offset(value, offset, text)
+    machine_apply_offset(value as u16, offset, text)
 }
 
 fn machine_apply_offset(value: u16, offset: i32, text: &str) -> Result<u16, String> {

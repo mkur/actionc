@@ -44,10 +44,7 @@ pub trait NirBackend {
 
     fn supports_target(&self, target: TargetId) -> bool;
 
-    fn lower(
-        &self,
-        input: VerifiedNir<'_>,
-    ) -> Result<Self::Output, Vec<Self::Diagnostic>>;
+    fn lower(&self, input: VerifiedNir<'_>) -> Result<Self::Output, Vec<Self::Diagnostic>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,10 +100,7 @@ mod tests {
             true
         }
 
-        fn lower(
-            &self,
-            input: VerifiedNir<'_>,
-        ) -> Result<Self::Output, Vec<Self::Diagnostic>> {
+        fn lower(&self, input: VerifiedNir<'_>) -> Result<Self::Output, Vec<Self::Diagnostic>> {
             self.called.set(true);
             Ok((
                 input.target(),

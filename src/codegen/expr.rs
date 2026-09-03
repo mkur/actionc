@@ -395,8 +395,7 @@ impl Generator {
 
     // Extracted from src/codegen.rs: record_field_metadata
     pub(super) fn record_field_metadata(&self, base: &Expr, field: &str) -> Option<RecordField> {
-        self.record_layouts
-            .field(self.expr_record_id(base)?, field)
+        self.record_layouts.field(self.expr_record_id(base)?, field)
     }
 
     fn expr_record_id(&self, expr: &Expr) -> Option<usize> {
@@ -414,10 +413,11 @@ impl Generator {
                 };
                 self.lookup_slot(name)?.record
             }
-            ExprKind::Field { base, field } => self
-                .record_layouts
-                .field(self.expr_record_id(base)?, field)?
-                .record,
+            ExprKind::Field { base, field } => {
+                self.record_layouts
+                    .field(self.expr_record_id(base)?, field)?
+                    .record
+            }
             _ => None,
         }
     }

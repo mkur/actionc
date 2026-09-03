@@ -2081,7 +2081,7 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
         SemExprKind::Literal(SemLiteral::Constant(value))
             if value.ty == ScalarType::Int && value.bits & 0x8000 != 0 =>
         {
-            SemForStep::Down(0u16.wrapping_sub(value.bits))
+            SemForStep::Down(0u16.wrapping_sub(value.bits as u16))
         }
         _ => const_u16_sem_expr(expr)
             .map(SemForStep::Up)
@@ -2091,8 +2091,10 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
 
 fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
     let value = match &expr.kind {
-        SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
-        SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+        SemExprKind::Literal(SemLiteral::Number(number)) => {
+            number.value.and_then(|value| u16::try_from(value).ok())
+        }
+        SemExprKind::Literal(SemLiteral::Constant(value)) => u16::try_from(value.bits).ok(),
         SemExprKind::Cast { expr, .. } => const_u16_sem_expr(expr),
         SemExprKind::Unary { op, expr } => {
             let value = const_u16_sem_expr(expr)?;
@@ -2129,7 +2131,7 @@ fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
     Some(
         expr.ty
             .as_scalar()
-            .map_or(value, |ty| value & super::scalar_mask(ty)),
+            .map_or(value, |ty| value & super::scalar_mask(ty) as u16),
     )
 }
 
@@ -2554,9 +2556,7 @@ impl<'a> IrBuilder<'a> {
             return None;
         };
         let (element_type, repeats) = match storage {
-            SemDeclarationStorage::Array { array_type, .. } => {
-                (array_type.element.as_ref(), true)
-            }
+            SemDeclarationStorage::Array { array_type, .. } => (array_type.element.as_ref(), true),
             SemDeclarationStorage::Scalar => (&ty.value, false),
             SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
                 return None;
@@ -2650,10 +2650,7 @@ impl<'a> IrBuilder<'a> {
             });
             return Some(());
         }
-        let record = self
-            .model
-            .layout
-            .record_for_name(ty.as_record_name()?)?;
+        let record = self.model.layout.record_for_name(ty.as_record_name()?)?;
         for field in &record.fields {
             let field_path = if path.is_empty() {
                 field.name.clone()
@@ -2769,14 +2766,14 @@ impl<'a> IrBuilder<'a> {
         value
             .value_width_bytes_for_layout(self.model.target_layout)
             .or_else(|| {
-            value.as_record_name().and_then(|name| {
-                self.model
-                    .layout
-                    .records
-                    .iter()
-                    .find(|record| record.name.eq_ignore_ascii_case(name))
-                    .map(|record| record.size)
-            })
+                value.as_record_name().and_then(|name| {
+                    self.model
+                        .layout
+                        .records
+                        .iter()
+                        .find(|record| record.name.eq_ignore_ascii_case(name))
+                        .map(|record| record.size)
+                })
             })
     }
 
@@ -3288,9 +3285,7 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             ExprKind::Binary { op, left, right } => self.lower_binary_expr(scope, *op, left, right),
-            ExprKind::Call { .. }
-                if self.model.layout_query_value(scope, expr.span).is_some() =>
-            {
+            ExprKind::Call { .. } if self.model.layout_query_value(scope, expr.span).is_some() => {
                 SemExprKind::Literal(SemLiteral::Constant(
                     self.model
                         .layout_query_value(scope, expr.span)
@@ -3599,16 +3594,24 @@ impl<'a> IrBuilder<'a> {
         } else if is_compare_op(op)
             && left.ty.is_pointer()
             && right.ty.as_scalar().is_some()
-            && left.ty.value_width_bytes_for_layout(self.model.target_layout)
-                != right.ty.value_width_bytes_for_layout(self.model.target_layout)
+            && left
+                .ty
+                .value_width_bytes_for_layout(self.model.target_layout)
+                != right
+                    .ty
+                    .value_width_bytes_for_layout(self.model.target_layout)
         {
             let operand_ty = left.ty.clone();
             right = self.coerce_scalar_expr_for_expected_type(right, &operand_ty);
         } else if is_compare_op(op)
             && right.ty.is_pointer()
             && left.ty.as_scalar().is_some()
-            && right.ty.value_width_bytes_for_layout(self.model.target_layout)
-                != left.ty.value_width_bytes_for_layout(self.model.target_layout)
+            && right
+                .ty
+                .value_width_bytes_for_layout(self.model.target_layout)
+                != left
+                    .ty
+                    .value_width_bytes_for_layout(self.model.target_layout)
         {
             let operand_ty = right.ty.clone();
             left = self.coerce_scalar_expr_for_expected_type(left, &operand_ty);
@@ -3863,17 +3866,18 @@ impl<'a> IrBuilder<'a> {
 
     fn const_u16_expr_in_scope(&self, scope: ScopeId, expr: &Expr) -> Option<u16> {
         match &expr.kind {
-            ExprKind::Number(number) => number.value,
+            ExprKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
             ExprKind::Name(name) => {
                 let symbol = self.symbol_ref(scope, name, expr.span)?;
                 self.model
                     .constants
                     .get(&symbol.id)
-                    .map(|value| value.bits)
+                    .and_then(|value| u16::try_from(value.bits).ok())
                     .or_else(|| {
                         self.numeric_defines
                             .get(&symbol.id)
                             .and_then(|number| number.value)
+                            .and_then(|value| u16::try_from(value).ok())
                     })
             }
             ExprKind::Unary {

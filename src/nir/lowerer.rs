@@ -732,8 +732,10 @@ impl NirLowerer {
     fn const_u16_expr(&self, expr: &SemExpr) -> Option<u16> {
         let storage_address = matches!(&expr.kind, SemExprKind::Symbol(_) | SemExprKind::LValue(_));
         let value = match &expr.kind {
-            SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
-            SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+            SemExprKind::Literal(SemLiteral::Number(number)) => {
+                number.value.and_then(|value| u16::try_from(value).ok())
+            }
+            SemExprKind::Literal(SemLiteral::Constant(value)) => u16::try_from(value.bits).ok(),
             SemExprKind::Symbol(symbol) => self.semantic_absolute_globals.get(&symbol.id).copied(),
             SemExprKind::LValue(lvalue) => self.const_u16_lvalue(lvalue),
             SemExprKind::Cast { expr, .. } => self.const_u16_expr(expr),
@@ -1079,10 +1081,7 @@ fn apply_target_layout_to_value(value: &mut NirValue, layout: TargetLayout) {
         | NirValue::StaticAddr { ty, .. }
         | NirValue::Temp { ty, .. }
         | NirValue::RoutineAddr { ty, .. } => ty.apply_target_layout(layout),
-        NirValue::ConstU8(_)
-        | NirValue::ConstU16(_)
-        | NirValue::Param(_)
-        | NirValue::GlobalAddr(_) => {}
+        NirValue::IntegerConst { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => {}
     }
 }
 
@@ -2667,8 +2666,7 @@ impl NirBuilder {
                 let kind = nir_cast_kind(&from, &to);
                 if to.kind.is_address() {
                     let value = match &src {
-                        NirValue::ConstU8(value) => Some(u64::from(*value)),
-                        NirValue::ConstU16(value) => Some(u64::from(*value)),
+                        NirValue::IntegerConst { bits, .. } => Some(*bits),
                         _ => None,
                     };
                     if let Some(value) = value {
@@ -3268,8 +3266,7 @@ impl NirBuilder {
         }
         let value = self.nir_value(expr);
         match value {
-            NirValue::ConstU8(value) => NirValue::ConstU8(u8::from(value != 0)),
-            NirValue::ConstU16(value) => NirValue::ConstU8(u8::from(value != 0)),
+            NirValue::IntegerConst { bits, .. } => NirValue::ConstU8(u8::from(bits != 0)),
             value => {
                 let dest = self.next_temp();
                 let ty = NirFacts::condition_type();
@@ -4358,8 +4355,10 @@ fn storage_alias_initializer_expr(expr: &SemExpr) -> Option<(&SemSymbolRef, u16)
 
 fn literal_expr_u16(expr: &SemExpr) -> Option<u16> {
     match &expr.kind {
-        SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
-        SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+        SemExprKind::Literal(SemLiteral::Number(number)) => {
+            number.value.and_then(|value| u16::try_from(value).ok())
+        }
+        SemExprKind::Literal(SemLiteral::Constant(value)) => u16::try_from(value.bits).ok(),
         SemExprKind::Cast { expr, .. } => literal_expr_u16(expr),
         _ => None,
     }
@@ -4920,7 +4919,9 @@ fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u16) -> Op
 
 fn literal_number_u16_expr(expr: &SemExpr) -> Option<u16> {
     match &expr.kind {
-        SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
+        SemExprKind::Literal(SemLiteral::Number(number)) => {
+            number.value.and_then(|value| u16::try_from(value).ok())
+        }
         _ => None,
     }
 }
@@ -5220,14 +5221,14 @@ fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16>
     };
     let value = match value {
         SemInitializerLiteral::Number(number) => number.value?,
-        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::Char(ch) => u64::from(source_char_byte(*ch)?),
         SemInitializerLiteral::True => 1,
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value)
+        0u64.wrapping_sub(value) as u16
     } else {
-        value
+        value as u16
     })
 }
 
@@ -5237,14 +5238,14 @@ fn sem_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Op
     };
     let value = match value {
         SemInitializerLiteral::Number(number) => number.value?,
-        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::Char(ch) => u64::from(source_char_byte(*ch)?),
         SemInitializerLiteral::True => 1,
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value)
+        0u64.wrapping_sub(value) as u16
     } else {
-        value
+        value as u16
     })
 }
 
@@ -5323,7 +5324,7 @@ fn raw_initializer_values(inner: &str) -> Option<Vec<u16>> {
 
 fn parse_raw_initializer_value(token: &TokenKind) -> Option<u16> {
     match token {
-        TokenKind::Number(number) => number.value,
+        TokenKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
         TokenKind::Char(ch) => source_char_byte(*ch).map(u16::from),
         TokenKind::Ident(name) => match storage_key(name).as_str() {
             "TRUE" => Some(1),
@@ -5539,7 +5540,7 @@ fn nir_machine_item(item: &MachineItem) -> Result<NirMachineItem, String> {
             if let Ok(byte) = u8::try_from(value) {
                 NirMachineItem::Byte(byte)
             } else {
-                NirMachineItem::Word(value)
+                NirMachineItem::Word(value as u16)
             }
         }
         MachineItem::StringLiteral(value) => NirMachineItem::StringLiteral(value.clone()),
@@ -5591,6 +5592,7 @@ fn nir_machine_atom(atom: &MachineAddressAtom) -> NirMachineAtom {
     match atom {
         MachineAddressAtom::Number(number) => number
             .value
+            .and_then(|value| u16::try_from(value).ok())
             .map(NirMachineAtom::Number)
             .unwrap_or_else(|| NirMachineAtom::Name(number.text.clone())),
         MachineAddressAtom::Name(name) => NirMachineAtom::Name(name.to_string()),
@@ -5818,7 +5820,7 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
     let value = match literal {
         SemLiteral::Number(number) => number.value?,
         SemLiteral::Real { .. } => return None,
-        SemLiteral::Char(value) => *value as u16,
+        SemLiteral::Char(value) => u64::from(*value as u16),
         SemLiteral::Constant(value) => value.bits,
         SemLiteral::String(_) => return None,
     };
@@ -5827,14 +5829,16 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
             NirValue::Null { ty: ty.clone() }
         } else {
             NirValue::AddressConst {
-                address: AddressValue::new(pointer_address_space(ty)?, u64::from(value)),
+                address: AddressValue::new(pointer_address_space(ty)?, value),
                 ty: ty.clone(),
             }
         });
     }
     match ty.width {
         Some(width) if width == ByteSize::ONE => u8::try_from(value).ok().map(NirValue::ConstU8),
-        Some(width) if width == ByteSize::new(2) => Some(NirValue::ConstU16(value)),
+        Some(width) if width == ByteSize::new(2) => {
+            u16::try_from(value).ok().map(NirValue::ConstU16)
+        }
         _ => None,
     }
 }

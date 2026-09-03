@@ -172,7 +172,7 @@ impl SemanticModuleScope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConstValue {
     pub ty: ScalarType,
-    pub bits: u16,
+    pub bits: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -890,11 +890,7 @@ impl Analyzer {
         let module_id = self.modules[module_index].id;
         let scope = self.modules[module_index].scope;
         let module_path = self.modules[module_index].path.clone();
-        let intrinsics = self
-            .layout_intrinsics
-            .keys()
-            .copied()
-            .collect::<Vec<_>>();
+        let intrinsics = self.layout_intrinsics.keys().copied().collect::<Vec<_>>();
 
         for symbol_id in intrinsics {
             let name = self.symbols.symbols[symbol_id.0].name.clone();
@@ -2405,7 +2401,10 @@ impl Analyzer {
             let name = self.layout_intrinsic_name(intrinsic);
             self.diagnostics.push(Diagnostic::new(
                 span,
-                format!("`{name}` expects exactly {expected} argument(s), got {}", args.len()),
+                format!(
+                    "`{name}` expects exactly {expected} argument(s), got {}",
+                    args.len()
+                ),
             ));
             return subject::SemSubject::Expr(self.error_expr(span));
         }
@@ -2431,7 +2430,7 @@ impl Analyzer {
         };
         let value = ConstValue {
             ty: ScalarType::Card,
-            bits,
+            bits: u64::from(bits),
         };
         self.layout_query_values.insert(key, value);
         self.layout_query_subject(value, span)
@@ -2456,9 +2455,9 @@ impl Analyzer {
 
     fn layout_size_of(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
         match self.classify_subject(scope, operand) {
-            subject::SemSubject::TypeRef(type_ref) => {
-                self.complete_layout_width(&type_ref.ty, operand.span).map(u64::from)
-            }
+            subject::SemSubject::TypeRef(type_ref) => self
+                .complete_layout_width(&type_ref.ty, operand.span)
+                .map(u64::from),
             subject::SemSubject::Place(place) => {
                 if let subject::SemPlaceKind::Symbol(symbol) = place.kind
                     && self.array_symbols.contains(&symbol)
@@ -2473,7 +2472,8 @@ impl Analyzer {
                     let width = self.complete_layout_width(&place.ty, operand.span)?;
                     return Some(u64::from(length) * u64::from(width));
                 }
-                self.complete_layout_width(&place.ty, operand.span).map(u64::from)
+                self.complete_layout_width(&place.ty, operand.span)
+                    .map(u64::from)
             }
             subject::SemSubject::Error(_) => None,
             _ => {
@@ -2511,13 +2511,17 @@ impl Analyzer {
             ));
             return None;
         }
-        self.array_lengths.get(&symbol).copied().map(u64::from).or_else(|| {
-            self.diagnostics.push(Diagnostic::new(
-                operand.span,
-                "ELEMENTS cannot determine the count of an unsized or pointer-backed array",
-            ));
-            None
-        })
+        self.array_lengths
+            .get(&symbol)
+            .copied()
+            .map(u64::from)
+            .or_else(|| {
+                self.diagnostics.push(Diagnostic::new(
+                    operand.span,
+                    "ELEMENTS cannot determine the count of an unsized or pointer-backed array",
+                ));
+                None
+            })
     }
 
     fn layout_align_of(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
@@ -2582,10 +2586,8 @@ impl Analyzer {
 
     fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u16> {
         self.value_storage_width(ty).or_else(|| {
-            self.diagnostics.push(Diagnostic::new(
-                span,
-                "layout is incomplete for this type",
-            ));
+            self.diagnostics
+                .push(Diagnostic::new(span, "layout is incomplete for this type"));
             None
         })
     }
@@ -3586,12 +3588,7 @@ impl Analyzer {
                         .is_some_and(|id| self.symbols.symbols[id.0].is_volatile);
                 self.symbols.symbols[symbol_id.0].is_volatile =
                     declaration.qualifiers.is_volatile || inherits_volatile;
-                self.record_fixed_array_backing_address(
-                    scope,
-                    symbol_id,
-                    declaration,
-                    entry,
-                );
+                self.record_fixed_array_backing_address(scope, symbol_id, declaration, entry);
                 self.record_declared_array_length(scope, symbol_id, declaration, entry);
             }
             self.validate_initializer_elements(scope, declaration, entry);
@@ -3882,7 +3879,9 @@ impl Analyzer {
             return;
         }
         if let Ok(value) = evaluate_const_expr(&expression) {
-            self.array_lengths.insert(symbol, value.bits);
+            if let Ok(length) = u16::try_from(value.bits) {
+                self.array_lengths.insert(symbol, length);
+            }
         }
     }
 
@@ -3968,15 +3967,11 @@ impl Analyzer {
                     {
                         self.diagnostics.push(Diagnostic::new(
                             element.span,
-                            format!(
-                                "too many initializer elements for record `{}`",
-                                entry.name
-                            ),
+                            format!("too many initializer elements for record `{}`", entry.name),
                         ));
                         continue;
                     }
-                    let destination_width =
-                        self.value_storage_width(destination_type).unwrap_or(0);
+                    let destination_width = self.value_storage_width(destination_type).unwrap_or(0);
                     match &element.kind {
                         InitializerElementKind::Literal { value, negative } => {
                             if destination_type.is_real() {
@@ -4032,8 +4027,7 @@ impl Analyzer {
                         InitializerElementKind::Address {
                             selector, target, ..
                         } => {
-                            let target_layout =
-                                TargetLayout::for_target(self.options.target);
+                            let target_layout = TargetLayout::for_target(self.options.target);
                             let expected_width = if selector.is_some() {
                                 1
                             } else if destination_type.as_callable_pointer().is_some() {
@@ -4740,8 +4734,8 @@ fn constant_binary_result(
     if !matches!(op, BinaryOp::Add | BinaryOp::Sub) {
         return None;
     }
-    let left = evaluate_const_expr(left).ok()?.bits;
-    let right = evaluate_const_expr(right).ok()?.bits;
+    let left = evaluate_const_expr(left).ok()?.bits as u16;
+    let right = evaluate_const_expr(right).ok()?.bits as u16;
     Some(match op {
         BinaryOp::Add => left.wrapping_add(right),
         BinaryOp::Sub => left.wrapping_sub(right),
@@ -4771,7 +4765,7 @@ fn evaluate_exact_fixed_address_expr(
     match &expr.kind {
         subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
             .value
-            .map(i64::from)
+            .and_then(|value| i64::try_from(value).ok())
             .ok_or(FixedArrayAddressError::Invalid),
         subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => source_char_byte(*ch)
             .map(i64::from)
@@ -4821,12 +4815,12 @@ fn evaluate_exact_fixed_address_expr(
                 BinaryOp::Mod if right != 0 => Ok(left % right),
                 BinaryOp::Div | BinaryOp::Mod => Err(FixedArrayAddressError::Invalid),
                 BinaryOp::Lsh | BinaryOp::Rsh => {
-                    let shift = u32::try_from(right).map_err(|_| FixedArrayAddressError::Invalid)?;
+                    let shift =
+                        u32::try_from(right).map_err(|_| FixedArrayAddressError::Invalid)?;
                     if shift >= 16 {
                         return Ok(0);
                     }
-                    let bits = u16::try_from(left)
-                        .map_err(|_| FixedArrayAddressError::Overflow)?;
+                    let bits = u16::try_from(left).map_err(|_| FixedArrayAddressError::Overflow)?;
                     Ok(i64::from(if *op == BinaryOp::Lsh {
                         bits.wrapping_shl(shift)
                     } else {
@@ -4874,7 +4868,7 @@ fn exact_const_value(value: ConstValue) -> i64 {
     } else if value.ty.width_bytes() == 1 {
         i64::from(value.bits as u8)
     } else {
-        i64::from(value.bits)
+        value.bits as i64
     }
 }
 
@@ -4905,7 +4899,7 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
         subject::SemExprKind::Literal(subject::SemLiteral::Real { .. }) => {
             return Err("real values are not supported in CONST expressions".to_string());
         }
-        subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => u16::from(
+        subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => u64::from(
             source_char_byte(*ch)
                 .ok_or_else(|| "character cannot be represented as an Action! byte".to_string())?,
         ),
@@ -4918,7 +4912,7 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
             let value = evaluate_const_expr(inner)?.bits;
             match op {
                 UnaryOp::Plus => value,
-                UnaryOp::Neg => 0u16.wrapping_sub(value),
+                UnaryOp::Neg => 0u64.wrapping_sub(value),
                 UnaryOp::AddressOf | UnaryOp::Deref => {
                     return Err(
                         "address and pointer operations are not supported in CONST expressions"
@@ -4942,14 +4936,14 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
                     if right >= 16 {
                         0
                     } else {
-                        left.wrapping_shl(u32::from(right))
+                        left.wrapping_shl(right as u32)
                     }
                 }
                 BinaryOp::Rsh => {
                     if right >= 16 {
                         0
                     } else {
-                        left.wrapping_shr(u32::from(right))
+                        left.wrapping_shr(right as u32)
                     }
                 }
                 BinaryOp::And => left & right,
@@ -4985,7 +4979,7 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
     })
 }
 
-fn scalar_mask(ty: ScalarType) -> u16 {
+fn scalar_mask(ty: ScalarType) -> u64 {
     if ty.width_bytes() == 1 {
         0x00FF
     } else {
@@ -5770,8 +5764,8 @@ mod tests {
                  ENDMODULE\n",
             ),
             (
-                 "project/lib/data.act",
-                 "MODULE LIB.DATA\n\
+                "project/lib/data.act",
+                "MODULE LIB.DATA\n\
                  PUBLIC CONST BYTE Width=4\n\
                  PUBLIC CONST CARD Base=$8410\n\
                  PUBLIC VOLATILE BYTE Register=$D400\n\
@@ -5787,7 +5781,10 @@ mod tests {
         let register = data.public_symbol("Register").unwrap();
         assert!(model.symbols.symbols[register.0].is_volatile);
         let app_model = named_module(&model, "APP");
-        let buffer = model.symbols.lookup_exact(app_model.scope, "buffer").unwrap();
+        let buffer = model
+            .symbols
+            .lookup_exact(app_model.scope, "buffer")
+            .unwrap();
         assert_eq!(
             model.fixed_array_backing_addresses.get(&buffer),
             Some(&0x83F1)
@@ -5837,18 +5834,24 @@ mod tests {
         let overflow = analyze_source_err(
             "CONST CARD Base=$FFFF BYTE ARRAY data(4)=Base+1 PROC Main() RETURN",
         );
-        assert!(overflow.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("fixed array backing address for `data` is outside the 16-bit address space")),
+        assert!(
+            overflow
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(
+                    "fixed array backing address for `data` is outside the 16-bit address space"
+                )),
             "{overflow:?}"
         );
 
         let runtime = analyze_source_err(
             "CARD FUNC Address() RETURN($8000) BYTE ARRAY data(4)=Address() PROC Main() RETURN",
         );
-        assert!(runtime.iter().any(|diagnostic| diagnostic.message.contains(
-            "fixed array backing address for `data` must be a compile-time scalar expression"
-        )), "{runtime:?}");
+        assert!(
+            runtime.iter().any(|diagnostic| diagnostic.message.contains(
+                "fixed array backing address for `data` must be a compile-time scalar expression"
+            )),
+            "{runtime:?}"
+        );
     }
 
     #[test]
@@ -6048,7 +6051,7 @@ mod tests {
             value("Difference"),
             ConstValue {
                 ty: ScalarType::Int,
-                bits: u16::MAX,
+                bits: u64::from(u16::MAX),
             }
         );
         assert_eq!(
@@ -6069,7 +6072,7 @@ mod tests {
             value("ExplicitDifference"),
             ConstValue {
                 ty: ScalarType::Byte,
-                bits: u16::from(u8::MAX),
+                bits: u64::from(u8::MAX),
             }
         );
         assert_eq!(
@@ -6090,7 +6093,7 @@ mod tests {
             value("TruncatedDifference"),
             ConstValue {
                 ty: ScalarType::Byte,
-                bits: u16::from(u8::MAX),
+                bits: u64::from(u8::MAX),
             }
         );
     }
@@ -6133,7 +6136,7 @@ mod tests {
             constant("Negative"),
             ConstValue {
                 ty: ScalarType::Int,
-                bits: (-300i16) as u16,
+                bits: u64::from((-300i16) as u16),
             }
         );
         assert_eq!(constant("Inferred").ty, ScalarType::Card);
@@ -7281,9 +7284,7 @@ mod tests {
 
     #[test]
     fn record_fields_accept_pointer_and_callable_values_but_not_inline_arrays() {
-        analyze_source(
-            "TYPE Pair=[BYTE tag CHAR POINTER ptr PROC POINTER callback] Pair value",
-        );
+        analyze_source("TYPE Pair=[BYTE tag CHAR POINTER ptr PROC POINTER callback] Pair value");
         let err = analyze_source_err("TYPE Pair=[BYTE ARRAY bytes(4)]");
         assert!(
             err[0]
@@ -7452,51 +7453,34 @@ mod tests {
                       Matrix ARRAY rows(2)";
         let cases = [
             (TargetId::Atari6502, 11, 1, 0, 1, 3, 5, 7, 10, 11, 22),
-            (
-                TargetId::Wdc65816Native,
-                16,
-                2,
-                1,
-                2,
-                4,
-                7,
-                10,
-                14,
-                16,
-                32,
-            ),
-            (
-                TargetId::Wdc65816Small,
-                14,
-                2,
-                1,
-                2,
-                4,
-                6,
-                8,
-                12,
-                14,
-                28,
-            ),
-            (
-                TargetId::Motorola68000,
-                18,
-                2,
-                1,
-                2,
-                4,
-                8,
-                12,
-                16,
-                18,
-                36,
-            ),
+            (TargetId::Wdc65816Native, 16, 2, 1, 2, 4, 7, 10, 14, 16, 32),
+            (TargetId::Wdc65816Small, 14, 2, 1, 2, 4, 6, 8, 12, 14, 28),
+            (TargetId::Motorola68000, 18, 2, 1, 2, 4, 8, 12, 16, 18, 36),
         ];
 
-        for (target, size, alignment, tail_padding, word, data, callback, nested, tail, stride, total) in cases {
+        for (
+            target,
+            size,
+            alignment,
+            tail_padding,
+            word,
+            data,
+            callback,
+            nested,
+            tail,
+            stride,
+            total,
+        ) in cases
+        {
             let model = analyze_source_target(source, target);
-            let matrix = model.layout.record_for_name("Matrix").expect("matrix layout");
-            assert_eq!((matrix.size, matrix.alignment, matrix.tail_padding), (size, alignment, tail_padding));
+            let matrix = model
+                .layout
+                .record_for_name("Matrix")
+                .expect("matrix layout");
+            assert_eq!(
+                (matrix.size, matrix.alignment, matrix.tail_padding),
+                (size, alignment, tail_padding)
+            );
             let offset = |name: &str| {
                 matrix
                     .fields
@@ -7506,7 +7490,13 @@ mod tests {
                     .expect("matrix field")
             };
             assert_eq!(
-                (offset("word"), offset("data"), offset("callback"), offset("nested"), offset("tail")),
+                (
+                    offset("word"),
+                    offset("data"),
+                    offset("callback"),
+                    offset("nested"),
+                    offset("tail")
+                ),
                 (word, data, callback, nested, tail),
             );
             let rows = model
@@ -7514,7 +7504,10 @@ mod tests {
                 .lookup(model.symbols.global_scope(), "rows")
                 .expect("rows");
             let array = model.layout.array_for_symbol(rows).expect("array layout");
-            assert_eq!((array.element_size, array.stride, array.storage_size), (size, stride, Some(total)));
+            assert_eq!(
+                (array.element_size, array.stride, array.storage_size),
+                (size, stride, Some(total))
+            );
         }
     }
 
@@ -9483,21 +9476,27 @@ mod tests {
         let errors = analyze_source_err(
             "BYTE ARRAY values CARD result PROC Main() result=ELEMENTS(values) RETURN",
         );
-        assert!(errors.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("unsized or pointer-backed array")));
+        assert!(errors.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("unsized or pointer-backed array")
+        }));
 
         let errors = analyze_source_err("CARD result PROC Main() result=SIZEOF(1) RETURN");
-        assert!(errors.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("expects a type or addressable object")));
+        assert!(errors.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("expects a type or addressable object")
+        }));
 
         let errors = analyze_source_err(
             "TYPE Pair=[BYTE tag] CARD result PROC Main() result=OFFSETOF(Pair,missing) RETURN",
         );
-        assert!(errors
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("has no field `missing`")));
+        assert!(
+            errors
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("has no field `missing`"))
+        );
     }
 
     fn analyze_source(source: &str) -> SemanticModel {

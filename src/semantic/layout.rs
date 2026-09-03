@@ -141,12 +141,14 @@ impl SemanticLayoutFacts {
                 .collect::<HashMap<_, _>>();
             let alignment = owner_fields
                 .iter()
-                .filter_map(|field| semantic_value_alignment(&field.ty, &known_records, target_layout))
+                .filter_map(|field| {
+                    semantic_value_alignment(&field.ty, &known_records, target_layout)
+                })
                 .max()
                 .unwrap_or(1);
             let unpadded_size = owner_fields.iter().fold(0u16, |size, field| {
-                let width = semantic_value_width(&field.ty, &known_records, target_layout)
-                    .unwrap_or(0);
+                let width =
+                    semantic_value_width(&field.ty, &known_records, target_layout).unwrap_or(0);
                 size.max(field.offset.saturating_add(width))
             });
             let size = align_up(unpadded_size, alignment).unwrap_or(unpadded_size);
@@ -215,8 +217,8 @@ impl SemanticLayoutFacts {
                 .iter()
                 .map(|record| (record.name.clone(), (record.size, record.alignment)))
                 .collect::<HashMap<_, _>>();
-            let element_size = semantic_value_width(&element_type, &records, target_layout)
-                .unwrap_or(0);
+            let element_size =
+                semantic_value_width(&element_type, &records, target_layout).unwrap_or(0);
             let element_alignment =
                 semantic_value_alignment(&element_type, &records, target_layout).unwrap_or(1);
             let stride = align_up(element_size, element_alignment).unwrap_or(element_size);
@@ -268,11 +270,13 @@ fn semantic_value_width(
     records: &HashMap<String, (u16, u16)>,
     target_layout: TargetLayout,
 ) -> Option<u16> {
-    value.value_width_bytes_for_layout(target_layout).or_else(|| {
-        value
-            .as_record_name()
-            .and_then(|name| records.get(name).map(|(size, _)| *size))
-    })
+    value
+        .value_width_bytes_for_layout(target_layout)
+        .or_else(|| {
+            value
+                .as_record_name()
+                .and_then(|name| records.get(name).map(|(size, _)| *size))
+        })
 }
 
 fn semantic_value_alignment(
@@ -289,9 +293,7 @@ fn semantic_value_alignment(
                 .width_bytes()
                 .min(u16::from(target_layout.natural_word_alignment_bytes)),
         ),
-        super::ValueTypeKind::Real => {
-            Some(u16::from(target_layout.natural_word_alignment_bytes))
-        }
+        super::ValueTypeKind::Real => Some(u16::from(target_layout.natural_word_alignment_bytes)),
         super::ValueTypeKind::Pointer(_) => {
             u16::try_from(target_layout.data_pointer.alignment_bytes.get()).ok()
         }

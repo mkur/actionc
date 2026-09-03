@@ -43,7 +43,7 @@ pub enum Keyword {
 pub struct NumberLiteral {
     pub text: String,
     pub kind: NumberKind,
-    pub value: Option<u16>,
+    pub value: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -467,9 +467,9 @@ impl<'a> Lexer<'a> {
                 ));
                 None
             } else {
-                match u16::from_str_radix(digits, 16) {
-                    Ok(value) => Some(value),
-                    Err(_) => {
+                match u64::from_str_radix(digits, 16) {
+                    Ok(value) if value <= u64::from(u16::MAX) => Some(value),
+                    Ok(_) | Err(_) => {
                         self.diagnostics.push(Diagnostic::new(
                             Span::new(start, self.pos),
                             "hexadecimal constant is too large",
@@ -479,7 +479,7 @@ impl<'a> Lexer<'a> {
                 }
             };
             let kind = match value {
-                Some(value) if value <= u16::from(u8::MAX) => NumberKind::Byte,
+                Some(value) if value <= u64::from(u8::MAX) => NumberKind::Byte,
                 _ => NumberKind::Card,
             };
             return Token {
@@ -520,9 +520,9 @@ impl<'a> Lexer<'a> {
         let (kind, value) = if is_real {
             (NumberKind::Real, None)
         } else {
-            match text.parse::<u32>() {
-                Ok(value) if value <= u8::MAX as u32 => (NumberKind::Byte, Some(value as u16)),
-                Ok(value) if value <= u16::MAX as u32 => (NumberKind::Int, Some(value as u16)),
+            match text.parse::<u64>() {
+                Ok(value) if value <= u64::from(u8::MAX) => (NumberKind::Byte, Some(value)),
+                Ok(value) if value <= u64::from(u16::MAX) => (NumberKind::Int, Some(value)),
                 Ok(_) => {
                     self.diagnostics.push(Diagnostic::new(
                         Span::new(start, self.pos),
@@ -1154,9 +1154,11 @@ mod tests {
             identifiers,
             ["BEGIN", "END", "Begin", "End", "begin", "end"]
         );
-        assert!(tokens[..tokens.len() - 1]
-            .iter()
-            .all(|token| token.kind.action_token_id().is_none()));
+        assert!(
+            tokens[..tokens.len() - 1]
+                .iter()
+                .all(|token| token.kind.action_token_id().is_none())
+        );
     }
 
     #[test]
@@ -1193,7 +1195,7 @@ mod tests {
         kind: &TokenKind,
         expected_text: &str,
         expected_kind: NumberKind,
-        expected_value: Option<u16>,
+        expected_value: Option<u64>,
     ) {
         let TokenKind::Number(number) = kind else {
             panic!("expected number token, got {kind:?}");

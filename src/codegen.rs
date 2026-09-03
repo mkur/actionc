@@ -1473,7 +1473,7 @@ fn builtin_storage_slot(name: &str) -> Option<StorageSlot> {
 
 fn constant_u16(expr: &Expr) -> Option<u16> {
     match &expr.kind {
-        ExprKind::Number(number) => number.value,
+        ExprKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
         ExprKind::Char(ch) => source_char_byte(*ch).map(u16::from),
         ExprKind::Cast { ty, expr } => {
             let value = constant_u16(expr)?;

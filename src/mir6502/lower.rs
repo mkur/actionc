@@ -510,9 +510,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
     let routine_system_addresses_by_id = nir_program
         .routines
         .iter()
-        .filter_map(|routine| {
-            routine_system_address(routine).map(|address| (routine.id, address))
-        })
+        .filter_map(|routine| routine_system_address(routine).map(|address| (routine.id, address)))
         .collect::<BTreeMap<_, _>>();
     let routine_system_addresses = nir_program
         .routines
@@ -544,131 +542,130 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
         .filter_map(|binding| binding.target.map(|target| (binding.symbol, target)))
         .collect::<BTreeMap<_, _>>();
     let mut machine_blocks = Vec::new();
-    let routines =
-        nir_program
-            .routines
-            .iter()
-            .map(|routine| {
-                let block_ids = routine
-                    .blocks
-                    .iter()
-                    .enumerate()
-                    .map(|(index, block)| (block.id, MirBlockId(index as u32)))
-                    .collect::<BTreeMap<_, _>>();
-                let local_absolute_addresses = routine
-                    .locals
-                    .iter()
-                    .filter_map(|local| match local.backing {
-                        NirLocalBacking::Absolute(address) => {
-                            Some((machine_name_key(&local.name), nir_address_u16(address)))
-                        }
-                        NirLocalBacking::Ordinary
-                        | NirLocalBacking::Alias { .. }
-                        | NirLocalBacking::GlobalAlias { .. } => None,
-                    })
-                    .collect::<BTreeMap<_, _>>();
-                let local_array_pointer_backing = routine
-                    .locals
-                    .iter()
-                    .filter(|local| local_pointer_backed_array(local))
-                    .map(|local| local.id)
-                    .collect::<Vec<_>>();
-                let mut next_generated_temp = routine
-                    .temps
-                    .iter()
-                    .map(|temp| temp.id.0)
-                    .max()
-                    .map_or(0, |id| id.saturating_add(1));
-                let mut generated_temps = Vec::new();
-                let mut next_generated_local = routine
-                    .locals
-                    .iter()
-                    .map(|local| local.id.0)
-                    .max()
-                    .map_or(0, |id| id.saturating_add(1));
-                let mut generated_locals = Vec::new();
-                let fpp_result_chains = adjacent_fpp_result_chains(routine);
-                let real_copy_forwards = adjacent_real_copy_forwards(routine);
-                let real_negation_forwards = static_real_negation_forwards(routine);
+    let routines = nir_program
+        .routines
+        .iter()
+        .map(|routine| {
+            let block_ids = routine
+                .blocks
+                .iter()
+                .enumerate()
+                .map(|(index, block)| (block.id, MirBlockId(index as u32)))
+                .collect::<BTreeMap<_, _>>();
+            let local_absolute_addresses = routine
+                .locals
+                .iter()
+                .filter_map(|local| match local.backing {
+                    NirLocalBacking::Absolute(address) => {
+                        Some((machine_name_key(&local.name), nir_address_u16(address)))
+                    }
+                    NirLocalBacking::Ordinary
+                    | NirLocalBacking::Alias { .. }
+                    | NirLocalBacking::GlobalAlias { .. } => None,
+                })
+                .collect::<BTreeMap<_, _>>();
+            let local_array_pointer_backing = routine
+                .locals
+                .iter()
+                .filter(|local| local_pointer_backed_array(local))
+                .map(|local| local.id)
+                .collect::<Vec<_>>();
+            let mut next_generated_temp = routine
+                .temps
+                .iter()
+                .map(|temp| temp.id.0)
+                .max()
+                .map_or(0, |id| id.saturating_add(1));
+            let mut generated_temps = Vec::new();
+            let mut next_generated_local = routine
+                .locals
+                .iter()
+                .map(|local| local.id.0)
+                .max()
+                .map_or(0, |id| id.saturating_add(1));
+            let mut generated_locals = Vec::new();
+            let fpp_result_chains = adjacent_fpp_result_chains(routine);
+            let real_copy_forwards = adjacent_real_copy_forwards(routine);
+            let real_negation_forwards = static_real_negation_forwards(routine);
 
-                let mut blocks: Vec<MirBlock> = routine
-                    .blocks
-                    .iter()
-                    .enumerate()
-                    .map(|(block_index, block)| {
-                        let mut real_branch_values = BTreeMap::new();
-                        let direct_real_branch_result = direct_real_branch_result(block);
-                        let mut ops = lower_ops(
-                            &routine.name,
-                            &block.label,
-                            &block.ops,
-                            &routine_ids,
-                            &routine_system_addresses_by_id,
-                            &runtime_targets,
-                            &routine_system_addresses,
-                            &global_array_pointer_backing,
-                            &local_array_pointer_backing,
-                            &local_absolute_addresses,
-                            &machine_numeric_defines,
-                            &mut machine_blocks,
-                            &mut next_generated_temp,
-                            &mut generated_temps,
-                            &mut next_generated_local,
-                            &mut generated_locals,
-                            direct_real_branch_result,
-                            &mut real_branch_values,
-                            &mut diagnostics,
-                        );
-                        lower_return_value_ops(
-                            &routine.name,
-                            &block.label,
-                            routine_return_width(routine),
-                            &block.terminator,
-                            &mut ops,
-                            &mut diagnostics,
-                        );
-                        let mut terminator = lower_terminator(
-                            &routine.name,
-                            &block.label,
-                            block.id,
-                            &block.terminator,
-                            &block_ids,
-                            &mut diagnostics,
-                        );
-                        if let MirTerminator::Branch {
-                            cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(result))),
-                            ..
-                        } = &mut terminator
-                            && let Some(answer) = real_branch_values.get(&result.0).copied()
-                        {
-                            if let LoweredRealBranch::Boolean = answer {
-                                ops.push(MirOp::Compare {
-                                    dst: MirCondDest::Flags,
-                                    op: MirCompareOp::Ne,
-                                    left: temp_value(*result),
-                                    right: MirValue::ConstU8(0),
-                                    width: MirWidth::Byte,
-                                    signed: false,
-                                });
-                            }
-                            if let MirTerminator::Branch { cond, .. } = &mut terminator {
-                                *cond = MirCond::FlagTest(MirFlagTest::ZClear);
-                            }
+            let mut blocks: Vec<MirBlock> = routine
+                .blocks
+                .iter()
+                .enumerate()
+                .map(|(block_index, block)| {
+                    let mut real_branch_values = BTreeMap::new();
+                    let direct_real_branch_result = direct_real_branch_result(block);
+                    let mut ops = lower_ops(
+                        &routine.name,
+                        &block.label,
+                        &block.ops,
+                        &routine_ids,
+                        &routine_system_addresses_by_id,
+                        &runtime_targets,
+                        &routine_system_addresses,
+                        &global_array_pointer_backing,
+                        &local_array_pointer_backing,
+                        &local_absolute_addresses,
+                        &machine_numeric_defines,
+                        &mut machine_blocks,
+                        &mut next_generated_temp,
+                        &mut generated_temps,
+                        &mut next_generated_local,
+                        &mut generated_locals,
+                        direct_real_branch_result,
+                        &mut real_branch_values,
+                        &mut diagnostics,
+                    );
+                    lower_return_value_ops(
+                        &routine.name,
+                        &block.label,
+                        routine_return_width(routine),
+                        &block.terminator,
+                        &mut ops,
+                        &mut diagnostics,
+                    );
+                    let mut terminator = lower_terminator(
+                        &routine.name,
+                        &block.label,
+                        block.id,
+                        &block.terminator,
+                        &block_ids,
+                        &mut diagnostics,
+                    );
+                    if let MirTerminator::Branch {
+                        cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(result))),
+                        ..
+                    } = &mut terminator
+                        && let Some(answer) = real_branch_values.get(&result.0).copied()
+                    {
+                        if let LoweredRealBranch::Boolean = answer {
+                            ops.push(MirOp::Compare {
+                                dst: MirCondDest::Flags,
+                                op: MirCompareOp::Ne,
+                                left: temp_value(*result),
+                                right: MirValue::ConstU8(0),
+                                width: MirWidth::Byte,
+                                signed: false,
+                            });
                         }
-                        MirBlock {
-                            id: MirBlockId(block_index as u32),
-                            label: block.label.clone(),
-                            params: block
-                                .params
-                                .iter()
-                                .filter_map(|param| {
-                                    mir_width(&param.ty)
-                                        .map(|width| MirBlockParam {
-                                            dest: MirTempId(param.dest.0),
-                                            width,
-                                        })
-                                        .or_else(|| {
-                                            diagnostics.push(MirDiagnostic::block(
+                        if let MirTerminator::Branch { cond, .. } = &mut terminator {
+                            *cond = MirCond::FlagTest(MirFlagTest::ZClear);
+                        }
+                    }
+                    MirBlock {
+                        id: MirBlockId(block_index as u32),
+                        label: block.label.clone(),
+                        params: block
+                            .params
+                            .iter()
+                            .filter_map(|param| {
+                                mir_width(&param.ty)
+                                    .map(|width| MirBlockParam {
+                                        dest: MirTempId(param.dest.0),
+                                        width,
+                                    })
+                                    .or_else(|| {
+                                        diagnostics.push(MirDiagnostic::block(
                                             &routine.name,
                                             &block.label,
                                             format!(
@@ -676,42 +673,42 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                                                 param.dest.0
                                             ),
                                         ));
-                                            None
-                                        })
-                                })
-                                .collect(),
-                            ops,
-                            terminator,
-                        }
-                    })
-                    .collect();
-                let mut elided_real_locals =
-                    eliminate_adjacent_fpp_result_round_trips(&mut blocks, &fpp_result_chains.left);
-                elided_real_locals.extend(eliminate_adjacent_fpp_right_result_round_trips(
-                    &mut blocks,
-                    &fpp_result_chains.ordered_right,
-                    &fpp_result_chains.commutative_right,
-                ));
-                elided_real_locals.extend(forward_static_real_temp_negations(
-                    &mut blocks,
-                    &real_negation_forwards,
-                ));
-                elided_real_locals.extend(forward_adjacent_real_temp_copies(
-                    &mut blocks,
-                    &real_copy_forwards,
-                ));
-                let retained_source_local_count = routine
-                    .locals
-                    .iter()
-                    .filter(|local| {
-                        matches!(
-                            local.backing,
-                            NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. }
-                        ) && !elided_real_locals.contains(&local.id)
-                    })
-                    .count();
+                                        None
+                                    })
+                            })
+                            .collect(),
+                        ops,
+                        terminator,
+                    }
+                })
+                .collect();
+            let mut elided_real_locals =
+                eliminate_adjacent_fpp_result_round_trips(&mut blocks, &fpp_result_chains.left);
+            elided_real_locals.extend(eliminate_adjacent_fpp_right_result_round_trips(
+                &mut blocks,
+                &fpp_result_chains.ordered_right,
+                &fpp_result_chains.commutative_right,
+            ));
+            elided_real_locals.extend(forward_static_real_temp_negations(
+                &mut blocks,
+                &real_negation_forwards,
+            ));
+            elided_real_locals.extend(forward_adjacent_real_temp_copies(
+                &mut blocks,
+                &real_copy_forwards,
+            ));
+            let retained_source_local_count = routine
+                .locals
+                .iter()
+                .filter(|local| {
+                    matches!(
+                        local.backing,
+                        NirLocalBacking::Ordinary | NirLocalBacking::Alias { .. }
+                    ) && !elided_real_locals.contains(&local.id)
+                })
+                .count();
 
-                MirRoutine {
+            MirRoutine {
                 id: RoutineId(routine.id.0),
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
@@ -738,12 +735,9 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                                 id: MirStorageId(index as u32),
                                 name: Some(param.name.clone()),
                                 storage: lower_storage_class(param.storage),
-                                storage_size: nir_size_u16(param
-                                    .ty
-                                    .width
-                                    .unwrap_or_else(|| ByteSize::from(
-                                        scalar_width.map(mir_width_bytes).unwrap_or(1),
-                                    ))),
+                                storage_size: nir_size_u16(param.ty.width.unwrap_or_else(|| {
+                                    ByteSize::from(scalar_width.map(mir_width_bytes).unwrap_or(1))
+                                })),
                                 scalar_width,
                                 base: MirStorageBase::Param(param.id),
                                 offset: 0,
@@ -770,45 +764,48 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                                 RoutineId(routine.id.0),
                             );
                             MirStorageSlot {
-                            id: MirStorageId(index as u32),
-                            name: Some(local.name.clone()),
-                            storage: lower_storage_class(local.storage),
-                            storage_size: local_storage_size(local, scalar_width, init.as_ref()),
-                            scalar_width,
-                            base: match local.backing {
-                                NirLocalBacking::Alias { target, .. } => {
-                                    MirStorageBase::LocalAlias {
-                                        id: local.id,
-                                        target,
+                                id: MirStorageId(index as u32),
+                                name: Some(local.name.clone()),
+                                storage: lower_storage_class(local.storage),
+                                storage_size: local_storage_size(
+                                    local,
+                                    scalar_width,
+                                    init.as_ref(),
+                                ),
+                                scalar_width,
+                                base: match local.backing {
+                                    NirLocalBacking::Alias { target, .. } => {
+                                        MirStorageBase::LocalAlias {
+                                            id: local.id,
+                                            target,
+                                        }
                                     }
-                                }
-                                NirLocalBacking::Ordinary => MirStorageBase::Local(local.id),
-                                NirLocalBacking::GlobalAlias { .. } => unreachable!(
-                                    "global-alias locals are resolved directly to global places"
-                                ),
-                                NirLocalBacking::Absolute(_) => unreachable!(
-                                    "absolute locals are filtered out of the routine frame"
-                                ),
-                            },
-                            offset: match local.backing {
-                                NirLocalBacking::Alias { offset, .. } => nir_offset_u16(offset),
-                                NirLocalBacking::Ordinary => 0,
-                                NirLocalBacking::GlobalAlias { .. } => unreachable!(
-                                    "global-alias locals are resolved directly to global places"
-                                ),
-                                NirLocalBacking::Absolute(_) => unreachable!(
-                                    "absolute locals are filtered out of the routine frame"
-                                ),
-                            },
-                            mutable: true,
-                            init,
-                        }
+                                    NirLocalBacking::Ordinary => MirStorageBase::Local(local.id),
+                                    NirLocalBacking::GlobalAlias { .. } => unreachable!(
+                                        "global-alias locals are resolved directly to global places"
+                                    ),
+                                    NirLocalBacking::Absolute(_) => unreachable!(
+                                        "absolute locals are filtered out of the routine frame"
+                                    ),
+                                },
+                                offset: match local.backing {
+                                    NirLocalBacking::Alias { offset, .. } => nir_offset_u16(offset),
+                                    NirLocalBacking::Ordinary => 0,
+                                    NirLocalBacking::GlobalAlias { .. } => unreachable!(
+                                        "global-alias locals are resolved directly to global places"
+                                    ),
+                                    NirLocalBacking::Absolute(_) => unreachable!(
+                                        "absolute locals are filtered out of the routine frame"
+                                    ),
+                                },
+                                mutable: true,
+                                init,
+                            }
                         })
                         .chain(generated_locals.into_iter().enumerate().map(
                             |(generated_index, (id, name))| MirStorageSlot {
                                 id: MirStorageId(
-                                    retained_source_local_count as u32
-                                        + generated_index as u32,
+                                    retained_source_local_count as u32 + generated_index as u32,
                                 ),
                                 name: Some(name),
                                 storage: MirStorageClass::Scalar,
@@ -837,8 +834,8 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                 blocks,
                 effects: MirEffects::default(),
             }
-            })
-            .collect();
+        })
+        .collect();
 
     if !diagnostics.is_empty() {
         return Err(diagnostics);
@@ -869,8 +866,8 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     let width = global.ty.as_ref().and_then(mir_width);
                     let ordinary_offset = next_global_offset;
                     if matches!(global.backing, NirGlobalBacking::Ordinary) {
-                        next_global_offset = next_global_offset
-                            .saturating_add(nir_size_u16(global.storage_size));
+                        next_global_offset =
+                            next_global_offset.saturating_add(nir_size_u16(global.storage_size));
                     }
                     MirGlobal {
                         id: global.id,
@@ -1149,46 +1146,50 @@ fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) 
                     return None;
                 };
                 Some(MirDataRelocation {
-                offset: nir_offset_u16(*offset),
-                kind: match encoding {
-                    crate::nir::NirDataAddressEncoding::TargetByte {
-                        target: crate::target::TargetId::Atari6502,
-                        byte_index: 0,
-                    } => MirDataRelocationKind::Low8,
-                    crate::nir::NirDataAddressEncoding::TargetByte {
-                        target: crate::target::TargetId::Atari6502,
-                        byte_index: 1,
-                    } => MirDataRelocationKind::High8,
-                    crate::nir::NirDataAddressEncoding::Pointer { width, .. }
-                        if *width == ByteSize::new(2) => MirDataRelocationKind::Word16,
-                    _ => unreachable!("verified Atari address fragment encoding"),
-                },
-                target: match target {
-                    crate::nir::NirDataAddressTarget::Storage(
-                        crate::nir::NirStorageId::Global(id),
-                    ) => MirDataRelocationTarget::Global(*id),
-                    crate::nir::NirDataAddressTarget::Storage(
-                        crate::nir::NirStorageId::Local(id),
-                    ) => MirDataRelocationTarget::Local {
-                        routine: owner.expect("verified local data relocation has an owner"),
-                        id: *id,
+                    offset: nir_offset_u16(*offset),
+                    kind: match encoding {
+                        crate::nir::NirDataAddressEncoding::TargetByte {
+                            target: crate::target::TargetId::Atari6502,
+                            byte_index: 0,
+                        } => MirDataRelocationKind::Low8,
+                        crate::nir::NirDataAddressEncoding::TargetByte {
+                            target: crate::target::TargetId::Atari6502,
+                            byte_index: 1,
+                        } => MirDataRelocationKind::High8,
+                        crate::nir::NirDataAddressEncoding::Pointer { width, .. }
+                            if *width == ByteSize::new(2) =>
+                        {
+                            MirDataRelocationKind::Word16
+                        }
+                        _ => unreachable!("verified Atari address fragment encoding"),
                     },
-                    crate::nir::NirDataAddressTarget::Storage(
-                        crate::nir::NirStorageId::Param(id),
-                    ) => MirDataRelocationTarget::Param {
-                        routine: owner.expect("verified parameter data relocation has an owner"),
-                        id: *id,
+                    target: match target {
+                        crate::nir::NirDataAddressTarget::Storage(
+                            crate::nir::NirStorageId::Global(id),
+                        ) => MirDataRelocationTarget::Global(*id),
+                        crate::nir::NirDataAddressTarget::Storage(
+                            crate::nir::NirStorageId::Local(id),
+                        ) => MirDataRelocationTarget::Local {
+                            routine: owner.expect("verified local data relocation has an owner"),
+                            id: *id,
+                        },
+                        crate::nir::NirDataAddressTarget::Storage(
+                            crate::nir::NirStorageId::Param(id),
+                        ) => MirDataRelocationTarget::Param {
+                            routine: owner
+                                .expect("verified parameter data relocation has an owner"),
+                            id: *id,
+                        },
+                        crate::nir::NirDataAddressTarget::Routine(id) => {
+                            MirDataRelocationTarget::Routine(RoutineId(id.0))
+                        }
+                        crate::nir::NirDataAddressTarget::Absolute(address) => {
+                            MirDataRelocationTarget::Absolute(nir_address_u16(*address))
+                        }
                     },
-                    crate::nir::NirDataAddressTarget::Routine(id) => {
-                        MirDataRelocationTarget::Routine(RoutineId(id.0))
-                    }
-                    crate::nir::NirDataAddressTarget::Absolute(address) => {
-                        MirDataRelocationTarget::Absolute(nir_address_u16(*address))
-                    }
-                },
-                addend: i32::try_from(*addend).expect("verified Atari relocation addend"),
-                span: *span,
-            })
+                    addend: i32::try_from(*addend).expect("verified Atari relocation addend"),
+                    span: *span,
+                })
             })
             .collect(),
     }
@@ -1658,7 +1659,11 @@ fn lower_ops(
                     continue;
                 };
                 lowered.push(MirOp::Binary {
-                    op: if *subtract { MirBinaryOp::Sub } else { MirBinaryOp::Add },
+                    op: if *subtract {
+                        MirBinaryOp::Sub
+                    } else {
+                        MirBinaryOp::Add
+                    },
                     dst: MirDef::VTemp(MirTempId(dest.0)),
                     left,
                     right,
@@ -1842,10 +1847,7 @@ fn lower_ops(
                 };
                 let id = MirMachineBlockId(machine_blocks.len() as u32);
                 machine_blocks.push(MirMachineBlock { id, items });
-                lowered.push(MirOp::MachineBlock {
-                    id,
-                    effects,
-                });
+                lowered.push(MirOp::MachineBlock { id, effects });
             }
             NirOpKind::Real(real) => lower_real_op(
                 routine,
@@ -3145,10 +3147,26 @@ fn push_packed_real_copy(
 
 fn constant_integer_real_bytes(value: &NirValueKind, ty: &NirType) -> Option<[u8; 6]> {
     let decimal = match (&ty.kind, value) {
-        (NirTypeKind::U8, NirValueKind::ConstU8(value)) => value.to_string(),
-        (NirTypeKind::I8, NirValueKind::ConstU8(value)) => (*value as i8).to_string(),
-        (NirTypeKind::U16, NirValueKind::ConstU16(value)) => value.to_string(),
-        (NirTypeKind::I16, NirValueKind::ConstU16(value)) => (*value as i16).to_string(),
+        (NirTypeKind::Integer(integer), NirValueKind::IntegerConst { bits, ty: value_ty })
+            if integer == value_ty && integer.bits == 8 && !integer.signed =>
+        {
+            bits.to_string()
+        }
+        (NirTypeKind::Integer(integer), NirValueKind::IntegerConst { bits, ty: value_ty })
+            if integer == value_ty && integer.bits == 8 && integer.signed =>
+        {
+            (*bits as u8 as i8).to_string()
+        }
+        (NirTypeKind::Integer(integer), NirValueKind::IntegerConst { bits, ty: value_ty })
+            if integer == value_ty && integer.bits == 16 && !integer.signed =>
+        {
+            bits.to_string()
+        }
+        (NirTypeKind::Integer(integer), NirValueKind::IntegerConst { bits, ty: value_ty })
+            if integer == value_ty && integer.bits == 16 && integer.signed =>
+        {
+            (*bits as u16 as i16).to_string()
+        }
         _ => return None,
     };
     crate::atari_real::AtariReal::from_decimal(&decimal)
@@ -3330,15 +3348,11 @@ fn lower_inline_asm(
             requires_zero_page: relocation.required_address_bits == Some(8),
             span: relocation.span,
         });
-        cursor = offset + usize::try_from(relocation.encoding.width())
-            .expect("verified foreign relocation width fits usize");
+        cursor = offset
+            + usize::try_from(relocation.encoding.width())
+                .expect("verified foreign relocation width fits usize");
     }
-    items.extend(
-        bytes[cursor..]
-            .iter()
-            .copied()
-            .map(MirMachineItem::Byte),
-    );
+    items.extend(bytes[cursor..].iter().copied().map(MirMachineItem::Byte));
     Some(items)
 }
 
@@ -3556,10 +3570,7 @@ fn lower_inline_asm_effects(code: &NirForeignCode, effects: &NirMachineEffects) 
                 return None;
             };
             (relocation.symbol_use == crate::foreign::ForeignSymbolUse::Control)
-                .then_some((
-                    nir_offset_u16(relocation.offset),
-                    nir_offset_u16(*target),
-                ))
+                .then_some((nir_offset_u16(relocation.offset), nir_offset_u16(*target)))
         })
         .collect::<Vec<_>>();
     let machine = crate::asm6502::analyze_machine_state(bytes, &local_control_targets);
@@ -3735,8 +3746,7 @@ fn addr_temp_def<'a>(
 
 fn const_index_offset(value: &NirValueKind, elem_size: u16) -> Option<u16> {
     let index = match value {
-        NirValueKind::ConstU8(value) => u16::from(*value),
-        NirValueKind::ConstU16(value) => *value,
+        NirValueKind::IntegerConst { bits, ty } if ty.bits <= 16 => *bits as u16,
         _ => return None,
     };
     Some(index.saturating_mul(elem_size))
@@ -3940,8 +3950,11 @@ fn routine_return_width(routine: &nir::NirRoutine) -> Option<MirWidth> {
 
 fn value_width(value: &NirValueKind) -> Option<MirWidth> {
     match value {
-        NirValueKind::ConstU8(_) => Some(MirWidth::Byte),
-        NirValueKind::ConstU16(_) => Some(MirWidth::Word),
+        NirValueKind::IntegerConst { ty, .. } => match ty.storage_width().get() {
+            1 => Some(MirWidth::Byte),
+            2 => Some(MirWidth::Word),
+            _ => None,
+        },
         NirValueKind::Null { ty }
         | NirValueKind::AddressConst { ty, .. }
         | NirValueKind::Temp { ty, .. }
@@ -4163,7 +4176,11 @@ mod tests {
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].routine.as_deref(), Some("Main"));
         assert!(diagnostics[0].message.contains("only classic-static"));
-        assert!(diagnostics[0].message.contains("separately designed 6502 ABI"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("separately designed 6502 ABI")
+        );
     }
 
     #[test]
@@ -4207,11 +4224,11 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![nir::NirRoutine {
-            id: crate::nir::RoutineId(0),
-            signature: crate::nir::NirCallableSignature::default(),
-            convention: crate::nir::NirCallConvention::TargetPublic,
-            activation: crate::nir::NirActivationModel::ClassicStatic,
-            entry: crate::nir::NirRoutineEntry::default(),
+                id: crate::nir::RoutineId(0),
+                signature: crate::nir::NirCallableSignature::default(),
+                convention: crate::nir::NirCallConvention::TargetPublic,
+                activation: crate::nir::NirActivationModel::ClassicStatic,
+                entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: vec![nir::NirLocal {
@@ -4221,10 +4238,7 @@ mod tests {
                     purpose: nir::NirLocalPurpose::Storage,
                     storage: nir::NirStorageClass::Scalar,
                     duration: crate::nir::NirStorageDuration::RoutineStatic,
-                    layout: crate::nir::NirObjectLayout::new(
-                        ByteSize::new(6),
-                        ByteSize::ONE,
-                    ),
+                    layout: crate::nir::NirObjectLayout::new(ByteSize::new(6), ByteSize::ONE),
                     ty: NirType {
                         kind: NirTypeKind::Real,
                         summary: "REAL".to_string(),

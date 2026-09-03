@@ -881,7 +881,9 @@ fn absolute(address: AddressValue) -> Mir68kAddress {
 
 fn type_alignment(ty: &NirType, layout: &crate::target::TargetLayout) -> ByteSize {
     match &ty.kind {
-        crate::nir::NirTypeKind::U16 | crate::nir::NirTypeKind::I16 => ByteSize::new(2),
+        crate::nir::NirTypeKind::Integer(integer) => {
+            ByteSize::new(integer.storage_width().get().min(2))
+        }
         crate::nir::NirTypeKind::Pointer { address_space, .. }
             if *address_space == layout.data_pointer.address_space =>
         {
@@ -911,8 +913,13 @@ fn with_displacement(mut address: Mir68kAddress, offset: ByteOffset) -> Mir68kAd
 
 fn lower_value(value: &NirValue, data_width: ByteSize, code_width: ByteSize) -> Mir68kValue {
     match value {
-        NirValue::ConstU8(value) => Mir68kValue::U8(*value),
-        NirValue::ConstU16(value) => Mir68kValue::U16(*value),
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
+            Mir68kValue::U8(*bits as u8)
+        }
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(2) => {
+            Mir68kValue::U16(*bits as u16)
+        }
+        NirValue::IntegerConst { .. } => unreachable!("native integer width is lowered explicitly"),
         NirValue::Null { ty } => Mir68kValue::Null(ty.width.unwrap_or(data_width)),
         NirValue::AddressConst { address, ty } => {
             Mir68kValue::Address(*address, ty.width.unwrap_or(data_width))

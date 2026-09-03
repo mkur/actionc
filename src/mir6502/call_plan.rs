@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::nir::{
-    NirCallEffects, NirCallableSignature, NirCallee, NirRuntimeTarget,
-    RoutineId as NirRoutineId, RuntimeSymbolId,
+    NirCallEffects, NirCallableSignature, NirCallee, NirRuntimeTarget, RoutineId as NirRoutineId,
+    RuntimeSymbolId,
 };
 
 use super::abi::{
@@ -136,9 +136,7 @@ fn lower_call_target(
                         .expect("verified Atari NIR code address fits in 16 bits"),
                 ),
             }),
-            Some(NirRuntimeTarget::Routine(id)) => {
-                Some(MirCallTarget::Routine(RoutineId(id.0)))
-            }
+            Some(NirRuntimeTarget::Routine(id)) => Some(MirCallTarget::Routine(RoutineId(id.0))),
             None => Some(MirCallTarget::Runtime {
                 name: name.clone(),
                 address: None,

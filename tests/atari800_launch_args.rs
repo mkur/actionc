@@ -82,7 +82,12 @@ fn launcher_forces_xl_and_attaches_explicit_cartridge() {
 
 #[test]
 fn launcher_without_cart_ignores_saved_atari800_configuration() {
-    let args = launch_args("/roms/altirraos-xl.rom", "", "-pal", "/tmp/actionc-no-cart.cfg");
+    let args = launch_args(
+        "/roms/altirraos-xl.rom",
+        "",
+        "-pal",
+        "/tmp/actionc-no-cart.cfg",
+    );
 
     assert_eq!(
         args,

@@ -640,7 +640,7 @@ fn routine_address(output: &CodegenOutput, name: &str) -> Option<u16> {
 
 fn expr_u16(expr: &Expr) -> Option<u16> {
     match &expr.kind {
-        ExprKind::Number(number) => number.value,
+        ExprKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
         ExprKind::Cast { expr, .. } => expr_u16(expr),
         _ => None,
     }

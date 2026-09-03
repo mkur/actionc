@@ -667,14 +667,14 @@ fn initializer_literal_value(element: &InitializerElement) -> Option<u16> {
     };
     let value = match value {
         InitializerLiteral::Number(number) => number.value?,
-        InitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        InitializerLiteral::Char(ch) => u64::from(source_char_byte(*ch)?),
         InitializerLiteral::True => 1,
         InitializerLiteral::False | InitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value)
+        0u16.wrapping_sub(value as u16)
     } else {
-        value
+        value as u16
     })
 }
 
@@ -708,7 +708,7 @@ fn raw_initializer_values(inner: &str) -> Option<Vec<u16>> {
 
 fn parse_raw_initializer_value(token: &TokenKind) -> Option<u16> {
     match token {
-        TokenKind::Number(number) => number.value,
+        TokenKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
         TokenKind::Char(ch) => source_char_byte(*ch).map(u16::from),
         TokenKind::Ident(name) => match normalize_name(name).as_str() {
             "TRUE" => Some(1),

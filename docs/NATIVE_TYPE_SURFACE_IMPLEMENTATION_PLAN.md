@@ -187,6 +187,10 @@ docs: define native scalar and callable type surface
 
 ### Slice 1: width-aware integer foundation
 
+Status: complete. Numeric and semantic constants retain `u64` bits, while NIR
+integer types and constants carry explicit width, signedness, and semantic
+role. Existing fixture spelling is preserved for the legacy 8/16-bit surface.
+
 1. Widen numeric-literal and semantic constant storage from `u16` to `u64`.
 2. Make masks, wrapping, shifts, signed interpretation, and formatting consume
    explicit integer widths.

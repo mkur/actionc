@@ -5,15 +5,14 @@ use actionc::includes::load_program_with_expanded_source;
 use actionc::nir::{
     self, BlockId, NirActivationModel, NirBinaryOp, NirBlock, NirBlockParam, NirCallConvention,
     NirCallEffects, NirCallableSignature, NirCallee, NirCastKind, NirCompareOp,
-    NirDataAddressEncoding,
-    NirDataAddressTarget, NirDataFragment, NirDataImage, NirForeignCodeKind,
-    NirForeignCodePayload, NirForeignCodeTarget, NirGlobalBacking, NirGlobalInit, NirLinkValue,
-    NirEdge, NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector,
-    NirMachineItem, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp,
-    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutinePlacement,
-    NirRuntimeBinding, NirRuntimeTarget, NirStorageClass, NirStorageDuration, NirStorageId,
-    NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue,
-    TempId, runtime_symbol_id,
+    NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage, NirEdge,
+    NirForeignCodeKind, NirForeignCodePayload, NirForeignCodeTarget, NirGlobalBacking,
+    NirGlobalInit, NirIntegerType, NirLinkValue, NirLocalBacking, NirLocalPurpose, NirMachineAtom,
+    NirMachineByteSelector, NirMachineItem, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion,
+    NirMemoryRegionKind, NirOp, NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource,
+    NirRoutinePlacement, NirRuntimeBinding, NirRuntimeTarget, NirStorageClass, NirStorageDuration,
+    NirStorageId, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirType, NirTypeKind,
+    NirUnaryOp, NirValue, TempId, runtime_symbol_id,
 };
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 use actionc::target::{AddressValue, ByteOffset, ByteSize, TargetId};
@@ -210,7 +209,10 @@ pub fn lower_case(repo_root: &Path, case: NirFixtureCase) -> NirProgram {
     match case.stage {
         NirFixtureStage::Lowered => lowered,
         NirFixtureStage::Optimized => nir::optimize_program(&lowered).unwrap_or_else(|error| {
-            panic!("optimize and verify NIR for {}: {error:?}", source.display())
+            panic!(
+                "optimize and verify NIR for {}: {error:?}",
+                source.display()
+            )
         }),
     }
 }
@@ -223,10 +225,7 @@ pub fn snapshot_path(repo_root: &Path, case: NirFixtureCase) -> PathBuf {
 /// these probes small and migrate them to ordinary source cases if lowering
 /// later gains a direct producer.
 pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
-    let mut exit = lower_case(
-        repo_root,
-        lowered_atari_case!("scalar_assignments"),
-    );
+    let mut exit = lower_case(repo_root, lowered_atari_case!("scalar_assignments"));
     exit.routines
         .iter_mut()
         .find(|routine| routine.name == "Main")
@@ -235,10 +234,7 @@ pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
         .terminator = NirTerminator::Exit;
     nir::verify_program(&exit).expect("construction-only Exit terminator must verify");
 
-    let mut calls = lower_case(
-        repo_root,
-        lowered_atari_case!("scalar_assignments"),
-    );
+    let mut calls = lower_case(repo_root, lowered_atari_case!("scalar_assignments"));
     let runtime = runtime_symbol_id("CoverageRuntime");
     let bound_runtime = runtime_symbol_id("CoverageBoundRuntime");
     let routine_runtime = runtime_symbol_id("CoverageRoutineRuntime");
@@ -314,10 +310,7 @@ pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
     ]);
     nir::verify_program(&calls).expect("construction-only call forms must verify");
 
-    let mut block_parameter = lower_case(
-        repo_root,
-        lowered_atari_case!("scalar_assignments"),
-    );
+    let mut block_parameter = lower_case(repo_root, lowered_atari_case!("scalar_assignments"));
     let main = block_parameter
         .routines
         .iter_mut()
@@ -360,10 +353,7 @@ pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
     });
     nir::verify_program(&block_parameter).expect("construction-only block parameter must verify");
 
-    let mut data_shapes = lower_case(
-        repo_root,
-        lowered_atari_case!("data_relocations"),
-    );
+    let mut data_shapes = lower_case(repo_root, lowered_atari_case!("data_relocations"));
     let routine = data_shapes.routines[0].id;
     let alias_target = data_shapes.globals[0].id;
     data_shapes.globals[1].backing = NirGlobalBacking::Alias {
@@ -739,10 +729,19 @@ fn visit_type(ty: &NirType, features: &mut BTreeSet<NirFeature>) {
     match &ty.kind {
         NirTypeKind::Void => features.insert(NirFeature::TypeVoid),
         NirTypeKind::Bool => features.insert(NirFeature::TypeBool),
-        NirTypeKind::U8 => features.insert(NirFeature::TypeU8),
-        NirTypeKind::I8 => features.insert(NirFeature::TypeI8),
-        NirTypeKind::U16 => features.insert(NirFeature::TypeU16),
-        NirTypeKind::I16 => features.insert(NirFeature::TypeI16),
+        NirTypeKind::Integer(integer) if *integer == NirIntegerType::U8 => {
+            features.insert(NirFeature::TypeU8)
+        }
+        NirTypeKind::Integer(integer) if *integer == NirIntegerType::I8 => {
+            features.insert(NirFeature::TypeI8)
+        }
+        NirTypeKind::Integer(integer) if *integer == NirIntegerType::U16 => {
+            features.insert(NirFeature::TypeU16)
+        }
+        NirTypeKind::Integer(integer) if *integer == NirIntegerType::I16 => {
+            features.insert(NirFeature::TypeI16)
+        }
+        NirTypeKind::Integer(_) => false,
         NirTypeKind::Real => features.insert(NirFeature::TypeReal),
         NirTypeKind::Pointer { pointee, .. } => {
             features.insert(NirFeature::TypePointer);
@@ -1014,14 +1013,17 @@ fn visit_op(op: &NirOp, features: &mut BTreeSet<NirFeature>) {
             if let Some(signature) = signature {
                 visit_signature(signature, features);
             }
-            visit_effects(&effects.memory, effects.may_call_external, effects.opaque, features);
+            visit_effects(
+                &effects.memory,
+                effects.may_call_external,
+                effects.opaque,
+                features,
+            );
         }
         NirOp::ForeignCode { code, effects } => {
             features.insert(NirFeature::OpForeignCode);
             features.insert(match code.kind {
-                NirForeignCodeKind::LegacyMachineBlock => {
-                    NirFeature::ForeignLegacyMachineBlock
-                }
+                NirForeignCodeKind::LegacyMachineBlock => NirFeature::ForeignLegacyMachineBlock,
                 NirForeignCodeKind::InlineAssembly => NirFeature::ForeignInlineAssembly,
             });
             match &code.payload {
@@ -1038,7 +1040,12 @@ fn visit_op(op: &NirOp, features: &mut BTreeSet<NirFeature>) {
                     }
                 }
             }
-            visit_effects(&effects.memory, effects.may_call_external, effects.opaque, features);
+            visit_effects(
+                &effects.memory,
+                effects.may_call_external,
+                effects.opaque,
+                features,
+            );
         }
         NirOp::Unsupported { .. } => {
             features.insert(NirFeature::OpUnsupported);
@@ -1296,11 +1303,12 @@ fn visit_place(place: &NirPlace, features: &mut BTreeSet<NirFeature>) {
 
 fn visit_value(value: &NirValue, features: &mut BTreeSet<NirFeature>) {
     match value {
-        NirValue::ConstU8(_) => {
-            features.insert(NirFeature::ValueConstU8);
-        }
-        NirValue::ConstU16(_) => {
-            features.insert(NirFeature::ValueConstU16);
+        NirValue::IntegerConst { ty, .. } => {
+            features.insert(if ty.storage_width() == ByteSize::ONE {
+                NirFeature::ValueConstU8
+            } else {
+                NirFeature::ValueConstU16
+            });
         }
         NirValue::Null { ty } => {
             features.insert(NirFeature::ValueNull);

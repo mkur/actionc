@@ -497,13 +497,22 @@ fn coerce_to_home_type(
     context: &mut RenameContext<'_>,
 ) -> Option<NirValue> {
     let actual = match &value {
-        NirValue::ConstU8(value) if context.ty.width == Some(ByteSize::new(2)) => {
-            return Some(NirValue::ConstU16(u16::from(*value)));
+        NirValue::IntegerConst { bits, .. } => {
+            let width = context.ty.width?;
+            let mask = if width.get() >= 8 {
+                u64::MAX
+            } else {
+                (1_u64 << (width.get() * 8)) - 1
+            };
+            return (*bits <= mask).then(|| {
+                let integer = context
+                    .ty
+                    .kind
+                    .integer()
+                    .expect("integer home must have integer type");
+                NirValue::integer_const(*bits, integer)
+            });
         }
-        NirValue::ConstU16(value) if context.ty.width == Some(ByteSize::ONE) => {
-            return u8::try_from(*value).ok().map(NirValue::ConstU8);
-        }
-        NirValue::ConstU8(_) | NirValue::ConstU16(_) => return Some(value),
         NirValue::Null { ty }
         | NirValue::AddressConst { ty, .. }
         | NirValue::StaticAddr { ty, .. }
@@ -533,11 +542,9 @@ fn coerce_to_home_type(
 
 fn store_value_fits_home(value: &NirValue, home_ty: &NirType) -> bool {
     match value {
-        NirValue::ConstU8(_) => matches!(home_ty.width.map(ByteSize::get), Some(1 | 2)),
-        NirValue::ConstU16(value) => {
-            home_ty.width == Some(ByteSize::new(2))
-                || home_ty.width == Some(ByteSize::ONE) && *value <= u16::from(u8::MAX)
-        }
+        NirValue::IntegerConst { bits, .. } => home_ty
+            .width
+            .is_some_and(|width| width.get() >= 8 || *bits < (1_u64 << (width.get() * 8))),
         _ => value_width(value) == home_ty.width,
     }
 }

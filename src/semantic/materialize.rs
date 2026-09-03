@@ -306,7 +306,7 @@ pub(super) fn materialize_inline_asm_constants(
             continue;
         };
         if let Some(value) = constant(model, scope, name) {
-            relocation.target = InlineAsmRelocationTarget::Absolute(value.bits);
+            relocation.target = InlineAsmRelocationTarget::Absolute(value.bits as u16);
         }
     }
 

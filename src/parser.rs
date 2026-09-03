@@ -2688,7 +2688,7 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                     && let TokenKind::Number(number) = &body[index + 1].kind
                     && let Some(value) = number.value
                 {
-                    addend = i32::from(value);
+                    addend = i32::try_from(value).unwrap_or(i32::MAX);
                     if matches!(body[index].kind, TokenKind::Minus) {
                         addend = -addend;
                     }

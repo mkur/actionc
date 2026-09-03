@@ -51,16 +51,16 @@ impl NirType {
 pub enum NirTypeKind {
     Void,
     Bool,
-    U8,
-    I8,
-    U16,
-    I16,
+    Integer(NirIntegerType),
     Real,
     Pointer {
         pointee: Option<Box<NirTypeKind>>,
         address_space: AddressSpaceId,
     },
-    Record { name: String, size: Option<ByteSize> },
+    Record {
+        name: String,
+        size: Option<ByteSize>,
+    },
     Callable {
         kind: String,
         signature: SignatureId,
@@ -70,7 +70,59 @@ pub enum NirTypeKind {
     Error,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirIntegerRole {
+    Ordinary,
+    Address,
+    Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NirIntegerType {
+    pub bits: u8,
+    pub signed: bool,
+    pub role: NirIntegerRole,
+}
+
+impl NirIntegerType {
+    pub const U8: Self = Self::ordinary(8, false);
+    pub const I8: Self = Self::ordinary(8, true);
+    pub const U16: Self = Self::ordinary(16, false);
+    pub const I16: Self = Self::ordinary(16, true);
+
+    pub const fn ordinary(bits: u8, signed: bool) -> Self {
+        Self {
+            bits,
+            signed,
+            role: NirIntegerRole::Ordinary,
+        }
+    }
+
+    pub const fn storage_width(self) -> ByteSize {
+        ByteSize::new((self.bits as u32).div_ceil(8))
+    }
+
+    pub const fn mask(self) -> u64 {
+        if self.bits >= 64 {
+            u64::MAX
+        } else if self.bits == 0 {
+            0
+        } else {
+            (1u64 << self.bits) - 1
+        }
+    }
+}
+
 impl NirTypeKind {
+    #[allow(non_upper_case_globals)]
+    pub const U8: Self = Self::Integer(NirIntegerType::U8);
+    #[allow(non_upper_case_globals)]
+    pub const I8: Self = Self::Integer(NirIntegerType::I8);
+    #[allow(non_upper_case_globals)]
+    pub const U16: Self = Self::Integer(NirIntegerType::U16);
+    #[allow(non_upper_case_globals)]
+    pub const I16: Self = Self::Integer(NirIntegerType::I16);
+
     pub(super) fn from_value(value: &ValueType) -> Self {
         match value.kind() {
             ValueTypeKind::Scalar(scalar) => Self::from_scalar(scalar),
@@ -101,8 +153,8 @@ impl NirTypeKind {
     pub(super) fn width(&self, layout: TargetLayout) -> Option<ByteSize> {
         match self {
             Self::Void => Some(ByteSize::ZERO),
-            Self::Bool | Self::U8 | Self::I8 => Some(ByteSize::new(1)),
-            Self::U16 | Self::I16 => Some(ByteSize::new(2)),
+            Self::Bool => Some(ByteSize::new(1)),
+            Self::Integer(integer) => Some(integer.storage_width()),
             Self::Pointer { address_space, .. }
                 if *address_space == layout.data_pointer.address_space =>
             {
@@ -126,6 +178,13 @@ impl NirTypeKind {
 
     pub(super) fn is_address(&self) -> bool {
         matches!(self, Self::Pointer { .. } | Self::Callable { .. })
+    }
+
+    pub fn integer(&self) -> Option<NirIntegerType> {
+        match self {
+            Self::Integer(integer) => Some(*integer),
+            _ => None,
+        }
     }
 
     fn apply_target_layout(&mut self, layout: TargetLayout) {
@@ -190,10 +249,7 @@ pub fn runtime_symbol_id(name: &str) -> RuntimeSymbolId {
     RuntimeSymbolId(hash)
 }
 
-pub(super) fn signature_id(
-    callable: &CallableType,
-    convention: NirCallConvention,
-) -> SignatureId {
+pub(super) fn signature_id(callable: &CallableType, convention: NirCallConvention) -> SignatureId {
     fn byte(hash: &mut u32, value: u8) {
         *hash ^= u32::from(value);
         *hash = hash.wrapping_mul(16_777_619);
@@ -290,8 +346,10 @@ pub(super) fn root_storage_id(place: &NirPlace) -> Option<NirStorageId> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirValue {
-    ConstU8(u8),
-    ConstU16(u16),
+    IntegerConst {
+        bits: u64,
+        ty: NirIntegerType,
+    },
     Null {
         ty: NirType,
     },
@@ -318,11 +376,40 @@ pub enum NirValue {
 }
 
 impl NirValue {
+    #[allow(non_snake_case)]
+    pub fn ConstU8(value: u8) -> Self {
+        Self::IntegerConst {
+            bits: u64::from(value),
+            ty: NirIntegerType::U8,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ConstU16(value: u16) -> Self {
+        Self::IntegerConst {
+            bits: u64::from(value),
+            ty: NirIntegerType::U16,
+        }
+    }
+
+    pub fn integer_const(bits: u64, ty: NirIntegerType) -> Self {
+        Self::IntegerConst {
+            bits: bits & ty.mask(),
+            ty,
+        }
+    }
+
+    pub fn as_integer_const(&self) -> Option<(u64, NirIntegerType)> {
+        match self {
+            Self::IntegerConst { bits, ty } => Some((*bits, *ty)),
+            _ => None,
+        }
+    }
+
     pub(super) fn temp(&self) -> Option<TempId> {
         match self {
             Self::Temp { id, .. } => Some(*id),
-            Self::ConstU8(_)
-            | Self::ConstU16(_)
+            Self::IntegerConst { .. }
             | Self::Null { .. }
             | Self::AddressConst { .. }
             | Self::StaticAddr { .. }
@@ -355,8 +442,7 @@ pub(super) fn condition_type() -> NirType {
 
 pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
     match value {
-        NirValue::ConstU8(_) => Some(ByteSize::new(1)),
-        NirValue::ConstU16(_) => Some(ByteSize::new(2)),
+        NirValue::IntegerConst { ty, .. } => Some(ty.storage_width()),
         NirValue::Null { ty }
         | NirValue::AddressConst { ty, .. }
         | NirValue::StaticAddr { ty, .. }
@@ -367,13 +453,9 @@ pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
 }
 
 pub(super) fn value_is_oversized_literal(value: &NirValue, width: ByteSize) -> bool {
-    let NirValue::ConstU16(value) = value else {
+    let NirValue::IntegerConst { bits, .. } = value else {
         return false;
     };
-    match width.get() {
-        0 => true,
-        1 => *value > 0x00FF,
-        2 => false,
-        _ => false,
-    }
+    let width_bits = width.get().saturating_mul(8);
+    width_bits == 0 || (width_bits < 64 && *bits > (1u64 << width_bits) - 1)
 }

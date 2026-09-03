@@ -813,8 +813,8 @@ ENDMODULE
         }
     }
 
-    let loaded = load_compilation(&source, &ModuleLoadOptions::default())
-        .expect("load layout-query module");
+    let loaded =
+        load_compilation(&source, &ModuleLoadOptions::default()).expect("load layout-query module");
     let model = analyze_compilation(&loaded).expect("analyze layout-query module");
     let semir = ir::lower_compilation(&loaded, &model);
     let printed = ir::format_program(&semir);

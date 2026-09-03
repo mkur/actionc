@@ -160,7 +160,7 @@ impl SemIrAstLowerer<'_> {
                     kind: ExprKind::Number(NumberLiteral {
                         text: format!("${:04X}", origin.address),
                         kind: crate::lexer::NumberKind::Card,
-                        value: Some(origin.address),
+                        value: Some(u64::from(origin.address)),
                     }),
                     text: format!("${:04X}", origin.address),
                     span: origin.span,
@@ -494,7 +494,7 @@ impl SemIrAstLowerer<'_> {
                             kind: ExprKind::Number(NumberLiteral {
                                 text: format!("${address:04X}"),
                                 kind: crate::lexer::NumberKind::Card,
-                                value: Some(*address),
+                                value: Some(u64::from(*address)),
                             }),
                             text: format!("${address:04X}"),
                             span: routine.span,
@@ -741,7 +741,7 @@ impl SemIrAstLowerer<'_> {
                 } else {
                     crate::lexer::NumberKind::Card
                 },
-                value: Some(amount),
+                value: Some(u64::from(amount)),
             }),
             text: text.clone(),
             span,
@@ -1802,14 +1802,14 @@ fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -
     };
     let value = match value {
         SemInitializerLiteral::Number(number) => number.value?,
-        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::Char(ch) => u64::from(source_char_byte(*ch)?),
         SemInitializerLiteral::True => 1,
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value)
+        0u16.wrapping_sub(value as u16)
     } else {
-        value
+        value as u16
     })
 }
 
@@ -1819,7 +1819,7 @@ fn fixed_array_address_expr(address: u16, span: Span) -> Expr {
         kind: ExprKind::Number(NumberLiteral {
             text: text.clone(),
             kind: crate::lexer::NumberKind::Card,
-            value: Some(address),
+            value: Some(u64::from(address)),
         }),
         text,
         span,

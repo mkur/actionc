@@ -1060,12 +1060,8 @@ fn apply_source_codegen_settings(
             "backend classic" if !backend_explicit => *backend = Backend::Classic,
             "backend mir6502" if !backend_explicit => *backend = Backend::Mir6502,
             "target atari-6502" if !target_explicit => *target = TargetId::Atari6502,
-            "target wdc-65816-native" if !target_explicit => {
-                *target = TargetId::Wdc65816Native
-            }
-            "target wdc-65816-small" if !target_explicit => {
-                *target = TargetId::Wdc65816Small
-            }
+            "target wdc-65816-native" if !target_explicit => *target = TargetId::Wdc65816Native,
+            "target wdc-65816-small" if !target_explicit => *target = TargetId::Wdc65816Small,
             "target motorola-68000" if !target_explicit => *target = TargetId::Motorola68000,
             _ => {}
         }

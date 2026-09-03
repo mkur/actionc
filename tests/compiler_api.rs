@@ -624,8 +624,8 @@ fn standalone_runtime_linking_preserves_the_last_application_proc_as_runad() {
                     .and_then(|tail| tail.split("..$").next())
             })
             .expect("find Start entry address");
-        let start_entry = u16::from_str_radix(start_entry_hex, 16)
-            .expect("parse Start entry address");
+        let start_entry =
+            u16::from_str_radix(start_entry_hex, 16).expect("parse Start entry address");
 
         assert_eq!(compiled.run_address(), start_entry, "{mode:?}");
         assert_eq!(
