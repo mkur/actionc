@@ -24,6 +24,9 @@ crowding the active reference set.
 - [NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md](NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md)
   - active sliced plan for making NIR consumable by independent 6502, 65816,
   and 68k backends while separating compatibility and native data layouts.
+- [NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md)
+  - proposed follow-on for reentrant native calls and invocation-scoped local
+  storage while preserving the classic Atari routine ABI.
 - [NIR_ATARI_BASELINES.md](NIR_ATARI_BASELINES.md) - byte-exact Atari object
   guardrails for the target-independence migration.
 - [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -
