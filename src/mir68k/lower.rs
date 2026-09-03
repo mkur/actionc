@@ -343,7 +343,13 @@ fn lower_op(
 fn access(width: ByteSize, address: &Mir68kAddress) -> Mir68kAccess {
     match width.get() {
         1 => Mir68kAccess::Byte,
-        2 if address.displacement.get() % 2 == 0 => Mir68kAccess::NativeAlignedWord,
+        2 if address
+            .base_alignment
+            .is_some_and(|alignment| alignment.get() >= 2)
+            && address.displacement.get() % 2 == 0 =>
+        {
+            Mir68kAccess::NativeAlignedWord
+        }
         2 => Mir68kAccess::BytewisePackedOddWord {
             endian: Endian::Big,
         },
@@ -359,12 +365,20 @@ fn lower_place(
     routine: &NirRoutine,
 ) -> Mir68kAddress {
     match &place.kind {
-        NirPlaceKind::Param { id, .. } => direct(Mir68kAddressBase::Param(*id)),
+        NirPlaceKind::Param { id, .. } => {
+            let alignment = routine
+                .params
+                .iter()
+                .find(|param| param.id == *id)
+                .map(|param| type_alignment(&param.ty, &program.target_layout));
+            direct(Mir68kAddressBase::Param(*id), alignment)
+        }
         NirPlaceKind::Local { id, .. } => lower_local(*id, program, routine),
         NirPlaceKind::Global { id, .. } => lower_global(*id, program),
         NirPlaceKind::Absolute(address) => absolute(*address),
         NirPlaceKind::Deref { addr } => Mir68kAddress {
             base: Mir68kAddressBase::Pointer(lower_value(addr, data_width, code_width)),
+            base_alignment: None,
             displacement: ByteOffset::ZERO,
             index: None,
             mode: Mir68kAddressMode::AddressIndirect,
@@ -376,6 +390,7 @@ fn lower_place(
             ..
         } => Mir68kAddress {
             base: Mir68kAddressBase::Pointer(lower_value(base_addr, data_width, code_width)),
+            base_alignment: None,
             displacement: ByteOffset::ZERO,
             index: Some(Mir68kIndex {
                 value: lower_value(index, data_width, code_width),
@@ -396,10 +411,13 @@ fn lower_local(
     routine: &NirRoutine,
 ) -> Mir68kAddress {
     let Some(local) = routine.locals.iter().find(|local| local.id == id) else {
-        return direct(Mir68kAddressBase::Local(id));
+        return direct(Mir68kAddressBase::Local(id), None);
     };
     match &local.backing {
-        NirLocalBacking::Ordinary => direct(Mir68kAddressBase::Local(id)),
+        NirLocalBacking::Ordinary => direct(
+            Mir68kAddressBase::Local(id),
+            Some(type_alignment(&local.ty, &program.target_layout)),
+        ),
         NirLocalBacking::Absolute(address) => absolute(*address),
         NirLocalBacking::Alias { target, offset, .. } => {
             with_displacement(lower_local(*target, program, routine), *offset)
@@ -412,10 +430,16 @@ fn lower_local(
 
 fn lower_global(id: SymbolId, program: &NirProgram) -> Mir68kAddress {
     let Some(global) = program.globals.iter().find(|global| global.id == id) else {
-        return direct(Mir68kAddressBase::Global(id));
+        return direct(Mir68kAddressBase::Global(id), None);
     };
     match &global.backing {
-        NirGlobalBacking::Ordinary => direct(Mir68kAddressBase::Global(id)),
+        NirGlobalBacking::Ordinary => direct(
+            Mir68kAddressBase::Global(id),
+            global
+                .ty
+                .as_ref()
+                .map(|ty| type_alignment(ty, &program.target_layout)),
+        ),
         NirGlobalBacking::Absolute(address) => absolute(*address),
         NirGlobalBacking::Alias { target, offset } => {
             with_displacement(lower_global(*target, program), *offset)
@@ -423,9 +447,10 @@ fn lower_global(id: SymbolId, program: &NirProgram) -> Mir68kAddress {
     }
 }
 
-fn direct(base: Mir68kAddressBase) -> Mir68kAddress {
+fn direct(base: Mir68kAddressBase, base_alignment: Option<ByteSize>) -> Mir68kAddress {
     Mir68kAddress {
         base,
+        base_alignment,
         displacement: ByteOffset::ZERO,
         index: None,
         mode: Mir68kAddressMode::FrameOrStatic,
@@ -435,9 +460,36 @@ fn direct(base: Mir68kAddressBase) -> Mir68kAddress {
 fn absolute(address: AddressValue) -> Mir68kAddress {
     Mir68kAddress {
         base: Mir68kAddressBase::Absolute(address),
+        base_alignment: Some(if address.value % 2 == 0 {
+            ByteSize::new(2)
+        } else {
+            ByteSize::ONE
+        }),
         displacement: ByteOffset::ZERO,
         index: None,
         mode: Mir68kAddressMode::Absolute,
+    }
+}
+
+fn type_alignment(ty: &NirType, layout: &crate::target::TargetLayout) -> ByteSize {
+    match &ty.kind {
+        crate::nir::NirTypeKind::U16 | crate::nir::NirTypeKind::I16 => ByteSize::new(2),
+        crate::nir::NirTypeKind::Pointer { address_space, .. }
+            if *address_space == layout.data_pointer.address_space =>
+        {
+            layout.data_pointer.alignment_bytes
+        }
+        crate::nir::NirTypeKind::Callable { address_space, .. }
+            if *address_space == layout.code_pointer.address_space =>
+        {
+            layout.code_pointer.alignment_bytes
+        }
+        crate::nir::NirTypeKind::Record { .. }
+            if layout.record_layout == crate::target::RecordLayoutPolicy::Natural =>
+        {
+            ByteSize::from(layout.natural_word_alignment_bytes)
+        }
+        _ => ByteSize::ONE,
     }
 }
 

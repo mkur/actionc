@@ -139,6 +139,9 @@ pub enum Mir68kOp {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kAddress {
     pub base: Mir68kAddressBase,
+    /// Proven base alignment. `None` means the backend must assume byte
+    /// alignment, as for an arbitrary pointer value.
+    pub base_alignment: Option<ByteSize>,
     pub displacement: ByteOffset,
     pub index: Option<Mir68kIndex>,
     pub mode: Mir68kAddressMode,
