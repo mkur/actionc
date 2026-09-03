@@ -1,58 +1,49 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::collections::BTreeSet;
+use std::path::Path;
 
-use actionc::includes::load_program_with_expanded_source;
-use actionc::nir;
-use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
-
+mod nir_fixture_support;
 mod snapshot_support;
+
+use nir_fixture_support::{
+    NIR_FIXTURE_CASES, collect_features, format_feature_inventory, lower_case, snapshot_path,
+};
 
 #[test]
 fn nir_fixtures_match_snapshots() {
-    let fixture_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures")
-        .join("nir");
-    let mut sources = collect_action_fixtures(&fixture_dir);
-    sources.sort();
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    assert!(!NIR_FIXTURE_CASES.is_empty(), "expected NIR fixtures");
 
-    assert!(!sources.is_empty(), "expected NIR fixtures");
-
-    for source_path in sources {
-        let expected_path = source_path.with_extension("nir");
-        let actual = emit_nir(&source_path);
+    for case in NIR_FIXTURE_CASES {
+        let program = lower_case(repo_root, *case);
+        let actual = actionc::nir::format_program(&program);
+        let expected_path = snapshot_path(repo_root, *case);
         let expected = snapshot_support::read_snapshot(&expected_path);
 
         assert_eq!(
             actual,
             expected,
-            "NIR fixture changed for {}\n\nrefresh with:\n  cargo run --bin actionc-emit -- --profile modern --emit-nir {} > {}",
-            source_path.display(),
-            source_path.display(),
+            "NIR fixture `{}` changed for {}\n\nupdate {} deliberately",
+            case.name,
+            case.source,
             expected_path.display()
         );
     }
 }
 
-fn emit_nir(path: &Path) -> String {
-    let loaded = load_program_with_expanded_source(path)
-        .unwrap_or_else(|err| panic!("load {}: {err:?}", path.display()));
-    let model = analyze_with_options(&loaded.program, SemanticOptions::modern())
-        .unwrap_or_else(|err| panic!("analyze {}: {err:?}", path.display()));
-    let semir = ir::lower_program(&loaded.program, &model);
-    let program = nir::lower_program(&semir);
-    nir::verify_program(&program)
-        .unwrap_or_else(|err| panic!("verify NIR for {}: {err:?}", path.display()));
-    nir::format_program(&program)
-}
-
-fn collect_action_fixtures(dir: &Path) -> Vec<PathBuf> {
-    fs::read_dir(dir)
-        .unwrap_or_else(|err| panic!("read {}: {err}", dir.display()))
-        .map(|entry| entry.expect("read NIR fixture entry").path())
-        .filter(|path| {
-            path.extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("act"))
-        })
-        .collect()
+#[test]
+fn nir_fixture_feature_inventory_matches_snapshot() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut features = BTreeSet::new();
+    for case in NIR_FIXTURE_CASES {
+        features.extend(collect_features(&lower_case(repo_root, *case)));
+    }
+    let actual = format_feature_inventory(&features);
+    let expected_path = repo_root.join("fixtures/nir/coverage.txt");
+    let expected = snapshot_support::read_snapshot(&expected_path);
+    assert_eq!(
+        actual,
+        expected,
+        "NIR fixture feature inventory changed; update {} deliberately",
+        expected_path.display()
+    );
 }
