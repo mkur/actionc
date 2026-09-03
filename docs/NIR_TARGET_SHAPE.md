@@ -108,6 +108,16 @@ never changed as an optimization. Packed records remain available for hardware
 maps and external byte layouts; MIR68K must lower an unaligned word field to a
 safe byte sequence when alignment is not proven.
 
+Semantic layout facts now retain each record's final size, required alignment,
+tail padding, stable field IDs, field offsets, and field alignments. Array facts
+retain element size, element alignment, padded stride, optional element count,
+and complete storage extent. NIR receives the resolved record sizes, field
+offsets, copy extents, index strides, and target-sized descriptor extents; MIR
+backends do not walk source record declarations. An initialized sized-array
+descriptor occupies one data pointer plus the Action! two-byte size word, while
+an unsized descriptor occupies one data pointer. Callable-address descriptors
+use the selected code-pointer width.
+
 Portable source observes layout through the canonical compile-time intrinsics
 `SYS.SIZEOF`, `SYS.ELEMENTS`, `SYS.ALIGNOF`, and `SYS.OFFSETOF`. Their
 unqualified compatibility-prelude aliases are ordinary shadowable names. The

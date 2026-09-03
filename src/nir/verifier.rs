@@ -562,6 +562,7 @@ impl NirVerifier {
             NirGlobalInit::Descriptor {
                 backing,
                 descriptor_size,
+                size_word,
                 section,
                 ..
             } => {
@@ -571,7 +572,15 @@ impl NirVerifier {
                         global.name, descriptor_size, global.storage_size
                     )));
                 }
-                if !matches!(descriptor_size.get(), 2 | 4) {
+                if *descriptor_size
+                    != self.target_layout.data_pointer.size_bytes.saturating_add(
+                        if size_word.is_some() {
+                            ByteSize::new(2)
+                        } else {
+                            ByteSize::ZERO
+                        },
+                    )
+                {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` descriptor init has unsupported size {}",
                         global.name, descriptor_size
@@ -646,7 +655,10 @@ impl NirVerifier {
                         global.name, routine
                     )));
                 }
-                if !matches!(descriptor_size.get(), 2 | 4) {
+                let pointer_size = self.target_layout.code_pointer.size_bytes;
+                if *descriptor_size != pointer_size
+                    && *descriptor_size != pointer_size.saturating_add(ByteSize::new(2))
+                {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` routine-address init has unsupported size {}",
                         global.name, descriptor_size
@@ -701,10 +713,19 @@ impl NirVerifier {
             NirStorageInit::Descriptor {
                 backing,
                 descriptor_size,
+                size_word,
                 section,
                 ..
             } => {
-                if !matches!(descriptor_size.get(), 2 | 4) {
+                if *descriptor_size
+                    != self.target_layout.data_pointer.size_bytes.saturating_add(
+                        if size_word.is_some() {
+                            ByteSize::new(2)
+                        } else {
+                            ByteSize::ZERO
+                        },
+                    )
+                {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
                         format!(

@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 4 completed on 2026-09-03; later slices
+Status: active. Slices 0 through 5 completed on 2026-09-03; later slices
 remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
@@ -370,6 +370,14 @@ nir: make pointer and callable types layout driven
 ```
 
 ### Slice 5: target-aware semantic aggregate layout
+
+Status: complete. Semantic layout now resolves pointer/callable widths, natural
+field alignment, record alignment and tail padding, and array element stride
+from the selected target contract. Classic Atari records and descriptors remain
+byte-for-byte packed. Pointer and callable record fields are legal storage
+values, and target-sized initialized-array descriptors reach NIR without an
+Atari four-byte assumption. The semantic and NIR layout-matrix tests cover all
+four registered targets.
 
 1. Make semantic width and alignment queries consume the selected layout.
 2. Preserve stable record and field IDs and compute final offsets, alignment,

@@ -1061,6 +1061,70 @@ fn native_targets_use_layout_driven_data_and_code_pointer_types() {
 }
 
 #[test]
+fn aggregate_layout_facts_reach_nir_without_semir_reconstruction() {
+    let source = "TYPE Inner=[BYTE tag CARD word] \
+                  TYPE Matrix=[BYTE lead CARD word BYTE POINTER data \
+                               PROC POINTER callback Inner nested BYTE tail] \
+                  Matrix ARRAY rows(2) Matrix item \
+                  PROC Main() item.tail=1 rows(1)=item RETURN";
+    for (target, size, tail_offset) in [
+        (crate::target::TargetId::Atari6502, 11, 10),
+        (crate::target::TargetId::Wdc65816Native, 16, 14),
+        (crate::target::TargetId::Wdc65816Small, 14, 12),
+        (crate::target::TargetId::Motorola68000, 18, 16),
+    ] {
+        let program = lower_modern_source_for_target(source, target);
+        verify_program(&program).expect("aggregate NIR should verify for every target layout");
+        let item = program
+            .globals
+            .iter()
+            .find(|global| global.name.eq_ignore_ascii_case("item"))
+            .expect("record object");
+        assert_eq!(item.storage_size, ByteSize::new(size));
+        let rows = program
+            .globals
+            .iter()
+            .find(|global| global.name.eq_ignore_ascii_case("rows"))
+            .expect("record array");
+        assert_eq!(rows.storage_size, ByteSize::new(size * 2));
+        assert_eq!(rows.array.as_ref().map(|array| array.elem_size), Some(ByteSize::new(size)));
+        let main = program.routines.iter().find(|routine| routine.name == "Main").expect("Main");
+        assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(op, NirOp::Store { place: NirPlace { kind: NirPlaceKind::Field { offset, .. }, .. }, .. }
+                if *offset == ByteOffset::new(tail_offset))
+        }));
+        assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(op, NirOp::CopyBytes { size: copy_size, .. } if *copy_size == ByteSize::new(size))
+        }));
+    }
+}
+
+#[test]
+fn initialized_array_descriptors_follow_the_selected_data_pointer_width() {
+    let source = "CARD ARRAY values(2)=[1 2] PROC Main() RETURN";
+    for (target, descriptor_size) in [
+        (crate::target::TargetId::Atari6502, 4),
+        (crate::target::TargetId::Wdc65816Native, 5),
+        (crate::target::TargetId::Wdc65816Small, 4),
+        (crate::target::TargetId::Motorola68000, 6),
+    ] {
+        let program = lower_modern_source_for_target(source, target);
+        verify_program(&program).expect("target-sized descriptor should verify");
+        let values = program
+            .globals
+            .iter()
+            .find(|global| global.name.eq_ignore_ascii_case("values"))
+            .expect("values descriptor");
+        assert_eq!(values.storage_size, ByteSize::new(descriptor_size));
+        assert!(matches!(
+            values.init,
+            Some(NirGlobalInit::Descriptor { descriptor_size: size, size_word: Some(0), .. })
+                if size == ByteSize::new(descriptor_size)
+        ));
+    }
+}
+
+#[test]
 fn callable_types_have_stable_structural_signature_ids() {
     let first = crate::semantic::CallableType::new(
         crate::ast::RoutineKind::Proc,

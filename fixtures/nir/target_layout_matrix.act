@@ -1,0 +1,11 @@
+TYPE Inner=[BYTE tag CARD word]
+TYPE Matrix=[BYTE lead CARD word BYTE POINTER data
+             PROC POINTER callback Inner nested BYTE tail]
+
+Matrix ARRAY rows(2)
+Matrix item
+
+PROC Main()
+  item.tail=1
+  rows(1)=item
+RETURN

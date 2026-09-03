@@ -2,6 +2,7 @@ use crate::ast::{BinaryOp, FundType, RoutineKind};
 use crate::lexer::NumberKind;
 
 use super::{FieldId, ValueType, ValueTypeBase};
+use crate::target::TargetLayout;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScalarType {
@@ -409,6 +410,20 @@ impl ValueType {
             ValueTypeKind::Real => Some(6),
             ValueTypeKind::Pointer(_) => Some(2),
             ValueTypeKind::CallablePointer(_) => Some(2),
+            ValueTypeKind::Record(_) | ValueTypeKind::Error => None,
+        }
+    }
+
+    /// Storage width under a selected target ABI. Source integer widths stay
+    /// fixed; only data and callable pointers vary with the target layout.
+    pub fn value_width_bytes_for_layout(&self, layout: TargetLayout) -> Option<u16> {
+        match self.kind() {
+            ValueTypeKind::Scalar(scalar) => Some(scalar.width_bytes()),
+            ValueTypeKind::Real => Some(6),
+            ValueTypeKind::Pointer(_) => u16::try_from(layout.data_pointer.size_bytes.get()).ok(),
+            ValueTypeKind::CallablePointer(_) => {
+                u16::try_from(layout.code_pointer.size_bytes.get()).ok()
+            }
             ValueTypeKind::Record(_) | ValueTypeKind::Error => None,
         }
     }

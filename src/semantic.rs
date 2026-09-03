@@ -478,6 +478,7 @@ impl Analyzer {
             &self.array_symbols,
             &self.array_lengths,
             &self.fields,
+            TargetLayout::for_target(self.options.target),
         );
         Ok(SemanticModel {
             target_layout: TargetLayout::for_target(self.options.target),
@@ -2533,9 +2534,15 @@ impl Analyzer {
             }
         };
         self.complete_layout_width(&ty, operand.span)?;
-        // The first implementation evaluates against the established Atari
-        // compatibility ABI, where every type and packed record is byte-aligned.
-        Some(1)
+        self.value_storage_alignment(&ty)
+            .map(u64::from)
+            .or_else(|| {
+                self.diagnostics.push(Diagnostic::new(
+                    operand.span,
+                    "layout alignment is incomplete for this type",
+                ));
+                None
+            })
     }
 
     fn layout_offset_of(
@@ -3637,7 +3644,9 @@ impl Analyzer {
         for field in fields {
             let ty = self.value_type_from_type_ref(scope, &field.ty);
             let width = self.value_storage_width(&ty).unwrap_or(0);
+            let alignment = self.value_storage_alignment(&ty).unwrap_or(1);
             for entry in &field.entries {
+                offset = align_u16(offset, alignment).unwrap_or(offset);
                 let id = FieldId(self.fields.len());
                 self.fields.push(SemanticField {
                     id,
@@ -3714,10 +3723,10 @@ impl Analyzer {
                 "VOLATILE record fields are not supported yet",
             ));
         }
-        let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_))
-            || (!field.ty.pointer && self.type_ref_is_record(scope, &field.ty));
-        if field.storage != VarStorage::Plain
+        let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_) | TypeBase::Callable(_))
             || field.ty.pointer
+            || self.type_ref_is_record(scope, &field.ty);
+        if field.storage != VarStorage::Plain
             || !valid_value_type
             || field
                 .entries
@@ -3744,20 +3753,58 @@ impl Analyzer {
     }
 
     fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
-        value.value_width_bytes().or_else(|| {
-            value
-                .as_record_name()
-                .and_then(|name| self.record_storage_width(name))
-        })
+        value
+            .value_width_bytes_for_layout(TargetLayout::for_target(self.options.target))
+            .or_else(|| {
+                value
+                    .as_record_name()
+                    .and_then(|name| self.record_storage_width(name))
+            })
+    }
+
+    fn value_storage_alignment(&self, value: &ValueType) -> Option<u16> {
+        let layout = TargetLayout::for_target(self.options.target);
+        if layout.record_layout == crate::target::RecordLayoutPolicy::Packed {
+            return self.value_storage_width(value).map(|_| 1);
+        }
+        match value.kind() {
+            ValueTypeKind::Scalar(scalar) => Some(
+                scalar
+                    .width_bytes()
+                    .min(u16::from(layout.natural_word_alignment_bytes)),
+            ),
+            ValueTypeKind::Real => Some(u16::from(layout.natural_word_alignment_bytes)),
+            ValueTypeKind::Pointer(_) => {
+                u16::try_from(layout.data_pointer.alignment_bytes.get()).ok()
+            }
+            ValueTypeKind::CallablePointer(_) => {
+                u16::try_from(layout.code_pointer.alignment_bytes.get()).ok()
+            }
+            ValueTypeKind::Record(name) => self.record_storage_alignment(&name),
+            ValueTypeKind::Error => None,
+        }
     }
 
     fn record_storage_width(&self, name: &str) -> Option<u16> {
         let fields = self.field_lookup.get(&normalize_name(name))?;
-        fields.values().try_fold(0u16, |size, id| {
+        let size = fields.values().try_fold(0u16, |size, id| {
             let field = self.fields.get(id.0)?;
             let width = self.value_storage_width(&field.ty).unwrap_or(0);
             Some(size.max(field.offset.saturating_add(width)))
-        })
+        })?;
+        align_u16(size, self.record_storage_alignment(name).unwrap_or(1))
+    }
+
+    fn record_storage_alignment(&self, name: &str) -> Option<u16> {
+        let fields = self.field_lookup.get(&normalize_name(name))?;
+        Some(
+            fields
+                .values()
+                .filter_map(|id| self.fields.get(id.0))
+                .filter_map(|field| self.value_storage_alignment(&field.ty))
+                .max()
+                .unwrap_or(1),
+        )
     }
 
     fn analyze_var_decl(&mut self, scope: ScopeId, decl: &VarDecl, is_param: bool) {
@@ -5254,6 +5301,15 @@ impl StmtFlowFacts {
 
 fn normalize_name(name: &str) -> String {
     name.to_ascii_uppercase()
+}
+
+fn align_u16(value: u16, alignment: u16) -> Option<u16> {
+    if alignment <= 1 {
+        return Some(value);
+    }
+    value
+        .checked_add(alignment - 1)
+        .map(|value| value / alignment * alignment)
 }
 
 fn collect_retargeted_routine_names(program: &Program) -> HashSet<String> {
@@ -7200,14 +7256,10 @@ mod tests {
     }
 
     #[test]
-    fn rejects_non_fundamental_record_fields() {
-        let err = analyze_source_err("TYPE Pair=[BYTE tag CHAR POINTER ptr]");
-        assert!(
-            err[0]
-                .message
-                .contains("record fields must be fundamental variables")
+    fn record_fields_accept_pointer_and_callable_values_but_not_inline_arrays() {
+        analyze_source(
+            "TYPE Pair=[BYTE tag CHAR POINTER ptr PROC POINTER callback] Pair value",
         );
-
         let err = analyze_source_err("TYPE Pair=[BYTE ARRAY bytes(4)]");
         assert!(
             err[0]
@@ -7366,6 +7418,80 @@ mod tests {
         assert_eq!(param_layout.origin, SemanticArrayOrigin::Parameter);
         assert_eq!(local_layout.element_type, fund_value(FundType::Card));
         assert_eq!(local_layout.origin, SemanticArrayOrigin::Local);
+    }
+
+    #[test]
+    fn aggregate_layout_matrix_tracks_target_pointer_width_alignment_and_stride() {
+        let source = "TYPE Inner=[BYTE tag CARD word] \
+                      TYPE Matrix=[BYTE lead CARD word BYTE POINTER data \
+                                   PROC POINTER callback Inner nested BYTE tail] \
+                      Matrix ARRAY rows(2)";
+        let cases = [
+            (TargetId::Atari6502, 11, 1, 0, 1, 3, 5, 7, 10, 11, 22),
+            (
+                TargetId::Wdc65816Native,
+                16,
+                2,
+                1,
+                2,
+                4,
+                7,
+                10,
+                14,
+                16,
+                32,
+            ),
+            (
+                TargetId::Wdc65816Small,
+                14,
+                2,
+                1,
+                2,
+                4,
+                6,
+                8,
+                12,
+                14,
+                28,
+            ),
+            (
+                TargetId::Motorola68000,
+                18,
+                2,
+                1,
+                2,
+                4,
+                8,
+                12,
+                16,
+                18,
+                36,
+            ),
+        ];
+
+        for (target, size, alignment, tail_padding, word, data, callback, nested, tail, stride, total) in cases {
+            let model = analyze_source_target(source, target);
+            let matrix = model.layout.record_for_name("Matrix").expect("matrix layout");
+            assert_eq!((matrix.size, matrix.alignment, matrix.tail_padding), (size, alignment, tail_padding));
+            let offset = |name: &str| {
+                matrix
+                    .fields
+                    .iter()
+                    .find(|field| field.name.eq_ignore_ascii_case(name))
+                    .map(|field| field.offset)
+                    .expect("matrix field")
+            };
+            assert_eq!(
+                (offset("word"), offset("data"), offset("callback"), offset("nested"), offset("tail")),
+                (word, data, callback, nested, tail),
+            );
+            let rows = model
+                .symbols
+                .lookup(model.symbols.global_scope(), "rows")
+                .expect("rows");
+            let array = model.layout.array_for_symbol(rows).expect("array layout");
+            assert_eq!((array.element_size, array.stride, array.storage_size), (size, stride, Some(total)));
+        }
     }
 
     #[test]
@@ -9356,6 +9482,12 @@ mod tests {
 
     fn analyze_modern_source(source: &str) -> SemanticModel {
         analyze_modern_program_source(source).1
+    }
+
+    fn analyze_source_target(source: &str, target: TargetId) -> SemanticModel {
+        let tokens = tokenize(source).unwrap();
+        let program = parse(&tokens).unwrap();
+        analyze_with_options(&program, SemanticOptions::modern().with_target(target)).unwrap()
     }
 
     fn analyze_program_source(source: &str) -> (Program, SemanticModel) {

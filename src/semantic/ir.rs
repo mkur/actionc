@@ -2615,7 +2615,7 @@ impl<'a> IrBuilder<'a> {
         path: String,
         leaves: &mut Vec<SemStaticInitializerLeaf>,
     ) -> Option<()> {
-        if let Some(width) = ty.value_width_bytes() {
+        if let Some(width) = ty.value_width_bytes_for_layout(self.model.target_layout) {
             leaves.push(SemStaticInitializerLeaf {
                 offset: base_offset,
                 ty: ty.clone(),
@@ -2724,7 +2724,12 @@ impl<'a> IrBuilder<'a> {
                     let width = field
                         .ty
                         .width
-                        .or_else(|| field.ty.value.value_width_bytes())
+                        .or_else(|| {
+                            field
+                                .ty
+                                .value
+                                .value_width_bytes_for_layout(self.model.target_layout)
+                        })
                         .unwrap_or(0);
                     size.max(offset.saturating_add(width))
                 });
@@ -2733,7 +2738,9 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
-        value.value_width_bytes().or_else(|| {
+        value
+            .value_width_bytes_for_layout(self.model.target_layout)
+            .or_else(|| {
             value.as_record_name().and_then(|name| {
                 self.model
                     .layout
@@ -2742,7 +2749,7 @@ impl<'a> IrBuilder<'a> {
                     .find(|record| record.name.eq_ignore_ascii_case(name))
                     .map(|record| record.size)
             })
-        })
+            })
     }
 
     fn lower_routine(&mut self, parent_scope: ScopeId, routine: &Routine) -> SemRoutine {
@@ -3525,14 +3532,16 @@ impl<'a> IrBuilder<'a> {
         } else if is_compare_op(op)
             && left.ty.is_pointer()
             && right.ty.as_scalar().is_some()
-            && left.ty.value_width_bytes() != right.ty.value_width_bytes()
+            && left.ty.value_width_bytes_for_layout(self.model.target_layout)
+                != right.ty.value_width_bytes_for_layout(self.model.target_layout)
         {
             let operand_ty = left.ty.clone();
             right = self.coerce_scalar_expr_for_expected_type(right, &operand_ty);
         } else if is_compare_op(op)
             && right.ty.is_pointer()
             && left.ty.as_scalar().is_some()
-            && right.ty.value_width_bytes() != left.ty.value_width_bytes()
+            && right.ty.value_width_bytes_for_layout(self.model.target_layout)
+                != left.ty.value_width_bytes_for_layout(self.model.target_layout)
         {
             let operand_ty = right.ty.clone();
             left = self.coerce_scalar_expr_for_expected_type(left, &operand_ty);
