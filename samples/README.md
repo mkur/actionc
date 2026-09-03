@@ -45,6 +45,10 @@ rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 GTIA mode 9 and leaves the completed image on screen. Its source is also
 accepted by the original Action! cartridge compiler.
 
+`graphics/unknown-pleasures/` contains data-driven renderings of the CP1919
+pulse plot: a stock Graphics 8 version with 300 independent horizontal samples
+and a VBXE SR320 version with quarter-scanline grayscale antialiasing.
+
 [`benchmarks/`](benchmarks/README.md) contains the Action! port of the Atari
 Mad Pascal benchmark suite, including complete, compatibility, and
 non-graphics runners.
