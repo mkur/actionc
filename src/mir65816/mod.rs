@@ -227,10 +227,7 @@ impl NirBackend for Mir65816Backend {
         matches!(target, TargetId::Wdc65816Native | TargetId::Wdc65816Small)
     }
 
-    fn lower(
-        &self,
-        input: VerifiedNir<'_>,
-    ) -> Result<Self::Output, Vec<Self::Diagnostic>> {
+    fn lower(&self, input: VerifiedNir<'_>) -> Result<Self::Output, Vec<Self::Diagnostic>> {
         lower::lower_program(input)
     }
 }

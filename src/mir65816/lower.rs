@@ -1,9 +1,9 @@
 use super::*;
 use crate::backend::VerifiedNir;
 use crate::nir::{
-    NirCallee, NirDataAddressEncoding, NirDataFragment, NirDataImage, NirGlobalInit, NirLinkValue,
-    NirGlobalBacking, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram, NirRoutine,
-    NirTerminator, NirType, NirValue,
+    NirCallee, NirDataAddressEncoding, NirDataFragment, NirDataImage, NirGlobalBacking,
+    NirGlobalInit, NirLinkValue, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram,
+    NirRoutine, NirTerminator, NirType, NirValue,
 };
 use crate::target::{AbiId, ByteOffset, ByteSize, Endian, TargetId};
 
@@ -181,9 +181,7 @@ fn lower_data_image(
                     width,
                     address_space,
                 } => (*width, *address_space),
-                NirDataAddressEncoding::TargetByte { .. } => {
-                    (ByteSize::ONE, target_space(*target))
-                }
+                NirDataAddressEncoding::TargetByte { .. } => (ByteSize::ONE, target_space(*target)),
             };
             Some(Mir65816Relocation {
                 offset: *offset,
@@ -287,12 +285,7 @@ fn lower_op(
             bytes: *size,
             overlap_safe: true,
         }),
-        NirOp::Unary {
-            dest,
-            ty,
-            op,
-            src,
-        } => Some(Mir65816Op::Unary {
+        NirOp::Unary { dest, ty, op, src } => Some(Mir65816Op::Unary {
             dest: *dest,
             width: width(ty),
             operation: *op,
@@ -364,7 +357,9 @@ fn lower_op(
                 .iter()
                 .map(|value| lower_value(value, data_pointer_width, code_pointer_width))
                 .collect(),
-            result: result.as_ref().map(|result| (result.dest, width(&result.ty))),
+            result: result
+                .as_ref()
+                .map(|result| (result.dest, width(&result.ty))),
             convention,
         }),
         NirOp::Real(_) => {
@@ -494,10 +489,7 @@ fn absolute(address: crate::target::AddressValue) -> Mir65816Address {
     }
 }
 
-fn with_displacement(
-    mut address: Mir65816Address,
-    displacement: ByteOffset,
-) -> Mir65816Address {
+fn with_displacement(mut address: Mir65816Address, displacement: ByteOffset) -> Mir65816Address {
     address.displacement = address
         .displacement
         .checked_add(displacement)
@@ -609,8 +601,7 @@ fn diagnostic(
 mod tests {
     use super::*;
     use crate::nir::{
-        NirDataAddressEncoding, NirDataFragment, NirDataImage, NirStaticData, NirTypeKind,
-        SymbolId,
+        NirDataAddressEncoding, NirDataFragment, NirDataImage, NirStaticData, NirTypeKind, SymbolId,
     };
     use crate::semantic::{SemanticOptions, analyze_with_options};
     use crate::source::Span;
@@ -649,14 +640,11 @@ PROC Main()
 RETURN
 "#;
 
-    fn lower_source() -> crate::nir::NirProgram {
+    fn lower_source(target: TargetId) -> crate::nir::NirProgram {
         let tokens = crate::lexer::tokenize(SOURCE).expect("tokenize 65816 canary");
         let program = crate::parser::parse(&tokens).expect("parse 65816 canary");
-        let model = analyze_with_options(
-            &program,
-            SemanticOptions::modern().with_target(TargetId::Wdc65816Native),
-        )
-        .expect("analyze 65816 canary");
+        let model = analyze_with_options(&program, SemanticOptions::modern().with_target(target))
+            .expect("analyze 65816 canary");
         let semir = crate::semantic::ir::lower_program(&program, &model);
         crate::nir::lower_program(&semir)
     }
@@ -717,7 +705,7 @@ RETURN
 
     #[test]
     fn native_canary_lowers_portable_operations_and_24_bit_addresses() {
-        let mut nir = lower_source();
+        let mut nir = lower_source(TargetId::Wdc65816Native);
         add_address_relocation_probe(&mut nir);
         let mir = super::super::lower_program(&nir).expect("lower 65816 canary");
 
@@ -739,10 +727,12 @@ RETURN
             probe.relocations[1].target,
             Mir65816RelocationTarget::Code(_)
         ));
-        assert!(probe
-            .relocations
-            .iter()
-            .all(|relocation| relocation.width == ByteSize::new(3)));
+        assert!(
+            probe
+                .relocations
+                .iter()
+                .all(|relocation| relocation.width == ByteSize::new(3))
+        );
 
         let ops = mir
             .routines
@@ -753,14 +743,20 @@ RETURN
         assert!(ops.iter().any(|op| matches!(
             op,
             Mir65816Op::Load {
-                address: Mir65816Address { mode: Mir65816AddressMode::LongIndirect, .. },
+                address: Mir65816Address {
+                    mode: Mir65816AddressMode::LongIndirect,
+                    ..
+                },
                 ..
             }
         )));
         assert!(ops.iter().any(|op| matches!(
             op,
             Mir65816Op::Store {
-                address: Mir65816Address { mode: Mir65816AddressMode::AbsoluteLong, .. },
+                address: Mir65816Address {
+                    mode: Mir65816AddressMode::AbsoluteLong,
+                    ..
+                },
                 ..
             }
         )));
@@ -791,7 +787,10 @@ RETURN
         )));
         assert!(ops.iter().any(|op| matches!(
             op,
-            Mir65816Op::Call { target: Mir65816CallTarget::Direct(_), .. }
+            Mir65816Op::Call {
+                target: Mir65816CallTarget::Direct(_),
+                ..
+            }
         )));
         assert!(ops.iter().any(|op| matches!(
             op,
@@ -800,11 +799,27 @@ RETURN
                 ..
             } if *width == ByteSize::new(3)
         )));
-        assert!(mir.routines.iter().flat_map(|routine| &routine.blocks).any(|block| {
-            matches!(block.terminator, Mir65816Terminator::Branch { .. })
-        }));
-        assert!(mir.routines.iter().flat_map(|routine| &routine.blocks).any(|block| {
-            matches!(block.terminator, Mir65816Terminator::Return(Some(_)))
-        }));
+        assert!(
+            mir.routines
+                .iter()
+                .flat_map(|routine| &routine.blocks)
+                .any(|block| { matches!(block.terminator, Mir65816Terminator::Branch { .. }) })
+        );
+        assert!(
+            mir.routines
+                .iter()
+                .flat_map(|routine| &routine.blocks)
+                .any(|block| { matches!(block.terminator, Mir65816Terminator::Return(Some(_))) })
+        );
+    }
+
+    #[test]
+    fn small_model_keeps_24_bit_architecture_with_16_bit_pointers() {
+        let nir = lower_source(TargetId::Wdc65816Small);
+        let mir = super::super::lower_program(&nir).expect("lower 65816 small-model canary");
+        assert_eq!(mir.architectural_address_bits, 24);
+        assert_eq!(mir.data_pointer_width, ByteSize::new(2));
+        assert_eq!(mir.code_pointer_width, ByteSize::new(2));
+        assert_eq!(mir.call_convention, Mir65816CallConvention::Small);
     }
 }
