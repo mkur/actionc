@@ -359,6 +359,9 @@ impl NirMemoryRegion {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirMemoryRegionKind {
+    /// A local or parameter ID is interpreted in its owning routine. For
+    /// automatic duration it denotes the object in that routine's current
+    /// activation, not every invocation sharing the same lexical ID.
     Storage(NirStorageId),
     Static(SymbolId),
     AbsoluteRange(AddressSpaceId),

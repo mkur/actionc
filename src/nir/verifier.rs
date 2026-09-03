@@ -437,6 +437,19 @@ impl NirVerifier {
                 param.layout,
                 param.ty.width,
             );
+            if param
+                .ty
+                .width
+                .is_some_and(|width| param.layout.size != width)
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "parameter `{}` object size does not match its value representation",
+                        param.name
+                    ),
+                ));
+            }
             self.type_shape_static(&param.ty, &format!("param `{}`", param.name));
         }
 
@@ -519,29 +532,94 @@ impl NirVerifier {
             self.type_shape_static(&local.ty, &format!("local `{}`", local.name));
         }
         for local in &routine.locals {
-            if let NirLocalBacking::Alias { target, .. } = local.backing {
-                match routine
-                    .locals
-                    .iter()
-                    .find(|candidate| candidate.id == target)
-                {
-                    Some(target) if target.duration != local.duration => {
+            match local.backing {
+                NirLocalBacking::Alias { target, .. } => {
+                    match routine
+                        .locals
+                        .iter()
+                        .find(|candidate| candidate.id == target)
+                    {
+                        Some(target) if target.duration != local.duration => {
+                            self.diagnostics.push(NirDiagnostic::routine(
+                                &routine.name,
+                                format!(
+                                    "local alias `{}` does not inherit target duration",
+                                    local.name
+                                ),
+                            ));
+                        }
+                        Some(_) => {}
+                        None => {
+                            self.diagnostics.push(NirDiagnostic::routine(
+                                &routine.name,
+                                format!(
+                                    "local alias `{}` references missing local id {}",
+                                    local.name, target.0
+                                ),
+                            ));
+                        }
+                    }
+                }
+                NirLocalBacking::GlobalAlias { target, .. } => {
+                    if !self.global_sizes.contains_key(&target) {
                         self.diagnostics.push(NirDiagnostic::routine(
                             &routine.name,
                             format!(
-                                "local alias `{}` does not inherit target duration",
-                                local.name
+                                "global alias `{}` references missing global id {}",
+                                local.name, target.0
                             ),
                         ));
                     }
-                    Some(_) => {}
-                    None => {}
                 }
+                NirLocalBacking::Ordinary | NirLocalBacking::Absolute(_) => {}
+            }
+            if !matches!(local.backing, NirLocalBacking::Ordinary) && local.init.is_some() {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "non-owning local `{}` cannot have independent storage initialization",
+                        local.name
+                    ),
+                ));
             }
         }
         for local in &routine.locals {
+            let mut visited = BTreeSet::new();
+            let mut cursor = local;
+            while let NirLocalBacking::Alias { target, .. } = cursor.backing {
+                if !visited.insert(cursor.id) {
+                    self.diagnostics.push(NirDiagnostic::routine(
+                        &routine.name,
+                        format!("local alias `{}` participates in an alias cycle", local.name),
+                    ));
+                    break;
+                }
+                let Some(next) = routine.locals.iter().find(|candidate| candidate.id == target)
+                else {
+                    break;
+                };
+                cursor = next;
+            }
+        }
+        let param_durations = routine
+            .params
+            .iter()
+            .map(|param| (param.id, param.duration))
+            .collect::<BTreeMap<_, _>>();
+        let local_durations = routine
+            .locals
+            .iter()
+            .map(|local| (local.id, local.duration))
+            .collect::<BTreeMap<_, _>>();
+        for local in &routine.locals {
             if let Some(init) = &local.init {
-                self.storage_init(&routine.name, local, init, &param_ids, &local_ids);
+                self.storage_init(
+                    &routine.name,
+                    local,
+                    init,
+                    &param_durations,
+                    &local_durations,
+                );
             }
         }
         for note in &routine.notes {
@@ -891,8 +969,8 @@ impl NirVerifier {
         routine: &str,
         local: &NirLocal,
         init: &NirStorageInit,
-        param_ids: &BTreeSet<super::facts::ParamId>,
-        local_ids: &BTreeSet<super::facts::LocalId>,
+        param_durations: &BTreeMap<super::facts::ParamId, NirStorageDuration>,
+        local_durations: &BTreeMap<super::facts::LocalId, NirStorageDuration>,
     ) {
         let name = &local.name;
         match init {
@@ -911,7 +989,7 @@ impl NirVerifier {
                 self.data_image(
                     &format!("local `{name}` in `{routine}`"),
                     image,
-                    Some((param_ids, local_ids)),
+                    Some((param_durations, local_durations)),
                 );
                 let extent = self.data_extent(
                     &format!("local `{name}` in `{routine}`"),
@@ -981,7 +1059,7 @@ impl NirVerifier {
                 self.data_image(
                     &format!("local `{name}` descriptor backing in `{routine}`"),
                     &backing.image,
-                    Some((param_ids, local_ids)),
+                    Some((param_durations, local_durations)),
                 );
                 let extent = self.data_extent(
                     &format!("local `{name}` descriptor backing in `{routine}`"),
@@ -1015,8 +1093,8 @@ impl NirVerifier {
         owner: &str,
         image: &NirDataImage,
         routine_storage: Option<(
-            &BTreeSet<super::facts::ParamId>,
-            &BTreeSet<super::facts::LocalId>,
+            &BTreeMap<super::facts::ParamId, NirStorageDuration>,
+            &BTreeMap<super::facts::LocalId, NirStorageDuration>,
         )>,
     ) {
         let mut occupied = vec![false; image.bytes.len()];
@@ -1121,16 +1199,26 @@ impl NirVerifier {
                     }
                 }
                 NirDataAddressTarget::Storage(NirStorageId::Param(id)) => {
-                    if !routine_storage.is_some_and(|(params, _)| params.contains(&id)) {
+                    let duration = routine_storage.and_then(|(params, _)| params.get(&id));
+                    if duration.is_none() {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} address fragment references a parameter outside its owning routine"
+                        )));
+                    } else if duration == Some(&NirStorageDuration::Automatic) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} load-time address fragment targets automatic parameter storage"
                         )));
                     }
                 }
                 NirDataAddressTarget::Storage(NirStorageId::Local(id)) => {
-                    if !routine_storage.is_some_and(|(_, locals)| locals.contains(&id)) {
+                    let duration = routine_storage.and_then(|(_, locals)| locals.get(&id));
+                    if duration.is_none() {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} address fragment references a local outside its owning routine"
+                        )));
+                    } else if duration == Some(&NirStorageDuration::Automatic) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} load-time address fragment targets automatic local storage"
                         )));
                     }
                 }
@@ -2629,12 +2717,12 @@ impl NirVerifier {
                 .locals
                 .iter()
                 .find(|local| local.id == id)
-                .map(|local| local.ty.width),
+                .map(|local| Some(local.layout.size)),
             NirMemoryRegionKind::Storage(NirStorageId::Param(id)) => routine
                 .params
                 .iter()
                 .find(|param| param.id == id)
-                .map(|param| param.ty.width),
+                .map(|param| Some(param.layout.size)),
             NirMemoryRegionKind::Storage(NirStorageId::Global(id)) => {
                 Some(self.global_sizes.get(&id).copied())
             }

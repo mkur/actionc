@@ -21,7 +21,7 @@ pub use crate::target::{
 };
 pub use analysis::storage::{
     NirProgramStorageAnalysis, NirPromotionBlocker, NirRoutineStorageAnalysis,
-    NirStorageBackingClass, NirStorageFacts, analyze_program_storage,
+    NirStorageBackingClass, NirStorageFacts, NirStorageIdentityDomain, analyze_program_storage,
 };
 pub use facts::{
     BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, RoutineId,

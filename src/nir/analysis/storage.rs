@@ -6,7 +6,8 @@ use crate::nir::facts::{NirStorageId, root_storage_id};
 use crate::nir::{
     BlockId, NirGlobal, NirGlobalBacking, NirLocalBacking, NirMachineAtom, NirMachineItem,
     NirMemoryAccess, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirPlace, NirProgram, NirRealOp,
-    NirRealSource, NirRoutine, NirStorageClass, NirStorageInit, NirType, NirTypeKind,
+    NirRealSource, NirRoutine, NirStorageClass, NirStorageDuration, NirStorageInit, NirType,
+    NirTypeKind, RoutineId,
 };
 use crate::target::{ByteOffset, ByteSize};
 
@@ -15,6 +16,19 @@ pub enum NirStorageBackingClass {
     Ordinary,
     Absolute,
     Alias,
+}
+
+/// Domain in which a `NirStorageId` denotes one concrete object.
+///
+/// In particular, an invocation-relative local ID denotes a different object
+/// in every live activation. This remains an abstract identity rule: it does
+/// not select a stack, frame pointer, register, or static address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirStorageIdentityDomain {
+    Program,
+    Routine(RoutineId),
+    Invocation(RoutineId),
+    External,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -27,6 +41,7 @@ pub enum NirPromotionBlocker {
     AliasedStorage,
     InitializedStorage,
     AddressTaken,
+    AddressRequired,
     MachineVisibility,
     ReadBeforeDefinition,
     NoDirectAccess,
@@ -34,7 +49,7 @@ pub enum NirPromotionBlocker {
 }
 
 impl NirPromotionBlocker {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::GlobalStorage,
         Self::NonScalarStorage,
         Self::UnsupportedType,
@@ -43,6 +58,7 @@ impl NirPromotionBlocker {
         Self::AliasedStorage,
         Self::InitializedStorage,
         Self::AddressTaken,
+        Self::AddressRequired,
         Self::MachineVisibility,
         Self::ReadBeforeDefinition,
         Self::NoDirectAccess,
@@ -59,6 +75,7 @@ impl NirPromotionBlocker {
             Self::AliasedStorage => "aliased_storage",
             Self::InitializedStorage => "initialized_storage",
             Self::AddressTaken => "address_taken",
+            Self::AddressRequired => "address_required",
             Self::MachineVisibility => "machine_visibility",
             Self::ReadBeforeDefinition => "read_before_definition",
             Self::NoDirectAccess => "no_direct_access",
@@ -77,12 +94,17 @@ pub struct NirStorageFacts {
     pub storage_class: Option<NirStorageClass>,
     pub duration: Option<crate::nir::NirStorageDuration>,
     pub layout: Option<crate::nir::NirObjectLayout>,
+    pub identity_domain: NirStorageIdentityDomain,
+    /// Aliases share this target's object identity rather than creating a new
+    /// object in `identity_domain`.
+    pub alias_target: Option<NirStorageId>,
     pub backing: NirStorageBackingClass,
     pub load_blocks: BTreeSet<BlockId>,
     pub store_blocks: BTreeSet<BlockId>,
     pub direct_loads: usize,
     pub direct_stores: usize,
     pub address_taken: bool,
+    pub address_required: bool,
     pub possible_read_before_definition: bool,
     pub value_needed_at_exit: bool,
     pub machine_visible: bool,
@@ -94,6 +116,14 @@ pub struct NirStorageFacts {
 impl NirStorageFacts {
     pub fn is_promotable(&self) -> bool {
         self.blockers.is_empty()
+    }
+
+    pub fn is_invocation_relative(&self) -> bool {
+        matches!(self.identity_domain, NirStorageIdentityDomain::Invocation(_))
+    }
+
+    pub fn requires_addressable_home(&self) -> bool {
+        self.address_required
     }
 
     /// Whether exact load values may be cached while effect barriers remain in
@@ -193,6 +223,8 @@ fn analyze_routine_storage(
                 Some(param.storage),
                 Some(param.duration),
                 Some(param.layout),
+                duration_identity_domain(param.duration, routine.id),
+                None,
                 NirStorageBackingClass::Ordinary,
                 false,
             ),
@@ -200,12 +232,27 @@ fn analyze_routine_storage(
     }
     for local in &routine.locals {
         let id = NirStorageId::Local(local.id);
-        let backing = match local.backing {
-            NirLocalBacking::Ordinary => NirStorageBackingClass::Ordinary,
-            NirLocalBacking::Absolute(_) => NirStorageBackingClass::Absolute,
-            NirLocalBacking::Alias { .. } | NirLocalBacking::GlobalAlias { .. } => {
-                NirStorageBackingClass::Alias
-            }
+        let (backing, identity_domain, alias_target) = match local.backing {
+            NirLocalBacking::Ordinary => (
+                NirStorageBackingClass::Ordinary,
+                duration_identity_domain(local.duration, routine.id),
+                None,
+            ),
+            NirLocalBacking::Absolute(_) => (
+                NirStorageBackingClass::Absolute,
+                NirStorageIdentityDomain::External,
+                None,
+            ),
+            NirLocalBacking::Alias { target, .. } => (
+                NirStorageBackingClass::Alias,
+                duration_identity_domain(local.duration, routine.id),
+                Some(NirStorageId::Local(target)),
+            ),
+            NirLocalBacking::GlobalAlias { target, .. } => (
+                NirStorageBackingClass::Alias,
+                NirStorageIdentityDomain::External,
+                Some(NirStorageId::Global(target)),
+            ),
         };
         homes.insert(
             id,
@@ -216,6 +263,8 @@ fn analyze_routine_storage(
                 Some(local.storage),
                 Some(local.duration),
                 Some(local.layout),
+                identity_domain,
+                alias_target,
                 backing,
                 local.init.is_some(),
             ),
@@ -226,6 +275,7 @@ fn analyze_routine_storage(
             && let Some(target) = homes.get_mut(&NirStorageId::Local(target))
         {
             target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+            target.address_required = true;
         }
     }
 
@@ -237,6 +287,7 @@ fn analyze_routine_storage(
         NirStorageId::Global(id) => Some(*id),
         NirStorageId::Local(_) | NirStorageId::Param(_) => None,
     }));
+    let mut has_conservative_escape_barrier = false;
     for block in &routine.blocks {
         if !cfg.reachable().contains(&block.id) {
             continue;
@@ -291,6 +342,7 @@ fn analyze_routine_storage(
             && let Some(target) = homes.get_mut(&NirStorageId::Global(target))
         {
             target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+            target.address_required = true;
         }
     }
     for global in globals.values() {
@@ -298,11 +350,13 @@ fn analyze_routine_storage(
             && let Some(target) = homes.get_mut(&NirStorageId::Global(*target))
         {
             target.blockers.insert(NirPromotionBlocker::AliasedStorage);
+            target.address_required = true;
         }
     }
     for id in data_address_taken {
         if let Some(facts) = homes.get_mut(id) {
             facts.address_taken = true;
+            facts.address_required = true;
         }
     }
 
@@ -343,6 +397,8 @@ fn analyze_routine_storage(
                     if let Some(ty) = &destination.ty {
                         record_direct_access(&mut homes, block.id, destination, ty, false);
                     }
+                    mark_address_required(&mut homes, source, false);
+                    mark_address_required(&mut homes, destination, false);
                     if *source_volatile {
                         mark_volatile_access(&mut homes, source);
                     }
@@ -351,13 +407,14 @@ fn analyze_routine_storage(
                     }
                 }
                 NirOp::AddrOf { place, .. } => {
-                    if let Some(id) = root_storage_id(place)
-                        && let Some(facts) = homes.get_mut(&id)
-                    {
-                        facts.address_taken = true;
-                    }
+                    mark_address_required(&mut homes, place, true);
                 }
-                NirOp::Call { effects, .. } => {
+                NirOp::Call {
+                    callee, effects, ..
+                } => {
+                    has_conservative_escape_barrier |= effects.opaque
+                        || effects.may_call_external
+                        || matches!(callee, crate::nir::NirCallee::Indirect { .. });
                     for facts in homes.values_mut() {
                         facts.calls_may_read |=
                             memory_accesses_storage(&effects.memory.reads, facts.id, facts.width);
@@ -366,9 +423,11 @@ fn analyze_routine_storage(
                     }
                 }
                 NirOp::ForeignCode { code, effects } => {
+                    has_conservative_escape_barrier |= effects.opaque || effects.may_call_external;
                     if effects.opaque {
                         for facts in homes.values_mut() {
                             facts.machine_visible = true;
+                            facts.address_required = true;
                         }
                     } else {
                         match &code.payload {
@@ -378,6 +437,18 @@ fn analyze_routine_storage(
                                         && let Some(facts) = homes.get_mut(id)
                                     {
                                         facts.machine_visible = true;
+                                        facts.address_required = true;
+                                    }
+                                }
+                                for item in items {
+                                    if let NirMachineItem::Relocation {
+                                        target: crate::nir::NirForeignCodeTarget::Storage(id),
+                                        ..
+                                    } = item
+                                        && let Some(facts) = homes.get_mut(id)
+                                    {
+                                        facts.machine_visible = true;
+                                        facts.address_required = true;
                                     }
                                 }
                             }
@@ -388,6 +459,7 @@ fn analyze_routine_storage(
                                         && let Some(facts) = homes.get_mut(&id)
                                     {
                                         facts.machine_visible = true;
+                                        facts.address_required = true;
                                         facts.calls_may_read |= memory_accesses_storage(
                                             &effects.memory.reads,
                                             facts.id,
@@ -407,6 +479,7 @@ fn analyze_routine_storage(
                 NirOp::Real(_) => {
                     for facts in homes.values_mut() {
                         facts.machine_visible = true;
+                        facts.address_required = true;
                         facts.calls_may_read = true;
                         facts.calls_may_write = true;
                     }
@@ -422,6 +495,14 @@ fn analyze_routine_storage(
     }
 
     mark_read_before_definition(routine, &cfg, &mut homes);
+    if has_conservative_escape_barrier {
+        for facts in homes.values_mut() {
+            if facts.is_invocation_relative() && facts.address_required {
+                facts.calls_may_read = true;
+                facts.calls_may_write = true;
+            }
+        }
+    }
     for facts in homes.values_mut() {
         facts.value_needed_at_exit = match facts.id {
             NirStorageId::Local(_) => {
@@ -431,6 +512,11 @@ fn analyze_routine_storage(
         };
         if facts.address_taken {
             facts.blockers.insert(NirPromotionBlocker::AddressTaken);
+        }
+        if facts.address_required {
+            facts
+                .blockers
+                .insert(NirPromotionBlocker::AddressRequired);
         }
         if facts.machine_visible {
             facts
@@ -513,6 +599,8 @@ fn new_facts(
     storage_class: Option<NirStorageClass>,
     duration: Option<crate::nir::NirStorageDuration>,
     layout: Option<crate::nir::NirObjectLayout>,
+    identity_domain: NirStorageIdentityDomain,
+    alias_target: Option<NirStorageId>,
     backing: NirStorageBackingClass,
     initialized: bool,
 ) -> NirStorageFacts {
@@ -545,12 +633,15 @@ fn new_facts(
         storage_class,
         duration,
         layout,
+        identity_domain,
+        alias_target,
         backing,
         load_blocks: BTreeSet::new(),
         store_blocks: BTreeSet::new(),
         direct_loads: 0,
         direct_stores: 0,
         address_taken: false,
+        address_required: false,
         possible_read_before_definition: false,
         value_needed_at_exit: false,
         machine_visible: false,
@@ -577,6 +668,14 @@ fn global_facts(global: &NirGlobal) -> NirStorageFacts {
         NirGlobalBacking::Absolute(_) => NirStorageBackingClass::Absolute,
         NirGlobalBacking::Alias { .. } => NirStorageBackingClass::Alias,
     };
+    let (identity_domain, alias_target) = match global.backing {
+        NirGlobalBacking::Ordinary => (NirStorageIdentityDomain::Program, None),
+        NirGlobalBacking::Absolute(_) => (NirStorageIdentityDomain::External, None),
+        NirGlobalBacking::Alias { target, .. } => (
+            NirStorageIdentityDomain::Program,
+            Some(NirStorageId::Global(target)),
+        ),
+    };
     let mut facts = new_facts(
         NirStorageId::Global(global.id),
         global.name.clone(),
@@ -584,11 +683,24 @@ fn global_facts(global: &NirGlobal) -> NirStorageFacts {
         storage_class,
         None,
         None,
+        identity_domain,
+        alias_target,
         backing,
         global.init.is_some(),
     );
     facts.blockers.insert(NirPromotionBlocker::GlobalStorage);
     facts
+}
+
+fn duration_identity_domain(
+    duration: NirStorageDuration,
+    routine: RoutineId,
+) -> NirStorageIdentityDomain {
+    match duration {
+        NirStorageDuration::Automatic => NirStorageIdentityDomain::Invocation(routine),
+        NirStorageDuration::RoutineStatic => NirStorageIdentityDomain::Routine(routine),
+        NirStorageDuration::External => NirStorageIdentityDomain::External,
+    }
 }
 
 fn supported_scalar_type(ty: &NirType) -> bool {
@@ -677,6 +789,20 @@ fn mark_volatile_access(homes: &mut BTreeMap<NirStorageId, NirStorageFacts>, pla
         // Reuse the existing conservative promotion boundary: volatile homes
         // must remain observable memory just like machine-visible storage.
         facts.machine_visible = true;
+        facts.address_required = true;
+    }
+}
+
+fn mark_address_required(
+    homes: &mut BTreeMap<NirStorageId, NirStorageFacts>,
+    place: &NirPlace,
+    address_taken: bool,
+) {
+    if let Some(id) = root_storage_id(place)
+        && let Some(facts) = homes.get_mut(&id)
+    {
+        facts.address_required = true;
+        facts.address_taken |= address_taken;
     }
 }
 
@@ -914,9 +1040,11 @@ fn real_destinations(op: &NirRealOp) -> impl Iterator<Item = &NirPlace> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::foreign::{ForeignRelocationEncoding, ForeignSymbolUse};
     use crate::nir::{
-        LocalId, NirBlock, NirForeignCode, NirForeignCodeKind, NirForeignCodePayload, NirLocal,
-        NirLocalPurpose, NirMachineEffects, NirMemoryEffects, NirParam, NirPlaceKind,
+        LocalId, NirBlock, NirCallConvention, NirCallEffects, NirCallee, NirForeignCode,
+        NirForeignCodeKind, NirForeignCodePayload, NirForeignRelocation, NirLocal, NirLocalPurpose,
+        NirMachineEffects, NirMemoryEffects, NirParam, NirPlaceKind, NirStorageDuration,
         NirStorageInit, NirTerminator, NirValue, ParamId, TempId,
     };
 
@@ -941,6 +1069,13 @@ mod tests {
             ty: byte_type(),
             backing: NirLocalBacking::Ordinary,
             init: None,
+        }
+    }
+
+    fn automatic_local(id: u32, name: &str) -> NirLocal {
+        NirLocal {
+            duration: NirStorageDuration::Automatic,
+            ..local(id, name)
         }
     }
 
@@ -989,6 +1124,167 @@ mod tests {
             statics: Vec::new(),
             routines: vec![routine],
         }
+    }
+
+    fn native_program(routine: NirRoutine) -> NirProgram {
+        NirProgram {
+            target_layout: crate::target::TargetLayout::motorola_68000(),
+            runtime_bindings: Vec::new(),
+            globals: Vec::new(),
+            statics: Vec::new(),
+            routines: vec![routine],
+        }
+    }
+
+    #[test]
+    fn automatic_storage_identity_is_scoped_to_an_invocation() {
+        let mut alias = automatic_local(1, "alias");
+        alias.backing = NirLocalBacking::Alias {
+            target: LocalId(0),
+            target_name: "value".to_string(),
+            offset: ByteOffset::ZERO,
+        };
+        let routine = NirRoutine {
+            id: RoutineId(7),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: NirCallConvention::TargetPublic,
+            activation: crate::nir::NirActivationModel::NativeReentrant,
+            entry: crate::nir::NirRoutineEntry::default(),
+            name: "Recursive".to_string(),
+            params: Vec::new(),
+            locals: vec![automatic_local(0, "value"), alias],
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![block(0, "entry", Vec::new(), NirTerminator::Return(None))],
+        };
+
+        let analysis = analyze_program_storage(&native_program(routine));
+        let routine = analysis.routine("Recursive").expect("routine storage");
+        let value = routine.storage_by_name("value").expect("value facts");
+        let alias = routine.storage_by_name("alias").expect("alias facts");
+        assert_eq!(
+            value.identity_domain,
+            NirStorageIdentityDomain::Invocation(RoutineId(7))
+        );
+        assert!(value.is_invocation_relative());
+        assert_eq!(alias.identity_domain, value.identity_domain);
+        assert_eq!(alias.alias_target, Some(NirStorageId::Local(LocalId(0))));
+    }
+
+    #[test]
+    fn address_operations_and_foreign_metadata_keep_automatic_homes_addressable() {
+        let pointer_ty = NirType {
+            kind: NirTypeKind::Pointer {
+                pointee: Some(Box::new(NirTypeKind::U8)),
+                address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+            },
+            summary: "Byte*".to_string(),
+            width: Some(ByteSize::new(4)),
+            pointer: true,
+        };
+        let code = NirForeignCode {
+            target: crate::target::TargetId::Motorola68000,
+            kind: NirForeignCodeKind::InlineAssembly,
+            payload: NirForeignCodePayload::Bytes {
+                bytes: vec![0; 4],
+                relocations: vec![NirForeignRelocation {
+                    offset: ByteOffset::ZERO,
+                    encoding: ForeignRelocationEncoding::Address {
+                        width: ByteSize::new(4),
+                    },
+                    target: crate::nir::NirForeignCodeTarget::Storage(NirStorageId::Local(
+                        LocalId(2),
+                    )),
+                    addend: 0,
+                    required_address_bits: Some(32),
+                    symbol_use: ForeignSymbolUse::Address,
+                    span: crate::source::Span::new(0, 0),
+                }],
+            },
+            source: String::new(),
+            span: crate::source::Span::new(0, 0),
+        };
+        let routine = NirRoutine {
+            id: RoutineId(0),
+            signature: crate::nir::NirCallableSignature::default(),
+            convention: NirCallConvention::TargetPublic,
+            activation: crate::nir::NirActivationModel::NativeReentrant,
+            entry: crate::nir::NirRoutineEntry::default(),
+            name: "Addressable".to_string(),
+            params: Vec::new(),
+            locals: (0..5)
+                .map(|id| automatic_local(id, &format!("v{id}")))
+                .collect(),
+            temps: Vec::new(),
+            notes: Vec::new(),
+            blocks: vec![block(
+                0,
+                "entry",
+                vec![
+                    NirOp::CopyBytes {
+                        destination: local_place(4, "v4"),
+                        source: local_place(0, "v0"),
+                        size: ByteSize::ONE,
+                        destination_volatile: false,
+                        source_volatile: false,
+                    },
+                    NirOp::VolatileLoad {
+                        dest: TempId(0),
+                        ty: byte_type(),
+                        place: local_place(1, "v1"),
+                    },
+                    NirOp::ForeignCode {
+                        code,
+                        effects: NirMachineEffects {
+                            memory: NirMemoryEffects {
+                                reads: NirMemoryAccess::None,
+                                writes: NirMemoryAccess::None,
+                            },
+                            may_call_external: true,
+                            opaque: false,
+                        },
+                    },
+                    NirOp::AddrOf {
+                        dest: TempId(1),
+                        ty: pointer_ty,
+                        place: local_place(3, "v3"),
+                    },
+                    NirOp::Call {
+                        callee: NirCallee::Builtin("External".to_string()),
+                        args: Vec::new(),
+                        result: None,
+                        signature: Some(crate::nir::NirCallableSignature::empty_proc(
+                            NirCallConvention::Runtime,
+                        )),
+                        effects: NirCallEffects {
+                            memory: NirMemoryEffects {
+                                reads: NirMemoryAccess::None,
+                                writes: NirMemoryAccess::None,
+                            },
+                            may_call_external: true,
+                            opaque: false,
+                        },
+                    },
+                ],
+                NirTerminator::Return(None),
+            )],
+        };
+
+        let analysis = analyze_program_storage(&native_program(routine));
+        let routine = analysis.routine("Addressable").expect("routine storage");
+        for name in ["v0", "v1", "v2", "v3", "v4"] {
+            let facts = routine.storage_by_name(name).expect("local facts");
+            assert!(facts.requires_addressable_home(), "{name}");
+            assert!(
+                facts
+                    .blockers
+                    .contains(&NirPromotionBlocker::AddressRequired),
+                "{name}"
+            );
+            assert!(facts.calls_may_read && facts.calls_may_write, "{name}");
+        }
+        assert!(routine.storage_by_name("v2").unwrap().machine_visible);
+        assert!(routine.storage_by_name("v3").unwrap().address_taken);
     }
 
     #[test]

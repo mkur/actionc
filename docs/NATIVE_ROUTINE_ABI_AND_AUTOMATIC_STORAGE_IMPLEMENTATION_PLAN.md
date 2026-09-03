@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 2 were implemented and verified on
+Status: in progress. Slices 0 through 3 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -409,6 +409,20 @@ semir: resolve native activation and local storage duration
 ```
 
 ### Slice 3: verifier-clean automatic objects
+
+Status: complete. Storage analysis now records whether an identity belongs to
+the program, one routine-wide cell, one dynamic invocation, or external
+storage. Alias facts name their target identity, and address-taking, aggregate
+copies, volatile access, resolved foreign-code references, REAL operations,
+and aliases keep the affected object addressable. Calls, indirect calls, and
+foreign code remain conservative when an automatic object's address can
+escape. The verifier rejects load-time address fragments targeting automatic
+storage, malformed alias targets/cycles, independently initialized non-owning
+aliases, and effect regions outside final object layouts. Action! aliases remain
+address-based views and may deliberately extend into adjacent declared storage;
+they are not required to fit within the named target object's extent. These are
+abstract storage guarantees only; entry initialization and physical frame
+placement remain later slices.
 
 1. Teach NIR storage analysis that automatic identity is invocation-relative.
 2. Verify size, alignment, alias-duration, and activation-model consistency.

@@ -165,10 +165,13 @@ storage duration. Verifier-clean NIR now carries:
 - final target-selected size and alignment for every local cell, descriptor,
   parameter, and aggregate backing object.
 
-The remaining automatic-storage migration must add explicit entry-time
-initialization operations and make storage/effect analysis invocation-aware
-for recursion and escape. Aliases already inherit the duration of their
-resolved local target; global and absolute views remain external storage.
+Storage analysis interprets an automatic `LocalId` or `ParamId` in the owning
+routine's current invocation, while classic storage identities remain
+routine-wide. Alias facts retain their target identity and its duration.
+Address-taking, aggregate copies, volatile operations, foreign-code metadata,
+and opaque escape barriers keep affected automatic objects addressable. The
+remaining automatic-storage migration must add explicit entry-time
+initialization operations.
 
 NIR does not assign a stack offset. MIR68K and MIR65816 independently select
 register homes, frame objects, stack or software-frame layouts, prologues,
@@ -180,7 +183,9 @@ because its address escapes.
 The executable NIR now carries structured routine IDs, callable signatures,
 call-convention identities, entry classifications, activation models, storage
 durations, and final object layouts. It describes automatic storage without
-choosing stack offsets or registers. The complete sliced migration is specified in
+choosing stack offsets or registers. The verifier rejects load-time
+relocations to automatic storage as well as malformed alias duration, target,
+cycle, and ownership facts. The complete sliced migration is specified in
 [`NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md`](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md).
 
 The detailed migration order is recorded in
@@ -921,6 +926,9 @@ Rules:
   low/high relocations.
 - A storage address fragment names the source-level object's data address. For an
   array this is its element backing, not an implementation descriptor cell.
+- Load-time images may address routine-static or external storage, but may not
+  contain a relocation to an invocation-relative automatic object. Native
+  per-entry address construction belongs in executable initialization NIR.
 - Fragment ranges must fit within the image and must not overlap.
 - Fragment placeholder bytes must be zero, and total image extents must fit
   the NIR `ByteSize` storage model. Global, descriptor-backing, and local-backing image

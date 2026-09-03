@@ -3,12 +3,15 @@ use std::path::Path;
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, MirCallTarget, MirOp, MirRoutineAbi, MirStorageBase, RoutineId};
 use actionc::nir::{
-    self, NirActivationModel, NirCallConvention, NirCallee, NirLocalBacking, NirObjectLayout,
-    NirOp, NirRoutinePlacement, NirStorageDuration, NirStorageInit, NirTypeKind,
+    self, LocalId, NirActivationModel, NirCallConvention, NirCallEffects, NirCallee,
+    NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage, NirLocalBacking,
+    NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirObjectLayout, NirOp,
+    NirRoutinePlacement, NirStorageDuration, NirStorageId, NirStorageIdentityDomain,
+    NirStorageInit, NirTypeKind,
 };
 use actionc::semantic::ir::{SemActivationModel, SemItem};
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
-use actionc::target::{ByteSize, TargetId};
+use actionc::target::{ByteOffset, ByteSize, TargetId};
 
 fn classic_baseline() -> nir::NirProgram {
     fixture_for_target(
@@ -159,6 +162,32 @@ fn target_profiles_select_activation_duration_and_final_object_layouts() {
                 .is_some_and(|count| *count > 0),
             "{target}"
         );
+
+        let storage = nir::analyze_program_storage(&program);
+        let storage = storage.routine("Worker").expect("Worker storage analysis");
+        let expected_domain = match activation {
+            NirActivationModel::ClassicStatic => NirStorageIdentityDomain::Routine(worker.id),
+            NirActivationModel::NativeReentrant => {
+                NirStorageIdentityDomain::Invocation(worker.id)
+            }
+        };
+        assert_eq!(
+            storage.storage_by_name("local").unwrap().identity_domain,
+            expected_domain,
+            "{target}"
+        );
+        assert_eq!(
+            storage.storage_by_name("alias").unwrap().identity_domain,
+            expected_domain,
+            "{target}"
+        );
+        for name in ["globalAlias", "absolute", "externalAlias"] {
+            assert_eq!(
+                storage.storage_by_name(name).unwrap().identity_domain,
+                NirStorageIdentityDomain::External,
+                "{name} for {target}"
+            );
+        }
     }
 }
 
@@ -200,6 +229,210 @@ fn verifier_rejects_inconsistent_activation_duration_and_layout_facts() {
         diagnostic
             .message
             .contains("alignment must be a nonzero power of two")
+    }));
+}
+
+#[test]
+fn verifier_rejects_load_time_relocations_to_automatic_storage() {
+    let mut program = fixture_for_target(
+        Path::new("fixtures/nir/activation_storage.act"),
+        TargetId::Motorola68000,
+    );
+    let pointer = program.target_layout.data_pointer;
+    let worker = program
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Worker")
+        .expect("Worker routine");
+    let target = worker
+        .locals
+        .iter()
+        .find(|local| local.name == "local")
+        .expect("automatic target")
+        .id;
+    let owner = worker
+        .locals
+        .iter_mut()
+        .find(|local| local.name == "pair")
+        .expect("initialized owner");
+    owner.init = Some(NirStorageInit::Bytes {
+        image: NirDataImage {
+            bytes: vec![0; usize::from(pointer.size_bytes)],
+            fragments: vec![NirDataFragment::Address {
+                offset: ByteOffset::ZERO,
+                encoding: NirDataAddressEncoding::Pointer {
+                    address_space: pointer.address_space,
+                    width: pointer.size_bytes,
+                },
+                target: NirDataAddressTarget::Storage(NirStorageId::Local(target)),
+                addend: 0,
+                span: actionc::source::Span::new(0, 0),
+            }],
+        },
+        zero_fill: ByteSize::ZERO,
+        mutable: true,
+        section: "local".to_string(),
+    });
+
+    let diagnostics = nir::verify_program(&program).expect_err("automatic load-time relocation");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("load-time address fragment targets automatic local storage")
+    }));
+}
+
+#[test]
+fn verifier_rejects_invalid_non_owning_local_storage() {
+    let mut missing_target = fixture_for_target(
+        Path::new("fixtures/nir/activation_storage.act"),
+        TargetId::Motorola68000,
+    );
+    let alias = missing_target
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Worker")
+        .and_then(|routine| routine.locals.iter_mut().find(|local| local.name == "alias"))
+        .expect("local alias");
+    let NirLocalBacking::Alias { target, .. } = &mut alias.backing else {
+        panic!("expected local alias")
+    };
+    *target = LocalId(999);
+    let diagnostics = nir::verify_program(&missing_target).expect_err("missing alias target");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("references missing local id 999")
+    }));
+
+    let mut independently_initialized = fixture_for_target(
+        Path::new("fixtures/nir/activation_storage.act"),
+        TargetId::Motorola68000,
+    );
+    let external = independently_initialized
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Worker")
+        .and_then(|routine| {
+            routine
+                .locals
+                .iter_mut()
+                .find(|local| local.name == "globalAlias")
+        })
+        .expect("global alias");
+    external.init = Some(NirStorageInit::ZeroFill {
+        bytes: ByteSize::ONE,
+        mutable: true,
+        section: "local".to_string(),
+    });
+    let diagnostics =
+        nir::verify_program(&independently_initialized).expect_err("external alias init");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("cannot have independent storage initialization")
+    }));
+
+    let mut cyclic_aliases = fixture_for_target(
+        Path::new("fixtures/nir/activation_storage.act"),
+        TargetId::Motorola68000,
+    );
+    let worker = cyclic_aliases
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Worker")
+        .expect("Worker routine");
+    let alias_id = worker
+        .locals
+        .iter()
+        .find(|local| local.name == "alias")
+        .expect("alias")
+        .id;
+    let external_alias = worker
+        .locals
+        .iter_mut()
+        .find(|local| local.name == "externalAlias")
+        .expect("external alias");
+    external_alias.duration = NirStorageDuration::Automatic;
+    external_alias.backing = NirLocalBacking::Alias {
+        target: alias_id,
+        target_name: "alias".to_string(),
+        offset: ByteOffset::ZERO,
+    };
+    let external_alias_id = external_alias.id;
+    let alias = worker
+        .locals
+        .iter_mut()
+        .find(|local| local.id == alias_id)
+        .expect("alias");
+    let NirLocalBacking::Alias { target, .. } = &mut alias.backing else {
+        unreachable!()
+    };
+    *target = external_alias_id;
+    let diagnostics = nir::verify_program(&cyclic_aliases).expect_err("alias cycle");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.message.contains("participates in an alias cycle")
+    }));
+}
+
+#[test]
+fn effect_regions_use_object_layout_not_element_type_width() {
+    let mut program = fixture_for_target(
+        Path::new("fixtures/nir/activation_storage.act"),
+        TargetId::Motorola68000,
+    );
+    {
+        let worker = program
+            .routines
+            .iter_mut()
+            .find(|routine| routine.name == "Worker")
+            .expect("Worker routine");
+        let bytes = worker
+            .locals
+            .iter()
+            .find(|local| local.name == "bytes")
+            .expect("array local")
+            .id;
+        worker.blocks[0].ops.push(NirOp::Call {
+            callee: NirCallee::Builtin("ObserveLastByte".to_string()),
+            args: Vec::new(),
+            result: None,
+            signature: Some(nir::NirCallableSignature::empty_proc(
+                NirCallConvention::Runtime,
+            )),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::Regions(vec![NirMemoryRegion {
+                        kind: NirMemoryRegionKind::Storage(NirStorageId::Local(bytes)),
+                        offset: ByteOffset::new(3),
+                        size: ByteSize::ONE,
+                    }]),
+                    writes: NirMemoryAccess::None,
+                },
+                may_call_external: false,
+                opaque: false,
+            },
+        });
+    }
+    nir::verify_program(&program).expect("effect within four-byte local object");
+
+    let worker = program
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Worker")
+        .expect("Worker routine");
+    let NirOp::Call { effects, .. } = worker.blocks[0].ops.last_mut().expect("inserted call") else {
+        unreachable!()
+    };
+    let NirMemoryAccess::Regions(regions) = &mut effects.memory.reads else {
+        unreachable!()
+    };
+    regions[0].offset = ByteOffset::new(4);
+    let diagnostics = nir::verify_program(&program).expect_err("effect past local object");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("exceeds storage size 4")
     }));
 }
 
