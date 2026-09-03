@@ -199,6 +199,7 @@ mod tests {
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
+            activation: crate::nir::NirActivationModel::ClassicStatic,
             entry: crate::nir::NirRoutineEntry::default(),
             name: "Main".to_string(),
             params: Vec::new(),

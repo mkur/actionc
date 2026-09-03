@@ -271,6 +271,7 @@ pub struct SemRecordField {
 pub struct SemType {
     pub value: ValueType,
     pub width: Option<u16>,
+    pub alignment: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -286,13 +287,18 @@ pub struct SemTypeFacts {
 
 impl SemType {
     pub fn new(value: ValueType) -> Self {
-        Self { value, width: None }
+        Self {
+            value,
+            width: None,
+            alignment: None,
+        }
     }
 
     pub fn with_width(value: ValueType, width: u16) -> Self {
         Self {
             value,
             width: Some(width),
+            alignment: None,
         }
     }
 }
@@ -333,6 +339,7 @@ pub struct SemRoutine {
     pub is_external: bool,
     pub signature: SemRoutineSignature,
     pub callable_type: CallableType,
+    pub activation: SemActivationModel,
     pub params: Vec<SemParam>,
     pub locals: Vec<SemDeclaration>,
     pub constants: Vec<SemConst>,
@@ -342,6 +349,23 @@ pub struct SemRoutine {
     pub effects: SemEffects,
     pub control_flow: SemControlFlow,
     pub span: Span,
+}
+
+/// Source-level routine activation selected by semantic target layout. It is
+/// deliberately independent of any target stack or register strategy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemActivationModel {
+    ClassicStatic,
+    NativeReentrant,
+}
+
+impl From<crate::target::RoutineActivationModel> for SemActivationModel {
+    fn from(value: crate::target::RoutineActivationModel) -> Self {
+        match value {
+            crate::target::RoutineActivationModel::ClassicStatic => Self::ClassicStatic,
+            crate::target::RoutineActivationModel::NativeReentrant => Self::NativeReentrant,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2193,6 +2217,7 @@ impl<'a> IrBuilder<'a> {
             if !resident {
                 return false;
             }
+            routine.activation = self.model.target_layout.routine_activation.into();
             symbol.name = public_name.to_string();
             symbol.canonical_qualified_key = format!("sys::{}", public_name.to_ascii_lowercase());
             symbol.qualified_name = format!("SYS.{public_name}");
@@ -2682,6 +2707,7 @@ impl<'a> IrBuilder<'a> {
                 } else {
                     SemDeclarationStorage::Scalar
                 };
+                let alignment = self.value_storage_alignment(&field_value);
                 lowered.push(SemRecordField {
                     id: descriptor.as_ref().map(|(id, _, _)| *id),
                     owner: Some(owner),
@@ -2690,6 +2716,7 @@ impl<'a> IrBuilder<'a> {
                     ty: SemType {
                         value: field_value,
                         width,
+                        alignment,
                     },
                     storage,
                     offset: descriptor
@@ -2775,6 +2802,7 @@ impl<'a> IrBuilder<'a> {
         SemRoutine {
             is_external: routine.is_external,
             callable_type: signature.callable_type(),
+            activation: self.model.target_layout.routine_activation.into(),
             signature,
             params,
             locals: routine
@@ -4358,10 +4386,18 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn sem_type_from_symbol(&self, symbol: &SemSymbolRef) -> SemType {
+        let value = symbol.ty.clone().unwrap_or_else(byte_type);
         SemType {
-            value: symbol.ty.clone().unwrap_or_else(byte_type),
-            width: symbol.ty.as_ref().and_then(value_width),
+            width: self.value_storage_width(&value),
+            alignment: self.value_storage_alignment(&value),
+            value,
         }
+    }
+
+    fn value_storage_alignment(&self, value: &ValueType) -> Option<u16> {
+        self.model
+            .layout
+            .value_alignment(value, self.model.target_layout)
     }
 
     fn collect_numeric_defines(
@@ -4960,14 +4996,6 @@ mod module_link_name_tests {
             module_link_name("LIB.A_B.C", "lib.a_b.c", &SymbolClass::Var)
         );
     }
-}
-
-fn value_width(value: &ValueType) -> Option<u16> {
-    if value.pointer {
-        return Some(2);
-    }
-
-    value.scalar_width_bytes()
 }
 
 fn array_decay_pointer_types_compatible(expected: &ValueType, actual: &ValueType) -> bool {

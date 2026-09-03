@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 and 1 were implemented and verified on
+Status: in progress. Slices 0 through 2 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -376,6 +376,17 @@ nir: replace string call ABI with structured routine conventions
 ```
 
 ### Slice 2: activation and storage-duration facts
+
+Status: complete. Target profiles now select a structured activation model,
+which SemIR resolves before NIR lowering. Parameters and stored locals carry
+explicit duration, object size, and base alignment; absolute/global aliases
+remain external, while local aliases inherit the target object's duration.
+Array descriptors and their aggregate backing objects have separate layouts.
+Focused cross-target tests and printed fixtures cover Atari, both 65816
+profiles, and 68k. The verifier enforces the new shape's basic target,
+duration, size, alignment, and alias consistency, while the invocation-aware
+analysis and relocation rules remain Slice 3 work. Atari MIR6502, maps, and
+load-format objects remain byte-identical to the Slice 0 baseline.
 
 1. Add the selected activation model to the target ABI/profile facts.
 2. Resolve it in semantic layout before NIR lowering.

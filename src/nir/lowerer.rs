@@ -9,12 +9,12 @@ use crate::resident::{ResidentVariableKind, resident_variable};
 use crate::semantic::{
     ArrayType, SymbolClass, SymbolId as SemSymbolId, ValueType, ValueTypeKind,
     ir::{
-        SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind, SemDeclaration,
-        SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind, SemForStep,
-        SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral, SemInlineAsm,
-        SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral, SemMachineSymbolRef, SemProgram,
-        SemReadEffect, SemSet, SemStaticInitializer, SemStaticInitializerValue, SemStmt,
-        SemStorageRef, SemSymbolRef, SemWriteEffect,
+        SemActivationModel, SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind,
+        SemDeclaration, SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
+        SemForStep, SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral,
+        SemInlineAsm, SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral,
+        SemMachineSymbolRef, SemProgram, SemReadEffect, SemSet, SemStaticInitializer,
+        SemStaticInitializerValue, SemStmt, SemStorageRef, SemSymbolRef, SemType, SemWriteEffect,
     },
 };
 use crate::source::source_char_byte;
@@ -155,7 +155,7 @@ impl NirLowerer {
                             id,
                             name: declaration.symbol.name.clone(),
                             kind: declaration_kind(declaration),
-                            ty: Some(NirFacts::type_from_value(&declaration.ty.value)),
+                            ty: Some(nir_type_from_sem_type(&declaration.ty, self.target_layout)),
                             storage_size: ByteSize::from(declaration_storage_size(
                                 declaration,
                                 &record_storage_sizes,
@@ -195,6 +195,7 @@ impl NirLowerer {
                         let convention = NirCallConvention::TargetPublic;
                         let signature =
                             nir_callable_signature(&routine.callable_type, convention);
+                        let activation = nir_activation_model(routine.activation);
                         let placement = match routine.system_address.as_ref() {
                             Some(address) if matches!(address.kind, SemExprKind::CurrentLocation) => {
                                 NirRoutinePlacement::CurrentLocation
@@ -221,6 +222,7 @@ impl NirLowerer {
                             self.routine_ids.clone(),
                             routine_id,
                             signature,
+                            activation,
                             entry,
                             self.routine_types.clone(),
                             self.symbol_storage_types.clone(),
@@ -233,7 +235,7 @@ impl NirLowerer {
                             self.target_layout,
                         );
                         for (index, param) in routine.params.iter().enumerate() {
-                            let ty = match param.storage {
+                            let value_ty = match param.storage {
                                 crate::semantic::ir::SemParamStorage::Value => {
                                     param.ty.value.clone()
                                 }
@@ -241,7 +243,25 @@ impl NirLowerer {
                                     crate::semantic::ValueType::pointer_to(param.ty.value.clone())
                                 }
                             };
-                            let ty = NirFacts::type_from_value(&ty);
+                            let ty = match param.storage {
+                                crate::semantic::ir::SemParamStorage::Value => {
+                                    nir_type_from_sem_type(&param.ty, self.target_layout)
+                                }
+                                crate::semantic::ir::SemParamStorage::Array => {
+                                    NirType::from_value_with_layout(&value_ty, self.target_layout)
+                                }
+                            };
+                            let layout = match param.storage {
+                                crate::semantic::ir::SemParamStorage::Value => {
+                                    sem_type_object_layout(&param.ty, self.target_layout)
+                                }
+                                crate::semantic::ir::SemParamStorage::Array => {
+                                    NirObjectLayout::new(
+                                        self.target_layout.data_pointer.size_bytes,
+                                        self.target_layout.data_pointer.alignment_bytes,
+                                    )
+                                }
+                            };
                             if matches!(param.storage, crate::semantic::ir::SemParamStorage::Array)
                             {
                                 builder
@@ -265,6 +285,8 @@ impl NirLowerer {
                                         NirStorageClass::Array
                                     }
                                 },
+                                duration: activation_storage_duration(activation),
+                                layout,
                                 ty,
                             });
                         }
@@ -320,23 +342,35 @@ impl NirLowerer {
                                     .insert(local.symbol.name.clone(), ty.clone());
                                 builder.semantic_storage_types.insert(local.symbol.id, ty);
                             }
+                            let init = declaration_local_init(
+                                local,
+                                &record_storage_sizes,
+                                &backing,
+                                &self.global_ids,
+                                &self.routine_ids,
+                                &param_ids_by_symbol,
+                                &local_ids_by_symbol,
+                                self.target_layout,
+                            );
+                            let layout = declaration_local_object_layout(
+                                local,
+                                &record_storage_sizes,
+                                address_initializer,
+                                init.as_ref(),
+                                self.target_layout,
+                            );
+                            let duration =
+                                local_storage_duration(activation, &backing, &builder.locals);
                             builder.locals.push(NirLocal {
                                 id: LocalId(index as u32),
                                 name: semantic_local_display_name(&local.symbol),
                                 kind: declaration_kind(local),
                                 purpose: NirLocalPurpose::Storage,
                                 storage: declaration_storage_class(&local.storage),
-                                ty: NirFacts::type_from_value(&local.ty.value),
-                                init: declaration_local_init(
-                                    local,
-                                    &record_storage_sizes,
-                                    &backing,
-                                    &self.global_ids,
-                                    &self.routine_ids,
-                                    &param_ids_by_symbol,
-                                    &local_ids_by_symbol,
-                                    self.target_layout,
-                                ),
+                                duration,
+                                layout,
+                                ty: nir_type_from_sem_type(&local.ty, self.target_layout),
+                                init,
                                 backing,
                             });
                             local_alias_targets.insert(
@@ -385,6 +419,7 @@ impl NirLowerer {
                     &crate::semantic::CallableType::unknown_proc(),
                     NirCallConvention::TargetPublic,
                 ),
+                nir_activation_model(program.target_layout.routine_activation.into()),
                 NirRoutineEntry::default(),
                 self.routine_types.clone(),
                 self.symbol_storage_types.clone(),
@@ -1185,6 +1220,7 @@ pub(super) struct NirBuilder {
     routine_ids: BTreeMap<String, RoutineId>,
     routine_id: RoutineId,
     signature: NirCallableSignature,
+    activation: NirActivationModel,
     entry: NirRoutineEntry,
     routine_types: BTreeMap<String, NirType>,
     symbol_storage_types: BTreeMap<String, NirType>,
@@ -1218,6 +1254,7 @@ impl NirBuilder {
         routine_ids: BTreeMap<String, RoutineId>,
         routine_id: RoutineId,
         signature: NirCallableSignature,
+        activation: NirActivationModel,
         entry: NirRoutineEntry,
         routine_types: BTreeMap<String, NirType>,
         symbol_storage_types: BTreeMap<String, NirType>,
@@ -1241,6 +1278,7 @@ impl NirBuilder {
             routine_ids,
             routine_id,
             signature,
+            activation,
             entry,
             routine_types,
             symbol_storage_types,
@@ -1277,6 +1315,7 @@ impl NirBuilder {
                 id: self.routine_id,
                 convention: self.signature.convention,
                 signature: self.signature,
+                activation: self.activation,
                 entry: self.entry,
                 name: self.name,
                 params: self.params,
@@ -1943,6 +1982,8 @@ impl NirBuilder {
             kind: "hidden REAL evaluation".to_string(),
             purpose: NirLocalPurpose::RealTemporary,
             storage: NirStorageClass::Scalar,
+            duration: activation_storage_duration(self.activation),
+            layout: NirObjectLayout::new(ByteSize::new(6), real_alignment(self.target_layout)),
             ty: ty.clone(),
             backing: NirLocalBacking::Ordinary,
             init: None,
@@ -3589,6 +3630,113 @@ fn declaration_storage_class(storage: &SemDeclarationStorage) -> NirStorageClass
     }
 }
 
+fn nir_activation_model(activation: SemActivationModel) -> NirActivationModel {
+    match activation {
+        SemActivationModel::ClassicStatic => NirActivationModel::ClassicStatic,
+        SemActivationModel::NativeReentrant => NirActivationModel::NativeReentrant,
+    }
+}
+
+fn activation_storage_duration(activation: NirActivationModel) -> NirStorageDuration {
+    match activation {
+        NirActivationModel::ClassicStatic => NirStorageDuration::RoutineStatic,
+        NirActivationModel::NativeReentrant => NirStorageDuration::Automatic,
+    }
+}
+
+fn local_storage_duration(
+    activation: NirActivationModel,
+    backing: &NirLocalBacking,
+    prior_locals: &[NirLocal],
+) -> NirStorageDuration {
+    match backing {
+        NirLocalBacking::Ordinary => activation_storage_duration(activation),
+        NirLocalBacking::Absolute(_) | NirLocalBacking::GlobalAlias { .. } => {
+            NirStorageDuration::External
+        }
+        NirLocalBacking::Alias { target, .. } => prior_locals
+            .iter()
+            .find(|local| local.id == *target)
+            .map(|local| local.duration)
+            .expect("resolved local alias target must precede its alias"),
+    }
+}
+
+fn nir_type_from_sem_type(ty: &SemType, target_layout: TargetLayout) -> NirType {
+    let mut lowered = NirType::from_value_with_layout(&ty.value, target_layout);
+    if let Some(width) = ty.width {
+        let width = ByteSize::from(width);
+        lowered.width = Some(width);
+        if let NirTypeKind::Record { size, .. } = &mut lowered.kind {
+            *size = Some(width);
+        }
+    }
+    lowered
+}
+
+fn sem_type_object_layout(ty: &SemType, target_layout: TargetLayout) -> NirObjectLayout {
+    let lowered = nir_type_from_sem_type(ty, target_layout);
+    NirObjectLayout::new(
+        lowered.width.unwrap_or(ByteSize::ONE),
+        ByteSize::from(ty.alignment.unwrap_or(1)),
+    )
+}
+
+fn declaration_local_object_layout(
+    declaration: &SemDeclaration,
+    record_storage_sizes: &BTreeMap<String, u16>,
+    address_initializer: Option<u16>,
+    init: Option<&NirStorageInit>,
+    target_layout: TargetLayout,
+) -> NirObjectLayout {
+    if let Some(NirStorageInit::Descriptor {
+        descriptor_size, ..
+    }) = init
+    {
+        return NirObjectLayout::new(
+            *descriptor_size,
+            target_layout.data_pointer.alignment_bytes,
+        );
+    }
+
+    let declared_size = ByteSize::from(declaration_storage_size(
+        declaration,
+        record_storage_sizes,
+        address_initializer,
+        target_layout,
+    ));
+    let initialized_size = match init {
+        Some(NirStorageInit::Bytes {
+            image, zero_fill, ..
+        }) => ByteSize::try_from(image.bytes.len())
+            .unwrap_or(ByteSize::new(u32::MAX))
+            .saturating_add(*zero_fill),
+        Some(NirStorageInit::ZeroFill { bytes, .. }) => *bytes,
+        Some(NirStorageInit::Descriptor { .. }) | None => ByteSize::ZERO,
+    };
+    let alignment = match &declaration.storage {
+        SemDeclarationStorage::Array { array_type, .. }
+            if array_type.length.is_none()
+                && declaration.initializer.is_none() =>
+        {
+            target_layout.data_pointer.alignment_bytes
+        }
+        SemDeclarationStorage::Array { .. } | SemDeclarationStorage::Scalar => {
+            ByteSize::from(declaration.ty.alignment.unwrap_or(1))
+        }
+        SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => ByteSize::ONE,
+    };
+    NirObjectLayout::new(declared_size.max(initialized_size), alignment)
+}
+
+fn real_alignment(target_layout: TargetLayout) -> ByteSize {
+    if target_layout.record_layout == crate::target::RecordLayoutPolicy::Packed {
+        ByteSize::ONE
+    } else {
+        ByteSize::from(target_layout.natural_word_alignment_bytes)
+    }
+}
+
 fn routine_symbol_initializer(declaration: &SemDeclaration) -> Option<&str> {
     let initializer = declaration.initializer.as_ref()?;
     let SemExprKind::Symbol(symbol) = &initializer.kind else {
@@ -4135,6 +4283,10 @@ fn declaration_local_init(
                             byte_size.saturating_sub(image.bytes.len() as u16),
                         ),
                         image,
+                        layout: NirObjectLayout::new(
+                            ByteSize::from(byte_size),
+                            ByteSize::from(declaration.ty.alignment.unwrap_or(1)),
+                        ),
                         section: "local.backing".to_string(),
                     },
                     descriptor_size: array_descriptor_size(
@@ -5229,6 +5381,7 @@ mod memory_effect_tests {
             BTreeMap::new(),
             RoutineId(0),
             NirCallableSignature::default(),
+            NirActivationModel::ClassicStatic,
             NirRoutineEntry::default(),
             BTreeMap::new(),
             storage_types,
@@ -5244,6 +5397,8 @@ mod memory_effect_tests {
             id: ParamId(2),
             name: "p".to_string(),
             storage: NirStorageClass::Scalar,
+            duration: NirStorageDuration::RoutineStatic,
+            layout: NirObjectLayout::byte(),
             ty: NirType {
                 kind: NirTypeKind::U8,
                 summary: "Byte".to_string(),
@@ -5257,6 +5412,8 @@ mod memory_effect_tests {
             kind: "Byte".to_string(),
             purpose: NirLocalPurpose::Storage,
             storage: NirStorageClass::Scalar,
+            duration: NirStorageDuration::RoutineStatic,
+            layout: NirObjectLayout::byte(),
             ty: NirType {
                 kind: NirTypeKind::U8,
                 summary: "Byte".to_string(),

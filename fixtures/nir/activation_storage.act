@@ -1,0 +1,17 @@
+BYTE global
+BYTE ARRAY input(1)
+TYPE Pair=[BYTE tag CARD member]
+
+PROC Worker(BYTE value BYTE ARRAY source)
+  BYTE local,alias=local,globalAlias=global,absolute=$D01F,externalAlias=absolute
+  CARD word
+  BYTE ARRAY bytes(4)
+  Pair pair
+
+  local=value
+  bytes(0)=source(0)
+RETURN
+
+PROC Main()
+  Worker(1,input)
+RETURN

@@ -56,6 +56,7 @@ pub struct NirStorageStats {
     pub locals: NirStorageKindStats,
     pub params: NirStorageKindStats,
     pub globals: NirStorageKindStats,
+    pub duration_counts: BTreeMap<&'static str, usize>,
     pub blocker_counts: BTreeMap<&'static str, usize>,
 }
 
@@ -63,6 +64,7 @@ pub struct NirStorageStats {
 pub struct NirStorageKindStats {
     pub homes: usize,
     pub promotable: usize,
+    pub bytes: u64,
 }
 
 pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
@@ -80,7 +82,27 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
         ..NirProgramStats::default()
     };
 
+    stats.storage.globals.bytes = program
+        .globals
+        .iter()
+        .map(|global| u64::from(global.storage_size))
+        .sum();
+
     for routine in &program.routines {
+        for param in &routine.params {
+            stats.storage.params.bytes += u64::from(param.layout.size);
+            increment(
+                &mut stats.storage.duration_counts,
+                duration_kind(param.duration),
+            );
+        }
+        for local in &routine.locals {
+            stats.storage.locals.bytes += u64::from(local.layout.size);
+            increment(
+                &mut stats.storage.duration_counts,
+                duration_kind(local.duration),
+            );
+        }
         stats.blocks += routine.blocks.len();
         stats.temp_definitions += routine.temps.len();
 
@@ -246,6 +268,19 @@ fn write_stage(output: &mut String, name: &str, stats: &NirProgramStats) {
     write_storage_kind_stats(output, "local", &stats.storage.locals);
     write_storage_kind_stats(output, "param", &stats.storage.params);
     write_storage_kind_stats(output, "global", &stats.storage.globals);
+    for duration in ["automatic", "routine_static", "external"] {
+        writeln!(
+            output,
+            "storage.duration.{duration}={}",
+            stats
+                .storage
+                .duration_counts
+                .get(duration)
+                .copied()
+                .unwrap_or(0)
+        )
+        .expect("write NIR storage-duration count");
+    }
     for blocker in NirPromotionBlocker::ALL {
         writeln!(
             output,
@@ -267,6 +302,16 @@ fn write_storage_kind_stats(output: &mut String, name: &str, stats: &NirStorageK
         .expect("write NIR storage-kind home count");
     writeln!(output, "storage.{name}.promotable={}", stats.promotable)
         .expect("write NIR storage-kind promotable count");
+    writeln!(output, "storage.{name}.bytes={}", stats.bytes)
+        .expect("write NIR storage-kind byte count");
+}
+
+fn duration_kind(duration: crate::nir::NirStorageDuration) -> &'static str {
+    match duration {
+        crate::nir::NirStorageDuration::Automatic => "automatic",
+        crate::nir::NirStorageDuration::RoutineStatic => "routine_static",
+        crate::nir::NirStorageDuration::External => "external",
+    }
 }
 
 fn write_place_stats(output: &mut String, prefix: &str, stats: &NirPlaceStats) {
@@ -357,6 +402,8 @@ mod tests {
             kind: "scalar".to_string(),
             purpose: NirLocalPurpose::Storage,
             storage: crate::nir::NirStorageClass::Scalar,
+            duration: crate::nir::NirStorageDuration::RoutineStatic,
+            layout: crate::nir::NirObjectLayout::byte(),
             ty: ty.clone(),
             backing: NirLocalBacking::Ordinary,
             init: None,
@@ -378,6 +425,7 @@ mod tests {
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
+            activation: crate::nir::NirActivationModel::ClassicStatic,
             entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
@@ -457,6 +505,7 @@ mod tests {
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
+            activation: crate::nir::NirActivationModel::ClassicStatic,
             entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),

@@ -219,6 +219,15 @@ pub enum AbiId {
     Motorola68kNative,
 }
 
+/// Lifetime model selected by the target ABI for routine parameters and
+/// ordinary routine-local objects. This is a target policy, not a physical
+/// stack or register-placement decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RoutineActivationModel {
+    ClassicStatic,
+    NativeReentrant,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum TargetId {
     #[default]
@@ -294,6 +303,7 @@ pub struct TargetLayout {
     pub cpu: CpuId,
     pub platform: PlatformId,
     pub abi: AbiId,
+    pub routine_activation: RoutineActivationModel,
     pub endian: Endian,
     pub address_bits: u8,
     pub link_address_bits: u8,
@@ -322,6 +332,7 @@ impl TargetLayout {
             cpu: CpuId::Mos6502,
             platform: PlatformId::Atari8Bit,
             abi: AbiId::AtariActionPacked,
+            routine_activation: RoutineActivationModel::ClassicStatic,
             endian: Endian::Little,
             address_bits: 16,
             link_address_bits: 16,
@@ -346,6 +357,7 @@ impl TargetLayout {
             cpu: CpuId::Wdc65816,
             platform: PlatformId::Generic65816,
             abi: AbiId::Wdc65816Native,
+            routine_activation: RoutineActivationModel::NativeReentrant,
             endian: Endian::Little,
             address_bits: 24,
             link_address_bits: 24,
@@ -370,6 +382,7 @@ impl TargetLayout {
             cpu: CpuId::Wdc65816,
             platform: PlatformId::Generic65816,
             abi: AbiId::Wdc65816Small,
+            routine_activation: RoutineActivationModel::NativeReentrant,
             endian: Endian::Little,
             address_bits: 24,
             link_address_bits: 24,
@@ -394,6 +407,7 @@ impl TargetLayout {
             cpu: CpuId::Motorola68000,
             platform: PlatformId::Generic68k,
             abi: AbiId::Motorola68kNative,
+            routine_activation: RoutineActivationModel::NativeReentrant,
             endian: Endian::Big,
             address_bits: 32,
             link_address_bits: 24,

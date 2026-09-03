@@ -2,7 +2,7 @@ nir program
 global i: Byte
 global total: Byte
 
-routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb0:
   store i = 0
   goto bb1

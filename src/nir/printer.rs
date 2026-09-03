@@ -13,7 +13,7 @@ impl NirPrinter {
         self.line("nir program");
         if program.target_layout.target != crate::target::TargetId::Atari6502 {
             self.line(format!(
-                "target {} cpu={:?} endian={:?} address_bits={} data_pointer={} code_pointer={} abi={:?}",
+                "target {} cpu={:?} endian={:?} address_bits={} data_pointer={} code_pointer={} abi={:?} activation={}",
                 program.target_layout.target,
                 program.target_layout.cpu,
                 program.target_layout.endian,
@@ -21,6 +21,7 @@ impl NirPrinter {
                 program.target_layout.data_pointer.size_bytes,
                 program.target_layout.code_pointer.size_bytes,
                 program.target_layout.abi,
+                target_activation_summary(program.target_layout.routine_activation),
             ));
         }
         for binding in &program.runtime_bindings {
@@ -101,15 +102,28 @@ impl NirPrinter {
                 .join(", ")
         };
         self.line(format!(
-            "routine r{} {} signature=s{} convention={} entry={} params=[{}] locals=[{}]",
+            "routine r{} {} signature=s{} convention={} activation={} entry={} params=[{}] locals=[{}]",
             routine.id.0,
             routine.name,
             routine.signature.id.0,
             convention_summary(routine.convention),
+            activation_summary(routine.activation),
             routine_entry_summary(routine.entry),
             params,
             locals
         ));
+        for param in &routine.params {
+            self.line(format!(
+                "  param p{} {}: {:?} {} duration={} size={} align={}",
+                param.id.0,
+                param.name,
+                param.storage,
+                param.ty.summary,
+                duration_summary(param.duration),
+                param.layout.size,
+                param.layout.alignment,
+            ));
+        }
         for local in &routine.locals {
             let backing = match local.backing {
                 super::ir::NirLocalBacking::Ordinary => String::new(),
@@ -140,9 +154,12 @@ impl NirPrinter {
                 }
             };
             self.line(format!(
-                "  local {}: {}{}{}",
+                "  local {}: {} duration={} size={} align={}{}{}",
                 local.name,
                 local.kind,
+                duration_summary(local.duration),
+                local.layout.size,
+                local.layout.alignment,
                 backing,
                 storage_init_suffix(local.init.as_ref())
             ));
@@ -287,8 +304,10 @@ fn storage_init_suffix(init: Option<&NirStorageInit>) -> String {
             mutable,
             section,
         } => format!(
-            " init descriptor size={} backing=local bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
+            " init descriptor size={} backing=local backing_size={} backing_align={} bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
             descriptor_size,
+            backing.layout.size,
+            backing.layout.alignment,
             bytes_summary(&backing.image.bytes),
             fragments_summary(&backing.image),
             backing.zero_fill,
@@ -552,6 +571,28 @@ fn convention_summary(convention: NirCallConvention) -> String {
         NirCallConvention::TargetPublic => "target-public".to_string(),
         NirCallConvention::Runtime => "runtime".to_string(),
         NirCallConvention::External(id) => format!("external-{}", id.0),
+    }
+}
+
+fn activation_summary(activation: NirActivationModel) -> &'static str {
+    match activation {
+        NirActivationModel::ClassicStatic => "classic-static",
+        NirActivationModel::NativeReentrant => "native-reentrant",
+    }
+}
+
+fn target_activation_summary(activation: crate::target::RoutineActivationModel) -> &'static str {
+    match activation {
+        crate::target::RoutineActivationModel::ClassicStatic => "classic-static",
+        crate::target::RoutineActivationModel::NativeReentrant => "native-reentrant",
+    }
+}
+
+fn duration_summary(duration: NirStorageDuration) -> &'static str {
+    match duration {
+        NirStorageDuration::Automatic => "automatic",
+        NirStorageDuration::RoutineStatic => "routine-static",
+        NirStorageDuration::External => "external",
     }
 }
 

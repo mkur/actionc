@@ -3,25 +3,204 @@ use std::path::Path;
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, MirCallTarget, MirOp, MirRoutineAbi, MirStorageBase, RoutineId};
 use actionc::nir::{
-    self, NirCallConvention, NirCallee, NirLocalBacking, NirOp, NirRoutinePlacement,
-    NirStorageInit, NirTypeKind,
+    self, NirActivationModel, NirCallConvention, NirCallee, NirLocalBacking, NirObjectLayout,
+    NirOp, NirRoutinePlacement, NirStorageDuration, NirStorageInit, NirTypeKind,
 };
+use actionc::semantic::ir::{SemActivationModel, SemItem};
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
+use actionc::target::{ByteSize, TargetId};
 
 fn classic_baseline() -> nir::NirProgram {
-    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures")
-        .join("runtime")
-        .join("native_routine_abi_baseline.act");
+    fixture_for_target(
+        Path::new("fixtures/runtime/native_routine_abi_baseline.act"),
+        TargetId::Atari6502,
+    )
+}
+
+fn fixture_for_target(relative: &Path, target: TargetId) -> nir::NirProgram {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative);
     let loaded = load_program_with_expanded_source(&source)
         .unwrap_or_else(|diagnostics| panic!("load {}: {diagnostics:?}", source.display()));
-    let model = analyze_with_options(&loaded.program, SemanticOptions::modern())
-        .unwrap_or_else(|diagnostics| panic!("analyze {}: {diagnostics:?}", source.display()));
+    let model = analyze_with_options(
+        &loaded.program,
+        SemanticOptions::modern().with_target(target),
+    )
+    .unwrap_or_else(|diagnostics| panic!("analyze {}: {diagnostics:?}", source.display()));
     let semir = ir::lower_program(&loaded.program, &model);
     let program = nir::lower_program(&semir);
     nir::verify_program(&program)
         .unwrap_or_else(|diagnostics| panic!("verify {}: {diagnostics:?}", source.display()));
     program
+}
+
+#[test]
+fn semantic_profiles_resolve_activation_before_nir_lowering() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/nir/activation_storage.act");
+    for (target, expected) in [
+        (TargetId::Atari6502, SemActivationModel::ClassicStatic),
+        (
+            TargetId::Wdc65816Native,
+            SemActivationModel::NativeReentrant,
+        ),
+        (TargetId::Wdc65816Small, SemActivationModel::NativeReentrant),
+        (TargetId::Motorola68000, SemActivationModel::NativeReentrant),
+    ] {
+        let loaded = load_program_with_expanded_source(&source)
+            .unwrap_or_else(|diagnostics| panic!("load {}: {diagnostics:?}", source.display()));
+        let model = analyze_with_options(
+            &loaded.program,
+            SemanticOptions::modern().with_target(target),
+        )
+        .unwrap_or_else(|diagnostics| panic!("analyze {}: {diagnostics:?}", source.display()));
+        let semir = ir::lower_program(&loaded.program, &model);
+        assert!(
+            semir
+                .modules
+                .iter()
+                .flat_map(|module| &module.items)
+                .filter_map(|item| match item {
+                    SemItem::Routine(routine) => Some(routine),
+                    _ => None,
+                })
+                .all(|routine| routine.activation == expected),
+            "{target}"
+        );
+    }
+}
+
+#[test]
+fn target_profiles_select_activation_duration_and_final_object_layouts() {
+    let source = Path::new("fixtures/nir/activation_storage.act");
+    for (target, activation, duration, pointer_layout, word_alignment, pair_layout) in [
+        (
+            TargetId::Atari6502,
+            NirActivationModel::ClassicStatic,
+            NirStorageDuration::RoutineStatic,
+            NirObjectLayout::new(ByteSize::new(2), ByteSize::ONE),
+            ByteSize::ONE,
+            NirObjectLayout::new(ByteSize::new(3), ByteSize::ONE),
+        ),
+        (
+            TargetId::Wdc65816Native,
+            NirActivationModel::NativeReentrant,
+            NirStorageDuration::Automatic,
+            NirObjectLayout::new(ByteSize::new(3), ByteSize::ONE),
+            ByteSize::new(2),
+            NirObjectLayout::new(ByteSize::new(4), ByteSize::new(2)),
+        ),
+        (
+            TargetId::Wdc65816Small,
+            NirActivationModel::NativeReentrant,
+            NirStorageDuration::Automatic,
+            NirObjectLayout::new(ByteSize::new(2), ByteSize::ONE),
+            ByteSize::new(2),
+            NirObjectLayout::new(ByteSize::new(4), ByteSize::new(2)),
+        ),
+        (
+            TargetId::Motorola68000,
+            NirActivationModel::NativeReentrant,
+            NirStorageDuration::Automatic,
+            NirObjectLayout::new(ByteSize::new(4), ByteSize::new(2)),
+            ByteSize::new(2),
+            NirObjectLayout::new(ByteSize::new(4), ByteSize::new(2)),
+        ),
+    ] {
+        let program = fixture_for_target(source, target);
+        let worker = program
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Worker")
+            .expect("Worker routine");
+        assert_eq!(worker.activation, activation, "{target}");
+        assert!(
+            worker.params.iter().all(|param| param.duration == duration),
+            "{target}"
+        );
+        assert_eq!(
+            worker
+                .params
+                .iter()
+                .find(|param| param.name == "source")
+                .expect("array parameter")
+                .layout,
+            pointer_layout,
+            "{target}"
+        );
+
+        let local = |name: &str| {
+            worker
+                .locals
+                .iter()
+                .find(|local| local.name == name)
+                .unwrap_or_else(|| panic!("{name} local for {target}"))
+        };
+        assert_eq!(local("local").duration, duration, "{target}");
+        assert_eq!(local("alias").duration, duration, "{target}");
+        assert_eq!(local("globalAlias").duration, NirStorageDuration::External);
+        assert_eq!(local("absolute").duration, NirStorageDuration::External);
+        assert_eq!(
+            local("externalAlias").duration,
+            NirStorageDuration::External
+        );
+        assert_eq!(local("word").layout.alignment, word_alignment, "{target}");
+        assert_eq!(local("pair").layout, pair_layout, "{target}");
+
+        let stats = nir::collect_program_stats(&program);
+        let duration_name = match duration {
+            NirStorageDuration::Automatic => "automatic",
+            NirStorageDuration::RoutineStatic => "routine_static",
+            NirStorageDuration::External => unreachable!(),
+        };
+        assert!(
+            stats
+                .storage
+                .duration_counts
+                .get(duration_name)
+                .is_some_and(|count| *count > 0),
+            "{target}"
+        );
+    }
+}
+
+#[test]
+fn verifier_rejects_inconsistent_activation_duration_and_layout_facts() {
+    let mut wrong_activation = classic_baseline();
+    wrong_activation.routines[0].activation = NirActivationModel::NativeReentrant;
+    let diagnostics = nir::verify_program(&wrong_activation).expect_err("wrong activation");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("activation does not match the selected target ABI")
+    }));
+
+    let mut wrong_duration = classic_baseline();
+    wrong_duration
+        .routines
+        .iter_mut()
+        .find_map(|routine| routine.params.first_mut())
+        .expect("fixture parameter")
+        .duration = NirStorageDuration::Automatic;
+    let diagnostics = nir::verify_program(&wrong_duration).expect_err("wrong duration");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("duration does not match routine activation")
+    }));
+
+    let mut wrong_alignment = classic_baseline();
+    wrong_alignment
+        .routines
+        .iter_mut()
+        .find_map(|routine| routine.locals.first_mut())
+        .expect("fixture local")
+        .layout
+        .alignment = ByteSize::new(3);
+    let diagnostics = nir::verify_program(&wrong_alignment).expect_err("wrong alignment");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("alignment must be a nonzero power of two")
+    }));
 }
 
 #[test]

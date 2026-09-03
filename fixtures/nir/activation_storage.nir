@@ -1,0 +1,30 @@
+nir program
+global global: Byte
+global input: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(1) } length=1 storage=Array origin=global init zero_fill=1 section=global mutable=true
+global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "member", ty: ValueType { base: Fund(Card), pointer: false }, offset: 1 }], size: 3 } fields=2
+
+routine r0 Worker signature=s2701581917 convention=target-public activation=classic-static entry=relocatable params=[value, source] locals=[local, alias, globalAlias, absolute, externalAlias, word, bytes, pair]
+  param p0 value: Scalar Byte duration=routine-static size=1 align=1
+  param p1 source: Array Byte* duration=routine-static size=2 align=1
+  local local: Byte duration=routine-static size=1 align=1
+  local alias: Byte duration=routine-static size=1 align=1 alias local
+  local globalAlias: Byte duration=external size=1 align=1 global-alias global
+  local absolute: Byte duration=external size=1 align=1 absolute $D01F
+  local externalAlias: Byte duration=external size=1 align=1 alias absolute
+  local word: Card duration=routine-static size=2 align=1
+  local bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=local duration=routine-static size=4 align=1 init zero_fill=4 section=local mutable=true
+  local pair: Pair duration=routine-static size=3 align=1 init zero_fill=3 section=local mutable=true
+bb0:
+  %t0:Byte = load value
+  store local = %t0
+  %t1:Byte* = addr bytes
+  %t2:Byte* = load source
+  %t3:Byte = load %t2[0;1]
+  store %t1[0;1] = %t3
+  return
+
+routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb1:
+  %t0:Byte* = addr input
+  call Worker(1, %t0) signature=s2701581917 convention=target-public
+  return

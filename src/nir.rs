@@ -16,6 +16,9 @@ mod tests;
 
 use crate::semantic::ir::SemProgram;
 
+pub use crate::target::{
+    AddressSpaceId, AddressValue, ByteOffset, ByteSize, RoutineActivationModel,
+};
 pub use analysis::storage::{
     NirProgramStorageAnalysis, NirPromotionBlocker, NirRoutineStorageAnalysis,
     NirStorageBackingClass, NirStorageFacts, analyze_program_storage,
@@ -25,17 +28,17 @@ pub use facts::{
     RuntimeSymbolId, SignatureId, SymbolId, TempId, direct_storage_id, runtime_symbol_id,
 };
 pub use ir::{
-    ExternalAbiId, NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallConvention,
-    NirCallEffects, NirCallResult, NirCallableSignature, NirCallee, NirCastKind, NirCompareOp,
-    NirDataAddressEncoding,
-    NirDataAddressTarget, NirDataBacking, NirDataFragment, NirDataImage, NirEdge, NirForeignCode,
-    NirForeignCodeKind, NirForeignCodePayload, NirForeignCodeTarget, NirForeignRelocation,
-    NirGlobal, NirGlobalBacking, NirGlobalInit, NirLinkValue, NirLocal, NirLocalBacking,
-    NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
-    NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirParam,
-    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirRoutineEntry,
-    NirRoutineNote, NirRoutineNoteKind, NirRoutinePlacement, NirRuntimeBinding, NirRuntimeTarget,
-    NirStaticData, NirStorageBacking, NirStorageClass, NirStorageInit, NirTemp, NirTempDef,
+    ExternalAbiId, NirActivationModel, NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam,
+    NirCallConvention, NirCallEffects, NirCallResult, NirCallableSignature, NirCallee, NirCastKind,
+    NirCompareOp, NirDataAddressEncoding, NirDataAddressTarget, NirDataBacking, NirDataFragment,
+    NirDataImage, NirEdge, NirForeignCode, NirForeignCodeKind, NirForeignCodePayload,
+    NirForeignCodeTarget, NirForeignRelocation, NirGlobal, NirGlobalBacking, NirGlobalInit,
+    NirLinkValue, NirLocal, NirLocalBacking, NirLocalPurpose, NirMachineAtom,
+    NirMachineByteSelector, NirMachineEffects, NirMachineItem, NirMemoryAccess, NirMemoryEffects,
+    NirMemoryRegion, NirMemoryRegionKind, NirObjectLayout, NirOp, NirParam, NirPlace, NirPlaceKind,
+    NirProgram, NirRealOp, NirRealSource, NirRoutine, NirRoutineEntry, NirRoutineNote,
+    NirRoutineNoteKind, NirRoutinePlacement, NirRuntimeBinding, NirRuntimeTarget, NirStaticData,
+    NirStorageBacking, NirStorageClass, NirStorageDuration, NirStorageInit, NirTemp, NirTempDef,
     NirTerminator, NirUnaryOp,
 };
 pub use stats::{
@@ -43,7 +46,6 @@ pub use stats::{
     format_stats_comparison,
 };
 pub use verifier::NirDiagnostic;
-pub use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize};
 
 pub fn lower_program(program: &SemProgram) -> NirProgram {
     let mut lowerer = lowerer::NirLowerer::default();

@@ -370,7 +370,7 @@ fn lower_place(
                 .params
                 .iter()
                 .find(|param| param.id == *id)
-                .map(|param| type_alignment(&param.ty, &program.target_layout));
+                .map(|param| param.layout.alignment);
             direct(Mir68kAddressBase::Param(*id), alignment)
         }
         NirPlaceKind::Local { id, .. } => lower_local(*id, program, routine),
@@ -416,7 +416,7 @@ fn lower_local(
     match &local.backing {
         NirLocalBacking::Ordinary => direct(
             Mir68kAddressBase::Local(id),
-            Some(type_alignment(&local.ty, &program.target_layout)),
+            Some(local.layout.alignment),
         ),
         NirLocalBacking::Absolute(address) => absolute(*address),
         NirLocalBacking::Alias { target, offset, .. } => {

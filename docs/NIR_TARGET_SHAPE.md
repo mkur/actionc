@@ -157,15 +157,18 @@ activations: parameters and ordinary locals denote a distinct dynamic object
 for every invocation, including recursive and concurrently re-entered calls.
 
 SemIR owns the source meaning of declarations, aliases, initialization, and
-storage duration. Verifier-clean NIR must eventually carry:
+storage duration. Verifier-clean NIR now carries:
 
 - a structured routine identity, signature, call-convention identity, and
   activation model;
 - automatic versus routine-static duration for every storage-bearing local;
 - final target-selected size and alignment for every local cell, descriptor,
-  and aggregate backing object;
-- explicit entry-time initialization operations for native automatic objects;
-- invocation-aware storage/effect facts for recursion, escape, and aliases.
+  parameter, and aggregate backing object.
+
+The remaining automatic-storage migration must add explicit entry-time
+initialization operations and make storage/effect analysis invocation-aware
+for recursion and escape. Aliases already inherit the duration of their
+resolved local target; global and absolute views remain external storage.
 
 NIR does not assign a stack offset. MIR68K and MIR65816 independently select
 register homes, frame objects, stack or software-frame layouts, prologues,
@@ -175,9 +178,9 @@ never acquire a load-time relocation or be silently promoted to static storage
 because its address escapes.
 
 The executable NIR now carries structured routine IDs, callable signatures,
-call-convention identities, and entry classifications. It still models classic
-fixed routine storage; activation and storage-duration facts are the next
-migration slice. The complete sliced migration is specified in
+call-convention identities, entry classifications, activation models, storage
+durations, and final object layouts. It describes automatic storage without
+choosing stack offsets or registers. The complete sliced migration is specified in
 [`NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md`](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md).
 
 The detailed migration order is recorded in
@@ -211,6 +214,7 @@ pub struct NirRoutine {
     pub name: String,
     pub signature: NirCallableSignature,
     pub convention: NirCallConvention,
+    pub activation: NirActivationModel,
     pub entry: NirRoutineEntry,
     pub params: Vec<NirParam>,
     pub locals: Vec<NirLocal>,
@@ -218,6 +222,20 @@ pub struct NirRoutine {
     pub blocks: Vec<NirBlock>,
     pub effects: NirRoutineEffects,
     pub notes: Vec<NirRoutineNote>,
+}
+
+pub struct NirParam {
+    pub id: ParamId,
+    pub duration: NirStorageDuration,
+    pub layout: NirObjectLayout,
+    // display name, storage class, and value type omitted
+}
+
+pub struct NirLocal {
+    pub id: LocalId,
+    pub duration: NirStorageDuration,
+    pub layout: NirObjectLayout,
+    // display metadata, type, backing, and initializer omitted
 }
 
 pub struct NirBlock {

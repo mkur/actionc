@@ -4,7 +4,7 @@ global Matrix: type RecordType { name: "Matrix", fields: [RecordFieldType { id: 
 global rows: array ArrayType { element: ValueType { base: Named("Matrix"), pointer: false }, length: Some(2) } length=2 storage=Array origin=global init zero_fill=22 section=global mutable=true
 global item: Matrix
 
-routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb0:
   store item.+10 = 1
   %t0:Matrix* = addr rows

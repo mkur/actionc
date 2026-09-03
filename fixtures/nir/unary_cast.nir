@@ -3,7 +3,7 @@ global b: Byte
 global w: Card
 global i: Int
 
-routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb0:
   %t0:Int = cast Byte -> Int 1
   %t1:Int = Neg %t0

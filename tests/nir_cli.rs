@@ -49,7 +49,14 @@ fn candidate_targets_reach_verified_nir_with_their_layout_contract() {
             String::from_utf8_lossy(&output.stderr)
         );
         let stdout = String::from_utf8(output.stdout).expect("UTF-8 NIR");
-        assert!(stdout.contains(expected), "unexpected {target} NIR:\n{stdout}");
+        assert!(
+            stdout.contains(expected),
+            "unexpected {target} NIR:\n{stdout}"
+        );
+        assert!(
+            stdout.contains("activation=native-reentrant"),
+            "unexpected {target} activation:\n{stdout}"
+        );
     }
 }
 

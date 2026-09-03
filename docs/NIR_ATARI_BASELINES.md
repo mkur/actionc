@@ -50,14 +50,14 @@ backend; `cart` and `standalone` name the runtime.
 The native-routine fixture is intentionally compile-only. Its recursive
 routine reuses fixed parameter and local cells under the classic ABI, so
 executing it would not be a valid recursion test. These textual-output hashes
-guard the IR and map shape until structured activation facts are introduced.
-An intentional printer/IR-contract slice may update them while the object rows
-above must remain stable.
+guard the IR and map shape. Slice 2 intentionally updated the NIR rows to print
+structured activation, storage duration, size, and alignment facts. MIR6502,
+map, and object rows remain unchanged.
 
 | Inspection | Bytes | SHA-256 |
 | --- | ---: | --- |
-| unoptimized NIR | 2620 | `afc0e2737deafc3fd7fb25253f4f0ae74833577e4efb75c9c20cf7e8df61d6f1` |
-| optimized NIR | 2515 | `54db5545899cd1039c52c1fa014025a2b65cfa2355a899acddf48182d3dc0595` |
+| unoptimized NIR | 3040 | `fe8546d6854ff6a93812a270e35b9b62efb92319f785660405d2fa95c63cefcc` |
+| optimized NIR | 2935 | `db9c08c70c66e3775da6e53954a09a79c8832fbb3960793a7dc2466a4ec45e42` |
 | pre-materialization MIR6502 | 2050 | `a2b7abc8ca89f05c9966be2557cd30a0caa227efbcdfbcd4b419037719b2e079` |
 | classic/cart map | 1057 | `5314a371aa671b6971448b633bf3727957e147d30984c5db01f7a9104b5a0701` |
 | MIR6502/cart map | 206 | `f20f17a251c88e73be32621125b90747074e3a656b83507ea655d6f459a70270` |

@@ -332,6 +332,24 @@ impl NirVerifier {
     }
 
     fn routine(&mut self, routine: &NirRoutine) {
+        let expected_activation = match self.target_layout.routine_activation {
+            crate::target::RoutineActivationModel::ClassicStatic => {
+                NirActivationModel::ClassicStatic
+            }
+            crate::target::RoutineActivationModel::NativeReentrant => {
+                NirActivationModel::NativeReentrant
+            }
+        };
+        if routine.activation != expected_activation {
+            self.diagnostics.push(NirDiagnostic::routine(
+                &routine.name,
+                "routine activation does not match the selected target ABI",
+            ));
+        }
+        let activation_duration = match routine.activation {
+            NirActivationModel::ClassicStatic => NirStorageDuration::RoutineStatic,
+            NirActivationModel::NativeReentrant => NirStorageDuration::Automatic,
+        };
         if routine.signature.convention != routine.convention {
             self.diagnostics.push(NirDiagnostic::routine(
                 &routine.name,
@@ -404,6 +422,21 @@ impl NirVerifier {
                     format!("duplicate param `{}`", param.name),
                 ));
             }
+            if param.duration != activation_duration {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "parameter `{}` duration does not match routine activation",
+                        param.name
+                    ),
+                ));
+            }
+            self.object_layout(
+                &routine.name,
+                &format!("parameter `{}`", param.name),
+                param.layout,
+                param.ty.width,
+            );
             self.type_shape_static(&param.ty, &format!("param `{}`", param.name));
         }
 
@@ -427,12 +460,38 @@ impl NirVerifier {
                     format!("local `{}` kind must not be empty", local.name),
                 ));
             }
+            let expected_duration = match local.backing {
+                NirLocalBacking::Ordinary => Some(activation_duration),
+                NirLocalBacking::Absolute(_) | NirLocalBacking::GlobalAlias { .. } => {
+                    Some(NirStorageDuration::External)
+                }
+                NirLocalBacking::Alias { .. } => None,
+            };
+            if expected_duration.is_some_and(|duration| local.duration != duration) {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "local `{}` duration does not match its activation and backing",
+                        local.name
+                    ),
+                ));
+            }
+            self.object_layout(
+                &routine.name,
+                &format!("local `{}`", local.name),
+                local.layout,
+                match local.storage {
+                    // Array locals carry the element type. Their storage
+                    // object may instead be a target-sized descriptor.
+                    NirStorageClass::Array => None,
+                    NirStorageClass::Scalar | NirStorageClass::Record | NirStorageClass::Type => {
+                        local.ty.width
+                    }
+                },
+            );
             if let NirLocalBacking::Absolute(address) = local.backing
                 && (address.address_space != self.target_layout.data_pointer.address_space
-                    || local
-                        .ty
-                        .width
-                        .is_none_or(|size| !self.address_extent_fits_target(address, size)))
+                    || !self.address_extent_fits_target(address, local.layout.size))
             {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
@@ -460,8 +519,29 @@ impl NirVerifier {
             self.type_shape_static(&local.ty, &format!("local `{}`", local.name));
         }
         for local in &routine.locals {
+            if let NirLocalBacking::Alias { target, .. } = local.backing {
+                match routine
+                    .locals
+                    .iter()
+                    .find(|candidate| candidate.id == target)
+                {
+                    Some(target) if target.duration != local.duration => {
+                        self.diagnostics.push(NirDiagnostic::routine(
+                            &routine.name,
+                            format!(
+                                "local alias `{}` does not inherit target duration",
+                                local.name
+                            ),
+                        ));
+                    }
+                    Some(_) => {}
+                    None => {}
+                }
+            }
+        }
+        for local in &routine.locals {
             if let Some(init) = &local.init {
-                self.storage_init(&routine.name, &local.name, init, &param_ids, &local_ids);
+                self.storage_init(&routine.name, local, init, &param_ids, &local_ids);
             }
         }
         for note in &routine.notes {
@@ -635,6 +715,33 @@ impl NirVerifier {
         }
     }
 
+    fn object_layout(
+        &mut self,
+        routine: &str,
+        owner: &str,
+        layout: NirObjectLayout,
+        type_width: Option<ByteSize>,
+    ) {
+        if layout.size.is_zero() {
+            self.diagnostics.push(NirDiagnostic::routine(
+                routine,
+                format!("{owner} layout size must be nonzero"),
+            ));
+        }
+        if layout.alignment.is_zero() || !layout.alignment.is_power_of_two() {
+            self.diagnostics.push(NirDiagnostic::routine(
+                routine,
+                format!("{owner} alignment must be a nonzero power of two"),
+            ));
+        }
+        if type_width.is_some_and(|width| layout.size < width) {
+            self.diagnostics.push(NirDiagnostic::routine(
+                routine,
+                format!("{owner} layout is smaller than its value type"),
+            ));
+        }
+    }
+
     fn global_init(&mut self, global: &NirGlobal, init: &NirGlobalInit) {
         match init {
             NirGlobalInit::Bytes {
@@ -782,11 +889,12 @@ impl NirVerifier {
     fn storage_init(
         &mut self,
         routine: &str,
-        name: &str,
+        local: &NirLocal,
         init: &NirStorageInit,
         param_ids: &BTreeSet<super::facts::ParamId>,
         local_ids: &BTreeSet<super::facts::LocalId>,
     ) {
+        let name = &local.name;
         match init {
             NirStorageInit::Bytes {
                 image,
@@ -805,13 +913,29 @@ impl NirVerifier {
                     image,
                     Some((param_ids, local_ids)),
                 );
-                self.data_extent(&format!("local `{name}` in `{routine}`"), image, *zero_fill);
+                let extent = self.data_extent(
+                    &format!("local `{name}` in `{routine}`"),
+                    image,
+                    *zero_fill,
+                );
+                if extent.is_some_and(|extent| extent > usize::from(local.layout.size)) {
+                    self.diagnostics.push(NirDiagnostic::routine(
+                        routine,
+                        format!("local `{name}` initializer exceeds its object layout"),
+                    ));
+                }
             }
-            NirStorageInit::ZeroFill { section, .. } => {
+            NirStorageInit::ZeroFill { bytes, section, .. } => {
                 if section.is_empty() {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
                         format!("local `{name}` init section must not be empty"),
+                    ));
+                }
+                if *bytes > local.layout.size {
+                    self.diagnostics.push(NirDiagnostic::routine(
+                        routine,
+                        format!("local `{name}` zero-fill exceeds its object layout"),
                     ));
                 }
             }
@@ -838,16 +962,38 @@ impl NirVerifier {
                         ),
                     ));
                 }
+                if local.layout.size != *descriptor_size
+                    || local.layout.alignment != self.target_layout.data_pointer.alignment_bytes
+                {
+                    self.diagnostics.push(NirDiagnostic::routine(
+                        routine,
+                        format!(
+                            "local `{name}` descriptor layout does not match the target pointer layout"
+                        ),
+                    ));
+                }
+                self.object_layout(
+                    routine,
+                    &format!("local `{name}` descriptor backing"),
+                    backing.layout,
+                    None,
+                );
                 self.data_image(
                     &format!("local `{name}` descriptor backing in `{routine}`"),
                     &backing.image,
                     Some((param_ids, local_ids)),
                 );
-                self.data_extent(
+                let extent = self.data_extent(
                     &format!("local `{name}` descriptor backing in `{routine}`"),
                     &backing.image,
                     backing.zero_fill,
                 );
+                if extent != Some(usize::from(backing.layout.size)) {
+                    self.diagnostics.push(NirDiagnostic::routine(
+                        routine,
+                        format!("local `{name}` descriptor backing layout has the wrong size"),
+                    ));
+                }
                 if backing.image.bytes.is_empty() && backing.zero_fill.is_zero() {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,

@@ -3,7 +3,7 @@ global b: Byte
 global bp: Byte*
 global a: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=global init zero_fill=4 section=global mutable=true
 
-routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb0:
   %t0:Byte* = addr b
   store bp = %t0

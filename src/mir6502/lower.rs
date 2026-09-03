@@ -4180,6 +4180,7 @@ mod tests {
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
+            activation: crate::nir::NirActivationModel::ClassicStatic,
             entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
@@ -4189,6 +4190,11 @@ mod tests {
                     kind: "REAL".to_string(),
                     purpose: nir::NirLocalPurpose::Storage,
                     storage: nir::NirStorageClass::Scalar,
+                    duration: crate::nir::NirStorageDuration::RoutineStatic,
+                    layout: crate::nir::NirObjectLayout::new(
+                        ByteSize::new(6),
+                        ByteSize::ONE,
+                    ),
                     ty: NirType {
                         kind: NirTypeKind::Real,
                         summary: "REAL".to_string(),

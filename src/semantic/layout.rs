@@ -101,6 +101,18 @@ impl SemanticLayoutFacts {
             .and_then(|id| self.arrays.get(id.0))
     }
 
+    /// Final target-selected alignment of a semantic value. Record alignment
+    /// comes from the resolved layout table rather than being reconstructed by
+    /// a backend.
+    pub fn value_alignment(&self, value: &ValueType, target_layout: TargetLayout) -> Option<u16> {
+        let records = self
+            .records
+            .iter()
+            .map(|record| (record.name.clone(), (record.size, record.alignment)))
+            .collect::<HashMap<_, _>>();
+        semantic_value_alignment(value, &records, target_layout)
+    }
+
     fn collect_records(
         &mut self,
         symbols: &SymbolTable,

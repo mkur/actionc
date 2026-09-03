@@ -1,10 +1,10 @@
 nir program
 
-routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[value, address, Main::block0::value, Main::block0::block1::value]
-  local value: Byte
-  local address: Card
-  local Main::block0::value: Byte
-  local Main::block0::block1::value: Byte
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[value, address, Main::block0::value, Main::block0::block1::value]
+  local value: Byte duration=routine-static size=1 align=1
+  local address: Card duration=routine-static size=2 align=1
+  local Main::block0::value: Byte duration=routine-static size=1 align=1
+  local Main::block0::block1::value: Byte duration=routine-static size=1 align=1
 bb0:
   store value = 1
   store Main::block0::value = 2

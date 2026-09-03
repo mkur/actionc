@@ -4,7 +4,7 @@ global flag: Byte
 global total: Byte
 global ptr: Card
 
-routine r0 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb0:
   %t0:Byte = load flag
   %t1:condition = cmp %t0 Ne 0 operand_ty=Byte

@@ -1,13 +1,16 @@
 nir program
 global total: Byte
 
-routine r0 Inc signature=s2631868676 convention=target-public entry=relocatable params=[n] locals=[-]
+routine r0 Inc signature=s2631868676 convention=target-public activation=classic-static entry=relocatable params=[n] locals=[-]
+  param p0 n: Scalar Byte duration=routine-static size=1 align=1
 bb0:
   %t0:Byte = load n
   %t1:Byte = %t0 Add 1
   return %t1
 
-routine r1 Add signature=s1145776776 convention=target-public entry=relocatable params=[a, b] locals=[-]
+routine r1 Add signature=s1145776776 convention=target-public activation=classic-static entry=relocatable params=[a, b] locals=[-]
+  param p0 a: Scalar Byte duration=routine-static size=1 align=1
+  param p1 b: Scalar Byte duration=routine-static size=1 align=1
 bb1:
   %t0:Byte = load a
   %t1:Byte = load b
@@ -15,7 +18,7 @@ bb1:
   store total = %t2
   return
 
-routine r2 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r2 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb2:
   %t0:Byte = call Inc(1) signature=s2631868676 convention=target-public
   store total = %t0

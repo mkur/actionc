@@ -4,7 +4,8 @@ global rec: Pair
 global gb: Byte
 global gw: Card
 
-routine r0 Touch signature=s2610349039 convention=target-public entry=relocatable params=[rp] locals=[-]
+routine r0 Touch signature=s2610349039 convention=target-public activation=classic-static entry=relocatable params=[rp] locals=[-]
+  param p0 rp: Scalar Pair* duration=routine-static size=2 align=1
 bb0:
   store rp.+0 = 17
   store rp.+1 = $2233
@@ -14,7 +15,7 @@ bb0:
   store gw = %t1
   return
 
-routine r1 Main signature=s2726028260 convention=target-public entry=program+relocatable params=[-] locals=[-]
+routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb1:
   %t0:Pair* = addr rec
   call Touch(%t0) signature=s2610349039 convention=target-public

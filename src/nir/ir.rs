@@ -104,6 +104,7 @@ pub enum NirStorageInit {
 pub struct NirStorageBacking {
     pub image: NirDataImage,
     pub zero_fill: ByteSize,
+    pub layout: NirObjectLayout,
     pub section: String,
 }
 
@@ -436,6 +437,41 @@ impl NirCallConvention {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExternalAbiId(pub u32);
 
+/// Invocation lifetime model selected before target-specific MIR lowering.
+/// This says whether routine storage is shared or invocation-scoped; it does
+/// not prescribe a stack frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirActivationModel {
+    ClassicStatic,
+    NativeReentrant,
+}
+
+/// Lifetime class of a parameter or routine-local storage view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirStorageDuration {
+    Automatic,
+    RoutineStatic,
+    External,
+}
+
+/// Final target-selected extent and required base alignment of a storage
+/// object. Offsets and physical homes remain MIR decisions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NirObjectLayout {
+    pub size: ByteSize,
+    pub alignment: ByteSize,
+}
+
+impl NirObjectLayout {
+    pub const fn new(size: ByteSize, alignment: ByteSize) -> Self {
+        Self { size, alignment }
+    }
+
+    pub const fn byte() -> Self {
+        Self::new(ByteSize::ONE, ByteSize::ONE)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirLocal {
     pub id: LocalId,
@@ -443,6 +479,8 @@ pub struct NirLocal {
     pub kind: String,
     pub purpose: NirLocalPurpose,
     pub storage: NirStorageClass,
+    pub duration: NirStorageDuration,
+    pub layout: NirObjectLayout,
     pub ty: NirType,
     pub backing: NirLocalBacking,
     pub init: Option<NirStorageInit>,
@@ -487,6 +525,8 @@ pub struct NirParam {
     pub id: ParamId,
     pub name: String,
     pub storage: NirStorageClass,
+    pub duration: NirStorageDuration,
+    pub layout: NirObjectLayout,
     pub ty: NirType,
 }
 
@@ -521,6 +561,7 @@ pub struct NirRoutine {
     pub id: RoutineId,
     pub signature: NirCallableSignature,
     pub convention: NirCallConvention,
+    pub activation: NirActivationModel,
     pub entry: NirRoutineEntry,
     pub name: String,
     pub params: Vec<NirParam>,
