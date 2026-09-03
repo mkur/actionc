@@ -1,12 +1,13 @@
 # NIR Target Shape
 
-Snapshot date: 2026-05-31. Updated for the completed TAC-to-NIR naming
-migration, address-based native `REAL` operations, cartridge-compatible integer
-arithmetic typing, and explicit record copies on 2026-08-30.
+Snapshot date: 2026-09-03. Updated for the target-parameterized NIR contract,
+the completed TAC-to-NIR naming migration, address-based native `REAL`
+operations, cartridge-compatible integer arithmetic typing, and explicit
+record copies.
 
 This document describes the target shape of NIR, the Normalized Intermediate
 Representation implemented under `src/nir`. It is the contract for hardening,
-optimizer work, and the MIR6502 consumer.
+optimizer work, and independent MIR6502, MIR65816, and MIR68K consumers.
 
 Parts of this document remain aspirational where legacy NIR variants are still
 representable internally. The verifier rejects those variants from executable
@@ -18,13 +19,16 @@ separate TAC module or TAC fixture contract.
 The intended pipeline is:
 
 ```text
-Action source -> AST -> semantic model -> SemIR -> NIR -> MIR6502 -> emission
+Action source -> AST -> semantic model -> SemIR
+              -> target-parameterized NIR
+              -> MIR6502 | MIR65816 | MIR68K
+              -> target emission and linking
 ```
 
 NIR is the final Action!-aware normalized IR and the first optimizer-grade IR.
 It should be low enough that expressions, storage, branches, calls, and effects
-are explicit, but high enough that it does not commit to 6502 registers,
-addressing modes, or final instruction forms.
+are explicit, but high enough that it does not commit to registers, addressing
+modes, byte order, bank-register state, or final instruction forms.
 
 ## Core Responsibilities
 
@@ -37,6 +41,7 @@ NIR owns:
 - explicit casts, unary ops, binary ops, compares, and branches;
 - destination-passing operations for address-only native `REAL` values;
 - explicit address-of and address-shaped storage facts;
+- the resolved target data-layout contract used by all storage facts;
 - static data references;
 - call signatures and conservative effects;
 - machine-block barriers and payloads when available;
@@ -48,8 +53,8 @@ NIR must not own:
 - source-level name resolution;
 - source-level type checking;
 - Action! lvalue legality decisions;
-- 6502 register allocation;
-- 6502 addressing-mode selection;
+- target register allocation;
+- target addressing-mode selection;
 - final instruction emission;
 - source syntax as executable semantics.
 
@@ -60,12 +65,59 @@ Verifier-clean NIR is not:
 - printed or source-summary text;
 - AST-shaped syntax;
 - a collection of expression summary strings;
-- a 6502 instruction stream;
+- a target instruction stream;
 - a final storage allocator;
 - an SSA-only IR.
 
 NIR may later gain an SSA view or analysis layer, but the recommended base form
 is explicit basic blocks with single-definition temps and verified use-def facts.
+
+## Target Parameterization
+
+Target-independent does not mean target-free. Every verifier-clean
+`NirProgram` is produced under one explicit, resolved data-layout contract.
+The operation, CFG, storage, type, and effect vocabulary is shared by all
+targets; widths, alignments, address spaces, and aggregate offsets are facts in
+that contract or in the program facts derived from it.
+
+The compiler boundary separates five concerns:
+
+| Concern | Owns | Does not belong in NIR operations |
+| --- | --- | --- |
+| CPU | instruction set and architectural state | A/X/Y, D/A registers, flags, 65816 M/X or bank state |
+| Platform | memory map, external symbols, hardware regions | Atari OS addresses as generic language meaning |
+| Data layout | endian, address width, pointer classes, alignment and aggregate policy | instruction selection for aligned or unaligned access |
+| Runtime ABI | externally visible signatures and target bindings | physical argument registers, stack slots, helper sequences |
+| Output format | sections, relocatable objects, load files and entry records | XEX segments, 65816 bank records, 68k executable headers |
+
+NIR stores a complete stable layout value or layout ID plus all resolved facts
+needed by a backend. A backend must not consult SemIR to recompute field
+offsets, element strides, storage extents, pointer classes, signatures, or
+effects.
+
+Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, and `CARD`
+and `INT` are 16-bit. Pointer and callable widths are selected by their address
+spaces and are not aliases for `CARD` on native 65816 or 68k targets. The
+classic Atari ABI may retain the historical 16-bit pointer/`CARD`
+interoperability as an explicit compatibility rule.
+
+Classic Atari records remain packed. A native ABI may use target-natural field
+and tail alignment, but layout is resolved once before NIR optimization and is
+never changed as an optimization. Packed records remain available for hardware
+maps and external byte layouts; MIR68K must lower an unaligned word field to a
+safe byte sequence when alignment is not proven.
+
+Portable source observes layout through the canonical compile-time intrinsics
+`SYS.SIZEOF`, `SYS.ELEMENTS`, `SYS.ALIGNOF`, and `SYS.OFFSETOF`. Their
+unqualified compatibility-prelude aliases are ordinary shadowable names. The
+queries fold during semantic/layout lowering, so executable NIR receives their
+constant results and resolved layout facts rather than source-level intrinsic
+operations.
+
+The detailed migration order is recorded in
+[`NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md`](NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md).
+The byte-exact Atari guardrail is recorded in
+[`NIR_ATARI_BASELINES.md`](NIR_ATARI_BASELINES.md).
 
 ## Top-Level Shape
 
@@ -73,6 +125,7 @@ Recommended Rust-like target shape:
 
 ```rust
 pub struct NirProgram {
+    pub target_layout: NirTargetLayout,
     pub globals: Vec<NirGlobal>,
     pub statics: Vec<NirStaticData>,
     pub routines: Vec<NirRoutine>,
@@ -105,6 +158,12 @@ pub struct NirBlockParam {
     pub ty: NirType,
 }
 ```
+
+The current implementation still contains transitional `Ptr16`, `u16`
+absolute-address, fixed-endian data-image, Atari runtime-address, and 6502
+machine-payload forms. They are migration inputs, not the portable contract.
+Verifier tightening must remove each old form once its replacement lands so a
+backend cannot silently recover the old assumption.
 
 Display names such as routine names, block labels, local names, and global names
 are metadata for printing and diagnostics. Stable IDs are the executable

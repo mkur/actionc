@@ -21,6 +21,11 @@ crowding the active reference set.
 - [SEMANTIC_INVARIANTS.md](SEMANTIC_INVARIANTS.md) - semantic rules the compiler
   should preserve.
 - [NIR_TARGET_SHAPE.md](NIR_TARGET_SHAPE.md) - target NIR contract.
+- [NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md](NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md)
+  - active sliced plan for making NIR consumable by independent 6502, 65816,
+  and 68k backends while separating compatibility and native data layouts.
+- [NIR_ATARI_BASELINES.md](NIR_ATARI_BASELINES.md) - byte-exact Atari object
+  guardrails for the target-independence migration.
 - [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -
   active plan for storage-to-value promotion and routine-wide NIR quality.
 - [COMPILER_API_IMPLEMENTATION_NOTE.md](COMPILER_API_IMPLEMENTATION_NOTE.md) -
