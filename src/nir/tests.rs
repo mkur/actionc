@@ -34,6 +34,26 @@ fn lower_modern_source_for_target(source: &str, target: crate::target::TargetId)
     lower_program(&semir)
 }
 
+fn foreign_relocations(op: &NirOp) -> Option<&[NirForeignRelocation]> {
+    let NirOp::ForeignCode { code, .. } = op else {
+        return None;
+    };
+    let NirForeignCodePayload::Bytes { relocations, .. } = &code.payload else {
+        return None;
+    };
+    Some(relocations)
+}
+
+fn structured_machine_items(op: &NirOp) -> Option<&[NirMachineItem]> {
+    let NirOp::ForeignCode { code, .. } = op else {
+        return None;
+    };
+    let NirForeignCodePayload::Structured(items) = &code.payload else {
+        return None;
+    };
+    Some(items)
+}
+
 #[test]
 fn runtime_helper_sets_become_verified_program_bindings() {
     let program = lower_modern_source(include_str!(
@@ -66,6 +86,29 @@ fn verifier_rejects_runtime_symbol_identity_mismatches() {
             .message
             .contains("runtime symbol `ACTION.RUNTIME.HELPER.SARGS` has a mismatched stable id")
     }));
+}
+
+#[test]
+fn verifier_rejects_6502_foreign_code_for_other_targets() {
+    for (source, kind) in [
+        ("PROC Main() [$60]", "machine block"),
+        (
+            "PROC Main()\nASM\n  NOP\nENDASM\nRETURN",
+            "inline assembly",
+        ),
+    ] {
+        let program = lower_modern_source_for_target(
+            source,
+            crate::target::TargetId::Motorola68000,
+        );
+        let diagnostics = verify_program(&program).expect_err("6502 payload must be rejected");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains(kind)
+                && diagnostic.message.contains("atari-6502")
+                && diagnostic.message.contains("motorola-68000")
+                && diagnostic.message.contains("source span")
+        }));
+    }
 }
 
 #[test]
@@ -698,14 +741,11 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
         .blocks
         .iter()
         .flat_map(|block| &block.ops)
-        .filter_map(|op| match op {
-            NirOp::InlineAsm { code, .. } => Some(&code.relocations),
-            _ => None,
-        })
+        .filter_map(|op| foreign_relocations(op))
         .flatten()
         .filter_map(|relocation| match relocation {
-            NirInlineAsmRelocation {
-                target: NirInlineAsmTarget::Storage(NirStorageId::Local(id)),
+            NirForeignRelocation {
+                target: NirForeignCodeTarget::Storage(NirStorageId::Local(id)),
                 ..
             } => Some(*id),
             _ => None,
@@ -853,14 +893,12 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
             ..
         } if *id == value.id
     )));
-    assert!(ops.iter().any(|op| matches!(
-        op,
-        NirOp::InlineAsm { code, .. }
-            if code.relocations.iter().all(|relocation| matches!(
+    assert!(ops.iter().any(|op| {
+        foreign_relocations(op).is_some_and(|relocations| relocations.iter().all(|relocation| matches!(
                 relocation.target,
-                NirInlineAsmTarget::Storage(NirStorageId::Local(id)) if id == value.id
-            ))
-    )));
+                NirForeignCodeTarget::Storage(NirStorageId::Local(id)) if id == value.id
+            )))
+    }));
 
     let output = crate::mir6502::generate_output(&program, crate::codegen::CODE_ORIGIN)
         .expect("MIR6502 should emit duplicate lexical display names by stable local ID");
@@ -1012,11 +1050,11 @@ fn named_module_executable_references_lower_to_stable_ids() {
     assert_eq!(calls.len(), 2);
     assert_ne!(calls[0], calls[1]);
     assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
-        matches!(
-            op,
-            NirOp::MachineBlock { items, .. }
-                if items.iter().all(|item| matches!(item, NirMachineItem::Relocation { .. }))
-        )
+        structured_machine_items(op).is_some_and(|items| {
+            items
+                .iter()
+                .all(|item| matches!(item, NirMachineItem::Relocation { .. }))
+        })
     }));
     crate::mir6502::lower_program(&program).expect("MIR6502 must consume resolved module IDs");
 }
@@ -1711,10 +1749,7 @@ fn routine_local_defines_do_not_lower_to_executable_metadata_ops() {
         main.blocks
             .iter()
             .flat_map(|block| &block.ops)
-            .any(|op| matches!(
-                op,
-                NirOp::MachineBlock { items, .. } if items == &[NirMachineItem::Byte(0xEA)]
-            )),
+            .any(|op| structured_machine_items(op) == Some(&[NirMachineItem::Byte(0xEA)])),
         "{main:#?}"
     );
 }
@@ -2447,7 +2482,7 @@ fn raw_machine_items_lower_to_explicit_unsupported_ops() {
         );
         assert!(
             ops.iter()
-                .all(|op| !matches!(op, NirOp::MachineBlock { .. })),
+                .all(|op| structured_machine_items(op).is_none()),
             "raw machine item must not enter an executable machine block: {ops:#?}"
         );
     }
@@ -2553,10 +2588,7 @@ fn routine_local_machine_defines_do_not_leak_between_routines() {
             .blocks
             .iter()
             .flat_map(|block| &block.ops)
-            .find_map(|op| match op {
-                NirOp::MachineBlock { items, .. } => Some(items.as_slice()),
-                _ => None,
-            })
+            .find_map(|op| structured_machine_items(op))
             .unwrap_or_else(|| panic!("missing {name} machine block"))
             .to_vec()
     };
@@ -2594,10 +2626,7 @@ fn named_module_machine_defines_expand_by_resolved_identity() {
         .blocks
         .iter()
         .flat_map(|block| &block.ops)
-        .find_map(|op| match op {
-            NirOp::MachineBlock { items, .. } => Some(items.as_slice()),
-            _ => None,
-        })
+        .find_map(|op| structured_machine_items(op))
         .expect("PutE machine block");
 
     assert_eq!(
@@ -2625,7 +2654,7 @@ fn empty_machine_blocks_do_not_lower_to_executable_ops() {
         cold.blocks
             .iter()
             .flat_map(|block| &block.ops)
-            .all(|op| !matches!(op, NirOp::MachineBlock { .. })),
+            .all(|op| structured_machine_items(op).is_none()),
         "{cold:#?}"
     );
 }

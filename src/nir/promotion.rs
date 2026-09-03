@@ -369,7 +369,7 @@ fn rename_block(
                     });
                 }
             }
-            NirOp::MachineBlock { effects, .. } => {
+            NirOp::ForeignCode { effects, .. } => {
                 let reads = effects.opaque
                     || memory_accesses_storage(
                         &effects.memory.reads,
@@ -614,7 +614,7 @@ impl HomeAccess {
                             definition_blocks.insert(block.id);
                         }
                     }
-                    NirOp::MachineBlock { effects, .. } => {
+                    NirOp::ForeignCode { effects, .. } => {
                         let reads = effects.opaque
                             || memory_accesses_storage(&effects.memory.reads, facts.id, ty.width);
                         let writes = effects.opaque

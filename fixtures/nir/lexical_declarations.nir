@@ -38,7 +38,7 @@ bb0:
   real.add Main::block0::realValue = &__nir_real_Main_0, __nir_real_tmp_12
   %t6:Byte = load Main::block0::itemPointer.+0
   store firstResult = %t6
-  inline-asm bytes=6 relocations=2 effects=reads:local1+0:1 writes:local1+0:1
+  inline-asm target=atari-6502 bytes=6 relocations=2 effects=reads:local1+0:1 writes:local1+0:1
   %t7:Card* = addr Main::block0::block1::data
   %t8:Card = load %t7[0;2]
   store Main::block0::block1::item.+0 = %t8

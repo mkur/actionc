@@ -853,58 +853,51 @@ Rules:
 - `StaticAddr(id)` must reference an existing static data entry.
 - String representation policy should be documented at this boundary.
 
-## Machine Blocks
+## Foreign Code And Machine Blocks
 
-Recommended machine block shape:
+Executable foreign code has one target-tagged envelope:
 
 ```rust
-pub struct NirMachineBlock {
-    pub id: MachineBlockId,
-    pub items: Vec<NirMachineItem>,
-    pub effects: NirEffects,
-    pub source_span: Option<SourceSpan>,
+pub struct NirForeignCode {
+    pub target: TargetId,
+    pub kind: LegacyMachineBlock | InlineAssembly,
+    pub payload: Structured(Vec<NirMachineItem>)
+               | Bytes { bytes: Vec<u8>, relocations: Vec<NirForeignRelocation> },
+    pub source: String,
+    pub span: SourceSpan,
 }
 
-pub enum NirMachineItem {
-    Byte(u8),
-    Word(u16),
-    LabelDef(BlockId),
-    LabelRef(BlockId),
-    GlobalRef(GlobalId),
-    StaticRef(StaticId),
-    RawTextForDebug(String),
+pub struct NirForeignRelocation {
+    pub offset: ByteOffset,
+    pub encoding: Address(ByteSize)
+                  | Unsigned(ByteSize)
+                  | TargetByte(TargetId, u8),
+    pub target: NirForeignCodeTarget,
+    pub addend: i32,
+    pub required_address_bits: Option<u8>,
+    pub symbol_use: ForeignSymbolUse,
+    pub span: SourceSpan,
 }
 ```
 
 Rules:
 
-- Machine blocks must either carry enough payload for MIR6502/emission to
-  preserve them or produce a precise unsupported diagnostic before MIR6502.
+- A payload target must equal the selected NIR target. Legacy Action! machine
+  blocks and current inline assembly are tagged `Atari6502`; 65816 and 68k
+  compilation rejects them at the retained source span.
+- Machine blocks must either carry enough structured payload for the selected
+  backend to preserve them or produce a precise unsupported diagnostic.
 - Raw parser items do not enter executable NIR; lowering replaces the whole
   machine block with an explicit `Unsupported` operation.
 - Formatted effect strings are not optimizer-grade effects.
 - Default effects should be opaque and conservative.
 
-Source-level inline assembly uses a stricter verifier-clean form than legacy
-Action! machine blocks. The assembler has already encoded target code before
-NIR, so NIR carries generic bytes, stable relocations, and target-independent
-effects without carrying 6502 mnemonics, addressing modes, registers, or
-flags:
-
-```rust
-pub struct NirInlineAsm {
-    pub bytes: Vec<u8>,
-    pub relocations: Vec<NirInlineAsmRelocation>,
-    pub source: String, // debug/source metadata only
-}
-
-pub enum NirInlineAsmTarget {
-    Storage(NirStorageId),
-    Routine(RoutineId),
-    Absolute(AddressValue),
-    InlineOffset(ByteOffset),
-}
-```
+Source-level inline assembly uses a stricter verifier-clean payload than
+legacy Action! machine blocks. The assembler has already encoded target code
+before NIR, so NIR carries generic bytes, stable relocations, and
+target-independent effects without carrying 6502 mnemonics, addressing modes,
+registers, or flags. Target byte selectors are explicitly tagged rather than
+represented as generic low/high meanings.
 
 `Storage` denotes the compiler-managed storage object whose bounds the verifier
 checks. A fixed numeric array whose Action-compatible representation includes a
@@ -915,12 +908,14 @@ range at the resolved backing address plus that addend. The descriptor remains
 a separate, correctly sized storage object. Signed addends are resolved without
 clamping, and absolute underflow or overflow fails verification.
 
-The verifier checks relocation bounds and overlap, stable target IDs,
+The verifier checks the target tag, relocation bounds and overlap, stable target IDs,
 inline-offset bounds, and address-size constraints. Optimizers consume the
 structured storage/memory effects; they must not decode the debug `source`
-string. MIR6502 may decode the byte payload for target-specific register,
-flag, stack, and internal-control analysis because those facts belong below the
-NIR boundary.
+string. The selected backend may decode the byte payload for target-specific
+register, flag, stack, and internal-control analysis because those facts belong
+below the NIR boundary. Conversion from the integrated 6502 assembler's types
+belongs to the semantic or MIR6502 adapter boundary; verifier-clean `src/nir`
+has no assembler dependency.
 
 ## CFG And Temp Facts
 

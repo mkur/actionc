@@ -10,6 +10,7 @@ pub mod codegen;
 pub mod compiler;
 pub mod diagnostic;
 pub mod embedded_vfs;
+pub mod foreign;
 pub mod includes;
 pub mod lexer;
 pub(crate) mod linker;

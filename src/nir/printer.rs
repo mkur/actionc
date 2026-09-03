@@ -514,21 +514,21 @@ fn op_summary(op: &NirOp) -> String {
                 .unwrap_or_else(|| format!("call {callee}({args})"));
             format!("{call}{}", call_effects_suffix(effects))
         }
-        NirOp::MachineBlock { items, effects } => {
-            format!(
-                "machine items={} effects={}",
+        NirOp::ForeignCode { code, effects } => match &code.payload {
+            NirForeignCodePayload::Structured(items) => format!(
+                "machine target={} items={} effects={}",
+                code.target,
                 items.len(),
                 machine_effects_summary(effects)
-            )
-        }
-        NirOp::InlineAsm { code, effects } => {
-            format!(
-                "inline-asm bytes={} relocations={} effects={}",
-                code.bytes.len(),
-                code.relocations.len(),
+            ),
+            NirForeignCodePayload::Bytes { bytes, relocations } => format!(
+                "inline-asm target={} bytes={} relocations={} effects={}",
+                code.target,
+                bytes.len(),
+                relocations.len(),
                 machine_effects_summary(effects)
-            )
-        }
+            ),
+        },
         NirOp::Unsupported { note } => format!("unsupported {note}"),
     }
 }

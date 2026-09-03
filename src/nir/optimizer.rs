@@ -843,8 +843,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
         | NirOp::VolatileStore { .. }
         | NirOp::CopyBytes { .. }
         | NirOp::Call { .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => None,
     }
 }
@@ -983,8 +982,7 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
                 rewrite_value(arg, constants);
             }
         }
-        NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => {}
     }
 }
@@ -1172,8 +1170,7 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
                 collect_value_use(arg, out);
             }
         }
-        NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => {}
     }
 }
@@ -1319,8 +1316,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => None,
     }
 }

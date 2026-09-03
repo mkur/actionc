@@ -657,7 +657,14 @@ impl SemIrAstLowerer<'_> {
                     bytes: program.bytes.clone(),
                     relocations: Vec::new(),
                     source: program.source.clone(),
-                    mode: program.mode,
+                    mode: match program.mode {
+                        crate::foreign::ForeignCodeMode::Analyzed => {
+                            crate::asm6502::InlineAsmMode::Analyzed
+                        }
+                        crate::foreign::ForeignCodeMode::Opaque => {
+                            crate::asm6502::InlineAsmMode::Opaque
+                        }
+                    },
                 },
                 span: *span,
             }),

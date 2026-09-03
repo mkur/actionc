@@ -2,9 +2,9 @@ use super::facts::{
     BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, RuntimeSymbolId, SignatureId,
     SymbolId, TempId,
 };
-use crate::asm6502::{InlineAsmRelocationKind, InlineAsmSymbolUse};
+use crate::foreign::{ForeignRelocationEncoding, ForeignSymbolUse};
 use crate::source::Span;
-use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize};
+use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize, TargetId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirProgram {
@@ -594,12 +594,8 @@ pub enum NirOp {
         signature: Option<NirCallableSignature>,
         effects: NirCallEffects,
     },
-    MachineBlock {
-        items: Vec<NirMachineItem>,
-        effects: NirMachineEffects,
-    },
-    InlineAsm {
-        code: NirInlineAsm,
+    ForeignCode {
+        code: NirForeignCode,
         effects: NirMachineEffects,
     },
     Unsupported {
@@ -658,25 +654,42 @@ pub enum NirRealSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NirInlineAsm {
-    pub bytes: Vec<u8>,
-    pub relocations: Vec<NirInlineAsmRelocation>,
+pub struct NirForeignCode {
+    pub target: TargetId,
+    pub kind: NirForeignCodeKind,
+    pub payload: NirForeignCodePayload,
     pub source: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NirInlineAsmRelocation {
+pub enum NirForeignCodePayload {
+    Structured(Vec<NirMachineItem>),
+    Bytes {
+        bytes: Vec<u8>,
+        relocations: Vec<NirForeignRelocation>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NirForeignCodeKind {
+    LegacyMachineBlock,
+    InlineAssembly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NirForeignRelocation {
     pub offset: ByteOffset,
-    pub kind: InlineAsmRelocationKind,
-    pub target: NirInlineAsmTarget,
+    pub encoding: ForeignRelocationEncoding,
+    pub target: NirForeignCodeTarget,
     pub addend: i32,
-    pub requires_zero_page: bool,
-    pub symbol_use: InlineAsmSymbolUse,
+    pub required_address_bits: Option<u8>,
+    pub symbol_use: ForeignSymbolUse,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NirInlineAsmTarget {
+pub enum NirForeignCodeTarget {
     Storage(NirStorageId),
     Routine(u32),
     Absolute(AddressValue),
@@ -704,10 +717,10 @@ pub enum NirMachineItem {
     /// A resolved symbolic machine-block operand. Legacy unresolved names are
     /// retained only in the compatibility variants above.
     Relocation {
-        kind: InlineAsmRelocationKind,
-        target: NirInlineAsmTarget,
+        encoding: ForeignRelocationEncoding,
+        target: NirForeignCodeTarget,
         addend: i32,
-        requires_zero_page: bool,
+        required_address_bits: Option<u8>,
         span: Span,
     },
 }

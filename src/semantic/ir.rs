@@ -13,6 +13,7 @@ use crate::ast::{
     TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
 use crate::atari_real::AtariReal;
+use crate::foreign::{ForeignCodeMode, ForeignRelocationEncoding, ForeignSymbolUse};
 use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberLiteral, TokenKind, tokenize};
 use crate::source::Span;
@@ -367,7 +368,7 @@ pub struct SemInlineAsm {
     pub bytes: Vec<u8>,
     pub relocations: Vec<SemInlineAsmRelocation>,
     pub source: String,
-    pub mode: InlineAsmMode,
+    pub mode: ForeignCodeMode,
     /// Compatibility emission keeps the already assembled machine items out of
     /// verifier-clean NIR while allowing the classic backend to share the same
     /// source feature.
@@ -377,11 +378,11 @@ pub struct SemInlineAsm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemInlineAsmRelocation {
     pub offset: u16,
-    pub kind: InlineAsmRelocationKind,
+    pub encoding: ForeignRelocationEncoding,
     pub target: SemInlineAsmTarget,
     pub addend: i32,
-    pub requires_zero_page: bool,
-    pub symbol_use: InlineAsmSymbolUse,
+    pub required_address_bits: Option<u8>,
+    pub symbol_use: ForeignSymbolUse,
     pub span: Span,
 }
 
@@ -3099,11 +3100,11 @@ impl<'a> IrBuilder<'a> {
                 };
                 Some(SemInlineAsmRelocation {
                     offset: relocation.offset,
-                    kind: relocation.kind,
+                    encoding: Self::foreign_relocation_encoding(relocation.kind),
                     target,
                     addend: relocation.addend,
-                    requires_zero_page: relocation.requires_zero_page,
-                    symbol_use: relocation.symbol_use,
+                    required_address_bits: relocation.requires_zero_page.then_some(8),
+                    symbol_use: Self::foreign_symbol_use(relocation.symbol_use),
                     span: relocation.span,
                 })
             })
@@ -3114,8 +3115,46 @@ impl<'a> IrBuilder<'a> {
             bytes: program.bytes,
             relocations,
             source: program.source,
-            mode: program.mode,
+            mode: match program.mode {
+                InlineAsmMode::Analyzed => ForeignCodeMode::Analyzed,
+                InlineAsmMode::Opaque => ForeignCodeMode::Opaque,
+            },
             compatibility_items,
+        }
+    }
+
+    fn foreign_relocation_encoding(kind: InlineAsmRelocationKind) -> ForeignRelocationEncoding {
+        match kind {
+            InlineAsmRelocationKind::Absolute16 => ForeignRelocationEncoding::Address {
+                width: crate::target::ByteSize::new(2),
+            },
+            InlineAsmRelocationKind::Byte8 => ForeignRelocationEncoding::Unsigned {
+                width: crate::target::ByteSize::ONE,
+            },
+            InlineAsmRelocationKind::Low8 => ForeignRelocationEncoding::TargetByte {
+                target: crate::target::TargetId::Atari6502,
+                byte_index: 0,
+            },
+            InlineAsmRelocationKind::High8 => ForeignRelocationEncoding::TargetByte {
+                target: crate::target::TargetId::Atari6502,
+                byte_index: 1,
+            },
+        }
+    }
+
+    fn foreign_symbol_use(symbol_use: InlineAsmSymbolUse) -> ForeignSymbolUse {
+        match symbol_use {
+            InlineAsmSymbolUse::Address => ForeignSymbolUse::Address,
+            InlineAsmSymbolUse::Constant => ForeignSymbolUse::Constant,
+            InlineAsmSymbolUse::Read => ForeignSymbolUse::Read,
+            InlineAsmSymbolUse::Write => ForeignSymbolUse::Write,
+            InlineAsmSymbolUse::ReadWrite => ForeignSymbolUse::ReadWrite,
+            InlineAsmSymbolUse::IndexedRead => ForeignSymbolUse::IndexedRead,
+            InlineAsmSymbolUse::IndexedWrite => ForeignSymbolUse::IndexedWrite,
+            InlineAsmSymbolUse::IndexedReadWrite => ForeignSymbolUse::IndexedReadWrite,
+            InlineAsmSymbolUse::Call => ForeignSymbolUse::Call,
+            InlineAsmSymbolUse::Control => ForeignSymbolUse::Control,
+            InlineAsmSymbolUse::PointerRead => ForeignSymbolUse::PointerRead,
         }
     }
 

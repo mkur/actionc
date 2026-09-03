@@ -135,8 +135,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     | NirOp::Binary { .. }
                     | NirOp::Compare { .. }
                     | NirOp::Call { .. }
-                    | NirOp::MachineBlock { .. }
-                    | NirOp::InlineAsm { .. }
+                    | NirOp::ForeignCode { .. }
                     | NirOp::Unsupported { .. } => {}
                 }
             }
@@ -312,8 +311,10 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::Compare { .. } => "compare",
         NirOp::Real(_) => "real",
         NirOp::Call { .. } => "call",
-        NirOp::MachineBlock { .. } => "machine_block",
-        NirOp::InlineAsm { .. } => "inline_asm",
+        NirOp::ForeignCode { code, .. } => match code.kind {
+            crate::nir::NirForeignCodeKind::LegacyMachineBlock => "machine_block",
+            crate::nir::NirForeignCodeKind::InlineAssembly => "inline_asm",
+        },
         NirOp::Unsupported { .. } => "unsupported",
     }
 }

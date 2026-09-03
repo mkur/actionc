@@ -272,8 +272,7 @@ fn transfer_op(
             retain_available_storage_values(facts, block, op_index, use_def);
             facts.storage.clear();
         }
-        NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => {
             facts.storage.clear();
         }
@@ -446,8 +445,7 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
                 rewrite_value(arg, replacements);
             }
         }
-        NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => {}
     }
 }
@@ -585,8 +583,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => None,
     }
 }
@@ -1152,8 +1149,16 @@ mod tests {
                         ty: byte_type(),
                     },
                     load(0, 0, "x"),
-                    NirOp::MachineBlock {
-                        items: vec![NirMachineItem::Byte(0x60)],
+                    NirOp::ForeignCode {
+                        code: NirForeignCode {
+                            target: crate::target::TargetId::Atari6502,
+                            kind: NirForeignCodeKind::LegacyMachineBlock,
+                            payload: NirForeignCodePayload::Structured(vec![
+                                NirMachineItem::Byte(0x60),
+                            ]),
+                            source: String::new(),
+                            span: crate::source::Span::new(0, 0),
+                        },
                         effects: NirMachineEffects {
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::Unknown,

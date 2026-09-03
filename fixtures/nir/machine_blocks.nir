@@ -4,12 +4,12 @@ global Nop: define [$EA]
 routine Raw params=[-] locals=[-]
   note system-address *
 bb0:
-  machine items=3 effects=opaque
+  machine target=atari-6502 items=3 effects=opaque
   fallthrough
 
 routine Main params=[-] locals=[-]
   note Action program entry (last source PROC)
 bb1:
-  machine items=1 effects=opaque
+  machine target=atari-6502 items=1 effects=opaque
   call Raw()
   return

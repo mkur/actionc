@@ -1404,44 +1404,84 @@ impl NirVerifier {
                 }
                 self.call_effects(routine, block, effects);
             }
-            NirOp::MachineBlock { items, effects } => {
-                if items.is_empty() {
+            NirOp::ForeignCode { code, effects } => {
+                if code.target != self.target_layout.target {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
-                        "machine block must carry at least one machine item",
+                        format!(
+                            "{} payload code for target `{}` cannot be used with selected target `{}` at source span {}..{}",
+                            match code.kind {
+                                NirForeignCodeKind::LegacyMachineBlock => "machine block",
+                                NirForeignCodeKind::InlineAssembly => "inline assembly",
+                            },
+                            code.target,
+                            self.target_layout.target,
+                            code.span.start,
+                            code.span.end,
+                        ),
                     ));
                 }
-                for item in items {
-                    if let NirMachineItem::Relocation { target, addend, .. } = item {
-                        if !(-65535..=65535).contains(addend) {
+                match &code.payload {
+                    NirForeignCodePayload::Structured(items) => {
+                        if items.is_empty() {
                             self.diagnostics.push(NirDiagnostic::block(
                                 &routine.name,
                                 &block.label,
-                                format!(
-                                    "machine relocation addend {addend} is outside the supported 16-bit address range"
-                                ),
+                                "machine block must carry at least one machine item",
                             ));
                         }
-                        self.resolved_symbol_target(routine, block, *target, "machine block");
+                        for item in items {
+                            if let NirMachineItem::Relocation {
+                                encoding,
+                                target,
+                                addend,
+                                required_address_bits,
+                                ..
+                            } = item
+                            {
+                                self.foreign_relocation_shape(
+                                    routine,
+                                    block,
+                                    code,
+                                    *encoding,
+                                    *required_address_bits,
+                                );
+                                if !(-65535..=65535).contains(addend) {
+                                    self.diagnostics.push(NirDiagnostic::block(
+                                        &routine.name,
+                                        &block.label,
+                                        format!(
+                                            "machine relocation addend {addend} is outside the supported 16-bit address range"
+                                        ),
+                                    ));
+                                }
+                                self.resolved_symbol_target(
+                                    routine,
+                                    block,
+                                    *target,
+                                    "machine block",
+                                );
+                            }
+                        }
+                        self.machine_effects(routine, block, effects);
+                    }
+                    NirForeignCodePayload::Bytes { .. } => {
+                        self.foreign_bytes(routine, block, code);
+                        self.memory_access(
+                            routine,
+                            block,
+                            &effects.memory.reads,
+                            "inline assembler read effects",
+                        );
+                        self.memory_access(
+                            routine,
+                            block,
+                            &effects.memory.writes,
+                            "inline assembler write effects",
+                        );
                     }
                 }
-                self.machine_effects(routine, block, effects);
-            }
-            NirOp::InlineAsm { code, effects } => {
-                self.inline_asm(routine, block, code);
-                self.memory_access(
-                    routine,
-                    block,
-                    &effects.memory.reads,
-                    "inline assembler read effects",
-                );
-                self.memory_access(
-                    routine,
-                    block,
-                    &effects.memory.writes,
-                    "inline assembler write effects",
-                );
             }
             NirOp::Unsupported { .. } => {}
         }
@@ -1876,8 +1916,11 @@ impl NirVerifier {
         }
     }
 
-    fn inline_asm(&mut self, routine: &NirRoutine, block: &NirBlock, code: &NirInlineAsm) {
-        if code.bytes.is_empty() {
+    fn foreign_bytes(&mut self, routine: &NirRoutine, block: &NirBlock, code: &NirForeignCode) {
+        let NirForeignCodePayload::Bytes { bytes, relocations } = &code.payload else {
+            return;
+        };
+        if bytes.is_empty() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -1886,26 +1929,29 @@ impl NirVerifier {
             return;
         }
         let mut occupied = BTreeSet::new();
-        for relocation in &code.relocations {
-            let width = match relocation.kind {
-                crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2usize,
-                crate::asm6502::InlineAsmRelocationKind::Byte8
-                | crate::asm6502::InlineAsmRelocationKind::Low8
-                | crate::asm6502::InlineAsmRelocationKind::High8 => 1usize,
-            };
+        for relocation in relocations {
+            let width = usize::try_from(relocation.encoding.width())
+                .expect("foreign relocation width fits usize");
             let start = usize::from(relocation.offset);
-            if start.saturating_add(width) > code.bytes.len() {
+            if start.saturating_add(width) > bytes.len() {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
                     format!(
                         "inline assembler relocation at {} exceeds {}-byte payload",
                         relocation.offset,
-                        code.bytes.len()
+                        bytes.len()
                     ),
                 ));
                 continue;
             }
+            self.foreign_relocation_shape(
+                routine,
+                block,
+                code,
+                relocation.encoding,
+                relocation.required_address_bits,
+            );
             for byte in start..start + width {
                 if !occupied.insert(byte) {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -1925,7 +1971,7 @@ impl NirVerifier {
                     ),
                 ));
             }
-            if let NirInlineAsmTarget::Absolute(address) = relocation.target {
+            if let NirForeignCodeTarget::Absolute(address) = relocation.target {
                 let value = address.checked_add_signed(i64::from(relocation.addend));
                 if value.is_none_or(|value| !self.address_fits_target(value)) {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -1936,7 +1982,7 @@ impl NirVerifier {
                 }
             }
             match relocation.target {
-                NirInlineAsmTarget::Storage(NirStorageId::Param(id))
+                NirForeignCodeTarget::Storage(NirStorageId::Param(id))
                     if !routine.params.iter().any(|param| param.id == id) =>
                 {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -1945,7 +1991,7 @@ impl NirVerifier {
                         format!("inline assembler references unknown param id {}", id.0),
                     ));
                 }
-                NirInlineAsmTarget::Storage(NirStorageId::Local(id))
+                NirForeignCodeTarget::Storage(NirStorageId::Local(id))
                     if !routine.locals.iter().any(|local| local.id == id) =>
                 {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -1954,7 +2000,7 @@ impl NirVerifier {
                         format!("inline assembler references unknown local id {}", id.0),
                     ));
                 }
-                NirInlineAsmTarget::Storage(NirStorageId::Global(id))
+                NirForeignCodeTarget::Storage(NirStorageId::Global(id))
                     if !self.global_sizes.contains_key(&id) =>
                 {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -1963,15 +2009,15 @@ impl NirVerifier {
                         format!("inline assembler references unknown global id {}", id.0),
                     ));
                 }
-                NirInlineAsmTarget::Routine(id) if id as usize >= self.routine_count => {
+                NirForeignCodeTarget::Routine(id) if id as usize >= self.routine_count => {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
                         format!("inline assembler references unknown routine id {id}"),
                     ));
                 }
-                NirInlineAsmTarget::InlineOffset(offset)
-                    if usize::from(offset) > code.bytes.len() =>
+                NirForeignCodeTarget::InlineOffset(offset)
+                    if usize::from(offset) > bytes.len() =>
                 {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
@@ -1984,15 +2030,55 @@ impl NirVerifier {
         }
     }
 
+    fn foreign_relocation_shape(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        code: &NirForeignCode,
+        encoding: crate::foreign::ForeignRelocationEncoding,
+        required_address_bits: Option<u8>,
+    ) {
+        if let crate::foreign::ForeignRelocationEncoding::TargetByte {
+            target,
+            byte_index,
+        } = encoding
+        {
+            if target != code.target {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "foreign-code byte-selector relocation target does not match its payload target",
+                ));
+            }
+            let address_bytes = self.target_layout.address_bits.div_ceil(8);
+            if byte_index >= address_bytes {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "foreign-code byte-selector relocation is outside the target address width",
+                ));
+            }
+        }
+        if required_address_bits == Some(0)
+            || required_address_bits.is_some_and(|bits| bits > self.target_layout.address_bits)
+        {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                "foreign-code relocation has an invalid address-width requirement",
+            ));
+        }
+    }
+
     fn resolved_symbol_target(
         &mut self,
         routine: &NirRoutine,
         block: &NirBlock,
-        target: NirInlineAsmTarget,
+        target: NirForeignCodeTarget,
         label: &str,
     ) {
         match target {
-            NirInlineAsmTarget::Storage(NirStorageId::Param(id))
+            NirForeignCodeTarget::Storage(NirStorageId::Param(id))
                 if !routine.params.iter().any(|param| param.id == id) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
@@ -2001,7 +2087,7 @@ impl NirVerifier {
                     format!("{label} references unknown param id {}", id.0),
                 ));
             }
-            NirInlineAsmTarget::Storage(NirStorageId::Local(id))
+            NirForeignCodeTarget::Storage(NirStorageId::Local(id))
                 if !routine.locals.iter().any(|local| local.id == id) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
@@ -2010,7 +2096,7 @@ impl NirVerifier {
                     format!("{label} references unknown local id {}", id.0),
                 ));
             }
-            NirInlineAsmTarget::Storage(NirStorageId::Global(id))
+            NirForeignCodeTarget::Storage(NirStorageId::Global(id))
                 if !self.global_sizes.contains_key(&id) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
@@ -2019,14 +2105,14 @@ impl NirVerifier {
                     format!("{label} references unknown global id {}", id.0),
                 ));
             }
-            NirInlineAsmTarget::Routine(id) if id as usize >= self.routine_count => {
+            NirForeignCodeTarget::Routine(id) if id as usize >= self.routine_count => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
                     format!("{label} references unknown routine id {id}"),
                 ));
             }
-            NirInlineAsmTarget::InlineOffset(_) if label == "machine block" => {
+            NirForeignCodeTarget::InlineOffset(_) if label == "machine block" => {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,

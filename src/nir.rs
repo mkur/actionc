@@ -26,16 +26,15 @@ pub use facts::{
 };
 pub use ir::{
     NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallEffects, NirCallResult,
-    NirCastKind,
-    NirCallableSignature, NirCallee, NirCompareOp, NirDataAddressEncoding, NirDataAddressTarget,
-    NirDataBacking, NirDataFragment, NirDataImage, NirEdge, NirGlobal, NirGlobalBacking,
-    NirGlobalInit, NirInlineAsm, NirInlineAsmRelocation, NirInlineAsmTarget, NirLocal,
-    NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects,
-    NirMachineItem, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp,
-    NirParam, NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine,
-    NirRoutineNote, NirRoutineNoteKind, NirRuntimeBinding, NirRuntimeTarget, NirStaticData,
-    NirStorageBacking, NirLinkValue, NirStorageClass, NirStorageInit, NirTemp, NirTempDef,
-    NirTerminator, NirUnaryOp,
+    NirCallableSignature, NirCallee, NirCastKind, NirCompareOp, NirDataAddressEncoding,
+    NirDataAddressTarget, NirDataBacking, NirDataFragment, NirDataImage, NirEdge, NirForeignCode,
+    NirForeignCodeKind, NirForeignCodePayload, NirForeignCodeTarget, NirForeignRelocation,
+    NirGlobal, NirGlobalBacking, NirGlobalInit, NirLinkValue, NirLocal, NirLocalBacking,
+    NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
+    NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirParam,
+    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirRoutineNote,
+    NirRoutineNoteKind, NirRuntimeBinding, NirRuntimeTarget, NirStaticData, NirStorageBacking,
+    NirStorageClass, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
 };
 pub use stats::{
     NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,

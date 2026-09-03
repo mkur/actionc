@@ -1434,14 +1434,22 @@ mod tests {
                     id: BlockId(0),
                     label: "bb0".to_string(),
                     params: Vec::new(),
-                    ops: vec![NirOp::MachineBlock {
-                        items: vec![NirMachineItem::AddressExpr {
-                            selector: Some(NirByteSelector::Low),
-                            explicit_address: true,
-                            atom: NirAtom::Name("TARGET".to_string()),
-                            offset: 1,
-                            text: "<@TARGET+1".to_string(),
-                        }],
+                    ops: vec![NirOp::ForeignCode {
+                        code: crate::nir::NirForeignCode {
+                            target: crate::target::TargetId::Atari6502,
+                            kind: crate::nir::NirForeignCodeKind::LegacyMachineBlock,
+                            payload: crate::nir::NirForeignCodePayload::Structured(vec![
+                                NirMachineItem::AddressExpr {
+                                    selector: Some(NirByteSelector::Low),
+                                    explicit_address: true,
+                                    atom: NirAtom::Name("TARGET".to_string()),
+                                    offset: 1,
+                                    text: "<@TARGET+1".to_string(),
+                                },
+                            ]),
+                            source: String::new(),
+                            span: crate::source::Span::new(0, 0),
+                        },
                         effects: NirMachineEffects {
                             memory: NirMemoryEffects {
                                 reads: NirMemoryAccess::None,

@@ -81,6 +81,18 @@ fn semir(source: &str) -> semantic::ir::SemProgram {
     semantic::ir::lower_program(&program, &model)
 }
 
+fn inline_payload(
+    op: &nir::NirOp,
+) -> Option<(&[u8], &[nir::NirForeignRelocation], &nir::NirMachineEffects)> {
+    let nir::NirOp::ForeignCode { code, effects } = op else {
+        return None;
+    };
+    let nir::NirForeignCodePayload::Bytes { bytes, relocations } = &code.payload else {
+        return None;
+    };
+    Some((bytes, relocations, effects))
+}
+
 #[test]
 fn inline_asm_emits_in_modern_classic() {
     let output = generate_semir_profile_with_origin(&semir(SOURCE), 0x3000, CodegenProfile::Modern)
@@ -224,21 +236,18 @@ fn inline_asm_self_modification_labels_emit_in_all_backends() {
 #[test]
 fn inline_asm_self_code_writes_have_conservative_nir_effects() {
     let program = nir::lower_program(&semir(SELF_MODIFYING_SOURCE));
-    let (code, effects) = program
+    let (_, relocations, effects) = program
         .routines
         .iter()
         .flat_map(|routine| &routine.blocks)
         .flat_map(|block| &block.ops)
-        .find_map(|op| match op {
-            nir::NirOp::InlineAsm { code, effects } => Some((code, effects)),
-            _ => None,
-        })
+        .find_map(inline_payload)
         .expect("self-modifying inline assembler NIR operation");
 
-    assert!(code.relocations.iter().any(|relocation| {
+    assert!(relocations.iter().any(|relocation| {
         relocation.target
-            == nir::NirInlineAsmTarget::InlineOffset(nir::ByteOffset::new(1))
-            && relocation.symbol_use == actionc::asm6502::InlineAsmSymbolUse::Write
+            == nir::NirForeignCodeTarget::InlineOffset(nir::ByteOffset::new(1))
+            && relocation.symbol_use == actionc::foreign::ForeignSymbolUse::Write
     }));
     assert_eq!(effects.memory.writes, nir::NirMemoryAccess::Unknown);
     nir::verify_program(&program).expect("self-modifying inline assembler NIR must verify");
@@ -265,22 +274,19 @@ fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
         Some(nir::AddressValue::data(0x5000))
     );
 
-    let (code, effects) = program
+    let (_, relocations, effects) = program
         .routines
         .iter()
         .flat_map(|routine| &routine.blocks)
         .flat_map(|block| &block.ops)
-        .find_map(|op| match op {
-            nir::NirOp::InlineAsm { code, effects } => Some((code, effects)),
-            _ => None,
-        })
+        .find_map(inline_payload)
         .expect("inline assembler NIR operation");
-    assert_eq!(code.relocations.len(), 1);
+    assert_eq!(relocations.len(), 1);
     assert_eq!(
-        code.relocations[0].target,
-        nir::NirInlineAsmTarget::Absolute(nir::AddressValue::data(0x5000))
+        relocations[0].target,
+        nir::NirForeignCodeTarget::Absolute(nir::AddressValue::data(0x5000))
     );
-    assert_eq!(code.relocations[0].addend, 8);
+    assert_eq!(relocations[0].addend, 8);
     assert_eq!(
         effects.memory.writes,
         nir::NirMemoryAccess::Regions(vec![nir::NirMemoryRegion {
@@ -297,23 +303,20 @@ fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
 #[test]
 fn inline_asm_negative_fixed_array_addend_targets_absolute_region_in_nir() {
     let program = nir::lower_program(&semir(FIXED_ARRAY_NEGATIVE_SOURCE));
-    let (code, effects) = program
+    let (_, relocations, effects) = program
         .routines
         .iter()
         .flat_map(|routine| &routine.blocks)
         .flat_map(|block| &block.ops)
-        .find_map(|op| match op {
-            nir::NirOp::InlineAsm { code, effects } => Some((code, effects)),
-            _ => None,
-        })
+        .find_map(inline_payload)
         .expect("inline assembler NIR operation");
 
-    assert_eq!(code.relocations.len(), 1);
+    assert_eq!(relocations.len(), 1);
     assert_eq!(
-        code.relocations[0].target,
-        nir::NirInlineAsmTarget::Absolute(nir::AddressValue::data(0x5000))
+        relocations[0].target,
+        nir::NirForeignCodeTarget::Absolute(nir::AddressValue::data(0x5000))
     );
-    assert_eq!(code.relocations[0].addend, -10);
+    assert_eq!(relocations[0].addend, -10);
     assert_eq!(
         effects.memory.writes,
         nir::NirMemoryAccess::Regions(vec![nir::NirMemoryRegion {
@@ -388,10 +391,8 @@ RETURN
         .iter()
         .flat_map(|routine| &routine.blocks)
         .flat_map(|block| &block.ops)
-        .find_map(|op| match op {
-            nir::NirOp::InlineAsm { effects, .. } => Some(effects),
-            _ => None,
-        })
+        .find_map(inline_payload)
+        .map(|(_, _, effects)| effects)
         .expect("inline assembler effects");
 
     assert_eq!(effects.memory.writes, nir::NirMemoryAccess::Unknown);
@@ -470,14 +471,12 @@ RETURN
         .iter()
         .flat_map(|routine| &routine.blocks)
         .flat_map(|block| &block.ops)
-        .find_map(|op| match op {
-            nir::NirOp::InlineAsm { code, .. } => code.relocations.first(),
-            _ => None,
-        })
+        .find_map(inline_payload)
+        .and_then(|(_, relocations, _)| relocations.first())
         .expect("inline assembler relocation");
     assert_eq!(
         relocation.target,
-        nir::NirInlineAsmTarget::Storage(nir::NirStorageId::Global(global.id))
+        nir::NirForeignCodeTarget::Storage(nir::NirStorageId::Global(global.id))
     );
     nir::verify_program(&program).expect("dynamic-array inline assembler NIR must verify");
 }

@@ -4,12 +4,11 @@ use crate::ast::machine_address_symbolic_offset;
 use crate::codegen::runtime_zp;
 use crate::nir::{
     self, AddressValue, BlockId, ByteOffset, ByteSize, LocalId, NirBinaryOp, NirCompareOp,
-    NirGlobalBacking, NirInlineAsm,
-    NirInlineAsmTarget, NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector,
-    NirMachineEffects, NirMachineItem, NirMemoryAccess, NirMemoryRegionKind, NirOp as NirOpKind,
-    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirStorageId,
-    NirStorageInit, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue as NirValueKind,
-    TempId,
+    NirForeignCode, NirForeignCodePayload, NirForeignCodeTarget, NirGlobalBacking, NirLocalBacking,
+    NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects, NirMachineItem,
+    NirMemoryAccess, NirMemoryRegionKind, NirOp as NirOpKind, NirPlace, NirPlaceKind, NirProgram,
+    NirRealOp, NirRealSource, NirRoutine, NirStorageId, NirStorageInit, NirTerminator, NirType,
+    NirTypeKind, NirUnaryOp, NirValue as NirValueKind, TempId,
 };
 use crate::resident::resident_variable;
 
@@ -340,17 +339,20 @@ fn real_local_accesses(routine: &NirRoutine) -> BTreeMap<LocalId, RealLocalAcces
                 NirOpKind::Call { effects, .. } => {
                     record_effect_local_references(&effects.memory, &mut accesses);
                 }
-                NirOpKind::MachineBlock { items, effects } => {
-                    for item in items {
-                        if let NirMachineItem::Relocation { target, .. } = item {
-                            record_inline_target_local(*target, &mut accesses);
+                NirOpKind::ForeignCode { code, effects } => {
+                    match &code.payload {
+                        NirForeignCodePayload::Structured(items) => {
+                            for item in items {
+                                if let NirMachineItem::Relocation { target, .. } = item {
+                                    record_inline_target_local(*target, &mut accesses);
+                                }
+                            }
                         }
-                    }
-                    record_effect_local_references(&effects.memory, &mut accesses);
-                }
-                NirOpKind::InlineAsm { code, effects } => {
-                    for relocation in &code.relocations {
-                        record_inline_target_local(relocation.target, &mut accesses);
+                        NirForeignCodePayload::Bytes { relocations, .. } => {
+                            for relocation in relocations {
+                                record_inline_target_local(relocation.target, &mut accesses);
+                            }
+                        }
                     }
                     record_effect_local_references(&effects.memory, &mut accesses);
                 }
@@ -460,10 +462,10 @@ fn record_effect_local_references(
 }
 
 fn record_inline_target_local(
-    target: NirInlineAsmTarget,
+    target: NirForeignCodeTarget,
     accesses: &mut BTreeMap<LocalId, RealLocalAccesses>,
 ) {
-    if let NirInlineAsmTarget::Storage(NirStorageId::Local(id)) = target {
+    if let NirForeignCodeTarget::Storage(NirStorageId::Local(id)) = target {
         accesses.entry(id).or_default().other += 1;
     }
 }
@@ -1838,32 +1840,30 @@ fn lower_ops(
                     effects: plan.effects,
                 });
             }
-            NirOpKind::MachineBlock { items, effects } => {
-                let Some(items) = lower_machine_items(
-                    routine,
-                    block,
-                    items,
-                    local_absolute_addresses,
-                    routine_system_addresses,
-                    machine_numeric_defines,
-                    diagnostics,
-                ) else {
+            NirOpKind::ForeignCode { code, effects } => {
+                let Some((items, effects)) = (match &code.payload {
+                    NirForeignCodePayload::Structured(items) => lower_machine_items(
+                        routine,
+                        block,
+                        items,
+                        local_absolute_addresses,
+                        routine_system_addresses,
+                        machine_numeric_defines,
+                        diagnostics,
+                    )
+                    .map(|items| (items, lower_machine_effects(effects))),
+                    NirForeignCodePayload::Bytes { .. } => {
+                        lower_inline_asm(routine, block, code, diagnostics)
+                            .map(|items| (items, lower_inline_asm_effects(code, effects)))
+                    }
+                }) else {
                     continue;
                 };
                 let id = MirMachineBlockId(machine_blocks.len() as u32);
                 machine_blocks.push(MirMachineBlock { id, items });
                 lowered.push(MirOp::MachineBlock {
                     id,
-                    effects: lower_machine_effects(effects),
-                });
-            }
-            NirOpKind::InlineAsm { code, effects } => {
-                let items = lower_inline_asm(code);
-                let id = MirMachineBlockId(machine_blocks.len() as u32);
-                machine_blocks.push(MirMachineBlock { id, items });
-                lowered.push(MirOp::MachineBlock {
-                    id,
-                    effects: lower_inline_asm_effects(code, effects),
+                    effects,
                 });
             }
             NirOpKind::Real(real) => lower_real_op(
@@ -3285,77 +3285,123 @@ fn lower_machine_items(
                 }
             }
             NirMachineItem::Relocation {
-                kind,
+                encoding,
                 target,
                 addend,
-                requires_zero_page,
+                required_address_bits,
                 span,
-            } => lowered.push(MirMachineItem::Relocation {
-                kind: *kind,
-                target: lower_inline_asm_target(*target),
-                addend: *addend,
-                requires_zero_page: *requires_zero_page,
-                span: *span,
-            }),
+            } => {
+                let Some(kind) = lower_foreign_relocation_encoding(*encoding) else {
+                    diagnostics.push(MirDiagnostic::block(
+                        routine,
+                        block,
+                        "foreign relocation encoding is not valid for Atari 6502",
+                    ));
+                    return None;
+                };
+                lowered.push(MirMachineItem::Relocation {
+                    kind,
+                    target: lower_inline_asm_target(*target),
+                    addend: *addend,
+                    requires_zero_page: *required_address_bits == Some(8),
+                    span: *span,
+                })
+            }
         }
     }
     Some(lowered)
 }
 
-fn lower_inline_asm(code: &NirInlineAsm) -> Vec<MirMachineItem> {
-    let mut relocations = code.relocations.iter().collect::<Vec<_>>();
+fn lower_inline_asm(
+    routine: &str,
+    block: &str,
+    code: &NirForeignCode,
+    diagnostics: &mut Vec<MirDiagnostic>,
+) -> Option<Vec<MirMachineItem>> {
+    let NirForeignCodePayload::Bytes { bytes, relocations } = &code.payload else {
+        return None;
+    };
+    let mut relocations = relocations.iter().collect::<Vec<_>>();
     relocations.sort_by_key(|relocation| relocation.offset);
     let mut items = Vec::new();
     let mut cursor = 0usize;
     for relocation in relocations {
         let offset = usize::from(relocation.offset);
         items.extend(
-            code.bytes[cursor..offset]
+            bytes[cursor..offset]
                 .iter()
                 .copied()
                 .map(MirMachineItem::Byte),
         );
         let target = lower_inline_asm_target(relocation.target);
+        let Some(kind) = lower_foreign_relocation_encoding(relocation.encoding) else {
+            diagnostics.push(MirDiagnostic::block(
+                routine,
+                block,
+                "foreign relocation encoding is not valid for Atari 6502",
+            ));
+            return None;
+        };
         items.push(MirMachineItem::Relocation {
-            kind: relocation.kind,
+            kind,
             target,
             addend: relocation.addend,
-            requires_zero_page: relocation.requires_zero_page,
+            requires_zero_page: relocation.required_address_bits == Some(8),
             span: relocation.span,
         });
-        cursor = offset
-            + match relocation.kind {
-                crate::asm6502::InlineAsmRelocationKind::Absolute16 => 2,
-                crate::asm6502::InlineAsmRelocationKind::Byte8
-                | crate::asm6502::InlineAsmRelocationKind::Low8
-                | crate::asm6502::InlineAsmRelocationKind::High8 => 1,
-            };
+        cursor = offset + usize::try_from(relocation.encoding.width())
+            .expect("verified foreign relocation width fits usize");
     }
     items.extend(
-        code.bytes[cursor..]
+        bytes[cursor..]
             .iter()
             .copied()
             .map(MirMachineItem::Byte),
     );
-    items
+    Some(items)
 }
 
-fn lower_inline_asm_target(target: NirInlineAsmTarget) -> MirInlineAsmTarget {
+fn lower_foreign_relocation_encoding(
+    encoding: crate::foreign::ForeignRelocationEncoding,
+) -> Option<crate::asm6502::InlineAsmRelocationKind> {
+    use crate::asm6502::InlineAsmRelocationKind;
+    use crate::foreign::ForeignRelocationEncoding;
+
+    match encoding {
+        ForeignRelocationEncoding::Address { width } if width == ByteSize::new(2) => {
+            Some(InlineAsmRelocationKind::Absolute16)
+        }
+        ForeignRelocationEncoding::Unsigned { width } if width == ByteSize::ONE => {
+            Some(InlineAsmRelocationKind::Byte8)
+        }
+        ForeignRelocationEncoding::TargetByte {
+            target: crate::target::TargetId::Atari6502,
+            byte_index: 0,
+        } => Some(InlineAsmRelocationKind::Low8),
+        ForeignRelocationEncoding::TargetByte {
+            target: crate::target::TargetId::Atari6502,
+            byte_index: 1,
+        } => Some(InlineAsmRelocationKind::High8),
+        _ => None,
+    }
+}
+
+fn lower_inline_asm_target(target: NirForeignCodeTarget) -> MirInlineAsmTarget {
     match target {
-        NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
+        NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 })
         }
-        NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Param(id)) => {
+        NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Param(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Param { id, offset: 0 })
         }
-        NirInlineAsmTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
+        NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
         }
-        NirInlineAsmTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
-        NirInlineAsmTarget::Absolute(address) => {
+        NirForeignCodeTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
+        NirForeignCodeTarget::Absolute(address) => {
             MirInlineAsmTarget::Absolute(nir_address_u16(address))
         }
-        NirInlineAsmTarget::InlineOffset(offset) => {
+        NirForeignCodeTarget::InlineOffset(offset) => {
             MirInlineAsmTarget::InlineOffset(nir_offset_u16(offset))
         }
     }
@@ -3515,25 +3561,27 @@ fn lower_machine_effects(effects: &NirMachineEffects) -> MirEffects {
     }
 }
 
-fn lower_inline_asm_effects(code: &NirInlineAsm, effects: &NirMachineEffects) -> MirEffects {
+fn lower_inline_asm_effects(code: &NirForeignCode, effects: &NirMachineEffects) -> MirEffects {
     if effects.opaque {
         return lower_machine_effects(effects);
     }
-    let local_control_targets = code
-        .relocations
+    let NirForeignCodePayload::Bytes { bytes, relocations } = &code.payload else {
+        return lower_machine_effects(effects);
+    };
+    let local_control_targets = relocations
         .iter()
         .filter_map(|relocation| {
-            let NirInlineAsmTarget::InlineOffset(target) = &relocation.target else {
+            let NirForeignCodeTarget::InlineOffset(target) = &relocation.target else {
                 return None;
             };
-            (relocation.symbol_use == crate::asm6502::InlineAsmSymbolUse::Control)
+            (relocation.symbol_use == crate::foreign::ForeignSymbolUse::Control)
                 .then_some((
                     nir_offset_u16(relocation.offset),
                     nir_offset_u16(*target),
                 ))
         })
         .collect::<Vec<_>>();
-    let machine = crate::asm6502::analyze_machine_state(&code.bytes, &local_control_targets);
+    let machine = crate::asm6502::analyze_machine_state(bytes, &local_control_targets);
     MirEffects {
         memory_reads: super::abi::mir_memory_effect(&effects.memory.reads),
         memory_writes: super::abi::mir_memory_effect(&effects.memory.writes),

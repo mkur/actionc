@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 7 completed on 2026-09-03; later slices
+Status: active. Slices 0 through 8 completed on 2026-09-03; later slices
 remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
@@ -462,6 +462,14 @@ nir: generalize memory effects and runtime bindings
 ```
 
 ### Slice 8: target-tagged machine payloads
+
+Status: complete. Both legacy machine blocks and assembled inline code now use
+one `NirForeignCode` container carrying a target ID, source text/span, payload,
+relocations, and conservative effects. Relocation encodings describe generic
+width/address or explicitly target-tagged byte-selection meaning; the 6502
+adapter maps those facts to its assembler and machine-state model. The NIR
+verifier rejects foreign code whose target differs from the selected layout,
+and `src/nir` no longer imports the integrated 6502 assembler.
 
 1. Introduce a generic foreign-code container with target ID, bytes,
    relocations, source metadata, and conservative effects.

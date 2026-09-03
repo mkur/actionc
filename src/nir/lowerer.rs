@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::asm6502::{InlineAsmMode, InlineAsmRelocationKind, InlineAsmSymbolUse};
 use crate::ast::{
     AddressByteSelector, BinaryOp, FundType, MachineAddressAtom, MachineItem, UnaryOp,
 };
+use crate::foreign::{ForeignCodeMode, ForeignRelocationEncoding, ForeignSymbolUse};
 use crate::lexer::{TokenKind, tokenize};
 use crate::resident::{ResidentVariableKind, resident_variable};
 use crate::semantic::{
@@ -421,22 +421,27 @@ impl NirLowerer {
                                 callee: NirCallee::User { id, .. },
                                 ..
                             } => *id = id.saturating_add(1),
-                            NirOp::MachineBlock { items, .. } => {
-                                for item in items {
-                                    if let NirMachineItem::Relocation {
-                                        target: NirInlineAsmTarget::Routine(id),
-                                        ..
-                                    } = item
-                                    {
-                                        *id = id.saturating_add(1);
+                            NirOp::ForeignCode { code, .. } => {
+                                match &mut code.payload {
+                                    NirForeignCodePayload::Structured(items) => {
+                                        for item in items {
+                                            if let NirMachineItem::Relocation {
+                                                target: NirForeignCodeTarget::Routine(id),
+                                                ..
+                                            } = item
+                                            {
+                                                *id = id.saturating_add(1);
+                                            }
+                                        }
                                     }
-                                }
-                            }
-                            NirOp::InlineAsm { code, .. } => {
-                                for relocation in &mut code.relocations {
-                                    if let NirInlineAsmTarget::Routine(id) = &mut relocation.target
-                                    {
-                                        *id = id.saturating_add(1);
+                                    NirForeignCodePayload::Bytes { relocations, .. } => {
+                                        for relocation in relocations {
+                                            if let NirForeignCodeTarget::Routine(id) =
+                                                &mut relocation.target
+                                            {
+                                                *id = id.saturating_add(1);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -905,9 +910,7 @@ fn apply_target_layout_to_op(op: &mut NirOp, layout: TargetLayout) {
                 }
             }
         }
-        NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
-        | NirOp::Unsupported { .. } => {}
+        NirOp::ForeignCode { .. } | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -1350,11 +1353,17 @@ impl NirBuilder {
                 let value = self.value(value);
                 self.compound_or_unsupported(target, target_ty, *op, value, is_volatile);
             }
-            SemStmt::Call { call, .. } => {
+            SemStmt::Call { call, span } => {
                 if let Some(items) = self.machine_define_call_items(call) {
                     match items {
-                        Ok(items) => self.push(NirOp::MachineBlock {
-                            items,
+                        Ok(items) => self.push(NirOp::ForeignCode {
+                            code: NirForeignCode {
+                                target: crate::target::TargetId::Atari6502,
+                                kind: NirForeignCodeKind::LegacyMachineBlock,
+                                payload: NirForeignCodePayload::Structured(items),
+                                source: "machine DEFINE expansion".to_string(),
+                                span: *span,
+                            },
                             effects: self.nir_machine_effects(&SemEffects::default()),
                         }),
                         Err(note) => self.push(NirOp::Unsupported { note }),
@@ -1378,27 +1387,34 @@ impl NirBuilder {
             SemStmt::MachineBlock {
                 items,
                 resolved_symbols,
+                text,
                 effects,
-                ..
+                span,
             } => {
                 if items.is_empty() {
                     return;
                 }
                 match self.nir_machine_items(items, resolved_symbols) {
-                    Ok(items) => self.push(NirOp::MachineBlock {
-                        items,
+                    Ok(items) => self.push(NirOp::ForeignCode {
+                        code: NirForeignCode {
+                            target: crate::target::TargetId::Atari6502,
+                            kind: NirForeignCodeKind::LegacyMachineBlock,
+                            payload: NirForeignCodePayload::Structured(items),
+                            source: text.clone(),
+                            span: *span,
+                        },
                         effects: self.nir_machine_effects(effects),
                     }),
                     Err(note) => self.push(NirOp::Unsupported { note }),
                 }
             }
-            SemStmt::InlineAsm { program, .. } => {
+            SemStmt::InlineAsm { program, span, .. } => {
                 if program.bytes.is_empty() {
                     return;
                 }
-                let code = self.nir_inline_asm(program);
+                let code = self.nir_inline_asm(program, *span);
                 let effects = self.nir_inline_asm_effects(program, &code);
-                self.push(NirOp::InlineAsm { code, effects });
+                self.push(NirOp::ForeignCode { code, effects });
             }
             SemStmt::If {
                 branches,
@@ -1629,19 +1645,19 @@ impl NirBuilder {
     ) -> Option<NirMachineItem> {
         let target = self.nir_inline_asm_symbol_target(symbol)?;
         let (kind, addend) = match item {
-            MachineItem::Name(_) => (InlineAsmRelocationKind::Absolute16, 0),
+            MachineItem::Name(_) => (foreign_address16(), 0),
             MachineItem::AddressByte { selector, .. } => (
                 match selector {
-                    AddressByteSelector::Low => InlineAsmRelocationKind::Low8,
-                    AddressByteSelector::High => InlineAsmRelocationKind::High8,
+                    AddressByteSelector::Low => foreign_target_byte(0),
+                    AddressByteSelector::High => foreign_target_byte(1),
                 },
                 0,
             ),
             MachineItem::AddressExpr(expr) => (
                 match expr.selector {
-                    Some(AddressByteSelector::Low) => InlineAsmRelocationKind::Low8,
-                    Some(AddressByteSelector::High) => InlineAsmRelocationKind::High8,
-                    None => InlineAsmRelocationKind::Absolute16,
+                    Some(AddressByteSelector::Low) => foreign_target_byte(0),
+                    Some(AddressByteSelector::High) => foreign_target_byte(1),
+                    None => foreign_address16(),
                 },
                 expr.offset,
             ),
@@ -1651,10 +1667,10 @@ impl NirBuilder {
             | MachineItem::Raw(_) => return None,
         };
         Some(NirMachineItem::Relocation {
-            kind,
+            encoding: kind,
             target,
             addend,
-            requires_zero_page: false,
+            required_address_bits: None,
             span: symbol.span,
         })
     }
@@ -1666,12 +1682,12 @@ impl NirBuilder {
     ) -> Option<NirMachineItem> {
         let target = self.nir_inline_asm_symbol_target(symbol)?;
         let (kind, addend) = match item {
-            NirMachineItem::Name(_) => (InlineAsmRelocationKind::Absolute16, 0),
+            NirMachineItem::Name(_) => (foreign_address16(), 0),
             NirMachineItem::AddressByte { high, .. } => (
                 if *high {
-                    InlineAsmRelocationKind::High8
+                    foreign_target_byte(1)
                 } else {
-                    InlineAsmRelocationKind::Low8
+                    foreign_target_byte(0)
                 },
                 0,
             ),
@@ -1679,9 +1695,9 @@ impl NirBuilder {
                 selector, offset, ..
             } => (
                 match selector {
-                    Some(NirMachineByteSelector::Low) => InlineAsmRelocationKind::Low8,
-                    Some(NirMachineByteSelector::High) => InlineAsmRelocationKind::High8,
-                    None => InlineAsmRelocationKind::Absolute16,
+                    Some(NirMachineByteSelector::Low) => foreign_target_byte(0),
+                    Some(NirMachineByteSelector::High) => foreign_target_byte(1),
+                    None => foreign_address16(),
                 },
                 *offset,
             ),
@@ -1692,10 +1708,10 @@ impl NirBuilder {
             | NirMachineItem::Relocation { .. } => return None,
         };
         Some(NirMachineItem::Relocation {
-            kind,
+            encoding: kind,
             target,
             addend,
-            requires_zero_page: false,
+            required_address_bits: None,
             span: symbol.span,
         })
     }
@@ -2791,61 +2807,66 @@ impl NirBuilder {
         }
     }
 
-    fn nir_inline_asm(&self, program: &SemInlineAsm) -> NirInlineAsm {
+    fn nir_inline_asm(&self, program: &SemInlineAsm, span: crate::source::Span) -> NirForeignCode {
         let relocations = program
             .relocations
             .iter()
             .filter_map(|relocation| {
                 let target = match &relocation.target {
                     SemInlineAsmTarget::InlineOffset(offset) => {
-                        NirInlineAsmTarget::InlineOffset(ByteOffset::from(*offset))
+                        NirForeignCodeTarget::InlineOffset(ByteOffset::from(*offset))
                     }
-                    SemInlineAsmTarget::Absolute(address) => NirInlineAsmTarget::Absolute(
+                    SemInlineAsmTarget::Absolute(address) => NirForeignCodeTarget::Absolute(
                         AddressValue::data(u64::from(*address)),
                     ),
                     SemInlineAsmTarget::Symbol(symbol) => {
                         self.nir_inline_asm_symbol_target(symbol)?
                     }
                 };
-                Some(NirInlineAsmRelocation {
+                Some(NirForeignRelocation {
                     offset: ByteOffset::from(relocation.offset),
-                    kind: relocation.kind,
+                    encoding: relocation.encoding,
                     target,
                     addend: relocation.addend,
-                    requires_zero_page: relocation.requires_zero_page,
+                    required_address_bits: relocation.required_address_bits,
                     symbol_use: relocation.symbol_use,
                     span: relocation.span,
                 })
             })
             .collect();
-        NirInlineAsm {
-            bytes: program.bytes.clone(),
-            relocations,
+        NirForeignCode {
+            target: crate::target::TargetId::Atari6502,
+            kind: NirForeignCodeKind::InlineAssembly,
+            payload: NirForeignCodePayload::Bytes {
+                bytes: program.bytes.clone(),
+                relocations,
+            },
             source: program.source.clone(),
+            span,
         }
     }
 
     fn nir_inline_asm_symbol_target(
         &self,
         symbol: &crate::semantic::ir::SemSymbolRef,
-    ) -> Option<NirInlineAsmTarget> {
+    ) -> Option<NirForeignCodeTarget> {
         let key = storage_key(&symbol.name);
         match symbol.class {
             SymbolClass::Param => self
                 .param_ids_by_symbol
                 .get(&symbol.id)
                 .copied()
-                .map(|id| NirInlineAsmTarget::Storage(NirStorageId::Param(id))),
+                .map(|id| NirForeignCodeTarget::Storage(NirStorageId::Param(id))),
             SymbolClass::Var | SymbolClass::Array | SymbolClass::Record | SymbolClass::Type => {
                 if let Some(local_id) = self.local_ids_by_symbol.get(&symbol.id)
                     && let Some(local) = self.locals.iter().find(|local| local.id == *local_id)
                 {
                     return Some(match local.backing {
-                        NirLocalBacking::Absolute(address) => NirInlineAsmTarget::Absolute(address),
+                        NirLocalBacking::Absolute(address) => NirForeignCodeTarget::Absolute(address),
                         NirLocalBacking::Ordinary
                         | NirLocalBacking::Alias { .. }
                         | NirLocalBacking::GlobalAlias { .. } => {
-                            NirInlineAsmTarget::Storage(NirStorageId::Local(local.id))
+                            NirForeignCodeTarget::Storage(NirStorageId::Local(local.id))
                         }
                     });
                 }
@@ -2854,14 +2875,14 @@ impl NirBuilder {
                     .get(&symbol.id)
                     .copied()
                 {
-                    return Some(NirInlineAsmTarget::Absolute(AddressValue::data(u64::from(
+                    return Some(NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(
                         address,
                     ))));
                 }
                 self.global_ids_by_symbol
                     .get(&symbol.id)
                     .copied()
-                    .map(|id| NirInlineAsmTarget::Storage(NirStorageId::Global(id)))
+                    .map(|id| NirForeignCodeTarget::Storage(NirStorageId::Global(id)))
             }
             SymbolClass::Proc
             | SymbolClass::Func
@@ -2870,7 +2891,7 @@ impl NirBuilder {
                 .routine_ids
                 .get(&key)
                 .copied()
-                .map(NirInlineAsmTarget::Routine),
+                .map(NirForeignCodeTarget::Routine),
             SymbolClass::Define => self
                 .machine_defines
                 .get(&symbol.id.0)
@@ -2878,7 +2899,7 @@ impl NirBuilder {
                     [MachineItem::Number(number)] => number.value,
                     _ => None,
                 })
-                .map(|address| NirInlineAsmTarget::Absolute(AddressValue::data(u64::from(address)))),
+                .map(|address| NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(address)))),
             SymbolClass::Const => None,
         }
     }
@@ -2886,9 +2907,9 @@ impl NirBuilder {
     fn nir_inline_asm_effects(
         &self,
         program: &SemInlineAsm,
-        code: &NirInlineAsm,
+        code: &NirForeignCode,
     ) -> NirMachineEffects {
-        if program.mode == InlineAsmMode::Opaque {
+        if program.mode == ForeignCodeMode::Opaque {
             return NirMachineEffects {
                 memory: NirMemoryEffects {
                     reads: NirMemoryAccess::Unknown,
@@ -2899,38 +2920,42 @@ impl NirBuilder {
             };
         }
 
-        let reads_unknown = code.relocations.iter().any(|relocation| {
+        let NirForeignCodePayload::Bytes { relocations, .. } = &code.payload else {
+            unreachable!("inline assembly must lower to a byte payload")
+        };
+
+        let reads_unknown = relocations.iter().any(|relocation| {
             matches!(
                 relocation.symbol_use,
-                InlineAsmSymbolUse::Call
-                    | InlineAsmSymbolUse::Control
-                    | InlineAsmSymbolUse::PointerRead
-                    | InlineAsmSymbolUse::IndexedRead
-                    | InlineAsmSymbolUse::IndexedReadWrite
-            ) || matches!(relocation.target, NirInlineAsmTarget::InlineOffset(_))
+                ForeignSymbolUse::Call
+                    | ForeignSymbolUse::Control
+                    | ForeignSymbolUse::PointerRead
+                    | ForeignSymbolUse::IndexedRead
+                    | ForeignSymbolUse::IndexedReadWrite
+            ) || matches!(relocation.target, NirForeignCodeTarget::InlineOffset(_))
                 && matches!(
                     relocation.symbol_use,
-                    InlineAsmSymbolUse::Read
-                        | InlineAsmSymbolUse::ReadWrite
-                        | InlineAsmSymbolUse::IndexedRead
-                        | InlineAsmSymbolUse::IndexedReadWrite
-                        | InlineAsmSymbolUse::PointerRead
+                    ForeignSymbolUse::Read
+                        | ForeignSymbolUse::ReadWrite
+                        | ForeignSymbolUse::IndexedRead
+                        | ForeignSymbolUse::IndexedReadWrite
+                        | ForeignSymbolUse::PointerRead
                 )
         });
-        let writes_unknown = code.relocations.iter().any(|relocation| {
+        let writes_unknown = relocations.iter().any(|relocation| {
             matches!(
                 relocation.symbol_use,
-                InlineAsmSymbolUse::Call
-                    | InlineAsmSymbolUse::PointerRead
-                    | InlineAsmSymbolUse::IndexedWrite
-                    | InlineAsmSymbolUse::IndexedReadWrite
-            ) || matches!(relocation.target, NirInlineAsmTarget::InlineOffset(_))
+                ForeignSymbolUse::Call
+                    | ForeignSymbolUse::PointerRead
+                    | ForeignSymbolUse::IndexedWrite
+                    | ForeignSymbolUse::IndexedReadWrite
+            ) || matches!(relocation.target, NirForeignCodeTarget::InlineOffset(_))
                 && matches!(
                     relocation.symbol_use,
-                    InlineAsmSymbolUse::Write
-                        | InlineAsmSymbolUse::ReadWrite
-                        | InlineAsmSymbolUse::IndexedWrite
-                        | InlineAsmSymbolUse::IndexedReadWrite
+                    ForeignSymbolUse::Write
+                        | ForeignSymbolUse::ReadWrite
+                        | ForeignSymbolUse::IndexedWrite
+                        | ForeignSymbolUse::IndexedReadWrite
                 )
         });
         let reads = inline_asm_regions(code, true);
@@ -2940,10 +2965,9 @@ impl NirBuilder {
                 reads: inline_asm_memory_access(reads, reads_unknown),
                 writes: inline_asm_memory_access(writes, writes_unknown),
             },
-            may_call_external: code
-                .relocations
+            may_call_external: relocations
                 .iter()
-                .any(|relocation| relocation.symbol_use == InlineAsmSymbolUse::Call),
+                .any(|relocation| relocation.symbol_use == ForeignSymbolUse::Call),
             opaque: false,
         }
     }
@@ -3487,8 +3511,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => None,
     }
 }
@@ -4846,6 +4869,19 @@ fn nir_machine_byte_selector(selector: AddressByteSelector) -> NirMachineByteSel
     }
 }
 
+fn foreign_address16() -> ForeignRelocationEncoding {
+    ForeignRelocationEncoding::Address {
+        width: ByteSize::new(2),
+    }
+}
+
+fn foreign_target_byte(byte_index: u8) -> ForeignRelocationEncoding {
+    ForeignRelocationEncoding::TargetByte {
+        target: crate::target::TargetId::Atari6502,
+        byte_index,
+    }
+}
+
 fn lvalue_is_param_symbol(lvalue: &SemLValue) -> bool {
     matches!(
         &lvalue.kind,
@@ -4939,37 +4975,40 @@ fn inline_asm_memory_access(
     }
 }
 
-fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Option<Vec<NirMemoryRegion>> {
+fn inline_asm_regions(code: &NirForeignCode, reads: bool) -> Option<Vec<NirMemoryRegion>> {
+    let NirForeignCodePayload::Bytes { relocations, .. } = &code.payload else {
+        return None;
+    };
     let mut regions = Vec::new();
-    for relocation in &code.relocations {
+    for relocation in relocations {
         let accesses = if reads {
             matches!(
                 relocation.symbol_use,
-                InlineAsmSymbolUse::Read
-                    | InlineAsmSymbolUse::ReadWrite
-                    | InlineAsmSymbolUse::IndexedRead
-                    | InlineAsmSymbolUse::IndexedReadWrite
-                    | InlineAsmSymbolUse::PointerRead
+                ForeignSymbolUse::Read
+                    | ForeignSymbolUse::ReadWrite
+                    | ForeignSymbolUse::IndexedRead
+                    | ForeignSymbolUse::IndexedReadWrite
+                    | ForeignSymbolUse::PointerRead
             )
         } else {
             matches!(
                 relocation.symbol_use,
-                InlineAsmSymbolUse::Write
-                    | InlineAsmSymbolUse::ReadWrite
-                    | InlineAsmSymbolUse::IndexedWrite
-                    | InlineAsmSymbolUse::IndexedReadWrite
+                ForeignSymbolUse::Write
+                    | ForeignSymbolUse::ReadWrite
+                    | ForeignSymbolUse::IndexedWrite
+                    | ForeignSymbolUse::IndexedReadWrite
             )
         };
         if !accesses {
             continue;
         }
         match relocation.target {
-            NirInlineAsmTarget::Storage(storage) => {
+            NirForeignCodeTarget::Storage(storage) => {
                 let offset = u16::try_from(relocation.addend).ok()?;
                 regions.push(NirMemoryRegion {
                     kind: NirMemoryRegionKind::Storage(storage),
                     offset: ByteOffset::from(offset),
-                    size: if relocation.symbol_use == InlineAsmSymbolUse::PointerRead {
+                    size: if relocation.symbol_use == ForeignSymbolUse::PointerRead {
                         ByteSize::new(2)
                     } else {
                         ByteSize::ONE
@@ -4977,7 +5016,7 @@ fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Option<Vec<NirMemoryR
                 });
                 continue;
             }
-            NirInlineAsmTarget::Absolute(address) => {
+            NirForeignCodeTarget::Absolute(address) => {
                 let address = address.checked_add_signed(i64::from(relocation.addend))?;
                 let offset = u32::try_from(address.value).ok()?;
                 regions.push(NirMemoryRegion {
@@ -4987,7 +5026,7 @@ fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Option<Vec<NirMemoryR
                 });
                 continue;
             }
-            NirInlineAsmTarget::Routine(_) | NirInlineAsmTarget::InlineOffset(_) => continue,
+            NirForeignCodeTarget::Routine(_) | NirForeignCodeTarget::InlineOffset(_) => continue,
         }
     }
     regions.sort_by_key(|region| (format!("{:?}", region.kind), region.offset, region.size));

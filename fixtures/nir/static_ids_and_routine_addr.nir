@@ -15,7 +15,7 @@ bb1:
 routine Menu params=[-] locals=[-]
   note system-address *
 bb2:
-  machine items=3 effects=opaque
+  machine target=atari-6502 items=3 effects=opaque
   fallthrough
 
 routine Second params=[-] locals=[-]

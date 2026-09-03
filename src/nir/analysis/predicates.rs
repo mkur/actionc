@@ -188,8 +188,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 }
                 NirOp::Call { .. }
                 | NirOp::Real(_)
-                | NirOp::MachineBlock { .. }
-                | NirOp::InlineAsm { .. }
+                | NirOp::ForeignCode { .. }
                 | NirOp::Unsupported { .. } => facts.kill_storage(None),
                 NirOp::Load { .. }
                 | NirOp::AddrOf { .. }
@@ -392,8 +391,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         }
         NirOp::Call { .. }
         | NirOp::Real(_)
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => true,
         NirOp::Load { .. }
         | NirOp::AddrOf { .. }
@@ -445,9 +443,10 @@ pub(in crate::nir) fn predicate_threading_candidates(
 mod tests {
     use super::*;
     use crate::nir::{
-        NirBlockParam, NirCallEffects, NirCallee, NirEdge, NirMachineEffects, NirMachineItem,
-        NirMemoryAccess, NirMemoryEffects, NirParam, NirPlace, NirPlaceKind, NirProgram,
-        NirStorageClass, NirTemp, NirTempDef, NirType, NirTypeKind, ParamId,
+        NirBlockParam, NirCallEffects, NirCallee, NirEdge, NirForeignCode, NirForeignCodeKind,
+        NirForeignCodePayload, NirMachineEffects, NirMachineItem, NirMemoryAccess,
+        NirMemoryEffects, NirParam, NirPlace, NirPlaceKind, NirProgram, NirStorageClass, NirTemp,
+        NirTempDef, NirType, NirTypeKind, ParamId,
     };
 
     fn byte_type() -> NirType {
@@ -675,8 +674,14 @@ mod tests {
                 src: NirValue::ConstU8(1),
                 ty: byte_type(),
             },
-            NirOp::MachineBlock {
-                items: vec![NirMachineItem::Byte(0xea)],
+            NirOp::ForeignCode {
+                code: NirForeignCode {
+                    target: crate::target::TargetId::Atari6502,
+                    kind: NirForeignCodeKind::LegacyMachineBlock,
+                    payload: NirForeignCodePayload::Structured(vec![NirMachineItem::Byte(0xea)]),
+                    source: String::new(),
+                    span: crate::source::Span::new(0, 0),
+                },
                 effects: NirMachineEffects {
                     memory: NirMemoryEffects {
                         reads: NirMemoryAccess::Unknown,

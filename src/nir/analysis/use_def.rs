@@ -158,8 +158,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         | NirOp::CopyBytes { .. }
         | NirOp::Real(_)
         | NirOp::Call { result: None, .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => None,
     }
 }
@@ -266,8 +265,7 @@ fn record_op_uses(
                 record_value(uses, value, site(NirUseKind::CallArgument(argument)));
             }
         }
-        NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => {}
     }
 }

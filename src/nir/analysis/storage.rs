@@ -241,28 +241,35 @@ fn analyze_routine_storage(
                     referenced_globals.insert(id);
                 }
             });
-            if let NirOp::MachineBlock { items, .. } = op {
-                for name in machine_item_names(items) {
-                    if let Some(id) = global_names.get(&name.to_ascii_lowercase()) {
-                        referenced_globals.insert(*id);
+            if let NirOp::ForeignCode { code, .. } = op {
+                match &code.payload {
+                    crate::nir::NirForeignCodePayload::Structured(items) => {
+                        for name in machine_item_names(items) {
+                            if let Some(id) = global_names.get(&name.to_ascii_lowercase()) {
+                                referenced_globals.insert(*id);
+                            }
+                        }
+                        for item in items {
+                            if let NirMachineItem::Relocation {
+                                target: crate::nir::NirForeignCodeTarget::Storage(
+                                    NirStorageId::Global(id),
+                                ),
+                                ..
+                            } = item
+                            {
+                                referenced_globals.insert(*id);
+                            }
+                        }
                     }
-                }
-                for item in items {
-                    if let NirMachineItem::Relocation {
-                        target: crate::nir::NirInlineAsmTarget::Storage(NirStorageId::Global(id)),
-                        ..
-                    } = item
-                    {
-                        referenced_globals.insert(*id);
-                    }
-                }
-            }
-            if let NirOp::InlineAsm { code, .. } = op {
-                for relocation in &code.relocations {
-                    if let crate::nir::NirInlineAsmTarget::Storage(NirStorageId::Global(id)) =
-                        relocation.target
-                    {
-                        referenced_globals.insert(id);
+                    crate::nir::NirForeignCodePayload::Bytes { relocations, .. } => {
+                        for relocation in relocations {
+                            if let crate::nir::NirForeignCodeTarget::Storage(
+                                NirStorageId::Global(id),
+                            ) = relocation.target
+                            {
+                                referenced_globals.insert(id);
+                            }
+                        }
                     }
                 }
             }
@@ -352,43 +359,41 @@ fn analyze_routine_storage(
                             memory_accesses_storage(&effects.memory.writes, facts.id, facts.width);
                     }
                 }
-                NirOp::MachineBlock { items, effects } => {
-                    let names_used = machine_item_names(items);
+                NirOp::ForeignCode { code, effects } => {
                     if effects.opaque {
                         for facts in homes.values_mut() {
                             facts.machine_visible = true;
                         }
                     } else {
-                        for name in names_used {
-                            if let Some(id) = names.get(&name.to_ascii_lowercase())
-                                && let Some(facts) = homes.get_mut(id)
-                            {
-                                facts.machine_visible = true;
+                        match &code.payload {
+                            crate::nir::NirForeignCodePayload::Structured(items) => {
+                                for name in machine_item_names(items) {
+                                    if let Some(id) = names.get(&name.to_ascii_lowercase())
+                                        && let Some(facts) = homes.get_mut(id)
+                                    {
+                                        facts.machine_visible = true;
+                                    }
+                                }
                             }
-                        }
-                    }
-                }
-                NirOp::InlineAsm { code, effects } => {
-                    if effects.opaque {
-                        for facts in homes.values_mut() {
-                            facts.machine_visible = true;
-                        }
-                    } else {
-                        for relocation in &code.relocations {
-                            if let crate::nir::NirInlineAsmTarget::Storage(id) = relocation.target
-                                && let Some(facts) = homes.get_mut(&id)
-                            {
-                                facts.machine_visible = true;
-                                facts.calls_may_read |= memory_accesses_storage(
-                                    &effects.memory.reads,
-                                    facts.id,
-                                    facts.width,
-                                );
-                                facts.calls_may_write |= memory_accesses_storage(
-                                    &effects.memory.writes,
-                                    facts.id,
-                                    facts.width,
-                                );
+                            crate::nir::NirForeignCodePayload::Bytes { relocations, .. } => {
+                                for relocation in relocations {
+                                    if let crate::nir::NirForeignCodeTarget::Storage(id) =
+                                        relocation.target
+                                        && let Some(facts) = homes.get_mut(&id)
+                                    {
+                                        facts.machine_visible = true;
+                                        facts.calls_may_read |= memory_accesses_storage(
+                                            &effects.memory.reads,
+                                            facts.id,
+                                            facts.width,
+                                        );
+                                        facts.calls_may_write |= memory_accesses_storage(
+                                            &effects.memory.writes,
+                                            facts.id,
+                                            facts.width,
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -685,8 +690,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         | NirOp::Binary { .. }
         | NirOp::Compare { .. }
         | NirOp::Call { .. }
-        | NirOp::MachineBlock { .. }
-        | NirOp::InlineAsm { .. }
+        | NirOp::ForeignCode { .. }
         | NirOp::Unsupported { .. } => {}
     }
 }
@@ -829,8 +833,7 @@ fn mark_read_before_definition(
                 | NirOp::Binary { .. }
                 | NirOp::Compare { .. }
                 | NirOp::Call { .. }
-                | NirOp::MachineBlock { .. }
-                | NirOp::InlineAsm { .. }
+                | NirOp::ForeignCode { .. }
                 | NirOp::Unsupported { .. } => {}
             }
         }
@@ -900,8 +903,9 @@ fn real_destinations(op: &NirRealOp) -> impl Iterator<Item = &NirPlace> {
 mod tests {
     use super::*;
     use crate::nir::{
-        LocalId, NirBlock, NirLocal, NirLocalPurpose, NirMachineEffects, NirMemoryEffects,
-        NirParam, NirPlaceKind, NirStorageInit, NirTerminator, NirValue, ParamId, TempId,
+        LocalId, NirBlock, NirForeignCode, NirForeignCodeKind, NirForeignCodePayload, NirLocal,
+        NirLocalPurpose, NirMachineEffects, NirMemoryEffects, NirParam, NirPlaceKind,
+        NirStorageInit, NirTerminator, NirValue, ParamId, TempId,
     };
 
     fn byte_type() -> NirType {
@@ -1192,8 +1196,14 @@ mod tests {
             blocks: vec![block(
                 0,
                 "entry",
-                vec![NirOp::MachineBlock {
-                    items: vec![NirMachineItem::Byte(0x60)],
+                vec![NirOp::ForeignCode {
+                    code: NirForeignCode {
+                        target: crate::target::TargetId::Atari6502,
+                        kind: NirForeignCodeKind::LegacyMachineBlock,
+                        payload: NirForeignCodePayload::Structured(vec![NirMachineItem::Byte(0x60)]),
+                        source: String::new(),
+                        span: crate::source::Span::new(0, 0),
+                    },
                     effects: NirMachineEffects {
                         memory: NirMemoryEffects {
                             reads: NirMemoryAccess::Unknown,
