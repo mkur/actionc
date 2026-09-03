@@ -1,6 +1,9 @@
 # Generated NIR fixture feature inventory.
 # Update deliberately when fixture coverage changes.
 TargetAtari6502
+TargetWdc65816Native
+TargetWdc65816Small
+TargetMotorola68000
 RuntimeBindingUnbound
 RuntimeBindingAbsolute
 RuntimeBindingRoutine
@@ -34,6 +37,7 @@ LocalPurposeStorage
 LocalPurposeRealTemporary
 StorageClassScalar
 StorageClassArray
+StorageDurationAutomatic
 StorageDurationRoutineStatic
 StorageDurationExternal
 LocalBackingOrdinary
@@ -41,6 +45,7 @@ LocalBackingAbsolute
 LocalBackingAlias
 LocalBackingGlobalAlias
 ActivationClassicStatic
+ActivationNativeReentrant
 ConventionTargetPublic
 ConventionRuntime
 PlacementRelocatable

@@ -1,0 +1,6 @@
+CARD ARRAY words(2)=[1 2]
+CARD result
+
+PROC Main()
+  result=words(0)
+RETURN

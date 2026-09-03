@@ -1,0 +1,11 @@
+nir program
+target wdc-65816-native cpu=Wdc65816 endian=Little address_bits=24 data_pointer=3 code_pointer=3 abi=Wdc65816Native activation=native-reentrant
+global words: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=global init descriptor size=5 backing=g0 bytes=[$00 $00 $00 $00] fragments=[0:int16=$1, 2:int16=$2] zero_fill=0 backing_section=global.backing size_word=$0000 section=global mutable=true
+global result: Card
+
+routine r0 Main signature=s2726028260 convention=target-public activation=native-reentrant entry=program+relocatable params=[-] locals=[-]
+bb0:
+  %t0:Card* = addr words
+  %t1:Card = load %t0[0;2]
+  store result = %t1
+  return

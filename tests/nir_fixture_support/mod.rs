@@ -46,6 +46,18 @@ macro_rules! lowered_atari_case {
     };
 }
 
+macro_rules! lowered_target_case {
+    ($name:literal, $source:literal, $snapshot:literal, $target:expr) => {
+        NirFixtureCase {
+            name: $name,
+            source: concat!("fixtures/nir/", $source, ".act"),
+            snapshot: concat!("fixtures/nir/", $snapshot, ".nir"),
+            target: $target,
+            stage: NirFixtureStage::Lowered,
+        }
+    };
+}
+
 pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("activation_storage"),
     lowered_atari_case!("aggregate_static_initializer"),
@@ -84,6 +96,66 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("unary_cast"),
     lowered_atari_case!("volatile_record_copy"),
     lowered_atari_case!("word_addition"),
+    lowered_target_case!(
+        "activation_storage.wdc-65816-native",
+        "activation_storage",
+        "activation_storage.wdc-65816-native",
+        TargetId::Wdc65816Native
+    ),
+    lowered_target_case!(
+        "activation_storage.wdc-65816-small",
+        "activation_storage",
+        "activation_storage.wdc-65816-small",
+        TargetId::Wdc65816Small
+    ),
+    lowered_target_case!(
+        "activation_storage.motorola-68000",
+        "activation_storage",
+        "activation_storage.motorola-68000",
+        TargetId::Motorola68000
+    ),
+    lowered_target_case!(
+        "target_layout_matrix.wdc-65816-native",
+        "target_layout_matrix",
+        "target_layout_matrix.wdc-65816-native",
+        TargetId::Wdc65816Native
+    ),
+    lowered_target_case!(
+        "target_layout_matrix.wdc-65816-small",
+        "target_layout_matrix",
+        "target_layout_matrix.wdc-65816-small",
+        TargetId::Wdc65816Small
+    ),
+    lowered_target_case!(
+        "target_layout_matrix.motorola-68000",
+        "target_layout_matrix",
+        "target_layout_matrix.motorola-68000",
+        TargetId::Motorola68000
+    ),
+    lowered_target_case!(
+        "target_data_layout.atari-6502",
+        "target_data_layout",
+        "target_data_layout.atari-6502",
+        TargetId::Atari6502
+    ),
+    lowered_target_case!(
+        "target_data_layout.wdc-65816-native",
+        "target_data_layout",
+        "target_data_layout.wdc-65816-native",
+        TargetId::Wdc65816Native
+    ),
+    lowered_target_case!(
+        "target_data_layout.wdc-65816-small",
+        "target_data_layout",
+        "target_data_layout.wdc-65816-small",
+        TargetId::Wdc65816Small
+    ),
+    lowered_target_case!(
+        "target_data_layout.motorola-68000",
+        "target_data_layout",
+        "target_data_layout.motorola-68000",
+        TargetId::Motorola68000
+    ),
 ];
 
 pub fn lower_case(repo_root: &Path, case: NirFixtureCase) -> NirProgram {
@@ -515,6 +587,17 @@ pub const REQUIRED_EXECUTABLE_FEATURES: &[NirFeature] = &[
     NirFeature::TerminatorReturnVoid,
     NirFeature::TerminatorReturnValue,
     NirFeature::TerminatorExit,
+];
+
+pub const REQUIRED_TARGET_FEATURES: &[NirFeature] = &[
+    NirFeature::TargetAtari6502,
+    NirFeature::TargetWdc65816Native,
+    NirFeature::TargetWdc65816Small,
+    NirFeature::TargetMotorola68000,
+    NirFeature::StorageDurationAutomatic,
+    NirFeature::StorageDurationRoutineStatic,
+    NirFeature::ActivationClassicStatic,
+    NirFeature::ActivationNativeReentrant,
 ];
 
 pub fn collect_features(program: &NirProgram) -> BTreeSet<NirFeature> {

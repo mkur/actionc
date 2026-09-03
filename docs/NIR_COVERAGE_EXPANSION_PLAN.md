@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 1 through 3 are implemented.
+Status: in progress. Slices 1 through 4 are implemented.
 
 ## Objective
 
@@ -47,10 +47,12 @@ coverage loss. `Open`, `Unsupported`, and the legacy untyped `Param` and
 
 ### Slice 4: cross-target contracts
 
-Run only target-sensitive cases on Atari 6502, 65816 native, 65816 small, and
-68000. Cover activation, storage duration, pointer widths, endian-sensitive
-data, record layout, callable pointers, and alignment without a full Cartesian
-product of fixtures and targets.
+Status: complete. The focused matrix snapshots activation/storage, aggregate
+layout, callable and data-pointer widths, descriptor widths, scalar data
+fragments, field offsets, alignment, and endianness on Atari 6502, 65816 native,
+65816 small, and 68000. A separate target-feature floor keeps all four profiles
+and both activation/storage models represented without applying every fixture
+to every target.
 
 ### Slice 5: verifier-negative matrix
 

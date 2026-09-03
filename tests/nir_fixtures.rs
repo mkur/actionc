@@ -5,8 +5,8 @@ mod nir_fixture_support;
 mod snapshot_support;
 
 use nir_fixture_support::{
-    NIR_FIXTURE_CASES, REQUIRED_EXECUTABLE_FEATURES, collect_features, format_feature_inventory,
-    lower_case, snapshot_path, structural_coverage_programs,
+    NIR_FIXTURE_CASES, REQUIRED_EXECUTABLE_FEATURES, REQUIRED_TARGET_FEATURES, collect_features,
+    format_feature_inventory, lower_case, snapshot_path, structural_coverage_programs,
 };
 
 fn fixture_features(repo_root: &Path) -> BTreeSet<nir_fixture_support::NirFeature> {
@@ -69,5 +69,20 @@ fn executable_nir_feature_floor_is_covered() {
     assert!(
         missing.is_empty(),
         "positive NIR fixtures lost required executable shapes: {missing:?}"
+    );
+}
+
+#[test]
+fn target_sensitive_nir_feature_floor_is_covered() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let features = fixture_features(repo_root);
+    let missing = REQUIRED_TARGET_FEATURES
+        .iter()
+        .filter(|feature| !features.contains(feature))
+        .collect::<Vec<_>>();
+
+    assert!(
+        missing.is_empty(),
+        "NIR target matrix lost required target-sensitive shapes: {missing:?}"
     );
 }
