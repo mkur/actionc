@@ -1,0 +1,43 @@
+; Native MIR frame-planning canary. It deliberately combines automatic
+; aggregate storage, an escaped local, direct recursion, an indirect call,
+; and a call whose arguments occupy a nontrivial outgoing area.
+
+TYPE Pair=[BYTE low,high]
+
+BYTE result=$0600
+BYTE POINTER escaped
+
+BYTE FUNC Sum6(BYTE a,b,c,d,e,f)
+  a==+1
+RETURN(a+b+c+d+e+f)
+
+BYTE FUNC Recur(BYTE depth)
+  BYTE saved
+
+  saved=depth
+  IF depth=0 THEN
+    RETURN(0)
+  FI
+RETURN(Recur(depth-1)+saved)
+
+BYTE FUNC FrameProbe(BYTE seed)
+  BYTE local
+  BYTE ARRAY bytes(4)
+  Pair pair
+
+  local=seed
+  escaped=@local
+  bytes(0)=local
+  pair.low=bytes(0)
+  pair.high=seed
+RETURN(Sum6(local,1,2,3,4,pair.high)+Recur(2))
+
+BYTE FUNC Thunk()
+RETURN(FrameProbe(1))
+
+BYTE FUNC POINTER callback
+
+PROC Main()
+  callback=@Thunk
+  result=callback()
+RETURN

@@ -7,8 +7,9 @@ mod lower;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
 use crate::nir::{
-    BlockId, NirBinaryOp, NirCastKind, NirCompareOp, NirDataAddressTarget, NirRuntimeTarget,
-    NirStorageId, NirUnaryOp, ParamId, RuntimeSymbolId, SignatureId, SymbolId, TempId,
+    BlockId, NirBinaryOp, NirCallConvention, NirCastKind, NirCompareOp, NirDataAddressTarget,
+    NirRuntimeTarget, NirStorageId, NirUnaryOp, ParamId, RoutineId, RuntimeSymbolId, SignatureId,
+    SymbolId, TempId,
 };
 use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize, Endian, TargetId};
 
@@ -56,8 +57,115 @@ pub struct Mir68kRuntimeBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kRoutine {
+    pub id: RoutineId,
     pub name: String,
+    pub convention: NirCallConvention,
+    pub frame: Mir68kFramePlan,
+    pub prologue: Mir68kProloguePlan,
+    pub epilogue: Mir68kEpiloguePlan,
     pub blocks: Vec<Mir68kBlock>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mir68kFrameObjectId(pub u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir68kFrameObjectOwner {
+    Param(ParamId),
+    Local(crate::nir::LocalId),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kFrameObject {
+    pub id: Mir68kFrameObjectId,
+    pub owner: Mir68kFrameObjectOwner,
+    pub size: ByteSize,
+    pub alignment: ByteSize,
+    /// Signed displacement from A6 to the first byte of the object.
+    pub frame_offset: i32,
+    pub mutable: bool,
+    pub addressable: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir68kAbiHome {
+    /// Offset within the caller-provided argument area.
+    StackArgument {
+        offset: ByteOffset,
+        size: ByteSize,
+    },
+    DataRegister(u8),
+    AddressRegister(u8),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kParameterPlan {
+    pub param: ParamId,
+    pub incoming: Mir68kAbiHome,
+    /// Mutated and address-required parameters are copied into this object.
+    pub frame_object: Option<Mir68kFrameObjectId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mir68kOutgoingArea {
+    pub frame_offset: i32,
+    pub size: ByteSize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kFramePlan {
+    pub objects: Vec<Mir68kFrameObject>,
+    pub parameters: Vec<Mir68kParameterPlan>,
+    pub automatic_bytes: ByteSize,
+    pub saved_register_bytes: ByteSize,
+    pub spill_bytes: ByteSize,
+    pub outgoing: Mir68kOutgoingArea,
+    /// Total amount subtracted by LINK. Always even for an original 68000.
+    pub extent: ByteSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir68kRegister {
+    D(u8),
+    A(u8),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mir68kParameterCopy {
+    pub source: Mir68kAbiHome,
+    pub destination: Mir68kFrameObjectId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kProloguePlan {
+    pub frame_pointer: Mir68kRegister,
+    pub link_bytes: ByteSize,
+    pub saved_registers: Vec<Mir68kRegister>,
+    pub parameter_copies: Vec<Mir68kParameterCopy>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kEpiloguePlan {
+    pub frame_pointer: Mir68kRegister,
+    pub unlink_bytes: ByteSize,
+    pub restored_registers: Vec<Mir68kRegister>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir68kCallActivation {
+    Fresh,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kCallPlan {
+    pub convention: NirCallConvention,
+    pub arguments: Vec<Mir68kAbiHome>,
+    pub result: Option<Mir68kAbiHome>,
+    pub outgoing_bytes: ByteSize,
+    pub activation: Mir68kCallActivation,
+    /// The outgoing area is preallocated in the caller's frame, so a call is
+    /// stack-neutral when it returns.
+    pub net_stack_delta: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,6 +241,7 @@ pub enum Mir68kOp {
         signature: Option<SignatureId>,
         args: Vec<Mir68kValue>,
         result: Option<(TempId, ByteSize)>,
+        plan: Mir68kCallPlan,
     },
 }
 
@@ -149,11 +258,17 @@ pub struct Mir68kAddress {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir68kAddressBase {
-    Param(ParamId),
-    Local(crate::nir::LocalId),
-    Global(SymbolId),
+    Static(NirStorageId),
+    AutomaticFrame(Mir68kFrameObjectId),
+    Parameter(ParamId),
+    External(Mir68kExternalAddress),
+    Indirect(Mir68kValue),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Mir68kExternalAddress {
     Absolute(AddressValue),
-    Pointer(Mir68kValue),
+    Global(SymbolId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -164,8 +279,10 @@ pub struct Mir68kIndex {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir68kAddressMode {
-    FrameOrStatic,
-    Absolute,
+    Static,
+    AutomaticFrame,
+    Parameter,
+    External,
     AddressIndirect,
     Indexed,
 }
@@ -208,7 +325,10 @@ pub enum Mir68kTerminator {
         then_block: BlockId,
         else_block: BlockId,
     },
-    Return(Option<Mir68kValue>),
+    Return {
+        value: Option<Mir68kValue>,
+        restore_frame_bytes: ByteSize,
+    },
     Exit,
 }
 

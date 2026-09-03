@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 6 were implemented and verified on
+Status: in progress. Slices 0 through 7 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -542,6 +542,18 @@ mir6502: preserve classic static activation explicitly
 ```
 
 ### Slice 7: MIR68K frame and call plans
+
+Status: complete. MIR68K now assigns stable target-specific frame-object IDs
+to automatic objects, gives mutated or address-required parameters a copied
+frame home, and leaves immutable value parameters in their incoming ABI home.
+Its stack-first ABI planner reserves an even-aligned outgoing argument area in
+each caller frame and annotates every call with typed argument/result homes, a
+fresh-activation boundary, and a zero net stack delta. Structured A6
+prologue/epilogue and return plans are checked together with object bounds,
+alignment, outgoing-area bounds, and frame balance. The canary fixture covers
+direct recursion, address escape, local arrays and records, indirect dispatch,
+and a six-argument call. Encoding and Amiga object emission remain separate
+future work.
 
 1. Split `FrameOrStatic` into explicit static, automatic-frame, parameter, and
    external address forms.

@@ -950,3 +950,88 @@ fn native_optimization_preserves_activation_identity_and_escaped_homes() {
         }
     }
 }
+
+#[test]
+fn mir68k_plans_reentrant_frames_and_balanced_stack_calls() {
+    let program = fixture_for_target(
+        Path::new("fixtures/runtime/native_frame_plan.act"),
+        TargetId::Motorola68000,
+    );
+    let mir = mir68k::lower_program(&program).expect("lower native 68k frame-plan fixture");
+
+    let sum6 = mir
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Sum6")
+        .expect("Sum6 MIR routine");
+    let first_param = sum6.frame.parameters.first().expect("first Sum6 parameter");
+    assert!(
+        first_param.frame_object.is_some(),
+        "the mutated parameter must receive an invocation-local home"
+    );
+    assert!(
+        sum6.frame.parameters[1..]
+            .iter()
+            .all(|parameter| parameter.frame_object.is_none()),
+        "immutable non-address-taken parameters may remain incoming values"
+    );
+
+    let probe = mir
+        .routines
+        .iter()
+        .find(|routine| routine.name == "FrameProbe")
+        .expect("FrameProbe MIR routine");
+    assert_eq!(probe.frame.extent.get() % 2, 0);
+    assert!(probe.frame.outgoing.size.get() >= 12);
+    assert!(probe.frame.objects.iter().any(|object| {
+        object.addressable && matches!(object.owner, mir68k::Mir68kFrameObjectOwner::Local(_))
+    }));
+    assert!(probe.frame.objects.iter().any(|object| {
+        matches!(object.owner, mir68k::Mir68kFrameObjectOwner::Local(_)) && object.size.get() >= 4
+    }));
+    assert!(probe.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+        matches!(
+            op,
+            mir68k::Mir68kOp::Call { plan, .. }
+                if plan.arguments.len() == 6
+                    && plan.outgoing_bytes.get() >= 12
+                    && plan.net_stack_delta == 0
+        )
+    }));
+
+    let recur = mir
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Recur")
+        .expect("Recur MIR routine");
+    assert!(recur.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+        matches!(
+            op,
+            mir68k::Mir68kOp::Call {
+                target: mir68k::Mir68kCallTarget::Direct(id),
+                plan: mir68k::Mir68kCallPlan {
+                    activation: mir68k::Mir68kCallActivation::Fresh,
+                    net_stack_delta: 0,
+                    ..
+                },
+                ..
+            } if *id == recur.id.0
+        )
+    }));
+    assert!(
+        mir.routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .any(|block| {
+                block.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        mir68k::Mir68kOp::Call {
+                            target: mir68k::Mir68kCallTarget::Indirect(_, _),
+                            ..
+                        }
+                    )
+                })
+            })
+    );
+}
