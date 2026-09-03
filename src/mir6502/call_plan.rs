@@ -124,7 +124,10 @@ fn lower_call_target(
         }
         NirCallee::Runtime { name, address } => Some(MirCallTarget::Runtime {
             name: name.clone(),
-            address: *address,
+            address: address.map(|address| {
+                u16::try_from(address.value)
+                    .expect("verified Atari NIR code address fits in 16 bits")
+            }),
         }),
         NirCallee::Builtin(name) => Some(MirCallTarget::Builtin {
             name: name.clone(),
@@ -189,7 +192,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::nir::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -200,7 +203,7 @@ mod tests {
                 kind: "Proc".to_string(),
             },
             summary: "Proc".to_string(),
-            width: Some(2),
+            width: Some(crate::nir::ByteSize::new(2)),
             pointer: false,
         }
     }
@@ -241,7 +244,7 @@ mod tests {
             (
                 NirCallee::Runtime {
                     name: "External".to_string(),
-                    address: Some(0xE456),
+                    address: Some(crate::nir::AddressValue::code(0xE456)),
                 },
                 None,
             ),

@@ -342,7 +342,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }

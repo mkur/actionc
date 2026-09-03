@@ -1,6 +1,202 @@
 use std::fmt;
 use std::str::FromStr;
 
+/// A byte count in the compiler's target-independent layout model.
+///
+/// This is deliberately wider than Action!'s 16-bit `CARD`: object sizes are
+/// compiler facts and must not inherit a source scalar's range.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ByteSize(u32);
+
+impl ByteSize {
+    pub const ZERO: Self = Self(0);
+    pub const ONE: Self = Self(1);
+
+    pub const fn new(bytes: u32) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    pub fn as_usize(self) -> Option<usize> {
+        usize::try_from(self.0).ok()
+    }
+
+    pub const fn checked_add(self, other: Self) -> Option<Self> {
+        match self.0.checked_add(other.0) {
+            Some(value) => Some(Self(value)),
+            None => None,
+        }
+    }
+
+    pub const fn checked_mul(self, count: u32) -> Option<Self> {
+        match self.0.checked_mul(count) {
+            Some(value) => Some(Self(value)),
+            None => None,
+        }
+    }
+
+    pub const fn saturating_add(self, other: Self) -> Self {
+        Self(self.0.saturating_add(other.0))
+    }
+
+    pub const fn saturating_sub(self, other: Self) -> Self {
+        Self(self.0.saturating_sub(other.0))
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        Self(self.0.max(other.0))
+    }
+
+    pub const fn is_zero(self) -> bool {
+        self.0 == 0
+    }
+
+    pub const fn is_power_of_two(self) -> bool {
+        self.0.is_power_of_two()
+    }
+}
+
+/// A byte displacement within an object or data image.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ByteOffset(u32);
+
+impl ByteOffset {
+    pub const ZERO: Self = Self(0);
+
+    pub const fn new(bytes: u32) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+
+    pub fn as_usize(self) -> Option<usize> {
+        usize::try_from(self.0).ok()
+    }
+
+    pub const fn checked_add(self, other: Self) -> Option<Self> {
+        match self.0.checked_add(other.0) {
+            Some(value) => Some(Self(value)),
+            None => None,
+        }
+    }
+
+    pub const fn checked_add_size(self, size: ByteSize) -> Option<Self> {
+        match self.0.checked_add(size.0) {
+            Some(value) => Some(Self(value)),
+            None => None,
+        }
+    }
+}
+
+impl From<u8> for ByteSize {
+    fn from(value: u8) -> Self {
+        Self(u32::from(value))
+    }
+}
+
+impl From<u16> for ByteSize {
+    fn from(value: u16) -> Self {
+        Self(u32::from(value))
+    }
+}
+
+impl TryFrom<usize> for ByteSize {
+    type Error = std::num::TryFromIntError;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        u32::try_from(value).map(Self)
+    }
+}
+
+impl From<ByteSize> for u32 {
+    fn from(value: ByteSize) -> Self {
+        value.0
+    }
+}
+
+impl From<ByteSize> for u64 {
+    fn from(value: ByteSize) -> Self {
+        u64::from(value.0)
+    }
+}
+
+impl From<ByteSize> for usize {
+    fn from(value: ByteSize) -> Self {
+        value.0 as Self
+    }
+}
+
+impl From<u8> for ByteOffset {
+    fn from(value: u8) -> Self {
+        Self(u32::from(value))
+    }
+}
+
+impl From<u16> for ByteOffset {
+    fn from(value: u16) -> Self {
+        Self(u32::from(value))
+    }
+}
+
+impl TryFrom<usize> for ByteOffset {
+    type Error = std::num::TryFromIntError;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        u32::try_from(value).map(Self)
+    }
+}
+
+impl From<ByteOffset> for u32 {
+    fn from(value: ByteOffset) -> Self {
+        value.0
+    }
+}
+
+impl From<ByteOffset> for u64 {
+    fn from(value: ByteOffset) -> Self {
+        u64::from(value.0)
+    }
+}
+
+impl From<ByteOffset> for usize {
+    fn from(value: ByteOffset) -> Self {
+        value.0 as Self
+    }
+}
+
+impl TryFrom<ByteSize> for u16 {
+    type Error = std::num::TryFromIntError;
+
+    fn try_from(value: ByteSize) -> Result<Self, Self::Error> {
+        u16::try_from(value.0)
+    }
+}
+
+impl TryFrom<ByteOffset> for u16 {
+    type Error = std::num::TryFromIntError;
+
+    fn try_from(value: ByteOffset) -> Result<Self, Self::Error> {
+        u16::try_from(value.0)
+    }
+}
+
+impl fmt::Display for ByteSize {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
+impl fmt::Display for ByteOffset {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CpuId {
     Mos6502,
@@ -38,14 +234,52 @@ pub enum Endian {
     Big,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AddressSpaceId(pub u8);
+
+/// A target address. Absolute addresses are never represented as Action!
+/// `CARD` values in NIR, even when both happen to be 16-bit on Atari.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AddressValue {
+    pub address_space: AddressSpaceId,
+    pub value: u64,
+}
+
+impl AddressValue {
+    pub const fn new(address_space: AddressSpaceId, value: u64) -> Self {
+        Self {
+            address_space,
+            value,
+        }
+    }
+
+    pub const fn data(value: u64) -> Self {
+        Self::new(TargetLayout::DATA_ADDRESS_SPACE, value)
+    }
+
+    pub const fn code(value: u64) -> Self {
+        Self::new(TargetLayout::CODE_ADDRESS_SPACE, value)
+    }
+
+    pub const fn checked_add_signed(self, addend: i64) -> Option<Self> {
+        match self.value.checked_add_signed(addend) {
+            Some(value) => Some(Self::new(self.address_space, value)),
+            None => None,
+        }
+    }
+}
+
+impl fmt::UpperHex for AddressValue {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt(formatter)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PointerLayout {
     pub address_space: AddressSpaceId,
-    pub size_bytes: u8,
-    pub alignment_bytes: u8,
+    pub size_bytes: ByteSize,
+    pub alignment_bytes: ByteSize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -93,13 +327,13 @@ impl TargetLayout {
             link_address_bits: 16,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
-                size_bytes: 2,
-                alignment_bytes: 1,
+                size_bytes: ByteSize::new(2),
+                alignment_bytes: ByteSize::new(1),
             },
             code_pointer: PointerLayout {
                 address_space: Self::CODE_ADDRESS_SPACE,
-                size_bytes: 2,
-                alignment_bytes: 1,
+                size_bytes: ByteSize::new(2),
+                alignment_bytes: ByteSize::new(1),
             },
             record_layout: RecordLayoutPolicy::Packed,
             natural_word_alignment_bytes: 1,
@@ -117,13 +351,13 @@ impl TargetLayout {
             link_address_bits: 24,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
-                size_bytes: 3,
-                alignment_bytes: 1,
+                size_bytes: ByteSize::new(3),
+                alignment_bytes: ByteSize::new(1),
             },
             code_pointer: PointerLayout {
                 address_space: Self::CODE_ADDRESS_SPACE,
-                size_bytes: 3,
-                alignment_bytes: 1,
+                size_bytes: ByteSize::new(3),
+                alignment_bytes: ByteSize::new(1),
             },
             record_layout: RecordLayoutPolicy::Natural,
             natural_word_alignment_bytes: 2,
@@ -141,13 +375,13 @@ impl TargetLayout {
             link_address_bits: 24,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
-                size_bytes: 2,
-                alignment_bytes: 1,
+                size_bytes: ByteSize::new(2),
+                alignment_bytes: ByteSize::new(1),
             },
             code_pointer: PointerLayout {
                 address_space: Self::CODE_ADDRESS_SPACE,
-                size_bytes: 2,
-                alignment_bytes: 1,
+                size_bytes: ByteSize::new(2),
+                alignment_bytes: ByteSize::new(1),
             },
             record_layout: RecordLayoutPolicy::Natural,
             natural_word_alignment_bytes: 2,
@@ -165,13 +399,13 @@ impl TargetLayout {
             link_address_bits: 24,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
-                size_bytes: 4,
-                alignment_bytes: 2,
+                size_bytes: ByteSize::new(4),
+                alignment_bytes: ByteSize::new(2),
             },
             code_pointer: PointerLayout {
                 address_space: Self::CODE_ADDRESS_SPACE,
-                size_bytes: 4,
-                alignment_bytes: 2,
+                size_bytes: ByteSize::new(4),
+                alignment_bytes: ByteSize::new(2),
             },
             record_layout: RecordLayoutPolicy::Natural,
             natural_word_alignment_bytes: 2,
@@ -229,10 +463,22 @@ mod tests {
         let small = TargetLayout::wdc_65816_small();
         let m68k = TargetLayout::motorola_68000();
 
-        assert_eq!((atari.address_bits, atari.data_pointer.size_bytes), (16, 2));
-        assert_eq!((native.address_bits, native.data_pointer.size_bytes), (24, 3));
-        assert_eq!((small.address_bits, small.data_pointer.size_bytes), (24, 2));
-        assert_eq!((m68k.address_bits, m68k.data_pointer.size_bytes), (32, 4));
+        assert_eq!(
+            (atari.address_bits, atari.data_pointer.size_bytes),
+            (16, ByteSize::new(2))
+        );
+        assert_eq!(
+            (native.address_bits, native.data_pointer.size_bytes),
+            (24, ByteSize::new(3))
+        );
+        assert_eq!(
+            (small.address_bits, small.data_pointer.size_bytes),
+            (24, ByteSize::new(2))
+        );
+        assert_eq!(
+            (m68k.address_bits, m68k.data_pointer.size_bytes),
+            (32, ByteSize::new(4))
+        );
         assert_eq!(m68k.link_address_bits, 24);
         assert_eq!(m68k.endian, Endian::Big);
     }

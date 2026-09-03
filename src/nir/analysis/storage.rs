@@ -8,6 +8,7 @@ use crate::nir::{
     NirMemoryAccess, NirMemoryRegion, NirMemoryRegionKind, NirOp, NirPlace, NirProgram, NirRealOp,
     NirRealSource, NirRoutine, NirStorageClass, NirStorageInit, NirType, NirTypeKind,
 };
+use crate::target::{ByteOffset, ByteSize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NirStorageBackingClass {
@@ -71,7 +72,7 @@ pub struct NirStorageFacts {
     pub id: NirStorageId,
     pub name: String,
     pub ty: Option<NirType>,
-    pub width: Option<u16>,
+    pub width: Option<ByteSize>,
     pub direct_access_ty: Option<NirType>,
     pub storage_class: Option<NirStorageClass>,
     pub backing: NirStorageBackingClass,
@@ -100,7 +101,8 @@ impl NirStorageFacts {
     pub fn is_value_trackable(&self) -> bool {
         let pointer_cell = self.storage_class == Some(NirStorageClass::Array)
             && self.direct_access_ty.as_ref().is_some_and(|ty| {
-                matches!(ty.kind, NirTypeKind::Ptr16 { .. }) && ty.width == Some(2)
+                matches!(ty.kind, NirTypeKind::Ptr16 { .. })
+                    && ty.width == Some(ByteSize::new(2))
             });
         self.blockers.iter().all(|blocker| {
             matches!(
@@ -582,7 +584,7 @@ fn supported_scalar_type(ty: &NirType) -> bool {
             | NirTypeKind::I16
             | NirTypeKind::Ptr16 { .. }
             | NirTypeKind::Callable { .. }
-    ) && matches!(ty.width, Some(1 | 2))
+    ) && matches!(ty.width.map(ByteSize::get), Some(1 | 2))
 }
 
 fn record_direct_access(
@@ -632,7 +634,7 @@ fn same_type(left: &NirType, right: &NirType) -> bool {
 fn memory_accesses_storage(
     access: &NirMemoryAccess,
     storage: NirStorageId,
-    width: Option<u16>,
+    width: Option<ByteSize>,
 ) -> bool {
     match access {
         NirMemoryAccess::None => false,
@@ -642,7 +644,7 @@ fn memory_accesses_storage(
             };
             let storage = NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(storage),
-                offset: 0,
+                offset: ByteOffset::ZERO,
                 size: width,
             };
             regions.iter().any(|region| region.overlaps(&storage))
@@ -906,7 +908,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -974,17 +976,17 @@ mod tests {
     fn classifies_narrow_scalar_candidates_and_exclusion_reasons() {
         let mut initialized = local(2, "initialized");
         initialized.init = Some(NirStorageInit::ZeroFill {
-            bytes: 1,
+            bytes: ByteSize::ONE,
             mutable: true,
             section: "data".to_string(),
         });
         let mut absolute = local(3, "absolute");
-        absolute.backing = NirLocalBacking::Absolute(0xD000);
+        absolute.backing = NirLocalBacking::Absolute(crate::target::AddressValue::data(0xD000));
         let mut alias = local(4, "alias");
         alias.backing = NirLocalBacking::Alias {
             target: LocalId(7),
             target_name: "alias_target".to_string(),
-            offset: 0,
+            offset: ByteOffset::ZERO,
         };
         let mut array = local(5, "array");
         array.storage = NirStorageClass::Array;
@@ -1050,7 +1052,7 @@ mod tests {
                         ty: NirType {
                             kind: NirTypeKind::Ptr16 { pointee: None },
                             summary: "Byte*".to_string(),
-                            width: Some(2),
+                            width: Some(crate::target::ByteSize::new(2)),
                             pointer: true,
                         },
                         place: local_place(6, "escaped"),
@@ -1236,8 +1238,8 @@ mod tests {
                             reads: NirMemoryAccess::None,
                             writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
                                 kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
-                                offset: 0,
-                                size: 1,
+                                offset: ByteOffset::ZERO,
+                                size: ByteSize::ONE,
                             }]),
                         },
                         may_call_os: false,

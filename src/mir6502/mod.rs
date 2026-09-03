@@ -1250,7 +1250,7 @@ mod tests {
         let ty = crate::nir::NirType {
             kind: crate::nir::NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         };
         let nir = NirProgram {
@@ -1333,7 +1333,7 @@ mod tests {
         let byte = crate::nir::NirType {
             kind: crate::nir::NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         };
         let empty_routine = |name: &str, block_id: u32| NirRoutine {
@@ -1370,8 +1370,8 @@ mod tests {
                     reads: NirMemoryAccess::None,
                     writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
                         kind: NirMemoryRegionKind::Storage(NirStorageId::Global(SymbolId(0))),
-                        offset: 0,
-                        size: 1,
+                        offset: crate::target::ByteOffset::ZERO,
+                        size: crate::target::ByteSize::ONE,
                     }]),
                 },
                 may_call_os: false,
@@ -1385,7 +1385,7 @@ mod tests {
                 name: "g".to_string(),
                 kind: "Byte".to_string(),
                 ty: Some(byte),
-                storage_size: 1,
+                storage_size: crate::target::ByteSize::ONE,
                 array: None,
                 init: None,
                 backing: crate::nir::NirGlobalBacking::Ordinary,
@@ -10525,7 +10525,7 @@ mod tests {
             ty: Some(crate::nir::NirType {
                 kind: crate::nir::NirTypeKind::U8,
                 summary: "Byte".to_string(),
-                width: Some(1),
+                width: Some(crate::target::ByteSize::ONE),
                 pointer: false,
             }),
         };

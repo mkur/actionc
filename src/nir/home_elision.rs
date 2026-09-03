@@ -254,7 +254,7 @@ fn kill_written(
         NirMemoryAccess::Regions(regions) => {
             for region in regions {
                 if let NirMemoryRegionKind::Storage(id) = region.kind
-                    && region.offset == 0
+                    && region.offset == crate::target::ByteOffset::ZERO
                     && candidates.contains(&id)
                 {
                     live.remove(&id);
@@ -352,7 +352,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -454,8 +454,8 @@ mod tests {
             memory: NirMemoryEffects {
                 reads: NirMemoryAccess::Regions(vec![NirMemoryRegion {
                     kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
-                    offset: 0,
-                    size: 1,
+                    offset: crate::target::ByteOffset::ZERO,
+                    size: crate::target::ByteSize::ONE,
                 }]),
                 writes: NirMemoryAccess::None,
             },

@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 2 completed on 2026-09-03; later slices
+Status: active. Slices 0 through 3 completed on 2026-09-03; later slices
 remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
@@ -314,6 +314,14 @@ compiler: thread target data layout into NIR
 ```
 
 ### Slice 3: typed sizes, offsets, and addresses
+
+Status: complete. NIR storage extents, alignments, field and image offsets,
+element strides, copy extents, effect ranges, and relocations now use checked
+`ByteSize`/`ByteOffset` values. Absolute storage, places, runtime addresses,
+and relocation targets use address-space-qualified `AddressValue`. NIR retains
+32-bit layout quantities independently of Action! `CARD`; the verifier checks
+absolute extents against the selected target, while MIR6502 performs explicit
+checked narrowing at its backend boundary.
 
 1. Introduce `ByteSize`, `ByteOffset`, `AddressValue`, and `AddressSpaceId`.
 2. Migrate NIR storage extents, field offsets, element strides, copy extents,

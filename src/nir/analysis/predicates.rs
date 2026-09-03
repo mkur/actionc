@@ -454,7 +454,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -463,7 +463,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::Bool,
             summary: "condition".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -745,7 +745,7 @@ mod tests {
                     pointee: Some(Box::new(NirTypeKind::U8)),
                 },
                 summary: "Byte*".to_string(),
-                width: Some(2),
+                width: Some(crate::target::ByteSize::new(2)),
                 pointer: true,
             },
             place: param_place(),

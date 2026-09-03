@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::ast::machine_address_symbolic_offset;
 use crate::codegen::runtime_zp;
 use crate::nir::{
-    self, BlockId, LocalId, NirBinaryOp, NirCompareOp, NirGlobalBacking, NirInlineAsm,
+    self, AddressValue, BlockId, ByteOffset, ByteSize, LocalId, NirBinaryOp, NirCompareOp,
+    NirGlobalBacking, NirInlineAsm,
     NirInlineAsmTarget, NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector,
     NirMachineEffects, NirMachineItem, NirMemoryAccess, NirMemoryRegionKind, NirOp as NirOpKind,
     NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine, NirStorageId,
@@ -34,6 +35,18 @@ use super::ir::{
 enum LoweredRealBranch {
     Boolean,
     PackedFlags,
+}
+
+fn nir_size_u16(size: ByteSize) -> u16 {
+    u16::try_from(size).expect("verified Atari NIR byte size must fit in 16 bits")
+}
+
+fn nir_offset_u16(offset: ByteOffset) -> u16 {
+    u16::try_from(offset).expect("verified Atari NIR byte offset must fit in 16 bits")
+}
+
+fn nir_address_u16(address: AddressValue) -> u16 {
+    u16::try_from(address.value).expect("verified Atari NIR address must fit in 16 bits")
 }
 
 fn direct_real_branch_result(block: &nir::NirBlock) -> Option<TempId> {
@@ -552,7 +565,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     .iter()
                     .filter_map(|local| match local.backing {
                         NirLocalBacking::Absolute(address) => {
-                            Some((machine_name_key(&local.name), address))
+                            Some((machine_name_key(&local.name), nir_address_u16(address)))
                         }
                         NirLocalBacking::Ordinary
                         | NirLocalBacking::Alias { .. }
@@ -729,11 +742,12 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                 id: MirStorageId(index as u32),
                                 name: Some(param.name.clone()),
                                 storage: lower_storage_class(param.storage),
-                                storage_size: param
+                                storage_size: nir_size_u16(param
                                     .ty
                                     .width
-                                    .or_else(|| scalar_width.map(mir_width_bytes))
-                                    .unwrap_or(1),
+                                    .unwrap_or_else(|| ByteSize::from(
+                                        scalar_width.map(mir_width_bytes).unwrap_or(1),
+                                    ))),
                                 scalar_width,
                                 base: MirStorageBase::Param(param.id),
                                 offset: 0,
@@ -781,7 +795,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                                 ),
                             },
                             offset: match local.backing {
-                                NirLocalBacking::Alias { offset, .. } => offset,
+                                NirLocalBacking::Alias { offset, .. } => nir_offset_u16(offset),
                                 NirLocalBacking::Ordinary => 0,
                                 NirLocalBacking::GlobalAlias { .. } => unreachable!(
                                     "global-alias locals are resolved directly to global places"
@@ -845,7 +859,7 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                 ty: static_data.ty.summary.clone(),
                 image: lower_data_image(&static_data.image, None),
                 display: static_data.display.clone(),
-                alignment: static_data.alignment,
+                alignment: nir_size_u16(static_data.alignment),
                 mutable: static_data.mutable,
                 section: static_data.section.clone(),
             })
@@ -859,25 +873,26 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
                     let width = global.ty.as_ref().and_then(mir_width);
                     let ordinary_offset = next_global_offset;
                     if matches!(global.backing, NirGlobalBacking::Ordinary) {
-                        next_global_offset = next_global_offset.saturating_add(global.storage_size);
+                        next_global_offset = next_global_offset
+                            .saturating_add(nir_size_u16(global.storage_size));
                     }
                     MirGlobal {
                         id: global.id,
                         name: global.name.clone(),
                         kind: global.kind.clone(),
                         width,
-                        storage_size: global.storage_size,
+                        storage_size: nir_size_u16(global.storage_size),
                         backing: match global.backing {
                             NirGlobalBacking::Ordinary => MirGlobalBacking::Ordinary {
                                 offset: ordinary_offset,
                             },
                             NirGlobalBacking::Absolute(address) => {
-                                MirGlobalBacking::Absolute(address)
+                                MirGlobalBacking::Absolute(nir_address_u16(address))
                             }
                             NirGlobalBacking::Alias { ref target, offset } => {
                                 MirGlobalBacking::Alias {
                                     target: *target,
-                                    offset,
+                                    offset: nir_offset_u16(offset),
                                 }
                             }
                         },
@@ -943,7 +958,7 @@ fn runtime_helper_decls_from_sets(nir_program: &NirProgram) -> Vec<MirRuntimeHel
                 let NirOpKind::RuntimeHelperOverride { slot, target } = op else {
                     continue;
                 };
-                let Some(helper) = runtime_helper_from_slot(*slot) else {
+                let Some(helper) = runtime_helper_from_slot(nir_address_u16(*slot)) else {
                     continue;
                 };
                 if decls.iter().any(|decl| decl.helper == helper) {
@@ -951,7 +966,7 @@ fn runtime_helper_decls_from_sets(nir_program: &NirProgram) -> Vec<MirRuntimeHel
                 }
                 let target = match target {
                     crate::nir::NirRuntimeHelperTarget::Absolute(address) => {
-                        MirRuntimeHelperTarget::KnownAbsolute(*address)
+                        MirRuntimeHelperTarget::KnownAbsolute(nir_address_u16(*address))
                     }
                     crate::nir::NirRuntimeHelperTarget::Routine(id) => {
                         MirRuntimeHelperTarget::Routine(RoutineId(*id))
@@ -986,10 +1001,10 @@ fn lower_global_init(
     array: Option<&crate::nir::NirArrayGlobalFact>,
 ) -> MirGlobalInit {
     let array = array.map(|array| super::ir::MirArrayGlobalFact {
-        elem_size: array.elem_size,
+        elem_size: nir_size_u16(array.elem_size),
         length: array.length,
         pointer_backed: array.pointer_backed,
-        address_initializer: array.address_initializer,
+        address_initializer: array.address_initializer.map(nir_address_u16),
     });
     match init {
         crate::nir::NirGlobalInit::Bytes {
@@ -999,7 +1014,7 @@ fn lower_global_init(
             section,
         } => MirGlobalInit::Bytes {
             image: lower_data_image(image, None),
-            zero_fill: *zero_fill,
+            zero_fill: nir_size_u16(*zero_fill),
             mutable: *mutable,
             section: section.clone(),
             array,
@@ -1014,10 +1029,10 @@ fn lower_global_init(
             backing: MirDataBacking {
                 owner: backing.owner,
                 image: lower_data_image(&backing.image, None),
-                zero_fill: backing.zero_fill,
+                zero_fill: nir_size_u16(backing.zero_fill),
                 section: backing.section.clone(),
             },
-            descriptor_size: *descriptor_size,
+            descriptor_size: nir_size_u16(*descriptor_size),
             size_word: *size_word,
             mutable: *mutable,
             section: section.clone(),
@@ -1027,7 +1042,7 @@ fn lower_global_init(
             mutable,
             section,
         } => MirGlobalInit::ZeroFill {
-            bytes: *bytes,
+            bytes: nir_size_u16(*bytes),
             mutable: *mutable,
             section: section.clone(),
             array,
@@ -1046,7 +1061,7 @@ fn lower_global_init(
             section,
         } => MirGlobalInit::RoutineAddress {
             routine: RoutineId(*routine),
-            descriptor_size: *descriptor_size,
+            descriptor_size: nir_size_u16(*descriptor_size),
             size_word: *size_word,
             mutable: *mutable,
             section: section.clone(),
@@ -1085,7 +1100,7 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
             section,
         } => MirStorageInit::Bytes {
             image: lower_data_image(image, Some(owner)),
-            zero_fill: *zero_fill,
+            zero_fill: nir_size_u16(*zero_fill),
             mutable: *mutable,
             section: section.clone(),
         },
@@ -1098,10 +1113,10 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
         } => MirStorageInit::Descriptor {
             backing: MirStorageBacking {
                 image: lower_data_image(&backing.image, Some(owner)),
-                zero_fill: backing.zero_fill,
+                zero_fill: nir_size_u16(backing.zero_fill),
                 section: backing.section.clone(),
             },
-            descriptor_size: *descriptor_size,
+            descriptor_size: nir_size_u16(*descriptor_size),
             size_word: *size_word,
             mutable: *mutable,
             section: section.clone(),
@@ -1111,7 +1126,7 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
             mutable,
             section,
         } => MirStorageInit::ZeroFill {
-            bytes: *bytes,
+            bytes: nir_size_u16(*bytes),
             mutable: *mutable,
             section: section.clone(),
         },
@@ -1125,7 +1140,7 @@ fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) 
             .relocations
             .iter()
             .map(|relocation| MirDataRelocation {
-                offset: relocation.offset,
+                offset: nir_offset_u16(relocation.offset),
                 kind: match relocation.kind {
                     crate::nir::NirDataRelocationKind::Low8 => MirDataRelocationKind::Low8,
                     crate::nir::NirDataRelocationKind::High8 => MirDataRelocationKind::High8,
@@ -1151,7 +1166,7 @@ fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) 
                         MirDataRelocationTarget::Routine(RoutineId(id))
                     }
                     crate::nir::NirDataRelocationTarget::Absolute(address) => {
-                        MirDataRelocationTarget::Absolute(address)
+                        MirDataRelocationTarget::Absolute(nir_address_u16(address))
                     }
                 },
                 addend: relocation.addend,
@@ -1459,7 +1474,7 @@ fn lower_ops(
                 lowered.push(MirOp::CopyBytes {
                     destination,
                     source,
-                    size: *size,
+                    size: nir_size_u16(*size),
                     destination_volatile: *destination_volatile,
                     source_volatile: *source_volatile,
                 });
@@ -3010,7 +3025,7 @@ fn push_real_to_integer(
         generated_temps,
         lowered,
     );
-    match result_type.width {
+    match result_type.width.map(ByteSize::get) {
         Some(1) => lowered.push(MirOp::Move {
             dst: MirDef::VTemp(result),
             src: MirValue::Def(MirDef::VTempByte {
@@ -3269,8 +3284,12 @@ fn lower_inline_asm_target(target: NirInlineAsmTarget) -> MirInlineAsmTarget {
             MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
         }
         NirInlineAsmTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id)),
-        NirInlineAsmTarget::Absolute(address) => MirInlineAsmTarget::Absolute(address),
-        NirInlineAsmTarget::InlineOffset(offset) => MirInlineAsmTarget::InlineOffset(offset),
+        NirInlineAsmTarget::Absolute(address) => {
+            MirInlineAsmTarget::Absolute(nir_address_u16(address))
+        }
+        NirInlineAsmTarget::InlineOffset(offset) => {
+            MirInlineAsmTarget::InlineOffset(nir_offset_u16(offset))
+        }
     }
 }
 
@@ -3440,7 +3459,10 @@ fn lower_inline_asm_effects(code: &NirInlineAsm, effects: &NirMachineEffects) ->
                 return None;
             };
             (relocation.symbol_use == crate::asm6502::InlineAsmSymbolUse::Control)
-                .then_some((relocation.offset, *target))
+                .then_some((
+                    nir_offset_u16(relocation.offset),
+                    nir_offset_u16(*target),
+                ))
         })
         .collect::<Vec<_>>();
     let machine = crate::asm6502::analyze_machine_state(&code.bytes, &local_control_targets);
@@ -3739,7 +3761,7 @@ fn lower_place_mem(
         && !base.ty.as_ref().is_some_and(|ty| ty.pointer)
     {
         return lower_place_mem(routine, block, base, diagnostics)
-            .map(|mem| offset_mem(&mem, *offset));
+            .map(|mem| offset_mem(&mem, nir_offset_u16(*offset)));
     }
     match classify_address(place) {
         MirAddressShape::Direct(mem) => Some(mem),
@@ -3866,7 +3888,7 @@ fn lower_value(
 }
 
 fn mir_width(ty: &nir::NirType) -> Option<MirWidth> {
-    match ty.width {
+    match ty.width.map(ByteSize::get) {
         Some(1) => Some(MirWidth::Byte),
         Some(2) => Some(MirWidth::Word),
         _ => None,
@@ -3906,6 +3928,7 @@ fn local_storage_size(
         .ty
         .width
         .filter(|_| !local_pointer_backed_array(local))
+        .map(nir_size_u16)
         .unwrap_or_else(|| mir_width_bytes(declared_size));
     init.map_or(declared_size, |init| {
         mir_storage_init_object_size(init, declared_size)
@@ -4090,7 +4113,7 @@ mod tests {
                     ty: NirType {
                         kind: NirTypeKind::Real,
                         summary: "REAL".to_string(),
-                        width: Some(6),
+                        width: Some(ByteSize::new(6)),
                         pointer: false,
                     },
                     backing: NirLocalBacking::Ordinary,

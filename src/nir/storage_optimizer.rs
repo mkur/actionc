@@ -10,6 +10,7 @@ use super::analysis::{
 use super::facts::{BlockId, NirStorageId, NirType, NirValue, TempId, value_width};
 use super::ir::*;
 use super::{NirDiagnostic, analyze_program_storage, direct_storage_id, verify_program};
+use crate::target::{ByteOffset, ByteSize};
 
 pub(super) fn propagate_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
@@ -105,7 +106,7 @@ struct StorageValueProblem<'a> {
     blocks: BTreeMap<BlockId, &'a NirBlock>,
     dominance: &'a NirDominance,
     use_def: &'a NirUseDef,
-    trackable: &'a BTreeMap<NirStorageId, u16>,
+    trackable: &'a BTreeMap<NirStorageId, ByteSize>,
     routine_name: &'a str,
 }
 
@@ -115,7 +116,7 @@ impl<'a> StorageValueProblem<'a> {
         cfg: &NirCfg,
         dominance: &'a NirDominance,
         use_def: &'a NirUseDef,
-        trackable: &'a BTreeMap<NirStorageId, u16>,
+        trackable: &'a BTreeMap<NirStorageId, ByteSize>,
         routine_name: &'a str,
     ) -> Self {
         Self {
@@ -181,7 +182,7 @@ fn transfer_op(
     mut op: NirOp,
     block: BlockId,
     op_index: usize,
-    trackable: &BTreeMap<NirStorageId, u16>,
+    trackable: &BTreeMap<NirStorageId, ByteSize>,
     use_def: &NirUseDef,
     dominance: &NirDominance,
     routine_name: &str,
@@ -293,12 +294,12 @@ fn transfer_op(
 }
 
 fn value_for_storage(value: NirValue, ty: &NirType) -> Option<NirValue> {
-    match (value, ty.width) {
+    match (value, ty.width.map(ByteSize::get)) {
         (NirValue::ConstU8(value), Some(1)) => Some(NirValue::ConstU8(value)),
         (NirValue::ConstU8(value), Some(2)) => Some(NirValue::ConstU16(u16::from(value))),
         (NirValue::ConstU16(value), Some(1)) => Some(NirValue::ConstU8(value as u8)),
         (NirValue::ConstU16(value), Some(2)) => Some(NirValue::ConstU16(value)),
-        (value, width) if value_width(&value) == width => Some(value),
+        (value, width) if value_width(&value).map(ByteSize::get) == width => Some(value),
         _ => None,
     }
 }
@@ -323,7 +324,7 @@ fn apply_call_barrier(
     facts: &mut StorageValueFacts,
     callee: &NirCallee,
     effects: &NirCallEffects,
-    trackable: &BTreeMap<NirStorageId, u16>,
+    trackable: &BTreeMap<NirStorageId, ByteSize>,
     routine_name: &str,
 ) {
     if effects.opaque || effects.may_call_os || matches!(callee, NirCallee::Indirect { .. }) {
@@ -351,7 +352,7 @@ fn apply_call_barrier(
             };
             let storage = NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(*id),
-                offset: 0,
+                offset: ByteOffset::ZERO,
                 size: *size,
             };
             !regions.iter().any(|region| region.overlaps(&storage))
@@ -623,7 +624,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -1094,8 +1095,8 @@ mod tests {
                                     kind: NirMemoryRegionKind::Storage(NirStorageId::Local(
                                         LocalId(0),
                                     )),
-                                    offset: 0,
-                                    size: 1,
+                                    offset: ByteOffset::ZERO,
+                                    size: ByteSize::ONE,
                                 }]),
                             },
                             may_call_os: false,
@@ -1138,7 +1139,9 @@ mod tests {
                     store(0, "x", NirValue::ConstU8(3)),
                     NirOp::Store {
                         place: NirPlace {
-                            kind: NirPlaceKind::Absolute(0xD000),
+                            kind: NirPlaceKind::Absolute(
+                                crate::target::AddressValue::data(0xD000),
+                            ),
                             ty: Some(byte_type()),
                         },
                         src: NirValue::ConstU8(0),

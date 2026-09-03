@@ -30,7 +30,7 @@ impl NirPrinter {
                     format!(" absolute ${address:04X}")
                 }
                 super::ir::NirGlobalBacking::Alias { ref target, offset } => {
-                    if offset == 0 {
+                    if offset == crate::target::ByteOffset::ZERO {
                         format!(" alias g{}", target.0)
                     } else {
                         format!(" alias g{}+{offset}", target.0)
@@ -104,7 +104,7 @@ impl NirPrinter {
                     offset,
                     ..
                 } => {
-                    if offset == 0 {
+                    if offset == crate::target::ByteOffset::ZERO {
                         format!(" alias {target_name}")
                     } else {
                         format!(" alias {target_name}+{offset}")
@@ -115,7 +115,7 @@ impl NirPrinter {
                     offset,
                     ..
                 } => {
-                    if offset == 0 {
+                    if offset == crate::target::ByteOffset::ZERO {
                         format!(" global-alias {target_name}")
                     } else {
                         format!(" global-alias {target_name}+{offset}")
@@ -620,7 +620,12 @@ fn memory_region_summary(region: &NirMemoryRegion) -> String {
         NirMemoryRegionKind::Storage(NirStorageId::Param(id)) => format!("param{}", id.0),
         NirMemoryRegionKind::Storage(NirStorageId::Global(id)) => format!("global{}", id.0),
         NirMemoryRegionKind::Static(id) => format!("static{}", id.0),
-        NirMemoryRegionKind::AbsoluteRange => "absolute".to_string(),
+        NirMemoryRegionKind::AbsoluteRange(space)
+            if space == crate::target::TargetLayout::DATA_ADDRESS_SPACE =>
+        {
+            "absolute".to_string()
+        }
+        NirMemoryRegionKind::AbsoluteRange(space) => format!("absolute-as{}", space.0),
         NirMemoryRegionKind::ZeroPage => "zeropage".to_string(),
     };
     format!("{kind}+{}:{}", region.offset, region.size)

@@ -87,11 +87,13 @@ pub(super) fn mir_memory_effect(effect: &NirMemoryAccess) -> MirMemoryEffect {
                             MirMemoryRegionKind::Global(id)
                         }
                         NirMemoryRegionKind::Static(id) => MirMemoryRegionKind::Static(id),
-                        NirMemoryRegionKind::AbsoluteRange => MirMemoryRegionKind::AbsoluteRange,
+                        NirMemoryRegionKind::AbsoluteRange(_) => MirMemoryRegionKind::AbsoluteRange,
                         NirMemoryRegionKind::ZeroPage => MirMemoryRegionKind::ZeroPage,
                     },
-                    offset: region.offset,
-                    size: region.size,
+                    offset: u16::try_from(region.offset)
+                        .expect("verified Atari NIR effect offset fits in 16 bits"),
+                    size: u16::try_from(region.size)
+                        .expect("verified Atari NIR effect size fits in 16 bits"),
                 })
                 .collect(),
         ),
@@ -171,8 +173,8 @@ mod tests {
         let effect = mir_memory_effect(&NirMemoryAccess::Regions(vec![
             crate::nir::NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(NirStorageId::Param(crate::nir::ParamId(4))),
-                offset: 1,
-                size: 2,
+                offset: crate::nir::ByteOffset::new(1),
+                size: crate::nir::ByteSize::new(2),
             },
         ]));
 

@@ -1,7 +1,8 @@
 # NIR Target Shape
 
 Snapshot date: 2026-09-03. Updated for the target-parameterized NIR contract,
-the completed TAC-to-NIR naming migration, address-based native `REAL`
+typed target-independent sizes, offsets, and absolute addresses, the completed
+TAC-to-NIR naming migration, address-based native `REAL`
 operations, cartridge-compatible integer arithmetic typing, and explicit
 record copies.
 
@@ -166,9 +167,11 @@ pub struct NirBlockParam {
 }
 ```
 
-The current implementation still contains transitional `Ptr16`, `u16`
-absolute-address, fixed-endian data-image, Atari runtime-address, and 6502
-machine-payload forms. They are migration inputs, not the portable contract.
+The current implementation still contains transitional `Ptr16`, fixed-endian
+data-image, Atari runtime-symbol, and 6502 machine-payload forms. It no longer
+uses Action! `CARD`/raw `u16` fields for NIR storage extents, byte offsets, or
+absolute addresses. The remaining forms are migration inputs, not the portable
+contract.
 Verifier tightening must remove each old form once its replacement lands so a
 backend cannot silently recover the old assumption.
 
@@ -209,7 +212,7 @@ or out-of-range expressions. NIR projects that exact address to
 not re-evaluate source syntax or ask MIR6502 to resolve a SemIR name. The source
 expression remains only as readable initializer metadata. Verifier-clean NIR
 therefore guarantees that executable fixed-array consumers use the resolved
-storage identity and 16-bit address.
+storage identity and an address-space-qualified target address.
 
 When that procedure also has a current-location (`=*`) entry, MIR6502 retains a
 combined program-entry/observable-ABI classification; choosing it for `RUNAD`
@@ -258,7 +261,7 @@ pub enum NirType {
     },
     Record {
         record: RecordId,
-        size: u16,
+        size: ByteSize,
     },
     Callable {
         signature: SignatureId,
@@ -334,18 +337,18 @@ pub enum NirPlaceKind {
     Local(LocalId),
     Global(GlobalId),
     Static(StaticId),
-    Absolute(u16),
+    Absolute(AddressValue),
     Deref {
         addr: NirValue,
     },
     Field {
         base: Box<NirPlace>,
-        offset: u16,
+        offset: ByteOffset,
     },
     Index {
         base_addr: NirValue,
         index: NirValue,
-        elem_size: u8,
+        elem_size: ByteSize,
     },
 }
 ```
@@ -383,7 +386,7 @@ pub enum NirOp {
     CopyBytes {
         destination: NirPlace,
         source: NirPlace,
-        size: u16,
+        size: ByteSize,
         destination_volatile: bool,
         source_volatile: bool,
     },
@@ -677,7 +680,7 @@ pub enum NirCallee {
     Builtin(BuiltinId),
     Runtime {
         name: String,
-        address: Option<u16>,
+        address: Option<AddressValue>,
         signature: SignatureId,
     },
     Indirect {
@@ -745,7 +748,7 @@ pub struct NirStaticData {
     pub name: String,
     pub ty: NirType,
     pub image: NirDataImage,
-    pub alignment: u16,
+    pub alignment: ByteSize,
     pub section: NirStaticSection,
     pub mutable: bool,
     pub display: String,
@@ -757,9 +760,9 @@ pub struct NirDataImage {
 }
 
 pub struct NirDataRelocation {
-    pub offset: u16,
+    pub offset: ByteOffset,
     pub kind: Low8 | High8 | Word16,
-    pub target: Storage(NirStorageId) | Routine(RoutineId) | Absolute(u16),
+    pub target: Storage(NirStorageId) | Routine(RoutineId) | Absolute(AddressValue),
     pub addend: i32,
     pub span: SourceSpan,
 }
@@ -781,7 +784,7 @@ Rules:
   array this is its element backing, not an implementation descriptor cell.
 - Relocation ranges must fit within the image and must not overlap.
 - Relocation placeholder bytes must be zero, and total image extents must fit
-  the 16-bit storage model. Global, descriptor-backing, and local-backing image
+  the NIR `ByteSize` storage model. Global, descriptor-backing, and local-backing image
   extents are verifier-checked against their storage descriptors.
 - `display` is for diagnostics and fixtures only.
 - `StaticAddr(id)` must reference an existing static data entry.
@@ -835,8 +838,8 @@ pub struct NirInlineAsm {
 pub enum NirInlineAsmTarget {
     Storage(NirStorageId),
     Routine(RoutineId),
-    Absolute(u16),
-    InlineOffset(u16),
+    Absolute(AddressValue),
+    InlineOffset(ByteOffset),
 }
 ```
 

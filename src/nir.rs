@@ -40,6 +40,7 @@ pub use stats::{
     format_stats_comparison,
 };
 pub use verifier::NirDiagnostic;
+pub use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize};
 
 pub fn lower_program(program: &SemProgram) -> NirProgram {
     let mut lowerer = lowerer::NirLowerer::default();

@@ -1,6 +1,7 @@
 use super::facts::{BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, SymbolId, TempId};
 use crate::asm6502::{InlineAsmRelocationKind, InlineAsmSymbolUse};
 use crate::source::Span;
+use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirProgram {
@@ -16,7 +17,7 @@ pub struct NirGlobal {
     pub name: String,
     pub kind: String,
     pub ty: Option<NirType>,
-    pub storage_size: u16,
+    pub storage_size: ByteSize,
     pub array: Option<NirArrayGlobalFact>,
     pub init: Option<NirGlobalInit>,
     pub backing: NirGlobalBacking,
@@ -24,29 +25,29 @@ pub struct NirGlobal {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirArrayGlobalFact {
-    pub elem_size: u16,
+    pub elem_size: ByteSize,
     pub length: Option<u16>,
     pub pointer_backed: bool,
-    pub address_initializer: Option<u16>,
+    pub address_initializer: Option<AddressValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirGlobalInit {
     Bytes {
         image: NirDataImage,
-        zero_fill: u16,
+        zero_fill: ByteSize,
         mutable: bool,
         section: String,
     },
     Descriptor {
         backing: NirDataBacking,
-        descriptor_size: u16,
+        descriptor_size: ByteSize,
         size_word: Option<u16>,
         mutable: bool,
         section: String,
     },
     ZeroFill {
-        bytes: u16,
+        bytes: ByteSize,
         mutable: bool,
         section: String,
     },
@@ -56,7 +57,7 @@ pub enum NirGlobalInit {
     },
     RoutineAddress {
         routine: u32,
-        descriptor_size: u16,
+        descriptor_size: ByteSize,
         size_word: Option<u16>,
         mutable: bool,
         section: String,
@@ -67,7 +68,7 @@ pub enum NirGlobalInit {
 pub struct NirDataBacking {
     pub owner: SymbolId,
     pub image: NirDataImage,
-    pub zero_fill: u16,
+    pub zero_fill: ByteSize,
     pub section: String,
 }
 
@@ -75,19 +76,19 @@ pub struct NirDataBacking {
 pub enum NirStorageInit {
     Bytes {
         image: NirDataImage,
-        zero_fill: u16,
+        zero_fill: ByteSize,
         mutable: bool,
         section: String,
     },
     Descriptor {
         backing: NirStorageBacking,
-        descriptor_size: u16,
+        descriptor_size: ByteSize,
         size_word: Option<u16>,
         mutable: bool,
         section: String,
     },
     ZeroFill {
-        bytes: u16,
+        bytes: ByteSize,
         mutable: bool,
         section: String,
     },
@@ -96,15 +97,15 @@ pub enum NirStorageInit {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirStorageBacking {
     pub image: NirDataImage,
-    pub zero_fill: u16,
+    pub zero_fill: ByteSize,
     pub section: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirGlobalBacking {
     Ordinary,
-    Absolute(u16),
-    Alias { target: SymbolId, offset: u16 },
+    Absolute(AddressValue),
+    Alias { target: SymbolId, offset: ByteOffset },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,7 +115,7 @@ pub struct NirStaticData {
     pub ty: NirType,
     pub image: NirDataImage,
     pub display: String,
-    pub alignment: u16,
+    pub alignment: ByteSize,
     pub mutable: bool,
     pub section: String,
 }
@@ -136,7 +137,7 @@ impl NirDataImage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirDataRelocation {
-    pub offset: u16,
+    pub offset: ByteOffset,
     pub kind: NirDataRelocationKind,
     pub target: NirDataRelocationTarget,
     pub addend: i32,
@@ -151,10 +152,10 @@ pub enum NirDataRelocationKind {
 }
 
 impl NirDataRelocationKind {
-    pub fn width(self) -> u16 {
+    pub fn width(self) -> ByteSize {
         match self {
-            Self::Low8 | Self::High8 => 1,
-            Self::Word16 => 2,
+            Self::Low8 | Self::High8 => ByteSize::new(1),
+            Self::Word16 => ByteSize::new(2),
         }
     }
 }
@@ -163,7 +164,7 @@ impl NirDataRelocationKind {
 pub enum NirDataRelocationTarget {
     Storage(NirStorageId),
     Routine(u32),
-    Absolute(u16),
+    Absolute(AddressValue),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -186,7 +187,7 @@ pub enum NirPlaceKind {
         id: SymbolId,
         name: String,
     },
-    Absolute(u16),
+    Absolute(AddressValue),
     Deref {
         addr: NirValue,
     },
@@ -194,11 +195,11 @@ pub enum NirPlaceKind {
         base_addr: NirValue,
         index: NirValue,
         elem_ty: NirType,
-        elem_size: u16,
+        elem_size: ByteSize,
     },
     Field {
         base: Box<NirPlace>,
-        offset: u16,
+        offset: ByteOffset,
         ty: NirType,
     },
 }
@@ -247,13 +248,13 @@ pub enum NirCallee {
     },
     Runtime {
         name: String,
-        address: Option<u16>,
+        address: Option<AddressValue>,
     },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirRuntimeHelperTarget {
-    Absolute(u16),
+    Absolute(AddressValue),
     Routine(u32),
 }
 
@@ -281,8 +282,8 @@ pub enum NirMemoryAccess {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirMemoryRegion {
     pub kind: NirMemoryRegionKind,
-    pub offset: u16,
-    pub size: u16,
+    pub offset: ByteOffset,
+    pub size: ByteSize,
 }
 
 impl NirMemoryRegion {
@@ -295,16 +296,21 @@ impl NirMemoryRegion {
 pub enum NirMemoryRegionKind {
     Storage(NirStorageId),
     Static(SymbolId),
-    AbsoluteRange,
+    AbsoluteRange(AddressSpaceId),
     ZeroPage,
 }
 
-fn ranges_overlap(left: u16, left_size: u16, right: u16, right_size: u16) -> bool {
-    if left_size == 0 || right_size == 0 {
+fn ranges_overlap(
+    left: ByteOffset,
+    left_size: ByteSize,
+    right: ByteOffset,
+    right_size: ByteSize,
+) -> bool {
+    if left_size.is_zero() || right_size.is_zero() {
         return false;
     }
-    let left = u32::from(left)..u32::from(left) + u32::from(left_size);
-    let right = u32::from(right)..u32::from(right) + u32::from(right_size);
+    let left = u64::from(left.get())..u64::from(left.get()) + u64::from(left_size.get());
+    let right = u64::from(right.get())..u64::from(right.get()) + u64::from(right_size.get());
     left.start < right.end && right.start < left.end
 }
 
@@ -356,16 +362,16 @@ pub enum NirStorageClass {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirLocalBacking {
     Ordinary,
-    Absolute(u16),
+    Absolute(AddressValue),
     Alias {
         target: LocalId,
         target_name: String,
-        offset: u16,
+        offset: ByteOffset,
     },
     GlobalAlias {
         target: SymbolId,
         target_name: String,
-        offset: u16,
+        offset: ByteOffset,
     },
 }
 
@@ -437,7 +443,7 @@ pub struct NirBlockParam {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirOp {
     RuntimeHelperOverride {
-        slot: u16,
+        slot: AddressValue,
         target: NirRuntimeHelperTarget,
     },
     Load {
@@ -476,7 +482,7 @@ pub enum NirOp {
     CopyBytes {
         destination: NirPlace,
         source: NirPlace,
-        size: u16,
+        size: ByteSize,
         destination_volatile: bool,
         source_volatile: bool,
     },
@@ -582,7 +588,7 @@ pub struct NirInlineAsm {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirInlineAsmRelocation {
-    pub offset: u16,
+    pub offset: ByteOffset,
     pub kind: InlineAsmRelocationKind,
     pub target: NirInlineAsmTarget,
     pub addend: i32,
@@ -595,8 +601,8 @@ pub struct NirInlineAsmRelocation {
 pub enum NirInlineAsmTarget {
     Storage(NirStorageId),
     Routine(u32),
-    Absolute(u16),
-    InlineOffset(u16),
+    Absolute(AddressValue),
+    InlineOffset(ByteOffset),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -675,8 +681,8 @@ mod memory_region_tests {
     fn local_region(id: u32, offset: u16, size: u16) -> NirMemoryRegion {
         NirMemoryRegion {
             kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(id))),
-            offset,
-            size,
+            offset: ByteOffset::from(offset),
+            size: ByteSize::from(size),
         }
     }
 

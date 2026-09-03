@@ -47,9 +47,15 @@ fn record_assignment_lowers_to_verified_copy_bytes() {
         })
         .expect("record assignment must produce copy_bytes");
 
-    assert_eq!(copy.2, 3);
-    assert_eq!(copy.0.ty.as_ref().and_then(|ty| ty.width), Some(3));
-    assert_eq!(copy.1.ty.as_ref().and_then(|ty| ty.width), Some(3));
+    assert_eq!(copy.2, ByteSize::new(3));
+    assert_eq!(
+        copy.0.ty.as_ref().and_then(|ty| ty.width),
+        Some(ByteSize::new(3))
+    );
+    assert_eq!(
+        copy.1.ty.as_ref().and_then(|ty| ty.width),
+        Some(ByteSize::new(3))
+    );
     assert!(
         !program.routines[0]
             .blocks
@@ -76,7 +82,7 @@ fn verifier_rejects_invalid_record_copy_extent() {
     let NirOp::CopyBytes { size, .. } = copy else {
         unreachable!()
     };
-    *size = 0;
+    *size = ByteSize::ZERO;
 
     let diagnostics = verify_program(&program).expect_err("zero-sized copy must fail");
     assert!(diagnostics.iter().any(|diagnostic| {
@@ -214,8 +220,8 @@ fn pointer_null_comparisons_use_pointer_width_operands() {
     assert_eq!(comparisons.len(), 2);
     for (operand_ty, left, right) in comparisons {
         assert!(matches!(operand_ty.kind, NirTypeKind::Ptr16 { .. }));
-        assert_eq!(super::facts::value_width(left), Some(2));
-        assert_eq!(super::facts::value_width(right), Some(2));
+        assert_eq!(super::facts::value_width(left), Some(ByteSize::new(2)));
+        assert_eq!(super::facts::value_width(right), Some(ByteSize::new(2)));
     }
 }
 
@@ -250,8 +256,8 @@ fn mixed_scalar_comparison_widens_negative_literal_to_word() {
     let NirValue::Temp { ty: right_ty, .. } = right else {
         panic!("expected widened negative word operand");
     };
-    assert_eq!(left_ty.width, Some(2));
-    assert_eq!(right_ty.width, Some(2));
+    assert_eq!(left_ty.width, Some(ByteSize::new(2)));
+    assert_eq!(right_ty.width, Some(ByteSize::new(2)));
     assert_eq!(operand_ty.kind, NirTypeKind::I16);
 
     let optimized = optimize_program(&program).expect("optimize mixed scalar comparison");
@@ -729,7 +735,7 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
             _ => None,
         })
         .collect::<Vec<_>>();
-    assert_eq!(item_sizes, [1, 2]);
+    assert_eq!(item_sizes, [ByteSize::ONE, ByteSize::new(2)]);
 
     let value = routine
         .locals
@@ -745,13 +751,17 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
         alias.backing,
         NirLocalBacking::Alias {
             target,
-            offset: 0,
+            offset: ByteOffset::ZERO,
             ..
         } if target == value.id
     ));
     assert!(routine.locals.iter().any(|local| {
         display_name_leaf(&local.name).eq_ignore_ascii_case("absolute")
-            && matches!(local.backing, NirLocalBacking::Absolute(0xD01F))
+            && matches!(
+                local.backing,
+                NirLocalBacking::Absolute(address)
+                    if address == AddressValue::data(0xD01F)
+            )
     }));
     let addresses = routine
         .locals
@@ -840,7 +850,7 @@ fn formats_labeled_blocks() {
             name: "counter".to_string(),
             kind: "Byte".to_string(),
             ty: None,
-            storage_size: 1,
+            storage_size: ByteSize::ONE,
             array: None,
             init: None,
             backing: NirGlobalBacking::Ordinary,
@@ -921,9 +931,10 @@ fn named_module_executable_references_lower_to_stable_ids() {
         .iter()
         .find(|global| global.name.contains("APP_ALIAS"))
         .expect("module alias global");
-    let NirGlobalBacking::Alias { target, offset: 0 } = alias.backing else {
+    let NirGlobalBacking::Alias { target, offset } = alias.backing else {
         panic!("expected ID-backed global alias: {:?}", alias.backing);
     };
+    assert_eq!(offset, ByteOffset::ZERO);
     assert!(program.globals.iter().any(|global| global.id == target));
 
     let callback = program
@@ -970,12 +981,12 @@ fn named_module_executable_references_lower_to_stable_ids() {
 fn nir_type_kind_tracks_semir_value_types() {
     let byte = NirType::from_value(&ValueType::fund(FundType::Byte));
     assert_eq!(byte.kind, NirTypeKind::U8);
-    assert_eq!(byte.width, Some(1));
+    assert_eq!(byte.width, Some(ByteSize::ONE));
     assert!(!byte.pointer);
 
     let int = NirType::from_value(&ValueType::fund(FundType::Int));
     assert_eq!(int.kind, NirTypeKind::I16);
-    assert_eq!(int.width, Some(2));
+    assert_eq!(int.width, Some(ByteSize::new(2)));
 
     let pointer = NirType::from_value(&ValueType::pointer_to(ValueType::fund(FundType::Byte)));
     assert_eq!(
@@ -984,7 +995,7 @@ fn nir_type_kind_tracks_semir_value_types() {
             pointee: Some(Box::new(NirTypeKind::U8))
         }
     );
-    assert_eq!(pointer.width, Some(2));
+    assert_eq!(pointer.width, Some(ByteSize::new(2)));
     assert!(pointer.pointer);
 
     let record = NirType::from_value(&ValueType::record("Pair"));
@@ -1224,7 +1235,7 @@ fn verifier_rejects_real_index_with_scalar_element_stride() {
     let NirPlaceKind::Index { elem_size, .. } = &mut destination.kind else {
         unreachable!()
     };
-    *elem_size = 1;
+    *elem_size = ByteSize::ONE;
 
     let diagnostics = verify_program(&program).expect_err("scalar REAL stride must fail");
     assert!(diagnostics.iter().any(|diagnostic| {
@@ -1553,14 +1564,14 @@ fn lowers_self_and_forward_addresses_to_nir_data_relocations() {
 
     assert_eq!(image.bytes, [0x41, 0, 0, 0x70]);
     assert_eq!(image.relocations.len(), 2);
-    assert_eq!(image.relocations[0].offset, 1);
+    assert_eq!(image.relocations[0].offset, ByteOffset::new(1));
     assert_eq!(image.relocations[0].kind, NirDataRelocationKind::Low8);
     assert_eq!(image.relocations[0].addend, 2);
     assert_eq!(
         image.relocations[0].target,
         NirDataRelocationTarget::Storage(NirStorageId::Global(dlist.id))
     );
-    assert_eq!(image.relocations[1].offset, 2);
+    assert_eq!(image.relocations[1].offset, ByteOffset::new(2));
     assert_eq!(image.relocations[1].kind, NirDataRelocationKind::High8);
     assert_eq!(
         image.relocations[1].target,
@@ -1593,7 +1604,7 @@ fn lowers_word_routine_addresses_to_descriptor_backing_relocations() {
     assert!(matches!(
         backing.image.relocations.as_slice(),
         [NirDataRelocation {
-            offset: 0,
+            offset: ByteOffset::ZERO,
             kind: NirDataRelocationKind::Word16,
             target: NirDataRelocationTarget::Routine(0),
             addend: 0,
@@ -1654,20 +1665,20 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
             name: "data".to_string(),
             kind: "Byte Array".to_string(),
             ty: Some(byte_type()),
-            storage_size: 2,
+            storage_size: ByteSize::new(2),
             array: None,
             init: Some(NirGlobalInit::Bytes {
                 image: NirDataImage {
                     bytes: vec![0, 0],
                     relocations: vec![NirDataRelocation {
-                        offset: 1,
+                        offset: ByteOffset::new(1),
                         kind: NirDataRelocationKind::Word16,
                         target: NirDataRelocationTarget::Storage(NirStorageId::Global(SymbolId(0))),
                         addend: 0,
                         span: crate::source::Span::new(0, 0),
                     }],
                 },
-                zero_fill: 0,
+                zero_fill: ByteSize::ZERO,
                 mutable: true,
                 section: "global".to_string(),
             }),
@@ -1686,9 +1697,9 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
     let Some(NirGlobalInit::Bytes { image, .. }) = &mut program.globals[0].init else {
         unreachable!();
     };
-    image.relocations[0].offset = 0;
+    image.relocations[0].offset = ByteOffset::ZERO;
     image.relocations.push(NirDataRelocation {
-        offset: 1,
+        offset: ByteOffset::new(1),
         kind: NirDataRelocationKind::High8,
         target: NirDataRelocationTarget::Routine(9),
         addend: 0,
@@ -1716,20 +1727,20 @@ fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents()
             name: "data".to_string(),
             kind: "Byte Array".to_string(),
             ty: Some(byte_type()),
-            storage_size: 2,
+            storage_size: ByteSize::new(2),
             array: None,
             init: Some(NirGlobalInit::Bytes {
                 image: NirDataImage {
                     bytes: vec![1, 0],
                     relocations: vec![NirDataRelocation {
-                        offset: 0,
+                        offset: ByteOffset::ZERO,
                         kind: NirDataRelocationKind::Word16,
                         target: NirDataRelocationTarget::Storage(NirStorageId::Global(SymbolId(0))),
                         addend: 0,
                         span: crate::source::Span::new(0, 0),
                     }],
                 },
-                zero_fill: 0,
+                zero_fill: ByteSize::ZERO,
                 mutable: true,
                 section: "global".to_string(),
             }),
@@ -1752,16 +1763,93 @@ fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents()
     else {
         unreachable!();
     };
-    image.bytes = vec![0; usize::from(u16::MAX)];
+    image.bytes = vec![0];
     image.relocations.clear();
-    *zero_fill = 1;
-    program.globals[0].storage_size = u16::MAX;
+    *zero_fill = ByteSize::new(u32::MAX);
+    program.globals[0].storage_size = ByteSize::new(u32::MAX);
 
     let diagnostics = verify_program(&program).expect_err("oversized initialized extent");
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic
             .message
-            .contains("initialized extent exceeds the 16-bit storage range")
+            .contains("initialized extent exceeds the NIR storage range")
+    }));
+}
+
+#[test]
+fn verifier_keeps_large_nir_sizes_without_card_truncation() {
+    let program = NirProgram {
+        target_layout: crate::target::TargetLayout::motorola_68000(),
+        globals: vec![NirGlobal {
+            id: SymbolId(0),
+            name: "large_buffer".to_string(),
+            kind: "Byte Array".to_string(),
+            ty: Some(byte_type()),
+            storage_size: ByteSize::new(0x1_0001),
+            array: None,
+            init: None,
+            backing: NirGlobalBacking::Ordinary,
+        }],
+        statics: Vec::new(),
+        routines: Vec::new(),
+    };
+
+    verify_program(&program).expect("NIR object sizes are not limited to CARD");
+    assert_eq!(program.globals[0].storage_size.get(), 0x1_0001);
+}
+
+#[test]
+fn verifier_checks_absolute_extents_against_the_selected_target() {
+    let absolute_global = |address| NirGlobal {
+        id: SymbolId(0),
+        name: "buffer".to_string(),
+        kind: "Byte Array".to_string(),
+        ty: Some(byte_type()),
+        storage_size: ByteSize::new(2),
+        array: None,
+        init: None,
+        backing: NirGlobalBacking::Absolute(address),
+    };
+    let program_for = |target_layout, address| NirProgram {
+        target_layout,
+        globals: vec![absolute_global(address)],
+        statics: Vec::new(),
+        routines: Vec::new(),
+    };
+
+    let native = program_for(
+        crate::target::TargetLayout::motorola_68000(),
+        AddressValue::data(0x1_0000),
+    );
+    verify_program(&native).expect("68k absolute addresses may exceed $FFFF");
+
+    let atari = program_for(
+        crate::target::TargetLayout::atari_6502(),
+        AddressValue::data(0x1_0000),
+    );
+    let diagnostics = verify_program(&atari).expect_err("Atari addresses remain 16-bit");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("outside the selected target address range")
+    }));
+
+    let crossing = program_for(
+        crate::target::TargetLayout::atari_6502(),
+        AddressValue::data(0xFFFF),
+    );
+    assert!(verify_program(&crossing).is_err(), "the complete extent must fit");
+
+    let wrong_space = program_for(
+        crate::target::TargetLayout::motorola_68000(),
+        AddressValue::code(0x1000),
+    );
+    let diagnostics =
+        verify_program(&wrong_space).expect_err("data storage cannot use the code address space");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("outside the selected target address range")
     }));
 }
 
@@ -1774,11 +1862,11 @@ fn verifier_requires_global_byte_initializers_to_match_their_storage_extent() {
             name: "data".to_string(),
             kind: "Byte Array".to_string(),
             ty: Some(byte_type()),
-            storage_size: 2,
+            storage_size: ByteSize::new(2),
             array: None,
             init: Some(NirGlobalInit::Bytes {
                 image: NirDataImage::literal(vec![0]),
-                zero_fill: 0,
+                zero_fill: ByteSize::ZERO,
                 mutable: true,
                 section: "global".to_string(),
             }),
@@ -1814,7 +1902,7 @@ fn compile_time_sets_do_not_lower_to_executable_stores() {
             .find(|global| global.name == "screen")
             .expect("screen global")
             .backing,
-        NirGlobalBacking::Absolute(0x00E6)
+        NirGlobalBacking::Absolute(AddressValue::data(0x00E6))
     );
     assert!(
         program
@@ -2042,9 +2130,9 @@ fn routine_local_scalar_aliases_global_storage() {
         high.backing,
         NirLocalBacking::GlobalAlias {
             ref target_name,
-            offset: 1,
+            offset,
             ..
-        } if target_name == "state"
+        } if target_name == "state" && offset == ByteOffset::new(1)
     ));
     assert!(
         main.blocks
@@ -2054,11 +2142,11 @@ fn routine_local_scalar_aliases_global_storage() {
                 op,
                 NirOp::Store {
                     place: NirPlace {
-                        kind: NirPlaceKind::Field { offset: 1, .. },
+                        kind: NirPlaceKind::Field { offset, .. },
                         ..
                     },
                     ..
-                }
+                } if *offset == ByteOffset::new(1)
             ))
     );
 }
@@ -2077,9 +2165,12 @@ fn global_scalar_aliases_absolute_backed_global_storage() {
         .iter()
         .find(|global| global.name == "line")
         .expect("line global");
-    assert_eq!(line.backing, NirGlobalBacking::Absolute(0x00CB));
+    assert_eq!(
+        line.backing,
+        NirGlobalBacking::Absolute(AddressValue::data(0x00CB))
+    );
 
-    for (name, offset) in [("low", 0), ("high", 1)] {
+    for (name, offset) in [("low", 0u16), ("high", 1u16)] {
         let alias = program
             .globals
             .iter()
@@ -2089,7 +2180,7 @@ fn global_scalar_aliases_absolute_backed_global_storage() {
             alias.backing,
             NirGlobalBacking::Alias {
                 target: line.id,
-                offset,
+                offset: ByteOffset::from(offset),
             }
         );
     }
@@ -2427,7 +2518,7 @@ fn verifier_rejects_store_with_untyped_place() {
                 params: Vec::new(),
                 ops: vec![NirOp::Store {
                     place: NirPlace {
-                        kind: NirPlaceKind::Absolute(0),
+                        kind: NirPlaceKind::Absolute(AddressValue::data(0)),
                         ty: None,
                     },
                     src: byte_value(1),
@@ -2849,7 +2940,7 @@ fn optimizer_folds_constants_and_simplifies_branches() {
     let condition = NirType {
         kind: NirTypeKind::Bool,
         summary: "condition".to_string(),
-        width: Some(1),
+        width: Some(crate::target::ByteSize::ONE),
         pointer: false,
     };
     let program = NirProgram {
@@ -3229,7 +3320,7 @@ fn optimizer_propagates_common_alias_through_diamond_join() {
     let condition = NirType {
         kind: NirTypeKind::Bool,
         summary: "condition".to_string(),
-        width: Some(1),
+        width: Some(crate::target::ByteSize::ONE),
         pointer: false,
     };
     let program = optimizer_program(
@@ -3782,8 +3873,8 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
 fn verifier_and_printer_expose_structured_memory_effect_regions() {
     let program = memory_effect_program(NirMemoryRegion {
         kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
-        offset: 0,
-        size: 1,
+        offset: ByteOffset::ZERO,
+        size: ByteSize::ONE,
     });
 
     verify_program(&program).expect("valid exact local effect region");
@@ -3794,8 +3885,8 @@ fn verifier_and_printer_expose_structured_memory_effect_regions() {
 fn verifier_rejects_missing_and_malformed_memory_effect_regions() {
     let missing = verify_program(&memory_effect_program(NirMemoryRegion {
         kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(9))),
-        offset: 0,
-        size: 1,
+        offset: ByteOffset::ZERO,
+        size: ByteSize::ONE,
     }))
     .expect_err("missing effect-region storage must fail verification");
     assert!(
@@ -3806,8 +3897,8 @@ fn verifier_rejects_missing_and_malformed_memory_effect_regions() {
 
     let zero_size = verify_program(&memory_effect_program(NirMemoryRegion {
         kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
-        offset: 0,
-        size: 0,
+        offset: ByteOffset::ZERO,
+        size: ByteSize::ZERO,
     }))
     .expect_err("zero-size effect region must fail verification");
     assert!(
@@ -3879,7 +3970,7 @@ fn byte_local() -> NirLocal {
         purpose: NirLocalPurpose::Storage,
         storage: NirStorageClass::Scalar,
         ty: byte_type(),
-        backing: NirLocalBacking::Absolute(0xD000),
+        backing: NirLocalBacking::Absolute(AddressValue::data(0xD000)),
         init: None,
     }
 }
@@ -3927,7 +4018,7 @@ fn typed_block_argument_program() -> NirProgram {
             ty: byte.clone(),
             image: NirDataImage::literal(vec![0]),
             display: "table".to_string(),
-            alignment: 1,
+            alignment: ByteSize::ONE,
             mutable: true,
             section: "data".to_string(),
         }],
@@ -4028,7 +4119,7 @@ fn byte_type() -> NirType {
     NirType {
         kind: NirTypeKind::U8,
         summary: "Byte".to_string(),
-        width: Some(1),
+        width: Some(crate::target::ByteSize::ONE),
         pointer: false,
     }
 }
@@ -4037,7 +4128,7 @@ fn card_type() -> NirType {
     NirType {
         kind: NirTypeKind::U16,
         summary: "Card".to_string(),
-        width: Some(2),
+        width: Some(crate::target::ByteSize::new(2)),
         pointer: false,
     }
 }
@@ -4057,7 +4148,7 @@ fn byte_pointer_type() -> NirType {
             pointee: Some(Box::new(NirTypeKind::U8)),
         },
         summary: "Byte*".to_string(),
-        width: Some(2),
+        width: Some(crate::target::ByteSize::new(2)),
         pointer: true,
     }
 }

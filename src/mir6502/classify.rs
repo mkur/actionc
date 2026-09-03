@@ -53,7 +53,9 @@ pub(super) fn classify_place(place: &NirPlace) -> MirPlaceShape {
         NirPlaceKind::Global { id, .. } => {
             MirPlaceShape::DirectMemory(MirMem::Global { id: *id, offset: 0 })
         }
-        NirPlaceKind::Absolute(address) => MirPlaceShape::AbsoluteMemory(*address),
+        NirPlaceKind::Absolute(address) => MirPlaceShape::AbsoluteMemory(
+            u16::try_from(address.value).expect("verified Atari NIR address fits in 16 bits"),
+        ),
         NirPlaceKind::Deref { addr } => MirPlaceShape::PointerDeref {
             addr: addr.clone(),
             offset: 0,
@@ -66,11 +68,13 @@ pub(super) fn classify_place(place: &NirPlace) -> MirPlaceShape {
         } => MirPlaceShape::IndexedElement {
             base_addr: base_addr.clone(),
             index: index.clone(),
-            elem_size: *elem_size,
+            elem_size: u16::try_from(*elem_size)
+                .expect("verified Atari NIR element size fits in 16 bits"),
         },
         NirPlaceKind::Field { base, offset, .. } => MirPlaceShape::RecordField {
             base: base.clone(),
-            offset: *offset,
+            offset: u16::try_from(*offset)
+                .expect("verified Atari NIR field offset fits in 16 bits"),
         },
     }
 }

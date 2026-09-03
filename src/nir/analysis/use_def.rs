@@ -369,7 +369,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "BYTE".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -485,7 +485,7 @@ mod tests {
                 base_addr: temp(20),
                 index: temp(21),
                 elem_ty: byte_type(),
-                elem_size: 1,
+                elem_size: crate::target::ByteSize::ONE,
             },
             ty: Some(byte_type()),
         };

@@ -9,6 +9,7 @@ use super::analysis::{
 use super::facts::{BlockId, NirStorageId, NirType, NirValue, TempId, value_width};
 use super::ir::*;
 use super::{NirDiagnostic, analyze_program_storage, direct_storage_id, verify_program};
+use crate::target::{ByteOffset, ByteSize};
 
 // Promotion exposes long-lived values to the target allocator. Keep the
 // general automatic tier to hot byte homes with a small definition set;
@@ -57,8 +58,8 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         .filter(|facts| facts.store_blocks.len() <= MAX_HOT_HOME_STORE_BLOCKS)
         .filter(|facts| {
             let width = facts.direct_access_ty.as_ref().and_then(|ty| ty.width);
-            width == Some(1) && facts.direct_loads >= MIN_HOT_HOME_LOADS
-                || width == Some(2)
+            width == Some(ByteSize::ONE) && facts.direct_loads >= MIN_HOT_HOME_LOADS
+                || width == Some(ByteSize::new(2))
                     && facts.direct_loads >= MIN_INDUCTION_ADDRESS_LOADS
                     && induction_address_homes.contains(&facts.id)
         })
@@ -138,7 +139,7 @@ fn induction_address_homes(routine: &NirRoutine, cfg: &NirCfg) -> BTreeSet<NirSt
             let Some(storage) = direct_storage_id(place) else {
                 continue;
             };
-            if ty.width != Some(2) {
+            if ty.width != Some(ByteSize::new(2)) {
                 continue;
             }
             let NirValue::Temp { id: src, .. } = src else {
@@ -493,10 +494,10 @@ fn coerce_to_home_type(
     context: &mut RenameContext<'_>,
 ) -> Option<NirValue> {
     let actual = match &value {
-        NirValue::ConstU8(value) if context.ty.width == Some(2) => {
+        NirValue::ConstU8(value) if context.ty.width == Some(ByteSize::new(2)) => {
             return Some(NirValue::ConstU16(u16::from(*value)));
         }
-        NirValue::ConstU16(value) if context.ty.width == Some(1) => {
+        NirValue::ConstU16(value) if context.ty.width == Some(ByteSize::ONE) => {
             return u8::try_from(*value).ok().map(NirValue::ConstU8);
         }
         NirValue::ConstU8(_) | NirValue::ConstU16(_) => return Some(value),
@@ -524,9 +525,10 @@ fn coerce_to_home_type(
 
 fn store_value_fits_home(value: &NirValue, home_ty: &NirType) -> bool {
     match value {
-        NirValue::ConstU8(_) => matches!(home_ty.width, Some(1 | 2)),
+        NirValue::ConstU8(_) => matches!(home_ty.width.map(ByteSize::get), Some(1 | 2)),
         NirValue::ConstU16(value) => {
-            home_ty.width == Some(2) || home_ty.width == Some(1) && *value <= u16::from(u8::MAX)
+            home_ty.width == Some(ByteSize::new(2))
+                || home_ty.width == Some(ByteSize::ONE) && *value <= u16::from(u8::MAX)
         }
         _ => value_width(value) == home_ty.width,
     }
@@ -692,7 +694,7 @@ fn call_access(
     callee: &NirCallee,
     effects: &NirCallEffects,
     storage: NirStorageId,
-    width: Option<u16>,
+    width: Option<ByteSize>,
     routine_name: &str,
 ) -> (bool, bool) {
     if effects.opaque
@@ -711,7 +713,7 @@ fn call_access(
 fn memory_accesses_storage(
     access: &NirMemoryAccess,
     storage: NirStorageId,
-    width: Option<u16>,
+    width: Option<ByteSize>,
 ) -> bool {
     match access {
         NirMemoryAccess::None => false,
@@ -721,7 +723,7 @@ fn memory_accesses_storage(
             };
             let storage = NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(storage),
-                offset: 0,
+                offset: ByteOffset::ZERO,
                 size: width,
             };
             regions.iter().any(|region| region.overlaps(&storage))
@@ -955,7 +957,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -964,7 +966,7 @@ mod tests {
         NirType {
             kind: NirTypeKind::U16,
             summary: "Card".to_string(),
-            width: Some(2),
+            width: Some(crate::target::ByteSize::new(2)),
             pointer: false,
         }
     }
@@ -1140,7 +1142,7 @@ mod tests {
                                         ty: word.clone(),
                                     },
                                     elem_ty: byte_type(),
-                                    elem_size: 1,
+                                    elem_size: ByteSize::ONE,
                                 },
                                 ty: Some(byte_type()),
                             },

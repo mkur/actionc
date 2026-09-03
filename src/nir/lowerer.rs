@@ -18,6 +18,7 @@ use crate::semantic::{
     },
 };
 use crate::source::source_char_byte;
+use crate::target::{AddressValue, ByteOffset, ByteSize, TargetLayout};
 
 use super::classifier::NirClassifier;
 use super::facts::{
@@ -73,7 +74,7 @@ impl NirLowerer {
                             name: define.symbol.name.clone(),
                             kind: format!("define {}", define.value),
                             ty: None,
-                            storage_size: 0,
+                            storage_size: ByteSize::ZERO,
                             array: None,
                             init: None,
                             backing: NirGlobalBacking::Ordinary,
@@ -87,7 +88,7 @@ impl NirLowerer {
                             name: include.path.clone(),
                             kind: "include".to_string(),
                             ty: None,
-                            storage_size: 0,
+                            storage_size: ByteSize::ZERO,
                             array: None,
                             init: None,
                             backing: NirGlobalBacking::Ordinary,
@@ -131,10 +132,10 @@ impl NirLowerer {
                         );
                         if let NirGlobalBacking::Absolute(address) = backing {
                             self.semantic_absolute_globals
-                                .insert(declaration.symbol.id, address);
+                                .insert(declaration.symbol.id, address.value as u16);
                             if declaration_is_array(declaration) {
                                 self.semantic_absolute_array_element_bases
-                                    .insert(declaration.symbol.id, address);
+                                    .insert(declaration.symbol.id, address.value as u16);
                             }
                         }
                         if let Some(address) = address_initializer
@@ -151,11 +152,11 @@ impl NirLowerer {
                             name: declaration.symbol.name.clone(),
                             kind: declaration_kind(declaration),
                             ty: Some(NirFacts::type_from_value(&declaration.ty.value)),
-                            storage_size: declaration_storage_size(
+                            storage_size: ByteSize::from(declaration_storage_size(
                                 declaration,
                                 &record_storage_sizes,
                                 address_initializer,
-                            ),
+                            )),
                             array: declaration_array_fact(
                                 declaration,
                                 &record_storage_sizes,
@@ -273,7 +274,7 @@ impl NirLowerer {
                             {
                                 builder
                                     .semantic_absolute_array_element_bases
-                                    .insert(local.symbol.id, address);
+                                    .insert(local.symbol.id, address.value as u16);
                             }
                             if let Some(ty) =
                                 declaration_symbol_storage_type(local, address_initializer)
@@ -528,11 +529,14 @@ impl NirLowerer {
             ) {
                 return NirGlobalBacking::Ordinary;
             }
-            return NirGlobalBacking::Absolute(address);
+            return NirGlobalBacking::Absolute(AddressValue::data(u64::from(address)));
         }
         if let Some((target_symbol, _target_name, offset)) = alias_initializer {
             if let Some(target) = self.global_ids_by_symbol.get(&target_symbol).copied() {
-                return NirGlobalBacking::Alias { target, offset };
+                return NirGlobalBacking::Alias {
+                    target,
+                    offset: ByteOffset::from(offset),
+                };
             }
         }
 
@@ -541,7 +545,7 @@ impl NirLowerer {
         };
         let size = declaration_storage_size(declaration, record_storage_sizes, address_initializer);
         self.compatible_cursor = Some(address.wrapping_add(size));
-        NirGlobalBacking::Absolute(address)
+        NirGlobalBacking::Absolute(AddressValue::data(u64::from(address)))
     }
 
     fn scalar_storage_alias_initializer(
@@ -604,9 +608,14 @@ impl NirLowerer {
                         .expect("resolved helper override must have a routine id"),
                 )
             }
-            _ => NirRuntimeHelperTarget::Absolute(self.const_u16_expr(&set.value)?),
+            _ => NirRuntimeHelperTarget::Absolute(AddressValue::code(u64::from(
+                self.const_u16_expr(&set.value)?,
+            ))),
         };
-        Some(NirOp::RuntimeHelperOverride { slot, target })
+        Some(NirOp::RuntimeHelperOverride {
+            slot: AddressValue::data(u64::from(slot)),
+            target,
+        })
     }
 
     fn apply_compatible_symbol_set(&mut self, set: &SemSet) -> bool {
@@ -702,7 +711,7 @@ impl NirLowerer {
         if let Some(address) = address_initializer {
             match &declaration.storage {
                 SemDeclarationStorage::Scalar if !declaration.ty.value.pointer => {
-                    return NirLocalBacking::Absolute(address);
+                    return NirLocalBacking::Absolute(AddressValue::data(u64::from(address)));
                 }
                 SemDeclarationStorage::Array { .. }
                     if !declaration_array_address_initializer_uses_pointer_storage(
@@ -710,7 +719,7 @@ impl NirLowerer {
                         record_storage_sizes,
                     ) =>
                 {
-                    return NirLocalBacking::Absolute(address);
+                    return NirLocalBacking::Absolute(AddressValue::data(u64::from(address)));
                 }
                 _ => {}
             }
@@ -721,7 +730,7 @@ impl NirLowerer {
             return NirLocalBacking::Alias {
                 target,
                 target_name,
-                offset,
+                offset: ByteOffset::from(offset),
             };
         }
         if matches!(declaration.storage, SemDeclarationStorage::Scalar)
@@ -734,7 +743,7 @@ impl NirLowerer {
             return NirLocalBacking::GlobalAlias {
                 target,
                 target_name: target_symbol.name.clone(),
-                offset,
+                offset: ByteOffset::from(offset),
             };
         }
         NirLocalBacking::Ordinary
@@ -1022,7 +1031,7 @@ impl NirBuilder {
                 self.push(NirOp::CopyBytes {
                     destination,
                     source,
-                    size: *size,
+                    size: ByteSize::from(*size),
                     destination_volatile,
                     source_volatile,
                 });
@@ -1624,7 +1633,7 @@ impl NirBuilder {
             ty: real_nir_type(),
             image: NirDataImage::literal(bytes.to_vec()),
             display: source.to_string(),
-            alignment: 1,
+            alignment: ByteSize::ONE,
             mutable: false,
             section: "rodata".to_string(),
         });
@@ -1897,7 +1906,7 @@ impl NirBuilder {
                 string_literal_storage_bytes(value).unwrap_or_else(|_| value.as_bytes().to_vec()),
             ),
             display: value.to_string(),
-            alignment: 1,
+            alignment: ByteSize::ONE,
             mutable: false,
             section: "rodata".to_string(),
         });
@@ -1940,7 +1949,7 @@ impl NirBuilder {
             SemLValueKind::Symbol(symbol) => {
                 if let Some(address) = lvalue.storage.as_ref().and_then(|storage| storage.address) {
                     NirPlace {
-                        kind: NirPlaceKind::Absolute(address),
+                        kind: NirPlaceKind::Absolute(AddressValue::data(u64::from(address))),
                         ty,
                     }
                 } else {
@@ -1969,7 +1978,7 @@ impl NirBuilder {
             SemLValueKind::Field { base, field } => NirPlace {
                 kind: NirPlaceKind::Field {
                     base: Box::new(self.lower_place(base)),
-                    offset: field.offset.unwrap_or(0),
+                    offset: ByteOffset::from(field.offset.unwrap_or(0)),
                     ty: NirFacts::type_from_value(&field.ty),
                 },
                 ty,
@@ -1991,7 +2000,7 @@ impl NirBuilder {
                     let ty = ty.clone().unwrap_or(NirType {
                         kind: NirTypeKind::U8,
                         summary: "Byte".to_string(),
-                        width: Some(1),
+                        width: Some(ByteSize::ONE),
                         pointer: false,
                     });
                     NirPlaceKind::Field {
@@ -2035,7 +2044,7 @@ impl NirBuilder {
         }
         if let Some(address) = builtin_variable_address(&symbol.name) {
             return NirPlace {
-                kind: NirPlaceKind::Absolute(address),
+                kind: NirPlaceKind::Absolute(AddressValue::data(u64::from(address))),
                 ty,
             };
         }
@@ -2059,8 +2068,8 @@ impl NirBuilder {
         if let NirTypeKind::Record { name, size } = &mut ty.kind
             && let Some(storage_size) = self.record_storage_sizes.get(name).copied()
         {
-            *size = Some(storage_size);
-            ty.width = Some(storage_size);
+            *size = Some(ByteSize::from(storage_size));
+            ty.width = Some(ByteSize::from(storage_size));
         }
         ty
     }
@@ -2086,7 +2095,7 @@ impl NirBuilder {
         element_type: &ValueType,
     ) -> NirPlaceKind {
         let elem_ty = NirFacts::type_from_value(element_type);
-        let elem_size = self.element_width(element_type).unwrap_or(1);
+        let elem_size = self.element_width(element_type).unwrap_or(ByteSize::ONE);
         NirPlaceKind::Index {
             base_addr: self.index_base_addr(base, element_type),
             index: self.nir_value(index),
@@ -2104,7 +2113,7 @@ impl NirBuilder {
             .first()
             .expect("index call syntax has one argument");
         let elem_ty = NirFacts::type_from_value(ty);
-        let elem_size = self.element_width(ty).unwrap_or(1);
+        let elem_size = self.element_width(ty).unwrap_or(ByteSize::ONE);
         let place = self.resolved_symbol_place(symbol, symbol.ty.as_ref().map(NirType::from_value));
         let pointer_ty = pointer_type_to(ty);
         let base_addr = if matches!(symbol.class, crate::semantic::SymbolClass::Param) {
@@ -2125,10 +2134,11 @@ impl NirBuilder {
         }
     }
 
-    fn element_width(&self, ty: &ValueType) -> Option<u16> {
-        ty.value_width_bytes().or_else(|| {
+    fn element_width(&self, ty: &ValueType) -> Option<ByteSize> {
+        ty.value_width_bytes().map(ByteSize::from).or_else(|| {
             ty.as_record_name()
                 .and_then(|name| self.record_storage_sizes.get(name).copied())
+                .map(ByteSize::from)
         })
     }
 
@@ -2379,7 +2389,7 @@ impl NirBuilder {
             },
             SemCallable::Runtime { name, address, .. } => NirCallee::Runtime {
                 name: name.clone(),
-                address: *address,
+                address: address.map(|address| AddressValue::code(u64::from(address))),
             },
         }
     }
@@ -2413,15 +2423,17 @@ impl NirBuilder {
             .filter_map(|relocation| {
                 let target = match &relocation.target {
                     SemInlineAsmTarget::InlineOffset(offset) => {
-                        NirInlineAsmTarget::InlineOffset(*offset)
+                        NirInlineAsmTarget::InlineOffset(ByteOffset::from(*offset))
                     }
-                    SemInlineAsmTarget::Absolute(address) => NirInlineAsmTarget::Absolute(*address),
+                    SemInlineAsmTarget::Absolute(address) => NirInlineAsmTarget::Absolute(
+                        AddressValue::data(u64::from(*address)),
+                    ),
                     SemInlineAsmTarget::Symbol(symbol) => {
                         self.nir_inline_asm_symbol_target(symbol)?
                     }
                 };
                 Some(NirInlineAsmRelocation {
-                    offset: relocation.offset,
+                    offset: ByteOffset::from(relocation.offset),
                     kind: relocation.kind,
                     target,
                     addend: relocation.addend,
@@ -2467,7 +2479,9 @@ impl NirBuilder {
                     .get(&symbol.id)
                     .copied()
                 {
-                    return Some(NirInlineAsmTarget::Absolute(address));
+                    return Some(NirInlineAsmTarget::Absolute(AddressValue::data(u64::from(
+                        address,
+                    ))));
                 }
                 self.global_ids_by_symbol
                     .get(&symbol.id)
@@ -2489,7 +2503,7 @@ impl NirBuilder {
                     [MachineItem::Number(number)] => number.value,
                     _ => None,
                 })
-                .map(NirInlineAsmTarget::Absolute),
+                .map(|address| NirInlineAsmTarget::Absolute(AddressValue::data(u64::from(address)))),
             SymbolClass::Const => None,
         }
     }
@@ -2571,7 +2585,7 @@ impl NirBuilder {
                 u16::from(*end),
             )),
             SemReadEffect::Absolute { start, end } => Some(inclusive_region(
-                NirMemoryRegionKind::AbsoluteRange,
+                NirMemoryRegionKind::AbsoluteRange(TargetLayout::DATA_ADDRESS_SPACE),
                 *start,
                 *end,
             )),
@@ -2592,7 +2606,7 @@ impl NirBuilder {
                 u16::from(*end),
             )),
             SemWriteEffect::Absolute { start, end } => Some(inclusive_region(
-                NirMemoryRegionKind::AbsoluteRange,
+                NirMemoryRegionKind::AbsoluteRange(TargetLayout::DATA_ADDRESS_SPACE),
                 *start,
                 *end,
             )),
@@ -2607,34 +2621,36 @@ impl NirBuilder {
         let size = storage.width;
         match storage.space {
             SemAddressSpace::Absolute => Some(NirMemoryRegion {
-                kind: NirMemoryRegionKind::AbsoluteRange,
-                offset: storage.address?.checked_add(storage.offset)?,
-                size,
+                kind: NirMemoryRegionKind::AbsoluteRange(TargetLayout::DATA_ADDRESS_SPACE),
+                offset: ByteOffset::from(storage.address?.checked_add(storage.offset)?),
+                size: ByteSize::from(size),
             }),
             SemAddressSpace::ZeroPage | SemAddressSpace::RuntimeZeroPage => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::ZeroPage,
-                offset: storage.address?.checked_add(storage.offset)?,
-                size,
+                offset: ByteOffset::from(storage.address?.checked_add(storage.offset)?),
+                size: ByteSize::from(size),
             }),
             SemAddressSpace::RoutineLocal => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(NirStorageId::Local(
                     self.local_id(storage.symbol.as_ref()?)?,
                 )),
-                offset: storage.offset,
-                size,
+                offset: ByteOffset::from(storage.offset),
+                size: ByteSize::from(size),
             }),
             SemAddressSpace::Parameter => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::Storage(NirStorageId::Param(
                     self.param_id(storage.symbol.as_ref()?)?,
                 )),
-                offset: storage.offset,
-                size,
+                offset: ByteOffset::from(storage.offset),
+                size: ByteSize::from(size),
             }),
             SemAddressSpace::Unknown => {
                 let symbol = storage.symbol.as_ref()?;
                 let mut region = self.nir_symbol_region_ref(symbol)?;
-                region.offset = region.offset.checked_add(storage.offset)?;
-                region.size = size;
+                region.offset = region
+                    .offset
+                    .checked_add(ByteOffset::from(storage.offset))?;
+                region.size = ByteSize::from(size);
                 Some(region)
             }
             SemAddressSpace::InlineStatic | SemAddressSpace::IndirectIndexedY => None,
@@ -2668,7 +2684,7 @@ impl NirBuilder {
             })?;
         Some(NirMemoryRegion {
             kind: NirMemoryRegionKind::Storage(id),
-            offset: 0,
+            offset: ByteOffset::ZERO,
             size: size?,
         })
     }
@@ -2703,7 +2719,7 @@ impl NirBuilder {
             })?;
         Some(NirMemoryRegion {
             kind: NirMemoryRegionKind::Storage(id),
-            offset: 0,
+            offset: ByteOffset::ZERO,
             size: size?,
         })
     }
@@ -3341,7 +3357,7 @@ fn declaration_array_fact(
         Some(SemExprKind::InitializerList(_))
     );
     Some(NirArrayGlobalFact {
-        elem_size,
+        elem_size: ByteSize::from(elem_size),
         length: array_type.length,
         pointer_backed: (array_type.length.is_none() && declaration.initializer.is_none())
             || (address_initializer.is_some()
@@ -3351,7 +3367,8 @@ fn declaration_array_fact(
                 ))
             || symbolic_array_initializer_routine(declaration).is_some()
             || (initializer_is_data_image && (elem_size > 1 || array_type.length.is_none())),
-        address_initializer,
+        address_initializer: address_initializer
+            .map(|address| AddressValue::data(u64::from(address))),
     })
 }
 
@@ -3431,7 +3448,7 @@ fn declaration_global_init(
                     routine: *routine_ids
                         .get(&storage_key(&name))
                         .expect("resolved routine initializer must have a routine id"),
-                    descriptor_size: if array_type.length.is_some() { 4 } else { 2 },
+                    descriptor_size: ByteSize::new(if array_type.length.is_some() { 4 } else { 2 }),
                     size_word: None,
                     mutable: true,
                     section: "global".to_string(),
@@ -3447,11 +3464,13 @@ fn declaration_global_init(
                 return Some(NirGlobalInit::Descriptor {
                     backing: NirDataBacking {
                         owner: id,
-                        zero_fill: byte_size.saturating_sub(image.bytes.len() as u16),
+                        zero_fill: ByteSize::from(
+                            byte_size.saturating_sub(image.bytes.len() as u16),
+                        ),
                         image,
                         section: "global.backing".to_string(),
                     },
-                    descriptor_size: if array_type.length.is_some() { 4 } else { 2 },
+                    descriptor_size: ByteSize::new(if array_type.length.is_some() { 4 } else { 2 }),
                     size_word: array_type.length.map(|_| 0),
                     mutable: true,
                     section: "global".to_string(),
@@ -3464,11 +3483,11 @@ fn declaration_global_init(
                 return Some(NirGlobalInit::Descriptor {
                     backing: NirDataBacking {
                         owner: id,
-                        zero_fill: 0,
+                        zero_fill: ByteSize::ZERO,
                         image,
                         section: "global.backing".to_string(),
                     },
-                    descriptor_size: 2,
+                    descriptor_size: ByteSize::new(2),
                     size_word: None,
                     mutable: true,
                     section: "global".to_string(),
@@ -3491,7 +3510,7 @@ fn declaration_global_init(
             array_type.length.map(|length| {
                 let bytes = length.saturating_mul(elem_size);
                 NirGlobalInit::ZeroFill {
-                    bytes,
+                    bytes: ByteSize::from(bytes),
                     mutable: true,
                     section: "global".to_string(),
                 }
@@ -3510,7 +3529,7 @@ fn data_image_init(image: NirDataImage, total_size: u16) -> NirGlobalInit {
     let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
     NirGlobalInit::Bytes {
         image,
-        zero_fill,
+        zero_fill: ByteSize::from(zero_fill),
         mutable: true,
         section: "global".to_string(),
     }
@@ -3538,7 +3557,9 @@ fn apply_program_end_symbol_set(globals: &mut [NirGlobal], set: &SemSet) -> bool
     else {
         return false;
     };
-    if matches!(global.backing, NirGlobalBacking::Absolute(_)) || global.storage_size < 2 {
+    if matches!(global.backing, NirGlobalBacking::Absolute(_))
+        || global.storage_size.get() < 2
+    {
         return false;
     }
     global.init = Some(NirGlobalInit::ProgramEndWord {
@@ -3586,7 +3607,7 @@ fn declaration_local_init(
             }
             if storage_size > declaration.ty.value.value_width_bytes().unwrap_or(0) {
                 return Some(NirStorageInit::ZeroFill {
-                    bytes: storage_size,
+                    bytes: ByteSize::from(storage_size),
                     mutable: true,
                     section: "local".to_string(),
                 });
@@ -3634,11 +3655,13 @@ fn declaration_local_init(
                 let byte_size = elem_size.saturating_mul(len).max(image.bytes.len() as u16);
                 return Some(NirStorageInit::Descriptor {
                     backing: NirStorageBacking {
-                        zero_fill: byte_size.saturating_sub(image.bytes.len() as u16),
+                        zero_fill: ByteSize::from(
+                            byte_size.saturating_sub(image.bytes.len() as u16),
+                        ),
                         image,
                         section: "local.backing".to_string(),
                     },
-                    descriptor_size: if array_type.length.is_some() { 4 } else { 2 },
+                    descriptor_size: ByteSize::new(if array_type.length.is_some() { 4 } else { 2 }),
                     size_word: array_type.length.map(|_| 0),
                     mutable: true,
                     section: "local".to_string(),
@@ -3661,7 +3684,7 @@ fn declaration_local_init(
             array_type.length.map(|length| {
                 let bytes = length.saturating_mul(elem_size);
                 NirStorageInit::ZeroFill {
-                    bytes,
+                    bytes: ByteSize::from(bytes),
                     mutable: true,
                     section: "local".to_string(),
                 }
@@ -3679,7 +3702,7 @@ fn storage_data_image_init(image: NirDataImage, total_size: u16) -> NirStorageIn
     let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
     NirStorageInit::Bytes {
         image,
-        zero_fill,
+        zero_fill: ByteSize::from(zero_fill),
         mutable: true,
         section: "local".to_string(),
     }
@@ -3807,9 +3830,9 @@ fn legacy_scalar_array_initializer_data_image(
                     None => NirDataRelocationKind::Word16,
                 };
                 let width = kind.width();
-                debug_assert_eq!(width, elem_size);
-                let offset = u16::try_from(image.bytes.len())
-                    .expect("verified static initializer must fit in 16-bit storage");
+                debug_assert_eq!(width.get(), u32::from(elem_size));
+                let offset = ByteOffset::try_from(image.bytes.len())
+                    .expect("verified static initializer must fit in NIR storage");
                 image
                     .bytes
                     .resize(image.bytes.len().saturating_add(usize::from(width)), 0);
@@ -3868,11 +3891,11 @@ fn static_initializer_data_image(
                     Some(AddressByteSelector::High) => NirDataRelocationKind::High8,
                     None => NirDataRelocationKind::Word16,
                 };
-                if kind.width() != write.width {
+                if kind.width().get() != u32::from(write.width) {
                     return None;
                 }
                 image.relocations.push(NirDataRelocation {
-                    offset: write.offset,
+                    offset: ByteOffset::from(write.offset),
                     kind,
                     target: resolve_target(target)?,
                     addend: *addend,
@@ -3922,7 +3945,11 @@ fn global_data_relocation_target(
         .map(|(_, id)| NirDataRelocationTarget::Storage(NirStorageId::Global(*id)))
         .or_else(|| {
             resident_variable(&target.name)
-                .map(|variable| NirDataRelocationTarget::Absolute(variable.address))
+                .map(|variable| {
+                    NirDataRelocationTarget::Absolute(AddressValue::data(u64::from(
+                        variable.address,
+                    )))
+                })
         })
 }
 
@@ -4130,7 +4157,7 @@ fn builtin_variable_type(name: &str) -> Option<NirType> {
         ResidentVariableKind::Byte => NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(ByteSize::ONE),
             pointer: false,
         },
         ResidentVariableKind::ByteArray { .. } => pointer_type_to(&ValueType::fund(FundType::Byte)),
@@ -4144,7 +4171,7 @@ fn pointer_type_to(pointee: &ValueType) -> NirType {
             pointee: Some(Box::new(pointee_kind)),
         },
         summary: format!("{}*", type_summary(pointee)),
-        width: Some(2),
+        width: Some(ByteSize::new(2)),
         pointer: true,
     }
 }
@@ -4190,7 +4217,7 @@ fn for_bound_is_at_or_below(ty: &NirType, bound: u16, threshold: u16) -> bool {
 }
 
 fn nir_scalar_constant(ty: &NirType, value: u16) -> NirValue {
-    if ty.width == Some(1) {
+    if ty.width == Some(ByteSize::ONE) {
         NirValue::ConstU8(value as u8)
     } else {
         NirValue::ConstU16(value)
@@ -4420,11 +4447,12 @@ fn collect_memory_regions(
 fn inclusive_region(kind: NirMemoryRegionKind, start: u16, end: u16) -> NirMemoryRegion {
     NirMemoryRegion {
         kind,
-        offset: start,
-        size: end
-            .checked_sub(start)
-            .and_then(|size| size.checked_add(1))
-            .unwrap_or(0),
+        offset: ByteOffset::from(start),
+        size: ByteSize::from(
+            end.checked_sub(start)
+                .and_then(|size| size.checked_add(1))
+                .unwrap_or(0),
+        ),
     }
 }
 
@@ -4471,23 +4499,22 @@ fn inline_asm_regions(code: &NirInlineAsm, reads: bool) -> Option<Vec<NirMemoryR
                 let offset = u16::try_from(relocation.addend).ok()?;
                 regions.push(NirMemoryRegion {
                     kind: NirMemoryRegionKind::Storage(storage),
-                    offset,
+                    offset: ByteOffset::from(offset),
                     size: if relocation.symbol_use == InlineAsmSymbolUse::PointerRead {
-                        2
+                        ByteSize::new(2)
                     } else {
-                        1
+                        ByteSize::ONE
                     },
                 });
                 continue;
             }
             NirInlineAsmTarget::Absolute(address) => {
-                let offset = i32::from(address)
-                    .checked_add(relocation.addend)
-                    .and_then(|address| u16::try_from(address).ok())?;
+                let address = address.checked_add_signed(i64::from(relocation.addend))?;
+                let offset = u32::try_from(address.value).ok()?;
                 regions.push(NirMemoryRegion {
-                    kind: NirMemoryRegionKind::AbsoluteRange,
-                    offset,
-                    size: 1,
+                    kind: NirMemoryRegionKind::AbsoluteRange(address.address_space),
+                    offset: ByteOffset::new(offset),
+                    size: ByteSize::ONE,
                 });
                 continue;
             }
@@ -4521,7 +4548,7 @@ fn real_nir_type() -> NirType {
     NirType {
         kind: NirTypeKind::Real,
         summary: "REAL".to_string(),
-        width: Some(6),
+        width: Some(ByteSize::new(6)),
         pointer: false,
     }
 }
@@ -4535,8 +4562,10 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
         SemLiteral::String(_) => return None,
     };
     match ty.kind.width() {
-        Some(1) => u8::try_from(value).ok().map(NirValue::ConstU8),
-        Some(2) => Some(NirValue::ConstU16(value)),
+        Some(width) if width == ByteSize::ONE => {
+            u8::try_from(value).ok().map(NirValue::ConstU8)
+        }
+        Some(width) if width == ByteSize::new(2) => Some(NirValue::ConstU16(value)),
         _ => None,
     }
 }
@@ -4584,7 +4613,7 @@ mod memory_effect_tests {
             NirType {
                 kind: NirTypeKind::U16,
                 summary: "Card".to_string(),
-                width: Some(2),
+                width: Some(ByteSize::new(2)),
                 pointer: false,
             },
         );
@@ -4610,7 +4639,7 @@ mod memory_effect_tests {
             ty: NirType {
                 kind: NirTypeKind::U8,
                 summary: "Byte".to_string(),
-                width: Some(1),
+                width: Some(ByteSize::ONE),
                 pointer: false,
             },
         });
@@ -4623,7 +4652,7 @@ mod memory_effect_tests {
             ty: NirType {
                 kind: NirTypeKind::U8,
                 summary: "Byte".to_string(),
-                width: Some(1),
+                width: Some(ByteSize::ONE),
                 pointer: false,
             },
             backing: NirLocalBacking::Ordinary,
@@ -4675,13 +4704,15 @@ mod memory_effect_tests {
             NirMemoryAccess::Regions(vec![
                 NirMemoryRegion {
                     kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(3))),
-                    offset: 0,
-                    size: 1,
+                    offset: ByteOffset::ZERO,
+                    size: ByteSize::ONE,
                 },
                 NirMemoryRegion {
-                    kind: NirMemoryRegionKind::AbsoluteRange,
-                    offset: 0xD000,
-                    size: 4,
+                    kind: NirMemoryRegionKind::AbsoluteRange(
+                        TargetLayout::DATA_ADDRESS_SPACE,
+                    ),
+                    offset: ByteOffset::new(0xD000),
+                    size: ByteSize::new(4),
                 },
             ])
         );

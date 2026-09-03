@@ -236,7 +236,8 @@ fn inline_asm_self_code_writes_have_conservative_nir_effects() {
         .expect("self-modifying inline assembler NIR operation");
 
     assert!(code.relocations.iter().any(|relocation| {
-        relocation.target == nir::NirInlineAsmTarget::InlineOffset(1)
+        relocation.target
+            == nir::NirInlineAsmTarget::InlineOffset(nir::ByteOffset::new(1))
             && relocation.symbol_use == actionc::asm6502::InlineAsmSymbolUse::Write
     }));
     assert_eq!(effects.memory.writes, nir::NirMemoryAccess::Unknown);
@@ -251,13 +252,17 @@ fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
         .iter()
         .find(|global| global.name == "displayList")
         .expect("fixed array global");
-    assert_eq!(global.storage_size, 4, "array retains its descriptor cell");
+    assert_eq!(
+        global.storage_size,
+        nir::ByteSize::new(4),
+        "array retains its descriptor cell"
+    );
     assert_eq!(
         global
             .array
             .as_ref()
             .and_then(|array| array.address_initializer),
-        Some(0x5000)
+        Some(nir::AddressValue::data(0x5000))
     );
 
     let (code, effects) = program
@@ -273,15 +278,17 @@ fn inline_asm_fixed_array_addend_targets_declared_backing_address_in_nir() {
     assert_eq!(code.relocations.len(), 1);
     assert_eq!(
         code.relocations[0].target,
-        nir::NirInlineAsmTarget::Absolute(0x5000)
+        nir::NirInlineAsmTarget::Absolute(nir::AddressValue::data(0x5000))
     );
     assert_eq!(code.relocations[0].addend, 8);
     assert_eq!(
         effects.memory.writes,
         nir::NirMemoryAccess::Regions(vec![nir::NirMemoryRegion {
-            kind: nir::NirMemoryRegionKind::AbsoluteRange,
-            offset: 0x5008,
-            size: 1,
+            kind: nir::NirMemoryRegionKind::AbsoluteRange(
+                actionc::target::TargetLayout::DATA_ADDRESS_SPACE,
+            ),
+            offset: nir::ByteOffset::new(0x5008),
+            size: nir::ByteSize::ONE,
         }])
     );
     nir::verify_program(&program).expect("fixed-array inline assembler NIR must verify");
@@ -304,15 +311,17 @@ fn inline_asm_negative_fixed_array_addend_targets_absolute_region_in_nir() {
     assert_eq!(code.relocations.len(), 1);
     assert_eq!(
         code.relocations[0].target,
-        nir::NirInlineAsmTarget::Absolute(0x5000)
+        nir::NirInlineAsmTarget::Absolute(nir::AddressValue::data(0x5000))
     );
     assert_eq!(code.relocations[0].addend, -10);
     assert_eq!(
         effects.memory.writes,
         nir::NirMemoryAccess::Regions(vec![nir::NirMemoryRegion {
-            kind: nir::NirMemoryRegionKind::AbsoluteRange,
-            offset: 0x4ff6,
-            size: 1,
+            kind: nir::NirMemoryRegionKind::AbsoluteRange(
+                actionc::target::TargetLayout::DATA_ADDRESS_SPACE,
+            ),
+            offset: nir::ByteOffset::new(0x4ff6),
+            size: nir::ByteSize::ONE,
         }])
     );
     nir::verify_program(&program).expect("negative fixed-array addend must verify");
@@ -444,7 +453,11 @@ RETURN
         .iter()
         .find(|global| global.name == "dynamic")
         .expect("dynamic array global");
-    assert_eq!(global.storage_size, 2, "array retains its pointer cell");
+    assert_eq!(
+        global.storage_size,
+        nir::ByteSize::new(2),
+        "array retains its pointer cell"
+    );
     assert!(
         global
             .array

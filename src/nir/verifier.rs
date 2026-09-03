@@ -8,6 +8,7 @@ use super::facts::{
     value_width,
 };
 use super::ir::*;
+use crate::target::{AddressValue, ByteSize, TargetLayout};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirDiagnostic {
@@ -46,12 +47,13 @@ impl NirDiagnostic {
 struct NirVerifier {
     diagnostics: Vec<NirDiagnostic>,
     static_ids: BTreeSet<SymbolId>,
-    static_sizes: BTreeMap<SymbolId, u16>,
+    static_sizes: BTreeMap<SymbolId, ByteSize>,
     static_types: BTreeMap<SymbolId, NirType>,
-    global_sizes: BTreeMap<SymbolId, u16>,
+    global_sizes: BTreeMap<SymbolId, ByteSize>,
     global_types: BTreeMap<SymbolId, NirType>,
     global_ids: BTreeSet<SymbolId>,
     routine_count: usize,
+    target_layout: TargetLayout,
 }
 
 struct NirTempFacts<'a> {
@@ -62,6 +64,7 @@ struct NirTempFacts<'a> {
 
 impl NirVerifier {
     fn program(&mut self, program: &NirProgram) {
+        self.target_layout = program.target_layout;
         if program.target_layout
             != crate::target::TargetLayout::for_target(program.target_layout.target)
         {
@@ -82,7 +85,7 @@ impl NirVerifier {
             ("data", program.target_layout.data_pointer),
             ("code", program.target_layout.code_pointer),
         ] {
-            if pointer.size_bytes == 0 || pointer.alignment_bytes == 0 {
+            if pointer.size_bytes.is_zero() || pointer.alignment_bytes.is_zero() {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "target layout has invalid {kind}-pointer size or alignment"
                 )));
@@ -121,10 +124,29 @@ impl NirVerifier {
                 )));
             }
             if matches!(global.backing, super::ir::NirGlobalBacking::Absolute(_))
-                && global.storage_size == 0
+                && global.storage_size.is_zero()
             {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "absolute-backed global `{}` has zero storage size",
+                    global.name
+                )));
+            }
+            if let super::ir::NirGlobalBacking::Absolute(address) = global.backing
+                && (address.address_space != self.target_layout.data_pointer.address_space
+                    || !self.address_extent_fits_target(address, global.storage_size))
+            {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "absolute-backed global `{}` is outside the selected target address range",
+                    global.name
+                )));
+            }
+            if let Some(array) = &global.array
+                && let Some(initializer) = array.address_initializer
+                && (initializer.address_space != self.target_layout.data_pointer.address_space
+                    || !self.address_fits_target(initializer))
+            {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "array `{}` address initializer is outside the selected target data address space",
                     global.name
                 )));
             }
@@ -172,7 +194,7 @@ impl NirVerifier {
         for static_data in &program.statics {
             self.static_sizes.insert(
                 static_data.id,
-                u16::try_from(static_data.image.bytes.len()).unwrap_or(u16::MAX),
+                ByteSize::try_from(static_data.image.bytes.len()).unwrap_or(ByteSize::new(u32::MAX)),
             );
             self.static_types
                 .insert(static_data.id, static_data.ty.clone());
@@ -191,7 +213,7 @@ impl NirVerifier {
                     static_data.id.0
                 )));
             }
-            if static_data.alignment == 0 || !static_data.alignment.is_power_of_two() {
+            if static_data.alignment.is_zero() || !static_data.alignment.is_power_of_two() {
                 self.diagnostics.push(NirDiagnostic::program(format!(
                     "static data `{}` alignment must be a nonzero power of two",
                     static_data.name
@@ -304,9 +326,24 @@ impl NirVerifier {
                     format!("local `{}` kind must not be empty", local.name),
                 ));
             }
+            if let NirLocalBacking::Absolute(address) = local.backing
+                && (address.address_space != self.target_layout.data_pointer.address_space
+                    || local
+                        .ty
+                        .width
+                        .is_none_or(|size| !self.address_extent_fits_target(address, size)))
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "absolute-backed local `{}` is outside the selected target address range",
+                        local.name
+                    ),
+                ));
+            }
             if matches!(local.purpose, NirLocalPurpose::RealTemporary)
                 && (!matches!(local.ty.kind, NirTypeKind::Real)
-                    || local.ty.width != Some(6)
+                    || local.ty.width != Some(ByteSize::new(6))
                     || !matches!(local.storage, NirStorageClass::Scalar)
                     || !matches!(local.backing, NirLocalBacking::Ordinary)
                     || local.init.is_some())
@@ -533,7 +570,7 @@ impl NirVerifier {
                         global.name, descriptor_size, global.storage_size
                     )));
                 }
-                if !matches!(*descriptor_size, 2 | 4) {
+                if !matches!(descriptor_size.get(), 2 | 4) {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` descriptor init has unsupported size {}",
                         global.name, descriptor_size
@@ -555,7 +592,7 @@ impl NirVerifier {
                     &backing.image,
                     backing.zero_fill,
                 );
-                if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
+                if backing.image.bytes.is_empty() && backing.zero_fill.is_zero() {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` descriptor backing is empty",
                         global.name
@@ -583,7 +620,7 @@ impl NirVerifier {
                 }
             }
             NirGlobalInit::ProgramEndWord { section, .. } => {
-                if global.storage_size < 2 {
+                if global.storage_size.get() < 2 {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` program-end word init needs at least 2 bytes of storage",
                         global.name
@@ -608,7 +645,7 @@ impl NirVerifier {
                         global.name, routine
                     )));
                 }
-                if !matches!(*descriptor_size, 2 | 4) {
+                if !matches!(descriptor_size.get(), 2 | 4) {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "global `{}` routine-address init has unsupported size {}",
                         global.name, descriptor_size
@@ -666,7 +703,7 @@ impl NirVerifier {
                 section,
                 ..
             } => {
-                if !matches!(*descriptor_size, 2 | 4) {
+                if !matches!(descriptor_size.get(), 2 | 4) {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
                         format!(
@@ -684,7 +721,7 @@ impl NirVerifier {
                     &backing.image,
                     backing.zero_fill,
                 );
-                if backing.image.bytes.is_empty() && backing.zero_fill == 0 {
+                if backing.image.bytes.is_empty() && backing.zero_fill.is_zero() {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
                         format!("local `{name}` descriptor backing is empty"),
@@ -772,10 +809,10 @@ impl NirVerifier {
                     }
                 }
                 NirDataRelocationTarget::Absolute(address) => {
-                    let value = i32::from(address).saturating_add(relocation.addend);
-                    if !(0..=i32::from(u16::MAX)).contains(&value) {
+                    let value = address.checked_add_signed(i64::from(relocation.addend));
+                    if value.is_none_or(|value| !self.address_fits_target(value)) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
-                            "{owner} absolute relocation result is outside the 16-bit address range"
+                            "{owner} absolute relocation result is outside the selected target address range"
                         )));
                     }
                 }
@@ -783,15 +820,42 @@ impl NirVerifier {
         }
     }
 
-    fn data_extent(&mut self, owner: &str, image: &NirDataImage, zero_fill: u16) -> Option<usize> {
+    fn data_extent(
+        &mut self,
+        owner: &str,
+        image: &NirDataImage,
+        zero_fill: ByteSize,
+    ) -> Option<usize> {
         let extent = image.bytes.len().checked_add(usize::from(zero_fill));
-        if extent.is_none_or(|extent| extent > usize::from(u16::MAX)) {
+        if extent.is_none_or(|extent| ByteSize::try_from(extent).is_err()) {
             self.diagnostics.push(NirDiagnostic::program(format!(
-                "{owner} initialized extent exceeds the 16-bit storage range"
+                "{owner} initialized extent exceeds the NIR storage range"
             )));
             return None;
         }
         extent
+    }
+
+    fn address_fits_target(&self, address: AddressValue) -> bool {
+        let known_space = address.address_space == self.target_layout.data_pointer.address_space
+            || address.address_space == self.target_layout.code_pointer.address_space;
+        let max = match self.target_layout.address_bits {
+            64 => u64::MAX,
+            bits => (1u64 << bits) - 1,
+        };
+        known_space && address.value <= max
+    }
+
+    fn address_extent_fits_target(&self, address: AddressValue, size: ByteSize) -> bool {
+        if !self.address_fits_target(address) {
+            return false;
+        }
+        if size.is_zero() {
+            return true;
+        }
+        address
+            .checked_add_signed(i64::from(size.get() - 1))
+            .is_some_and(|end| self.address_fits_target(end))
     }
 
     fn op(
@@ -805,21 +869,36 @@ impl NirVerifier {
     ) {
         match op {
             NirOp::RuntimeHelperOverride { slot, target } => {
-                if !matches!(*slot, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE) {
+                if slot.address_space != self.target_layout.data_pointer.address_space
+                    || !matches!(slot.value, 0x04E4 | 0x04E6 | 0x04E8 | 0x04EA | 0x04EC | 0x04EE)
+                {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
                         format!("unknown runtime helper slot ${slot:04X}"),
                     ));
                 }
-                if let NirRuntimeHelperTarget::Routine(id) = target
-                    && *id as usize >= self.routine_count
-                {
-                    self.diagnostics.push(NirDiagnostic::block(
-                        &routine.name,
-                        &block.label,
-                        format!("runtime helper override references missing routine id {id}"),
-                    ));
+                match target {
+                    NirRuntimeHelperTarget::Absolute(address)
+                        if address.address_space != self.target_layout.code_pointer.address_space
+                            || !self.address_fits_target(*address) =>
+                    {
+                        self.diagnostics.push(NirDiagnostic::block(
+                            &routine.name,
+                            &block.label,
+                            "runtime helper override target is outside the selected target code address space",
+                        ));
+                    }
+                    NirRuntimeHelperTarget::Routine(id)
+                        if *id as usize >= self.routine_count =>
+                    {
+                        self.diagnostics.push(NirDiagnostic::block(
+                            &routine.name,
+                            &block.label,
+                            format!("runtime helper override references missing routine id {id}"),
+                        ));
+                    }
+                    _ => {}
                 }
             }
             NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
@@ -881,7 +960,7 @@ impl NirVerifier {
                     "copy destination",
                 );
                 self.place_temp_uses(routine, block, source, op_index, temp_facts, "copy source");
-                if *size == 0 {
+                if size.is_zero() {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -1368,7 +1447,9 @@ impl NirVerifier {
         if !place
             .ty
             .as_ref()
-            .is_some_and(|ty| matches!(ty.kind, NirTypeKind::Real) && ty.width == Some(6))
+            .is_some_and(|ty| {
+                matches!(ty.kind, NirTypeKind::Real) && ty.width == Some(ByteSize::new(6))
+            })
         {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
@@ -1387,7 +1468,7 @@ impl NirVerifier {
                 if !routine.locals.iter().any(|local| {
                     local.id == *id
                         && matches!(local.ty.kind, NirTypeKind::Real)
-                        && local.ty.width == Some(6)
+                        && local.ty.width == Some(ByteSize::new(6))
                 }) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
@@ -1397,7 +1478,7 @@ impl NirVerifier {
                 ));
             }
             NirPlaceKind::Global { id, .. }
-                if self.global_sizes.get(id) != Some(&6)
+                if self.global_sizes.get(id) != Some(&ByteSize::new(6))
                     || !self
                         .global_types
                         .get(id)
@@ -1412,8 +1493,8 @@ impl NirVerifier {
             NirPlaceKind::Index {
                 elem_ty, elem_size, ..
             } if !matches!(elem_ty.kind, NirTypeKind::Real)
-                || elem_ty.width != Some(6)
-                || *elem_size != 6 =>
+                || elem_ty.width != Some(ByteSize::new(6))
+                || *elem_size != ByteSize::new(6) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
@@ -1422,7 +1503,8 @@ impl NirVerifier {
                 ));
             }
             NirPlaceKind::Field { ty, .. }
-                if !matches!(ty.kind, NirTypeKind::Real) || ty.width != Some(6) =>
+                if !matches!(ty.kind, NirTypeKind::Real)
+                    || ty.width != Some(ByteSize::new(6)) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
@@ -1453,7 +1535,7 @@ impl NirVerifier {
                 self.real_place(routine, block, place, op_index, temp_facts, label)
             }
             NirRealSource::Static { id, name } => {
-                let valid = self.static_sizes.get(id) == Some(&6)
+                let valid = self.static_sizes.get(id) == Some(&ByteSize::new(6))
                     && self
                         .static_types
                         .get(id)
@@ -1542,7 +1624,7 @@ impl NirVerifier {
         routine: &NirRoutine,
         block: &NirBlock,
         place: &NirPlace,
-        size: u16,
+        size: ByteSize,
         label: &str,
     ) {
         let Some(ty) = &place.ty else {
@@ -1618,12 +1700,12 @@ impl NirVerifier {
                 ));
             }
             if let NirInlineAsmTarget::Absolute(address) = relocation.target {
-                let value = i32::from(address).checked_add(relocation.addend);
-                if !value.is_some_and(|value| (0..=i32::from(u16::MAX)).contains(&value)) {
+                let value = address.checked_add_signed(i64::from(relocation.addend));
+                if value.is_none_or(|value| !self.address_fits_target(value)) {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
-                        "inline assembler absolute relocation result is outside the 16-bit address range",
+                        "inline assembler absolute relocation result is outside the selected target address range",
                     ));
                 }
             }
@@ -1795,6 +1877,18 @@ impl NirVerifier {
                     ));
                 }
             }
+            NirCallee::Runtime {
+                address: Some(address),
+                ..
+            } if address.address_space != self.target_layout.code_pointer.address_space
+                || !self.address_fits_target(*address) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    "runtime call address is outside the selected target code address space",
+                ));
+            }
             NirCallee::Builtin(_) | NirCallee::Runtime { .. } => {}
         }
     }
@@ -1939,7 +2033,7 @@ impl NirVerifier {
         region: &NirMemoryRegion,
         label: &str,
     ) {
-        if region.size == 0 {
+        if region.size.is_zero() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -1947,7 +2041,10 @@ impl NirVerifier {
             ));
             return;
         }
-        let Some(end) = region.offset.checked_add(region.size.saturating_sub(1)) else {
+        let Some(end) = region
+            .offset
+            .checked_add_size(region.size.saturating_sub(ByteSize::ONE))
+        else {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -1970,9 +2067,18 @@ impl NirVerifier {
                 Some(self.global_sizes.get(&id).copied())
             }
             NirMemoryRegionKind::Static(id) => Some(self.static_sizes.get(&id).copied()),
-            NirMemoryRegionKind::AbsoluteRange => return,
+            NirMemoryRegionKind::AbsoluteRange(space) => {
+                if !self.address_fits_target(AddressValue::new(space, u64::from(end))) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} absolute region exceeds the selected target address space"),
+                    ));
+                }
+                return;
+            }
             NirMemoryRegionKind::ZeroPage => {
-                if end > u16::from(u8::MAX) {
+                if end.get() > u32::from(u8::MAX) {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -2038,6 +2144,20 @@ impl NirVerifier {
                     &routine.name,
                     &block.label,
                     format!("{label} references unknown global id {}", id.0),
+                ));
+            }
+            NirPlaceKind::Absolute(address)
+                if address.address_space != self.target_layout.data_pointer.address_space
+                    || ty
+                        .width
+                        .is_none_or(|size| !self.address_extent_fits_target(address, size)) =>
+            {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!(
+                        "{label} is outside the selected target address range"
+                    ),
                 ));
             }
             _ => {}
@@ -2507,9 +2627,9 @@ fn constant_binary_value(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> 
 
 fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
     match value {
-        NirValue::ConstU8(_) => expected.width == Some(1),
-        NirValue::ConstU16(_) => expected.width == Some(2),
-        NirValue::RoutineAddr { .. } => expected.width == Some(2),
+        NirValue::ConstU8(_) => expected.width == Some(ByteSize::ONE),
+        NirValue::ConstU16(_) => expected.width == Some(ByteSize::new(2)),
+        NirValue::RoutineAddr { .. } => expected.width == Some(ByteSize::new(2)),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty == expected,
         NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
     }
@@ -2524,7 +2644,10 @@ fn compare_machine_type(ty: &NirType) -> Option<(u16, bool)> {
         | NirTypeKind::U16
         | NirTypeKind::I16
         | NirTypeKind::Ptr16 { .. }
-        | NirTypeKind::Callable { .. } => ty.width.map(|width| (width, signed)),
+        | NirTypeKind::Callable { .. } => ty
+            .width
+            .and_then(|width| u16::try_from(width).ok())
+            .map(|width| (width, signed)),
         NirTypeKind::Void | NirTypeKind::Real | NirTypeKind::Record { .. } | NirTypeKind::Error => {
             None
         }

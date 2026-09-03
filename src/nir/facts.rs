@@ -1,4 +1,5 @@
 use crate::semantic::{ScalarType, ValueType, ValueTypeBase, ValueTypeKind};
+use crate::target::ByteSize;
 
 use super::ir::{NirPlace, NirPlaceKind};
 
@@ -18,7 +19,7 @@ impl NirFacts {
 pub struct NirType {
     pub kind: NirTypeKind,
     pub summary: String,
-    pub width: Option<u16>,
+    pub width: Option<ByteSize>,
     pub pointer: bool,
 }
 
@@ -28,7 +29,7 @@ impl NirType {
         Self {
             kind,
             summary: type_summary(value),
-            width: value.value_width_bytes(),
+            width: value.value_width_bytes().map(ByteSize::from),
             pointer: value.pointer,
         }
     }
@@ -44,7 +45,7 @@ pub enum NirTypeKind {
     I16,
     Real,
     Ptr16 { pointee: Option<Box<NirTypeKind>> },
-    Record { name: String, size: Option<u16> },
+    Record { name: String, size: Option<ByteSize> },
     Callable { kind: String },
     Error,
 }
@@ -73,12 +74,14 @@ impl NirTypeKind {
         }
     }
 
-    pub(super) fn width(&self) -> Option<u16> {
+    pub(super) fn width(&self) -> Option<ByteSize> {
         match self {
-            Self::Void => Some(0),
-            Self::Bool | Self::U8 | Self::I8 => Some(1),
-            Self::U16 | Self::I16 | Self::Ptr16 { .. } | Self::Callable { .. } => Some(2),
-            Self::Real => Some(6),
+            Self::Void => Some(ByteSize::ZERO),
+            Self::Bool | Self::U8 | Self::I8 => Some(ByteSize::new(1)),
+            Self::U16 | Self::I16 | Self::Ptr16 { .. } | Self::Callable { .. } => {
+                Some(ByteSize::new(2))
+            }
+            Self::Real => Some(ByteSize::new(6)),
             Self::Record { size, .. } => *size,
             Self::Error => None,
         }
@@ -185,26 +188,26 @@ pub(super) fn condition_type() -> NirType {
     NirType {
         kind: NirTypeKind::Bool,
         summary: "condition".to_string(),
-        width: Some(1),
+        width: Some(ByteSize::new(1)),
         pointer: false,
     }
 }
 
-pub(super) fn value_width(value: &NirValue) -> Option<u16> {
+pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
     match value {
-        NirValue::ConstU8(_) => Some(1),
-        NirValue::ConstU16(_) => Some(2),
+        NirValue::ConstU8(_) => Some(ByteSize::new(1)),
+        NirValue::ConstU16(_) => Some(ByteSize::new(2)),
         NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty.width,
-        NirValue::RoutineAddr { .. } => Some(2),
+        NirValue::RoutineAddr { .. } => Some(ByteSize::new(2)),
         NirValue::Param(_) | NirValue::GlobalAddr(_) => None,
     }
 }
 
-pub(super) fn value_is_oversized_literal(value: &NirValue, width: u16) -> bool {
+pub(super) fn value_is_oversized_literal(value: &NirValue, width: ByteSize) -> bool {
     let NirValue::ConstU16(value) = value else {
         return false;
     };
-    match width {
+    match width.get() {
         0 => true,
         1 => *value > 0x00FF,
         2 => false,

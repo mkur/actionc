@@ -12,6 +12,7 @@ use super::analysis::{
 use super::facts::{BlockId, NirType, NirTypeKind, NirValue, TempId, value_width};
 use super::ir::*;
 use super::verifier::{NirDiagnostic, verify_program};
+use crate::target::ByteSize;
 
 pub(super) fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
@@ -542,7 +543,7 @@ fn simplify_op_with_facts(mut op: NirOp, facts: &mut NirValueFacts) -> Option<Ni
 struct OffsetAlias {
     base: NirValue,
     offset: u16,
-    width: u16,
+    width: ByteSize,
 }
 
 enum OffsetSimplification {
@@ -720,7 +721,7 @@ fn is_optimizable_integer_type(ty: &NirType) -> bool {
     matches!(
         ty.kind,
         NirTypeKind::U8 | NirTypeKind::I8 | NirTypeKind::U16 | NirTypeKind::I16
-    ) && matches!(ty.width, Some(1 | 2))
+    ) && matches!(ty.width.map(ByteSize::get), Some(1 | 2))
         && !ty.pointer
 }
 
@@ -735,8 +736,8 @@ fn is_all_ones(value: &NirValue, ty: &NirType) -> bool {
     matches!(const_u16(value), Some(value) if value == mask)
 }
 
-fn width_mask(width: u16) -> Option<u16> {
-    match width {
+fn width_mask(width: ByteSize) -> Option<u16> {
+    match width.get() {
         1 => Some(0x00FF),
         2 => Some(0xFFFF),
         _ => None,
@@ -889,7 +890,7 @@ fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16
 }
 
 fn value_for_type(value: u16, ty: &NirType) -> Option<NirValue> {
-    match ty.width {
+    match ty.width.map(ByteSize::get) {
         Some(1) => u8::try_from(value & 0x00FF).ok().map(NirValue::ConstU8),
         Some(2) => Some(NirValue::ConstU16(value)),
         _ => None,
@@ -1313,7 +1314,7 @@ mod value_fact_tests {
         NirType {
             kind: NirTypeKind::Bool,
             summary: "condition".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         }
     }
@@ -1330,7 +1331,7 @@ mod value_fact_tests {
                 OffsetAlias {
                     base: NirValue::ConstU8(3),
                     offset: 4,
-                    width: 1,
+                    width: ByteSize::ONE,
                 },
             )]),
         };
@@ -1378,7 +1379,7 @@ mod value_fact_tests {
                         operand_ty: NirType {
                             kind: NirTypeKind::U8,
                             summary: "Byte".to_string(),
-                            width: Some(1),
+                            width: Some(crate::target::ByteSize::ONE),
                             pointer: false,
                         },
                         op: NirCompareOp::Eq,
@@ -1428,7 +1429,7 @@ mod value_fact_tests {
         let byte = NirType {
             kind: NirTypeKind::U8,
             summary: "Byte".to_string(),
-            width: Some(1),
+            width: Some(crate::target::ByteSize::ONE),
             pointer: false,
         };
         let mut routine = NirRoutine {
@@ -1518,7 +1519,7 @@ mod value_fact_tests {
                 pointee: Some(Box::new(NirTypeKind::U8)),
             },
             summary: "Byte*".to_string(),
-            width: Some(2),
+            width: Some(crate::target::ByteSize::new(2)),
             pointer: true,
         };
         let place = NirPlace {
