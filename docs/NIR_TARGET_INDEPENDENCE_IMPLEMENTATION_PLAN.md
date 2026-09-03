@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 5 completed on 2026-09-03; later slices
+Status: active. Slices 0 through 6 completed on 2026-09-03; later slices
 remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
@@ -405,6 +405,15 @@ semantic: derive aggregate layout from the target ABI
 ```
 
 ### Slice 6: endian-neutral static initializers
+
+Status: complete. NIR data images now retain raw source bytes separately from
+typed integer and address fragments. Integer serialization happens when a
+target backend projects the image, and address fragments distinguish data and
+code pointer spaces and widths. Compatibility low/high-byte selectors are
+explicitly tagged as Atari 6502 conventions. The Atari backend maps the
+generic image-end link value and logical descriptor contents to the existing
+MIR6502 representation, preserving emitted bytes. Tests project the same
+logical integer as little-endian 65816 and big-endian 68k data.
 
 1. Replace already-serialized typed values in `NirDataImage` with logical data
    fragments such as byte sequences, typed integers, data addresses, code

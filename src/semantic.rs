@@ -4032,7 +4032,31 @@ impl Analyzer {
                         InitializerElementKind::Address {
                             selector, target, ..
                         } => {
-                            let expected_width = if selector.is_some() { 1 } else { 2 };
+                            let target_layout =
+                                TargetLayout::for_target(self.options.target);
+                            let expected_width = if selector.is_some() {
+                                1
+                            } else if destination_type.as_callable_pointer().is_some() {
+                                target_layout.code_pointer.size_bytes.get() as u16
+                            } else if destination_type.is_pointer() {
+                                target_layout.data_pointer.size_bytes.get() as u16
+                            } else {
+                                2
+                            };
+                            if selector.is_none()
+                                && self.options.target != TargetId::Atari6502
+                                && !destination_type.is_pointer()
+                                && destination_type.as_callable_pointer().is_none()
+                            {
+                                self.diagnostics.push(Diagnostic::new(
+                                    element.span,
+                                    format!(
+                                        "initializer address element `{}` requires a pointer or callable-pointer destination on native targets",
+                                        element.text
+                                    ),
+                                ));
+                                continue;
+                            }
                             if destination_width != expected_width {
                                 self.diagnostics.push(Diagnostic::new(
                                     element.span,

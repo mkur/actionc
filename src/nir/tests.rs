@@ -781,9 +781,9 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
         &addresses.init,
         Some(NirStorageInit::Descriptor { backing, .. })
             if matches!(
-                backing.image.relocations.as_slice(),
-                [NirDataRelocation {
-                    target: NirDataRelocationTarget::Storage(NirStorageId::Local(id)),
+                backing.image.fragments.as_slice(),
+                [NirDataFragment::Address {
+                    target: NirDataAddressTarget::Storage(NirStorageId::Local(id)),
                     ..
                 }] if *id == value.id
             )
@@ -1751,22 +1751,35 @@ fn lowers_self_and_forward_addresses_to_nir_data_relocations() {
     };
 
     assert_eq!(image.bytes, [0x41, 0, 0, 0x70]);
-    assert_eq!(image.relocations.len(), 2);
-    assert_eq!(image.relocations[0].offset, ByteOffset::new(1));
-    assert_eq!(image.relocations[0].kind, NirDataRelocationKind::Low8);
-    assert_eq!(image.relocations[0].addend, 2);
-    assert_eq!(
-        image.relocations[0].target,
-        NirDataRelocationTarget::Storage(NirStorageId::Global(dlist.id))
-    );
-    assert_eq!(image.relocations[1].offset, ByteOffset::new(2));
-    assert_eq!(image.relocations[1].kind, NirDataRelocationKind::High8);
-    assert_eq!(
-        image.relocations[1].target,
-        NirDataRelocationTarget::Storage(NirStorageId::Global(later.id))
-    );
+    assert!(matches!(
+        image.fragments.as_slice(),
+        [
+            NirDataFragment::Address {
+                offset,
+                encoding: NirDataAddressEncoding::TargetByte {
+                    target: crate::target::TargetId::Atari6502,
+                    byte_index: 0,
+                },
+                target: NirDataAddressTarget::Storage(NirStorageId::Global(first)),
+                addend: 2,
+                ..
+            },
+            NirDataFragment::Address {
+                offset: high_offset,
+                encoding: NirDataAddressEncoding::TargetByte {
+                    target: crate::target::TargetId::Atari6502,
+                    byte_index: 1,
+                },
+                target: NirDataAddressTarget::Storage(NirStorageId::Global(second)),
+                ..
+            }
+        ] if *offset == ByteOffset::new(1)
+            && *high_offset == ByteOffset::new(2)
+            && *first == dlist.id
+            && *second == later.id
+    ));
     let formatted = format_program(&program);
-    assert!(formatted.contains("relocs=[1:lo(g"), "{formatted}");
+    assert!(formatted.contains("fragments=[1:atari-6502-byte0(g"), "{formatted}");
     assert!(formatted.contains("+2)"), "{formatted}");
 }
 
@@ -1790,15 +1803,106 @@ fn lowers_word_routine_addresses_to_descriptor_backing_relocations() {
     };
     assert_eq!(backing.image.bytes, [0, 0]);
     assert!(matches!(
-        backing.image.relocations.as_slice(),
-        [NirDataRelocation {
+        backing.image.fragments.as_slice(),
+        [NirDataFragment::Address {
             offset: ByteOffset::ZERO,
-            kind: NirDataRelocationKind::Word16,
-            target: NirDataRelocationTarget::Routine(0),
+            encoding: NirDataAddressEncoding::Pointer {
+                address_space: crate::target::TargetLayout::CODE_ADDRESS_SPACE,
+                width,
+            },
+            target: NirDataAddressTarget::Routine(0),
             addend: 0,
             ..
-        }]
+        }] if *width == ByteSize::new(2)
     ));
+}
+
+#[test]
+fn typed_integer_static_data_projects_with_target_endianness() {
+    for (target, endian, expected) in [
+        (
+            crate::target::TargetId::Wdc65816Native,
+            crate::target::Endian::Little,
+            [0x34, 0x12],
+        ),
+        (
+            crate::target::TargetId::Motorola68000,
+            crate::target::Endian::Big,
+            [0x12, 0x34],
+        ),
+    ] {
+        let program = lower_modern_source_for_target(
+            "CARD ARRAY values(1)=[$1234] PROC Main() RETURN",
+            target,
+        );
+        verify_program(&program).expect("logical integer initializer should verify");
+        let word = program.globals.iter().find(|global| global.name == "values").unwrap();
+        let Some(NirGlobalInit::Descriptor { backing, .. }) = &word.init else {
+            panic!("expected word initializer");
+        };
+        let image = &backing.image;
+        assert_eq!(image.bytes, [0, 0]);
+        assert!(matches!(
+            image.fragments.as_slice(),
+            [NirDataFragment::Integer { offset: ByteOffset::ZERO, width, value: 0x1234 }]
+                if *width == ByteSize::new(2)
+        ));
+        assert_eq!(image.project_constants(endian).as_deref(), Some(expected.as_slice()));
+    }
+}
+
+#[test]
+fn static_address_fragments_use_data_and_code_pointer_layouts() {
+    let source = "TYPE DataRec=[CARD word BYTE POINTER ptr PROC POINTER callback] \
+                  BYTE target DataRec value=[$1234 @target @Draw] \
+                  PROC Draw() RETURN";
+    for (target, width, data_offset, code_offset) in [
+        (crate::target::TargetId::Wdc65816Native, 3, 2, 5),
+        (crate::target::TargetId::Motorola68000, 4, 2, 6),
+    ] {
+        let program = lower_modern_source_for_target(source, target);
+        verify_program(&program).expect("typed address initializer should verify");
+        let value = program.globals.iter().find(|global| global.name == "value").unwrap();
+        let Some(NirGlobalInit::Bytes { image, .. }) = &value.init else {
+            panic!("expected record initializer");
+        };
+        assert!(image.fragments.iter().any(|fragment| matches!(
+            fragment,
+            NirDataFragment::Address {
+                offset,
+                encoding: NirDataAddressEncoding::Pointer { address_space, width: fragment_width },
+                target: NirDataAddressTarget::Storage(_),
+                ..
+            } if *offset == ByteOffset::new(data_offset)
+                && *address_space == program.target_layout.data_pointer.address_space
+                && *fragment_width == ByteSize::new(width)
+        )));
+        assert!(image.fragments.iter().any(|fragment| matches!(
+            fragment,
+            NirDataFragment::Address {
+                offset,
+                encoding: NirDataAddressEncoding::Pointer { address_space, width: fragment_width },
+                target: NirDataAddressTarget::Routine(_),
+                ..
+            } if *offset == ByteOffset::new(code_offset)
+                && *address_space == program.target_layout.code_pointer.address_space
+                && *fragment_width == ByteSize::new(width)
+        )));
+    }
+}
+
+#[test]
+fn target_specific_address_byte_selectors_are_rejected_on_other_targets() {
+    let program = lower_modern_source_for_target(
+        "BYTE ARRAY bytes(1)=[<bytes] PROC Main() RETURN",
+        crate::target::TargetId::Motorola68000,
+    );
+    let diagnostics = verify_program(&program).expect_err("Atari byte selector on 68k");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("address-byte selector for target `atari-6502`")
+    }));
 }
 
 #[test]
@@ -1858,10 +1962,13 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
             init: Some(NirGlobalInit::Bytes {
                 image: NirDataImage {
                     bytes: vec![0, 0],
-                    relocations: vec![NirDataRelocation {
+                    fragments: vec![NirDataFragment::Address {
                         offset: ByteOffset::new(1),
-                        kind: NirDataRelocationKind::Word16,
-                        target: NirDataRelocationTarget::Storage(NirStorageId::Global(SymbolId(0))),
+                        encoding: NirDataAddressEncoding::Pointer {
+                            address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+                            width: ByteSize::new(2),
+                        },
+                        target: NirDataAddressTarget::Storage(NirStorageId::Global(SymbolId(0))),
                         addend: 0,
                         span: crate::source::Span::new(0, 0),
                     }],
@@ -1885,11 +1992,17 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
     let Some(NirGlobalInit::Bytes { image, .. }) = &mut program.globals[0].init else {
         unreachable!();
     };
-    image.relocations[0].offset = ByteOffset::ZERO;
-    image.relocations.push(NirDataRelocation {
+    let NirDataFragment::Address { offset, .. } = &mut image.fragments[0] else {
+        unreachable!();
+    };
+    *offset = ByteOffset::ZERO;
+    image.fragments.push(NirDataFragment::Address {
         offset: ByteOffset::new(1),
-        kind: NirDataRelocationKind::High8,
-        target: NirDataRelocationTarget::Routine(9),
+        encoding: NirDataAddressEncoding::TargetByte {
+            target: crate::target::TargetId::Atari6502,
+            byte_index: 1,
+        },
+        target: NirDataAddressTarget::Routine(9),
         addend: 0,
         span: crate::source::Span::new(0, 0),
     });
@@ -1897,7 +2010,7 @@ fn verifier_rejects_out_of_bounds_and_overlapping_data_relocations() {
     assert!(
         diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.message.contains("overlapping relocation"))
+            .any(|diagnostic| diagnostic.message.contains("overlapping data fragment"))
     );
     assert!(
         diagnostics
@@ -1920,10 +2033,13 @@ fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents()
             init: Some(NirGlobalInit::Bytes {
                 image: NirDataImage {
                     bytes: vec![1, 0],
-                    relocations: vec![NirDataRelocation {
+                    fragments: vec![NirDataFragment::Address {
                         offset: ByteOffset::ZERO,
-                        kind: NirDataRelocationKind::Word16,
-                        target: NirDataRelocationTarget::Storage(NirStorageId::Global(SymbolId(0))),
+                        encoding: NirDataAddressEncoding::Pointer {
+                            address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+                            width: ByteSize::new(2),
+                        },
+                        target: NirDataAddressTarget::Storage(NirStorageId::Global(SymbolId(0))),
                         addend: 0,
                         span: crate::source::Span::new(0, 0),
                     }],
@@ -1952,7 +2068,7 @@ fn verifier_rejects_nonzero_relocation_placeholders_and_oversized_data_extents()
         unreachable!();
     };
     image.bytes = vec![0];
-    image.relocations.clear();
+    image.fragments.clear();
     *zero_fill = ByteSize::new(u32::MAX);
     program.globals[0].storage_size = ByteSize::new(u32::MAX);
 

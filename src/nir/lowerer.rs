@@ -3800,8 +3800,8 @@ fn declaration_global_init(
                 .expect("verified semantic static initializer must lower to a NIR data image"),
                 storage_size,
             )),
-            None => scalar_initializer_bytes(declaration, storage_size)
-                .map(|bytes| bytes_init(bytes, storage_size)),
+            None => scalar_initializer_image(declaration, storage_size)
+                .map(|image| data_image_init(image, storage_size)),
         },
         SemDeclarationStorage::Array { array_type, .. } => {
             let elem_size =
@@ -3962,7 +3962,9 @@ fn apply_program_end_symbol_set(globals: &mut [NirGlobal], set: &SemSet) -> bool
     {
         return false;
     }
-    global.init = Some(NirGlobalInit::ProgramEndWord {
+    global.init = Some(NirGlobalInit::LinkValue {
+        value: NirLinkValue::ImageEndAddress,
+        width: ByteSize::new(2),
         mutable: true,
         section: "global".to_string(),
     });
@@ -4004,8 +4006,8 @@ fn declaration_local_init(
                 .expect("verified semantic static initializer must lower to a NIR data image");
                 return Some(storage_data_image_init(image, storage_size));
             }
-            if let Some(bytes) = scalar_initializer_bytes(declaration, storage_size) {
-                return Some(storage_bytes_init(bytes, storage_size));
+            if let Some(image) = scalar_initializer_image(declaration, storage_size) {
+                return Some(storage_data_image_init(image, storage_size));
             }
             if storage_size > declaration.ty.value.value_width_bytes().unwrap_or(0) {
                 return Some(NirStorageInit::ZeroFill {
@@ -4100,10 +4102,6 @@ fn declaration_local_init(
     }
 }
 
-fn storage_bytes_init(bytes: Vec<u8>, total_size: u16) -> NirStorageInit {
-    storage_data_image_init(NirDataImage::literal(bytes), total_size)
-}
-
 fn storage_data_image_init(image: NirDataImage, total_size: u16) -> NirStorageInit {
     let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
     NirStorageInit::Bytes {
@@ -4129,12 +4127,18 @@ fn string_literal_storage_bytes(text: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn scalar_initializer_bytes(declaration: &SemDeclaration, total_size: u16) -> Option<Vec<u8>> {
+fn scalar_initializer_image(
+    declaration: &SemDeclaration,
+    total_size: u16,
+) -> Option<NirDataImage> {
     if declaration.ty.value.is_real() {
         return match &declaration.initializer.as_ref()?.kind {
-            SemExprKind::Literal(SemLiteral::Real { value, .. }) => Some(value.to_bytes().to_vec()),
+            SemExprKind::Literal(SemLiteral::Real { value, .. }) => {
+                Some(NirDataImage::literal(value.to_bytes().to_vec()))
+            }
             SemExprKind::InitializerList(elements) if elements.len() == 1 => {
-                sem_initializer_real_value(&elements[0]).map(|value| value.to_bytes().to_vec())
+                sem_initializer_real_value(&elements[0])
+                    .map(|value| NirDataImage::literal(value.to_bytes().to_vec()))
             }
             _ => None,
         };
@@ -4143,14 +4147,16 @@ fn scalar_initializer_bytes(declaration: &SemDeclaration, total_size: u16) -> Op
         let values = numeric_initializer_values(declaration.initializer.as_ref()?)?;
         (values.len() == 1).then_some(values[0])
     })?;
-    let mut bytes = Vec::with_capacity(usize::from(total_size.min(2)));
-    if total_size > 0 {
-        bytes.push(value as u8);
+    if total_size == 1 {
+        return Some(NirDataImage::literal(vec![value as u8]));
     }
-    if total_size > 1 {
-        bytes.push((value >> 8) as u8);
-    }
-    Some(bytes)
+    let mut image = NirDataImage::literal(vec![0; usize::from(total_size)]);
+    image.fragments.push(NirDataFragment::Integer {
+        offset: ByteOffset::ZERO,
+        width: ByteSize::from(total_size),
+        value: u64::from(value),
+    });
+    Some(image)
 }
 
 fn literal_number_u16_expr(expr: &SemExpr) -> Option<u16> {
@@ -4175,27 +4181,13 @@ fn string_initializer_bytes(declaration: &SemDeclaration) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-fn numeric_initializer_bytes(declaration: &SemDeclaration, elem_size: u16) -> Option<Vec<u8>> {
-    let values = numeric_initializer_values(declaration.initializer.as_ref()?)?;
-    let mut bytes = Vec::with_capacity(values.len().saturating_mul(usize::from(elem_size)));
-    for value in values {
-        bytes.push(value as u8);
-        if elem_size == 2 {
-            bytes.push((value >> 8) as u8);
-        } else if elem_size != 1 {
-            return None;
-        }
-    }
-    Some(bytes)
-}
-
 // Compatibility adapter for scalar arrays that predate SemIR static plans.
 // Aggregate declarations must use `static_initializer_data_image` instead.
 fn legacy_scalar_array_initializer_data_image(
     expr: &SemExpr,
     elem_size: u16,
     real_elements: bool,
-    mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataRelocationTarget>,
+    mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataAddressTarget>,
 ) -> Option<NirDataImage> {
     if !matches!(elem_size, 1 | 2) && !(real_elements && elem_size == 6) {
         return None;
@@ -4217,9 +4209,16 @@ fn legacy_scalar_array_initializer_data_image(
                 }
                 let value = sem_initializer_literal_value(element)
                     .expect("verified SemIR initializer literal must have a constant value");
-                image.bytes.push(value as u8);
-                if elem_size == 2 {
-                    image.bytes.push((value >> 8) as u8);
+                let offset = ByteOffset::try_from(image.bytes.len()).ok()?;
+                if elem_size == 1 {
+                    image.bytes.push(value as u8);
+                } else {
+                    image.bytes.resize(image.bytes.len() + usize::from(elem_size), 0);
+                    image.fragments.push(NirDataFragment::Integer {
+                        offset,
+                        width: ByteSize::from(elem_size),
+                        value: u64::from(value),
+                    });
                 }
             }
             SemInitializerElementKind::Address {
@@ -4230,24 +4229,21 @@ fn legacy_scalar_array_initializer_data_image(
                 if real_elements {
                     return None;
                 }
-                let kind = match selector {
-                    Some(AddressByteSelector::Low) => NirDataRelocationKind::Low8,
-                    Some(AddressByteSelector::High) => NirDataRelocationKind::High8,
-                    None => NirDataRelocationKind::Word16,
-                };
-                let width = kind.width();
+                let target = resolve_target(target)
+                    .expect("verified SemIR initializer target must have a NIR identity");
+                let encoding = data_address_encoding(*selector, target, ByteSize::from(elem_size));
+                let width = encoding.width();
                 debug_assert_eq!(width.get(), u32::from(elem_size));
                 let offset = ByteOffset::try_from(image.bytes.len())
                     .expect("verified static initializer must fit in NIR storage");
                 image
                     .bytes
                     .resize(image.bytes.len().saturating_add(usize::from(width)), 0);
-                image.relocations.push(NirDataRelocation {
+                image.fragments.push(NirDataFragment::Address {
                     offset,
-                    kind,
-                    target: resolve_target(target)
-                        .expect("verified SemIR initializer target must have a NIR identity"),
-                    addend: *addend,
+                    encoding,
+                    target,
+                    addend: i64::from(*addend),
                     span: element.span,
                 });
             }
@@ -4261,7 +4257,7 @@ fn legacy_scalar_array_initializer_data_image(
 
 fn static_initializer_data_image(
     initializer: &SemStaticInitializer,
-    mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataRelocationTarget>,
+    mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataAddressTarget>,
 ) -> Option<NirDataImage> {
     let mut image = NirDataImage::literal(vec![0; usize::from(initializer.initialized_extent)]);
     for write in &initializer.writes {
@@ -4280,11 +4276,11 @@ fn static_initializer_data_image(
                 let value = sem_static_initializer_literal_value(&write.value)?;
                 match destination {
                     [low] => *low = value as u8,
-                    [low, high] => {
-                        *low = value as u8;
-                        *high = (value >> 8) as u8;
-                    }
-                    _ => return None,
+                    _ => image.fragments.push(NirDataFragment::Integer {
+                        offset: ByteOffset::from(write.offset),
+                        width: ByteSize::from(write.width),
+                        value: u64::from(value),
+                    }),
                 }
             }
             SemStaticInitializerValue::Address {
@@ -4292,25 +4288,52 @@ fn static_initializer_data_image(
                 target,
                 addend,
             } => {
-                let kind = match selector {
-                    Some(AddressByteSelector::Low) => NirDataRelocationKind::Low8,
-                    Some(AddressByteSelector::High) => NirDataRelocationKind::High8,
-                    None => NirDataRelocationKind::Word16,
-                };
-                if kind.width().get() != u32::from(write.width) {
+                let target = resolve_target(target)?;
+                let encoding =
+                    data_address_encoding(*selector, target, ByteSize::from(write.width));
+                if encoding.width().get() != u32::from(write.width) {
                     return None;
                 }
-                image.relocations.push(NirDataRelocation {
+                image.fragments.push(NirDataFragment::Address {
                     offset: ByteOffset::from(write.offset),
-                    kind,
-                    target: resolve_target(target)?,
-                    addend: *addend,
+                    encoding,
+                    target,
+                    addend: i64::from(*addend),
                     span: write.span,
                 });
             }
         }
     }
     Some(image)
+}
+
+fn data_address_encoding(
+    selector: Option<AddressByteSelector>,
+    target: NirDataAddressTarget,
+    width: ByteSize,
+) -> NirDataAddressEncoding {
+    match selector {
+        Some(AddressByteSelector::Low) => NirDataAddressEncoding::TargetByte {
+            target: crate::target::TargetId::Atari6502,
+            byte_index: 0,
+        },
+        Some(AddressByteSelector::High) => NirDataAddressEncoding::TargetByte {
+            target: crate::target::TargetId::Atari6502,
+            byte_index: 1,
+        },
+        None => NirDataAddressEncoding::Pointer {
+            address_space: data_address_target_space(target),
+            width,
+        },
+    }
+}
+
+fn data_address_target_space(target: NirDataAddressTarget) -> crate::target::AddressSpaceId {
+    match target {
+        NirDataAddressTarget::Routine(_) => TargetLayout::CODE_ADDRESS_SPACE,
+        NirDataAddressTarget::Storage(_) => TargetLayout::DATA_ADDRESS_SPACE,
+        NirDataAddressTarget::Absolute(address) => address.address_space,
+    }
 }
 
 fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> Option<usize> {
@@ -4327,7 +4350,8 @@ fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> O
         {
             Some(elements.len().saturating_mul(usize::from(elem_size)))
         }
-        _ => numeric_initializer_bytes(declaration, elem_size).map(|bytes| bytes.len()),
+        _ => numeric_initializer_values(declaration.initializer.as_ref()?)
+            .map(|values| values.len().saturating_mul(usize::from(elem_size))),
     }
 }
 
@@ -4335,7 +4359,7 @@ fn global_data_relocation_target(
     target: &SemSymbolRef,
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, u32>,
-) -> Option<NirDataRelocationTarget> {
+) -> Option<NirDataAddressTarget> {
     if matches!(
         target.class,
         SymbolClass::Proc | SymbolClass::Func | SymbolClass::BuiltinProc | SymbolClass::BuiltinFunc
@@ -4343,16 +4367,16 @@ fn global_data_relocation_target(
         return routine_ids
             .get(&storage_key(&target.name))
             .copied()
-            .map(NirDataRelocationTarget::Routine);
+            .map(NirDataAddressTarget::Routine);
     }
     global_ids
         .iter()
         .find(|(name, _)| storage_key(name) == storage_key(&target.name))
-        .map(|(_, id)| NirDataRelocationTarget::Storage(NirStorageId::Global(*id)))
+        .map(|(_, id)| NirDataAddressTarget::Storage(NirStorageId::Global(*id)))
         .or_else(|| {
             resident_variable(&target.name)
                 .map(|variable| {
-                    NirDataRelocationTarget::Absolute(AddressValue::data(u64::from(
+                    NirDataAddressTarget::Absolute(AddressValue::data(u64::from(
                         variable.address,
                     )))
                 })
@@ -4365,16 +4389,16 @@ fn local_data_relocation_target(
     routine_ids: &BTreeMap<String, u32>,
     param_ids: &BTreeMap<SemSymbolId, ParamId>,
     local_ids: &BTreeMap<SemSymbolId, LocalId>,
-) -> Option<NirDataRelocationTarget> {
+) -> Option<NirDataAddressTarget> {
     local_ids
         .get(&target.id)
         .copied()
-        .map(|id| NirDataRelocationTarget::Storage(NirStorageId::Local(id)))
+        .map(|id| NirDataAddressTarget::Storage(NirStorageId::Local(id)))
         .or_else(|| {
             param_ids
                 .get(&target.id)
                 .copied()
-                .map(|id| NirDataRelocationTarget::Storage(NirStorageId::Param(id)))
+                .map(|id| NirDataAddressTarget::Storage(NirStorageId::Param(id)))
         })
         .or_else(|| global_data_relocation_target(target, global_ids, routine_ids))
 }
@@ -4388,7 +4412,7 @@ fn increment_data_image_routine_ids_in_global_init(init: &mut NirGlobalInit) {
         NirGlobalInit::RoutineAddress { routine, .. } => {
             *routine = routine.saturating_add(1);
         }
-        NirGlobalInit::ZeroFill { .. } | NirGlobalInit::ProgramEndWord { .. } => {}
+        NirGlobalInit::ZeroFill { .. } | NirGlobalInit::LinkValue { .. } => {}
     }
 }
 
@@ -4403,8 +4427,12 @@ fn increment_data_image_routine_ids_in_storage_init(init: &mut NirStorageInit) {
 }
 
 fn increment_data_image_routine_ids(image: &mut NirDataImage) {
-    for relocation in &mut image.relocations {
-        if let NirDataRelocationTarget::Routine(id) = &mut relocation.target {
+    for fragment in &mut image.fragments {
+        if let NirDataFragment::Address {
+            target: NirDataAddressTarget::Routine(id),
+            ..
+        } = fragment
+        {
             *id = id.saturating_add(1);
         }
     }

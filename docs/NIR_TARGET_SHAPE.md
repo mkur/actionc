@@ -177,11 +177,12 @@ pub struct NirBlockParam {
 }
 ```
 
-The current implementation still contains fixed-endian data-image, Atari
-runtime-symbol, and 6502 machine-payload forms. It no longer
-uses Action! `CARD`/raw `u16` fields for NIR storage extents, byte offsets, or
-absolute addresses. The remaining forms are migration inputs, not the portable
-contract.
+The current implementation still contains Atari runtime-symbol and 6502
+machine-payload forms. Data images are endian-neutral: typed integers and
+addresses remain logical fragments until a backend projects them. NIR no
+longer uses Action! `CARD`/raw `u16` fields for storage extents, byte offsets,
+or absolute addresses. The remaining target-specific forms are migration
+inputs, not the portable contract.
 Verifier tightening must remove each old form once its replacement lands so a
 backend cannot silently recover the old assumption.
 
@@ -777,37 +778,55 @@ pub struct NirStaticData {
 }
 
 pub struct NirDataImage {
+    // Explicit source bytes and zero placeholders only.
     pub bytes: Vec<u8>,
-    pub relocations: Vec<NirDataRelocation>,
+    pub fragments: Vec<NirDataFragment>,
 }
 
-pub struct NirDataRelocation {
-    pub offset: ByteOffset,
-    pub kind: Low8 | High8 | Word16,
-    pub target: Storage(NirStorageId) | Routine(RoutineId) | Absolute(AddressValue),
-    pub addend: i32,
-    pub span: SourceSpan,
+pub enum NirDataFragment {
+    Integer {
+        offset: ByteOffset,
+        width: ByteSize,
+        value: u64,
+    },
+    Address {
+        offset: ByteOffset,
+        encoding: Pointer(AddressSpaceId, ByteSize)
+                | TargetByte(TargetId, u8),
+        target: Storage(NirStorageId)
+              | Routine(RoutineId)
+              | Absolute(AddressValue),
+        addend: i64,
+        span: SourceSpan,
+    },
 }
 ```
 
 Rules:
 
-- `image.bytes` is authoritative for emitted data and contains placeholders at
-  relocation positions.
+- `image.bytes` contains authoritative explicit bytes and zero placeholders at
+  logical-fragment positions. A backend serializes integer fragments with the
+  selected endianness and lowers address fragments to its relocation model.
 - Every initialized storage object has one exact declared extent. Its literal
   bytes plus explicit zero-fill equal that extent; a present initializer may
   never disappear into fallback zero storage.
 - Aggregate layout is already resolved before NIR. Record and record-array
   images contain final byte offsets and widths, with no source initializer
   strings, field names, or SemIR lookup required by MIR6502.
-- Relocations use stable storage or routine identity and remain
-  target-independent; NIR does not assign final addresses.
-- A storage relocation names the source-level object's data address. For an
+- Address fragments use stable storage or routine identity and do not assign
+  final addresses. Full pointer fragments carry their address space and
+  target-selected width. Explicit address-byte selectors are target-tagged and
+  rejected under a different target rather than masquerading as generic
+  low/high relocations.
+- A storage address fragment names the source-level object's data address. For an
   array this is its element backing, not an implementation descriptor cell.
-- Relocation ranges must fit within the image and must not overlap.
-- Relocation placeholder bytes must be zero, and total image extents must fit
+- Fragment ranges must fit within the image and must not overlap.
+- Fragment placeholder bytes must be zero, and total image extents must fit
   the NIR `ByteSize` storage model. Global, descriptor-backing, and local-backing image
   extents are verifier-checked against their storage descriptors.
+- Image-end materialization is a generic link value in NIR. The Atari backend
+  maps it to the historical program-end word; that load-file convention is not
+  an NIR operation or relocation kind.
 - `display` is for diagnostics and fixtures only.
 - `StaticAddr(id)` must reference an existing static data entry.
 - String representation policy should be documented at this boundary.

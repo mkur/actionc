@@ -53,7 +53,9 @@ pub enum NirGlobalInit {
         mutable: bool,
         section: String,
     },
-    ProgramEndWord {
+    LinkValue {
+        value: NirLinkValue,
+        width: ByteSize,
         mutable: bool,
         section: String,
     },
@@ -124,49 +126,98 @@ pub struct NirStaticData {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NirDataImage {
+    /// Explicit source bytes plus zero placeholders for logical fragments.
+    /// Typed values are never serialized into this template in NIR.
     pub bytes: Vec<u8>,
-    pub relocations: Vec<NirDataRelocation>,
+    pub fragments: Vec<NirDataFragment>,
 }
 
 impl NirDataImage {
     pub fn literal(bytes: Vec<u8>) -> Self {
         Self {
             bytes,
-            relocations: Vec::new(),
+            fragments: Vec::new(),
         }
+    }
+
+    pub fn project_constants(&self, endian: crate::target::Endian) -> Option<Vec<u8>> {
+        let mut bytes = self.bytes.clone();
+        for fragment in &self.fragments {
+            let NirDataFragment::Integer {
+                offset,
+                width,
+                value,
+            } = fragment
+            else {
+                continue;
+            };
+            let start = offset.as_usize()?;
+            let width = width.as_usize()?;
+            if width == 0 || width > std::mem::size_of::<u64>() {
+                return None;
+            }
+            let destination = bytes.get_mut(start..start.checked_add(width)?)?;
+            for (index, byte) in destination.iter_mut().enumerate() {
+                let significance = match endian {
+                    crate::target::Endian::Little => index,
+                    crate::target::Endian::Big => width - index - 1,
+                };
+                *byte = (value >> (significance * 8)) as u8;
+            }
+        }
+        Some(bytes)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NirDataRelocation {
-    pub offset: ByteOffset,
-    pub kind: NirDataRelocationKind,
-    pub target: NirDataRelocationTarget,
-    pub addend: i32,
-    pub span: Span,
+pub enum NirDataFragment {
+    Integer {
+        offset: ByteOffset,
+        width: ByteSize,
+        value: u64,
+    },
+    Address {
+        offset: ByteOffset,
+        encoding: NirDataAddressEncoding,
+        target: NirDataAddressTarget,
+        addend: i64,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NirDataRelocationKind {
-    Low8,
-    High8,
-    Word16,
+pub enum NirDataAddressEncoding {
+    Pointer {
+        address_space: AddressSpaceId,
+        width: ByteSize,
+    },
+    /// Explicit numeric byte selection retained for compatibility source and
+    /// tagged with the target whose address convention it names.
+    TargetByte {
+        target: crate::target::TargetId,
+        byte_index: u8,
+    },
 }
 
-impl NirDataRelocationKind {
+impl NirDataAddressEncoding {
     pub fn width(self) -> ByteSize {
         match self {
-            Self::Low8 | Self::High8 => ByteSize::new(1),
-            Self::Word16 => ByteSize::new(2),
+            Self::Pointer { width, .. } => width,
+            Self::TargetByte { .. } => ByteSize::ONE,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NirDataRelocationTarget {
+pub enum NirDataAddressTarget {
     Storage(NirStorageId),
     Routine(u32),
     Absolute(AddressValue),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NirLinkValue {
+    ImageEndAddress,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -27,14 +27,14 @@ pub use facts::{
 pub use ir::{
     NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallEffects, NirCallResult,
     NirCastKind,
-    NirCallableSignature, NirCallee, NirCompareOp, NirDataBacking, NirDataImage, NirDataRelocation,
-    NirDataRelocationKind, NirDataRelocationTarget, NirEdge, NirGlobal, NirGlobalBacking,
+    NirCallableSignature, NirCallee, NirCompareOp, NirDataAddressEncoding, NirDataAddressTarget,
+    NirDataBacking, NirDataFragment, NirDataImage, NirEdge, NirGlobal, NirGlobalBacking,
     NirGlobalInit, NirInlineAsm, NirInlineAsmRelocation, NirInlineAsmTarget, NirLocal,
     NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector, NirMachineEffects,
     NirMachineItem, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp,
     NirParam, NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutine,
     NirRoutineNote, NirRoutineNoteKind, NirRuntimeHelperTarget, NirStaticData, NirStorageBacking,
-    NirStorageClass, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
+    NirLinkValue, NirStorageClass, NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirUnaryOp,
 };
 pub use stats::{
     NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,

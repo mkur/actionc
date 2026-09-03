@@ -481,9 +481,13 @@ fn record_storage_init_local_references(
     let Some(image) = image else {
         return;
     };
-    for relocation in &image.relocations {
-        if let nir::NirDataRelocationTarget::Storage(NirStorageId::Local(id)) = relocation.target {
-            accesses.entry(id).or_default().other += 1;
+    for fragment in &image.fragments {
+        if let nir::NirDataFragment::Address {
+            target: nir::NirDataAddressTarget::Storage(NirStorageId::Local(id)),
+            ..
+        } = fragment
+        {
+            accesses.entry(*id).or_default().other += 1;
         }
     }
 }
@@ -1048,7 +1052,13 @@ fn lower_global_init(
             section: section.clone(),
             array,
         },
-        crate::nir::NirGlobalInit::ProgramEndWord { mutable, section } => {
+        crate::nir::NirGlobalInit::LinkValue {
+            value: crate::nir::NirLinkValue::ImageEndAddress,
+            width,
+            mutable,
+            section,
+        } => {
+            assert_eq!(*width, ByteSize::new(2), "verified Atari image-end width");
             MirGlobalInit::ProgramEndWord {
                 mutable: *mutable,
                 section: section.clone(),
@@ -1136,42 +1146,64 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
 
 fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) -> MirDataImage {
     MirDataImage {
-        bytes: image.bytes.clone(),
+        bytes: image
+            .project_constants(crate::target::Endian::Little)
+            .expect("verified NIR data fragments must project to Atari bytes"),
         relocations: image
-            .relocations
+            .fragments
             .iter()
-            .map(|relocation| MirDataRelocation {
-                offset: nir_offset_u16(relocation.offset),
-                kind: match relocation.kind {
-                    crate::nir::NirDataRelocationKind::Low8 => MirDataRelocationKind::Low8,
-                    crate::nir::NirDataRelocationKind::High8 => MirDataRelocationKind::High8,
-                    crate::nir::NirDataRelocationKind::Word16 => MirDataRelocationKind::Word16,
+            .filter_map(|fragment| {
+                let crate::nir::NirDataFragment::Address {
+                    offset,
+                    encoding,
+                    target,
+                    addend,
+                    span,
+                } = fragment
+                else {
+                    return None;
+                };
+                Some(MirDataRelocation {
+                offset: nir_offset_u16(*offset),
+                kind: match encoding {
+                    crate::nir::NirDataAddressEncoding::TargetByte {
+                        target: crate::target::TargetId::Atari6502,
+                        byte_index: 0,
+                    } => MirDataRelocationKind::Low8,
+                    crate::nir::NirDataAddressEncoding::TargetByte {
+                        target: crate::target::TargetId::Atari6502,
+                        byte_index: 1,
+                    } => MirDataRelocationKind::High8,
+                    crate::nir::NirDataAddressEncoding::Pointer { width, .. }
+                        if *width == ByteSize::new(2) => MirDataRelocationKind::Word16,
+                    _ => unreachable!("verified Atari address fragment encoding"),
                 },
-                target: match relocation.target {
-                    crate::nir::NirDataRelocationTarget::Storage(
+                target: match target {
+                    crate::nir::NirDataAddressTarget::Storage(
                         crate::nir::NirStorageId::Global(id),
-                    ) => MirDataRelocationTarget::Global(id),
-                    crate::nir::NirDataRelocationTarget::Storage(
+                    ) => MirDataRelocationTarget::Global(*id),
+                    crate::nir::NirDataAddressTarget::Storage(
                         crate::nir::NirStorageId::Local(id),
                     ) => MirDataRelocationTarget::Local {
                         routine: owner.expect("verified local data relocation has an owner"),
-                        id,
+                        id: *id,
                     },
-                    crate::nir::NirDataRelocationTarget::Storage(
+                    crate::nir::NirDataAddressTarget::Storage(
                         crate::nir::NirStorageId::Param(id),
                     ) => MirDataRelocationTarget::Param {
                         routine: owner.expect("verified parameter data relocation has an owner"),
-                        id,
+                        id: *id,
                     },
-                    crate::nir::NirDataRelocationTarget::Routine(id) => {
-                        MirDataRelocationTarget::Routine(RoutineId(id))
+                    crate::nir::NirDataAddressTarget::Routine(id) => {
+                        MirDataRelocationTarget::Routine(RoutineId(*id))
                     }
-                    crate::nir::NirDataRelocationTarget::Absolute(address) => {
-                        MirDataRelocationTarget::Absolute(nir_address_u16(address))
+                    crate::nir::NirDataAddressTarget::Absolute(address) => {
+                        MirDataRelocationTarget::Absolute(nir_address_u16(*address))
                     }
                 },
-                addend: relocation.addend,
-                span: relocation.span,
+                addend: i32::try_from(*addend).expect("verified Atari relocation addend"),
+                span: *span,
+            })
             })
             .collect(),
     }

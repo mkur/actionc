@@ -58,7 +58,7 @@ impl NirPrinter {
                 static_data.name,
                 static_data.ty.summary,
                 bytes,
-                relocations_summary(&static_data.image),
+                fragments_summary(&static_data.image),
                 static_data.display
             ));
         }
@@ -185,7 +185,7 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
         } => format!(
             " init bytes=[{}]{} zero_fill={} section={} mutable={}",
             bytes_summary(&image.bytes),
-            relocations_summary(image),
+            fragments_summary(image),
             zero_fill,
             section,
             mutable
@@ -201,7 +201,7 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
             descriptor_size,
             backing.owner.0,
             bytes_summary(&backing.image.bytes),
-            relocations_summary(&backing.image),
+            fragments_summary(&backing.image),
             backing.zero_fill,
             backing.section,
             size_word
@@ -218,9 +218,13 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
             " init zero_fill={} section={} mutable={}",
             bytes, section, mutable
         ),
-        NirGlobalInit::ProgramEndWord { mutable, section } => format!(
-            " init program_end_word section={} mutable={}",
-            section, mutable
+        NirGlobalInit::LinkValue {
+            value,
+            width,
+            mutable,
+            section,
+        } => format!(
+            " init link_value={value:?} width={width} section={section} mutable={mutable}"
         ),
         NirGlobalInit::RoutineAddress {
             routine,
@@ -254,7 +258,7 @@ fn storage_init_suffix(init: Option<&NirStorageInit>) -> String {
         } => format!(
             " init bytes=[{}]{} zero_fill={} section={} mutable={}",
             bytes_summary(&image.bytes),
-            relocations_summary(image),
+            fragments_summary(image),
             zero_fill,
             section,
             mutable
@@ -269,7 +273,7 @@ fn storage_init_suffix(init: Option<&NirStorageInit>) -> String {
             " init descriptor size={} backing=local bytes=[{}]{} zero_fill={} backing_section={} size_word={} section={} mutable={}",
             descriptor_size,
             bytes_summary(&backing.image.bytes),
-            relocations_summary(&backing.image),
+            fragments_summary(&backing.image),
             backing.zero_fill,
             backing.section,
             size_word
@@ -297,42 +301,59 @@ fn bytes_summary(bytes: &[u8]) -> String {
         .join(" ")
 }
 
-fn relocations_summary(image: &NirDataImage) -> String {
-    if image.relocations.is_empty() {
+fn fragments_summary(image: &NirDataImage) -> String {
+    if image.fragments.is_empty() {
         return String::new();
     }
-    let relocations = image
-        .relocations
+    let fragments = image
+        .fragments
         .iter()
-        .map(|relocation| {
-            let kind = match relocation.kind {
-                NirDataRelocationKind::Low8 => "lo",
-                NirDataRelocationKind::High8 => "hi",
-                NirDataRelocationKind::Word16 => "word",
-            };
-            let target = match relocation.target {
-                NirDataRelocationTarget::Storage(NirStorageId::Global(id)) => {
-                    format!("g{}", id.0)
-                }
-                NirDataRelocationTarget::Storage(NirStorageId::Local(id)) => {
-                    format!("l{}", id.0)
-                }
-                NirDataRelocationTarget::Storage(NirStorageId::Param(id)) => {
-                    format!("p{}", id.0)
-                }
-                NirDataRelocationTarget::Routine(id) => format!("r{id}"),
-                NirDataRelocationTarget::Absolute(address) => format!("${address:04X}"),
-            };
-            let addend = match relocation.addend {
-                0 => String::new(),
-                value if value > 0 => format!("+{value}"),
-                value => value.to_string(),
-            };
-            format!("{}:{kind}({target}{addend})", relocation.offset)
+        .map(|fragment| match fragment {
+            NirDataFragment::Integer {
+                offset,
+                width,
+                value,
+            } => format!("{offset}:int{}=${value:X}", width.get() * 8),
+            NirDataFragment::Address {
+                offset,
+                encoding,
+                target,
+                addend,
+                ..
+            } => {
+                let encoding = match encoding {
+                    NirDataAddressEncoding::Pointer {
+                        address_space,
+                        width,
+                    } => format!("ptr{}@as{}", width.get() * 8, address_space.0),
+                    NirDataAddressEncoding::TargetByte { target, byte_index } => {
+                        format!("{}-byte{byte_index}", target.as_str())
+                    }
+                };
+                let target = match target {
+                    NirDataAddressTarget::Storage(NirStorageId::Global(id)) => {
+                        format!("g{}", id.0)
+                    }
+                    NirDataAddressTarget::Storage(NirStorageId::Local(id)) => {
+                        format!("l{}", id.0)
+                    }
+                    NirDataAddressTarget::Storage(NirStorageId::Param(id)) => {
+                        format!("p{}", id.0)
+                    }
+                    NirDataAddressTarget::Routine(id) => format!("r{id}"),
+                    NirDataAddressTarget::Absolute(address) => format!("${address:04X}"),
+                };
+                let addend = match addend {
+                    0 => String::new(),
+                    value if *value > 0 => format!("+{value}"),
+                    value => value.to_string(),
+                };
+                format!("{offset}:{encoding}({target}{addend})")
+            }
         })
         .collect::<Vec<_>>()
         .join(", ");
-    format!(" relocs=[{relocations}]")
+    format!(" fragments=[{fragments}]")
 }
 
 fn op_summary(op: &NirOp) -> String {

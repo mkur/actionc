@@ -629,10 +629,15 @@ impl NirVerifier {
                     )));
                 }
             }
-            NirGlobalInit::ProgramEndWord { section, .. } => {
-                if global.storage_size.get() < 2 {
+            NirGlobalInit::LinkValue {
+                value: NirLinkValue::ImageEndAddress,
+                width,
+                section,
+                ..
+            } => {
+                if width.is_zero() || *width > global.storage_size {
                     self.diagnostics.push(NirDiagnostic::program(format!(
-                        "global `{}` program-end word init needs at least 2 bytes of storage",
+                        "global `{}` link value width does not fit its storage",
                         global.name
                     )));
                 }
@@ -769,72 +774,132 @@ impl NirVerifier {
         )>,
     ) {
         let mut occupied = vec![false; image.bytes.len()];
-        for relocation in &image.relocations {
-            let width = relocation.kind.width();
-            let start = usize::from(relocation.offset);
+        for fragment in &image.fragments {
+            let (offset, width) = match fragment {
+                NirDataFragment::Integer { offset, width, .. } => (*offset, *width),
+                NirDataFragment::Address {
+                    offset, encoding, ..
+                } => (*offset, encoding.width()),
+            };
+            let start = usize::from(offset);
             let end = start.saturating_add(usize::from(width));
             if end > image.bytes.len() {
                 self.diagnostics.push(NirDiagnostic::program(format!(
-                    "{owner} relocation at {} with width {width} exceeds {} initialized bytes",
-                    relocation.offset,
+                    "{owner} data fragment at {offset} with width {width} exceeds {} initialized bytes",
                     image.bytes.len()
                 )));
                 continue;
             }
             if occupied[start..end].iter().any(|occupied| *occupied) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
-                    "{owner} has overlapping relocation at {}",
-                    relocation.offset
+                    "{owner} has overlapping data fragment at {offset}"
                 )));
             }
             if image.bytes[start..end].iter().any(|byte| *byte != 0) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
-                    "{owner} relocation at {} placeholder bytes must be zero",
-                    relocation.offset
+                    "{owner} data fragment at {offset} placeholder bytes must be zero"
                 )));
             }
             occupied[start..end].fill(true);
-            if !(-65535..=65535).contains(&relocation.addend) {
-                self.diagnostics.push(NirDiagnostic::program(format!(
-                    "{owner} relocation addend {} is outside the supported 16-bit address range",
-                    relocation.addend
-                )));
+            let NirDataFragment::Address {
+                encoding,
+                target,
+                addend,
+                ..
+            } = fragment
+            else {
+                if let NirDataFragment::Integer { width, value, .. } = fragment {
+                    let bits = width.get().saturating_mul(8);
+                    if width.is_zero()
+                        || width.get() > 8
+                        || (bits < 64 && *value >= (1u64 << bits))
+                    {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} integer data fragment value does not fit width {width}"
+                        )));
+                    }
+                }
+                continue;
+            };
+
+            let expected_space = match target {
+                NirDataAddressTarget::Routine(_) => self.target_layout.code_pointer.address_space,
+                NirDataAddressTarget::Storage(_) => self.target_layout.data_pointer.address_space,
+                NirDataAddressTarget::Absolute(address) => address.address_space,
+            };
+            match encoding {
+                NirDataAddressEncoding::Pointer {
+                    address_space,
+                    width,
+                } => {
+                    let expected_width = if *address_space
+                        == self.target_layout.data_pointer.address_space
+                    {
+                        Some(self.target_layout.data_pointer.size_bytes)
+                    } else if *address_space == self.target_layout.code_pointer.address_space {
+                        Some(self.target_layout.code_pointer.size_bytes)
+                    } else {
+                        None
+                    };
+                    if *address_space != expected_space || expected_width != Some(*width) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} address fragment does not match its target address space or pointer width"
+                        )));
+                    }
+                }
+                NirDataAddressEncoding::TargetByte {
+                    target,
+                    byte_index,
+                } => {
+                    if *target != self.target_layout.target {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} contains an address-byte selector for target `{}` under `{}`",
+                            target, self.target_layout.target
+                        )));
+                    }
+                    if u16::from(*byte_index) * 8 >= u16::from(self.target_layout.address_bits) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} address-byte selector is outside the target address width"
+                        )));
+                    }
+                }
             }
-            match relocation.target {
-                NirDataRelocationTarget::Storage(NirStorageId::Global(id)) => {
+
+            match target {
+                NirDataAddressTarget::Storage(NirStorageId::Global(id)) => {
                     if !self.global_ids.contains(&id) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
-                            "{owner} relocation references unknown global id {}",
+                            "{owner} address fragment references unknown global id {}",
                             id.0
                         )));
                     }
                 }
-                NirDataRelocationTarget::Storage(NirStorageId::Param(id)) => {
+                NirDataAddressTarget::Storage(NirStorageId::Param(id)) => {
                     if !routine_storage.is_some_and(|(params, _)| params.contains(&id)) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
-                            "{owner} relocation references a parameter outside its owning routine"
+                            "{owner} address fragment references a parameter outside its owning routine"
                         )));
                     }
                 }
-                NirDataRelocationTarget::Storage(NirStorageId::Local(id)) => {
+                NirDataAddressTarget::Storage(NirStorageId::Local(id)) => {
                     if !routine_storage.is_some_and(|(_, locals)| locals.contains(&id)) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
-                            "{owner} relocation references a local outside its owning routine"
+                            "{owner} address fragment references a local outside its owning routine"
                         )));
                     }
                 }
-                NirDataRelocationTarget::Routine(id) => {
-                    if usize::try_from(id).map_or(true, |id| id >= self.routine_count) {
+                NirDataAddressTarget::Routine(id) => {
+                    if usize::try_from(*id).map_or(true, |id| id >= self.routine_count) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
-                            "{owner} relocation references unknown routine id {id}"
+                            "{owner} address fragment references unknown routine id {id}"
                         )));
                     }
                 }
-                NirDataRelocationTarget::Absolute(address) => {
-                    let value = address.checked_add_signed(i64::from(relocation.addend));
+                NirDataAddressTarget::Absolute(address) => {
+                    let value = address.checked_add_signed(*addend);
                     if value.is_none_or(|value| !self.address_fits_target(value)) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
-                            "{owner} absolute relocation result is outside the selected target address range"
+                            "{owner} absolute address fragment result is outside the selected target address range"
                         )));
                     }
                 }

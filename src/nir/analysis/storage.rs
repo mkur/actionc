@@ -455,7 +455,7 @@ fn program_data_relocation_storage_targets(program: &NirProgram) -> BTreeSet<Nir
                     data_image_storage_targets(&backing.image, &mut targets)
                 }
                 crate::nir::NirGlobalInit::ZeroFill { .. }
-                | crate::nir::NirGlobalInit::ProgramEndWord { .. }
+                | crate::nir::NirGlobalInit::LinkValue { .. }
                 | crate::nir::NirGlobalInit::RoutineAddress { .. } => {}
             }
         }
@@ -487,12 +487,12 @@ fn data_image_storage_targets(
     image: &crate::nir::NirDataImage,
     targets: &mut BTreeSet<NirStorageId>,
 ) {
-    targets.extend(image.relocations.iter().filter_map(|relocation| {
-        if let crate::nir::NirDataRelocationTarget::Storage(id) = relocation.target {
-            Some(id)
-        } else {
-            None
-        }
+    targets.extend(image.fragments.iter().filter_map(|fragment| match fragment {
+        crate::nir::NirDataFragment::Address {
+            target: crate::nir::NirDataAddressTarget::Storage(id),
+            ..
+        } => Some(*id),
+        _ => None,
     }));
 }
 
