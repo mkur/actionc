@@ -5,6 +5,12 @@ Snapshot date: 2026-09-03.
 Status: complete. Slices 0 through 10 were implemented and verified on
 2026-09-03.
 
+The completed data-layout/backend-boundary migration deliberately leaves
+routine activation at its historical fixed-storage baseline. Its follow-on,
+including structured call conventions and reentrant automatic locals, is
+specified in
+[`NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md`](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md).
+
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
 65816, and Motorola 68k backends. It also revises the initial record-layout
 proposal: packed records remain part of the classic Action! compatibility ABI,

@@ -148,6 +148,36 @@ queries fold during semantic/layout lowering, so executable NIR receives their
 constant results and resolved layout facts rather than source-level intrinsic
 operations.
 
+## Routine Activation And Automatic Storage
+
+The target ABI selects a routine activation model independently from physical
+register and stack placement. The classic Atari ABI retains one fixed
+parameter/local storage block per routine. A native ABI uses reentrant
+activations: parameters and ordinary locals denote a distinct dynamic object
+for every invocation, including recursive and concurrently re-entered calls.
+
+SemIR owns the source meaning of declarations, aliases, initialization, and
+storage duration. Verifier-clean NIR must eventually carry:
+
+- a structured routine identity, signature, call-convention identity, and
+  activation model;
+- automatic versus routine-static duration for every storage-bearing local;
+- final target-selected size and alignment for every local cell, descriptor,
+  and aggregate backing object;
+- explicit entry-time initialization operations for native automatic objects;
+- invocation-aware storage/effect facts for recursion, escape, and aliases.
+
+NIR does not assign a stack offset. MIR68K and MIR65816 independently select
+register homes, frame objects, stack or software-frame layouts, prologues,
+epilogues, and physical call sequences. MIR6502 continues to map classic
+routine storage to its established fixed locations. An automatic object must
+never acquire a load-time relocation or be silently promoted to static storage
+because its address escapes.
+
+The current executable implementation still models classic fixed routine
+storage. The sliced migration to the native contract is specified in
+[`NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md`](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md).
+
 The detailed migration order is recorded in
 [`NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md`](NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md).
 The byte-exact Atari guardrail is recorded in

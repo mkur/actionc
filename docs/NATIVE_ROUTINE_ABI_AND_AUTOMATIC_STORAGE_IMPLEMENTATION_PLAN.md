@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: proposed.
+Status: in progress. Slice 0 was implemented and verified on 2026-09-03.
 
 ## Objective
 
@@ -312,6 +312,14 @@ separately. Do not mix instruction-selection optimizations with the ABI
 migration.
 
 ### Slice 0: contract and compatibility baselines
+
+Status: complete. The target-shape contract now distinguishes classic static
+and native reentrant activations and links to this plan. A compile-only fixture
+captures parameters, fixed and initialized locals, aliases, local aggregates,
+an escaped local address, an indirect call, and deliberately unsafe classic
+recursion. Object, NIR, MIR6502, and map hashes are recorded in
+`NIR_ATARI_BASELINES.md`, with focused tests proving the current fixed-frame
+shape.
 
 1. Add this contract to `NIR_TARGET_SHAPE.md` and cross-link it from the target
    independence plan.

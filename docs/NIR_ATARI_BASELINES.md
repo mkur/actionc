@@ -21,6 +21,7 @@ slice should leave every row unchanged.
 | `fixtures/runtime/initialized_arrays.act` | byte/card arrays, descriptors, local/global initialized backing | `61ddff792433f56b4259923e965ab432f61d9f7290164b44504d5e1c1db87b5b` |
 | `fixtures/nir/inline_asm_fixed_array.act` | fixed-address array and inline-assembly relocation/effects | `9fd22c2983ed75e54c780917514e6f528350173dadddf6d51325192ff6dd4673` |
 | `fixtures/runtime/standalone_minimal.act` | standalone runtime packaging without cartridge dependencies | `b56da58b7800ec6eb2ccd1744f44dba1d0b882c9315fb167f0da711a0085af03` |
+| `fixtures/runtime/native_routine_abi_baseline.act` | fixed parameter/local storage, initialized local, local alias, local byte/card arrays, record, escaped local address, indirect call, and deliberately non-reentrant recursion | `2994a56fddc7a737368705dfc097253fb25fb9fae42cef8f5dafd5960782a8cc` |
 
 ## Object Matrix
 
@@ -39,6 +40,27 @@ backend; `cart` and `standalone` name the runtime.
 | `inline_asm_fixed_array.act` | mir6502 | cart | 25 | `31ed6095ad35b52447a1133815714b6b078aeb1978dbadd6c86c0a7f72740671` |
 | `standalone_minimal.act` | classic | standalone | 13 | `c4b9e2ad6afdafa91b90d1ac0e4e2002295f42029aff605bec1a020b03850eab` |
 | `standalone_minimal.act` | mir6502 | standalone | 13 | `c4b9e2ad6afdafa91b90d1ac0e4e2002295f42029aff605bec1a020b03850eab` |
+| `native_routine_abi_baseline.act` | classic | cart | 179 | `a0eb8aaceb56346ded51589db1df15eb4e677ff5319bc46bcfd2ee38c34d29d0` |
+| `native_routine_abi_baseline.act` | mir6502 | cart | 154 | `74074ada4ca03643b4eb50798d95b4055edeaf6b4cf31d7b95f8a675d6d75171` |
+| `native_routine_abi_baseline.act` | classic | standalone | 179 | `a0eb8aaceb56346ded51589db1df15eb4e677ff5319bc46bcfd2ee38c34d29d0` |
+| `native_routine_abi_baseline.act` | mir6502 | standalone | 154 | `74074ada4ca03643b4eb50798d95b4055edeaf6b4cf31d7b95f8a675d6d75171` |
+
+## Native Routine ABI Migration Inspection Baseline
+
+The native-routine fixture is intentionally compile-only. Its recursive
+routine reuses fixed parameter and local cells under the classic ABI, so
+executing it would not be a valid recursion test. These textual-output hashes
+guard the IR and map shape until structured activation facts are introduced.
+An intentional printer/IR-contract slice may update them while the object rows
+above must remain stable.
+
+| Inspection | Bytes | SHA-256 |
+| --- | ---: | --- |
+| unoptimized NIR | 2314 | `8d6f7654ecad10ce1a8fea39128afa50b325a962b257fbe3ca8d4c7a3daf3d11` |
+| optimized NIR | 2209 | `5da7842a9ca913510717434e9b20eeb795d12b29543e16b56fea10893730c666` |
+| pre-materialization MIR6502 | 2050 | `a2b7abc8ca89f05c9966be2557cd30a0caa227efbcdfbcd4b419037719b2e079` |
+| classic/cart map | 1057 | `5314a371aa671b6971448b633bf3727957e147d30984c5db01f7a9104b5a0701` |
+| MIR6502/cart map | 206 | `f20f17a251c88e73be32621125b90747074e3a656b83507ea655d6f459a70270` |
 
 ## Reproduction
 
@@ -52,6 +74,17 @@ cargo run --bin actionc -- --profile modern --backend mir6502 --runtime cart \
   fixtures/runtime/record_assignment.act
 wc -c target/nir-target-baselines/record-assignment-mir6502-cart.xex
 shasum -a 256 target/nir-target-baselines/record-assignment-mir6502-cart.xex
+```
+
+The routine-activation inspection hashes can be reproduced without retaining
+generated files, for example:
+
+```sh
+cargo run --quiet --bin actionc-emit -- --profile modern --emit-nir \
+  fixtures/runtime/native_routine_abi_baseline.act | shasum -a 256
+cargo run --quiet --bin actionc-emit -- --profile modern \
+  --backend mir6502 --emit-mir6502 \
+  fixtures/runtime/native_routine_abi_baseline.act | shasum -a 256
 ```
 
 The baseline concerns the complete load-format object, including segment and

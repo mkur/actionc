@@ -1,0 +1,45 @@
+; Classic routine-storage baseline for the native ABI migration.
+;
+; This source is compiled, but not executed: Recur deliberately demonstrates
+; that the classic Action! ABI permits recursive syntax while reusing one
+; fixed parameter/local storage block for every invocation.
+
+TYPE Pair=[BYTE low,high]
+
+BYTE result=$0600
+BYTE POINTER escaped
+
+BYTE FUNC Bump()
+  BYTE local,initial=[7],alias=local
+  BYTE ARRAY bytes(4)
+  CARD ARRAY words(2)
+  Pair pair
+
+  local=3
+  alias==+1
+  bytes(0)=alias
+  words(1)=1
+  pair.low=bytes(0)
+  pair.high=alias
+  escaped=@local
+RETURN(initial+pair.high)
+
+BYTE FUNC Recur(BYTE depth)
+  BYTE saved
+
+  saved=depth
+  IF depth=0 THEN
+    RETURN(0)
+  FI
+RETURN(Recur(depth-1)+saved)
+
+BYTE FUNC POINTER callback
+
+PROC Main()
+  callback=@Bump
+  result=callback()
+  result==+Recur(2)
+
+  DO
+  OD
+RETURN
