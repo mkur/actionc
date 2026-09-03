@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 8 were implemented and verified on
+Status: in progress. Slices 0 through 9 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -621,6 +621,23 @@ mir65816: plan native calls and automatic frames
 ```
 
 ### Slice 9: foreign code and observable boundaries
+
+Status: complete. Verifier-clean native NIR now rejects machine-code and
+inline-assembly relocations that would embed a fictitious fixed address for an
+automatic parameter or local. A native automatic address can cross a foreign
+boundary only as an ordinary runtime value through a future target-supported
+adapter whose operands and effects are structured; neither native MIR silently
+accepts an external ABI today. Routine addresses, load-time routine-address
+data, runtime callback bindings, and foreign-code relocations may not expose a
+`TargetInternal` entry. Native current-location entries are rejected, and
+native absolute entries require an explicit target adapter.
+
+Future Amiga startup, interrupt, hook, and library-call support should create
+MIR68K adapter entries with the relevant external convention, register map,
+save set, and A6 policy. Future 65816 interrupt, hook, and startup support
+should likewise create MIR65816 adapter entries with explicit near/far return
+form and M/X state. Those physical policies must not be inferred in NIR or by
+making an automatic object static.
 
 1. Diagnose native opaque machine code that refers to an automatic object as
    if it had a fixed link-time address.

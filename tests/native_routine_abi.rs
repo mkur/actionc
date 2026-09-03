@@ -1,16 +1,20 @@
 use std::path::Path;
 
+use actionc::foreign::{ForeignRelocationEncoding, ForeignSymbolUse};
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, MirCallTarget, MirOp, MirRoutineAbi, MirStorageBase, RoutineId};
 use actionc::nir::{
     self, LocalId, NirActivationModel, NirCallConvention, NirCallEffects, NirCallee,
-    NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage, NirLocalBacking,
-    NirLocalPurpose, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind,
-    NirObjectLayout, NirOp, NirPlaceKind, NirRoutinePlacement, NirStorageDuration, NirStorageId,
-    NirStorageIdentityDomain, NirStorageInit, NirTypeKind,
+    NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage, NirForeignCode,
+    NirForeignCodeKind, NirForeignCodePayload, NirForeignCodeTarget, NirForeignRelocation,
+    NirLocalBacking, NirLocalPurpose, NirMachineEffects, NirMemoryAccess, NirMemoryEffects,
+    NirMemoryRegion, NirMemoryRegionKind, NirObjectLayout, NirOp, NirPlaceKind,
+    NirRoutinePlacement, NirStorageDuration, NirStorageId, NirStorageIdentityDomain,
+    NirStorageInit, NirTypeKind,
 };
 use actionc::semantic::ir::{SemActivationModel, SemItem};
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
+use actionc::source::Span;
 use actionc::target::{ByteOffset, ByteSize, TargetId};
 use actionc::{mir68k, mir65816};
 
@@ -1158,4 +1162,110 @@ fn mir65816_plans_independent_native_and_small_model_frames() {
                 })
         );
     }
+}
+
+#[test]
+fn native_verifier_rejects_fixed_addresses_for_automatic_storage() {
+    let mut program = fixture_for_target(
+        Path::new("fixtures/runtime/native_frame_plan.act"),
+        TargetId::Motorola68000,
+    );
+    let probe = program
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "FrameProbe")
+        .expect("FrameProbe routine");
+    let local = probe
+        .locals
+        .iter()
+        .find(|local| local.name == "local")
+        .expect("automatic local")
+        .id;
+    probe.blocks[0].ops.insert(
+        0,
+        NirOp::ForeignCode {
+            code: NirForeignCode {
+                target: TargetId::Motorola68000,
+                kind: NirForeignCodeKind::InlineAssembly,
+                payload: NirForeignCodePayload::Bytes {
+                    bytes: vec![0; 4],
+                    relocations: vec![NirForeignRelocation {
+                        offset: ByteOffset::ZERO,
+                        encoding: ForeignRelocationEncoding::Address {
+                            width: ByteSize::new(4),
+                        },
+                        target: NirForeignCodeTarget::Storage(NirStorageId::Local(local)),
+                        addend: 0,
+                        required_address_bits: Some(32),
+                        symbol_use: ForeignSymbolUse::Address,
+                        span: Span::new(0, 0),
+                    }],
+                },
+                source: "automatic local relocation probe".to_string(),
+                span: Span::new(0, 0),
+            },
+            effects: NirMachineEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::All,
+                    writes: NirMemoryAccess::All,
+                },
+                may_call_external: true,
+                opaque: true,
+            },
+        },
+    );
+
+    let diagnostics = nir::verify_program(&program).expect_err("fixed automatic address");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("inline assembly cannot embed a fixed address for automatic local `local`")
+    }));
+}
+
+#[test]
+fn native_verifier_rejects_fixed_entries_and_internal_address_escape() {
+    for placement in [
+        NirRoutinePlacement::CurrentLocation,
+        NirRoutinePlacement::Absolute(actionc::target::AddressValue::code(0x2000)),
+    ] {
+        let mut program = fixture_for_target(
+            Path::new("fixtures/runtime/native_frame_plan.act"),
+            TargetId::Motorola68000,
+        );
+        program
+            .routines
+            .iter_mut()
+            .find(|routine| routine.name == "FrameProbe")
+            .expect("FrameProbe routine")
+            .entry
+            .placement = placement;
+        let diagnostics = nir::verify_program(&program).expect_err("fixed native entry");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("under native reentrant activation")
+                || diagnostic
+                    .message
+                    .contains("incompatible with native reentrant activation")
+        }));
+    }
+
+    let mut escaped_internal = fixture_for_target(
+        Path::new("fixtures/runtime/native_frame_plan.act"),
+        TargetId::Motorola68000,
+    );
+    let thunk = escaped_internal
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Thunk")
+        .expect("addressed Thunk routine");
+    thunk.convention = NirCallConvention::TargetInternal;
+    thunk.signature.convention = NirCallConvention::TargetInternal;
+    let diagnostics = nir::verify_program(&escaped_internal).expect_err("internal address escape");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("cannot expose target-internal routine")
+    }));
 }

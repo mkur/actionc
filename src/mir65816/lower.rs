@@ -87,6 +87,17 @@ pub(super) fn lower_program(
     let storage = crate::nir::analyze_program_storage(program);
     let mut routines = Vec::with_capacity(program.routines.len());
     for (routine, storage) in program.routines.iter().zip(&storage.routines) {
+        if matches!(
+            routine.convention,
+            crate::nir::NirCallConvention::External(_)
+        ) {
+            diagnostics.push(diagnostic(
+                Some(&routine.name),
+                None,
+                "65816 external-ABI routine entry requires a target adapter",
+            ));
+            continue;
+        }
         let Some(frame) = plan_frame(routine, storage, &mut diagnostics) else {
             continue;
         };
@@ -771,6 +782,17 @@ fn lower_op(
                 ));
                 return None;
             };
+            if matches!(
+                signature.convention,
+                crate::nir::NirCallConvention::External(_)
+            ) {
+                diagnostics.push(diagnostic(
+                    Some(routine),
+                    Some(block),
+                    "65816 external-ABI call requires a target adapter",
+                ));
+                return None;
+            }
             let Some(plan) = call_plan(
                 signature,
                 args.len(),

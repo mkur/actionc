@@ -107,8 +107,9 @@ impl NirVerifier {
         }
         for binding in &program.runtime_bindings {
             if binding.name.is_empty() {
-                self.diagnostics
-                    .push(NirDiagnostic::program("runtime symbol name must not be empty"));
+                self.diagnostics.push(NirDiagnostic::program(
+                    "runtime symbol name must not be empty",
+                ));
             }
             if runtime_symbol_id(&binding.name) != binding.symbol {
                 self.diagnostics.push(NirDiagnostic::program(format!(
@@ -140,6 +141,16 @@ impl NirVerifier {
                 {
                     self.diagnostics.push(NirDiagnostic::program(format!(
                         "runtime binding `{}` references missing routine id {id}",
+                        binding.name
+                    )));
+                }
+                Some(NirRuntimeTarget::Routine(id))
+                    if self.routine_signatures.get(&id).is_some_and(|signature| {
+                        signature.convention == NirCallConvention::TargetInternal
+                    }) =>
+                {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "runtime binding `{}` cannot expose a target-internal routine entry",
                         binding.name
                     )));
                 }
@@ -209,8 +220,7 @@ impl NirVerifier {
                 && !array.pointer_backed
             {
                 match global.backing {
-                    super::ir::NirGlobalBacking::Absolute(address)
-                        if address == initializer => {}
+                    super::ir::NirGlobalBacking::Absolute(address) if address == initializer => {}
                     super::ir::NirGlobalBacking::Absolute(address) => {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "direct fixed array `{}` has backing ${address:04X} but address initializer ${initializer:04X}",
@@ -248,7 +258,8 @@ impl NirVerifier {
         for static_data in &program.statics {
             self.static_sizes.insert(
                 static_data.id,
-                ByteSize::try_from(static_data.image.bytes.len()).unwrap_or(ByteSize::new(u32::MAX)),
+                ByteSize::try_from(static_data.image.bytes.len())
+                    .unwrap_or(ByteSize::new(u32::MAX)),
             );
             self.static_types
                 .insert(static_data.id, static_data.ty.clone());
@@ -356,12 +367,13 @@ impl NirVerifier {
                 "routine signature convention does not match its entry convention",
             ));
         }
-        self.intern_signature(
-            &routine.name,
-            None,
-            &routine.signature,
-            "routine signature",
-        );
+        if routine.entry.external && routine.convention == NirCallConvention::TargetInternal {
+            self.diagnostics.push(NirDiagnostic::routine(
+                &routine.name,
+                "external routine entry cannot use the target-internal convention",
+            ));
+        }
+        self.intern_signature(&routine.name, None, &routine.signature, "routine signature");
         if routine.signature.params.len() != routine.params.len() {
             self.diagnostics.push(NirDiagnostic::routine(
                 &routine.name,
@@ -389,6 +401,22 @@ impl NirVerifier {
             self.type_shape_static(result, "routine signature result");
         }
         match routine.entry.placement {
+            NirRoutinePlacement::CurrentLocation
+                if routine.activation == NirActivationModel::NativeReentrant =>
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    "current-location routine entry is incompatible with native reentrant activation",
+                ));
+            }
+            NirRoutinePlacement::Absolute(_)
+                if routine.activation == NirActivationModel::NativeReentrant =>
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    "absolute routine entry requires a target adapter under native reentrant activation",
+                ));
+            }
             NirRoutinePlacement::Absolute(address)
                 if address.address_space != self.target_layout.code_pointer.address_space
                     || !self.address_fits_target(address) =>
@@ -644,11 +672,17 @@ impl NirVerifier {
                 if !visited.insert(cursor.id) {
                     self.diagnostics.push(NirDiagnostic::routine(
                         &routine.name,
-                        format!("local alias `{}` participates in an alias cycle", local.name),
+                        format!(
+                            "local alias `{}` participates in an alias cycle",
+                            local.name
+                        ),
                     ));
                     break;
                 }
-                let Some(next) = routine.locals.iter().find(|candidate| candidate.id == target)
+                let Some(next) = routine
+                    .locals
+                    .iter()
+                    .find(|candidate| candidate.id == target)
                 else {
                     break;
                 };
@@ -998,6 +1032,17 @@ impl NirVerifier {
                         "global `{}` routine-address init references missing routine id {}",
                         global.name, routine
                     )));
+                } else if self
+                    .routine_signatures
+                    .get(routine)
+                    .is_some_and(|signature| {
+                        signature.convention == NirCallConvention::TargetInternal
+                    })
+                {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "global `{}` cannot store a target-internal routine entry",
+                        global.name
+                    )));
                 }
                 let pointer_size = self.target_layout.code_pointer.size_bytes;
                 if *descriptor_size != pointer_size
@@ -1045,11 +1090,8 @@ impl NirVerifier {
                     image,
                     Some((param_durations, local_durations)),
                 );
-                let extent = self.data_extent(
-                    &format!("local `{name}` in `{routine}`"),
-                    image,
-                    *zero_fill,
-                );
+                let extent =
+                    self.data_extent(&format!("local `{name}` in `{routine}`"), image, *zero_fill);
                 if extent.is_some_and(|extent| extent > usize::from(local.layout.size)) {
                     self.diagnostics.push(NirDiagnostic::routine(
                         routine,
@@ -1188,9 +1230,7 @@ impl NirVerifier {
             else {
                 if let NirDataFragment::Integer { width, value, .. } = fragment {
                     let bits = width.get().saturating_mul(8);
-                    if width.is_zero()
-                        || width.get() > 8
-                        || (bits < 64 && *value >= (1u64 << bits))
+                    if width.is_zero() || width.get() > 8 || (bits < 64 && *value >= (1u64 << bits))
                     {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} integer data fragment value does not fit width {width}"
@@ -1210,25 +1250,21 @@ impl NirVerifier {
                     address_space,
                     width,
                 } => {
-                    let expected_width = if *address_space
-                        == self.target_layout.data_pointer.address_space
-                    {
-                        Some(self.target_layout.data_pointer.size_bytes)
-                    } else if *address_space == self.target_layout.code_pointer.address_space {
-                        Some(self.target_layout.code_pointer.size_bytes)
-                    } else {
-                        None
-                    };
+                    let expected_width =
+                        if *address_space == self.target_layout.data_pointer.address_space {
+                            Some(self.target_layout.data_pointer.size_bytes)
+                        } else if *address_space == self.target_layout.code_pointer.address_space {
+                            Some(self.target_layout.code_pointer.size_bytes)
+                        } else {
+                            None
+                        };
                     if *address_space != expected_space || expected_width != Some(*width) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} address fragment does not match its target address space or pointer width"
                         )));
                     }
                 }
-                NirDataAddressEncoding::TargetByte {
-                    target,
-                    byte_index,
-                } => {
+                NirDataAddressEncoding::TargetByte { target, byte_index } => {
                     if *target != self.target_layout.target {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} contains an address-byte selector for target `{}` under `{}`",
@@ -1280,6 +1316,12 @@ impl NirVerifier {
                     if !self.routine_signatures.contains_key(id) {
                         self.diagnostics.push(NirDiagnostic::program(format!(
                             "{owner} address fragment references unknown routine id {id}"
+                        )));
+                    } else if self.routine_signatures.get(id).is_some_and(|signature| {
+                        signature.convention == NirCallConvention::TargetInternal
+                    }) {
+                        self.diagnostics.push(NirDiagnostic::program(format!(
+                            "{owner} address fragment cannot expose target-internal routine id {id}"
                         )));
                     }
                 }
@@ -1812,6 +1854,12 @@ impl NirVerifier {
                                     *target,
                                     "machine block",
                                 );
+                                self.foreign_storage_boundary(
+                                    routine,
+                                    block,
+                                    *target,
+                                    "machine block",
+                                );
                             }
                         }
                         self.machine_effects(routine, block, effects);
@@ -2060,13 +2108,9 @@ impl NirVerifier {
     ) {
         self.place_type(routine, block, place, label);
         self.place_temp_uses(routine, block, place, op_index, temp_facts, label);
-        if !place
-            .ty
-            .as_ref()
-            .is_some_and(|ty| {
-                matches!(ty.kind, NirTypeKind::Real) && ty.width == Some(ByteSize::new(6))
-            })
-        {
+        if !place.ty.as_ref().is_some_and(|ty| {
+            matches!(ty.kind, NirTypeKind::Real) && ty.width == Some(ByteSize::new(6))
+        }) {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
@@ -2119,8 +2163,7 @@ impl NirVerifier {
                 ));
             }
             NirPlaceKind::Field { ty, .. }
-                if !matches!(ty.kind, NirTypeKind::Real)
-                    || ty.width != Some(ByteSize::new(6)) =>
+                if !matches!(ty.kind, NirTypeKind::Real) || ty.width != Some(ByteSize::new(6)) =>
             {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
@@ -2272,11 +2315,7 @@ impl NirVerifier {
         }
     }
 
-    fn copy_bytes_place_extent(
-        &self,
-        routine: &NirRoutine,
-        place: &NirPlace,
-    ) -> Option<ByteSize> {
+    fn copy_bytes_place_extent(&self, routine: &NirRoutine, place: &NirPlace) -> Option<ByteSize> {
         match &place.kind {
             NirPlaceKind::Param { id, .. } => routine
                 .params
@@ -2295,9 +2334,9 @@ impl NirVerifier {
             NirPlaceKind::Field { base, offset, .. } => self
                 .copy_bytes_place_extent(routine, base)
                 .and_then(|size| size.get().checked_sub(offset.get()).map(ByteSize::new)),
-            NirPlaceKind::Absolute(_)
-            | NirPlaceKind::Deref { .. }
-            | NirPlaceKind::Index { .. } => place.ty.as_ref().and_then(|ty| ty.width),
+            NirPlaceKind::Absolute(_) | NirPlaceKind::Deref { .. } | NirPlaceKind::Index { .. } => {
+                place.ty.as_ref().and_then(|ty| ty.width)
+            }
         }
     }
 
@@ -2366,6 +2405,7 @@ impl NirVerifier {
                     ));
                 }
             }
+            self.foreign_storage_boundary(routine, block, relocation.target, "inline assembly");
             match relocation.target {
                 NirForeignCodeTarget::Storage(NirStorageId::Param(id))
                     if !routine.params.iter().any(|param| param.id == id) =>
@@ -2394,18 +2434,14 @@ impl NirVerifier {
                         format!("inline assembler references unknown global id {}", id.0),
                     ));
                 }
-                NirForeignCodeTarget::Routine(id)
-                    if !self.routine_signatures.contains_key(&id) =>
-                {
+                NirForeignCodeTarget::Routine(id) if !self.routine_signatures.contains_key(&id) => {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
                         format!("inline assembler references unknown routine id {id}"),
                     ));
                 }
-                NirForeignCodeTarget::InlineOffset(offset)
-                    if usize::from(offset) > bytes.len() =>
-                {
+                NirForeignCodeTarget::InlineOffset(offset) if usize::from(offset) > bytes.len() => {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -2425,10 +2461,8 @@ impl NirVerifier {
         encoding: crate::foreign::ForeignRelocationEncoding,
         required_address_bits: Option<u8>,
     ) {
-        if let crate::foreign::ForeignRelocationEncoding::TargetByte {
-            target,
-            byte_index,
-        } = encoding
+        if let crate::foreign::ForeignRelocationEncoding::TargetByte { target, byte_index } =
+            encoding
         {
             if target != code.target {
                 self.diagnostics.push(NirDiagnostic::block(
@@ -2507,6 +2541,53 @@ impl NirVerifier {
                 ));
             }
             _ => {}
+        }
+    }
+
+    fn foreign_storage_boundary(
+        &mut self,
+        routine: &NirRoutine,
+        block: &NirBlock,
+        target: NirForeignCodeTarget,
+        label: &str,
+    ) {
+        let automatic_name = match target {
+            NirForeignCodeTarget::Storage(NirStorageId::Param(id)) => routine
+                .params
+                .iter()
+                .find(|param| param.id == id && param.duration == NirStorageDuration::Automatic)
+                .map(|param| ("parameter", param.name.as_str())),
+            NirForeignCodeTarget::Storage(NirStorageId::Local(id)) => routine
+                .locals
+                .iter()
+                .find(|local| local.id == id && local.duration == NirStorageDuration::Automatic)
+                .map(|local| ("local", local.name.as_str())),
+            NirForeignCodeTarget::Storage(NirStorageId::Global(_))
+            | NirForeignCodeTarget::Routine(_)
+            | NirForeignCodeTarget::Absolute(_)
+            | NirForeignCodeTarget::InlineOffset(_) => None,
+        };
+        if let Some((kind, name)) = automatic_name {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "{label} cannot embed a fixed address for automatic {kind} `{name}`; pass its address through a target-supported foreign-call boundary"
+                ),
+            ));
+        }
+
+        if let NirForeignCodeTarget::Routine(id) = target
+            && self
+                .routine_signatures
+                .get(&id)
+                .is_some_and(|signature| signature.convention == NirCallConvention::TargetInternal)
+        {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!("{label} cannot expose target-internal routine id `{id}`"),
+            ));
         }
     }
 
@@ -2643,9 +2724,7 @@ impl NirVerifier {
                 NirTypeKind::Callable { convention, .. } => Some(convention),
                 _ => None,
             },
-            NirCallee::Builtin(_) | NirCallee::Runtime { .. } => {
-                Some(NirCallConvention::Runtime)
-            }
+            NirCallee::Builtin(_) | NirCallee::Runtime { .. } => Some(NirCallConvention::Runtime),
         };
         if expected_convention.is_some_and(|expected| expected != signature.convention) {
             self.diagnostics.push(NirDiagnostic::block(
@@ -2821,7 +2900,9 @@ impl NirVerifier {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
-                        format!("{label} absolute region exceeds the selected target address space"),
+                        format!(
+                            "{label} absolute region exceeds the selected target address space"
+                        ),
                     ));
                 }
                 return;
@@ -2894,9 +2975,7 @@ impl NirVerifier {
                 self.diagnostics.push(NirDiagnostic::block(
                     &routine.name,
                     &block.label,
-                    format!(
-                        "{label} is outside the selected target address range"
-                    ),
+                    format!("{label} is outside the selected target address range"),
                 ));
             }
             _ => {}
@@ -3017,6 +3096,14 @@ impl NirVerifier {
                         &routine.name,
                         &block.label,
                         format!("{label} references missing routine id `{id}`"),
+                    ));
+                } else if self.routine_signatures.get(id).is_some_and(|signature| {
+                    signature.convention == NirCallConvention::TargetInternal
+                }) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} cannot expose target-internal routine id `{id}`"),
                     ));
                 }
             }
@@ -3421,17 +3508,19 @@ fn value_has_address_type(value: &NirValue) -> bool {
         | NirValue::AddressConst { .. }
         | NirValue::RoutineAddr { .. }
         | NirValue::StaticAddr {
-            ty: NirType {
-                kind: NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. },
-                ..
-            },
+            ty:
+                NirType {
+                    kind: NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. },
+                    ..
+                },
             ..
         }
         | NirValue::Temp {
-            ty: NirType {
-                kind: NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. },
-                ..
-            },
+            ty:
+                NirType {
+                    kind: NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. },
+                    ..
+                },
             ..
         } => true,
         _ => false,
