@@ -101,7 +101,7 @@ impl NirStorageFacts {
     pub fn is_value_trackable(&self) -> bool {
         let pointer_cell = self.storage_class == Some(NirStorageClass::Array)
             && self.direct_access_ty.as_ref().is_some_and(|ty| {
-                matches!(ty.kind, NirTypeKind::Ptr16 { .. })
+                matches!(ty.kind, NirTypeKind::Pointer { .. })
                     && ty.width == Some(ByteSize::new(2))
             });
         self.blockers.iter().all(|blocker| {
@@ -403,6 +403,7 @@ fn analyze_routine_storage(
                 NirOp::RuntimeHelperOverride { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
+                | NirOp::PointerOffset { .. }
                 | NirOp::Binary { .. }
                 | NirOp::Compare { .. }
                 | NirOp::Unsupported { .. } => {}
@@ -582,7 +583,7 @@ fn supported_scalar_type(ty: &NirType) -> bool {
             | NirTypeKind::I8
             | NirTypeKind::U16
             | NirTypeKind::I16
-            | NirTypeKind::Ptr16 { .. }
+            | NirTypeKind::Pointer { .. }
             | NirTypeKind::Callable { .. }
     ) && matches!(ty.width.map(ByteSize::get), Some(1 | 2))
 }
@@ -618,7 +619,7 @@ fn record_direct_access(
     }
     let place_matches = place.ty.as_ref().is_some_and(|ty| same_type(ty, access_ty));
     let home_matches = facts.storage_class == Some(NirStorageClass::Array)
-        && matches!(access_ty.kind, NirTypeKind::Ptr16 { .. })
+        && matches!(access_ty.kind, NirTypeKind::Pointer { .. })
         || facts.ty.as_ref().is_some_and(|ty| same_type(ty, access_ty));
     if !place_matches || !home_matches {
         facts
@@ -682,6 +683,7 @@ fn for_each_op_place(op: &NirOp, mut visit: impl FnMut(&NirPlace)) {
         NirOp::RuntimeHelperOverride { .. }
         | NirOp::Unary { .. }
         | NirOp::Cast { .. }
+        | NirOp::PointerOffset { .. }
         | NirOp::Binary { .. }
         | NirOp::Compare { .. }
         | NirOp::Call { .. }
@@ -826,6 +828,7 @@ fn mark_read_before_definition(
                 | NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
+                | NirOp::PointerOffset { .. }
                 | NirOp::Binary { .. }
                 | NirOp::Compare { .. }
                 | NirOp::Call { .. }
@@ -1050,7 +1053,10 @@ mod tests {
                     NirOp::AddrOf {
                         dest: TempId(4),
                         ty: NirType {
-                            kind: NirTypeKind::Ptr16 { pointee: None },
+                            kind: NirTypeKind::Pointer {
+                                pointee: None,
+                                address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+                            },
                             summary: "Byte*".to_string(),
                             width: Some(crate::target::ByteSize::new(2)),
                             pointer: true,

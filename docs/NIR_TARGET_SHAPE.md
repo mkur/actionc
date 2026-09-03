@@ -167,8 +167,8 @@ pub struct NirBlockParam {
 }
 ```
 
-The current implementation still contains transitional `Ptr16`, fixed-endian
-data-image, Atari runtime-symbol, and 6502 machine-payload forms. It no longer
+The current implementation still contains fixed-endian data-image, Atari
+runtime-symbol, and 6502 machine-payload forms. It no longer
 uses Action! `CARD`/raw `u16` fields for NIR storage extents, byte offsets, or
 absolute addresses. The remaining forms are migration inputs, not the portable
 contract.
@@ -256,8 +256,9 @@ pub enum NirType {
     U16,
     I16,
     Real,
-    Ptr16 {
+    Pointer {
         pointee: Option<Box<NirType>>,
+        address_space: AddressSpaceId,
     },
     Record {
         record: RecordId,
@@ -265,6 +266,7 @@ pub enum NirType {
     },
     Callable {
         signature: SignatureId,
+        address_space: AddressSpaceId,
     },
 }
 ```
@@ -284,8 +286,8 @@ Void      -> 0 bytes
 Bool      -> 1 byte
 U8/I8     -> 1 byte
 U16/I16   -> 2 bytes
-Ptr16     -> 2 bytes
-Callable  -> 2 bytes
+Pointer   -> selected data-pointer width
+Callable  -> selected code-pointer width
 Real      -> 6 bytes, address-only
 Record    -> known record size
 ```
@@ -303,6 +305,8 @@ Value operands are already-materialized values. They are not places.
 pub enum NirValue {
     ConstU8(u8),
     ConstU16(u16),
+    Null { ty: NirType },
+    AddressConst { address: AddressValue, ty: NirType },
     StaticAddr(StaticId),
     RoutineAddr(RoutineId),
     Temp(TempId),
@@ -316,8 +320,8 @@ Rules:
 - Constants are numeric and width-shaped; source literal text is metadata only.
 - `Temp` values get their type from the routine temp table.
 - `Param` values get their type from the routine parameter table.
-- `StaticAddr`, `RoutineAddr`, and `GlobalAddr` are address-valued and should be
-  compatible with a 16-bit pointer/callable type.
+- `StaticAddr`, `RoutineAddr`, and `GlobalAddr` are address-valued and carry or
+  resolve to the selected pointer/callable type.
 - Values must never be raw expression strings.
 - Native `REAL` is not a `NirValue`: a six-byte value remains in a typed place
   or immutable typed static throughout NIR.
@@ -399,6 +403,14 @@ pub enum NirOp {
         src: NirValue,
         from: NirType,
         to: NirType,
+        kind: Integer | Pointer | IntegerToPointer | PointerToInteger,
+    },
+    PointerOffset {
+        dest: TempId,
+        base: NirValue,
+        offset: NirValue,
+        subtract: bool,
+        ty: NirType,
     },
     Unary {
         dest: TempId,

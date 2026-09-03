@@ -357,6 +357,7 @@ fn real_local_accesses(routine: &NirRoutine) -> BTreeMap<LocalId, RealLocalAcces
                 NirOpKind::RuntimeHelperOverride { .. }
                 | NirOpKind::Unary { .. }
                 | NirOpKind::Cast { .. }
+                | NirOpKind::PointerOffset { .. }
                 | NirOpKind::Binary { .. }
                 | NirOpKind::Compare { .. }
                 | NirOpKind::Unsupported { .. } => {}
@@ -1484,6 +1485,7 @@ fn lower_ops(
                 src,
                 from,
                 to,
+                ..
             } => {
                 let Some(from_width) = mir_width(from) else {
                     diagnostics.push(MirDiagnostic::block(
@@ -1609,6 +1611,37 @@ fn lower_ops(
                 };
                 lowered.push(MirOp::Binary {
                     op: mir_binary_op(*op),
+                    dst: MirDef::VTemp(MirTempId(dest.0)),
+                    left,
+                    right,
+                    width,
+                    carry_in: None,
+                    carry_out: MirCarryOut::Ignore,
+                });
+            }
+            NirOpKind::PointerOffset {
+                dest,
+                ty,
+                base,
+                offset,
+                subtract,
+            } => {
+                let Some(width) = mir_width(ty) else {
+                    diagnostics.push(MirDiagnostic::block(
+                        routine,
+                        block,
+                        format!("unsupported pointer width `{}`", ty.summary),
+                    ));
+                    continue;
+                };
+                let Some(left) = lower_value(routine, block, base, diagnostics) else {
+                    continue;
+                };
+                let Some(right) = lower_value(routine, block, offset, diagnostics) else {
+                    continue;
+                };
+                lowered.push(MirOp::Binary {
+                    op: if *subtract { MirBinaryOp::Sub } else { MirBinaryOp::Add },
                     dst: MirDef::VTemp(MirTempId(dest.0)),
                     left,
                     right,
@@ -3854,8 +3887,11 @@ fn value_width(value: &NirValueKind) -> Option<MirWidth> {
     match value {
         NirValueKind::ConstU8(_) => Some(MirWidth::Byte),
         NirValueKind::ConstU16(_) => Some(MirWidth::Word),
-        NirValueKind::Temp { ty, .. } | NirValueKind::StaticAddr { ty, .. } => mir_width(ty),
-        NirValueKind::RoutineAddr { .. } => Some(MirWidth::Word),
+        NirValueKind::Null { ty }
+        | NirValueKind::AddressConst { ty, .. }
+        | NirValueKind::Temp { ty, .. }
+        | NirValueKind::StaticAddr { ty, .. }
+        | NirValueKind::RoutineAddr { ty, .. } => mir_width(ty),
         NirValueKind::Param(_) | NirValueKind::GlobalAddr(_) => None,
     }
 }

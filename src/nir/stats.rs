@@ -132,6 +132,7 @@ pub fn collect_program_stats(program: &NirProgram) -> NirProgramStats {
                     | NirOp::AddrOf { .. }
                     | NirOp::Unary { .. }
                     | NirOp::Cast { .. }
+                    | NirOp::PointerOffset { .. }
                     | NirOp::Binary { .. }
                     | NirOp::Compare { .. }
                     | NirOp::Call { .. }
@@ -308,6 +309,7 @@ fn op_kind(op: &NirOp) -> &'static str {
         NirOp::CopyBytes { .. } => "copy_bytes",
         NirOp::Unary { .. } => "unary",
         NirOp::Cast { .. } => "cast",
+        NirOp::PointerOffset { .. } => "pointer_offset",
         NirOp::Binary { .. } => "binary",
         NirOp::Compare { .. } => "compare",
         NirOp::Real(_) => "real",

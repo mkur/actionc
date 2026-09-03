@@ -501,8 +501,12 @@ fn coerce_to_home_type(
             return u8::try_from(*value).ok().map(NirValue::ConstU8);
         }
         NirValue::ConstU8(_) | NirValue::ConstU16(_) => return Some(value),
-        NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty.clone(),
-        NirValue::Param(_) | NirValue::GlobalAddr(_) | NirValue::RoutineAddr { .. } => return None,
+        NirValue::Null { ty }
+        | NirValue::AddressConst { ty, .. }
+        | NirValue::StaticAddr { ty, .. }
+        | NirValue::Temp { ty, .. }
+        | NirValue::RoutineAddr { ty, .. } => ty.clone(),
+        NirValue::Param(_) | NirValue::GlobalAddr(_) => return None,
     };
     if actual == context.ty {
         return Some(value);
@@ -516,6 +520,7 @@ fn coerce_to_home_type(
         src: value,
         from: actual,
         to: context.ty.clone(),
+        kind: NirCastKind::Integer,
     });
     Some(NirValue::Temp {
         id: dest,
@@ -752,6 +757,7 @@ fn op_result(op: &NirOp) -> Option<TempId> {
         | NirOp::AddrOf { dest, .. }
         | NirOp::Unary { dest, .. }
         | NirOp::Cast { dest, .. }
+        | NirOp::PointerOffset { dest, .. }
         | NirOp::Binary { dest, .. }
         | NirOp::Compare { dest, .. } => Some(*dest),
         NirOp::Call {
@@ -779,6 +785,10 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
         NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
             rewrite_value(left, replacements);
             rewrite_value(right, replacements);
+        }
+        NirOp::PointerOffset { base, offset, .. } => {
+            rewrite_value(base, replacements);
+            rewrite_value(offset, replacements);
         }
         NirOp::Real(real) => rewrite_real_op_values(real, replacements),
         NirOp::Call { callee, args, .. } => {
@@ -924,6 +934,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                 | NirOp::VolatileLoad { ty, .. }
                 | NirOp::AddrOf { ty, .. }
                 | NirOp::Unary { ty, .. }
+                | NirOp::PointerOffset { ty, .. }
                 | NirOp::Binary { ty, .. }
                 | NirOp::Compare { ty, .. } => ty,
                 NirOp::Cast { to, .. } => to,

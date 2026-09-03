@@ -25,6 +25,15 @@ fn lower_modern_source(source: &str) -> NirProgram {
     lower_program(&semir)
 }
 
+fn lower_modern_source_for_target(source: &str, target: crate::target::TargetId) -> NirProgram {
+    let tokens = tokenize(source).expect("tokenize modern source");
+    let program = parse(&tokens).expect("parse modern source");
+    let model = analyze_with_options(&program, SemanticOptions::modern().with_target(target))
+        .expect("analyze modern source");
+    let semir = crate::semantic::ir::lower_program(&program, &model);
+    lower_program(&semir)
+}
+
 #[test]
 fn record_assignment_lowers_to_verified_copy_bytes() {
     let program = lower_modern_source(
@@ -219,7 +228,7 @@ fn pointer_null_comparisons_use_pointer_width_operands() {
 
     assert_eq!(comparisons.len(), 2);
     for (operand_ty, left, right) in comparisons {
-        assert!(matches!(operand_ty.kind, NirTypeKind::Ptr16 { .. }));
+        assert!(matches!(operand_ty.kind, NirTypeKind::Pointer { .. }));
         assert_eq!(super::facts::value_width(left), Some(ByteSize::new(2)));
         assert_eq!(super::facts::value_width(right), Some(ByteSize::new(2)));
     }
@@ -991,8 +1000,9 @@ fn nir_type_kind_tracks_semir_value_types() {
     let pointer = NirType::from_value(&ValueType::pointer_to(ValueType::fund(FundType::Byte)));
     assert_eq!(
         pointer.kind,
-        NirTypeKind::Ptr16 {
-            pointee: Some(Box::new(NirTypeKind::U8))
+        NirTypeKind::Pointer {
+            pointee: Some(Box::new(NirTypeKind::U8)),
+            address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
         }
     );
     assert_eq!(pointer.width, Some(ByteSize::new(2)));
@@ -1007,6 +1017,120 @@ fn nir_type_kind_tracks_semir_value_types() {
         }
     );
     assert_eq!(record.width, None);
+}
+
+#[test]
+fn native_targets_use_layout_driven_data_and_code_pointer_types() {
+    let source = "BYTE POINTER data PROC POINTER callback PROC Main() data=0 RETURN";
+    for (target, width) in [
+        (crate::target::TargetId::Wdc65816Native, 3),
+        (crate::target::TargetId::Motorola68000, 4),
+    ] {
+        let program = lower_modern_source_for_target(source, target);
+        verify_program(&program).expect("native pointer NIR should verify");
+        let data = program
+            .globals
+            .iter()
+            .find(|global| global.name.eq_ignore_ascii_case("data"))
+            .and_then(|global| global.ty.as_ref())
+            .expect("data pointer type");
+        assert_eq!(data.width, Some(ByteSize::new(width)));
+        assert!(matches!(
+            data.kind,
+            NirTypeKind::Pointer { address_space, .. }
+                if address_space == program.target_layout.data_pointer.address_space
+        ));
+
+        let callback = program
+            .globals
+            .iter()
+            .find(|global| global.name.eq_ignore_ascii_case("callback"))
+            .and_then(|global| global.ty.as_ref())
+            .expect("callable pointer type");
+        assert_eq!(callback.width, Some(ByteSize::new(width)));
+        assert!(matches!(
+            callback.kind,
+            NirTypeKind::Callable { address_space, .. }
+                if address_space == program.target_layout.code_pointer.address_space
+        ));
+
+        assert!(program.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
+            matches!(op, NirOp::Store { src: NirValue::Null { ty }, .. } if ty.width == Some(ByteSize::new(width)))
+        }));
+    }
+}
+
+#[test]
+fn callable_types_have_stable_structural_signature_ids() {
+    let first = crate::semantic::CallableType::new(
+        crate::ast::RoutineKind::Proc,
+        [ValueType::fund(FundType::Byte)],
+        None,
+    );
+    let same = first.clone();
+    let different = crate::semantic::CallableType::new(
+        crate::ast::RoutineKind::Proc,
+        [ValueType::fund(FundType::Card)],
+        None,
+    );
+    let id = |callable| {
+        let ty = NirType::from_value(&ValueType::callable_pointer(callable));
+        match ty.kind {
+            NirTypeKind::Callable { signature, .. } => signature,
+            other => panic!("expected callable type, got {other:?}"),
+        }
+    };
+
+    assert_eq!(id(first), id(same));
+    assert_ne!(id(different), id(crate::semantic::CallableType::unknown_proc()));
+}
+
+#[test]
+fn pointer_arithmetic_lowers_to_a_distinct_pointer_offset_operation() {
+    let program = lower_modern_source("BYTE POINTER data PROC Main() data=data+1 RETURN");
+    verify_program(&program).expect("pointer offset NIR should verify");
+    assert!(program.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
+        matches!(op, NirOp::PointerOffset { subtract: false, .. })
+    }));
+    assert!(!program.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
+        matches!(op, NirOp::Binary { ty, .. } if ty.kind.is_pointer())
+    }));
+
+    let native = lower_modern_source_for_target(
+        "BYTE POINTER data PROC Main() data=data+1 RETURN",
+        crate::target::TargetId::Motorola68000,
+    );
+    verify_program(&native).expect("the same pointer offset must verify with a 32-bit pointer");
+}
+
+#[test]
+fn native_pointer_integer_conversions_are_explicit_and_checked() {
+    let constant = lower_modern_source_for_target(
+        "BYTE POINTER data PROC Main() data=$1234 RETURN",
+        crate::target::TargetId::Motorola68000,
+    );
+    verify_program(&constant).expect("a fitting numeric address constant is portable");
+    assert!(constant.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
+        matches!(op, NirOp::Store { src: NirValue::AddressConst { address, ty }, .. }
+            if address.value == 0x1234 && ty.width == Some(ByteSize::new(4)))
+    }));
+
+    for target in [
+        crate::target::TargetId::Wdc65816Native,
+        crate::target::TargetId::Wdc65816Small,
+        crate::target::TargetId::Motorola68000,
+    ] {
+        let dynamic = lower_modern_source_for_target(
+            "CARD address BYTE POINTER data PROC Main() data=address RETURN",
+            target,
+        );
+        let diagnostics = verify_program(&dynamic)
+            .expect_err("dynamic CARD-to-pointer conversion needs a native ADDRESS type");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains("native pointer stores require an explicit")
+                || diagnostic.message.contains("pointer/integer conversion")
+        }));
+    }
 }
 
 #[test]
@@ -3836,12 +3960,12 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
                         ty: pointer.clone(),
                         place: byte_place("x"),
                     },
-                    NirOp::Binary {
+                    NirOp::PointerOffset {
                         dest: TempId(3),
                         ty: pointer.clone(),
-                        op: NirBinaryOp::Add,
-                        left: temp_value(2, pointer.clone()),
-                        right: NirValue::ConstU16(0),
+                        base: temp_value(2, pointer.clone()),
+                        offset: NirValue::ConstU16(0),
+                        subtract: false,
                     },
                 ],
                 terminator: NirTerminator::Return(Some(temp_value(3, pointer.clone()))),
@@ -3861,9 +3985,9 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
     )));
     assert!(ops.iter().any(|op| matches!(
         op,
-        NirOp::Binary {
+        NirOp::PointerOffset {
             dest: TempId(3),
-            op: NirBinaryOp::Add,
+            subtract: false,
             ..
         }
     )));
@@ -4144,8 +4268,9 @@ fn error_type() -> NirType {
 
 fn byte_pointer_type() -> NirType {
     NirType {
-        kind: NirTypeKind::Ptr16 {
+        kind: NirTypeKind::Pointer {
             pointee: Some(Box::new(NirTypeKind::U8)),
+            address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
         },
         summary: "Byte*".to_string(),
         width: Some(crate::target::ByteSize::new(2)),

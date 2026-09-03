@@ -1,5 +1,6 @@
-use crate::semantic::{ScalarType, ValueType, ValueTypeBase, ValueTypeKind};
-use crate::target::ByteSize;
+use crate::ast::RoutineKind;
+use crate::semantic::{CallableType, ScalarType, ValueType, ValueTypeBase, ValueTypeKind};
+use crate::target::{AddressSpaceId, ByteSize, TargetLayout};
 
 use super::ir::{NirPlace, NirPlaceKind};
 
@@ -25,13 +26,24 @@ pub struct NirType {
 
 impl NirType {
     pub(super) fn from_value(value: &ValueType) -> Self {
+        Self::from_value_with_layout(value, TargetLayout::default())
+    }
+
+    pub(super) fn from_value_with_layout(value: &ValueType, layout: TargetLayout) -> Self {
         let kind = NirTypeKind::from_value(value);
+        let width = kind.width(layout);
         Self {
             kind,
             summary: type_summary(value),
-            width: value.value_width_bytes().map(ByteSize::from),
+            width,
             pointer: value.pointer,
         }
+    }
+
+    pub(super) fn apply_target_layout(&mut self, layout: TargetLayout) {
+        self.kind.apply_target_layout(layout);
+        self.width = self.kind.width(layout);
+        self.pointer = self.kind.is_pointer();
     }
 }
 
@@ -44,9 +56,16 @@ pub enum NirTypeKind {
     U16,
     I16,
     Real,
-    Ptr16 { pointee: Option<Box<NirTypeKind>> },
+    Pointer {
+        pointee: Option<Box<NirTypeKind>>,
+        address_space: AddressSpaceId,
+    },
     Record { name: String, size: Option<ByteSize> },
-    Callable { kind: String },
+    Callable {
+        kind: String,
+        signature: SignatureId,
+        address_space: AddressSpaceId,
+    },
     Error,
 }
 
@@ -55,11 +74,14 @@ impl NirTypeKind {
         match value.kind() {
             ValueTypeKind::Scalar(scalar) => Self::from_scalar(scalar),
             ValueTypeKind::Real => Self::Real,
-            ValueTypeKind::Pointer(pointer) => Self::Ptr16 {
+            ValueTypeKind::Pointer(pointer) => Self::Pointer {
                 pointee: Some(Box::new(Self::from_value(&pointer.pointee))),
+                address_space: TargetLayout::DATA_ADDRESS_SPACE,
             },
             ValueTypeKind::CallablePointer(callable) => Self::Callable {
                 kind: format!("{:?}", callable.kind),
+                signature: signature_id(&callable),
+                address_space: TargetLayout::CODE_ADDRESS_SPACE,
             },
             ValueTypeKind::Record(name) => Self::Record { name, size: None },
             ValueTypeKind::Error => Self::Error,
@@ -74,13 +96,22 @@ impl NirTypeKind {
         }
     }
 
-    pub(super) fn width(&self) -> Option<ByteSize> {
+    pub(super) fn width(&self, layout: TargetLayout) -> Option<ByteSize> {
         match self {
             Self::Void => Some(ByteSize::ZERO),
             Self::Bool | Self::U8 | Self::I8 => Some(ByteSize::new(1)),
-            Self::U16 | Self::I16 | Self::Ptr16 { .. } | Self::Callable { .. } => {
-                Some(ByteSize::new(2))
+            Self::U16 | Self::I16 => Some(ByteSize::new(2)),
+            Self::Pointer { address_space, .. }
+                if *address_space == layout.data_pointer.address_space =>
+            {
+                Some(layout.data_pointer.size_bytes)
             }
+            Self::Callable { address_space, .. }
+                if *address_space == layout.code_pointer.address_space =>
+            {
+                Some(layout.code_pointer.size_bytes)
+            }
+            Self::Pointer { .. } | Self::Callable { .. } => None,
             Self::Real => Some(ByteSize::new(6)),
             Self::Record { size, .. } => *size,
             Self::Error => None,
@@ -88,7 +119,29 @@ impl NirTypeKind {
     }
 
     pub(super) fn is_pointer(&self) -> bool {
-        matches!(self, Self::Ptr16 { .. })
+        matches!(self, Self::Pointer { .. })
+    }
+
+    pub(super) fn is_address(&self) -> bool {
+        matches!(self, Self::Pointer { .. } | Self::Callable { .. })
+    }
+
+    fn apply_target_layout(&mut self, layout: TargetLayout) {
+        match self {
+            Self::Pointer {
+                pointee,
+                address_space,
+            } => {
+                *address_space = layout.data_pointer.address_space;
+                if let Some(pointee) = pointee {
+                    pointee.apply_target_layout(layout);
+                }
+            }
+            Self::Callable { address_space, .. } => {
+                *address_space = layout.code_pointer.address_space;
+            }
+            _ => {}
+        }
     }
 }
 
@@ -106,6 +159,68 @@ pub struct BlockId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SymbolId(pub u32);
+
+/// Stable structural identity for an Action! callable signature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SignatureId(pub u32);
+
+pub(super) fn signature_id(callable: &CallableType) -> SignatureId {
+    fn byte(hash: &mut u32, value: u8) {
+        *hash ^= u32::from(value);
+        *hash = hash.wrapping_mul(16_777_619);
+    }
+    fn text(hash: &mut u32, value: &str) {
+        for value in value.bytes() {
+            byte(hash, value.to_ascii_uppercase());
+        }
+        byte(hash, 0xFF);
+    }
+    fn value_type(hash: &mut u32, value: &ValueType) {
+        byte(hash, u8::from(value.pointer));
+        match &value.base {
+            ValueTypeBase::Fund(fund) => {
+                byte(hash, 1);
+                text(hash, &format!("{fund:?}"));
+            }
+            ValueTypeBase::Real => byte(hash, 2),
+            ValueTypeBase::Named(name) => {
+                byte(hash, 3);
+                text(hash, name);
+            }
+            ValueTypeBase::Callable(callable) => {
+                byte(hash, 4);
+                callable_type(hash, callable);
+            }
+            ValueTypeBase::Error => byte(hash, 5),
+        }
+    }
+    fn callable_type(hash: &mut u32, callable: &CallableType) {
+        match callable.kind {
+            RoutineKind::Proc => byte(hash, 1),
+            RoutineKind::Func { return_type } => {
+                byte(hash, 2);
+                text(hash, &format!("{return_type:?}"));
+            }
+        }
+        for param in &callable.params {
+            byte(hash, 0x10);
+            value_type(hash, param);
+        }
+        if let Some(variadic) = &callable.variadic {
+            byte(hash, 0x20);
+            value_type(hash, variadic);
+        }
+        if let Some(result) = &callable.return_type {
+            byte(hash, 0x30);
+            value_type(hash, result);
+        }
+        byte(hash, 0);
+    }
+
+    let mut hash = 2_166_136_261;
+    callable_type(&mut hash, callable);
+    SignatureId(hash)
+}
 
 /// Stable identity for storage that can be named exactly by a direct NIR place.
 ///
@@ -142,6 +257,13 @@ pub(super) fn root_storage_id(place: &NirPlace) -> Option<NirStorageId> {
 pub enum NirValue {
     ConstU8(u8),
     ConstU16(u16),
+    Null {
+        ty: NirType,
+    },
+    AddressConst {
+        address: crate::target::AddressValue,
+        ty: NirType,
+    },
     StaticAddr {
         id: SymbolId,
         name: String,
@@ -156,6 +278,7 @@ pub enum NirValue {
     RoutineAddr {
         id: u32,
         name: String,
+        ty: NirType,
     },
 }
 
@@ -165,6 +288,8 @@ impl NirValue {
             Self::Temp { id, .. } => Some(*id),
             Self::ConstU8(_)
             | Self::ConstU16(_)
+            | Self::Null { .. }
+            | Self::AddressConst { .. }
             | Self::StaticAddr { .. }
             | Self::Param(_)
             | Self::GlobalAddr(_)
@@ -197,8 +322,11 @@ pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
     match value {
         NirValue::ConstU8(_) => Some(ByteSize::new(1)),
         NirValue::ConstU16(_) => Some(ByteSize::new(2)),
-        NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty.width,
-        NirValue::RoutineAddr { .. } => Some(ByteSize::new(2)),
+        NirValue::Null { ty }
+        | NirValue::AddressConst { ty, .. }
+        | NirValue::StaticAddr { ty, .. }
+        | NirValue::Temp { ty, .. }
+        | NirValue::RoutineAddr { ty, .. } => ty.width,
         NirValue::Param(_) | NirValue::GlobalAddr(_) => None,
     }
 }

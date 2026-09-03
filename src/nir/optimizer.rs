@@ -171,6 +171,8 @@ fn uniform_value_dominates(
     match value {
         NirValue::ConstU8(_)
         | NirValue::ConstU16(_)
+        | NirValue::Null { .. }
+        | NirValue::AddressConst { .. }
         | NirValue::StaticAddr { .. }
         | NirValue::RoutineAddr { .. } => true,
         NirValue::Temp { id, .. } => routine
@@ -484,6 +486,8 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
                     NirValue::ConstU8(0) => else_edge.target == to,
                     NirValue::ConstU8(_) => then_edge.target == to,
                     NirValue::ConstU16(_)
+                    | NirValue::Null { .. }
+                    | NirValue::AddressConst { .. }
                     | NirValue::StaticAddr { .. }
                     | NirValue::Temp { .. }
                     | NirValue::Param(_)
@@ -816,6 +820,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
             left,
             right,
         } => Some((*dest, value_for_type(eval_binary(*op, left, right)?, ty)?)),
+        NirOp::PointerOffset { .. } => None,
         NirOp::Compare {
             dest,
             ty,
@@ -851,6 +856,12 @@ fn eval_compare(
     right: &NirValue,
     operand_ty: &NirType,
 ) -> Option<bool> {
+    if operand_ty.kind.is_address() {
+        let left = const_address(left)?;
+        let right = const_address(right)?;
+        return (left.address_space == right.address_space)
+            .then(|| apply_compare(op, left.value, right.value));
+    }
     let left = const_u16(left)?;
     let right = const_u16(right)?;
     Some(match &operand_ty.kind {
@@ -858,6 +869,31 @@ fn eval_compare(
         NirTypeKind::I16 => apply_compare(op, left as i16, right as i16),
         _ => apply_compare(op, left, right),
     })
+}
+
+fn const_address(value: &NirValue) -> Option<crate::target::AddressValue> {
+    match value {
+        NirValue::Null { ty } => Some(crate::target::AddressValue::new(
+            address_space(&ty.kind)?,
+            0,
+        )),
+        NirValue::AddressConst { address, .. } => Some(*address),
+        NirValue::ConstU8(_)
+        | NirValue::ConstU16(_)
+        | NirValue::StaticAddr { .. }
+        | NirValue::Temp { .. }
+        | NirValue::Param(_)
+        | NirValue::GlobalAddr(_)
+        | NirValue::RoutineAddr { .. } => None,
+    }
+}
+
+fn address_space(kind: &NirTypeKind) -> Option<crate::target::AddressSpaceId> {
+    match kind {
+        NirTypeKind::Pointer { address_space, .. }
+        | NirTypeKind::Callable { address_space, .. } => Some(*address_space),
+        _ => None,
+    }
 }
 
 fn apply_compare<T: Ord>(op: NirCompareOp, left: T, right: T) -> bool {
@@ -902,6 +938,8 @@ fn const_u16(value: &NirValue) -> Option<u16> {
         NirValue::ConstU8(value) => Some(u16::from(*value)),
         NirValue::ConstU16(value) => Some(*value),
         NirValue::StaticAddr { .. }
+        | NirValue::Null { .. }
+        | NirValue::AddressConst { .. }
         | NirValue::Temp { .. }
         | NirValue::Param(_)
         | NirValue::GlobalAddr(_)
@@ -932,6 +970,10 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
         NirOp::Binary { left, right, .. } | NirOp::Compare { left, right, .. } => {
             rewrite_value(left, constants);
             rewrite_value(right, constants);
+        }
+        NirOp::PointerOffset { base, offset, .. } => {
+            rewrite_value(base, constants);
+            rewrite_value(offset, constants);
         }
         NirOp::Real(real) => rewrite_real_op_values(real, constants),
         NirOp::Call { callee, args, .. } => {
@@ -1119,6 +1161,10 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
             collect_value_use(left, out);
             collect_value_use(right, out);
         }
+        NirOp::PointerOffset { base, offset, .. } => {
+            collect_value_use(base, out);
+            collect_value_use(offset, out);
+        }
         NirOp::Real(real) => collect_real_op_uses(real, out),
         NirOp::Call { callee, args, .. } => {
             if let NirCallee::Indirect { target, .. } = callee {
@@ -1239,7 +1285,11 @@ fn collect_value_use(value: &NirValue, out: &mut BTreeSet<TempId>) {
 fn is_pure_temp_op(op: &NirOp) -> bool {
     matches!(
         op,
-        NirOp::Unary { .. } | NirOp::Cast { .. } | NirOp::Binary { .. } | NirOp::Compare { .. }
+        NirOp::Unary { .. }
+            | NirOp::Cast { .. }
+            | NirOp::PointerOffset { .. }
+            | NirOp::Binary { .. }
+            | NirOp::Compare { .. }
     )
 }
 
@@ -1249,6 +1299,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::VolatileLoad { dest, ty, .. }
         | NirOp::AddrOf { dest, ty, .. }
         | NirOp::Unary { dest, ty, .. }
+        | NirOp::PointerOffset { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
         NirOp::Real(NirRealOp::Compare {
@@ -1515,8 +1566,9 @@ mod value_fact_tests {
     #[test]
     fn gvn_reuses_a_dominating_address_value() {
         let pointer = NirType {
-            kind: NirTypeKind::Ptr16 {
+            kind: NirTypeKind::Pointer {
                 pointee: Some(Box::new(NirTypeKind::U8)),
+                address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
             },
             summary: "Byte*".to_string(),
             width: Some(crate::target::ByteSize::new(2)),

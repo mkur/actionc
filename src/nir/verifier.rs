@@ -4,8 +4,8 @@ use super::analysis::cfg::NirCfg;
 use super::analysis::dominance::NirDominance;
 use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    NirStorageId, NirType, NirTypeKind, NirValue, SymbolId, TempId, value_is_oversized_literal,
-    value_width,
+    NirStorageId, NirType, NirTypeKind, NirValue, SignatureId, SymbolId, TempId,
+    value_is_oversized_literal, value_width,
 };
 use super::ir::*;
 use crate::target::{AddressValue, ByteSize, TargetLayout};
@@ -52,6 +52,7 @@ struct NirVerifier {
     global_sizes: BTreeMap<SymbolId, ByteSize>,
     global_types: BTreeMap<SymbolId, NirType>,
     global_ids: BTreeSet<SymbolId>,
+    signatures: BTreeMap<SignatureId, NirCallableSignature>,
     routine_count: usize,
     target_layout: TargetLayout,
 }
@@ -920,6 +921,13 @@ impl NirVerifier {
             }
             NirOp::AddrOf { dest, ty, place } => {
                 self.op_type(routine, block, ty, "address result");
+                if !ty.kind.is_pointer() {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "address-of result must have data-pointer type",
+                    ));
+                }
                 self.place_type(routine, block, place, "address place");
                 self.place_temp_uses(routine, block, place, op_index, temp_facts, "address place");
                 self.temp_def_matches_table(routine, block, *dest, ty, op_index);
@@ -942,6 +950,16 @@ impl NirVerifier {
                 self.value_type(routine, block, src, "store source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "store source");
                 self.match_value_widths(routine, block, Some(ty), src, "store");
+                if self.target_layout.target != crate::target::TargetId::Atari6502
+                    && (ty.kind.is_address() || value_has_address_type(src))
+                    && !value_matches_type(src, ty)
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "native pointer stores require an explicit, type-preserving address value",
+                    ));
+                }
             }
             NirOp::CopyBytes {
                 destination,
@@ -991,12 +1009,20 @@ impl NirVerifier {
                         "integer negation must produce cartridge-compatible INT",
                     ));
                 }
+                if ty.kind.is_address() || value_has_address_type(src) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "generic integer unary operation cannot carry a pointer value",
+                    ));
+                }
             }
             NirOp::Cast {
                 dest,
                 src,
                 from,
                 to,
+                kind,
             } => {
                 self.op_type(routine, block, from, "cast source type");
                 self.op_type(routine, block, to, "cast result");
@@ -1006,6 +1032,89 @@ impl NirVerifier {
                 self.reject_real_value(routine, block, src, "ordinary cast source");
                 self.value_temp_use(routine, block, src, op_index, temp_facts, "cast source");
                 self.temp_def_matches_table(routine, block, *dest, to, op_index);
+                if !defined_temps.insert(*dest) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("duplicate temp definition `%t{}`", dest.0),
+                    ));
+                }
+                let expected_kind = match (from.kind.is_address(), to.kind.is_address()) {
+                    (true, true) => NirCastKind::Pointer,
+                    (false, true) => NirCastKind::IntegerToPointer,
+                    (true, false) => NirCastKind::PointerToInteger,
+                    (false, false) => NirCastKind::Integer,
+                };
+                if *kind != expected_kind {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "cast kind does not match its source and result types",
+                    ));
+                }
+                if self.target_layout.target != crate::target::TargetId::Atari6502
+                    && matches!(
+                        kind,
+                        NirCastKind::IntegerToPointer | NirCastKind::PointerToInteger
+                    )
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "dynamic pointer/integer conversion requires a target-sized ADDRESS type",
+                    ));
+                }
+            }
+            NirOp::PointerOffset {
+                dest,
+                ty,
+                base,
+                offset,
+                ..
+            } => {
+                self.op_type(routine, block, ty, "pointer offset result");
+                if !ty.kind.is_pointer() {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "pointer offset result must have data-pointer type",
+                    ));
+                }
+                self.value_type(routine, block, base, "pointer offset base");
+                self.value_type(routine, block, offset, "pointer offset displacement");
+                self.value_temp_use(
+                    routine,
+                    block,
+                    base,
+                    op_index,
+                    temp_facts,
+                    "pointer offset base",
+                );
+                self.value_temp_use(
+                    routine,
+                    block,
+                    offset,
+                    op_index,
+                    temp_facts,
+                    "pointer offset displacement",
+                );
+                if !value_matches_type(base, ty) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "pointer offset base type does not match its result type",
+                    ));
+                }
+                if value_has_address_type(offset)
+                    || value_width(offset).is_none_or(|width| width > ByteSize::new(2))
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "pointer offset displacement must be an Action! integer",
+                    ));
+                }
+                self.temp_def_matches_table(routine, block, *dest, ty, op_index);
                 if !defined_temps.insert(*dest) {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
@@ -1056,6 +1165,17 @@ impl NirVerifier {
                         &routine.name,
                         &block.label,
                         "integer multiplication must produce cartridge-compatible INT",
+                    ));
+                }
+                if self.target_layout.target != crate::target::TargetId::Atari6502
+                    && (ty.kind.is_address()
+                        || value_has_address_type(left)
+                        || value_has_address_type(right))
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        "generic integer binary operation cannot carry pointer values",
                     ));
                 }
                 if matches!(op, NirBinaryOp::Add | NirBinaryOp::Sub)
@@ -1169,6 +1289,19 @@ impl NirVerifier {
                 }
                 if let Some(signature) = signature {
                     self.call_signature(routine, block, args, result.as_ref(), signature);
+                    if let NirCallee::Indirect { ty, .. } = callee
+                        && let NirTypeKind::Callable {
+                            signature: callee_signature,
+                            ..
+                        } = ty.kind
+                        && callee_signature != signature.id
+                    {
+                        self.diagnostics.push(NirDiagnostic::block(
+                            &routine.name,
+                            &block.label,
+                            "indirect callee signature id does not match the call signature",
+                        ));
+                    }
                 } else if matches!(callee, NirCallee::Indirect { .. }) {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
@@ -1901,6 +2034,20 @@ impl NirVerifier {
         result: Option<&NirCallResult>,
         signature: &NirCallableSignature,
     ) {
+        if let Some(existing) = self.signatures.get(&signature.id) {
+            if existing != signature {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!(
+                        "signature id {} is reused for different callable facts",
+                        signature.id.0
+                    ),
+                ));
+            }
+        } else {
+            self.signatures.insert(signature.id, signature.clone());
+        }
         if signature.abi.is_empty() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
@@ -2165,14 +2312,14 @@ impl NirVerifier {
     }
 
     fn type_shape(&mut self, routine: &NirRoutine, block: &NirBlock, ty: &NirType, label: &str) {
-        if ty.kind.width() != ty.width {
+        if ty.kind.width(self.target_layout) != ty.width {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
                 format!(
                     "{label} NIR type width mismatch: kind {:?} has {:?}, legacy width is {:?}",
                     ty.kind,
-                    ty.kind.width(),
+                    ty.kind.width(self.target_layout),
                     ty.width
                 ),
             ));
@@ -2192,11 +2339,11 @@ impl NirVerifier {
     }
 
     fn type_shape_static(&mut self, ty: &NirType, label: &str) {
-        if ty.kind.width() != ty.width {
+        if ty.kind.width(self.target_layout) != ty.width {
             self.diagnostics.push(NirDiagnostic::program(format!(
                 "static data `{label}` NIR type width mismatch: kind {:?} has {:?}, legacy width is {:?}",
                 ty.kind,
-                ty.kind.width(),
+                ty.kind.width(self.target_layout),
                 ty.width
             )));
         }
@@ -2227,6 +2374,28 @@ impl NirVerifier {
     ) {
         match value {
             NirValue::ConstU8(_) | NirValue::ConstU16(_) => {}
+            NirValue::Null { ty } => {
+                self.type_shape(routine, block, ty, label);
+                if !ty.kind.is_address() {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} null value must have pointer or callable type"),
+                    ));
+                }
+            }
+            NirValue::AddressConst { address, ty } => {
+                self.type_shape(routine, block, ty, label);
+                if pointer_type_address_space(ty) != Some(address.address_space)
+                    || !self.address_fits_target(*address)
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} address constant does not fit its typed address space"),
+                    ));
+                }
+            }
             NirValue::StaticAddr { id, ty, .. } => {
                 if !self.static_ids.contains(id) {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -2238,7 +2407,19 @@ impl NirVerifier {
                 self.type_shape(routine, block, ty, label)
             }
             NirValue::Temp { ty, .. } => self.type_shape(routine, block, ty, label),
-            NirValue::RoutineAddr { id, .. } => {
+            NirValue::RoutineAddr { id, ty, .. } => {
+                self.type_shape(routine, block, ty, label);
+                if !matches!(
+                    ty.kind,
+                    NirTypeKind::Callable { address_space, .. }
+                        if address_space == self.target_layout.code_pointer.address_space
+                ) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} routine address must have code-pointer type"),
+                    ));
+                }
                 if usize::try_from(*id)
                     .ok()
                     .is_none_or(|id| id >= self.routine_count)
@@ -2265,6 +2446,8 @@ impl NirVerifier {
             NirValue::ConstU8(value) => *value <= 1,
             NirValue::Temp { ty, .. } => matches!(ty.kind, NirTypeKind::Bool),
             NirValue::ConstU16(_)
+            | NirValue::Null { .. }
+            | NirValue::AddressConst { .. }
             | NirValue::StaticAddr { .. }
             | NirValue::Param(_)
             | NirValue::GlobalAddr(_)
@@ -2295,6 +2478,8 @@ impl NirVerifier {
                     NirValue::Temp { ty, .. } => Some(ty),
                     NirValue::ConstU8(_)
                     | NirValue::ConstU16(_)
+                    | NirValue::Null { .. }
+                    | NirValue::AddressConst { .. }
                     | NirValue::StaticAddr { .. }
                     | NirValue::Param(_)
                     | NirValue::GlobalAddr(_)
@@ -2530,12 +2715,15 @@ impl NirVerifier {
         label: &str,
     ) {
         let value_ty = match value {
-            NirValue::Temp { ty, .. } | NirValue::StaticAddr { ty, .. } => ty,
+            NirValue::Temp { ty, .. }
+            | NirValue::StaticAddr { ty, .. }
+            | NirValue::Null { ty }
+            | NirValue::AddressConst { ty, .. }
+            | NirValue::RoutineAddr { ty, .. } => ty,
             NirValue::ConstU8(_)
             | NirValue::ConstU16(_)
             | NirValue::Param(_)
-            | NirValue::GlobalAddr(_)
-            | NirValue::RoutineAddr { .. } => return,
+            | NirValue::GlobalAddr(_) => return,
         };
         let Some(expected) = compare_machine_type(operand_ty) else {
             return;
@@ -2629,9 +2817,43 @@ fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
     match value {
         NirValue::ConstU8(_) => expected.width == Some(ByteSize::ONE),
         NirValue::ConstU16(_) => expected.width == Some(ByteSize::new(2)),
-        NirValue::RoutineAddr { .. } => expected.width == Some(ByteSize::new(2)),
-        NirValue::StaticAddr { ty, .. } | NirValue::Temp { ty, .. } => ty == expected,
+        NirValue::Null { ty }
+        | NirValue::AddressConst { ty, .. }
+        | NirValue::RoutineAddr { ty, .. }
+        | NirValue::StaticAddr { ty, .. }
+        | NirValue::Temp { ty, .. } => ty == expected,
         NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
+    }
+}
+
+fn value_has_address_type(value: &NirValue) -> bool {
+    match value {
+        NirValue::Null { .. }
+        | NirValue::AddressConst { .. }
+        | NirValue::RoutineAddr { .. }
+        | NirValue::StaticAddr {
+            ty: NirType {
+                kind: NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. },
+                ..
+            },
+            ..
+        }
+        | NirValue::Temp {
+            ty: NirType {
+                kind: NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. },
+                ..
+            },
+            ..
+        } => true,
+        _ => false,
+    }
+}
+
+fn pointer_type_address_space(ty: &NirType) -> Option<crate::target::AddressSpaceId> {
+    match ty.kind {
+        NirTypeKind::Pointer { address_space, .. }
+        | NirTypeKind::Callable { address_space, .. } => Some(address_space),
+        _ => None,
     }
 }
 
@@ -2643,7 +2865,7 @@ fn compare_machine_type(ty: &NirType) -> Option<(u16, bool)> {
         | NirTypeKind::I8
         | NirTypeKind::U16
         | NirTypeKind::I16
-        | NirTypeKind::Ptr16 { .. }
+        | NirTypeKind::Pointer { .. }
         | NirTypeKind::Callable { .. } => ty
             .width
             .and_then(|width| u16::try_from(width).ok())

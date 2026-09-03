@@ -408,6 +408,7 @@ fn op_summary(op: &NirOp) -> String {
             src,
             from,
             to,
+            ..
         } => {
             format!(
                 "{}:{} = cast {} -> {} {}",
@@ -418,6 +419,20 @@ fn op_summary(op: &NirOp) -> String {
                 value_summary(src)
             )
         }
+        NirOp::PointerOffset {
+            dest,
+            ty,
+            base,
+            offset,
+            subtract,
+        } => format!(
+            "{}:{} = ptr_offset {} {} {}",
+            temp_summary(*dest),
+            ty.summary,
+            value_summary(base),
+            if *subtract { "-" } else { "+" },
+            value_summary(offset)
+        ),
         NirOp::Binary {
             dest,
             ty,
@@ -723,11 +738,13 @@ fn value_summary(value: &NirValue) -> String {
     match value {
         NirValue::ConstU8(value) => value.to_string(),
         NirValue::ConstU16(value) => format!("${value:X}"),
+        NirValue::Null { .. } => "$0".to_string(),
+        NirValue::AddressConst { address, .. } => format!("${address:X}"),
         NirValue::StaticAddr { name, .. } => format!("&{name}"),
         NirValue::Temp { id, .. } => temp_summary(*id),
         NirValue::Param(id) => format!("param{}", id.0),
         NirValue::GlobalAddr(id) => format!("global_addr{}", id.0),
-        NirValue::RoutineAddr { id, name } => format!("routine_addr{id}({name})"),
+        NirValue::RoutineAddr { id, name, .. } => format!("routine_addr{id}({name})"),
     }
 }
 

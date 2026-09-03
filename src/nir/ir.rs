@@ -1,4 +1,6 @@
-use super::facts::{BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, SymbolId, TempId};
+use super::facts::{
+    BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, SignatureId, SymbolId, TempId,
+};
 use crate::asm6502::{InlineAsmRelocationKind, InlineAsmSymbolUse};
 use crate::source::Span;
 use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize};
@@ -322,6 +324,7 @@ pub struct NirCallResult {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirCallableSignature {
+    pub id: SignatureId,
     pub params: Vec<NirType>,
     pub variadic: Option<NirType>,
     pub result: Option<NirType>,
@@ -497,6 +500,16 @@ pub enum NirOp {
         src: NirValue,
         from: NirType,
         to: NirType,
+        kind: NirCastKind,
+    },
+    /// Address arithmetic kept distinct from fixed-width Action! integer
+    /// arithmetic. The displacement is measured in bytes.
+    PointerOffset {
+        dest: TempId,
+        ty: NirType,
+        base: NirValue,
+        offset: NirValue,
+        subtract: bool,
     },
     Binary {
         dest: TempId,
@@ -535,6 +548,14 @@ pub enum NirOp {
     Unsupported {
         note: String,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NirCastKind {
+    Integer,
+    Pointer,
+    IntegerToPointer,
+    PointerToInteger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

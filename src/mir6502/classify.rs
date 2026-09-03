@@ -83,6 +83,10 @@ pub(super) fn classify_value(value: &NirValue) -> MirValueShape {
     match value {
         NirValue::ConstU8(value) => MirValueShape::ConstByte(*value),
         NirValue::ConstU16(value) => MirValueShape::ConstWord(*value),
+        NirValue::Null { .. } => MirValueShape::ConstWord(0),
+        NirValue::AddressConst { address, .. } => MirValueShape::ConstWord(
+            u16::try_from(address.value).expect("verified Atari NIR address fits in 16 bits"),
+        ),
         NirValue::Temp { id, .. } => MirValueShape::Temp(*id),
         NirValue::StaticAddr { id, .. } => MirValueShape::StaticAddress(*id),
         NirValue::GlobalAddr(id) => MirValueShape::GlobalAddress(*id),

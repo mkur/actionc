@@ -21,11 +21,12 @@ pub use analysis::storage::{
     NirStorageBackingClass, NirStorageFacts, analyze_program_storage,
 };
 pub use facts::{
-    BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SymbolId, TempId,
-    direct_storage_id,
+    BlockId, LocalId, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SignatureId,
+    SymbolId, TempId, direct_storage_id,
 };
 pub use ir::{
     NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam, NirCallEffects, NirCallResult,
+    NirCastKind,
     NirCallableSignature, NirCallee, NirCompareOp, NirDataBacking, NirDataImage, NirDataRelocation,
     NirDataRelocationKind, NirDataRelocationTarget, NirEdge, NirGlobal, NirGlobalBacking,
     NirGlobalInit, NirInlineAsm, NirInlineAsmRelocation, NirInlineAsmTarget, NirLocal,

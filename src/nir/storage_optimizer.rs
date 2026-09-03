@@ -280,6 +280,7 @@ fn transfer_op(
         }
         NirOp::AddrOf { dest, .. }
         | NirOp::Unary { dest, .. }
+        | NirOp::PointerOffset { dest, .. }
         | NirOp::Binary { dest, .. }
         | NirOp::Compare { dest, .. } => {
             facts.replacements.remove(dest);
@@ -433,6 +434,10 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
             rewrite_value(left, replacements);
             rewrite_value(right, replacements);
         }
+        NirOp::PointerOffset { base, offset, .. } => {
+            rewrite_value(base, replacements);
+            rewrite_value(offset, replacements);
+        }
         NirOp::Real(real) => rewrite_real_op_values(real, replacements),
         NirOp::Call { callee, args, .. } => {
             if let NirCallee::Indirect { target, .. } = callee {
@@ -559,6 +564,7 @@ fn op_definition(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::VolatileLoad { dest, ty, .. }
         | NirOp::AddrOf { dest, ty, .. }
         | NirOp::Unary { dest, ty, .. }
+        | NirOp::PointerOffset { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
         NirOp::Real(NirRealOp::Compare {

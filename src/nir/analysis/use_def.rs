@@ -144,6 +144,7 @@ fn op_definition(op: &NirOp) -> Option<TempId> {
         | NirOp::AddrOf { dest, .. }
         | NirOp::Unary { dest, .. }
         | NirOp::Cast { dest, .. }
+        | NirOp::PointerOffset { dest, .. }
         | NirOp::Binary { dest, .. }
         | NirOp::Compare { dest, .. } => Some(*dest),
         NirOp::Real(NirRealOp::Compare { result, .. })
@@ -199,6 +200,10 @@ fn record_op_uses(
         NirOp::Binary { left, right, .. } => {
             record_value(uses, left, site(NirUseKind::BinaryLeft));
             record_value(uses, right, site(NirUseKind::BinaryRight));
+        }
+        NirOp::PointerOffset { base, offset, .. } => {
+            record_value(uses, base, site(NirUseKind::BinaryLeft));
+            record_value(uses, offset, site(NirUseKind::BinaryRight));
         }
         NirOp::Compare { left, right, .. } => {
             record_value(uses, left, site(NirUseKind::CompareLeft));
@@ -530,6 +535,7 @@ mod tests {
                         src: temp(26),
                         from: byte_type(),
                         to: byte_type(),
+                        kind: crate::nir::NirCastKind::Integer,
                     },
                 ],
                 terminator: NirTerminator::Branch {

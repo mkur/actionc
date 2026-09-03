@@ -23,7 +23,7 @@ use crate::target::{AddressValue, ByteOffset, ByteSize, TargetLayout};
 use super::classifier::NirClassifier;
 use super::facts::{
     BlockId, LocalId, NirFacts, NirStorageId, NirType, NirTypeKind, NirValue, ParamId, SymbolId,
-    TempId, type_summary,
+    TempId, signature_id, type_summary,
 };
 use super::ir::*;
 
@@ -35,6 +35,7 @@ pub(super) struct NirLowerer {
     global_ids: BTreeMap<String, SymbolId>,
     global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: BTreeMap<String, u32>,
+    routine_types: BTreeMap<String, NirType>,
     symbol_storage_types: BTreeMap<String, NirType>,
     semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
     semantic_absolute_globals: BTreeMap<SemSymbolId, u16>,
@@ -188,6 +189,7 @@ impl NirLowerer {
                             self.global_ids.clone(),
                             self.global_ids_by_symbol.clone(),
                             self.routine_ids.clone(),
+                            self.routine_types.clone(),
                             self.symbol_storage_types.clone(),
                             self.semantic_storage_types.clone(),
                             self.semantic_absolute_array_element_bases.clone(),
@@ -370,6 +372,7 @@ impl NirLowerer {
                 self.global_ids.clone(),
                 self.global_ids_by_symbol.clone(),
                 self.routine_ids.clone(),
+                self.routine_types.clone(),
                 self.symbol_storage_types.clone(),
                 self.semantic_storage_types.clone(),
                 self.semantic_absolute_array_element_bases.clone(),
@@ -440,12 +443,14 @@ impl NirLowerer {
 
         deduplicate_real_statics(&mut statics, &mut routines);
 
-        NirProgram {
+        let mut nir = NirProgram {
             target_layout: program.target_layout,
             globals,
             statics,
             routines,
-        }
+        };
+        apply_target_layout_to_program(&mut nir);
+        nir
     }
 
     fn next_block_label(&mut self) -> String {
@@ -504,12 +509,19 @@ impl NirLowerer {
 
     fn collect_routine_ids(&mut self, program: &SemProgram) {
         self.routine_ids.clear();
+        self.routine_types.clear();
         for module in &program.modules {
             for item in &module.items {
                 if let crate::semantic::ir::SemItem::Routine(routine) = item {
                     let id = self.routine_ids.len() as u32;
                     self.routine_ids
                         .insert(storage_key(&routine.symbol.name), id);
+                    self.routine_types.insert(
+                        storage_key(&routine.symbol.name),
+                        NirType::from_value(&ValueType::callable_pointer(
+                            routine.callable_type.clone(),
+                        )),
+                    );
                 }
             }
         }
@@ -750,6 +762,265 @@ impl NirLowerer {
     }
 }
 
+fn apply_target_layout_to_program(program: &mut NirProgram) {
+    let layout = program.target_layout;
+    for global in &mut program.globals {
+        if let Some(ty) = &mut global.ty {
+            ty.apply_target_layout(layout);
+        }
+    }
+    for static_data in &mut program.statics {
+        static_data.ty.apply_target_layout(layout);
+    }
+    for routine in &mut program.routines {
+        for param in &mut routine.params {
+            param.ty.apply_target_layout(layout);
+        }
+        for local in &mut routine.locals {
+            local.ty.apply_target_layout(layout);
+        }
+        for temp in &mut routine.temps {
+            temp.ty.apply_target_layout(layout);
+        }
+        for block in &mut routine.blocks {
+            for param in &mut block.params {
+                param.ty.apply_target_layout(layout);
+            }
+            for op in &mut block.ops {
+                apply_target_layout_to_op(op, layout);
+            }
+            apply_target_layout_to_terminator(&mut block.terminator, layout);
+        }
+    }
+}
+
+fn apply_target_layout_to_op(op: &mut NirOp, layout: TargetLayout) {
+    match op {
+        NirOp::Load { ty, place, .. } | NirOp::VolatileLoad { ty, place, .. } => {
+            ty.apply_target_layout(layout);
+            apply_target_layout_to_place(place, layout);
+        }
+        NirOp::AddrOf { ty, place, .. } => {
+            ty.apply_target_layout(layout);
+            apply_target_layout_to_place(place, layout);
+        }
+        NirOp::Store { place, src, ty } | NirOp::VolatileStore { place, src, ty } => {
+            apply_target_layout_to_place(place, layout);
+            apply_target_layout_to_value(src, layout);
+            ty.apply_target_layout(layout);
+        }
+        NirOp::CopyBytes {
+            destination,
+            source,
+            ..
+        } => {
+            apply_target_layout_to_place(destination, layout);
+            apply_target_layout_to_place(source, layout);
+        }
+        NirOp::Unary { ty, src, .. } => {
+            ty.apply_target_layout(layout);
+            apply_target_layout_to_value(src, layout);
+        }
+        NirOp::Cast {
+            src, from, to, ..
+        } => {
+            apply_target_layout_to_value(src, layout);
+            from.apply_target_layout(layout);
+            to.apply_target_layout(layout);
+        }
+        NirOp::PointerOffset {
+            ty, base, offset, ..
+        } => {
+            ty.apply_target_layout(layout);
+            apply_target_layout_to_value(base, layout);
+            apply_target_layout_to_value(offset, layout);
+        }
+        NirOp::Binary {
+            ty, left, right, ..
+        } => {
+            ty.apply_target_layout(layout);
+            apply_target_layout_to_value(left, layout);
+            apply_target_layout_to_value(right, layout);
+        }
+        NirOp::Compare {
+            ty,
+            operand_ty,
+            left,
+            right,
+            ..
+        } => {
+            ty.apply_target_layout(layout);
+            operand_ty.apply_target_layout(layout);
+            apply_target_layout_to_value(left, layout);
+            apply_target_layout_to_value(right, layout);
+        }
+        NirOp::Real(real) => apply_target_layout_to_real_op(real, layout),
+        NirOp::Call {
+            callee,
+            args,
+            result,
+            signature,
+            ..
+        } => {
+            if let NirCallee::Indirect { target, ty } = callee {
+                apply_target_layout_to_value(target, layout);
+                ty.apply_target_layout(layout);
+            }
+            for arg in args {
+                apply_target_layout_to_value(arg, layout);
+            }
+            if let Some(result) = result {
+                result.ty.apply_target_layout(layout);
+            }
+            if let Some(signature) = signature {
+                for param in &mut signature.params {
+                    param.apply_target_layout(layout);
+                }
+                if let Some(variadic) = &mut signature.variadic {
+                    variadic.apply_target_layout(layout);
+                }
+                if let Some(result) = &mut signature.result {
+                    result.apply_target_layout(layout);
+                }
+            }
+        }
+        NirOp::RuntimeHelperOverride { .. }
+        | NirOp::MachineBlock { .. }
+        | NirOp::InlineAsm { .. }
+        | NirOp::Unsupported { .. } => {}
+    }
+}
+
+fn apply_target_layout_to_real_op(op: &mut NirRealOp, layout: TargetLayout) {
+    let source = |source: &mut NirRealSource| {
+        if let NirRealSource::Place(place) = source {
+            apply_target_layout_to_place(place, layout);
+        }
+    };
+    match op {
+        NirRealOp::Copy {
+            destination,
+            source: operand,
+        }
+        | NirRealOp::Unary {
+            destination,
+            operand,
+            ..
+        } => {
+            apply_target_layout_to_place(destination, layout);
+            source(operand);
+        }
+        NirRealOp::Binary {
+            destination,
+            left,
+            right,
+            ..
+        } => {
+            apply_target_layout_to_place(destination, layout);
+            source(left);
+            source(right);
+        }
+        NirRealOp::Compare {
+            result_type,
+            left,
+            right,
+            ..
+        } => {
+            result_type.apply_target_layout(layout);
+            source(left);
+            source(right);
+        }
+        NirRealOp::IntegerToReal {
+            destination,
+            source: value,
+            source_type,
+        } => {
+            apply_target_layout_to_place(destination, layout);
+            apply_target_layout_to_value(value, layout);
+            source_type.apply_target_layout(layout);
+        }
+        NirRealOp::RealToInteger {
+            result_type,
+            source,
+            ..
+        } => {
+            result_type.apply_target_layout(layout);
+            apply_target_layout_to_place(source, layout);
+        }
+    }
+}
+
+fn apply_target_layout_to_place(place: &mut NirPlace, layout: TargetLayout) {
+    if let Some(ty) = &mut place.ty {
+        ty.apply_target_layout(layout);
+    }
+    match &mut place.kind {
+        NirPlaceKind::Deref { addr } => apply_target_layout_to_value(addr, layout),
+        NirPlaceKind::Index {
+            base_addr,
+            index,
+            elem_ty,
+            ..
+        } => {
+            apply_target_layout_to_value(base_addr, layout);
+            apply_target_layout_to_value(index, layout);
+            elem_ty.apply_target_layout(layout);
+        }
+        NirPlaceKind::Field { base, ty, .. } => {
+            apply_target_layout_to_place(base, layout);
+            ty.apply_target_layout(layout);
+        }
+        NirPlaceKind::Param { .. }
+        | NirPlaceKind::Local { .. }
+        | NirPlaceKind::Global { .. }
+        | NirPlaceKind::Absolute(_) => {}
+    }
+}
+
+fn apply_target_layout_to_value(value: &mut NirValue, layout: TargetLayout) {
+    match value {
+        NirValue::AddressConst { address, ty } => {
+            ty.apply_target_layout(layout);
+            if let Some(address_space) = pointer_address_space(ty) {
+                address.address_space = address_space;
+            }
+        }
+        NirValue::Null { ty }
+        | NirValue::StaticAddr { ty, .. }
+        | NirValue::Temp { ty, .. }
+        | NirValue::RoutineAddr { ty, .. } => ty.apply_target_layout(layout),
+        NirValue::ConstU8(_)
+        | NirValue::ConstU16(_)
+        | NirValue::Param(_)
+        | NirValue::GlobalAddr(_) => {}
+    }
+}
+
+fn apply_target_layout_to_terminator(terminator: &mut NirTerminator, layout: TargetLayout) {
+    let edge = |edge: &mut NirEdge| {
+        for arg in &mut edge.args {
+            apply_target_layout_to_value(arg, layout);
+        }
+    };
+    match terminator {
+        NirTerminator::Goto(target) => edge(target),
+        NirTerminator::Branch {
+            condition,
+            then_edge,
+            else_edge,
+        } => {
+            apply_target_layout_to_value(condition, layout);
+            edge(then_edge);
+            edge(else_edge);
+        }
+        NirTerminator::Return(Some(value)) => apply_target_layout_to_value(value, layout),
+        NirTerminator::Open
+        | NirTerminator::Fallthrough
+        | NirTerminator::Return(None)
+        | NirTerminator::Exit => {}
+    }
+}
+
 fn deduplicate_real_statics(statics: &mut Vec<NirStaticData>, routines: &mut [NirRoutine]) {
     let mut canonical = BTreeMap::<Vec<u8>, (SymbolId, String)>::new();
     let mut replacements = BTreeMap::<SymbolId, (SymbolId, String)>::new();
@@ -874,6 +1145,7 @@ pub(super) struct NirBuilder {
     global_ids: BTreeMap<String, SymbolId>,
     global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
     routine_ids: BTreeMap<String, u32>,
+    routine_types: BTreeMap<String, NirType>,
     symbol_storage_types: BTreeMap<String, NirType>,
     semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
     semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
@@ -902,6 +1174,7 @@ impl NirBuilder {
         global_ids: BTreeMap<String, SymbolId>,
         global_ids_by_symbol: BTreeMap<SemSymbolId, SymbolId>,
         routine_ids: BTreeMap<String, u32>,
+        routine_types: BTreeMap<String, NirType>,
         symbol_storage_types: BTreeMap<String, NirType>,
         semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
         semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
@@ -919,6 +1192,7 @@ impl NirBuilder {
             global_ids,
             global_ids_by_symbol,
             routine_ids,
+            routine_types,
             symbol_storage_types,
             semantic_storage_types,
             semantic_absolute_array_element_bases,
@@ -1744,14 +2018,37 @@ impl NirBuilder {
             }
             SemExprKind::Cast { expr: inner, .. } => {
                 let src = self.nir_value(inner);
-                let dest = self.next_temp();
                 let from = NirFacts::type_from_value(&inner.ty);
                 let to = NirFacts::type_from_value(&expr.ty);
+                let kind = nir_cast_kind(&from, &to);
+                if to.kind.is_address() {
+                    let value = match &src {
+                        NirValue::ConstU8(value) => Some(u64::from(*value)),
+                        NirValue::ConstU16(value) => Some(u64::from(*value)),
+                        _ => None,
+                    };
+                    if let Some(value) = value {
+                        return Some(if value == 0 {
+                            NirValue::Null { ty: to }
+                        } else {
+                            NirValue::AddressConst {
+                                address: AddressValue::new(
+                                    pointer_address_space(&to)
+                                        .expect("address type must name an address space"),
+                                    value,
+                                ),
+                                ty: to,
+                            }
+                        });
+                    }
+                }
+                let dest = self.next_temp();
                 self.push(NirOp::Cast {
                     dest,
                     src,
                     from,
                     to: to.clone(),
+                    kind,
                 });
                 Some(NirValue::Temp { id: dest, ty: to })
             }
@@ -1769,18 +2066,44 @@ impl NirBuilder {
                 Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::Binary { op, left, right } => {
+                let left_ty = NirFacts::type_from_value(&left.ty);
+                let right_ty = NirFacts::type_from_value(&right.ty);
                 let left = self.nir_value(left);
                 let right = self.nir_value(right);
                 let dest = self.next_temp();
-                let ty = NirFacts::type_from_value(&expr.ty);
-                self.push(NirOp::Binary {
-                    dest,
-                    ty: ty.clone(),
-                    op: NirClassifier::binary_op(*op)
-                        .expect("binary expression op should lower to NIR"),
-                    left,
-                    right,
-                });
+                let mut ty = NirFacts::type_from_value(&expr.ty);
+                let operation = NirClassifier::binary_op(*op)
+                    .expect("binary expression op should lower to NIR");
+                let pointer_operands = match operation {
+                    NirBinaryOp::Add if left_ty.kind.is_pointer() && !right_ty.kind.is_address() => {
+                        Some((left.clone(), right.clone(), left_ty))
+                    }
+                    NirBinaryOp::Add if right_ty.kind.is_pointer() && !left_ty.kind.is_address() => {
+                        Some((right.clone(), left.clone(), right_ty))
+                    }
+                    NirBinaryOp::Sub if left_ty.kind.is_pointer() && !right_ty.kind.is_address() => {
+                        Some((left.clone(), right.clone(), left_ty))
+                    }
+                    _ => None,
+                };
+                if let Some((base, offset, pointer_ty)) = pointer_operands {
+                    ty = pointer_ty;
+                    self.push(NirOp::PointerOffset {
+                        dest,
+                        ty: ty.clone(),
+                        base,
+                        offset,
+                        subtract: operation == NirBinaryOp::Sub,
+                    });
+                } else {
+                    self.push(NirOp::Binary {
+                        dest,
+                        ty: ty.clone(),
+                        op: operation,
+                        left,
+                        right,
+                    });
+                }
                 Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::LValue(lvalue) => {
@@ -1821,6 +2144,17 @@ impl NirBuilder {
                     return Some(NirValue::RoutineAddr {
                         id,
                         name: symbol.name.clone(),
+                        ty: symbol
+                            .ty
+                            .as_ref()
+                            .map(NirType::from_value)
+                            .filter(|ty| matches!(ty.kind, NirTypeKind::Callable { .. }))
+                            .or_else(|| {
+                                self.routine_types
+                                    .get(&storage_key(&symbol.name))
+                                    .cloned()
+                            })
+                            .unwrap_or_else(|| NirFacts::type_from_value(&expr.ty)),
                     });
                 }
                 let place_ty = symbol
@@ -3087,6 +3421,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
         | NirOp::VolatileLoad { dest, ty, .. }
         | NirOp::AddrOf { dest, ty, .. }
         | NirOp::Unary { dest, ty, .. }
+        | NirOp::PointerOffset { dest, ty, .. }
         | NirOp::Binary { dest, ty, .. }
         | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
         NirOp::Real(NirRealOp::Compare {
@@ -4167,8 +4502,9 @@ fn builtin_variable_type(name: &str) -> Option<NirType> {
 fn pointer_type_to(pointee: &ValueType) -> NirType {
     let pointee_kind = NirTypeKind::from_value(pointee);
     NirType {
-        kind: NirTypeKind::Ptr16 {
+        kind: NirTypeKind::Pointer {
             pointee: Some(Box::new(pointee_kind)),
+            address_space: TargetLayout::DATA_ADDRESS_SPACE,
         },
         summary: format!("{}*", type_summary(pointee)),
         width: Some(ByteSize::new(2)),
@@ -4225,7 +4561,10 @@ fn nir_scalar_constant(ty: &NirType, value: u16) -> NirValue {
 }
 
 fn zero_value_for_type(ty: &ValueType) -> NirValue {
-    if ty.value_width_bytes() == Some(1) {
+    let nir_ty = NirType::from_value(ty);
+    if matches!(nir_ty.kind, NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. }) {
+        NirValue::Null { ty: nir_ty }
+    } else if ty.value_width_bytes() == Some(1) {
         NirValue::ConstU8(0)
     } else {
         NirValue::ConstU16(0)
@@ -4404,6 +4743,7 @@ fn lvalue_symbol(lvalue: &SemLValue) -> Option<&SemSymbolRef> {
 
 fn nir_call_signature(call: &SemCall) -> NirCallableSignature {
     NirCallableSignature {
+        id: signature_id(&call.callable_type),
         params: call
             .callable_type
             .params
@@ -4422,6 +4762,15 @@ fn nir_call_signature(call: &SemCall) -> NirCallableSignature {
             .map(NirFacts::type_from_value),
         kind: format!("{:?}", call.callable_type.kind),
         abi: "action".to_string(),
+    }
+}
+
+fn nir_cast_kind(from: &NirType, to: &NirType) -> NirCastKind {
+    match (from.kind.is_address(), to.kind.is_address()) {
+        (true, true) => NirCastKind::Pointer,
+        (false, true) => NirCastKind::IntegerToPointer,
+        (true, false) => NirCastKind::PointerToInteger,
+        (false, false) => NirCastKind::Integer,
     }
 }
 
@@ -4561,11 +4910,29 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
         SemLiteral::Constant(value) => value.bits,
         SemLiteral::String(_) => return None,
     };
-    match ty.kind.width() {
+    if ty.kind.is_pointer() {
+        return Some(if value == 0 {
+            NirValue::Null { ty: ty.clone() }
+        } else {
+            NirValue::AddressConst {
+                address: AddressValue::new(pointer_address_space(ty)?, u64::from(value)),
+                ty: ty.clone(),
+            }
+        });
+    }
+    match ty.width {
         Some(width) if width == ByteSize::ONE => {
             u8::try_from(value).ok().map(NirValue::ConstU8)
         }
         Some(width) if width == ByteSize::new(2) => Some(NirValue::ConstU16(value)),
+        _ => None,
+    }
+}
+
+fn pointer_address_space(ty: &NirType) -> Option<crate::target::AddressSpaceId> {
+    match ty.kind {
+        NirTypeKind::Pointer { address_space, .. }
+        | NirTypeKind::Callable { address_space, .. } => Some(address_space),
         _ => None,
     }
 }
@@ -4622,6 +4989,7 @@ mod memory_effect_tests {
             "bb0".to_string(),
             0,
             global_ids,
+            BTreeMap::new(),
             BTreeMap::new(),
             BTreeMap::new(),
             storage_types,

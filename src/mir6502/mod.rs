@@ -1359,6 +1359,7 @@ mod tests {
             args: Vec::new(),
             result: None,
             signature: Some(crate::nir::NirCallableSignature {
+                id: crate::nir::SignatureId(0),
                 params: Vec::new(),
                 variadic: None,
                 result: None,

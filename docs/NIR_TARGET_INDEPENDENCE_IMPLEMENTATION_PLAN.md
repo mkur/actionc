@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 3 completed on 2026-09-03; later slices
+Status: active. Slices 0 through 4 completed on 2026-09-03; later slices
 remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
@@ -342,6 +342,16 @@ nir: introduce target-width absolute addresses
 ```
 
 ### Slice 4: layout-driven pointer and callable types
+
+Status: complete. Data pointers now carry pointee and address-space facts, and
+callable types carry a stable structural `SignatureId` plus their code address
+space. Their widths come from the selected target layout. Nulls and numeric
+address constants are typed values, pointer offsets are distinct from integer
+binary operations, and casts carry an explicit pointer/integer conversion
+class. Native targets reject dynamic `CARD`/pointer conversion until a
+target-sized source `ADDRESS` type exists; Atari retains its compatibility
+rule. MIR6502 explicitly consumes these forms only after its Atari layout
+guard.
 
 1. Replace `Ptr16` with a pointer kind carrying pointee and address-space facts.
 2. Give callable values a stable `SignatureId` and code-address-space fact.

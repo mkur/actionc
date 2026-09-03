@@ -201,6 +201,8 @@ mod tests {
         NirType {
             kind: NirTypeKind::Callable {
                 kind: "Proc".to_string(),
+                signature: crate::nir::SignatureId(0),
+                address_space: crate::target::TargetLayout::CODE_ADDRESS_SPACE,
             },
             summary: "Proc".to_string(),
             width: Some(crate::nir::ByteSize::new(2)),
@@ -210,6 +212,7 @@ mod tests {
 
     fn four_byte_signature() -> NirCallableSignature {
         NirCallableSignature {
+            id: crate::nir::SignatureId(0),
             params: vec![byte_type(); 4],
             variadic: None,
             result: None,

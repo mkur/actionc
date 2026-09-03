@@ -196,6 +196,7 @@ impl NirDataflowProblem for NirPredicateProblem<'_> {
                 | NirOp::AddrOf { .. }
                 | NirOp::Unary { .. }
                 | NirOp::Cast { .. }
+                | NirOp::PointerOffset { .. }
                 | NirOp::Binary { .. }
                 | NirOp::Compare { .. } => {}
             }
@@ -400,6 +401,7 @@ fn invalidates_storage(op: &NirOp, storage: NirStorageId) -> bool {
         | NirOp::AddrOf { .. }
         | NirOp::Unary { .. }
         | NirOp::Cast { .. }
+        | NirOp::PointerOffset { .. }
         | NirOp::Binary { .. }
         | NirOp::Compare { .. } => false,
     }
@@ -741,8 +743,9 @@ mod tests {
         let address_taken = NirOp::AddrOf {
             dest: TempId(9),
             ty: NirType {
-                kind: NirTypeKind::Ptr16 {
+                kind: NirTypeKind::Pointer {
                     pointee: Some(Box::new(NirTypeKind::U8)),
+                    address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
                 },
                 summary: "Byte*".to_string(),
                 width: Some(crate::target::ByteSize::new(2)),

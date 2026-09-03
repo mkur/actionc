@@ -217,8 +217,11 @@ fn transfer_op_backwards(
         NirOp::Real(_) | NirOp::Unsupported { .. } | NirOp::RuntimeHelperOverride { .. } => {
             live.extend(candidates.iter().copied())
         }
-        NirOp::Unary { .. } | NirOp::Cast { .. } | NirOp::Binary { .. } | NirOp::Compare { .. } => {
-        }
+        NirOp::Unary { .. }
+        | NirOp::Cast { .. }
+        | NirOp::PointerOffset { .. }
+        | NirOp::Binary { .. }
+        | NirOp::Compare { .. } => {}
     }
 }
 
@@ -309,6 +312,7 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
                 | NirOp::VolatileLoad { dest, ty, .. }
                 | NirOp::AddrOf { dest, ty, .. }
                 | NirOp::Unary { dest, ty, .. }
+                | NirOp::PointerOffset { dest, ty, .. }
                 | NirOp::Binary { dest, ty, .. }
                 | NirOp::Compare { dest, ty, .. } => Some((*dest, ty)),
                 NirOp::Cast { dest, to, .. } => Some((*dest, to)),
