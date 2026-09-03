@@ -485,6 +485,16 @@ pub(super) fn lower_program(nir_program: &NirProgram) -> Result<MirProgram, Vec<
             })
             .collect());
     }
+    if nir_program.target_layout.target != crate::target::TargetId::Atari6502 {
+        return Err(vec![MirDiagnostic {
+            routine: None,
+            block: None,
+            message: format!(
+                "MIR6502 cannot lower target `{}`",
+                nir_program.target_layout.target
+            ),
+        }]);
+    }
     let mut diagnostics = Vec::new();
     let routine_ids = nir_program
         .routines
@@ -4065,6 +4075,7 @@ mod tests {
     #[test]
     fn lowers_six_byte_real_local_as_address_only_storage() {
         let program = nir::NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![nir::NirRoutine {

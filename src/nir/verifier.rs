@@ -62,6 +62,32 @@ struct NirTempFacts<'a> {
 
 impl NirVerifier {
     fn program(&mut self, program: &NirProgram) {
+        if program.target_layout
+            != crate::target::TargetLayout::for_target(program.target_layout.target)
+        {
+            self.diagnostics.push(NirDiagnostic::program(format!(
+                "target layout does not match registered target `{}`",
+                program.target_layout.target
+            )));
+        }
+        if program.target_layout.address_bits == 0
+            || program.target_layout.link_address_bits == 0
+            || program.target_layout.link_address_bits > program.target_layout.address_bits
+        {
+            self.diagnostics.push(NirDiagnostic::program(
+                "target layout has invalid architectural or link address width",
+            ));
+        }
+        for (kind, pointer) in [
+            ("data", program.target_layout.data_pointer),
+            ("code", program.target_layout.code_pointer),
+        ] {
+            if pointer.size_bytes == 0 || pointer.alignment_bytes == 0 {
+                self.diagnostics.push(NirDiagnostic::program(format!(
+                    "target layout has invalid {kind}-pointer size or alignment"
+                )));
+            }
+        }
         self.routine_count = program.routines.len();
         self.global_ids = program.globals.iter().map(|global| global.id).collect();
         let mut globals = BTreeSet::new();

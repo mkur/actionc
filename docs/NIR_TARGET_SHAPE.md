@@ -121,6 +121,13 @@ The byte-exact Atari guardrail is recorded in
 
 ## Top-Level Shape
 
+The initial executable contract is implemented by `src/target.rs` and the
+`target_layout` fields on `SemProgram` and `NirProgram`. `TargetId` selects one
+of four complete registered layouts; verifier-clean NIR rejects a layout whose
+contents do not match its ID. The Atari layout remains the default and is
+omitted from normal IR printing to keep established fixtures stable. Candidate
+target layouts are printed explicitly during NIR inspection.
+
 Recommended Rust-like target shape:
 
 ```rust

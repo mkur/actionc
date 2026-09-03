@@ -18,6 +18,67 @@ fn emit_nir_prints_nir_output() {
 }
 
 #[test]
+fn candidate_targets_reach_verified_nir_with_their_layout_contract() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("nir")
+        .join("scalar_assignments.act");
+
+    for (target, expected) in [
+        (
+            "wdc-65816-native",
+            "target wdc-65816-native cpu=Wdc65816 endian=Little address_bits=24 data_pointer=3 code_pointer=3",
+        ),
+        (
+            "wdc-65816-small",
+            "target wdc-65816-small cpu=Wdc65816 endian=Little address_bits=24 data_pointer=2 code_pointer=2",
+        ),
+        (
+            "motorola-68000",
+            "target motorola-68000 cpu=Motorola68000 endian=Big address_bits=32 data_pointer=4 code_pointer=4",
+        ),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args(["--profile", "modern", "--target", target, "--emit-nir"])
+            .arg(&fixture)
+            .output()
+            .unwrap_or_else(|error| panic!("emit NIR for {target}: {error}"));
+        assert!(
+            output.status.success(),
+            "{target} NIR inspection failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("UTF-8 NIR");
+        assert!(stdout.contains(expected), "unexpected {target} NIR:\n{stdout}");
+    }
+}
+
+#[test]
+fn candidate_target_codegen_reports_the_missing_backend() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("nir")
+        .join("scalar_assignments.act");
+    let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args([
+            "--profile",
+            "modern",
+            "--target",
+            "motorola-68000",
+            "--emit-code",
+        ])
+        .arg(&fixture)
+        .output()
+        .expect("request unavailable 68k backend");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("code generation backend for target `motorola-68000` is not implemented")
+    );
+}
+
+#[test]
 fn emit_nir_honors_the_modern_semantic_profile_for_native_real() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")

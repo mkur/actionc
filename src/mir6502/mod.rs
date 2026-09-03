@@ -1214,6 +1214,7 @@ mod tests {
     #[test]
     fn lowers_shell_program() {
         let nir = NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -1253,6 +1254,7 @@ mod tests {
             pointer: false,
         };
         let nir = NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -1377,6 +1379,7 @@ mod tests {
             },
         });
         let nir = NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: vec![crate::nir::NirGlobal {
                 id: SymbolId(0),
                 name: "g".to_string(),
@@ -1413,6 +1416,7 @@ mod tests {
     #[test]
     fn lowers_structured_machine_block_address_items() {
         let nir = NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {

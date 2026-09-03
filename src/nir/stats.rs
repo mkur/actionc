@@ -369,6 +369,7 @@ mod tests {
         };
         let temp = TempId(0);
         let program = NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
@@ -442,6 +443,7 @@ mod tests {
     fn census_counts_block_parameters_and_edge_arguments() {
         let ty = byte_type();
         let program = NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {

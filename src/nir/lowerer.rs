@@ -440,6 +440,7 @@ impl NirLowerer {
         deduplicate_real_statics(&mut statics, &mut routines);
 
         NirProgram {
+            target_layout: program.target_layout,
             globals,
             statics,
             routines,

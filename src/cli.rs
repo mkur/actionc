@@ -26,6 +26,7 @@ use crate::nir;
 use crate::semantic::analyze;
 use crate::semantic::{SemanticOptions, analyze_compilation_with_options, ir};
 use crate::source::decode_source;
+use crate::target::TargetId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CliFlavor {
@@ -83,6 +84,8 @@ fn run_main(flavor: CliFlavor) {
     let mut backend_explicit = false;
     let mut runtime = Runtime::ActionCart;
     let mut runtime_explicit = false;
+    let mut target = TargetId::Atari6502;
+    let mut target_explicit = false;
     let mut compile_mode = None;
     let mut output_path = None;
     let mut listing_path = None;
@@ -214,6 +217,19 @@ fn run_main(flavor: CliFlavor) {
                 backend = parse_backend_or_exit(&arg["--backend=".len()..]);
                 backend_explicit = true;
             }
+            "--target" => {
+                let Some(value) = args.next() else {
+                    eprintln!("--target requires a target name");
+                    print_help_for(flavor);
+                    process::exit(2);
+                };
+                target = parse_target_or_exit(&value);
+                target_explicit = true;
+            }
+            _ if arg.starts_with("--target=") => {
+                target = parse_target_or_exit(&arg["--target=".len()..]);
+                target_explicit = true;
+            }
             "-h" | "--help" => {
                 print_help_for(flavor);
                 return;
@@ -336,6 +352,8 @@ fn run_main(flavor: CliFlavor) {
             origin: origin_explicit.then_some(origin),
             project_root: None,
             module_paths: module_paths.clone(),
+            target,
+            target_explicit,
         };
         let compiled = match compile_file_with_request(Path::new(&input_path), &request) {
             Ok(compiled) => compiled,
@@ -402,6 +420,8 @@ fn run_main(flavor: CliFlavor) {
         profile_explicit,
         &mut backend,
         backend_explicit,
+        &mut target,
+        target_explicit,
     );
     if let Some(message) = profile_backend_error(profile, backend) {
         eprintln!("{message}");
@@ -412,7 +432,8 @@ fn run_main(flavor: CliFlavor) {
         SemanticOptions::modern()
     } else {
         SemanticOptions::default()
-    };
+    }
+    .with_target(target);
     let model = match analyze_compilation_with_options(&loaded, semantic_options) {
         Ok(model) => model,
         Err(diagnostics) => {
@@ -461,6 +482,8 @@ fn run_main(flavor: CliFlavor) {
             origin: origin_explicit.then_some(origin),
             project_root: None,
             module_paths: module_paths.clone(),
+            target,
+            target_explicit,
         };
         let compile = |policy| {
             crate::compiler::compile_file_with_request_and_link_policy(
@@ -595,6 +618,13 @@ fn run_main(flavor: CliFlavor) {
         }
         print!("{}", mir6502::format_program(&mir));
         return;
+    }
+
+    if target != TargetId::Atari6502 {
+        eprintln!(
+            "code generation backend for target `{target}` is not implemented; use --emit-nir or --emit-optimized-nir"
+        );
+        process::exit(2);
     }
 
     if should_run_codegen_backend(
@@ -808,6 +838,13 @@ fn parse_backend_or_exit(value: &str) -> Backend {
     }
 }
 
+fn parse_target_or_exit(value: &str) -> TargetId {
+    value.parse().unwrap_or_else(|message: String| {
+        eprintln!("{message}");
+        process::exit(2);
+    })
+}
+
 fn parse_runtime_or_exit(value: &str) -> Runtime {
     match value {
         "cart" => Runtime::ActionCart,
@@ -1006,6 +1043,8 @@ fn apply_source_codegen_settings(
     profile_explicit: bool,
     backend: &mut Backend,
     backend_explicit: bool,
+    target: &mut TargetId,
+    target_explicit: bool,
 ) {
     for line in source_text.lines() {
         let Some(annotation) = line.trim_start().strip_prefix(";@actionc") else {
@@ -1020,6 +1059,14 @@ fn apply_source_codegen_settings(
             "profile modern" if !profile_explicit => *profile = CodegenProfile::Modern,
             "backend classic" if !backend_explicit => *backend = Backend::Classic,
             "backend mir6502" if !backend_explicit => *backend = Backend::Mir6502,
+            "target atari-6502" if !target_explicit => *target = TargetId::Atari6502,
+            "target wdc-65816-native" if !target_explicit => {
+                *target = TargetId::Wdc65816Native
+            }
+            "target wdc-65816-small" if !target_explicit => {
+                *target = TargetId::Wdc65816Small
+            }
+            "target motorola-68000" if !target_explicit => *target = TargetId::Motorola68000,
             _ => {}
         }
     }
@@ -1406,13 +1453,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--runtime cart|standalone] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default mode is compatibility and the default runtime is cart. Advanced\nusers may select --profile and --backend directly instead of --mode. With no\n-o option, write <source-stem>.xex in the current directory. --listing writes\nre-originable, source-annotated MADS assembly. Change only ACTIONC_ORIGIN in\nthe generated listing to move its main segment. Use actionc-emit for compiler\nrepresentations."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--target <name>] [--runtime cart|standalone] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default target is atari-6502, the default mode is compatibility, and the\ndefault runtime is cart. Other targets currently support NIR inspection through\nactionc-emit. Advanced users may select --profile and --backend directly instead\nof --mode. With no -o option, write <source-stem>.xex in the current directory.\n--listing writes re-originable, source-annotated MADS assembly. Change only\nACTIONC_ORIGIN in the generated listing to move its main segment."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nListings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move\nthe main segment. --emit-source-listing adds Action! source comments."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. The\nnon-Atari targets currently support SemIR and NIR inspection only. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
     );
 }
 
@@ -1606,23 +1653,28 @@ mod tests {
     fn source_codegen_settings_fill_unspecified_cli_defaults() {
         let mut profile = CodegenProfile::Compat;
         let mut backend = Backend::Classic;
+        let mut target = TargetId::Atari6502;
 
         apply_source_codegen_settings(
-            ";@actionc profile modern\n;@actionc backend mir6502\nPROC Main() RETURN",
+            ";@actionc profile modern\n;@actionc backend mir6502\n;@actionc target motorola-68000\nPROC Main() RETURN",
             &mut profile,
             false,
             &mut backend,
+            false,
+            &mut target,
             false,
         );
 
         assert_eq!(profile, CodegenProfile::Modern);
         assert_eq!(backend, Backend::Mir6502);
+        assert_eq!(target, TargetId::Motorola68000);
     }
 
     #[test]
     fn explicit_cli_settings_override_source_codegen_settings() {
         let mut profile = CodegenProfile::Compat;
         let mut backend = Backend::Classic;
+        let mut target = TargetId::Wdc65816Small;
 
         apply_source_codegen_settings(
             ";@actionc profile modern\n;@actionc backend mir6502\nPROC Main() RETURN",
@@ -1630,10 +1682,13 @@ mod tests {
             true,
             &mut backend,
             true,
+            &mut target,
+            true,
         );
 
         assert_eq!(profile, CodegenProfile::Compat);
         assert_eq!(backend, Backend::Classic);
+        assert_eq!(target, TargetId::Wdc65816Small);
     }
 
     #[test]

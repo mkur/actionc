@@ -11,6 +11,18 @@ pub(super) struct NirPrinter {
 impl NirPrinter {
     pub(super) fn program(&mut self, program: &NirProgram) {
         self.line("nir program");
+        if program.target_layout.target != crate::target::TargetId::Atari6502 {
+            self.line(format!(
+                "target {} cpu={:?} endian={:?} address_bits={} data_pointer={} code_pointer={} abi={:?}",
+                program.target_layout.target,
+                program.target_layout.cpu,
+                program.target_layout.endian,
+                program.target_layout.address_bits,
+                program.target_layout.data_pointer.size_bytes,
+                program.target_layout.code_pointer.size_bytes,
+                program.target_layout.abi,
+            ));
+        }
         for global in &program.globals {
             let backing = match global.backing {
                 super::ir::NirGlobalBacking::Ordinary => String::new(),

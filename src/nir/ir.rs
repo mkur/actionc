@@ -4,6 +4,7 @@ use crate::source::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirProgram {
+    pub target_layout: crate::target::TargetLayout,
     pub globals: Vec<NirGlobal>,
     pub statics: Vec<NirStaticData>,
     pub routines: Vec<NirRoutine>,

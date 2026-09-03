@@ -65,6 +65,9 @@ pub fn format_program(program: &SemProgram) -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemProgram {
+    /// Complete target contract selected before semantic layout. Backends may
+    /// consume SemIR only through the target-parameterized NIR boundary.
+    pub target_layout: crate::target::TargetLayout,
     pub modules: Vec<SemModule>,
     pub layout: SemanticLayoutFacts,
     /// Resolved root-source program placement. This compile-time fact is
@@ -1276,14 +1279,18 @@ impl SemIrFormatter {
     }
 
     fn program(&mut self, program: &SemProgram) {
-        self.line(match program.origin {
+        let mut header = match program.origin {
             Some(origin) => format!(
                 "program modules={} origin=${:04X}",
                 program.modules.len(),
                 origin.address
             ),
             None => format!("program modules={}", program.modules.len()),
-        });
+        };
+        if program.target_layout.target != crate::target::TargetId::Atari6502 {
+            header.push_str(&format!(" target={}", program.target_layout.target));
+        }
+        self.line(header);
         self.indented(|this| {
             for (index, module) in program.modules.iter().enumerate() {
                 let identity = module
@@ -2133,6 +2140,7 @@ impl<'a> IrBuilder<'a> {
             .collect::<Vec<_>>();
         let entry_routine = source_program_entry(&modules, None);
         let mut lowered = SemProgram {
+            target_layout: self.model.target_layout,
             modules,
             layout: self.model.layout.clone(),
             origin: program
@@ -2216,6 +2224,7 @@ impl<'a> IrBuilder<'a> {
             .collect::<Vec<_>>();
         let entry_routine = source_program_entry(&modules, Some(compilation.root));
         let mut program = SemProgram {
+            target_layout: self.model.target_layout,
             modules,
             layout: self.model.layout.clone(),
             origin: compilation
@@ -2280,6 +2289,7 @@ impl<'a> IrBuilder<'a> {
         }
         let entry_routine = source_program_entry(&modules, None);
         let mut program = SemProgram {
+            target_layout: self.model.target_layout,
             modules,
             layout: self.model.layout.clone(),
             origin: compilation

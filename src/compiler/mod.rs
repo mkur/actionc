@@ -18,6 +18,7 @@ use crate::semantic::{
     SemanticOptions, analyze_compilation_with_options, ir, materialize::materialize_constants,
 };
 use crate::source::decode_source;
+use crate::target::TargetId;
 
 use self::validation::{legacy_routine_retargeting_diagnostics, standalone_resident_diagnostics};
 
@@ -57,6 +58,8 @@ pub(crate) struct CompileRequest {
     pub(crate) origin: Option<u16>,
     pub(crate) project_root: Option<PathBuf>,
     pub(crate) module_paths: Vec<PathBuf>,
+    pub(crate) target: TargetId,
+    pub(crate) target_explicit: bool,
 }
 
 impl Default for CompileRequest {
@@ -72,6 +75,8 @@ impl Default for CompileRequest {
             origin: None,
             project_root: None,
             module_paths: Vec::new(),
+            target: TargetId::Atari6502,
+            target_explicit: false,
         }
     }
 }
@@ -83,6 +88,7 @@ struct ResolvedCompileRequest {
     runtime: Runtime,
     codegen_source: CodegenSource,
     origin: Option<u16>,
+    target: TargetId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -92,6 +98,7 @@ pub struct CompileOptions {
     project_root: Option<PathBuf>,
     module_paths: Vec<PathBuf>,
     runtime: Runtime,
+    target: TargetId,
 }
 
 impl CompileOptions {
@@ -102,6 +109,7 @@ impl CompileOptions {
             project_root: None,
             module_paths: Vec::new(),
             runtime: Runtime::ActionCart,
+            target: TargetId::Atari6502,
         }
     }
 
@@ -125,6 +133,15 @@ impl CompileOptions {
 
     pub fn runtime(&self) -> Runtime {
         self.runtime
+    }
+
+    pub fn with_target(mut self, target: TargetId) -> Self {
+        self.target = target;
+        self
+    }
+
+    pub fn target(&self) -> TargetId {
+        self.target
     }
 
     pub fn with_project_root(mut self, path: impl Into<PathBuf>) -> Self {
@@ -255,7 +272,8 @@ pub(crate) fn compile_file_with_request_and_link_policy(
         SemanticOptions::modern()
     } else {
         SemanticOptions::default()
-    };
+    }
+    .with_target(request.target);
     let model =
         analyze_compilation_with_options(&loaded, semantic_options).map_err(|diagnostics| {
             CompileError::from_source_diagnostics(
@@ -301,6 +319,15 @@ pub(crate) fn compile_file_with_request_and_link_policy(
         }
     }
     let named = matches!(program.source_kind, crate::ast::SourceUnitKind::Named(_));
+
+    if request.target != TargetId::Atari6502 {
+        let nir = nir::lower_program(&semir);
+        nir::verify_program(&nir).map_err(CompileError::from_nir_diagnostics)?;
+        return Err(CompileError::configuration(format!(
+            "code generation backend for target `{}` is not implemented; inspect it with actionc-emit --emit-nir",
+            request.target
+        )));
+    }
 
     let output = match request.backend {
         Backend::Classic => compile_classic(
@@ -412,6 +439,8 @@ fn compile_request_from_options(options: &CompileOptions) -> CompileRequest {
         module_paths: options.module_paths.clone(),
         runtime: options.runtime,
         runtime_explicit: options.runtime != Runtime::ActionCart,
+        target: options.target,
+        target_explicit: options.target != TargetId::Atari6502,
         ..CompileRequest::default()
     };
     if let Some(mode) = options.mode {
@@ -584,6 +613,7 @@ fn resolve_request(
 ) -> Result<ResolvedCompileRequest, CompileError> {
     let mut profile = request.profile;
     let mut backend = request.backend;
+    let mut target = request.target;
     for line in source.lines() {
         let Some(annotation) = line.trim_start().strip_prefix(";@actionc") else {
             continue;
@@ -597,6 +627,14 @@ fn resolve_request(
             "profile modern" if !request.profile_explicit => profile = CodegenProfile::Modern,
             "backend classic" if !request.backend_explicit => backend = Backend::Classic,
             "backend mir6502" if !request.backend_explicit => backend = Backend::Mir6502,
+            "target atari-6502" if !request.target_explicit => target = TargetId::Atari6502,
+            "target wdc-65816-native" if !request.target_explicit => {
+                target = TargetId::Wdc65816Native
+            }
+            "target wdc-65816-small" if !request.target_explicit => {
+                target = TargetId::Wdc65816Small
+            }
+            "target motorola-68000" if !request.target_explicit => target = TargetId::Motorola68000,
             _ => {}
         }
     }
@@ -613,6 +651,7 @@ fn resolve_request(
         runtime: request.runtime,
         codegen_source: request.codegen_source,
         origin: request.origin,
+        target,
     })
 }
 
@@ -708,6 +747,8 @@ mod relocation_tests {
                 origin: Some(origin),
                 project_root: None,
                 module_paths: Vec::new(),
+                target: TargetId::Atari6502,
+                target_explicit: false,
             };
             let baseline = compile_file_with_request(&fixture(), &request(baseline_origin))
                 .unwrap_or_else(|error| {

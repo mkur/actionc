@@ -7,6 +7,7 @@ use crate::includes::{LoadedCompilation, ModuleId};
 use crate::lexer::{NumberKind, NumberLiteral};
 use crate::resident::{RESIDENT_VARIABLES, ResidentVariableKind};
 use crate::source::{Span, source_char_byte};
+use crate::target::{TargetId, TargetLayout};
 
 pub mod ir;
 pub mod layout;
@@ -25,6 +26,7 @@ pub use types::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticModel {
+    pub target_layout: TargetLayout,
     pub symbols: SymbolTable,
     /// Named-module scopes and their collected public interfaces. Legacy
     /// programs keep this empty and continue to use `SymbolTable::global_scope`.
@@ -399,6 +401,7 @@ pub struct StmtFlowFacts {
 pub struct SemanticOptions {
     pub native_real: bool,
     pub lexical_blocks: bool,
+    pub target: TargetId,
 }
 
 impl SemanticOptions {
@@ -406,7 +409,13 @@ impl SemanticOptions {
         Self {
             native_real: true,
             lexical_blocks: true,
+            target: TargetId::Atari6502,
         }
+    }
+
+    pub const fn with_target(mut self, target: TargetId) -> Self {
+        self.target = target;
+        self
     }
 }
 
@@ -471,6 +480,7 @@ impl Analyzer {
             &self.fields,
         );
         Ok(SemanticModel {
+            target_layout: TargetLayout::for_target(self.options.target),
             symbols: self.symbols,
             modules: self.modules,
             expression_observations: self.expression_observations,

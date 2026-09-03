@@ -25,3 +25,4 @@ pub(crate) mod runtime_link_manifest;
 pub(crate) mod runtime_source;
 pub mod semantic;
 pub mod source;
+pub mod target;

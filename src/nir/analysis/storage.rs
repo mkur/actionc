@@ -963,6 +963,7 @@ mod tests {
 
     fn program(routine: NirRoutine) -> NirProgram {
         NirProgram {
+            target_layout: crate::target::TargetLayout::atari_6502(),
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![routine],

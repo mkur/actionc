@@ -2,8 +2,8 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 and 1 completed on 2026-09-03; later slices remain
-planned.
+Status: active. Slices 0 through 2 completed on 2026-09-03; later slices
+remain planned.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
 65816, and Motorola 68k backends. It also revises the initial record-layout
@@ -288,6 +288,15 @@ language: add alignof and offsetof layout queries
 ```
 
 ### Slice 2: target-description plumbing
+
+Status: complete. `target.rs` defines stable CPU, platform, ABI, target,
+endianness, pointer-layout, and record-policy facts for Atari 6502, 65816
+native, 65816 small, and Motorola 68000. CLI/API requests and source settings
+select a target before semantic analysis; the complete registered layout is
+carried by SemIR and NIR and checked by the NIR verifier. Candidate targets can
+be inspected with `--emit-nir` or `--emit-optimized-nir`; machine-code requests
+receive an explicit unavailable-backend diagnostic. The MIR6502 boundary also
+rejects non-Atari NIR defensively.
 
 1. Add stable CPU, platform, ABI, and target IDs.
 2. Define the Atari 6502, 65816 native, 65816 small, and 68k target layouts.
