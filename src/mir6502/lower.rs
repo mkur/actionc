@@ -497,6 +497,10 @@ fn record_storage_init_local_references(
 pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let nir_program = input.program();
     debug_assert_eq!(input.target(), crate::target::TargetId::Atari6502);
+    let activation_diagnostics = validate_classic_activation(nir_program);
+    if !activation_diagnostics.is_empty() {
+        return Err(activation_diagnostics);
+    }
     let mut diagnostics = Vec::new();
     let routine_ids = nir_program
         .routines
@@ -901,6 +905,20 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
         runtime_helpers,
     };
     Ok(program)
+}
+
+pub(super) fn validate_classic_activation(program: &NirProgram) -> Vec<MirDiagnostic> {
+    program
+        .routines
+        .iter()
+        .filter(|routine| routine.activation != nir::NirActivationModel::ClassicStatic)
+        .map(|routine| {
+            MirDiagnostic::routine(
+                &routine.name,
+                "MIR6502 supports only classic-static routine activation; native-reentrant activation requires a separately designed 6502 ABI",
+            )
+        })
+        .collect()
 }
 
 fn routine_system_address(routine: &nir::NirRoutine) -> Option<u16> {
@@ -4134,6 +4152,18 @@ mod tests {
         .expect("analyze modern source");
         let semir = crate::semantic::ir::lower_program(&program, &model);
         crate::nir::lower_program(&semir)
+    }
+
+    #[test]
+    fn rejects_native_reentrant_activation_before_fixed_home_lowering() {
+        let mut program = lower_modern_source("PROC Main() RETURN");
+        program.routines[0].activation = nir::NirActivationModel::NativeReentrant;
+
+        let diagnostics = validate_classic_activation(&program);
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].routine.as_deref(), Some("Main"));
+        assert!(diagnostics[0].message.contains("only classic-static"));
+        assert!(diagnostics[0].message.contains("separately designed 6502 ABI"));
     }
 
     #[test]

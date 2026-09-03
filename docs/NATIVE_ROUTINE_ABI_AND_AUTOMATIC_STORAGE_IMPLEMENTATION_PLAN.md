@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 5 were implemented and verified on
+Status: in progress. Slices 0 through 6 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -513,6 +513,14 @@ nir: make storage optimization activation-aware
 ```
 
 ### Slice 6: preserve the classic Atari ABI
+
+Status: complete. MIR6502 now has an explicit lowering guard which accepts
+only `ClassicStatic` routines and diagnoses `NativeReentrant` input before any
+fixed parameter or local home is selected. The existing fixed-cell mapping,
+observable entry handling, local labels, runtime selection, relocations, maps,
+and load-file packaging are unchanged. All fourteen Slice 0 object rows and
+all five NIR/MIR/map inspection rows were reproduced byte-for-byte with their
+recorded sizes and SHA-256 hashes. No NIR or MIR6502 fixture output changed.
 
 1. Map `ClassicStatic` NIR to the existing MIR6502 routine-storage layout.
 2. Keep parameter homes, local labels, current-location entries, `RUNAD`,

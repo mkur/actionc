@@ -54,6 +54,10 @@ guard the IR and map shape. Slice 2 intentionally updated the NIR rows to print
 structured activation, storage duration, size, and alignment facts. MIR6502,
 map, and object rows remain unchanged.
 
+Slice 6 reproduced every object and inspection row on 2026-09-03 after adding
+MIR6502's explicit `ClassicStatic` activation guard. All byte counts and
+SHA-256 hashes remained unchanged, and no snapshot refresh was required.
+
 | Inspection | Bytes | SHA-256 |
 | --- | ---: | --- |
 | unoptimized NIR | 3040 | `fe8546d6854ff6a93812a270e35b9b62efb92319f785660405d2fa95c63cefcc` |

@@ -289,6 +289,11 @@ pub enum MirStorageBase {
 
 Rules:
 
+- MIR6502 accepts only NIR routines with `ClassicStatic` activation. It maps
+  their parameters and ordinary locals to the established fixed per-routine
+  homes. `NativeReentrant` is rejected before home selection; supporting it
+  would require a separately specified native 6502 ABI rather than silently
+  reusing static cells.
 - NIR stable IDs remain the source of identity for params, locals, globals,
   statics, and routines.
 - MIR may assign target storage homes, but it must not resolve names through
