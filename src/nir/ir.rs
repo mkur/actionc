@@ -492,6 +492,10 @@ pub struct NirLocal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirLocalPurpose {
     Storage,
+    /// Invocation-local element storage owned by an automatic array
+    /// descriptor. The descriptor and backing deliberately have distinct
+    /// identities so native MIRs can place both in the current frame.
+    AggregateBacking { owner: LocalId },
     RealTemporary,
 }
 

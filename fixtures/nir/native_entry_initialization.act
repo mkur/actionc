@@ -1,0 +1,32 @@
+BYTE result
+
+TYPE Pair=[BYTE tag CARD value]
+TYPE Holder=[BYTE POINTER ptr]
+
+PROC Initialized()
+  BYTE first=[1],second=[2],alias=first,plain
+  BYTE POINTER ptr=[@first]
+  BYTE ARRAY bytes(3)=[3 4 5]
+  CARD ARRAY words(2)=[6 7]
+  Pair pair=[8 9]
+  Holder holder=[@first]
+
+  result=second
+RETURN
+
+PROC EarlyReturn()
+  BYTE initial=[10]
+RETURN
+
+PROC Nested()
+  BEGIN
+    BYTE nested=[11]
+    result=nested
+  END
+RETURN
+
+PROC Main()
+  Initialized()
+  EarlyReturn()
+  Nested()
+RETURN

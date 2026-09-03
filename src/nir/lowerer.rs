@@ -193,19 +193,20 @@ impl NirLowerer {
                             .get(&storage_key(&routine.symbol.name))
                             .expect("collected routine must have a stable NIR id");
                         let convention = NirCallConvention::TargetPublic;
-                        let signature =
-                            nir_callable_signature(&routine.callable_type, convention);
+                        let signature = nir_callable_signature(&routine.callable_type, convention);
                         let activation = nir_activation_model(routine.activation);
                         let placement = match routine.system_address.as_ref() {
-                            Some(address) if matches!(address.kind, SemExprKind::CurrentLocation) => {
+                            Some(address)
+                                if matches!(address.kind, SemExprKind::CurrentLocation) =>
+                            {
                                 NirRoutinePlacement::CurrentLocation
                             }
-                            Some(address) => NirRoutinePlacement::Absolute(AddressValue::code(
-                                u64::from(
+                            Some(address) => {
+                                NirRoutinePlacement::Absolute(AddressValue::code(u64::from(
                                     self.const_u16_expr(address)
                                         .expect("resolved routine address must be constant"),
-                                ),
-                            )),
+                                )))
+                            }
                             None => NirRoutinePlacement::Relocatable,
                         };
                         let entry = NirRoutineEntry {
@@ -310,6 +311,7 @@ impl NirLowerer {
                             .collect::<BTreeMap<_, _>>();
                         builder.param_ids_by_symbol = param_ids_by_symbol.clone();
                         builder.local_ids_by_symbol = local_ids_by_symbol.clone();
+                        let mut native_initializers = Vec::new();
                         for (index, local) in all_locals.into_iter().enumerate() {
                             let address_initializer = match &local.storage {
                                 SemDeclarationStorage::Array {
@@ -342,7 +344,7 @@ impl NirLowerer {
                                     .insert(local.symbol.name.clone(), ty.clone());
                                 builder.semantic_storage_types.insert(local.symbol.id, ty);
                             }
-                            let init = declaration_local_init(
+                            let load_time_init = declaration_local_init(
                                 local,
                                 &record_storage_sizes,
                                 &backing,
@@ -356,11 +358,20 @@ impl NirLowerer {
                                 local,
                                 &record_storage_sizes,
                                 address_initializer,
-                                init.as_ref(),
+                                load_time_init.as_ref(),
                                 self.target_layout,
                             );
                             let duration =
                                 local_storage_duration(activation, &backing, &builder.locals);
+                            let executable_init = activation == NirActivationModel::NativeReentrant
+                                && duration == NirStorageDuration::Automatic
+                                && matches!(backing, NirLocalBacking::Ordinary)
+                                && local.initializer.is_some();
+                            let init = if activation == NirActivationModel::ClassicStatic {
+                                load_time_init.clone()
+                            } else {
+                                None
+                            };
                             builder.locals.push(NirLocal {
                                 id: LocalId(index as u32),
                                 name: semantic_local_display_name(&local.symbol),
@@ -373,6 +384,14 @@ impl NirLowerer {
                                 init,
                                 backing,
                             });
+                            if executable_init {
+                                native_initializers.push(NativeLocalInitialization {
+                                    owner: LocalId(index as u32),
+                                    declaration: local.clone(),
+                                    load_time_shape: load_time_init,
+                                    aggregate_backing: None,
+                                });
+                            }
                             local_alias_targets.insert(
                                 local.symbol.id,
                                 (
@@ -380,6 +399,9 @@ impl NirLowerer {
                                     semantic_local_display_name(&local.symbol),
                                 ),
                             );
+                        }
+                        if !native_initializers.is_empty() {
+                            builder.lower_native_local_initializers(&mut native_initializers);
                         }
                         for (name, items) in machine_define_names_from_statements(&routine.body) {
                             builder.machine_define_names.insert(name, items);
@@ -461,30 +483,28 @@ impl NirLowerer {
                                 callee: NirCallee::User { id, .. },
                                 ..
                             } => *id = increment_routine_id(*id),
-                            NirOp::ForeignCode { code, .. } => {
-                                match &mut code.payload {
-                                    NirForeignCodePayload::Structured(items) => {
-                                        for item in items {
-                                            if let NirMachineItem::Relocation {
-                                                target: NirForeignCodeTarget::Routine(id),
-                                                ..
-                                            } = item
-                                            {
-                                                *id = increment_routine_id(*id);
-                                            }
-                                        }
-                                    }
-                                    NirForeignCodePayload::Bytes { relocations, .. } => {
-                                        for relocation in relocations {
-                                            if let NirForeignCodeTarget::Routine(id) =
-                                                &mut relocation.target
-                                            {
-                                                *id = increment_routine_id(*id);
-                                            }
+                            NirOp::ForeignCode { code, .. } => match &mut code.payload {
+                                NirForeignCodePayload::Structured(items) => {
+                                    for item in items {
+                                        if let NirMachineItem::Relocation {
+                                            target: NirForeignCodeTarget::Routine(id),
+                                            ..
+                                        } = item
+                                        {
+                                            *id = increment_routine_id(*id);
                                         }
                                     }
                                 }
-                            }
+                                NirForeignCodePayload::Bytes { relocations, .. } => {
+                                    for relocation in relocations {
+                                        if let NirForeignCodeTarget::Routine(id) =
+                                            &mut relocation.target
+                                        {
+                                            *id = increment_routine_id(*id);
+                                        }
+                                    }
+                                }
+                            },
                             _ => {}
                         }
                     }
@@ -896,9 +916,7 @@ fn apply_target_layout_to_op(op: &mut NirOp, layout: TargetLayout) {
             ty.apply_target_layout(layout);
             apply_target_layout_to_value(src, layout);
         }
-        NirOp::Cast {
-            src, from, to, ..
-        } => {
+        NirOp::Cast { src, from, to, .. } => {
             apply_target_layout_to_value(src, layout);
             from.apply_target_layout(layout);
             to.apply_target_layout(layout);
@@ -1210,6 +1228,16 @@ fn collect_nested_declarations<'a>(
     }
 }
 
+#[derive(Debug, Clone)]
+struct NativeLocalInitialization {
+    owner: LocalId,
+    declaration: SemDeclaration,
+    /// The classic data shape is used only as an input to executable native
+    /// initialization. It is never retained on an automatic `NirLocal`.
+    load_time_shape: Option<NirStorageInit>,
+    aggregate_backing: Option<LocalId>,
+}
+
 pub(super) struct NirBuilder {
     name: String,
     target_layout: TargetLayout,
@@ -1352,6 +1380,512 @@ impl NirBuilder {
         } else {
             NirOp::Store { place, src, ty }
         });
+    }
+
+    fn lower_native_local_initializers(&mut self, initializers: &mut [NativeLocalInitialization]) {
+        debug_assert_eq!(self.activation, NirActivationModel::NativeReentrant);
+
+        // Descriptor element storage is a real frame object. Allocate all of
+        // it before emitting entry code so address initializers can refer to
+        // any declaration in the routine, including a later one.
+        for initializer in initializers.iter_mut() {
+            let Some(NirStorageInit::Descriptor { backing, .. }) = &initializer.load_time_shape
+            else {
+                continue;
+            };
+            let owner = self
+                .locals
+                .iter()
+                .find(|local| local.id == initializer.owner)
+                .expect("native initializer owner")
+                .clone();
+            let id = self.next_local_id();
+            let name = format!("{}.__backing", owner.name);
+            let ty = match &initializer.declaration.storage {
+                SemDeclarationStorage::Array { array_type, .. } => {
+                    NirType::from_value_with_layout(&array_type.element, self.target_layout)
+                }
+                _ => owner.ty.clone(),
+            };
+            self.locals.push(NirLocal {
+                id,
+                name: name.clone(),
+                kind: format!("automatic aggregate backing for {}", owner.name),
+                purpose: NirLocalPurpose::AggregateBacking {
+                    owner: initializer.owner,
+                },
+                storage: NirStorageClass::Array,
+                duration: NirStorageDuration::Automatic,
+                layout: backing.layout,
+                ty,
+                backing: NirLocalBacking::Ordinary,
+                init: None,
+            });
+            self.local_ids_by_symbol
+                .insert(initializer.declaration.symbol.id, id);
+            initializer.aggregate_backing = Some(id);
+        }
+
+        let aggregate_backings = initializers
+            .iter()
+            .filter_map(|initializer| {
+                initializer
+                    .aggregate_backing
+                    .map(|backing| (initializer.owner, backing))
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        for initializer in initializers.iter() {
+            if let (Some(backing), Some(NirStorageInit::Descriptor { size_word, .. })) = (
+                initializer.aggregate_backing,
+                initializer.load_time_shape.as_ref(),
+            ) {
+                self.initialize_native_array_descriptor(initializer, backing, *size_word);
+            }
+
+            if self.native_initializer_is_scalar(initializer) {
+                self.lower_native_scalar_initializer(initializer);
+            } else {
+                self.lower_native_aggregate_initializer(initializer, &aggregate_backings);
+            }
+        }
+    }
+
+    fn next_local_id(&self) -> LocalId {
+        LocalId(
+            self.locals
+                .iter()
+                .map(|local| local.id.0)
+                .max()
+                .map_or(0, |id| id.saturating_add(1)),
+        )
+    }
+
+    fn native_initializer_is_scalar(&self, initializer: &NativeLocalInitialization) -> bool {
+        let owner = self
+            .locals
+            .iter()
+            .find(|local| local.id == initializer.owner)
+            .expect("native initializer owner");
+        if initializer.aggregate_backing.is_some()
+            || initializer.declaration.storage != SemDeclarationStorage::Scalar
+            || matches!(owner.ty.kind, NirTypeKind::Record { .. })
+        {
+            return false;
+        }
+        match &initializer.declaration.static_initializer {
+            Some(plan) => {
+                plan.writes.len() == 1
+                    && plan.writes[0].offset == 0
+                    && ByteSize::from(plan.writes[0].width) == owner.layout.size
+            }
+            None => !matches!(
+                initializer
+                    .declaration
+                    .initializer
+                    .as_ref()
+                    .map(|expr| &expr.kind),
+                Some(SemExprKind::InitializerList(_))
+            ),
+        }
+    }
+
+    fn initialize_native_array_descriptor(
+        &mut self,
+        initializer: &NativeLocalInitialization,
+        backing: LocalId,
+        size_word: Option<u16>,
+    ) {
+        let SemDeclarationStorage::Array { array_type, .. } = &initializer.declaration.storage
+        else {
+            unreachable!("only arrays have descriptor initialization")
+        };
+        let pointer_ty =
+            NirType::from_value_with_layout(&array_type.pointer_type(), self.target_layout);
+        let backing_local = self
+            .locals
+            .iter()
+            .find(|local| local.id == backing)
+            .expect("native descriptor backing")
+            .clone();
+        let backing_place = NirPlace {
+            kind: NirPlaceKind::Local {
+                id: backing,
+                name: backing_local.name,
+            },
+            ty: Some(backing_local.ty),
+        };
+        let address = self.addr_of_place(backing_place, pointer_ty.clone(), None);
+        let descriptor = self.local_place(initializer.owner, pointer_ty.clone());
+        self.push_store(descriptor.clone(), address, pointer_ty, false);
+
+        if let Some(size_word) = size_word {
+            let card_ty = NirType::from_value_with_layout(
+                &ValueType::fund(FundType::Card),
+                self.target_layout,
+            );
+            let place = NirPlace {
+                kind: NirPlaceKind::Field {
+                    base: Box::new(descriptor),
+                    offset: ByteOffset::new(self.target_layout.data_pointer.size_bytes.get()),
+                    ty: card_ty.clone(),
+                },
+                ty: Some(card_ty.clone()),
+            };
+            self.push_store(place, NirValue::ConstU16(size_word), card_ty, false);
+        }
+    }
+
+    fn lower_native_scalar_initializer(&mut self, initializer: &NativeLocalInitialization) {
+        let owner = self
+            .locals
+            .iter()
+            .find(|local| local.id == initializer.owner)
+            .expect("native scalar initializer owner")
+            .clone();
+        let destination = self.local_place(owner.id, owner.ty.clone());
+
+        if let Some(plan) = &initializer.declaration.static_initializer {
+            let write = &plan.writes[0];
+            if is_real_nir_type(&owner.ty) {
+                let value = sem_static_initializer_real_value(&write.value)
+                    .expect("verified REAL initializer");
+                let source = self.intern_real_literal("entry initializer", value);
+                self.push(NirOp::Real(NirRealOp::Copy {
+                    destination,
+                    source,
+                }));
+                return;
+            }
+            match self.native_static_write_value(write, &owner.ty) {
+                Some(value) => self.push_store(destination, value, owner.ty, false),
+                None => self.push(NirOp::Unsupported {
+                    note: format!(
+                        "native entry initializer for `{}` cannot be materialized",
+                        owner.name
+                    ),
+                }),
+            }
+            return;
+        }
+
+        let expression = initializer
+            .declaration
+            .initializer
+            .as_ref()
+            .expect("native initialized scalar expression");
+        if is_real_nir_type(&owner.ty) {
+            self.lower_real_expr_into(expression, destination);
+        } else {
+            let value = self.value(expression);
+            self.assign_or_store(destination, owner.ty, value, false);
+        }
+    }
+
+    fn native_static_write_value(
+        &mut self,
+        write: &crate::semantic::ir::SemStaticInitializerWrite,
+        ty: &NirType,
+    ) -> Option<NirValue> {
+        match &write.value {
+            SemStaticInitializerValue::Literal { .. } => {
+                let value = sem_static_initializer_literal_value(&write.value)?;
+                if ty.kind.is_address() {
+                    return Some(if value == 0 {
+                        NirValue::Null { ty: ty.clone() }
+                    } else {
+                        NirValue::AddressConst {
+                            address: AddressValue::new(
+                                pointer_address_space(ty)?,
+                                u64::from(value),
+                            ),
+                            ty: ty.clone(),
+                        }
+                    });
+                }
+                match ty.width {
+                    Some(ByteSize::ONE) => Some(NirValue::ConstU8(value as u8)),
+                    Some(width) if width == ByteSize::new(2) => Some(NirValue::ConstU16(value)),
+                    _ => None,
+                }
+            }
+            SemStaticInitializerValue::Address {
+                selector: None,
+                target,
+                addend,
+            } if ty.kind.is_address() => {
+                let value = self.native_symbol_address(target, ty.clone())?;
+                self.native_address_addend(value, ty.clone(), i64::from(*addend))
+            }
+            SemStaticInitializerValue::Address { .. } => None,
+        }
+    }
+
+    fn native_symbol_address(&mut self, symbol: &SemSymbolRef, ty: NirType) -> Option<NirValue> {
+        if matches!(
+            symbol.class,
+            SymbolClass::Proc
+                | SymbolClass::Func
+                | SymbolClass::BuiltinProc
+                | SymbolClass::BuiltinFunc
+        ) {
+            let id = *self.routine_ids.get(&storage_key(&symbol.name))?;
+            return Some(NirValue::RoutineAddr {
+                id,
+                name: symbol.name.clone(),
+                ty,
+            });
+        }
+        let place_ty = symbol
+            .ty
+            .as_ref()
+            .map(|value| NirType::from_value_with_layout(value, self.target_layout));
+        let place = self.resolved_symbol_place(symbol, place_ty);
+        Some(self.addr_of_place(place, ty, Some(symbol)))
+    }
+
+    fn native_address_addend(
+        &mut self,
+        base: NirValue,
+        ty: NirType,
+        addend: i64,
+    ) -> Option<NirValue> {
+        if addend == 0 {
+            return Some(base);
+        }
+        if !matches!(ty.kind, NirTypeKind::Pointer { .. }) {
+            return None;
+        }
+        let magnitude = u16::try_from(addend.unsigned_abs()).ok()?;
+        let dest = self.next_temp();
+        self.push(NirOp::PointerOffset {
+            dest,
+            ty: ty.clone(),
+            base,
+            offset: NirValue::ConstU16(magnitude),
+            subtract: addend.is_negative(),
+        });
+        Some(NirValue::Temp { id: dest, ty })
+    }
+
+    fn lower_native_aggregate_initializer(
+        &mut self,
+        initializer: &NativeLocalInitialization,
+        aggregate_backings: &BTreeMap<LocalId, LocalId>,
+    ) {
+        let owner = self
+            .locals
+            .iter()
+            .find(|local| local.id == initializer.owner)
+            .expect("native aggregate initializer owner")
+            .clone();
+        let (mut image, zero_fill, destination_id, layout) = match initializer
+            .load_time_shape
+            .as_ref()
+            .expect("verified aggregate initializer must have a storage shape")
+        {
+            NirStorageInit::Bytes {
+                image, zero_fill, ..
+            } => (image.clone(), *zero_fill, owner.id, owner.layout),
+            NirStorageInit::ZeroFill { bytes, .. } => {
+                (NirDataImage::default(), *bytes, owner.id, owner.layout)
+            }
+            NirStorageInit::Descriptor { backing, .. } => (
+                backing.image.clone(),
+                backing.zero_fill,
+                initializer
+                    .aggregate_backing
+                    .expect("native descriptor backing"),
+                backing.layout,
+            ),
+        };
+        let size = ByteSize::try_from(image.bytes.len())
+            .unwrap_or(ByteSize::new(u32::MAX))
+            .saturating_add(zero_fill);
+        if size.is_zero() {
+            return;
+        }
+        image.bytes.resize(usize::from(size), 0);
+
+        let mut dynamic_addresses = Vec::new();
+        image.fragments.retain(|fragment| {
+            let dynamic = matches!(
+                fragment,
+                NirDataFragment::Address {
+                    target: NirDataAddressTarget::Storage(
+                        NirStorageId::Local(_) | NirStorageId::Param(_)
+                    ),
+                    ..
+                }
+            );
+            if dynamic {
+                dynamic_addresses.push(fragment.clone());
+            }
+            !dynamic
+        });
+
+        let destination_local = self
+            .locals
+            .iter()
+            .find(|local| local.id == destination_id)
+            .expect("native aggregate destination")
+            .clone();
+        let destination = self.local_place(destination_id, destination_local.ty.clone());
+        let source = self.intern_native_initializer_template(
+            &owner.name,
+            destination_local.ty.clone(),
+            image,
+            layout.alignment,
+        );
+        self.push(NirOp::CopyBytes {
+            destination: destination.clone(),
+            source,
+            size,
+            destination_volatile: false,
+            source_volatile: false,
+        });
+
+        for fragment in dynamic_addresses {
+            self.lower_native_dynamic_address_fragment(
+                destination.clone(),
+                fragment,
+                aggregate_backings,
+                &owner.name,
+            );
+        }
+    }
+
+    fn intern_native_initializer_template(
+        &mut self,
+        owner: &str,
+        ty: NirType,
+        image: NirDataImage,
+        alignment: ByteSize,
+    ) -> NirPlace {
+        let id = SymbolId(self.next_static);
+        self.next_static += 1;
+        let name = format!("__nir_init_{}_{}", sanitize_static_owner(&self.name), id.0);
+        self.statics.push(NirStaticData {
+            id,
+            name: name.clone(),
+            ty: ty.clone(),
+            image,
+            display: format!("entry initializer for {owner}"),
+            alignment,
+            mutable: false,
+            section: "rodata".to_string(),
+        });
+        NirPlace {
+            kind: NirPlaceKind::Deref {
+                addr: NirValue::StaticAddr {
+                    id,
+                    name,
+                    ty: native_data_pointer_type(None, self.target_layout),
+                },
+            },
+            ty: Some(ty),
+        }
+    }
+
+    fn lower_native_dynamic_address_fragment(
+        &mut self,
+        destination: NirPlace,
+        fragment: NirDataFragment,
+        aggregate_backings: &BTreeMap<LocalId, LocalId>,
+        owner_name: &str,
+    ) {
+        let NirDataFragment::Address {
+            offset,
+            encoding,
+            target,
+            addend,
+            ..
+        } = fragment
+        else {
+            unreachable!("only address fragments are deferred")
+        };
+        let NirDataAddressEncoding::Pointer {
+            address_space,
+            width,
+        } = encoding
+        else {
+            self.push(NirOp::Unsupported {
+                note: format!(
+                    "native address-byte entry initializer for `{owner_name}` is unsupported"
+                ),
+            });
+            return;
+        };
+        let ty = native_data_pointer_type(Some(address_space), self.target_layout);
+        if ty.width != Some(width) {
+            self.push(NirOp::Unsupported {
+                note: format!(
+                    "native entry initializer pointer width for `{owner_name}` does not match the target"
+                ),
+            });
+            return;
+        }
+        let storage = match target {
+            NirDataAddressTarget::Storage(storage) => storage,
+            _ => unreachable!("only routine storage addresses are deferred"),
+        };
+        let place = match storage {
+            NirStorageId::Local(id) => {
+                let id = aggregate_backings.get(&id).copied().unwrap_or(id);
+                let local = self
+                    .locals
+                    .iter()
+                    .find(|local| local.id == id)
+                    .expect("native address initializer local")
+                    .clone();
+                self.local_place(id, local.ty)
+            }
+            NirStorageId::Param(id) => {
+                let param = self
+                    .params
+                    .iter()
+                    .find(|param| param.id == id)
+                    .expect("native address initializer parameter")
+                    .clone();
+                NirPlace {
+                    kind: NirPlaceKind::Param {
+                        id,
+                        name: param.name,
+                    },
+                    ty: Some(param.ty),
+                }
+            }
+            NirStorageId::Global(_) => unreachable!("global addresses stay in the template"),
+        };
+        let address = self.addr_of_place(place, ty.clone(), None);
+        let Some(address) = self.native_address_addend(address, ty.clone(), addend) else {
+            self.push(NirOp::Unsupported {
+                note: format!("native entry initializer addend for `{owner_name}` is unsupported"),
+            });
+            return;
+        };
+        let place = NirPlace {
+            kind: NirPlaceKind::Field {
+                base: Box::new(destination),
+                offset,
+                ty: ty.clone(),
+            },
+            ty: Some(ty.clone()),
+        };
+        self.push_store(place, address, ty, false);
+    }
+
+    fn local_place(&self, id: LocalId, ty: NirType) -> NirPlace {
+        let name = self
+            .locals
+            .iter()
+            .find(|local| local.id == id)
+            .map(|local| local.name.clone())
+            .expect("local place id");
+        NirPlace {
+            kind: NirPlaceKind::Local { id, name },
+            ty: Some(ty),
+        }
     }
 
     fn stmt_list(&mut self, statements: &[SemStmt], lowering: &mut NirLowerer) {
@@ -2185,13 +2719,19 @@ impl NirBuilder {
                 let operation = NirClassifier::binary_op(*op)
                     .expect("binary expression op should lower to NIR");
                 let pointer_operands = match operation {
-                    NirBinaryOp::Add if left_ty.kind.is_pointer() && !right_ty.kind.is_address() => {
+                    NirBinaryOp::Add
+                        if left_ty.kind.is_pointer() && !right_ty.kind.is_address() =>
+                    {
                         Some((left.clone(), right.clone(), left_ty))
                     }
-                    NirBinaryOp::Add if right_ty.kind.is_pointer() && !left_ty.kind.is_address() => {
+                    NirBinaryOp::Add
+                        if right_ty.kind.is_pointer() && !left_ty.kind.is_address() =>
+                    {
                         Some((right.clone(), left.clone(), right_ty))
                     }
-                    NirBinaryOp::Sub if left_ty.kind.is_pointer() && !right_ty.kind.is_address() => {
+                    NirBinaryOp::Sub
+                        if left_ty.kind.is_pointer() && !right_ty.kind.is_address() =>
+                    {
                         Some((left.clone(), right.clone(), left_ty))
                     }
                     _ => None,
@@ -2259,11 +2799,7 @@ impl NirBuilder {
                             .as_ref()
                             .map(NirType::from_value)
                             .filter(|ty| matches!(ty.kind, NirTypeKind::Callable { .. }))
-                            .or_else(|| {
-                                self.routine_types
-                                    .get(&storage_key(&symbol.name))
-                                    .cloned()
-                            })
+                            .or_else(|| self.routine_types.get(&storage_key(&symbol.name)).cloned())
                             .unwrap_or_else(|| NirFacts::type_from_value(&expr.ty)),
                     });
                 }
@@ -2582,9 +3118,9 @@ impl NirBuilder {
         ty.value_width_bytes_for_layout(self.target_layout)
             .map(ByteSize::from)
             .or_else(|| {
-            ty.as_record_name()
-                .and_then(|name| self.record_storage_sizes.get(name).copied())
-                .map(ByteSize::from)
+                ty.as_record_name()
+                    .and_then(|name| self.record_storage_sizes.get(name).copied())
+                    .map(ByteSize::from)
             })
     }
 
@@ -2884,9 +3420,9 @@ impl NirBuilder {
                     SemInlineAsmTarget::InlineOffset(offset) => {
                         NirForeignCodeTarget::InlineOffset(ByteOffset::from(*offset))
                     }
-                    SemInlineAsmTarget::Absolute(address) => NirForeignCodeTarget::Absolute(
-                        AddressValue::data(u64::from(*address)),
-                    ),
+                    SemInlineAsmTarget::Absolute(address) => {
+                        NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(*address)))
+                    }
                     SemInlineAsmTarget::Symbol(symbol) => {
                         self.nir_inline_asm_symbol_target(symbol)?
                     }
@@ -2930,7 +3466,9 @@ impl NirBuilder {
                     && let Some(local) = self.locals.iter().find(|local| local.id == *local_id)
                 {
                     return Some(match local.backing {
-                        NirLocalBacking::Absolute(address) => NirForeignCodeTarget::Absolute(address),
+                        NirLocalBacking::Absolute(address) => {
+                            NirForeignCodeTarget::Absolute(address)
+                        }
                         NirLocalBacking::Ordinary
                         | NirLocalBacking::Alias { .. }
                         | NirLocalBacking::GlobalAlias { .. } => {
@@ -2943,9 +3481,9 @@ impl NirBuilder {
                     .get(&symbol.id)
                     .copied()
                 {
-                    return Some(NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(
-                        address,
-                    ))));
+                    return Some(NirForeignCodeTarget::Absolute(AddressValue::data(
+                        u64::from(address),
+                    )));
                 }
                 self.global_ids_by_symbol
                     .get(&symbol.id)
@@ -2967,7 +3505,9 @@ impl NirBuilder {
                     [MachineItem::Number(number)] => number.value,
                     _ => None,
                 })
-                .map(|address| NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(address)))),
+                .map(|address| {
+                    NirForeignCodeTarget::Absolute(AddressValue::data(u64::from(address)))
+                }),
             SymbolClass::Const => None,
         }
     }
@@ -3693,10 +4233,7 @@ fn declaration_local_object_layout(
         descriptor_size, ..
     }) = init
     {
-        return NirObjectLayout::new(
-            *descriptor_size,
-            target_layout.data_pointer.alignment_bytes,
-        );
+        return NirObjectLayout::new(*descriptor_size, target_layout.data_pointer.alignment_bytes);
     }
 
     let declared_size = ByteSize::from(declaration_storage_size(
@@ -3716,8 +4253,7 @@ fn declaration_local_object_layout(
     };
     let alignment = match &declaration.storage {
         SemDeclarationStorage::Array { array_type, .. }
-            if array_type.length.is_none()
-                && declaration.initializer.is_none() =>
+            if array_type.length.is_none() && declaration.initializer.is_none() =>
         {
             target_layout.data_pointer.alignment_bytes
         }
@@ -3922,27 +4458,33 @@ fn array_element_width(
         .element
         .value_width_bytes_for_layout(target_layout)
         .or_else(|| {
-        array_type
-            .element
-            .as_record_name()
-            .and_then(|name| record_storage_sizes.get(name).copied())
+            array_type
+                .element
+                .as_record_name()
+                .and_then(|name| record_storage_sizes.get(name).copied())
         })
 }
 
 fn array_descriptor_size(target_layout: TargetLayout, has_size_word: bool) -> ByteSize {
-    target_layout.data_pointer.size_bytes.saturating_add(if has_size_word {
-        ByteSize::new(2)
-    } else {
-        ByteSize::ZERO
-    })
+    target_layout
+        .data_pointer
+        .size_bytes
+        .saturating_add(if has_size_word {
+            ByteSize::new(2)
+        } else {
+            ByteSize::ZERO
+        })
 }
 
 fn callable_descriptor_size(target_layout: TargetLayout, has_size_word: bool) -> ByteSize {
-    target_layout.code_pointer.size_bytes.saturating_add(if has_size_word {
-        ByteSize::new(2)
-    } else {
-        ByteSize::ZERO
-    })
+    target_layout
+        .code_pointer
+        .size_bytes
+        .saturating_add(if has_size_word {
+            ByteSize::new(2)
+        } else {
+            ByteSize::ZERO
+        })
 }
 
 fn declaration_array_fact(
@@ -4003,13 +4545,12 @@ fn declaration_global_init(
     if matches!(backing, NirGlobalBacking::Absolute(_)) {
         return None;
     }
-    let storage_size =
-        declaration_storage_size(
-            declaration,
-            record_storage_sizes,
-            address_initializer,
-            target_layout,
-        );
+    let storage_size = declaration_storage_size(
+        declaration,
+        record_storage_sizes,
+        address_initializer,
+        target_layout,
+    );
     match &declaration.storage {
         SemDeclarationStorage::Scalar => match &declaration.static_initializer {
             Some(initializer) => Some(data_image_init(
@@ -4176,9 +4717,7 @@ fn apply_program_end_symbol_set(globals: &mut [NirGlobal], set: &SemSet) -> bool
     else {
         return false;
     };
-    if matches!(global.backing, NirGlobalBacking::Absolute(_))
-        || global.storage_size.get() < 2
-    {
+    if matches!(global.backing, NirGlobalBacking::Absolute(_)) || global.storage_size.get() < 2 {
         return false;
     }
     global.init = Some(NirGlobalInit::LinkValue {
@@ -4350,10 +4889,7 @@ fn string_literal_storage_bytes(text: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn scalar_initializer_image(
-    declaration: &SemDeclaration,
-    total_size: u16,
-) -> Option<NirDataImage> {
+fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u16) -> Option<NirDataImage> {
     if declaration.ty.value.is_real() {
         return match &declaration.initializer.as_ref()?.kind {
             SemExprKind::Literal(SemLiteral::Real { value, .. }) => {
@@ -4436,7 +4972,9 @@ fn legacy_scalar_array_initializer_data_image(
                 if elem_size == 1 {
                     image.bytes.push(value as u8);
                 } else {
-                    image.bytes.resize(image.bytes.len() + usize::from(elem_size), 0);
+                    image
+                        .bytes
+                        .resize(image.bytes.len() + usize::from(elem_size), 0);
                     image.fragments.push(NirDataFragment::Integer {
                         offset,
                         width: ByteSize::from(elem_size),
@@ -4597,12 +5135,9 @@ fn global_data_relocation_target(
         .find(|(name, _)| storage_key(name) == storage_key(&target.name))
         .map(|(_, id)| NirDataAddressTarget::Storage(NirStorageId::Global(*id)))
         .or_else(|| {
-            resident_variable(&target.name)
-                .map(|variable| {
-                    NirDataAddressTarget::Absolute(AddressValue::data(u64::from(
-                        variable.address,
-                    )))
-                })
+            resident_variable(&target.name).map(|variable| {
+                NirDataAddressTarget::Absolute(AddressValue::data(u64::from(variable.address)))
+            })
         })
 }
 
@@ -4838,6 +5373,21 @@ fn pointer_type_to(pointee: &ValueType) -> NirType {
     }
 }
 
+fn native_data_pointer_type(
+    address_space: Option<crate::target::AddressSpaceId>,
+    target_layout: TargetLayout,
+) -> NirType {
+    NirType {
+        kind: NirTypeKind::Pointer {
+            pointee: None,
+            address_space: address_space.unwrap_or(target_layout.data_pointer.address_space),
+        },
+        summary: "ADDRESS".to_string(),
+        width: Some(target_layout.data_pointer.size_bytes),
+        pointer: true,
+    }
+}
+
 fn descending_for_wrap_threshold(ty: &NirType, amount: u16) -> Option<u16> {
     match ty.kind {
         NirTypeKind::U8 if amount <= u16::from(u8::MAX) => Some(amount),
@@ -4888,7 +5438,10 @@ fn nir_scalar_constant(ty: &NirType, value: u16) -> NirValue {
 
 fn zero_value_for_type(ty: &ValueType) -> NirValue {
     let nir_ty = NirType::from_value(ty);
-    if matches!(nir_ty.kind, NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. }) {
+    if matches!(
+        nir_ty.kind,
+        NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. }
+    ) {
         NirValue::Null { ty: nir_ty }
     } else if ty.value_width_bytes() == Some(1) {
         NirValue::ConstU8(0)
@@ -5091,14 +5644,8 @@ fn nir_callable_signature(
             .iter()
             .map(NirFacts::type_from_value)
             .collect(),
-        variadic: callable
-            .variadic
-            .as_ref()
-            .map(NirFacts::type_from_value),
-        result: callable
-            .return_type
-            .as_ref()
-            .map(NirFacts::type_from_value),
+        variadic: callable.variadic.as_ref().map(NirFacts::type_from_value),
+        result: callable.return_type.as_ref().map(NirFacts::type_from_value),
         kind: format!("{:?}", callable.kind),
         convention,
     }
@@ -5120,9 +5667,7 @@ fn nir_call_convention(
 ) -> NirCallConvention {
     match callee {
         SemCallable::User(_) | SemCallable::Indirect { .. } => NirCallConvention::TargetPublic,
-        SemCallable::Builtin(symbol)
-            if routine_ids.contains_key(&storage_key(&symbol.name)) =>
-        {
+        SemCallable::Builtin(symbol) if routine_ids.contains_key(&storage_key(&symbol.name)) => {
             NirCallConvention::TargetPublic
         }
         SemCallable::Builtin(_) | SemCallable::Runtime { .. } => NirCallConvention::Runtime,
@@ -5288,9 +5833,7 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
         });
     }
     match ty.width {
-        Some(width) if width == ByteSize::ONE => {
-            u8::try_from(value).ok().map(NirValue::ConstU8)
-        }
+        Some(width) if width == ByteSize::ONE => u8::try_from(value).ok().map(NirValue::ConstU8),
         Some(width) if width == ByteSize::new(2) => Some(NirValue::ConstU16(value)),
         _ => None,
     }
@@ -5473,9 +6016,7 @@ mod memory_effect_tests {
                     size: ByteSize::ONE,
                 },
                 NirMemoryRegion {
-                    kind: NirMemoryRegionKind::AbsoluteRange(
-                        TargetLayout::DATA_ADDRESS_SPACE,
-                    ),
+                    kind: NirMemoryRegionKind::AbsoluteRange(TargetLayout::DATA_ADDRESS_SPACE,),
                     offset: ByteOffset::new(0xD000),
                     size: ByteSize::new(4),
                 },

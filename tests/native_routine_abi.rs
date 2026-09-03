@@ -2,12 +2,13 @@ use std::path::Path;
 
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, MirCallTarget, MirOp, MirRoutineAbi, MirStorageBase, RoutineId};
+use actionc::{mir65816, mir68k};
 use actionc::nir::{
     self, LocalId, NirActivationModel, NirCallConvention, NirCallEffects, NirCallee,
     NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage, NirLocalBacking,
-    NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirObjectLayout, NirOp,
-    NirRoutinePlacement, NirStorageDuration, NirStorageId, NirStorageIdentityDomain,
-    NirStorageInit, NirTypeKind,
+    NirLocalPurpose, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind,
+    NirObjectLayout, NirOp, NirPlaceKind, NirRoutinePlacement, NirStorageDuration, NirStorageId,
+    NirStorageIdentityDomain, NirStorageInit, NirTypeKind,
 };
 use actionc::semantic::ir::{SemActivationModel, SemItem};
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
@@ -167,9 +168,7 @@ fn target_profiles_select_activation_duration_and_final_object_layouts() {
         let storage = storage.routine("Worker").expect("Worker storage analysis");
         let expected_domain = match activation {
             NirActivationModel::ClassicStatic => NirStorageIdentityDomain::Routine(worker.id),
-            NirActivationModel::NativeReentrant => {
-                NirStorageIdentityDomain::Invocation(worker.id)
-            }
+            NirActivationModel::NativeReentrant => NirStorageIdentityDomain::Invocation(worker.id),
         };
         assert_eq!(
             storage.storage_by_name("local").unwrap().identity_domain,
@@ -292,7 +291,12 @@ fn verifier_rejects_invalid_non_owning_local_storage() {
         .routines
         .iter_mut()
         .find(|routine| routine.name == "Worker")
-        .and_then(|routine| routine.locals.iter_mut().find(|local| local.name == "alias"))
+        .and_then(|routine| {
+            routine
+                .locals
+                .iter_mut()
+                .find(|local| local.name == "alias")
+        })
         .expect("local alias");
     let NirLocalBacking::Alias { target, .. } = &mut alias.backing else {
         panic!("expected local alias")
@@ -371,7 +375,58 @@ fn verifier_rejects_invalid_non_owning_local_storage() {
     *target = external_alias_id;
     let diagnostics = nir::verify_program(&cyclic_aliases).expect_err("alias cycle");
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.message.contains("participates in an alias cycle")
+        diagnostic
+            .message
+            .contains("participates in an alias cycle")
+    }));
+}
+
+#[test]
+fn verifier_rejects_malformed_automatic_initializer_storage() {
+    let mut load_time = fixture_for_target(
+        Path::new("fixtures/nir/native_entry_initialization.act"),
+        TargetId::Motorola68000,
+    );
+    let first = load_time
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Initialized")
+        .and_then(|routine| routine.locals.iter_mut().find(|local| local.name == "first"))
+        .expect("automatic initialized local");
+    first.init = Some(NirStorageInit::ZeroFill {
+        bytes: ByteSize::ONE,
+        mutable: true,
+        section: "local".to_string(),
+    });
+    let diagnostics = nir::verify_program(&load_time).expect_err("automatic load-time image");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must use executable entry initialization")
+    }));
+
+    let mut missing_owner = fixture_for_target(
+        Path::new("fixtures/nir/native_entry_initialization.act"),
+        TargetId::Motorola68000,
+    );
+    let backing = missing_owner
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Initialized")
+        .and_then(|routine| {
+            routine.locals.iter_mut().find(|local| {
+                matches!(local.purpose, NirLocalPurpose::AggregateBacking { .. })
+            })
+        })
+        .expect("automatic aggregate backing");
+    backing.purpose = NirLocalPurpose::AggregateBacking {
+        owner: LocalId(999),
+    };
+    let diagnostics = nir::verify_program(&missing_owner).expect_err("missing backing owner");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("references a missing or invalid descriptor owner")
     }));
 }
 
@@ -421,7 +476,8 @@ fn effect_regions_use_object_layout_not_element_type_width() {
         .iter_mut()
         .find(|routine| routine.name == "Worker")
         .expect("Worker routine");
-    let NirOp::Call { effects, .. } = worker.blocks[0].ops.last_mut().expect("inserted call") else {
+    let NirOp::Call { effects, .. } = worker.blocks[0].ops.last_mut().expect("inserted call")
+    else {
         unreachable!()
     };
     let NirMemoryAccess::Regions(regions) = &mut effects.memory.reads else {
@@ -429,11 +485,11 @@ fn effect_regions_use_object_layout_not_element_type_width() {
     };
     regions[0].offset = ByteOffset::new(4);
     let diagnostics = nir::verify_program(&program).expect_err("effect past local object");
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic
-            .message
-            .contains("exceeds storage size 4")
-    }));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.message.contains("exceeds storage size 4") })
+    );
 }
 
 #[test]
@@ -470,6 +526,178 @@ fn classic_nir_baseline_keeps_fixed_local_initializers_and_aliases() {
                 if matches!(&place.kind, nir::NirPlaceKind::Local { name, .. } if name == "local")
         )
     }));
+}
+
+#[test]
+fn native_initializers_are_explicit_ordered_entry_operations() {
+    for target in [
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
+        let program = fixture_for_target(
+            Path::new("fixtures/nir/native_entry_initialization.act"),
+            target,
+        );
+        let initialized = program
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Initialized")
+            .expect("Initialized routine");
+        assert!(
+            initialized.locals.iter().all(|local| local.init.is_none()),
+            "automatic locals cannot retain load-time images for {target}"
+        );
+        let backing = initialized
+            .locals
+            .iter()
+            .find(|local| {
+                matches!(
+                    local.purpose,
+                    NirLocalPurpose::AggregateBacking { owner }
+                        if initialized.locals.iter().any(|candidate| {
+                            candidate.id == owner && candidate.name == "words"
+                        })
+                )
+            })
+            .unwrap_or_else(|| panic!("word-array backing for {target}"));
+        assert_eq!(backing.duration, NirStorageDuration::Automatic);
+        assert!(matches!(backing.backing, NirLocalBacking::Ordinary));
+
+        let ops = &initialized.blocks[0].ops;
+        let local_store = |name: &str| {
+            ops.iter().position(|op| {
+                matches!(
+                    op,
+                    NirOp::Store {
+                        place: nir::NirPlace {
+                            kind: NirPlaceKind::Local { name: candidate, .. },
+                            ..
+                        },
+                        ..
+                    } if candidate == name
+                )
+            })
+        };
+        let first = local_store("first").expect("first initializer store");
+        let second = local_store("second").expect("second initializer store");
+        let pointer = local_store("ptr").expect("pointer initializer store");
+        let descriptor = local_store("words").expect("descriptor pointer store");
+        let backing_copy = ops
+            .iter()
+            .position(|op| {
+                matches!(
+                    op,
+                    NirOp::CopyBytes {
+                        destination: nir::NirPlace {
+                            kind: NirPlaceKind::Local { name, .. },
+                            ..
+                        },
+                        ..
+                    } if name == "words.__backing"
+                )
+            })
+            .expect("word backing template copy");
+        let body = ops
+            .iter()
+            .position(|op| {
+                matches!(
+                    op,
+                    NirOp::Load {
+                        place: nir::NirPlace {
+                            kind: NirPlaceKind::Local { name, .. },
+                            ..
+                        },
+                        ..
+                    } if name == "second"
+                )
+            })
+            .expect("first source-body operation");
+        assert!(first < second && second < pointer);
+        assert!(pointer < descriptor && descriptor < backing_copy && backing_copy < body);
+        assert!(
+            local_store("alias").is_none(),
+            "an alias is not initialized"
+        );
+        assert!(
+            local_store("plain").is_none(),
+            "an uninitialized local stays uninitialized"
+        );
+        assert!(
+            program.statics.iter().all(|static_data| {
+                !static_data.name.starts_with("__nir_init_")
+                    || (!static_data.mutable && static_data.section == "rodata")
+            }),
+            "entry templates must be immutable rodata for {target}"
+        );
+
+        for routine_name in ["EarlyReturn", "Nested"] {
+            let routine = program
+                .routines
+                .iter()
+                .find(|routine| routine.name == routine_name)
+                .expect("entry-initialized routine");
+            assert!(matches!(
+                routine.blocks[0].ops.first(),
+                Some(NirOp::Store { .. })
+            ));
+        }
+        match target {
+            TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                mir65816::lower_program(&program)
+                    .unwrap_or_else(|error| panic!("MIR65816 entry initialization: {error:?}"));
+            }
+            TargetId::Motorola68000 => {
+                mir68k::lower_program(&program)
+                    .unwrap_or_else(|error| panic!("MIR68K entry initialization: {error:?}"));
+            }
+            TargetId::Atari6502 => unreachable!(),
+        }
+    }
+}
+
+#[test]
+fn classic_initializers_remain_load_time_storage_images() {
+    let program = fixture_for_target(
+        Path::new("fixtures/nir/native_entry_initialization.act"),
+        TargetId::Atari6502,
+    );
+    let initialized = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Initialized")
+        .expect("Initialized routine");
+    for name in ["first", "second", "ptr", "bytes", "words", "pair", "holder"] {
+        assert!(
+            initialized
+                .locals
+                .iter()
+                .find(|local| local.name == name)
+                .is_some_and(|local| local.init.is_some()),
+            "classic `{name}` keeps its load-time initializer"
+        );
+    }
+    assert!(
+        initialized
+            .locals
+            .iter()
+            .all(|local| !matches!(local.purpose, NirLocalPurpose::AggregateBacking { .. }))
+    );
+    assert!(
+        initialized.blocks[0].ops.iter().all(|op| {
+            !matches!(
+                op,
+                NirOp::Store {
+                    place: nir::NirPlace {
+                        kind: NirPlaceKind::Local { name, .. },
+                        ..
+                    },
+                    ..
+                } if matches!(name.as_str(), "first" | "second" | "ptr")
+            )
+        }),
+        "classic initialization must not be repeated by entry stores"
+    );
 }
 
 #[test]
@@ -555,7 +783,9 @@ fn verifier_rejects_call_convention_mismatches_and_missing_signatures() {
     call.convention = NirCallConvention::Runtime;
     let diagnostics = nir::verify_program(&mismatched).expect_err("mismatched convention");
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.message.contains("call convention does not match")
+        diagnostic
+            .message
+            .contains("call convention does not match")
     }));
 
     let mut missing = classic_baseline();

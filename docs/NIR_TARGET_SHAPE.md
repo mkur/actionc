@@ -170,8 +170,12 @@ routine's current invocation, while classic storage identities remain
 routine-wide. Alias facts retain their target identity and its duration.
 Address-taking, aggregate copies, volatile operations, foreign-code metadata,
 and opaque escape barriers keep affected automatic objects addressable. The
-remaining automatic-storage migration must add explicit entry-time
-initialization operations.
+lowerer represents native initialization as ordinary operations at the start
+of the entry block: scalar and pointer stores, immutable-template `CopyBytes`,
+and descriptor stores. Descriptor-backed arrays have a distinct hidden
+automatic backing `LocalId`; their descriptor receives that invocation's
+backing address on every entry. Uninitialized automatic objects carry neither
+a load-time image nor implicit zeroing.
 
 NIR does not assign a stack offset. MIR68K and MIR65816 independently select
 register homes, frame objects, stack or software-frame layouts, prologues,
@@ -556,6 +560,15 @@ the independently resolved source-read and destination-write facts. Ordinary
 `Load`, `VolatileLoad`, `Store`, and `VolatileStore` reject record types; this
 keeps aggregates out of the byte/word scalar lane and gives MIR6502 one explicit
 aggregate-copy contract to lower.
+
+Native entry initialization also uses `CopyBytes` to copy an immutable static
+template into an automatic array, record, or descriptor-backing byte range. In
+that form the verifier proves the non-zero extent against the referenced
+storage object's final layout and the static template extent; it does not infer
+an aggregate size from an element type. Address fragments targeting automatic
+storage are removed from the template and materialized afterward with
+`AddrOf` and typed stores, so load-time data never captures another
+invocation's address.
 
 Recommended operator sets:
 

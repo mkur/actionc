@@ -1,0 +1,59 @@
+nir program
+target motorola-68000 cpu=Motorola68000 endian=Big address_bits=32 data_pointer=4 code_pointer=4 abi=Motorola68kNative activation=native-reentrant
+global result: Byte
+global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Fund(Card), pointer: false }, offset: 2 }], size: 4 } fields=2
+global Holder: type RecordType { name: "Holder", fields: [RecordFieldType { id: Some(FieldId(2)), name: "ptr", ty: ValueType { base: Fund(Byte), pointer: true }, offset: 0 }], size: 4 } fields=1
+static __nir_init_Initialized_0:Byte bytes=[$03 $04 $05] = "entry initializer for bytes"
+static __nir_init_Initialized_1:Card bytes=[$00 $00 $00 $00] fragments=[0:int16=$6, 2:int16=$7] = "entry initializer for words"
+static __nir_init_Initialized_2:Pair bytes=[$08 $00 $00 $00] fragments=[2:int16=$9] = "entry initializer for pair"
+static __nir_init_Initialized_3:Holder bytes=[$00 $00 $00 $00] = "entry initializer for holder"
+
+routine r0 Initialized signature=s2726028260 convention=target-public activation=native-reentrant entry=relocatable params=[-] locals=[first, second, alias, plain, ptr, bytes, words, pair, holder, words.__backing]
+  local first: Byte duration=automatic size=1 align=1
+  local second: Byte duration=automatic size=1 align=1
+  local alias: Byte duration=automatic size=1 align=1 alias first
+  local plain: Byte duration=automatic size=1 align=1
+  local ptr: Byte* duration=automatic size=4 align=2
+  local bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(3) } length=3 storage=Array origin=local duration=automatic size=3 align=1
+  local words: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=local duration=automatic size=6 align=2
+  local pair: Pair duration=automatic size=4 align=2
+  local holder: Holder duration=automatic size=4 align=2
+  local words.__backing: automatic aggregate backing for words duration=automatic size=4 align=2 purpose=aggregate-backing(l6)
+bb0:
+  store first = 1
+  store second = 2
+  %t0:Byte* = addr first
+  store ptr = %t0
+  copy_bytes bytes = *&__nir_init_Initialized_0 size=3
+  %t1:Card* = addr words.__backing
+  store words = %t1
+  store words.+4 = $0
+  copy_bytes words.__backing = *&__nir_init_Initialized_1 size=4
+  copy_bytes pair = *&__nir_init_Initialized_2 size=4
+  copy_bytes holder = *&__nir_init_Initialized_3 size=4
+  %t2:ADDRESS = addr first
+  store holder.+0 = %t2
+  %t3:Byte = load second
+  store result = %t3
+  return
+
+routine r1 EarlyReturn signature=s2726028260 convention=target-public activation=native-reentrant entry=relocatable params=[-] locals=[initial]
+  local initial: Byte duration=automatic size=1 align=1
+bb1:
+  store initial = 10
+  return
+
+routine r2 Nested signature=s2726028260 convention=target-public activation=native-reentrant entry=relocatable params=[-] locals=[Nested::block0::nested]
+  local Nested::block0::nested: Byte duration=automatic size=1 align=1
+bb2:
+  store Nested::block0::nested = 11
+  %t0:Byte = load Nested::block0::nested
+  store result = %t0
+  return
+
+routine r3 Main signature=s2726028260 convention=target-public activation=native-reentrant entry=program+relocatable params=[-] locals=[-]
+bb3:
+  call Initialized() signature=s2726028260 convention=target-public
+  call EarlyReturn() signature=s2726028260 convention=target-public
+  call Nested() signature=s2726028260 convention=target-public
+  return

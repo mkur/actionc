@@ -127,6 +127,24 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
         TargetId::Motorola68000
     ),
     lowered_target_case!(
+        "native_entry_initialization.wdc-65816-native",
+        "native_entry_initialization",
+        "native_entry_initialization.wdc-65816-native",
+        TargetId::Wdc65816Native
+    ),
+    lowered_target_case!(
+        "native_entry_initialization.wdc-65816-small",
+        "native_entry_initialization",
+        "native_entry_initialization.wdc-65816-small",
+        TargetId::Wdc65816Small
+    ),
+    lowered_target_case!(
+        "native_entry_initialization.motorola-68000",
+        "native_entry_initialization",
+        "native_entry_initialization.motorola-68000",
+        TargetId::Motorola68000
+    ),
+    lowered_target_case!(
         "target_layout_matrix.wdc-65816-native",
         "target_layout_matrix",
         "target_layout_matrix.wdc-65816-native",
@@ -409,6 +427,7 @@ pub enum NirFeature {
     DataAddressTargetRoutine,
     DataAddressTargetAbsolute,
     LocalPurposeStorage,
+    LocalPurposeAggregateBacking,
     LocalPurposeRealTemporary,
     StorageClassScalar,
     StorageClassArray,
@@ -670,6 +689,9 @@ pub fn collect_features(program: &NirProgram) -> BTreeSet<NirFeature> {
         for local in &routine.locals {
             features.insert(match local.purpose {
                 NirLocalPurpose::Storage => NirFeature::LocalPurposeStorage,
+                NirLocalPurpose::AggregateBacking { .. } => {
+                    NirFeature::LocalPurposeAggregateBacking
+                }
                 NirLocalPurpose::RealTemporary => NirFeature::LocalPurposeRealTemporary,
             });
             visit_storage_class(local.storage, &mut features);

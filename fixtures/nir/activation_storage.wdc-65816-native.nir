@@ -13,8 +13,8 @@ routine r0 Worker signature=s2701581917 convention=target-public activation=nati
   local absolute: Byte duration=external size=1 align=1 absolute $D01F
   local externalAlias: Byte duration=external size=1 align=1 alias absolute
   local word: Card duration=automatic size=2 align=2
-  local bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=local duration=automatic size=4 align=1 init zero_fill=4 section=local mutable=true
-  local pair: Pair duration=automatic size=4 align=2 init zero_fill=4 section=local mutable=true
+  local bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=local duration=automatic size=4 align=1
+  local pair: Pair duration=automatic size=4 align=2
 bb0:
   %t0:Byte = load value
   store local = %t0

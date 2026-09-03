@@ -125,6 +125,12 @@ impl NirPrinter {
             ));
         }
         for local in &routine.locals {
+            let purpose = match local.purpose {
+                NirLocalPurpose::AggregateBacking { owner } => {
+                    format!(" purpose=aggregate-backing(l{})", owner.0)
+                }
+                NirLocalPurpose::Storage | NirLocalPurpose::RealTemporary => String::new(),
+            };
             let backing = match local.backing {
                 super::ir::NirLocalBacking::Ordinary => String::new(),
                 super::ir::NirLocalBacking::Absolute(address) => {
@@ -154,12 +160,13 @@ impl NirPrinter {
                 }
             };
             self.line(format!(
-                "  local {}: {} duration={} size={} align={}{}{}",
+                "  local {}: {} duration={} size={} align={}{}{}{}",
                 local.name,
                 local.kind,
                 duration_summary(local.duration),
                 local.layout.size,
                 local.layout.alignment,
+                purpose,
                 backing,
                 storage_init_suffix(local.init.as_ref())
             ));

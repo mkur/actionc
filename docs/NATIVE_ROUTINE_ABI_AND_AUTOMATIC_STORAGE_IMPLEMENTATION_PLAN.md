@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 3 were implemented and verified on
+Status: in progress. Slices 0 through 4 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -443,6 +443,18 @@ nir: verify invocation-scoped automatic storage
 ```
 
 ### Slice 4: entry-time initialization
+
+Status: complete. Classic routines retain their existing local load images.
+Native routines instead lower declared scalar and pointer values to ordered
+entry stores and aggregate values to copies from immutable target-projected
+templates. Descriptor-backed arrays own a separate hidden automatic backing
+object; every invocation stores its current backing address and size word into
+the descriptor before source code executes. Address fragments that refer to a
+parameter or local are materialized after the template copy with `AddrOf`, so
+automatic storage never appears in a load-time relocation. Uninitialized
+automatic arrays and records are deliberately left uninitialized, and focused
+fixtures cover early return, lexical declarations, aliases, declaration order,
+both 65816 profiles, and 68k.
 
 1. Split classic load-image initialization from native entry initialization in
    SemIR-to-NIR lowering.

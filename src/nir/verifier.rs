@@ -529,7 +529,61 @@ impl NirVerifier {
                     ),
                 ));
             }
+            if local.duration == NirStorageDuration::Automatic && local.init.is_some() {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "automatic local `{}` must use executable entry initialization, not a load-time image",
+                        local.name
+                    ),
+                ));
+            }
             self.type_shape_static(&local.ty, &format!("local `{}`", local.name));
+        }
+        let mut aggregate_backing_owners = BTreeSet::new();
+        for local in &routine.locals {
+            let NirLocalPurpose::AggregateBacking { owner } = local.purpose else {
+                continue;
+            };
+            let owner_local = routine
+                .locals
+                .iter()
+                .find(|candidate| candidate.id == owner);
+            if routine.activation != NirActivationModel::NativeReentrant
+                || local.duration != NirStorageDuration::Automatic
+                || !matches!(local.backing, NirLocalBacking::Ordinary)
+                || local.init.is_some()
+                || local.storage != NirStorageClass::Array
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "aggregate backing `{}` must be ordinary uninitialized automatic array storage in a native routine",
+                        local.name
+                    ),
+                ));
+            }
+            if !aggregate_backing_owners.insert(owner) {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!("local id {} has more than one aggregate backing", owner.0),
+                ));
+            }
+            if !owner_local.is_some_and(|owner| {
+                owner.id != local.id
+                    && owner.purpose == NirLocalPurpose::Storage
+                    && owner.storage == NirStorageClass::Array
+                    && owner.duration == NirStorageDuration::Automatic
+                    && matches!(owner.backing, NirLocalBacking::Ordinary)
+            }) {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!(
+                        "aggregate backing `{}` references a missing or invalid descriptor owner l{}",
+                        local.name, owner.0
+                    ),
+                ));
+            }
         }
         for local in &routine.locals {
             match local.backing {
@@ -1372,8 +1426,8 @@ impl NirVerifier {
                         "copy_bytes extent must be non-zero",
                     ));
                 }
-                self.record_copy_place(routine, block, destination, *size, "copy destination");
-                self.record_copy_place(routine, block, source, *size, "copy source");
+                self.copy_bytes_place(routine, block, destination, *size, "copy destination");
+                self.copy_bytes_place(routine, block, source, *size, "copy source");
             }
             NirOp::Unary { dest, ty, op, src } => {
                 self.op_type(routine, block, ty, "unary result");
@@ -2181,7 +2235,7 @@ impl NirVerifier {
         }
     }
 
-    fn record_copy_place(
+    fn copy_bytes_place(
         &mut self,
         routine: &NirRoutine,
         block: &NirBlock,
@@ -2192,23 +2246,58 @@ impl NirVerifier {
         let Some(ty) = &place.ty else {
             return;
         };
-        if !matches!(ty.kind, NirTypeKind::Record { .. }) {
-            self.diagnostics.push(NirDiagnostic::block(
-                &routine.name,
-                &block.label,
-                format!("{label} must have record storage type"),
-            ));
+        if matches!(ty.kind, NirTypeKind::Record { .. }) {
+            if ty.width != Some(size) {
+                self.diagnostics.push(NirDiagnostic::block(
+                    &routine.name,
+                    &block.label,
+                    format!(
+                        "{label} width {:?} does not match copy_bytes extent {size}",
+                        ty.width
+                    ),
+                ));
+            }
             return;
         }
-        if ty.width != Some(size) {
+        let available = self.copy_bytes_place_extent(routine, place);
+        if available.is_none_or(|available| available < size) {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
                 format!(
-                    "{label} width {:?} does not match copy_bytes extent {size}",
-                    ty.width
+                    "{label} storage extent {:?} is smaller than copy_bytes extent {size}",
+                    available
                 ),
             ));
+        }
+    }
+
+    fn copy_bytes_place_extent(
+        &self,
+        routine: &NirRoutine,
+        place: &NirPlace,
+    ) -> Option<ByteSize> {
+        match &place.kind {
+            NirPlaceKind::Param { id, .. } => routine
+                .params
+                .iter()
+                .find(|param| param.id == *id)
+                .map(|param| param.layout.size),
+            NirPlaceKind::Local { id, .. } => routine
+                .locals
+                .iter()
+                .find(|local| local.id == *id)
+                .map(|local| local.layout.size),
+            NirPlaceKind::Global { id, .. } => self.global_sizes.get(id).copied(),
+            NirPlaceKind::Deref {
+                addr: NirValue::StaticAddr { id, .. },
+            } => self.static_sizes.get(id).copied(),
+            NirPlaceKind::Field { base, offset, .. } => self
+                .copy_bytes_place_extent(routine, base)
+                .and_then(|size| size.get().checked_sub(offset.get()).map(ByteSize::new)),
+            NirPlaceKind::Absolute(_)
+            | NirPlaceKind::Deref { .. }
+            | NirPlaceKind::Index { .. } => place.ty.as_ref().and_then(|ty| ty.width),
         }
     }
 
