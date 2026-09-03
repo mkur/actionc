@@ -2,7 +2,6 @@ use std::path::Path;
 
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502::{self, MirCallTarget, MirOp, MirRoutineAbi, MirStorageBase, RoutineId};
-use actionc::{mir65816, mir68k};
 use actionc::nir::{
     self, LocalId, NirActivationModel, NirCallConvention, NirCallEffects, NirCallee,
     NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage, NirLocalBacking,
@@ -13,6 +12,7 @@ use actionc::nir::{
 use actionc::semantic::ir::{SemActivationModel, SemItem};
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 use actionc::target::{ByteOffset, ByteSize, TargetId};
+use actionc::{mir68k, mir65816};
 
 fn classic_baseline() -> nir::NirProgram {
     fixture_for_target(
@@ -391,7 +391,12 @@ fn verifier_rejects_malformed_automatic_initializer_storage() {
         .routines
         .iter_mut()
         .find(|routine| routine.name == "Initialized")
-        .and_then(|routine| routine.locals.iter_mut().find(|local| local.name == "first"))
+        .and_then(|routine| {
+            routine
+                .locals
+                .iter_mut()
+                .find(|local| local.name == "first")
+        })
         .expect("automatic initialized local");
     first.init = Some(NirStorageInit::ZeroFill {
         bytes: ByteSize::ONE,
@@ -414,9 +419,10 @@ fn verifier_rejects_malformed_automatic_initializer_storage() {
         .iter_mut()
         .find(|routine| routine.name == "Initialized")
         .and_then(|routine| {
-            routine.locals.iter_mut().find(|local| {
-                matches!(local.purpose, NirLocalPurpose::AggregateBacking { .. })
-            })
+            routine
+                .locals
+                .iter_mut()
+                .find(|local| matches!(local.purpose, NirLocalPurpose::AggregateBacking { .. }))
         })
         .expect("automatic aggregate backing");
     backing.purpose = NirLocalPurpose::AggregateBacking {
@@ -849,4 +855,98 @@ fn classic_mir6502_baseline_reuses_one_frame_for_recursive_calls() {
             } if *id == recur_id.0
         )
     }));
+}
+
+#[test]
+fn native_optimization_preserves_activation_identity_and_escaped_homes() {
+    for target in [
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
+        let lowered = fixture_for_target(
+            Path::new("fixtures/runtime/native_routine_abi_baseline.act"),
+            target,
+        );
+        let optimized = nir::optimize_program(&lowered).unwrap_or_else(|diagnostics| {
+            panic!("optimize native ABI fixture for {target}: {diagnostics:?}")
+        });
+        nir::verify_program(&optimized).unwrap_or_else(|diagnostics| {
+            panic!("verify optimized native ABI fixture for {target}: {diagnostics:?}")
+        });
+
+        for optimized_routine in &optimized.routines {
+            let lowered_routine = lowered
+                .routines
+                .iter()
+                .find(|routine| routine.id == optimized_routine.id)
+                .expect("lowered routine identity");
+            assert_eq!(
+                optimized_routine.activation,
+                NirActivationModel::NativeReentrant,
+                "{target}"
+            );
+            for param in &optimized_routine.params {
+                let lowered_param = lowered_routine
+                    .params
+                    .iter()
+                    .find(|candidate| candidate.id == param.id)
+                    .expect("lowered parameter identity");
+                assert_eq!(param.duration, lowered_param.duration, "{target}");
+            }
+            for local in &optimized_routine.locals {
+                let lowered_local = lowered_routine
+                    .locals
+                    .iter()
+                    .find(|candidate| candidate.id == local.id)
+                    .expect("lowered local identity");
+                assert_eq!(local.duration, lowered_local.duration, "{target}");
+            }
+        }
+
+        let bump = optimized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Bump")
+            .expect("optimized Bump routine");
+        let escaped = bump
+            .locals
+            .iter()
+            .find(|local| local.name == "local")
+            .expect("address-escaped local retains a home");
+        assert_eq!(escaped.duration, NirStorageDuration::Automatic, "{target}");
+        assert!(bump.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(op, NirOp::AddrOf {
+                place: nir::NirPlace {
+                    kind: NirPlaceKind::Local { id, .. },
+                    ..
+                },
+                ..
+            } if *id == escaped.id)
+        }));
+
+        let recur = optimized
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Recur")
+            .expect("optimized Recur routine");
+        assert!(recur.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(op, NirOp::Call { callee: NirCallee::User { id, .. }, .. }
+                if *id == recur.id)
+        }));
+
+        match target {
+            TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                mir65816::lower_program(&optimized).unwrap_or_else(|diagnostics| {
+                    panic!("lower optimized {target}: {diagnostics:?}")
+                });
+            }
+            TargetId::Motorola68000 => {
+                mir68k::lower_program(&optimized).unwrap_or_else(|diagnostics| {
+                    panic!("lower optimized {target}: {diagnostics:?}")
+                });
+            }
+            TargetId::Atari6502 => unreachable!(),
+        }
+    }
 }

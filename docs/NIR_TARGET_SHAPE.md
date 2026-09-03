@@ -177,6 +177,16 @@ automatic backing `LocalId`; their descriptor receives that invocation's
 backing address on every entry. Uninitialized automatic objects carry neither
 a load-time image nor implicit zeroing.
 
+Optimization uses the same identity domain. An automatic scalar is proven
+private to its current invocation only while no address-forming operation
+requires its storage. Unknown and recursive calls cannot name that private
+dynamic instance, so its value may remain promoted or forwarded across the
+call; a recursive callee's equal lexical `LocalId` denotes a different object.
+Routine-static homes keep the shared-cell call barrier. Address-taking,
+aliases, volatile or aggregate access, explicit effect regions, and foreign
+visibility conservatively retain an addressable home. Every storage pass
+re-verifies NIR, including activation/duration consistency, after rewriting.
+
 NIR does not assign a stack offset. MIR68K and MIR65816 independently select
 register homes, frame objects, stack or software-frame layouts, prologues,
 epilogues, and physical call sequences. MIR6502 continues to map classic

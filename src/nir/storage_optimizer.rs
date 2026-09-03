@@ -7,7 +7,7 @@ use super::analysis::{
     storage::NirRoutineStorageAnalysis,
     use_def::NirUseDef,
 };
-use super::facts::{BlockId, NirStorageId, NirType, NirValue, TempId, value_width};
+use super::facts::{BlockId, NirStorageId, NirType, NirValue, RoutineId, TempId, value_width};
 use super::ir::*;
 use super::{NirDiagnostic, analyze_program_storage, direct_storage_id, verify_program};
 use crate::target::{ByteOffset, ByteSize};
@@ -37,6 +37,12 @@ fn propagate_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnaly
                 .map(|width| (facts.id, width))
         })
         .collect::<BTreeMap<_, _>>();
+    let private_invocation = analysis
+        .homes
+        .values()
+        .filter(|facts| facts.is_proven_private_to_invocation())
+        .map(|facts| facts.id)
+        .collect::<BTreeSet<_>>();
     if trackable.is_empty() {
         return;
     }
@@ -44,7 +50,7 @@ fn propagate_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnaly
     let cfg = NirCfg::from_routine(routine);
     let dominance = NirDominance::from_cfg(&cfg);
     let use_def = NirUseDef::from_routine(routine);
-    let routine_name = routine.name.clone();
+    let routine_id = routine.id;
     let result = solve_dataflow(
         &cfg,
         &StorageValueProblem::new(
@@ -53,7 +59,8 @@ fn propagate_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnaly
             &dominance,
             &use_def,
             &trackable,
-            &routine_name,
+            &private_invocation,
+            routine_id,
         ),
     );
 
@@ -72,7 +79,8 @@ fn propagate_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnaly
                 &trackable,
                 &use_def,
                 &dominance,
-                &routine_name,
+                &private_invocation,
+                routine_id,
                 &mut facts,
             ) {
                 rewritten.push(op);
@@ -107,7 +115,8 @@ struct StorageValueProblem<'a> {
     dominance: &'a NirDominance,
     use_def: &'a NirUseDef,
     trackable: &'a BTreeMap<NirStorageId, ByteSize>,
-    routine_name: &'a str,
+    private_invocation: &'a BTreeSet<NirStorageId>,
+    routine_id: RoutineId,
 }
 
 impl<'a> StorageValueProblem<'a> {
@@ -117,7 +126,8 @@ impl<'a> StorageValueProblem<'a> {
         dominance: &'a NirDominance,
         use_def: &'a NirUseDef,
         trackable: &'a BTreeMap<NirStorageId, ByteSize>,
-        routine_name: &'a str,
+        private_invocation: &'a BTreeSet<NirStorageId>,
+        routine_id: RoutineId,
     ) -> Self {
         Self {
             entry: cfg.entry(),
@@ -129,7 +139,8 @@ impl<'a> StorageValueProblem<'a> {
             dominance,
             use_def,
             trackable,
-            routine_name,
+            private_invocation,
+            routine_id,
         }
     }
 }
@@ -170,7 +181,8 @@ impl NirDataflowProblem for StorageValueProblem<'_> {
                 self.trackable,
                 self.use_def,
                 self.dominance,
-                self.routine_name,
+                self.private_invocation,
+                self.routine_id,
                 &mut facts,
             );
         }
@@ -185,7 +197,8 @@ fn transfer_op(
     trackable: &BTreeMap<NirStorageId, ByteSize>,
     use_def: &NirUseDef,
     dominance: &NirDominance,
-    routine_name: &str,
+    private_invocation: &BTreeSet<NirStorageId>,
+    routine_id: RoutineId,
     facts: &mut StorageValueFacts,
 ) -> Option<NirOp> {
     rewrite_op_values(&mut op, &facts.replacements);
@@ -261,7 +274,14 @@ fn transfer_op(
                 facts.replacements.remove(&result.dest);
             }
             retain_available_storage_values(facts, block, op_index, use_def);
-            apply_call_barrier(facts, callee, effects, trackable, routine_name);
+            apply_call_barrier(
+                facts,
+                callee,
+                effects,
+                trackable,
+                private_invocation,
+                routine_id,
+            );
         }
         NirOp::Real(real) => {
             if let NirRealOp::Compare { result, .. } | NirRealOp::RealToInteger { result, .. } =
@@ -272,8 +292,7 @@ fn transfer_op(
             retain_available_storage_values(facts, block, op_index, use_def);
             facts.storage.clear();
         }
-        NirOp::ForeignCode { .. }
-        | NirOp::Unsupported { .. } => {
+        NirOp::ForeignCode { .. } | NirOp::Unsupported { .. } => {
             facts.storage.clear();
         }
         NirOp::AddrOf { dest, .. }
@@ -324,15 +343,22 @@ fn apply_call_barrier(
     callee: &NirCallee,
     effects: &NirCallEffects,
     trackable: &BTreeMap<NirStorageId, ByteSize>,
-    routine_name: &str,
+    private_invocation: &BTreeSet<NirStorageId>,
+    routine_id: RoutineId,
 ) {
-    if effects.opaque || effects.may_call_external || matches!(callee, NirCallee::Indirect { .. }) {
-        facts.storage.clear();
-        return;
-    }
-
-    if matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name)) {
-        facts.storage.clear();
+    let broad_barrier = effects.opaque
+        || effects.may_call_external
+        || matches!(callee, NirCallee::Indirect { .. })
+        || matches!(callee, NirCallee::User { id, .. } if *id == routine_id);
+    if broad_barrier {
+        // A call cannot name an unescaped object in its caller's activation,
+        // including a recursive callee's fresh instance of the same lexical
+        // LocalId. Preserve only those proven-private values. Explicit region
+        // effects below still win if the call records a concrete exposure.
+        facts
+            .storage
+            .retain(|id, _| private_invocation.contains(id));
+        invalidate_explicit_call_writes(facts, &effects.memory.writes, trackable);
         return;
     }
 
@@ -356,8 +382,31 @@ fn apply_call_barrier(
             };
             !regions.iter().any(|region| region.overlaps(&storage))
         }),
-        NirMemoryAccess::Unknown | NirMemoryAccess::All => facts.storage.clear(),
+        NirMemoryAccess::Unknown | NirMemoryAccess::All => facts
+            .storage
+            .retain(|id, _| private_invocation.contains(id)),
     }
+}
+
+fn invalidate_explicit_call_writes(
+    facts: &mut StorageValueFacts,
+    writes: &NirMemoryAccess,
+    trackable: &BTreeMap<NirStorageId, ByteSize>,
+) {
+    let NirMemoryAccess::Regions(regions) = writes else {
+        return;
+    };
+    facts.storage.retain(|id, _| {
+        let Some(size) = trackable.get(id) else {
+            return false;
+        };
+        let storage = NirMemoryRegion {
+            kind: NirMemoryRegionKind::Storage(*id),
+            offset: ByteOffset::ZERO,
+            size: *size,
+        };
+        !regions.iter().any(|region| region.overlaps(&storage))
+    });
 }
 
 fn value_available(
@@ -445,8 +494,7 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
                 rewrite_value(arg, replacements);
             }
         }
-        NirOp::ForeignCode { .. }
-        | NirOp::Unsupported { .. } => {}
+        NirOp::ForeignCode { .. } | NirOp::Unsupported { .. } => {}
     }
 }
 
@@ -708,6 +756,30 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![routine],
+        }
+    }
+
+    fn native(mut program: NirProgram) -> NirProgram {
+        program.target_layout = crate::target::TargetLayout::motorola_68000();
+        for routine in &mut program.routines {
+            routine.activation = crate::nir::NirActivationModel::NativeReentrant;
+            for local in &mut routine.locals {
+                local.duration = crate::nir::NirStorageDuration::Automatic;
+            }
+        }
+        program
+    }
+
+    fn recursive_call(effects: NirCallEffects) -> NirOp {
+        NirOp::Call {
+            callee: NirCallee::User {
+                id: crate::nir::RoutineId(0),
+                name: "Main".to_string(),
+            },
+            args: Vec::new(),
+            result: None,
+            signature: Some(crate::nir::NirCallableSignature::default()),
+            effects,
         }
     }
 
@@ -1086,6 +1158,89 @@ mod tests {
     }
 
     #[test]
+    fn recursive_calls_preserve_only_private_automatic_values() {
+        let effects = NirCallEffects {
+            memory: NirMemoryEffects {
+                reads: NirMemoryAccess::Unknown,
+                writes: NirMemoryAccess::Unknown,
+            },
+            may_call_external: false,
+            opaque: true,
+        };
+        let input = program(
+            vec![local(0, "x"), local(1, "out")],
+            vec![block(
+                0,
+                "entry",
+                vec![
+                    store(0, "x", NirValue::ConstU8(3)),
+                    recursive_call(effects),
+                    load(0, 0, "x"),
+                    store(
+                        1,
+                        "out",
+                        NirValue::Temp {
+                            id: TempId(0),
+                            ty: byte_type(),
+                        },
+                    ),
+                ],
+                NirTerminator::Return(None),
+            )],
+        );
+
+        assert_eq!(loads(&optimized(input.clone())), 1);
+        let optimized = optimized(native(input));
+        assert_eq!(loads(&optimized), 0);
+        assert!(matches!(
+            optimized.blocks[0].ops.last(),
+            Some(NirOp::Store {
+                src: NirValue::ConstU8(3),
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn explicit_call_regions_override_private_automatic_values() {
+        let effects = NirCallEffects {
+            memory: NirMemoryEffects {
+                reads: NirMemoryAccess::None,
+                writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
+                    kind: NirMemoryRegionKind::Storage(NirStorageId::Local(LocalId(0))),
+                    offset: ByteOffset::ZERO,
+                    size: ByteSize::ONE,
+                }]),
+            },
+            may_call_external: false,
+            opaque: false,
+        };
+        let input = native(program(
+            vec![local(0, "x"), local(1, "out")],
+            vec![block(
+                0,
+                "entry",
+                vec![
+                    store(0, "x", NirValue::ConstU8(3)),
+                    recursive_call(effects),
+                    load(0, 0, "x"),
+                    store(
+                        1,
+                        "out",
+                        NirValue::Temp {
+                            id: TempId(0),
+                            ty: byte_type(),
+                        },
+                    ),
+                ],
+                NirTerminator::Return(None),
+            )],
+        ));
+
+        assert_eq!(loads(&optimized(input)), 1);
+    }
+
+    #[test]
     fn structured_call_writes_kill_only_the_overlapping_storage_fact() {
         let routine = optimized(program(
             vec![local(0, "x"), local(1, "y"), local(2, "out")],
@@ -1153,9 +1308,7 @@ mod tests {
                     store(0, "x", NirValue::ConstU8(3)),
                     NirOp::Store {
                         place: NirPlace {
-                            kind: NirPlaceKind::Absolute(
-                                crate::target::AddressValue::data(0xD000),
-                            ),
+                            kind: NirPlaceKind::Absolute(crate::target::AddressValue::data(0xD000)),
                             ty: Some(byte_type()),
                         },
                         src: NirValue::ConstU8(0),
@@ -1166,9 +1319,9 @@ mod tests {
                         code: NirForeignCode {
                             target: crate::target::TargetId::Atari6502,
                             kind: NirForeignCodeKind::LegacyMachineBlock,
-                            payload: NirForeignCodePayload::Structured(vec![
-                                NirMachineItem::Byte(0x60),
-                            ]),
+                            payload: NirForeignCodePayload::Structured(vec![NirMachineItem::Byte(
+                                0x60,
+                            )]),
                             source: String::new(),
                             span: crate::source::Span::new(0, 0),
                         },

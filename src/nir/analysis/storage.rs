@@ -119,7 +119,21 @@ impl NirStorageFacts {
     }
 
     pub fn is_invocation_relative(&self) -> bool {
-        matches!(self.identity_domain, NirStorageIdentityDomain::Invocation(_))
+        matches!(
+            self.identity_domain,
+            NirStorageIdentityDomain::Invocation(_)
+        )
+    }
+
+    /// Whether calls cannot name the current dynamic instance through any
+    /// address-forming operation visible in verified NIR.
+    ///
+    /// This is deliberately a conservative escape proof. An automatic home
+    /// stops being private as soon as its address is required, even when a
+    /// more aggressive flow-sensitive analysis might prove that the address
+    /// never leaves the routine.
+    pub fn is_proven_private_to_invocation(&self) -> bool {
+        self.is_invocation_relative() && !self.address_required
     }
 
     pub fn requires_addressable_home(&self) -> bool {
@@ -133,8 +147,7 @@ impl NirStorageFacts {
     pub fn is_value_trackable(&self) -> bool {
         let pointer_cell = self.storage_class == Some(NirStorageClass::Array)
             && self.direct_access_ty.as_ref().is_some_and(|ty| {
-                matches!(ty.kind, NirTypeKind::Pointer { .. })
-                    && ty.width == Some(ByteSize::new(2))
+                matches!(ty.kind, NirTypeKind::Pointer { .. }) && ty.width == Some(ByteSize::new(2))
             });
         self.blockers.iter().all(|blocker| {
             matches!(
@@ -308,9 +321,8 @@ fn analyze_routine_storage(
                         }
                         for item in items {
                             if let NirMachineItem::Relocation {
-                                target: crate::nir::NirForeignCodeTarget::Storage(
-                                    NirStorageId::Global(id),
-                                ),
+                                target:
+                                    crate::nir::NirForeignCodeTarget::Storage(NirStorageId::Global(id)),
                                 ..
                             } = item
                             {
@@ -417,9 +429,9 @@ fn analyze_routine_storage(
                         || matches!(callee, crate::nir::NirCallee::Indirect { .. });
                     for facts in homes.values_mut() {
                         facts.calls_may_read |=
-                            memory_accesses_storage(&effects.memory.reads, facts.id, facts.width);
+                            call_memory_accesses_storage(&effects.memory.reads, facts);
                         facts.calls_may_write |=
-                            memory_accesses_storage(&effects.memory.writes, facts.id, facts.width);
+                            call_memory_accesses_storage(&effects.memory.writes, facts);
                     }
                 }
                 NirOp::ForeignCode { code, effects } => {
@@ -504,19 +516,21 @@ fn analyze_routine_storage(
         }
     }
     for facts in homes.values_mut() {
-        facts.value_needed_at_exit = match facts.id {
-            NirStorageId::Local(_) => {
+        facts.value_needed_at_exit = match (facts.id, facts.identity_domain) {
+            // An automatic object's lifetime ends with this activation. Its
+            // final value cannot seed a later recursive or repeated call.
+            (NirStorageId::Local(_), NirStorageIdentityDomain::Invocation(_)) => false,
+            (NirStorageId::Local(_), _) => {
                 facts.direct_stores != 0 && facts.possible_read_before_definition
             }
-            NirStorageId::Param(_) | NirStorageId::Global(_) => facts.direct_stores != 0,
+            (NirStorageId::Param(_), NirStorageIdentityDomain::Invocation(_)) => false,
+            (NirStorageId::Param(_) | NirStorageId::Global(_), _) => facts.direct_stores != 0,
         };
         if facts.address_taken {
             facts.blockers.insert(NirPromotionBlocker::AddressTaken);
         }
         if facts.address_required {
-            facts
-                .blockers
-                .insert(NirPromotionBlocker::AddressRequired);
+            facts.blockers.insert(NirPromotionBlocker::AddressRequired);
         }
         if facts.machine_visible {
             facts
@@ -583,13 +597,18 @@ fn data_image_storage_targets(
     image: &crate::nir::NirDataImage,
     targets: &mut BTreeSet<NirStorageId>,
 ) {
-    targets.extend(image.fragments.iter().filter_map(|fragment| match fragment {
-        crate::nir::NirDataFragment::Address {
-            target: crate::nir::NirDataAddressTarget::Storage(id),
-            ..
-        } => Some(*id),
-        _ => None,
-    }));
+    targets.extend(
+        image
+            .fragments
+            .iter()
+            .filter_map(|fragment| match fragment {
+                crate::nir::NirDataFragment::Address {
+                    target: crate::nir::NirDataAddressTarget::Storage(id),
+                    ..
+                } => Some(*id),
+                _ => None,
+            }),
+    );
 }
 
 fn new_facts(
@@ -779,6 +798,20 @@ fn memory_accesses_storage(
             regions.iter().any(|region| region.overlaps(&storage))
         }
         NirMemoryAccess::Unknown | NirMemoryAccess::All => true,
+    }
+}
+
+fn call_memory_accesses_storage(access: &NirMemoryAccess, facts: &NirStorageFacts) -> bool {
+    match access {
+        // Unknown callees cannot name a private instance in their caller's
+        // activation. A required address removes this exemption, and explicit
+        // regions always remain authoritative.
+        NirMemoryAccess::Unknown | NirMemoryAccess::All
+            if facts.is_invocation_relative() && !facts.address_required =>
+        {
+            false
+        }
+        _ => memory_accesses_storage(access, facts.id, facts.width),
     }
 }
 
@@ -1152,7 +1185,11 @@ mod tests {
             entry: crate::nir::NirRoutineEntry::default(),
             name: "Recursive".to_string(),
             params: Vec::new(),
-            locals: vec![automatic_local(0, "value"), alias],
+            locals: vec![
+                automatic_local(0, "value"),
+                alias,
+                automatic_local(2, "private"),
+            ],
             temps: Vec::new(),
             notes: Vec::new(),
             blocks: vec![block(0, "entry", Vec::new(), NirTerminator::Return(None))],
@@ -1162,6 +1199,7 @@ mod tests {
         let routine = analysis.routine("Recursive").expect("routine storage");
         let value = routine.storage_by_name("value").expect("value facts");
         let alias = routine.storage_by_name("alias").expect("alias facts");
+        let private = routine.storage_by_name("private").expect("private facts");
         assert_eq!(
             value.identity_domain,
             NirStorageIdentityDomain::Invocation(RoutineId(7))
@@ -1169,6 +1207,9 @@ mod tests {
         assert!(value.is_invocation_relative());
         assert_eq!(alias.identity_domain, value.identity_domain);
         assert_eq!(alias.alias_target, Some(NirStorageId::Local(LocalId(0))));
+        assert!(!value.is_proven_private_to_invocation());
+        assert!(alias.is_proven_private_to_invocation());
+        assert!(private.is_proven_private_to_invocation());
     }
 
     #[test]
@@ -1529,7 +1570,9 @@ mod tests {
                     code: NirForeignCode {
                         target: crate::target::TargetId::Atari6502,
                         kind: NirForeignCodeKind::LegacyMachineBlock,
-                        payload: NirForeignCodePayload::Structured(vec![NirMachineItem::Byte(0x60)]),
+                        payload: NirForeignCodePayload::Structured(vec![NirMachineItem::Byte(
+                            0x60,
+                        )]),
                         source: String::new(),
                         span: crate::source::Span::new(0, 0),
                     },

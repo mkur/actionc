@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 4 were implemented and verified on
+Status: in progress. Slices 0 through 5 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -478,6 +478,18 @@ nir: lower native local initialization at routine entry
 ```
 
 ### Slice 5: promotion, effects, and escape safety
+
+Status: complete. Storage analysis now proves an automatic scalar private only
+when no address-forming operation requires its current invocation's object.
+Storage propagation, scalar promotion, and dead-store/home elimination preserve
+such private values across recursive and otherwise unknown calls because the
+callee owns a distinct activation. Routine-static storage retains the classic
+shared-cell barrier. Address-taken, aliased, volatile, copied, foreign-visible,
+and explicitly named effect regions remain conservative. Every optimization
+stage continues to verify its output, so a surviving automatic object cannot
+silently change duration, layout, or identity domain. Focused tests cover
+recursive private homes, exact effect overrides, escaped homes, and all three
+native target profiles; interprocedural escape analysis remains deferred.
 
 1. Audit NIR promotion, home elision, copy propagation, dead-store removal,
    and storage propagation for automatic duration.

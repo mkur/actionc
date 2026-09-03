@@ -5,7 +5,7 @@ use super::analysis::{
     dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
     storage::{NirPromotionBlocker, NirRoutineStorageAnalysis, NirStorageBackingClass},
 };
-use super::facts::{BlockId, NirStorageId, direct_storage_id, root_storage_id};
+use super::facts::{BlockId, NirStorageId, RoutineId, direct_storage_id, root_storage_id};
 use super::ir::*;
 use super::{NirDiagnostic, analyze_program_storage, verify_program};
 
@@ -37,6 +37,12 @@ fn eliminate_dead_stores(routine: &mut NirRoutine, analysis: &NirRoutineStorageA
         })
         .map(|facts| facts.id)
         .collect::<BTreeSet<_>>();
+    let private_invocation = analysis
+        .homes
+        .values()
+        .filter(|facts| facts.is_proven_private_to_invocation())
+        .map(|facts| facts.id)
+        .collect::<BTreeSet<_>>();
     if candidates.is_empty() {
         return;
     }
@@ -53,6 +59,7 @@ fn eliminate_dead_stores(routine: &mut NirRoutine, analysis: &NirRoutineStorageA
         &StorageLivenessProblem {
             routine,
             candidates: &candidates,
+            private_invocation: &private_invocation,
             boundary,
         },
     );
@@ -68,7 +75,7 @@ fn eliminate_dead_stores(routine: &mut NirRoutine, analysis: &NirRoutineStorageA
                         candidates.contains(&id) && !live.contains(&id)
                     })
             );
-            transfer_op_backwards(&op, &mut live, &candidates, &routine.name);
+            transfer_op_backwards(&op, &mut live, &candidates, &private_invocation, routine.id);
             if !dead_store {
                 retained.push(op);
             }
@@ -102,6 +109,7 @@ fn eliminate_unused_local_homes(routine: &mut NirRoutine, analysis: &NirRoutineS
 struct StorageLivenessProblem<'a> {
     routine: &'a NirRoutine,
     candidates: &'a BTreeSet<NirStorageId>,
+    private_invocation: &'a BTreeSet<NirStorageId>,
     boundary: BTreeSet<NirStorageId>,
 }
 
@@ -141,7 +149,13 @@ impl NirDataflowProblem for StorageLivenessProblem<'_> {
         };
         let mut live = live_out.clone();
         for op in block.ops.iter().rev() {
-            transfer_op_backwards(op, &mut live, self.candidates, &self.routine.name);
+            transfer_op_backwards(
+                op,
+                &mut live,
+                self.candidates,
+                self.private_invocation,
+                self.routine.id,
+            );
         }
         live
     }
@@ -151,7 +165,8 @@ fn transfer_op_backwards(
     op: &NirOp,
     live: &mut BTreeSet<NirStorageId>,
     candidates: &BTreeSet<NirStorageId>,
-    routine_name: &str,
+    private_invocation: &BTreeSet<NirStorageId>,
+    routine_id: RoutineId,
 ) {
     match op {
         NirOp::Load { place, .. } => {
@@ -197,26 +212,38 @@ fn transfer_op_backwards(
         NirOp::Call {
             callee, effects, ..
         } => {
-            if effects.opaque
+            let broad_barrier = effects.opaque
                 || effects.may_call_external
                 || matches!(callee, NirCallee::Indirect { .. })
-                || matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name))
-            {
-                live.extend(candidates.iter().copied());
+                || matches!(callee, NirCallee::User { id, .. } if *id == routine_id);
+            if broad_barrier {
+                // Recursive calls get a fresh automatic activation. Only
+                // fixed/escaped storage must survive an unknown call barrier;
+                // exact regions remain an explicit conservative override.
+                live.extend(
+                    candidates
+                        .iter()
+                        .filter(|id| !private_invocation.contains(id))
+                        .copied(),
+                );
+                apply_explicit_effects_to_private(
+                    &effects.memory,
+                    live,
+                    candidates,
+                    private_invocation,
+                );
             } else {
-                apply_effects_backwards(&effects.memory, live, candidates);
+                apply_effects_backwards(&effects.memory, live, candidates, private_invocation);
             }
         }
         NirOp::ForeignCode { effects, .. } => {
             if effects.opaque {
                 live.extend(candidates.iter().copied());
             } else {
-                apply_effects_backwards(&effects.memory, live, candidates);
+                apply_effects_backwards(&effects.memory, live, candidates, &BTreeSet::new());
             }
         }
-        NirOp::Real(_) | NirOp::Unsupported { .. } => {
-            live.extend(candidates.iter().copied())
-        }
+        NirOp::Real(_) | NirOp::Unsupported { .. } => live.extend(candidates.iter().copied()),
         NirOp::Unary { .. }
         | NirOp::Cast { .. }
         | NirOp::PointerOffset { .. }
@@ -242,15 +269,35 @@ fn apply_effects_backwards(
     effects: &NirMemoryEffects,
     live: &mut BTreeSet<NirStorageId>,
     candidates: &BTreeSet<NirStorageId>,
+    private_invocation: &BTreeSet<NirStorageId>,
 ) {
-    kill_written(&effects.writes, live, candidates);
-    add_read(&effects.reads, live, candidates);
+    kill_written(&effects.writes, live, candidates, private_invocation);
+    add_read(&effects.reads, live, candidates, private_invocation);
+}
+
+fn apply_explicit_effects_to_private(
+    effects: &NirMemoryEffects,
+    live: &mut BTreeSet<NirStorageId>,
+    candidates: &BTreeSet<NirStorageId>,
+    private_invocation: &BTreeSet<NirStorageId>,
+) {
+    let private_candidates = candidates
+        .intersection(private_invocation)
+        .copied()
+        .collect::<BTreeSet<_>>();
+    if matches!(effects.writes, NirMemoryAccess::Regions(_)) {
+        kill_written(&effects.writes, live, &private_candidates, &BTreeSet::new());
+    }
+    if matches!(effects.reads, NirMemoryAccess::Regions(_)) {
+        add_read(&effects.reads, live, &private_candidates, &BTreeSet::new());
+    }
 }
 
 fn kill_written(
     access: &NirMemoryAccess,
     live: &mut BTreeSet<NirStorageId>,
     candidates: &BTreeSet<NirStorageId>,
+    private_invocation: &BTreeSet<NirStorageId>,
 ) {
     match access {
         NirMemoryAccess::None => {}
@@ -264,7 +311,9 @@ fn kill_written(
                 }
             }
         }
-        NirMemoryAccess::Unknown | NirMemoryAccess::All => live.clear(),
+        NirMemoryAccess::Unknown | NirMemoryAccess::All => {
+            live.retain(|id| !candidates.contains(id) || private_invocation.contains(id))
+        }
     }
 }
 
@@ -272,6 +321,7 @@ fn add_read(
     access: &NirMemoryAccess,
     live: &mut BTreeSet<NirStorageId>,
     candidates: &BTreeSet<NirStorageId>,
+    private_invocation: &BTreeSet<NirStorageId>,
 ) {
     match access {
         NirMemoryAccess::None => {}
@@ -284,7 +334,12 @@ fn add_read(
                 }
             }
         }
-        NirMemoryAccess::Unknown | NirMemoryAccess::All => live.extend(candidates.iter().copied()),
+        NirMemoryAccess::Unknown | NirMemoryAccess::All => live.extend(
+            candidates
+                .iter()
+                .filter(|id| !private_invocation.contains(id))
+                .copied(),
+        ),
     }
 }
 
@@ -406,11 +461,11 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
-            id: crate::nir::RoutineId(0),
-            signature: crate::nir::NirCallableSignature::default(),
-            convention: crate::nir::NirCallConvention::TargetPublic,
-            activation: crate::nir::NirActivationModel::ClassicStatic,
-            entry: crate::nir::NirRoutineEntry::default(),
+                id: crate::nir::RoutineId(0),
+                signature: crate::nir::NirCallableSignature::default(),
+                convention: crate::nir::NirCallConvention::TargetPublic,
+                activation: crate::nir::NirActivationModel::ClassicStatic,
+                entry: crate::nir::NirRoutineEntry::default(),
                 name: "Main".to_string(),
                 params: Vec::new(),
                 locals: vec![NirLocal {
@@ -435,6 +490,37 @@ mod tests {
                     terminator: NirTerminator::Return(None),
                 }],
             }],
+        }
+    }
+
+    fn native(mut program: NirProgram) -> NirProgram {
+        program.target_layout = crate::target::TargetLayout::motorola_68000();
+        for routine in &mut program.routines {
+            routine.activation = crate::nir::NirActivationModel::NativeReentrant;
+            for local in &mut routine.locals {
+                local.duration = crate::nir::NirStorageDuration::Automatic;
+            }
+        }
+        program
+    }
+
+    fn recursive_unknown_call() -> NirOp {
+        NirOp::Call {
+            callee: NirCallee::User {
+                id: crate::nir::RoutineId(0),
+                name: "Main".to_string(),
+            },
+            args: Vec::new(),
+            result: None,
+            signature: Some(crate::nir::NirCallableSignature::default()),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::Unknown,
+                    writes: NirMemoryAccess::Unknown,
+                },
+                may_call_external: false,
+                opaque: true,
+            },
         }
     }
 
@@ -494,5 +580,24 @@ mod tests {
             Some(NirOp::Store { .. })
         ));
         assert_eq!(elided.routines[0].locals.len(), 1);
+    }
+
+    #[test]
+    fn recursive_call_observes_classic_storage_but_not_a_private_automatic_home() {
+        let input = program(vec![store(1), recursive_unknown_call()]);
+
+        let classic = elide_program(&input).expect("elide classic recursive home");
+        assert!(matches!(
+            classic.routines[0].blocks[0].ops.first(),
+            Some(NirOp::Store { .. })
+        ));
+        assert_eq!(classic.routines[0].locals.len(), 1);
+
+        let native = elide_program(&native(input)).expect("elide native recursive home");
+        assert!(matches!(
+            native.routines[0].blocks[0].ops.as_slice(),
+            [NirOp::Call { .. }]
+        ));
+        assert!(native.routines[0].locals.is_empty());
     }
 }

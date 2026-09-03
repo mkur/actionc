@@ -6,7 +6,7 @@ use super::analysis::{
     dominance::NirDominance,
     storage::{NirRoutineStorageAnalysis, NirStorageFacts},
 };
-use super::facts::{BlockId, NirStorageId, NirType, NirValue, TempId, value_width};
+use super::facts::{BlockId, NirStorageId, NirType, NirValue, RoutineId, TempId, value_width};
 use super::ir::*;
 use super::{NirDiagnostic, analyze_program_storage, direct_storage_id, verify_program};
 use crate::target::{ByteOffset, ByteSize};
@@ -257,8 +257,9 @@ fn promote_home(routine: &mut NirRoutine, facts: &NirStorageFacts, next_temp: &m
 
     let seed_value = seed.map(|id| NirValue::Temp { id, ty: ty.clone() });
     let mut context = RenameContext {
-        routine_name: routine.name.clone(),
+        routine_id: routine.id,
         storage: facts.id,
+        private_invocation: facts.is_proven_private_to_invocation(),
         ty,
         place,
         value_needed_at_exit: facts.value_needed_at_exit,
@@ -277,8 +278,9 @@ fn promote_home(routine: &mut NirRoutine, facts: &NirStorageFacts, next_temp: &m
 }
 
 struct RenameContext<'a> {
-    routine_name: String,
+    routine_id: RoutineId,
     storage: NirStorageId,
+    private_invocation: bool,
     ty: NirType,
     place: NirPlace,
     value_needed_at_exit: bool,
@@ -347,7 +349,8 @@ fn rename_block(
                     effects,
                     context.storage,
                     context.ty.width,
-                    &context.routine_name,
+                    context.private_invocation,
+                    context.routine_id,
                 );
                 if reads {
                     let Some(value) = current.clone() else {
@@ -606,8 +609,14 @@ impl HomeAccess {
                     NirOp::Call {
                         callee, effects, ..
                     } => {
-                        let (reads, writes) =
-                            call_access(callee, effects, facts.id, ty.width, &routine.name);
+                        let (reads, writes) = call_access(
+                            callee,
+                            effects,
+                            facts.id,
+                            ty.width,
+                            facts.is_proven_private_to_invocation(),
+                            routine.id,
+                        );
                         uses_before_definition |= reads && !defines;
                         if writes {
                             defines = true;
@@ -700,12 +709,22 @@ fn call_access(
     effects: &NirCallEffects,
     storage: NirStorageId,
     width: Option<ByteSize>,
-    routine_name: &str,
+    private_invocation: bool,
+    routine_id: RoutineId,
 ) -> (bool, bool) {
+    if private_invocation {
+        // Unknown call effects cannot reach an address that never escaped the
+        // caller's activation. Retain explicit regions as a conservative
+        // override for manually constructed or future richer call effects.
+        return (
+            explicit_memory_accesses_storage(&effects.memory.reads, storage, width),
+            explicit_memory_accesses_storage(&effects.memory.writes, storage, width),
+        );
+    }
     if effects.opaque
         || effects.may_call_external
         || matches!(callee, NirCallee::Indirect { .. })
-        || matches!(callee, NirCallee::User { name, .. } if name.eq_ignore_ascii_case(routine_name))
+        || matches!(callee, NirCallee::User { id, .. } if *id == routine_id)
     {
         return (true, true);
     }
@@ -713,6 +732,14 @@ fn call_access(
         memory_accesses_storage(&effects.memory.reads, storage, width),
         memory_accesses_storage(&effects.memory.writes, storage, width),
     )
+}
+
+fn explicit_memory_accesses_storage(
+    access: &NirMemoryAccess,
+    storage: NirStorageId,
+    width: Option<ByteSize>,
+) -> bool {
+    matches!(access, NirMemoryAccess::Regions(_)) && memory_accesses_storage(access, storage, width)
 }
 
 fn memory_accesses_storage(
@@ -1060,6 +1087,37 @@ mod tests {
         }
     }
 
+    fn native(mut program: NirProgram) -> NirProgram {
+        program.target_layout = crate::target::TargetLayout::motorola_68000();
+        for routine in &mut program.routines {
+            routine.activation = crate::nir::NirActivationModel::NativeReentrant;
+            for local in &mut routine.locals {
+                local.duration = crate::nir::NirStorageDuration::Automatic;
+            }
+        }
+        program
+    }
+
+    fn recursive_unknown_call() -> NirOp {
+        NirOp::Call {
+            callee: NirCallee::User {
+                id: crate::nir::RoutineId(0),
+                name: "Main".to_string(),
+            },
+            args: Vec::new(),
+            result: None,
+            signature: Some(crate::nir::NirCallableSignature::default()),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::Unknown,
+                    writes: NirMemoryAccess::Unknown,
+                },
+                may_call_external: false,
+                opaque: true,
+            },
+        }
+    }
+
     #[test]
     fn promotes_a_hot_loop_home_with_one_pruned_block_parameter() {
         let program = program(vec![
@@ -1104,6 +1162,29 @@ mod tests {
 
         let promoted = promote_program(&program).expect("retain cold home");
         assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn recursive_call_uses_a_fresh_automatic_home_but_the_classic_home_is_shared() {
+        let mut ops = vec![store(3), recursive_unknown_call()];
+        ops.extend((0..MIN_HOT_HOME_LOADS as u32).map(load));
+        let input = program(vec![block(0, ops, NirTerminator::Return(None))]);
+
+        let classic = promote_program(&input).expect("promote classic recursive home");
+        assert!(classic.routines[0].blocks[0].ops.iter().any(|op| {
+            matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
+                if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
+        }));
+
+        let native = promote_program(&native(input)).expect("promote native recursive home");
+        assert!(native.routines[0].blocks[0].ops.iter().all(|op| {
+            !matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
+                if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
+        }));
+        assert!(matches!(
+            native.routines[0].blocks[0].ops.as_slice(),
+            [NirOp::Call { .. }]
+        ));
     }
 
     #[test]
