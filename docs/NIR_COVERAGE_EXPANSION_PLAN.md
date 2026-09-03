@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 1 and 2 are implemented.
+Status: in progress. Slices 1 through 3 are implemented.
 
 ## Objective
 
@@ -35,10 +35,15 @@ lexical-block fixture. Production compiler behavior is unchanged.
 
 ### Slice 3: positive executable shapes
 
-Add focused cases for uncovered arithmetic, casts, pointer offsets, call kinds,
-terminators, place forms, initialization forms, relocations, and effect shapes.
-Construction-only and quarantined states remain structural tests rather than
-accepted source snapshots.
+Status: complete. Focused cases now cover the remaining arithmetic and compare
+operators, pointer casts and offsets, direct/indirect/runtime call forms,
+volatile aggregate copies, link values, and typed data relocations. Small
+verified structural probes cover valid NIR without a current source producer:
+block parameters, `Exit`, runtime bindings, absolute places, global aliases,
+routine-address initialization, and conservative effect forms. A required
+executable-feature floor prevents a snapshot refresh from silently accepting a
+coverage loss. `Open`, `Unsupported`, and the legacy untyped `Param` and
+`GlobalAddr` values remain outside the executable contract.
 
 ### Slice 4: cross-target contracts
 

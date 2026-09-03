@@ -1,0 +1,6 @@
+TYPE Pair=[BYTE tag CARD value]
+VOLATILE Pair source,target
+
+PROC Main()
+  target=source
+RETURN

@@ -1,0 +1,12 @@
+nir program
+global target: Byte
+global addrdata: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=global init bytes=[$41 $00 $00 $70] fragments=[1:atari-6502-byte0(g1+2), 2:atari-6502-byte1(g0)] zero_fill=0 section=global mutable=true
+global targets: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=global init descriptor size=4 backing=g2 bytes=[$00 $00 $00 $00] fragments=[0:ptr16@as0(g0), 2:ptr16@as1(r0)] zero_fill=0 backing_section=global.backing size_word=$0000 section=global mutable=true
+
+routine r0 Draw signature=s2726028260 convention=target-public activation=classic-static entry=current-location params=[-] locals=[-]
+bb0:
+  return
+
+routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb1:
+  return

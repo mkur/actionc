@@ -1,0 +1,29 @@
+nir program
+global result: Byte
+global callback: Func { return_type: Byte }
+
+routine r0 Get signature=s1079941742 convention=target-public activation=classic-static entry=relocatable params=[-] locals=[-]
+bb0:
+  return 7
+
+routine r1 External signature=s2485539418 convention=target-public activation=classic-static entry=$E456 params=[value] locals=[-]
+  param p0 value: Scalar Byte duration=routine-static size=1 align=1
+bb1:
+  fallthrough
+
+routine r2 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb2:
+  store callback = routine_addr0(Get)
+  %t1:Func { return_type: Byte } = load callback
+  %t0:Byte = call indirect(%t1)() signature=s1079941742 convention=target-public
+  store result = %t0
+  %t2:Byte = load result
+  call External(%t2) signature=s2485539418 convention=target-public
+  %t3:Byte = load result
+  call Put(%t3) signature=s3158287936 convention=target-public effects=reads:unknown writes:unknown external opaque
+  return
+
+routine r3 SYS.Put signature=s3158287936 convention=target-public activation=classic-static entry=external+relocatable params=[M_SYS_PUT_VALUE_F14FF05B] locals=[-]
+  param p0 M_SYS_PUT_VALUE_F14FF05B: Scalar Char duration=routine-static size=1 align=1
+bb3:
+  fallthrough

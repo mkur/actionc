@@ -1,0 +1,9 @@
+BYTE target
+BYTE ARRAY addrdata(4)=[$41 <addrdata+2 >target $70]
+CARD ARRAY targets(2)=[@target @Draw]
+
+PROC Draw=*()
+RETURN
+
+PROC Main()
+RETURN

@@ -1,0 +1,15 @@
+BYTE result
+
+BYTE FUNC Get()
+RETURN(7)
+
+BYTE FUNC POINTER callback
+
+PROC External=$E456(BYTE value)
+
+PROC Main()
+  callback=@Get
+  result=callback()
+  External(result)
+  Put(result)
+RETURN

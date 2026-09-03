@@ -1,0 +1,15 @@
+BYTE ARRAY bytes(4)
+BYTE POINTER bytePointer,otherPointer
+CARD POINTER wordPointer
+CARD raw
+
+PROC Main()
+  bytePointer=bytes
+  bytePointer=bytePointer+2
+  bytePointer=bytePointer-1
+  otherPointer=BYTE POINTER(raw)
+  wordPointer=CARD POINTER(bytePointer)
+  raw=CARD(bytePointer)
+  otherPointer=BYTE POINTER(0)
+  otherPointer=BYTE POINTER($D000)
+RETURN

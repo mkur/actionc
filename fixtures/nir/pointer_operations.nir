@@ -1,0 +1,29 @@
+nir program
+global bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(4) } length=4 storage=Array origin=global init zero_fill=4 section=global mutable=true
+global bytePointer: Byte*
+global otherPointer: Byte*
+global wordPointer: Card*
+global raw: Card
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb0:
+  %t0:Byte* = addr bytes
+  store bytePointer = %t0
+  %t1:Byte* = load bytePointer
+  %t2:Byte* = ptr_offset %t1 + 2
+  store bytePointer = %t2
+  %t3:Byte* = load bytePointer
+  %t4:Byte* = ptr_offset %t3 - 1
+  store bytePointer = %t4
+  %t5:Card = load raw
+  %t6:Byte* = cast Card -> Byte* %t5
+  store otherPointer = %t6
+  %t7:Byte* = load bytePointer
+  %t8:Card* = cast Byte* -> Card* %t7
+  store wordPointer = %t8
+  %t9:Byte* = load bytePointer
+  %t10:Card = cast Byte* -> Card %t9
+  store raw = %t10
+  store otherPointer = $0
+  store otherPointer = $D000
+  return

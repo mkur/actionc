@@ -3,17 +3,20 @@ use std::path::{Path, PathBuf};
 
 use actionc::includes::load_program_with_expanded_source;
 use actionc::nir::{
-    self, NirActivationModel, NirBinaryOp, NirCallConvention, NirCallee, NirCastKind,
-    NirCompareOp, NirDataAddressEncoding, NirDataAddressTarget, NirDataFragment, NirDataImage,
-    NirForeignCodeKind, NirForeignCodePayload, NirForeignCodeTarget, NirGlobalBacking,
-    NirGlobalInit, NirLinkValue, NirLocalBacking, NirLocalPurpose, NirMachineAtom,
-    NirMachineByteSelector, NirMachineItem, NirMemoryAccess, NirMemoryEffects,
-    NirMemoryRegionKind, NirOp, NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource,
-    NirRoutinePlacement, NirRuntimeTarget, NirStorageClass, NirStorageDuration, NirStorageId,
-    NirStorageInit, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue,
+    self, BlockId, NirActivationModel, NirBinaryOp, NirBlock, NirBlockParam, NirCallConvention,
+    NirCallEffects, NirCallableSignature, NirCallee, NirCastKind, NirCompareOp,
+    NirDataAddressEncoding,
+    NirDataAddressTarget, NirDataFragment, NirDataImage, NirForeignCodeKind,
+    NirForeignCodePayload, NirForeignCodeTarget, NirGlobalBacking, NirGlobalInit, NirLinkValue,
+    NirEdge, NirLocalBacking, NirLocalPurpose, NirMachineAtom, NirMachineByteSelector,
+    NirMachineItem, NirMemoryAccess, NirMemoryEffects, NirMemoryRegion, NirMemoryRegionKind, NirOp,
+    NirPlace, NirPlaceKind, NirProgram, NirRealOp, NirRealSource, NirRoutinePlacement,
+    NirRuntimeBinding, NirRuntimeTarget, NirStorageClass, NirStorageDuration, NirStorageId,
+    NirStorageInit, NirTemp, NirTempDef, NirTerminator, NirType, NirTypeKind, NirUnaryOp, NirValue,
+    TempId, runtime_symbol_id,
 };
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
-use actionc::target::TargetId;
+use actionc::target::{AddressValue, ByteOffset, ByteSize, TargetId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)] // Optimized cases are introduced in the optimizer coverage slice.
@@ -50,17 +53,28 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("calls_returns"),
     lowered_atari_case!("conditions"),
     lowered_atari_case!("control_flow"),
+    lowered_atari_case!("call_forms"),
+    lowered_atari_case!("data_relocations"),
     lowered_atari_case!("for_condition"),
     lowered_atari_case!("inline_asm_fixed_array"),
+    lowered_atari_case!("integer_operations"),
     lowered_atari_case!("layout_queries"),
     lowered_atari_case!("lexical_blocks"),
     lowered_atari_case!("lexical_type_scopes"),
     lowered_atari_case!("local_aggregate_declarations"),
     lowered_atari_case!("local_storage_views"),
+    NirFixtureCase {
+        name: "link_value_initializer",
+        source: "fixtures/mir6502/set_symbol_current_location.act",
+        snapshot: "fixtures/nir/link_value_initializer.nir",
+        target: TargetId::Atari6502,
+        stage: NirFixtureStage::Lowered,
+    },
     lowered_atari_case!("lvalues"),
     lowered_atari_case!("machine_blocks"),
     lowered_atari_case!("native_real"),
     lowered_atari_case!("native_real_storage"),
+    lowered_atari_case!("pointer_operations"),
     lowered_atari_case!("record_copy"),
     lowered_atari_case!("records_fields"),
     lowered_atari_case!("scalar_assignments"),
@@ -68,6 +82,7 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("string_static"),
     lowered_atari_case!("target_layout_matrix"),
     lowered_atari_case!("unary_cast"),
+    lowered_atari_case!("volatile_record_copy"),
     lowered_atari_case!("word_addition"),
 ];
 
@@ -95,6 +110,175 @@ pub fn lower_case(repo_root: &Path, case: NirFixtureCase) -> NirProgram {
 
 pub fn snapshot_path(repo_root: &Path, case: NirFixtureCase) -> PathBuf {
     repo_root.join(case.snapshot)
+}
+
+/// Valid NIR shapes that currently have no source-language producer. Keep
+/// these probes small and migrate them to ordinary source cases if lowering
+/// later gains a direct producer.
+pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
+    let mut exit = lower_case(
+        repo_root,
+        lowered_atari_case!("scalar_assignments"),
+    );
+    exit.routines
+        .iter_mut()
+        .find(|routine| routine.name == "Main")
+        .and_then(|routine| routine.blocks.last_mut())
+        .expect("scalar assignment Main block")
+        .terminator = NirTerminator::Exit;
+    nir::verify_program(&exit).expect("construction-only Exit terminator must verify");
+
+    let mut calls = lower_case(
+        repo_root,
+        lowered_atari_case!("scalar_assignments"),
+    );
+    let runtime = runtime_symbol_id("CoverageRuntime");
+    let bound_runtime = runtime_symbol_id("CoverageBoundRuntime");
+    let routine_runtime = runtime_symbol_id("CoverageRoutineRuntime");
+    calls.runtime_bindings.extend([
+        NirRuntimeBinding {
+            symbol: runtime,
+            name: "CoverageRuntime".to_string(),
+            target: None,
+        },
+        NirRuntimeBinding {
+            symbol: bound_runtime,
+            name: "CoverageBoundRuntime".to_string(),
+            target: Some(NirRuntimeTarget::Absolute(AddressValue::code(0xE456))),
+        },
+        NirRuntimeBinding {
+            symbol: routine_runtime,
+            name: "CoverageRoutineRuntime".to_string(),
+            target: Some(NirRuntimeTarget::Routine(calls.routines[0].id)),
+        },
+    ]);
+    let global = calls.globals[0].id;
+    let global_name = calls.globals[0].name.clone();
+    let global_type = calls.globals[0].ty.clone().expect("typed scalar global");
+    let main = calls
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Main")
+        .expect("scalar assignment Main routine");
+    main.blocks[0].ops.extend([
+        NirOp::Store {
+            place: NirPlace {
+                kind: NirPlaceKind::Absolute(AddressValue::data(0xD000)),
+                ty: Some(global_type.clone()),
+            },
+            src: NirValue::ConstU8(1),
+            ty: global_type.clone(),
+        },
+        NirOp::Call {
+            callee: NirCallee::Builtin("CoverageBuiltin".to_string()),
+            args: Vec::new(),
+            result: None,
+            signature: Some(NirCallableSignature::empty_proc(NirCallConvention::Runtime)),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::All,
+                    writes: NirMemoryAccess::Regions(vec![NirMemoryRegion {
+                        kind: NirMemoryRegionKind::Storage(NirStorageId::Global(global)),
+                        offset: ByteOffset::ZERO,
+                        size: ByteSize::ONE,
+                    }]),
+                },
+                may_call_external: false,
+                opaque: false,
+            },
+        },
+        NirOp::Call {
+            callee: NirCallee::Runtime {
+                symbol: runtime,
+                name: "CoverageRuntime".to_string(),
+            },
+            args: Vec::new(),
+            result: None,
+            signature: Some(NirCallableSignature::empty_proc(NirCallConvention::Runtime)),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::None,
+                    writes: NirMemoryAccess::None,
+                },
+                may_call_external: true,
+                opaque: true,
+            },
+        },
+    ]);
+    nir::verify_program(&calls).expect("construction-only call forms must verify");
+
+    let mut block_parameter = lower_case(
+        repo_root,
+        lowered_atari_case!("scalar_assignments"),
+    );
+    let main = block_parameter
+        .routines
+        .iter_mut()
+        .find(|routine| routine.name == "Main")
+        .expect("scalar assignment Main routine");
+    main.temps.push(NirTemp {
+        id: TempId(1),
+        ty: global_type.clone(),
+        def: NirTempDef {
+            block: BlockId(1),
+            op_index: None,
+        },
+    });
+    main.blocks[0].terminator = NirTerminator::Goto(NirEdge {
+        target: BlockId(1),
+        args: vec![NirValue::ConstU8(9)],
+    });
+    main.blocks.push(NirBlock {
+        id: BlockId(1),
+        label: "block_parameter".to_string(),
+        params: vec![NirBlockParam {
+            dest: TempId(1),
+            ty: global_type.clone(),
+        }],
+        ops: vec![NirOp::Store {
+            place: NirPlace {
+                kind: NirPlaceKind::Global {
+                    id: global,
+                    name: global_name,
+                },
+                ty: Some(global_type.clone()),
+            },
+            src: NirValue::Temp {
+                id: TempId(1),
+                ty: global_type.clone(),
+            },
+            ty: global_type,
+        }],
+        terminator: NirTerminator::Return(None),
+    });
+    nir::verify_program(&block_parameter).expect("construction-only block parameter must verify");
+
+    let mut data_shapes = lower_case(
+        repo_root,
+        lowered_atari_case!("data_relocations"),
+    );
+    let routine = data_shapes.routines[0].id;
+    let alias_target = data_shapes.globals[0].id;
+    data_shapes.globals[1].backing = NirGlobalBacking::Alias {
+        target: alias_target,
+        offset: ByteOffset::ZERO,
+    };
+    if let Some(NirGlobalInit::Bytes { image, .. }) = &mut data_shapes.globals[1].init
+        && let Some(NirDataFragment::Address { target, .. }) = image.fragments.first_mut()
+    {
+        *target = NirDataAddressTarget::Absolute(AddressValue::data(0x2000));
+    }
+    let descriptor_size = data_shapes.globals[2].storage_size;
+    data_shapes.globals[2].init = Some(NirGlobalInit::RoutineAddress {
+        routine,
+        descriptor_size,
+        size_word: None,
+        mutable: true,
+        section: "global".to_string(),
+    });
+    nir::verify_program(&data_shapes).expect("construction-only data forms must verify");
+
+    vec![exit, calls, block_parameter, data_shapes]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -260,6 +444,78 @@ pub enum NirFeature {
     TerminatorReturnValue,
     TerminatorExit,
 }
+
+/// The positive suite's executable-shape floor. `Unsupported`, `Open`, and the
+/// legacy untyped `Param`/`GlobalAddr` values are deliberately absent: clean
+/// NIR must reject or eliminate those shapes instead of treating them as
+/// executable contracts.
+pub const REQUIRED_EXECUTABLE_FEATURES: &[NirFeature] = &[
+    NirFeature::BlockParameter,
+    NirFeature::OpLoad,
+    NirFeature::OpVolatileLoad,
+    NirFeature::OpAddrOf,
+    NirFeature::OpStore,
+    NirFeature::OpVolatileStore,
+    NirFeature::OpCopyBytes,
+    NirFeature::OpCopyBytesSourceVolatile,
+    NirFeature::OpCopyBytesDestinationVolatile,
+    NirFeature::OpUnaryPlus,
+    NirFeature::OpUnaryNeg,
+    NirFeature::OpCastInteger,
+    NirFeature::OpCastPointer,
+    NirFeature::OpCastIntegerToPointer,
+    NirFeature::OpCastPointerToInteger,
+    NirFeature::OpPointerOffsetAdd,
+    NirFeature::OpPointerOffsetSubtract,
+    NirFeature::OpBinaryAdd,
+    NirFeature::OpBinarySub,
+    NirFeature::OpBinaryMul,
+    NirFeature::OpBinaryDiv,
+    NirFeature::OpBinaryMod,
+    NirFeature::OpBinaryLsh,
+    NirFeature::OpBinaryRsh,
+    NirFeature::OpBinaryAnd,
+    NirFeature::OpBinaryOr,
+    NirFeature::OpBinaryXor,
+    NirFeature::OpCompareEq,
+    NirFeature::OpCompareNe,
+    NirFeature::OpCompareLt,
+    NirFeature::OpCompareLe,
+    NirFeature::OpCompareGt,
+    NirFeature::OpCompareGe,
+    NirFeature::OpRealCopy,
+    NirFeature::OpRealUnary,
+    NirFeature::OpRealBinary,
+    NirFeature::OpRealCompare,
+    NirFeature::OpIntegerToReal,
+    NirFeature::OpRealToInteger,
+    NirFeature::OpCall,
+    NirFeature::OpForeignCode,
+    NirFeature::CalleeUser,
+    NirFeature::CalleeBuiltin,
+    NirFeature::CalleeIndirect,
+    NirFeature::CalleeRuntime,
+    NirFeature::PlaceParam,
+    NirFeature::PlaceLocal,
+    NirFeature::PlaceGlobal,
+    NirFeature::PlaceAbsolute,
+    NirFeature::PlaceDeref,
+    NirFeature::PlaceIndex,
+    NirFeature::PlaceField,
+    NirFeature::ValueConstU8,
+    NirFeature::ValueConstU16,
+    NirFeature::ValueNull,
+    NirFeature::ValueAddressConst,
+    NirFeature::ValueStaticAddr,
+    NirFeature::ValueTemp,
+    NirFeature::ValueRoutineAddr,
+    NirFeature::TerminatorFallthrough,
+    NirFeature::TerminatorGoto,
+    NirFeature::TerminatorBranch,
+    NirFeature::TerminatorReturnVoid,
+    NirFeature::TerminatorReturnValue,
+    NirFeature::TerminatorExit,
+];
 
 pub fn collect_features(program: &NirProgram) -> BTreeSet<NirFeature> {
     let mut features = BTreeSet::new();

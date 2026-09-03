@@ -1,0 +1,22 @@
+CARD left,right,result
+BYTE shift
+
+PROC Main()
+  result=left+right
+  result=left-right
+  result=left*right
+  result=left/right
+  result=left MOD right
+  result=left LSH shift
+  result=left RSH shift
+  result=left AND right
+  result=left OR right
+  result=left XOR right
+
+  IF left>right THEN
+    result=1
+  FI
+  IF left>=right THEN
+    result=2
+  FI
+RETURN

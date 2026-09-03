@@ -1,0 +1,68 @@
+nir program
+global left: Card
+global right: Card
+global result: Card
+global shift: Byte
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb0:
+  %t0:Card = load left
+  %t1:Card = load right
+  %t2:Card = %t0 Add %t1
+  store result = %t2
+  %t3:Card = load left
+  %t4:Card = load right
+  %t5:Card = %t3 Sub %t4
+  store result = %t5
+  %t6:Card = load left
+  %t7:Card = load right
+  %t8:Int = %t6 Mul %t7
+  %t9:Card = cast Int -> Card %t8
+  store result = %t9
+  %t10:Card = load left
+  %t11:Card = load right
+  %t12:Card = %t10 Div %t11
+  store result = %t12
+  %t13:Card = load left
+  %t14:Card = load right
+  %t15:Card = %t13 Mod %t14
+  store result = %t15
+  %t16:Card = load left
+  %t17:Byte = load shift
+  %t18:Card = %t16 Lsh %t17
+  store result = %t18
+  %t19:Card = load left
+  %t20:Byte = load shift
+  %t21:Card = %t19 Rsh %t20
+  store result = %t21
+  %t22:Card = load left
+  %t23:Card = load right
+  %t24:Card = %t22 And %t23
+  store result = %t24
+  %t25:Card = load left
+  %t26:Card = load right
+  %t27:Card = %t25 Or %t26
+  store result = %t27
+  %t28:Card = load left
+  %t29:Card = load right
+  %t30:Card = %t28 Xor %t29
+  store result = %t30
+  %t31:Card = load left
+  %t32:Card = load right
+  %t33:condition = cmp %t31 Gt %t32 operand_ty=Card
+  branch %t33 ? bb2 : bb1
+bb2:
+  %t34:Card = cast Byte -> Card 1
+  store result = %t34
+  goto bb1
+bb1:
+  %t35:Card = load left
+  %t36:Card = load right
+  %t37:condition = cmp %t35 Ge %t36 operand_ty=Card
+  branch %t37 ? bb4 : bb3
+bb4:
+  %t38:Card = cast Byte -> Card 2
+  store result = %t38
+  goto bb3
+bb3:
+  return
