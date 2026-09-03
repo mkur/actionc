@@ -1,0 +1,12 @@
+nir program
+global result: Byte
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[value, dead]
+  local value: Byte duration=routine-static size=1 align=1
+  local dead: Byte duration=routine-static size=1 align=1
+bb0:
+  store value = 1
+  store dead = 2
+  %t0:Byte = load value
+  store result = %t0
+  return

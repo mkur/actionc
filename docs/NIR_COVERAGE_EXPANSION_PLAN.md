@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 1 through 5 are implemented.
+Status: in progress. Slices 1 through 6 are implemented.
 
 ## Objective
 
@@ -65,10 +65,12 @@ keeps an accepted shape adjacent to every rejected mutation.
 
 ### Slice 6: optimizer transformations and barriers
 
-Add selected before/after cases for constant folding, propagation, branch and
-CFG cleanup, dead temps, promotion, and home elision. Verify both forms and
-cover calls, volatility, aliases, address escape, REAL, and foreign code as
-preservation barriers.
+Status: complete. Lowered/optimized snapshot pairs now cover constant folding,
+copy propagation, dead temporary and load removal, CFG preservation, scalar
+promotion, dead stores, and local-home elision. Contract assertions verify both
+forms and require indirect/opaque calls, volatile access and copy flags,
+aliases, address escape, REAL operations, and foreign-code blocks to survive as
+optimization barriers.
 
 ### Slice 7: broad corpus gate
 

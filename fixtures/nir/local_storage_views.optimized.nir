@@ -1,0 +1,26 @@
+nir program
+global result: Byte
+global escaped: Byte*
+static __nir_real_Main_0:REAL bytes=[$40 $01 $50 $00 $00 $00] = "1.5"
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[value, alias, absolute, itemPointer, realValue, __nir_real_tmp_5]
+  local value: Byte duration=routine-static size=1 align=1
+  local alias: Byte duration=routine-static size=1 align=1 alias value
+  local absolute: Byte duration=external size=1 align=1 absolute $D01F
+  local itemPointer: Byte* duration=routine-static size=2 align=1
+  local realValue: REAL duration=routine-static size=6 align=1
+  local __nir_real_tmp_5: hidden REAL evaluation duration=routine-static size=6 align=1
+bb0:
+  store volatile value = 2
+  store volatile alias = 3
+  %t0:Byte* = addr value
+  store itemPointer = %t0
+  %t1:Byte* = load itemPointer
+  store escaped = %t1
+  %t2:Byte* = load escaped
+  store *%t2 = 4
+  real.convert __nir_real_tmp_5 = 1:Byte
+  real.add realValue = &__nir_real_Main_0, __nir_real_tmp_5
+  %t3:Byte = load volatile alias
+  store result = %t3
+  return

@@ -19,7 +19,6 @@ use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 use actionc::target::{AddressValue, ByteOffset, ByteSize, TargetId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Optimized cases are introduced in the optimizer coverage slice.
 pub enum NirFixtureStage {
     Lowered,
     Optimized,
@@ -58,6 +57,18 @@ macro_rules! lowered_target_case {
     };
 }
 
+macro_rules! optimized_atari_case {
+    ($name:literal) => {
+        NirFixtureCase {
+            name: concat!($name, ".optimized"),
+            source: concat!("fixtures/nir/", $name, ".act"),
+            snapshot: concat!("fixtures/nir/", $name, ".optimized.nir"),
+            target: TargetId::Atari6502,
+            stage: NirFixtureStage::Optimized,
+        }
+    };
+}
+
 pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("activation_storage"),
     lowered_atari_case!("aggregate_static_initializer"),
@@ -86,6 +97,7 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("machine_blocks"),
     lowered_atari_case!("native_real"),
     lowered_atari_case!("native_real_storage"),
+    lowered_atari_case!("optimizer_local_promotion"),
     lowered_atari_case!("pointer_operations"),
     lowered_atari_case!("record_copy"),
     lowered_atari_case!("records_fields"),
@@ -156,6 +168,11 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
         "target_data_layout.motorola-68000",
         TargetId::Motorola68000
     ),
+    optimized_atari_case!("control_flow"),
+    optimized_atari_case!("local_storage_views"),
+    optimized_atari_case!("optimizer_local_promotion"),
+    optimized_atari_case!("scalar_assignments"),
+    optimized_atari_case!("unary_cast"),
 ];
 
 pub fn lower_case(repo_root: &Path, case: NirFixtureCase) -> NirProgram {

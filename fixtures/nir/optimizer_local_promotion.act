@@ -1,0 +1,8 @@
+BYTE result
+
+PROC Main()
+  BYTE value,dead
+  value=1
+  dead=2
+  result=value
+RETURN
