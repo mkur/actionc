@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 9 were implemented and verified on
+Status: complete. Slices 0 through 10 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -660,6 +660,18 @@ compiler: guard native automatic storage at foreign boundaries
 ```
 
 ### Slice 10: recursion and reentrancy acceptance suite
+
+Status: complete for the compiler core and native MIR canaries. The
+native-only corpus now includes scalar recursion, a recursive permutation
+kernel, a full column/diagonal queens search, indirect mutual recursion,
+nested address passing, and repeated local initialization. Every source is
+verified and lowered in both unoptimized and optimized form for 68000, 65816
+native, and 65816 small targets. MIR activation-address identities prove that
+two live invocations of the same lexical frame object are distinct, while
+direct and indirect calls retain fresh-activation and public-convention facts.
+Native emulator execution and emitted stack-usage maps remain completion gates
+for the future instruction emitters; this slice does not claim binary-level
+execution before those emitters exist.
 
 1. Restore or add recursive permutation and queens kernels as native-only
    acceptance programs.

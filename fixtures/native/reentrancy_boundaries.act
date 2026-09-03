@@ -1,0 +1,64 @@
+; Native-only acceptance case: indirect mutual recursion, nested address
+; passing, and local initializers which must execute on every entry.
+
+BYTE FUNC POINTER evenCall,oddCall
+BYTE remaining,parity,initializationSum
+BYTE POINTER outerAddress,innerAddress
+
+BYTE FUNC Even()
+  BYTE saved=[2]
+
+  initializationSum==+saved
+  IF remaining=0 THEN
+    RETURN(1)
+  FI
+  remaining==-1
+RETURN(oddCall())
+
+BYTE FUNC Odd()
+  BYTE saved=[3]
+
+  initializationSum==+saved
+  IF remaining=0 THEN
+    RETURN(0)
+  FI
+  remaining==-1
+RETURN(evenCall())
+
+PROC Nested(BYTE POINTER outer)
+  BYTE inner=[7]
+
+  outerAddress=outer
+  innerAddress=@inner
+  initializationSum==+inner
+RETURN
+
+PROC Outer()
+  BYTE local=[5]
+
+  Nested(@local)
+RETURN
+
+PROC Reenter(BYTE depth)
+  BYTE local=[11]
+
+  IF depth=2 THEN
+    outerAddress=@local
+  ELSE
+    innerAddress=@local
+  FI
+  initializationSum==+local
+  IF depth>0 THEN
+    Reenter(depth-1)
+  FI
+RETURN
+
+PROC Main()
+  evenCall=@Even
+  oddCall=@Odd
+  remaining=6
+  parity=evenCall()
+  Outer()
+  Outer()
+  Reenter(2)
+RETURN

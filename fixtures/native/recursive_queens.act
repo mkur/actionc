@@ -1,0 +1,33 @@
+; Native-only acceptance kernel: recursive search must retain a distinct row
+; parameter and column loop index at every depth.
+
+BYTE ARRAY columns(8),diagonalDown(15),diagonalUp(15)
+CARD solutions
+
+PROC Queens(BYTE row)
+  BYTE column,down,up
+
+  IF row=8 THEN
+    solutions==+1
+    RETURN
+  FI
+  FOR column=0 TO 7
+  DO
+    down=row+column
+    up=row+7-column
+    IF columns(column)=0 AND diagonalDown(down)=0 AND diagonalUp(up)=0 THEN
+      columns(column)=1
+      diagonalDown(down)=1
+      diagonalUp(up)=1
+      Queens(row+1)
+      columns(column)=0
+      diagonalDown(down)=0
+      diagonalUp(up)=0
+    FI
+  OD
+RETURN
+
+PROC Main()
+  solutions=0
+  Queens(0)
+RETURN

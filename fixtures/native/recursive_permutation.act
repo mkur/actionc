@@ -1,0 +1,22 @@
+; Native-only acceptance kernel: each recursion depth owns its loop index and
+; parameters while enumerating permutations.
+
+CARD permutations
+
+PROC Permute(BYTE depth,limit)
+  BYTE choice
+
+  IF depth=limit THEN
+    permutations==+1
+    RETURN
+  FI
+  FOR choice=depth TO limit
+  DO
+    Permute(depth+1,limit)
+  OD
+RETURN
+
+PROC Main()
+  permutations=0
+  Permute(0,5)
+RETURN

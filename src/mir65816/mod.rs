@@ -79,6 +79,18 @@ pub struct Mir65816Routine {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mir65816FrameObjectId(pub u32);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mir65816ActivationId(pub u64);
+
+/// Abstract identity of an automatic object in one live invocation. A task
+/// switch or recursive call changes the activation identity even though the
+/// lexical frame-object ID remains stable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mir65816ActivationAddress {
+    pub activation: Mir65816ActivationId,
+    pub object: Mir65816FrameObjectId,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir65816FrameObjectOwner {
     Param(ParamId),
@@ -134,6 +146,19 @@ pub struct Mir65816FramePlan {
     pub outgoing_offset: ByteOffset,
     pub outgoing_bytes: ByteSize,
     pub extent: ByteSize,
+}
+
+impl Mir65816FramePlan {
+    pub fn address_in(
+        &self,
+        activation: Mir65816ActivationId,
+        object: Mir65816FrameObjectId,
+    ) -> Option<Mir65816ActivationAddress> {
+        self.objects
+            .iter()
+            .any(|candidate| candidate.id == object)
+            .then_some(Mir65816ActivationAddress { activation, object })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

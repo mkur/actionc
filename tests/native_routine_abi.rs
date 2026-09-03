@@ -1269,3 +1269,250 @@ fn native_verifier_rejects_fixed_entries_and_internal_address_escape() {
             .contains("cannot expose target-internal routine")
     }));
 }
+
+#[test]
+fn native_acceptance_corpus_proves_recursive_activation_contracts() {
+    const FIXTURES: &[(&str, &str)] = &[
+        ("fixtures/native/recursive_scalar.act", "SumTo"),
+        ("fixtures/native/recursive_permutation.act", "Permute"),
+        ("fixtures/native/recursive_queens.act", "Queens"),
+        ("fixtures/native/reentrancy_boundaries.act", "Reenter"),
+    ];
+
+    for target in [
+        TargetId::Motorola68000,
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+    ] {
+        for (fixture, recursive_routine) in FIXTURES {
+            let lowered = fixture_for_target(Path::new(fixture), target);
+            let recursive = lowered
+                .routines
+                .iter()
+                .find(|routine| routine.name == *recursive_routine)
+                .unwrap_or_else(|| panic!("{recursive_routine} in {fixture}"));
+            assert!(
+                recursive
+                    .blocks
+                    .iter()
+                    .flat_map(|block| &block.ops)
+                    .any(|op| {
+                        matches!(op, NirOp::Call { callee: NirCallee::User { id, .. }, .. }
+                    if *id == recursive.id)
+                    })
+            );
+            let optimized = nir::optimize_program(&lowered).unwrap_or_else(|diagnostics| {
+                panic!("optimize {fixture} for {target}: {diagnostics:?}")
+            });
+            for (path, program) in [("lowered", &lowered), ("optimized", &optimized)] {
+                nir::verify_program(program).unwrap_or_else(|diagnostics| {
+                    panic!("verify {path} {fixture} for {target}: {diagnostics:?}")
+                });
+                assert!(
+                    program.routines.iter().all(|routine| {
+                        routine.activation == NirActivationModel::NativeReentrant
+                            && routine.convention == NirCallConvention::TargetPublic
+                    }),
+                    "{path} {fixture} for {target}"
+                );
+                match target {
+                    TargetId::Motorola68000 => {
+                        mir68k::lower_program(program).unwrap_or_else(|diagnostics| {
+                            panic!("lower {path} {fixture} for {target}: {diagnostics:?}")
+                        });
+                    }
+                    TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                        mir65816::lower_program(program).unwrap_or_else(|diagnostics| {
+                            panic!("lower {path} {fixture} for {target}: {diagnostics:?}")
+                        });
+                    }
+                    TargetId::Atari6502 => unreachable!(),
+                }
+            }
+        }
+
+        let boundary = fixture_for_target(
+            Path::new("fixtures/native/reentrancy_boundaries.act"),
+            target,
+        );
+        let indirect_calls = boundary
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .filter(|op| {
+                matches!(
+                    op,
+                    NirOp::Call {
+                        callee: NirCallee::Indirect { .. },
+                        ..
+                    }
+                )
+            })
+            .count();
+        assert!(indirect_calls >= 3, "mutual/public calls for {target}");
+        for name in ["Even", "Odd", "Nested", "Outer", "Reenter"] {
+            let routine = boundary
+                .routines
+                .iter()
+                .find(|routine| routine.name == name)
+                .unwrap_or_else(|| panic!("{name} routine for {target}"));
+            assert!(
+                matches!(routine.blocks[0].ops.first(), Some(NirOp::Store { .. })),
+                "{name} repeats its initializer at entry for {target}"
+            );
+        }
+
+        let reenter_nir = boundary
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Reenter")
+            .expect("Reenter NIR routine");
+        assert!(
+            reenter_nir
+                .blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .any(|op| {
+                    matches!(op, NirOp::Call { callee: NirCallee::User { id, .. }, .. }
+                if *id == reenter_nir.id)
+                })
+        );
+        let local = reenter_nir
+            .locals
+            .iter()
+            .find(|local| local.name == "local")
+            .expect("Reenter local")
+            .id;
+
+        match target {
+            TargetId::Motorola68000 => {
+                let mir = mir68k::lower_program(&boundary).expect("lower re-entry 68k");
+                let indirect_plans = mir
+                    .routines
+                    .iter()
+                    .flat_map(|routine| &routine.blocks)
+                    .flat_map(|block| &block.ops)
+                    .filter_map(|op| match op {
+                        mir68k::Mir68kOp::Call {
+                            target: mir68k::Mir68kCallTarget::Indirect(_, _),
+                            plan,
+                            ..
+                        } => Some(plan),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                assert!(indirect_plans.len() >= 3);
+                assert!(indirect_plans.iter().all(|plan| {
+                    plan.convention == NirCallConvention::TargetPublic
+                        && plan.activation == mir68k::Mir68kCallActivation::Fresh
+                }));
+                let routine = mir
+                    .routines
+                    .iter()
+                    .find(|routine| routine.name == "Reenter")
+                    .expect("Reenter MIR68K routine");
+                let object = routine
+                    .frame
+                    .objects
+                    .iter()
+                    .find(|object| object.owner == mir68k::Mir68kFrameObjectOwner::Local(local))
+                    .expect("Reenter MIR68K local object")
+                    .id;
+                let outer = routine
+                    .frame
+                    .address_in(mir68k::Mir68kActivationId(1), object)
+                    .expect("outer activation address");
+                let inner = routine
+                    .frame
+                    .address_in(mir68k::Mir68kActivationId(2), object)
+                    .expect("inner activation address");
+                assert_ne!(outer, inner);
+                assert!(
+                    routine
+                        .blocks
+                        .iter()
+                        .flat_map(|block| &block.ops)
+                        .any(|op| {
+                            matches!(
+                                op,
+                                mir68k::Mir68kOp::Call {
+                                    target: mir68k::Mir68kCallTarget::Direct(id),
+                                    plan: mir68k::Mir68kCallPlan {
+                                        activation: mir68k::Mir68kCallActivation::Fresh,
+                                        convention: NirCallConvention::TargetPublic,
+                                        ..
+                                    },
+                                    ..
+                                } if *id == routine.id.0
+                            )
+                        })
+                );
+            }
+            TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                let mir = mir65816::lower_program(&boundary).expect("lower re-entry 65816");
+                let indirect_plans = mir
+                    .routines
+                    .iter()
+                    .flat_map(|routine| &routine.blocks)
+                    .flat_map(|block| &block.ops)
+                    .filter_map(|op| match op {
+                        mir65816::Mir65816Op::Call {
+                            target: mir65816::Mir65816CallTarget::Indirect(_, _),
+                            plan,
+                            ..
+                        } => Some(plan),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                assert!(indirect_plans.len() >= 3);
+                assert!(indirect_plans.iter().all(|plan| {
+                    plan.convention == NirCallConvention::TargetPublic
+                        && plan.activation == mir65816::Mir65816CallActivation::Fresh
+                }));
+                let routine = mir
+                    .routines
+                    .iter()
+                    .find(|routine| routine.name == "Reenter")
+                    .expect("Reenter MIR65816 routine");
+                let object = routine
+                    .frame
+                    .objects
+                    .iter()
+                    .find(|object| object.owner == mir65816::Mir65816FrameObjectOwner::Local(local))
+                    .expect("Reenter MIR65816 local object")
+                    .id;
+                let outer = routine
+                    .frame
+                    .address_in(mir65816::Mir65816ActivationId(1), object)
+                    .expect("outer activation address");
+                let inner = routine
+                    .frame
+                    .address_in(mir65816::Mir65816ActivationId(2), object)
+                    .expect("inner activation address");
+                assert_ne!(outer, inner);
+                assert!(
+                    routine
+                        .blocks
+                        .iter()
+                        .flat_map(|block| &block.ops)
+                        .any(|op| {
+                            matches!(
+                                op,
+                                mir65816::Mir65816Op::Call {
+                                    target: mir65816::Mir65816CallTarget::Direct(id),
+                                    plan: mir65816::Mir65816CallPlan {
+                                        activation: mir65816::Mir65816CallActivation::Fresh,
+                                        convention: NirCallConvention::TargetPublic,
+                                        ..
+                                    },
+                                    ..
+                                } if *id == routine.id.0
+                            )
+                        })
+                );
+            }
+            TargetId::Atari6502 => unreachable!(),
+        }
+    }
+}

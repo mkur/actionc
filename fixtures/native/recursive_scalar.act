@@ -1,0 +1,17 @@
+; Native-only acceptance case: a parameter and local remain invocation-local
+; across a direct recursive call.
+
+BYTE result
+
+BYTE FUNC SumTo(BYTE value)
+  BYTE saved
+
+  saved=value
+  IF value=0 THEN
+    RETURN(0)
+  FI
+RETURN(SumTo(value-1)+saved)
+
+PROC Main()
+  result=SumTo(6)
+RETURN

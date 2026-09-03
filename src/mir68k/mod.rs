@@ -69,6 +69,18 @@ pub struct Mir68kRoutine {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mir68kFrameObjectId(pub u32);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mir68kActivationId(pub u64);
+
+/// Abstract identity of a frame object in one live invocation. The eventual
+/// emitter resolves this pair to a machine address; the lexical object ID
+/// alone is intentionally insufficient for native reentrant storage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mir68kActivationAddress {
+    pub activation: Mir68kActivationId,
+    pub object: Mir68kFrameObjectId,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir68kFrameObjectOwner {
     Param(ParamId),
@@ -122,6 +134,19 @@ pub struct Mir68kFramePlan {
     pub outgoing: Mir68kOutgoingArea,
     /// Total amount subtracted by LINK. Always even for an original 68000.
     pub extent: ByteSize,
+}
+
+impl Mir68kFramePlan {
+    pub fn address_in(
+        &self,
+        activation: Mir68kActivationId,
+        object: Mir68kFrameObjectId,
+    ) -> Option<Mir68kActivationAddress> {
+        self.objects
+            .iter()
+            .any(|candidate| candidate.id == object)
+            .then_some(Mir68kActivationAddress { activation, object })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
