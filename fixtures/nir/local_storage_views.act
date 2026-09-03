@@ -1,0 +1,18 @@
+BYTE result
+BYTE POINTER escaped
+
+PROC Main()
+  VOLATILE BYTE value
+  BYTE alias=value
+  BYTE absolute=$D01F
+  BYTE POINTER itemPointer
+  REAL realValue
+
+  value=2
+  alias=3
+  itemPointer=@value
+  escaped=itemPointer
+  escaped^=4
+  realValue=1.5+1
+  result=alias
+RETURN

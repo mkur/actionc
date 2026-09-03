@@ -1,0 +1,16 @@
+nir program
+global byteResult: Byte
+global wordResult: Card
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[Main::block0::item, Main::block0::block1::item]
+  local Main::block0::item: Main.block0.Pair duration=routine-static size=1 align=1 init zero_fill=1 section=local mutable=true
+  local Main::block0::block1::item: Main.block0.block1.Pair duration=routine-static size=2 align=1 init zero_fill=2 section=local mutable=true
+bb0:
+  store Main::block0::item.+0 = 1
+  %t0:Byte = load Main::block0::item.+0
+  store byteResult = %t0
+  %t1:Card = cast Byte -> Card 2
+  store Main::block0::block1::item.+0 = %t1
+  %t2:Card = load Main::block0::block1::item.+0
+  store wordResult = %t2
+  return

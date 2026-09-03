@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slice 1 is implemented.
+Status: in progress. Slices 1 and 2 are implemented.
 
 ## Objective
 
@@ -28,9 +28,10 @@ inventory makes additions and losses visible in review.
 
 ### Slice 2: focused fixture organization
 
-Split overloaded fixtures, especially lexical declarations, into coherent
-storage, scope, aggregate, and foreign-code cases. Keep production behavior
-unchanged and preserve small snapshots.
+Status: complete. The former lexical-declarations catch-all is split into
+focused local-storage-view, local-aggregate-declaration, and lexical-type-scope
+cases. Lexical foreign-symbol resolution remains in the already focused
+lexical-block fixture. Production compiler behavior is unchanged.
 
 ### Slice 3: positive executable shapes
 

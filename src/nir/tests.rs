@@ -780,31 +780,117 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
 }
 
 #[test]
-fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
-    let program = lower_modern_source(include_str!("../../fixtures/nir/lexical_declarations.act"));
-    verify_program(&program).expect("lexical declaration NIR should verify");
-    let routine = program
+fn focused_lexical_declaration_fixtures_preserve_storage_and_type_facts() {
+    let storage_program = lower_modern_source(include_str!(
+        "../../fixtures/nir/local_storage_views.act"
+    ));
+    verify_program(&storage_program).expect("local storage-view NIR should verify");
+    let storage_routine = storage_program
         .routines
         .iter()
         .find(|routine| routine.name == "Main")
         .expect("Main routine");
 
-    assert!(routine.locals.iter().all(|local| {
+    assert!(storage_routine.locals.iter().all(|local| {
         !matches!(
             local.storage,
             NirStorageClass::Type | NirStorageClass::Record
         )
     }));
-    let data_ids = routine
+    let value = storage_routine
         .locals
         .iter()
-        .filter(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("data"))
-        .map(|local| local.id)
+        .find(|local| local.name == "value")
+        .expect("local value");
+    let alias = storage_routine
+        .locals
+        .iter()
+        .find(|local| local.name == "alias")
+        .expect("local alias");
+    assert!(matches!(
+        alias.backing,
+        NirLocalBacking::Alias {
+            target,
+            offset: ByteOffset::ZERO,
+            ..
+        } if target == value.id
+    ));
+    assert!(storage_routine.locals.iter().any(|local| {
+        local.name == "absolute"
+            && matches!(
+                local.backing,
+                NirLocalBacking::Absolute(address)
+                    if address == AddressValue::data(0xD01F)
+            )
+    }));
+    let storage_ops = storage_routine
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
         .collect::<Vec<_>>();
-    assert_eq!(data_ids.len(), 3);
-    assert_eq!(data_ids.iter().copied().collect::<BTreeSet<_>>().len(), 3);
+    assert!(
+        storage_ops
+            .iter()
+            .any(|op| matches!(op, NirOp::VolatileLoad { .. }))
+    );
+    assert!(
+        storage_ops
+            .iter()
+            .any(|op| matches!(op, NirOp::VolatileStore { .. }))
+    );
+    assert!(storage_ops.iter().any(|op| matches!(op, NirOp::Real(_))));
+    assert!(storage_ops.iter().any(|op| matches!(
+        op,
+        NirOp::AddrOf {
+            place: NirPlace {
+                kind: NirPlaceKind::Local { id, .. },
+                ..
+            },
+            ..
+        } if *id == value.id
+    )));
 
-    let item_sizes = routine
+    let aggregate_program = lower_modern_source(include_str!(
+        "../../fixtures/nir/local_aggregate_declarations.act"
+    ));
+    verify_program(&aggregate_program).expect("local aggregate NIR should verify");
+    let aggregate_routine = aggregate_program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let aggregate_value = aggregate_routine
+        .locals
+        .iter()
+        .find(|local| local.name == "value")
+        .expect("aggregate address target");
+    let addresses = aggregate_routine
+        .locals
+        .iter()
+        .find(|local| local.name == "addresses")
+        .expect("local relocation array");
+    assert!(matches!(
+        &addresses.init,
+        Some(NirStorageInit::Descriptor { backing, .. })
+            if matches!(
+                backing.image.fragments.as_slice(),
+                [NirDataFragment::Address {
+                    target: NirDataAddressTarget::Storage(NirStorageId::Local(id)),
+                    ..
+                }] if *id == aggregate_value.id
+            )
+    ));
+
+    let scopes_program = lower_modern_source(include_str!(
+        "../../fixtures/nir/lexical_type_scopes.act"
+    ));
+    verify_program(&scopes_program).expect("lexical type-scope NIR should verify");
+    let scopes_routine = scopes_program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let item_sizes = scopes_routine
         .locals
         .iter()
         .filter(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("item"))
@@ -815,106 +901,23 @@ fn lexical_block_declaration_surface_preserves_storage_and_type_facts() {
         .collect::<Vec<_>>();
     assert_eq!(item_sizes, [ByteSize::ONE, ByteSize::new(2)]);
 
-    let value = routine
-        .locals
-        .iter()
-        .find(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("value"))
-        .expect("block-local value");
-    let alias = routine
-        .locals
-        .iter()
-        .find(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("alias"))
-        .expect("block-local alias");
-    assert!(matches!(
-        alias.backing,
-        NirLocalBacking::Alias {
-            target,
-            offset: ByteOffset::ZERO,
-            ..
-        } if target == value.id
-    ));
-    assert!(routine.locals.iter().any(|local| {
-        display_name_leaf(&local.name).eq_ignore_ascii_case("absolute")
-            && matches!(
-                local.backing,
-                NirLocalBacking::Absolute(address)
-                    if address == AddressValue::data(0xD01F)
-            )
-    }));
-    let addresses = routine
-        .locals
-        .iter()
-        .find(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("addresses"))
-        .expect("block-local relocation array");
-    assert!(matches!(
-        &addresses.init,
-        Some(NirStorageInit::Descriptor { backing, .. })
-            if matches!(
-                backing.image.fragments.as_slice(),
-                [NirDataFragment::Address {
-                    target: NirDataAddressTarget::Storage(NirStorageId::Local(id)),
-                    ..
-                }] if *id == value.id
-            )
-    ));
-    assert!(
-        !routine
-            .locals
-            .iter()
-            .any(|local| display_name_leaf(&local.name).eq_ignore_ascii_case("Index"))
-    );
-
-    let ops = routine
-        .blocks
-        .iter()
-        .flat_map(|block| &block.ops)
-        .collect::<Vec<_>>();
-    assert!(
-        ops.iter()
-            .any(|op| matches!(op, NirOp::VolatileLoad { .. }))
-    );
-    assert!(
-        ops.iter()
-            .any(|op| matches!(op, NirOp::VolatileStore { .. }))
-    );
-    assert!(ops.iter().any(|op| matches!(op, NirOp::Real(_))));
-    assert!(ops.iter().any(|op| matches!(
-        op,
-        NirOp::AddrOf {
-            place: NirPlace {
-                kind: NirPlaceKind::Local { id, .. },
-                ..
-            },
-            ..
-        } if *id == value.id
-    )));
-    assert!(ops.iter().any(|op| {
-        foreign_relocations(op).is_some_and(|relocations| relocations.iter().all(|relocation| matches!(
-                relocation.target,
-                NirForeignCodeTarget::Storage(NirStorageId::Local(id)) if id == value.id
-            )))
-    }));
-
-    let output = crate::mir6502::generate_output(&program, crate::codegen::CODE_ORIGIN)
+    let output = crate::mir6502::generate_output(&scopes_program, crate::codegen::CODE_ORIGIN)
         .expect("MIR6502 should emit duplicate lexical display names by stable local ID");
-    for name in ["item", "data"] {
-        let addresses = output
-            .map
-            .storage_symbols
-            .iter()
-            .filter(|symbol| {
-                display_name_leaf(&symbol.name).eq_ignore_ascii_case(name)
-                    && matches!(
-                        &symbol.scope,
-                        crate::codegen::CodegenSymbolScope::Routine(routine)
-                            if routine == "Main"
-                    )
-            })
-            .map(|symbol| symbol.address)
-            .collect::<BTreeSet<_>>();
-        let expected = if name == "item" { 2 } else { 3 };
-        assert_eq!(addresses.len(), expected, "{name} storage addresses");
-    }
+    let item_addresses = output
+        .map
+        .storage_symbols
+        .iter()
+        .filter(|symbol| {
+            display_name_leaf(&symbol.name).eq_ignore_ascii_case("item")
+                && matches!(
+                    &symbol.scope,
+                    crate::codegen::CodegenSymbolScope::Routine(routine)
+                        if routine == "Main"
+                )
+        })
+        .map(|symbol| symbol.address)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(item_addresses.len(), 2, "item storage addresses");
 }
 
 #[test]

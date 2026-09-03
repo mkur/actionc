@@ -1,0 +1,19 @@
+BYTE byteResult
+CARD wordResult,addressResult
+
+PROC Main()
+  BYTE value
+  BYTE ARRAY bytes(2)=[3 4]
+  CARD ARRAY words(2)=[5 6]
+  CARD ARRAY addresses(1)=[@value]
+  TYPE Pair=[BYTE tag CARD word]
+  Pair item
+  Pair POINTER itemPointer
+
+  item.tag=bytes(1)
+  item.word=words(0)
+  itemPointer=@item
+  byteResult=itemPointer.tag
+  wordResult=item.word
+  addressResult=addresses(0)
+RETURN

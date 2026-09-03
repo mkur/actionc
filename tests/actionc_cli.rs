@@ -54,11 +54,11 @@ fn lexical_blocks_fixture() -> PathBuf {
         .join("lexical_blocks.act")
 }
 
-fn lexical_declarations_fixture() -> PathBuf {
+fn nir_fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
         .join("nir")
-        .join("lexical_declarations.act")
+        .join(name)
 }
 
 fn load_file_origin(bytes: &[u8]) -> u16 {
@@ -110,7 +110,12 @@ fn lexical_blocks_compile_across_backends_and_runtimes() {
     let temp = TestDir::new();
     for (fixture_name, fixture) in [
         ("scalar", lexical_blocks_fixture()),
-        ("declarations", lexical_declarations_fixture()),
+        ("storage", nir_fixture("local_storage_views.act")),
+        (
+            "aggregates",
+            nir_fixture("local_aggregate_declarations.act"),
+        ),
+        ("types", nir_fixture("lexical_type_scopes.act")),
     ] {
         for (mode, runtime) in [
             ("optimized", "cart"),

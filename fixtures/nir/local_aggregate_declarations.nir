@@ -1,0 +1,29 @@
+nir program
+global byteResult: Byte
+global wordResult: Card
+global addressResult: Card
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[value, bytes, words, addresses, item, itemPointer]
+  local value: Byte duration=routine-static size=1 align=1
+  local bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(2) } length=2 storage=Array origin=local duration=routine-static size=2 align=1 init bytes=[$03 $04] zero_fill=0 section=local mutable=true
+  local words: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(2) } length=2 storage=Array origin=local duration=routine-static size=4 align=1 init descriptor size=4 backing=local backing_size=4 backing_align=1 bytes=[$00 $00 $00 $00] fragments=[0:int16=$5, 2:int16=$6] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
+  local addresses: array ArrayType { element: ValueType { base: Fund(Card), pointer: false }, length: Some(1) } length=1 storage=Array origin=local duration=routine-static size=4 align=1 init descriptor size=4 backing=local backing_size=2 backing_align=1 bytes=[$00 $00] fragments=[0:ptr16@as0(l0)] zero_fill=0 backing_section=local.backing size_word=$0000 section=local mutable=true
+  local item: Pair duration=routine-static size=3 align=1 init zero_fill=3 section=local mutable=true
+  local itemPointer: Pair* duration=routine-static size=2 align=1
+bb0:
+  %t0:Byte* = addr bytes
+  %t1:Byte = load %t0[1;1]
+  store item.+0 = %t1
+  %t2:Card* = addr words
+  %t3:Card = load %t2[0;2]
+  store item.+1 = %t3
+  %t4:Pair* = addr item
+  store itemPointer = %t4
+  %t5:Byte = load itemPointer.+0
+  store byteResult = %t5
+  %t6:Card = load item.+1
+  store wordResult = %t6
+  %t7:Card* = addr addresses
+  %t8:Card = load %t7[0;2]
+  store addressResult = %t8
+  return

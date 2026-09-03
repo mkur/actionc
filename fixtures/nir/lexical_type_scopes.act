@@ -1,0 +1,18 @@
+BYTE byteResult
+CARD wordResult
+
+PROC Main()
+  BEGIN
+    TYPE Pair=[BYTE field]
+    Pair item
+    item.field=1
+    byteResult=item.field
+
+    BEGIN
+      TYPE Pair=[CARD field]
+      Pair item
+      item.field=2
+      wordResult=item.field
+    END
+  END
+RETURN
