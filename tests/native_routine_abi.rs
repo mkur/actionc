@@ -1035,3 +1035,127 @@ fn mir68k_plans_reentrant_frames_and_balanced_stack_calls() {
             })
     );
 }
+
+#[test]
+fn mir65816_plans_independent_native_and_small_model_frames() {
+    for (target, pointer_width, call_form, expected_return_form) in [
+        (
+            TargetId::Wdc65816Native,
+            ByteSize::new(3),
+            mir65816::Mir65816CallForm::FarJsl,
+            mir65816::Mir65816ReturnForm::FarRtl,
+        ),
+        (
+            TargetId::Wdc65816Small,
+            ByteSize::new(2),
+            mir65816::Mir65816CallForm::NearJsr,
+            mir65816::Mir65816ReturnForm::NearRts,
+        ),
+    ] {
+        let program =
+            fixture_for_target(Path::new("fixtures/runtime/native_frame_plan.act"), target);
+        let mir = mir65816::lower_program(&program)
+            .unwrap_or_else(|diagnostics| panic!("lower {target} frame plan: {diagnostics:?}"));
+        assert_eq!(mir.code_pointer_width, pointer_width, "{target}");
+        assert_eq!(
+            mir.task_switch_state.required,
+            vec![
+                mir65816::Mir65816SavedState::Accumulator,
+                mir65816::Mir65816SavedState::X,
+                mir65816::Mir65816SavedState::Y,
+                mir65816::Mir65816SavedState::StackPointer,
+                mir65816::Mir65816SavedState::DirectPage,
+                mir65816::Mir65816SavedState::DataBank,
+                mir65816::Mir65816SavedState::ProgramBank,
+                mir65816::Mir65816SavedState::ProcessorStatus,
+            ],
+            "{target}"
+        );
+
+        let sum6 = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Sum6")
+            .expect("Sum6 MIR routine");
+        assert!(sum6.frame.parameters[0].frame_object.is_some(), "{target}");
+        assert!(
+            sum6.frame.parameters[1..]
+                .iter()
+                .all(|parameter| parameter.frame_object.is_none()),
+            "{target}"
+        );
+
+        let probe = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "FrameProbe")
+            .expect("FrameProbe MIR routine");
+        assert_eq!(
+            probe.frame.strategy,
+            mir65816::Mir65816FrameStrategy::HardwareStackRelative,
+            "{target}"
+        );
+        assert_eq!(probe.frame.bank, 0, "{target}");
+        assert!(probe.frame.extent.get() <= u32::from(u8::MAX), "{target}");
+        assert!(probe.frame.outgoing_bytes.get() >= 6, "{target}");
+        assert!(probe.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(
+                op,
+                mir65816::Mir65816Op::Call { plan, .. }
+                    if plan.arguments.len() == 6
+                        && plan.call_form == call_form
+                        && plan.code_pointer_width == pointer_width
+                        && plan.net_stack_delta == 0
+            )
+        }));
+        assert!(probe.blocks.iter().any(|block| {
+            matches!(
+                block.terminator,
+                mir65816::Mir65816Terminator::Return {
+                    form,
+                    restored_mode: mir65816::Mir65816ModeState {
+                        native_mode: true,
+                        accumulator: mir65816::Mir65816RegisterWidth::Bits16,
+                        index: mir65816::Mir65816RegisterWidth::Bits16,
+                    },
+                    ..
+                } if form == expected_return_form
+            )
+        }));
+
+        let recur = mir
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Recur")
+            .expect("Recur MIR routine");
+        assert!(recur.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(
+                op,
+                mir65816::Mir65816Op::Call {
+                    target: mir65816::Mir65816CallTarget::Direct(id),
+                    plan: mir65816::Mir65816CallPlan {
+                        activation: mir65816::Mir65816CallActivation::Fresh,
+                        ..
+                    },
+                    ..
+                } if *id == recur.id.0
+            )
+        }));
+        assert!(
+            mir.routines
+                .iter()
+                .flat_map(|routine| &routine.blocks)
+                .any(|block| {
+                    block.ops.iter().any(|op| {
+                        matches!(
+                            op,
+                            mir65816::Mir65816Op::Call {
+                                target: mir65816::Mir65816CallTarget::Indirect(_, width),
+                                ..
+                            } if *width == pointer_width
+                        )
+                    })
+                })
+        );
+    }
+}

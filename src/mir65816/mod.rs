@@ -8,8 +8,9 @@ mod lower;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
 use crate::nir::{
-    BlockId, NirBinaryOp, NirCastKind, NirCompareOp, NirDataAddressTarget, NirRuntimeTarget,
-    NirStorageId, NirUnaryOp, ParamId, RuntimeSymbolId, SignatureId, SymbolId, TempId,
+    BlockId, NirBinaryOp, NirCallConvention, NirCastKind, NirCompareOp, NirDataAddressTarget,
+    NirRuntimeTarget, NirStorageId, NirUnaryOp, ParamId, RoutineId, RuntimeSymbolId, SignatureId,
+    SymbolId, TempId,
 };
 use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize, Endian, TargetId};
 
@@ -21,6 +22,7 @@ pub struct Mir65816Program {
     pub data_pointer_width: ByteSize,
     pub code_pointer_width: ByteSize,
     pub call_convention: Mir65816CallConvention,
+    pub task_switch_state: Mir65816TaskSwitchState,
     pub data: Vec<Mir65816Data>,
     pub runtime_bindings: Vec<Mir65816RuntimeBinding>,
     pub routines: Vec<Mir65816Routine>,
@@ -65,8 +67,148 @@ pub struct Mir65816RuntimeBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816Routine {
+    pub id: RoutineId,
     pub name: String,
+    pub convention: NirCallConvention,
+    pub frame: Mir65816FramePlan,
+    pub prologue: Mir65816ProloguePlan,
+    pub epilogue: Mir65816EpiloguePlan,
     pub blocks: Vec<Mir65816Block>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Mir65816FrameObjectId(pub u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816FrameObjectOwner {
+    Param(ParamId),
+    Local(crate::nir::LocalId),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816FrameObject {
+    pub id: Mir65816FrameObjectId,
+    pub owner: Mir65816FrameObjectOwner,
+    pub size: ByteSize,
+    pub alignment: ByteSize,
+    /// Displacement from S after the routine prologue has reserved the frame.
+    pub stack_offset: ByteOffset,
+    pub mutable: bool,
+    pub addressable: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816AbiHome {
+    /// Offset within the caller-provided argument area.
+    StackArgument {
+        offset: ByteOffset,
+        size: ByteSize,
+    },
+    Accumulator,
+    AccumulatorAndX,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816ParameterPlan {
+    pub param: ParamId,
+    pub incoming: Mir65816AbiHome,
+    pub frame_object: Option<Mir65816FrameObjectId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816FrameStrategy {
+    /// The first implementation keeps the complete activation in bank zero
+    /// and requires every planned access to fit the 8-bit `d,S` displacement.
+    HardwareStackRelative,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816FramePlan {
+    pub strategy: Mir65816FrameStrategy,
+    pub bank: u8,
+    pub objects: Vec<Mir65816FrameObject>,
+    pub parameters: Vec<Mir65816ParameterPlan>,
+    pub automatic_bytes: ByteSize,
+    pub saved_state_bytes: ByteSize,
+    pub spill_bytes: ByteSize,
+    pub outgoing_offset: ByteOffset,
+    pub outgoing_bytes: ByteSize,
+    pub extent: ByteSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816RegisterWidth {
+    Bits8,
+    Bits16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mir65816ModeState {
+    pub native_mode: bool,
+    pub accumulator: Mir65816RegisterWidth,
+    pub index: Mir65816RegisterWidth,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816CallForm {
+    NearJsr,
+    FarJsl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816ReturnForm {
+    NearRts,
+    FarRtl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816CallActivation {
+    Fresh,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816CallPlan {
+    pub convention: NirCallConvention,
+    pub arguments: Vec<Mir65816AbiHome>,
+    pub result: Option<Mir65816AbiHome>,
+    pub outgoing_bytes: ByteSize,
+    pub code_pointer_width: ByteSize,
+    pub call_form: Mir65816CallForm,
+    pub mode_before: Mir65816ModeState,
+    pub mode_after: Mir65816ModeState,
+    pub activation: Mir65816CallActivation,
+    pub net_stack_delta: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816ProloguePlan {
+    pub required_mode: Mir65816ModeState,
+    pub reserve_bytes: ByteSize,
+    pub parameter_copies: Vec<(Mir65816AbiHome, Mir65816FrameObjectId)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816EpiloguePlan {
+    pub restored_mode: Mir65816ModeState,
+    pub release_bytes: ByteSize,
+    pub return_form: Mir65816ReturnForm,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816SavedState {
+    Accumulator,
+    X,
+    Y,
+    StackPointer,
+    DirectPage,
+    DataBank,
+    ProgramBank,
+    ProcessorStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816TaskSwitchState {
+    pub required: Vec<Mir65816SavedState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -141,6 +283,7 @@ pub enum Mir65816Op {
         args: Vec<Mir65816Value>,
         result: Option<(TempId, ByteSize)>,
         convention: Mir65816CallConvention,
+        plan: Mir65816CallPlan,
     },
 }
 
@@ -154,11 +297,17 @@ pub struct Mir65816Address {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir65816AddressBase {
-    Param(ParamId),
-    Local(crate::nir::LocalId),
-    Global(SymbolId),
+    Static(NirStorageId),
+    AutomaticFrame(Mir65816FrameObjectId),
+    Parameter(ParamId),
+    External(Mir65816ExternalAddress),
+    Indirect(Mir65816Value),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Mir65816ExternalAddress {
     Absolute(AddressValue),
-    Pointer(Mir65816Value),
+    Global(SymbolId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,8 +318,10 @@ pub struct Mir65816Index {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir65816AddressMode {
-    FrameOrStatic,
-    AbsoluteLong,
+    Static,
+    AutomaticFrame,
+    Parameter,
+    External,
     LongIndirect,
     LongIndexed,
 }
@@ -205,7 +356,12 @@ pub enum Mir65816Terminator {
         then_block: BlockId,
         else_block: BlockId,
     },
-    Return(Option<Mir65816Value>),
+    Return {
+        value: Option<Mir65816Value>,
+        release_frame_bytes: ByteSize,
+        form: Mir65816ReturnForm,
+        restored_mode: Mir65816ModeState,
+    },
     Exit,
 }
 

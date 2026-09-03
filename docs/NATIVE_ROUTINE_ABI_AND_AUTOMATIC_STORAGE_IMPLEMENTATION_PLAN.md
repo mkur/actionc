@@ -2,7 +2,7 @@
 
 Snapshot date: 2026-09-03.
 
-Status: in progress. Slices 0 through 7 were implemented and verified on
+Status: in progress. Slices 0 through 8 were implemented and verified on
 2026-09-03.
 
 ## Objective
@@ -582,6 +582,18 @@ mir68k: plan native calls and automatic frames
 ```
 
 ### Slice 8: MIR65816 frame and call plans
+
+Status: complete. MIR65816 now has its own frame-object IDs, parameter homes,
+stack argument layout, and verified invocation-local frame plan. Native-model
+calls use three-byte code pointers with `JSL`/`RTL` plans; small-model calls
+use two-byte code pointers with `JSR`/`RTS` plans. Both boundaries require
+native CPU mode with 16-bit A and index registers and verify that calls restore
+that state. The correctness-first implementation keeps frames in bank zero and
+uses 8-bit hardware-stack-relative displacements; frames or objects beyond 255
+bytes receive a focused diagnostic until a software-frame strategy is added.
+The MIR also records A, X, Y, S, D, DBR, PBR, and P as the state a future task
+switch must preserve. Both models pass the shared recursion, aggregate,
+address-taking, indirect-call, and large-argument canary.
 
 1. Split static, automatic-frame, parameter, and external address forms in
    MIR65816.
