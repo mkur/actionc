@@ -111,6 +111,14 @@ physical calling conventions, object formats, linker policy, or listing
 syntax. Compatibility wrappers may accept an unchecked `NirProgram`, but must
 construct a `VerifiedNir` token before invoking target lowering.
 
+The current MIR65816 and MIR68K entry points are contract canaries, not code
+emitters. They independently lower scalar arithmetic, address forms, aggregate
+copies, branches, calls, returns, and typed relocations. MIR65816 records the
+native three-byte and small-model two-byte pointer policies on a 24-bit
+architecture. MIR68K projects integer data as big-endian, retains four-byte
+data and code pointers, and selects bytewise access for a 16-bit value unless
+its base alignment and even displacement prove a legal 68000 word access.
+
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, and `CARD`
 and `INT` are 16-bit. Pointer and callable widths are selected by their address
 spaces and are not aliases for `CARD` on native 65816 or 68k targets. The

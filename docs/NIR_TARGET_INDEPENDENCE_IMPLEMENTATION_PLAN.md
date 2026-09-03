@@ -2,8 +2,8 @@
 
 Snapshot date: 2026-09-03.
 
-Status: active. Slices 0 through 9 completed on 2026-09-03; the final slice
-remains planned.
+Status: complete. Slices 0 through 10 were implemented and verified on
+2026-09-03.
 
 This plan prepares verifier-clean NIR to feed independent MOS 6502, WDC
 65816, and Motorola 68k backends. It also revises the initial record-layout
@@ -515,6 +515,14 @@ compiler: define the verified NIR backend boundary
 ```
 
 ### Slice 10: dual-target canaries
+
+Status: complete. Independent MIR65816 and MIR68K canaries lower the portable
+scalar, memory, aggregate, control-flow, call, return, and relocation subset
+listed below. Tests exercise 65816 native 24-bit pointers, the 65816 small
+model on the same 24-bit architecture, 68k big-endian data and 32-bit
+pointers, target-selected record/array extents, and the 68k bytewise fallback
+for a word field at an odd or otherwise unproven address. These canaries stop
+before register allocation and emission by design.
 
 Implement only enough MIR65816 and MIR68K lowering to prove the NIR contract:
 
