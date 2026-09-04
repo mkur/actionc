@@ -355,6 +355,7 @@ pub enum Mir65816AddressMode {
 pub enum Mir65816Value {
     U8(u8),
     U16(u16),
+    U32(u32),
     Null(ByteSize),
     Address(AddressValue, ByteSize),
     StaticAddress(SymbolId, ByteSize),

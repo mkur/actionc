@@ -761,6 +761,7 @@ pub(super) fn cast_type_size(ty: &TypeRef) -> Option<u16> {
     match ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),
         TypeBase::Fund(FundType::Card | FundType::Int) => Some(2),
+        TypeBase::Fund(FundType::Long | FundType::ULong) => Some(4),
         TypeBase::NativeReal => Some(6),
         TypeBase::Callable(_) => Some(2),
         TypeBase::Named(_) => None,

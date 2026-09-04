@@ -322,6 +322,7 @@ pub(super) fn type_size(ty: &TypeRef) -> Option<u16> {
     match &ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),
         TypeBase::Fund(FundType::Card | FundType::Int) => Some(2),
+        TypeBase::Fund(FundType::Long | FundType::ULong) => Some(4),
         TypeBase::NativeReal => Some(6),
         TypeBase::Named(name) if is_string_type_name(name) => Some(1),
         TypeBase::Named(_) => None,

@@ -1827,6 +1827,8 @@ fn const_value_summary(value: ConstValue) -> String {
         ScalarType::Card => "CARD",
         ScalarType::Char => "CHAR",
         ScalarType::Int => "INT",
+        ScalarType::Long => "LONG",
+        ScalarType::ULong => "ULONG",
     };
     format!("{}:{ty}", value.number_literal().text)
 }
@@ -3293,6 +3295,18 @@ impl<'a> IrBuilder<'a> {
                 ))
             }
             ExprKind::Call { callee, args }
+                if args.len() == 1 && self.contextual_wide_scalar(scope, callee).is_some() =>
+            {
+                let ty = ValueType::scalar(
+                    self.contextual_wide_scalar(scope, callee)
+                        .expect("guarded contextual wide cast"),
+                );
+                SemExprKind::Cast {
+                    ty,
+                    expr: Box::new(self.lower_expr(scope, &args[0])),
+                }
+            }
+            ExprKind::Call { callee, args }
                 if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
             {
                 SemExprKind::LValue(Box::new(self.lower_lvalue(scope, expr)))
@@ -4563,6 +4577,22 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
+    fn contextual_wide_scalar(&self, scope: ScopeId, expr: &Expr) -> Option<ScalarType> {
+        let ExprKind::Name(name) = &expr.kind else {
+            return None;
+        };
+        if self.symbol_ref(scope, name, expr.span).is_some() {
+            return None;
+        }
+        if name.eq_ignore_ascii_case("LONG") {
+            Some(ScalarType::Long)
+        } else if name.eq_ignore_ascii_case("ULONG") {
+            Some(ScalarType::ULong)
+        } else {
+            None
+        }
+    }
+
     fn lvalue_expr_type(&self, scope: ScopeId, expr: &Expr) -> Option<ValueType> {
         match &expr.kind {
             ExprKind::Name(name) => self
@@ -4617,6 +4647,15 @@ impl<'a> IrBuilder<'a> {
                 ValueTypeBase::Real
             } else {
                 ValueTypeBase::Named(symbol.qualified_name)
+            };
+        } else if name.components.len() == 1
+            || name.to_string().eq_ignore_ascii_case("SYS.LONG")
+            || name.to_string().eq_ignore_ascii_case("SYS.ULONG")
+        {
+            value.base = match name.components.last().map(|part| part.to_ascii_uppercase()) {
+                Some(name) if name == "LONG" => ValueTypeBase::Fund(FundType::Long),
+                Some(name) if name == "ULONG" => ValueTypeBase::Fund(FundType::ULong),
+                _ => value.base,
             };
         }
         value
@@ -4760,6 +4799,8 @@ fn value_type_for_number(number: &NumberLiteral) -> ValueType {
         crate::lexer::NumberKind::Byte => byte_type(),
         crate::lexer::NumberKind::Int => int_type(),
         crate::lexer::NumberKind::Card => card_type(),
+        crate::lexer::NumberKind::Long => ValueType::scalar(ScalarType::Long),
+        crate::lexer::NumberKind::ULong => ValueType::scalar(ScalarType::ULong),
         crate::lexer::NumberKind::Real => ValueType::real(),
     }
 }

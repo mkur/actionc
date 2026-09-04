@@ -182,14 +182,6 @@ pub struct RealConstValue {
 }
 
 impl ConstValue {
-    fn cast(self, declared_type: FundType) -> Self {
-        let ty = ScalarType::from_fund(declared_type);
-        Self {
-            ty,
-            bits: self.bits & scalar_mask(ty),
-        }
-    }
-
     pub fn value_type(self) -> ValueType {
         ValueType::scalar(self.ty)
     }
@@ -199,11 +191,13 @@ impl ConstValue {
             ScalarType::Byte | ScalarType::Char => NumberKind::Byte,
             ScalarType::Card => NumberKind::Card,
             ScalarType::Int => NumberKind::Int,
+            ScalarType::Long => NumberKind::Long,
+            ScalarType::ULong => NumberKind::ULong,
         };
-        let text = if self.ty.width_bytes() == 1 {
-            format!("${:02X}", self.bits as u8)
-        } else {
-            format!("${:04X}", self.bits)
+        let text = match self.ty.width_bytes() {
+            1 => format!("${:02X}", self.bits as u8),
+            2 => format!("${:04X}", self.bits),
+            _ => format!("${:08X}", self.bits),
         };
         NumberLiteral {
             text,
@@ -1707,6 +1701,8 @@ impl Analyzer {
             ScalarType::Char => "CHAR",
             ScalarType::Card => "CARD",
             ScalarType::Int => "INT",
+            ScalarType::Long => "LONG",
+            ScalarType::ULong => "ULONG",
         };
         let Some(integer) = value.rounded_integer() else {
             self.diagnostics.push(Diagnostic::new(
@@ -1726,6 +1722,8 @@ impl Analyzer {
             ScalarType::Byte | ScalarType::Char => (0..=u8::MAX as i128).contains(&integer.value),
             ScalarType::Card => (0..=u16::MAX as i128).contains(&integer.value),
             ScalarType::Int => (i16::MIN as i128..=i16::MAX as i128).contains(&integer.value),
+            ScalarType::Long => (i32::MIN as i128..=i32::MAX as i128).contains(&integer.value),
+            ScalarType::ULong => (0..=u32::MAX as i128).contains(&integer.value),
         };
         if !in_range {
             self.diagnostics.push(Diagnostic::new(
@@ -2268,6 +2266,23 @@ impl Analyzer {
                 self.classify_layout_query(scope, intrinsic, args, expr.span)
             }
             ExprKind::Call { callee, args }
+                if args.len() == 1 && self.contextual_scalar_cast_type(scope, callee).is_some() =>
+            {
+                let scalar = self
+                    .contextual_scalar_cast_type(scope, callee)
+                    .expect("guarded contextual scalar cast");
+                let inner = self.expect_expr(scope, &args[0], args[0].span);
+                let ty = ValueType::scalar(scalar);
+                subject::SemSubject::Expr(subject::SemExpr {
+                    ty: ty.clone(),
+                    kind: subject::SemExprKind::Cast {
+                        ty,
+                        expr: Box::new(inner),
+                    },
+                    span: expr.span,
+                })
+            }
+            ExprKind::Call { callee, args }
                 if args.len() == 1 && self.can_subject_be_indexed(scope, callee) =>
             {
                 let base = self.expect_place(scope, callee, callee.span);
@@ -2678,12 +2693,47 @@ impl Analyzer {
         name: &str,
         span: Span,
     ) -> subject::SemSubject {
+        if self.lookup_symbol(scope, name).is_none() {
+            let scalar = if name.eq_ignore_ascii_case("LONG") {
+                Some(ScalarType::Long)
+            } else if name.eq_ignore_ascii_case("ULONG") {
+                Some(ScalarType::ULong)
+            } else {
+                None
+            };
+            if let Some(scalar) = scalar {
+                return subject::SemSubject::TypeRef(subject::SemTypeRef {
+                    ty: ValueType::scalar(scalar),
+                    kind: subject::SemTypeRefKind::Inline(TypeRef {
+                        base: TypeBase::Fund(scalar.fund_type()),
+                        pointer: false,
+                    }),
+                    span,
+                });
+            }
+        }
         let Some(symbol_id) = self.lookup_symbol(scope, name) else {
             self.diagnostics
                 .push(Diagnostic::new(span, format!("undefined symbol `{name}`")));
             return self.subject_error(span);
         };
         self.classify_symbol_subject(symbol_id, span)
+    }
+
+    fn contextual_scalar_cast_type(&self, scope: ScopeId, expr: &Expr) -> Option<ScalarType> {
+        let ExprKind::Name(name) = &expr.kind else {
+            return None;
+        };
+        if self.lookup_symbol(scope, name).is_some() {
+            return None;
+        }
+        if name.eq_ignore_ascii_case("LONG") {
+            Some(ScalarType::Long)
+        } else if name.eq_ignore_ascii_case("ULONG") {
+            Some(ScalarType::ULong)
+        } else {
+            None
+        }
     }
 
     fn classify_symbol_subject(&mut self, symbol_id: SymbolId, span: Span) -> subject::SemSubject {
@@ -3548,10 +3598,29 @@ impl Analyzer {
             return;
         }
 
-        match evaluate_const_expr(&expression).map(|value| match declaration.declared_type {
-            Some(ConstDeclaredType::Fund(declared_type)) => value.cast(declared_type),
-            Some(ConstDeclaredType::Real) => unreachable!(),
-            None => value,
+        let declared_scalar = match declaration.declared_type.as_ref() {
+            Some(ConstDeclaredType::Fund(declared_type)) => {
+                Some(ScalarType::from_fund(*declared_type))
+            }
+            Some(ConstDeclaredType::Named(name)) => self.builtin_scalar_type(scope, name),
+            Some(ConstDeclaredType::Real) | None => None,
+        };
+        if matches!(declaration.declared_type, Some(ConstDeclaredType::Named(_)))
+            && declared_scalar.is_none()
+        {
+            self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
+            self.diagnostics.push(Diagnostic::new(
+                declaration.span,
+                "typed CONST requires a scalar type",
+            ));
+            return;
+        }
+
+        match evaluate_const_expr(&expression).map(|value| {
+            declared_scalar.map_or(value, |ty| ConstValue {
+                ty,
+                bits: value.bits & scalar_mask(ty),
+            })
         }) {
             Ok(value) => {
                 self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
@@ -4176,7 +4245,9 @@ impl Analyzer {
             return;
         };
 
-        if self.is_sys_native_real_type(scope, name) {
+        if self.builtin_scalar_type(scope, name).is_some()
+            || self.is_sys_native_real_type(scope, name)
+        {
             return;
         }
 
@@ -4218,6 +4289,10 @@ impl Analyzer {
         let TypeBase::Named(name) = &ty.base else {
             return value;
         };
+        if let Some(scalar) = self.builtin_scalar_type(scope, name) {
+            value.base = ValueTypeBase::Fund(scalar.fund_type());
+            return value;
+        }
         if self.is_sys_native_real_type(scope, name) {
             value.base = ValueTypeBase::Real;
             return value;
@@ -4252,6 +4327,25 @@ impl Analyzer {
         self.modules
             .get(module_id.0 as usize)
             .is_some_and(|module| module.path.canonical_name() == "sys")
+    }
+
+    fn builtin_scalar_type(&self, scope: ScopeId, name: &QualifiedName) -> Option<ScalarType> {
+        let scalar = match name.components.last()?.to_ascii_uppercase().as_str() {
+            "LONG" => ScalarType::Long,
+            "ULONG" => ScalarType::ULong,
+            _ => return None,
+        };
+        if name.components.len() == 2 && name.components[0].eq_ignore_ascii_case("SYS") {
+            return Some(scalar);
+        }
+        if name.components.len() != 1 {
+            return None;
+        }
+        matches!(
+            resolve_semantic_name(&self.symbols, &self.modules, scope, name),
+            SemanticNameResolution::Unknown
+        )
+        .then_some(scalar)
     }
 
     fn param_signature_type(&self, scope: ScopeId, parameter: &VarDecl) -> ValueType {
@@ -4860,10 +4954,10 @@ fn evaluate_exact_fixed_address_expr(
 
 fn exact_const_value(value: ConstValue) -> i64 {
     if value.ty.signedness() == ScalarSignedness::Signed {
-        if value.ty.width_bytes() == 1 {
-            i64::from(value.bits as u8 as i8)
-        } else {
-            i64::from(value.bits as i16)
+        match value.ty.width_bytes() {
+            1 => i64::from(value.bits as u8 as i8),
+            2 => i64::from(value.bits as u16 as i16),
+            _ => i64::from(value.bits as u32 as i32),
         }
     } else if value.ty.width_bytes() == 1 {
         i64::from(value.bits as u8)
@@ -4873,10 +4967,10 @@ fn exact_const_value(value: ConstValue) -> i64 {
 }
 
 fn exact_scalar_cast(value: i64, target: ScalarType) -> i64 {
-    let modulus = if target.width_bytes() == 1 {
-        0x100_i64
-    } else {
-        0x1_0000_i64
+    let modulus = match target.width_bytes() {
+        1 => 0x100_i64,
+        2 => 0x1_0000_i64,
+        _ => 0x1_0000_0000_i64,
     };
     let bits = value.rem_euclid(modulus);
     if target.signedness() == ScalarSignedness::Signed && bits >= modulus / 2 {
@@ -4980,10 +5074,10 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
 }
 
 fn scalar_mask(ty: ScalarType) -> u64 {
-    if ty.width_bytes() == 1 {
-        0x00FF
-    } else {
-        0xFFFF
+    match ty.width_bytes() {
+        1 => 0xFF,
+        2 => 0xFFFF,
+        _ => 0xFFFF_FFFF,
     }
 }
 

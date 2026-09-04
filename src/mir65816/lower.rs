@@ -1004,6 +1004,9 @@ fn lower_value(
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(2) => {
             Mir65816Value::U16(*bits as u16)
         }
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(4) => {
+            Mir65816Value::U32(*bits as u32)
+        }
         NirValue::IntegerConst { .. } => unreachable!("native integer width is lowered explicitly"),
         NirValue::Null { ty } => Mir65816Value::Null(ty.width.unwrap_or(data_pointer_width)),
         NirValue::AddressConst { address, ty } => {

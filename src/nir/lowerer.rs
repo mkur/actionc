@@ -1604,7 +1604,13 @@ impl NirBuilder {
                 }
                 match ty.width {
                     Some(ByteSize::ONE) => Some(NirValue::ConstU8(value as u8)),
-                    Some(width) if width == ByteSize::new(2) => Some(NirValue::ConstU16(value)),
+                    Some(width) if width == ByteSize::new(2) => {
+                        Some(NirValue::ConstU16(value as u16))
+                    }
+                    Some(width) if width.get() <= 8 => ty
+                        .kind
+                        .integer()
+                        .map(|integer| NirValue::integer_const(value & integer.mask(), integer)),
                     _ => None,
                 }
             }
@@ -4901,7 +4907,7 @@ fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u16) -> Op
             _ => None,
         };
     }
-    let value = literal_number_u16_expr(declaration.initializer.as_ref()?).or_else(|| {
+    let value = literal_number_u64_expr(declaration.initializer.as_ref()?).or_else(|| {
         let values = numeric_initializer_values(declaration.initializer.as_ref()?)?;
         (values.len() == 1).then_some(values[0])
     })?;
@@ -4912,16 +4918,15 @@ fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u16) -> Op
     image.fragments.push(NirDataFragment::Integer {
         offset: ByteOffset::ZERO,
         width: ByteSize::from(total_size),
-        value: u64::from(value),
+        value: value & integer_mask_for_width(total_size),
     });
     Some(image)
 }
 
-fn literal_number_u16_expr(expr: &SemExpr) -> Option<u16> {
+fn literal_number_u64_expr(expr: &SemExpr) -> Option<u64> {
     match &expr.kind {
-        SemExprKind::Literal(SemLiteral::Number(number)) => {
-            number.value.and_then(|value| u16::try_from(value).ok())
-        }
+        SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
+        SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
         _ => None,
     }
 }
@@ -4949,7 +4954,7 @@ fn legacy_scalar_array_initializer_data_image(
     real_elements: bool,
     mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataAddressTarget>,
 ) -> Option<NirDataImage> {
-    if !matches!(elem_size, 1 | 2) && !(real_elements && elem_size == 6) {
+    if !matches!(elem_size, 1 | 2 | 4) && !(real_elements && elem_size == 6) {
         return None;
     }
     let SemExprKind::InitializerList(elements) = &expr.kind else {
@@ -4979,7 +4984,7 @@ fn legacy_scalar_array_initializer_data_image(
                     image.fragments.push(NirDataFragment::Integer {
                         offset,
                         width: ByteSize::from(elem_size),
-                        value: u64::from(value),
+                        value: value & integer_mask_for_width(elem_size),
                     });
                 }
             }
@@ -5041,7 +5046,7 @@ fn static_initializer_data_image(
                     _ => image.fragments.push(NirDataFragment::Integer {
                         offset: ByteOffset::from(write.offset),
                         width: ByteSize::from(write.width),
-                        value: u64::from(value),
+                        value: value & integer_mask_for_width(write.width),
                     }),
                 }
             }
@@ -5201,7 +5206,7 @@ fn increment_routine_id(id: RoutineId) -> RoutineId {
     RoutineId(id.0.saturating_add(1))
 }
 
-fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u16>> {
+fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u64>> {
     match &expr.kind {
         SemExprKind::InitializerList(elements) => elements
             .iter()
@@ -5209,13 +5214,21 @@ fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u16>> {
             .collect::<Option<Vec<_>>>(),
         SemExprKind::Raw(text) => {
             let inner = text.trim().strip_prefix('[')?.strip_suffix(']')?;
-            raw_initializer_values(inner)
+            raw_initializer_values(inner).map(|values| values.into_iter().map(u64::from).collect())
         }
         _ => None,
     }
 }
 
-fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16> {
+fn integer_mask_for_width(width: u16) -> u64 {
+    if width >= 8 {
+        u64::MAX
+    } else {
+        (1_u64 << (u32::from(width) * 8)) - 1
+    }
+}
+
+fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u64> {
     let SemInitializerElementKind::Literal { value, negative } = &element.kind else {
         return None;
     };
@@ -5226,13 +5239,13 @@ fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16>
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u64.wrapping_sub(value) as u16
+        0u64.wrapping_sub(value)
     } else {
-        value as u16
+        value
     })
 }
 
-fn sem_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Option<u16> {
+fn sem_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Option<u64> {
     let SemStaticInitializerValue::Literal { value, negative } = value else {
         return None;
     };
@@ -5243,9 +5256,9 @@ fn sem_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Op
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u64.wrapping_sub(value) as u16
+        0u64.wrapping_sub(value)
     } else {
-        value as u16
+        value
     })
 }
 
@@ -5839,6 +5852,10 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
         Some(width) if width == ByteSize::new(2) => {
             u16::try_from(value).ok().map(NirValue::ConstU16)
         }
+        Some(width) if width.get() <= 8 => ty
+            .kind
+            .integer()
+            .map(|integer| NirValue::integer_const(value & integer.mask(), integer)),
         _ => None,
     }
 }

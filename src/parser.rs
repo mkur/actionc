@@ -672,6 +672,17 @@ impl<'a> Parser<'a> {
             .parse_fund_type()
             .map(ConstDeclaredType::Fund)
             .or_else(|| {
+                let is_typed_native_integer = matches!(
+                    (&self.peek().kind, self.tokens.get(self.pos + 1).map(|token| &token.kind)),
+                    (TokenKind::Ident(name), Some(TokenKind::Ident(_)))
+                        if name.eq_ignore_ascii_case("LONG") || name.eq_ignore_ascii_case("ULONG")
+                );
+                if is_typed_native_integer {
+                    let TokenKind::Ident(name) = self.bump().kind.clone() else {
+                        unreachable!();
+                    };
+                    return Some(ConstDeclaredType::Named(QualifiedName::simple(name)));
+                }
                 let is_typed_real = matches!(
                     (&self.peek().kind, self.tokens.get(self.pos + 1).map(|token| &token.kind)),
                     (TokenKind::Ident(name), Some(TokenKind::Ident(_)))
@@ -1838,7 +1849,22 @@ impl<'a> Parser<'a> {
                 Some(TokenKind::Assign),
             ) if keyword.eq_ignore_ascii_case("CONST") && real.eq_ignore_ascii_case("REAL")
         );
-        untyped || typed || typed_real
+        let typed_native_integer = matches!(
+            (
+                self.tokens.get(pos).map(|token| &token.kind),
+                self.tokens.get(pos + 1).map(|token| &token.kind),
+                self.tokens.get(pos + 2).map(|token| &token.kind),
+                self.tokens.get(pos + 3).map(|token| &token.kind),
+            ),
+            (
+                Some(TokenKind::Ident(keyword)),
+                Some(TokenKind::Ident(ty)),
+                Some(TokenKind::Ident(_)),
+                Some(TokenKind::Assign),
+            ) if keyword.eq_ignore_ascii_case("CONST")
+                && (ty.eq_ignore_ascii_case("LONG") || ty.eq_ignore_ascii_case("ULONG"))
+        );
+        untyped || typed || typed_real || typed_native_integer
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {

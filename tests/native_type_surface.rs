@@ -1,0 +1,124 @@
+use actionc::lexer::tokenize;
+use actionc::nir::{self, NirDataFragment, NirIntegerType, NirTypeKind};
+use actionc::parser::parse;
+use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
+use actionc::target::TargetId;
+
+fn lower(source: &str, target: TargetId) -> nir::NirProgram {
+    let tokens = tokenize(source).expect("tokenize native type source");
+    let program = parse(&tokens).expect("parse native type source");
+    let model = analyze_with_options(&program, SemanticOptions::modern().with_target(target))
+        .expect("analyze native type source");
+    let semir = ir::lower_program(&program, &model);
+    let nir = nir::lower_program(&semir);
+    nir::verify_program(&nir).expect("verify native type NIR");
+    nir
+}
+
+#[test]
+fn long_and_ulong_are_contextual_fixed_width_types() {
+    let program = lower(
+        "LONG signedValue=-200000
+ULONG unsignedValue=$FEDCBA98
+CONST LONG Negative=-200000
+CONST ULONG Mask=$FEDCBA98
+
+PROC Main()
+  LONG local
+  signedValue=Negative
+  unsignedValue=Mask
+  local=signedValue+1
+RETURN
+",
+        TargetId::Motorola68000,
+    );
+
+    let global_types = program
+        .globals
+        .iter()
+        .filter_map(|global| global.ty.as_ref().map(|ty| ty.kind.clone()))
+        .collect::<Vec<_>>();
+    assert!(global_types.contains(&NirTypeKind::Integer(NirIntegerType::I32)));
+    assert!(global_types.contains(&NirTypeKind::Integer(NirIntegerType::U32)));
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    assert!(
+        main.locals
+            .iter()
+            .any(|local| local.ty.kind == NirTypeKind::Integer(NirIntegerType::I32))
+    );
+    assert!(program.globals.iter().any(|global| {
+        matches!(
+            &global.init,
+            Some(actionc::nir::NirGlobalInit::Bytes { image, .. })
+                if image.fragments.iter().any(|fragment| matches!(
+                    fragment,
+                    NirDataFragment::Integer { width, value, .. }
+                        if width.get() == 4 && *value == 0xFEDC_BA98
+                ))
+        )
+    }));
+}
+
+#[test]
+fn a_declared_type_can_shadow_the_long_alias() {
+    let program = lower(
+        "TYPE LONG=[BYTE value]
+LONG item
+PROC Main()
+  item.value=1
+RETURN
+",
+        TargetId::Motorola68000,
+    );
+    assert!(program.globals.iter().any(|global| {
+        global.ty.as_ref().is_some_and(
+            |ty| matches!(&ty.kind, NirTypeKind::Record { name, .. } if name.ends_with("LONG")),
+        )
+    }));
+}
+
+#[test]
+fn long_and_ulong_do_not_become_lexer_keywords() {
+    let tokens = tokenize("BYTE long, ulong").expect("tokenize identifiers");
+    assert!(tokens.iter().any(
+        |token| matches!(&token.kind, actionc::lexer::TokenKind::Ident(name) if name == "long")
+    ));
+    assert!(tokens.iter().any(
+        |token| matches!(&token.kind, actionc::lexer::TokenKind::Ident(name) if name == "ulong")
+    ));
+}
+
+#[test]
+fn native_backends_accept_wide_integer_operations() {
+    let source = "LONG left, result
+ULONG right
+PROC Main()
+  left=-200000
+  right=$FEDCBA98
+  result=left+LONG(right)
+RETURN
+";
+    let m68k = lower(source, TargetId::Motorola68000);
+    actionc::mir68k::lower_program(&m68k).expect("lower LONG operations to MIR68K");
+
+    let m65816 = lower(source, TargetId::Wdc65816Native);
+    actionc::mir65816::lower_program(&m65816).expect("lower LONG operations to MIR65816");
+}
+
+#[test]
+fn mir6502_rejects_wide_runtime_values_without_truncating() {
+    let program = lower(
+        "LONG value PROC Main() value=70000 RETURN",
+        TargetId::Atari6502,
+    );
+    let diagnostics = actionc::mir6502::lower_program(&program).expect_err("reject LONG on 6502");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("wider than 16 bits"))
+    );
+}

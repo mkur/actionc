@@ -501,6 +501,14 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
     if !activation_diagnostics.is_empty() {
         return Err(activation_diagnostics);
     }
+    if program_uses_wide_integers(nir_program) {
+        return Err(vec![MirDiagnostic {
+            routine: None,
+            block: None,
+            message: "MIR6502 does not support runtime integer values wider than 16 bits"
+                .to_string(),
+        }]);
+    }
     let mut diagnostics = Vec::new();
     let routine_ids = nir_program
         .routines
@@ -902,6 +910,27 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
         runtime_helpers,
     };
     Ok(program)
+}
+
+fn program_uses_wide_integers(program: &NirProgram) -> bool {
+    let wide = |ty: &NirType| ty.kind.integer().is_some_and(|integer| integer.bits > 16);
+    program
+        .globals
+        .iter()
+        .filter_map(|global| global.ty.as_ref())
+        .any(wide)
+        || program.routines.iter().any(|routine| {
+            routine.signature.params.iter().any(wide)
+                || routine.signature.result.as_ref().is_some_and(wide)
+                || routine.params.iter().any(|param| wide(&param.ty))
+                || routine.locals.iter().any(|local| wide(&local.ty))
+                || routine.temps.iter().any(|temp| wide(&temp.ty))
+                || routine
+                    .blocks
+                    .iter()
+                    .flat_map(|block| &block.params)
+                    .any(|param| wide(&param.ty))
+        })
 }
 
 pub(super) fn validate_classic_activation(program: &NirProgram) -> Vec<MirDiagnostic> {

@@ -210,6 +210,10 @@ nir: generalize fixed-width integer representation
 
 ### Slice 2: `LONG` and `ULONG`
 
+Status: complete. Both contextual scalar aliases lower to fixed 32-bit NIR
+integers, wide literals and constants retain all bits, native MIRs accept
+32-bit values, and MIR6502 rejects runtime wide integers explicitly.
+
 1. Register contextual `SYS.LONG` and `SYS.ULONG` type identities and their
    unqualified aliases without adding lexer keywords.
 2. Support declarations, parameters, locals, fields, arrays, constants, casts,

@@ -1899,6 +1899,8 @@ fn type_ref_text(ty: &TypeRef) -> String {
             FundType::Card => "CARD".to_string(),
             FundType::Char => "CHAR".to_string(),
             FundType::Int => "INT".to_string(),
+            FundType::Long => "LONG".to_string(),
+            FundType::ULong => "ULONG".to_string(),
         },
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
@@ -1926,6 +1928,8 @@ fn fund_type_text(fund: FundType) -> &'static str {
         FundType::Card => "CARD",
         FundType::Char => "CHAR",
         FundType::Int => "INT",
+        FundType::Long => "LONG",
+        FundType::ULong => "ULONG",
     }
 }
 

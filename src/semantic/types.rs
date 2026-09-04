@@ -10,6 +10,8 @@ pub enum ScalarType {
     Card,
     Char,
     Int,
+    Long,
+    ULong,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -220,6 +222,8 @@ impl ScalarType {
             FundType::Card => Self::Card,
             FundType::Char => Self::Char,
             FundType::Int => Self::Int,
+            FundType::Long => Self::Long,
+            FundType::ULong => Self::ULong,
         }
     }
 
@@ -228,6 +232,8 @@ impl ScalarType {
             NumberKind::Byte => Some(Self::Byte),
             NumberKind::Card => Some(Self::Card),
             NumberKind::Int => Some(Self::Int),
+            NumberKind::Long => Some(Self::Long),
+            NumberKind::ULong => Some(Self::ULong),
             NumberKind::Real => None,
         }
     }
@@ -238,6 +244,8 @@ impl ScalarType {
             Self::Card => FundType::Card,
             Self::Char => FundType::Char,
             Self::Int => FundType::Int,
+            Self::Long => FundType::Long,
+            Self::ULong => FundType::ULong,
         }
     }
 
@@ -245,13 +253,14 @@ impl ScalarType {
         match self {
             Self::Byte | Self::Char => 1,
             Self::Card | Self::Int => 2,
+            Self::Long | Self::ULong => 4,
         }
     }
 
     pub fn signedness(self) -> ScalarSignedness {
         match self {
-            Self::Int => ScalarSignedness::Signed,
-            Self::Byte | Self::Card | Self::Char => ScalarSignedness::Unsigned,
+            Self::Int | Self::Long => ScalarSignedness::Signed,
+            Self::Byte | Self::Card | Self::Char | Self::ULong => ScalarSignedness::Unsigned,
         }
     }
 
@@ -267,11 +276,18 @@ impl ScalarType {
                     | (Self::Char, Self::Byte)
                     | (Self::Int, Self::Byte | Self::Char)
                     | (Self::Card, Self::Byte | Self::Char | Self::Int)
+                    | (Self::Long, Self::Byte | Self::Char | Self::Int | Self::Card)
+                    | (
+                        Self::ULong,
+                        Self::Byte | Self::Char | Self::Int | Self::Card | Self::Long
+                    )
             )
     }
 
     pub fn promote_binary(left: Self, right: Self) -> Self {
         match (left, right) {
+            (Self::ULong, _) | (_, Self::ULong) => Self::ULong,
+            (Self::Long, _) | (_, Self::Long) => Self::Long,
             (Self::Card, _) | (_, Self::Card) => Self::Card,
             (Self::Int, _) | (_, Self::Int) => Self::Int,
             (Self::Byte, Self::Byte) => Self::Byte,

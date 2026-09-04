@@ -89,6 +89,8 @@ impl NirIntegerType {
     pub const I8: Self = Self::ordinary(8, true);
     pub const U16: Self = Self::ordinary(16, false);
     pub const I16: Self = Self::ordinary(16, true);
+    pub const U32: Self = Self::ordinary(32, false);
+    pub const I32: Self = Self::ordinary(32, true);
 
     pub const fn ordinary(bits: u8, signed: bool) -> Self {
         Self {
@@ -147,6 +149,8 @@ impl NirTypeKind {
             ScalarType::Byte | ScalarType::Char => Self::U8,
             ScalarType::Card => Self::U16,
             ScalarType::Int => Self::I16,
+            ScalarType::Long => Self::Integer(NirIntegerType::I32),
+            ScalarType::ULong => Self::Integer(NirIntegerType::U32),
         }
     }
 
