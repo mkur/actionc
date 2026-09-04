@@ -211,6 +211,7 @@ fn audit_counted_loop_latch_candidates(
                 header: counted.header,
                 body: counted.body,
                 latch: counted.latch,
+                first_entry_state: RotatedHeadFirstEntryState::None,
             };
             let mut candidate = routine.blocks.clone();
             if apply_rotated_head_tested_plan(&mut candidate, plan)
@@ -1686,6 +1687,14 @@ struct RotatedHeadTestedPlan {
     header: MirBlockId,
     body: MirBlockId,
     latch: MirBlockId,
+    first_entry_state: RotatedHeadFirstEntryState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RotatedHeadFirstEntryState {
+    None,
+    LoadInductionIntoA,
+    ReplayHeaderPrefix,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1727,6 +1736,43 @@ struct BottomFastByteCountdownPlan {
 enum BottomFastBodyShape {
     Existing,
     SplitGuard { prefix_len: usize },
+}
+
+fn rotated_head_first_entry_state(
+    routine: &MirRoutine,
+    liveness: &MirMachineLiveness,
+    counted: &MirCountedLoop,
+) -> Option<RotatedHeadFirstEntryState> {
+    let header = routine
+        .blocks
+        .iter()
+        .find(|block| block.id == counted.header)?;
+    let [
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(induction),
+            width: MirWidth::Byte,
+        },
+        MirOp::Compare {
+            dst: crate::mir6502::ir::MirCondDest::Flags,
+            left: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+            ..
+        },
+    ] = header.ops.as_slice()
+    else {
+        return None;
+    };
+    if induction != &counted.induction {
+        return None;
+    }
+    if !machine_flags_dead_on_entry(liveness, counted.body) {
+        Some(RotatedHeadFirstEntryState::ReplayHeaderPrefix)
+    } else if machine_accumulator_live_on_entry(liveness, counted.body) {
+        Some(RotatedHeadFirstEntryState::LoadInductionIntoA)
+    } else {
+        Some(RotatedHeadFirstEntryState::None)
+    }
 }
 
 fn counted_loop_latch_plan(
@@ -1786,6 +1832,7 @@ fn counted_loop_latch_plan(
                     header: counted.header,
                     body: counted.body,
                     latch: counted.latch,
+                    first_entry_state: RotatedHeadFirstEntryState::None,
                 };
                 let mut candidate = routine.blocks.clone();
                 if apply_rotated_head_tested_plan(&mut candidate, plan)
@@ -1838,9 +1885,15 @@ fn counted_loop_latch_plan(
                 }
             }
             MirCountedLoopShape::HeadTested => {
+                let Some(first_entry_state) =
+                    rotated_head_first_entry_state(routine, &liveness, &counted)
+                else {
+                    continue;
+                };
                 if counted.initial_guard_required
                     || !machine_state_dead_on_entry(&liveness, counted.body)
                     || !machine_state_dead_on_entry(&liveness, counted.exit)
+                    || first_entry_state != RotatedHeadFirstEntryState::None
                 {
                     continue;
                 }
@@ -1849,6 +1902,7 @@ fn counted_loop_latch_plan(
                     header: counted.header,
                     body: counted.body,
                     latch: counted.latch,
+                    first_entry_state,
                 };
                 let mut candidate = routine.blocks.clone();
                 if apply_rotated_head_tested_plan(&mut candidate, plan)
@@ -2625,23 +2679,77 @@ fn redirect_block_target(
 }
 
 fn apply_rotated_head_tested_plan(blocks: &mut Vec<MirBlock>, plan: RotatedHeadTestedPlan) -> bool {
-    let Some(preheader_index) = blocks.iter().position(|block| block.id == plan.preheader) else {
+    let mut candidate = blocks.clone();
+    let Some(preheader_index) = candidate
+        .iter()
+        .position(|block| block.id == plan.preheader)
+    else {
         return false;
     };
-    let Some(header_index) = blocks.iter().position(|block| block.id == plan.header) else {
+    let Some(header_index) = candidate.iter().position(|block| block.id == plan.header) else {
         return false;
     };
-    if !blocks.iter().any(|block| block.id == plan.body)
-        || !blocks.iter().any(|block| block.id == plan.latch)
+    if !candidate.iter().any(|block| block.id == plan.body)
+        || !candidate.iter().any(|block| block.id == plan.latch)
     {
         return false;
     }
-    blocks[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
-    let header = blocks.remove(header_index);
-    let Some(latch_index) = blocks.iter().position(|block| block.id == plan.latch) else {
+    if !matches!(
+        candidate[preheader_index].terminator,
+        MirTerminator::Jump(ref edge) if edge.target == plan.header && edge.args.is_empty()
+    ) {
+        return false;
+    }
+    let first_entry_ops = match plan.first_entry_state {
+        RotatedHeadFirstEntryState::None => Vec::new(),
+        RotatedHeadFirstEntryState::LoadInductionIntoA => {
+            match candidate[header_index].ops.as_slice() {
+                [
+                    load @ MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(_),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Compare {
+                        dst: crate::mir6502::ir::MirCondDest::Flags,
+                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                        ..
+                    },
+                ] => vec![load.clone()],
+                _ => return false,
+            }
+        }
+        RotatedHeadFirstEntryState::ReplayHeaderPrefix => {
+            match candidate[header_index].ops.as_slice() {
+                [
+                    MirOp::Load {
+                        dst: MirDef::Reg(MirReg::A),
+                        src: MirAddr::Direct(_),
+                        width: MirWidth::Byte,
+                    },
+                    MirOp::Compare {
+                        dst: crate::mir6502::ir::MirCondDest::Flags,
+                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                        width: MirWidth::Byte,
+                        ..
+                    },
+                ] => candidate[header_index].ops.clone(),
+                _ => return false,
+            }
+        }
+    };
+    candidate[preheader_index].ops.extend(first_entry_ops);
+    candidate[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
+    let Some(header_index) = candidate.iter().position(|block| block.id == plan.header) else {
         return false;
     };
-    blocks.insert(latch_index.saturating_add(1), header);
+    let header = candidate.remove(header_index);
+    let Some(latch_index) = candidate.iter().position(|block| block.id == plan.latch) else {
+        return false;
+    };
+    candidate.insert(latch_index.saturating_add(1), header);
+    *blocks = candidate;
     true
 }
 
@@ -4327,6 +4435,68 @@ mod tests {
         let report = audit_counted_loop_latch_candidates(&zero_trip, &layout);
         assert_eq!(report.candidates, 1);
         assert_eq!(report.blocked_initial_guard, 1);
+    }
+
+    #[test]
+    fn rotated_head_plan_reconstructs_only_the_requested_first_entry_state() {
+        let original = ascending_head_tested_loop(0, 8);
+        let header_ops = original.blocks[1].ops.clone();
+
+        let mut accumulator = original.blocks.clone();
+        assert!(apply_rotated_head_tested_plan(
+            &mut accumulator,
+            RotatedHeadTestedPlan {
+                preheader: MirBlockId(0),
+                header: MirBlockId(1),
+                body: MirBlockId(2),
+                latch: MirBlockId(2),
+                first_entry_state: RotatedHeadFirstEntryState::LoadInductionIntoA,
+            }
+        ));
+        assert_eq!(accumulator[0].ops.last(), header_ops.first());
+        assert_eq!(accumulator[0].ops.len(), original.blocks[0].ops.len() + 1);
+
+        let mut flags = original.blocks.clone();
+        assert!(apply_rotated_head_tested_plan(
+            &mut flags,
+            RotatedHeadTestedPlan {
+                preheader: MirBlockId(0),
+                header: MirBlockId(1),
+                body: MirBlockId(2),
+                latch: MirBlockId(2),
+                first_entry_state: RotatedHeadFirstEntryState::ReplayHeaderPrefix,
+            }
+        ));
+        assert_eq!(
+            &flags[0].ops[original.blocks[0].ops.len()..],
+            header_ops.as_slice()
+        );
+    }
+
+    #[test]
+    fn rotated_head_plan_rejects_noncanonical_replay_without_mutation() {
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[1].ops.insert(
+            1,
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::X),
+                value: 3,
+                width: MirWidth::Byte,
+            },
+        );
+        let original = routine.blocks.clone();
+
+        assert!(!apply_rotated_head_tested_plan(
+            &mut routine.blocks,
+            RotatedHeadTestedPlan {
+                preheader: MirBlockId(0),
+                header: MirBlockId(1),
+                body: MirBlockId(2),
+                latch: MirBlockId(2),
+                first_entry_state: RotatedHeadFirstEntryState::ReplayHeaderPrefix,
+            }
+        ));
+        assert_eq!(routine.blocks, original);
     }
 
     fn full_range_ascending_loop(body_prefix: Vec<MirOp>, exit_ops: Vec<MirOp>) -> MirRoutine {
