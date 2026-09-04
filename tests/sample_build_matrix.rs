@@ -2,7 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use actionc::compiler::{CompileMode, Runtime};
+use actionc::compiler::{CompileMode, CompileOptions, CompiledProgram, Runtime, compile_file};
+
+const RUNAD: u16 = 0x02E2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BuildTier {
@@ -16,6 +18,9 @@ struct BuildCase {
     runtime: Runtime,
     project_root: Option<&'static str>,
     module_paths: Vec<&'static str>,
+    required_segment_start: Option<u16>,
+    forbidden_ranges: Vec<(u16, u16)>,
+    program_range: Option<(u16, u16)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +43,26 @@ fn release(mode: CompileMode, runtime: Runtime) -> BuildCase {
         runtime,
         project_root: None,
         module_paths: Vec::new(),
+        required_segment_start: None,
+        forbidden_ranges: Vec::new(),
+        program_range: None,
+    }
+}
+
+impl BuildCase {
+    fn requiring_segment_start(mut self, address: u16) -> Self {
+        self.required_segment_start = Some(address);
+        self
+    }
+
+    fn avoiding(mut self, start: u16, end: u16) -> Self {
+        self.forbidden_ranges.push((start, end));
+        self
+    }
+
+    fn fitting_in(mut self, start: u16, end: u16) -> Self {
+        self.program_range = Some((start, end));
+        self
     }
 }
 
@@ -234,27 +259,27 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/benchmarks/suite-compat.act",
-            vec![release_with_project_root(
-                Compatibility,
-                Standalone,
-                "samples/benchmarks",
-            )],
+            vec![
+                release_with_project_root(Compatibility, Standalone, "samples/benchmarks")
+                    .requiring_segment_start(0x2000)
+                    .avoiding(0x8000, 0x9FFF),
+            ],
         ),
         executable(
             "samples/benchmarks/suite-nongraphics.act",
-            vec![release_with_project_root(
-                Optimized,
-                Standalone,
-                "samples/benchmarks",
-            )],
+            vec![
+                release_with_project_root(Optimized, Standalone, "samples/benchmarks")
+                    .requiring_segment_start(0x2000)
+                    .avoiding(0x8000, 0x9FFF),
+            ],
         ),
         executable(
             "samples/benchmarks/suite.act",
-            vec![release_with_project_root(
-                Optimized,
-                Standalone,
-                "samples/benchmarks",
-            )],
+            vec![
+                release_with_project_root(Optimized, Standalone, "samples/benchmarks")
+                    .requiring_segment_start(0x2000)
+                    .avoiding(0x8000, 0x9FFF),
+            ],
         ),
         executable(
             "samples/demoscene/plasma.act",
@@ -262,7 +287,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/demoscene/unlimited-bobs.act",
-            vec![release(Optimized, Standalone)],
+            vec![
+                release(Optimized, Standalone)
+                    .requiring_segment_start(0x8000)
+                    .fitting_in(0x8000, 0xBFFF),
+            ],
         ),
         executable(
             "samples/graphics/fedora.act",
@@ -281,7 +310,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/graphics/unknown-pleasures/unknown-pleasure-vbxe.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone).avoiding(0xA000, 0xBFFF)],
         ),
         dependency(
             "samples/graphics/unknown-pleasures/unknown-pleasures-data.inc",
@@ -368,22 +397,21 @@ fn sample_catalog() -> Vec<SampleSpec> {
             "samples/toolkit/modern/.PMG_trace_default_no_appmhi.DM1",
             "retained compiler trace input, not a user-facing Toolkit program",
         ),
-        dependency(
+        source_only(
             "samples/toolkit/modern/ALLOCATE.ACT",
-            &["samples/toolkit/modern/KALSCOPE.DEM"],
+            "Toolkit library module retained as readable source; no maintained executable root currently includes it",
         ),
-        executable(
+        source_only(
             "samples/toolkit/modern/KALSCOPE.DEM",
-            vec![release(Optimized, ActionCart)],
+            "public XEX generation currently rejects its fixed zero-page data before the source-selected $5000 origin",
         ),
-        executable(
+        source_only(
             "samples/toolkit/modern/MUSIC.DEM",
-            vec![release(Optimized, ActionCart)],
+            "its advanced-I/O include still points at the Toolkit corpus instead of a maintained sample dependency",
         ),
         dependency(
             "samples/toolkit/modern/PMG.ACT",
             &[
-                "samples/toolkit/modern/MUSIC.DEM",
                 "samples/toolkit/modern/PMG.DM1",
                 "samples/toolkit/modern/PMG.DM2",
             ],
@@ -433,11 +461,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/gradient.act",
-            vec![release_with_module_path(
-                Optimized,
-                Standalone,
-                "samples/vbxe",
-            )],
+            vec![
+                release_with_module_path(Optimized, Standalone, "samples/vbxe")
+                    .avoiding(0xA000, 0xBFFF),
+            ],
         ),
         dependency(
             "samples/vbxe/raytracer/fuji/fuji_palette.act",
@@ -445,11 +472,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/raytracer/fuji/fuji_raytracer.act",
-            vec![release_with_module_path(
-                Optimized,
-                Standalone,
-                "samples/vbxe",
-            )],
+            vec![
+                release_with_module_path(Optimized, Standalone, "samples/vbxe")
+                    .avoiding(0xA000, 0xBFFF),
+            ],
         ),
         dependency(
             "samples/vbxe/raytracer/fuji/fuji_scene.act",
@@ -468,11 +494,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/raytracer/neon/neon_raytracer.act",
-            vec![release_with_module_path(
-                Optimized,
-                Standalone,
-                "samples/vbxe",
-            )],
+            vec![
+                release_with_module_path(Optimized, Standalone, "samples/vbxe")
+                    .avoiding(0xA000, 0xBFFF),
+            ],
         ),
         dependency(
             "samples/vbxe/raytracer/neon/neon_scene.act",
@@ -487,11 +512,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/raytracer/spheres/spheres_raytracer.act",
-            vec![release_with_module_path(
-                Optimized,
-                Standalone,
-                "samples/vbxe",
-            )],
+            vec![
+                release_with_module_path(Optimized, Standalone, "samples/vbxe")
+                    .avoiding(0xA000, 0xBFFF),
+            ],
         ),
         dependency(
             "samples/vbxe/raytracer/spheres/spheres_scene.act",
@@ -615,6 +639,208 @@ fn sample_catalog_roles_are_complete_and_consistent() {
             }
         }
     }
+}
+
+#[test]
+fn release_sample_builds_produce_valid_load_files() {
+    let root = repository_root();
+    let mut failures = Vec::new();
+
+    for spec in sample_catalog() {
+        let SampleRole::Executable { builds } = spec.role else {
+            continue;
+        };
+        for build in builds
+            .iter()
+            .filter(|build| build.tier == BuildTier::Release)
+        {
+            let description = build_description(spec.path, build);
+            let mut options = CompileOptions::for_mode(build.mode).with_runtime(build.runtime);
+            if let Some(project_root) = build.project_root {
+                options = options.with_project_root(root.join(project_root));
+            }
+            for module_path in &build.module_paths {
+                options = options.with_module_path(root.join(module_path));
+            }
+
+            let source = root.join(spec.path);
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                compile_file(&source, &options)
+            }));
+            match result {
+                Ok(Ok(compiled)) => {
+                    if let Err(error) = validate_compiled_program(&compiled, build) {
+                        failures.push(format!("{description}: {error}"));
+                    }
+                }
+                Ok(Err(error)) => failures.push(format!("{description}: {error}")),
+                Err(payload) => failures.push(format!(
+                    "{description}: compiler panicked: {}",
+                    panic_payload(payload)
+                )),
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "release sample build matrix failed:\n{}",
+        failures.join("\n")
+    );
+}
+
+fn build_description(path: &str, build: &BuildCase) -> String {
+    format!("{path} ({:?}/{:?})", build.mode, build.runtime)
+}
+
+fn panic_payload(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_string()
+    } else {
+        "non-string panic payload".to_string()
+    }
+}
+
+fn validate_compiled_program(compiled: &CompiledProgram, build: &BuildCase) -> Result<(), String> {
+    if compiled.runtime() != build.runtime {
+        return Err(format!(
+            "selected runtime {:?}, expected {:?}",
+            compiled.runtime(),
+            build.runtime
+        ));
+    }
+
+    let segments = parse_load_file(compiled.object_bytes())?;
+    let program_segments = segments
+        .iter()
+        .filter(|segment| !(segment.start == RUNAD && segment.end == RUNAD + 1))
+        .collect::<Vec<_>>();
+    if program_segments.is_empty() {
+        return Err("load file has no program segment".to_string());
+    }
+
+    let run_address = read_loaded_word(&segments, RUNAD)
+        .ok_or_else(|| "load file does not initialize RUNAD".to_string())?;
+    if run_address != compiled.run_address() {
+        return Err(format!(
+            "RUNAD is ${run_address:04X}, compiler reports ${:04X}",
+            compiled.run_address()
+        ));
+    }
+    if !program_segments
+        .iter()
+        .any(|segment| segment.contains(run_address))
+    {
+        return Err(format!(
+            "RUNAD ${run_address:04X} is outside every program segment"
+        ));
+    }
+
+    if let Some(required_start) = build.required_segment_start
+        && !program_segments
+            .iter()
+            .any(|segment| segment.start == required_start)
+    {
+        return Err(format!(
+            "no program segment starts at required address ${required_start:04X}"
+        ));
+    }
+    for &(forbidden_start, forbidden_end) in &build.forbidden_ranges {
+        if let Some(segment) = program_segments
+            .iter()
+            .find(|segment| segment.overlaps(forbidden_start, forbidden_end))
+        {
+            return Err(format!(
+                "segment ${:04X}-${:04X} overlaps forbidden range ${forbidden_start:04X}-${forbidden_end:04X}",
+                segment.start, segment.end
+            ));
+        }
+    }
+    if let Some((allowed_start, allowed_end)) = build.program_range
+        && let Some(segment) = program_segments
+            .iter()
+            .find(|segment| segment.start < allowed_start || segment.end > allowed_end)
+    {
+        return Err(format!(
+            "segment ${:04X}-${:04X} is outside required program range ${allowed_start:04X}-${allowed_end:04X}",
+            segment.start, segment.end
+        ));
+    }
+
+    Ok(())
+}
+
+#[derive(Debug)]
+struct LoadSegment<'a> {
+    start: u16,
+    end: u16,
+    data: &'a [u8],
+}
+
+impl LoadSegment<'_> {
+    fn contains(&self, address: u16) -> bool {
+        self.start <= address && address <= self.end
+    }
+
+    fn overlaps(&self, start: u16, end: u16) -> bool {
+        self.start <= end && start <= self.end
+    }
+}
+
+fn parse_load_file(bytes: &[u8]) -> Result<Vec<LoadSegment<'_>>, String> {
+    if !bytes.starts_with(&[0xFF, 0xFF]) {
+        return Err("load file does not start with the $FFFF marker".to_string());
+    }
+
+    let mut cursor = 0usize;
+    let mut segments = Vec::new();
+    while cursor < bytes.len() {
+        while bytes.get(cursor..cursor + 2) == Some(&[0xFF, 0xFF]) {
+            cursor += 2;
+        }
+        if cursor == bytes.len() {
+            return Err("load file ends after a $FFFF marker".to_string());
+        }
+        if cursor + 4 > bytes.len() {
+            return Err(format!("truncated segment header at byte {cursor}"));
+        }
+
+        let start = u16::from_le_bytes([bytes[cursor], bytes[cursor + 1]]);
+        let end = u16::from_le_bytes([bytes[cursor + 2], bytes[cursor + 3]]);
+        cursor += 4;
+        if end < start {
+            return Err(format!("invalid segment range ${start:04X}-${end:04X}"));
+        }
+        let size = usize::from(end - start) + 1;
+        let data_end = cursor
+            .checked_add(size)
+            .ok_or_else(|| "segment size overflow".to_string())?;
+        let data = bytes
+            .get(cursor..data_end)
+            .ok_or_else(|| format!("truncated segment data for ${start:04X}-${end:04X}"))?;
+        segments.push(LoadSegment { start, end, data });
+        cursor = data_end;
+    }
+
+    if segments.is_empty() {
+        return Err("load file has no segments".to_string());
+    }
+    Ok(segments)
+}
+
+fn read_loaded_word(segments: &[LoadSegment<'_>], address: u16) -> Option<u16> {
+    let mut bytes = [None, None];
+    for segment in segments {
+        for (offset, byte) in bytes.iter_mut().enumerate() {
+            let target = address.checked_add(offset as u16)?;
+            if segment.contains(target) {
+                *byte = Some(segment.data[usize::from(target - segment.start)]);
+            }
+        }
+    }
+    Some(u16::from_le_bytes([bytes[0]?, bytes[1]?]))
 }
 
 fn repository_root() -> PathBuf {
