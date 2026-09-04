@@ -1,0 +1,45 @@
+; Native-only type-surface acceptance case: fixed and target-sized integers,
+; pointer results, complete callback signatures, and layout queries all cross
+; routine boundaries without losing their source-level type roles.
+
+TYPE Pair=[ADDRESS location SIZE length ULONG checksum]
+
+BYTE anchor
+BYTE ARRAY samples(300)
+ULONG result
+BYTE POINTER recovered
+ULONG FUNC POINTER callback(ADDRESS location SIZE count ULONG seed)
+
+ULONG FUNC Fold(ADDRESS location SIZE count ULONG seed)
+  ULONG mixed
+
+  mixed=seed+ULONG(count)
+  IF location>0 THEN
+    mixed==+$10000
+  FI
+RETURN(mixed)
+
+ADDRESS FUNC Locate(SIZE displacement)
+  ADDRESS base
+
+  base=ADDRESS(@anchor)
+RETURN(base+displacement)
+
+SIZE FUNC LayoutSpan()
+RETURN(SIZEOF(Pair)+ELEMENTS(samples)+ALIGNOF(Pair)+OFFSETOF(Pair,checksum))
+
+BYTE POINTER FUNC Recover(ADDRESS location)
+RETURN(BYTE POINTER(location))
+
+PROC Main()
+  ADDRESS location
+  SIZE count
+  ULONG seed
+
+  callback=@Fold
+  location=Locate(3)
+  count=LayoutSpan()
+  seed=$12345678
+  result=callback(location,count,seed)
+  recovered=Recover(location)
+RETURN

@@ -4,7 +4,7 @@ use crate::nir::{
     NirCallee, NirDataAddressEncoding, NirDataFragment, NirDataImage, NirGlobalBacking,
     NirGlobalInit, NirLinkValue, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram,
     NirRoutine, NirRoutineStorageAnalysis, NirStorageClass, NirStorageDuration, NirStorageId,
-    NirTerminator, NirType, NirTypeKind, NirValue,
+    NirTerminator, NirType, NirValue,
 };
 use crate::target::{AbiId, ByteOffset, ByteSize, Endian, TargetId};
 
@@ -477,9 +477,7 @@ fn call_plan(
         })
         .unwrap_or(ByteSize::ZERO);
     let result = result.map(|result| {
-        if result.ty.width.is_some_and(|width| width.get() > 2)
-            || matches!(result.ty.kind, NirTypeKind::Pointer { .. })
-        {
+        if result.ty.width.is_some_and(|width| width.get() > 2) {
             Mir65816AbiHome::AccumulatorAndX
         } else {
             Mir65816AbiHome::Accumulator
@@ -1003,6 +1001,9 @@ fn lower_value(
         }
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(2) => {
             Mir65816Value::U16(*bits as u16)
+        }
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(3) => {
+            Mir65816Value::U24(*bits as u32)
         }
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(4) => {
             Mir65816Value::U32(*bits as u32)

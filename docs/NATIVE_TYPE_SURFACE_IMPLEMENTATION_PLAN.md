@@ -2,9 +2,9 @@
 
 Snapshot date: 2026-09-04.
 
-Status: active. Slice 0 records the source, semantic, NIR, and compatibility
-contract. Each implementation slice must be committed and verified before the
-next begins.
+Status: complete. All seven slices are implemented and verified. The source
+surface, SemIR/NIR roles, native MIR contracts, and Atari compatibility
+baselines now cover the complete scope below.
 
 ## Objective
 
@@ -333,6 +333,13 @@ language: add target-sized size values
 ```
 
 ### Slice 7: acceptance and backend contract
+
+Status: complete. `fixtures/native/type_surface.act` combines the entire
+surface and is checked as lowered and optimized NIR on 68k, 65816 native, and
+65816 small. The tests verify callback signatures, address round trips,
+argument/result homes, and frame extents. MIR65816 now retains 24-bit integer
+constants explicitly and uses A rather than A:X for two-byte pointer results.
+Every Atari object-baseline row was reproduced byte-for-byte.
 
 1. Add a native-only source corpus combining 32-bit arithmetic, pointer
    results, typed callbacks, `ADDRESS`, `SIZE`, and layout queries.

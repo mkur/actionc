@@ -1009,7 +1009,7 @@ impl Analyzer {
                         if let Some(symbol_id) = symbol_id {
                             self.remember_routine_signature(
                                 symbol_id,
-                                SemanticCallableSignature::from_routine(routine),
+                                self.resolved_routine_signature(scope, routine),
                             );
                         }
                     }
@@ -1443,7 +1443,7 @@ impl Analyzer {
         {
             self.remember_routine_signature(
                 symbol_id,
-                SemanticCallableSignature::from_routine(routine),
+                self.resolved_routine_signature(scope, routine),
             );
         }
     }
@@ -3760,19 +3760,8 @@ impl Analyzer {
         let Some(symbol_id) = self.symbols.lookup_exact(scope, &routine.name) else {
             return;
         };
-        let mut params = Vec::new();
-        for declaration in &routine.params {
-            let ty = self.param_signature_type(scope, declaration);
-            for _ in &declaration.entries {
-                params.push(ty.clone());
-            }
-        }
-        let return_type = match &routine.kind {
-            RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => {
-                Some(self.value_type_from_type_ref(scope, return_type))
-            }
-        };
+        let signature = self.resolved_routine_signature(scope, routine);
+        let return_type = signature.return_type.clone();
         if let Some(return_type) = &return_type
             && matches!(
                 return_type.kind(),
@@ -3784,20 +3773,7 @@ impl Analyzer {
                 "function result must be a register-sized scalar or pointer type",
             ));
         }
-        self.remember_routine_signature(
-            symbol_id,
-            SemanticCallableSignature {
-                kind: routine.kind.clone(),
-                params,
-                variadic: None,
-                return_type,
-                source: if routine.is_external {
-                    SemanticCallableSource::Runtime
-                } else {
-                    SemanticCallableSource::User
-                },
-            },
-        );
+        self.remember_routine_signature(symbol_id, signature);
         if let Some(address) = &routine.system_address {
             self.lower_expr(scope, address);
         }
@@ -3896,6 +3872,7 @@ impl Analyzer {
         }
         let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_) | TypeBase::Callable(_))
             || field.ty.pointer
+            || matches!(&field.ty.base, TypeBase::Named(name) if self.builtin_scalar_type(scope, name).is_some())
             || self.type_ref_is_record(scope, &field.ty);
         if field.storage != VarStorage::Plain
             || !valid_value_type
@@ -4498,6 +4475,37 @@ impl Analyzer {
             ValueType::pointer_to(ty)
         } else {
             ty
+        }
+    }
+
+    fn resolved_routine_signature(
+        &self,
+        scope: ScopeId,
+        routine: &Routine,
+    ) -> SemanticCallableSignature {
+        let mut params = Vec::new();
+        for declaration in &routine.params {
+            let ty = self.param_signature_type(scope, declaration);
+            for _ in &declaration.entries {
+                params.push(ty.clone());
+            }
+        }
+        let return_type = match &routine.kind {
+            RoutineKind::Proc => None,
+            RoutineKind::Func { return_type } => {
+                Some(self.value_type_from_type_ref(scope, return_type))
+            }
+        };
+        SemanticCallableSignature {
+            kind: routine.kind.clone(),
+            params,
+            variadic: None,
+            return_type,
+            source: if routine.is_external {
+                SemanticCallableSource::Runtime
+            } else {
+                SemanticCallableSource::User
+            },
         }
     }
 

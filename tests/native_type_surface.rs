@@ -5,6 +5,7 @@ use actionc::nir::{
 use actionc::parser::parse;
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 use actionc::target::TargetId;
+use actionc::{mir68k, mir65816};
 
 fn lower(source: &str, target: TargetId) -> nir::NirProgram {
     let tokens = tokenize(source).expect("tokenize native type source");
@@ -486,4 +487,219 @@ fn wide_objects_follow_the_selected_size_model() {
                 .contains("does not fit the target's 16-bit SIZE type")
         }));
     }
+}
+
+#[test]
+fn native_type_surface_corpus_survives_optimization_and_backend_planning() {
+    let source = include_str!("../fixtures/native/type_surface.act");
+
+    for target in [
+        TargetId::Motorola68000,
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+    ] {
+        let lowered = lower(source, target);
+        let optimized = nir::optimize_program(&lowered).unwrap_or_else(|diagnostics| {
+            panic!("optimize type surface for {target}: {diagnostics:?}")
+        });
+        nir::verify_program(&optimized).unwrap_or_else(|diagnostics| {
+            panic!("verify optimized type surface for {target}: {diagnostics:?}")
+        });
+
+        let address_bits = lowered.target_layout.address_integer_bits;
+        let size_bits = lowered.target_layout.size_integer_bits;
+        let main = lowered
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main NIR routine");
+        let indirect_signature = main
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| match op {
+                NirOp::Call {
+                    callee: NirCallee::Indirect { .. },
+                    signature: Some(signature),
+                    ..
+                } => Some(signature),
+                _ => None,
+            })
+            .expect("typed callback call");
+        assert_eq!(
+            indirect_signature.params[0].kind,
+            NirTypeKind::Integer(NirIntegerType::address(address_bits))
+        );
+        assert_eq!(
+            indirect_signature.params[1].kind,
+            NirTypeKind::Integer(NirIntegerType::size(size_bits))
+        );
+        assert_eq!(
+            indirect_signature.params[2].kind,
+            NirTypeKind::Integer(NirIntegerType::U32)
+        );
+        assert_eq!(
+            indirect_signature
+                .result
+                .as_ref()
+                .map(|result| &result.kind),
+            Some(&NirTypeKind::Integer(NirIntegerType::U32))
+        );
+
+        let casts = lowered
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .filter_map(|op| match op {
+                NirOp::Cast { from, to, kind, .. } => Some((from, to, kind)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(casts.iter().any(|(from, to, kind)| {
+            **kind == nir::NirCastKind::PointerToInteger
+                && from.width == Some(lowered.target_layout.data_pointer.size_bytes)
+                && to.kind == NirTypeKind::Integer(NirIntegerType::address(address_bits))
+        }));
+        assert!(casts.iter().any(|(from, to, kind)| {
+            **kind == nir::NirCastKind::IntegerToPointer
+                && from.kind == NirTypeKind::Integer(NirIntegerType::address(address_bits))
+                && to.width == Some(lowered.target_layout.data_pointer.size_bytes)
+        }));
+
+        match target {
+            TargetId::Motorola68000 => {
+                check_mir68k_type_surface(&lowered);
+                check_mir68k_type_surface(&optimized);
+            }
+            TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                check_mir65816_type_surface(&lowered, target);
+                check_mir65816_type_surface(&optimized, target);
+            }
+            TargetId::Atari6502 => unreachable!(),
+        }
+    }
+}
+
+fn check_mir68k_type_surface(program: &nir::NirProgram) {
+    let mir = mir68k::lower_program(program).expect("lower type surface to MIR68K");
+    let main = mir
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main MIR68K routine");
+    assert!(main.frame.extent.get() >= 12);
+    let indirect = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            mir68k::Mir68kOp::Call {
+                target: mir68k::Mir68kCallTarget::Indirect(_, width),
+                plan,
+                ..
+            } => Some((*width, plan)),
+            _ => None,
+        })
+        .expect("MIR68K indirect callback");
+    assert_eq!(indirect.0.get(), 4);
+    assert_eq!(
+        indirect.1.result,
+        Some(mir68k::Mir68kAbiHome::DataRegister(0))
+    );
+    assert_eq!(indirect.1.outgoing_bytes.get(), 12);
+    assert_eq!(
+        indirect.1.arguments,
+        vec![
+            mir68k::Mir68kAbiHome::StackArgument {
+                offset: actionc::target::ByteOffset::new(0),
+                size: actionc::target::ByteSize::new(4),
+            },
+            mir68k::Mir68kAbiHome::StackArgument {
+                offset: actionc::target::ByteOffset::new(4),
+                size: actionc::target::ByteSize::new(4),
+            },
+            mir68k::Mir68kAbiHome::StackArgument {
+                offset: actionc::target::ByteOffset::new(8),
+                size: actionc::target::ByteSize::new(4),
+            },
+        ]
+    );
+    assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+        matches!(
+            op,
+            mir68k::Mir68kOp::Call {
+                result: Some((_, width)),
+                plan: mir68k::Mir68kCallPlan {
+                    result: Some(mir68k::Mir68kAbiHome::AddressRegister(0)),
+                    ..
+                },
+                ..
+            } if width.get() == 4
+        )
+    }));
+}
+
+fn check_mir65816_type_surface(program: &nir::NirProgram, target: TargetId) {
+    let mir = mir65816::lower_program(program).expect("lower type surface to MIR65816");
+    let main = mir
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main MIR65816 routine");
+    assert!(main.frame.extent.get() > 0);
+    let indirect = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            mir65816::Mir65816Op::Call {
+                target: mir65816::Mir65816CallTarget::Indirect(_, width),
+                plan,
+                ..
+            } => Some((*width, plan)),
+            _ => None,
+        })
+        .expect("MIR65816 indirect callback");
+    let (code_width, size_width, outgoing) = match target {
+        TargetId::Wdc65816Native => (3, 3, 10),
+        TargetId::Wdc65816Small => (2, 2, 9),
+        _ => unreachable!(),
+    };
+    assert_eq!(indirect.0.get(), code_width);
+    assert_eq!(
+        indirect.1.result,
+        Some(mir65816::Mir65816AbiHome::AccumulatorAndX)
+    );
+    assert_eq!(indirect.1.outgoing_bytes.get(), outgoing);
+    assert_eq!(indirect.1.arguments.len(), 3);
+    assert_eq!(
+        indirect.1.arguments[0],
+        mir65816::Mir65816AbiHome::StackArgument {
+            offset: actionc::target::ByteOffset::new(0),
+            size: actionc::target::ByteSize::new(3),
+        }
+    );
+    assert_eq!(
+        indirect.1.arguments[1],
+        mir65816::Mir65816AbiHome::StackArgument {
+            offset: actionc::target::ByteOffset::new(3),
+            size: actionc::target::ByteSize::new(size_width),
+        }
+    );
+    assert!(
+        main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
+            matches!(
+                op,
+                mir65816::Mir65816Op::Call {
+                    result: Some((_, width)),
+                    plan: mir65816::Mir65816CallPlan {
+                        result: Some(mir65816::Mir65816AbiHome::Accumulator),
+                        ..
+                    },
+                    ..
+                } if target == TargetId::Wdc65816Small && width.get() == 2
+            )
+        }) || target == TargetId::Wdc65816Native
+    );
 }

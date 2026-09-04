@@ -28,8 +28,8 @@ crowding the active reference set.
   - completed follow-on for reentrant native calls and invocation-scoped local
   storage while preserving the classic Atari routine ABI.
 - [NATIVE_TYPE_SURFACE_IMPLEMENTATION_PLAN.md](NATIVE_TYPE_SURFACE_IMPLEMENTATION_PLAN.md)
-  - active sliced plan for 32-bit integers, general function results, typed
-  callable pointers, and target-sized address and size values.
+  - completed sliced implementation of 32-bit integers, general function
+  results, typed callable pointers, and target-sized address and size values.
 - [NIR_ATARI_BASELINES.md](NIR_ATARI_BASELINES.md) - byte-exact Atari object
   guardrails for the target-independence migration.
 - [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -

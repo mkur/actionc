@@ -1,10 +1,10 @@
 # NIR Target Shape
 
-Snapshot date: 2026-09-03. Updated for the target-parameterized NIR contract,
+Snapshot date: 2026-09-04. Updated for the target-parameterized NIR contract,
 typed target-independent sizes, offsets, and absolute addresses, the completed
 TAC-to-NIR naming migration, address-based native `REAL`
-operations, cartridge-compatible integer arithmetic typing, and explicit
-record copies.
+operations, cartridge-compatible integer arithmetic typing, explicit record
+copies, and the native scalar/callable type surface.
 
 This document describes the target shape of NIR, the Normalized Intermediate
 Representation implemented under `src/nir`. It is the contract for hardening,
@@ -119,11 +119,13 @@ architecture. MIR68K projects integer data as big-endian, retains four-byte
 data and code pointers, and selects bytewise access for a 16-bit value unless
 its base alignment and even displacement prove a legal 68000 word access.
 
-Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, and `CARD`
-and `INT` are 16-bit. Pointer and callable widths are selected by their address
-spaces and are not aliases for `CARD` on native 65816 or 68k targets. The
-classic Atari ABI may retain the historical 16-bit pointer/`CARD`
-interoperability as an explicit compatibility rule.
+Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, `CARD` and
+`INT` are 16-bit, and `LONG` and `ULONG` are 32-bit. `ADDRESS` and `SIZE` are
+distinct unsigned integer roles whose widths come from the selected target
+layout. Pointer and callable widths are selected by their address spaces and
+are not aliases for `CARD` on native 65816 or 68k targets. The classic Atari
+ABI may retain the historical 16-bit pointer/`CARD` interoperability as an
+explicit compatibility rule.
 
 Classic Atari records remain packed. A native ABI may use target-natural field
 and tail alignment, but layout is resolved once before NIR optimization and is
@@ -145,8 +147,11 @@ Portable source observes layout through the canonical compile-time intrinsics
 `SYS.SIZEOF`, `SYS.ELEMENTS`, `SYS.ALIGNOF`, and `SYS.OFFSETOF`. Their
 unqualified compatibility-prelude aliases are ordinary shadowable names. The
 queries fold during semantic/layout lowering, so executable NIR receives their
-constant results and resolved layout facts rather than source-level intrinsic
-operations.
+role-preserving `SIZE` constant results and resolved layout facts rather than
+source-level intrinsic operations. Semantic array lengths, record sizes, field
+offsets, alignments, and strides remain at least 32-bit until they cross into
+checked `ByteSize` and `ByteOffset` NIR facts; no `CARD`-sized host field limits
+native objects to 64 KiB.
 
 ## Routine Activation And Automatic Storage
 
