@@ -44,6 +44,8 @@ PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
   INT sphere,checker,level
   BYTE parity,shade
 
+  ; Put the camera in front of the scene and turn the pixel coordinate into a
+  ; normalized ray direction. The common projection scale keeps spheres round.
   x=0
   y=-0.1
   z=3
@@ -55,6 +57,8 @@ PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
   u=u*w
   v=v*w
 
+  ; The first target is whichever of the two unit spheres lies on the ray's
+  ; side of the image. Their centers are (1,1,0) and (-1,-1,0).
   IF u<0 THEN
     sphere=-1
   ELSE
@@ -64,6 +68,8 @@ PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
   LastReflections=0
   WHILE LastReflections<REFLECTION_LIMIT
   DO
+    ; Solve the ray/unit-sphere quadratic. A negative discriminant misses the
+    ; current sphere; a non-positive distance puts the hit behind the ray.
     e=x-sphere
     f=y-sphere
     p=u*e+v*f-w*z
@@ -78,6 +84,8 @@ PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
       EXIT
     FI
 
+    ; Advance to the surface, reflect the direction around its normal, then try
+    ; the opposite sphere. The limit makes mutually reflecting rays bounded.
     x=x+t*u
     y=y+t*v
     z=z-t*w
@@ -92,6 +100,8 @@ PUBLIC BYTE FUNC Trace(CARD col, BYTE row)
     LastReflections==+1
   OD
 
+  ; A downward ray reaches the floor plane at y=-2. Integer cell parity selects
+  ; a checkerboard brightness before distance-independent shading is applied.
   IF v<0 THEN
     p=(y+2)/v
     floorX=x-u*p

@@ -15,6 +15,9 @@ CONST CARD OUTPUT_WIDTH=320
 
 CONST BYTE LAST_ROW=191
 
+; Trace into a conventional row first. Keeping ray calculation separate from
+; framebuffer writes lets the progressive renderer reuse one expensive row for
+; every screen row in its current coarse span.
 BYTE ARRAY line(OUTPUT_WIDTH)
 
 STRING missing(0)="VBXE FX 1.2x is required."
@@ -22,6 +25,8 @@ STRING rendering(0)="Rendering the VBXE ray tracer..."
 STRING keyText(0)="Press any key to continue."
 
 PROC WaitKey()
+  ; Reset the latch so a key used to launch the program cannot dismiss it, and
+  ; keep the OS attract-mode timer inactive while the image is being viewed.
   OS.CH=OS.NO_KEY
   WHILE OS.CH=OS.NO_KEY
   DO
@@ -36,6 +41,8 @@ PROC TraceLine(BYTE row)
   col=0
   WHILE col<SCENE.WIDTH
   DO
+    ; Trace returns a palette index, so no pixel-format conversion is needed
+    ; when the row is copied to the 8-bit VBXE framebuffer.
     OS.ATRACT=0
     shade=SCENE.Trace(col,row)
     line(col)=shade
@@ -47,6 +54,8 @@ PROC CopyLine(BYTE row)
   CARD x
   BYTE POINTER destination
 
+  ; RowAddress hides the framebuffer base and stride selected by the shared
+  ; VBXE screen module.
   destination=VIDEO.RowAddress(row)
   x=0
   WHILE x<OUTPUT_WIDTH
@@ -59,6 +68,9 @@ RETURN
 PROC ShowSpan(BYTE sourceRow,height)
   BYTE firstRow,lastRow,row
 
+  ; Scene rows grow upward in the original formula, while framebuffer rows grow
+  ; downward. Flip the coordinate and fill the unresolved band ending at that
+  ; screen row with the newest sample.
   lastRow=LAST_ROW-sourceRow
   firstRow=lastRow-height
   row=firstRow
@@ -72,6 +84,9 @@ RETURN
 PROC Render()
   BYTE gap,offset,height,row
 
+  ; Render a recognizable image quickly, then halve the sampling interval.
+  ; Each pass fills only the gaps left by earlier passes: 64-row bands first,
+  ; followed by 32, 16, 8, 4, and finally 2-row bands.
   gap=64
   offset=0
   height=63
@@ -100,6 +115,7 @@ PROC Render()
 RETURN
 
 PROC Main()
+  ; Start in a normal OS text mode so initialization errors remain readable.
   SYS.Graphics(0)
   SYS.PrintE(rendering)
   IF VIDEO.Init()=0 THEN
@@ -111,6 +127,8 @@ PROC Main()
 
   GTIA.COLBAK=0
   OS.COLOR4=0
+  ; VIDEO.Init has installed the SR320 framebuffer and grayscale palette. The
+  ; renderer can now write palette indexes directly into extended memory.
   Render()
   WaitKey()
   VIDEO.Shutdown()
