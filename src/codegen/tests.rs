@@ -452,6 +452,38 @@ fn compatible_set_code_pointer_can_allocate_zero_page_storage() {
 }
 
 #[test]
+fn compatible_pre_origin_array_pointer_is_an_absolute_reference() {
+    let output = generate_profile_source_with_origin(
+        "SET $E=$CB SET $F=0 BYTE ARRAY line \
+         SET $E=$5000 SET $491=$5000 BYTE index \
+         PROC Main() line(index)=1 RETURN",
+        0x5000,
+        CodegenProfile::Modern,
+    )
+    .unwrap();
+
+    let line = storage_symbol(&output, CodegenSymbolScope::Global, "LINE");
+    assert_eq!(line.address, 0x00CB);
+    assert_eq!(line.array, Some(CodegenArrayStorage::Pointer));
+    assert!(
+        output
+            .bytes
+            .windows(3)
+            .any(|bytes| bytes == [opcode::LDA_ABS, 0xCB, 0x00]),
+        "pre-origin array pointer must load its absolute low-byte cell: {:02X?}",
+        output.bytes
+    );
+    assert!(
+        output
+            .bytes
+            .windows(3)
+            .any(|bytes| bytes == [opcode::LDA_ABS, 0xCC, 0x00]),
+        "pre-origin array pointer must load its absolute high-byte cell: {:02X?}",
+        output.bytes
+    );
+}
+
+#[test]
 fn compatible_set_symbol_to_current_location_patches_array_pointer_storage() {
     let output = generate_compatible_source_with_origin(
         "BYTE ARRAY buffer PROC Main() buffer(0)=7 RETURN SET buffer=*",

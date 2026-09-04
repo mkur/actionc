@@ -401,17 +401,22 @@ fn sample_catalog() -> Vec<SampleSpec> {
             "samples/toolkit/modern/ALLOCATE.ACT",
             "Toolkit library module retained as readable source; no maintained executable root currently includes it",
         ),
-        source_only(
+        executable(
             "samples/toolkit/modern/KALSCOPE.DEM",
-            "public XEX generation currently rejects its fixed zero-page data before the source-selected $5000 origin",
+            vec![release(Optimized, ActionCart)],
         ),
-        source_only(
+        dependency(
+            "samples/toolkit/modern/IO.ACT",
+            &["samples/toolkit/modern/MUSIC.DEM"],
+        ),
+        executable(
             "samples/toolkit/modern/MUSIC.DEM",
-            "its advanced-I/O include still points at the Toolkit corpus instead of a maintained sample dependency",
+            vec![release(Optimized, ActionCart)],
         ),
         dependency(
             "samples/toolkit/modern/PMG.ACT",
             &[
+                "samples/toolkit/modern/MUSIC.DEM",
                 "samples/toolkit/modern/PMG.DM1",
                 "samples/toolkit/modern/PMG.DM2",
             ],

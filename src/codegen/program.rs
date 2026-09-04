@@ -85,6 +85,7 @@ impl Generator {
         self.layout.add_var_decl_with_static_initializers(
             decl,
             true,
+            self.compatible_address_is_in_output(address),
             &self.record_layouts,
             &self.numeric_defines,
             &self.static_initializers,

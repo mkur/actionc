@@ -102,7 +102,7 @@ BYTE ARRAY nail(3)=[$18 $18 $10],
 ; Modern: use the existing modern PMG shim for explicit pointer arguments.
 INCLUDE "PMG.ACT"
 
-INCLUDE "../original/extracted/IO.ACT"
+INCLUDE "IO.ACT"
 
 ;************************************
 ;Put the finger on the depressed key

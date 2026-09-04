@@ -265,6 +265,7 @@ impl StorageLayout {
                     layout.add_var_decl_with_static_initializers(
                         decl,
                         compatible,
+                        compatible,
                         record_layouts,
                         numeric_defines,
                         static_initializers,
@@ -280,6 +281,7 @@ impl StorageLayout {
         &mut self,
         decl: &VarDecl,
         compatible: bool,
+        output_relative: bool,
         record_layouts: &RecordLayouts,
         numeric_defines: &HashMap<String, u16>,
         static_initializers: &ClassicStaticInitializerFacts,
@@ -311,6 +313,7 @@ impl StorageLayout {
                     numeric_defines,
                     static_initializer,
                     record,
+                    output_relative,
                 );
                 continue;
             }
@@ -377,7 +380,7 @@ impl StorageLayout {
             } else {
                 StorageSlot::absolute(address, slot_size)
             }
-            .output_relative_if(compatible)
+            .output_relative_if(output_relative)
             .record(record)
             .signed(slot_signed_for_type(&decl.ty));
             self.symbols.insert(normalize_name(&entry.name), slot);
@@ -408,6 +411,7 @@ impl StorageLayout {
         numeric_defines: &HashMap<String, u16>,
         static_initializer: Option<&ClassicStaticInitializer>,
         record: Option<usize>,
+        output_relative: bool,
     ) {
         let signed = type_is_signed(&decl.ty);
         let name = normalize_name(&entry.name);
@@ -416,7 +420,7 @@ impl StorageLayout {
                 let descriptor =
                     self.allocate_initialized_bytes(4, &fixed_array_pointer_storage(address));
                 let slot = StorageSlot::array(descriptor, element_size, ArrayStorage::Descriptor)
-                    .emitted()
+                    .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed);
                 self.symbols.insert(name.clone(), slot);
@@ -448,7 +452,7 @@ impl StorageLayout {
             self.symbols.insert(
                 name,
                 StorageSlot::array(address, element_size, ArrayStorage::Inline)
-                    .emitted()
+                    .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed),
             );
@@ -476,7 +480,7 @@ impl StorageLayout {
                 self.symbols.insert(
                     name,
                     StorageSlot::array(address, element_size, ArrayStorage::Inline)
-                        .emitted()
+                        .output_relative_if(output_relative)
                         .record(record)
                         .signed(signed),
                 );
@@ -488,7 +492,11 @@ impl StorageLayout {
             self.advance(descriptor_size);
             self.initializers.push(StorageInit::Relocation {
                 kind: StorageRelocationKind::Word16,
-                target: StorageRelocationTarget::OutputRelative(backing_address),
+                target: if output_relative {
+                    StorageRelocationTarget::OutputRelative(backing_address)
+                } else {
+                    StorageRelocationTarget::Absolute(backing_address)
+                },
                 addend: 0,
                 span: entry.span,
             });
@@ -498,14 +506,17 @@ impl StorageLayout {
             }
             let slot =
                 StorageSlot::array(descriptor_address, element_size, ArrayStorage::Descriptor)
-                    .emitted()
+                    .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed);
             self.symbols.insert(name.clone(), slot);
-            self.fixed_array_base_targets
-                .push((slot, MachineSymbolAddress::OutputRelative(backing_address)));
-            self.machine_symbol_addresses
-                .insert(name, MachineSymbolAddress::OutputRelative(backing_address));
+            let backing = if output_relative {
+                MachineSymbolAddress::OutputRelative(backing_address)
+            } else {
+                MachineSymbolAddress::Absolute(backing_address)
+            };
+            self.fixed_array_base_targets.push((slot, backing.clone()));
+            self.machine_symbol_addresses.insert(name, backing);
             return;
         }
 
@@ -526,7 +537,7 @@ impl StorageLayout {
             self.symbols.insert(
                 name,
                 StorageSlot::array(address, element_size, ArrayStorage::Pointer)
-                    .emitted()
+                    .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed),
             );
@@ -539,7 +550,7 @@ impl StorageLayout {
             self.symbols.insert(
                 name,
                 StorageSlot::array(address, element_size, ArrayStorage::Inline)
-                    .emitted()
+                    .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed),
             );
@@ -559,7 +570,7 @@ impl StorageLayout {
             size: byte_size,
         });
         let slot = StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
-            .emitted()
+            .output_relative_if(output_relative)
             .record(record)
             .signed(signed);
         self.symbols.insert(name.clone(), slot);
