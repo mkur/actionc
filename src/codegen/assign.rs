@@ -793,7 +793,15 @@ impl Generator {
                 runtime_zp::ADDR
             };
         if target.size == 1 {
-            if let Some(source) = self.reusable_lvalue_slot_with_pointer(value, source_pointer) {
+            // Preparing a source such as table(data(i)) needs a third pointer:
+            // the explicitly selected source pointer holds `table`, while the
+            // nested index load uses the canonical array pointer.  Do not take
+            // this direct path when that canonical pointer is also the already
+            // prepared destination pointer; the preserving fallback below
+            // stages the value and restores the destination instead.
+            if !Self::indexed_lvalue_has_indirect_index(value)
+                && let Some(source) = self.reusable_lvalue_slot_with_pointer(value, source_pointer)
+            {
                 self.emit_lda_slot_byte(source, 0);
                 self.emit_sta_slot_byte(target, 0);
                 return true;
@@ -1046,6 +1054,21 @@ impl Generator {
         self.emit_pla();
         self.emit_sta_zero_page(pointer.offset(1));
         self.emit_copy_slot_to_slot(temp, target)
+    }
+
+    fn indexed_lvalue_has_indirect_index(expr: &Expr) -> bool {
+        match &expr.kind {
+            ExprKind::Index { index, .. } => Self::expr_contains_indirect_lvalue(index),
+            ExprKind::Call { args, .. } if args.len() == 1 => {
+                Self::expr_contains_indirect_lvalue(&args[0])
+            }
+            ExprKind::Cast { expr, .. }
+            | ExprKind::Unary {
+                op: UnaryOp::Plus | UnaryOp::Neg,
+                expr,
+            } => Self::indexed_lvalue_has_indirect_index(expr),
+            _ => false,
+        }
     }
 
     fn expr_has_materialized_binary_operand(expr: &Expr) -> bool {

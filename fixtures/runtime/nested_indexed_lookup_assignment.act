@@ -1,0 +1,32 @@
+; Preserve the destination address while an indexed lookup computes the value.
+
+BYTE result0=$0600
+BYTE result1=$0601
+BYTE result2=$0602
+BYTE result3=$0603
+BYTE signature=$0604
+
+BYTE ARRAY lookup(4)=[10 20 30 40]
+BYTE ARRAY state(4)=[0 1 2 3]
+
+PROC Transform(BYTE ARRAY data)
+  BYTE i
+
+  FOR i=0 TO 3
+    DO
+    data(i)=lookup(data(i))
+    OD
+RETURN
+
+PROC Main()
+  Transform(state)
+
+  result0=state(0)
+  result1=state(1)
+  result2=state(2)
+  result3=state(3)
+  signature=$A5
+
+  DO
+  OD
+RETURN
