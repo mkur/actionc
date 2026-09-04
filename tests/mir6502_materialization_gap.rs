@@ -127,11 +127,11 @@ fn pointer_deref_read_consumers_store_directly_without_spills() {
 }
 
 #[test]
-fn repeated_pointer_store_read_reuses_staged_address_pair() {
+fn indirect_pointer_store_invalidates_staged_address_pair() {
     let (formatted, bytes) = compile_materialized_mir6502_fixture("pointer_store_read_reuse.act");
 
-    assert_eq!(formatted.matches("store.b fixed_zp $AC, a").count(), 1);
-    assert_eq!(formatted.matches("store.b fixed_zp $AD, a").count(), 1);
+    assert_eq!(formatted.matches("store.b fixed_zp $AC, a").count(), 2);
+    assert_eq!(formatted.matches("store.b fixed_zp $AD, a").count(), 2);
     assert!(formatted.contains("a =.b #17"));
     assert!(formatted.contains("store_indirect (zp$AC),y+0 a"));
     assert!(formatted.contains("a =.b load_indirect (zp$AC),y+0"));
@@ -142,14 +142,14 @@ fn repeated_pointer_store_read_reuses_staged_address_pair() {
             .windows(2)
             .filter(|bytes| *bytes == [0x85, 0xAC])
             .count(),
-        1
+        2
     );
     assert_eq!(
         bytes
             .windows(2)
             .filter(|bytes| *bytes == [0x85, 0xAD])
             .count(),
-        1
+        2
     );
 }
 

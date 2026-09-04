@@ -941,7 +941,9 @@ pub(in crate::mir6502) fn discover_index_rewrites(
                 "delayed-byte-index-consumer" => {
                     delayed_byte_index_plan(block.id, &block.ops, index, candidate, context)
                 }
-                "indexed-byte-copy" | "adjacent-static-indexed-byte-copy" => {
+                "indexed-byte-copy"
+                | "same-base-indexed-byte-copy"
+                | "adjacent-static-indexed-byte-copy" => {
                     indexed_byte_copy_plan(block.id, &block.ops, index, candidate, context)
                 }
                 "indexed-word-copy" => {
@@ -4493,6 +4495,73 @@ mod tests {
             ],
             ..empty_layout_program()
         }
+    }
+
+    #[test]
+    fn same_base_indexed_copy_selects_single_pointer_plan() {
+        let base = MirValue::Word {
+            lo: Box::new(MirValue::PointerCell(MirMem::Param {
+                id: crate::nir::ParamId(0),
+                offset: 0,
+            })),
+            hi: Box::new(MirValue::PointerCell(MirMem::Param {
+                id: crate::nir::ParamId(0),
+                offset: 1,
+            })),
+        };
+        let value = MirDef::VTemp(MirTempId(1));
+        let mut candidate = routine(vec![block(
+            0,
+            vec![
+                MirOp::Load {
+                    dst: value.clone(),
+                    src: MirAddr::ComputedIndex {
+                        base: base.clone(),
+                        index: MirValue::ConstU8(5),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::ComputedIndex {
+                        base,
+                        index: MirValue::ConstU8(1),
+                        elem_size: 1,
+                        offset: 0,
+                    },
+                    src: MirValue::Def(value),
+                    width: MirWidth::Byte,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        let program = empty_layout_program();
+        let layout = crate::mir6502::materialize::MaterializeLayout::new(&program, 0x3000);
+
+        let result = MirPreHomeRewriteDriver::default()
+            .run_fixed_point_by_key(
+                &mut candidate,
+                |routine, context| discover_index_rewrites(routine, context, &layout),
+                index_rewrite_rank,
+            )
+            .expect("same-base byte copy selection succeeds");
+
+        assert_eq!(result.applied_by_stat["same-base-indexed-byte-copy"], 1);
+        assert_eq!(
+            candidate.blocks[0]
+                .ops
+                .iter()
+                .filter(|op| matches!(op, MirOp::MaterializeAddress { .. }))
+                .count(),
+            1
+        );
+        assert!(
+            !candidate.blocks[0]
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+        );
     }
 
     #[test]

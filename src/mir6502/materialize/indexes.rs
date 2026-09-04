@@ -1159,6 +1159,12 @@ pub(super) fn try_fuse_indexed_byte_copy(
     delayed_byte_indexes: &DelayedByteIndexPlan,
     out: &mut Vec<MirOp>,
 ) -> usize {
+    let same_base =
+        try_fuse_same_base_indexed_byte_copy(ops, index, layout, delayed_byte_indexes, out);
+    if same_base > 0 {
+        return same_base;
+    }
+
     let Some(MirOp::Load {
         dst: load_dst,
         src,
@@ -1227,6 +1233,135 @@ pub(super) fn try_fuse_indexed_byte_copy(
         offset: dst_parts.offset,
     });
     2
+}
+
+/// Copies one byte between two indexes of the same pointer-backed array while
+/// retaining a single base pointer. Both effective indexes must fit directly
+/// in Y; the destination index must also be materializable without clobbering
+/// the byte held in A after the source load.
+pub(super) fn try_fuse_same_base_indexed_byte_copy(
+    ops: &[MirOp],
+    index: usize,
+    layout: &MaterializeLayout,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    out: &mut Vec<MirOp>,
+) -> usize {
+    let Some(MirOp::Load {
+        dst: load_dst,
+        src,
+        width: MirWidth::Byte,
+    }) = ops.get(index)
+    else {
+        return 0;
+    };
+    let Some(src_parts) = indexed_addr_parts(src) else {
+        return 0;
+    };
+    let Some(MirOp::Store {
+        dst,
+        src: MirValue::Def(store_src),
+        width: MirWidth::Byte,
+    }) = ops.get(index + 1)
+    else {
+        return 0;
+    };
+    if store_src != load_dst {
+        return 0;
+    }
+    let Some(dst_parts) = indexed_addr_parts(dst) else {
+        return 0;
+    };
+
+    // Keeping the unadjusted base in one pointer pair is exact only while both
+    // byte indexes are interpreted as unsigned Y displacements. Non-zero
+    // address offsets would require a separate no-wrap proof.
+    if src_parts.base != dst_parts.base
+        || src_parts.elem_size != 1
+        || dst_parts.elem_size != 1
+        || src_parts.offset != 0
+        || dst_parts.offset != 0
+        || address_value_mem(&src_parts.base).is_some()
+        || !same_base_pointer_is_reusable(&src_parts.base, layout)
+        || !same_base_source_index_is_eligible(&src_parts.index, delayed_byte_indexes)
+        || !same_base_destination_index_is_eligible(&dst_parts.index, delayed_byte_indexes)
+    {
+        return 0;
+    }
+
+    let pointer_slot = fixed_pointer_pair_from_value(&src_parts.base, layout);
+    if pointer_slot.is_none() {
+        materialize_base_address(src_parts.base, DEFAULT_POINTER_PAIR, layout, out);
+    }
+    let pointer_slot = pointer_slot.unwrap_or(MirFixedZpSlot(POINTER_SCRATCH_LO));
+
+    materialize_same_base_index_to_y(&src_parts.index, delayed_byte_indexes, out);
+    out.push(MirOp::Load {
+        dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::FixedIndirectIndexedY { zp: pointer_slot },
+        width: MirWidth::Byte,
+    });
+    materialize_same_base_index_to_y(&dst_parts.index, delayed_byte_indexes, out);
+    out.push(MirOp::Store {
+        dst: MirAddr::FixedIndirectIndexedY { zp: pointer_slot },
+        src: MirValue::Def(MirDef::Reg(MirReg::A)),
+        width: MirWidth::Byte,
+    });
+    2
+}
+
+fn same_base_pointer_is_reusable(value: &MirValue, layout: &MaterializeLayout) -> bool {
+    match value {
+        MirValue::Word { lo, hi } => {
+            same_base_pointer_is_reusable(lo, layout) && same_base_pointer_is_reusable(hi, layout)
+        }
+        MirValue::PointerCell(mem) => layout.mem_allows_pure_read_reordering(mem),
+        MirValue::Def(MirDef::VTemp(_) | MirDef::VTempByte { .. })
+        | MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => true,
+        MirValue::Def(MirDef::Reg(_)) => false,
+    }
+}
+
+fn same_base_source_index_is_eligible(
+    index: &MirValue,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+) -> bool {
+    delayed_byte_indexes.expr_for_value(index).is_some()
+        || (index_value_is_byte_sized(index)
+            && !matches!(index, MirValue::Def(MirDef::Reg(MirReg::A))))
+}
+
+fn same_base_destination_index_is_eligible(
+    index: &MirValue,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+) -> bool {
+    match delayed_byte_indexes.expr_for_value(index) {
+        Some(DelayedByteIndexExpr::Value(value)) => {
+            !matches!(value, MirValue::Def(MirDef::Reg(MirReg::A)))
+        }
+        Some(DelayedByteIndexExpr::Binary { .. }) => false,
+        None => {
+            index_value_is_byte_sized(index)
+                && !matches!(index, MirValue::Def(MirDef::Reg(MirReg::A)))
+        }
+    }
+}
+
+fn materialize_same_base_index_to_y(
+    index: &MirValue,
+    delayed_byte_indexes: &DelayedByteIndexPlan,
+    out: &mut Vec<MirOp>,
+) {
+    if let Some(index) = delayed_byte_indexes.expr_for_value(index) {
+        materialize_delayed_byte_index_to_y(index, out);
+    } else {
+        materialize_index_to_y(index.clone(), out);
+    }
 }
 
 pub(super) fn materialize_indexed_address_for_consumer(

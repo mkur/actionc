@@ -11818,6 +11818,120 @@ fn indexed_byte_copy_preserves_shared_accumulator_index_for_both_pointers() {
 }
 
 #[test]
+fn indexed_byte_copy_reuses_one_pointer_for_same_base_offsets() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let delayed = indexes::DelayedByteIndexPlan::empty();
+    let value = MirDef::VTemp(MirTempId(34));
+    let base = pointer_value_from_mem(&MirMem::Param {
+        id: ParamId(0),
+        offset: 0,
+    });
+    let ops = vec![
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::ComputedIndex {
+                base: base.clone(),
+                index: MirValue::ConstU8(5),
+                elem_size: 1,
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::ComputedIndex {
+                base,
+                index: MirValue::ConstU8(1),
+                elem_size: 1,
+                offset: 0,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut out = Vec::new();
+
+    assert_eq!(
+        indexes::try_fuse_same_base_indexed_byte_copy(&ops, 0, &layout, &delayed, &mut out,),
+        2
+    );
+    assert!(matches!(
+        out.as_slice(),
+        [
+            MirOp::MaterializeAddress { .. },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::Y),
+                value: 5,
+                ..
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::FixedIndirectIndexedY { .. },
+                ..
+            },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::Y),
+                value: 1,
+                ..
+            },
+            MirOp::Store {
+                dst: MirAddr::FixedIndirectIndexedY { .. },
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                ..
+            }
+        ]
+    ));
+    assert_eq!(
+        out.iter()
+            .filter(|op| matches!(op, MirOp::MaterializeAddress { .. }))
+            .count(),
+        1
+    );
+    assert!(
+        !out.iter()
+            .any(|op| matches!(op, MirOp::MaterializeIndexedAddress { .. }))
+    );
+}
+
+#[test]
+fn indexed_byte_copy_does_not_reuse_volatile_pointer_base() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    let delayed = indexes::DelayedByteIndexPlan::empty();
+    let value = MirDef::VTemp(MirTempId(35));
+    let base = pointer_value_from_mem(&MirMem::Absolute(0xD000));
+    let ops = vec![
+        MirOp::Load {
+            dst: value.clone(),
+            src: MirAddr::ComputedIndex {
+                base: base.clone(),
+                index: MirValue::ConstU8(5),
+                elem_size: 1,
+                offset: 0,
+            },
+            width: MirWidth::Byte,
+        },
+        MirOp::Store {
+            dst: MirAddr::ComputedIndex {
+                base,
+                index: MirValue::ConstU8(1),
+                elem_size: 1,
+                offset: 0,
+            },
+            src: MirValue::Def(value),
+            width: MirWidth::Byte,
+        },
+    ];
+    let mut out = Vec::new();
+
+    assert_eq!(
+        indexes::try_fuse_same_base_indexed_byte_copy(&ops, 0, &layout, &delayed, &mut out,),
+        0
+    );
+    assert!(out.is_empty());
+}
+
+#[test]
 fn ssa_lite_forgets_accumulator_value_after_indexed_address_materialization() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);
@@ -19201,6 +19315,124 @@ fn mir_copy_prop_stages_index_before_overwriting_same_fixed_zp_pointer() {
             }
         ] if *mem == source && *staged_consumer == consumer
     ));
+}
+
+#[test]
+fn temp_materialization_reuses_stable_exact_address_and_preserves_a() {
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let pointer = MirMem::Local {
+        id: LocalId(90),
+        offset: 0,
+    };
+    let address = MirOp::MaterializeAddress {
+        consumer,
+        value: pointer_value_from_mem(&pointer),
+    };
+    let mut spills = Vec::new();
+
+    let (ops, reuses) = materialize_temp_ops_with_routine_widths_and_address_reuse(
+        vec![
+            address.clone(),
+            MirOp::LoadIndirect {
+                consumer,
+                dst: MirDef::Reg(MirReg::A),
+                offset: 3,
+            },
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 0x55,
+                width: MirWidth::Byte,
+            },
+            address,
+        ],
+        &mut spills,
+        &BTreeMap::new(),
+    );
+
+    assert_eq!(reuses, 1);
+    assert_eq!(
+        ops.iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::FixedZeroPage(_)),
+                        ..
+                    }
+                )
+            })
+            .count(),
+        2
+    );
+    assert!(matches!(
+        ops.last(),
+        Some(MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(MirMem::Local { id, offset: 1 }),
+            width: MirWidth::Byte,
+        }) if *id == LocalId(90)
+    ));
+}
+
+#[test]
+fn temp_materialization_invalidates_exact_address_after_indirect_store() {
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let address = MirOp::MaterializeAddress {
+        consumer,
+        value: pointer_value_from_mem(&MirMem::Param {
+            id: ParamId(0),
+            offset: 0,
+        }),
+    };
+    let mut spills = Vec::new();
+
+    let (ops, reuses) = materialize_temp_ops_with_routine_widths_and_address_reuse(
+        vec![
+            address.clone(),
+            MirOp::StoreIndirect {
+                consumer,
+                src: MirValue::ConstU8(7),
+                offset: 0,
+            },
+            address,
+        ],
+        &mut spills,
+        &BTreeMap::new(),
+    );
+
+    assert_eq!(reuses, 0);
+    assert_eq!(
+        ops.iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::FixedZeroPage(_)),
+                        ..
+                    }
+                )
+            })
+            .count(),
+        4
+    );
+}
+
+#[test]
+fn temp_materialization_does_not_reuse_absolute_pointer_source() {
+    let consumer = fixed_pointer_consumer(POINTER_SCRATCH_LO);
+    let address = MirOp::MaterializeAddress {
+        consumer,
+        value: pointer_value_from_mem(&MirMem::Absolute(0xD000)),
+    };
+    let mut spills = Vec::new();
+
+    let (_ops, reuses) = materialize_temp_ops_with_routine_widths_and_address_reuse(
+        vec![address.clone(), address],
+        &mut spills,
+        &BTreeMap::new(),
+    );
+
+    assert_eq!(reuses, 0);
 }
 
 #[test]

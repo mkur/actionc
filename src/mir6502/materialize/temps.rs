@@ -542,14 +542,23 @@ pub(super) fn def_is_used_after(ops: &[MirOp], start: usize, def: &MirDef) -> bo
 
 #[cfg(test)]
 pub(super) fn materialize_temp_ops(ops: Vec<MirOp>, spills: &mut Vec<MirSpillId>) -> Vec<MirOp> {
-    materialize_temp_ops_with_widths(ops, spills, None)
+    materialize_temp_ops_with_widths(ops, spills, None).0
 }
 
+#[cfg(test)]
 pub(super) fn materialize_temp_ops_with_routine_widths(
     ops: Vec<MirOp>,
     spills: &mut Vec<MirSpillId>,
     routine_temp_widths: &std::collections::BTreeMap<MirTempId, MirWidth>,
 ) -> Vec<MirOp> {
+    materialize_temp_ops_with_widths(ops, spills, Some(routine_temp_widths)).0
+}
+
+pub(super) fn materialize_temp_ops_with_routine_widths_and_address_reuse(
+    ops: Vec<MirOp>,
+    spills: &mut Vec<MirSpillId>,
+    routine_temp_widths: &std::collections::BTreeMap<MirTempId, MirWidth>,
+) -> (Vec<MirOp>, usize) {
     materialize_temp_ops_with_widths(ops, spills, Some(routine_temp_widths))
 }
 
@@ -557,7 +566,7 @@ fn materialize_temp_ops_with_widths(
     ops: Vec<MirOp>,
     spills: &mut Vec<MirSpillId>,
     routine_temp_widths: Option<&std::collections::BTreeMap<MirTempId, MirWidth>>,
-) -> Vec<MirOp> {
+) -> (Vec<MirOp>, usize) {
     let mut temp_widths = collect_temp_widths(&ops);
     if let Some(routine_temp_widths) = routine_temp_widths {
         for (id, width) in routine_temp_widths {
@@ -566,6 +575,7 @@ fn materialize_temp_ops_with_widths(
     }
     let mut out = Vec::new();
     let mut staged_address: Option<(MirAddressConsumer, MirValue)> = None;
+    let mut repeated_address_reuses = 0;
     for op in ops {
         invalidate_staged_address_for_op(&mut staged_address, &op);
         match op {
@@ -604,6 +614,11 @@ fn materialize_temp_ops_with_widths(
                         *staged_consumer == consumer && staged_value == &value
                     })
                 {
+                    // The pointer pair already contains the exact address. Keep
+                    // only the original preparation's final A/N/Z state by
+                    // rematerializing its high byte.
+                    let _ = materialize_value_to_a(&mut out, *hi, spills);
+                    repeated_address_reuses += 1;
                     continue;
                 }
                 let slot = match consumer {
@@ -624,7 +639,8 @@ fn materialize_temp_ops_with_widths(
                     src: hi,
                     width: MirWidth::Byte,
                 });
-                staged_address = Some((consumer, value));
+                staged_address =
+                    staged_address_value_is_reusable(&value).then_some((consumer, value));
             }
             MirOp::MaterializeAddress {
                 consumer,
@@ -918,7 +934,33 @@ fn materialize_temp_ops_with_widths(
             other => out.push(other),
         }
     }
-    out
+    (out, repeated_address_reuses)
+}
+
+fn staged_address_value_is_reusable(value: &MirValue) -> bool {
+    match value {
+        MirValue::Word { lo, hi } => {
+            staged_address_value_is_reusable(lo) && staged_address_value_is_reusable(hi)
+        }
+        MirValue::PointerCell(
+            MirMem::Local { .. }
+            | MirMem::Param { .. }
+            | MirMem::Spill { .. }
+            | MirMem::ZeroPage(_)
+            | MirMem::FixedZeroPage(_),
+        )
+        | MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => true,
+        MirValue::PointerCell(
+            MirMem::Global { .. } | MirMem::Static { .. } | MirMem::Absolute(_),
+        )
+        | MirValue::Def(_) => false,
+    }
 }
 
 fn value_needs_accumulator_materialization(value: &MirValue) -> bool {
@@ -935,44 +977,51 @@ fn invalidate_staged_address_for_op(
     let invalidate = match op {
         MirOp::Store { dst, .. } => match dst {
             MirAddr::Direct(mem) => {
-                direct_mem_writes_consumer(*consumer, mem) || value_depends_on_mem(value, mem)
+                direct_mem_may_alias_staged_address(mem)
+                    || direct_mem_writes_consumer(*consumer, mem)
+                    || value_depends_on_mem(value, mem)
             }
-            _ => false,
+            _ => true,
         },
         MirOp::UpdateMem { mem, .. } => {
-            direct_mem_writes_consumer(*consumer, mem) || value_depends_on_mem(value, mem)
+            direct_mem_may_alias_staged_address(mem)
+                || direct_mem_writes_consumer(*consumer, mem)
+                || value_depends_on_mem(value, mem)
         }
         MirOp::UpdateIndexedMem { .. } => true,
-        MirOp::BinaryDirectIndexedByte { .. } => true,
-        MirOp::UpdateReg { .. } => true,
+        MirOp::BinaryDirectIndexedByte { .. } => false,
+        MirOp::UpdateReg { .. } => false,
         MirOp::AddByteToWordMem { mem, .. } | MirOp::SubByteFromWordMem { mem, .. } => {
-            direct_mem_writes_consumer(*consumer, mem)
+            direct_mem_may_alias_staged_address(mem)
+                || direct_mem_writes_consumer(*consumer, mem)
                 || direct_mem_writes_consumer(*consumer, &offset_mem(mem, 1))
                 || value_depends_on_mem(value, mem)
                 || value_depends_on_mem(value, &offset_mem(mem, 1))
         }
         MirOp::OffsetPointerByIndirectByte { dst, .. } => {
-            direct_mem_writes_consumer(*consumer, dst)
+            direct_mem_may_alias_staged_address(dst)
+                || direct_mem_writes_consumer(*consumer, dst)
                 || direct_mem_writes_consumer(*consumer, &offset_mem(dst, 1))
                 || value_depends_on_mem(value, dst)
                 || value_depends_on_mem(value, &offset_mem(dst, 1))
         }
-        MirOp::Move { dst, .. } | MirOp::LoadImm { dst, .. } | MirOp::Load { dst, .. } => {
-            matches!(dst, MirDef::Reg(_))
-        }
-        MirOp::Binary { dst, .. }
-        | MirOp::Unary { dst, .. }
-        | MirOp::Extend { dst, .. }
-        | MirOp::Truncate { dst, .. } => matches!(dst, MirDef::Reg(_)),
+        // Reusable staged values cannot depend on machine registers, and an
+        // exact-repeat replacement reconstructs MaterializeAddress's final
+        // A/N/Z state. Ordinary register work therefore does not invalidate
+        // the resident pointer pair.
+        MirOp::Move { .. } | MirOp::LoadImm { .. } | MirOp::Load { .. } => false,
+        MirOp::Binary { .. }
+        | MirOp::Unary { .. }
+        | MirOp::Extend { .. }
+        | MirOp::Truncate { .. } => false,
         MirOp::Compare { .. }
         | MirOp::CompareDirectIndexedBytes { .. }
         | MirOp::CompareIndirectBytes { .. }
         | MirOp::CompareIndirectWords { .. }
         | MirOp::LoadIndirect { .. }
-        | MirOp::StoreIndirect { .. }
-        | MirOp::IndirectByteCompound { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::PackedRealCompare { .. } => false,
+        MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => true,
         MirOp::PackedRealCopy { .. } | MirOp::CopyBytes { .. } => true,
         MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. }
@@ -999,6 +1048,13 @@ fn invalidate_staged_address_for_op(
     if invalidate {
         *staged = None;
     }
+}
+
+fn direct_mem_may_alias_staged_address(mem: &MirMem) -> bool {
+    // At this phase absolute-backed globals and explicit absolute addresses
+    // have not been resolved against routine storage, so conservatively treat
+    // either as a possible alias of the pointer source or destination pair.
+    matches!(mem, MirMem::Global { .. } | MirMem::Absolute(_))
 }
 
 fn direct_mem_writes_consumer(consumer: MirAddressConsumer, mem: &MirMem) -> bool {

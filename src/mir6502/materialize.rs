@@ -232,14 +232,14 @@ use temp_uses::{
     terminator_uses_temp, value_uses_temp,
 };
 use temp_widths::{collect_routine_temp_widths, collect_temp_widths};
-#[cfg(test)]
-use temps::materialize_temp_ops;
 use temps::{
     cleanup_pre_materialization_temp_artifacts,
     cleanup_pre_materialization_temp_artifacts_with_liveness, def_is_used_after,
-    materialize_fused_compare_dest, materialize_temp_ops_with_routine_widths,
+    materialize_fused_compare_dest, materialize_temp_ops_with_routine_widths_and_address_reuse,
     materialize_terminator, store_a_to_spill, temp_is_used_after,
 };
+#[cfg(test)]
+use temps::{materialize_temp_ops, materialize_temp_ops_with_routine_widths};
 use values::{
     offset_mem, return_slot_mem, split_address, split_def, split_value, split_value_as_word,
     split_value_with_storage_widths, split_value_with_temp_widths,
@@ -735,6 +735,31 @@ fn analyzed_index_rewrite_candidate_at(
                 .push(("delayed-byte-index-producer", producer_count));
         }
         return Some(candidate);
+    }
+
+    let mut replacement = Vec::new();
+    let consumed = indexes::try_fuse_same_base_indexed_byte_copy(
+        ops,
+        index,
+        layout,
+        delayed_byte_indexes,
+        &mut replacement,
+    );
+    if consumed > 0 {
+        return Some(expand_delayed_index_rewrite_window(
+            ops,
+            index,
+            IndexRewriteCandidate {
+                start: index,
+                consumed,
+                replacement,
+                stat: "same-base-indexed-byte-copy",
+                observations: Vec::new(),
+                family_priority: 95,
+                required_upper_bound: None,
+            },
+            delayed_byte_indexes,
+        ));
     }
 
     let mut replacement = Vec::new();
@@ -1408,10 +1433,17 @@ pub(super) fn materialize_program(
         home_fates.insert(routine.id, HomeFateTracker::from_plan(&home_plan));
         apply_register_home_plan(routine, &home_plan, &mut peephole_stats);
         for block in &mut routine.blocks {
-            block.ops = materialize_temp_ops_with_routine_widths(
-                std::mem::take(&mut block.ops),
-                &mut routine.frame.spills,
-                &routine_temp_widths,
+            let (ops, repeated_address_reuses) =
+                materialize_temp_ops_with_routine_widths_and_address_reuse(
+                    std::mem::take(&mut block.ops),
+                    &mut routine.frame.spills,
+                    &routine_temp_widths,
+                );
+            block.ops = ops;
+            peephole_stats.record_many(
+                routine.id,
+                "ssa-lite-redundant-address",
+                repeated_address_reuses,
             );
             block.ops = normalize_synthetic_byte_storage_high_ops(
                 std::mem::take(&mut block.ops),
