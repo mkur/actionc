@@ -129,7 +129,7 @@ impl CallableType {
     ) -> Self {
         let return_type = match kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
+            RoutineKind::Func { ref return_type } => Some(ValueType::from_type_ref(return_type)),
         };
         Self::new(kind, params, return_type)
     }
@@ -140,7 +140,12 @@ impl CallableType {
 
     pub fn from_return_fund(return_type: FundType) -> Self {
         Self::new(
-            RoutineKind::Func { return_type },
+            RoutineKind::Func {
+                return_type: Box::new(crate::ast::TypeRef {
+                    base: crate::ast::TypeBase::Fund(return_type),
+                    pointer: false,
+                }),
+            },
             Vec::new(),
             Some(ValueType::fund(return_type)),
         )
@@ -852,14 +857,20 @@ mod tests {
 
         let function = CallableType::from_routine_kind(
             RoutineKind::Func {
-                return_type: FundType::Byte,
+                return_type: Box::new(crate::ast::TypeRef {
+                    base: crate::ast::TypeBase::Fund(FundType::Byte),
+                    pointer: false,
+                }),
             },
             [ValueType::fund(FundType::Card)],
         );
         assert_eq!(
             function.kind,
             RoutineKind::Func {
-                return_type: FundType::Byte
+                return_type: Box::new(crate::ast::TypeRef {
+                    base: crate::ast::TypeBase::Fund(FundType::Byte),
+                    pointer: false,
+                })
             }
         );
         assert_eq!(function.params, vec![ValueType::fund(FundType::Card)]);

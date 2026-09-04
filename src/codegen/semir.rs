@@ -1917,19 +1917,8 @@ fn routine_kind_text(kind: &RoutineKind) -> String {
     match kind {
         RoutineKind::Proc => "PROC POINTER".to_string(),
         RoutineKind::Func { return_type } => {
-            format!("{} FUNC POINTER", fund_type_text(*return_type))
+            format!("{} FUNC POINTER", type_ref_text(return_type))
         }
-    }
-}
-
-fn fund_type_text(fund: FundType) -> &'static str {
-    match fund {
-        FundType::Byte => "BYTE",
-        FundType::Card => "CARD",
-        FundType::Char => "CHAR",
-        FundType::Int => "INT",
-        FundType::Long => "LONG",
-        FundType::ULong => "ULONG",
     }
 }
 

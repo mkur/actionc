@@ -122,3 +122,41 @@ fn mir6502_rejects_wide_runtime_values_without_truncating() {
             .any(|diagnostic| diagnostic.message.contains("wider than 16 bits"))
     );
 }
+
+#[test]
+fn functions_can_return_wide_values_and_data_pointers() {
+    let program = lower(
+        "BYTE storage
+BYTE POINTER FUNC Address()
+  RETURN(@storage)
+ULONG FUNC Wide()
+  RETURN($FEDCBA98)
+PROC Main()
+  BYTE POINTER p
+  ULONG value
+  p=Address()
+  value=Wide()
+RETURN
+",
+        TargetId::Motorola68000,
+    );
+    let address = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Address")
+        .expect("Address routine");
+    assert!(matches!(
+        address.signature.result.as_ref().map(|ty| &ty.kind),
+        Some(NirTypeKind::Pointer { .. })
+    ));
+    let wide = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Wide")
+        .expect("Wide routine");
+    assert_eq!(
+        wide.signature.result.as_ref().map(|ty| &ty.kind),
+        Some(&NirTypeKind::Integer(NirIntegerType::U32))
+    );
+    actionc::mir68k::lower_program(&program).expect("lower generalized results to MIR68K");
+}

@@ -24,9 +24,9 @@ pub use analysis::storage::{
     NirStorageBackingClass, NirStorageFacts, NirStorageIdentityDomain, analyze_program_storage,
 };
 pub use facts::{
-    BlockId, LocalId, NirIntegerRole, NirIntegerType, NirStorageId, NirType, NirTypeKind, NirValue,
-    ParamId, RoutineId, RuntimeSymbolId, SignatureId, SymbolId, TempId, direct_storage_id,
-    runtime_symbol_id,
+    BlockId, LocalId, NirCallableKind, NirIntegerRole, NirIntegerType, NirStorageId, NirType,
+    NirTypeKind, NirValue, ParamId, RoutineId, RuntimeSymbolId, SignatureId, SymbolId, TempId,
+    direct_storage_id, runtime_symbol_id,
 };
 pub use ir::{
     ExternalAbiId, NirActivationModel, NirArrayGlobalFact, NirBinaryOp, NirBlock, NirBlockParam,

@@ -2675,7 +2675,7 @@ impl NirVerifier {
         routine: &str,
         block: Option<&str>,
         signature: &NirCallableSignature,
-        label: &str,
+        _label: &str,
     ) {
         if let Some(existing) = self.signatures.get(&signature.id) {
             if existing != signature {
@@ -2690,13 +2690,6 @@ impl NirVerifier {
             }
         } else {
             self.signatures.insert(signature.id, signature.clone());
-        }
-        if signature.kind.is_empty() {
-            let message = format!("{label} kind must not be empty");
-            self.diagnostics.push(match block {
-                Some(block) => NirDiagnostic::block(routine, block, message),
-                None => NirDiagnostic::routine(routine, message),
-            });
         }
     }
 

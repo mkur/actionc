@@ -5661,7 +5661,7 @@ fn nir_callable_signature(
             .collect(),
         variadic: callable.variadic.as_ref().map(NirFacts::type_from_value),
         result: callable.return_type.as_ref().map(NirFacts::type_from_value),
-        kind: format!("{:?}", callable.kind),
+        kind: crate::nir::NirCallableKind::from(&callable.kind),
         convention,
     }
 }

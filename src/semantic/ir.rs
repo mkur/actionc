@@ -930,7 +930,7 @@ pub enum SemCallable {
 pub struct SemRoutineSignature {
     pub kind: RoutineKind,
     pub params: Vec<ValueType>,
-    pub return_type: Option<FundType>,
+    pub return_type: Option<ValueType>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1940,7 +1940,21 @@ fn declaration_storage_summary(storage: &SemDeclarationStorage) -> String {
 fn routine_kind_summary(kind: &RoutineKind) -> String {
     match kind {
         RoutineKind::Proc => "PROC".to_string(),
-        RoutineKind::Func { return_type } => format!("{return_type:?} FUNC"),
+        RoutineKind::Func { return_type } => format!("{} FUNC", type_ref_summary(return_type)),
+    }
+}
+
+fn type_ref_summary(ty: &crate::ast::TypeRef) -> String {
+    let base = match &ty.base {
+        crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
+        crate::ast::TypeBase::NativeReal => "REAL".to_string(),
+        crate::ast::TypeBase::Named(name) => name.to_string(),
+        crate::ast::TypeBase::Callable(kind) => routine_kind_summary(kind),
+    };
+    if ty.pointer {
+        format!("{base} POINTER")
+    } else {
+        base
     }
 }
 
@@ -2793,10 +2807,13 @@ impl<'a> IrBuilder<'a> {
             .map(|routine| routine.scope)
             .unwrap_or(parent_scope);
         let params = self.lower_params(routine_scope, &routine.params);
-        let signature = SemRoutineSignature::from_header(
+        let mut signature = SemRoutineSignature::from_header(
             routine.kind.clone(),
             params.iter().map(param_signature_type),
         );
+        if let Some(resolved) = self.model.routine_signatures_by_symbol.get(&symbol.id) {
+            signature.return_type = resolved.return_type.clone();
+        }
 
         SemRoutine {
             is_external: routine.is_external,
@@ -4703,8 +4720,8 @@ impl From<ExprClass> for SemExprClass {
 
 impl SemRoutineSignature {
     fn from_header(kind: RoutineKind, params: impl IntoIterator<Item = ValueType>) -> Self {
-        let return_type = match kind {
-            RoutineKind::Func { return_type } => Some(return_type),
+        let return_type = match &kind {
+            RoutineKind::Func { return_type } => Some(ValueType::from(return_type.as_ref())),
             RoutineKind::Proc => None,
         };
 
@@ -4719,7 +4736,7 @@ impl SemRoutineSignature {
         Self {
             kind: callable.kind.clone(),
             params: callable.params.clone(),
-            return_type: fund_type_from_value_ref(callable.return_type.as_ref()),
+            return_type: callable.return_type.clone(),
         }
     }
 
@@ -4735,15 +4752,32 @@ impl SemRoutineSignature {
         CallableType::new(
             self.kind.clone(),
             self.params.clone(),
-            self.return_type.map(ValueType::fund),
+            self.return_type.clone(),
         )
     }
 }
 
 fn callable_kind_from_return_type(return_type: Option<&ValueType>) -> RoutineKind {
-    match return_type.and_then(fund_type_from_value) {
-        Some(return_type) => RoutineKind::Func { return_type },
+    match return_type {
+        Some(return_type) => RoutineKind::Func {
+            return_type: Box::new(type_ref_from_value(return_type)),
+        },
         None => RoutineKind::Proc,
+    }
+}
+
+fn type_ref_from_value(value: &ValueType) -> crate::ast::TypeRef {
+    crate::ast::TypeRef {
+        base: match &value.base {
+            ValueTypeBase::Fund(fund) => crate::ast::TypeBase::Fund(*fund),
+            ValueTypeBase::Real => crate::ast::TypeBase::NativeReal,
+            ValueTypeBase::Named(name) => crate::ast::TypeBase::Named(name.as_str().into()),
+            ValueTypeBase::Callable(callable) => {
+                crate::ast::TypeBase::Callable(callable.kind.clone())
+            }
+            ValueTypeBase::Error => crate::ast::TypeBase::Named("<error>".into()),
+        },
+        pointer: value.pointer,
     }
 }
 
@@ -4758,17 +4792,6 @@ fn callable_type_from_signature_parts(
     } else {
         CallableType::new(kind, params, return_type)
     }
-}
-
-fn fund_type_from_value(ty: &ValueType) -> Option<FundType> {
-    match (&ty.base, ty.pointer) {
-        (ValueTypeBase::Fund(fund), false) => Some(*fund),
-        _ => None,
-    }
-}
-
-fn fund_type_from_value_ref(ty: Option<&ValueType>) -> Option<FundType> {
-    ty.and_then(fund_type_from_value)
 }
 
 fn param_signature_type(param: &SemParam) -> ValueType {

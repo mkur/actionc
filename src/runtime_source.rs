@@ -793,7 +793,7 @@ mod tests {
         assert!(scompare.is_external);
         assert_eq!(
             scompare.signature.return_type,
-            Some(crate::ast::FundType::Int)
+            Some(crate::semantic::ValueType::fund(crate::ast::FundType::Int))
         );
     }
 

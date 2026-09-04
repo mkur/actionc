@@ -373,13 +373,10 @@ fn routine_info(
             arg_offset = arg_offset.wrapping_add(slot_size as u8);
         }
     }
-    let return_slot = match routine.kind {
+    let return_slot = match &routine.kind {
         RoutineKind::Proc => None,
         RoutineKind::Func { return_type } => {
-            let ty = TypeRef {
-                base: TypeBase::Fund(return_type),
-                pointer: false,
-            };
+            let ty = return_type.as_ref();
             type_size(&ty).map(|size| {
                 StorageSlot::zero_page(runtime_zp::ARGS.address(), size).signed(type_is_signed(&ty))
             })

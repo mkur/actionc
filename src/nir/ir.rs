@@ -1,6 +1,6 @@
 use super::facts::{
-    BlockId, LocalId, NirStorageId, NirType, NirValue, ParamId, RoutineId, RuntimeSymbolId,
-    SignatureId, SymbolId, TempId, signature_id,
+    BlockId, LocalId, NirCallableKind, NirStorageId, NirType, NirValue, ParamId, RoutineId,
+    RuntimeSymbolId, SignatureId, SymbolId, TempId, signature_id,
 };
 use crate::foreign::{ForeignRelocationEncoding, ForeignSymbolUse};
 use crate::source::Span;
@@ -396,7 +396,7 @@ pub struct NirCallableSignature {
     pub params: Vec<NirType>,
     pub variadic: Option<NirType>,
     pub result: Option<NirType>,
-    pub kind: String,
+    pub kind: NirCallableKind,
     pub convention: NirCallConvention,
 }
 
@@ -413,7 +413,7 @@ impl NirCallableSignature {
             params: Vec::new(),
             variadic: None,
             result: None,
-            kind: "Proc".to_string(),
+            kind: NirCallableKind::Proc,
             convention,
         }
     }

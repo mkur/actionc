@@ -236,6 +236,11 @@ language: add long and ulong scalar types
 
 ### Slice 3: general function result types
 
+Status: complete. Function declarations now retain a complete result `TypeRef`,
+SemIR and NIR signatures retain the resolved `ValueType`, native result homes
+distinguish integer and address-class values, unsupported aggregate/`REAL`
+results are diagnosed, and callable categories are structured NIR facts.
+
 1. Make `RoutineKind` identify procedure versus function only.
 2. Store a function result as a complete `TypeRef` in the AST and a complete
    `ValueType` in SemIR/NIR signatures.

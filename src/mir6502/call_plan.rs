@@ -213,7 +213,7 @@ mod tests {
     fn callable_type() -> NirType {
         NirType {
             kind: NirTypeKind::Callable {
-                kind: "Proc".to_string(),
+                kind: crate::nir::NirCallableKind::Proc,
                 signature: crate::nir::SignatureId(0),
                 convention: crate::nir::NirCallConvention::TargetPublic,
                 address_space: crate::target::TargetLayout::CODE_ADDRESS_SPACE,
@@ -230,7 +230,7 @@ mod tests {
             params: vec![byte_type(); 4],
             variadic: None,
             result: None,
-            kind: "Proc".to_string(),
+            kind: crate::nir::NirCallableKind::Proc,
             convention: crate::nir::NirCallConvention::TargetPublic,
         }
     }

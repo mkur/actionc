@@ -409,7 +409,7 @@ impl AnnotationAddressRanges {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RoutineKind {
     Proc,
-    Func { return_type: FundType },
+    Func { return_type: Box<TypeRef> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1303,11 +1303,11 @@ fn codegen_routine_signature_from_ast(
             },
         )
         .collect();
-    let (kind, return_type, return_width) = match routine.kind {
+    let (kind, return_type, return_width) = match &routine.kind {
         RoutineKind::Proc => ("PROC".to_string(), None, None),
         RoutineKind::Func { return_type } => (
             "FUNC".to_string(),
-            Some(fund_type_trace_name(return_type).to_string()),
+            Some(type_ref_trace_name(&return_type)),
             return_slot.map(|slot| slot.size),
         ),
     };
@@ -1328,7 +1328,7 @@ fn type_ref_trace_name(ty: &TypeRef) -> String {
         TypeBase::Callable(kind) => match kind {
             RoutineKind::Proc => "PROC".to_string(),
             RoutineKind::Func { return_type } => {
-                format!("{}FUNC", fund_type_trace_name(*return_type))
+                format!("{}FUNC", type_ref_trace_name(return_type))
             }
         },
     };
@@ -1420,10 +1420,7 @@ fn callable_pointer_return_slot(kind: &RoutineKind) -> Option<StorageSlot> {
     match kind {
         RoutineKind::Proc => None,
         RoutineKind::Func { return_type } => {
-            let ty = TypeRef {
-                base: TypeBase::Fund(*return_type),
-                pointer: false,
-            };
+            let ty = return_type.as_ref();
             type_size(&ty).map(|size| {
                 StorageSlot::zero_page(runtime_zp::ARGS.address(), size).signed(type_is_signed(&ty))
             })

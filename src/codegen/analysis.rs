@@ -234,9 +234,9 @@ fn expr_references_names(expr: &Expr, names: &HashSet<String>) -> bool {
 pub(super) fn single_int_scalar_param_name(routine: &Routine) -> Option<&str> {
     if !matches!(
         routine.kind,
-        RoutineKind::Func {
-            return_type: FundType::Int
-        }
+        RoutineKind::Func { ref return_type }
+            if !return_type.pointer
+                && matches!(return_type.base, TypeBase::Fund(FundType::Int))
     ) {
         return None;
     }

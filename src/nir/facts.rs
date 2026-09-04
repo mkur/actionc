@@ -62,7 +62,7 @@ pub enum NirTypeKind {
         size: Option<ByteSize>,
     },
     Callable {
-        kind: String,
+        kind: NirCallableKind,
         signature: SignatureId,
         convention: NirCallConvention,
         address_space: AddressSpaceId,
@@ -75,6 +75,22 @@ pub enum NirIntegerRole {
     Ordinary,
     Address,
     Size,
+}
+
+/// Source-level callable category retained as a structured NIR fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirCallableKind {
+    Proc,
+    Func,
+}
+
+impl From<&RoutineKind> for NirCallableKind {
+    fn from(kind: &RoutineKind) -> Self {
+        match kind {
+            RoutineKind::Proc => Self::Proc,
+            RoutineKind::Func { .. } => Self::Func,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -134,7 +150,7 @@ impl NirTypeKind {
                 address_space: TargetLayout::DATA_ADDRESS_SPACE,
             },
             ValueTypeKind::CallablePointer(callable) => Self::Callable {
-                kind: format!("{:?}", callable.kind),
+                kind: NirCallableKind::from(&callable.kind),
                 signature: signature_id(&callable, NirCallConvention::TargetPublic),
                 convention: NirCallConvention::TargetPublic,
                 address_space: TargetLayout::CODE_ADDRESS_SPACE,
@@ -284,11 +300,18 @@ pub(super) fn signature_id(callable: &CallableType, convention: NirCallConventio
         }
     }
     fn callable_type(hash: &mut u32, callable: &CallableType) {
-        match callable.kind {
+        match &callable.kind {
             RoutineKind::Proc => byte(hash, 1),
             RoutineKind::Func { return_type } => {
                 byte(hash, 2);
-                text(hash, &format!("{return_type:?}"));
+                // Preserve established signature ids for the original
+                // fundamental-result surface. The complete structured result
+                // below distinguishes every newly supported result type.
+                if !return_type.pointer
+                    && let crate::ast::TypeBase::Fund(fund) = &return_type.base
+                {
+                    text(hash, &format!("{fund:?}"));
+                }
             }
         }
         for param in &callable.params {
@@ -429,8 +452,28 @@ pub(super) fn type_summary(ty: &ValueType) -> String {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
         ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Named(name) => name.clone(),
-        ValueTypeBase::Callable(callable) => format!("{:?}", callable.kind),
+        ValueTypeBase::Callable(callable) => callable_kind_summary(&callable.kind),
         ValueTypeBase::Error => "error".to_string(),
+    };
+    if ty.pointer { format!("{base}*") } else { base }
+}
+
+fn callable_kind_summary(kind: &RoutineKind) -> String {
+    match kind {
+        RoutineKind::Proc => "Proc".to_string(),
+        RoutineKind::Func { return_type } => format!(
+            "Func {{ return_type: {} }}",
+            ast_type_ref_summary(return_type)
+        ),
+    }
+}
+
+fn ast_type_ref_summary(ty: &crate::ast::TypeRef) -> String {
+    let base = match &ty.base {
+        crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
+        crate::ast::TypeBase::NativeReal => "REAL".to_string(),
+        crate::ast::TypeBase::Named(name) => name.to_string(),
+        crate::ast::TypeBase::Callable(kind) => callable_kind_summary(kind),
     };
     if ty.pointer { format!("{base}*") } else { base }
 }
