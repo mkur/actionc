@@ -306,6 +306,8 @@ pub struct TargetLayout {
     pub routine_activation: RoutineActivationModel,
     pub endian: Endian,
     pub address_bits: u8,
+    pub address_integer_bits: u8,
+    pub size_integer_bits: u8,
     pub link_address_bits: u8,
     pub data_pointer: PointerLayout,
     pub code_pointer: PointerLayout,
@@ -335,6 +337,8 @@ impl TargetLayout {
             routine_activation: RoutineActivationModel::ClassicStatic,
             endian: Endian::Little,
             address_bits: 16,
+            address_integer_bits: 16,
+            size_integer_bits: 16,
             link_address_bits: 16,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
@@ -360,6 +364,8 @@ impl TargetLayout {
             routine_activation: RoutineActivationModel::NativeReentrant,
             endian: Endian::Little,
             address_bits: 24,
+            address_integer_bits: 24,
+            size_integer_bits: 24,
             link_address_bits: 24,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
@@ -385,6 +391,8 @@ impl TargetLayout {
             routine_activation: RoutineActivationModel::NativeReentrant,
             endian: Endian::Little,
             address_bits: 24,
+            address_integer_bits: 24,
+            size_integer_bits: 16,
             link_address_bits: 24,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
@@ -410,6 +418,8 @@ impl TargetLayout {
             routine_activation: RoutineActivationModel::NativeReentrant,
             endian: Endian::Big,
             address_bits: 32,
+            address_integer_bits: 32,
+            size_integer_bits: 32,
             link_address_bits: 24,
             data_pointer: PointerLayout {
                 address_space: Self::DATA_ADDRESS_SPACE,
@@ -495,5 +505,21 @@ mod tests {
         );
         assert_eq!(m68k.link_address_bits, 24);
         assert_eq!(m68k.endian, Endian::Big);
+        assert_eq!(
+            (atari.address_integer_bits, atari.size_integer_bits),
+            (16, 16)
+        );
+        assert_eq!(
+            (native.address_integer_bits, native.size_integer_bits),
+            (24, 24)
+        );
+        assert_eq!(
+            (small.address_integer_bits, small.size_integer_bits),
+            (24, 16)
+        );
+        assert_eq!(
+            (m68k.address_integer_bits, m68k.size_integer_bits),
+            (32, 32)
+        );
     }
 }

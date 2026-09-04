@@ -1829,6 +1829,8 @@ fn const_value_summary(value: ConstValue) -> String {
         ScalarType::Int => "INT",
         ScalarType::Long => "LONG",
         ScalarType::ULong => "ULONG",
+        ScalarType::Address => "ADDRESS",
+        ScalarType::Size => "SIZE",
     };
     format!("{}:{ty}", value.number_literal().text)
 }
@@ -3312,11 +3314,11 @@ impl<'a> IrBuilder<'a> {
                 ))
             }
             ExprKind::Call { callee, args }
-                if args.len() == 1 && self.contextual_wide_scalar(scope, callee).is_some() =>
+                if args.len() == 1 && self.contextual_scalar(scope, callee).is_some() =>
             {
                 let ty = ValueType::scalar(
-                    self.contextual_wide_scalar(scope, callee)
-                        .expect("guarded contextual wide cast"),
+                    self.contextual_scalar(scope, callee)
+                        .expect("guarded contextual scalar cast"),
                 );
                 SemExprKind::Cast {
                     ty,
@@ -4594,19 +4596,19 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
-    fn contextual_wide_scalar(&self, scope: ScopeId, expr: &Expr) -> Option<ScalarType> {
+    fn contextual_scalar(&self, scope: ScopeId, expr: &Expr) -> Option<ScalarType> {
         let ExprKind::Name(name) = &expr.kind else {
             return None;
         };
         if self.symbol_ref(scope, name, expr.span).is_some() {
             return None;
         }
-        if name.eq_ignore_ascii_case("LONG") {
-            Some(ScalarType::Long)
-        } else if name.eq_ignore_ascii_case("ULONG") {
-            Some(ScalarType::ULong)
-        } else {
-            None
+        match name.to_ascii_uppercase().as_str() {
+            "LONG" => Some(ScalarType::Long),
+            "ULONG" => Some(ScalarType::ULong),
+            "ADDRESS" => Some(ScalarType::Address),
+            "SIZE" => Some(ScalarType::Size),
+            _ => None,
         }
     }
 
@@ -4668,10 +4670,14 @@ impl<'a> IrBuilder<'a> {
         } else if name.components.len() == 1
             || name.to_string().eq_ignore_ascii_case("SYS.LONG")
             || name.to_string().eq_ignore_ascii_case("SYS.ULONG")
+            || name.to_string().eq_ignore_ascii_case("SYS.ADDRESS")
+            || name.to_string().eq_ignore_ascii_case("SYS.SIZE")
         {
             value.base = match name.components.last().map(|part| part.to_ascii_uppercase()) {
                 Some(name) if name == "LONG" => ValueTypeBase::Fund(FundType::Long),
                 Some(name) if name == "ULONG" => ValueTypeBase::Fund(FundType::ULong),
+                Some(name) if name == "ADDRESS" => ValueTypeBase::Fund(FundType::Address),
+                Some(name) if name == "SIZE" => ValueTypeBase::Fund(FundType::Size),
                 _ => value.base,
             };
         }
@@ -5010,6 +5016,12 @@ fn arithmetic_numeric_result_type(
     let Some(right) = right.as_scalar() else {
         return ValueType::error();
     };
+
+    if left == ScalarType::Address || right == ScalarType::Address {
+        return ScalarType::address_arithmetic_result(op, left, right)
+            .map(ValueType::scalar)
+            .unwrap_or_else(ValueType::error);
+    }
 
     ValueType::scalar(ScalarType::arithmetic_result(
         op,

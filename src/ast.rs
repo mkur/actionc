@@ -432,6 +432,8 @@ pub enum FundType {
     Int,
     Long,
     ULong,
+    Address,
+    Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

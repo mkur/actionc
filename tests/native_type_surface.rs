@@ -82,6 +82,20 @@ RETURN
 }
 
 #[test]
+fn declared_types_can_shadow_address_and_size_aliases() {
+    for name in ["ADDRESS", "SIZE"] {
+        let source =
+            format!("TYPE {name}=[BYTE value]\n{name} item\nPROC Main() item.value=1 RETURN");
+        let program = lower(&source, TargetId::Motorola68000);
+        assert!(program.globals.iter().any(|global| {
+            global.ty.as_ref().is_some_and(
+                |ty| matches!(&ty.kind, NirTypeKind::Record { name: actual, .. } if actual.ends_with(name)),
+            )
+        }));
+    }
+}
+
+#[test]
 fn long_and_ulong_do_not_become_lexer_keywords() {
     let tokens = tokenize("BYTE long, ulong").expect("tokenize identifiers");
     assert!(tokens.iter().any(
@@ -254,4 +268,118 @@ RETURN
             .any(|diagnostic| { diagnostic.message.contains("expects 1 argument(s), got 0") }),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn address_and_size_follow_each_target_data_model() {
+    let source = "ADDRESS addr
+SIZE distance
+BYTE data
+PROC Main()
+  BYTE POINTER ptr
+  addr=ADDRESS(@data)
+  distance=addr-addr
+  addr=addr+distance
+  ptr=BYTE POINTER(addr)
+RETURN
+";
+    for (target, address_bits, size_bits) in [
+        (TargetId::Atari6502, 16, 16),
+        (TargetId::Wdc65816Small, 24, 16),
+        (TargetId::Wdc65816Native, 24, 24),
+        (TargetId::Motorola68000, 32, 32),
+    ] {
+        let program = lower(source, target);
+        let address = program
+            .globals
+            .iter()
+            .find(|global| global.name == "addr")
+            .and_then(|global| global.ty.as_ref())
+            .expect("ADDRESS global");
+        assert_eq!(
+            address.kind,
+            NirTypeKind::Integer(actionc::nir::NirIntegerType::address(address_bits))
+        );
+        let size = program
+            .globals
+            .iter()
+            .find(|global| global.name == "distance")
+            .and_then(|global| global.ty.as_ref())
+            .expect("SIZE global");
+        assert_eq!(
+            size.kind,
+            NirTypeKind::Integer(actionc::nir::NirIntegerType::size(size_bits))
+        );
+        match target {
+            TargetId::Motorola68000 => {
+                actionc::mir68k::lower_program(&program).expect("lower ADDRESS to MIR68K");
+            }
+            TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                actionc::mir65816::lower_program(&program).expect("lower ADDRESS to MIR65816");
+            }
+            TargetId::Atari6502 => {}
+        }
+    }
+}
+
+#[test]
+fn address_rejects_unrelated_arithmetic() {
+    let source = "ADDRESS address SIZE count PROC Main() address=address*count RETURN";
+    let tokens = tokenize(source).expect("tokenize ADDRESS arithmetic");
+    let program = parse(&tokens).expect("parse ADDRESS arithmetic");
+    let diagnostics = analyze_with_options(
+        &program,
+        SemanticOptions::modern().with_target(TargetId::Motorola68000),
+    )
+    .expect_err("reject ADDRESS multiplication");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("operator * is not valid for ADDRESS")
+    }));
+}
+
+#[test]
+fn static_address_integers_keep_target_width_and_endianness() {
+    for (target, literal, width, endian) in [
+        (
+            TargetId::Atari6502,
+            "$BEEF",
+            2,
+            actionc::target::Endian::Little,
+        ),
+        (
+            TargetId::Wdc65816Native,
+            "$ABCDEF",
+            3,
+            actionc::target::Endian::Little,
+        ),
+        (
+            TargetId::Motorola68000,
+            "$FEDCBA98",
+            4,
+            actionc::target::Endian::Big,
+        ),
+    ] {
+        let source = format!("ADDRESS origin=[{literal}] PROC Main() RETURN");
+        let program = lower(&source, target);
+        assert_eq!(program.target_layout.endian, endian);
+        let init = program
+            .globals
+            .iter()
+            .find(|global| global.name == "origin")
+            .and_then(|global| global.init.as_ref())
+            .unwrap_or_else(|| panic!("ADDRESS initializer: {:#?}", program.globals));
+        assert!(matches!(
+            init,
+            actionc::nir::NirGlobalInit::Bytes { image, .. }
+                if image.fragments.iter().any(|fragment| matches!(
+                    fragment,
+                    NirDataFragment::Integer {
+                        width: actual_width,
+                        ..
+                    } if actual_width.get() == width
+                ))
+        ));
+    }
 }

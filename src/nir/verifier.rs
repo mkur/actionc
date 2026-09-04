@@ -4,8 +4,9 @@ use super::analysis::cfg::NirCfg;
 use super::analysis::dominance::NirDominance;
 use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    NirIntegerType, NirStorageId, NirType, NirTypeKind, NirValue, RoutineId, RuntimeSymbolId,
-    SignatureId, SymbolId, TempId, runtime_symbol_id, value_is_oversized_literal, value_width,
+    NirIntegerRole, NirIntegerType, NirStorageId, NirType, NirTypeKind, NirValue, RoutineId,
+    RuntimeSymbolId, SignatureId, SymbolId, TempId, runtime_symbol_id, value_is_oversized_literal,
+    value_width,
 };
 use super::ir::*;
 use crate::target::{AddressValue, ByteSize, TargetLayout};
@@ -1540,6 +1541,17 @@ impl NirVerifier {
                         kind,
                         NirCastKind::IntegerToPointer | NirCastKind::PointerToInteger
                     )
+                    && !match kind {
+                        NirCastKind::IntegerToPointer => from
+                            .kind
+                            .integer()
+                            .is_some_and(|integer| integer.role == NirIntegerRole::Address),
+                        NirCastKind::PointerToInteger => to
+                            .kind
+                            .integer()
+                            .is_some_and(|integer| integer.role == NirIntegerRole::Address),
+                        _ => false,
+                    }
                 {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,

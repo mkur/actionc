@@ -1906,6 +1906,8 @@ fn type_ref_text(ty: &TypeRef) -> String {
             FundType::Int => "INT".to_string(),
             FundType::Long => "LONG".to_string(),
             FundType::ULong => "ULONG".to_string(),
+            FundType::Address => "ADDRESS".to_string(),
+            FundType::Size => "SIZE".to_string(),
         },
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),

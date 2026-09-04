@@ -12,6 +12,8 @@ pub enum ScalarType {
     Int,
     Long,
     ULong,
+    Address,
+    Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -229,6 +231,8 @@ impl ScalarType {
             FundType::Int => Self::Int,
             FundType::Long => Self::Long,
             FundType::ULong => Self::ULong,
+            FundType::Address => Self::Address,
+            FundType::Size => Self::Size,
         }
     }
 
@@ -251,13 +255,15 @@ impl ScalarType {
             Self::Int => FundType::Int,
             Self::Long => FundType::Long,
             Self::ULong => FundType::ULong,
+            Self::Address => FundType::Address,
+            Self::Size => FundType::Size,
         }
     }
 
     pub fn width_bytes(self) -> u16 {
         match self {
             Self::Byte | Self::Char => 1,
-            Self::Card | Self::Int => 2,
+            Self::Card | Self::Int | Self::Address | Self::Size => 2,
             Self::Long | Self::ULong => 4,
         }
     }
@@ -265,7 +271,9 @@ impl ScalarType {
     pub fn signedness(self) -> ScalarSignedness {
         match self {
             Self::Int | Self::Long => ScalarSignedness::Signed,
-            Self::Byte | Self::Card | Self::Char | Self::ULong => ScalarSignedness::Unsigned,
+            Self::Byte | Self::Card | Self::Char | Self::ULong | Self::Address | Self::Size => {
+                ScalarSignedness::Unsigned
+            }
         }
     }
 
@@ -286,11 +294,19 @@ impl ScalarType {
                         Self::ULong,
                         Self::Byte | Self::Char | Self::Int | Self::Card | Self::Long
                     )
+                    | (Self::Address, Self::Address | Self::Size)
+                    | (
+                        Self::Size,
+                        Self::Byte | Self::Char | Self::Int | Self::Card | Self::Size
+                    )
             )
     }
 
     pub fn promote_binary(left: Self, right: Self) -> Self {
         match (left, right) {
+            (Self::Address, Self::Address) => Self::Size,
+            (Self::Address, _) | (_, Self::Address) => Self::Address,
+            (Self::Size, _) | (_, Self::Size) => Self::Size,
             (Self::ULong, _) | (_, Self::ULong) => Self::ULong,
             (Self::Long, _) | (_, Self::Long) => Self::Long,
             (Self::Card, _) | (_, Self::Card) => Self::Card,
@@ -298,6 +314,24 @@ impl ScalarType {
             (Self::Byte, Self::Byte) => Self::Byte,
             (Self::Char, Self::Char) => Self::Char,
             (Self::Byte | Self::Char, Self::Byte | Self::Char) => Self::Byte,
+        }
+    }
+
+    pub fn address_arithmetic_result(op: BinaryOp, left: Self, right: Self) -> Option<Self> {
+        if left != Self::Address && right != Self::Address {
+            return None;
+        }
+        match (op, left, right) {
+            (BinaryOp::Add, Self::Address, Self::Size)
+            | (BinaryOp::Add, Self::Size, Self::Address)
+            | (BinaryOp::Sub, Self::Address, Self::Size) => Some(Self::Address),
+            (BinaryOp::Sub, Self::Address, Self::Address) => Some(Self::Size),
+            (
+                BinaryOp::And | BinaryOp::Or | BinaryOp::Xor | BinaryOp::Lsh | BinaryOp::Rsh,
+                Self::Address,
+                _,
+            ) => Some(Self::Address),
+            _ => None,
         }
     }
 
@@ -313,8 +347,12 @@ impl ScalarType {
         right: Self,
         constant_result: Option<u16>,
     ) -> Self {
+        if left == Self::Address || right == Self::Address {
+            return Self::address_arithmetic_result(op, left, right).unwrap_or(Self::Address);
+        }
         let promoted = Self::promote_binary(left, right);
         match op {
+            BinaryOp::Mul if matches!(promoted, Self::Long | Self::ULong) => promoted,
             BinaryOp::Mul => Self::Int,
             BinaryOp::Add | BinaryOp::Sub
                 if promoted == Self::Byte
@@ -439,6 +477,12 @@ impl ValueType {
     /// fixed; only data and callable pointers vary with the target layout.
     pub fn value_width_bytes_for_layout(&self, layout: TargetLayout) -> Option<u16> {
         match self.kind() {
+            ValueTypeKind::Scalar(ScalarType::Address) => {
+                Some(u16::from(layout.address_integer_bits.div_ceil(8)))
+            }
+            ValueTypeKind::Scalar(ScalarType::Size) => {
+                Some(u16::from(layout.size_integer_bits.div_ceil(8)))
+            }
             ValueTypeKind::Scalar(scalar) => Some(scalar.width_bytes()),
             ValueTypeKind::Real => Some(6),
             ValueTypeKind::Pointer(_) => u16::try_from(layout.data_pointer.size_bytes.get()).ok(),

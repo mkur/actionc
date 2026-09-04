@@ -193,6 +193,7 @@ impl ConstValue {
             ScalarType::Int => NumberKind::Int,
             ScalarType::Long => NumberKind::Long,
             ScalarType::ULong => NumberKind::ULong,
+            ScalarType::Address | ScalarType::Size => NumberKind::Card,
         };
         let text = match self.ty.width_bytes() {
             1 => format!("${:02X}", self.bits as u8),
@@ -1708,6 +1709,8 @@ impl Analyzer {
             ScalarType::Int => "INT",
             ScalarType::Long => "LONG",
             ScalarType::ULong => "ULONG",
+            ScalarType::Address => "ADDRESS",
+            ScalarType::Size => "SIZE",
         };
         let Some(integer) = value.rounded_integer() else {
             self.diagnostics.push(Diagnostic::new(
@@ -1729,6 +1732,15 @@ impl Analyzer {
             ScalarType::Int => (i16::MIN as i128..=i16::MAX as i128).contains(&integer.value),
             ScalarType::Long => (i32::MIN as i128..=i32::MAX as i128).contains(&integer.value),
             ScalarType::ULong => (0..=u32::MAX as i128).contains(&integer.value),
+            ScalarType::Address | ScalarType::Size => {
+                let layout = TargetLayout::for_target(self.options.target);
+                let bits = if target == ScalarType::Address {
+                    layout.address_integer_bits
+                } else {
+                    layout.size_integer_bits
+                };
+                (0..=((1i128 << bits) - 1)).contains(&integer.value)
+            }
         };
         if !in_range {
             self.diagnostics.push(Diagnostic::new(
@@ -2235,32 +2247,50 @@ impl Analyzer {
                 let left = self.expect_expr(scope, left, expr.span);
                 let right = self.expect_expr(scope, right, expr.span);
                 let uses_real = left.ty.is_real() || right.ty.is_real();
-                let ty =
-                    if uses_real && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value()) {
-                        self.diagnostics.push(Diagnostic::new(
-                            expr.span,
-                            "REAL operators require numeric operands",
-                        ));
-                        ValueType::error()
-                    } else if uses_real && !real_binary_operator_supported(*op) {
-                        self.diagnostics.push(Diagnostic::new(
-                            expr.span,
-                            format!(
-                                "operator {} is not supported for REAL",
-                                binary_operator_text(*op)
-                            ),
-                        ));
-                        ValueType::error()
-                    } else if is_condition_op(*op) {
-                        fund_value(FundType::Byte)
-                    } else {
-                        promote_numeric(
-                            *op,
-                            &left.ty,
-                            &right.ty,
-                            constant_binary_result(*op, &left, &right),
-                        )
-                    };
+                let ty = if uses_real
+                    && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value())
+                {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        "REAL operators require numeric operands",
+                    ));
+                    ValueType::error()
+                } else if uses_real && !real_binary_operator_supported(*op) {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        format!(
+                            "operator {} is not supported for REAL",
+                            binary_operator_text(*op)
+                        ),
+                    ));
+                    ValueType::error()
+                } else if is_condition_op(*op) {
+                    fund_value(FundType::Byte)
+                } else if let (Some(left_scalar), Some(right_scalar)) =
+                    (left.ty.as_scalar(), right.ty.as_scalar())
+                    && (left_scalar == ScalarType::Address || right_scalar == ScalarType::Address)
+                {
+                    match ScalarType::address_arithmetic_result(*op, left_scalar, right_scalar) {
+                        Some(result) => ValueType::scalar(result),
+                        None => {
+                            self.diagnostics.push(Diagnostic::new(
+                                expr.span,
+                                format!(
+                                    "operator {} is not valid for ADDRESS operands",
+                                    binary_operator_text(*op)
+                                ),
+                            ));
+                            ValueType::error()
+                        }
+                    }
+                } else {
+                    promote_numeric(
+                        *op,
+                        &left.ty,
+                        &right.ty,
+                        constant_binary_result(*op, &left, &right),
+                    )
+                };
                 subject::SemSubject::Expr(subject::SemExpr {
                     ty,
                     kind: subject::SemExprKind::Binary {
@@ -2708,13 +2738,7 @@ impl Analyzer {
         span: Span,
     ) -> subject::SemSubject {
         if self.lookup_symbol(scope, name).is_none() {
-            let scalar = if name.eq_ignore_ascii_case("LONG") {
-                Some(ScalarType::Long)
-            } else if name.eq_ignore_ascii_case("ULONG") {
-                Some(ScalarType::ULong)
-            } else {
-                None
-            };
+            let scalar = contextual_scalar_type_name(name);
             if let Some(scalar) = scalar {
                 return subject::SemSubject::TypeRef(subject::SemTypeRef {
                     ty: ValueType::scalar(scalar),
@@ -2741,13 +2765,7 @@ impl Analyzer {
         if self.lookup_symbol(scope, name).is_some() {
             return None;
         }
-        if name.eq_ignore_ascii_case("LONG") {
-            Some(ScalarType::Long)
-        } else if name.eq_ignore_ascii_case("ULONG") {
-            Some(ScalarType::ULong)
-        } else {
-            None
-        }
+        contextual_scalar_type_name(name)
     }
 
     fn classify_symbol_subject(&mut self, symbol_id: SymbolId, span: Span) -> subject::SemSubject {
@@ -4392,6 +4410,8 @@ impl Analyzer {
         let scalar = match name.components.last()?.to_ascii_uppercase().as_str() {
             "LONG" => ScalarType::Long,
             "ULONG" => ScalarType::ULong,
+            "ADDRESS" => ScalarType::Address,
+            "SIZE" => ScalarType::Size,
             _ => return None,
         };
         if name.components.len() == 2 && name.components[0].eq_ignore_ascii_case("SYS") {
@@ -4711,6 +4731,16 @@ fn is_qualified_only_sys_extension(name: &str) -> bool {
     )
 }
 
+fn contextual_scalar_type_name(name: &str) -> Option<ScalarType> {
+    match name.to_ascii_uppercase().as_str() {
+        "LONG" => Some(ScalarType::Long),
+        "ULONG" => Some(ScalarType::ULong),
+        "ADDRESS" => Some(ScalarType::Address),
+        "SIZE" => Some(ScalarType::Size),
+        _ => None,
+    }
+}
+
 impl ValueType {
     pub fn error() -> Self {
         Self {
@@ -4771,6 +4801,12 @@ impl SemanticCallableSignature {
                 }
                 TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("ULONG") => {
                     ValueType::scalar(ScalarType::ULong)
+                }
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("ADDRESS") => {
+                    ValueType::scalar(ScalarType::Address)
+                }
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("SIZE") => {
+                    ValueType::scalar(ScalarType::Size)
                 }
                 _ => ValueType::from_type_ref(return_type),
             }),

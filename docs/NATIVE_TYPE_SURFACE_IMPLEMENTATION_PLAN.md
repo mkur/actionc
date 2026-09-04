@@ -286,6 +286,12 @@ language: add complete callable pointer signatures
 
 ### Slice 5: `ADDRESS`
 
+Status: complete. Every target records its architectural integer widths;
+`ADDRESS` and the supporting `SIZE` role lower to distinct width-aware NIR
+integers. Explicit pointer round trips require `ADDRESS` on native targets,
+the restricted address arithmetic matrix is enforced, and static numeric
+address data uses target width and byte order.
+
 1. Add an explicit architectural-address integer layout to every target.
 2. Register the contextual `SYS.ADDRESS` type and unqualified alias.
 3. Add explicit data-pointer, code-pointer, and integer conversion classes.

@@ -30,7 +30,8 @@ impl NirType {
     }
 
     pub(super) fn from_value_with_layout(value: &ValueType, layout: TargetLayout) -> Self {
-        let kind = NirTypeKind::from_value(value);
+        let mut kind = NirTypeKind::from_value(value);
+        kind.apply_target_layout(layout);
         let width = kind.width(layout);
         Self {
             kind,
@@ -108,6 +109,22 @@ impl NirIntegerType {
     pub const U32: Self = Self::ordinary(32, false);
     pub const I32: Self = Self::ordinary(32, true);
 
+    pub const fn address(bits: u8) -> Self {
+        Self {
+            bits,
+            signed: false,
+            role: NirIntegerRole::Address,
+        }
+    }
+
+    pub const fn size(bits: u8) -> Self {
+        Self {
+            bits,
+            signed: false,
+            role: NirIntegerRole::Size,
+        }
+    }
+
     pub const fn ordinary(bits: u8, signed: bool) -> Self {
         Self {
             bits,
@@ -167,6 +184,8 @@ impl NirTypeKind {
             ScalarType::Int => Self::I16,
             ScalarType::Long => Self::Integer(NirIntegerType::I32),
             ScalarType::ULong => Self::Integer(NirIntegerType::U32),
+            ScalarType::Address => Self::Integer(NirIntegerType::address(16)),
+            ScalarType::Size => Self::Integer(NirIntegerType::size(16)),
         }
     }
 
@@ -221,6 +240,11 @@ impl NirTypeKind {
             Self::Callable { address_space, .. } => {
                 *address_space = layout.code_pointer.address_space;
             }
+            Self::Integer(integer) => match integer.role {
+                NirIntegerRole::Address => integer.bits = layout.address_integer_bits,
+                NirIntegerRole::Size => integer.bits = layout.size_integer_bits,
+                NirIntegerRole::Ordinary => {}
+            },
             _ => {}
         }
     }

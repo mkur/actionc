@@ -675,7 +675,10 @@ impl<'a> Parser<'a> {
                 let is_typed_native_integer = matches!(
                     (&self.peek().kind, self.tokens.get(self.pos + 1).map(|token| &token.kind)),
                     (TokenKind::Ident(name), Some(TokenKind::Ident(_)))
-                        if name.eq_ignore_ascii_case("LONG") || name.eq_ignore_ascii_case("ULONG")
+                        if matches!(
+                            name.to_ascii_uppercase().as_str(),
+                            "LONG" | "ULONG" | "ADDRESS" | "SIZE"
+                        )
                 );
                 if is_typed_native_integer {
                     let TokenKind::Ident(name) = self.bump().kind.clone() else {
@@ -1931,7 +1934,10 @@ impl<'a> Parser<'a> {
                 Some(TokenKind::Ident(_)),
                 Some(TokenKind::Assign),
             ) if keyword.eq_ignore_ascii_case("CONST")
-                && (ty.eq_ignore_ascii_case("LONG") || ty.eq_ignore_ascii_case("ULONG"))
+                && matches!(
+                    ty.to_ascii_uppercase().as_str(),
+                    "LONG" | "ULONG" | "ADDRESS" | "SIZE"
+                )
         );
         untyped || typed || typed_real || typed_native_integer
     }
