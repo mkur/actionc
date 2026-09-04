@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use actionc::codegen::CODE_ORIGIN;
+use actionc::compiler::{CompileMode, CompileOptions, compile_file};
 use actionc::includes::load_program_with_expanded_source;
 use actionc::mir6502;
 use actionc::nir;
@@ -1056,6 +1057,27 @@ fn stress_pointer_torture_word_neg_pointer_store_materializes() {
 fn stress_control_flow_word_compare_temps_materialize() {
     verify_materialized_mir6502_stress_fixture("control_flow.act")
         .expect("control_flow stress fixture should materialize standalone word compare temps");
+}
+
+#[test]
+fn stress_strings_paged_y_store_consumes_accumulator_index_before_base() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("stress")
+        .join("strings.act");
+    let compiled = compile_file(&fixture, &CompileOptions::for_mode(CompileMode::Mir6502))
+        .unwrap_or_else(|err| panic!("compile {}: {err}", fixture.display()));
+
+    assert!(compiled.object_bytes().windows(18).any(|window| {
+        window[0] == 0x18
+            && window[1] == 0x69
+            && window[3] == 0xA8
+            && window[4] == 0xA9
+            && window[6..]
+                == [
+                    0x69, 0x00, 0x85, 0xAD, 0xA9, 0x00, 0x85, 0xAC, 0xA5, 0xA0, 0x91, 0xAC,
+                ]
+    }));
 }
 
 fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {

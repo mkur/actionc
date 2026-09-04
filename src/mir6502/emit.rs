@@ -4144,6 +4144,23 @@ fn emit_paged_y_index_plus_base_to_pointer(
         emit_value_to_a(ctx, routine, block, base_hi, emitter);
         emitter.emit_clc();
         emit_adc_value_to_a(ctx, routine, block, &index_hi, emitter);
+    } else if matches!(index_lo, MirValue::Def(MirDef::Reg(MirReg::A)))
+        && matches!(index_hi, MirValue::ConstU8(0) | MirValue::ConstU16(0))
+    {
+        // Consume the byte index before loading either base byte. Loading the
+        // base first would destroy an index already carried in A. TAY retains
+        // the effective low byte while the carry advances the base high byte.
+        if !can_emit_adc_value_to_a(ctx, routine, base_lo)
+            || matches!(base_hi, MirValue::Def(MirDef::Reg(MirReg::A | MirReg::Y)))
+            || !can_emit_value_to_a(ctx, routine, base_hi)
+        {
+            return false;
+        }
+        emitter.emit_clc();
+        emit_adc_value_to_a(ctx, routine, block, base_lo, emitter);
+        emitter.emit_tay();
+        emit_value_to_a(ctx, routine, block, base_hi, emitter);
+        emitter.emit_adc_imm(0);
     } else {
         if !can_emit_value_to_a(ctx, routine, base_lo)
             || !can_emit_adc_value_to_a(ctx, routine, &index_lo)
