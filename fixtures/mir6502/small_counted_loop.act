@@ -1,0 +1,17 @@
+BYTE result
+
+BYTE FUNC ShiftEight(BYTE value)
+  BYTE bit
+
+  FOR bit=0 TO 7 DO
+    IF (value AND $80)#0 THEN
+      value=(value LSH 1) XOR $1D
+    ELSE
+      value=value LSH 1
+    FI
+  OD
+RETURN(value)
+
+PROC Main()
+  result=ShiftEight(1)
+RETURN

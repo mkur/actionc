@@ -7,6 +7,12 @@ The completed first sequence is followed by the focused
 which covers widened byte-index displacement folding, direct indexed
 accumulation, and full-range register-carried loops.
 
+The implemented
+[`MIR6502_DYNAMIC_WORD_INDEX_LOOP_PLAN.md`](MIR6502_DYNAMIC_WORD_INDEX_LOOP_PLAN.md)
+continues this work for runtime pointer loops with dynamic word bounds, including
+loop rotation, cursor/countdown strength reduction, and bounded fixed-trip
+inner-loop optimization.
+
 This plan turns the code-generation gaps exposed by the Action!/Mad Pascal
 benchmark comparison into general MIR6502 improvements. The benchmark suite is
 an observation workload, not an optimization contract: no matcher may depend

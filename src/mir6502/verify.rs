@@ -1759,7 +1759,17 @@ impl MirVerifier {
             MirOp::MaterializeAddress { consumer, value } => {
                 self.verify_address_consumer(routine, block, consumer);
                 self.reject_scaled_y_consumer(routine, block, consumer, "materialize address");
-                self.verify_value(routine, block, value, static_ids, global_ids, routine_ids);
+                // This operation consumes the logical pointer-cell bytes and
+                // writes them to the selected address pair. The indexed form
+                // already admits the same input representation.
+                self.verify_value_allow_pointer_cell(
+                    routine,
+                    block,
+                    value,
+                    static_ids,
+                    global_ids,
+                    routine_ids,
+                );
             }
             MirOp::MaterializeIndexedAddress {
                 consumer,

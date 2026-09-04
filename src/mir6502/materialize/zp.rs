@@ -3,6 +3,7 @@ use crate::mir6502::ir::{
     MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirProgram, MirRoutine, MirValue,
     MirZpAllocation,
 };
+use std::collections::BTreeMap;
 
 pub(super) fn reserve_pointer_scratch_slots(program: &mut MirProgram) {
     for routine in &mut program.routines {
@@ -439,6 +440,114 @@ pub(super) fn allocate_zero_page_slots(program: &mut MirProgram) {
             });
         }
     }
+}
+
+/// Resolve virtual address-consumer pairs after zero-page allocation. Virtual
+/// memory homes retain their logical identities for layout, while an
+/// emitter-ready address consumer names the selected physical pair.
+pub(super) fn resolve_virtual_address_consumers(program: &mut MirProgram) {
+    for routine in &mut program.routines {
+        let allocations = routine
+            .frame
+            .zero_page_allocations
+            .iter()
+            .map(|allocation| (allocation.slot, allocation.start))
+            .collect::<BTreeMap<_, _>>();
+        for block in &mut routine.blocks {
+            for op in &mut block.ops {
+                resolve_op_consumers(op, &allocations);
+            }
+        }
+    }
+}
+
+fn resolve_op_consumers(
+    op: &mut MirOp,
+    allocations: &BTreeMap<crate::mir6502::ir::MirZpSlot, MirFixedZpSlot>,
+) {
+    match op {
+        MirOp::MaterializeAddress { consumer, .. }
+        | MirOp::MaterializeIndexedAddress { consumer, .. }
+        | MirOp::AdvanceAddress { consumer, .. }
+        | MirOp::LoadIndirect { consumer, .. }
+        | MirOp::StoreIndirect { consumer, .. } => resolve_consumer(consumer, allocations),
+        MirOp::OffsetPointerByIndirectByte { source, .. }
+        | MirOp::CopyIndirectBytesToFixedZp { source, .. } => resolve_consumer(source, allocations),
+        MirOp::CopyIndirectWord {
+            source,
+            destination,
+            ..
+        }
+        | MirOp::IndirectByteCompound {
+            target: destination,
+            source,
+            ..
+        }
+        | MirOp::IndirectWordCompound {
+            target: destination,
+            source,
+            ..
+        } => {
+            resolve_consumer(source, allocations);
+            resolve_consumer(destination, allocations);
+        }
+        MirOp::CopyDirectWordToIndirect { destination, .. }
+        | MirOp::AbsoluteWordSubToIndirect { destination, .. } => {
+            resolve_consumer(destination, allocations)
+        }
+        MirOp::CompareIndirectBytes { left, right, .. }
+        | MirOp::CompareIndirectWords { left, right, .. } => {
+            resolve_consumer(left, allocations);
+            resolve_consumer(right, allocations);
+        }
+        MirOp::LoadImm { .. }
+        | MirOp::Load { .. }
+        | MirOp::Store { .. }
+        | MirOp::CopyBytes { .. }
+        | MirOp::Move { .. }
+        | MirOp::LeaAddr { .. }
+        | MirOp::Extend { .. }
+        | MirOp::Truncate { .. }
+        | MirOp::Unary { .. }
+        | MirOp::Binary { .. }
+        | MirOp::UpdateMem { .. }
+        | MirOp::UpdateReg { .. }
+        | MirOp::UpdateIndexedMem { .. }
+        | MirOp::BinaryDirectIndexedByte { .. }
+        | MirOp::AddByteToWordMem { .. }
+        | MirOp::SubByteFromWordMem { .. }
+        | MirOp::Compare { .. }
+        | MirOp::CompareDirectIndexedBytes { .. }
+        | MirOp::PackedRealCompare { .. }
+        | MirOp::PackedRealCopy { .. }
+        | MirOp::Call { .. }
+        | MirOp::RuntimeHelper { .. }
+        | MirOp::Barrier { .. }
+        | MirOp::MachineBlock { .. } => {}
+    }
+}
+
+fn resolve_consumer(
+    consumer: &mut MirAddressConsumer,
+    allocations: &BTreeMap<crate::mir6502::ir::MirZpSlot, MirFixedZpSlot>,
+) {
+    let MirPointerPair::Virtual(slot) = consumer.pointer_pair() else {
+        return;
+    };
+    let Some(lo) = allocations.get(&slot).copied() else {
+        return;
+    };
+    *consumer = match *consumer {
+        MirAddressConsumer::IndirectIndexedY(_) => {
+            MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed { lo })
+        }
+        MirAddressConsumer::PagedIndirectIndexedY(_) => {
+            MirAddressConsumer::PagedIndirectIndexedY(MirPointerPair::Fixed { lo })
+        }
+        MirAddressConsumer::ScaledIndirectIndexedY(_) => {
+            MirAddressConsumer::ScaledIndirectIndexedY(MirPointerPair::Fixed { lo })
+        }
+    };
 }
 
 pub(super) fn source_zero_page_slots(program: &MirProgram) -> Vec<MirFixedZpSlot> {

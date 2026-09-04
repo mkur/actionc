@@ -93,6 +93,60 @@ fn full_range_static_byte_sum_uses_one_y_carrier_and_no_hot_loop_spills() {
 }
 
 #[test]
+fn dynamic_word_pointer_loop_uses_one_cursor_and_a_remaining_count() {
+    let (formatted, bytes) = compile_materialized_mir6502_fixture("dynamic_word_pointer_loop.act");
+
+    assert!(
+        formatted.contains("materialize (zp$E0),y <-"),
+        "{formatted}"
+    );
+    assert!(
+        formatted.contains("load_indirect (zp$E0),y+0"),
+        "{formatted}"
+    );
+    assert!(formatted.contains("inc.w zp0"), "{formatted}");
+    assert!(formatted.contains("dec.w zp2"), "{formatted}");
+    assert!(!formatted.contains("materialize_indexed"), "{formatted}");
+    assert!(!formatted.contains("cmp.w"), "{formatted}");
+    assert!(
+        bytes
+            .windows(6)
+            .any(|window| window == [0xE6, 0xE0, 0xD0, 0x02, 0xE6, 0xE1]),
+        "expected INC cursor-low/BNE/INC cursor-high: {bytes:02X?}"
+    );
+    assert!(
+        bytes
+            .windows(8)
+            .any(|window| window == [0xA5, 0xE2, 0xD0, 0x02, 0xC6, 0xE3, 0xC6, 0xE2]),
+        "expected direct word countdown: {bytes:02X?}"
+    );
+}
+
+#[test]
+fn optimized_small_counted_loop_unrolls_into_eight_carry_driven_steps() {
+    let (formatted, _) = compile_materialized_mir6502_fixture_with_config(
+        "small_counted_loop.act",
+        &mir6502::Mir6502Config::optimized(),
+    );
+
+    assert_eq!(
+        formatted.matches("branch flag c_set").count(),
+        8,
+        "expected one carry branch per unrolled bit step:\n{formatted}"
+    );
+    assert_eq!(
+        formatted
+            .matches(" lsh #$01 carry_in=- carry_out=produce")
+            .count(),
+        8,
+        "expected eight carry-producing byte shifts:\n{formatted}"
+    );
+    assert!(!formatted.contains(" and #$80"), "{formatted}");
+    assert!(!formatted.contains("cmp.b x lt #$08"), "{formatted}");
+    assert!(!formatted.contains("inc x"), "{formatted}");
+}
+
+#[test]
 fn complex_while_and_until_conditions_use_short_circuit_cfg() {
     for fixture in [
         "while_complex_bool_array_func.act",
@@ -146,7 +200,24 @@ fn compile_materialized_mir6502_fixture(name: &str) -> (String, Vec<u8>) {
     compile_materialized_mir6502_path(&Path::new("fixtures").join("mir6502").join(name))
 }
 
+fn compile_materialized_mir6502_fixture_with_config(
+    name: &str,
+    config: &mir6502::Mir6502Config,
+) -> (String, Vec<u8>) {
+    compile_materialized_mir6502_path_with_config(
+        &Path::new("fixtures").join("mir6502").join(name),
+        config,
+    )
+}
+
 fn compile_materialized_mir6502_path(relative: &Path) -> (String, Vec<u8>) {
+    compile_materialized_mir6502_path_with_config(relative, &mir6502::Mir6502Config::default())
+}
+
+fn compile_materialized_mir6502_path_with_config(
+    relative: &Path,
+    config: &mir6502::Mir6502Config,
+) -> (String, Vec<u8>) {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative);
     let loaded = load_program_with_expanded_source(&fixture)
         .unwrap_or_else(|err| panic!("load {}: {err:?}", fixture.display()));
@@ -158,7 +229,7 @@ fn compile_materialized_mir6502_path(relative: &Path) -> (String, Vec<u8>) {
 
     let mir = mir6502::lower_program(&nir_program)
         .unwrap_or_else(|err| panic!("lower MIR6502 for {}: {err:?}", fixture.display()));
-    let materialized = mir6502::materialize_program(mir, &mir6502::Mir6502Config::default())
+    let materialized = mir6502::materialize_program(mir, config)
         .unwrap_or_else(|err| panic!("materialize MIR6502 for {}: {err:?}", fixture.display()));
     mir6502::verify_program(&materialized, mir6502::MirPhase::PreEmission).unwrap_or_else(|err| {
         panic!(
@@ -168,7 +239,7 @@ fn compile_materialized_mir6502_path(relative: &Path) -> (String, Vec<u8>) {
     });
 
     let formatted = mir6502::format_program(&materialized);
-    let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
+    let output = mir6502::generate_output_with_config(&nir_program, CODE_ORIGIN, config)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
     (formatted, output.bytes)
 }

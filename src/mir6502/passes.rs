@@ -6,6 +6,10 @@ pub struct Mir6502Config {
     pub enable_peepholes: bool,
     pub enable_word_inc_update: bool,
     pub enable_direct_byte_word_update: bool,
+    /// Allow bounded code growth for exact small counted loops. The selector
+    /// retains its own trip-count and growth limits; this is intentionally
+    /// enabled only by the optimized configuration.
+    pub enable_small_loop_unrolling: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -25,6 +29,7 @@ impl Default for Mir6502Config {
             enable_peepholes: true,
             enable_word_inc_update: true,
             enable_direct_byte_word_update: false,
+            enable_small_loop_unrolling: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }
@@ -35,6 +40,7 @@ impl Mir6502Config {
         Self {
             enable_word_inc_update: true,
             enable_direct_byte_word_update: true,
+            enable_small_loop_unrolling: true,
             ..Self::default()
         }
     }

@@ -1,0 +1,45 @@
+; Runtime coverage for a dynamic CARD bound and a pointer base that crosses
+; both a page boundary and the byte-sized index range.
+
+BYTE result0=$0600,
+     result1=$0601,
+     result255=$0602,
+     result256=$0603,
+     result257=$0604,
+     result300=$0605,
+     complete=$0606
+
+BYTE ARRAY source(300)=$08FE
+
+BYTE FUNC SumBytes(BYTE ARRAY data,CARD length)
+  BYTE sum
+  CARD index
+
+  sum=0
+  index=0
+  WHILE index<length DO
+    sum==+data(index)
+    index==+1
+  OD
+RETURN(sum)
+
+PROC Main()
+  CARD index
+
+  index=0
+  WHILE index<300 DO
+    source(index)=1
+    index==+1
+  OD
+
+  result0=SumBytes(source,0)
+  result1=SumBytes(source,1)
+  result255=SumBytes(source,255)
+  result256=SumBytes(source,256)
+  result257=SumBytes(source,257)
+  result300=SumBytes(source,300)
+  complete=$A5
+
+  DO
+  OD
+RETURN

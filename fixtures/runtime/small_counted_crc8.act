@@ -1,0 +1,27 @@
+BYTE result=$0600
+BYTE ARRAY checkData(9)=[$31 $32 $33 $34 $35 $36 $37 $38 $39]
+
+BYTE FUNC Crc8(BYTE ARRAY data,CARD length)
+  BYTE crc,bit
+  CARD index
+
+  crc=0
+  index=0
+  WHILE index<length DO
+    crc=crc XOR data(index)
+    FOR bit=0 TO 7 DO
+      IF (crc AND $80)#0 THEN
+        crc=(crc LSH 1) XOR $1D
+      ELSE
+        crc=crc LSH 1
+      FI
+    OD
+    index==+1
+  OD
+RETURN(crc)
+
+PROC Main()
+  result=Crc8(checkData,9)
+  DO
+  OD
+RETURN

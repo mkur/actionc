@@ -1,0 +1,18 @@
+BYTE ARRAY source(4)=[$01 $02 $03 $04]
+BYTE result
+
+BYTE FUNC SumBytes(BYTE ARRAY data,CARD length)
+  BYTE sum
+  CARD index
+
+  sum=0
+  index=0
+  WHILE index<length DO
+    sum==+data(index)
+    index==+1
+  OD
+RETURN(sum)
+
+PROC Main()
+  result=SumBytes(source,4)
+RETURN

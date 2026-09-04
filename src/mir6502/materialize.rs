@@ -25,6 +25,7 @@ mod compare_branch;
 mod copies;
 mod dead_spills;
 mod defs;
+mod dynamic_loops;
 mod flags;
 mod home_census;
 mod indexes;
@@ -37,6 +38,7 @@ mod peepholes;
 mod pointers;
 mod regs;
 mod runtime;
+mod small_loops;
 mod spills;
 mod ssa_lite;
 mod stats;
@@ -245,7 +247,7 @@ use values::{
 use word_values::forward_unique_word_load_address_consumers;
 use zp::{
     allocate_zero_page_slots, find_zp_range, mark_zp_range, reserve_pointer_scratch_slots,
-    reserve_used_fixed_zero_page_slots, source_zero_page_slots,
+    reserve_used_fixed_zero_page_slots, resolve_virtual_address_consumers, source_zero_page_slots,
 };
 
 const POINTER_SCRATCH_LO: u8 = 0xAC;
@@ -1527,6 +1529,15 @@ pub(super) fn materialize_program(
         let exact_zn_compares =
             ssa_lite::fold_exact_zn_zero_compares(routine, &final_known_callees);
         peephole_stats.record_many(routine.id, "exact-zn-zero-compare-fold", exact_zn_compares);
+        if config.enable_peepholes {
+            let selected = small_loops::select_high_bit_shift_xor_diamonds(routine, &final_layout);
+            peephole_stats.record_many(
+                routine.id,
+                "high-bit-shift-xor-carry-branch-selected",
+                selected,
+            );
+            verify_cfg_after_transform(routine, "late high-bit shift/XOR carry selection")?;
+        }
         // Exact Z/N folding can expose a load/add-or-sub/store update whose
         // only remaining consumer is the branch on the update result. Re-run
         // the analyzed selector here so countdown latches become DEC/BNE (or
@@ -1548,6 +1559,28 @@ pub(super) fn materialize_program(
     }
     materialize_remaining_pointer_cell_values(&mut program);
     fold_redundant_register_reloads(&mut program, &final_layout, &mut peephole_stats);
+    for routine in &mut program.routines {
+        if config.enable_peepholes {
+            let selected = small_loops::coalesce_chained_shift_xor_stores(routine, &final_layout);
+            peephole_stats.record_many(routine.id, "chained-shift-xor-store-coalesced", selected);
+            let entry_stores =
+                small_loops::coalesce_selected_shift_entry_stores(routine, &final_layout);
+            peephole_stats.record_many(
+                routine.id,
+                "selected-shift-entry-store-coalesced",
+                entry_stores,
+            );
+            let hoisted = small_loops::hoist_common_shift_xor_stores(routine, &final_layout);
+            peephole_stats.record_many(routine.id, "common-shift-xor-store-hoisted", hoisted);
+            if selected > 0 || entry_stores > 0 || hoisted > 0 {
+                collapse_empty_jump_blocks(routine);
+                if layout_blocks_in_reverse_postorder(routine) {
+                    peephole_stats.record(routine.id, "chained-shift-xor-layout");
+                }
+            }
+            verify_cfg_after_transform(routine, "chained shift/XOR store coalescing")?;
+        }
+    }
     // Late exact-Z/N and register-value folding can leave an earlier pure
     // register write dead across a CFG edge. Rebuild machine liveness before
     // the final home-definition cleanup so both exposed register writes and
@@ -1562,6 +1595,7 @@ pub(super) fn materialize_program(
         run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
         prune_unused_spills(routine);
     }
+    resolve_virtual_address_consumers(&mut program);
     verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
     record_final_home_allocations(&program, &mut peephole_stats);
     for routine in &program.routines {
@@ -2354,6 +2388,63 @@ fn run_prehome_canonicalization_group(
     layout: &MaterializeLayout,
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    if config.enable_peepholes {
+        let loops = dynamic_loops::select_dynamic_word_index_loops(routine);
+        peephole_stats.record_many(routine.id, "dynamic-word-loop-candidate", loops.candidates);
+        peephole_stats.record_many(routine.id, "dynamic-word-loop-rotated", loops.selected);
+        peephole_stats.record_many(routine.id, "indexed-loop-cursor-selected", loops.selected);
+        peephole_stats.record_many(
+            routine.id,
+            "dynamic-word-loop-blocked-final-index",
+            loops.blocked_final_index,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "dynamic-word-loop-blocked-bound-invariance",
+            loops.blocked_bound_invariance,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "indexed-loop-cursor-blocked-index-use",
+            loops.blocked_index_use,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "indexed-loop-cursor-blocked-alias",
+            loops.blocked_alias,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "dynamic-word-loop-blocked-shape",
+            loops.blocked_shape,
+        );
+        verify_cfg_after_transform(routine, "dynamic word-index loop selection")?;
+    }
+    if config.enable_small_loop_unrolling {
+        let loops = small_loops::unroll_small_counted_loops(routine, 8);
+        peephole_stats.record_many(
+            routine.id,
+            "small-counted-loop-unroll-candidate",
+            loops.candidates,
+        );
+        peephole_stats.record_many(routine.id, "small-counted-loop-unrolled", loops.selected);
+        peephole_stats.record_many(
+            routine.id,
+            "small-counted-loop-unroll-blocked-growth",
+            loops.blocked_growth,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "small-counted-loop-unroll-blocked-effects",
+            loops.blocked_effects,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "small-counted-loop-unroll-blocked-observable-induction",
+            loops.blocked_observable_induction,
+        );
+        verify_cfg_after_transform(routine, "small counted-loop unrolling")?;
+    }
     run_analyzed_compare_producer_rewrites(routine, peephole_stats)?;
     run_analyzed_inclusive_compare_reversals(routine, layout, peephole_stats)?;
     run_analyzed_compare_narrowing(routine, peephole_stats)?;
@@ -2573,6 +2664,15 @@ fn run_posthome_structural_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     run_posthome_signed_word_relations(routine, layout, known_callees, peephole_stats)?;
+    if config.enable_peepholes {
+        let selected = small_loops::select_high_bit_shift_xor_diamonds(routine, layout);
+        peephole_stats.record_many(
+            routine.id,
+            "high-bit-shift-xor-carry-branch-selected",
+            selected,
+        );
+        verify_cfg_after_transform(routine, "high-bit shift/XOR carry selection")?;
+    }
     run_analyzed_param_home_reloads(routine, peephole_stats)?;
     run_analyzed_spill_forwards(routine, peephole_stats)?;
     run_analyzed_direct_inc_dec_updates(routine, layout, peephole_stats)?;

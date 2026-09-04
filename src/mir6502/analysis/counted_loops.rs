@@ -1,8 +1,10 @@
 use crate::mir6502::analysis::cfg::MirCfg;
-use crate::mir6502::analysis::effects::classify_op;
+use crate::mir6502::analysis::effects::{classify_op, classify_terminator};
+use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirCarryIn, MirCompareOp, MirCond, MirDef,
-    MirFlagTest, MirMem, MirOp, MirReg, MirRoutine, MirTerminator, MirUpdateOp, MirValue, MirWidth,
+    MirAddr, MirBinaryOp, MirBlock, MirBlockId, MirCarryIn, MirCompareOp, MirCond, MirCondDest,
+    MirDef, MirFlagTest, MirMem, MirOp, MirReg, MirRoutine, MirTempId, MirTerminator, MirUpdateOp,
+    MirValue, MirWidth,
 };
 use std::collections::BTreeSet;
 
@@ -38,6 +40,141 @@ pub(in crate::mir6502) struct MirCountedLoop {
     pub(in crate::mir6502) initial_guard_required: bool,
     pub(in crate::mir6502) final_value_observable: bool,
     pub(in crate::mir6502) shape: MirCountedLoopShape,
+}
+
+/// Pre-home fact for the normalized unsigned runtime-bound loop profile.
+///
+/// The established [`MirCountedLoop`] fact deliberately describes post-home
+/// memory induction and constant byte bounds. This companion fact retains the
+/// virtual word recurrence and its invariant load while computed-index
+/// addresses are still structured. Existing byte-loop selectors therefore do
+/// not need to infer a phase or bound kind from sentinel values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::mir6502) struct MirDynamicWordCountedLoop {
+    pub(in crate::mir6502) preheader: MirBlockId,
+    pub(in crate::mir6502) header: MirBlockId,
+    pub(in crate::mir6502) body: MirBlockId,
+    pub(in crate::mir6502) latch: MirBlockId,
+    pub(in crate::mir6502) exit: MirBlockId,
+    pub(in crate::mir6502) induction: MirTempId,
+    pub(in crate::mir6502) bound: MirTempId,
+    pub(in crate::mir6502) bound_mem: MirMem,
+    pub(in crate::mir6502) initial_site: MirSite,
+    pub(in crate::mir6502) bound_load_site: MirSite,
+    pub(in crate::mir6502) compare_site: MirSite,
+    pub(in crate::mir6502) update_site: MirSite,
+    pub(in crate::mir6502) loop_nodes: BTreeSet<MirBlockId>,
+    pub(in crate::mir6502) final_value_observable: bool,
+}
+
+/// Recognize `word_index = 0; while word_index < invariant_word_bound` after
+/// block arguments have been lowered to a virtual-temp recurrence, but before
+/// compare and indexed-address materialization.
+pub(in crate::mir6502) fn analyze_dynamic_word_counted_loops(
+    routine: &MirRoutine,
+) -> Vec<MirDynamicWordCountedLoop> {
+    let Ok(cfg) = MirCfg::from_routine(routine) else {
+        return Vec::new();
+    };
+    let mut loops = Vec::new();
+    for header in &routine.blocks {
+        let MirTerminator::Branch {
+            cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(condition))),
+            then_edge,
+            else_edge,
+        } = &header.terminator
+        else {
+            continue;
+        };
+        if !then_edge.args.is_empty() || !else_edge.args.is_empty() {
+            continue;
+        }
+        let Some((compare_index, induction, bound)) =
+            dynamic_word_header_compare(header, *condition)
+        else {
+            continue;
+        };
+        let Some((bound_load_index, bound_mem)) = unique_direct_word_load(routine, bound) else {
+            continue;
+        };
+        if bound_load_index.block() != header.id {
+            continue;
+        }
+
+        let predecessors = cfg.predecessors(header.id);
+        if predecessors.len() != 2 {
+            continue;
+        }
+        let mut preheader = None;
+        let mut latch = None;
+        let mut initial_site = None;
+        let mut update_site = None;
+        for predecessor in predecessors {
+            let Some(block) = block_by_id(routine, *predecessor) else {
+                continue;
+            };
+            if let Some(op_index) = dynamic_word_zero_initial(block, header.id, induction) {
+                preheader = Some(block.id);
+                initial_site = Some(MirSite::Op {
+                    block: block.id,
+                    op_index,
+                });
+            } else if let Some(op_index) = dynamic_word_unit_increment(block, header.id, induction)
+            {
+                latch = Some(block.id);
+                update_site = Some(MirSite::Op {
+                    block: block.id,
+                    op_index,
+                });
+            }
+        }
+        let (Some(preheader), Some(latch), Some(initial_site), Some(update_site)) =
+            (preheader, latch, initial_site, update_site)
+        else {
+            continue;
+        };
+        let Some(loop_nodes) = dynamic_word_natural_loop(&cfg, header.id, latch) else {
+            continue;
+        };
+        if !loop_nodes.contains(&then_edge.target)
+            || loop_nodes.contains(&preheader)
+            || loop_nodes.contains(&else_edge.target)
+        {
+            continue;
+        }
+        if cfg.predecessors(else_edge.target) != &BTreeSet::from([header.id]) {
+            continue;
+        }
+        if !dynamic_word_loop_has_single_exit(&cfg, &loop_nodes, header.id, else_edge.target) {
+            continue;
+        }
+
+        loops.push(MirDynamicWordCountedLoop {
+            preheader,
+            header: header.id,
+            body: then_edge.target,
+            latch,
+            exit: else_edge.target,
+            induction,
+            bound,
+            bound_mem,
+            initial_site,
+            bound_load_site: bound_load_index,
+            compare_site: MirSite::Op {
+                block: header.id,
+                op_index: compare_index,
+            },
+            update_site,
+            loop_nodes,
+            final_value_observable: temp_may_be_read_from(
+                routine,
+                &cfg,
+                else_edge.target,
+                induction,
+            ),
+        });
+    }
+    loops
 }
 
 pub(in crate::mir6502) fn analyze_counted_loops(routine: &MirRoutine) -> Vec<MirCountedLoop> {
@@ -668,6 +805,204 @@ fn bottom_decrement_guard(
         return None;
     }
     Some((guard.id, then_edge.target))
+}
+
+fn dynamic_word_header_compare(
+    header: &MirBlock,
+    condition: MirTempId,
+) -> Option<(usize, MirTempId, MirTempId)> {
+    header
+        .ops
+        .iter()
+        .enumerate()
+        .find_map(|(op_index, op)| match op {
+            MirOp::Compare {
+                dst: MirCondDest::Temp(dst),
+                op: MirCompareOp::Lt,
+                left: MirValue::Def(MirDef::VTemp(induction)),
+                right: MirValue::Def(MirDef::VTemp(bound)),
+                width: MirWidth::Word,
+                signed: false,
+            } if *dst == condition => Some((op_index, *induction, *bound)),
+            _ => None,
+        })
+}
+
+fn unique_direct_word_load(routine: &MirRoutine, temp: MirTempId) -> Option<(MirSite, MirMem)> {
+    let mut definition = None;
+    for block in &routine.blocks {
+        for (op_index, op) in block.ops.iter().enumerate() {
+            if !classify_op(op)
+                .logical
+                .temp_defs
+                .iter()
+                .any(|access| access.temp() == temp)
+            {
+                continue;
+            }
+            if definition.is_some() {
+                return None;
+            }
+            let MirOp::Load {
+                dst: MirDef::VTemp(dst),
+                src: MirAddr::Direct(mem),
+                width: MirWidth::Word,
+            } = op
+            else {
+                return None;
+            };
+            if *dst != temp {
+                return None;
+            }
+            definition = Some((
+                MirSite::Op {
+                    block: block.id,
+                    op_index,
+                },
+                mem.clone(),
+            ));
+        }
+    }
+    definition
+}
+
+fn dynamic_word_zero_initial(
+    block: &MirBlock,
+    header: MirBlockId,
+    induction: MirTempId,
+) -> Option<usize> {
+    let MirTerminator::Jump(edge) = &block.terminator else {
+        return None;
+    };
+    if edge.target != header || !edge.args.is_empty() {
+        return None;
+    }
+    block
+        .ops
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(op_index, op)| match op {
+            MirOp::Move {
+                dst: MirDef::VTemp(dst),
+                src: MirValue::ConstU8(0) | MirValue::ConstU16(0),
+                width: MirWidth::Word,
+            }
+            | MirOp::LoadImm {
+                dst: MirDef::VTemp(dst),
+                value: 0,
+                width: MirWidth::Word,
+            } if *dst == induction => Some(op_index),
+            _ => None,
+        })
+}
+
+fn dynamic_word_unit_increment(
+    block: &MirBlock,
+    header: MirBlockId,
+    induction: MirTempId,
+) -> Option<usize> {
+    let MirTerminator::Jump(edge) = &block.terminator else {
+        return None;
+    };
+    if edge.target != header || !edge.args.is_empty() {
+        return None;
+    }
+    block
+        .ops
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(op_index, op)| match op {
+            MirOp::Binary {
+                op: MirBinaryOp::Add,
+                dst: MirDef::VTemp(dst),
+                left: MirValue::Def(MirDef::VTemp(left)),
+                right: MirValue::ConstU8(1) | MirValue::ConstU16(1),
+                width: MirWidth::Word,
+                carry_in: None | Some(MirCarryIn::Clear),
+                ..
+            } if *dst == induction && *left == induction => Some(op_index),
+            _ => None,
+        })
+}
+
+fn dynamic_word_natural_loop(
+    cfg: &MirCfg,
+    header: MirBlockId,
+    latch: MirBlockId,
+) -> Option<BTreeSet<MirBlockId>> {
+    let mut nodes = BTreeSet::from([header, latch]);
+    let mut pending = vec![latch];
+    while let Some(block) = pending.pop() {
+        for predecessor in cfg.predecessors(block) {
+            if *predecessor != header && nodes.insert(*predecessor) {
+                pending.push(*predecessor);
+            }
+        }
+    }
+    cfg.successors(latch).contains(&header).then_some(nodes)
+}
+
+fn dynamic_word_loop_has_single_exit(
+    cfg: &MirCfg,
+    nodes: &BTreeSet<MirBlockId>,
+    header: MirBlockId,
+    exit: MirBlockId,
+) -> bool {
+    nodes.iter().all(|block| {
+        cfg.successors(*block)
+            .iter()
+            .all(|successor| nodes.contains(successor) || (*block == header && *successor == exit))
+    })
+}
+
+fn temp_may_be_read_from(
+    routine: &MirRoutine,
+    cfg: &MirCfg,
+    start: MirBlockId,
+    temp: MirTempId,
+) -> bool {
+    let mut pending = vec![start];
+    let mut reachable = BTreeSet::new();
+    while let Some(block_id) = pending.pop() {
+        if !reachable.insert(block_id) {
+            continue;
+        }
+        let Some(block) = block_by_id(routine, block_id) else {
+            return true;
+        };
+        let mut overwritten = false;
+        for op in &block.ops {
+            let effects = classify_op(op);
+            if effects.uses_temp(temp) {
+                return true;
+            }
+            if effects
+                .logical
+                .temp_defs
+                .iter()
+                .any(|access| access.temp() == temp)
+            {
+                overwritten = true;
+                break;
+            }
+        }
+        if overwritten {
+            continue;
+        }
+        let terminator = classify_terminator(&block.terminator);
+        if terminator
+            .logical
+            .temp_uses
+            .iter()
+            .any(|access| access.temp() == temp)
+        {
+            return true;
+        }
+        pending.extend(cfg.successors(block_id).iter().copied());
+    }
+    false
 }
 
 fn byte_constant(value: &MirValue) -> Option<u16> {
