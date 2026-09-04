@@ -1,0 +1,21 @@
+mir6502 program
+global g0 table: byte storage global+0 size=4 init bytes=[$00 $01 $02 $03] zero_fill=0 section=global mutable=true
+global g1 data: byte storage global+4 size=4 init bytes=[$03 $02 $01 $00] zero_fill=0 section=global mutable=true
+
+routine r0 Map
+b0 bb0:
+  v0 =.w load param p0+0
+  v1 =.b load param p1+0
+  v2 =.b load computed v0[v1;1]+0
+  v3 =.w lea global g0+0
+  v5 =.b load computed global_addr g0[v2;1]+0
+  v6 =.w load param p0+0
+  v7 =.b load param p1+0
+  store.b computed v6[v7;1]+0, v5
+  return
+
+routine r1 Main
+b0 bb1:
+  v0 =.w lea global g1+0
+  call r0 args=[v0.w -> a:x, #$01.b -> y] result=- clobbers=a|x|y|flags preserves=- effects=stack=?,reads=none,writes=none,clobbers=a|x|y|flags
+  return

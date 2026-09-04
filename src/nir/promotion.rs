@@ -17,10 +17,14 @@ use crate::target::{ByteOffset, ByteSize};
 // one-for-one with spills. A separate word tier recognizes loop induction
 // values used in indexed addresses. Those have enough dynamic traffic to
 // justify promotion and give target backends an explicit loop-carried value
-// to cache in scarce fast storage.
+// to cache in scarce fast storage. A third tier admits short, single-block
+// scalar relays: promoting those removes multiple store/load pairs without
+// exposing a value across control flow or an unbounded operation range.
 const MIN_HOT_HOME_LOADS: usize = 7;
 const MIN_INDUCTION_ADDRESS_LOADS: usize = 3;
 const MAX_HOT_HOME_STORE_BLOCKS: usize = 2;
+const MIN_BOUNDED_RELAY_PAIRS: usize = 2;
+const MAX_BOUNDED_RELAY_GAP_OPS: usize = 3;
 
 pub(super) fn promote_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
@@ -58,10 +62,11 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         .filter(|facts| facts.store_blocks.len() <= MAX_HOT_HOME_STORE_BLOCKS)
         .filter(|facts| {
             let width = facts.direct_access_ty.as_ref().and_then(|ty| ty.width);
-            width == Some(ByteSize::ONE) && facts.direct_loads >= MIN_HOT_HOME_LOADS
+            (width == Some(ByteSize::ONE) && facts.direct_loads >= MIN_HOT_HOME_LOADS)
                 || width == Some(ByteSize::new(2))
                     && facts.direct_loads >= MIN_INDUCTION_ADDRESS_LOADS
                     && induction_address_homes.contains(&facts.id)
+                || is_bounded_scalar_relay(routine, &cfg, facts)
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -73,6 +78,82 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         }
     }
     routine.temps = collect_temps(&routine.blocks);
+}
+
+/// Selects a cold byte home when it is only a bounded, block-local relay
+/// between SSA values. The shared storage analysis has already established
+/// that the home is promotable; this predicate is solely the conservative
+/// profitability tier which keeps the existing cold-home pressure guard.
+fn is_bounded_scalar_relay(routine: &NirRoutine, cfg: &NirCfg, facts: &NirStorageFacts) -> bool {
+    if facts.direct_access_ty.as_ref().and_then(|ty| ty.width) != Some(ByteSize::ONE)
+        || facts.value_needed_at_exit
+        || facts.direct_loads < MIN_BOUNDED_RELAY_PAIRS
+        || facts.direct_loads != facts.direct_stores
+    {
+        return false;
+    }
+
+    let mut access_blocks = facts.load_blocks.union(&facts.store_blocks).copied();
+    let Some(block_id) = access_blocks.next() else {
+        return false;
+    };
+    if access_blocks.next().is_some() || !cfg.reachable().contains(&block_id) {
+        return false;
+    }
+    let Some(block) = routine.blocks.iter().find(|block| block.id == block_id) else {
+        return false;
+    };
+
+    let mut pending_store = None;
+    let mut pairs = 0usize;
+    for (op_index, op) in block.ops.iter().enumerate() {
+        let access = match op {
+            NirOp::Store { place, .. } if direct_storage_id(place) == Some(facts.id) => Some(false),
+            NirOp::Load { place, .. } if direct_storage_id(place) == Some(facts.id) => Some(true),
+            NirOp::VolatileLoad { place, .. } | NirOp::VolatileStore { place, .. }
+                if direct_storage_id(place) == Some(facts.id) =>
+            {
+                return false;
+            }
+            _ => None,
+        };
+
+        match access {
+            Some(false) => {
+                if pending_store.replace(op_index).is_some() {
+                    return false;
+                }
+            }
+            Some(true) => {
+                let Some(store_index) = pending_store.take() else {
+                    return false;
+                };
+                if op_index.saturating_sub(store_index + 1) > MAX_BOUNDED_RELAY_GAP_OPS
+                    || block.ops[store_index + 1..op_index]
+                        .iter()
+                        .any(is_bounded_relay_barrier)
+                {
+                    return false;
+                }
+                pairs = pairs.saturating_add(1);
+            }
+            None => {}
+        }
+    }
+
+    pending_store.is_none() && pairs >= MIN_BOUNDED_RELAY_PAIRS && pairs == facts.direct_loads
+}
+
+fn is_bounded_relay_barrier(op: &NirOp) -> bool {
+    matches!(
+        op,
+        NirOp::VolatileLoad { .. }
+            | NirOp::VolatileStore { .. }
+            | NirOp::Call { .. }
+            | NirOp::ForeignCode { .. }
+            | NirOp::Unsupported { .. }
+            | NirOp::Real(_)
+    )
 }
 
 /// Finds word locals which are updated by an add/sub recurrence and used as
@@ -1009,6 +1090,18 @@ mod tests {
         }
     }
 
+    fn byte_pointer_type() -> NirType {
+        NirType {
+            kind: NirTypeKind::Pointer {
+                pointee: Some(Box::new(NirTypeKind::U8)),
+                address_space: crate::target::TargetLayout::DATA_ADDRESS_SPACE,
+            },
+            summary: "Byte*".to_string(),
+            width: Some(crate::target::ByteSize::new(2)),
+            pointer: true,
+        }
+    }
+
     fn local_place() -> NirPlace {
         NirPlace {
             kind: NirPlaceKind::Local {
@@ -1023,6 +1116,17 @@ mod tests {
         NirOp::Store {
             place: local_place(),
             src: NirValue::ConstU8(value),
+            ty: byte_type(),
+        }
+    }
+
+    fn store_temp(temp: u32) -> NirOp {
+        NirOp::Store {
+            place: local_place(),
+            src: NirValue::Temp {
+                id: TempId(temp),
+                ty: byte_type(),
+            },
             ty: byte_type(),
         }
     }
@@ -1118,6 +1222,60 @@ mod tests {
         }
     }
 
+    fn benign_call_barrier() -> NirOp {
+        NirOp::Call {
+            callee: NirCallee::User {
+                id: crate::nir::RoutineId(0),
+                name: "Main".to_string(),
+            },
+            args: Vec::new(),
+            result: None,
+            signature: Some(crate::nir::NirCallableSignature::default()),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::None,
+                    writes: NirMemoryAccess::None,
+                },
+                may_call_external: false,
+                opaque: false,
+            },
+        }
+    }
+
+    fn foreign_code_barrier() -> NirOp {
+        NirOp::ForeignCode {
+            code: NirForeignCode {
+                target: crate::target::TargetId::Atari6502,
+                kind: NirForeignCodeKind::InlineAssembly,
+                payload: NirForeignCodePayload::Bytes {
+                    bytes: vec![0xEA],
+                    relocations: Vec::new(),
+                },
+                source: String::new(),
+                span: crate::source::Span::new(0, 0),
+            },
+            effects: NirMachineEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::None,
+                    writes: NirMemoryAccess::None,
+                },
+                may_call_external: false,
+                opaque: false,
+            },
+        }
+    }
+
+    fn volatile_load_barrier(dest: u32) -> NirOp {
+        NirOp::VolatileLoad {
+            dest: TempId(dest),
+            ty: byte_type(),
+            place: NirPlace {
+                kind: NirPlaceKind::Absolute(crate::target::AddressValue::data(0xD000)),
+                ty: Some(byte_type()),
+            },
+        }
+    }
+
     #[test]
     fn promotes_a_hot_loop_home_with_one_pruned_block_parameter() {
         let program = program(vec![
@@ -1161,6 +1319,160 @@ mod tests {
         )]);
 
         let promoted = promote_program(&program).expect("retain cold home");
+        assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn promotes_a_bounded_two_definition_byte_relay() {
+        let program = program(vec![block(
+            0,
+            vec![store(3), load(0), store_temp(0), load(1)],
+            NirTerminator::Return(None),
+        )]);
+
+        let promoted = promote_program(&program).expect("promote bounded byte relay");
+        let routine = &promoted.routines[0];
+        assert!(routine.blocks[0].ops.iter().all(|op| {
+            !matches!(
+                op,
+                NirOp::Load { place, .. } | NirOp::Store { place, .. }
+                    if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0)))
+            )
+        }));
+    }
+
+    #[test]
+    fn bounded_relay_rejects_multiple_reads_of_one_definition() {
+        let program = program(vec![block(
+            0,
+            vec![store(3), load(0), load(1), store_temp(1), load(2)],
+            NirTerminator::Return(None),
+        )]);
+
+        let promoted = promote_program(&program).expect("retain multiply-read relay");
+        assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn bounded_relay_rejects_a_cross_block_value() {
+        let program = program(vec![
+            block(0, vec![store(3)], NirTerminator::Goto(edge(1))),
+            block(
+                1,
+                vec![load(0), store_temp(0), load(1)],
+                NirTerminator::Return(None),
+            ),
+        ]);
+
+        let promoted = promote_program(&program).expect("retain cross-block relay");
+        assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn bounded_relay_rejects_a_call_crossing_value() {
+        let program = program(vec![block(
+            0,
+            vec![
+                store(3),
+                benign_call_barrier(),
+                load(0),
+                store_temp(0),
+                load(1),
+            ],
+            NirTerminator::Return(None),
+        )]);
+
+        let promoted = promote_program(&program).expect("retain call-crossing relay");
+        assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn bounded_relay_rejects_foreign_unsupported_and_volatile_barriers() {
+        let barriers = [
+            foreign_code_barrier(),
+            NirOp::Unsupported {
+                note: "test barrier".to_string(),
+            },
+            volatile_load_barrier(2),
+        ];
+
+        for barrier in barriers {
+            let program = program(vec![block(
+                0,
+                vec![store(3), barrier, load(0), store_temp(0), load(1)],
+                NirTerminator::Return(None),
+            )]);
+
+            let promoted = promote_program(&program).expect("retain barrier-crossing relay");
+            assert_eq!(promoted, program);
+        }
+    }
+
+    #[test]
+    fn bounded_relay_rejects_address_taken_storage() {
+        let program = program(vec![block(
+            0,
+            vec![
+                NirOp::AddrOf {
+                    dest: TempId(0),
+                    ty: byte_pointer_type(),
+                    place: local_place(),
+                },
+                store(3),
+                load(1),
+                store_temp(1),
+                load(2),
+            ],
+            NirTerminator::Return(None),
+        )]);
+
+        let promoted = promote_program(&program).expect("retain address-taken relay");
+        assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn bounded_relay_rejects_word_storage() {
+        let ty = card_type();
+        let place = NirPlace {
+            kind: NirPlaceKind::Local {
+                id: LocalId(0),
+                name: "value".to_string(),
+            },
+            ty: Some(ty.clone()),
+        };
+        let store = |src| NirOp::Store {
+            place: place.clone(),
+            src,
+            ty: ty.clone(),
+        };
+        let load = |dest| NirOp::Load {
+            dest: TempId(dest),
+            ty: ty.clone(),
+            place: place.clone(),
+        };
+        let mut program = program(vec![block(
+            0,
+            vec![
+                store(NirValue::ConstU16(3)),
+                load(0),
+                store(NirValue::Temp {
+                    id: TempId(0),
+                    ty: ty.clone(),
+                }),
+                load(1),
+            ],
+            NirTerminator::Return(None),
+        )]);
+        let local = &mut program.routines[0].locals[0];
+        local.kind = "Card".to_string();
+        local.layout = crate::nir::NirObjectLayout::new(
+            crate::target::ByteSize::new(2),
+            crate::target::ByteSize::ONE,
+        );
+        local.ty = ty;
+        program.routines[0].temps = collect_temps(&program.routines[0].blocks);
+
+        let promoted = promote_program(&program).expect("retain word relay");
         assert_eq!(promoted, program);
     }
 

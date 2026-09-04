@@ -1,0 +1,14 @@
+BYTE ARRAY table(4) = [0 1 2 3]
+BYTE ARRAY data(4) = [3 2 1 0]
+
+PROC Map(BYTE ARRAY target, BYTE i)
+  BYTE value
+
+  value = target(i)
+  value = table(value)
+  target(i) = value
+RETURN
+
+PROC Main()
+  Map(data, 1)
+RETURN

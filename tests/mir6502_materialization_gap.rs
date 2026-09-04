@@ -225,6 +225,28 @@ fn array_param_byte_index_uses_y_instead_of_generic_word_offset() {
 }
 
 #[test]
+fn bounded_scalar_relay_composes_pointer_load_with_static_table_index() {
+    let source = include_str!("../fixtures/mir6502/bounded_scalar_relay_index.act");
+    let (formatted, bytes) =
+        compile_materialized_mir6502_source_with_config(source, &mir6502::Mir6502Config::default());
+
+    assert!(formatted.contains(
+        "a =.b load (fixed_zp $AC),y\n  \
+y =.b a\n  \
+a =.b load global g0+0[y]\n  \
+y =.b load param p1+0\n  \
+store.b (fixed_zp $AC),y, a"
+    ));
+    assert!(!formatted.contains("local l0"), "{formatted}");
+    assert!(!formatted.contains("spill sp"), "{formatted}");
+    assert!(
+        bytes
+            .windows(4)
+            .any(|window| window == [0xB1, 0xAC, 0xA8, 0xB9])
+    );
+}
+
+#[test]
 fn pointer_scratch_avoids_source_owned_zero_page_globals() {
     let (formatted, bytes) =
         compile_materialized_mir6502_fixture("zero_page_global_pointer_scratch_collision.act");
