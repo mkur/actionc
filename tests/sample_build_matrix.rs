@@ -9,6 +9,7 @@ const RUNAD: u16 = 0x02E2;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BuildTier {
     Release,
+    Experimental,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +50,13 @@ fn release(mode: CompileMode, runtime: Runtime) -> BuildCase {
     }
 }
 
+fn experimental(runtime: Runtime) -> BuildCase {
+    BuildCase {
+        tier: BuildTier::Experimental,
+        ..release(CompileMode::Mir6502, runtime)
+    }
+}
+
 impl BuildCase {
     fn requiring_segment_start(mut self, address: u16) -> Self {
         self.required_segment_start = Some(address);
@@ -85,6 +93,20 @@ fn release_with_module_path(
     BuildCase {
         module_paths: vec![module_path],
         ..release(mode, runtime)
+    }
+}
+
+fn experimental_with_project_root(runtime: Runtime, project_root: &'static str) -> BuildCase {
+    BuildCase {
+        project_root: Some(project_root),
+        ..experimental(runtime)
+    }
+}
+
+fn experimental_with_module_path(runtime: Runtime, module_path: &'static str) -> BuildCase {
+    BuildCase {
+        module_paths: vec![module_path],
+        ..experimental(runtime)
     }
 }
 
@@ -271,6 +293,9 @@ fn sample_catalog() -> Vec<SampleSpec> {
                 release_with_project_root(Optimized, Standalone, "samples/benchmarks")
                     .requiring_segment_start(0x2000)
                     .avoiding(0x8000, 0x9FFF),
+                experimental_with_project_root(Standalone, "samples/benchmarks")
+                    .requiring_segment_start(0x2000)
+                    .avoiding(0x8000, 0x9FFF),
             ],
         ),
         executable(
@@ -279,11 +304,14 @@ fn sample_catalog() -> Vec<SampleSpec> {
                 release_with_project_root(Optimized, Standalone, "samples/benchmarks")
                     .requiring_segment_start(0x2000)
                     .avoiding(0x8000, 0x9FFF),
+                experimental_with_project_root(Standalone, "samples/benchmarks")
+                    .requiring_segment_start(0x2000)
+                    .avoiding(0x8000, 0x9FFF),
             ],
         ),
         executable(
             "samples/demoscene/plasma.act",
-            vec![release(Optimized, ActionCart)],
+            vec![release(Optimized, ActionCart), experimental(ActionCart)],
         ),
         executable(
             "samples/demoscene/unlimited-bobs.act",
@@ -291,17 +319,24 @@ fn sample_catalog() -> Vec<SampleSpec> {
                 release(Optimized, Standalone)
                     .requiring_segment_start(0x8000)
                     .fitting_in(0x8000, 0xBFFF),
+                experimental(Standalone)
+                    .requiring_segment_start(0x8000)
+                    .fitting_in(0x8000, 0xBFFF),
             ],
         ),
         executable(
             "samples/graphics/fedora.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/graphics/landscape.act",
             vec![
                 release(Compatibility, ActionCart),
+                release(Compatibility, Standalone),
+                release(Optimized, ActionCart),
                 release(Optimized, Standalone),
+                experimental(ActionCart),
+                experimental(Standalone),
             ],
         ),
         dependency(
@@ -310,7 +345,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/graphics/unknown-pleasures/unknown-pleasure-vbxe.act",
-            vec![release(Optimized, Standalone).avoiding(0xA000, 0xBFFF)],
+            vec![
+                release(Optimized, Standalone).avoiding(0xA000, 0xBFFF),
+                experimental(Standalone).avoiding(0xA000, 0xBFFF),
+            ],
         ),
         dependency(
             "samples/graphics/unknown-pleasures/unknown-pleasures-data.inc",
@@ -318,11 +356,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/graphics/unknown-pleasures/unknown-pleasures.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/hello-world.act",
-            vec![release(Compatibility, ActionCart)],
+            vec![release(Compatibility, ActionCart), experimental(ActionCart)],
         ),
         executable(
             "samples/inline-asm-fine-scroll.act",
@@ -339,11 +377,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/modules/local-runtime-override.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/modules/native-real-library.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         dependency(
             "samples/modules/project/demo/color.act",
@@ -351,19 +389,19 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/modules/project/main.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/modules/rainbow.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/modules/sys-memory-open.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/modules/sys-memory-qualified.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/rainbow.act",
@@ -375,11 +413,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/real-basics.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/standalone/standalone-runtime.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         dependency(
             "samples/tn/modern/LIB.ACT",
@@ -387,11 +425,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/tn/modern/TN.ACT",
-            vec![release(Optimized, ActionCart)],
+            vec![release(Optimized, ActionCart), experimental(ActionCart)],
         ),
         executable(
             "samples/tn/modern/TNDBG.ACT",
-            vec![release(Optimized, ActionCart)],
+            vec![release(Optimized, ActionCart), experimental(ActionCart)],
         ),
         source_only(
             "samples/toolkit/modern/.PMG_trace_default_no_appmhi.DM1",
@@ -403,7 +441,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/toolkit/modern/KALSCOPE.DEM",
-            vec![release(Optimized, ActionCart)],
+            vec![release(Optimized, ActionCart), experimental(ActionCart)],
         ),
         dependency(
             "samples/toolkit/modern/IO.ACT",
@@ -462,13 +500,14 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/detect.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/vbxe/gradient.act",
             vec![
                 release_with_module_path(Optimized, Standalone, "samples/vbxe")
                     .avoiding(0xA000, 0xBFFF),
+                experimental_with_module_path(Standalone, "samples/vbxe").avoiding(0xA000, 0xBFFF),
             ],
         ),
         dependency(
@@ -480,6 +519,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
             vec![
                 release_with_module_path(Optimized, Standalone, "samples/vbxe")
                     .avoiding(0xA000, 0xBFFF),
+                experimental_with_module_path(Standalone, "samples/vbxe").avoiding(0xA000, 0xBFFF),
             ],
         ),
         dependency(
@@ -491,7 +531,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/raytracer/fuji/fuji_scene_probe.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         dependency(
             "samples/vbxe/raytracer/neon/neon_palette.act",
@@ -502,6 +542,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
             vec![
                 release_with_module_path(Optimized, Standalone, "samples/vbxe")
                     .avoiding(0xA000, 0xBFFF),
+                experimental_with_module_path(Standalone, "samples/vbxe").avoiding(0xA000, 0xBFFF),
             ],
         ),
         dependency(
@@ -513,13 +554,14 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/raytracer/neon/neon_scene_probe.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         executable(
             "samples/vbxe/raytracer/spheres/spheres_raytracer.act",
             vec![
                 release_with_module_path(Optimized, Standalone, "samples/vbxe")
                     .avoiding(0xA000, 0xBFFF),
+                experimental_with_module_path(Standalone, "samples/vbxe").avoiding(0xA000, 0xBFFF),
             ],
         ),
         dependency(
@@ -531,7 +573,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         executable(
             "samples/vbxe/raytracer/spheres/spheres_scene_probe.act",
-            vec![release(Optimized, Standalone)],
+            vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
         dependency(
             "samples/vbxe/shared/screen.act",
@@ -648,6 +690,15 @@ fn sample_catalog_roles_are_complete_and_consistent() {
 
 #[test]
 fn release_sample_builds_produce_valid_load_files() {
+    run_build_matrix(BuildTier::Release);
+}
+
+#[test]
+fn advertised_mir6502_sample_builds_produce_valid_load_files() {
+    run_build_matrix(BuildTier::Experimental);
+}
+
+fn run_build_matrix(tier: BuildTier) {
     let root = repository_root();
     let mut failures = Vec::new();
 
@@ -655,10 +706,7 @@ fn release_sample_builds_produce_valid_load_files() {
         let SampleRole::Executable { builds } = spec.role else {
             continue;
         };
-        for build in builds
-            .iter()
-            .filter(|build| build.tier == BuildTier::Release)
-        {
+        for build in builds.iter().filter(|build| build.tier == tier) {
             let description = build_description(spec.path, build);
             let mut options = CompileOptions::for_mode(build.mode).with_runtime(build.runtime);
             if let Some(project_root) = build.project_root {
@@ -689,7 +737,7 @@ fn release_sample_builds_produce_valid_load_files() {
 
     assert!(
         failures.is_empty(),
-        "release sample build matrix failed:\n{}",
+        "{tier:?} sample build matrix failed:\n{}",
         failures.join("\n")
     );
 }
