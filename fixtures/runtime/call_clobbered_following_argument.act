@@ -1,0 +1,44 @@
+; Reload a local argument after an intervening Action call clobbers registers.
+
+BYTE result0=$0600
+BYTE result1=$0601
+BYTE signature=$0602
+
+BYTE ARRAY source(1)=[$10]
+
+PROC Mutate(BYTE ARRAY data)
+  BYTE counter
+
+  counter=0
+  WHILE counter<1 DO
+    data(0)=data(0)+1
+    counter==+1
+  OD
+RETURN
+
+PROC Capture(BYTE value BYTE ARRAY data)
+  result0=value
+  result1=data(0)
+RETURN
+
+PROC Run(BYTE ARRAY data)
+  BYTE value
+
+  value=$29
+  DO
+    IF value=$2A THEN
+      EXIT
+    FI
+    Mutate(data)
+    Capture(value,data)
+    value==+1
+  OD
+RETURN
+
+PROC Main()
+  Run(source)
+  signature=$A5
+
+  DO
+  OD
+RETURN

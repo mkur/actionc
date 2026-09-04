@@ -1598,6 +1598,23 @@ mod tests {
     }
 
     #[test]
+    fn call_clobbered_arguments_are_reloaded_for_the_following_call() {
+        let expected = hex_bytes("29 11 a5");
+        for mode in [CompileMode::Mir6502, CompileMode::Optimized] {
+            assert_runtime_case(
+                "call-clobbered following argument",
+                "call_clobbered_following_argument.act",
+                mode,
+                10_000,
+                &[MemoryExpectation {
+                    start: RESULT_START,
+                    bytes: &expected,
+                }],
+            );
+        }
+    }
+
+    #[test]
     fn scaled_card_indexes_execute_through_the_vm_library() {
         let expected = hex_bytes(
             "00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55 7f a1 80 66 ff 77 7f 88 \

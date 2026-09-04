@@ -330,7 +330,10 @@ fn summarize_mir_routine(
     }
 
     MirKnownCalleeExitSummary {
-        accumulator: saw_return.then_some(accumulator).flatten(),
+        accumulator: saw_return
+            .then_some(accumulator)
+            .flatten()
+            .and_then(caller_visible_exit_value),
         zn: saw_return
             .then_some(zn)
             .flatten()
@@ -2044,6 +2047,30 @@ mod tests {
                 MirFixedZpSlot(0xA0)
             )))
         );
+    }
+
+    #[test]
+    fn does_not_export_callee_private_accumulator_provenance() {
+        let local = MirMem::Local {
+            id: crate::nir::LocalId(0),
+            offset: 0,
+        };
+        let summaries = MirKnownCalleeSummaries::analyze(&program(
+            vec![routine(
+                0,
+                vec![MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(local),
+                    width: MirWidth::Byte,
+                }],
+                MirTerminator::Return,
+            )],
+            Vec::new(),
+        ));
+
+        let summary = summaries.get(RoutineId(0)).expect("routine summary");
+        assert_eq!(summary.accumulator(), None);
+        assert_eq!(summary.zn(), None);
     }
 
     #[test]
