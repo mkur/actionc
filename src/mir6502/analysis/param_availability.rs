@@ -250,8 +250,16 @@ fn apply_op(state: &mut MirParamAvailabilityState, op: &MirOp) {
         return;
     }
     let effects = classify_op(op);
+    // Before homes are assigned, a virtual-temp definition has no explicit
+    // register write in MIR. Its eventual materialization still computes the
+    // value through A, so an entry parameter carried in A cannot survive it.
+    // Keeping that fact here would let a pre-home rewrite substitute stale A
+    // after the temp definition has been expanded.
+    let materializes_temp_through_a = !effects.logical.temp_defs.is_empty();
     state.available.homes.retain(|home, reg| {
-        !register_invalidated(&effects, *reg) && !param_home_may_be_written(&effects, *home)
+        !(materializes_temp_through_a && *reg == MirReg::A)
+            && !register_invalidated(&effects, *reg)
+            && !param_home_may_be_written(&effects, *home)
     });
 
     if let MirOp::Store {

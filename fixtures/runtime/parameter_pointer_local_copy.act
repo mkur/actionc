@@ -1,0 +1,32 @@
+; Capture a pointer parameter after a later word parameter has consumed A.
+
+BYTE result0=$0600
+BYTE result1=$0601
+BYTE result2=$0602
+BYTE result3=$0603
+BYTE signature=$0604
+
+BYTE ARRAY source(4)=[$11 $22 $33 $44]
+BYTE ARRAY other(1)=[$55]
+
+PROC ReadThroughLocal(BYTE ARRAY data CARD length)
+  BYTE ARRAY state,current
+
+  current=other
+  state=data
+  WHILE length#0 DO
+    result0=state(0)
+    result1=state(1)
+    result2=state(length-1)
+    result3=current(0)
+    length=0
+  OD
+RETURN
+
+PROC Main()
+  ReadThroughLocal(source,4)
+  signature=$A5
+
+  DO
+  OD
+RETURN

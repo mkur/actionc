@@ -1581,6 +1581,23 @@ mod tests {
     }
 
     #[test]
+    fn parameter_pointers_copy_to_locals_after_all_parameters_are_captured() {
+        let expected = hex_bytes("11 22 44 55 a5");
+        for mode in [CompileMode::Mir6502, CompileMode::Optimized] {
+            assert_runtime_case(
+                "parameter pointer to local copy",
+                "parameter_pointer_local_copy.act",
+                mode,
+                10_000,
+                &[MemoryExpectation {
+                    start: RESULT_START,
+                    bytes: &expected,
+                }],
+            );
+        }
+    }
+
+    #[test]
     fn scaled_card_indexes_execute_through_the_vm_library() {
         let expected = hex_bytes(
             "00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55 7f a1 80 66 ff 77 7f 88 \
