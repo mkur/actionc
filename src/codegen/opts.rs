@@ -509,6 +509,12 @@ impl Generator {
                 len as u16,
             );
         }
+        self.emitter
+            .jsr_instruction_offsets
+            .retain(|offset| offset.saturating_add(3) <= start || *offset >= end);
+        for offset in &mut self.emitter.jsr_instruction_offsets {
+            adjust_position_after_delete(offset, start, len);
+        }
         for candidate in &mut self.branch_inversion_candidates {
             adjust_position_after_delete(&mut candidate.branch_start, start, len);
         }
@@ -754,10 +760,15 @@ impl Generator {
             return false;
         }
         let jsr_offset = self.emitter.bytes.len() - 3;
-        if self.emitter.bytes[jsr_offset] != opcode::JSR_ABS {
+        if self.emitter.bytes[jsr_offset] != opcode::JSR_ABS
+            || !self.emitter.jsr_instruction_offsets.contains(&jsr_offset)
+        {
             return false;
         }
         self.emitter.bytes[jsr_offset] = opcode::JMP_ABS;
+        self.emitter
+            .jsr_instruction_offsets
+            .retain(|offset| *offset != jsr_offset);
         self.record_modern_optimization(
             CodegenOptimizationKind::TailCall,
             1,

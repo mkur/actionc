@@ -14186,6 +14186,34 @@ fn modern_profile_rewrites_trailing_jsr_rts_to_jmp() {
 }
 
 #[test]
+fn modern_profile_does_not_rewrite_jsr_opcode_value_inside_absolute_operand() {
+    let mut generator = test_generator(CodegenProfile::Modern);
+    generator
+        .emitter
+        .emit_lda_absolute(Absolute::output_relative(0x2011));
+    generator.emitter.emit_sta_zero_page(runtime_zp::ARGS);
+    generator.emit_return_rts(Span::new(0, 0));
+
+    assert_eq!(
+        generator.emitter.bytes,
+        [
+            opcode::LDA_ABS,
+            0x11,
+            opcode::JSR_ABS,
+            opcode::STA_ZP,
+            runtime_zp::ARGS.address(),
+            opcode::RTS,
+        ]
+    );
+    assert!(
+        generator
+            .optimizations
+            .iter()
+            .all(|optimization| optimization.kind != CodegenOptimizationKind::TailCall)
+    );
+}
+
+#[test]
 fn compatible_profile_keeps_trailing_jsr_rts_shape() {
     let mut generator = test_generator(CodegenProfile::Compat);
     generator.emitter.emit_jsr_absolute(Absolute::new(0x3456));

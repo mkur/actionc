@@ -8,6 +8,7 @@ pub struct Emitter {
     pub(super) labels: HashMap<String, usize>,
     pub(super) patches: Vec<Patch>,
     pub(super) resolved_references: Vec<ResolvedReference>,
+    pub(super) jsr_instruction_offsets: Vec<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -864,16 +865,19 @@ impl Emitter {
     }
 
     pub fn emit_jsr_abs(&mut self, address: u16) {
+        self.jsr_instruction_offsets.push(self.position());
         self.emit_u8(opcode::JSR_ABS);
         self.emit_u16_le(address);
     }
 
     pub fn emit_jsr_absolute(&mut self, absolute: Absolute) {
+        self.jsr_instruction_offsets.push(self.position());
         self.emit_u8(opcode::JSR_ABS);
         self.emit_absolute_operand(absolute);
     }
 
     pub fn emit_jsr_label(&mut self, label: impl Into<String>, span: Span) {
+        self.jsr_instruction_offsets.push(self.position());
         self.emit_u8(opcode::JSR_ABS);
         let offset = self.position();
         self.emit_absolute_operand(Absolute::new(0));
