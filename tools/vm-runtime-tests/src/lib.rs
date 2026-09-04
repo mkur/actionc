@@ -1560,6 +1560,27 @@ mod tests {
     }
 
     #[test]
+    fn multi_indexed_xor_expressions_keep_all_operands_live() {
+        let expected = hex_bytes("0f f0 a5");
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            assert_runtime_case(
+                "multi-indexed XOR expression",
+                "multi_indexed_xor_expression.act",
+                mode,
+                10_000,
+                &[MemoryExpectation {
+                    start: RESULT_START,
+                    bytes: &expected,
+                }],
+            );
+        }
+    }
+
+    #[test]
     fn scaled_card_indexes_execute_through_the_vm_library() {
         let expected = hex_bytes(
             "00 11 01 22 7f 33 80 44 ff 55 80 44 7f 33 ff 55 7f a1 80 66 ff 77 7f 88 \

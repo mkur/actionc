@@ -1,0 +1,27 @@
+; Evaluate every indexed operand before reusing expression scratch storage.
+
+BYTE result0=$0600
+BYTE result1=$0601
+BYTE signature=$0602
+
+BYTE ARRAY source(8)=[1 2 4 8 $10 $20 $40 $80]
+
+PROC FoldGroups(BYTE ARRAY data)
+  BYTE offset,tmp
+
+  offset=0
+  tmp=data(offset) XOR data(offset+1) XOR data(offset+2) XOR data(offset+3)
+  result0=tmp
+
+  offset=4
+  tmp=data(offset) XOR data(offset+1) XOR data(offset+2) XOR data(offset+3)
+  result1=tmp
+RETURN
+
+PROC Main()
+  FoldGroups(source)
+  signature=$A5
+
+  DO
+  OD
+RETURN

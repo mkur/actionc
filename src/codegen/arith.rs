@@ -1694,6 +1694,14 @@ impl Generator {
                 if !right_emitted {
                     return false;
                 }
+                // Materializing the recursive left operand may use ADDR as
+                // expression scratch too.  Preserve the already materialized
+                // right operand across that evaluation instead of allowing a
+                // nested expression to silently replace it.
+                for byte_index in (0..right_slot.size).rev() {
+                    self.emit_lda_slot_byte(right_slot, byte_index);
+                    self.emitter.emit_pha();
+                }
                 let left_slot =
                     StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), slot.size);
                 let left_emitted = if bitwise {
@@ -1703,6 +1711,10 @@ impl Generator {
                 };
                 if !left_emitted {
                     return false;
+                }
+                for byte_index in 0..right_slot.size {
+                    self.emit_pla();
+                    self.emit_sta_slot_byte(right_slot, byte_index);
                 }
                 return self.emit_binary_slot_slot_to_slot(*op, left_slot, right_slot, slot);
             }
