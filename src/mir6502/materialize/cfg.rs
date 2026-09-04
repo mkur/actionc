@@ -208,9 +208,6 @@ fn audit_counted_loop_latch_candidates(
         let flags_required = !machine_flags_dead_on_entry(&liveness, counted.body);
         report.first_entry_accumulator_required += usize::from(accumulator_required);
         report.first_entry_flags_required += usize::from(flags_required);
-        if flags_required {
-            continue;
-        }
 
         // Profitability telemetry is intentionally restricted to the exact
         // compare-preserving rotation. Other counted-loop plans have different
@@ -1921,10 +1918,7 @@ fn counted_loop_latch_plan(
                 else {
                     continue;
                 };
-                if counted.initial_guard_required
-                    || !machine_flags_dead_on_entry(&liveness, counted.body)
-                    || first_entry_state == RotatedHeadFirstEntryState::ReplayHeaderPrefix
-                {
+                if counted.initial_guard_required {
                     continue;
                 }
                 let plan = RotatedHeadTestedPlan {
@@ -4627,6 +4621,63 @@ mod tests {
         assert_eq!(report.selected, 0);
         assert_eq!(report.blocked_initial_guard, 1);
         assert_eq!(routine.blocks, original);
+    }
+
+    #[test]
+    fn exact_head_rotation_replays_the_header_when_compare_flags_are_live() {
+        let mut carry_live = ascending_head_tested_loop(0, 8);
+        carry_live.blocks[2].ops.insert(
+            0,
+            MirOp::Binary {
+                op: crate::mir6502::ir::MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::ConstU8(0),
+                right: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+                carry_in: Some(crate::mir6502::ir::MirCarryIn::FromPrevious),
+                carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+            },
+        );
+        let cfg = MirCfg::from_routine(&carry_live).expect("carry-live CFG");
+        let liveness = MirMachineLiveness::analyze(&carry_live, &cfg);
+        let values = MirMachineValueAvailability::analyze(&carry_live, &cfg);
+        let counted = analyze_counted_loops(&carry_live)
+            .into_iter()
+            .next()
+            .expect("carry-live counted loop");
+        assert_eq!(
+            rotated_head_first_entry_state(&carry_live, &liveness, &values, &counted),
+            Some(RotatedHeadFirstEntryState::ReplayHeaderPrefix)
+        );
+
+        let mut overflow_live = ascending_head_tested_loop(0, 8);
+        let update = overflow_live.blocks[2].ops.pop().expect("counter update");
+        overflow_live.blocks[2].terminator = MirTerminator::Branch {
+            cond: MirCond::FlagTest(MirFlagTest::VSet),
+            then_edge: MirEdge::plain(MirBlockId(4)),
+            else_edge: MirEdge::plain(MirBlockId(5)),
+        };
+        overflow_live.blocks.push(block(
+            4,
+            vec![update],
+            MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+        ));
+        overflow_live.blocks.push(block(
+            5,
+            Vec::new(),
+            MirTerminator::Jump(MirEdge::plain(MirBlockId(4))),
+        ));
+        let cfg = MirCfg::from_routine(&overflow_live).expect("overflow-live CFG");
+        let liveness = MirMachineLiveness::analyze(&overflow_live, &cfg);
+        let values = MirMachineValueAvailability::analyze(&overflow_live, &cfg);
+        let counted = analyze_counted_loops(&overflow_live)
+            .into_iter()
+            .next()
+            .expect("overflow-live counted loop");
+        assert_eq!(
+            rotated_head_first_entry_state(&overflow_live, &liveness, &values, &counted),
+            Some(RotatedHeadFirstEntryState::ReplayHeaderPrefix)
+        );
     }
 
     fn full_range_ascending_loop(body_prefix: Vec<MirOp>, exit_ops: Vec<MirOp>) -> MirRoutine {
