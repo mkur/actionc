@@ -1,6 +1,6 @@
 # MIR6502 Counted-Loop Latch Relaxation Plan
 
-Status: proposed. Created 2026-09-04.
+Status: implemented. Created and completed 2026-09-04.
 
 This plan is a focused continuation of
 [`MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md`](MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md).
@@ -31,6 +31,38 @@ candidate/rejection telemetry
 Each slice is independently useful, receives focused tests, and should be one
 reviewable commit. Correctness relaxation and profitability relaxation must not
 be combined in the same commit.
+
+## Implementation outcome
+
+The selector now takes a one-time census of recognized counted loops and
+reports guard, machine-state, safety, and profitability blockers without
+double-counting its fixed-point iterations. Exact head rotation carries an
+explicit first-entry state policy: no repair, reload the induction into A, or
+replay the canonical load/compare header prefix. The applicator validates that
+prefix and applies the CFG rewrite transactionally.
+
+Machine-value analysis avoids the reload when the induction initializer
+already leaves the exact memory value in A. When A or comparison flags are
+otherwise live, the preheader reconstructs only the required state. The
+original header remains unchanged on every backedge and on the exit path.
+Descending non-wrapping exact-compare loops reuse the same proof; underflow,
+full-range, and compare-free countdown transforms retain their prior gates.
+
+The exact-rotation cost model derives proven unsigned byte trip counts and
+accounts for first-entry repair, the removed initial test, and repeated latch
+edge transfers. Unknown trip counts retain strict size-decrease selection.
+Known trip counts may grow by at most six bytes and must save at least three
+estimated cycles. Telemetry reports accumulated trip counts, cycle savings,
+and static byte growth or reduction.
+
+On the standalone Atari AES workload, all eight recognized byte counted loops
+now select exact rotation; seven consume the induction value left in A. This
+includes `AddRoundKey`, `MixColumns`, and `XorWithIv`, while the previous build
+selected only `SubBytes`. The XEX changed from 4064 to 4048 bytes and execution
+from 1795 to 1777 PAL ticks (35.9 to 35.5 seconds). The emulator checksum
+remains zero and the AES result remains valid. The selector estimates 565
+cycles saved across 168 statically known loop iterations. These measurements
+are observations, not test contracts.
 
 ## Baseline and expected scope
 

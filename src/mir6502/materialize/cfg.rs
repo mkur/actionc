@@ -4550,6 +4550,24 @@ mod tests {
         }
     }
 
+    fn descending_head_tested_loop(initial: u8, inclusive_bound: u8) -> MirRoutine {
+        let mut routine = ascending_head_tested_loop(initial, inclusive_bound);
+        routine.name = "descending_counted_loop".to_string();
+        let MirOp::Compare { op, .. } = &mut routine.blocks[1].ops[1] else {
+            panic!("header compare")
+        };
+        *op = MirCompareOp::Ge;
+        let MirTerminator::Branch { cond, .. } = &mut routine.blocks[1].terminator else {
+            panic!("header branch")
+        };
+        *cond = MirCond::FlagTest(MirFlagTest::CSet);
+        let Some(MirOp::UpdateMem { op, .. }) = routine.blocks[2].ops.last_mut() else {
+            panic!("counter latch")
+        };
+        *op = MirUpdateOp::Dec;
+        routine
+    }
+
     #[test]
     fn counted_loop_latch_audit_reports_first_entry_state_and_guard_blockers() {
         let mut accumulator_live = ascending_head_tested_loop(0, 8);
@@ -4766,6 +4784,36 @@ mod tests {
             &routine.blocks[0].ops[preheader_len..],
             header_ops.as_slice()
         );
+    }
+
+    #[test]
+    fn descending_exact_compare_rotation_reuses_first_entry_state_proofs() {
+        for (initial, bound, expected_trips) in [(8, 2, 7), (128, 128, 1), (255, 254, 2)] {
+            let mut routine = descending_head_tested_loop(initial, bound);
+            routine.blocks[2].ops.insert(
+                0,
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::X),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            );
+            let layout = layout_for(&routine);
+
+            let report = select_counted_loop_latches_with_report(&mut routine, &layout);
+
+            assert_eq!(report.selected, 1, "{report:?}");
+            assert_eq!(report.selected_exact_rotation, 1);
+            assert_eq!(report.selected_exact_trip_count, expected_trips);
+            assert!(matches!(
+                routine.blocks[0].ops.last(),
+                Some(MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    width: MirWidth::Byte,
+                    ..
+                })
+            ));
+        }
     }
 
     #[test]
