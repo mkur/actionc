@@ -556,6 +556,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
             "samples/vbxe/raytracer/neon/neon_scene_probe.act",
             vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
+        dependency(
+            "samples/vbxe/raytracer/spheres/spheres_palette.act",
+            &["samples/vbxe/raytracer/spheres/spheres_raytracer.act"],
+        ),
         executable(
             "samples/vbxe/raytracer/spheres/spheres_raytracer.act",
             vec![

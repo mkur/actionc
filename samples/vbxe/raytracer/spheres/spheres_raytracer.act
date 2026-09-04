@@ -7,6 +7,7 @@ MODULE VBXE_SPHERES_RAYTRACER
 
 USE ATARI.GTIA
 USE ATARI.OS
+USE SPHERES_PALETTE AS COLORS
 USE SPHERES_SCENE AS SCENE
 USE SHARED.SCREEN AS VIDEO
 USE SYS
@@ -125,10 +126,12 @@ PROC Main()
     RETURN
   FI
 
+  COLORS.Install()
   GTIA.COLBAK=0
   OS.COLOR4=0
-  ; VIDEO.Init has installed the SR320 framebuffer and grayscale palette. The
-  ; renderer can now write palette indexes directly into extended memory.
+  ; VIDEO.Init has installed the SR320 framebuffer and COLORS has replaced the
+  ; shared palette with the golden ramp. Palette indexes can now be written
+  ; directly into extended memory.
   Render()
   WaitKey()
   VIDEO.Shutdown()

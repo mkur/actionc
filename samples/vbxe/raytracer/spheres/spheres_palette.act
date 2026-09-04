@@ -1,0 +1,64 @@
+; Warm monochrome ramp for the VBXE spheres ray tracer.
+;
+; The scene kernel returns a monotonic luminance index. These five color stops
+; preserve that ordering while tinting shadows through umber and amber into a
+; soft golden highlight.
+MODULE SPHERES_PALETTE
+
+USE ATARI.VBXE
+
+BYTE FUNC Blend(BYTE lo,hi,pos,span)
+  CARD value
+
+  value=hi
+  value=value-lo
+  value=value*pos
+  value=value/span
+RETURN(lo+BYTE(value))
+
+PROC SetColor(BYTE index,red,green,blue)
+  VBXE.Write(VBXE.REG_CSEL,index)
+  VBXE.Write(VBXE.REG_CR,red)
+  VBXE.Write(VBXE.REG_CG,green)
+  VBXE.Write(VBXE.REG_CB,blue)
+RETURN
+
+PUBLIC PROC Install()
+  BYTE color,pos,red,green,blue
+
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  color=0
+  DO
+    IF color<64 THEN
+      ; Near-black through deep umber keeps silhouettes crisp.
+      pos=color
+      red=Blend(2,45,pos,63)
+      green=Blend(1,18,pos,63)
+      blue=Blend(0,8,pos,63)
+    ELSEIF color<128 THEN
+      ; Burnished amber supplies the body of the midtones.
+      pos=color-64
+      red=Blend(45,128,pos,63)
+      green=Blend(18,65,pos,63)
+      blue=Blend(8,20,pos,63)
+    ELSEIF color<192 THEN
+      ; Rich gold separates lit surfaces from the darker checkerboard.
+      pos=color-128
+      red=Blend(128,219,pos,63)
+      green=Blend(65,158,pos,63)
+      blue=Blend(20,54,pos,63)
+    ELSE
+      ; Warm ivory avoids a harsh white endpoint in the highlights.
+      pos=color-192
+      red=Blend(219,255,pos,63)
+      green=Blend(158,244,pos,63)
+      blue=Blend(54,174,pos,63)
+    FI
+
+    SetColor(color,red,green,blue)
+    color==+1
+  UNTIL color=0
+  OD
+RETURN
+
+ENDMODULE
