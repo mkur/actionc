@@ -121,6 +121,10 @@ pub(super) struct CountedLoopLatchSelectionReport {
     pub(super) selected: usize,
     pub(super) selected_exact_rotation: usize,
     pub(super) selected_first_entry_repaired: usize,
+    pub(super) selected_exact_trip_count: usize,
+    pub(super) selected_estimated_cycles_saved: usize,
+    pub(super) selected_static_bytes_added: usize,
+    pub(super) selected_static_bytes_saved: usize,
 }
 
 pub(super) fn select_counted_loop_latches_with_report(
@@ -144,6 +148,13 @@ pub(super) fn select_counted_loop_latches_with_report(
                 ..
             })
         );
+        let exact_metrics = match plan {
+            CountedLoopLatchPlan::RotatedHeadTested(rotated) => analyze_counted_loops(routine)
+                .into_iter()
+                .find(|counted| counted.header == rotated.header)
+                .and_then(|counted| rotated_head_profitability(routine, &counted, rotated)),
+            _ => None,
+        };
         let applied = match plan {
             CountedLoopLatchPlan::HeadTested(plan) => {
                 apply_initialized_byte_countdown_plan(&mut routine.blocks, plan)
@@ -170,6 +181,12 @@ pub(super) fn select_counted_loop_latches_with_report(
         report.selected += 1;
         report.selected_exact_rotation += usize::from(exact_rotation);
         report.selected_first_entry_repaired += usize::from(first_entry_repaired);
+        if let Some(metrics) = exact_metrics {
+            report.selected_exact_trip_count += usize::from(metrics.trip_count.unwrap_or(0));
+            report.selected_estimated_cycles_saved += metrics.estimated_cycles_saved;
+            report.selected_static_bytes_added += metrics.static_bytes_added;
+            report.selected_static_bytes_saved += metrics.static_bytes_saved;
+        }
     }
     report
 }
@@ -228,12 +245,10 @@ fn audit_counted_loop_latch_candidates(
                 latch: counted.latch,
                 first_entry_state,
             };
-            let mut candidate = routine.blocks.clone();
-            if apply_rotated_head_tested_plan(&mut candidate, plan)
-                && estimated_routine_layout_bytes(&candidate)
-                    >= estimated_routine_layout_bytes(&routine.blocks)
-            {
-                report.blocked_profitability += 1;
+            match rotated_head_profitability(routine, &counted, plan) {
+                Some(metrics) if !metrics.accept => report.blocked_profitability += 1,
+                None => report.blocked_unsupported_or_unsafe += 1,
+                Some(_) => {}
             }
         }
     }
@@ -1712,6 +1727,18 @@ enum RotatedHeadFirstEntryState {
     ReplayHeaderPrefix,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RotatedHeadProfitability {
+    trip_count: Option<u16>,
+    estimated_cycles_saved: usize,
+    static_bytes_added: usize,
+    static_bytes_saved: usize,
+    accept: bool,
+}
+
+const MAX_ROTATED_HEAD_SIZE_GROWTH: usize = 6;
+const MIN_ROTATED_HEAD_CYCLE_SAVING: usize = 3;
+
 #[derive(Debug, Clone, Copy)]
 struct FullRangeDescendingByteCountdownPlan {
     preheader: MirBlockId,
@@ -1800,6 +1827,107 @@ fn rotated_head_first_entry_state(
     } else {
         Some(RotatedHeadFirstEntryState::None)
     }
+}
+
+fn exact_head_trip_count(counted: &MirCountedLoop) -> Option<u16> {
+    if counted.shape != MirCountedLoopShape::HeadTested
+        || counted.width != MirWidth::Byte
+        || counted.signed
+        || counted.step != 1
+        || counted.initial_guard_required
+    {
+        return None;
+    }
+    let initial = u16::from(const_byte(&counted.initial_value)?);
+    match counted.direction {
+        MirCountDirection::Ascending if initial < counted.bound => {
+            counted.bound.checked_sub(initial)
+        }
+        MirCountDirection::Descending if counted.bound > 0 && initial >= counted.bound => initial
+            .checked_sub(counted.bound)
+            .and_then(|distance| distance.checked_add(1)),
+        MirCountDirection::Ascending | MirCountDirection::Descending => None,
+    }
+}
+
+fn estimated_jump_transfer_cycles(
+    blocks: &[MirBlock],
+    source: MirBlockId,
+    target: MirBlockId,
+) -> Option<usize> {
+    let index = blocks.iter().position(|block| block.id == source)?;
+    if !matches!(
+        blocks[index].terminator,
+        MirTerminator::Jump(ref edge) if edge.target == target && edge.args.is_empty()
+    ) {
+        return None;
+    }
+    Some(
+        if blocks.get(index.saturating_add(1)).map(|block| block.id) == Some(target) {
+            0
+        } else {
+            3
+        },
+    )
+}
+
+fn rotated_head_profitability(
+    routine: &MirRoutine,
+    counted: &MirCountedLoop,
+    plan: RotatedHeadTestedPlan,
+) -> Option<RotatedHeadProfitability> {
+    let original_bytes = estimated_routine_layout_bytes(&routine.blocks);
+    let first_entry_ops = rotated_head_first_entry_ops(&routine.blocks, plan)?;
+    let header = routine
+        .blocks
+        .iter()
+        .find(|block| block.id == counted.header)?;
+    let header_cycles =
+        usize::from(crate::mir6502::rewrite::posthome::estimated_6502_cost(&header.ops).1);
+    let repair_cycles =
+        usize::from(crate::mir6502::rewrite::posthome::estimated_6502_cost(&first_entry_ops).1);
+    let original_preheader_cycles =
+        estimated_jump_transfer_cycles(&routine.blocks, counted.preheader, counted.header)?;
+    let original_latch_cycles =
+        estimated_jump_transfer_cycles(&routine.blocks, counted.latch, counted.header)?;
+
+    let mut candidate = routine.blocks.clone();
+    if !apply_rotated_head_tested_plan(&mut candidate, plan) {
+        return None;
+    }
+    let candidate_bytes = estimated_routine_layout_bytes(&candidate);
+    let candidate_preheader_cycles =
+        estimated_jump_transfer_cycles(&candidate, counted.preheader, counted.body)?;
+    let candidate_latch_cycles =
+        estimated_jump_transfer_cycles(&candidate, counted.latch, counted.header)?;
+    let static_bytes_added = candidate_bytes.saturating_sub(original_bytes);
+    let static_bytes_saved = original_bytes.saturating_sub(candidate_bytes);
+    let trip_count = exact_head_trip_count(counted);
+    let estimated_cycles_saved = trip_count.map_or(0, |trip_count| {
+        let trips = usize::from(trip_count);
+        let original_extra = header_cycles
+            .saturating_add(2)
+            .saturating_add(original_preheader_cycles)
+            .saturating_add(original_latch_cycles.saturating_mul(trips));
+        let rotated_extra = repair_cycles
+            .saturating_add(candidate_preheader_cycles)
+            .saturating_add(candidate_latch_cycles.saturating_mul(trips));
+        original_extra.saturating_sub(rotated_extra)
+    });
+    let accept = if candidate_bytes < original_bytes {
+        true
+    } else {
+        trip_count.is_some()
+            && static_bytes_added <= MAX_ROTATED_HEAD_SIZE_GROWTH
+            && estimated_cycles_saved >= MIN_ROTATED_HEAD_CYCLE_SAVING
+    };
+    Some(RotatedHeadProfitability {
+        trip_count,
+        estimated_cycles_saved,
+        static_bytes_added,
+        static_bytes_saved,
+        accept,
+    })
 }
 
 fn counted_loop_latch_plan(
@@ -1928,10 +2056,8 @@ fn counted_loop_latch_plan(
                     latch: counted.latch,
                     first_entry_state,
                 };
-                let mut candidate = routine.blocks.clone();
-                if apply_rotated_head_tested_plan(&mut candidate, plan)
-                    && estimated_routine_layout_bytes(&candidate)
-                        < estimated_routine_layout_bytes(&routine.blocks)
+                if rotated_head_profitability(routine, &counted, plan)
+                    .is_some_and(|metrics| metrics.accept)
                 {
                     return Some(CountedLoopLatchPlan::RotatedHeadTested(plan));
                 }
@@ -2702,6 +2828,48 @@ fn redirect_block_target(
     }
 }
 
+fn rotated_head_first_entry_ops(
+    blocks: &[MirBlock],
+    plan: RotatedHeadTestedPlan,
+) -> Option<Vec<MirOp>> {
+    let header = blocks.iter().find(|block| block.id == plan.header)?;
+    match plan.first_entry_state {
+        RotatedHeadFirstEntryState::None => Some(Vec::new()),
+        RotatedHeadFirstEntryState::LoadInductionIntoA => match header.ops.as_slice() {
+            [
+                load @ MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(_),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Compare {
+                    dst: crate::mir6502::ir::MirCondDest::Flags,
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                    ..
+                },
+            ] => Some(vec![load.clone()]),
+            _ => None,
+        },
+        RotatedHeadFirstEntryState::ReplayHeaderPrefix => match header.ops.as_slice() {
+            [
+                MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::Direct(_),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Compare {
+                    dst: crate::mir6502::ir::MirCondDest::Flags,
+                    left: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                    ..
+                },
+            ] => Some(header.ops.clone()),
+            _ => None,
+        },
+    }
+}
+
 fn apply_rotated_head_tested_plan(blocks: &mut Vec<MirBlock>, plan: RotatedHeadTestedPlan) -> bool {
     let mut candidate = blocks.clone();
     let Some(preheader_index) = candidate
@@ -2710,7 +2878,7 @@ fn apply_rotated_head_tested_plan(blocks: &mut Vec<MirBlock>, plan: RotatedHeadT
     else {
         return false;
     };
-    let Some(header_index) = candidate.iter().position(|block| block.id == plan.header) else {
+    let Some(_header_index) = candidate.iter().position(|block| block.id == plan.header) else {
         return false;
     };
     if !candidate.iter().any(|block| block.id == plan.body)
@@ -2724,44 +2892,8 @@ fn apply_rotated_head_tested_plan(blocks: &mut Vec<MirBlock>, plan: RotatedHeadT
     ) {
         return false;
     }
-    let first_entry_ops = match plan.first_entry_state {
-        RotatedHeadFirstEntryState::None => Vec::new(),
-        RotatedHeadFirstEntryState::LoadInductionIntoA => {
-            match candidate[header_index].ops.as_slice() {
-                [
-                    load @ MirOp::Load {
-                        dst: MirDef::Reg(MirReg::A),
-                        src: MirAddr::Direct(_),
-                        width: MirWidth::Byte,
-                    },
-                    MirOp::Compare {
-                        dst: crate::mir6502::ir::MirCondDest::Flags,
-                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
-                        width: MirWidth::Byte,
-                        ..
-                    },
-                ] => vec![load.clone()],
-                _ => return false,
-            }
-        }
-        RotatedHeadFirstEntryState::ReplayHeaderPrefix => {
-            match candidate[header_index].ops.as_slice() {
-                [
-                    MirOp::Load {
-                        dst: MirDef::Reg(MirReg::A),
-                        src: MirAddr::Direct(_),
-                        width: MirWidth::Byte,
-                    },
-                    MirOp::Compare {
-                        dst: crate::mir6502::ir::MirCondDest::Flags,
-                        left: MirValue::Def(MirDef::Reg(MirReg::A)),
-                        width: MirWidth::Byte,
-                        ..
-                    },
-                ] => candidate[header_index].ops.clone(),
-                _ => return false,
-            }
-        }
+    let Some(first_entry_ops) = rotated_head_first_entry_ops(&candidate, plan) else {
+        return false;
     };
     candidate[preheader_index].ops.extend(first_entry_ops);
     candidate[preheader_index].terminator = MirTerminator::Jump(MirEdge::plain(plan.body));
@@ -4571,6 +4703,153 @@ mod tests {
                 MirTerminator::Jump(ref edge) if edge.target == MirBlockId(2)
             ));
         }
+    }
+
+    #[test]
+    fn trip_counted_profitability_accepts_an_explicit_first_entry_a_reload() {
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[2].ops.insert(
+            0,
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        );
+        let layout = layout_for(&routine);
+
+        let report = select_counted_loop_latches_with_report(&mut routine, &layout);
+
+        assert_eq!(report.selected, 1, "{report:?}");
+        assert_eq!(report.selected_first_entry_repaired, 1);
+        assert_eq!(report.selected_exact_trip_count, 8);
+        assert!(
+            report.selected_estimated_cycles_saved >= MIN_ROTATED_HEAD_CYCLE_SAVING,
+            "{report:?}"
+        );
+        assert!(report.selected_static_bytes_added <= MAX_ROTATED_HEAD_SIZE_GROWTH);
+        assert!(matches!(
+            routine.blocks[0].ops.last(),
+            Some(MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::Absolute(0x0080)),
+                width: MirWidth::Byte,
+            })
+        ));
+    }
+
+    #[test]
+    fn trip_counted_profitability_accepts_exact_compare_flag_replay() {
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[2].ops.insert(
+            0,
+            MirOp::Binary {
+                op: crate::mir6502::ir::MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::ConstU8(0),
+                right: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+                carry_in: Some(crate::mir6502::ir::MirCarryIn::FromPrevious),
+                carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+            },
+        );
+        let header_ops = routine.blocks[1].ops.clone();
+        let preheader_len = routine.blocks[0].ops.len();
+        let layout = layout_for(&routine);
+
+        let report = select_counted_loop_latches_with_report(&mut routine, &layout);
+
+        assert_eq!(report.selected, 1, "{report:?}");
+        assert_eq!(report.selected_first_entry_repaired, 1);
+        assert_eq!(report.selected_exact_trip_count, 8);
+        assert_eq!(
+            &routine.blocks[0].ops[preheader_len..],
+            header_ops.as_slice()
+        );
+    }
+
+    #[test]
+    fn exact_head_trip_counts_cover_unsigned_nonwrapping_boundaries() {
+        let routine = ascending_head_tested_loop(0, 1);
+        let mut counted = analyze_counted_loops(&routine)
+            .into_iter()
+            .next()
+            .expect("counted loop");
+        for (initial, bound, expected) in [
+            (0, 1, Some(1)),
+            (0, 127, Some(127)),
+            (127, 128, Some(1)),
+            (254, 255, Some(1)),
+        ] {
+            counted.direction = MirCountDirection::Ascending;
+            counted.initial_value = MirValue::ConstU8(initial);
+            counted.bound = bound;
+            counted.initial_guard_required = false;
+            assert_eq!(exact_head_trip_count(&counted), expected);
+        }
+
+        for (initial, bound, expected) in [
+            (1, 1, Some(1)),
+            (128, 128, Some(1)),
+            (255, 1, Some(255)),
+            (255, 255, Some(1)),
+            (255, 0, None),
+        ] {
+            counted.direction = MirCountDirection::Descending;
+            counted.initial_value = MirValue::ConstU8(initial);
+            counted.bound = bound;
+            counted.initial_guard_required = false;
+            assert_eq!(exact_head_trip_count(&counted), expected);
+        }
+
+        counted.direction = MirCountDirection::Ascending;
+        counted.initial_value = MirValue::Def(MirDef::Reg(MirReg::X));
+        counted.bound = 8;
+        assert_eq!(exact_head_trip_count(&counted), None);
+        counted.initial_value = MirValue::ConstU8(8);
+        counted.initial_guard_required = true;
+        assert_eq!(exact_head_trip_count(&counted), None);
+    }
+
+    #[test]
+    fn unknown_trip_count_retains_the_strict_size_rule() {
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[2].ops.insert(
+            0,
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        );
+        let cfg = MirCfg::from_routine(&routine).expect("unknown-trip CFG");
+        let liveness = MirMachineLiveness::analyze(&routine, &cfg);
+        let values = MirMachineValueAvailability::analyze(&routine, &cfg);
+        let mut counted = analyze_counted_loops(&routine)
+            .into_iter()
+            .next()
+            .expect("unknown-trip counted loop");
+        counted.initial_value = MirValue::Def(MirDef::Reg(MirReg::X));
+        counted.initial_guard_required = false;
+        let first_entry_state =
+            rotated_head_first_entry_state(&routine, &liveness, &values, &counted)
+                .expect("replayable header");
+        let metrics = rotated_head_profitability(
+            &routine,
+            &counted,
+            RotatedHeadTestedPlan {
+                preheader: counted.preheader,
+                header: counted.header,
+                body: counted.body,
+                latch: counted.latch,
+                first_entry_state,
+            },
+        )
+        .expect("profitability estimate");
+
+        assert_eq!(metrics.trip_count, None);
+        assert_eq!(metrics.static_bytes_saved, 0);
+        assert!(!metrics.accept);
     }
 
     #[test]

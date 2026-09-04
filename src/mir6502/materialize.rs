@@ -1626,6 +1626,26 @@ pub(super) fn materialize_program(
         );
         peephole_stats.record_many(
             routine.id,
+            "counted-loop-latch-selected-exact-trip-count",
+            latch_report.selected_exact_trip_count,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-estimated-cycles-saved",
+            latch_report.selected_estimated_cycles_saved,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-static-bytes-added",
+            latch_report.selected_static_bytes_added,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-static-bytes-saved",
+            latch_report.selected_static_bytes_saved,
+        );
+        peephole_stats.record_many(
+            routine.id,
             "counted-loop-latch-selected",
             latch_report.selected,
         );
