@@ -1860,6 +1860,15 @@ impl Analyzer {
             ));
             return;
         }
+        if expected.as_callable_pointer().is_some()
+            && actual.as_callable_pointer().is_some()
+            && !type_can_assign(expected, actual)
+        {
+            self.diagnostics.push(Diagnostic::new(
+                value.span,
+                format!("cannot assign {:?} to {:?}", actual, expected),
+            ));
+        }
     }
 
     fn record_assignment_source(
@@ -3304,11 +3313,22 @@ impl Analyzer {
         args: &[Expr],
         span: Span,
     ) {
-        if signature.variadic.is_none() && args.len() > signature.params.len() {
+        if signature.variadic.is_none() && args.len() != signature.params.len() {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 format!(
-                    "`{name}` expects at most {} argument(s), got {}",
+                    "`{name}` expects {} argument(s), got {}",
+                    signature.params.len(),
+                    args.len()
+                ),
+            ));
+            return;
+        }
+        if signature.variadic.is_some() && args.len() < signature.params.len() {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!(
+                    "`{name}` expects at least {} argument(s), got {}",
                     signature.params.len(),
                     args.len()
                 ),
@@ -4303,6 +4323,27 @@ impl Analyzer {
     }
 
     fn value_type_from_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
+        if let TypeBase::Callable(callable) = &ty.base {
+            let params = callable.params.iter().map(|param| {
+                let ty = self.value_type_from_type_ref(scope, &param.ty);
+                if param.storage == VarStorage::Array || is_string_type_ref(&param.ty) {
+                    ValueType::pointer_to(ty)
+                } else {
+                    ty
+                }
+            });
+            let return_type = match &callable.kind {
+                RoutineKind::Proc => None,
+                RoutineKind::Func { return_type } => {
+                    Some(self.value_type_from_type_ref(scope, return_type))
+                }
+            };
+            return ValueType::callable_pointer(CallableType::new(
+                callable.kind.clone(),
+                params,
+                return_type,
+            ));
+        }
         let mut value = ValueType::from_type_ref(ty);
         let TypeBase::Named(name) = &ty.base else {
             return value;
@@ -4686,9 +4727,19 @@ impl ValueType {
                 ValueTypeBase::Fund(FundType::Char)
             }
             TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
-            TypeBase::Callable(kind) => ValueTypeBase::Callable(Box::new(
-                CallableType::from_routine_kind(kind.clone(), Vec::new()),
-            )),
+            TypeBase::Callable(callable) => {
+                ValueTypeBase::Callable(Box::new(CallableType::from_routine_kind(
+                    callable.kind.clone(),
+                    callable.params.iter().map(|param| {
+                        let ty = ValueType::from_type_ref(&param.ty);
+                        if param.storage == VarStorage::Array {
+                            ValueType::pointer_to(ty)
+                        } else {
+                            ty
+                        }
+                    }),
+                )))
+            }
         };
 
         Self {

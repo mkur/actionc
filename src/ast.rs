@@ -284,6 +284,18 @@ pub struct TypeRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallableTypeRef {
+    pub kind: RoutineKind,
+    pub params: Vec<CallableParamTypeRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallableParamTypeRef {
+    pub ty: TypeRef,
+    pub storage: VarStorage,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeBase {
     Fund(FundType),
     /// Compiler-internal carrier for the modern semantic native REAL type.
@@ -292,7 +304,7 @@ pub enum TypeBase {
     /// identifier spelling.
     NativeReal,
     Named(QualifiedName),
-    Callable(RoutineKind),
+    Callable(Box<CallableTypeRef>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

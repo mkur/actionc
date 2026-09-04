@@ -1949,7 +1949,7 @@ fn type_ref_summary(ty: &crate::ast::TypeRef) -> String {
         crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
         crate::ast::TypeBase::NativeReal => "REAL".to_string(),
         crate::ast::TypeBase::Named(name) => name.to_string(),
-        crate::ast::TypeBase::Callable(kind) => routine_kind_summary(kind),
+        crate::ast::TypeBase::Callable(callable) => routine_kind_summary(&callable.kind),
     };
     if ty.pointer {
         format!("{base} POINTER")
@@ -4694,9 +4694,19 @@ impl From<&crate::ast::TypeRef> for ValueType {
                 ValueTypeBase::Fund(FundType::Char)
             }
             crate::ast::TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
-            crate::ast::TypeBase::Callable(kind) => ValueTypeBase::Callable(Box::new(
-                CallableType::from_routine_kind(kind.clone(), Vec::new()),
-            )),
+            crate::ast::TypeBase::Callable(callable) => {
+                ValueTypeBase::Callable(Box::new(CallableType::from_routine_kind(
+                    callable.kind.clone(),
+                    callable.params.iter().map(|param| {
+                        let ty = ValueType::from(&param.ty);
+                        if param.storage == crate::ast::VarStorage::Array {
+                            ValueType::pointer_to(ty)
+                        } else {
+                            ty
+                        }
+                    }),
+                )))
+            }
         };
 
         Self {
@@ -4773,7 +4783,10 @@ fn type_ref_from_value(value: &ValueType) -> crate::ast::TypeRef {
             ValueTypeBase::Real => crate::ast::TypeBase::NativeReal,
             ValueTypeBase::Named(name) => crate::ast::TypeBase::Named(name.as_str().into()),
             ValueTypeBase::Callable(callable) => {
-                crate::ast::TypeBase::Callable(callable.kind.clone())
+                crate::ast::TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                    kind: callable.kind.clone(),
+                    params: Vec::new(),
+                }))
             }
             ValueTypeBase::Error => crate::ast::TypeBase::Named("<error>".into()),
         },

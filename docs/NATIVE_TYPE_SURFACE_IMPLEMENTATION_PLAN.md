@@ -262,6 +262,12 @@ language: generalize function result types
 
 ### Slice 4: complete callable-pointer signatures
 
+Status: complete. Callable declarations now retain prototype parameter types,
+including array-parameter decay, and propagate them through semantic and NIR
+signature identity. Routine-address assignment requires the same structured
+signature, while indirect calls enforce their prototype's arity and types.
+Plain, array, record-field, and routine-parameter storage are covered.
+
 1. Extend callable type syntax and the AST with prototype parameters and a
    complete result type.
 2. Resolve prototype parameter types without allocating parameter objects.

@@ -852,7 +852,7 @@ impl<'a> Parser<'a> {
         let qualifiers = VarQualifiers {
             is_volatile: self.eat_contextual("VOLATILE"),
         };
-        let ty = self.parse_type_ref().unwrap_or_else(|| TypeRef {
+        let mut ty = self.parse_type_ref().unwrap_or_else(|| TypeRef {
             base: TypeBase::Named(QualifiedName::simple("<missing type>")),
             pointer: false,
         });
@@ -861,7 +861,7 @@ impl<'a> Parser<'a> {
         } else {
             VarStorage::Plain
         };
-        let entries = self.parse_decl_entries(&ty, storage, stop);
+        let entries = self.parse_decl_entries(&mut ty, storage, stop);
 
         VarDecl {
             visibility: Visibility::Private,
@@ -875,8 +875,8 @@ impl<'a> Parser<'a> {
 
     fn parse_decl_entries(
         &mut self,
-        ty: &TypeRef,
-        _storage: VarStorage,
+        ty: &mut TypeRef,
+        storage: VarStorage,
         stop: Stop,
     ) -> Vec<DeclEntry> {
         let mut entries = Vec::new();
@@ -903,13 +903,25 @@ impl<'a> Parser<'a> {
             let Some(name) = self.expect_ident() else {
                 break;
             };
-            let size = if self.eat(TokenKind::LParen) {
+            let size = if storage == VarStorage::Plain
+                && matches!(ty.base, TypeBase::Callable(_))
+                && self.check(TokenKind::LParen)
+            {
+                self.parse_callable_prototype(ty);
+                None
+            } else if self.eat(TokenKind::LParen) {
                 let size = self.collect_expr_until(Stop::array_size());
                 self.expect(TokenKind::RParen);
                 Some(size)
             } else {
                 None
             };
+            if storage == VarStorage::Array
+                && matches!(ty.base, TypeBase::Callable(_))
+                && self.check(TokenKind::LParen)
+            {
+                self.parse_callable_prototype(ty);
+            }
             let initializer = if self.eat(TokenKind::Assign) {
                 Some(self.collect_initializer_expr(stop.for_initializer()))
             } else {
@@ -924,6 +936,25 @@ impl<'a> Parser<'a> {
         }
 
         entries
+    }
+
+    fn parse_callable_prototype(&mut self, ty: &mut TypeRef) {
+        let params = self.parse_param_list();
+        if let TypeBase::Callable(callable) = &mut ty.base {
+            callable.params = params
+                .into_iter()
+                .flat_map(|decl| {
+                    let count = decl.entries.len();
+                    std::iter::repeat_n(
+                        crate::ast::CallableParamTypeRef {
+                            ty: decl.ty,
+                            storage: decl.storage,
+                        },
+                        count,
+                    )
+                })
+                .collect();
+        }
     }
 
     fn comma_continues_named_pointer_decl(&self, ty: &TypeRef) -> bool {
@@ -1520,7 +1551,10 @@ impl<'a> Parser<'a> {
         if self.eat_keyword(Keyword::Proc) {
             self.expect_keyword(Keyword::Pointer);
             return Some(TypeRef {
-                base: TypeBase::Callable(RoutineKind::Proc),
+                base: TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                    kind: RoutineKind::Proc,
+                    params: Vec::new(),
+                })),
                 pointer: false,
             });
         }
@@ -1538,9 +1572,12 @@ impl<'a> Parser<'a> {
         if self.eat_keyword(Keyword::Func) {
             self.expect_keyword(Keyword::Pointer);
             return Some(TypeRef {
-                base: TypeBase::Callable(RoutineKind::Func {
-                    return_type: Box::new(result),
-                }),
+                base: TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                    kind: RoutineKind::Func {
+                        return_type: Box::new(result),
+                    },
+                    params: Vec::new(),
+                })),
                 pointer: false,
             });
         }
@@ -1952,15 +1989,13 @@ impl<'a> Parser<'a> {
         matches!(
             (
                 self.tokens.get(pos).map(|token| &token.kind),
-                self.tokens.get(pos + 1).map(|token| &token.kind),
-                self.tokens.get(pos + 2).map(|token| &token.kind)
+                self.tokens.get(pos + 1).map(|token| &token.kind)
             ),
             (
                 Some(TokenKind::Keyword(Keyword::Proc)),
-                Some(TokenKind::Keyword(Keyword::Pointer)),
-                Some(TokenKind::Ident(_))
+                Some(TokenKind::Keyword(Keyword::Pointer))
             )
-        )
+        ) && self.callable_decl_name_follows(pos + 2)
     }
 
     fn is_func_pointer_decl_start_at(&self, pos: usize) -> bool {
@@ -1968,16 +2003,30 @@ impl<'a> Parser<'a> {
             matches!(
                 (
                     self.tokens.get(end).map(|token| &token.kind),
-                    self.tokens.get(end + 1).map(|token| &token.kind),
-                    self.tokens.get(end + 2).map(|token| &token.kind)
+                    self.tokens.get(end + 1).map(|token| &token.kind)
                 ),
                 (
                     Some(TokenKind::Keyword(Keyword::Func)),
-                    Some(TokenKind::Keyword(Keyword::Pointer)),
-                    Some(TokenKind::Ident(_))
+                    Some(TokenKind::Keyword(Keyword::Pointer))
                 )
-            )
+            ) && self.callable_decl_name_follows(end + 2)
         })
+    }
+
+    fn callable_decl_name_follows(&self, pos: usize) -> bool {
+        matches!(
+            self.tokens.get(pos).map(|token| &token.kind),
+            Some(TokenKind::Ident(_))
+        ) || matches!(
+            (
+                self.tokens.get(pos).map(|token| &token.kind),
+                self.tokens.get(pos + 1).map(|token| &token.kind)
+            ),
+            (
+                Some(TokenKind::Keyword(Keyword::Array)),
+                Some(TokenKind::Ident(_))
+            )
+        )
     }
 
     fn is_named_var_decl_start_at(&self, pos: usize) -> bool {
@@ -4369,14 +4418,18 @@ mod tests {
         let Item::Declaration(Decl::Var(proc_ptr)) = &program.modules[0].items[0] else {
             panic!("expected proc pointer declaration");
         };
-        let TypeBase::Callable(RoutineKind::Proc) = &proc_ptr.ty.base else {
+        let TypeBase::Callable(proc_callable) = &proc_ptr.ty.base else {
             panic!("expected PROC POINTER type, got {:#?}", proc_ptr.ty);
         };
+        assert!(matches!(proc_callable.kind, RoutineKind::Proc));
         let Item::Declaration(Decl::Var(func_ptr)) = &program.modules[0].items[1] else {
             panic!("expected func pointer declaration");
         };
-        let TypeBase::Callable(RoutineKind::Func { return_type }) = &func_ptr.ty.base else {
+        let TypeBase::Callable(func_callable) = &func_ptr.ty.base else {
             panic!("expected FUNC POINTER type, got {:#?}", func_ptr.ty);
+        };
+        let RoutineKind::Func { return_type } = &func_callable.kind else {
+            panic!("expected function callable kind");
         };
         assert_eq!(return_type.base, TypeBase::Fund(FundType::Byte));
         assert!(!return_type.pointer);

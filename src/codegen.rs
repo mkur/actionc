@@ -1325,7 +1325,7 @@ fn type_ref_trace_name(ty: &TypeRef) -> String {
         TypeBase::Fund(fund) => fund_type_trace_name(*fund).to_string(),
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
-        TypeBase::Callable(kind) => match kind {
+        TypeBase::Callable(callable) => match &callable.kind {
             RoutineKind::Proc => "PROC".to_string(),
             RoutineKind::Func { return_type } => {
                 format!("{}FUNC", type_ref_trace_name(return_type))
@@ -1401,15 +1401,15 @@ fn collect_callable_pointer_decl(
     decl: &VarDecl,
     pointers: &mut HashMap<String, CallablePointerInfo>,
 ) {
-    let TypeBase::Callable(kind) = &decl.ty.base else {
+    let TypeBase::Callable(callable) = &decl.ty.base else {
         return;
     };
-    let return_slot = callable_pointer_return_slot(kind);
+    let return_slot = callable_pointer_return_slot(&callable.kind);
     for entry in &decl.entries {
         pointers.insert(
             normalize_name(&entry.name),
             CallablePointerInfo {
-                kind: kind.clone(),
+                kind: callable.kind.clone(),
                 return_slot,
             },
         );

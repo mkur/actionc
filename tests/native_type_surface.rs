@@ -1,5 +1,5 @@
 use actionc::lexer::tokenize;
-use actionc::nir::{self, NirDataFragment, NirIntegerType, NirTypeKind};
+use actionc::nir::{self, NirCallee, NirDataFragment, NirIntegerType, NirOp, NirTypeKind};
 use actionc::parser::parse;
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 use actionc::target::TargetId;
@@ -159,4 +159,99 @@ RETURN
         Some(&NirTypeKind::Integer(NirIntegerType::U32))
     );
     actionc::mir68k::lower_program(&program).expect("lower generalized results to MIR68K");
+}
+
+#[test]
+fn callable_pointer_prototypes_survive_all_storage_shapes_and_indirect_calls() {
+    let program = lower(
+        "TYPE Holder=[BYTE FUNC POINTER callback(BYTE value)]
+BYTE FUNC POINTER global(BYTE value)
+BYTE FUNC POINTER ARRAY table(2)(BYTE value)
+
+BYTE FUNC Echo(BYTE value)
+  RETURN(value)
+
+PROC Invoke(BYTE FUNC POINTER callback(BYTE value))
+  callback(7)
+RETURN
+
+PROC Main()
+  Holder holder
+  BYTE FUNC POINTER local(BYTE value)
+  global=@Echo
+  local=@Echo
+  holder.callback=@Echo
+  table(0)=@Echo
+  Invoke(local)
+  local(1)
+RETURN
+",
+        TargetId::Motorola68000,
+    );
+
+    let global = program
+        .globals
+        .iter()
+        .find(|global| global.name == "global")
+        .expect("typed global callback");
+    assert!(matches!(
+        global.ty.as_ref().map(|ty| &ty.kind),
+        Some(NirTypeKind::Callable { .. })
+    ));
+
+    let main = program
+        .routines
+        .iter()
+        .find(|routine| routine.name == "Main")
+        .expect("Main routine");
+    let indirect = main
+        .blocks
+        .iter()
+        .flat_map(|block| &block.ops)
+        .find_map(|op| match op {
+            NirOp::Call {
+                callee: NirCallee::Indirect { .. },
+                signature,
+                ..
+            } => signature.as_ref(),
+            _ => None,
+        })
+        .expect("indirect typed call");
+    assert_eq!(indirect.params.len(), 1);
+    assert_eq!(indirect.params[0].kind, NirTypeKind::U8);
+    assert_eq!(
+        indirect.result.as_ref().map(|ty| &ty.kind),
+        Some(&NirTypeKind::U8)
+    );
+}
+
+#[test]
+fn callable_pointer_prototypes_enforce_assignment_and_indirect_arity() {
+    let source = "BYTE FUNC TakesByte(BYTE value) RETURN(value)
+BYTE FUNC POINTER takesCard(CARD value)
+BYTE FUNC POINTER byteCallback(BYTE value)
+PROC Main()
+  takesCard=@TakesByte
+  byteCallback()
+RETURN
+";
+    let tokens = tokenize(source).expect("tokenize callable diagnostics source");
+    let program = parse(&tokens).expect("parse callable diagnostics source");
+    let diagnostics = analyze_with_options(
+        &program,
+        SemanticOptions::modern().with_target(TargetId::Motorola68000),
+    )
+    .expect_err("reject incompatible callable use");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("cannot assign")),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.message.contains("expects 1 argument(s), got 0") }),
+        "{diagnostics:#?}"
+    );
 }

@@ -473,7 +473,7 @@ fn ast_type_ref_summary(ty: &crate::ast::TypeRef) -> String {
         crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
         crate::ast::TypeBase::NativeReal => "REAL".to_string(),
         crate::ast::TypeBase::Named(name) => name.to_string(),
-        crate::ast::TypeBase::Callable(kind) => callable_kind_summary(kind),
+        crate::ast::TypeBase::Callable(callable) => callable_kind_summary(&callable.kind),
     };
     if ty.pointer { format!("{base}*") } else { base }
 }

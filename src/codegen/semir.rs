@@ -1019,7 +1019,12 @@ impl SemIrAstLowerer<'_> {
                         .unwrap_or_else(|| name.clone())
                         .into(),
                 ),
-                ValueTypeBase::Callable(callable) => TypeBase::Callable(callable.kind.clone()),
+                ValueTypeBase::Callable(callable) => {
+                    TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                        kind: callable.kind.clone(),
+                        params: Vec::new(),
+                    }))
+                }
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
             pointer: ty.pointer && !matches!(ty.base, ValueTypeBase::Callable(_)),
@@ -1904,7 +1909,7 @@ fn type_ref_text(ty: &TypeRef) -> String {
         },
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
-        TypeBase::Callable(kind) => routine_kind_text(kind),
+        TypeBase::Callable(callable) => routine_kind_text(&callable.kind),
     };
     if ty.pointer {
         format!("{base} POINTER")
