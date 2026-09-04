@@ -4,6 +4,7 @@ use crate::mir6502::analysis::counted_loops::{
 };
 use crate::mir6502::analysis::effects::{MirFlagSet, classify_op, classify_terminator};
 use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
+use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueAvailability};
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
     MirAddr, MirBlock, MirBlockId, MirByteIndexedSource, MirCallTarget, MirCond, MirDef, MirEdge,
@@ -119,6 +120,7 @@ pub(super) struct CountedLoopLatchSelectionReport {
     pub(super) blocked_profitability: usize,
     pub(super) selected: usize,
     pub(super) selected_exact_rotation: usize,
+    pub(super) selected_first_entry_repaired: usize,
 }
 
 pub(super) fn select_counted_loop_latches_with_report(
@@ -134,6 +136,14 @@ pub(super) fn select_counted_loop_latches_with_report(
             break;
         };
         let exact_rotation = matches!(plan, CountedLoopLatchPlan::RotatedHeadTested(_));
+        let first_entry_repaired = matches!(
+            plan,
+            CountedLoopLatchPlan::RotatedHeadTested(RotatedHeadTestedPlan {
+                first_entry_state: RotatedHeadFirstEntryState::LoadInductionIntoA
+                    | RotatedHeadFirstEntryState::ReplayHeaderPrefix,
+                ..
+            })
+        );
         let applied = match plan {
             CountedLoopLatchPlan::HeadTested(plan) => {
                 apply_initialized_byte_countdown_plan(&mut routine.blocks, plan)
@@ -159,6 +169,7 @@ pub(super) fn select_counted_loop_latches_with_report(
         }
         report.selected += 1;
         report.selected_exact_rotation += usize::from(exact_rotation);
+        report.selected_first_entry_repaired += usize::from(first_entry_repaired);
     }
     report
 }
@@ -171,6 +182,7 @@ fn audit_counted_loop_latch_candidates(
         return CountedLoopLatchSelectionReport::default();
     };
     let liveness = MirMachineLiveness::analyze(routine, &cfg);
+    let machine_values = MirMachineValueAvailability::analyze(routine, &cfg);
     let mut report = CountedLoopLatchSelectionReport::default();
     for counted in analyze_counted_loops(routine) {
         report.candidates += 1;
@@ -196,7 +208,7 @@ fn audit_counted_loop_latch_candidates(
         let flags_required = !machine_flags_dead_on_entry(&liveness, counted.body);
         report.first_entry_accumulator_required += usize::from(accumulator_required);
         report.first_entry_flags_required += usize::from(flags_required);
-        if accumulator_required || flags_required {
+        if flags_required {
             continue;
         }
 
@@ -206,12 +218,18 @@ fn audit_counted_loop_latch_candidates(
         if counted.shape == MirCountedLoopShape::HeadTested
             && !(counted.direction == MirCountDirection::Descending && counted.bound == 1)
         {
+            let Some(first_entry_state) =
+                rotated_head_first_entry_state(routine, &liveness, &machine_values, &counted)
+            else {
+                report.blocked_unsupported_or_unsafe += 1;
+                continue;
+            };
             let plan = RotatedHeadTestedPlan {
                 preheader: counted.preheader,
                 header: counted.header,
                 body: counted.body,
                 latch: counted.latch,
-                first_entry_state: RotatedHeadFirstEntryState::None,
+                first_entry_state,
             };
             let mut candidate = routine.blocks.clone();
             if apply_rotated_head_tested_plan(&mut candidate, plan)
@@ -1741,6 +1759,7 @@ enum BottomFastBodyShape {
 fn rotated_head_first_entry_state(
     routine: &MirRoutine,
     liveness: &MirMachineLiveness,
+    machine_values: &MirMachineValueAvailability,
     counted: &MirCountedLoop,
 ) -> Option<RotatedHeadFirstEntryState> {
     let header = routine
@@ -1769,7 +1788,18 @@ fn rotated_head_first_entry_state(
     if !machine_flags_dead_on_entry(liveness, counted.body) {
         Some(RotatedHeadFirstEntryState::ReplayHeaderPrefix)
     } else if machine_accumulator_live_on_entry(liveness, counted.body) {
-        Some(RotatedHeadFirstEntryState::LoadInductionIntoA)
+        let accumulator_already_matches = machine_values
+            .accumulator_at(MirSite::Terminator {
+                block: counted.preheader,
+            })
+            .is_ok_and(|value| {
+                value == Some(MirMachineValue::DirectMem(counted.induction.clone()))
+            });
+        Some(if accumulator_already_matches {
+            RotatedHeadFirstEntryState::None
+        } else {
+            RotatedHeadFirstEntryState::LoadInductionIntoA
+        })
     } else {
         Some(RotatedHeadFirstEntryState::None)
     }
@@ -1781,6 +1811,7 @@ fn counted_loop_latch_plan(
 ) -> Option<CountedLoopLatchPlan> {
     let cfg = MirCfg::from_routine(routine).ok()?;
     let liveness = MirMachineLiveness::analyze(routine, &cfg);
+    let machine_values = MirMachineValueAvailability::analyze(routine, &cfg);
     for counted in analyze_counted_loops(routine) {
         if counted.width != MirWidth::Byte
             || counted.signed
@@ -1886,14 +1917,13 @@ fn counted_loop_latch_plan(
             }
             MirCountedLoopShape::HeadTested => {
                 let Some(first_entry_state) =
-                    rotated_head_first_entry_state(routine, &liveness, &counted)
+                    rotated_head_first_entry_state(routine, &liveness, &machine_values, &counted)
                 else {
                     continue;
                 };
                 if counted.initial_guard_required
-                    || !machine_state_dead_on_entry(&liveness, counted.body)
-                    || !machine_state_dead_on_entry(&liveness, counted.exit)
-                    || first_entry_state != RotatedHeadFirstEntryState::None
+                    || !machine_flags_dead_on_entry(&liveness, counted.body)
+                    || first_entry_state == RotatedHeadFirstEntryState::ReplayHeaderPrefix
                 {
                     continue;
                 }
@@ -4496,6 +4526,106 @@ mod tests {
                 first_entry_state: RotatedHeadFirstEntryState::ReplayHeaderPrefix,
             }
         ));
+        assert_eq!(routine.blocks, original);
+    }
+
+    #[test]
+    fn exact_head_rotation_reuses_initialized_a_for_the_first_body_entry() {
+        for initial in [0, 3] {
+            let mut routine = ascending_head_tested_loop(initial, 8);
+            routine.blocks[0].ops.insert(
+                0,
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(MirReg::A),
+                    value: u16::from(initial),
+                    width: MirWidth::Byte,
+                },
+            );
+            let MirOp::Store { src, .. } = &mut routine.blocks[0].ops[1] else {
+                panic!("counter initialization")
+            };
+            *src = MirValue::Def(MirDef::Reg(MirReg::A));
+            let counter_update = routine.blocks[2].ops.pop().expect("counter update");
+            routine.blocks[2].terminator = MirTerminator::Jump(MirEdge::plain(MirBlockId(4)));
+            routine.blocks.push(block(
+                4,
+                vec![counter_update],
+                MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+            ));
+            routine.blocks[2].ops.insert(
+                0,
+                MirOp::Move {
+                    dst: MirDef::Reg(MirReg::X),
+                    src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                    width: MirWidth::Byte,
+                },
+            );
+            let layout = layout_for(&routine);
+
+            let report = select_counted_loop_latches_with_report(&mut routine, &layout);
+
+            assert_eq!(report.selected, 1, "{report:?}");
+            assert_eq!(report.selected_exact_rotation, 1);
+            assert_eq!(report.selected_first_entry_repaired, 0);
+            assert_eq!(routine.blocks[0].ops.len(), 2);
+            assert!(matches!(
+                routine.blocks[0].ops.last(),
+                Some(MirOp::Store { .. })
+            ));
+            assert!(matches!(
+                routine.blocks[0].terminator,
+                MirTerminator::Jump(ref edge) if edge.target == MirBlockId(2)
+            ));
+        }
+    }
+
+    #[test]
+    fn exact_head_rotation_keeps_the_original_header_on_the_exit_path() {
+        let mut routine = ascending_head_tested_loop(0, 8);
+        routine.blocks[3].ops.push(MirOp::Move {
+            dst: MirDef::Reg(MirReg::X),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        });
+        let layout = layout_for(&routine);
+
+        assert_eq!(select_counted_loop_latches(&mut routine, &layout), 1);
+        let header_index = routine
+            .blocks
+            .iter()
+            .position(|block| block.id == MirBlockId(1))
+            .expect("rotated header");
+        let exit_index = routine
+            .blocks
+            .iter()
+            .position(|block| block.id == MirBlockId(3))
+            .expect("loop exit");
+        assert!(header_index < exit_index);
+        assert!(matches!(
+            routine.blocks[header_index].terminator,
+            MirTerminator::Branch { ref else_edge, .. }
+                if else_edge.target == MirBlockId(3)
+        ));
+    }
+
+    #[test]
+    fn exact_head_rotation_retains_a_required_initial_guard() {
+        let mut routine = ascending_head_tested_loop(8, 8);
+        routine.blocks[2].ops.insert(
+            0,
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        );
+        let original = routine.blocks.clone();
+        let layout = layout_for(&routine);
+
+        let report = select_counted_loop_latches_with_report(&mut routine, &layout);
+
+        assert_eq!(report.selected, 0);
+        assert_eq!(report.blocked_initial_guard, 1);
         assert_eq!(routine.blocks, original);
     }
 

@@ -1621,6 +1621,11 @@ pub(super) fn materialize_program(
         );
         peephole_stats.record_many(
             routine.id,
+            "counted-loop-latch-selected-first-entry-repair",
+            latch_report.selected_first_entry_repaired,
+        );
+        peephole_stats.record_many(
+            routine.id,
             "counted-loop-latch-selected",
             latch_report.selected,
         );
