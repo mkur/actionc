@@ -99,7 +99,7 @@ pub struct SemFieldRef {
     pub owner: Option<SymbolId>,
     pub name: String,
     pub ty: ValueType,
-    pub offset: Option<u16>,
+    pub offset: Option<u32>,
     pub span: Span,
 }
 

@@ -380,8 +380,15 @@ impl SemIrAstLowerer<'_> {
         let Some(plan) = &declaration.static_initializer else {
             return;
         };
+        let Ok(initialized_extent) = u16::try_from(plan.initialized_extent) else {
+            self.diagnostics.push(Diagnostic::new(
+                declaration.span,
+                "classic backend cannot project an initializer larger than 65535 bytes",
+            ));
+            return;
+        };
         let mut initializers = Vec::new();
-        let mut cursor = 0u16;
+        let mut cursor = 0u32;
         for write in &plan.writes {
             if write.offset < cursor {
                 self.invalid_static_initializer_projection(declaration, write);
@@ -389,7 +396,7 @@ impl SemIrAstLowerer<'_> {
             }
             initializers.extend(std::iter::repeat_n(
                 StorageInit::Byte(0),
-                usize::from(write.offset - cursor),
+                usize::try_from(write.offset - cursor).unwrap_or(usize::MAX),
             ));
             match &write.value {
                 SemStaticInitializerValue::Literal { .. } if write.destination.is_real() => {
@@ -434,16 +441,16 @@ impl SemIrAstLowerer<'_> {
                     });
                 }
             }
-            cursor = write.offset.saturating_add(write.width);
+            cursor = write.offset.saturating_add(u32::from(write.width));
         }
         initializers.extend(std::iter::repeat_n(
             StorageInit::Byte(0),
-            usize::from(plan.initialized_extent.saturating_sub(cursor)),
+            usize::try_from(plan.initialized_extent.saturating_sub(cursor)).unwrap_or(usize::MAX),
         ));
         self.static_initializers.insert(
             declaration.span,
             ClassicStaticInitializer {
-                initialized_extent: plan.initialized_extent,
+                initialized_extent,
                 initializers,
             },
         );
@@ -617,8 +624,15 @@ impl SemIrAstLowerer<'_> {
                 size,
                 span,
             } => {
-                self.record_copies
-                    .insert(self.native_real_scope.as_deref(), *span, *size);
+                if let Ok(size) = u16::try_from(*size) {
+                    self.record_copies
+                        .insert(self.native_real_scope.as_deref(), *span, size);
+                } else {
+                    self.diagnostics.push(Diagnostic::new(
+                        *span,
+                        "classic backend cannot copy a record larger than 65535 bytes",
+                    ));
+                }
                 Some(Stmt::Assign {
                     target: self.lvalue(destination)?,
                     value: self.lvalue(source)?,
@@ -1487,7 +1501,7 @@ fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Spa
     largest.map(|(_, ty, span)| (ty, span))
 }
 
-fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u16, ValueType, Span)>) {
+fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u32, ValueType, Span)>) {
     match stmt {
         SemStmt::RecordCopy {
             destination,

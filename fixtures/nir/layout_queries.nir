@@ -1,15 +1,15 @@
 nir program
 global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "word", ty: ValueType { base: Fund(Card), pointer: false }, offset: 1 }], size: 3 } fields=2
 global bytes: array ArrayType { element: ValueType { base: Fund(Byte), pointer: false }, length: Some(7) } length=7 storage=Array origin=global init zero_fill=7 section=global mutable=true
-global byteSize: Card
-global cardSize: Card
-global pointerSize: Card
-global recordPointerSize: Card
-global recordSize: Card
-global arraySize: Card
-global elementCount: Card
-global recordAlign: Card
-global wordOffset: Card
+global byteSize: Size
+global cardSize: Size
+global pointerSize: Size
+global recordPointerSize: Size
+global recordSize: Size
+global arraySize: Size
+global elementCount: Size
+global recordAlign: Size
+global wordOffset: Size
 
 routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb0:

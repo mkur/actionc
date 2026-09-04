@@ -308,6 +308,12 @@ language: add target-sized address values
 
 ### Slice 6: `SIZE` and wide layout quantities
 
+Status: complete. Layout queries now produce role-preserving `SIZE` constants,
+semantic layout quantities use 32-bit sizes and offsets, and the selected SIZE
+and address models bound arrays and records before NIR lowering. The
+`layout_queries` snapshot change from `Card` to `Size` is an intentional IR
+contract change; its physical Atari width remains 16 bits.
+
 1. Add an explicit size-integer layout to every target.
 2. Register the contextual `SYS.SIZE` type and unqualified alias.
 3. Return `SIZE` from all four layout queries while retaining wide compile-time

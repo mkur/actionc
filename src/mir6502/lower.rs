@@ -1018,7 +1018,9 @@ fn lower_global_init(
 ) -> MirGlobalInit {
     let array = array.map(|array| super::ir::MirArrayGlobalFact {
         elem_size: nir_size_u16(array.elem_size),
-        length: array.length,
+        length: array
+            .length
+            .map(|length| u16::try_from(length).expect("MIR6502 array length must fit in 16 bits")),
         pointer_backed: array.pointer_backed,
         address_initializer: array.address_initializer.map(nir_address_u16),
     });

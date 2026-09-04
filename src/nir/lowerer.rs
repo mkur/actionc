@@ -610,7 +610,7 @@ impl NirLowerer {
     fn declaration_backing(
         &mut self,
         declaration: &SemDeclaration,
-        record_storage_sizes: &BTreeMap<String, u16>,
+        record_storage_sizes: &BTreeMap<String, u32>,
         address_initializer: Option<u16>,
         alias_initializer: Option<(SemSymbolId, String, u16)>,
     ) -> NirGlobalBacking {
@@ -642,7 +642,9 @@ impl NirLowerer {
             address_initializer,
             self.target_layout,
         );
-        self.compatible_cursor = Some(address.wrapping_add(size));
+        self.compatible_cursor = u16::try_from(size)
+            .ok()
+            .map(|size| address.wrapping_add(size));
         NirGlobalBacking::Absolute(AddressValue::data(u64::from(address)))
     }
 
@@ -790,7 +792,9 @@ impl NirLowerer {
             )
             && let Some(address) = storage.address
         {
-            return Some(address.wrapping_add(storage.offset));
+            return u16::try_from(storage.offset)
+                .ok()
+                .map(|offset| address.wrapping_add(offset));
         }
         match &lvalue.kind {
             SemLValueKind::Symbol(symbol) => {
@@ -803,7 +807,7 @@ impl NirLowerer {
     fn local_backing(
         &self,
         declaration: &SemDeclaration,
-        record_storage_sizes: &BTreeMap<String, u16>,
+        record_storage_sizes: &BTreeMap<String, u32>,
         address_initializer: Option<u16>,
         local_alias_targets: &BTreeMap<SemSymbolId, (LocalId, String)>,
     ) -> NirLocalBacking {
@@ -1081,7 +1085,15 @@ fn apply_target_layout_to_value(value: &mut NirValue, layout: TargetLayout) {
         | NirValue::StaticAddr { ty, .. }
         | NirValue::Temp { ty, .. }
         | NirValue::RoutineAddr { ty, .. } => ty.apply_target_layout(layout),
-        NirValue::IntegerConst { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => {}
+        NirValue::IntegerConst { bits, ty } => {
+            match ty.role {
+                super::facts::NirIntegerRole::Address => ty.bits = layout.address_integer_bits,
+                super::facts::NirIntegerRole::Size => ty.bits = layout.size_integer_bits,
+                super::facts::NirIntegerRole::Ordinary => {}
+            }
+            *bits &= ty.mask();
+        }
+        NirValue::Param(_) | NirValue::GlobalAddr(_) => {}
     }
 }
 
@@ -1256,7 +1268,7 @@ pub(super) struct NirBuilder {
     semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
     param_ids_by_symbol: BTreeMap<SemSymbolId, ParamId>,
     local_ids_by_symbol: BTreeMap<SemSymbolId, LocalId>,
-    record_storage_sizes: BTreeMap<String, u16>,
+    record_storage_sizes: BTreeMap<String, u32>,
     machine_defines: BTreeMap<usize, Vec<MachineItem>>,
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
     notes: Vec<NirRoutineNote>,
@@ -1288,7 +1300,7 @@ impl NirBuilder {
         semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
         semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
         semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
-        record_storage_sizes: BTreeMap<String, u16>,
+        record_storage_sizes: BTreeMap<String, u32>,
         machine_defines: BTreeMap<usize, Vec<MachineItem>>,
         machine_define_names: BTreeMap<String, Vec<MachineItem>>,
         target_layout: TargetLayout,
@@ -3632,14 +3644,14 @@ impl NirBuilder {
         match storage.space {
             SemAddressSpace::Absolute => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::AbsoluteRange(TargetLayout::DATA_ADDRESS_SPACE),
-                offset: ByteOffset::from(storage.address?.checked_add(storage.offset)?),
+                offset: ByteOffset::from(u32::from(storage.address?).checked_add(storage.offset)?),
                 size: ByteSize::from(size),
             }),
             SemAddressSpace::ZeroPage | SemAddressSpace::RuntimeZeroPage => Some(NirMemoryRegion {
                 kind: NirMemoryRegionKind::AbsoluteRange(
                     self.target_layout.data_pointer.address_space,
                 ),
-                offset: ByteOffset::from(storage.address?.checked_add(storage.offset)?),
+                offset: ByteOffset::from(u32::from(storage.address?).checked_add(storage.offset)?),
                 size: ByteSize::from(size),
             }),
             SemAddressSpace::RoutineLocal => Some(NirMemoryRegion {
@@ -3816,7 +3828,7 @@ impl NirBuilder {
     }
 }
 
-fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u16> {
+fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u32> {
     let mut sizes = BTreeMap::new();
     for module in &program.modules {
         for item in &module.items {
@@ -3841,7 +3853,7 @@ fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u16> {
     sizes
 }
 
-fn insert_record_storage_size(sizes: &mut BTreeMap<String, u16>, declaration: &SemDeclaration) {
+fn insert_record_storage_size(sizes: &mut BTreeMap<String, u32>, declaration: &SemDeclaration) {
     match &declaration.storage {
         SemDeclarationStorage::Type { record_type, .. }
         | SemDeclarationStorage::Record { record_type, .. } => {
@@ -4227,7 +4239,7 @@ fn sem_type_object_layout(ty: &SemType, target_layout: TargetLayout) -> NirObjec
 
 fn declaration_local_object_layout(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     address_initializer: Option<u16>,
     init: Option<&NirStorageInit>,
     target_layout: TargetLayout,
@@ -4293,15 +4305,16 @@ fn routine_symbol_initializer(declaration: &SemDeclaration) -> Option<&str> {
 
 fn declaration_storage_size(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     address_initializer: Option<u16>,
     target_layout: TargetLayout,
-) -> u16 {
+) -> u32 {
     match &declaration.storage {
         SemDeclarationStorage::Scalar => declaration
             .ty
             .value
             .value_width_bytes_for_layout(target_layout)
+            .map(u32::from)
             .or_else(|| {
                 declaration
                     .ty
@@ -4373,15 +4386,15 @@ fn literal_expr_u16(expr: &SemExpr) -> Option<u16> {
 fn declaration_array_storage_size(
     declaration: &SemDeclaration,
     array_type: &ArrayType,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     address_initializer: Option<u16>,
     target_layout: TargetLayout,
-) -> u16 {
+) -> u32 {
     let elem_size =
         array_element_width(array_type, record_storage_sizes, target_layout).unwrap_or(1);
     let initializer_byte_len = array_initializer_byte_len(declaration, elem_size);
     if array_type.length.is_none() && initializer_byte_len.is_some() {
-        return target_layout.data_pointer.size_bytes.get() as u16;
+        return target_layout.data_pointer.size_bytes.get();
     }
     if address_initializer.is_some()
         && declaration_array_address_initializer_uses_pointer_storage(
@@ -4390,10 +4403,10 @@ fn declaration_array_storage_size(
             target_layout,
         )
     {
-        return array_descriptor_size(target_layout, array_type.length.is_some()).get() as u16;
+        return array_descriptor_size(target_layout, array_type.length.is_some()).get();
     }
     if elem_size > 1 && initializer_byte_len.is_some() {
-        return array_descriptor_size(target_layout, array_type.length.is_some()).get() as u16;
+        return array_descriptor_size(target_layout, array_type.length.is_some()).get();
     }
     if elem_size == 1
         && let Some(byte_len) = string_initializer_bytes(declaration)
@@ -4403,18 +4416,18 @@ fn declaration_array_storage_size(
         return array_type
             .length
             .map(|length| length.saturating_mul(elem_size))
-            .unwrap_or(byte_len as u16)
-            .max(byte_len as u16);
+            .unwrap_or(u32::try_from(byte_len).unwrap_or(u32::MAX))
+            .max(u32::try_from(byte_len).unwrap_or(u32::MAX));
     }
     array_type
         .length
         .map(|length| length.saturating_mul(elem_size))
-        .unwrap_or(target_layout.data_pointer.size_bytes.get() as u16)
+        .unwrap_or(target_layout.data_pointer.size_bytes.get())
 }
 
 fn declaration_array_address_initializer_uses_pointer_storage(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     target_layout: TargetLayout,
 ) -> bool {
     let SemDeclarationStorage::Array { array_type, .. } = &declaration.storage else {
@@ -4456,12 +4469,13 @@ fn symbolic_array_initializer_routine_expr(expr: &SemExpr) -> Option<String> {
 
 fn array_element_width(
     array_type: &ArrayType,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     target_layout: TargetLayout,
-) -> Option<u16> {
+) -> Option<u32> {
     array_type
         .element
         .value_width_bytes_for_layout(target_layout)
+        .map(u32::from)
         .or_else(|| {
             array_type
                 .element
@@ -4494,7 +4508,7 @@ fn callable_descriptor_size(target_layout: TargetLayout, has_size_word: bool) ->
 
 fn declaration_array_fact(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     address_initializer: Option<u16>,
     target_layout: TargetLayout,
 ) -> Option<NirArrayGlobalFact> {
@@ -4540,7 +4554,7 @@ fn declaration_symbol_storage_type(
 fn declaration_global_init(
     id: SymbolId,
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     backing: &NirGlobalBacking,
     address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,
@@ -4621,14 +4635,13 @@ fn declaration_global_init(
             {
                 let len = array_type
                     .length
-                    .unwrap_or((image.bytes.len() as u16) / elem_size);
-                let byte_size = elem_size.saturating_mul(len).max(image.bytes.len() as u16);
+                    .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX) / elem_size);
+                let image_size = u32::try_from(image.bytes.len()).unwrap_or(u32::MAX);
+                let byte_size = elem_size.saturating_mul(len).max(image_size);
                 return Some(NirGlobalInit::Descriptor {
                     backing: NirDataBacking {
                         owner: id,
-                        zero_fill: ByteSize::from(
-                            byte_size.saturating_sub(image.bytes.len() as u16),
-                        ),
+                        zero_fill: ByteSize::from(byte_size.saturating_sub(image_size)),
                         image,
                         section: "global.backing".to_string(),
                     },
@@ -4668,8 +4681,8 @@ fn declaration_global_init(
                 let total_size = array_type
                     .length
                     .map(|length| length.saturating_mul(elem_size))
-                    .unwrap_or(image.bytes.len() as u16)
-                    .max(image.bytes.len() as u16);
+                    .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX))
+                    .max(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX));
                 return Some(data_image_init(image, total_size));
             }
             array_type.length.map(|length| {
@@ -4686,12 +4699,12 @@ fn declaration_global_init(
     }
 }
 
-fn bytes_init(bytes: Vec<u8>, total_size: u16) -> NirGlobalInit {
+fn bytes_init(bytes: Vec<u8>, total_size: u32) -> NirGlobalInit {
     data_image_init(NirDataImage::literal(bytes), total_size)
 }
 
-fn data_image_init(image: NirDataImage, total_size: u16) -> NirGlobalInit {
-    let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
+fn data_image_init(image: NirDataImage, total_size: u32) -> NirGlobalInit {
+    let zero_fill = total_size.saturating_sub(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX));
     NirGlobalInit::Bytes {
         image,
         zero_fill: ByteSize::from(zero_fill),
@@ -4736,7 +4749,7 @@ fn apply_program_end_symbol_set(globals: &mut [NirGlobal], set: &SemSet) -> bool
 
 fn declaration_local_init(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u16>,
+    record_storage_sizes: &BTreeMap<String, u32>,
     backing: &NirLocalBacking,
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, RoutineId>,
@@ -4772,7 +4785,7 @@ fn declaration_local_init(
             if let Some(image) = scalar_initializer_image(declaration, storage_size) {
                 return Some(storage_data_image_init(image, storage_size));
             }
-            if storage_size > declaration.ty.value.value_width_bytes().unwrap_or(0) {
+            if storage_size > u32::from(declaration.ty.value.value_width_bytes().unwrap_or(0)) {
                 return Some(NirStorageInit::ZeroFill {
                     bytes: ByteSize::from(storage_size),
                     mutable: true,
@@ -4819,13 +4832,12 @@ fn declaration_local_init(
             {
                 let len = array_type
                     .length
-                    .unwrap_or((image.bytes.len() as u16) / elem_size);
-                let byte_size = elem_size.saturating_mul(len).max(image.bytes.len() as u16);
+                    .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX) / elem_size);
+                let image_size = u32::try_from(image.bytes.len()).unwrap_or(u32::MAX);
+                let byte_size = elem_size.saturating_mul(len).max(image_size);
                 return Some(NirStorageInit::Descriptor {
                     backing: NirStorageBacking {
-                        zero_fill: ByteSize::from(
-                            byte_size.saturating_sub(image.bytes.len() as u16),
-                        ),
+                        zero_fill: ByteSize::from(byte_size.saturating_sub(image_size)),
                         image,
                         layout: NirObjectLayout::new(
                             ByteSize::from(byte_size),
@@ -4852,8 +4864,8 @@ fn declaration_local_init(
                 let total_size = array_type
                     .length
                     .map(|length| length.saturating_mul(elem_size))
-                    .unwrap_or(image.bytes.len() as u16)
-                    .max(image.bytes.len() as u16);
+                    .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX))
+                    .max(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX));
                 return Some(storage_data_image_init(image, total_size));
             }
             array_type.length.map(|length| {
@@ -4869,8 +4881,8 @@ fn declaration_local_init(
     }
 }
 
-fn storage_data_image_init(image: NirDataImage, total_size: u16) -> NirStorageInit {
-    let zero_fill = total_size.saturating_sub(image.bytes.len() as u16);
+fn storage_data_image_init(image: NirDataImage, total_size: u32) -> NirStorageInit {
+    let zero_fill = total_size.saturating_sub(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX));
     NirStorageInit::Bytes {
         image,
         zero_fill: ByteSize::from(zero_fill),
@@ -4894,7 +4906,7 @@ fn string_literal_storage_bytes(text: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u16) -> Option<NirDataImage> {
+fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u32) -> Option<NirDataImage> {
     if declaration.ty.value.is_real() {
         return match &declaration.initializer.as_ref()?.kind {
             SemExprKind::Literal(SemLiteral::Real { value, .. }) => {
@@ -4914,7 +4926,7 @@ fn scalar_initializer_image(declaration: &SemDeclaration, total_size: u16) -> Op
     if total_size == 1 {
         return Some(NirDataImage::literal(vec![value as u8]));
     }
-    let mut image = NirDataImage::literal(vec![0; usize::from(total_size)]);
+    let mut image = NirDataImage::literal(vec![0; usize::try_from(total_size).ok()?]);
     image.fragments.push(NirDataFragment::Integer {
         offset: ByteOffset::ZERO,
         width: ByteSize::from(total_size),
@@ -4950,7 +4962,7 @@ fn string_initializer_bytes(declaration: &SemDeclaration) -> Option<Vec<u8>> {
 // Aggregate declarations must use `static_initializer_data_image` instead.
 fn legacy_scalar_array_initializer_data_image(
     expr: &SemExpr,
-    elem_size: u16,
+    elem_size: u32,
     real_elements: bool,
     mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataAddressTarget>,
 ) -> Option<NirDataImage> {
@@ -4980,7 +4992,7 @@ fn legacy_scalar_array_initializer_data_image(
                 } else {
                     image
                         .bytes
-                        .resize(image.bytes.len() + usize::from(elem_size), 0);
+                        .resize(image.bytes.len() + usize::try_from(elem_size).ok()?, 0);
                     image.fragments.push(NirDataFragment::Integer {
                         offset,
                         width: ByteSize::from(elem_size),
@@ -5000,7 +5012,7 @@ fn legacy_scalar_array_initializer_data_image(
                     .expect("verified SemIR initializer target must have a NIR identity");
                 let encoding = data_address_encoding(*selector, target, ByteSize::from(elem_size));
                 let width = encoding.width();
-                debug_assert_eq!(width.get(), u32::from(elem_size));
+                debug_assert_eq!(width.get(), elem_size);
                 let offset = ByteOffset::try_from(image.bytes.len())
                     .expect("verified static initializer must fit in NIR storage");
                 image
@@ -5026,9 +5038,13 @@ fn static_initializer_data_image(
     initializer: &SemStaticInitializer,
     mut resolve_target: impl FnMut(&SemSymbolRef) -> Option<NirDataAddressTarget>,
 ) -> Option<NirDataImage> {
-    let mut image = NirDataImage::literal(vec![0; usize::from(initializer.initialized_extent)]);
+    let mut image = NirDataImage::literal(vec![
+        0;
+        usize::try_from(initializer.initialized_extent)
+            .ok()?
+    ]);
     for write in &initializer.writes {
-        let offset = usize::from(write.offset);
+        let offset = usize::try_from(write.offset).ok()?;
         let end = offset.checked_add(usize::from(write.width))?;
         let destination = image.bytes.get_mut(offset..end)?;
         match &write.value {
@@ -5046,7 +5062,7 @@ fn static_initializer_data_image(
                     _ => image.fragments.push(NirDataFragment::Integer {
                         offset: ByteOffset::from(write.offset),
                         width: ByteSize::from(write.width),
-                        value: value & integer_mask_for_width(write.width),
+                        value: value & integer_mask_for_width(u32::from(write.width)),
                     }),
                 }
             }
@@ -5103,9 +5119,9 @@ fn data_address_target_space(target: NirDataAddressTarget) -> crate::target::Add
     }
 }
 
-fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> Option<usize> {
+fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u32) -> Option<usize> {
     if let Some(initializer) = &declaration.static_initializer {
-        return Some(usize::from(initializer.initialized_extent));
+        return usize::try_from(initializer.initialized_extent).ok();
     }
     let real_elements = matches!(
         &declaration.storage,
@@ -5115,10 +5131,17 @@ fn array_initializer_byte_len(declaration: &SemDeclaration, elem_size: u16) -> O
         SemExprKind::InitializerList(elements)
             if matches!(elem_size, 1 | 2) || (real_elements && elem_size == 6) =>
         {
-            Some(elements.len().saturating_mul(usize::from(elem_size)))
+            Some(
+                elements
+                    .len()
+                    .saturating_mul(usize::try_from(elem_size).ok()?),
+            )
         }
-        _ => numeric_initializer_values(declaration.initializer.as_ref()?)
-            .map(|values| values.len().saturating_mul(usize::from(elem_size))),
+        _ => numeric_initializer_values(declaration.initializer.as_ref()?).map(|values| {
+            values
+                .len()
+                .saturating_mul(usize::try_from(elem_size).unwrap_or(usize::MAX))
+        }),
     }
 }
 
@@ -5220,11 +5243,11 @@ fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u64>> {
     }
 }
 
-fn integer_mask_for_width(width: u16) -> u64 {
+fn integer_mask_for_width(width: u32) -> u64 {
     if width >= 8 {
         u64::MAX
     } else {
-        (1_u64 << (u32::from(width) * 8)) - 1
+        (1_u64 << (width * 8)) - 1
     }
 }
 
@@ -5846,6 +5869,11 @@ fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
                 ty: ty.clone(),
             }
         });
+    }
+    if let Some(integer) = ty.kind.integer()
+        && integer.role != super::facts::NirIntegerRole::Ordinary
+    {
+        return Some(NirValue::integer_const(value & integer.mask(), integer));
     }
     match ty.width {
         Some(width) if width == ByteSize::ONE => u8::try_from(value).ok().map(NirValue::ConstU8),

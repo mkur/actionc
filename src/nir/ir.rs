@@ -30,7 +30,7 @@ pub struct NirGlobal {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirArrayGlobalFact {
     pub elem_size: ByteSize,
-    pub length: Option<u16>,
+    pub length: Option<u32>,
     pub pointer_backed: bool,
     pub address_initializer: Option<AddressValue>,
 }

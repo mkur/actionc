@@ -41,7 +41,7 @@ pub struct SemanticModel {
     pub array_symbols: HashSet<SymbolId>,
     /// Declared element counts for statically sized arrays. Unsized array
     /// parameters and pointer-backed arrays deliberately have no entry.
-    pub array_lengths: HashMap<SymbolId, u16>,
+    pub array_lengths: HashMap<SymbolId, u32>,
     pub fields: Vec<SemanticField>,
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
     pub layout: SemanticLayoutFacts,
@@ -237,7 +237,7 @@ pub struct SemanticField {
     pub owner: SymbolId,
     pub name: String,
     pub ty: ValueType,
-    pub offset: u16,
+    pub offset: u32,
     pub span: Span,
 }
 
@@ -246,7 +246,7 @@ struct FieldDescriptorFacts {
     id: FieldId,
     owner: SymbolId,
     ty: ValueType,
-    offset: u16,
+    offset: u32,
 }
 
 /// Source-visible declarations only. Compiler-generated storage, such as loop
@@ -463,7 +463,7 @@ pub fn analyze_compilation_with_options(
 }
 
 impl Analyzer {
-    fn finish(self) -> Result<SemanticModel, Vec<Diagnostic>> {
+    fn finish(mut self) -> Result<SemanticModel, Vec<Diagnostic>> {
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
         }
@@ -475,8 +475,55 @@ impl Analyzer {
             &self.fields,
             TargetLayout::for_target(self.options.target),
         );
+        let target_layout = TargetLayout::for_target(self.options.target);
+        let size_limit = integer_value_limit(target_layout.size_integer_bits);
+        let address_limit = integer_value_limit(target_layout.address_bits);
+        let object_limit = size_limit.min(address_limit);
+        for record in &layout.records {
+            if u64::from(record.size) > object_limit {
+                self.diagnostics.push(Diagnostic::new(
+                    record.span,
+                    format!(
+                        "record `{}` requires {} bytes, exceeding the target object limit of {object_limit}",
+                        record.name, record.size
+                    ),
+                ));
+            }
+        }
+        for array in &layout.arrays {
+            let Some(length) = array.length else {
+                continue;
+            };
+            if u64::from(length) > size_limit {
+                self.diagnostics.push(Diagnostic::new(
+                    array.span,
+                    format!(
+                        "array `{}` has {length} elements, exceeding the target SIZE limit of {size_limit}",
+                        array.name
+                    ),
+                ));
+                continue;
+            }
+            match array.storage_size {
+                Some(storage_size) if u64::from(storage_size) <= object_limit => {}
+                Some(storage_size) => self.diagnostics.push(Diagnostic::new(
+                    array.span,
+                    format!(
+                        "array `{}` requires {storage_size} bytes, exceeding the target object limit of {object_limit}",
+                        array.name
+                    ),
+                )),
+                None => self.diagnostics.push(Diagnostic::new(
+                    array.span,
+                    format!("array `{}` storage size overflows the compiler layout model", array.name),
+                )),
+            }
+        }
+        if !self.diagnostics.is_empty() {
+            return Err(self.diagnostics);
+        }
         Ok(SemanticModel {
-            target_layout: TargetLayout::for_target(self.options.target),
+            target_layout,
             symbols: self.symbols,
             modules: self.modules,
             expression_observations: self.expression_observations,
@@ -514,7 +561,7 @@ struct Analyzer {
     routine_scopes: Vec<RoutineScope>,
     lexical_blocks: Vec<SemanticLexicalBlock>,
     array_symbols: HashSet<SymbolId>,
-    array_lengths: HashMap<SymbolId, u16>,
+    array_lengths: HashMap<SymbolId, u32>,
     fields: Vec<SemanticField>,
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
     diagnostics: Vec<Diagnostic>,
@@ -630,7 +677,7 @@ impl Analyzer {
                 self.builtin_scope,
                 name.to_string(),
                 SymbolClass::BuiltinFunc,
-                Some(fund_value(FundType::Card)),
+                Some(fund_value(FundType::Size)),
                 Span::new(0, 0),
             ) else {
                 continue;
@@ -640,11 +687,11 @@ impl Analyzer {
                 symbol_id,
                 SemanticCallableSignature {
                     kind: RoutineKind::Func {
-                        return_type: Box::new(fund_type_ref(FundType::Card)),
+                        return_type: Box::new(fund_type_ref(FundType::Size)),
                     },
                     params: Vec::new(),
                     variadic: None,
-                    return_type: Some(fund_value(FundType::Card)),
+                    return_type: Some(fund_value(FundType::Size)),
                     source: SemanticCallableSource::Unknown,
                 },
             );
@@ -2477,19 +2524,21 @@ impl Analyzer {
         let Some(value) = value else {
             return subject::SemSubject::Expr(self.error_expr(span));
         };
-        let Ok(bits) = u16::try_from(value) else {
+        let size_bits = TargetLayout::for_target(self.options.target).size_integer_bits;
+        let size_limit = integer_value_limit(size_bits);
+        if value > size_limit {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 format!(
-                    "{} result {value} does not fit the current CARD result type",
-                    self.layout_intrinsic_name(intrinsic)
+                    "{} result {value} does not fit the target's {size_bits}-bit SIZE type",
+                    self.layout_intrinsic_name(intrinsic),
                 ),
             ));
             return subject::SemSubject::Expr(self.error_expr(span));
-        };
+        }
         let value = ConstValue {
-            ty: ScalarType::Card,
-            bits: u64::from(bits),
+            ty: ScalarType::Size,
+            bits: value,
         };
         self.layout_query_values.insert(key, value);
         self.layout_query_subject(value, span)
@@ -2643,7 +2692,7 @@ impl Analyzer {
         Some(u64::from(field.offset))
     }
 
-    fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u16> {
+    fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u32> {
         self.value_storage_width(ty).or_else(|| {
             self.diagnostics
                 .push(Diagnostic::new(span, "layout is incomplete for this type"));
@@ -3762,13 +3811,13 @@ impl Analyzer {
         fields: &[VarDecl],
     ) {
         let mut field_ids = HashMap::new();
-        let mut offset = 0u16;
+        let mut offset = 0u32;
         for field in fields {
             let ty = self.value_type_from_type_ref(scope, &field.ty);
             let width = self.value_storage_width(&ty).unwrap_or(0);
             let alignment = self.value_storage_alignment(&ty).unwrap_or(1);
             for entry in &field.entries {
-                offset = align_u16(offset, alignment).unwrap_or(offset);
+                offset = align_u32(offset, alignment).unwrap_or(offset);
                 let id = FieldId(self.fields.len());
                 self.fields.push(SemanticField {
                     id,
@@ -3779,7 +3828,7 @@ impl Analyzer {
                     span: entry.span,
                 });
                 field_ids.insert(normalize_name(&entry.name), id);
-                offset = offset.saturating_add(width);
+                offset = offset.saturating_add(u32::from(width));
             }
         }
         let lookup_name = self.symbols.symbols[owner.0].qualified_name.clone();
@@ -3874,9 +3923,10 @@ impl Analyzer {
         .is_some_and(|symbol| matches!(symbol.class, SymbolClass::Type | SymbolClass::Record))
     }
 
-    fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_width(&self, value: &ValueType) -> Option<u32> {
         value
             .value_width_bytes_for_layout(TargetLayout::for_target(self.options.target))
+            .map(u32::from)
             .or_else(|| {
                 value
                     .as_record_name()
@@ -3884,7 +3934,7 @@ impl Analyzer {
             })
     }
 
-    fn value_storage_alignment(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_alignment(&self, value: &ValueType) -> Option<u32> {
         let layout = TargetLayout::for_target(self.options.target);
         if layout.record_layout == crate::target::RecordLayoutPolicy::Packed {
             return self.value_storage_width(value).map(|_| 1);
@@ -3893,31 +3943,28 @@ impl Analyzer {
             ValueTypeKind::Scalar(scalar) => Some(
                 scalar
                     .width_bytes()
-                    .min(u16::from(layout.natural_word_alignment_bytes)),
+                    .min(u16::from(layout.natural_word_alignment_bytes))
+                    .into(),
             ),
-            ValueTypeKind::Real => Some(u16::from(layout.natural_word_alignment_bytes)),
-            ValueTypeKind::Pointer(_) => {
-                u16::try_from(layout.data_pointer.alignment_bytes.get()).ok()
-            }
-            ValueTypeKind::CallablePointer(_) => {
-                u16::try_from(layout.code_pointer.alignment_bytes.get()).ok()
-            }
+            ValueTypeKind::Real => Some(u32::from(layout.natural_word_alignment_bytes)),
+            ValueTypeKind::Pointer(_) => Some(layout.data_pointer.alignment_bytes.get()),
+            ValueTypeKind::CallablePointer(_) => Some(layout.code_pointer.alignment_bytes.get()),
             ValueTypeKind::Record(name) => self.record_storage_alignment(&name),
             ValueTypeKind::Error => None,
         }
     }
 
-    fn record_storage_width(&self, name: &str) -> Option<u16> {
+    fn record_storage_width(&self, name: &str) -> Option<u32> {
         let fields = self.field_lookup.get(&normalize_name(name))?;
-        let size = fields.values().try_fold(0u16, |size, id| {
+        let size = fields.values().try_fold(0u32, |size, id| {
             let field = self.fields.get(id.0)?;
             let width = self.value_storage_width(&field.ty).unwrap_or(0);
             Some(size.max(field.offset.saturating_add(width)))
         })?;
-        align_u16(size, self.record_storage_alignment(name).unwrap_or(1))
+        align_u32(size, self.record_storage_alignment(name).unwrap_or(1))
     }
 
-    fn record_storage_alignment(&self, name: &str) -> Option<u16> {
+    fn record_storage_alignment(&self, name: &str) -> Option<u32> {
         let fields = self.field_lookup.get(&normalize_name(name))?;
         Some(
             fields
@@ -4004,8 +4051,26 @@ impl Analyzer {
             return;
         }
         if let Ok(value) = evaluate_const_expr(&expression) {
-            if let Ok(length) = u16::try_from(value.bits) {
+            let layout = TargetLayout::for_target(self.options.target);
+            let limit = integer_value_limit(layout.size_integer_bits);
+            if value.bits > limit {
+                self.diagnostics.push(Diagnostic::new(
+                    size.span,
+                    format!(
+                        "array length {} does not fit the target's {}-bit SIZE type",
+                        value.bits, layout.size_integer_bits
+                    ),
+                ));
+            } else if let Ok(length) = u32::try_from(value.bits) {
                 self.array_lengths.insert(symbol, length);
+            } else {
+                self.diagnostics.push(Diagnostic::new(
+                    size.span,
+                    format!(
+                        "array length {} exceeds the compiler layout range",
+                        value.bits
+                    ),
+                ));
             }
         }
     }
@@ -4153,12 +4218,12 @@ impl Analyzer {
                             selector, target, ..
                         } => {
                             let target_layout = TargetLayout::for_target(self.options.target);
-                            let expected_width = if selector.is_some() {
+                            let expected_width: u32 = if selector.is_some() {
                                 1
                             } else if destination_type.as_callable_pointer().is_some() {
-                                target_layout.code_pointer.size_bytes.get() as u16
+                                target_layout.code_pointer.size_bytes.get()
                             } else if destination_type.is_pointer() {
-                                target_layout.data_pointer.size_bytes.get() as u16
+                                target_layout.data_pointer.size_bytes.get()
                             } else {
                                 2
                             };
@@ -5537,13 +5602,21 @@ fn normalize_name(name: &str) -> String {
     name.to_ascii_uppercase()
 }
 
-fn align_u16(value: u16, alignment: u16) -> Option<u16> {
+fn align_u32(value: u32, alignment: u32) -> Option<u32> {
     if alignment <= 1 {
         return Some(value);
     }
     value
-        .checked_add(alignment - 1)
-        .map(|value| value / alignment * alignment)
+        .checked_add(u32::from(alignment - 1))
+        .map(|value| value / u32::from(alignment) * u32::from(alignment))
+}
+
+fn integer_value_limit(bits: u8) -> u64 {
+    if bits >= 64 {
+        u64::MAX
+    } else {
+        (1_u64 << bits) - 1
+    }
 }
 
 fn collect_retargeted_routine_names(program: &Program) -> HashSet<String> {

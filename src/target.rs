@@ -105,6 +105,12 @@ impl From<u16> for ByteSize {
     }
 }
 
+impl From<u32> for ByteSize {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
 impl TryFrom<usize> for ByteSize {
     type Error = std::num::TryFromIntError;
 
@@ -140,6 +146,12 @@ impl From<u8> for ByteOffset {
 impl From<u16> for ByteOffset {
     fn from(value: u16) -> Self {
         Self(u32::from(value))
+    }
+}
+
+impl From<u32> for ByteOffset {
+    fn from(value: u32) -> Self {
+        Self(value)
     }
 }
 

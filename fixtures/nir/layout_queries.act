@@ -1,8 +1,8 @@
 TYPE Pair=[BYTE tag CARD word]
 
 BYTE ARRAY bytes(7)
-CARD byteSize, cardSize, pointerSize, recordPointerSize, recordSize, arraySize
-CARD elementCount, recordAlign, wordOffset
+SIZE byteSize, cardSize, pointerSize, recordPointerSize, recordSize, arraySize
+SIZE elementCount, recordAlign, wordOffset
 
 PROC Main()
   byteSize=SIZEOF(BYTE)

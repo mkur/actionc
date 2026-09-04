@@ -204,13 +204,13 @@ pub struct SemDeclaration {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemStaticInitializer {
-    pub initialized_extent: u16,
+    pub initialized_extent: u32,
     pub writes: Vec<SemStaticInitializerWrite>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemStaticInitializerWrite {
-    pub offset: u16,
+    pub offset: u32,
     pub destination: ValueType,
     pub width: u16,
     pub value: SemStaticInitializerValue,
@@ -263,24 +263,24 @@ pub struct SemRecordField {
     pub name: String,
     pub ty: SemType,
     pub storage: SemDeclarationStorage,
-    pub offset: Option<u16>,
+    pub offset: Option<u32>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemType {
     pub value: ValueType,
-    pub width: Option<u16>,
-    pub alignment: Option<u16>,
+    pub width: Option<u32>,
+    pub alignment: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemTypeFacts {
-    pub width: Option<u16>,
+    pub width: Option<u32>,
     pub signedness: Option<ScalarSignedness>,
     pub is_pointer: bool,
     pub pointee: Option<ValueType>,
-    pub pointee_width: Option<u16>,
+    pub pointee_width: Option<u32>,
     pub record_base: Option<String>,
     pub is_error: bool,
 }
@@ -294,7 +294,7 @@ impl SemType {
         }
     }
 
-    pub fn with_width(value: ValueType, width: u16) -> Self {
+    pub fn with_width(value: ValueType, width: u32) -> Self {
         Self {
             value,
             width: Some(width),
@@ -307,10 +307,13 @@ impl SemTypeFacts {
     pub fn from_value(value: &ValueType) -> Self {
         let scalar = value.as_scalar();
         let pointee = value.as_pointer().map(|pointer| *pointer.pointee);
-        let pointee_width = pointee.as_ref().and_then(ValueType::value_width_bytes);
+        let pointee_width = pointee
+            .as_ref()
+            .and_then(ValueType::value_width_bytes)
+            .map(u32::from);
 
         Self {
-            width: value.value_width_bytes(),
+            width: value.value_width_bytes().map(u32::from),
             signedness: scalar.map(ScalarType::signedness),
             is_pointer: value.is_pointer(),
             pointee,
@@ -464,7 +467,7 @@ pub enum SemStmt {
     RecordCopy {
         destination: SemLValue,
         source: SemLValue,
-        size: u16,
+        size: u32,
         span: Span,
     },
     CompoundAssign {
@@ -897,7 +900,7 @@ pub struct SemFieldRef {
     pub owner: Option<SymbolId>,
     pub name: String,
     pub ty: ValueType,
-    pub offset: Option<u16>,
+    pub offset: Option<u32>,
     pub span: Span,
 }
 
@@ -938,8 +941,8 @@ pub struct SemStorageRef {
     pub symbol: Option<SemSymbolRef>,
     pub space: SemAddressSpace,
     pub address: Option<u16>,
-    pub offset: u16,
-    pub width: u16,
+    pub offset: u32,
+    pub width: u32,
     pub signed: bool,
     pub span: Span,
 }
@@ -2160,7 +2163,7 @@ struct IrBuilder<'a> {
 }
 
 struct SemStaticInitializerLeaf {
-    offset: u16,
+    offset: u32,
     ty: ValueType,
     width: u16,
     path: String,
@@ -2594,7 +2597,7 @@ impl<'a> IrBuilder<'a> {
                 return None;
             }
             let leaf = &leaves[index % leaves.len()];
-            let base = u16::try_from(element_index)
+            let base = u32::try_from(element_index)
                 .ok()?
                 .checked_mul(element_width)?;
             let offset = base.checked_add(leaf.offset)?;
@@ -2640,7 +2643,7 @@ impl<'a> IrBuilder<'a> {
             0
         } else if repeats {
             let initialized_elements = elements.len().div_ceil(leaves.len());
-            u16::try_from(initialized_elements)
+            u32::try_from(initialized_elements)
                 .ok()?
                 .checked_mul(element_width)?
         } else {
@@ -2655,7 +2658,7 @@ impl<'a> IrBuilder<'a> {
     fn append_static_initializer_leaves(
         &self,
         ty: &ValueType,
-        base_offset: u16,
+        base_offset: u32,
         path: String,
         leaves: &mut Vec<SemStaticInitializerLeaf>,
     ) -> Option<()> {
@@ -2693,7 +2696,7 @@ impl<'a> IrBuilder<'a> {
         fields: &[VarDecl],
     ) -> Vec<SemRecordField> {
         let mut lowered = Vec::new();
-        let mut offset = 0u16;
+        let mut offset = 0u32;
         for field in fields {
             for entry in &field.entries {
                 let descriptor = self
@@ -2712,7 +2715,7 @@ impl<'a> IrBuilder<'a> {
                             entry
                                 .size
                                 .as_ref()
-                                .and_then(|expr| self.const_u16_expr_in_scope(scope, expr)),
+                                .and_then(|expr| self.const_u32_expr_in_scope(scope, expr)),
                         ),
                         length: entry.size.as_ref().map(|size| self.lower_expr(scope, size)),
                         fixed_address: None,
@@ -2762,7 +2765,7 @@ impl<'a> IrBuilder<'a> {
                     ty: field.ty.value.clone(),
                     offset: field.offset.unwrap_or(0),
                 });
-                let size = fields.iter().fold(0u16, |size, field| {
+                let size = fields.iter().fold(0u32, |size, field| {
                     let offset = field.offset.unwrap_or(0);
                     let width = field
                         .ty
@@ -2772,6 +2775,7 @@ impl<'a> IrBuilder<'a> {
                                 .ty
                                 .value
                                 .value_width_bytes_for_layout(self.model.target_layout)
+                                .map(u32::from)
                         })
                         .unwrap_or(0);
                     size.max(offset.saturating_add(width))
@@ -2780,9 +2784,10 @@ impl<'a> IrBuilder<'a> {
             })
     }
 
-    fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_width(&self, value: &ValueType) -> Option<u32> {
         value
             .value_width_bytes_for_layout(self.model.target_layout)
+            .map(u32::from)
             .or_else(|| {
                 value.as_record_name().and_then(|name| {
                     self.model
@@ -3893,37 +3898,37 @@ impl<'a> IrBuilder<'a> {
             .unwrap_or_else(ValueType::error);
         ArrayType::new(
             element,
-            length.and_then(|expr| self.const_u16_expr_in_scope(scope, expr)),
+            length.and_then(|expr| self.const_u32_expr_in_scope(scope, expr)),
         )
     }
 
-    fn const_u16_expr_in_scope(&self, scope: ScopeId, expr: &Expr) -> Option<u16> {
+    fn const_u32_expr_in_scope(&self, scope: ScopeId, expr: &Expr) -> Option<u32> {
         match &expr.kind {
-            ExprKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
+            ExprKind::Number(number) => number.value.and_then(|value| u32::try_from(value).ok()),
             ExprKind::Name(name) => {
                 let symbol = self.symbol_ref(scope, name, expr.span)?;
                 self.model
                     .constants
                     .get(&symbol.id)
-                    .and_then(|value| u16::try_from(value.bits).ok())
+                    .and_then(|value| u32::try_from(value.bits).ok())
                     .or_else(|| {
                         self.numeric_defines
                             .get(&symbol.id)
                             .and_then(|number| number.value)
-                            .and_then(|value| u16::try_from(value).ok())
+                            .and_then(|value| u32::try_from(value).ok())
                     })
             }
             ExprKind::Unary {
                 op: UnaryOp::Plus,
                 expr,
-            } => self.const_u16_expr_in_scope(scope, expr),
+            } => self.const_u32_expr_in_scope(scope, expr),
             ExprKind::Unary {
                 op: UnaryOp::Neg,
                 expr,
-            } => Some(0u16.wrapping_sub(self.const_u16_expr_in_scope(scope, expr)?)),
+            } => Some(0u32.wrapping_sub(self.const_u32_expr_in_scope(scope, expr)?)),
             ExprKind::Binary { op, left, right } => {
-                let left = self.const_u16_expr_in_scope(scope, left)?;
-                let right = self.const_u16_expr_in_scope(scope, right)?;
+                let left = self.const_u32_expr_in_scope(scope, left)?;
+                let right = self.const_u32_expr_in_scope(scope, right)?;
                 match op {
                     BinaryOp::Add => Some(left.wrapping_add(right)),
                     BinaryOp::Sub => Some(left.wrapping_sub(right)),
@@ -3931,12 +3936,12 @@ impl<'a> IrBuilder<'a> {
                     BinaryOp::Div if right != 0 => Some(left / right),
                     BinaryOp::Mod if right != 0 => Some(left % right),
                     BinaryOp::Div | BinaryOp::Mod => None,
-                    BinaryOp::Lsh => Some(if right >= 16 {
+                    BinaryOp::Lsh => Some(if right >= 32 {
                         0
                     } else {
                         left.wrapping_shl(u32::from(right))
                     }),
-                    BinaryOp::Rsh => Some(if right >= 16 {
+                    BinaryOp::Rsh => Some(if right >= 32 {
                         0
                     } else {
                         left.wrapping_shr(u32::from(right))
@@ -4431,7 +4436,7 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
-    fn value_storage_alignment(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_alignment(&self, value: &ValueType) -> Option<u32> {
         self.model
             .layout
             .value_alignment(value, self.model.target_layout)

@@ -30,14 +30,14 @@ pub struct PointerType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArrayType {
     pub element: Box<ValueType>,
-    pub length: Option<u16>,
+    pub length: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordType {
     pub name: String,
     pub fields: Vec<RecordFieldType>,
-    pub size: u16,
+    pub size: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,7 +57,7 @@ pub struct RecordFieldType {
     pub id: Option<FieldId>,
     pub name: String,
     pub ty: ValueType,
-    pub offset: u16,
+    pub offset: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,7 +163,7 @@ impl CallableType {
 }
 
 impl ArrayType {
-    pub fn new(element: ValueType, length: Option<u16>) -> Self {
+    pub fn new(element: ValueType, length: Option<u32>) -> Self {
         Self {
             element: Box::new(element),
             length,
@@ -178,10 +178,10 @@ impl ArrayType {
         self.element.value_width_bytes()
     }
 
-    pub fn total_width_bytes(&self) -> Option<u16> {
+    pub fn total_width_bytes(&self) -> Option<u32> {
         self.length
             .zip(self.element_width_bytes())
-            .map(|(length, width)| length.saturating_mul(width))
+            .map(|(length, width)| length.saturating_mul(u32::from(width)))
     }
 }
 
@@ -189,7 +189,7 @@ impl RecordType {
     pub fn new(
         name: impl Into<String>,
         fields: impl IntoIterator<Item = RecordFieldType>,
-        size: u16,
+        size: u32,
     ) -> Self {
         Self {
             name: name.into(),
@@ -294,7 +294,7 @@ impl ScalarType {
                         Self::ULong,
                         Self::Byte | Self::Char | Self::Int | Self::Card | Self::Long
                     )
-                    | (Self::Address, Self::Address | Self::Size)
+                    | (Self::Address, Self::Address)
                     | (
                         Self::Size,
                         Self::Byte | Self::Char | Self::Int | Self::Card | Self::Size

@@ -1,5 +1,7 @@
 use actionc::lexer::tokenize;
-use actionc::nir::{self, NirCallee, NirDataFragment, NirIntegerType, NirOp, NirTypeKind};
+use actionc::nir::{
+    self, NirCallee, NirDataFragment, NirIntegerRole, NirIntegerType, NirOp, NirTypeKind, NirValue,
+};
 use actionc::parser::parse;
 use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 use actionc::target::TargetId;
@@ -381,5 +383,107 @@ fn static_address_integers_keep_target_width_and_endianness() {
                     } if actual_width.get() == width
                 ))
         ));
+    }
+}
+
+#[test]
+fn layout_queries_produce_target_sized_values() {
+    let source = "TYPE Pair=[BYTE tag CARD value]
+BYTE ARRAY values(257)
+SIZE result
+SIZE FUNC Measure(SIZE bias)
+  SIZE index
+  result=SIZEOF(values)+ELEMENTS(values)+ALIGNOF(Pair)+OFFSETOF(Pair,value)
+  FOR index=0 TO ELEMENTS(values)-1 DO
+  OD
+  RETURN(result+bias)
+";
+
+    for (target, size_bits) in [
+        (TargetId::Atari6502, 16),
+        (TargetId::Wdc65816Small, 16),
+        (TargetId::Wdc65816Native, 24),
+        (TargetId::Motorola68000, 32),
+    ] {
+        let program = lower(source, target);
+        let size_type = NirIntegerType::size(size_bits);
+        let result = program
+            .globals
+            .iter()
+            .find(|global| global.name == "result")
+            .and_then(|global| global.ty.as_ref())
+            .expect("SIZE result global");
+        assert_eq!(result.kind, NirTypeKind::Integer(size_type));
+
+        let measure = program
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Measure")
+            .expect("SIZE-returning routine");
+        assert_eq!(
+            measure
+                .signature
+                .result
+                .as_ref()
+                .and_then(|ty| ty.kind.integer()),
+            Some(size_type)
+        );
+        assert_eq!(measure.signature.params[0].kind.integer(), Some(size_type));
+        assert!(
+            measure
+                .blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .any(|op| {
+                    match op {
+                        NirOp::Store { src, .. } => matches!(
+                            src,
+                            NirValue::IntegerConst { ty, .. }
+                                if ty.role == NirIntegerRole::Size && ty.bits == size_bits
+                        ),
+                        NirOp::Binary { left, right, .. } => {
+                            [left, right].into_iter().any(|value| {
+                                matches!(
+                                    value,
+                                    NirValue::IntegerConst { ty, .. }
+                                        if ty.role == NirIntegerRole::Size && ty.bits == size_bits
+                                )
+                            })
+                        }
+                        _ => false,
+                    }
+                })
+        );
+    }
+}
+
+#[test]
+fn wide_objects_follow_the_selected_size_model() {
+    let source = "BYTE ARRAY values(70000) PROC Main() RETURN";
+
+    for target in [TargetId::Wdc65816Native, TargetId::Motorola68000] {
+        let program = lower(source, target);
+        let values = program
+            .globals
+            .iter()
+            .find(|global| global.name == "values")
+            .expect("wide array global");
+        assert_eq!(values.storage_size.get(), 70_000);
+        assert_eq!(
+            values.array.as_ref().and_then(|array| array.length),
+            Some(70_000)
+        );
+    }
+
+    for target in [TargetId::Atari6502, TargetId::Wdc65816Small] {
+        let tokens = tokenize(source).expect("tokenize wide array");
+        let ast = parse(&tokens).expect("parse wide array");
+        let diagnostics = analyze_with_options(&ast, SemanticOptions::modern().with_target(target))
+            .expect_err("16-bit SIZE model must reject a 70000-element array");
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("does not fit the target's 16-bit SIZE type")
+        }));
     }
 }
