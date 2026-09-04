@@ -634,8 +634,27 @@ fn sample_catalog_roles_are_complete_and_consistent() {
                     "executable sample has no declared build: {}",
                     spec.path
                 );
+                assert!(
+                    builds.iter().any(|build| build.tier == BuildTier::Release),
+                    "executable sample has no release-tier build: {}",
+                    spec.path
+                );
                 let mut distinct = BTreeSet::new();
                 for build in builds {
+                    match build.tier {
+                        BuildTier::Release => assert_ne!(
+                            build.mode,
+                            CompileMode::Mir6502,
+                            "release-tier build must use a supported classic mode: {}",
+                            spec.path
+                        ),
+                        BuildTier::Experimental => assert_eq!(
+                            build.mode,
+                            CompileMode::Mir6502,
+                            "experimental build must exercise MIR6502: {}",
+                            spec.path
+                        ),
+                    }
                     let identity = format!(
                         "{:?}/{:?}/{:?}/{:?}/{:?}",
                         build.tier,
@@ -649,6 +668,7 @@ fn sample_catalog_roles_are_complete_and_consistent() {
                         "sample has a duplicate build declaration: {}",
                         spec.path
                     );
+                    let mut module_paths = BTreeSet::new();
                     if let Some(project_root) = build.project_root {
                         assert!(
                             root.join(project_root).is_dir(),
@@ -660,6 +680,44 @@ fn sample_catalog_roles_are_complete_and_consistent() {
                             root.join(module_path).is_dir(),
                             "sample build module path does not exist: {module_path}"
                         );
+                        assert!(
+                            module_paths.insert(*module_path),
+                            "sample build repeats module path {module_path}: {}",
+                            spec.path
+                        );
+                    }
+                    for &(start, end) in &build.forbidden_ranges {
+                        assert!(
+                            start <= end,
+                            "sample build has an inverted forbidden range ${start:04X}-${end:04X}: {}",
+                            spec.path
+                        );
+                    }
+                    if let Some((start, end)) = build.program_range {
+                        assert!(
+                            start <= end,
+                            "sample build has an inverted program range ${start:04X}-${end:04X}: {}",
+                            spec.path
+                        );
+                        if let Some(required_start) = build.required_segment_start {
+                            assert!(
+                                (start..=end).contains(&required_start),
+                                "required segment start ${required_start:04X} lies outside the program range for {}",
+                                spec.path
+                            );
+                        }
+                    }
+                    if build.tier == BuildTier::Experimental {
+                        assert!(
+                            builds.iter().any(|release| {
+                                release.tier == BuildTier::Release
+                                    && release.runtime == build.runtime
+                                    && release.project_root == build.project_root
+                                    && release.module_paths == build.module_paths
+                            }),
+                            "experimental build has no release-tier counterpart with the same runtime and module configuration: {}",
+                            spec.path
+                        );
                     }
                 }
             }
@@ -669,7 +727,18 @@ fn sample_catalog_roles_are_complete_and_consistent() {
                     "sample dependency has no executable owner: {}",
                     spec.path
                 );
+                let mut distinct = BTreeSet::new();
                 for owner in *used_by {
+                    assert_ne!(
+                        *owner, spec.path,
+                        "sample dependency cannot own itself: {}",
+                        spec.path
+                    );
+                    assert!(
+                        distinct.insert(*owner),
+                        "sample dependency repeats owner {owner}: {}",
+                        spec.path
+                    );
                     assert!(
                         matches!(roles.get(owner), Some(SampleRole::Executable { .. })),
                         "sample dependency {} names a non-executable owner: {owner}",
@@ -679,8 +748,13 @@ fn sample_catalog_roles_are_complete_and_consistent() {
             }
             SampleRole::SourceOnly { reason } => {
                 assert!(
-                    !reason.trim().is_empty(),
-                    "source-only sample needs an explanation: {}",
+                    reason.trim().len() >= 20,
+                    "source-only sample needs a meaningful explanation: {}",
+                    spec.path
+                );
+                assert!(
+                    !reason.to_ascii_lowercase().contains("todo"),
+                    "source-only sample explanation cannot be a TODO: {}",
                     spec.path
                 );
             }

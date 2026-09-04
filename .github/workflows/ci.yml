@@ -37,6 +37,9 @@ jobs:
       - name: Show Rust toolchain
         run: rustc --version --verbose
 
+      - name: Test executable sample build matrix
+        run: cargo test --locked --test sample_build_matrix
+
       - name: Test workspace
         run: cargo test --locked
 

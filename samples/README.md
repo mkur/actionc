@@ -56,3 +56,33 @@ non-graphics runners.
 Archived disk images, byte-exact extractions, raw ATASCII sidecars, and original
 compiler outputs live under `corpora/`. Survey scripts and generated comparison
 reports live under `surveys/`.
+
+## Build coverage
+
+Every Action-family source in this directory has an explicit role in
+`tests/sample_build_matrix.rs`:
+
+- **Executable** sources have one or more known-good compiler, runtime, and
+  module-path combinations. Release-tier cases cover the supported classic
+  backend; advertised MIR6502 combinations are tracked separately as
+  experimental.
+- **Dependencies** name the executable samples which consume them.
+- **Source-only** files carry a concrete reason why they are retained without
+  an executable build contract.
+
+The catalog test fails when a source is added, removed, renamed, duplicated, or
+left without a role. Executable checks compile through the public compiler API,
+parse the resulting Atari load file, verify `RUNAD`, and enforce any declared
+origin or reserved-memory constraints.
+
+Run the same gates locally with:
+
+```sh
+cargo test --test sample_build_matrix sample_catalog_
+cargo test --test sample_build_matrix release_sample_builds_produce_valid_load_files
+cargo test --test sample_build_matrix advertised_mir6502_sample_builds_produce_valid_load_files
+```
+
+The build cases are deliberately explicit rather than a Cartesian product.
+Adding a sample therefore advertises only combinations that are actually
+maintained and tested.

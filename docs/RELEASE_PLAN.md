@@ -37,11 +37,17 @@ Run and record:
 
 ```sh
 cargo test
+cargo test --test sample_build_matrix release_sample_builds_produce_valid_load_files
+cargo test --test sample_build_matrix advertised_mir6502_sample_builds_produce_valid_load_files
 cargo run --bin actionc -- --output target/release-smoke/hello-world.xex samples/hello-world.act
 cargo run --bin actionc -- --profile legacy --backend classic --output target/release-smoke/logo-legacy.xex samples/logo.act
 cargo run --bin actionc -- --profile modern --backend classic --output target/release-smoke/logo-modern.xex samples/logo.act
 cargo run --bin actionc -- --profile modern --backend classic --output target/release-smoke/tn-modern.xex samples/tn/modern/TN.ACT
 ```
+
+The first sample-matrix command is the release gate for supported classic
+builds. The second protects only the MIR6502 combinations that the repository
+currently advertises; MIR6502 remains experimental for this release.
 
 Also run report-only sweeps:
 
