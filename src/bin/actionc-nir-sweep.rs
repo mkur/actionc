@@ -193,11 +193,18 @@ fn print_result(result: &SweepResult, verbose: bool) {
         Outcome::VerifyFailed => "VERIFYFAIL",
         Outcome::OptimizeFailed => "OPTFAIL",
     };
+    let path = report_path(&result.path);
     if result.outcome == Outcome::Ok && !verbose {
-        println!("{label:<8} {}", result.path.display());
+        println!("{label:<8} {path}");
     } else {
-        println!("{label:<8} {:<56} {}", result.path.display(), result.detail);
+        println!("{label:<8} {path:<56} {}", result.detail);
     }
+}
+
+fn report_path(path: &Path) -> String {
+    // Sweep output is consumed by tests and reports checked into the repository.
+    // Keep its spelling stable across Unix and Windows hosts.
+    path.to_string_lossy().replace('\\', "/")
 }
 
 fn count_results(results: &[SweepResult]) -> SweepCounts {
@@ -333,5 +340,13 @@ mod tests {
         assert_eq!(counts.load_failed, 0);
         assert_eq!(counts.sem_failed, 0);
         assert_eq!(counts.lower_failed, 0);
+    }
+
+    #[test]
+    fn report_paths_use_repository_separators() {
+        assert_eq!(
+            report_path(Path::new(r"fixtures\runtime\native_real_library.act")),
+            "fixtures/runtime/native_real_library.act"
+        );
     }
 }
