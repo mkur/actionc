@@ -13,6 +13,11 @@ continues this work for runtime pointer loops with dynamic word bounds, includin
 loop rotation, cursor/countdown strength reduction, and bounded fixed-trip
 inner-loop optimization.
 
+The proposed
+[`MIR6502_COUNTED_LOOP_LATCH_RELAXATION_PLAN.md`](MIR6502_COUNTED_LOOP_LATCH_RELAXATION_PLAN.md)
+extends the existing byte-loop selector with explicit first-entry A/flag state
+reconstruction and trip-count-aware profitability.
+
 This plan turns the code-generation gaps exposed by the Action!/Mad Pascal
 benchmark comparison into general MIR6502 improvements. The benchmark suite is
 an observation workload, not an optimization contract: no matcher may depend

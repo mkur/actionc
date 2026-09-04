@@ -101,15 +101,39 @@ pub(super) fn layout_blocks_in_reverse_postorder(routine: &mut MirRoutine) -> bo
 
 /// Selects compact memory-resident latches from typed counted-loop facts after
 /// physical update selection and block layout.
+#[cfg(test)]
 pub(super) fn select_counted_loop_latches(
     routine: &mut MirRoutine,
     layout: &MaterializeLayout,
 ) -> usize {
-    let mut selected = 0;
+    select_counted_loop_latches_with_report(routine, layout).selected
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CountedLoopLatchSelectionReport {
+    pub(super) candidates: usize,
+    pub(super) blocked_initial_guard: usize,
+    pub(super) first_entry_accumulator_required: usize,
+    pub(super) first_entry_flags_required: usize,
+    pub(super) blocked_unsupported_or_unsafe: usize,
+    pub(super) blocked_profitability: usize,
+    pub(super) selected: usize,
+    pub(super) selected_exact_rotation: usize,
+}
+
+pub(super) fn select_counted_loop_latches_with_report(
+    routine: &mut MirRoutine,
+    layout: &MaterializeLayout,
+) -> CountedLoopLatchSelectionReport {
+    // Take the census once. Selection re-analyzes after every applied plan, so
+    // collecting rejection counts inside that fixed point would count the same
+    // header more than once.
+    let mut report = audit_counted_loop_latch_candidates(routine, layout);
     loop {
         let Some(plan) = counted_loop_latch_plan(routine, layout) else {
             break;
         };
+        let exact_rotation = matches!(plan, CountedLoopLatchPlan::RotatedHeadTested(_));
         let applied = match plan {
             CountedLoopLatchPlan::HeadTested(plan) => {
                 apply_initialized_byte_countdown_plan(&mut routine.blocks, plan)
@@ -133,9 +157,71 @@ pub(super) fn select_counted_loop_latches(
         if !applied {
             break;
         }
-        selected += 1;
+        report.selected += 1;
+        report.selected_exact_rotation += usize::from(exact_rotation);
     }
-    selected
+    report
+}
+
+fn audit_counted_loop_latch_candidates(
+    routine: &MirRoutine,
+    layout: &MaterializeLayout,
+) -> CountedLoopLatchSelectionReport {
+    let Ok(cfg) = MirCfg::from_routine(routine) else {
+        return CountedLoopLatchSelectionReport::default();
+    };
+    let liveness = MirMachineLiveness::analyze(routine, &cfg);
+    let mut report = CountedLoopLatchSelectionReport::default();
+    for counted in analyze_counted_loops(routine) {
+        report.candidates += 1;
+        if counted.width != MirWidth::Byte
+            || counted.signed
+            || counted.step != 1
+            || !counted_loop_mem_allows_rmw(&counted, layout)
+        {
+            report.blocked_unsupported_or_unsafe += 1;
+            continue;
+        }
+        if !matches!(
+            counted.shape,
+            MirCountedLoopShape::HeadTested | MirCountedLoopShape::HeadTestedByteUnderflow { .. }
+        ) {
+            continue;
+        }
+        if counted.initial_guard_required {
+            report.blocked_initial_guard += 1;
+            continue;
+        }
+        let accumulator_required = machine_accumulator_live_on_entry(&liveness, counted.body);
+        let flags_required = !machine_flags_dead_on_entry(&liveness, counted.body);
+        report.first_entry_accumulator_required += usize::from(accumulator_required);
+        report.first_entry_flags_required += usize::from(flags_required);
+        if accumulator_required || flags_required {
+            continue;
+        }
+
+        // Profitability telemetry is intentionally restricted to the exact
+        // compare-preserving rotation. Other counted-loop plans have different
+        // machine-state and growth contracts.
+        if counted.shape == MirCountedLoopShape::HeadTested
+            && !(counted.direction == MirCountDirection::Descending && counted.bound == 1)
+        {
+            let plan = RotatedHeadTestedPlan {
+                preheader: counted.preheader,
+                header: counted.header,
+                body: counted.body,
+                latch: counted.latch,
+            };
+            let mut candidate = routine.blocks.clone();
+            if apply_rotated_head_tested_plan(&mut candidate, plan)
+                && estimated_routine_layout_bytes(&candidate)
+                    >= estimated_routine_layout_bytes(&routine.blocks)
+            {
+                report.blocked_profitability += 1;
+            }
+        }
+    }
+    report
 }
 
 /// Carries a canonical byte induction value in X or Y across a loop backedge.
@@ -4198,6 +4284,49 @@ mod tests {
             ],
             effects: Default::default(),
         }
+    }
+
+    #[test]
+    fn counted_loop_latch_audit_reports_first_entry_state_and_guard_blockers() {
+        let mut accumulator_live = ascending_head_tested_loop(0, 8);
+        accumulator_live.blocks[2].ops.insert(
+            0,
+            MirOp::Move {
+                dst: MirDef::Reg(MirReg::X),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+        );
+        let layout = layout_for(&accumulator_live);
+        let report = audit_counted_loop_latch_candidates(&accumulator_live, &layout);
+        assert_eq!(report.candidates, 1);
+        assert_eq!(report.first_entry_accumulator_required, 1);
+        assert_eq!(report.first_entry_flags_required, 0);
+
+        let mut carry_live = ascending_head_tested_loop(0, 8);
+        carry_live.blocks[2].ops.insert(
+            0,
+            MirOp::Binary {
+                op: crate::mir6502::ir::MirBinaryOp::Add,
+                dst: MirDef::Reg(MirReg::A),
+                left: MirValue::ConstU8(0),
+                right: MirValue::ConstU8(0),
+                width: MirWidth::Byte,
+                carry_in: Some(crate::mir6502::ir::MirCarryIn::FromPrevious),
+                carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
+            },
+        );
+        let layout = layout_for(&carry_live);
+        let report = audit_counted_loop_latch_candidates(&carry_live, &layout);
+        assert_eq!(report.candidates, 1);
+        assert_eq!(report.first_entry_accumulator_required, 0);
+        assert_eq!(report.first_entry_flags_required, 1);
+
+        let zero_trip = ascending_head_tested_loop(8, 8);
+        let layout = layout_for(&zero_trip);
+        let report = audit_counted_loop_latch_candidates(&zero_trip, &layout);
+        assert_eq!(report.candidates, 1);
+        assert_eq!(report.blocked_initial_guard, 1);
     }
 
     fn full_range_ascending_loop(body_prefix: Vec<MirOp>, exit_ops: Vec<MirOp>) -> MirRoutine {

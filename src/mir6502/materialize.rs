@@ -1583,9 +1583,48 @@ pub(super) fn materialize_program(
         if layout_blocks_in_reverse_postorder(routine) {
             peephole_stats.record(routine.id, "cfg-cost-aware-layout");
         }
-        let selected = cfg::select_counted_loop_latches(routine, &final_layout);
-        peephole_stats.record_many(routine.id, "counted-loop-latch-selected", selected);
-        if selected > 0 && layout_blocks_in_reverse_postorder(routine) {
+        let latch_report = cfg::select_counted_loop_latches_with_report(routine, &final_layout);
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-candidate",
+            latch_report.candidates,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-blocked-initial-guard",
+            latch_report.blocked_initial_guard,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-first-entry-a-required",
+            latch_report.first_entry_accumulator_required,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-first-entry-flags-required",
+            latch_report.first_entry_flags_required,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-blocked-unsupported-or-unsafe",
+            latch_report.blocked_unsupported_or_unsafe,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-blocked-profitability",
+            latch_report.blocked_profitability,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected-exact-rotation",
+            latch_report.selected_exact_rotation,
+        );
+        peephole_stats.record_many(
+            routine.id,
+            "counted-loop-latch-selected",
+            latch_report.selected,
+        );
+        if latch_report.selected > 0 && layout_blocks_in_reverse_postorder(routine) {
             peephole_stats.record(routine.id, "counted-loop-post-selection-layout");
         }
     }

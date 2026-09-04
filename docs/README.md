@@ -53,6 +53,9 @@ crowding the active reference set.
 - [MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md](MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md)
   - active general plan for counted loops, register facts, and direct value
   consumers.
+- [MIR6502_COUNTED_LOOP_LATCH_RELAXATION_PLAN.md](MIR6502_COUNTED_LOOP_LATCH_RELAXATION_PLAN.md)
+  - proposed follow-on for first-entry machine-state reconstruction and
+  trip-count-aware latch profitability.
 - [MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md](MIR6502_STATIC_ARRAY_AFFINE_INDEX_PLAN.md)
   - focused follow-on for widened byte indexes, direct indexed accumulation,
   and full-range Y-carried loops.
