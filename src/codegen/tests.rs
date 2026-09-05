@@ -11523,6 +11523,154 @@ fn modern_nested_call_argument_staging_preserves_earlier_args() {
 }
 
 #[test]
+fn classic_nested_call_arguments_preserve_byte_and_word_results() {
+    for shape in ["byte", "int", "card"] {
+        check_classic_nested_call_arguments(shape);
+    }
+}
+
+#[test]
+fn classic_nested_call_arguments_preserve_mixed_width_results() {
+    check_classic_nested_call_arguments("mixed");
+}
+
+#[test]
+fn classic_nested_call_arguments_preserve_cast_wrapped_results() {
+    check_classic_nested_call_arguments("cast");
+}
+
+fn check_classic_nested_call_arguments(shape: &str) {
+    let (word_type, params, first, second, selection): (_, _, _, _, &[(usize, usize)]) = match shape
+    {
+        "byte" => (
+            "CARD",
+            "BYTE a,b",
+            "ByteRelay(ByteA()),ByteRelay(ByteB())",
+            "ByteRelay(ByteB()),ByteRelay(ByteA())",
+            &[(0, 1), (2, 1)],
+        ),
+        "int" | "card" => (
+            if shape == "int" { "INT" } else { "CARD" },
+            if shape == "int" {
+                "INT a,b"
+            } else {
+                "CARD a,b"
+            },
+            "WordRelay(WordA()),WordRelay(WordB())",
+            "WordRelay(WordB()),WordRelay(WordA())",
+            &[(1, 2), (3, 2)],
+        ),
+        "mixed" => (
+            "CARD",
+            "BYTE a CARD b BYTE c CARD d",
+            "ByteRelay(ByteA()),WordRelay(WordA()),ByteRelay(ByteB()),WordRelay(WordB())",
+            "ByteRelay(ByteB()),WordRelay(WordB()),ByteRelay(ByteA()),WordRelay(WordA())",
+            &[(0, 1), (1, 2), (2, 1), (3, 2)],
+        ),
+        "cast" => (
+            "CARD",
+            "CARD a,b",
+            "CARD(ByteA()),CARD(ByteB())",
+            "CARD(ByteB()),CARD(ByteA())",
+            &[(0, 2), (2, 2)],
+        ),
+        _ => unreachable!(),
+    };
+    let source = format!(
+        "BYTE captured=$0627 BYTE FUNC ByteA=$7000() {word_type} FUNC WordA=$7040() \
+         BYTE FUNC ByteB=$7080() {word_type} FUNC WordB=$70C0() \
+         BYTE FUNC Capture=$7100({params}) \
+         BYTE FUNC ByteRelay(BYTE x) RETURN(x) \
+         {word_type} FUNC WordRelay({word_type} x) RETURN(x) \
+         PROC Main() captured=Capture({first}) captured=Capture({second}) RETURN"
+    );
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(&source, 0x3000, profile).unwrap();
+        for values in [
+            [0u16, 0, 255, 0xFFFF],
+            [127, 0x1234, 128, 0xABCD],
+            [255, 0x80FF, 1, 0x7F00],
+            [1, 0x0100, 0, 0xFF00],
+        ] {
+            let mut memory = [0u8; 65536];
+            memory[0x3000..0x3000 + output.bytes.len()].copy_from_slice(&output.bytes);
+            memory[0x0600..0x0700].fill(0xCC);
+            memory[0x0620..0x0626].fill(0);
+            for (index, value) in values.iter().enumerate() {
+                memory[0x0640 + 2 * index..0x0642 + 2 * index]
+                    .copy_from_slice(&value.to_le_bytes());
+                // Opaque ABI callees isolate caller staging from runtime
+                // helpers and inferred accumulator-return optimizations.
+                let mut producer = Emitter::new();
+                producer.emit_inc_absolute(Absolute::new(0x0622 + index as u16));
+                for lane in 0..if index % 2 == 0 { 1 } else { 2 } {
+                    producer.emit_lda_abs(0x0640 + 2 * index as u16 + lane);
+                    producer.emit_sta_zp(runtime_zp::ARGS.address() + lane as u8);
+                }
+                producer.emit_rts();
+                let bytes = producer.finish().unwrap();
+                let entry = 0x7000 + 0x40 * index;
+                memory[entry..entry + bytes.len()].copy_from_slice(&bytes);
+            }
+            // Capture actual ABI bytes at the callee boundary on both calls,
+            // including bytes beyond A/X/Y for the mixed-width signature.
+            let width = selection.iter().map(|(_, width)| width).sum::<usize>();
+            let mut capture = Emitter::new();
+            capture.emit_sta_zero_page(runtime_zp::ARGS);
+            capture.emit_stx_zero_page(runtime_zp::ARGS.offset(1));
+            capture.emit_sty_zero_page(runtime_zp::ARGS.offset(2));
+            capture.emit_ldx_abs(0x0621);
+            for lane in 0..width {
+                capture.emit_lda_zero_page(runtime_zp::ARGS.offset(lane as u8));
+                capture.emit_sta_abs_x(0x0600 + lane as u16);
+            }
+            capture.emit_txa();
+            capture.emit_clc();
+            capture.emit_adc_imm(width as u8);
+            capture.emit_sta_abs(0x0621);
+            capture.emit_inc_absolute(Absolute::new(0x0620));
+            capture.emit_lda_imm(0);
+            capture.emit_sta_zero_page(runtime_zp::ARGS);
+            capture.emit_rts();
+            let bytes = capture.finish().unwrap();
+            memory[0x7100..0x7100 + bytes.len()].copy_from_slice(&bytes);
+
+            let mut wrapper = Emitter::new();
+            wrapper.emit_lda_imm(0x42);
+            wrapper.emit_pha();
+            wrapper.emit_jsr_abs(output.run_address);
+            wrapper.emit_pla();
+            wrapper.emit_sta_abs(0x0626);
+            wrapper.emit_rts();
+            let bytes = wrapper.finish().unwrap();
+            memory[0x2F00..0x2F00 + bytes.len()].copy_from_slice(&bytes);
+
+            let mut expected = memory[0x0600..0x0700].to_vec();
+            let mut offset = 0;
+            for swap in [0, 2] {
+                for &(index, width) in selection {
+                    let index = index ^ swap;
+                    expected[offset..offset + width]
+                        .copy_from_slice(&values[index].to_le_bytes()[..width]);
+                    offset += width;
+                    expected[0x22 + index] += 1;
+                }
+                expected[0x20] += 1;
+            }
+            expected[0x21] = offset as u8;
+            expected[0x26] = 0x42;
+            expected[0x27] = 0;
+            indexed_test_cpu::run_memory(&mut memory, 0x2F00);
+            assert_eq!(
+                &memory[0x0600..0x0700],
+                &expected,
+                "{profile:?}/{shape}, inputs={values:04X?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn compatible_staged_word_call_arguments_emit_left_to_right_without_nested_calls() {
     let output = generate_compatible_source_with_origin(
         "PROC Take(INT a,b) RETURN PROC Main(INT x,y,x1,y1) Take(x+x1,y+y1) RETURN",

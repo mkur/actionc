@@ -16,7 +16,9 @@ pub(super) fn expr_contains_routine_call(
                     .iter()
                     .any(|arg| expr_contains_routine_call(arg, routines))
         }
-        ExprKind::Unary { expr, .. } => expr_contains_routine_call(expr, routines),
+        ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => {
+            expr_contains_routine_call(expr, routines)
+        }
         ExprKind::Binary { left, right, .. } => {
             expr_contains_routine_call(left, routines)
                 || expr_contains_routine_call(right, routines)

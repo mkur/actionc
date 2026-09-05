@@ -39,7 +39,7 @@ focused compatibility test or probe before changing semantics or codegen.
 The legacy profile intentionally rejects some expression shapes that are legal
 to parse but awkward to lower compatibly:
 
-- function calls as routine-call arguments;
+- function calls as arguments in standalone routine-call statements;
 - most function calls inside arithmetic expressions;
 - compound assignments where the target contains a function call;
 - indexed assignments where both sides contain function calls.
@@ -131,6 +131,16 @@ most two bytes. The emitted body must contain no reference to the parameter
 cells, no parameter address may escape, and the routine may not contain machine
 blocks, effect annotations, current-location expressions, locals, or hidden
 storage. Otherwise the normal parameter cells and entry stores remain.
+
+Nested calls accepted inside function-value expressions use the same protected
+argument staging in both classic profiles. Arguments are evaluated once, from
+left to right, at the public ABI base and immediately saved on the stack. Only
+after evaluation are they restored to their final argument slots and A/X/Y.
+Using the ABI base avoids an overlapping word-return copy when a word argument
+follows a byte argument. Call detection traverses casts as well as other
+expression wrappers. This is a correctness contract, not a modern optimization;
+the single-result forwarding shortcut remains modern-only. It does not relax
+the legacy call-statement restrictions above or alter no-call staging paths.
 
 ## Codegen Optimizations
 

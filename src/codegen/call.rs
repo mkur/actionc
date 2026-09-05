@@ -278,12 +278,14 @@ impl Generator {
         if args.iter().any(expr_needs_call_staging) {
             let staged_args = StagedCallArgs::new(args, supplied_params);
 
-            if self.profile.enables_modern_optimizations()
-                && args
-                    .iter()
-                    .any(|arg| expr_contains_routine_call(arg, &self.routines))
+            // Nested calls share the public argument/return slots in every
+            // profile. Preserving earlier arguments is an ABI correctness
+            // requirement, independent of modern forwarding optimizations.
+            if args
+                .iter()
+                .any(|arg| expr_contains_routine_call(arg, &self.routines))
             {
-                if !self.emit_modern_left_to_right_staged_call_arguments(args, supplied_params) {
+                if !self.emit_left_to_right_staged_call_arguments(args, supplied_params) {
                     return false;
                 }
             } else {
@@ -484,7 +486,7 @@ impl Generator {
         true
     }
 
-    pub(super) fn emit_modern_left_to_right_staged_call_arguments(
+    pub(super) fn emit_left_to_right_staged_call_arguments(
         &mut self,
         args: &[Expr],
         params: &[StorageSlot],
@@ -497,6 +499,14 @@ impl Generator {
         }
 
         for (arg, slot) in args.iter().zip(params.iter().copied()) {
+            // Earlier arguments are already on the stack. Materialize each
+            // new value at the ABI base before pushing it, not at its final
+            // offset: a word at $A1 would overlap the public $A0/$A1 result
+            // while accumulator-result forwarding copies its low byte.
+            let slot = StorageSlot {
+                address: u16::from(runtime_zp::ARGS.address()),
+                ..slot
+            };
             if let ExprKind::String(text) = &arg.kind {
                 if !self.emit_string_literal_address_to_slot(text, arg.span, slot) {
                     return false;
