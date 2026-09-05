@@ -210,13 +210,32 @@ profile exposes this intermediate capability.
 
 ### 4. Backend support
 
-Status: pending.
+Status: in progress; canonical classic layout projection (4a) is complete.
 
 Classic: project canonical layouts; generalize field-based indexing and array
 decay through existing effective-address/staging paths. MIR6502: retain inline
 subobject backing and consume the normalized address with existing selectors
 and fallbacks. Verify loads, stores and compound assignments on both backends
 and runtimes, especially offsets above 255 and pointer changes during calls.
+
+4a projects canonical `RecordType` into classic's existing layout table, keeping
+complete field extent distinct from array element stride. All record identities
+are registered before nested field references resolve. SemIR-driven allocation
+no longer invokes the AST layout builder. Standalone preflight, final linking,
+and cartridge runtime extensions carry and merge application/runtime layouts,
+rebasing nested record IDs. Direct AST-only entry points retain their existing
+collector; no array support was added to that competing layout path.
+
+Six regression tests cover full inline extents, nested record-array strides,
+module-owned same-spelling types with different CONST bounds, runtime-table ID
+rebasing, malformed canonical facts, and the existing unsupported boundary for
+pointer-valued record fields. Codegen checks run under both runtimes. Removing
+projected bound expressions leaves allocation and emitted code unchanged,
+proving layout no longer depends on that syntax. Existing fixtures are unchanged.
+
+Remaining in slice 4: generalize classic field-based effective addresses and
+decay; execute indexed loads/stores/compound assignments and ordered calls on
+classic and MIR6502. Public enablement and aggregate initialization remain gated.
 
 ### 5. Aggregate behavior and public enablement
 
@@ -282,9 +301,21 @@ Slice 3 validated on 2026-09-05:
   sweep. Existing fixture expectations are unchanged.
 - `git diff --check` passed.
 
-These checks validate semantic/IR development slices and preservation of
-existing behavior; they do not establish executable embedded-array support.
-Slices 4–6 remain unfinished; next is classic/MIR6502 backend execution support.
+Slice 4a validated on 2026-09-05:
+
+- Root suite: 2,700 passed, 0 failed, 22 existing ignored; six new canonical
+  classic layout-projection tests passed.
+- Isolated VM suite: 100 passed, 0 failed, 0 ignored. Oscar64 coverage remains
+  4,380 cases in 24 tests; no stage-5 ports or embedded-array executions added.
+- Explicit NIR snapshots passed unchanged; all 33 NIR sweep fixtures passed.
+- `git diff --check` passed. Existing emitted-code and fixture expectations
+  are unchanged; the bound-removal regression verifies canonical allocation in
+  both runtime-linking paths.
+
+These checks validate the semantic/IR and classic allocation development slices
+and preservation of existing behavior; they do not establish executable
+embedded-array access. Slices 4–6 remain unfinished; next is classic field-based
+indexing/decay and cross-backend execution coverage.
 
 After each semantic/lowering slice:
 

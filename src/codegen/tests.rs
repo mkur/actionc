@@ -14115,6 +14115,7 @@ fn pointer_dereference_proof_classifies_record_pointer_field_offsets() {
             size: 2,
             record: None,
             signed: false,
+            array: None,
         },
     );
     generator.record_layouts.layouts.push(RecordLayout {
@@ -14149,6 +14150,7 @@ fn pointer_dereference_proof_rejects_record_field_offsets_that_do_not_fit_y() {
             size: 2,
             record: None,
             signed: false,
+            array: None,
         },
     );
     generator.record_layouts.layouts.push(RecordLayout {
@@ -18280,6 +18282,7 @@ fn classic_codegen_rejects_aggregate_initializers_without_semantic_facts() {
         &native_real::ClassicNativeRealFacts::default(),
         &record_copy::ClassicRecordCopyFacts::default(),
         &ClassicStaticInitializerFacts::default(),
+        None,
         0x3000,
         true,
         CodegenProfile::Compat,

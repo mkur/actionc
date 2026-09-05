@@ -147,6 +147,15 @@ destination. Page loops cover arbitrary constant record extents without using
 the processor stack. The backend does not reconstruct record-copy meaning from
 source text.
 
+SemIR-driven classic allocation also consumes canonical record layout facts,
+projected alongside the copy and initializer plans. Full record/field extents,
+inline-array bounds/strides and nested record identities come from `RecordType`,
+not from rebuilding TYPE declarations. Runtime linking rebases nested record
+IDs when combining layout tables. The legacy AST-only entry points retain
+their old collector. Embedded-array access and initializer execution remain
+subject to the rollout in
+[the embedded-array plan](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
+
 ## Implementation slices
 
 1. **Complete.** Parse named initializer constants, resolve them in semantic analysis, and

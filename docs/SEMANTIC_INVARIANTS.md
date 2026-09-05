@@ -184,6 +184,17 @@ field layout entries by owning `TYPE`/`RECORD` symbol, preserving field ID,
 name, type, offset, and total record size. Downstream code should consume these
 facts instead of rebuilding record layouts from declaration text.
 
+SemIR-driven classic codegen now projects canonical `RecordType` layouts into
+its existing record table before allocating storage. Nested record identities
+and complete sizes are registered before field references are resolved. Field
+offsets, complete inline extents and array shape do not depend on projected AST
+bounds. Application and selected runtime layout tables are combined with local
+record-ID rebasing. The old AST layout collector remains only for direct
+AST-only codegen entry points, not as a fallback for SemIR-driven compilation.
+Pointer-valued record fields still lack a classic field-place carrier and
+produce an explicit unsupported diagnostic rather than being treated as
+inline records.
+
 Resolved field facts also carry storage shape, complete byte extent and target
 alignment. Scalar fields use their value width. Embedded fixed-length array
 fields retain an `ArrayType` and element stride separately from their complete
@@ -417,8 +428,8 @@ Known gaps between these invariants and the current implementation:
 
 - many identifier uses still carry strings or are re-looked-up downstream
   instead of being fully bound once in semantic analysis;
-- the older AST codegen still rebuilds record and array layout facts from AST
-  declarations;
+- direct AST-only codegen still rebuilds record layouts, and classic still
+  derives ordinary array storage details from projected AST declarations;
 - NIR still needs more of the semantic binding/fact model represented as
   structured, verifier-checked facts.
 

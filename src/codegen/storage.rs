@@ -16,9 +16,17 @@ pub(super) struct RecordLayout {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct RecordField {
     pub(super) offset: u16,
+    /// Complete inline storage extent, including every array element.
     pub(super) size: u16,
     pub(super) record: Option<usize>,
     pub(super) signed: bool,
+    pub(super) array: Option<RecordArrayField>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct RecordArrayField {
+    pub(super) length: u16,
+    pub(super) stride: u16,
 }
 
 pub(super) fn record_field_fits_indirect_y(field: RecordField) -> bool {
@@ -203,6 +211,21 @@ pub(super) fn codegen_storage_symbol(
 }
 
 impl RecordLayouts {
+    /// Combine independently projected application/runtime layouts. Field record
+    /// references are local IDs and must move with their owning layout table.
+    pub(super) fn extend(&mut self, other: Self) {
+        let base = self.layouts.len();
+        for (name, id) in other.by_name {
+            self.by_name.insert(name, base + id);
+        }
+        self.layouts.extend(other.layouts.into_iter().map(|mut layout| {
+            for field in layout.fields.values_mut() {
+                field.record = field.record.map(|id| base + id);
+            }
+            layout
+        }));
+    }
+
     pub(super) fn get(&self, name: &str) -> Option<(usize, &RecordLayout)> {
         let id = *self.by_name.get(&normalize_name(name))?;
         Some((id, &self.layouts[id]))
@@ -1515,6 +1538,7 @@ fn build_record_layout_with_records(
                     size,
                     record: record_id_for_type(&decl.ty, records),
                     signed: type_is_signed(&decl.ty),
+                    array: None,
                 },
             );
             layout.size = layout.size.wrapping_add(size);

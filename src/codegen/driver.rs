@@ -14,6 +14,7 @@ pub fn generate_with_origin(
         &super::native_real::ClassicNativeRealFacts::default(),
         &super::record_copy::ClassicRecordCopyFacts::default(),
         &static_initializers,
+        None,
         origin,
         false,
         CodegenProfile::Compat,
@@ -44,6 +45,7 @@ pub fn generate_profile_with_origin(
         &super::native_real::ClassicNativeRealFacts::default(),
         &super::record_copy::ClassicRecordCopyFacts::default(),
         &static_initializers,
+        None,
         origin,
         true,
         profile,
@@ -62,6 +64,7 @@ pub fn generate_profile_at_origin(
         &super::native_real::ClassicNativeRealFacts::default(),
         &super::record_copy::ClassicRecordCopyFacts::default(),
         &static_initializers,
+        None,
         origin,
         true,
         profile,
@@ -91,6 +94,7 @@ pub(crate) fn generate_profile_with_origin_and_semir_facts(
         &projection.native_real,
         &projection.record_copies,
         &projection.static_initializers,
+        Some(&projection.record_layouts),
         origin,
         true,
         profile,
@@ -128,6 +132,7 @@ pub fn generate_semir_profile_with_origin(
         &projection.native_real,
         &projection.record_copies,
         &projection.static_initializers,
+        Some(&projection.record_layouts),
         origin,
         true,
         profile,
@@ -151,6 +156,7 @@ pub(crate) fn generate_semir_profile_at_origin(
         &projection.native_real,
         &projection.record_copies,
         &projection.static_initializers,
+        Some(&projection.record_layouts),
         origin,
         true,
         profile,
@@ -165,6 +171,7 @@ pub(super) fn generate_with_options_and_projection_facts(
     native_real: &super::native_real::ClassicNativeRealFacts,
     record_copies: &super::record_copy::ClassicRecordCopyFacts,
     static_initializers: &ClassicStaticInitializerFacts,
+    record_layouts: Option<&RecordLayouts>,
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
@@ -175,6 +182,7 @@ pub(super) fn generate_with_options_and_projection_facts(
         native_real,
         record_copies,
         static_initializers,
+        record_layouts,
         origin,
         segment_storage,
         profile,
@@ -188,13 +196,16 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
     native_real: &super::native_real::ClassicNativeRealFacts,
     record_copies: &super::record_copy::ClassicRecordCopyFacts,
     static_initializers: &ClassicStaticInitializerFacts,
+    record_layouts: Option<&RecordLayouts>,
     origin: u16,
     segment_storage: bool,
     profile: CodegenProfile,
     runtime_target: RuntimeTarget,
 ) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
     let storage_base = if segment_storage { origin } else { DATA_BASE };
-    let record_layouts = collect_record_layouts(program);
+    let record_layouts = record_layouts
+        .cloned()
+        .unwrap_or_else(|| collect_record_layouts(program));
     validate_aggregate_static_initializer_facts(program, &record_layouts, static_initializers)?;
     let routines = collect_routine_info(program, &record_layouts, runtime_target)?;
     let routine_assignment_targets = collect_routine_assignment_targets(program, &routines);

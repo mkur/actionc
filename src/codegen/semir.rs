@@ -22,6 +22,7 @@ pub(crate) struct ClassicProjection {
     pub(crate) native_real: ClassicNativeRealFacts,
     pub(crate) record_copies: ClassicRecordCopyFacts,
     pub(crate) static_initializers: ClassicStaticInitializerFacts,
+    pub(super) record_layouts: super::storage::RecordLayouts,
     pub(crate) storage_display_names: BTreeMap<(String, String), String>,
 }
 
@@ -40,6 +41,7 @@ pub(crate) fn semir_to_projection(
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
     };
+    let record_layouts = lowerer.project_record_layouts(program)?;
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
@@ -47,6 +49,7 @@ pub(crate) fn semir_to_projection(
             native_real: lowerer.native_real,
             record_copies: lowerer.record_copies,
             static_initializers: lowerer.static_initializers,
+            record_layouts,
             storage_display_names,
         })
     } else {
@@ -70,6 +73,7 @@ pub(crate) fn semir_to_cart_projection(
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
     };
+    let record_layouts = lowerer.project_record_layouts(program)?;
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
@@ -77,6 +81,7 @@ pub(crate) fn semir_to_cart_projection(
             native_real: lowerer.native_real,
             record_copies: lowerer.record_copies,
             static_initializers: lowerer.static_initializers,
+            record_layouts,
             storage_display_names,
         })
     } else {
@@ -139,6 +144,107 @@ struct SemIrAstLowerer<'a> {
 }
 
 impl SemIrAstLowerer<'_> {
+    fn project_record_layouts(
+        &self,
+        program: &SemProgram,
+    ) -> Result<super::storage::RecordLayouts, Vec<Diagnostic>> {
+        use super::storage::{RecordArrayField, RecordField, RecordLayout, RecordLayouts};
+        use crate::semantic::RecordFieldStorage;
+
+        let mut declarations = Vec::new();
+        for item in program.modules.iter().flat_map(|module| &module.items) {
+            match item {
+                SemItem::Declaration(declaration) => declarations.push(declaration),
+                SemItem::Routine(routine) => {
+                    declarations.extend(&routine.locals);
+                    visit_lexical_declarations(&routine.body, &mut |_, declaration| {
+                        declarations.push(declaration);
+                    });
+                }
+                _ => {}
+            }
+        }
+        let declarations = declarations
+            .into_iter()
+            .filter_map(|declaration| match &declaration.storage {
+                SemDeclarationStorage::Type { record_type, .. }
+                | SemDeclarationStorage::Record { record_type, .. } => Some((declaration, record_type)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let mut records = RecordLayouts::default();
+        for (declaration, record_type) in &declarations {
+            let id = records.layouts.len();
+            records.by_name.insert(
+                self.symbol_name(&declaration.symbol).to_ascii_uppercase(), id,
+            );
+            records.layouts.push(RecordLayout {
+                size: record_type.size,
+                fields: HashMap::new(),
+            });
+        }
+        // All record identities and complete sizes exist before resolving any
+        // nested field. No declaration-order or AST-bound recomputation is used.
+        for (id, (declaration, record_type)) in declarations.into_iter().enumerate() {
+            for field in &record_type.fields {
+                // The legacy classic field-place carrier does not distinguish
+                // a pointer-valued field from an inline record. Preserve its
+                // unsupported boundary rather than accepting a wrong layout.
+                if field.ty.is_pointer() {
+                    return Err(vec![Diagnostic::new(
+                        declaration.span,
+                        "classic backend does not support pointer-valued record fields yet",
+                    )]);
+                }
+                let invalid = || vec![Diagnostic::new(
+                    declaration.span,
+                    format!(
+                        "missing or inconsistent canonical layout for record field `{}.{}`",
+                        declaration.symbol.name, field.name,
+                    ),
+                )];
+                let ty = self.type_ref(&field.ty);
+                let record = match &ty.base {
+                    TypeBase::Named(name) => records.get(&name.display_name()).map(|(id, _)| id),
+                    _ => None,
+                };
+                let element_size = field.ty
+                    .value_width_bytes_for_layout(program.target_layout)
+                    .or_else(|| record.map(|id| records.layouts[id].size))
+                    .ok_or_else(invalid)?;
+                let (size, array) = match &field.storage {
+                    RecordFieldStorage::Value => (element_size, None),
+                    RecordFieldStorage::InlineArray { array_type, stride } => {
+                        let length = array_type.length
+                            .filter(|length| *length > 0)
+                            .ok_or_else(invalid)?;
+                        if *stride != element_size || array_type.element.as_ref() != &field.ty {
+                            return Err(invalid());
+                        }
+                        (
+                            length.checked_mul(*stride).ok_or_else(invalid)?,
+                            Some(RecordArrayField { length, stride: *stride }),
+                        )
+                    }
+                };
+                if field.offset.checked_add(size).is_none_or(|end| end > record_type.size) {
+                    return Err(invalid());
+                }
+                records.layouts[id].fields.insert(
+                    field.name.to_ascii_uppercase(),
+                    RecordField {
+                        offset: field.offset,
+                        size,
+                        record,
+                        signed: field.ty.as_scalar().is_some_and(|scalar| scalar.is_signed()),
+                        array,
+                    },
+                );
+            }
+        }
+        Ok(records)
+    }
+
     fn program(&mut self, program: &SemProgram) -> Program {
         let mut modules = program
             .modules
@@ -1958,6 +2064,9 @@ fn binary_text(op: BinaryOp) -> &'static str {
         BinaryOp::Ge => ">=",
     }
 }
+
+#[cfg(test)]
+mod record_layout_tests;
 
 #[cfg(test)]
 mod tests {
