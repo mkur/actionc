@@ -4641,7 +4641,7 @@ mod tests {
     }
 
     #[test]
-    fn does_not_color_spills_live_across_blocks() {
+    fn preserves_temp_values_used_across_blocks() {
         let mir = materialize_program(
             MirProgram {
                 statics: Vec::new(),
@@ -4712,7 +4712,12 @@ mod tests {
         .expect("materialize cross-block spill coloring guard");
 
         let accounting = materialize::spill_accounting_for_routine(&mir.routines[0]);
-        assert_eq!(accounting.allocated, 1);
+        // Keeping the entry definition permits the existing edge propagation
+        // to carry #1 in A. Previously cleanup removed that definition and
+        // left a single allocated-but-unwritten spill in its successor.
+        assert_eq!(accounting.allocated, 0);
+        let formatted = format_program(&mir);
+        assert!(formatted.contains("a =.b #1"), "{formatted}");
         verify_program(&mir, MirPhase::PreEmission).expect("cross-block spills are ready");
     }
 
@@ -6837,7 +6842,7 @@ mod tests {
     }
 
     #[test]
-    fn mir6502_emission_emits_indirect_indexed_y_address_forms() {
+    fn mir6502_emission_emits_fixed_indirect_indexed_y_address_forms() {
         let mir = MirProgram {
             statics: Vec::new(),
             globals: Vec::new(),
@@ -6846,12 +6851,9 @@ mod tests {
                 name: "Main".to_string(),
                 abi: MirRoutineAbi::Action,
                 frame: MirFrame {
-                    virtual_zero_page: vec![MirZpSlot(0)],
-                    zero_page_allocations: vec![MirZpAllocation {
-                        slot: MirZpSlot(0),
-                        start: MirFixedZpSlot(0xE2),
-                        size: 2,
-                    }],
+                    // An externally supplied pointer is a fixed home, not
+                    // allocated-but-undefined compiler-private virtual ZP.
+                    fixed_zero_page: vec![MirFixedZpSlot(0xE2), MirFixedZpSlot(0xE3)],
                     ..MirFrame::default()
                 },
                 temps: Vec::new(),
@@ -6862,11 +6864,15 @@ mod tests {
                     ops: vec![
                         MirOp::Load {
                             dst: MirDef::Reg(MirReg::A),
-                            src: MirAddr::IndirectIndexedY { zp: MirZpSlot(0) },
+                            src: MirAddr::FixedIndirectIndexedY {
+                                zp: MirFixedZpSlot(0xE2),
+                            },
                             width: MirWidth::Byte,
                         },
                         MirOp::Store {
-                            dst: MirAddr::IndirectIndexedY { zp: MirZpSlot(0) },
+                            dst: MirAddr::FixedIndirectIndexedY {
+                                zp: MirFixedZpSlot(0xE2),
+                            },
                             src: MirValue::Def(MirDef::Reg(MirReg::A)),
                             width: MirWidth::Byte,
                         },

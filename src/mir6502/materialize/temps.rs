@@ -4,7 +4,10 @@ pub(super) fn cleanup_pre_materialization_temp_artifacts(
     routine: &mut super::super::ir::MirRoutine,
     layout: &MaterializeLayout,
 ) {
-    cleanup_pre_materialization_temp_artifacts_inner(routine, layout, None);
+    // Even the initial CFG-normalization cleanup can see values used in a
+    // successor. A block-local absence of uses is not a dead-definition proof.
+    let liveness = analyze_temp_liveness(routine);
+    cleanup_pre_materialization_temp_artifacts_inner(routine, layout, Some(&liveness));
 }
 
 pub(super) fn cleanup_pre_materialization_temp_artifacts_with_liveness(

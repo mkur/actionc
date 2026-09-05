@@ -28,6 +28,9 @@ struct MirHomeDefinition {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct MirHomeDefinitionState {
     definitions: BTreeMap<MirHomeByte, BTreeSet<MirHomeDefinition>>,
+    /// A path from routine entry has not yet defined this private byte. This
+    /// may-fact must survive a join even when another path provides a store.
+    possibly_undefined: BTreeSet<MirHomeByte>,
 }
 
 impl MirHomeDefinitionState {
@@ -39,6 +42,7 @@ impl MirHomeDefinitionState {
     }
 
     fn join(&mut self, other: &Self) {
+        self.possibly_undefined.extend(&other.possibly_undefined);
         for (home, definitions) in &other.definitions {
             self.definitions
                 .entry(*home)
@@ -48,6 +52,7 @@ impl MirHomeDefinitionState {
     }
 
     fn define(&mut self, home: MirHomeByte, store: MirSite) {
+        self.possibly_undefined.remove(&home);
         self.definitions
             .insert(home, BTreeSet::from([MirHomeDefinition { home, store }]));
     }
@@ -55,6 +60,9 @@ impl MirHomeDefinitionState {
 
 struct HomeDefinitionProblem<'a> {
     transfers: &'a BTreeMap<MirBlockId, MirHomeBlockTransfers>,
+    entry: Option<MirBlockId>,
+    private_homes: BTreeSet<MirHomeByte>,
+    private_aliases: &'a BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>>,
 }
 
 impl DataflowProblem<MirCfg> for HomeDefinitionProblem<'_> {
@@ -68,8 +76,11 @@ impl DataflowProblem<MirCfg> for HomeDefinitionProblem<'_> {
         Self::State::default()
     }
 
-    fn boundary(&self, _node: MirBlockId) -> Option<Self::State> {
-        None
+    fn boundary(&self, node: MirBlockId) -> Option<Self::State> {
+        (Some(node) == self.entry).then(|| MirHomeDefinitionState {
+            definitions: BTreeMap::new(),
+            possibly_undefined: self.private_homes.clone(),
+        })
     }
 
     fn join(&self, into: &mut Self::State, other: &Self::State) {
@@ -87,11 +98,17 @@ impl DataflowProblem<MirCfg> for HomeDefinitionProblem<'_> {
                 op_index,
             };
             apply_writes(&mut state, &transfer.writes, site);
+            define_private_aliases(&mut state, &transfer.writes, self.private_aliases);
         }
         apply_writes(
             &mut state,
             &transfers.terminator.writes,
             MirSite::Terminator { block: node },
+        );
+        define_private_aliases(
+            &mut state,
+            &transfers.terminator.writes,
+            self.private_aliases,
         );
         state
     }
@@ -129,16 +146,29 @@ pub(in crate::mir6502) struct MirHomeDefinitions {
     transfers: BTreeMap<MirBlockId, MirHomeBlockTransfers>,
     uses: BTreeMap<MirHomeDefinition, BTreeSet<MirSite>>,
     reachable: BTreeSet<MirBlockId>,
+    private_aliases: BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>>,
 }
 
 impl MirHomeDefinitions {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
         let universe = collect_home_universe(routine);
         let transfers = collect_home_transfers(routine, &universe);
+        let private_aliases = allocated_private_aliases(routine, universe.iter());
         let result = solve_dataflow(
             cfg,
             &HomeDefinitionProblem {
                 transfers: &transfers,
+                entry: cfg.entry(),
+                private_aliases: &private_aliases,
+                private_homes: universe
+                    .iter()
+                    .filter(|home| {
+                        matches!(
+                            home,
+                            MirHomeByte::Spill { .. } | MirHomeByte::VirtualZeroPage { .. }
+                        )
+                    })
+                    .collect(),
             },
         );
         let uses = collect_definition_uses(routine, cfg, &result, &transfers);
@@ -147,7 +177,50 @@ impl MirHomeDefinitions {
             transfers,
             uses,
             reachable: cfg.reachable().clone(),
+            private_aliases,
         }
+    }
+
+    /// Reads lacking a definite private-home definition on every reachable
+    /// entry path. Uses the same byte effects and CFG solver as reaching defs;
+    /// unknown writes cannot initialize scratch, and public ABI homes are not
+    /// compiler-private. Reads precede writes within an operation.
+    pub(in crate::mir6502) fn undefined_private_reads(&self) -> Vec<(MirSite, MirHomeByte)> {
+        let mut reads = Vec::new();
+        for block in &self.reachable {
+            let Some(mut state) = self.result.in_state(*block).cloned() else {
+                continue;
+            };
+            let transfers = &self.transfers[block];
+            for (site, transfer) in transfers
+                .ops
+                .iter()
+                .enumerate()
+                .map(|(op_index, transfer)| {
+                    (
+                        MirSite::Op {
+                            block: *block,
+                            op_index,
+                        },
+                        transfer,
+                    )
+                })
+                .chain(std::iter::once((
+                    MirSite::Terminator { block: *block },
+                    &transfers.terminator,
+                )))
+            {
+                reads.extend(
+                    transfer
+                        .reads
+                        .intersection(&state.possibly_undefined)
+                        .map(|home| (site, *home)),
+                );
+                apply_writes(&mut state, &transfer.writes, site);
+                define_private_aliases(&mut state, &transfer.writes, &self.private_aliases);
+            }
+        }
+        reads
     }
 
     /// Proves that the exact definition at `store_site` has no use outside the
@@ -201,6 +274,62 @@ impl MirHomeDefinitions {
             uses.iter()
                 .all(|usage| site_inside_window(*usage, store_site, window_end))
         }))
+    }
+}
+
+/// A virtual pointer may span two separately allocated byte slots. Normalize
+/// initialization across their concrete byte aliases once placement exists,
+/// without changing the exact logical store identities used by rewrite proofs.
+fn allocated_private_aliases(
+    routine: &MirRoutine,
+    homes: impl Iterator<Item = MirHomeByte>,
+) -> BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>> {
+    let mut bytes = BTreeMap::<u16, BTreeSet<MirHomeByte>>::new();
+    for home in homes {
+        let MirHomeByte::VirtualZeroPage { slot, offset } = home else {
+            continue;
+        };
+        if let Some(allocation) = routine
+            .frame
+            .zero_page_allocations
+            .iter()
+            .find(|allocation| allocation.slot == slot)
+        {
+            if let Some(address) = u16::from(allocation.start.0)
+                .checked_add(offset)
+                .filter(|address| *address < 256)
+            {
+                bytes.entry(address).or_default().insert(home);
+            }
+        }
+    }
+    let mut result = BTreeMap::new();
+    for (address, aliases) in bytes {
+        // Address consumers are resolved to fixed pairs before emission.
+        // Their explicit writes still define the allocated private bytes;
+        // unknown may-writes and public fixed-home reads remain unchanged.
+        result.insert(
+            MirHomeByte::FixedZeroPage(crate::mir6502::ir::MirFixedZpSlot(address as u8)),
+            aliases.clone(),
+        );
+        for home in &aliases {
+            result.insert(*home, aliases.clone());
+        }
+    }
+    result
+}
+
+fn define_private_aliases(
+    state: &mut MirHomeDefinitionState,
+    writes: &BTreeSet<MirHomeByte>,
+    aliases: &BTreeMap<MirHomeByte, BTreeSet<MirHomeByte>>,
+) {
+    for home in writes {
+        if let Some(aliases) = aliases.get(home) {
+            for alias in aliases {
+                state.possibly_undefined.remove(alias);
+            }
+        }
     }
 }
 

@@ -9,8 +9,8 @@ The [first eight test ports](../fixtures/runtime/oscar64/README.md#compiler-regr
 now pass all 258 VM cases (14 tests, no ignored cases). Both
 `OSCAR-CLASSIC-WORD-INDEX` and `OSCAR-MIR-SELF-INDEX-STORE` are fixed without
 changing the source loops or expected values. MIR post-home rewrites check
-replacement dependencies. The broader indexed-backing coverage audit remains
-a separate follow-up.
+replacement dependencies, and verification rejects undefined private scratch
+reads. The broader indexed-backing coverage audit remains a separate follow-up.
 
 ## Standalone Runtime Licensing
 

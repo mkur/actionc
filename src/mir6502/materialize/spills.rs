@@ -95,7 +95,7 @@ fn op_write_homes(op: &MirOp) -> BTreeSet<MirHomeStorage> {
 fn home_storage(home: MirHomeByte) -> Option<MirHomeStorage> {
     match home {
         MirHomeByte::Spill { id, .. } => Some(MirHomeStorage::Spill(id)),
-        MirHomeByte::VirtualZeroPage(slot) => Some(MirHomeStorage::ZeroPage(slot)),
+        MirHomeByte::VirtualZeroPage { slot, .. } => Some(MirHomeStorage::ZeroPage(slot)),
         MirHomeByte::FixedZeroPage(_) => None,
     }
 }
@@ -1259,13 +1259,19 @@ pub(super) fn lower_known_call_result_spills_to_reused_zero_page(
                                 routine,
                                 &liveness,
                                 spill_lo_home,
-                                MirHomeByte::VirtualZeroPage(*zp_lo),
+                                MirHomeByte::VirtualZeroPage {
+                                    slot: *zp_lo,
+                                    offset: 0,
+                                },
                             )
                             && !homes_interfere(
                                 routine,
                                 &liveness,
                                 spill_hi_home,
-                                MirHomeByte::VirtualZeroPage(*zp_hi),
+                                MirHomeByte::VirtualZeroPage {
+                                    slot: *zp_hi,
+                                    offset: 0,
+                                },
                             )
                             && live_range_preserves_fixed_pair(
                                 routine,

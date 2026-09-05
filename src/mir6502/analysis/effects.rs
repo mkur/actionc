@@ -42,7 +42,7 @@ impl MirTempAccess {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(in crate::mir6502) enum MirHomeByte {
     Spill { id: MirSpillId, offset: u16 },
-    VirtualZeroPage(MirZpSlot),
+    VirtualZeroPage { slot: MirZpSlot, offset: u16 },
     FixedZeroPage(MirFixedZpSlot),
 }
 
@@ -1361,6 +1361,12 @@ fn record_memory_range_read(mem: &MirMem, width: MirWidth, summary: &mut MirOpEf
     push_unique_mem(&mut summary.memory.reads, mem);
     for offset in 0..bytes {
         record_home_reference(&offset_mem(mem, offset), summary);
+        if let MirMem::ZeroPage(slot) = mem {
+            summary.homes.reads.insert(MirHomeByte::VirtualZeroPage {
+                slot: *slot,
+                offset,
+            });
+        }
     }
 }
 
@@ -1403,7 +1409,7 @@ fn record_definite_memory_range_write(
     push_unique_mem(&mut summary.memory.definite_writes, mem);
     for offset in 0..bytes {
         let lane = offset_mem(mem, offset);
-        if let Some(home) = home_byte(&lane) {
+        if let Some(home) = home_byte_at(mem, offset) {
             summary.homes.writes.insert(home);
         }
         if let MirMem::Spill { id, offset } = lane {
@@ -1416,19 +1422,19 @@ fn record_definite_memory_range_write(
 }
 
 fn record_consumer_read(consumer: MirAddressConsumer, summary: &mut MirOpEffectSummary) {
-    for mem in consumer_mems(consumer) {
+    for (offset, mem) in consumer_mems(consumer).into_iter().enumerate() {
         push_unique_range(&mut summary.memory.direct_reads, &mem, 1);
         push_unique_mem(&mut summary.memory.reads, &mem);
-        if let Some(home) = home_byte(&mem) {
+        if let Some(home) = consumer_home_byte(&mem, offset as u16) {
             summary.addresses.pair_reads.insert(home);
         }
     }
 }
 
 fn record_consumer_write(consumer: MirAddressConsumer, summary: &mut MirOpEffectSummary) {
-    for mem in consumer_mems(consumer) {
+    for (offset, mem) in consumer_mems(consumer).into_iter().enumerate() {
         push_unique_range(&mut summary.memory.direct_writes, &mem, 1);
-        if let Some(home) = home_byte(&mem) {
+        if let Some(home) = consumer_home_byte(&mem, offset as u16) {
             summary.addresses.pair_writes.insert(home);
         }
     }
@@ -1617,13 +1623,35 @@ fn home_byte(mem: &MirMem) -> Option<MirHomeByte> {
             id: *id,
             offset: *offset,
         }),
-        MirMem::ZeroPage(slot) => Some(MirHomeByte::VirtualZeroPage(*slot)),
+        MirMem::ZeroPage(slot) => Some(MirHomeByte::VirtualZeroPage {
+            slot: *slot,
+            offset: 0,
+        }),
         MirMem::FixedZeroPage(slot) => Some(MirHomeByte::FixedZeroPage(*slot)),
         MirMem::Absolute(_)
         | MirMem::Static { .. }
         | MirMem::Global { .. }
         | MirMem::Local { .. }
         | MirMem::Param { .. } => None,
+    }
+}
+
+fn home_byte_at(mem: &MirMem, offset: u16) -> Option<MirHomeByte> {
+    match mem {
+        MirMem::ZeroPage(slot) => Some(MirHomeByte::VirtualZeroPage {
+            slot: *slot,
+            offset,
+        }),
+        _ => home_byte(&offset_mem(mem, offset)),
+    }
+}
+
+fn consumer_home_byte(mem: &MirMem, offset: u16) -> Option<MirHomeByte> {
+    // Fixed pair memory operands already designate their individual bytes;
+    // virtual pair operands share an allocation identity and need byte offsets.
+    match mem {
+        MirMem::ZeroPage(_) => home_byte_at(mem, offset),
+        _ => home_byte(mem),
     }
 }
 

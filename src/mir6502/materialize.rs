@@ -1707,8 +1707,10 @@ pub(super) fn materialize_program_with_reporting(
         run_analyzed_dead_private_scratch_stores(routine, &mut peephole_stats)?;
         prune_unused_spills(routine);
     }
-    resolve_virtual_address_consumers(&mut program);
     verify_materialization_stage(&program, MirPhase::PostHome, "post-home boundary")?;
+    // Check private pointer-byte definitions before replacing their virtual
+    // identities with fixed physical pairs for emission.
+    resolve_virtual_address_consumers(&mut program);
     record_final_home_allocations(&program, &mut peephole_stats);
     for routine in &program.routines {
         if let Some(tracker) = home_fates.get(&routine.id) {

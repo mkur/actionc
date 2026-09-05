@@ -501,6 +501,10 @@ The query must combine:
 - full-temp and exact-lane live-out;
 - definition identity when multiple definitions share a temp ID.
 
+Initial CFG-normalization temp cleanup must also use routine-wide live-out
+facts. Running it before the later fixed-point cleanup does not justify
+dropping a definition whose only use is in a successor.
+
 ### Home-byte liveness
 
 Implement backward may-liveness for private home bytes after temp
@@ -540,6 +544,12 @@ equivalence for preserved writes and any address/value substitution. Unknown
 readers remain conservative for fixed ABI homes; unknown writes cannot supply
 missing definitions. Driver validation derives disappearing writes itself so
 an incomplete declaration cannot bypass this check.
+
+The forward analysis also retains a possible-undefined entry fact for each
+private byte. Post-home verification rejects a read reached by that fact even
+when another path contributes a concrete definition. Boolean compare results
+use their existing projected spill writes, and virtual zero-page allocations
+are tracked per byte rather than as one indivisible home.
 
 ### Machine-state liveness
 

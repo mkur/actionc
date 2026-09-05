@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 
 use super::abi::{action_arg_home, action_arg_width_bytes};
+use super::analysis::cfg::MirCfg;
 use super::analysis::effects::{MirHomeByte, classify_op};
+use super::analysis::home_definitions::MirHomeDefinitions;
+use super::analysis::sites::MirSite;
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
     MirAddr, MirAddressConsumer, MirBinaryOp, MirBlockId, MirByteIndexedSource, MirCarryIn,
@@ -341,6 +344,7 @@ impl MirVerifier {
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
         self.verify_frame_inits(routine);
+        self.verify_private_home_definitions(routine);
         let mut block_ids = BTreeSet::new();
         for block in &routine.blocks {
             if !block_ids.insert(block.id) {
@@ -503,6 +507,42 @@ impl MirVerifier {
                 }
                 MirTerminator::Return | MirTerminator::Exit | MirTerminator::Unreachable => {}
             }
+        }
+    }
+
+    fn verify_private_home_definitions(&mut self, routine: &MirRoutine) {
+        // Before home assignment, logical temps/block parameters still own
+        // definitions. Check concrete homes at both post-home boundaries.
+        if !self.physical_homes_required() {
+            return;
+        }
+        let Ok(cfg) = MirCfg::from_routine(routine) else {
+            return;
+        };
+        for (site, home) in MirHomeDefinitions::analyze(routine, &cfg).undefined_private_reads() {
+            let block = &routine.blocks[cfg.block_index(site.block()).expect("verified CFG site")];
+            let point = match site {
+                MirSite::Op { op_index, .. } => format!("op {op_index}"),
+                MirSite::Terminator { .. } => "terminator".to_string(),
+                MirSite::BlockEntry { .. } => {
+                    unreachable!("reads occur at operations or terminators")
+                }
+            };
+            let byte = match home {
+                MirHomeByte::Spill { id, offset } => format!("spill sp{}+{offset}", id.0),
+                MirHomeByte::VirtualZeroPage { slot, offset } => {
+                    format!("virtual zero-page zp{}+{offset}", slot.0)
+                }
+                MirHomeByte::FixedZeroPage(_) => unreachable!("only private homes are checked"),
+            };
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name,
+                &block.label,
+                format!(
+                    "b{} {point}: compiler-private {byte} may be read before definition",
+                    block.id.0
+                ),
+            ));
         }
     }
 
@@ -2764,7 +2804,10 @@ fn pointer_pair_homes(pair: MirPointerPair) -> Vec<MirHomeByte> {
             MirHomeByte::FixedZeroPage(lo),
             MirHomeByte::FixedZeroPage(super::ir::MirFixedZpSlot(lo.0.saturating_add(1))),
         ],
-        MirPointerPair::Virtual(slot) => vec![MirHomeByte::VirtualZeroPage(slot)],
+        MirPointerPair::Virtual(slot) => vec![
+            MirHomeByte::VirtualZeroPage { slot, offset: 0 },
+            MirHomeByte::VirtualZeroPage { slot, offset: 1 },
+        ],
     }
 }
 
@@ -2811,6 +2854,396 @@ mod tests {
         )]);
 
         assert!(verify_program(&program, MirPhase::PreMaterialization).is_ok());
+    }
+
+    fn private_spill(offset: u16) -> MirMem {
+        MirMem::Spill {
+            id: crate::mir6502::MirSpillId(0),
+            offset,
+        }
+    }
+
+    fn private_store(mem: MirMem) -> MirOp {
+        MirOp::Store {
+            dst: MirAddr::Direct(mem),
+            src: MirValue::ConstU8(7),
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn private_load(mem: MirMem) -> MirOp {
+        MirOp::Load {
+            dst: MirDef::Reg(MirReg::A),
+            src: MirAddr::Direct(mem),
+            width: MirWidth::Byte,
+        }
+    }
+
+    fn scratch_program(blocks: Vec<MirBlock>) -> MirProgram {
+        let mut main = routine(RoutineId(0), "Scratch", blocks);
+        main.frame.spills.push(crate::mir6502::MirSpillId(0));
+        main.frame
+            .virtual_zero_page
+            .extend([crate::mir6502::MirZpSlot(0), crate::mir6502::MirZpSlot(1)]);
+        main.frame.zero_page_allocations.extend((0..2).map(|slot| {
+            crate::mir6502::MirZpAllocation {
+                slot: crate::mir6502::MirZpSlot(slot),
+                start: MirFixedZpSlot(0xE0 + 2 * slot as u8),
+                size: if slot == 0 { 2 } else { 1 },
+            }
+        }));
+        main.frame
+            .fixed_zero_page
+            .extend([MirFixedZpSlot(0xA0), MirFixedZpSlot(0xA1)]);
+        program_with_routines(vec![main])
+    }
+
+    #[test]
+    fn private_scratch_verifier_checks_each_index_and_base_lane() {
+        for missing in 0..2 {
+            for in_base in [false, true] {
+                let value = MirValue::Word {
+                    lo: Box::new(MirValue::PointerCell(private_spill(0))),
+                    hi: Box::new(MirValue::PointerCell(private_spill(1))),
+                };
+                let (base, index) = if in_base {
+                    (value, MirValue::ConstU8(0))
+                } else {
+                    (MirValue::ConstU16(0x5000), value)
+                };
+                let program = scratch_program(vec![block_with_ops(
+                    MirBlockId(0),
+                    "entry",
+                    vec![
+                        private_store(private_spill(1 - missing)),
+                        MirOp::MaterializeIndexedAddress {
+                            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                                lo: MirFixedZpSlot(0xAC),
+                            }),
+                            base,
+                            index,
+                            scale: 2,
+                        },
+                    ],
+                    MirTerminator::Return,
+                )]);
+                for phase in [MirPhase::PostHome, MirPhase::PreEmission] {
+                    let diagnostics = verify_program(&program, phase).unwrap_err();
+                    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+                    assert_eq!(diagnostics[0].routine.as_deref(), Some("Scratch"));
+                    assert_eq!(diagnostics[0].block.as_deref(), Some("entry"));
+                    assert_eq!(
+                        diagnostics[0].message,
+                        format!(
+                            "b0 op 1: compiler-private spill sp0+{missing} may be read before definition"
+                        )
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn private_scratch_verifier_requires_both_virtual_pointer_bytes() {
+        use crate::mir6502::MirZpSlot;
+        for missing in 0..2 {
+            let program = scratch_program(vec![block_with_ops(
+                MirBlockId(0),
+                "entry",
+                vec![
+                    private_store(MirMem::ZeroPage(MirZpSlot(1 - missing))),
+                    MirOp::LoadIndirect {
+                        dst: MirDef::Reg(MirReg::A),
+                        offset: 0,
+                        consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(
+                            MirZpSlot(0),
+                        )),
+                    },
+                ],
+                MirTerminator::Return,
+            )]);
+            let diagnostics = verify_program(&program, MirPhase::PostHome).unwrap_err();
+            // A store to another virtual allocation does not initialize this
+            // pair. A byte store to its base initializes only the low byte.
+            assert_eq!(
+                diagnostics.len(),
+                if missing == 0 { 2 } else { 1 },
+                "{diagnostics:?}"
+            );
+            assert!(
+                diagnostics
+                    .last()
+                    .unwrap()
+                    .message
+                    .contains("virtual zero-page zp0+1 may be read")
+            );
+        }
+        let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Virtual(MirZpSlot(0)));
+        let program = scratch_program(vec![block_with_ops(
+            MirBlockId(0),
+            "entry",
+            vec![
+                MirOp::MaterializeAddress {
+                    consumer,
+                    value: MirValue::ConstU16(0x5000),
+                },
+                MirOp::LoadIndirect {
+                    dst: MirDef::Reg(MirReg::A),
+                    consumer,
+                    offset: 0,
+                },
+            ],
+            MirTerminator::Return,
+        )]);
+        verify_program(&program, MirPhase::PostHome)
+            .expect("address setup defines both private pointer bytes");
+    }
+
+    #[test]
+    fn private_scratch_verifier_requires_definitions_on_both_branch_paths() {
+        use crate::mir6502::{MirCond, MirFlagTest};
+        for initialize_else in [false, true] {
+            let program = scratch_program(vec![
+                block(
+                    MirBlockId(0),
+                    "entry",
+                    MirTerminator::Branch {
+                        cond: MirCond::FlagTest(MirFlagTest::ZSet),
+                        then_edge: MirEdge::plain(MirBlockId(1)),
+                        else_edge: MirEdge::plain(MirBlockId(2)),
+                    },
+                ),
+                block_with_ops(
+                    MirBlockId(1),
+                    "then",
+                    vec![private_store(private_spill(0))],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
+                block_with_ops(
+                    MirBlockId(2),
+                    "else",
+                    if initialize_else {
+                        vec![private_store(private_spill(0))]
+                    } else {
+                        Vec::new()
+                    },
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(3))),
+                ),
+                block_with_ops(
+                    MirBlockId(3),
+                    "join",
+                    vec![private_load(private_spill(0))],
+                    MirTerminator::Return,
+                ),
+            ]);
+            let result = verify_program(&program, MirPhase::PreEmission);
+            assert_eq!(result.is_ok(), initialize_else, "{result:?}");
+            if let Err(diagnostics) = result {
+                assert_eq!(diagnostics.len(), 1);
+                assert_eq!(diagnostics[0].block.as_deref(), Some("join"));
+            }
+        }
+    }
+
+    #[test]
+    fn private_scratch_verifier_tracks_allocated_byte_aliases_and_fixed_setup() {
+        use crate::mir6502::MirZpSlot;
+        for fixed_setup in [false, true] {
+            for define_high in [false, true] {
+                let mut ops = if fixed_setup && define_high {
+                    vec![MirOp::MaterializeAddress {
+                        consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                            lo: MirFixedZpSlot(0xE0),
+                        }),
+                        value: MirValue::ConstU16(0x5000),
+                    }]
+                } else {
+                    vec![private_store(MirMem::ZeroPage(MirZpSlot(0)))]
+                };
+                if define_high && !fixed_setup {
+                    ops.push(private_store(MirMem::ZeroPage(MirZpSlot(1))));
+                }
+                ops.push(MirOp::Load {
+                    dst: MirDef::Reg(MirReg::A),
+                    src: MirAddr::IndirectIndexedY { zp: MirZpSlot(0) },
+                    width: MirWidth::Byte,
+                });
+                let mut program = scratch_program(vec![block_with_ops(
+                    MirBlockId(0),
+                    "entry",
+                    ops,
+                    MirTerminator::Return,
+                )]);
+                let frame = &mut program.routines[0].frame;
+                frame.zero_page_allocations[0].size = 1;
+                frame.zero_page_allocations[1].start = MirFixedZpSlot(0xE1);
+                for phase in [MirPhase::PostHome, MirPhase::PreEmission] {
+                    let result = verify_program(&program, phase);
+                    assert_eq!(result.is_ok(), define_high, "{result:?}");
+                    if let Err(diagnostics) = result {
+                        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+                        assert!(
+                            diagnostics[0]
+                                .message
+                                .contains("virtual zero-page zp0+1 may be read")
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn private_scratch_verifier_tracks_projected_boolean_definitions_and_uses() {
+        use crate::mir6502::{MirCond, MirZpSlot};
+        let mut program = scratch_program(vec![
+            block_with_ops(
+                MirBlockId(0),
+                "entry",
+                vec![MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(0)),
+                    op: MirCompareOp::Eq,
+                    left: MirValue::ConstU8(1),
+                    right: MirValue::ConstU8(2),
+                    width: MirWidth::Byte,
+                    signed: false,
+                }],
+                MirTerminator::Branch {
+                    cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+                    then_edge: MirEdge::plain(MirBlockId(1)),
+                    else_edge: MirEdge::plain(MirBlockId(1)),
+                },
+            ),
+            block(MirBlockId(1), "exit", MirTerminator::Return),
+        ]);
+        program.routines[0].temps.push(MirTemp { id: MirTempId(0) });
+        verify_program(&program, MirPhase::PostHome).expect("compare defines its projected spill");
+        program.routines[0].blocks[0].ops.clear();
+        let diagnostics = verify_program(&program, MirPhase::PostHome).unwrap_err();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("terminator: compiler-private spill sp0+0 may be read")
+        }));
+        // Explicit pointer-cell Boolean operands are reads as well.
+        if let MirTerminator::Branch { cond, .. } = &mut program.routines[0].blocks[0].terminator {
+            *cond = MirCond::BoolValue(MirValue::PointerCell(MirMem::ZeroPage(MirZpSlot(0))));
+        }
+        let diagnostics = verify_program(&program, MirPhase::PostHome).unwrap_err();
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("terminator: compiler-private virtual zero-page zp0+0 may be read")
+        }));
+    }
+
+    #[test]
+    fn private_scratch_verifier_does_not_initialize_first_iteration_from_backedge() {
+        for initialize_entry in [false, true] {
+            let program = scratch_program(vec![
+                block_with_ops(
+                    MirBlockId(0),
+                    "entry",
+                    if initialize_entry {
+                        vec![private_store(private_spill(0))]
+                    } else {
+                        Vec::new()
+                    },
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                ),
+                block_with_ops(
+                    MirBlockId(1),
+                    "loop",
+                    vec![
+                        private_load(private_spill(0)),
+                        private_store(private_spill(0)),
+                    ],
+                    MirTerminator::Jump(MirEdge::plain(MirBlockId(1))),
+                ),
+                // Unreachable reads do not contribute paths or diagnostics.
+                block_with_ops(
+                    MirBlockId(2),
+                    "dead",
+                    vec![private_load(private_spill(1))],
+                    MirTerminator::Return,
+                ),
+            ]);
+            let result = verify_program(&program, MirPhase::PreEmission);
+            assert_eq!(result.is_ok(), initialize_entry, "{result:?}");
+            if let Err(diagnostics) = result {
+                assert_eq!(diagnostics.len(), 1);
+                assert_eq!(diagnostics[0].block.as_deref(), Some("loop"));
+            }
+        }
+        let program = scratch_program(vec![block_with_ops(
+            MirBlockId(0),
+            "entry-loop",
+            vec![
+                private_load(private_spill(0)),
+                private_store(private_spill(0)),
+            ],
+            MirTerminator::Jump(MirEdge::plain(MirBlockId(0))),
+        )]);
+        assert!(
+            verify_program(&program, MirPhase::PostHome).is_err(),
+            "entry boundary also applies with a backedge to entry"
+        );
+    }
+
+    #[test]
+    fn private_scratch_verifier_checks_read_modify_write_before_its_write() {
+        let program = scratch_program(vec![block_with_ops(
+            MirBlockId(0),
+            "entry",
+            vec![MirOp::Store {
+                dst: MirAddr::Direct(private_spill(0)),
+                src: MirValue::PointerCell(private_spill(0)),
+                width: MirWidth::Byte,
+            }],
+            MirTerminator::Return,
+        )]);
+        assert!(
+            verify_program(&program, MirPhase::PostHome).unwrap_err()[0]
+                .message
+                .contains("read before definition")
+        );
+    }
+
+    #[test]
+    fn private_scratch_verifier_keeps_abi_homes_external_and_unknown_writes_are_not_definitions() {
+        use crate::mir6502::{MirMemoryEffect, MirResultHome, MirZpSlot};
+        let helper = MirOp::RuntimeHelper {
+            helper: MirRuntimeHelper::MulByte,
+            args: vec![MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0))],
+            result: Some(MirResultHome::ZeroPage(MirZpSlot(0))),
+            effects: MirEffects {
+                memory_reads: MirMemoryEffect::Unknown,
+                memory_writes: MirMemoryEffect::Unknown,
+                ..MirEffects::default()
+            },
+        };
+        let mut program = scratch_program(vec![block_with_ops(
+            MirBlockId(0),
+            "entry",
+            vec![
+                private_load(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0))),
+                helper,
+                private_load(MirMem::ZeroPage(MirZpSlot(0))),
+            ],
+            MirTerminator::Return,
+        )]);
+        verify_program(&program, MirPhase::PostHome)
+            .expect("public ABI input and explicit helper result are available");
+        program.routines[0].blocks[0]
+            .ops
+            .push(private_load(private_spill(0)));
+        let diagnostics = verify_program(&program, MirPhase::PostHome).unwrap_err();
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("spill sp0+0 may be read before definition")
+        );
     }
 
     #[test]
@@ -2934,6 +3367,13 @@ mod tests {
         );
         main.frame.spills.push(spill);
 
+        main.blocks[0].ops.splice(
+            0..0,
+            [
+                private_store(private_spill(0)),
+                private_store(private_spill(1)),
+            ],
+        );
         verify_program(&program_with_routines(vec![main]), MirPhase::PreEmission)
             .expect("ordinary source, fixed destination, and the last valid offset are accepted");
     }
@@ -2999,6 +3439,13 @@ mod tests {
             )],
         );
         main.frame.spills.push(spill);
+        main.blocks[0].ops.splice(
+            0..0,
+            [
+                private_store(private_spill(0)),
+                private_store(private_spill(1)),
+            ],
+        );
         verify_program(&program_with_routines(vec![main]), MirPhase::PreEmission).expect(
             "fixed source, ordinary RHS, fixed destination, and last valid offset are accepted",
         );

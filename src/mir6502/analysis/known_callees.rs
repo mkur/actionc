@@ -657,10 +657,10 @@ fn summarize_op_writes(
             MirHomeByte::FixedZeroPage(slot) => {
                 writes.record(MirMem::FixedZeroPage(slot));
             }
-            MirHomeByte::VirtualZeroPage(slot) => {
-                writes.record(resolve_routine_private_zero_page(
-                    routine,
-                    MirMem::ZeroPage(slot),
+            MirHomeByte::VirtualZeroPage { slot, offset } => {
+                writes.record(offset_mem(
+                    &resolve_routine_private_zero_page(routine, MirMem::ZeroPage(slot)),
+                    offset,
                 ));
             }
             MirHomeByte::Spill { .. } => {}

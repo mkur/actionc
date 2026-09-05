@@ -389,12 +389,32 @@ pub(in crate::mir6502) fn collect_home_transfers(
 }
 
 fn op_transfer(effects: &MirOpEffectSummary, universe: &MirHomeLiveSet) -> MirHomeTransfer {
-    home_transfer(
+    let mut transfer = home_transfer(
         &effects.homes,
         effects.addresses.pair_reads.clone(),
         effects.addresses.pair_writes.clone(),
         universe,
-    )
+    );
+    // Compare-to-temp is the remaining post-home logical definition: emission
+    // writes its canonical Boolean to the deterministic projected spill byte.
+    // Do not treat an arbitrary pre-home temp definition as a physical write.
+    if matches!(
+        effects.kind,
+        super::effects::MirOpKind::Compare | super::effects::MirOpKind::CompareIndirectBytes
+    ) {
+        transfer
+            .writes
+            .extend(
+                effects
+                    .projected_spill_byte_writes
+                    .iter()
+                    .map(|byte| MirHomeByte::Spill {
+                        id: byte.id,
+                        offset: byte.offset,
+                    }),
+            );
+    }
+    transfer
 }
 
 fn home_transfer(

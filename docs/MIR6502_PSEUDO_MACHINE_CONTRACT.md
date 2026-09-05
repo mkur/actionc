@@ -217,6 +217,25 @@ carry-out, corresponding to `CLC` followed by `ADC absolute,X`,
 `ADC absolute,Y`, or `ADC ($zp),Y`; other arithmetic and carry contracts stay
 in the ordinary MIR form until they have their own verified lowering.
 
+### Post-home private-byte definitions
+
+At the post-home and pre-emission boundaries, every reachable read of a
+compiler-private spill or virtual zero-page byte must have a definition on
+every path from routine entry. Allocation alone is not initialization. This
+includes address bases, indexes, pointer-pair lanes, and Boolean condition
+spills. Virtual allocations have byte-offset identities; their pointer pairs
+are checked before conversion to fixed physical consumers. Initialization
+recognizes adjacent allocated byte slots and explicit fixed-pair setup of
+those private bytes; unknown writes do not initialize their aliases.
+
+The shared forward home-definition analysis tracks a possible undefined entry
+value as well as concrete definitions. Joins preserve that possibility, and
+loop backedges cannot initialize a first-iteration read. Reads precede writes
+within an operation. Structured helper results and compare-to-temp spill
+writes count as definitions; unknown may-writes do not. Source storage and
+externally supplied fixed ABI homes are outside this initialization contract.
+Diagnostics identify routine, block, operation/terminator, and private byte.
+
 ### Pre-emission MIR
 
 Pre-emission MIR is the final checked subset of post-materialization MIR.

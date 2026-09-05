@@ -131,7 +131,9 @@ The shared structural-plan builder and rewrite driver now check surviving
 replacement home reads against disappearing definitions, including address
 bases, indexes, and pointer-pair bytes. Unsafe staging elimination is rejected;
 independent-index staging elimination remains available. Routine-wide deadness
-still protects uses after the window and on backedges.
+still protects uses after the window and on backedges. The post-home verifier
+also rejects compiler-private bytes that may be read without a definition on
+some entry path, independently of rewrite selection.
 
 Both `oscar64_mir_word_vector_*` tests retain the original zero-residual checks
 and extended pointer-buffer checks. To inspect the emitted code:
