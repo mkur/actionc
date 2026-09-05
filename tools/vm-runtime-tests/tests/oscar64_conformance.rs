@@ -174,6 +174,71 @@ fn write_word(bytes: &mut [u8], offset: usize, value: u16) {
 }
 
 #[test]
+fn oscar64_record_array_copies_follow_conditional_calls() {
+    let mut cases = Vec::new();
+    for (source, destination) in [(0x5000u16, 0x6000u16), (0x5001, 0x6003), (0x50FF, 0x60FD)] {
+        for count in [0u16, 1, 2, 8, 100, 127, 128, 129, 255, 256, 257] {
+            let mut case = Case::new(format!(
+                "source={source:04X}, destination={destination:04X}, count={count}"
+            ));
+            case.read_only_words(0x06F0, &[source, destination, count]);
+            let mut original = vec![POISON; 0x300];
+            case.setup.push((0x7000, original.clone()));
+            let mut residual = 144i32;
+            for i in 0..8 {
+                let (x, y) = ((i + 1) * 3, (i + 1) * 7);
+                for offset in [1 + 4 * i, 0x103 + 4 * i] {
+                    write_word(&mut original, offset, x as u16);
+                    write_word(&mut original, offset + 2, y as u16);
+                }
+                residual += x as i32 - y as i32;
+            }
+            assert_eq!(residual, 0);
+            case.expected.push((0x7000, original));
+
+            // Seven-byte records contain mixed widths and distinctive lanes.
+            // Initialize all 257 records even for short/empty transfers, so the
+            // unused records and both buffers' guards are checked as well.
+            let mut initial = vec![0xA5; 0x1D00];
+            let src = usize::from(source - 0x4F00);
+            let dst = usize::from(destination - 0x4F00);
+            let words = [0u16, 0xFFFF, 0x7FFF, 0x8000, 0x00FF, 0xFF00, 0x1234];
+            for i in 0..257 {
+                let offset = src + i * 7;
+                initial[offset] = (i * 37 + 11) as u8;
+                write_word(&mut initial, offset + 1, words[i % words.len()]);
+                write_word(&mut initial, offset + 3, (i as u16).wrapping_mul(113));
+                write_word(&mut initial, offset + 5, words[(i + 3) % words.len()]);
+                // Every destination byte initially differs from its source.
+                for lane in 0..7 {
+                    initial[dst + i * 7 + lane] = !initial[offset + lane];
+                }
+            }
+            let mut expected = initial.clone();
+            let extent = usize::from(count) * 7;
+            expected[dst..dst + extent].copy_from_slice(&initial[src..src + extent]);
+            case.setup.push((0x4F00, initial));
+            case.expected.push((0x4F00, expected));
+
+            let count_calls = |n: u16| -> u16 {
+                (0..n)
+                    .map(|i| [1, 2, 4].into_iter().filter(|mask| i & mask == 0).count() as u16)
+                    .sum()
+            };
+            assert_eq!(count_calls(8), 12);
+            let mut page = host_page_after_setup(&case);
+            write_word(&mut page, 0, residual as u16);
+            write_word(&mut page, 2, count_calls(8));
+            write_word(&mut page, 4, 2 * count_calls(count));
+            case.expected.push((0x0600, page));
+            cases.push(case);
+        }
+    }
+    assert_eq!(cases.len(), 33);
+    run_cases("structarraycopy", 400_000, &cases);
+}
+
+#[test]
 fn oscar64_byte_indexes_cover_inline_fixed_and_descriptor_storage() {
     let cases = [0u16, 1, 20, 127, 128, 255, 256, 257].map(|count| {
         let mut case = Case::new(format!("count={count}"));

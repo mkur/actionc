@@ -1,6 +1,7 @@
 # Oscar64 behavioral ports: second batch
 
-Status: stages 1 through 4 ported, 2026-09-05; stage 5 pending.
+Status: stages 1 through 4 ported; stage 5 record-array copy port added,
+2026-09-06. The embedded-member port remains pending.
 Stage 4 now separates cartridge-compatible comparisons from the agreed modern
 comparison-value extension. The 408 branch/count cases run in all modes; 264
 value cases run in modern classic and MIR6502. Compatibility rejects numeric
@@ -232,10 +233,19 @@ composition, calls and indexed/pointer destinations. Stage 5 remains pending.
 
 Sources: `structarraycopy.c`, `structmembertest.c`.
 
-Paused pending [fixed-length embedded array fields](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
+Unblocked by [fixed-length embedded array fields](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
 The `x[100]`/`y[100]` members in `structmembertest.c` must remain inline;
 pointer fields or flattened backing tables would change the structure under
-test. No stage-5 fixtures have been added yet.
+test.
+
+`structarraycopy.act` retains the original Point layout, eight-element arrays,
+three conditional calls, whole-record copy and zero residual. `BmLine` now
+increments a checked counter (12 original calls). Its companion loop repeats
+seven-byte mixed-width record copies twice for 11 runtime lengths and three
+base layouts: 33 host cases / 198 VM executions across all six mode/runtime
+combinations. Rust computes complete source/destination/guard images and call
+counts independently; empty and shorter transfers leave unused records intact.
+`structmembertest.act` remains the second stage-5 slice.
 
 Keep record structure: repeated record-array copies after conditional calls,
 field-to-field copies through pointers, and array members within records.

@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These sixteen Action! fixtures adapt Oscar64 autotests into the existing
+These seventeen Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -43,6 +43,7 @@ translations or tests of C-only language behavior.
 | `testinterval` (INT portions) | Four counts of 500 for equivalent signed interval predicates | Runtime intervals across zero and near INT limits, strict/inclusive endpoints, reversed predicate order, empty/reversed bounds, and explicit IF endpoint-probe results |
 | `mixsigncmptest` | Four signed-word/unsigned-byte sweeps with exact true/false counts | 26 signed word inputs against all 256 BYTE values; all six predicates in both operand orders, branch results, odd-base guarded tables |
 | `testinterval_values`, `mixsigncmptest_values` | Modern-only companions to the two preceding ports | The same interval and mixed-comparison truth oracles, using numeric comparison values instead of IF assignments |
+| `structarraycopy` | Eight Point record-array copies following three conditional calls; sum plus 144 is zero | Exactly 12 original calls; twice-repeated seven-byte mixed-width record copies; runtime lengths 0, 1, 2, 8, 100, 127, 128, 129, 255, 256, 257 at aligned, odd and page-boundary bases; complete images and guards |
 
 Cartridge-compatible sources run in all three modes; modern comparison-value
 companions run in Optimized and MIR6502. All use both ActionCart and Standalone
@@ -52,7 +53,7 @@ copy/increment regressions remain active with their original loops and
 independent expected values.
 
 The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
-1 through 4 ported. Their current results are:
+1 through 4 ported, plus the first stage-5 record port. Their current results are:
 
 | Fixture | Host cases | VM cases | Result |
 | --- | ---: | ---: | --- |
@@ -64,9 +65,10 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `mixsigncmptest` | 27 | 162 | All pass |
 | `testinterval_values` | 40 | 160 | Both modern backends/runtimes |
 | `mixsigncmptest_values` | 26 | 104 | Both modern backends/runtimes |
+| `structarraycopy` | 33 | 198 | All six mode/runtime combinations |
 
-Overall: **4,380 VM cases in 24 active tests**: the existing 3,708 cases, 408
-stage-4 branch/count cases, and 264 modern-only value cases. No test is ignored
+Overall: **4,578 VM cases in 25 active tests**: the existing 3,708 cases, 408
+stage-4 branch/count cases, 264 modern-only value cases, and 198 record-copy cases. No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
 [OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--fixed).
@@ -113,6 +115,15 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
   arithmetic wraps explicitly, and the host oracle checks exactly-once counts
   without asserting C argument order. Word inputs are at `$06E0..$06E5`;
   byte inputs occupy `$06F0/$06F2/$06F4`. All other host-page gaps stay poisoned.
+- `structarraycopy` retains `Point=[INT x,y]`, the two eight-element record
+  arrays, conditional calls, whole-record assignment and the original signed
+  sum. `BmLine` increments an observable counter instead of being empty.
+  An additional seven-byte `Mixed` record contains BYTE, INT and CARD fields;
+  two pointer-based copy loops exercise runtime lengths and addresses without
+  replacing the original direct-array loop. Every destination byte starts
+  different from its source. Rust independently derives all record bytes and
+  call counts, including unchanged unused records, source buffers, guards and
+  the host configuration page. These are disjoint copies, not overlap tests.
 - `testinterval` omits Oscar64's signed-byte section. Rust derives interval
   counts by intersecting bounds in a wider signed type; endpoint probes check
   each truth value independently. `mixsigncmptest` uses Action!'s
@@ -169,6 +180,7 @@ cargo test --locked --test oscar64_conformance oscar64_classic_reverse
 cargo test --locked --test oscar64_conformance oscar64_nested_calls
 cargo test --locked --test oscar64_conformance oscar64_signed_intervals
 cargo test --locked --test oscar64_conformance oscar64_mixed_signed_comparison
+cargo test --locked --test oscar64_conformance oscar64_record_array_copies
 ```
 
 The existing VM CI job runs `cargo test --locked`, so the active tests need no
@@ -176,6 +188,16 @@ new runner, dependency, or workflow. Root `cargo test` does not execute this
 isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
 ## Compiler regressions
+
+### OSCAR-CLASSIC-INDIRECT-SCALAR-COPY — fixed
+
+The original `structarraycopy` checksum exposed a word load that overwrote its
+own `$AE/$AF` source pointer between byte reads. Both classic profiles returned
+`$00FC` instead of zero despite correct record copies; MIR6502 passed. Shared
+scalar-copy staging now protects overlapping pointer destinations, including
+byte-to-word loads and fixed absolute zero-page aliases. All 198 port cases
+pass without changing their expressions or oracles. See the
+[diagnosis and focused coverage](../../../docs/bugs/CLASSIC_INDIRECT_SCALAR_COPY_POINTER_BUG.md).
 
 ### OSCAR-COMPARISON-VALUE — modern extension implemented
 

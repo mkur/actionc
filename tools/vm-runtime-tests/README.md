@@ -15,7 +15,7 @@ cargo test --locked --no-fail-fast
 The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
 array indexing, word-pointer transfers, loop bounds, comparisons, masks,
 shift/add/sub composition, signed multiplication, reverse-copy loops, nested
-calls, signed intervals, and mixed INT/BYTE comparison values
+calls, signed intervals, mixed INT/BYTE comparison values, and record-array copies
 using independent host-side oracles. Run them separately with:
 
 ```sh
@@ -24,11 +24,13 @@ cargo test --locked --test oscar64_conformance
 
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
-now brings the total to 24 active tests and 4,380 VM cases,
+now brings the total to 25 active tests and 4,578 VM cases,
 including the 512 repaired Compatibility nested-call cases and 120 repaired
 classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
 and 264 numeric comparison-value cases across modern classic and MIR6502.
 Compatibility's semantic rejection of the extension is checked separately.
+Stage 5's first port adds 198 record-array copy cases with observable calls,
+mixed-width fields, page-boundary layouts and independent complete-memory oracles.
 No Oscar64 tests are ignored. See the fixture README for the mode/case matrix
 and resolved compiler regressions. `cargo test --locked --test comparison_values`
 also runs 24 modern consumer cases checking widths, calls, eager composition,

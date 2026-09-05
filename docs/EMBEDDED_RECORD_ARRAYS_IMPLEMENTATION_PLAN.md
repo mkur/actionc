@@ -1,9 +1,10 @@
 # Fixed-length arrays embedded inside records
 
 Status: slices 1-5 complete, 2026-09-06. Atari modern classic and MIR6502
-support is enabled with both runtimes; slice 6 ports remain pending.
+support is enabled with both runtimes; slice 6's record-array copy port is
+added, with the embedded-member port pending.
 Baseline: `6c73c1d`; 2,662 root tests passed (22 existing ignored), 100 VM
-tests passed, including 4,380 Oscar64 cases. No stage-5 ports have been added.
+tests passed, including 4,380 Oscar64 cases before the stage-5 ports.
 
 ## Purpose and profile policy
 
@@ -339,7 +340,7 @@ guards, static addresses, partial initialization and exactly-once calls.
 
 ### 6. Structurally faithful Oscar64 stage-5 ports
 
-Status: pending.
+Status: record-array copy port added; embedded-member port pending.
 
 Port `structarraycopy.c` and `structmembertest.c` in their original record
 structure. Keep conditional calls observable, preserve inline member arrays,
@@ -347,6 +348,19 @@ and derive full memory/counter oracles independently in Rust. Run the available
 profile/runtime matrix explicitly: modern-only array-field fixtures must not
 be counted as Compatibility executions. Keep ports separate from compiler
 implementation commits when committing is requested.
+
+The first port retains the original Point record and direct-array copy loop,
+with observable conditional calls. A mixed-width seven-byte companion covers
+11 runtime lengths and three base layouts, including indexes 255/256 and
+page-crossing fields. All six profile/runtime combinations are applicable:
+33 host cases / 198 VM executions. See the fixture README for the exact matrix.
+
+First-port validation: all 25 Oscar64 tests / 4,578 VM cases pass and the
+broad corpus verifies 318 entrypoints plus the same five declared nonentrypoints.
+The original checksum exposed a classic indirect scalar-copy pointer overlap;
+the [general repair](bugs/CLASSIC_INDIRECT_SCALAR_COPY_POINTER_BUG.md) is separate
+from the port. Focused execution, the full 2,410-test library suite, unchanged
+NIR snapshots and the 33-fixture sweep pass.
 
 ## Validation and handoff
 
