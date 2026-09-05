@@ -1810,7 +1810,7 @@ mod tests {
         let listing = format_listing_with_source(&output, source);
 
         assert!(
-            listing.contains("; 2:3 storage inline string literal | PrintE(\"Hello, world!\")")
+            listing.contains("; 2:10 storage inline string literal | PrintE(\"Hello, world!\")")
         );
         assert!(listing.contains("; ===== DATA inline string literal $3006 ====="));
         assert!(listing.contains(".BYTE $0D,$48,$65,$6C,$6C,$6F,$2C,$20"));

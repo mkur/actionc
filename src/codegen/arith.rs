@@ -3002,7 +3002,7 @@ impl Generator {
     ) -> Option<(StorageSlot, RecordField, RecordField)> {
         let (left_base, left_field) = Self::record_field_parts(left)?;
         let (right_base, right_field) = Self::record_field_parts(right)?;
-        if left_base != right_base {
+        if !Self::same_lvalue_expr(left_base, right_base) {
             return None;
         }
         let ExprKind::Name(name) = &left_base.kind else {

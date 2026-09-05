@@ -2444,6 +2444,7 @@ fn build_expr(tokens: Vec<Token>, span: Span) -> Expr {
     let kind = parser
         .parse_expr(0)
         .filter(|_| parser.is_finished())
+        .map(|expr| expr.kind)
         .unwrap_or(ExprKind::Raw);
 
     let mut expr = Expr { kind, text, span };
@@ -2546,8 +2547,9 @@ fn build_compound_assignment_expr(
     );
     let mut parser = ExprParser::new(&value_tokens);
     let kind = parser
-        .parse_expr_after_left(target.kind.clone(), op, binary_op_precedence(op))
+        .parse_expr_after_left(target.clone(), op, binary_op_precedence(op))
         .filter(|_| parser.is_finished())
+        .map(|expr| expr.kind)
         .unwrap_or(ExprKind::Raw);
 
     let mut expr = Expr { kind, text, span };
@@ -2736,7 +2738,7 @@ impl<'a> ExprParser<'a> {
         Self { tokens, pos: 0 }
     }
 
-    fn parse_expr(&mut self, min_prec: u8) -> Option<ExprKind> {
+    fn parse_expr(&mut self, min_prec: u8) -> Option<Expr> {
         let mut left = self.parse_prefix()?;
 
         while let Some((op, prec)) = self.peek_binary_op() {
@@ -2745,11 +2747,7 @@ impl<'a> ExprParser<'a> {
             }
             self.pos += 1;
             let right = self.parse_expr(prec + 1)?;
-            left = ExprKind::Binary {
-                op,
-                left: Box::new(expr_from_kind(left)),
-                right: Box::new(expr_from_kind(right)),
-            };
+            left = binary_expr(op, left, right);
         }
 
         Some(left)
@@ -2757,33 +2755,26 @@ impl<'a> ExprParser<'a> {
 
     fn parse_expr_after_left(
         &mut self,
-        left: ExprKind,
+        left: Expr,
         op: BinaryOp,
         compound_prec: u8,
-    ) -> Option<ExprKind> {
+    ) -> Option<Expr> {
         let right = self.parse_expr(compound_prec + 1)?;
-        let mut left = ExprKind::Binary {
-            op,
-            left: Box::new(expr_from_kind(left)),
-            right: Box::new(expr_from_kind(right)),
-        };
+        let mut left = binary_expr(op, left, right);
 
         while let Some((op, prec)) = self.peek_binary_op() {
             self.pos += 1;
             let right = self.parse_expr(prec + 1)?;
-            left = ExprKind::Binary {
-                op,
-                left: Box::new(expr_from_kind(left)),
-                right: Box::new(expr_from_kind(right)),
-            };
+            left = binary_expr(op, left, right);
         }
 
         Some(left)
     }
 
-    fn parse_prefix(&mut self) -> Option<ExprKind> {
+    fn parse_prefix(&mut self) -> Option<Expr> {
+        let start = self.pos;
         let token = self.bump()?;
-        let mut expr = match &token.kind {
+        let kind = match &token.kind {
             TokenKind::Number(number) => ExprKind::Number(number.clone()),
             TokenKind::String(value) => ExprKind::String(value.clone()),
             TokenKind::Char(value) => ExprKind::Char(*value),
@@ -2802,7 +2793,7 @@ impl<'a> ExprParser<'a> {
                     }
                     ExprKind::Cast {
                         ty,
-                        expr: Box::new(expr_from_kind(inner)),
+                        expr: Box::new(inner),
                     }
                 } else {
                     ExprKind::TypeRef(ty)
@@ -2811,32 +2802,33 @@ impl<'a> ExprParser<'a> {
             TokenKind::Star => ExprKind::CurrentLocation,
             TokenKind::Plus => ExprKind::Unary {
                 op: UnaryOp::Plus,
-                expr: Box::new(expr_from_kind(self.parse_expr(7)?)),
+                expr: Box::new(self.parse_expr(7)?),
             },
             TokenKind::Minus => ExprKind::Unary {
                 op: UnaryOp::Neg,
-                expr: Box::new(expr_from_kind(self.parse_expr(7)?)),
+                expr: Box::new(self.parse_expr(7)?),
             },
             TokenKind::At => ExprKind::Unary {
                 op: UnaryOp::AddressOf,
-                expr: Box::new(expr_from_kind(self.parse_expr(7)?)),
+                expr: Box::new(self.parse_expr(7)?),
             },
             TokenKind::LParen => {
                 let expr = self.parse_expr(0)?;
                 if !self.eat(TokenKind::RParen) {
                     return None;
                 }
-                expr
+                expr.kind
             }
             _ => return None,
         };
+        let mut expr = self.spanned_expr(kind, start);
 
         loop {
-            if self.eat(TokenKind::LParen) {
+            let kind = if self.eat(TokenKind::LParen) {
                 let mut args = Vec::new();
                 while !self.at_end() && !self.check(TokenKind::RParen) {
                     let arg = self.parse_expr(0)?;
-                    args.push(expr_from_kind(arg));
+                    args.push(arg);
                     if !self.eat(TokenKind::Comma) {
                         break;
                     }
@@ -2844,24 +2836,24 @@ impl<'a> ExprParser<'a> {
                 if !self.eat(TokenKind::RParen) {
                     return None;
                 }
-                expr = ExprKind::Call {
-                    callee: Box::new(expr_from_kind(expr)),
+                ExprKind::Call {
+                    callee: Box::new(expr),
                     args,
-                };
+                }
             } else if self.eat(TokenKind::LBracket) {
                 let index = self.parse_expr(0)?;
                 if !self.eat(TokenKind::RBracket) {
                     return None;
                 }
-                expr = ExprKind::Index {
-                    base: Box::new(expr_from_kind(expr)),
-                    index: Box::new(expr_from_kind(index)),
-                };
+                ExprKind::Index {
+                    base: Box::new(expr),
+                    index: Box::new(index),
+                }
             } else if self.eat(TokenKind::Caret) {
-                expr = ExprKind::Unary {
+                ExprKind::Unary {
                     op: UnaryOp::Deref,
-                    expr: Box::new(expr_from_kind(expr)),
-                };
+                    expr: Box::new(expr),
+                }
             } else if self.eat(TokenKind::Dot) {
                 let Some(Token {
                     kind: TokenKind::Ident(field),
@@ -2870,22 +2862,34 @@ impl<'a> ExprParser<'a> {
                 else {
                     return None;
                 };
-                expr = ExprKind::Field {
-                    base: Box::new(expr_from_kind(expr)),
+                ExprKind::Field {
+                    base: Box::new(expr),
                     field: field.clone(),
-                };
+                }
             } else if self.eat(TokenKind::Keyword(Keyword::Pointer)) {
-                let name = qualified_name_from_expr_kind(&expr)?;
-                expr = ExprKind::TypeRef(TypeRef {
+                let name = qualified_name_from_expr_kind(&expr.kind)?;
+                ExprKind::TypeRef(TypeRef {
                     base: TypeBase::Named(name),
                     pointer: true,
-                });
+                })
             } else {
                 break;
-            }
+            };
+            expr = self.spanned_expr(kind, start);
         }
 
         Some(expr)
+    }
+
+    fn spanned_expr(&self, kind: ExprKind, start: usize) -> Expr {
+        Expr {
+            kind,
+            text: String::new(),
+            span: Span::new(
+                self.tokens[start].span.start,
+                self.tokens[self.pos - 1].span.end,
+            ),
+        }
     }
 
     fn peek_binary_op(&self) -> Option<(BinaryOp, u8)> {
@@ -2968,11 +2972,16 @@ fn binary_op_precedence(op: BinaryOp) -> u8 {
     }
 }
 
-fn expr_from_kind(kind: ExprKind) -> Expr {
+fn binary_expr(op: BinaryOp, left: Expr, right: Expr) -> Expr {
+    let span = Span::new(left.span.start, right.span.end);
     Expr {
-        kind,
+        kind: ExprKind::Binary {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        },
         text: String::new(),
-        span: Span::new(0, 0),
+        span,
     }
 }
 
@@ -4638,6 +4647,61 @@ mod tests {
             program.modules[0].items[3],
             Item::Routine(ref routine) if routine.name == "End"
         ));
+    }
+
+    #[test]
+    fn nested_layout_calls_keep_distinct_token_spans() {
+        let source = "CONST Count=SIZEOF(CARD)+OFFSETOF(Pair,word)+ALIGNOF(BYTE)";
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        let Item::Declaration(Decl::Const(decl)) = &program.modules[0].items[0] else {
+            panic!("expected constant");
+        };
+        let ExprKind::Binary {
+            left, right: align, ..
+        } = &decl.entries[0].value.kind else {
+            panic!("expected outer sum");
+        };
+        let ExprKind::Binary {
+            left: size, right: offset, ..
+        } = &left.kind else {
+            panic!("expected inner sum");
+        };
+        for (expr, expected) in [
+            (size, "SIZEOF(CARD)"),
+            (offset, "OFFSETOF(Pair,word)"),
+            (align, "ALIGNOF(BYTE)"),
+        ] {
+            assert_eq!(&source[expr.span.start..expr.span.end], expected);
+        }
+        let ExprKind::Call { callee, args } = &offset.kind else {
+            panic!("expected offset call");
+        };
+        assert_eq!(&source[callee.span.start..callee.span.end], "OFFSETOF");
+        assert_eq!(&source[args[0].span.start..args[0].span.end], "Pair");
+        assert_eq!(&source[args[1].span.start..args[1].span.end], "word");
+    }
+
+    #[test]
+    fn compound_assignment_keeps_target_and_rhs_source_spans() {
+        let source = "PROC Main() CARD value value==+SIZEOF(CARD)+SIZEOF(BYTE) RETURN";
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        let Item::Routine(routine) = &program.modules[0].items[0] else {
+            panic!("expected routine");
+        };
+        let Stmt::Assign { target, value, .. } = &routine.body[0] else {
+            panic!("expected assignment");
+        };
+        let ExprKind::Binary { left, right, .. } = &value.kind else {
+            panic!("expected outer sum");
+        };
+        let ExprKind::Binary {
+            left: repeated, right: first, ..
+        } = &left.kind else {
+            panic!("expected inner sum");
+        };
+        assert_eq!(repeated.span, target.span);
+        assert_eq!(&source[first.span.start..first.span.end], "SIZEOF(CARD)");
+        assert_eq!(&source[right.span.start..right.span.end], "SIZEOF(BYTE)");
     }
 
     #[test]
