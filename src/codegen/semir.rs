@@ -21,6 +21,7 @@ pub(crate) struct ClassicProjection {
     pub(crate) program: Program,
     pub(crate) native_real: ClassicNativeRealFacts,
     pub(crate) record_copies: ClassicRecordCopyFacts,
+    pub(crate) compound_operations: super::compound::ClassicCompoundFacts,
     pub(crate) static_initializers: ClassicStaticInitializerFacts,
     pub(super) record_layouts: super::storage::RecordLayouts,
     pub(crate) storage_display_names: BTreeMap<(String, String), String>,
@@ -38,6 +39,7 @@ pub(crate) fn semir_to_projection(
         external_addresses: None,
         native_real: ClassicNativeRealFacts::default(),
         record_copies: ClassicRecordCopyFacts::default(),
+        compound_operations: super::compound::ClassicCompoundFacts::default(),
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
     };
@@ -48,6 +50,7 @@ pub(crate) fn semir_to_projection(
             program,
             native_real: lowerer.native_real,
             record_copies: lowerer.record_copies,
+            compound_operations: lowerer.compound_operations,
             static_initializers: lowerer.static_initializers,
             record_layouts,
             storage_display_names,
@@ -70,6 +73,7 @@ pub(crate) fn semir_to_cart_projection(
         external_addresses: Some(&addresses),
         native_real: ClassicNativeRealFacts::default(),
         record_copies: ClassicRecordCopyFacts::default(),
+        compound_operations: super::compound::ClassicCompoundFacts::default(),
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
     };
@@ -80,6 +84,7 @@ pub(crate) fn semir_to_cart_projection(
             program,
             native_real: lowerer.native_real,
             record_copies: lowerer.record_copies,
+            compound_operations: lowerer.compound_operations,
             static_initializers: lowerer.static_initializers,
             record_layouts,
             storage_display_names,
@@ -139,6 +144,7 @@ struct SemIrAstLowerer<'a> {
     external_addresses: Option<&'a HashMap<SymbolId, u16>>,
     native_real: ClassicNativeRealFacts,
     record_copies: ClassicRecordCopyFacts,
+    compound_operations: super::compound::ClassicCompoundFacts,
     native_real_scope: Option<String>,
     static_initializers: ClassicStaticInitializerFacts,
 }
@@ -735,13 +741,19 @@ impl SemIrAstLowerer<'_> {
                 target,
                 op,
                 value,
+                operation,
                 span,
-            } => Some(Stmt::CompoundAssign {
-                target: self.lvalue(target)?,
-                op: *op,
-                value: self.expr(value)?,
-                span: *span,
-            }),
+            } => {
+                self.compound_operations.insert(
+                    self.native_real_scope.as_deref(), *span, operation.clone(),
+                );
+                Some(Stmt::CompoundAssign {
+                    target: self.lvalue(target)?,
+                    op: *op,
+                    value: self.expr(value)?,
+                    span: *span,
+                })
+            }
             SemStmt::Call { call, span } => Some(Stmt::Call {
                 expr: self.call_stmt_expr(call)?,
                 span: *span,

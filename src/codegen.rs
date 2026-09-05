@@ -358,6 +358,7 @@ mod copy;
 
 mod lvalue;
 mod array_place;
+mod compound;
 
 mod routine;
 
@@ -1193,6 +1194,7 @@ struct Generator {
     inline_byte_constant_shift: bool,
     native_real: native_real::ClassicNativeRealFacts,
     record_copies: record_copy::ClassicRecordCopyFacts,
+    compound_operations: compound::ClassicCompoundFacts,
     static_initializers: ClassicStaticInitializerFacts,
     native_real_literal_pool: BTreeMap<[u8; 6], (String, Span)>,
     current_native_real_scope: Option<String>,

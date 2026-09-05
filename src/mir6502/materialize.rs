@@ -159,7 +159,7 @@ pub(in crate::mir6502) use memory::op_may_write_mem;
 #[cfg(test)]
 use memory::{mem_is_read_after, op_definitely_writes_mem};
 use memory::{op_may_have_unknown_memory_effects, op_reads_mem};
-use narrowing::narrow_discarded_high_constant_products;
+use narrowing::{narrow_discarded_high_arithmetic, narrow_discarded_high_constant_products};
 #[cfg(test)]
 use peepholes::{
     dead_private_scratch_store_at, fixed_pointer_consumer, fold_dead_private_scratch_stores,
@@ -1379,6 +1379,13 @@ pub(super) fn materialize_program_with_reporting(
             aggregate_copies.blocked_offset_range,
         );
         run_cfg_group(routine, &layout)?;
+        let narrow_arithmetic = narrow_discarded_high_arithmetic(routine);
+        peephole_stats.record_many(
+            routine.id, "discarded-high-arithmetic-candidate", narrow_arithmetic.candidates,
+        );
+        peephole_stats.record_many(
+            routine.id, "discarded-high-arithmetic-narrowed", narrow_arithmetic.applied,
+        );
         let narrow_products = narrow_discarded_high_constant_products(routine);
         peephole_stats.record_many(
             routine.id,

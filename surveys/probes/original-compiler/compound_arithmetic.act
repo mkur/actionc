@@ -1,0 +1,9 @@
+INT x,y
+INT quotient=$0600,remainder=$0602,compound=$0604
+PROC Main()
+  x=-513 y=256
+  quotient=x/y
+  remainder=x MOD y
+  x==MOD y
+  compound=x
+RETURN

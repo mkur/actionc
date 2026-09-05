@@ -255,6 +255,9 @@ fn embedded_array_execution_compound_preserves_operand_widths() {
     for (operator, operand, expected) in [
         ("+", 256u16, 13u8),
         ("-", 3, 10),
+        ("*", 3, 39),
+        ("/", 256, 0),
+        ("MOD", 256, 13),
         ("LSH", 2, 52),
         ("RSH", 2, 3),
     ] {
@@ -277,42 +280,77 @@ fn embedded_array_execution_compound_preserves_operand_widths() {
     }
 }
 
-// These public-language gaps predate inline fields. Keep their reproducers
-// executable while slice 4c fixes the shared compound-operation contract.
 #[test]
-fn characterizes_existing_byte_compound_multiply_nir_gap() {
-    let source = "BYTE ARRAY items(2) PROC Main() items(1)==*3 RETURN";
+fn byte_compound_multiply_has_int_operation_and_byte_store() {
+    let source = "BYTE ARRAY items(2) BYTE result=$0600 \
+        PROC Main() items(1)=13 items(1)==*3 result=items(1) RETURN";
     let ast = parse(&tokenize(source).unwrap()).unwrap();
     let model = semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
     let semir = semantic::ir::lower_program(&ast, &model);
     let nir = crate::nir::lower_program(&semir);
-    let errors =
-        crate::nir::verify_program(&nir).expect_err("tracked compound multiply typing gap");
-    assert!(errors.iter().any(|error| {
-        error
-            .message
-            .contains("multiplication must produce cartridge-compatible INT")
-    }));
+    crate::nir::verify_program(&nir).unwrap();
+    let printed = crate::nir::format_program(&nir);
+    assert!(printed.contains("cast Int -> Byte"), "{printed}");
+    for (label, output) in outputs(source) {
+        let memory = execute(&output, |_| {});
+        assert_eq!(memory[0x0600], 39, "{label}");
+    }
 }
 
 #[test]
-fn characterizes_existing_byte_compound_division_width_gap() {
+fn byte_compound_division_preserves_word_divisor() {
     let source = "BYTE ARRAY items(2) BYTE result=$0600 \
         CARD FUNC Divisor() RETURN(256) \
         PROC Main() items(1)=13 items(1)==/Divisor() result=items(1) RETURN";
     for (label, output) in outputs(source) {
         let memory = execute(&output, |_| {});
-        // Correct oracle: floor(13 / 256) = 0. MIR currently truncates the
-        // divisor to BYTE and returns $FF; this is not a passing semantic case.
-        let observed = if label.starts_with("MIR6502/") {
-            255
-        } else {
-            0
-        };
-        assert_eq!(
-            memory[0x0600], observed,
-            "tracked compound division gap: {label}"
-        );
+        assert_eq!(memory[0x0600], 0, "{label}");
+    }
+}
+
+#[test]
+fn integer_compound_order_matches_cartridge() {
+    let source = include_str!("../../../surveys/probes/original-compiler/compound_order.act");
+    for (label, output) in outputs(source) {
+        let memory = execute(&output, |_| {});
+        assert_bytes(&memory[0x0600..0x0604], &[42, 42, 42, 10], &label);
+    }
+}
+
+#[test]
+fn array_pointer_compound_call_keeps_the_word_destination() {
+    let source = "BYTE ARRAY data=$50FF BYTE result=$0600,calls=$0601 \
+        BYTE FUNC Amount() calls==+1 RETURN(1) \
+        PROC Advance(BYTE ARRAY p) p==+Amount() result=p(0) RETURN \
+        PROC Main() calls=0 Advance(data) RETURN";
+    for (label, output) in outputs(source) {
+        let memory = execute(&output, |memory| {
+            memory[0x5000] = 0x11;
+            memory[0x5100] = 0x77;
+        });
+        assert_bytes(&memory[0x0600..0x0602], &[0x77, 1], &label);
+    }
+}
+
+#[test]
+fn embedded_array_compound_reads_captured_address_after_rhs_effects() {
+    for ty in ["BYTE", "CHAR", "INT", "CARD"] {
+        for (operator, expected) in [("+", 42u16), ("*", 80), ("/", 20), ("MOD", 0)] {
+            let source = format!(
+                "TYPE Buffer=[{ty} ARRAY x(129)] Buffer first,second Buffer POINTER p \
+                BYTE calls=$0600 CARD result=$0602,guard=$0604 \
+                BYTE FUNC Index() calls==+1 RETURN(128) \
+                CARD FUNC Value() calls==+10 first.x(128)=40 p=second RETURN(2) \
+                PROC Main() calls=0 p=first first.x(128)=3 second.x(128)=10 \
+                p.x(Index())=={operator} Value() result=first.x(128) guard=second.x(128) RETURN"
+            );
+            for (label, output) in outputs(&source) {
+                let memory = execute(&output, |_| {});
+                assert_eq!(memory[0x0600], 11, "{label}/{ty}/{operator}");
+                assert_bytes(&memory[0x0602..0x0604], &expected.to_le_bytes(), &label);
+                assert_bytes(&memory[0x0604..0x0606], &[10, 0], &label);
+            }
+        }
     }
 }
 

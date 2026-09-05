@@ -879,7 +879,19 @@ Rules:
 - Add a new pseudo-op only when it represents a stable target-level decision that
   NIR should not know about and emission should not rediscover.
 
-### Discarded-high constant products
+### Discarded-high arithmetic and constant products
+
+The same sole-use, single-definition, immediately-following truncation proof
+also narrows word Add/Sub/And/Or/Xor when only their low byte is stored. Their
+low result depends only on the low input lanes. Operand loads remain intact;
+the rewrite selects low lanes of already materialized integer temps/constants,
+not pointer cells or memory operands. Live high results, explicit carry inputs
+or outputs, and unknown operand widths block the rewrite. Division, remainder
+and shifts are excluded; the wide divisor in `BYTE ==/ CARD` must survive.
+NIR retains its correctly typed operation and explicit store cast throughout.
+This extension currently requires an immediate byte-store consumer. Call
+arguments keep their existing expression/truncation shape so early lane
+projection does not defeat the richer argument selector or introduce spills.
 
 An analyzed pre-home rewrite may narrow a word constant multiplication to byte
 width when its single routine-wide use is the immediately following explicit

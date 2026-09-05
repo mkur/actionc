@@ -1205,8 +1205,12 @@ impl Generator {
             }
             return;
         }
-        if self.segment_storage && !matches!(target.kind, ExprKind::Name(_))
-            && (Self::expr_address_needs_nested_scratch(target)
+        let converts_result = self.profile == CodegenProfile::Modern
+            && self.compound_operations
+                .operation(self.current_record_copy_scope.as_deref(), span)
+                .is_some_and(|operation| operation.store_conversion.is_some());
+        if self.segment_storage
+            && (converts_result || Self::expr_address_needs_nested_scratch(target)
                 || self.expr_side_effect_facts(target).has_routine_call
                 || self.expr_side_effect_facts(value).has_routine_call)
         {
@@ -1223,6 +1227,16 @@ impl Generator {
             return;
         }
         if self.emit_compatible_indirect_word_compound_direct(target, op, value) {
+            return;
+        }
+        // The generic expression fallback may reuse address scratch while
+        // computing its value. Normalize remaining indirect compounds through
+        // the same captured-place path, even when neither operand calls code.
+        if self.segment_storage && !matches!(target.kind, ExprKind::Name(_)) {
+            if !self.emit_captured_compound_assignment(target, op, value, span) {
+                self.diagnostics.push(Diagnostic::new(span,
+                    "classic code generation could not materialize the captured compound assignment"));
+            }
             return;
         }
 

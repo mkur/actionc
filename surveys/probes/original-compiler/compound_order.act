@@ -1,0 +1,33 @@
+; Probe whether RHS effects precede the load of the old target value.
+BYTE item, scalarResult=$0600, arrayResult=$0601
+BYTE firstResult=$0602, secondResult=$0603
+BYTE ARRAY items(2), first(2), second(2)
+BYTE POINTER p
+
+BYTE FUNC ScalarValue()
+  item=40
+RETURN(2)
+
+BYTE FUNC ArrayValue()
+  items(1)=40
+RETURN(2)
+
+BYTE FUNC Retarget()
+  p=second
+  first(1)=40
+RETURN(2)
+
+PROC Main()
+  item=3
+  item==+ScalarValue()
+  scalarResult=item
+  items(1)=3
+  items(1)==+ArrayValue()
+  arrayResult=items(1)
+  first(1)=3
+  second(1)=10
+  p=first
+  p(1)==+Retarget()
+  firstResult=first(1)
+  secondResult=second(1)
+RETURN

@@ -439,6 +439,15 @@ pub enum SemForStep {
     Unknown,
 }
 
+/// A compound operation computes at its ordinary arithmetic type, then
+/// converts to the destination type (if different). Integer compounds capture
+/// the destination address, evaluate the RHS, then load/update that address.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemCompoundOperation {
+    pub result_type: ValueType,
+    pub store_conversion: Option<ValueType>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemStmt {
     LexicalBlock {
@@ -471,6 +480,7 @@ pub enum SemStmt {
         target: SemLValue,
         op: BinaryOp,
         value: SemExpr,
+        operation: SemCompoundOperation,
         span: Span,
     },
     Call {
@@ -2987,12 +2997,24 @@ impl<'a> IrBuilder<'a> {
                 op,
                 value,
                 span,
-            } => vec![SemStmt::CompoundAssign {
-                target: self.lower_lvalue(scope, target),
-                op: *op,
-                value: self.lower_compound_assignment_value(scope, target, value),
-                span: *span,
-            }],
+            } => {
+                let destination = self.lower_lvalue(scope, target);
+                let value = self.lower_compound_assignment_value(scope, target, value);
+                // A named array used as a compound target updates its pointer
+                // cell, not an element. Keep this distinction in semantic
+                // facts rather than recovering it from NIR storage widths.
+                let target_type = self.direct_symbol_ref_for_expr(scope, target)
+                    .and_then(|symbol| self.model.layout.array_for_symbol(symbol.id))
+                    .map_or_else(|| destination.ty.clone(), |layout| layout.pointer_type.clone());
+                let operation = SemCompoundOperation::new(*op, &target_type, &value.ty);
+                vec![SemStmt::CompoundAssign {
+                    target: destination,
+                    op: *op,
+                    value,
+                    operation,
+                    span: *span,
+                }]
+            }
             Stmt::Call { expr, span } => vec![SemStmt::Call {
                 call: self.lower_call_expr(scope, expr),
                 span: *span,
@@ -4929,6 +4951,19 @@ fn relink_inline_asm_items(
             | MachineItem::Raw(_) => item,
         })
         .collect()
+}
+
+impl SemCompoundOperation {
+    fn new(op: BinaryOp, target: &ValueType, value: &ValueType) -> Self {
+        let result_type = if target.is_pointer() {
+            // Validated pointer +=/-= use unscaled address arithmetic.
+            target.clone()
+        } else {
+            arithmetic_numeric_result_type(op, target, value, None)
+        };
+        let store_conversion = (result_type != *target).then(|| target.clone());
+        Self { result_type, store_conversion }
+    }
 }
 
 fn promote_numeric_types(left: &ValueType, right: &ValueType) -> ValueType {

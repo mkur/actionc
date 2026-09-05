@@ -33,6 +33,12 @@ No Oscar64 tests are ignored. See the fixture README for the mode/case matrix
 and resolved compiler regressions. `cargo test --locked --test comparison_values`
 also runs 24 modern consumer cases checking widths, calls, eager composition,
 indexed destinations and captured pointers.
+`cargo test --locked --test compound_assignments` adds 30 public-language VM
+executions (five input sets, three modes, both runtimes), each checking ten
+compound operators for BYTE, CARD and INT with neighboring-byte guards and
+counted RHS calls. The signed MOD inputs are nonnegative: the original
+cartridge's negative MOD behavior is not C's remainder rule. This coverage is
+separate from the Oscar64 case count and from experimental embedded arrays.
 Use `--no-fail-fast` to run the remaining test binaries after a failing one.
 
 The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public

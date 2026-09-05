@@ -20,6 +20,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     let mut application = application_projection.program;
     let mut native_real = application_projection.native_real;
     let record_copies = application_projection.record_copies;
+    let mut compound_operations = application_projection.compound_operations;
     let mut record_layouts = application_projection.record_layouts;
     reject_absolute_helper_overrides(&application)?;
     let local_helper_overrides = local_helper_overrides(&application);
@@ -63,6 +64,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     let resident = crate::runtime_source::select_runtime_image(&roots_by_unit)?;
     let projection = runtime_image_projection(resident.image.semir)?;
     native_real.extend(projection.native_real.clone());
+    compound_operations.extend(projection.compound_operations.clone());
     record_layouts.extend(projection.record_layouts.clone());
     validate_external_signatures(
         &external_roots,
@@ -108,6 +110,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
             &preflight,
             &native_real,
             &record_copies,
+            &compound_operations,
             &static_initializers,
             Some(&record_layouts),
             origin,
@@ -125,6 +128,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &helper_roots,
     )?;
     let syslib = runtime_image_projection(selected_syslib.semir)?;
+    compound_operations.extend(syslib.compound_operations.clone());
     record_layouts.extend(syslib.record_layouts.clone());
     let syslib_names = syslib.routine_names();
 
@@ -158,6 +162,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &application,
         &native_real,
         &record_copies,
+        &compound_operations,
         &static_initializers,
         Some(&record_layouts),
         origin,
@@ -225,6 +230,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
     let mut application = application_projection.program;
     let mut native_real = application_projection.native_real;
     let record_copies = application_projection.record_copies;
+    let mut compound_operations = application_projection.compound_operations;
     let mut record_layouts = application_projection.record_layouts;
 
     let external_interfaces = external_interfaces(semir);
@@ -256,6 +262,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
     let resident = crate::runtime_source::select_runtime_image(&roots_by_unit)?;
     let projection = runtime_image_projection(resident.image.semir)?;
     native_real.extend(projection.native_real.clone());
+    compound_operations.extend(projection.compound_operations.clone());
     record_layouts.extend(projection.record_layouts.clone());
     validate_external_signatures(
         &external_roots,
@@ -295,6 +302,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         &application,
         &native_real,
         &record_copies,
+        &compound_operations,
         &static_initializers,
         Some(&record_layouts),
         origin,
@@ -402,6 +410,7 @@ struct RuntimeProjection {
     semir: crate::semantic::ir::SemProgram,
     ast: Program,
     native_real: super::native_real::ClassicNativeRealFacts,
+    compound_operations: super::compound::ClassicCompoundFacts,
     record_layouts: RecordLayouts,
 }
 
@@ -430,6 +439,7 @@ fn runtime_image_projection(
         semir,
         ast: projection.program,
         native_real: projection.native_real,
+        compound_operations: projection.compound_operations,
         record_layouts: projection.record_layouts,
     })
 }

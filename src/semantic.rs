@@ -19,6 +19,8 @@ pub mod types;
 
 #[cfg(test)]
 mod embedded_record_arrays_tests;
+#[cfg(test)]
+mod compound_tests;
 
 pub use layout::{
     ArrayLayoutId, RecordLayoutId, SemanticArrayLayout, SemanticArrayOrigin, SemanticLayoutFacts,

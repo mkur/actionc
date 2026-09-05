@@ -1948,7 +1948,7 @@ impl NirBuilder {
                 });
             }
             SemStmt::CompoundAssign {
-                target, op, value, ..
+                target, op, value, operation, ..
             } => {
                 assert!(
                     !lvalue_is_inline_array(target),
@@ -1963,7 +1963,12 @@ impl NirBuilder {
                     return;
                 }
                 let value = self.value(value);
-                self.compound_or_unsupported(target, target_ty, *op, value, is_volatile);
+                let operation_ty = NirFacts::type_from_value(&operation.result_type);
+                let store_conversion = operation.store_conversion.as_ref()
+                    .map(NirFacts::type_from_value);
+                self.compound_or_unsupported(
+                    target, target_ty, operation_ty, store_conversion, *op, value, is_volatile,
+                );
             }
             SemStmt::Call { call, span } => {
                 if let Some(items) = self.machine_define_call_items(call) {
@@ -2150,7 +2155,9 @@ impl NirBuilder {
                     .as_ref()
                     .map(|step| self.value(step))
                     .unwrap_or(Some(NirValue::ConstU8(1)));
-                self.compound_or_unsupported(target, target_ty, BinaryOp::Add, value, is_volatile);
+                self.compound_or_unsupported(
+                    target, target_ty.clone(), target_ty, None, BinaryOp::Add, value, is_volatile,
+                );
                 self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
                 self.start_block(after_label);
@@ -2578,6 +2585,8 @@ impl NirBuilder {
         &mut self,
         target: NirPlace,
         target_ty: NirType,
+        operation_ty: NirType,
+        store_conversion: Option<NirType>,
         op: BinaryOp,
         value: Option<NirValue>,
         is_volatile: bool,
@@ -2599,23 +2608,41 @@ impl NirBuilder {
         self.push_load(loaded, target_ty.clone(), target.clone(), is_volatile);
 
         let result = self.next_temp();
-        self.push(NirOp::Binary {
-            dest: result,
-            ty: target_ty.clone(),
-            op,
-            left: NirValue::Temp {
-                id: loaded,
-                ty: target_ty.clone(),
-            },
-            right: src,
-        });
+        let left = NirValue::Temp { id: loaded, ty: target_ty.clone() };
+        if operation_ty.kind.is_pointer() {
+            self.push(NirOp::PointerOffset {
+                dest: result,
+                ty: operation_ty.clone(),
+                base: left,
+                offset: src,
+                subtract: op == NirBinaryOp::Sub,
+            });
+        } else {
+            self.push(NirOp::Binary {
+                dest: result,
+                ty: operation_ty.clone(),
+                op,
+                left,
+                right: src,
+            });
+        }
+
+        let mut value = NirValue::Temp { id: result, ty: operation_ty.clone() };
+        if let Some(to) = store_conversion.filter(|to| *to != operation_ty) {
+            let dest = self.next_temp();
+            self.push(NirOp::Cast {
+                dest,
+                src: value,
+                kind: nir_cast_kind(&operation_ty, &to),
+                from: operation_ty,
+                to: to.clone(),
+            });
+            value = NirValue::Temp { id: dest, ty: to };
+        }
 
         self.push_store(
             target,
-            NirValue::Temp {
-                id: result,
-                ty: target_ty.clone(),
-            },
+            value,
             target_ty,
             is_volatile,
         );

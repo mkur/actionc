@@ -199,11 +199,22 @@ Experimental inline-array indexing uses those projected field facts for
 element width, signedness and record identity, independently of the full field
 extent. Runtime decay computes the subobject address; it never reads an array
 descriptor from the field. Static-address queries do not emit code. Dynamic
-address evaluation happens once, with captured destinations and old compound
-values preserved across later index/RHS calls. Named arrays retain their
-existing descriptor/backing rules. Public support remains gated until the
-shared compound-typing follow-up, aggregate initialization and copy validation
-are complete.
+address evaluation happens once, with captured destinations preserved across
+later index/RHS calls. Integer compounds evaluate the RHS before reading the
+captured destination's current value, matching the cartridge. Named arrays
+retain their existing descriptor/backing rules. Public support remains gated
+until aggregate initialization and copy validation are complete.
+
+`SemStmt::CompoundAssign` carries `SemCompoundOperation`: the ordinary binary
+result type and an optional final conversion to the destination type. An INT
+multiplication result and a CARD divisor must not be narrowed merely because
+the destination is BYTE. NIR emits the typed operation followed by an explicit
+cast when the store type differs. Named array pointer-cell updates use the
+canonical layout's pointer type, not the array element type. Classic receives
+the same facts through its projection and uses shared captured-place lowering
+for effectful or otherwise unsafe indirect compound fallbacks. Compatibility
+surface restrictions are unchanged. Native REAL remains on its existing
+separate lowering path; this integer fix does not change its evaluation order.
 
 Resolved field facts also carry storage shape, complete byte extent and target
 alignment. Scalar fields use their value width. Embedded fixed-length array

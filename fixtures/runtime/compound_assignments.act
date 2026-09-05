@@ -1,0 +1,79 @@
+; Public-language regression for shared compound typing (no experimental fields).
+BYTE byteLeft=$06E0, shiftCount=$06E1
+CARD wordLeft=$06E2, wordRight=$06E4
+INT intLeft=$06E6, intRight=$06E8
+BYTE calls=$06EA, done=$06FF
+BYTE ARRAY bytes=$6001
+CARD ARRAY words=$6101
+INT ARRAY ints=$6201
+
+CARD FUNC WordValue() calls==+1 RETURN(wordRight)
+INT FUNC IntValue() calls==+1 RETURN(intRight)
+INT FUNC PositiveIntValue() calls==+1 RETURN(intRight & 32767)
+
+PROC Main()
+  calls=0
+  bytes(0)=byteLeft
+  bytes(0)==+ WordValue()
+  bytes(2)=byteLeft
+  bytes(2)==- WordValue()
+  bytes(4)=byteLeft
+  bytes(4)==* WordValue()
+  bytes(6)=byteLeft
+  bytes(6)==/ WordValue()
+  bytes(8)=byteLeft
+  bytes(8)==MOD WordValue()
+  bytes(10)=byteLeft
+  bytes(10)==& WordValue()
+  bytes(12)=byteLeft
+  bytes(12)==% WordValue()
+  bytes(14)=byteLeft
+  bytes(14)==XOR WordValue()
+  bytes(16)=byteLeft
+  bytes(16)==LSH shiftCount
+  bytes(18)=byteLeft
+  bytes(18)==RSH shiftCount
+  words(0)=wordLeft
+  words(0)==+ WordValue()
+  words(2)=wordLeft
+  words(2)==- WordValue()
+  words(4)=wordLeft
+  words(4)==* WordValue()
+  words(6)=wordLeft
+  words(6)==/ WordValue()
+  words(8)=wordLeft
+  words(8)==MOD WordValue()
+  words(10)=wordLeft
+  words(10)==& WordValue()
+  words(12)=wordLeft
+  words(12)==% WordValue()
+  words(14)=wordLeft
+  words(14)==XOR WordValue()
+  words(16)=wordLeft
+  words(16)==LSH shiftCount
+  words(18)=wordLeft
+  words(18)==RSH shiftCount
+  ints(0)=intLeft
+  ints(0)==+ IntValue()
+  ints(2)=intLeft
+  ints(2)==- IntValue()
+  ints(4)=intLeft
+  ints(4)==* IntValue()
+  ints(6)=intLeft
+  ints(6)==/ IntValue()
+  ; Negative MOD follows cartridge helper quirks, not C's remainder rule.
+  ints(8)=intLeft & 32767
+  ints(8)==MOD PositiveIntValue()
+  ints(10)=intLeft
+  ints(10)==& IntValue()
+  ints(12)=intLeft
+  ints(12)==% IntValue()
+  ints(14)=intLeft
+  ints(14)==XOR IntValue()
+  ints(16)=intLeft
+  ints(16)==LSH shiftCount
+  ints(18)=intLeft
+  ints(18)==RSH shiftCount
+  done=$A5
+  DO OD
+RETURN

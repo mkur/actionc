@@ -210,8 +210,8 @@ profile exposes this intermediate capability.
 
 ### 4. Backend support
 
-Status: 4a canonical layout projection and 4b executable array places complete.
-4c shared compound-operation typing follow-up remains before public enablement.
+Status: 4a canonical layout projection, 4b executable array places and
+4c shared integer compound-operation typing/order are complete.
 
 Classic: project canonical layouts; generalize field-based indexing and array
 decay through existing effective-address/staging paths. MIR6502: retain inline
@@ -260,14 +260,25 @@ development-capability executions, not public compiler-profile support or new
 Oscar64 cases. Two MIR verifier tests cover stored-word indexes and rejection
 of oversized indirect-Y load/store offsets.
 
-4c is required by extra stress cases: BYTE compound multiplication produces
-invalid NIR, and division by a CARD-valued 256 produces `$FF` instead of zero
-on MIR. Both reproduce with ordinary named arrays and are retained as two
-explicit characterization tests, not counted as successful semantic cases.
-Follow [the shared compound typing note](bugs/COMPOUND_ASSIGNMENT_TYPED_LOWERING_GAPS.md):
-reuse ordinary SemIR binary typing, lower computation and store conversion
-separately, and settle old-value read ordering before expanding the execution
-matrix. Do not add a special backend implementation for inline arrays.
+4c repairs the shared BYTE compound multiplication and wide-divisor failures.
+SemIR reuses ordinary arithmetic-result typing and explicitly carries the
+store conversion; NIR computes at that type before casting to the destination.
+Bare array updates retain their canonical pointer-cell type. Classic consumes
+the same facts and shares captured-place lowering across scalar, pointer,
+named-array and embedded-field targets, including indirect shift fallbacks.
+The original cartridge confirms integer compound order: capture the address,
+evaluate the RHS, read the current value at the captured address, compute and
+store. Native REAL's separate existing ordering is unchanged.
+
+Both characterizations are now correct-oracle regressions. The matrix includes
+all scalar type pairs in semantic tests, effectful field indexes/RHS writes,
+page-crossing array-pointer updates and public VM execution in all six
+mode/runtime combinations. The existing discarded-high-product proof is
+generalized to Add/Sub/And/Or/Xor with a sole adjacent truncation and immediate
+byte store; high-dependent operations and argument-selector shapes remain
+untouched. Existing code-size quality limits remain unchanged. See
+[the compound typing note](bugs/COMPOUND_ASSIGNMENT_TYPED_LOWERING_GAPS.md) for
+cartridge probes and arithmetic-scope details.
 
 ### 5. Aggregate behavior and public enablement
 
@@ -356,8 +367,27 @@ Slice 4b validated on 2026-09-05:
   and MIR snapshots and emitted-code expectations remain unchanged.
 - `git diff --check` passed. Public embedded-array profiles remain disabled.
 
-Slice 4b adds executable embedded-array access under the experimental capability.
-The compound-operation typing/order follow-up in slice 4c remains open.
+Slice 4c validated on 2026-09-05:
+
+- Root suite: 2,722 passed, 0 failed, 22 existing ignored. Nine new tests:
+  three execution tests, two semantic/NIR typing tests and four MIR narrowing
+  guards/consumer tests. Both former characterizations now execute the correct
+  oracle; the existing embedded compound matrix also covers multiply/divide/MOD.
+- Isolated VM suite: 101 passed, 0 failed, 0 ignored. The new test adds 30
+  public-language VM executions, each checking ten operators across BYTE,
+  CARD and INT with guards and counted calls. Oscar64 remains 4,380 cases in
+  24 tests; no stage-5 ports are counted.
+- Explicit NIR snapshots and all 33 NIR sweep fixtures passed. Existing
+  NIR/MIR snapshots and CIRCLE/WARPDEM quality limits remain unchanged. The
+  broad corpus ledger increases from 315 to 316 verified entrypoints solely
+  because of the new runtime fixture; its five declared non-entrypoints remain.
+- Original-cartridge probes confirm RHS-before-load ordering through scalar,
+  array and captured-pointer targets. The companion arithmetic probe records
+  the cartridge's negative MOD quirk without redefining it in this slice.
+- `git diff --check` passed. Public embedded-array profiles remain disabled.
+
+Slice 4 completes executable embedded-array access and the shared integer
+compound typing/order follow-up under the experimental capability.
 Aggregate initialization, subobject address relocations, full record-copy
 validation and public enablement remain slice 5. Structurally faithful Oscar64
 stage-5 ports remain slice 6.

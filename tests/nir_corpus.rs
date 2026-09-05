@@ -50,7 +50,7 @@ fn broad_fixture_corpus_verifies_lowered_and_optimized_nir() {
     }
     assert!(
         stdout.contains(
-            "NIR sweep summary: ok=315 load_failed=0 sem_failed=5 lower_failed=0 verify_failed=0 optimize_failed=0"
+            "NIR sweep summary: ok=316 load_failed=0 sem_failed=5 lower_failed=0 verify_failed=0 optimize_failed=0"
         ),
         "unexpected NIR corpus totals:\n{stdout}"
     );

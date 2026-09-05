@@ -7,7 +7,7 @@ use crate::mir6502::ir::{
 };
 
 #[derive(Debug, Default)]
-pub(super) struct NarrowProductStats {
+pub(super) struct DiscardedHighStats {
     pub candidates: usize,
     pub applied: usize,
     pub blocked_high_lane_live: usize,
@@ -25,10 +25,24 @@ struct TempFacts {
 
 pub(super) fn narrow_discarded_high_constant_products(
     routine: &mut MirRoutine,
-) -> NarrowProductStats {
+) -> DiscardedHighStats {
+    narrow_discarded_high_operations(routine, false)
+}
+
+/// Reuse the sole-use/truncation proof for operations whose low result cannot
+/// depend on either high input lane. Loads remain intact, including volatile
+/// and absolute reads. Division, remainder and right shift do not qualify.
+pub(super) fn narrow_discarded_high_arithmetic(routine: &mut MirRoutine) -> DiscardedHighStats {
+    narrow_discarded_high_operations(routine, true)
+}
+
+fn narrow_discarded_high_operations(
+    routine: &mut MirRoutine,
+    arithmetic: bool,
+) -> DiscardedHighStats {
     let widths = collect_routine_temp_widths(routine);
     let facts = collect_temp_facts(routine);
-    let mut stats = NarrowProductStats::default();
+    let mut stats = DiscardedHighStats::default();
 
     for block in &mut routine.blocks {
         let ops = std::mem::take(&mut block.ops);
@@ -36,7 +50,7 @@ pub(super) fn narrow_discarded_high_constant_products(
         let mut index = 0usize;
         while index < ops.len() {
             let MirOp::Binary {
-                op: MirBinaryOp::Mul,
+                op,
                 dst,
                 left,
                 right,
@@ -50,7 +64,22 @@ pub(super) fn narrow_discarded_high_constant_products(
                 continue;
             };
 
-            let Some((operand, factor)) = narrow_constant_multiply_parts(left, right) else {
+            let eligible = if arithmetic {
+                matches!(op, MirBinaryOp::Add | MirBinaryOp::Sub | MirBinaryOp::And
+                    | MirBinaryOp::Or | MirBinaryOp::Xor)
+            } else { *op == MirBinaryOp::Mul };
+            if !eligible {
+                out.push(ops[index].clone());
+                index += 1;
+                continue;
+            }
+            let parts = if arithmetic {
+                low_integer_value(left, &widths).zip(low_integer_value(right, &widths))
+            } else {
+                narrow_constant_multiply_parts(left, right)
+                    .map(|(operand, factor)| (operand, MirValue::ConstU8(factor)))
+            };
+            let Some((left, right)) = parts else {
                 out.push(ops[index].clone());
                 index += 1;
                 continue;
@@ -63,7 +92,7 @@ pub(super) fn narrow_discarded_high_constant_products(
                 index += 1;
                 continue;
             }
-            if !value_is_proven_byte(&operand, &widths) {
+            if !value_is_proven_byte(&left, &widths) {
                 stats.blocked_operand_width += 1;
                 out.push(ops[index].clone());
                 index += 1;
@@ -118,12 +147,22 @@ pub(super) fn narrow_discarded_high_constant_products(
                 index += 1;
                 continue;
             };
+            // Keep the richer word-expression/truncation shape for the
+            // existing call-argument selector. Early lane projection there
+            // can inhibit argument fusion and increase spill pressure.
+            if arithmetic && !matches!(ops.get(index + 2), Some(MirOp::Store {
+                src: MirValue::Def(MirDef::VTemp(stored)), width: MirWidth::Byte, ..
+            }) if stored == low_only_result) {
+                out.push(ops[index].clone());
+                index += 1;
+                continue;
+            }
 
             out.push(MirOp::Binary {
-                op: MirBinaryOp::Mul,
+                op: *op,
                 dst: truncated.clone(),
-                left: operand,
-                right: MirValue::ConstU8(factor),
+                left,
+                right,
                 width: MirWidth::Byte,
                 carry_in: None,
                 carry_out: MirCarryOut::Ignore,
@@ -136,6 +175,19 @@ pub(super) fn narrow_discarded_high_constant_products(
     }
 
     stats
+}
+
+fn low_integer_value(value: &MirValue, widths: &BTreeMap<MirTempId, MirWidth>) -> Option<MirValue> {
+    if value_is_proven_byte(value, widths) {
+        return Some(value.clone());
+    }
+    match value {
+        MirValue::ConstU16(value) => Some(MirValue::ConstU8(*value as u8)),
+        MirValue::Def(MirDef::VTemp(id)) if widths.get(id) == Some(&MirWidth::Word) =>
+            Some(MirValue::Def(MirDef::VTempByte { id: *id, byte: 0 })),
+        // Do not introduce, eliminate, or narrow memory reads/address values.
+        _ => None,
+    }
 }
 
 fn narrow_constant_multiply_parts(left: &MirValue, right: &MirValue) -> Option<(MirValue, u8)> {
@@ -268,6 +320,78 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn discarded_high_arithmetic_uses_low_lanes_without_narrowing_loads() {
+        for operation in [MirBinaryOp::Add, MirBinaryOp::Sub, MirBinaryOp::And,
+            MirBinaryOp::Or, MirBinaryOp::Xor] {
+            let mut routine = product_routine(None, MirValue::Def(MirDef::VTemp(MirTempId(0))));
+            let MirOp::Load { width, .. } = &mut routine.blocks[0].ops[0] else { panic!() };
+            *width = MirWidth::Word;
+            let original_load = routine.blocks[0].ops[0].clone();
+            let MirOp::Binary { op, left, .. } = &mut routine.blocks[0].ops[1] else { panic!() };
+            *op = operation;
+            *left = MirValue::ConstU16(0x1234);
+            routine.blocks[0].ops.push(MirOp::Store {
+                dst: MirAddr::Direct(MirMem::Global { id: SymbolId(1), offset: 0 }),
+                src: MirValue::Def(MirDef::VTemp(MirTempId(2))), width: MirWidth::Byte,
+            });
+            assert_eq!(narrow_discarded_high_arithmetic(&mut routine).applied, 1);
+            assert_eq!(routine.blocks[0].ops[0], original_load);
+            assert!(matches!(&routine.blocks[0].ops[1], MirOp::Binary {
+                op, left: MirValue::ConstU8(0x34),
+                right: MirValue::Def(MirDef::VTempByte { id: MirTempId(0), byte: 0 }),
+                width: MirWidth::Byte, ..
+            } if *op == operation));
+        }
+    }
+
+    #[test]
+    fn arithmetic_narrowing_rejects_high_dependent_operations_and_live_word_results() {
+        for operation in [MirBinaryOp::Div, MirBinaryOp::Mod, MirBinaryOp::Rsh, MirBinaryOp::Lsh] {
+            let mut routine = product_routine(None, MirValue::Def(MirDef::VTemp(MirTempId(0))));
+            let MirOp::Binary { op, .. } = &mut routine.blocks[0].ops[1] else { panic!() };
+            *op = operation;
+            let original = routine.clone();
+            assert_eq!(narrow_discarded_high_arithmetic(&mut routine).applied, 0);
+            assert_eq!(routine, original);
+        }
+        let extra_use = MirOp::Store { dst: MirAddr::Direct(MirMem::Global {
+            id: SymbolId(1), offset: 0 }), src: MirValue::Def(MirDef::VTemp(MirTempId(1))), width: MirWidth::Word };
+        let mut routine = product_routine(Some(extra_use), MirValue::Def(MirDef::VTemp(MirTempId(0))));
+        let MirOp::Binary { op, .. } = &mut routine.blocks[0].ops[1] else { panic!() };
+        *op = MirBinaryOp::Add;
+        let original = routine.clone();
+        assert_eq!(narrow_discarded_high_arithmetic(&mut routine).blocked_high_lane_live, 1);
+        assert_eq!(routine, original);
+    }
+
+    #[test]
+    fn discarded_high_arithmetic_preserves_carry_and_memory_operand_contracts() {
+        for memory_operand in [false, true] {
+            let mut routine = product_routine(None, MirValue::Def(MirDef::VTemp(MirTempId(0))));
+            let MirOp::Binary { op, carry_in, left, .. } = &mut routine.blocks[0].ops[1] else { panic!() };
+            *op = MirBinaryOp::Sub;
+            if memory_operand {
+                *left = MirValue::PointerCell(MirMem::Global { id: SymbolId(0), offset: 0 });
+            } else {
+                *carry_in = Some(crate::mir6502::ir::MirCarryIn::FromPrevious);
+            }
+            let original = routine.clone();
+            assert_eq!(narrow_discarded_high_arithmetic(&mut routine).applied, 0);
+            assert_eq!(routine, original);
+        }
+    }
+
+    #[test]
+    fn arithmetic_truncation_without_an_immediate_byte_store_keeps_consumer_shape() {
+        let mut routine = product_routine(None, MirValue::Def(MirDef::VTemp(MirTempId(0))));
+        let MirOp::Binary { op, .. } = &mut routine.blocks[0].ops[1] else { panic!() };
+        *op = MirBinaryOp::Add;
+        let original = routine.clone();
+        assert_eq!(narrow_discarded_high_arithmetic(&mut routine).applied, 0);
+        assert_eq!(routine, original);
     }
 
     #[test]
