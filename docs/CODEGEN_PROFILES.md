@@ -176,6 +176,19 @@ evaluation, this address arithmetic preserves X/Y and balances its status-stack
 save/restore with either scratch pointer pair. Index expressions retain their
 existing evaluation and clobber contracts.
 
+An indexed assignment must retain its selected destination across RHS
+evaluation, including casts and runtime arithmetic without source-level calls.
+Multiply, divide, remainder, and shifts may use `X` for operands or results;
+the existing index-preserving assignment path stages the result before
+restoring the destination index in both classic profiles.
+
+Unknown operand values are not reusable identities, including when embedded in
+logic or subtraction results. The tracker must not equate computations over
+different indexed bytes just because both inputs are unknown. Destructive
+accumulator operations also cannot retain an old-`A` identity, and subtraction
+facts require an identified carry input (no borrow, or a tracked low-byte
+comparison). Without these proofs, normal reloads remain.
+
 ## Proof-Guided Lowering
 
 Some modern optimizations are backed by explicit proof records. The current

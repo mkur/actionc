@@ -320,11 +320,19 @@ impl Generator {
             ExprKind::Call { .. } => true,
             ExprKind::Index { index, .. } => self.direct_scalar_slot(index) != preserved_index,
             ExprKind::Field { .. } => false,
-            ExprKind::Unary { expr, .. } => {
+            ExprKind::Cast { expr, .. } | ExprKind::Unary { expr, .. } => {
                 self.expr_may_clobber_x_except_index(expr, preserved_index)
             }
-            ExprKind::Binary { left, right, .. } => {
-                self.expr_may_clobber_x_except_index(left, preserved_index)
+            ExprKind::Binary { op, left, right } => {
+                // Runtime arithmetic passes/returns the high byte in X. Even
+                // without a source-level call, preparing the operands or the
+                // helper itself can overwrite an already selected index.
+                // Constant/inline variants conservatively use the same path.
+                matches!(
+                    op,
+                    BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod | BinaryOp::Lsh | BinaryOp::Rsh
+                )
+                    || self.expr_may_clobber_x_except_index(left, preserved_index)
                     || self.expr_may_clobber_x_except_index(right, preserved_index)
             }
             _ => false,

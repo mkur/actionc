@@ -57,6 +57,15 @@ pub(super) enum ValueAtomFact {
     AddressByte { address: u16, byte_index: u16 },
 }
 
+impl ValueAtomFact {
+    fn survives_accumulator_write(self) -> bool {
+        // Unknown is not a shared value identity. Register A also cannot name
+        // the old accumulator after a destructive operation; this includes
+        // compound facts flattened to A by ValueAtomFact::from.
+        !matches!(self, Self::Unknown | Self::Register(RegisterName::A))
+    }
+}
+
 impl From<ValueFact> for ValueAtomFact {
     fn from(value: ValueFact) -> Self {
         match value {
@@ -602,36 +611,35 @@ impl ProcessorState {
             self.set_a_immediate(apply_logic_fact_op(op, left, right));
             return;
         }
-        if value_fact_references_register(left, RegisterName::A)
-            || value_fact_references_register(right, RegisterName::A)
-        {
+        let left = ValueAtomFact::from(left);
+        let right = ValueAtomFact::from(right);
+        if !left.survives_accumulator_write() || !right.survives_accumulator_write() {
             self.set_a_fact(ValueFact::Unknown);
             return;
         }
-        self.set_a_fact(ValueFact::Logic {
-            op,
-            left: ValueAtomFact::from(left),
-            right: ValueAtomFact::from(right),
-        });
+        self.set_a_fact(ValueFact::Logic { op, left, right });
     }
 
     pub(super) fn set_a_subtract_result(&mut self, right: ValueFact) {
-        let left = self.a_value_fact();
+        let left = ValueAtomFact::from(self.a_value_fact());
+        let right = ValueAtomFact::from(right);
         let borrow = self.pending_word_compare_low.take();
-        if value_fact_references_register(left, RegisterName::A)
-            || value_fact_references_register(right, RegisterName::A)
-            || borrow
-                .is_some_and(|borrow| byte_compare_references_register(borrow, RegisterName::A))
+        if !left.survives_accumulator_write()
+            || !right.survives_accumulator_write()
+            || borrow.is_some_and(|borrow| {
+                !borrow.left.survives_accumulator_write()
+                    || !borrow.right.survives_accumulator_write()
+            })
+            // A plain Subtract fact represents no incoming borrow. Otherwise
+            // only a tracked low-byte comparison identifies the carry input.
+            || (borrow.is_none() && self.carry != FlagValue::Known(true))
         {
             self.set_a_fact(ValueFact::Unknown);
             self.carry = FlagValue::Unknown;
             self.pending_word_compare_low = None;
             return;
         }
-        let high = ByteCompareFact {
-            left: ValueAtomFact::from(left),
-            right: ValueAtomFact::from(right),
-        };
+        let high = ByteCompareFact { left, right };
         self.invalidate_facts_referencing_register(RegisterName::A);
         self.a = RegisterValue::Fact(ValueFact::Subtract {
             left: high.left,

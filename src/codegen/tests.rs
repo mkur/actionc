@@ -118,6 +118,169 @@ fn indexed_word_runtime_operand_matches_signed_arithmetic_for_all_byte_indexes()
 }
 
 #[test]
+fn classic_indexed_table_division_preserves_destination() {
+    for routine in ["Divide", "DividePlain", "DivideComputed", "Remainder"] {
+        check_classic_indexed_table_arithmetic(routine, false);
+    }
+}
+
+#[test]
+fn classic_indexed_table_multiply_and_shifts_preserve_destination() {
+    for routine in ["Multiply", "ShiftLeft", "ShiftRight"] {
+        check_classic_indexed_table_arithmetic(routine, false);
+    }
+}
+
+#[test]
+fn classic_indexed_table_scalar_negation_stores_both_bytes() {
+    check_classic_indexed_table_arithmetic("NegateScalar", true);
+}
+
+#[test]
+fn classic_indexed_table_source_negation_preserves_destination() {
+    check_classic_indexed_table_arithmetic("NegateIndexed", true);
+}
+
+fn check_classic_indexed_table_arithmetic(routine: &str, negation: bool) {
+    use crate::compiler::{CompileMode, CompileOptions, compile_file};
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/classic_indexed_table_arithmetic.act");
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap();
+        let output = &compiled.output;
+        let entry = routine_address(output, routine).unwrap();
+        for input in 0..=if negation { 127u8 } else { 255u8 } {
+            for value in [0u16, 1, 127, 128, 255, 256, 32767, 32768, 0xFFF3, 65535] {
+                // CARD signed-helper selection is a separate existing backlog
+                // item. Keep division/remainder in the common positive range;
+                // negation, multiply and shifts exercise both high-bit states.
+                if matches!(
+                    routine,
+                    "Divide" | "DividePlain" | "DivideComputed" | "Remainder"
+                ) && value > i16::MAX as u16
+                {
+                    continue;
+                }
+                let mut memory = [0u8; 65536];
+                let origin = usize::from(output.origin);
+                memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
+                memory[0x4F00..0x5500].fill(0xA5);
+                memory[0x600] = input;
+                let count = input % 18;
+                memory[0x601] = count;
+                memory[0x602..0x604].copy_from_slice(&value.to_le_bytes());
+                memory[0x604..0x606].copy_from_slice(&value.to_le_bytes());
+                let source_address = 0x5200 + usize::from(input) * 2;
+                memory[source_address..source_address + 2].copy_from_slice(&value.to_le_bytes());
+                let mut expected = memory[0x4F00..0x5500].to_vec();
+                if negation {
+                    let target = source_address + 256 - 0x4F00;
+                    expected[target..target + 2]
+                        .copy_from_slice(&value.wrapping_neg().to_le_bytes());
+                } else {
+                    let result = match routine {
+                        "Divide" | "DividePlain" | "DivideComputed" => value / 15,
+                        "Remainder" => value % 15,
+                        "Multiply" => value.wrapping_mul(15),
+                        "ShiftLeft" => {
+                            if count >= 16 {
+                                0
+                            } else {
+                                value << count
+                            }
+                        }
+                        "ShiftRight" => {
+                            if count >= 16 {
+                                0
+                            } else {
+                                value >> count
+                            }
+                        }
+                        _ => unreachable!(),
+                    };
+                    let index = if routine == "DivideComputed" {
+                        input ^ 0x80
+                    } else {
+                        input
+                    };
+                    expected[0x100 + usize::from(index)] = result as u8;
+                }
+                indexed_test_cpu::run_memory(&mut memory, usize::from(entry));
+                let mismatch = memory[0x4F00..0x5500]
+                    .iter()
+                    .zip(&expected)
+                    .enumerate()
+                    .find(|(_, (actual, expected))| actual != expected)
+                    .map(|(offset, (actual, expected))| (0x4F00 + offset, *actual, *expected));
+                assert_eq!(
+                    mismatch, None,
+                    "mode={mode:?}, routine={routine}, index={input}, value={value:04X}; (address, actual, expected)"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn classic_indexed_table_builders_match_reference_without_staging_workarounds() {
+    use crate::compiler::{CompileMode, CompileOptions, compile_file};
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/classic_indexed_table_arithmetic.act");
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap();
+        let output = &compiled.output;
+        let mut memory = [0u8; 65536];
+        let origin = usize::from(output.origin);
+        memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
+        memory[0x4F00..0x5500].fill(0xA5);
+        let mut expected = memory[0x4F00..0x5500].to_vec();
+        let (mut position, mut velocity) = (0i16, 889i16);
+        for i in 0..128 {
+            let sample = (position as u16) >> 8;
+            expected[0x300 + 2 * i..0x302 + 2 * i].copy_from_slice(&sample.to_le_bytes());
+            expected[0x400 + 2 * i..0x402 + 2 * i]
+                .copy_from_slice(&sample.wrapping_neg().to_le_bytes());
+            position = position.wrapping_add(velocity);
+            velocity = velocity.wrapping_sub(14);
+        }
+        for y in 0..16 {
+            for x in 0..16 {
+                expected[0x100 + y * 16 + x] = ((x * y + 7) / 15) as u8;
+            }
+        }
+        indexed_test_cpu::run_memory_with_limit(
+            &mut memory,
+            usize::from(routine_address(output, "BuildTables").unwrap()),
+            1_000_000,
+        );
+        for (offset, expected) in expected.into_iter().enumerate() {
+            assert_eq!(
+                memory[0x4F00 + offset],
+                expected,
+                "mode={mode:?}, address={:04X}",
+                0x4F00 + offset
+            );
+        }
+    }
+}
+
+#[test]
 fn classic_word_pointer_address_preserves_scale_and_base_carries() {
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
         for pointer in [runtime_zp::ADDR, runtime_zp::ARRAY_ADDR] {
@@ -16939,6 +17102,72 @@ fn processor_state_tracks_accumulator_logic_result_facts() {
         generator.processor.negative(),
         SemanticFlagFact::Known(false)
     );
+}
+
+#[test]
+fn processor_state_does_not_equate_arithmetic_with_unknown_inputs() {
+    for left_unknown in [false, true] {
+        for subtract in [false, true] {
+            let mut state = ProcessorState::default();
+            let left = if left_unknown {
+                ValueFact::Unknown
+            } else {
+                ValueFact::Immediate(0)
+            };
+            let right = if left_unknown {
+                ValueFact::Immediate(0)
+            } else {
+                ValueFact::Unknown
+            };
+            for _ in 0..2 {
+                state.set_a_fact(left);
+                state.set_carry(true);
+                if subtract {
+                    state.set_a_subtract_result(right);
+                } else {
+                    state.set_a_logic_result(LogicFactOp::Xor, right);
+                }
+                assert_eq!(state.a_value_fact(), ValueFact::Unknown);
+                assert!(!state.accumulator_value_matches(ValueFact::Unknown));
+            }
+        }
+    }
+}
+
+#[test]
+fn processor_state_subtract_requires_identified_carry_input() {
+    for carry in [None, Some(false), Some(true)] {
+        let mut state = ProcessorState::default();
+        state.set_a_immediate(0);
+        if let Some(carry) = carry {
+            state.set_carry(carry);
+        }
+        state.set_a_subtract_result(ValueFact::Immediate(1));
+        assert_eq!(
+            matches!(state.a_value_fact(), ValueFact::Subtract { .. }),
+            carry == Some(true)
+        );
+    }
+}
+
+#[test]
+fn processor_state_does_not_reuse_flattened_compound_accumulator_facts() {
+    for subtract in [false, true] {
+        let mut state = ProcessorState::default();
+        state.set_a_fact(ValueFact::SlotByte {
+            slot: StorageSlot::absolute(0x600, 1),
+            byte_index: 0,
+        });
+        state.set_a_logic_result(LogicFactOp::Xor, ValueFact::Immediate(1));
+        assert!(matches!(state.a_value_fact(), ValueFact::Logic { .. }));
+        state.set_carry(true);
+        if subtract {
+            state.set_a_subtract_result(ValueFact::Immediate(2));
+        } else {
+            state.set_a_logic_result(LogicFactOp::Xor, ValueFact::Immediate(2));
+        }
+        assert_eq!(state.a_value_fact(), ValueFact::Unknown);
+    }
 }
 
 #[test]

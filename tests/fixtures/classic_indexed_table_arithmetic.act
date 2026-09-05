@@ -1,0 +1,85 @@
+BYTE index=$0600
+BYTE count=$0601
+CARD value=$0602
+INT sample=$0604
+BYTE ARRAY light(256)=$5000
+INT ARRAY sine(256)=$5200
+
+PROC Divide()
+  light(index)=BYTE(value/15)
+RETURN
+
+PROC DividePlain()
+  light(index)=value/15
+RETURN
+
+PROC DivideComputed()
+  light(index XOR $80)=BYTE(value/15)
+RETURN
+
+PROC Remainder()
+  light(index)=BYTE(value MOD 15)
+RETURN
+
+PROC Multiply()
+  light(index)=BYTE(value*15)
+RETURN
+
+PROC ShiftLeft()
+  light(index)=BYTE(value LSH count)
+RETURN
+
+PROC ShiftRight()
+  light(index)=BYTE(value RSH count)
+RETURN
+
+PROC NegateScalar()
+  sine(index+128)=-sample
+RETURN
+
+PROC NegateIndexed()
+  sine(index+128)=-sine(index)
+RETURN
+
+; The two table-building loops that originally needed staged assignments in
+; Astroscone. Keep the arithmetic on the RHS of the indexed stores.
+PROC BuildTables()
+  BYTE i,x,y,entry
+  CARD work
+  INT position,velocity
+  position=0
+  velocity=889
+  i=0
+  WHILE i<128 DO
+    sine(i)=position RSH 8
+    sine(i+128)=-sine(i)
+    position==+velocity
+    velocity==-14
+    i==+1
+  OD
+  entry=0
+  y=0
+  WHILE y<16 DO
+    x=0
+    WHILE x<16 DO
+      work=CARD(x)*y+7
+      light(entry)=BYTE(work/15)
+      entry==+1
+      x==+1
+    OD
+    y==+1
+  OD
+RETURN
+
+PROC Main()
+  BuildTables()
+  Divide()
+  DividePlain()
+  DivideComputed()
+  Remainder()
+  Multiply()
+  ShiftLeft()
+  ShiftRight()
+  NegateScalar()
+  NegateIndexed()
+RETURN

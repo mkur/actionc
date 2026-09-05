@@ -4,12 +4,20 @@ use crate::codegen::{AddressingMode, decode_6502_opcode};
 
 /// Execute through the outermost RTS, preserving memory for guard assertions.
 pub(crate) fn run_memory(memory: &mut [u8; 65536], entry: usize) -> Vec<u8> {
+    run_memory_with_limit(memory, entry, 100_000)
+}
+
+pub(crate) fn run_memory_with_limit(
+    memory: &mut [u8; 65536],
+    entry: usize,
+    step_limit: usize,
+) -> Vec<u8> {
     let (mut a, mut x, mut y, mut sp) = (0u8, 0u8, 0u8, 0xffu8);
     let (mut c, mut z, mut n) = (false, false, false);
     let mut pc = entry;
     let mut depth = 0;
     let mut returns = Vec::new();
-    for _ in 0..100_000 {
+    for _ in 0..step_limit {
         let (name, mode, len) = decode_6502_opcode(memory[pc]).unwrap();
         let operand = memory[pc + 1];
         let word = u16::from_le_bytes([operand, memory[pc + 2]]);
