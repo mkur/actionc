@@ -1,0 +1,13 @@
+TYPE Point=[INT x,y]
+Point ARRAY points(258)=$5001
+INT compound=$0600,plain=$0602,throughPointer=$0604
+CARD index=$060E
+Point POINTER p
+
+PROC Main()
+  p=points
+  compound=$2345
+  compound==-points(index).y
+  plain=$2345-points(index).y
+  throughPointer=$2345-p(index).y
+RETURN

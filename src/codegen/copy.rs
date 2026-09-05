@@ -267,6 +267,36 @@ impl Generator {
             return true;
         }
         debug_assert_indirect_slots_do_not_alias(source, target, "slot copy");
+        if target.size == 2
+            && source.space == AddressSpace::IndirectIndexedY
+            && slot_overlaps_zero_page(target, source.zero_page_byte(0), 2)
+        {
+            // Storing either lane may destroy the pointer needed by the next
+            // read. Stage the first lane just as prepared indexed word loads
+            // do, retaining this path's existing source access order and X/Y
+            // behavior. Widening a byte also needs its read before the zero
+            // high-byte store can overwrite the source pointer.
+            if self.segment_storage && source.size > 1 {
+                self.emit_lda_slot_byte_value_only(source, 1);
+                self.emitter.emit_pha();
+                self.emit_lda_slot_byte_value_only(source, 0);
+                self.emit_sta_slot_byte(target, 0);
+                self.emit_pla();
+                self.emit_sta_slot_byte(target, 1);
+            } else {
+                self.emit_lda_slot_byte_value_only(source, 0);
+                self.emitter.emit_pha();
+                if source.size > 1 {
+                    self.emit_lda_slot_byte_value_only(source, 1);
+                } else {
+                    self.emit_lda_imm(0);
+                }
+                self.emit_sta_slot_byte(target, 1);
+                self.emit_pla();
+                self.emit_sta_slot_byte(target, 0);
+            }
+            return true;
+        }
         if self.segment_storage && target.size == 2 {
             if source.size > 1 {
                 self.emit_copy_slot_byte_to_slot_byte(source, 1, target, 1);

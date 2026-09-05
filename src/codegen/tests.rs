@@ -6,6 +6,9 @@ use crate::semantic::analyze;
 #[path = "test_cpu.rs"]
 mod indexed_test_cpu;
 
+#[path = "tests/indirect_copy.rs"]
+mod indirect_copy;
+
 #[test]
 fn prepared_indexed_word_load_handles_pointer_overlap_and_preserves_xy() {
     for pointer in [runtime_zp::ARRAY_ADDR, runtime_zp::ADDR] {

@@ -977,6 +977,9 @@ impl Generator {
             if let Some(source) = self.reusable_lvalue_slot(expr)
                 && source.space == AddressSpace::IndirectIndexedY
             {
+                if slot_overlaps_zero_page(slot, source.zero_page_byte(0), 2) {
+                    return self.emit_copy_slot_to_slot(source, slot);
+                }
                 debug_assert_indirect_slots_do_not_alias(source, slot, "word copy");
                 if source.size > 1 {
                     self.emit_lda_slot_byte(source, 1);
