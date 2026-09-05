@@ -115,7 +115,7 @@ and profile defaults unchanged; expose no new CLI option.
 
 ### 2. Canonical field metadata and checked layout
 
-Status: in progress; the initial layout foundation is implemented.
+Status: complete. Public array syntax remains gated until slices 3–5 are ready.
 
 - Add scalar-versus-inline-array shape to resolved record field facts, with
   `ArrayType`, constant element stride, full storage size and alignment.
@@ -138,9 +138,8 @@ Seventeen existing NIR snapshots now print `storage: Value` in ordinary record
 field metadata. This is a printer-only change to those fixtures: offsets,
 record sizes and executable instructions are unchanged.
 
-Remaining prerequisite: named-module type/CONST dependency ordering. The
-current resolver lays out all records before evaluating that module's CONST
-declarations, so even this source still fails under the experimental capability:
+Named-module type/CONST dependency ordering is implemented. The following
+source now resolves under the experimental semantic capability:
 
 ```action
 MODULE Data
@@ -149,12 +148,24 @@ PUBLIC TYPE Buffers=[INT ARRAY x(Count),y(Count)]
 ENDMODULE
 ```
 
-It reports `constant Count is not available before its declaration` (with
-backticks around the name). Legacy global/local constants and constants from
-already resolved dependency modules work. Resolve this dependency gap without
-breaking existing layout-query constants or inventing silent retry/fallback
-values; add same-module and cyclic-dependency tests. This is unfinished feature
-support, not a regression in a publicly enabled form.
+Record layouts and constants share a per-module pending/resolving/complete/
+failed lifecycle keyed by defining SymbolId. Existing semantic consumers
+request dependencies when they need a constant, a complete record width or a
+field offset. Each declaration is evaluated once; failed dependencies stay
+failed and cycles produce a dependency-chain diagnostic. Source visibility is
+checked independently of scheduling, including already-cached constants:
+later CONST declarations remain unavailable. Pointer widths do not depend on
+pointee layouts. Legacy declaration ordering is unchanged.
+
+Seven additional tests cover same-module constant chains, bounds composed from
+queries on later record types, cached forward-reference rejection, cycles,
+pointer recursion, existing public query constants and one-time failure
+diagnostics. Existing local/imported bounds and field-identity tests remain.
+
+This slice also exposed and repaired a pre-existing
+[layout-query source-span collision](bugs/LAYOUT_QUERY_SPAN_COLLISIONS.md).
+The parser repair is a separate commit and has public-mode code-equivalence
+coverage; it is not an embedded-array special case.
 
 ### 3. Array places, SemIR and NIR
 
@@ -218,9 +229,19 @@ Initial semantic/layout slice validated on 2026-09-05:
 - `git diff --check` passed. Snapshot edits are the printer-only field
   metadata changes described above.
 
-These checks validate the foundation and preservation of existing behavior;
-they do not establish executable embedded-array support. Slice 2's module
-dependency work and slices 3–6 remain unfinished.
+Slice 2 and its source-span prerequisite validated on 2026-09-05:
+
+- Root suite: 2,681 passed, 0 failed, 22 existing ignored.
+- Isolated VM suite: 100 passed, 0 failed, 0 ignored; Oscar64 coverage unchanged.
+- Explicit NIR snapshots passed unchanged; all 33 NIR sweep fixtures passed.
+- Ten tests added since the foundation: seven dependency tests, two parser
+  span tests and one emitted-code equivalence test spanning all six public
+  mode/runtime combinations. The inline-string listing expectation now uses
+  the literal's actual source column (metadata-only change).
+
+These checks validate slices 1–2 and preservation of existing behavior;
+they do not establish executable embedded-array support. Slices 3–6 remain
+unfinished; next is array-place indexing, decay and SemIR/NIR lowering.
 
 After each semantic/lowering slice:
 

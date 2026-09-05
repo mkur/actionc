@@ -191,6 +191,14 @@ storage extent; they are not scalar values or pointer cells. Field placement
 and record tail padding use checked arithmetic, and incomplete or recursive
 by-value layouts are diagnosed before layout facts are published.
 
+Named-module record layouts and constants resolve through a dependency
+lifecycle keyed by defining SymbolId. Layout consumers request needed facts;
+declarations are not speculatively evaluated or silently retried. Cycles and
+failed dependencies cannot publish successful layout facts. Constant source
+visibility is independent of resolution order, so resolving a constant for a
+later record does not make forward CONST references legal. A pointer's own
+width does not require a complete pointee layout.
+
 Embedded fields currently have only an experimental semantic/layout capability;
 all public modes still reject them while array-place lowering and backend
 support are unfinished. See the

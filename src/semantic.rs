@@ -12,6 +12,7 @@ use crate::target::{TargetId, TargetLayout};
 pub mod ir;
 pub mod layout;
 pub(crate) mod materialize;
+mod declarations;
 pub mod subject;
 pub mod types;
 
@@ -542,6 +543,7 @@ struct Analyzer {
     fixed_array_backing_addresses: HashMap<SymbolId, u16>,
     layout_intrinsics: HashMap<SymbolId, LayoutIntrinsic>,
     layout_query_values: HashMap<LayoutQueryKey, ConstValue>,
+    named_layout_declarations: declarations::NamedLayoutDeclarations,
 }
 
 #[derive(Clone, Copy)]
@@ -614,6 +616,7 @@ impl Analyzer {
             fixed_array_backing_addresses: HashMap::new(),
             layout_intrinsics: HashMap::new(),
             layout_query_values: HashMap::new(),
+            named_layout_declarations: declarations::NamedLayoutDeclarations::default(),
         }
     }
 
@@ -1243,34 +1246,7 @@ impl Analyzer {
                 }
             }
         }
-        for region in &program.modules {
-            for item in &region.items {
-                match item {
-                    Item::Declaration(Decl::Type(declaration)) => {
-                        self.validate_predeclared_record_type(
-                            scope,
-                            &declaration.name,
-                            &declaration.fields,
-                        );
-                    }
-                    Item::Declaration(Decl::Record(declaration)) => {
-                        self.validate_predeclared_record_type(
-                            scope,
-                            &declaration.name,
-                            &declaration.fields,
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        }
-        for region in &program.modules {
-            for item in &region.items {
-                if let Item::Declaration(Decl::Const(declaration)) = item {
-                    self.evaluate_predeclared_const(scope, declaration);
-                }
-            }
-        }
+        self.resolve_named_layout_declarations(scope, program);
         for region in &program.modules {
             for item in &region.items {
                 if let Item::Declaration(Decl::Var(declaration)) = item {
@@ -2602,6 +2578,9 @@ impl Analyzer {
             ));
             return None;
         };
+        if !self.ensure_named_record_layout(&record, record_operand.span) {
+            return None;
+        }
         let Some(field) = self.record_field_descriptor(&record, field_name) else {
             let record_name = record.as_record_base_name().unwrap_or("<non-record>");
             self.diagnostics.push(Diagnostic::new(
@@ -2614,6 +2593,9 @@ impl Analyzer {
     }
 
     fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u16> {
+        if !ty.pointer && !self.ensure_named_record_layout(ty, span) {
+            return None;
+        }
         self.value_storage_width(ty).or_else(|| {
             self.diagnostics.push(Diagnostic::new(
                 span,
@@ -2718,6 +2700,11 @@ impl Analyzer {
     }
 
     fn classify_symbol_subject(&mut self, symbol_id: SymbolId, span: Span) -> subject::SemSubject {
+        if self.symbols.symbols[symbol_id.0].class == SymbolClass::Const
+            && !self.ensure_named_constant(symbol_id, span)
+        {
+            return self.subject_error(span);
+        }
         let symbol = &self.symbols.symbols[symbol_id.0];
 
         match symbol.class {
@@ -3525,7 +3512,7 @@ impl Analyzer {
                 continue;
             };
 
-            self.evaluate_declared_const(scope, symbol_id, declaration, entry);
+            self.evaluate_declared_const(scope, symbol_id, declaration.declared_type, entry);
         }
     }
 
@@ -3549,24 +3536,15 @@ impl Analyzer {
         }
     }
 
-    fn evaluate_predeclared_const(&mut self, scope: ScopeId, declaration: &ConstDecl) {
-        for entry in &declaration.entries {
-            let Some(symbol_id) = self.symbols.lookup_exact(scope, &entry.name) else {
-                continue;
-            };
-            self.evaluate_declared_const(scope, symbol_id, declaration, entry);
-        }
-    }
-
     fn evaluate_declared_const(
         &mut self,
         scope: ScopeId,
         symbol_id: SymbolId,
-        declaration: &ConstDecl,
+        declared_type: Option<ConstDeclaredType>,
         entry: &ConstEntry,
     ) {
         let expression = self.lower_expr(scope, &entry.value);
-        if declaration.declared_type == Some(ConstDeclaredType::Real) {
+        if declared_type == Some(ConstDeclaredType::Real) {
             if !self.options.native_real {
                 self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
                 self.diagnostics.push(Diagnostic::new(
@@ -3598,7 +3576,7 @@ impl Analyzer {
             return;
         }
 
-        match evaluate_const_expr(&expression).map(|value| match declaration.declared_type {
+        match evaluate_const_expr(&expression).map(|value| match declared_type {
             Some(ConstDeclaredType::Fund(declared_type)) => value.cast(declared_type),
             Some(ConstDeclaredType::Real) => unreachable!(),
             None => value,
@@ -3701,6 +3679,9 @@ impl Analyzer {
                 continue;
             }
             let ty = self.value_type_from_type_ref(scope, &field.ty);
+            if !ty.pointer && !self.ensure_named_record_layout(&ty, field.span) {
+                continue;
+            }
             let Some((element_size, alignment)) = self
                 .value_storage_width(&ty)
                 .zip(self.value_storage_alignment(&ty))
@@ -3832,6 +3813,9 @@ impl Analyzer {
         span: Span,
     ) -> Option<FieldDescriptorFacts> {
         let base = base?;
+        if !self.ensure_named_record_layout(base, span) {
+            return None;
+        }
         if let Some(field) = self.record_field_facts(base, field) {
             return Some(field);
         }
