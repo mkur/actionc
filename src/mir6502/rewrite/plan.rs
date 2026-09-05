@@ -100,7 +100,8 @@ pub(in crate::mir6502) enum MirEffectDelta {
     /// Indexed producers and accesses were selected into explicit 6502
     /// address-consumer operations. Address-carrier homes and machine
     /// strategy may change while logical direct/indirect data effects remain
-    /// equivalent.
+    /// equivalent. Address-setup reads must be justified before projecting
+    /// away carrier effects: a storage address does not authorize a dereference.
     MaterializedIndexConsumer,
 }
 

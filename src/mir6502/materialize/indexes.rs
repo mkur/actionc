@@ -3016,7 +3016,7 @@ pub(super) fn try_prepare_dynamic_word_index(
             src,
             width: MirWidth::Word,
         } if *access_index_temp == index_temp && *elem_size > 1 => {
-            let Some(base) = base_pointer_from_address_value(base) else {
+            let Some(base) = direct_index_base_value(base) else {
                 return 0;
             };
             materialize_dynamic_word_index_write(
@@ -3173,17 +3173,14 @@ pub(super) fn storage_address_value(mem: &MirMem) -> MirValue {
     }
 }
 
-fn base_pointer_from_address_value(value: &MirValue) -> Option<MirValue> {
+fn direct_index_base_value(value: &MirValue) -> Option<MirValue> {
     match value {
-        MirValue::GlobalAddr(id) => Some(pointer_value_from_mem(&MirMem::Global {
-            id: *id,
-            offset: 0,
-        })),
-        MirValue::StaticAddr(id) => Some(pointer_value_from_mem(&MirMem::Static {
-            id: *id,
-            offset: 0,
-        })),
-        MirValue::ConstU16(address) => Some(MirValue::ConstU16(*address)),
+        // ComputedIndex already carries the backing address. Reading a word
+        // from that storage would reinterpret the first element as a pointer.
+        // Descriptor-backed arrays instead arrive through PointerIndex above.
+        MirValue::GlobalAddr(_) | MirValue::StaticAddr(_) | MirValue::ConstU16(_) => {
+            Some(value.clone())
+        }
         _ => None,
     }
 }

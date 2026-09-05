@@ -1,0 +1,15 @@
+; The first word looks like a pointer. A direct array must NOT dereference it.
+CARD ARRAY words(64)=$4900
+BYTE input=$0600
+CARD result=$0602,arrayBase=$0604
+
+PROC Put(BYTE i)
+  words(i)=$BEEF
+RETURN
+
+PROC Main()
+  arrayBase=words
+  words(0)=$5A00
+  Put(input)
+  result=words(input)
+RETURN

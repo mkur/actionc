@@ -701,6 +701,11 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             if materialized_pointer && !pointer_source_is_preserved(original_ops, replacement_ops) {
                 return false;
             }
+            if matches!(delta, MirEffectDelta::MaterializedIndexConsumer)
+                && !indexed_address_reads_are_justified(original_ops, replacement_ops)
+            {
+                return false;
+            }
             if materialized_helper
                 && !runtime_helper_source_is_preserved(original_ops, replacement_ops)
             {
@@ -753,6 +758,48 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
             original == replacement
         }
     }
+}
+
+/// Check address-input reads BEFORE projecting away address setup. In particular,
+/// GlobalAddr/StaticAddr/StorageAddrByte do not authorize reading their contents.
+/// Index loads and pointer producers may be folded into the setup, and private
+/// scratch may be reloaded after it has been written in the replacement window.
+/// This is a read-provenance check, not a proof of complete address equivalence.
+fn indexed_address_reads_are_justified(original: &[MirOp], replacement: &[MirOp]) -> bool {
+    let original_effects = observable_effects(original);
+    let mut available = original_effects
+        .memory_reads
+        .into_iter()
+        .chain(original_effects.memory_writes)
+        .collect::<BTreeSet<_>>();
+    for op in replacement {
+        let mut reads = BTreeSet::new();
+        match op {
+            MirOp::MaterializeAddress { value, .. } => {
+                collect_value_pointer_reads(value, &mut reads);
+            }
+            MirOp::MaterializeIndexedAddress { base, index, .. } => {
+                collect_value_pointer_reads(base, &mut reads);
+                collect_value_pointer_reads(index, &mut reads);
+            }
+            MirOp::AdvanceAddress { index, .. } => {
+                collect_value_pointer_reads(index, &mut reads);
+            }
+            _ => {}
+        }
+        if !reads.is_subset(&available) {
+            return false;
+        }
+        available.extend(
+            classify_op(op)
+                .memory
+                .direct_writes
+                .iter()
+                .flat_map(range_byte_keys)
+                .filter(|key| is_private_pointer_scratch(key)),
+        );
+    }
+    true
 }
 
 fn runtime_helper_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {
@@ -1008,18 +1055,19 @@ fn strip_pointer_producer_projection(effects: &mut ObservableEffects, ops: &[Mir
         .retain(|key| !pointer_loads.contains(key));
 }
 
+fn is_private_pointer_scratch(key: &str) -> bool {
+    key.strip_prefix("fixed-zp:")
+        .and_then(|value| value.parse::<u8>().ok())
+        .is_some_and(|slot| (0xAC..=0xAF).contains(&slot))
+}
+
 fn strip_materialized_consumer_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {
-    const PRIVATE_POINTER_SCRATCH_FIRST: u8 = 0xAC;
-    const PRIVATE_POINTER_SCRATCH_LAST: u8 = 0xAF;
-    let is_private = |key: &String| {
-        key.strip_prefix("fixed-zp:")
-            .and_then(|value| value.parse::<u8>().ok())
-            .is_some_and(|slot| {
-                (PRIVATE_POINTER_SCRATCH_FIRST..=PRIVATE_POINTER_SCRATCH_LAST).contains(&slot)
-            })
-    };
-    effects.memory_reads.retain(|key| !is_private(key));
-    effects.memory_writes.retain(|key| !is_private(key));
+    effects
+        .memory_reads
+        .retain(|key| !is_private_pointer_scratch(key));
+    effects
+        .memory_writes
+        .retain(|key| !is_private_pointer_scratch(key));
 
     let (address_reads, address_writes) = store_materialization_address_keys(ops);
     effects
@@ -1425,6 +1473,176 @@ mod tests {
     use crate::mir6502::rewrite::plan::{
         MirChangeSet, MirEffectDelta, MirPostHomeRewritePlan, MirRemovedDefinition,
     };
+
+    fn pointer_word(mem: &MirMem) -> MirValue {
+        let hi = match mem {
+            MirMem::Global { id, offset } => MirMem::Global {
+                id: *id,
+                offset: offset + 1,
+            },
+            MirMem::Static { id, offset } => MirMem::Static {
+                id: *id,
+                offset: offset + 1,
+            },
+            MirMem::Absolute(address) => MirMem::Absolute(address + 1),
+            _ => panic!("unsupported test pointer"),
+        };
+        MirValue::Word {
+            lo: Box::new(MirValue::PointerCell(mem.clone())),
+            hi: Box::new(MirValue::PointerCell(hi)),
+        }
+    }
+
+    fn indexed_store_window(dst: MirAddr) -> Vec<MirOp> {
+        vec![
+            MirOp::Load {
+                dst: MirDef::VTemp(MirTempId(1)),
+                src: MirAddr::Direct(MirMem::Global {
+                    id: crate::nir::SymbolId(20),
+                    offset: 0,
+                }),
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst,
+                src: MirValue::ConstU16(0xBEEF),
+                width: MirWidth::Word,
+            },
+        ]
+    }
+
+    fn indexed_store_replacement(base: MirValue) -> Vec<MirOp> {
+        let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xAC),
+        });
+        vec![
+            MirOp::MaterializeIndexedAddress {
+                consumer,
+                base,
+                index: MirValue::PointerCell(MirMem::Global {
+                    id: crate::nir::SymbolId(20),
+                    offset: 0,
+                }),
+                scale: 2,
+            },
+            MirOp::StoreIndirect {
+                consumer,
+                src: MirValue::ConstU8(0xEF),
+                offset: 0,
+            },
+            MirOp::StoreIndirect {
+                consumer,
+                src: MirValue::ConstU8(0xBE),
+                offset: 1,
+            },
+        ]
+    }
+
+    #[test]
+    fn indexed_rewrite_rejects_backing_address_as_pointer_contents() {
+        let id = crate::nir::SymbolId(17);
+        for (base, mem) in [
+            (MirValue::GlobalAddr(id), MirMem::Global { id, offset: 0 }),
+            (MirValue::StaticAddr(id), MirMem::Static { id, offset: 0 }),
+            (MirValue::ConstU16(0x4900), MirMem::Absolute(0x4900)),
+            (
+                MirValue::Word {
+                    lo: Box::new(MirValue::StorageAddrByte {
+                        mem: MirMem::Global { id, offset: 0 },
+                        byte: 0,
+                    }),
+                    hi: Box::new(MirValue::StorageAddrByte {
+                        mem: MirMem::Global { id, offset: 0 },
+                        byte: 1,
+                    }),
+                },
+                MirMem::Global { id, offset: 0 },
+            ),
+        ] {
+            let original = indexed_store_window(MirAddr::ComputedIndex {
+                base: base.clone(),
+                index: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                elem_size: 2,
+                offset: 0,
+            });
+            assert!(effect_delta_is_valid(
+                &original,
+                &indexed_store_replacement(base),
+                MirEffectDelta::MaterializedIndexConsumer
+            ));
+            // This is the former dynamic word-store miscompile. Its indirect
+            // stores look identical after address-carrier effect projection.
+            assert!(!effect_delta_is_valid(
+                &original,
+                &indexed_store_replacement(pointer_word(&mem)),
+                MirEffectDelta::MaterializedIndexConsumer
+            ));
+        }
+    }
+
+    #[test]
+    fn indexed_rewrite_keeps_legitimate_descriptor_and_index_reads() {
+        let ptr = MirMem::Global {
+            id: crate::nir::SymbolId(17),
+            offset: 0,
+        };
+        let original = indexed_store_window(MirAddr::PointerIndex {
+            ptr: ptr.clone(),
+            index: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+            elem_size: 2,
+            offset: 0,
+        });
+        let mut replacement = indexed_store_replacement(pointer_word(&ptr));
+        assert!(effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedIndexConsumer
+        ));
+        if let MirOp::MaterializeIndexedAddress { index, .. } = &mut replacement[0] {
+            *index = MirValue::PointerCell(MirMem::Global {
+                id: crate::nir::SymbolId(21),
+                offset: 0,
+            });
+        }
+        assert!(!effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedIndexConsumer
+        ));
+        replacement = indexed_store_replacement(pointer_word(&MirMem::Global {
+            id: crate::nir::SymbolId(18),
+            offset: 0,
+        }));
+        assert!(!effect_delta_is_valid(
+            &original,
+            &replacement,
+            MirEffectDelta::MaterializedIndexConsumer
+        ));
+    }
+
+    #[test]
+    fn indexed_address_scratch_requires_a_prior_write() {
+        let source = MirOp::MaterializeAddress {
+            consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                lo: MirFixedZpSlot(0xAE),
+            }),
+            value: MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+        };
+        let stage = MirOp::Store {
+            dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+            src: MirValue::ConstU8(0),
+            width: MirWidth::Byte,
+        };
+        assert!(!indexed_address_reads_are_justified(
+            &[],
+            std::slice::from_ref(&source)
+        ));
+        assert!(indexed_address_reads_are_justified(
+            &[],
+            &[stage.clone(), source.clone()]
+        ));
+        assert!(!indexed_address_reads_are_justified(&[], &[source, stage]));
+    }
 
     fn routine(op: MirOp) -> MirRoutine {
         MirRoutine {

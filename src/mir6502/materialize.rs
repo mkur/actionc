@@ -29,6 +29,8 @@ mod dynamic_loops;
 mod flags;
 mod home_census;
 mod indexes;
+#[cfg(test)]
+mod indexed_backing_tests;
 pub(super) mod inlining;
 mod inlining_cost;
 #[cfg(test)]

@@ -601,6 +601,16 @@ Rules:
 - Do not add source-shaped address forms.
 - `Field` lowering must already have a byte offset before MIR.
 - `Index` lowering should use element size facts from NIR, not source syntax.
+- `ComputedIndex` bases such as `GlobalAddr`, `StaticAddr`, and storage-address
+  byte pairs are addresses, not pointer cells. Materialization must not read
+  the first element as a pointer. `PointerIndex` explicitly requests a pointer
+  load, including for descriptor-backed arrays.
+- Indexed-rewrite validation checks memory reads used in address setup before
+  discarding carrier effects. They must come from original window inputs or
+  transaction-written storage (private pointer scratch must be written before
+  use). This bounded read-provenance check does not prove full effective-address
+  equivalence; selectors remain responsible for preserving base, scale, and
+  offset semantics.
 - A byte index into directly allocated local, global, static, or absolute
   storage may select `AbsoluteIndexedX` or `AbsoluteIndexedY`. The storage ID
   remains authoritative until emission resolves its address. Pointer- and
