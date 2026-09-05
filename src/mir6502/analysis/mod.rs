@@ -5,6 +5,7 @@ pub(super) mod effects;
 pub(super) mod home_definitions;
 pub(super) mod home_liveness;
 pub(super) mod known_callees;
+pub(super) mod leaf_routines;
 pub(super) mod machine_liveness;
 pub(super) mod machine_values;
 pub(super) mod param_availability;

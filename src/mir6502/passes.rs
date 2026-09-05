@@ -10,6 +10,9 @@ pub struct Mir6502Config {
     /// retains its own trip-count and growth limits; this is intentionally
     /// enabled only by the optimized configuration.
     pub enable_small_loop_unrolling: bool,
+    /// Inline private byte leaves only after materialization proves bounded
+    /// growth and a conservative cycle saving in the expanded caller.
+    pub enable_small_leaf_inlining: bool,
     pub peephole_report: MirPeepholeReportMode,
 }
 
@@ -30,6 +33,7 @@ impl Default for Mir6502Config {
             enable_word_inc_update: true,
             enable_direct_byte_word_update: false,
             enable_small_loop_unrolling: false,
+            enable_small_leaf_inlining: false,
             peephole_report: MirPeepholeReportMode::Off,
         }
     }
@@ -41,6 +45,7 @@ impl Mir6502Config {
             enable_word_inc_update: true,
             enable_direct_byte_word_update: true,
             enable_small_loop_unrolling: true,
+            enable_small_leaf_inlining: true,
             ..Self::default()
         }
     }

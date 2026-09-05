@@ -136,6 +136,8 @@ pub fn materialize_program_with_origin_and_runtime(
     verify::verify_program(&program, MirPhase::PreMaterialization)
         .map_err(|diagnostics| phase_diagnostics("pre-materialization", diagnostics))?;
     let mut program = program;
+    let inline_census = (config.enable_peepholes && config.enable_small_leaf_inlining)
+        .then(|| analysis::leaf_routines::analyze(&program));
     interfaces::resolve_interfaces(&mut program, runtime)
         .map_err(|diagnostics| phase_diagnostics("runtime interface resolution", diagnostics))?;
     verify::verify_program(&program, MirPhase::PreMaterialization)
@@ -143,8 +145,27 @@ pub fn materialize_program_with_origin_and_runtime(
     let mut materialize_config = config.clone();
     materialize_config.select_widening_byte_multiply =
         runtime == crate::runtime::Runtime::Standalone;
+    if let Some(census) = inline_census {
+        return materialize::inlining::materialize(
+            program,
+            census,
+            &materialize_config,
+            origin,
+            runtime,
+        );
+    }
+    materialize_resolved_program(program, &materialize_config, origin, runtime, true)
+}
+
+fn materialize_resolved_program(
+    program: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+    runtime: crate::runtime::Runtime,
+    report: bool,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mut materialized =
-        materialize::materialize_program(program, &materialize_config, origin)
+        materialize::materialize_program_with_reporting(program, config, origin, report)
             .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
     verify::verify_program(&materialized, MirPhase::PostMaterialization)
         .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;

@@ -932,8 +932,16 @@ fn apply_plan(routine: &mut MirRoutine, plan: &SmallLoopUnrollPlan) -> bool {
     true
 }
 
-fn remap_block_temps(block: &mut MirBlock, replacements: &BTreeMap<MirTempId, MirTempId>) {
+pub(super) fn remap_block_temps(block: &mut MirBlock, replacements: &BTreeMap<MirTempId, MirTempId>) {
+    // Both cloning clients allocate above every old ID. Sequential visits are
+    // therefore a simultaneous substitution: no new ID can be renamed again.
+    debug_assert!(replacements.values().all(|id| !replacements.contains_key(id)));
     for (old, new) in replacements {
+        for param in &mut block.params {
+            if param.dest == *old {
+                param.dest = *new;
+            }
+        }
         for op in &mut block.ops {
             remap_op_temp(op, *old, *new);
         }

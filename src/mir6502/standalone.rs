@@ -1567,7 +1567,7 @@ fn runtime_graph_discoveries() -> usize {
     RUNTIME_GRAPH_DISCOVERIES.with(std::cell::Cell::get)
 }
 
-fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
+pub(in crate::mir6502) fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<RoutineId>) {
     match op {
         MirOp::Load { src, .. } => visit_addr_routines(src, routines),
         MirOp::Store { dst, src, .. } => {
@@ -1678,7 +1678,10 @@ fn visit_value_routines(value: &MirValue, routines: &mut BTreeSet<RoutineId>) {
     }
 }
 
-fn visit_terminator_routines(terminator: &MirTerminator, routines: &mut BTreeSet<RoutineId>) {
+pub(in crate::mir6502) fn visit_terminator_routines(
+    terminator: &MirTerminator,
+    routines: &mut BTreeSet<RoutineId>,
+) {
     let edges = match terminator {
         MirTerminator::Jump(edge) => std::slice::from_ref(edge),
         MirTerminator::Branch {
@@ -1703,7 +1706,7 @@ fn visit_terminator_routines(terminator: &MirTerminator, routines: &mut BTreeSet
     }
 }
 
-fn visit_storage_init_routines(init: &MirStorageInit, routines: &mut BTreeSet<RoutineId>) {
+pub(in crate::mir6502) fn visit_storage_init_routines(init: &MirStorageInit, routines: &mut BTreeSet<RoutineId>) {
     match init {
         MirStorageInit::Bytes { image, .. }
         | MirStorageInit::Descriptor {
@@ -1717,7 +1720,7 @@ fn visit_storage_init_routines(init: &MirStorageInit, routines: &mut BTreeSet<Ro
     }
 }
 
-fn visit_global_init_routines(init: &MirGlobalInit, routines: &mut BTreeSet<RoutineId>) {
+pub(in crate::mir6502) fn visit_global_init_routines(init: &MirGlobalInit, routines: &mut BTreeSet<RoutineId>) {
     match init {
         MirGlobalInit::Bytes { image, .. } => visit_data_image_routines(image, routines),
         MirGlobalInit::Descriptor { backing, .. } => {
@@ -1730,7 +1733,10 @@ fn visit_global_init_routines(init: &MirGlobalInit, routines: &mut BTreeSet<Rout
     }
 }
 
-fn visit_data_image_routines(image: &MirDataImage, routines: &mut BTreeSet<RoutineId>) {
+pub(in crate::mir6502) fn visit_data_image_routines(
+    image: &MirDataImage,
+    routines: &mut BTreeSet<RoutineId>,
+) {
     for relocation in &image.relocations {
         match relocation.target {
             MirDataRelocationTarget::Routine(id)

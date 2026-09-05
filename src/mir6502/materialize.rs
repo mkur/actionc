@@ -29,6 +29,10 @@ mod dynamic_loops;
 mod flags;
 mod home_census;
 mod indexes;
+pub(super) mod inlining;
+mod inlining_cost;
+#[cfg(test)]
+mod leaf_test_cpu;
 mod layout;
 mod lea;
 mod machine_value_census;
@@ -1311,10 +1315,20 @@ fn delayed_producer_ops_for_window(
         .collect()
 }
 
-pub(super) fn materialize_program(
+#[cfg(test)]
+fn materialize_program(
+    program: MirProgram,
+    config: &Mir6502Config,
+    origin: u16,
+) -> Result<MirProgram, Vec<MirDiagnostic>> {
+    materialize_program_with_reporting(program, config, origin, true)
+}
+
+pub(super) fn materialize_program_with_reporting(
     mut program: MirProgram,
     config: &Mir6502Config,
     object_origin: u16,
+    report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mut helpers = Vec::new();
     let mut peephole_stats = MirPeepholeStats::default();
@@ -1700,7 +1714,9 @@ pub(super) fn materialize_program(
         }
     }
     record_unspecified_add_sub_carry_observability(&program, &mut peephole_stats);
-    maybe_report_peepholes(&program, &peephole_stats, config);
+    if report {
+        maybe_report_peepholes(&program, &peephole_stats, config);
+    }
     Ok(program)
 }
 

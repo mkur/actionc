@@ -1,0 +1,11 @@
+BYTE input,output
+
+BYTE FUNC Map(BYTE value)
+  IF (value AND $80)#0 THEN
+    RETURN((value LSH 1) XOR $1B)
+  FI
+RETURN(value LSH 1)
+
+PROC Main()
+  output=Map(input)
+RETURN

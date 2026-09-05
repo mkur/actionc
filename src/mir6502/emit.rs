@@ -30,6 +30,9 @@ const ADDRESS_INDEX_SCRATCH_HI: u8 = 0xAF;
 
 #[derive(Debug, Default, Clone)]
 pub(super) struct MirEmissionSummary {
+    /// Final instruction ranges, after layout and branch relaxation. Internal
+    /// proof consumers use IDs, never listing labels or source names.
+    pub block_ranges: Vec<(RoutineId, MirBlockId, std::ops::Range<usize>)>,
     pub routine_addresses: Vec<RoutineAddress>,
     pub routine_ranges: Vec<RoutineRange>,
     pub routine_signatures: Vec<CodegenRoutineSignature>,
@@ -1729,6 +1732,7 @@ fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mu
         .routine_signatures
         .push(mir_routine_signature(routine));
     for (index, block) in routine.blocks.iter().enumerate() {
+        let block_start = emitter.position();
         ctx.measurements
             .block_positions
             .insert((routine.id, block.id), emitter.position());
@@ -1761,6 +1765,11 @@ fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mu
                 emitter,
             );
         }
+        ctx.summary.block_ranges.push((
+            routine.id,
+            block.id,
+            block_start..emitter.position(),
+        ));
     }
     ctx.summary.routine_ranges.push(RoutineRange {
         name: routine.name.clone(),

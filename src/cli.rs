@@ -591,6 +591,11 @@ fn run_main(flavor: CliFlavor) {
             process::exit(1);
         }
         if emit_materialized_mir6502 {
+            let mir_config = if matches!(profile, CodegenProfile::Modern) {
+                mir6502::Mir6502Config::optimized()
+            } else {
+                mir6502::Mir6502Config::default()
+            };
             let materialized_origin = if origin_explicit {
                 origin
             } else {
@@ -598,7 +603,7 @@ fn run_main(flavor: CliFlavor) {
             };
             let mir = match mir6502::materialize_program_with_origin_and_runtime(
                 mir,
-                &mir6502::Mir6502Config::default(),
+                &mir_config,
                 materialized_origin,
                 runtime,
             ) {

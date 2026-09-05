@@ -48,6 +48,33 @@ calls, and concrete-enough address forms.
 has no unsupported pseudo ops, unresolved storage, unresolved labels, or
 unassigned virtual temps. It is ready to feed tracked emission helpers.
 
+### Costed scalar leaf inlining
+
+The optimized configuration may expand private byte-only, acyclic leaf routines
+in pre-materialization MIR, before parameter prologues or home allocation.
+Eligibility is a whole-program typed-ID census: every direct call must supply
+all arguments, and address escapes, observable entries, parameter writes,
+non-parameter memory reads, helpers and machine state disqualify the leaf.
+The initial limits are two byte parameters, four blocks and twelve operations.
+
+Actuals cross the new call boundary through explicit entry block arguments,
+evaluated at the original call point. Parameter loads use those captured temps;
+fresh clone IDs cannot overlap either routine's original IDs. Every public
+`$A0` return store remains, including discarded results. Return edges supply a
+continuation parameter for the original result temp. Existing block-argument
+lowering owns the copies; the inliner adds no private parameter cells and
+performs no source-level arithmetic specialization.
+
+Selection is transactional: the normal backend materializes and emits baseline
+and trial programs in memory at the same origin/runtime. Final instruction
+ranges carry routine/block IDs for path costing. Unknown control, internal
+cycles, lost region correspondence, or changes to other routines reject the
+trial. The callee remains emitted and receives no deletion credit. Growth,
+trial-count and conservative cycle-saving limits are described in
+`MIR6502_SMALL_LEAF_INLINER_PLAN.md`. The default configuration remains off;
+`optimized()` enables this cost-gated pass. Materialized CLI dumps honor the
+same profile choice as executable generation.
+
 ## Purpose
 
 MIR6502 exists to bridge the gap between normalized Action!-aware NIR and final
