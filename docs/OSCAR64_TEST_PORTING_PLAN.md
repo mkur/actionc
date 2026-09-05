@@ -1,12 +1,46 @@
 # Oscar64 behavioral ports: second batch
 
-Status: stages 1 and 2 ported, 2026-09-05; stages 3 through 5 planned.
-Both stages now pass all six mode/runtime combinations. The classic computed
+Status: stages 1 through 3 ported, 2026-09-05; stages 4 and 5 planned.
+Stages 1 through 3 now pass all six mode/runtime combinations. The classic computed
 pointer-index regression exposed by stage 2 was fixed separately, without
 changing the ports' expressions or oracles. See
 [the regression note](bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
 
-Validation after the separate pointer-preservation repair:
+Stage 3 retains `fastcalltest.c`'s original nested call shape plus runtime
+word inputs, repeated calls, per-argument evaluation counters and a byte-only
+leaf companion. All 1,536 cases pass after generalizing protected argument
+staging to Compatibility, recognizing calls through casts, and materializing
+each stacked argument at the ABI base. The original 512 Compatibility failures
+are repaired without changing port expressions or oracles. See
+[the diagnosis and repair](bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md).
+
+Current validation after the nested-call repair:
+
+- Root `cargo test --quiet`: 2,654 passed, zero failed, 22 existing ignored.
+- Isolated VM `cargo test --locked --no-fail-fast --quiet`: 94 passed, zero
+  failed or ignored; all 19 Oscar64 tests and 3,708 VM cases pass.
+- NIR snapshots and the 33-fixture sweep pass. The broad corpus remains at
+  310 valid roots and the same five declared module-only semantic failures.
+- Three focused execution tests cover byte/word/mixed arguments, casts,
+  repeated calls, exactly-once counts, guarded inputs/results and stack balance
+  in both classic profiles. Existing port expressions and oracles are unchanged.
+- The separately documented optimized word-return accumulator-fact issue is
+  outside this repair and remains a follow-up.
+
+Historical validation including stage 3, before the nested-call repair:
+
+- Root `cargo test --quiet`: 2,651 passed, zero failed, 22 existing ignored.
+- Focused broad NIR corpus test passes: 310 valid roots and the same five
+  declared module-only semantic failures; no lowering/verification/optimization
+  failures.
+- Isolated VM `cargo test --locked --no-fail-fast --quiet`: 93 passed, one
+  failed, none ignored. The only failure is the new nested-call test.
+- Oscar64 subset: 19 active tests, 18 passing and one failing; 3,708 VM cases,
+  3,196 passing and 512 Compatibility failures. All prior 2,172 cases pass.
+- No further compiler edits, ignored regressions, or weakened existing oracles.
+
+Validation after the separate pointer-preservation repair (`590ef47`), before
+adding stage 3:
 
 - Root `cargo test --quiet`: 2,651 passed, zero failed, 22 existing ignored.
 - Isolated VM `cargo test --locked --quiet`: 93 passed, zero failed or ignored;
@@ -113,6 +147,15 @@ The original word/multiplication shape tests call staging, not selection by the
 current byte-only leaf inliner. Add a byte-only leaf companion for that path.
 VM tests check results independently of whether a profitable call is inlined;
 selection assertions remain in the focused compiler tests.
+
+Implemented coverage uses all 256 byte values and a rotating set of 16 signed
+word triples; every word product/sum fits INT, including the repeated sum.
+Explicit BYTE narrowing supplies wraparound for the byte companion. A full
+`$0600..$06FF` oracle checks outputs, poisoned gaps, unchanged inputs and three
+exactly-once counters. It does not impose C's unspecified argument order or
+require a particular inlining decision. Compatibility's former stack-staging
+profile gate left earlier results vulnerable to later calls; the generic repair
+is documented above. Stages 4 and 5 remain follow-ups.
 
 ## Stage 4: signed intervals and mixed comparisons
 

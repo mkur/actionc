@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These eleven Action! fixtures adapt Oscar64 autotests into the existing
+These twelve Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -39,6 +39,7 @@ translations or tests of C-only language behavior.
 | `shiftbyteaddconst` (`.cpp` source) | Shift a widened byte by 0..15 and add 15/16/111/4096/13421 or subtract 15/16/4096 | All 256 byte inputs; all four literal/runtime shift/amount combinations; explicitly unsigned word wrapping; guarded indexed destinations, including 127/128 |
 | `testsigned16mul` | Multiply runtime INT by every coefficient -16..15, contrasting literal expansion with the runtime loop | Both operand orders; 33 representative inputs in -1024..1024 (not the original exhaustive outer sweep); guarded destination indexes up to 255 |
 | `arraytest` (16-bit portions) | All six sum/copy/reverse checks on 100 words with BYTE/INT indexes; original sums are 450 | Exact forward/reversed contents and unchanged sources; disjoint buffers at three base layouts; lengths 0, 1, 2, 100, 127, 128, 129, 255, 256, 257; BYTE-count variants only through 255 |
+| `fastcalltest` | Nested `P1(5,P2(C2(2),C2(4)))-13` is zero | 16 representative signed word triples with nonzero high bytes; repeated calls, exactly-once argument counters, and a private byte-leaf companion across all 256 byte values; unchanged inputs/full-page guards |
 
 All modes use both ActionCart and Standalone runtime linking. The first eight
 ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
@@ -46,16 +47,18 @@ copy/increment regressions remain active with their original loops and
 independent expected values.
 
 The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
-1 and 2 ported. Their current results are:
+1 through 3 ported. Their current results are:
 
 | Fixture | Host cases | VM cases (three modes, two runtimes) | Result |
 | --- | ---: | ---: | --- |
 | `shiftbyteaddconst` | 256 | 1,536 | All pass |
 | `testsigned16mul` | 33 | 198 | All pass |
 | `arraytest` | 30 | 180 | All pass |
+| `fastcalltest` | 256 | 1,536 | All pass |
 
-Overall: **2,172 passing VM cases in 18 active passing tests**. No test is
-ignored or expects a panic. The classic reverse-copy regression was repaired
+Overall: **3,708 passing VM cases in 19 active passing tests**. No test is
+ignored or expects a panic. The first 2,172 cases remain green. Both the
+nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
 [OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--fixed).
 
@@ -91,6 +94,13 @@ without changing fixture expressions or oracles. See
   patterns distinguish reversal from copying, which the original sum-only
   check could not do. BYTE-count routines are not invoked for 256/257-element
   external buffers. These are disjoint copies, not `memmove` semantics.
+- `fastcalltest` maps C's signed words to INT, with host-selected products and
+  sums constrained to representable INT values. Its original word/multiply
+  expression is outside the current byte-only leaf-inliner subset; separate
+  private byte leaves exercise that path without requiring inlining. Byte
+  arithmetic wraps explicitly, and the host oracle checks exactly-once counts
+  without asserting C argument order. Word inputs are at `$06E0..$06E5`;
+  byte inputs occupy `$06F0/$06F2/$06F4`. All other host-page gaps stay poisoned.
 - Oscar64's compile-time `#for` in `maskcheck` is expanded to literal-mask
   branches. Automatic C zero-initialized arrays become explicit initialization
   on each Action! call.
@@ -129,6 +139,7 @@ cargo test --locked --test oscar64_conformance oscar64_shift_add_sub
 cargo test --locked --test oscar64_conformance oscar64_signed_multiply
 cargo test --locked --test oscar64_conformance oscar64_mir_reverse
 cargo test --locked --test oscar64_conformance oscar64_classic_reverse
+cargo test --locked --test oscar64_conformance oscar64_nested_calls
 ```
 
 The existing VM CI job runs `cargo test --locked`, so the active tests need no
@@ -136,6 +147,19 @@ new runner, dependency, or workflow. Root `cargo test` does not execute this
 isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
 ## Compiler regressions
+
+### OSCAR-COMPAT-NESTED-CALL — fixed
+
+Compatibility formerly failed `fastcalltest` under both runtimes. The second
+`C2` call overwrote the first result in `$A0/$A1`, so the original expression
+computed `5+4*4-13=8`, not zero. Protective stack staging is now shared across
+classic profiles, and call detection traverses casts. Each argument is staged
+at the ABI base before being pushed, avoiding an overlapping word-result copy
+for mixed-width signatures. All 1,536 cases now pass with the original nested
+expressions and independent oracle. Focused compiler tests check both profiles,
+BYTE/INT/CARD and mixed-width arguments, casts, repeated calls, counts, guards,
+and stack balance. See the
+[diagnosis and repair](../../../docs/bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md).
 
 ### OSCAR-CLASSIC-COMPUTED-INDEX — fixed
 

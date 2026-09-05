@@ -19,6 +19,13 @@ index materialization. All 2,172 Oscar64 VM cases pass, including the 120
 formerly failing classic reverse-copy cases, with unchanged fixture expressions
 and oracles. See [the diagnosis and fix](bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
 
+Stage 3 adds 1,536 passing nested-call VM cases. `OSCAR-COMPAT-NESTED-CALL`
+is fixed by sharing protected argument staging across classic profiles, looking
+through casts, and materializing each stacked argument at the public ABI base.
+All 3,708 Oscar64 cases now pass without changing port expressions or oracles.
+The [diagnosis](bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md) still records a separate
+optimized word-return accumulator-lane observation for focused follow-up.
+
 ## Standalone Runtime Licensing
 
 - Replace the GPL-only standalone `SYS` implementation with an independently

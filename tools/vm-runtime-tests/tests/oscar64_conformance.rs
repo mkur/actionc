@@ -573,3 +573,75 @@ fn oscar64_classic_reverse_and_copy_check_every_word_and_guard() {
 fn oscar64_mir_reverse_and_copy_check_every_word_and_guard() {
     run_cases_in_modes("arraytest", 250_000, &reverse_cases(), MIR_MODE);
 }
+
+#[test]
+fn oscar64_nested_calls_preserve_arguments_and_evaluate_each_once() {
+    // Keep every mathematical word result representable as INT. These
+    // triples exercise signs, carry and nonzero high bytes; byte inputs
+    // cover all 256 values, but this is not an exhaustive word-input grid.
+    let word_inputs: [[i16; 3]; 16] = [
+        [5, 2, 4],
+        [0, 0, 0],
+        [0x1234, 257, 17],
+        [-1000, -257, 17],
+        [1234, 257, -17],
+        [-1234, -257, -17],
+        [255, 1, 1],
+        [256, 127, 127],
+        [-256, -128, 127],
+        [0, 255, 127],
+        [0, -256, 127],
+        [1, 256, 127],
+        [32766, 0, -1],
+        [-32768, 0, 1],
+        [0, 181, 181],
+        [-1, -181, 181],
+    ];
+    let cases: Vec<Case> = (0u16..=255)
+        .map(|value| {
+            let [addend, left, right] = word_inputs[usize::from(value) % word_inputs.len()];
+            let [a, b, c] = [value as u8, (255 - value) as u8, (value * 73 + 19) as u8];
+            let mut case = Case::new(format!(
+                "word=({addend},{left},{right}), byte=({a},{b},{c})"
+            ));
+            case.read_only_words(0x06E0, &[addend as u16, left as u16, right as u16]);
+            for (address, value) in [(0x06F0, a), (0x06F2, b), (0x06F4, c)] {
+                case.read_only_words(address, &[u16::from(value)]);
+            }
+            // Check the entire host page: outputs, inputs, counters and
+            // every poisoned gap/guard. Identical wrong backends cannot
+            // pass by agreeing with one another.
+            let mut expected = vec![POISON; 0x100];
+            for (address, bytes) in &case.setup {
+                let offset = usize::from(*address - 0x0600);
+                expected[offset..offset + bytes.len()].copy_from_slice(bytes);
+            }
+            let product = i32::from(left) * i32::from(right);
+            i16::try_from(product).expect("representable signed product");
+            let answer = i32::from(addend) + product;
+            write_word(&mut expected, 0, 0); // Original source residual.
+            for offset in [2, 6] {
+                write_word(
+                    &mut expected,
+                    offset,
+                    i16::try_from(answer).expect("representable signed sum") as u16,
+                );
+            }
+            write_word(
+                &mut expected,
+                4,
+                i16::try_from(answer + 1).expect("representable repeated sum") as u16,
+            );
+            let byte_answer = |a: u8, b: u8, c: u8| a.wrapping_add(b.wrapping_shl(1) ^ c);
+            expected[8] = byte_answer(a, b, c);
+            expected[9] = byte_answer(a.wrapping_add(1), b.wrapping_add(3), c.wrapping_add(5));
+            // Require exactly one evaluation of each tagged argument;
+            // intentionally do not impose a C argument-evaluation order.
+            expected[0x10..0x13].fill(1);
+            expected[0xFF] = 0xA5;
+            case.expected.push((0x0600, expected));
+            case
+        })
+        .collect();
+    run_cases("fastcalltest", 25_000, &cases);
+}

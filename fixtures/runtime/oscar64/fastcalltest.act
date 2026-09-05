@@ -1,0 +1,52 @@
+; Adapted from Oscar64 autotest/fastcalltest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+INT original=$0600,observed=$0602,repeated=$0604,countedResult=$0606
+BYTE byteResult=$0608,byteRepeated=$0609
+BYTE ARRAY calls(3)=$0610
+INT addend=$06E0,left=$06E2,right=$06E4
+BYTE a=$06F0,b=$06F2,c=$06F4,signature=$06FF
+
+INT FUNC P1(INT x,y)
+RETURN(x+y)
+
+INT FUNC P2(INT x,y)
+RETURN(x*y)
+
+INT FUNC C1(INT x)
+RETURN(x)
+
+INT FUNC C2(INT x)
+RETURN(C1(x))
+
+INT FUNC Counted(INT x BYTE tag)
+  calls(tag)==+1
+RETURN(C2(x))
+
+; Separate byte-only leaves exercise the current small-leaf inliner subset.
+; The word/multiplication source shape above is deliberately not eligible.
+BYTE FUNC ByteAdd(BYTE x,y)
+RETURN(BYTE(x+y))
+
+BYTE FUNC ByteMix(BYTE x,y)
+RETURN(BYTE((x LSH 1) XOR y))
+
+BYTE FUNC ByteId(BYTE x)
+RETURN(x)
+
+BYTE FUNC ByteRelay(BYTE x)
+RETURN(ByteId(x))
+
+PROC Main()
+  signature=0
+  original=P1(5,P2(C2(2),C2(4)))-13
+  observed=P1(addend,P2(C2(left),C2(right)))
+  repeated=P1(addend+1,P2(C2(left),C2(right)))
+  calls(0)=0 calls(1)=0 calls(2)=0
+  countedResult=P1(Counted(addend,0),P2(Counted(left,1),Counted(right,2)))
+  byteResult=ByteAdd(a,ByteMix(ByteRelay(b),ByteRelay(c)))
+  byteRepeated=ByteAdd(BYTE(a+1),ByteMix(ByteRelay(BYTE(b+3)),ByteRelay(BYTE(c+5))))
+  signature=$A5
+  DO OD
+RETURN
