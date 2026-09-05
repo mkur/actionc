@@ -1,0 +1,265 @@
+; Adapted from Oscar64 autotest/cmprangeshortcuttest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+INT ARRAY results(60)=$0600
+BYTE signature=$06FF
+
+PROC CheckSLt()
+  INT i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i<4 THEN a4==+1 FI
+    IF i<5 THEN a5==+1 FI
+    IF i<10 THEN a10==+1 FI
+    IF i<14 THEN a14==+1 FI
+    IF i<15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(0)=a4
+  results(1)=a5
+  results(2)=a10
+  results(3)=a14
+  results(4)=a15
+RETURN
+
+PROC CheckSLe()
+  INT i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i<=4 THEN a4==+1 FI
+    IF i<=5 THEN a5==+1 FI
+    IF i<=10 THEN a10==+1 FI
+    IF i<=14 THEN a14==+1 FI
+    IF i<=15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(5)=a4
+  results(6)=a5
+  results(7)=a10
+  results(8)=a14
+  results(9)=a15
+RETURN
+
+PROC CheckSGt()
+  INT i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i>4 THEN a4==+1 FI
+    IF i>5 THEN a5==+1 FI
+    IF i>10 THEN a10==+1 FI
+    IF i>14 THEN a14==+1 FI
+    IF i>15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(10)=a4
+  results(11)=a5
+  results(12)=a10
+  results(13)=a14
+  results(14)=a15
+RETURN
+
+PROC CheckSGe()
+  INT i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i>=4 THEN a4==+1 FI
+    IF i>=5 THEN a5==+1 FI
+    IF i>=10 THEN a10==+1 FI
+    IF i>=14 THEN a14==+1 FI
+    IF i>=15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(15)=a4
+  results(16)=a5
+  results(17)=a10
+  results(18)=a14
+  results(19)=a15
+RETURN
+
+PROC CheckSEq()
+  INT i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i=4 THEN a4==+1 FI
+    IF i=5 THEN a5==+1 FI
+    IF i=10 THEN a10==+1 FI
+    IF i=14 THEN a14==+1 FI
+    IF i=15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(20)=a4
+  results(21)=a5
+  results(22)=a10
+  results(23)=a14
+  results(24)=a15
+RETURN
+
+PROC CheckSNe()
+  INT i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i#4 THEN a4==+1 FI
+    IF i#5 THEN a5==+1 FI
+    IF i#10 THEN a10==+1 FI
+    IF i#14 THEN a14==+1 FI
+    IF i#15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(25)=a4
+  results(26)=a5
+  results(27)=a10
+  results(28)=a14
+  results(29)=a15
+RETURN
+
+PROC CheckULt()
+  CARD i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i<4 THEN a4==+1 FI
+    IF i<5 THEN a5==+1 FI
+    IF i<10 THEN a10==+1 FI
+    IF i<14 THEN a14==+1 FI
+    IF i<15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(30)=a4
+  results(31)=a5
+  results(32)=a10
+  results(33)=a14
+  results(34)=a15
+RETURN
+
+PROC CheckULe()
+  CARD i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i<=4 THEN a4==+1 FI
+    IF i<=5 THEN a5==+1 FI
+    IF i<=10 THEN a10==+1 FI
+    IF i<=14 THEN a14==+1 FI
+    IF i<=15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(35)=a4
+  results(36)=a5
+  results(37)=a10
+  results(38)=a14
+  results(39)=a15
+RETURN
+
+PROC CheckUGt()
+  CARD i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i>4 THEN a4==+1 FI
+    IF i>5 THEN a5==+1 FI
+    IF i>10 THEN a10==+1 FI
+    IF i>14 THEN a14==+1 FI
+    IF i>15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(40)=a4
+  results(41)=a5
+  results(42)=a10
+  results(43)=a14
+  results(44)=a15
+RETURN
+
+PROC CheckUGe()
+  CARD i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i>=4 THEN a4==+1 FI
+    IF i>=5 THEN a5==+1 FI
+    IF i>=10 THEN a10==+1 FI
+    IF i>=14 THEN a14==+1 FI
+    IF i>=15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(45)=a4
+  results(46)=a5
+  results(47)=a10
+  results(48)=a14
+  results(49)=a15
+RETURN
+
+PROC CheckUEq()
+  CARD i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i=4 THEN a4==+1 FI
+    IF i=5 THEN a5==+1 FI
+    IF i=10 THEN a10==+1 FI
+    IF i=14 THEN a14==+1 FI
+    IF i=15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(50)=a4
+  results(51)=a5
+  results(52)=a10
+  results(53)=a14
+  results(54)=a15
+RETURN
+
+PROC CheckUNe()
+  CARD i
+  INT a4,a5,a10,a14,a15
+  a4=0 a5=0 a10=0 a14=0 a15=0
+  i=5
+  WHILE i<15 DO
+    IF i#4 THEN a4==+1 FI
+    IF i#5 THEN a5==+1 FI
+    IF i#10 THEN a10==+1 FI
+    IF i#14 THEN a14==+1 FI
+    IF i#15 THEN a15==+1 FI
+    i==+1
+  OD
+  results(55)=a4
+  results(56)=a5
+  results(57)=a10
+  results(58)=a14
+  results(59)=a15
+RETURN
+
+PROC Main()
+  signature=0
+  CheckSLt()
+  CheckSLe()
+  CheckSGt()
+  CheckSGe()
+  CheckSEq()
+  CheckSNe()
+  CheckULt()
+  CheckULe()
+  CheckUGt()
+  CheckUGe()
+  CheckUEq()
+  CheckUNe()
+
+  signature=$A5
+  DO OD
+RETURN

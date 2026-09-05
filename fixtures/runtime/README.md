@@ -6,6 +6,16 @@ the isolated `tools/vm-runtime-tests` crate. Compatibility scripts that also
 check a compiler selection retain that preflight, then select the matching
 library test.
 
+The [Oscar64 behavioral ports](oscar64/README.md) add eight small compiler
+conformance fixtures with independent Rust oracles and explicit mode/runtime
+coverage. Their README records provenance, Action! semantic adaptations, and
+the currently ignored MIR6502 regression cases. Run their active tests
+from `tools/vm-runtime-tests` with:
+
+```sh
+cargo test --locked --test oscar64_conformance
+```
+
 Run the initialized-array gate directly:
 
 ```sh

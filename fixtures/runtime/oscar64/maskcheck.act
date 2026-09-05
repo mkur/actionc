@@ -1,0 +1,64 @@
+; Adapted from Oscar64 autotest/maskcheck.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+BYTE ARRAY observed(8192)=$5000
+BYTE signature=$06FF
+
+PROC Check(BYTE a)
+  BYTE ARRAY b1(8),n1(8),b0(8),n0(8)
+  BYTE i
+  CARD offset
+  i=0
+  WHILE i<8 DO b1(i)=0 n1(i)=0 b0(i)=0 n0(i)=0 i==+1 OD
+  IF (a&1)=1 THEN b1(0)==+1 FI
+  IF (a&1)#1 THEN n1(0)==+1 FI
+  IF (a&1)=0 THEN b0(0)==+1 FI
+  IF (a&1)#0 THEN n0(0)==+1 FI
+  IF (a&2)=2 THEN b1(1)==+1 FI
+  IF (a&2)#2 THEN n1(1)==+1 FI
+  IF (a&2)=0 THEN b0(1)==+1 FI
+  IF (a&2)#0 THEN n0(1)==+1 FI
+  IF (a&4)=4 THEN b1(2)==+1 FI
+  IF (a&4)#4 THEN n1(2)==+1 FI
+  IF (a&4)=0 THEN b0(2)==+1 FI
+  IF (a&4)#0 THEN n0(2)==+1 FI
+  IF (a&8)=8 THEN b1(3)==+1 FI
+  IF (a&8)#8 THEN n1(3)==+1 FI
+  IF (a&8)=0 THEN b0(3)==+1 FI
+  IF (a&8)#0 THEN n0(3)==+1 FI
+  IF (a&16)=16 THEN b1(4)==+1 FI
+  IF (a&16)#16 THEN n1(4)==+1 FI
+  IF (a&16)=0 THEN b0(4)==+1 FI
+  IF (a&16)#0 THEN n0(4)==+1 FI
+  IF (a&32)=32 THEN b1(5)==+1 FI
+  IF (a&32)#32 THEN n1(5)==+1 FI
+  IF (a&32)=0 THEN b0(5)==+1 FI
+  IF (a&32)#0 THEN n0(5)==+1 FI
+  IF (a&64)=64 THEN b1(6)==+1 FI
+  IF (a&64)#64 THEN n1(6)==+1 FI
+  IF (a&64)=0 THEN b0(6)==+1 FI
+  IF (a&64)#0 THEN n0(6)==+1 FI
+  IF (a&128)=128 THEN b1(7)==+1 FI
+  IF (a&128)#128 THEN n1(7)==+1 FI
+  IF (a&128)=0 THEN b0(7)==+1 FI
+  IF (a&128)#0 THEN n0(7)==+1 FI
+  offset=CARD(a) LSH 5
+  i=0
+  WHILE i<8 DO
+    observed(offset+CARD(i))=b1(i)
+    observed(offset+8+CARD(i))=n1(i)
+    observed(offset+16+CARD(i))=b0(i)
+    observed(offset+24+CARD(i))=n0(i)
+    i==+1
+  OD
+RETURN
+
+PROC Main()
+  CARD value
+  signature=0
+  value=0
+  WHILE value<256 DO Check(BYTE(value)) value==+1 OD
+  signature=$A5
+  DO OD
+RETURN

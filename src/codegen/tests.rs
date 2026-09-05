@@ -118,6 +118,178 @@ fn indexed_word_runtime_operand_matches_signed_arithmetic_for_all_byte_indexes()
 }
 
 #[test]
+fn classic_word_pointer_address_preserves_scale_and_base_carries() {
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        for pointer in [runtime_zp::ADDR, runtime_zp::ARRAY_ADDR] {
+            for element_size in [1u16, 2] {
+                let mut generator = test_generator(profile);
+                let base_slot = StorageSlot::pointer(0x0600, element_size);
+                generator
+                    .layout
+                    .symbols
+                    .insert(normalize_name("i"), StorageSlot::absolute(0x0602, 2));
+                generator.emit_ldx_imm(0x6D);
+                generator.emit_ldy_imm(0x37);
+                generator.emit_lda_imm(0x42);
+                generator.emitter.emit_pha();
+                generator
+                    .pointer_index_slot_with_addr(base_slot, &test_name_expr("i"), pointer)
+                    .expect("prepare word-valued pointer index");
+                // A pre-existing stack value must survive the address schedule.
+                generator.emit_pla();
+                generator.emitter.emit_sta_absolute(Absolute::new(0x0604));
+                generator.emitter.emit_stx_absolute(Absolute::new(0x0605));
+                generator.emitter.emit_sty_absolute(Absolute::new(0x0606));
+                generator.emitter.emit_rts();
+                let bytes = generator.emitter.finish().unwrap();
+                let mut carry_cases = [[false; 2]; 2];
+                for base in [0x5000u16, 0x5001, 0x50F1, 0xFFF1] {
+                    // Exercise every low lane with two high lanes, plus top-bit
+                    // and wrapping cases. No dereference of wrapped addresses.
+                    for index in (0..512u16).chain([0x7FFF, 0x8000, 0xFFFF]) {
+                        let mut memory = [0u8; 65536];
+                        memory[0x3000..0x3000 + bytes.len()].copy_from_slice(&bytes);
+                        memory[0x0600..0x0602].copy_from_slice(&base.to_le_bytes());
+                        memory[0x0602..0x0604].copy_from_slice(&index.to_le_bytes());
+                        indexed_test_cpu::run_memory(&mut memory, 0x3000);
+                        let address = usize::from(pointer.address());
+                        let expected = base.wrapping_add(index.wrapping_mul(element_size));
+                        assert_eq!(
+                            &memory[address..address + 2],
+                            &expected.to_le_bytes(),
+                            "profile={profile:?}, pointer={pointer:?}, size={element_size}, base={base:04X}, index={index:04X}"
+                        );
+                        assert_eq!(&memory[0x0600..0x0602], &base.to_le_bytes());
+                        assert_eq!(&memory[0x0602..0x0604], &index.to_le_bytes());
+                        assert_eq!(&memory[0x0604..0x0607], &[0x42, 0x6D, 0x37]);
+                        if element_size == 2 {
+                            let scale_carry = usize::from(index & 0x80 != 0);
+                            let add_carry =
+                                usize::from((base & 0xFF) + (index.wrapping_mul(2) & 0xFF) > 255);
+                            carry_cases[scale_carry][add_carry] = true;
+                        }
+                    }
+                }
+                if element_size == 2 {
+                    assert_eq!(carry_cases, [[true; 2]; 2]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn classic_word_pointer_index_loads_and_stores_match_memory_oracle() {
+    check_classic_word_pointer_index_consumers(&["load", "store"]);
+}
+
+#[test]
+fn classic_word_pointer_index_increment_and_copy_match_memory_oracle() {
+    check_classic_word_pointer_index_consumers(&["increment", "copy"]);
+}
+
+fn check_classic_word_pointer_index_consumers(operations: &[&str]) {
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        for ty in ["INT", "CARD"] {
+            for displacement in [0u16, 3] {
+                let index_expr = if displacement == 0 { "i" } else { "i+3" };
+                for &operation in operations {
+                    let body = match operation {
+                        "load" => format!("observed=p({index_expr})"),
+                        "store" => format!("p({index_expr})=value"),
+                        "increment" => format!("p({index_expr})==+1"),
+                        "copy" => format!("q({index_expr})=p({index_expr})"),
+                        _ => unreachable!(),
+                    };
+                    let source = format!(
+                        "{ty} i=$0600,value=$0602,observed=$0604 \
+                         CARD base=$0606,otherBase=$0608 {ty} POINTER p,q \
+                         PROC Main() p=base q=otherBase {body} RETURN"
+                    );
+                    let output = generate_profile_source_with_origin(&source, 0x3000, profile)
+                        .unwrap_or_else(|error| panic!("{source}: {error:?}"));
+                    assert!(usize::from(output.origin) + output.bytes.len() < 0x4F00);
+                    for base in [0x5000u16, 0x5001, 0x50F1] {
+                        let other_base = base + 0x0802;
+                        for index in [0u16, 1, 124, 127, 128, 252, 255, 256, 383, 384, 511] {
+                            for value in [0u16, 0x00FF, 0xFFFF, 0x7FFF, 0x8000, 0xFFF3, 0x1234] {
+                                let mut memory = [0u8; 65536];
+                                let origin = usize::from(output.origin);
+                                memory[origin..origin + output.bytes.len()]
+                                    .copy_from_slice(&output.bytes);
+                                memory[0x4F00..0x5E00].fill(0xA5);
+                                for (address, word) in [
+                                    (0x0600, index),
+                                    (0x0602, value),
+                                    (0x0604, 0xCCCC),
+                                    (0x0606, base),
+                                    (0x0608, other_base),
+                                ] {
+                                    memory[address..address + 2]
+                                        .copy_from_slice(&word.to_le_bytes());
+                                }
+                                let offset = usize::from(index + displacement) * 2;
+                                let target = usize::from(base) + offset;
+                                let other_target = usize::from(other_base) + offset;
+                                // Stores must actually write; pre-filling them with
+                                // their expected value could hide a missing store.
+                                if operation != "store" {
+                                    memory[target..target + 2]
+                                        .copy_from_slice(&value.to_le_bytes());
+                                }
+                                let mut expected = memory[0x4F00..0x5E00].to_vec();
+                                let write = match operation {
+                                    "store" => Some((target, value)),
+                                    "increment" => Some((target, value.wrapping_add(1))),
+                                    "copy" => Some((other_target, value)),
+                                    _ => None,
+                                };
+                                if let Some((address, word)) = write {
+                                    expected[address - 0x4F00..address - 0x4F00 + 2]
+                                        .copy_from_slice(&word.to_le_bytes());
+                                }
+                                indexed_test_cpu::run_memory(
+                                    &mut memory,
+                                    usize::from(output.run_address),
+                                );
+                                let label = format!(
+                                    "{profile:?}/{ty}/{operation}/{index_expr}: base={base:04X}, index={index:04X}, value={value:04X}"
+                                );
+                                let mismatch = memory[0x4F00..0x5E00]
+                                    .iter()
+                                    .zip(&expected)
+                                    .enumerate()
+                                    .find(|(_, (actual, expected))| actual != expected)
+                                    .map(|(offset, (actual, expected))| {
+                                        (0x4F00 + offset, *actual, *expected)
+                                    });
+                                assert_eq!(mismatch, None, "{label}: (address, actual, expected)");
+                                let observed = if operation == "load" { value } else { 0xCCCC };
+                                assert_eq!(
+                                    &memory[0x0604..0x0606],
+                                    &observed.to_le_bytes(),
+                                    "{label}"
+                                );
+                                assert_eq!(
+                                    &memory[0x0600..0x0602],
+                                    &index.to_le_bytes(),
+                                    "{label}"
+                                );
+                                assert_eq!(
+                                    &memory[0x0602..0x0604],
+                                    &value.to_le_bytes(),
+                                    "{label}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn immediate_selects_low_and_high_bytes() {
     let immediate = Immediate::new(0x1234);
     assert_eq!(immediate.low(), 0x34);

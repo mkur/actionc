@@ -690,6 +690,9 @@ impl Generator {
         self.emit_lda_zero_page_value_only(temp);
         if size == 2 {
             self.emit_asl_a();
+            // Match the array word-index schedule: preserve the scale carry
+            // separately from the carry produced by adding the base low byte.
+            self.emitter.emit_php();
         } else if size != 1 {
             return None;
         }
@@ -698,7 +701,10 @@ impl Generator {
         self.emit_sta_zero_page(addr);
         self.emit_lda_zero_page_value_only(temp.offset(1));
         if size == 2 {
+            // ROL incorporates the base-add carry; ADC then incorporates the
+            // saved scale carry. Their sum contributes to the high address.
             self.emit_rol_a();
+            self.emit_plp();
         }
         self.emit_adc_zero_page(addr.offset(1));
         self.emit_sta_zero_page(addr.offset(1));

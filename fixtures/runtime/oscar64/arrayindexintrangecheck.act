@@ -1,0 +1,35 @@
+; Adapted from Oscar64 autotest/arrayindexintrangecheck.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+INT ARRAY a(10),fixed(257)=$5001
+INT original=$0600,observed=$0602,index=$06F0,value=$06F2
+BYTE signature=$06FF
+
+INT FUNC Get(INT i)
+RETURN(a(i))
+
+PROC Put(INT i,x)
+  a(i)=x
+RETURN
+
+INT FUNC GetFixed(INT i)
+RETURN(fixed(i))
+
+PROC PutFixed(INT i,x)
+  fixed(i)=x
+RETURN
+
+PROC Main()
+  INT j,s
+  signature=0
+  j=0
+  WHILE j<10 DO Put(j,j) j==+1 OD
+  s=-45 j=0
+  WHILE j<10 DO s==+Get(j) j==+1 OD
+  original=s
+  PutFixed(index,value)
+  observed=GetFixed(index)
+  signature=$A5
+  DO OD
+RETURN

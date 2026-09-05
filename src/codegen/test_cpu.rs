@@ -183,6 +183,18 @@ pub(crate) fn run_memory(memory: &mut [u8; 65536], entry: usize) -> Vec<u8> {
                 memory[0x100 + usize::from(sp)] = a;
                 sp = sp.wrapping_sub(1);
             }
+            "PHP" => {
+                memory[0x100 + usize::from(sp)] =
+                    0x30 | u8::from(c) | (u8::from(z) << 1) | (u8::from(n) << 7);
+                sp = sp.wrapping_sub(1);
+            }
+            "PLP" => {
+                sp = sp.wrapping_add(1);
+                let status = memory[0x100 + usize::from(sp)];
+                c = status & 1 != 0;
+                z = status & 2 != 0;
+                n = status & 0x80 != 0;
+            }
             "PLA" => {
                 sp = sp.wrapping_add(1);
                 a = memory[0x100 + usize::from(sp)];

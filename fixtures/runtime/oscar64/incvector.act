@@ -1,0 +1,30 @@
+; Adapted from Oscar64 autotest/incvector.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+INT ARRAY t(100)
+INT original=$0600,count=$06F2
+CARD destinationAddress=$06F0
+INT POINTER destination
+BYTE signature=$06FF
+
+PROC Increment(INT POINTER a INT n)
+  INT i
+  i=0
+  WHILE i<n DO a(i)==+1 i==+1 OD
+RETURN
+
+PROC Main()
+  INT i,s
+  signature=0
+  destination=destinationAddress
+  i=0
+  WHILE i<100 DO t(i)=i i==+1 OD
+  Increment(t,100)
+  s=0 i=0
+  WHILE i<100 DO s==+t(i) i==+1 OD
+  original=s-5050
+  Increment(destination,count)
+  signature=$A5
+  DO OD
+RETURN

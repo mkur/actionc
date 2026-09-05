@@ -12,6 +12,18 @@ the pinned `actionc-vm` revision:
 cargo test --locked
 ```
 
+The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
+array indexing, word-pointer transfers, loop bounds, comparisons, and masks
+using independent host-side oracles. Run them separately with:
+
+```sh
+cargo test --locked --test oscar64_conformance
+```
+
+Two explicitly ignored tests retain correct expectations for the outstanding
+MIR6502 index-definition bug; see the fixture README for the affected mode/case
+matrix and reproduction commands. They are not counted as passing runtime coverage.
+
 The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public
 `SYS` routine to a fixture that invokes it and is wired into this harness. Any
 new interface routine must gain VM execution coverage or an explicit deferral.

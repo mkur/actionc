@@ -1,0 +1,196 @@
+; Adapted from Oscar64 autotest/loopboundtest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+INT ARRAY data(101)=$5001,results(16)=$0600
+BYTE signature=$06FF
+
+INT FUNC LtS50(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=0
+  WHILE i<50 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(x)
+
+INT FUNC LeS50(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=0
+  WHILE i<=49 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(x)
+
+INT FUNC GtS50(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=50
+  WHILE i>0 DO
+    x==+p(i-1)
+    i==-1
+  OD
+RETURN(x)
+
+INT FUNC GeS50(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=49
+  WHILE i>=0 DO
+    x==+p(i)
+    i==-1
+  OD
+RETURN(x)
+
+INT FUNC LtU50(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=0
+  WHILE i<50 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(INT(x))
+
+INT FUNC LeU50(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=0
+  WHILE i<=49 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(INT(x))
+
+INT FUNC GtU50(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=50
+  WHILE i>0 DO
+    x==+p(i-1)
+    i==-1
+  OD
+RETURN(INT(x))
+
+INT FUNC GeU50(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=50
+  WHILE i>=1 DO
+    x==+p(i-1)
+    i==-1
+  OD
+RETURN(INT(x))
+
+INT FUNC LtS100(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=0
+  WHILE i<100 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(x)
+
+INT FUNC LeS100(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=0
+  WHILE i<=99 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(x)
+
+INT FUNC GtS100(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=100
+  WHILE i>0 DO
+    x==+p(i-1)
+    i==-1
+  OD
+RETURN(x)
+
+INT FUNC GeS100(INT POINTER p)
+  INT i
+  INT x
+  x=0 i=99
+  WHILE i>=0 DO
+    x==+p(i)
+    i==-1
+  OD
+RETURN(x)
+
+INT FUNC LtU100(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=0
+  WHILE i<100 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(INT(x))
+
+INT FUNC LeU100(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=0
+  WHILE i<=99 DO
+    x==+p(i)
+    i==+1
+  OD
+RETURN(INT(x))
+
+INT FUNC GtU100(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=100
+  WHILE i>0 DO
+    x==+p(i-1)
+    i==-1
+  OD
+RETURN(INT(x))
+
+INT FUNC GeU100(INT POINTER p)
+  INT i
+  CARD x
+  x=0 i=100
+  WHILE i>=1 DO
+    x==+p(i-1)
+    i==-1
+  OD
+RETURN(INT(x))
+
+PROC Main()
+  INT i
+  signature=0
+  i=0
+  WHILE i<50 DO data(i)=(i&15)+3 i==+1 OD
+  data(50)=1000
+  results(0)=LtS50(data)
+  results(1)=LeS50(data)
+  results(2)=GtS50(data)
+  results(3)=GeS50(data)
+  results(4)=LtU50(data)
+  results(5)=LeU50(data)
+  results(6)=GtU50(data)
+  results(7)=GeU50(data)
+  i=0
+  WHILE i<100 DO data(i)=(i&15)+3 i==+1 OD
+  data(100)=1000
+  results(8)=LtS100(data)
+  results(9)=LeS100(data)
+  results(10)=GtS100(data)
+  results(11)=GeS100(data)
+  results(12)=LtU100(data)
+  results(13)=LeU100(data)
+  results(14)=GtU100(data)
+  results(15)=GeU100(data)
+
+  signature=$A5
+  DO OD
+RETURN

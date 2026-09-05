@@ -167,6 +167,15 @@ byte on the stack until the high-byte read completes, without borrowing `X` or
 another scratch pair. Partial overlaps and fixed absolute aliases of zero-page
 storage obey the same rule; non-overlapping loads require no staging.
 
+Full word-valued pointer indexes use the same two-carry schedule as array
+indexes in both classic profiles. The carry from doubling the index low byte
+is saved across the base low-byte addition; that addition's carry feeds the
+high-byte rotation, and the saved scale carry feeds the final high-byte add.
+Neither carry may be discarded or substituted for the other. After index
+evaluation, this address arithmetic preserves X/Y and balances its status-stack
+save/restore with either scratch pointer pair. Index expressions retain their
+existing evaluation and clobber contracts.
+
 ## Proof-Guided Lowering
 
 Some modern optimizations are backed by explicit proof records. The current

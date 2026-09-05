@@ -1,0 +1,33 @@
+; Adapted from Oscar64 autotest/byteindextest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+BYTE ARRAY a(20),fixed(257)=$5001,descriptor
+BYTE original=$0600,signature=$06FF
+CARD fixedSum=$0602,descriptorSum=$0604,count=$06F0
+
+PROC Main()
+  BYTE i,x
+  CARD j
+  signature=0
+  i=0
+  WHILE i<20 DO a(i)=i i==+1 OD
+  x=0 i=0
+  WHILE i<20 DO x==+a(i) i==+1 OD
+  original=x
+
+  descriptor=$5001
+  fixedSum=0 descriptorSum=0 j=0
+  WHILE j<count DO
+    fixed(j)=BYTE(j)
+    j==+1
+  OD
+  j=0
+  WHILE j<count DO
+    fixedSum==+fixed(j)
+    descriptorSum==+descriptor(j)
+    j==+1
+  OD
+  signature=$A5
+  DO OD
+RETURN

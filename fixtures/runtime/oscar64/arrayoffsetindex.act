@@ -1,0 +1,27 @@
+; Adapted from Oscar64 autotest/arrayoffsetindex.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+INT original=$0600,observed=$0602,index=$06F2
+CARD externalAddress=$06F0
+INT POINTER external
+BYTE signature=$06FF
+
+INT FUNC Fill(INT POINTER p INT x)
+  INT y
+  y=x+3
+  p(y)=1
+  p(y+1)=2
+  p(y+2)=3
+  p(y+3)=4
+RETURN(p(y)+p(y+1)+p(y+2)+p(y+3))
+
+PROC Main()
+  INT ARRAY t(16)
+  signature=0
+  external=externalAddress
+  original=Fill(t,4)-10
+  observed=Fill(external,index)
+  signature=$A5
+  DO OD
+RETURN
