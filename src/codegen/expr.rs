@@ -684,8 +684,25 @@ impl Generator {
         } else {
             runtime_zp::ADDR
         };
+        // A distinct final index home does not make recursive materialization
+        // disjoint: nested arithmetic, indexed loads, or calls can use `addr`
+        // as scratch. Keep the captured base across that evaluation, without
+        // reloading an observable pointer or changing base/index read order.
+        let preserve_base = Self::arithmetic_operand_needs_materialization(index);
+        if preserve_base {
+            self.emit_lda_zero_page_value_only(addr.offset(1));
+            self.emitter.emit_pha();
+            self.emit_lda_zero_page_value_only(addr);
+            self.emitter.emit_pha();
+        }
         if !self.emit_index_expr_to_temp(index, temp) {
             return None;
+        }
+        if preserve_base {
+            self.emit_pla();
+            self.emit_sta_zero_page(addr);
+            self.emit_pla();
+            self.emit_sta_zero_page(addr.offset(1));
         }
         self.emit_lda_zero_page_value_only(temp);
         if size == 2 {

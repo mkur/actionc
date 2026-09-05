@@ -176,6 +176,14 @@ evaluation, this address arithmetic preserves X/Y and balances its status-stack
 save/restore with either scratch pointer pair. Index expressions retain their
 existing evaluation and clobber contracts.
 
+The general pointer-index fallback also retains its captured base across a
+computed index. A different final index home is not a scratch-disjointness
+proof: nested arithmetic, indirect loads, and calls can overwrite the base
+pair while materializing the index. The existing materialization predicate
+selects stack preservation around that evaluation. This keeps the original
+base-before-index read order, including when a call changes the pointer
+variable, and leaves constant and simple-scalar fast paths unchanged.
+
 An indexed assignment must retain its selected destination across RHS
 evaluation, including casts and runtime arithmetic without source-level calls.
 Multiply, divide, remainder, and shifts may use `X` for operands or results;

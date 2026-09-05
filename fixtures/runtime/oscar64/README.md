@@ -52,12 +52,12 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | --- | ---: | ---: | --- |
 | `shiftbyteaddconst` | 256 | 1,536 | All pass |
 | `testsigned16mul` | 33 | 198 | All pass |
-| `arraytest` | 30 | 180 | 60 MIR6502 pass; 120 classic fail |
+| `arraytest` | 30 | 180 | All pass |
 
-Overall: **2,172 VM cases, 2,052 passing and 120 failing**, in **18 active tests
-(17 passing, one failing)**. The classic reverse-copy failure is intentionally
-visible in the normal suite; no test is ignored or expects a panic. See
-[OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--open).
+Overall: **2,172 passing VM cases in 18 active passing tests**. No test is
+ignored or expects a panic. The classic reverse-copy regression was repaired
+without changing fixture expressions or oracles. See
+[OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--fixed).
 
 ## Action! semantics and harness contract
 
@@ -128,7 +128,6 @@ Run the new categories separately:
 cargo test --locked --test oscar64_conformance oscar64_shift_add_sub
 cargo test --locked --test oscar64_conformance oscar64_signed_multiply
 cargo test --locked --test oscar64_conformance oscar64_mir_reverse
-# Currently fails: active classic computed-index regression.
 cargo test --locked --test oscar64_conformance oscar64_classic_reverse
 ```
 
@@ -138,18 +137,22 @@ isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
 ## Compiler regressions
 
-### OSCAR-CLASSIC-COMPUTED-INDEX — open
+### OSCAR-CLASSIC-COMPUTED-INDEX — fixed
 
-Both classic modes and both runtimes fail `arraytest`'s original reverse-copy
+Both classic modes and both runtimes formerly failed `arraytest`'s original reverse-copy
 shape. In `d(i)=s(n-i-1)`, the source base is loaded into `$AC/$AD`, then the
 inner subtraction materializes `n-i` into those same bytes. Address scaling
-therefore adds the final index to a corrupted base. This affects BYTE and INT
+therefore added the final index to a corrupted base. This affected BYTE and INT
 indexes and is distinct from the already-fixed scale-carry loss below.
 
-MIR6502 passes all 60 reverse-copy cases. The classic test retains all 120
-failing cases, including original-size checks, with correct memory oracles.
-See the [diagnosis and reproduction commands](../../../docs/bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
-No compiler implementation was changed in the second test-port batch.
+The fallback now uses the existing materialization predicate to preserve the
+captured base on the stack around computed-index evaluation. All 180
+reverse-copy cases pass, including the original-size checks; their source
+expressions and memory oracles are unchanged. Focused compiler tests cover
+all four pointer scratch pairs, byte/word element sizes, BYTE/INT/CARD indexes,
+nested addition/subtraction, load/store/copy consumers, and base-before-index
+evaluation across an effectful call. See the
+[diagnosis and reproduction commands](../../../docs/bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
 
 ### OSCAR-CLASSIC-WORD-INDEX — fixed
 

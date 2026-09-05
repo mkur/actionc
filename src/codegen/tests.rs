@@ -347,6 +347,189 @@ fn classic_word_pointer_index_loads_and_stores_match_memory_oracle() {
 }
 
 #[test]
+fn classic_computed_pointer_address_preserves_base_and_stack() {
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        for pointer in [
+            runtime_zp::ADDR,
+            runtime_zp::ARRAY_ADDR,
+            runtime_zp::ELEMENT_ADDR,
+            runtime_zp::VALUE_TEMP,
+        ] {
+            for index_size in [1, 2] {
+                for element_size in [1, 2] {
+                    let mut generator = test_generator(profile);
+                    for (name, address) in [("n", 0x0602), ("i", 0x0604)] {
+                        generator.layout.symbols.insert(
+                            normalize_name(name),
+                            StorageSlot::absolute(address, index_size),
+                        );
+                    }
+                    let index = test_expr(ExprKind::Binary {
+                        op: BinaryOp::Sub,
+                        left: Box::new(test_expr(ExprKind::Binary {
+                            op: BinaryOp::Sub,
+                            left: Box::new(test_name_expr("n")),
+                            right: Box::new(test_name_expr("i")),
+                        })),
+                        right: Box::new(test_expr(ExprKind::Number(crate::lexer::NumberLiteral {
+                            text: "1".to_string(),
+                            kind: crate::lexer::NumberKind::Byte,
+                            value: Some(1),
+                        }))),
+                    });
+                    generator.emit_ldx_imm(0x6D);
+                    generator.emit_ldy_imm(0x37);
+                    generator.emit_lda_imm(0x42);
+                    generator.emitter.emit_pha();
+                    generator
+                        .pointer_index_slot_with_addr(
+                            StorageSlot::pointer(0x0600, element_size),
+                            &index,
+                            pointer,
+                        )
+                        .expect("computed pointer index");
+                    generator.emit_pla();
+                    generator.emitter.emit_sta_absolute(Absolute::new(0x0606));
+                    generator.emitter.emit_stx_absolute(Absolute::new(0x0607));
+                    generator.emitter.emit_sty_absolute(Absolute::new(0x0608));
+                    generator.emitter.emit_rts();
+                    let bytes = generator.emitter.finish().unwrap();
+                    for base in [0x5000u16, 0x5001, 0x50F1, 0xFFF1] {
+                        for (n, i) in [(2u16, 0u16), (129, 1), (255, 126), (255, 0)] {
+                            let mut memory = [0u8; 65536];
+                            memory[0x3000..0x3000 + bytes.len()].copy_from_slice(&bytes);
+                            memory[0x0600..0x0602].copy_from_slice(&base.to_le_bytes());
+                            memory[0x0602..0x0604].copy_from_slice(&n.to_le_bytes());
+                            memory[0x0604..0x0606].copy_from_slice(&i.to_le_bytes());
+                            indexed_test_cpu::run_memory(&mut memory, 0x3000);
+                            let expected = base.wrapping_add((n - i - 1) * element_size);
+                            let address = usize::from(pointer.address());
+                            assert_eq!(
+                                &memory[address..address + 2],
+                                &expected.to_le_bytes(),
+                                "{profile:?}/{pointer:?}, index size={index_size}, element size={element_size}, base={base:04X}, n={n}, i={i}"
+                            );
+                            assert_eq!(&memory[0x0600..0x0602], &base.to_le_bytes());
+                            assert_eq!(&memory[0x0602..0x0604], &n.to_le_bytes());
+                            assert_eq!(&memory[0x0604..0x0606], &i.to_le_bytes());
+                            assert_eq!(&memory[0x0606..0x0609], &[0x42, 0x6D, 0x37]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn classic_computed_pointer_index_consumers_match_memory_oracle() {
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        for ty in ["BYTE", "INT", "CARD"] {
+            for (expression, add) in [("n-i-1", false), ("(n-i)+1", true)] {
+                for operation in ["load", "store", "copy"] {
+                    let body = match operation {
+                        "load" => format!("observed=p({expression})"),
+                        "store" => format!("p({expression})=value"),
+                        "copy" => format!("q(i)=p({expression})"),
+                        _ => unreachable!(),
+                    };
+                    let source = format!(
+                        "{ty} n=$0600,i=$0602 CARD value=$0604,observed=$0606,\
+                         base=$0608,otherBase=$060A CARD POINTER p,q \
+                         PROC Main() p=base q=otherBase {body} RETURN"
+                    );
+                    let output = generate_profile_source_with_origin(&source, 0x3000, profile)
+                        .unwrap_or_else(|error| panic!("{source}: {error:?}"));
+                    for base in [0x5000u16, 0x5001, 0x50F1] {
+                        for (n, i) in [(2u16, 0u16), (129, 1), (255, 126), (255, 1)] {
+                            let offset = if add { n - i + 1 } else { n - i - 1 };
+                            let target = usize::from(base + offset * 2);
+                            let destination = usize::from(base + 0x0802 + i * 2);
+                            let mut memory = [0u8; 65536];
+                            memory[0x3000..0x3000 + output.bytes.len()]
+                                .copy_from_slice(&output.bytes);
+                            memory[0x4F00..0x5E00].fill(0xA5);
+                            for (address, value) in [
+                                (0x0600, n),
+                                (0x0602, i),
+                                (0x0604, 0xF13B),
+                                (0x0606, 0xCCCC),
+                                (0x0608, base),
+                                (0x060A, base + 0x0802),
+                            ] {
+                                memory[address..address + 2].copy_from_slice(&value.to_le_bytes());
+                            }
+                            if operation != "store" {
+                                memory[target..target + 2]
+                                    .copy_from_slice(&0xF13Bu16.to_le_bytes());
+                            }
+                            let mut expected = memory[0x4F00..0x5E00].to_vec();
+                            let write = match operation {
+                                "store" => Some(target),
+                                "copy" => Some(destination),
+                                _ => None,
+                            };
+                            if let Some(address) = write {
+                                expected[address - 0x4F00..address - 0x4F00 + 2]
+                                    .copy_from_slice(&0xF13Bu16.to_le_bytes());
+                            }
+                            indexed_test_cpu::run_memory(
+                                &mut memory,
+                                usize::from(output.run_address),
+                            );
+                            let label = format!(
+                                "{profile:?}/{ty}/{expression}/{operation}: base={base:04X}, n={n}, i={i}"
+                            );
+                            let mismatch = memory[0x4F00..0x5E00]
+                                .iter()
+                                .zip(&expected)
+                                .position(|(actual, expected)| actual != expected);
+                            assert_eq!(mismatch, None, "{label}");
+                            let observed = if operation == "load" {
+                                0xF13Bu16
+                            } else {
+                                0xCCCC
+                            };
+                            assert_eq!(&memory[0x0606..0x0608], &observed.to_le_bytes(), "{label}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn classic_computed_pointer_index_captures_base_before_effectful_call() {
+    let source = "CARD n=$0600,i=$0602,base=$0604,otherBase=$0606,observed=$0608,updated=$060C \
+                  BYTE calls=$060A CARD POINTER p \
+                  BYTE FUNC Next() calls==+1 p=otherBase RETURN(129) \
+                  PROC Main() p=base calls=0 observed=p(CARD(Next())-i-1) updated=p RETURN";
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let mut memory = [0u8; 65536];
+        memory[0x3000..0x3000 + output.bytes.len()].copy_from_slice(&output.bytes);
+        memory[0x4F00..0x5E00].fill(0xA5);
+        for (address, word) in [
+            (0x0600, 129u16),
+            (0x0602, 1),
+            (0x0604, 0x5001),
+            (0x0606, 0x5803),
+            (0x0608, 0xCCCC),
+            (0x50FF, 0x1234),
+            (0x5901, 0xABCD),
+        ] {
+            memory[address..address + 2].copy_from_slice(&word.to_le_bytes());
+        }
+        let buffers = memory[0x4F00..0x5E00].to_vec();
+        indexed_test_cpu::run_memory(&mut memory, usize::from(output.run_address));
+        assert_eq!(&memory[0x0608..0x060B], &[0x34, 0x12, 1], "{profile:?}");
+        assert_eq!(&memory[0x4F00..0x5E00], &buffers, "{profile:?}");
+        assert_eq!(&memory[0x060C..0x060E], &[0x03, 0x58], "{profile:?}");
+    }
+}
+
+#[test]
 fn classic_word_pointer_index_increment_and_copy_match_memory_oracle() {
     check_classic_word_pointer_index_consumers(&["increment", "copy"]);
 }

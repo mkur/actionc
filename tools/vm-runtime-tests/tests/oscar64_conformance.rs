@@ -563,8 +563,8 @@ fn reverse_cases() -> Vec<Case> {
 
 #[test]
 fn oscar64_classic_reverse_and_copy_check_every_word_and_guard() {
-    // Active regression: nested subtraction currently overwrites the source
-    // address while classic codegen prepares s(n-i-1). Do not replace that
+    // Regression: nested subtraction formerly overwrote the source
+    // address while classic codegen prepared s(n-i-1). Do not replace that
     // expression with a precomputed scalar index or weaken its memory oracle.
     run_cases_in_modes("arraytest", 250_000, &reverse_cases(), CLASSIC_MODES);
 }

@@ -1,11 +1,22 @@
 # Oscar64 behavioral ports: second batch
 
 Status: stages 1 and 2 ported, 2026-09-05; stages 3 through 5 planned.
-Stage 1 passes all six mode/runtime combinations. Stage 2 passes MIR6502 but
-exposes an active classic-backend regression; its correctness acceptance gate
-is not green. See [the regression note](bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
+Both stages now pass all six mode/runtime combinations. The classic computed
+pointer-index regression exposed by stage 2 was fixed separately, without
+changing the ports' expressions or oracles. See
+[the regression note](bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
 
-Validation against compiler `37ee296` plus these ports:
+Validation after the separate pointer-preservation repair:
+
+- Root `cargo test --quiet`: 2,651 passed, zero failed, 22 existing ignored.
+- Isolated VM `cargo test --locked --quiet`: 93 passed, zero failed or ignored;
+  all 18 Oscar64 tests and 2,172 VM cases pass.
+- NIR snapshots pass; the 33-fixture NIR sweep has no failures. The broad
+  corpus expectation now includes the three added fixtures (309 valid roots
+  and the same five declared module-only semantic failures).
+- Original ported expressions and memory oracles remain unchanged.
+
+Historical validation against compiler `37ee296` plus the initial ports:
 
 - Root `cargo test --quiet`: 2,648 passed, zero failed, 22 existing ignored.
 - Focused `cargo test --test nir_corpus --quiet`: passed.
