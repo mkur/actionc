@@ -1,0 +1,130 @@
+; Adapted from Oscar64 autotest/testsigned16mul.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+; Literal coefficients replace the C unroll(full) expansion. Both operand
+; orders and the original runtime-coefficient loop have independent oracles.
+; The host supplies m in -1024..1024: all coefficients -16..15 fit INT.
+INT ARRAY literalRight(256)=$6001,literalLeft(256)=$6403,
+          runtimeRight(256)=$6805,runtimeLeft(256)=$6C07
+INT value=$06F0
+CARD firstIndex=$06F4
+BYTE signature=$06FF
+
+PROC Literals(INT m CARD start)
+  CARD index
+  index=start
+  literalRight(index)=m*(-16)
+  literalLeft(index)=(-16)*m
+  index==+1
+  literalRight(index)=m*(-15)
+  literalLeft(index)=(-15)*m
+  index==+1
+  literalRight(index)=m*(-14)
+  literalLeft(index)=(-14)*m
+  index==+1
+  literalRight(index)=m*(-13)
+  literalLeft(index)=(-13)*m
+  index==+1
+  literalRight(index)=m*(-12)
+  literalLeft(index)=(-12)*m
+  index==+1
+  literalRight(index)=m*(-11)
+  literalLeft(index)=(-11)*m
+  index==+1
+  literalRight(index)=m*(-10)
+  literalLeft(index)=(-10)*m
+  index==+1
+  literalRight(index)=m*(-9)
+  literalLeft(index)=(-9)*m
+  index==+1
+  literalRight(index)=m*(-8)
+  literalLeft(index)=(-8)*m
+  index==+1
+  literalRight(index)=m*(-7)
+  literalLeft(index)=(-7)*m
+  index==+1
+  literalRight(index)=m*(-6)
+  literalLeft(index)=(-6)*m
+  index==+1
+  literalRight(index)=m*(-5)
+  literalLeft(index)=(-5)*m
+  index==+1
+  literalRight(index)=m*(-4)
+  literalLeft(index)=(-4)*m
+  index==+1
+  literalRight(index)=m*(-3)
+  literalLeft(index)=(-3)*m
+  index==+1
+  literalRight(index)=m*(-2)
+  literalLeft(index)=(-2)*m
+  index==+1
+  literalRight(index)=m*(-1)
+  literalLeft(index)=(-1)*m
+  index==+1
+  literalRight(index)=m*(0)
+  literalLeft(index)=(0)*m
+  index==+1
+  literalRight(index)=m*(1)
+  literalLeft(index)=(1)*m
+  index==+1
+  literalRight(index)=m*(2)
+  literalLeft(index)=(2)*m
+  index==+1
+  literalRight(index)=m*(3)
+  literalLeft(index)=(3)*m
+  index==+1
+  literalRight(index)=m*(4)
+  literalLeft(index)=(4)*m
+  index==+1
+  literalRight(index)=m*(5)
+  literalLeft(index)=(5)*m
+  index==+1
+  literalRight(index)=m*(6)
+  literalLeft(index)=(6)*m
+  index==+1
+  literalRight(index)=m*(7)
+  literalLeft(index)=(7)*m
+  index==+1
+  literalRight(index)=m*(8)
+  literalLeft(index)=(8)*m
+  index==+1
+  literalRight(index)=m*(9)
+  literalLeft(index)=(9)*m
+  index==+1
+  literalRight(index)=m*(10)
+  literalLeft(index)=(10)*m
+  index==+1
+  literalRight(index)=m*(11)
+  literalLeft(index)=(11)*m
+  index==+1
+  literalRight(index)=m*(12)
+  literalLeft(index)=(12)*m
+  index==+1
+  literalRight(index)=m*(13)
+  literalLeft(index)=(13)*m
+  index==+1
+  literalRight(index)=m*(14)
+  literalLeft(index)=(14)*m
+  index==+1
+  literalRight(index)=m*(15)
+  literalLeft(index)=(15)*m
+  index==+1
+RETURN
+
+PROC Main()
+  INT coefficient
+  CARD index
+  signature=0
+  Literals(value,firstIndex)
+  coefficient=-16
+  index=firstIndex
+  WHILE coefficient<16 DO
+    runtimeRight(index)=value*coefficient
+    runtimeLeft(index)=coefficient*value
+    coefficient==+1
+    index==+1
+  OD
+  signature=$A5
+  DO OD
+RETURN

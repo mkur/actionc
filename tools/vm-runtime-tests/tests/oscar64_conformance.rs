@@ -1,4 +1,4 @@
-//! Behavioral ports of Oscar64's first eight selected autotests.
+//! Behavioral ports of selected Oscar64 autotests.
 //! Oracles are computed here, independently of the Action! code under test.
 use std::path::{Path, PathBuf};
 
@@ -39,6 +39,15 @@ impl Case {
 
     fn word(&mut self, address: u16, value: u16) {
         self.expected.push((address, value.to_le_bytes().to_vec()));
+    }
+
+    fn read_only_words(&mut self, address: u16, values: &[u16]) {
+        let bytes: Vec<u8> = values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect();
+        self.setup.push((address, bytes.clone()));
+        self.expected.push((address, bytes));
     }
 }
 
@@ -398,4 +407,84 @@ fn oscar64_constant_masks_cover_every_byte_and_bit() {
     }
     case.expected.push((0x4FFF, expected));
     run_cases("maskcheck", 1_000_000, &[case]);
+}
+
+#[test]
+fn oscar64_shift_add_sub_composition_matches_word_oracle() {
+    let amounts = [15u16, 16, 111, 4096, 13421, 15, 16, 4096];
+    let counts: Vec<u16> = (0..16).collect();
+    let cases: Vec<Case> = (0u16..=255)
+        .map(|value| {
+            let start = [0u16, 1, 127][usize::from(value) % 3];
+            let mut case = Case::new(format!("byte={value}, first index={start}"));
+            case.read_only_words(0x06F0, &[value]);
+            case.read_only_words(0x06F4, &[start]);
+            case.read_only_words(0x06B0, &counts);
+            case.read_only_words(0x06D0, &amounts);
+            let mut expected = vec![0xA5; 0x1100];
+            case.setup.push((0x6F00, expected.clone()));
+            // All four literal/runtime combinations have independent expected
+            // words. Rust widens the mathematical calculation before masking;
+            // it does not emulate either compiler's shift/add lowering.
+            for (group, &amount) in amounts.iter().enumerate() {
+                for shift in 0..16 {
+                    let shifted = u32::from(value) * (1u32 << shift);
+                    let answer = if group < 5 {
+                        shifted + u32::from(amount)
+                    } else {
+                        shifted + 65536 - u32::from(amount)
+                    } as u16;
+                    let index = usize::from(start) + group * 16 + shift;
+                    for base in [0x7001u16, 0x7403, 0x7805, 0x7C07] {
+                        write_word(
+                            &mut expected,
+                            usize::from(base - 0x6F00) + 2 * index,
+                            answer,
+                        );
+                    }
+                }
+            }
+            case.expected.push((0x6F00, expected));
+            case
+        })
+        .collect();
+    run_cases("shiftbyteaddconst", 100_000, &cases);
+}
+
+#[test]
+fn oscar64_signed_multiply_literal_and_runtime_operands_match() {
+    // A bounded representative grid, not the original 2049-value outer
+    // sweep. Every coefficient -16..15 is tested for each input, with both
+    // operand orders. All mathematical products are representable as INT.
+    let inputs = [
+        -1024i16, -1023, -513, -512, -511, -257, -256, -255, -129, -128, -127, -17, -16, -15, -2,
+        -1, 0, 1, 2, 15, 16, 17, 127, 128, 129, 255, 256, 257, 511, 512, 513, 1023, 1024,
+    ];
+    let cases: Vec<Case> = inputs
+        .iter()
+        .enumerate()
+        .map(|(ordinal, &value)| {
+            let start = [0u16, 1, 127, 224][ordinal % 4];
+            let mut case = Case::new(format!("m={value}, first index={start}"));
+            case.read_only_words(0x06F0, &[value as u16]);
+            case.read_only_words(0x06F4, &[start]);
+            let mut expected = vec![0xA5; 0x1100];
+            case.setup.push((0x5F00, expected.clone()));
+            for coefficient in -16i32..16 {
+                let product = i32::from(value) * coefficient;
+                let answer = i16::try_from(product).expect("representable signed product") as u16;
+                let index = usize::from(start) + (coefficient + 16) as usize;
+                for base in [0x6001u16, 0x6403, 0x6805, 0x6C07] {
+                    write_word(
+                        &mut expected,
+                        usize::from(base - 0x5F00) + 2 * index,
+                        answer,
+                    );
+                }
+            }
+            case.expected.push((0x5F00, expected));
+            case
+        })
+        .collect();
+    run_cases("testsigned16mul", 60_000, &cases);
 }

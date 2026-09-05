@@ -1,0 +1,398 @@
+; Adapted from Oscar64 autotest/shiftbyteaddconst.cpp (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+; The expanded literal grid needs more code space than the smaller ports.
+; Keep it below the independently guarded $6F00-$7FFF host workspace.
+ORG $2000
+
+; Four tables, grouped by amount then shift: literal/literal, runtime/runtime,
+; literal shift/runtime amount, runtime shift/literal amount.
+; CARD(value) explicitly widens BEFORE shifting. CARD amounts keep word
+; wraparound, including subtraction, independent of C integer promotions.
+CARD ARRAY literalBoth(256)=$7001,runtimeBoth(256)=$7403,
+           literalShift(256)=$7805,literalAmount(256)=$7C07
+CARD ARRAY shiftCounts(16)=$06B0,amounts(8)=$06D0
+BYTE value=$06F0,signature=$06FF
+CARD firstIndex=$06F4
+
+PROC FillLiterals(BYTE a CARD start)
+  CARD index
+  index=start
+  literalBoth(index)=(CARD(a) LSH 0)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)+CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)+CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)+CARD(111)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)+CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)+CARD(13421)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)-CARD(15)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)-CARD(16)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 0)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 1)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 2)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 3)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 4)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 5)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 6)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 7)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 8)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 9)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 10)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 11)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 12)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 13)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 14)-CARD(4096)
+  index==+1
+  literalBoth(index)=(CARD(a) LSH 15)-CARD(4096)
+  index==+1
+RETURN
+
+PROC LiteralShiftAdd(BYTE a CARD amount,start)
+  CARD index
+  index=start
+  literalShift(index)=(CARD(a) LSH 0)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 1)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 2)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 3)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 4)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 5)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 6)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 7)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 8)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 9)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 10)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 11)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 12)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 13)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 14)+amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 15)+amount
+  index==+1
+RETURN
+
+PROC LiteralShiftSub(BYTE a CARD amount,start)
+  CARD index
+  index=start
+  literalShift(index)=(CARD(a) LSH 0)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 1)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 2)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 3)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 4)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 5)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 6)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 7)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 8)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 9)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 10)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 11)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 12)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 13)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 14)-amount
+  index==+1
+  literalShift(index)=(CARD(a) LSH 15)-amount
+  index==+1
+RETURN
+
+PROC Main()
+  CARD group,s,count,index,amount
+  signature=0
+  FillLiterals(value,firstIndex)
+
+  group=0
+  WHILE group<8 DO
+    amount=amounts(group)
+    index=firstIndex+group*16
+    IF group<5 THEN
+      LiteralShiftAdd(value,amount,index)
+    ELSE
+      LiteralShiftSub(value,amount,index)
+    FI
+    s=0
+    WHILE s<16 DO
+      count=shiftCounts(s)
+      IF group<5 THEN
+        runtimeBoth(index)=(CARD(value) LSH count)+amount
+      ELSE
+        runtimeBoth(index)=(CARD(value) LSH count)-amount
+      FI
+      index==+1
+      s==+1
+    OD
+    group==+1
+  OD
+
+  s=0
+  WHILE s<16 DO
+    count=shiftCounts(s)
+    index=firstIndex+s
+    literalAmount(index+0)=(CARD(value) LSH count)+CARD(15)
+    literalAmount(index+16)=(CARD(value) LSH count)+CARD(16)
+    literalAmount(index+32)=(CARD(value) LSH count)+CARD(111)
+    literalAmount(index+48)=(CARD(value) LSH count)+CARD(4096)
+    literalAmount(index+64)=(CARD(value) LSH count)+CARD(13421)
+    literalAmount(index+80)=(CARD(value) LSH count)-CARD(15)
+    literalAmount(index+96)=(CARD(value) LSH count)-CARD(16)
+    literalAmount(index+112)=(CARD(value) LSH count)-CARD(4096)
+    s==+1
+  OD
+  signature=$A5
+  DO OD
+RETURN
