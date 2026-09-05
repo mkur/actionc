@@ -96,12 +96,13 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
-fn embedded_record_arrays_are_not_publicly_enabled_before_backend_support() {
+fn embedded_record_arrays_are_modern_only_in_both_backends_and_runtimes() {
     let temp = TestDir::new();
     let source = write_source(
         &temp,
         "embedded-record-array.act",
-        "TYPE Buffer=[INT ARRAY values(100)] PROC Main() RETURN",
+        "TYPE Buffer=[INT ARRAY values(100)] Buffer data=[1 2 3],copy \
+         INT POINTER p=data.values PROC Main() copy=data copy.values(99)=p(1) RETURN",
     );
     for mode in [
         CompileMode::Compatibility,
@@ -109,11 +110,15 @@ fn embedded_record_arrays_are_not_publicly_enabled_before_backend_support() {
         CompileMode::Mir6502,
     ] {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let error = compile_file(
+            let result = compile_file(
                 &source,
                 &CompileOptions::for_mode(mode).with_runtime(runtime),
-            )
-            .unwrap_err();
+            );
+            if mode != CompileMode::Compatibility {
+                result.unwrap_or_else(|error| panic!("{mode:?}/{runtime:?}: {error}"));
+                continue;
+            }
+            let error = result.unwrap_err();
             assert!(error.diagnostics().iter().all(|diagnostic| {
                 diagnostic.phase == CompilerPhase::Semantic
             }));

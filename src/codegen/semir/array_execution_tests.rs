@@ -1,4 +1,4 @@
-//! Experimental end-to-end backend coverage without enabling public profiles.
+//! Cross-backend modern-profile execution tests with explicit memory oracles.
 use crate::codegen::{CodegenOutput, CodegenProfile};
 use crate::lexer::tokenize;
 use crate::parser::parse;
@@ -50,6 +50,10 @@ pub(super) fn outputs(source: &str) -> Vec<(String, CodegenOutput)> {
 }
 
 pub(super) fn execute(output: &CodegenOutput, initialize: impl FnOnce(&mut [u8; 65536])) -> [u8; 65536] {
+    execute_with_limit(output, 100_000, initialize)
+}
+
+pub(super) fn execute_with_limit(output: &CodegenOutput, step_limit: usize, initialize: impl FnOnce(&mut [u8; 65536])) -> [u8; 65536] {
     let mut memory = [0u8; 65536];
     if output.map.runtime == Runtime::ActionCart {
         // These arithmetic-only fixtures use the initial OSS type-15 mapping;
@@ -61,7 +65,11 @@ pub(super) fn execute(output: &CodegenOutput, initialize: impl FnOnce(&mut [u8; 
     let origin = usize::from(output.origin);
     memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
     initialize(&mut memory);
-    cpu::run_memory(&mut memory, usize::from(output.run_address));
+    if step_limit == 100_000 {
+        cpu::run_memory(&mut memory, usize::from(output.run_address));
+    } else {
+        cpu::run_memory_with_limit(&mut memory, usize::from(output.run_address), step_limit);
+    }
     memory
 }
 

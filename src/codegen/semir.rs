@@ -2101,6 +2101,8 @@ mod record_layout_tests;
 mod array_execution_tests;
 #[cfg(test)]
 mod array_aggregate_tests;
+#[cfg(test)]
+mod array_copy_tests;
 
 #[cfg(test)]
 mod tests {

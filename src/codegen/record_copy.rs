@@ -50,7 +50,8 @@ impl Generator {
 
         // Action evaluates the destination place before the source place. Save
         // the complete effective destination address because source indexing
-        // may reuse the compiler's pointer scratch registers.
+        // may reuse pointer scratch or execute another record copy. Keep this
+        // capture on the machine stack, not in the shared copy-address cell.
         let destination = match self.lvalue_slot(target) {
             Some(destination) if destination.size == size => destination,
             _ => return Some(false),
@@ -58,10 +59,10 @@ impl Generator {
         if !self.emit_slot_address(destination, runtime_zp::ARRAY_ADDR) {
             return Some(false);
         }
-        self.emit_lda_zero_page(runtime_zp::ARRAY_ADDR);
-        self.emit_sta_slot_byte(saved_destination, 0);
         self.emit_lda_zero_page(runtime_zp::ARRAY_ADDR.offset(1));
-        self.emit_sta_slot_byte(saved_destination, 1);
+        self.emitter.emit_pha();
+        self.emit_lda_zero_page(runtime_zp::ARRAY_ADDR);
+        self.emitter.emit_pha();
 
         let source = match self.lvalue_slot(value) {
             Some(source) if source.size == size => source,
@@ -72,8 +73,10 @@ impl Generator {
         }
         self.emit_pointer_to_record_scratch(runtime_zp::ARRAY_ADDR, scratch, size, span);
 
-        self.emit_slot_byte_to_zero_page(saved_destination, 0, runtime_zp::ARRAY_ADDR);
-        self.emit_slot_byte_to_zero_page(saved_destination, 1, runtime_zp::ARRAY_ADDR.offset(1));
+        self.emit_pla();
+        self.emit_sta_zero_page(runtime_zp::ARRAY_ADDR);
+        self.emit_pla();
+        self.emit_sta_zero_page(runtime_zp::ARRAY_ADDR.offset(1));
         self.emit_record_scratch_to_pointer(scratch, runtime_zp::ARRAY_ADDR, size, span);
         Some(true)
     }

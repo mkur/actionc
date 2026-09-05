@@ -419,8 +419,7 @@ pub struct SemanticOptions {
     pub native_real: bool,
     pub lexical_blocks: bool,
     pub comparison_values: bool,
-    /// Semantic-development capability only until lowering and both backends
-    /// support embedded arrays. Public compile modes leave this disabled.
+    /// Modern-profile fixed-length arrays stored inline inside records.
     pub embedded_record_arrays: bool,
     pub target: TargetId,
 }
@@ -431,7 +430,7 @@ impl SemanticOptions {
             native_real: true,
             lexical_blocks: true,
             comparison_values: true,
-            embedded_record_arrays: false,
+            embedded_record_arrays: true,
             target: TargetId::Atari6502,
         }
     }
@@ -4155,6 +4154,19 @@ impl Analyzer {
                     .is_record()
                     .then(|| self.static_initializer_leaf_types(&element_type))
                     .flatten();
+                if decl.storage == VarStorage::Array {
+                    let leaves_per_element = aggregate_leaves.as_ref().map_or(1, Vec::len);
+                    if leaves_per_element > 0
+                        && let Some(width) = self.value_storage_width(&element_type)
+                        && elements.len().div_ceil(leaves_per_element)
+                            .checked_mul(usize::from(width))
+                            .is_none_or(|extent| extent > usize::from(u16::MAX))
+                    {
+                        self.diagnostics.push(Diagnostic::new(initializer.span,
+                            "static initializer storage extent exceeds the supported 16-bit size"));
+                        return;
+                    }
+                }
                 for (index, element) in elements.iter().enumerate() {
                     let destination_type = aggregate_leaves
                         .as_ref()

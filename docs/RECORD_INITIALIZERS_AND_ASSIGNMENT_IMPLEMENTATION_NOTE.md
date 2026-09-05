@@ -73,6 +73,31 @@ The initial contract is:
 Record-valued parameters, return values, comparisons, and general record
 expressions are outside this change.
 
+### Embedded arrays and large copies
+
+Modern Atari record copies include complete embedded-array extents. Classic
+captures the destination address on the machine stack across source-place
+evaluation, so a source-index function may itself perform record copies without
+overwriting the outer destination capture. The full source is then staged in
+the existing private copy buffer before any destination write.
+
+MIR aggregate-copy selection bounds scalar expansion at 32 bytes. Larger copies
+use one full-size private staging buffer and a word counter per routine, with
+two counted loops built from existing MIR operations and CFG edges. Both
+addresses are captured before the staging loop; all source reads precede the
+destination loop. Canonical widths/strides are retained and volatile boundaries
+are preserved. Frame storage is reserved before physical layout. This is a
+lowering strategy for existing `CopyBytes`, not a source-specific optimization
+or a new NIR form. Small-copy selection remains in place, but now advances the
+pointer before transfers that would exceed Y's range. All copies compose the
+same full-word address/stride lowering used by scalar accesses.
+
+Guarded executions cover self-copy, both overlap directions, page-boundary
+lengths, nested/array/pointer places, ordered calls and unchanged source bytes.
+The modern public VM matrix exercises nine bounds on both backends and both
+runtimes. Pointer-valued record fields remain unsupported by classic and are
+not included in the enabled cross-backend element set.
+
 ## SemIR contract
 
 Semantic validation owns the distinction between scalar assignment, pointer

@@ -1512,12 +1512,14 @@ fn lower_ops(
                 source_volatile,
             } => {
                 let Some(destination) =
-                    lower_place_addr(routine, block, destination, &addr_defs, diagnostics)
+                    lower_access_addr(routine, block, destination, &addr_defs,
+                        next_generated_temp, generated_temps, &mut lowered, diagnostics)
                 else {
                     continue;
                 };
                 let Some(source) =
-                    lower_place_addr(routine, block, source, &addr_defs, diagnostics)
+                    lower_access_addr(routine, block, source, &addr_defs,
+                        next_generated_temp, generated_temps, &mut lowered, diagnostics)
                 else {
                     continue;
                 };

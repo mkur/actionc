@@ -1,6 +1,7 @@
 # Fixed-length arrays embedded inside records
 
-Status: implementation started, 2026-09-05. Public syntax remains disabled.
+Status: slices 1-5 complete, 2026-09-06. Atari modern classic and MIR6502
+support is enabled with both runtimes; slice 6 ports remain pending.
 Baseline: `6c73c1d`; 2,662 root tests passed (22 existing ignored), 100 VM
 tests passed, including 4,380 Oscar64 cases. No stage-5 ports have been added.
 
@@ -10,13 +11,11 @@ Enable structurally faithful ports of Oscar64 `structmembertest.c` without
 replacing embedded arrays with pointer fields or separate backing tables.
 `structarraycopy.c` also belongs to stage 5, but needs no new source construct.
 
-The initial policy is modern-only: modern classic and MIR6502, with both
+The enabled policy is modern-only: modern classic and MIR6502, with both
 ActionCart and Standalone linking. Compatibility will diagnose the extension
-during semantic analysis. This is the proposed default pending an explicit
-different profile choice. Keep the public modes disabled until semantic
-lowering, both backends and aggregate behavior are verified. An experimental
-semantic capability may be used to exercise development slices; it is not a
-claim of end-to-end compiler support.
+during semantic analysis. Public enablement followed semantic, backend and
+aggregate validation. Earlier slices used an experimental semantic capability;
+`SemanticOptions::modern()` now enables it through the public compiler profiles.
 
 ## Source contract
 
@@ -281,9 +280,8 @@ cartridge probes and arithmetic-scope details.
 
 ### 5. Aggregate behavior and public enablement
 
-Status: 5a (aggregate initializer leaf traversal) and 5b (static subobject
-addresses) implemented; record-copy validation and public enablement remain
-pending.
+Status: 5a initializer traversal, 5b static subobject addresses and 5c copy
+validation/public modern enablement complete and validated.
 
 5a shares one canonical typed leaf walker between semantic validation and
 SemIR initializer planning. Inline arrays repeat their resolved count/stride;
@@ -291,7 +289,7 @@ nested record elements recurse without treating padding as source elements.
 The existing static-write and relocation contract is unchanged. Tests cover
 recursive declaration order, partial/inferred zero-fill, local/global storage,
 REAL and address leaves, BYTE/CHAR/INT/CARD page-boundary lengths, aligned-target
-offsets and precise invalid-leaf diagnostics. Public profiles remain gated.
+offsets and precise invalid-leaf diagnostics. Public profiles stayed gated in 5a.
 
 5b resolves static subobjects in semantics to the existing SymbolId/addend
 contract. Pointer declarations accept exact field decay, address-of and explicit
@@ -303,6 +301,28 @@ locals, nested/record-array offsets above 255, inferred initialized arrays,
 module-owned storage and leaf-width errors. MIR data lowering now resolves
 local absolute/global/local aliases before omitted frame identities can become
 unknown relocation targets; ordinary alias-list regression coverage is included.
+
+5c enables Atari modern classic and MIR6502 with ActionCart and Standalone.
+Compatibility remains gated. The supported cross-backend element set is BYTE,
+CHAR, INT, CARD, REAL and complete supported records; classic's existing
+pointer-valued field restriction remains explicit, including pointer arrays.
+Large-copy validation exposed excessive MIR scalar-temp expansion and a classic
+destination capture clobbered by nested copying calls. MIR now stages large
+copies with bounded-size counted-loop IR and a full-size private buffer;
+classic stack-protects the destination capture across source evaluation.
+Both fixes generalize the existing record-copy paths. Initializer total-extent
+overflow is diagnosed before a checked-layout failure can discard its plan.
+Small copies also exposed indirect-Y extent failures at field offsets 254-257.
+The existing selector now advances the pointer first when required, and copies
+reuse scalar access lowering for full-word parent strides. Root tests cover
+these offsets and a 260-byte parent stride; the public VM covers the small-copy
+offset-255 case as well as large copies.
+
+Root execution tests cover the full scalar/REAL/record length matrix, overlap
+in both directions, self-copy, nested/local/pointer/record-array places and
+ordered/reentrant copying calls. A public VM fixture varies nine lengths in
+all four modern backend/runtime combinations, checking full memory images,
+guards, static addresses, partial initialization and exactly-once calls.
 
 - Extend the shared initializer leaf walker through embedded array elements;
   preserve partial initialization, zero-fill, relocations and diagnostics.
@@ -424,11 +444,32 @@ Slice 5b validated on 2026-09-06:
 - Explicit NIR snapshots and all 33 NIR sweep fixtures passed unchanged.
 - `git diff --check` passed. Public embedded-array profiles remain disabled.
 
-Slice 4 completes executable embedded-array access and the shared integer
-compound typing/order follow-up under the experimental capability.
-Aggregate initialization, subobject address relocations, full record-copy
-validation and public enablement remain slice 5. Structurally faithful Oscar64
-stage-5 ports remain slice 6.
+Slice 5c validated on 2026-09-06:
+
+- Root coverage: 2,740 tests verified passing, 22 existing ignored. The full
+  root run passed every integration target. One old selector unit expected
+  the former offset-range fallback; after updating it to assert pointer
+  advancement, the complete library rerun passed all 2,408 tests.
+- Seven tests added: five execution tests (320 copy executions across both
+  backends/runtimes), one bounded MIR-growth/CFG test and one initializer
+  overflow test. Existing profile gates now assert modern acceptance and
+  Compatibility rejection; no failing tests were ignored.
+- Isolated VM suite: 102 passed, 0 failed, 0 ignored. The new test covers
+  36 public modern executions, including small offset-255 copies. Its focused
+  rerun also passed. Oscar64 remains 4,380 cases in 24 tests; no stage-5 ports
+  are counted.
+- Explicit NIR snapshots and all 33 NIR sweep fixtures passed unchanged.
+  The broad corpus is 317 verified entrypoints plus the same five declared
+  non-entrypoints; only the new runtime fixture changes that ledger. Existing
+  MIR snapshots and CIRCLE/WARPDEM quality limits remain unchanged.
+- `git diff --check` passed. Fixture/profile changes are additive language
+  coverage and deliberate modern enablement; selector/capture changes are
+  shared backend correctness and bounded-expansion fixes.
+
+Slices 1-5 provide layout, executable places, aggregate initialization, static
+subobject relocations, full record-copy behavior and public modern support.
+Structurally faithful Oscar64 stage-5 ports remain slice 6 and are not included
+in the compiler implementation commits or current conformance totals.
 
 After each semantic/lowering slice:
 

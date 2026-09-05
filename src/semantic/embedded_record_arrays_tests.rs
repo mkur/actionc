@@ -262,12 +262,15 @@ fn embedded_record_arrays_preserve_module_owned_types_and_bounds() {
 }
 
 #[test]
-fn embedded_record_arrays_remain_disabled_in_public_semantic_defaults() {
+fn embedded_record_arrays_require_the_modern_semantic_profile() {
     let program =
         parse(&tokenize("TYPE Buffer=[INT ARRAY values(100)] PROC Main() RETURN").unwrap())
             .unwrap();
     for options in [SemanticOptions::default(), SemanticOptions::modern()] {
-        assert!(!options.embedded_record_arrays);
+        if options.embedded_record_arrays {
+            analyze_with_options(&program, options).unwrap();
+            continue;
+        }
         let errors = analyze_with_options(&program, options).unwrap_err();
         assert!(errors.iter().any(|error| {
             error

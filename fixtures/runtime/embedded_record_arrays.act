@@ -1,0 +1,45 @@
+; Modern-only aggregate contract. The VM harness varies Count and supplies RAM.
+CONST Count=257
+TYPE Buffer=[BYTE lead BYTE ARRAY bytes(Count) CHAR ARRAY chars(Count)
+             INT ARRAY ints(Count) CARD ARRAY words(Count) REAL ARRAY reals(1) BYTE tail]
+TYPE Holder=[BYTE lead Buffer item BYTE tail]
+TYPE Tiny=[BYTE tag CARD value]
+TYPE Padded=[BYTE ARRAY padding(255) Tiny item]
+Padded view=$7E01
+Padded POINTER smallSource
+Tiny smallDestination=$7F10
+Buffer source=$7001,destination=$7801,rightOverlap=$7002,leftOverlap=$7000
+Buffer initialized=[1 2 3]
+Buffer ARRAY work(2)
+BYTE POINTER first=initialized.bytes
+INT POINTER lastInt=@initialized.ints(Count-1)
+CARD ARRAY refs=[@initialized.words(Count-1)]
+BYTE order=$0600,targetCalls=$0601,sourceCalls=$0602,signature=$0603
+CARD initializedAddress=$0604,firstAddress=$0606,intAddress=$0608,wordAddress=$060A
+
+BYTE FUNC PickTarget()
+  targetCalls==+1 order=order*10+1
+RETURN(1)
+
+BYTE FUNC PickSource()
+  sourceCalls==+1 order=order*10+2
+RETURN(0)
+
+PROC Main()
+  Holder localData
+  order=0 targetCalls=0 sourceCalls=0
+  smallSource=view
+  smallDestination=smallSource.item
+  initializedAddress=CARD(@initialized)
+  firstAddress=CARD(first) intAddress=CARD(lastInt) wordAddress=refs(0)
+  work(0)=source
+  localData.item=work(0)
+  work(0)=localData.item
+  work(PickTarget())=work(PickSource())
+  destination=work(1)
+  destination=destination
+  rightOverlap=source
+  leftOverlap=rightOverlap
+  signature=$A5
+  DO OD
+RETURN

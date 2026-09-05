@@ -13,6 +13,7 @@ some ambiguous routine-address cases.
 
 - [Compile-Time Constants](#compile-time-constants)
 - [Comparison Values](#comparison-values)
+- [Fixed-Length Arrays Inside Records](#fixed-length-arrays-inside-records)
 - [Volatile Storage](#volatile-storage)
 - [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
 - [Typed Cast Expressions](#typed-cast-expressions)
@@ -24,6 +25,47 @@ some ambiguous routine-address cases.
 - [MADS-Style Inline Assembler](#mads-style-inline-assembler)
 - [Explicit Lexical Blocks](#explicit-lexical-blocks)
 - [Compatibility Policy](#compatibility-policy)
+
+## Fixed-Length Arrays Inside Records
+
+Modern classic and MIR6502 on Atari support arrays stored directly inside a
+record, with either ActionCart or Standalone runtime:
+
+```action
+CONST Count=100
+TYPE Buffers=[INT ARRAY x(Count),y(Count)]
+Buffers data=[1 2 3],copy
+INT POINTER first=data.x
+
+PROC Main()
+  data.y(99)=first(1)
+  copy=data
+RETURN
+```
+
+Bounds must be positive compile-time constants. Storage is inline: this example
+has 200 bytes for `x`, then 200 for `y`, with no member-array descriptor.
+BYTE, CHAR, INT, CARD, REAL and complete supported record elements are covered.
+Classic's existing restriction on pointer-valued record fields remains, including
+arrays of pointers. Incomplete and recursive by-value layouts are rejected.
+
+Direct, local, absolute, nested and pointer-based records support element access,
+as do arrays of records (`rows(r).x(i)`). `SIZEOF(data.x)` is 200,
+`ELEMENTS(data.x)` is 100, and layout queries do not execute their operands.
+An exact element-pointer or matching array-parameter context permits field
+decay; explicit address-of and pointer casts are also available. Member arrays
+cannot be rebound or assigned as whole arrays.
+
+Flat initializer lists visit fields and elements in declaration order and
+zero-fill missing values. Address leaves such as `[@data.x(1)]` use the normal
+relocation machinery. Static pointer initializers require known storage and
+constant indexes; runtime pointer/index expressions belong in routine statements.
+This extension does not add scalar non-pointer subobject-alias declarations.
+
+Whole-record assignment copies every embedded byte, including records larger
+than 255 bytes. Destination and source places are evaluated once, in that order;
+self-copy and overlapping aliases preserve whole-value semantics. No runtime
+bounds checks are added. Compatibility/legacy continues to reject array fields.
 
 ## Compile-Time Constants
 

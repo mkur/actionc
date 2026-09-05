@@ -182,4 +182,25 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn initializer_extent_overflow_is_diagnosed_before_a_plan_can_be_lost() {
+        for (declaration, count) in [
+            ("CARD ARRAY data", 32768),
+            ("TYPE Pair=[REAL ARRAY values(2)] Pair ARRAY data", 10923),
+        ] {
+            let values = std::iter::repeat_n("1", count)
+                .collect::<Vec<_>>()
+                .join(" ");
+            let source = format!("{declaration}=[{values}] PROC Main() RETURN");
+            let ast = parse(&tokenize(&source).unwrap()).unwrap();
+            let errors = analyze_with_options(&ast, SemanticOptions::modern()).unwrap_err();
+            assert!(
+                errors
+                    .iter()
+                    .any(|error| error.message.contains("static initializer storage extent")),
+                "{errors:?}"
+            );
+        }
+    }
 }

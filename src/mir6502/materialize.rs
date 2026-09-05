@@ -23,6 +23,7 @@ mod calls;
 mod cfg;
 mod compare_branch;
 mod copies;
+mod copy_loops;
 mod dead_spills;
 mod defs;
 mod dynamic_loops;
@@ -1335,6 +1336,10 @@ pub(super) fn materialize_program_with_reporting(
     let mut helpers = Vec::new();
     let mut peephole_stats = MirPeepholeStats::default();
     let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
+    for routine in &mut program.routines {
+        let selected = copy_loops::expand_large_aggregate_copies(routine);
+        peephole_stats.record_many(routine.id, "aggregate-copy-loop-selected", selected);
+    }
     refine_terminal_indirect_jump_effects(&mut program);
     reserve_pointer_scratch_slots(&mut program);
     allocate_zero_page_slots(&mut program);

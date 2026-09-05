@@ -174,7 +174,7 @@ fn select_copy(
 }
 
 fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlock> {
-    match addr {
+    let plan = match addr {
         MirAddr::Direct(_) => Ok(EndpointPlan::Direct(addr.clone())),
         MirAddr::ComputedIndex {
             base,
@@ -182,7 +182,6 @@ fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlo
             elem_size,
             offset,
         } => {
-            checked_indirect_extent(*offset, size)?;
             let scale = u8::try_from(*elem_size).map_err(|_| SelectionBlock::AddressForm)?;
             if scale == 0 {
                 return Err(SelectionBlock::AddressForm);
@@ -208,7 +207,6 @@ fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlo
             elem_size,
             offset,
         } => {
-            checked_indirect_extent(*offset, size)?;
             let scale = u8::try_from(*elem_size).map_err(|_| SelectionBlock::AddressForm)?;
             if scale == 0 {
                 return Err(SelectionBlock::AddressForm);
@@ -229,7 +227,6 @@ fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlo
             })
         }
         MirAddr::PointerCell { ptr, offset } => {
-            checked_indirect_extent(*offset, size)?;
             Ok(EndpointPlan::Prepared {
                 setup: vec![MirOp::MaterializeAddress {
                     consumer: DEFAULT_POINTER_PAIR,
@@ -239,7 +236,6 @@ fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlo
             })
         }
         MirAddr::Deref { ptr, offset } => {
-            checked_indirect_extent(*offset, size)?;
             Ok(EndpointPlan::Prepared {
                 setup: vec![MirOp::MaterializeAddress {
                     consumer: DEFAULT_POINTER_PAIR,
@@ -254,6 +250,22 @@ fn plan_endpoint(addr: &MirAddr, size: u16) -> Result<EndpointPlan, SelectionBlo
         | MirAddr::AbsoluteIndexedY { .. }
         | MirAddr::IndirectIndexedY { .. }
         | MirAddr::FixedIndirectIndexedY { .. } => Err(SelectionBlock::AddressForm),
+    }?;
+    if let EndpointPlan::Prepared { mut setup, first_offset } = plan {
+        if checked_indirect_extent(first_offset, size).is_ok() {
+            return Ok(EndpointPlan::Prepared { setup, first_offset });
+        }
+        // A small copy can still straddle or lie beyond Y's byte range.
+        // Fold the field offset into the pointer, retaining bounded Y lanes.
+        checked_indirect_extent(0, size)?;
+        setup.push(MirOp::AdvanceAddress {
+            consumer: DEFAULT_POINTER_PAIR,
+            index: MirValue::ConstU16(first_offset),
+            scale: 1,
+        });
+        Ok(EndpointPlan::Prepared { setup, first_offset: 0 })
+    } else {
+        Ok(plan)
     }
 }
 
@@ -309,7 +321,7 @@ fn expand_scalar_fallback(
     out
 }
 
-fn volatile_barrier() -> MirOp {
+pub(super) fn volatile_barrier() -> MirOp {
     MirOp::Barrier {
         effects: MirEffects {
             memory_reads: MirMemoryEffect::All,
@@ -455,9 +467,18 @@ mod tests {
     }
 
     #[test]
-    fn indirect_offset_overflow_uses_the_scalar_fallback() {
+    fn indirect_offset_overflow_advances_the_pointer_before_copying() {
+        for offset in [250, 255, 256, 511] {
+            let EndpointPlan::Prepared { setup, first_offset } =
+                plan_endpoint(&computed(12, offset), 12).expect("prepared high-offset copy")
+            else { panic!("expected a prepared address") };
+            assert_eq!(first_offset, 0);
+            assert!(matches!(setup.last(), Some(MirOp::AdvanceAddress {
+                index: MirValue::ConstU16(actual), scale: 1, ..
+            }) if *actual == offset));
+        }
         assert!(matches!(
-            plan_endpoint(&computed(12, 250), 12),
+            plan_endpoint(&computed(12, 0), 257),
             Err(SelectionBlock::OffsetRange)
         ));
         assert!(matches!(

@@ -4,6 +4,15 @@ Status: complete; slices 1-6 are implemented and validated.
 
 Snapshot date: 2026-08-30.
 
+Modern embedded-array follow-up (2026-09-06): semantic validation and SemIR
+planning now share one canonical scalar-leaf walk, repeating inline element
+counts/strides and skipping padding. This preserves recursive flat-list order,
+partial/inferred zero-fill, REAL leaves and symbol/addend relocations. Static
+field/index addresses reuse the same write plan. Rounded initialized extents
+that exceed the supported 16-bit storage size are diagnosed before lowering;
+an unrepresentable plan cannot silently become zero initialization. See
+[the embedded-array plan](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
+
 ## Goal
 
 Generalize static initializer lists so their meaning comes from the declared

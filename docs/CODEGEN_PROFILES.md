@@ -67,7 +67,8 @@ declarations, and machine-block label-byte syntax. They are not the switch that
 makes a source file "modern"; they are available so source can express intent
 explicitly.
 
-Explicit lexical `BEGIN`/`END` blocks and comparison-as-value expressions
+Explicit lexical `BEGIN`/`END` blocks, fixed-length arrays embedded inside
+records, and comparison-as-value expressions
 require the modern profile. In compatibility source, `BEGIN` and `END` remain
 ordinary identifier spellings and do not acquire cartridge token IDs.
 
@@ -78,6 +79,12 @@ AND/OR/XOR remain eager bitwise operators, not new short-circuit operators.
 Compatibility accepts comparisons in conditional contexts, but rejects numeric
 comparison values during semantic analysis with a modern-profile diagnostic.
 See [comparison values](SYNTAX_EXTENSIONS.md#comparison-values).
+
+Modern classic and MIR6502 support inline record arrays on Atari with both
+runtimes, including aggregate initialization, static subobject addresses and
+overlap-safe whole-record copies. Compatibility still rejects array fields.
+Classic's existing pointer-valued record-field restriction is unchanged. See
+[embedded arrays](SYNTAX_EXTENSIONS.md#fixed-length-arrays-inside-records).
 
 Legacy accepts many old Action! idioms that depend on implicit address-taking or
 loose routine-address handling. Modern prefers the explicit extension forms for
