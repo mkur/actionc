@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These twelve Action! fixtures adapt Oscar64 autotests into the existing
+These sixteen Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -40,27 +40,39 @@ translations or tests of C-only language behavior.
 | `testsigned16mul` | Multiply runtime INT by every coefficient -16..15, contrasting literal expansion with the runtime loop | Both operand orders; 33 representative inputs in -1024..1024 (not the original exhaustive outer sweep); guarded destination indexes up to 255 |
 | `arraytest` (16-bit portions) | All six sum/copy/reverse checks on 100 words with BYTE/INT indexes; original sums are 450 | Exact forward/reversed contents and unchanged sources; disjoint buffers at three base layouts; lengths 0, 1, 2, 100, 127, 128, 129, 255, 256, 257; BYTE-count variants only through 255 |
 | `fastcalltest` | Nested `P1(5,P2(C2(2),C2(4)))-13` is zero | 16 representative signed word triples with nonzero high bytes; repeated calls, exactly-once argument counters, and a private byte-leaf companion across all 256 byte values; unchanged inputs/full-page guards |
+| `testinterval` (INT portions) | Four counts of 500 for equivalent signed interval predicates | Runtime intervals across zero and near INT limits, strict/inclusive endpoints, reversed predicate order, empty/reversed bounds, and explicit IF endpoint-probe results |
+| `mixsigncmptest` | Four signed-word/unsigned-byte sweeps with exact true/false counts | 26 signed word inputs against all 256 BYTE values; all six predicates in both operand orders, branch results, odd-base guarded tables |
+| `testinterval_values`, `mixsigncmptest_values` | Modern-only companions to the two preceding ports | The same interval and mixed-comparison truth oracles, using numeric comparison values instead of IF assignments |
 
-All modes use both ActionCart and Standalone runtime linking. The first eight
+Cartridge-compatible sources run in all three modes; modern comparison-value
+companions run in Optimized and MIR6502. All use both ActionCart and Standalone
+runtime linking. The first eight
 ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
 copy/increment regressions remain active with their original loops and
 independent expected values.
 
 The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
-1 through 3 ported. Their current results are:
+1 through 4 ported. Their current results are:
 
-| Fixture | Host cases | VM cases (three modes, two runtimes) | Result |
+| Fixture | Host cases | VM cases | Result |
 | --- | ---: | ---: | --- |
 | `shiftbyteaddconst` | 256 | 1,536 | All pass |
 | `testsigned16mul` | 33 | 198 | All pass |
 | `arraytest` | 30 | 180 | All pass |
 | `fastcalltest` | 256 | 1,536 | All pass |
+| `testinterval` | 41 | 246 | All pass |
+| `mixsigncmptest` | 27 | 162 | All pass |
+| `testinterval_values` | 40 | 160 | Both modern backends/runtimes |
+| `mixsigncmptest_values` | 26 | 104 | Both modern backends/runtimes |
 
-Overall: **3,708 passing VM cases in 19 active passing tests**. No test is
-ignored or expects a panic. The first 2,172 cases remain green. Both the
-nested-call and classic reverse-copy regressions were repaired
+Overall: **4,380 VM cases in 24 active tests**: the existing 3,708 cases, 408
+stage-4 branch/count cases, and 264 modern-only value cases. No test is ignored
+or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
 [OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--fixed).
+Stage 4 now distinguishes the modern comparison-value extension from cartridge
+syntax and repairs signed-subtract overflow in both classic profiles; see
+[the contract and repairs](../../../docs/bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
 ## Action! semantics and harness contract
 
@@ -101,10 +113,24 @@ without changing fixture expressions or oracles. See
   arithmetic wraps explicitly, and the host oracle checks exactly-once counts
   without asserting C argument order. Word inputs are at `$06E0..$06E5`;
   byte inputs occupy `$06F0/$06F2/$06F4`. All other host-page gaps stay poisoned.
+- `testinterval` omits Oscar64's signed-byte section. Rust derives interval
+  counts by intersecting bounds in a wider signed type; endpoint probes check
+  each truth value independently. `mixsigncmptest` uses Action!'s
+  INT precedence for mixed INT/BYTE comparisons, so BYTE values stay unsigned
+  when widened. Both operand orders have independently calculated results.
+  Its original counts are `7893/13017`, `7899/13011`, `13017/7893`, and
+  `13011/7899`; the extended branch table uses `$A5/$5A`, while the value table
+  requires `1/0`. A runtime flag chooses original or extended branch checks,
+  with full-page guards and unchanged inputs. Numeric comparison expressions
+  live in separate `_values` companions because the original cartridge rejects
+  them. Compatibility uses explicit IF results, not a silent backend workaround;
+  both forms retain the same independent truth/count oracles. Unused tables and
+  result slots remain poisoned and checked.
 - Oscar64's compile-time `#for` in `maskcheck` is expanded to literal-mask
   branches. Automatic C zero-initialized arrays become explicit initialization
   on each Action! call.
-- Original results begin at `$0600`, host inputs at `$06F0`, and completion is
+- Original results begin at `$0600`, host inputs occupy fixture-declared cells
+  near the end of the `$0600` page, and completion is
   `$A5` at `$06FF`. All result/configuration bytes start poisoned. Fixed test
   buffers are surrounded by checked guards; inputs/guards cannot overlap a
   loaded object segment. Each case gets a fresh VM.
@@ -112,7 +138,8 @@ without changing fixture expressions or oracles. See
   multiplication) or `$7001/$7403/$7805/$7C07` (shift composition). Host offset
   inputs exercise different destination indexes. The reverse-copy test uses
   five disjoint external buffers plus three independently guarded original
-  buffers. All new host input words/tables must remain unchanged.
+  buffers. Mixed-comparison tables use `$5001/$6003`, with guards checked
+  throughout `$4F00..$6CFF`. All new host input words/tables must remain unchanged.
 - Fixtures finish in `DO OD`. The harness requires completion within a bounded
   instruction budget, then checks memory. These budgets are watchdogs, not
   benchmark timings. Optimizer selection counts are deliberately not asserted.
@@ -140,6 +167,8 @@ cargo test --locked --test oscar64_conformance oscar64_signed_multiply
 cargo test --locked --test oscar64_conformance oscar64_mir_reverse
 cargo test --locked --test oscar64_conformance oscar64_classic_reverse
 cargo test --locked --test oscar64_conformance oscar64_nested_calls
+cargo test --locked --test oscar64_conformance oscar64_signed_intervals
+cargo test --locked --test oscar64_conformance oscar64_mixed_signed_comparison
 ```
 
 The existing VM CI job runs `cargo test --locked`, so the active tests need no
@@ -147,6 +176,16 @@ new runner, dependency, or workflow. Root `cargo test` does not execute this
 isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
 ## Compiler regressions
+
+### OSCAR-COMPARISON-VALUE — modern extension implemented
+
+The original cartridge rejects comparison values. Modern classic and MIR6502
+now support BYTE 0/1 results using existing comparison/branch machinery, while
+Compatibility rejects numeric uses during semantic analysis. All branch/count
+checks remain enabled across three modes; value checks use both modern backends.
+Execution exposed signed subtraction overflow in classic, now repaired through
+the shared N xor V branch path. See the
+[profile boundary and regression coverage](../../../docs/bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
 ### OSCAR-COMPAT-NESTED-CALL — fixed
 

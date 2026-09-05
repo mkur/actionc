@@ -1,0 +1,84 @@
+; Adapted from Oscar64 autotest/mixsigncmptest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+; INT/BYTE promotes to INT; BYTE remains unsigned 0..255.
+CARD ARRAY original(8)=$0600
+BYTE ARRAY branches(3072)=$5001
+INT wordValue=$06F0
+BYTE originalOnly=$06FC,signature=$06FF
+
+PROC CheckOriginal()
+  INT i
+  BYTE j
+  original(0)=0 original(1)=0
+  i=-1000
+  WHILE i<2000 DO
+    j=0
+    WHILE j<255 DO
+      IF i<j THEN original(0)==+1 ELSE original(1)==+1 FI
+      j==+1
+    OD
+    i==+37
+  OD
+  original(2)=0 original(3)=0
+  i=-1000
+  WHILE i<2000 DO
+    j=0
+    WHILE j<255 DO
+      IF i<=j THEN original(2)==+1 ELSE original(3)==+1 FI
+      j==+1
+    OD
+    i==+37
+  OD
+  original(4)=0 original(5)=0
+  i=-1000
+  WHILE i<2000 DO
+    j=0
+    WHILE j<255 DO
+      IF i>=j THEN original(4)==+1 ELSE original(5)==+1 FI
+      j==+1
+    OD
+    i==+37
+  OD
+  original(6)=0 original(7)=0
+  i=-1000
+  WHILE i<2000 DO
+    j=0
+    WHILE j<255 DO
+      IF i>j THEN original(6)==+1 ELSE original(7)==+1 FI
+      j==+1
+    OD
+    i==+37
+  OD
+RETURN
+
+PROC Grid()
+  CARD k,offset
+  INT i
+  BYTE j
+  i=wordValue k=0 offset=0
+  WHILE k<256 DO
+    j=BYTE(k)
+    IF i<j THEN branches(offset+0)=$A5 ELSE branches(offset+0)=$5A FI
+    IF i<=j THEN branches(offset+1)=$A5 ELSE branches(offset+1)=$5A FI
+    IF i>=j THEN branches(offset+2)=$A5 ELSE branches(offset+2)=$5A FI
+    IF i>j THEN branches(offset+3)=$A5 ELSE branches(offset+3)=$5A FI
+    IF i=j THEN branches(offset+4)=$A5 ELSE branches(offset+4)=$5A FI
+    IF i#j THEN branches(offset+5)=$A5 ELSE branches(offset+5)=$5A FI
+    IF j<i THEN branches(offset+6)=$A5 ELSE branches(offset+6)=$5A FI
+    IF j<=i THEN branches(offset+7)=$A5 ELSE branches(offset+7)=$5A FI
+    IF j>=i THEN branches(offset+8)=$A5 ELSE branches(offset+8)=$5A FI
+    IF j>i THEN branches(offset+9)=$A5 ELSE branches(offset+9)=$5A FI
+    IF j=i THEN branches(offset+10)=$A5 ELSE branches(offset+10)=$5A FI
+    IF j#i THEN branches(offset+11)=$A5 ELSE branches(offset+11)=$5A FI
+    k==+1 offset==+12
+  OD
+RETURN
+
+PROC Main()
+  signature=0
+  IF originalOnly THEN CheckOriginal() ELSE Grid() FI
+  signature=$A5
+  DO OD
+RETURN

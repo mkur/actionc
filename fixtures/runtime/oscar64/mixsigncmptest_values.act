@@ -1,0 +1,31 @@
+; Modern comparison-value companion to mixsigncmptest.act.
+; Adapted from Oscar64 autotest/mixsigncmptest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+BYTE ARRAY values(3072)=$6003
+INT wordValue=$06F0
+BYTE signature=$06FF
+PROC Main()
+  CARD k,offset
+  INT i
+  BYTE j
+  i=wordValue k=0 offset=0
+  WHILE k<256 DO
+    j=BYTE(k)
+    values(offset+0)=(i<j)
+    values(offset+1)=(i<=j)
+    values(offset+2)=(i>=j)
+    values(offset+3)=(i>j)
+    values(offset+4)=(i=j)
+    values(offset+5)=(i#j)
+    values(offset+6)=(j<i)
+    values(offset+7)=(j<=i)
+    values(offset+8)=(j>=i)
+    values(offset+9)=(j>i)
+    values(offset+10)=(j=i)
+    values(offset+11)=(j#i)
+    k==+1 offset==+12
+  OD
+  signature=$A5
+  DO OD
+RETURN

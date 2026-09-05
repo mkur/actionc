@@ -17,6 +17,7 @@ const ALL_MODES: &[CompileMode] = &[
 ];
 const CLASSIC_MODES: &[CompileMode] = &[CompileMode::Compatibility, CompileMode::Optimized];
 const MIR_MODE: &[CompileMode] = &[CompileMode::Mir6502];
+const MODERN_MODES: &[CompileMode] = &[CompileMode::Optimized, CompileMode::Mir6502];
 
 #[derive(Default)]
 struct Case {
@@ -64,12 +65,20 @@ fn run_cases_in_modes(name: &str, max_steps: u64, cases: &[Case], modes: &[Compi
     let mut failures = Vec::new();
     for &mode in modes {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let compiled = compile_file(
+            let compiled = match compile_file(
                 root.join("fixtures/runtime/oscar64")
                     .join(format!("{name}.act")),
                 &CompileOptions::for_mode(mode).with_runtime(runtime),
-            )
-            .unwrap_or_else(|error| panic!("compile {name}/{mode:?}/{runtime:?}: {error}"));
+            ) {
+                Ok(compiled) => compiled,
+                Err(error) => {
+                    failures.push(format!(
+                        "compile {name}/{mode:?}/{runtime:?}: {error}; {} host cases not executed",
+                        cases.len()
+                    ));
+                    continue;
+                }
+            };
             for case in cases {
                 let label = format!("{name}/{mode:?}/{runtime:?}/{}", case.label);
                 let mut vm = CompilerVm::default();
@@ -644,4 +653,194 @@ fn oscar64_nested_calls_preserve_arguments_and_evaluate_each_once() {
         })
         .collect();
     run_cases("fastcalltest", 25_000, &cases);
+}
+
+fn host_page_after_setup(case: &Case) -> Vec<u8> {
+    let mut expected = vec![POISON; 0x100];
+    for (address, bytes) in &case.setup {
+        if (0x0600..0x0700).contains(address) {
+            let offset = usize::from(*address - 0x0600);
+            expected[offset..offset + bytes.len()].copy_from_slice(bytes);
+        }
+    }
+    expected[0xFF] = 0xA5;
+    expected
+}
+
+#[test]
+fn oscar64_signed_intervals_preserve_endpoints_and_predicate_order() {
+    run_cases("testinterval", 300_000, &signed_interval_cases(false));
+}
+
+#[test]
+fn oscar64_signed_intervals_materialize_values_in_modern() {
+    run_cases_in_modes(
+        "testinterval_values",
+        20_000,
+        &signed_interval_cases(true),
+        MODERN_MODES,
+    );
+}
+
+fn signed_interval_cases(values: bool) -> Vec<Case> {
+    let mut original = Case::new("original -1000..1000 sweep");
+    original.read_only_words(0x06FC, &[1]);
+    let mut page = host_page_after_setup(&original);
+    for i in 0..4 {
+        write_word(&mut page, i * 2, 500);
+    }
+    original.expected.push((0x0600, page));
+    let mut cases = if values { Vec::new() } else { vec![original] };
+    for [first, finish, lo, hi] in [
+        [-4i16, 5, -2, 3],
+        [-260, 261, 0, 256],
+        [-260, 261, -129, 128],
+        [-32768, -32760, -32768, -32764],
+        [32760, 32767, 32762, 32767],
+        [-2, 3, 0, 0],
+        [-2, 3, 1, -1],
+        [0, 0, -1, 1],
+        [-1000, 1000, -500, 500],
+    ] {
+        let mut probes: Vec<i16> = [
+            i32::from(lo) - 1,
+            i32::from(lo),
+            i32::from(hi) - 1,
+            i32::from(hi),
+            i32::from(hi) + 1,
+        ]
+        .into_iter()
+        .filter_map(|value| i16::try_from(value).ok())
+        .collect();
+        probes.sort_unstable();
+        probes.dedup();
+        for probe in probes {
+            let mut case = Case::new(format!(
+                "range=[{first},{finish}), bounds=({lo},{hi}), probe={probe}"
+            ));
+            case.read_only_words(
+                0x06E0,
+                &[
+                    first as u16,
+                    finish as u16,
+                    lo as u16,
+                    hi as u16,
+                    probe as u16,
+                ],
+            );
+            case.read_only_words(0x06FC, &[0]);
+            let mut page = host_page_after_setup(&case);
+            // Count the intersection arithmetically in i32, independently
+            // of the compiled loop; inclusive INT endpoints cannot overflow.
+            for (group, (strict_low, inclusive_high)) in
+                [(false, false), (false, true), (true, false), (true, true)]
+                    .into_iter()
+                    .enumerate()
+            {
+                let lower = i32::from(lo) + i32::from(strict_low);
+                let upper = i32::from(hi) + i32::from(inclusive_high);
+                let count =
+                    (i32::from(finish).min(upper) - i32::from(first).max(lower)).max(0) as u16;
+                let truth = u8::from(i32::from(probe) >= lower && i32::from(probe) < upper);
+                for order in 0..2 {
+                    if !values {
+                        write_word(&mut page, 0x10 + 2 * (group * 2 + order), count);
+                    }
+                    page[0x40 + group * 2 + order] = truth;
+                }
+            }
+            case.expected.push((0x0600, page));
+            cases.push(case);
+        }
+    }
+    cases
+}
+
+#[test]
+fn oscar64_mixed_signed_comparison_original_counts_match() {
+    let mut case = Case::new("original four INT/BYTE sweeps");
+    case.read_only_words(0x06FC, &[1]);
+    let mut counts = [0u16; 8];
+    for i in (-1000i32..2000).step_by(37) {
+        for j in 0..255 {
+            for (predicate, truth) in [i < j, i <= j, i >= j, i > j].into_iter().enumerate() {
+                counts[2 * predicate + usize::from(!truth)] += 1;
+            }
+        }
+    }
+    assert_eq!(counts, [7893, 13017, 7899, 13011, 13017, 7893, 13011, 7899]);
+    let mut page = host_page_after_setup(&case);
+    for (i, count) in counts.into_iter().enumerate() {
+        write_word(&mut page, i * 2, count);
+    }
+    case.expected.push((0x0600, page));
+    let untouched = vec![0xA5; 0x1E00];
+    case.setup.push((0x4F00, untouched.clone()));
+    case.expected.push((0x4F00, untouched));
+    run_cases("mixsigncmptest", 12_000_000, &[case]);
+}
+
+#[test]
+fn oscar64_mixed_signed_comparison_grid_checks_branches() {
+    run_cases("mixsigncmptest", 200_000, &mixed_comparison_cases(false));
+}
+
+#[test]
+fn oscar64_mixed_signed_comparison_grid_materializes_values_in_modern() {
+    run_cases_in_modes(
+        "mixsigncmptest_values",
+        200_000,
+        &mixed_comparison_cases(true),
+        MODERN_MODES,
+    );
+}
+
+fn mixed_comparison_cases(values: bool) -> Vec<Case> {
+    [
+        -32768i16, -32767, -1001, -1000, -513, -256, -255, -129, -128, -1, 0, 1, 126, 127, 128,
+        129, 254, 255, 256, 257, 511, 1000, 1997, 2000, 32766, 32767,
+    ]
+    .into_iter()
+    .map(|word| {
+        let mut case = Case::new(format!("INT={word}, BYTE=0..255"));
+        case.read_only_words(0x06F0, &[word as u16]);
+        case.read_only_words(0x06FC, &[0]);
+        case.expected.push((0x0600, host_page_after_setup(&case)));
+        let mut expected = vec![0xA5; 0x1E00];
+        // Neither branch outcome nor a Boolean value may match an unwritten
+        // result; keep the surrounding guards distinct from table poison.
+        expected[0x101..0xD01].fill(POISON);
+        expected[0x1103..0x1D03].fill(POISON);
+        case.setup.push((0x4F00, expected.clone()));
+        for byte in 0u16..=255 {
+            let (i, j) = (i32::from(word), i32::from(byte));
+            for (predicate, truth) in [
+                i < j,
+                i <= j,
+                i >= j,
+                i > j,
+                i == j,
+                i != j,
+                j < i,
+                j <= i,
+                j >= i,
+                j > i,
+                j == i,
+                j != i,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let offset = usize::from(byte) * 12 + predicate;
+                if values {
+                    expected[0x1103 + offset] = u8::from(truth);
+                } else {
+                    expected[0x101 + offset] = if truth { 0xA5 } else { 0x5A };
+                }
+            }
+        }
+        case.expected.push((0x4F00, expected));
+        case
+    })
+    .collect()
 }

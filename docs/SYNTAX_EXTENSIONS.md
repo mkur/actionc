@@ -1,8 +1,9 @@
 # actionc Syntax Extensions
 
 This note tracks source syntax that is intentionally accepted by `actionc` but
-is not part of strict Action! compatibility. These forms are accepted in both
-`legacy` and `modern` profiles where the owning backend supports them. They make
+is not part of strict Action! compatibility. Unless marked modern-only, these
+forms are accepted in both `legacy` and `modern` profiles where the owning
+backend supports them. They make
 source intent explicit without relying on the original compiler's loose typing
 behavior. Legacy code may still use many old implicit idioms; modernized code
 should prefer these explicit forms, and the modern profile requires them for
@@ -11,6 +12,7 @@ some ambiguous routine-address cases.
 ## Contents
 
 - [Compile-Time Constants](#compile-time-constants)
+- [Comparison Values](#comparison-values)
 - [Volatile Storage](#volatile-storage)
 - [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
 - [Typed Cast Expressions](#typed-cast-expressions)
@@ -66,6 +68,8 @@ unary `+` and `-`, explicit `BYTE`, `CHAR`, `CARD`, and `INT` casts, and the
 arithmetic and bitwise operators `+`, `-`, `*`, `/`, `MOD`, `LSH`, `RSH`,
 `AND`, `OR`, and `XOR`. Calls, storage references, strings, addresses, and the
 current-location `*` value are not constant expressions.
+The modern profile also permits scalar comparisons and their composition in
+CONST expressions; the result of each comparison is BYTE 0 or 1.
 
 A constant has no address and allocates no storage. It works anywhere its
 typed value is accepted, including array bounds, initializers, `SET`, fixed
@@ -75,6 +79,30 @@ original Action! cartridge compiler does not recognize it.
 
 `DEFINE` remains available for textual type aliases, directive macros, and
 machine-byte macros. `CONST` does not change those expansion rules.
+
+## Comparison Values
+
+Modern classic and MIR6502 support `<`, `<=`, `>`, `>=`, `=`, and `#`/`<>`
+as expressions producing BYTE 0 (false) or 1 (true):
+
+```action
+result=(x<y)
+wide=(x>=lo AND x<hi)
+PrintBE(x=y)
+RETURN(x#y)
+```
+
+These values can be assigned, passed, returned, indexed with, or composed with
+ordinary arithmetic/bitwise operators. Comparison operands use the existing
+promotion rules; assignment to INT/CARD zero-extends the BYTE result.
+In value context, AND/OR/XOR evaluate both operands and remain bitwise: for
+example, `(x<y) OR 2` produces 2 or 3. This does not change the existing
+conditional AND/OR behavior.
+
+This feature is modern-only. The original cartridge does not assign numeric
+values to relational expressions. Compatibility rejects value uses during
+semantic analysis with `comparison values require the modern profile`;
+comparisons in IF, WHILE and UNTIL conditions remain supported.
 
 ## Volatile Storage
 

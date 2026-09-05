@@ -1,0 +1,71 @@
+; Modern comparison values: widths, composition, calls and captured destinations.
+BYTE ARRAY result(32)=$0600,table(257)=$5001
+CARD ARRAY words(257)=$5403
+CARD wide=$0640
+INT s=$06E0,t=$06E2
+CARD u=$06E4,v=$06E6,index=$06E8,base=$06EA,nextBase=$06EC
+BYTE a=$06EE,b=$06EF,calls=$06F0,order=$06F1,signature=$06FF
+BYTE POINTER p
+
+BYTE FUNC Left()
+  calls==+1 order=BYTE(order*10+1)
+RETURN(a)
+BYTE FUNC Right()
+  calls==+1 order=BYTE(order*10+2)
+RETURN(b)
+INT FUNC LeftWord()
+  calls==+1 order=BYTE(order*10+1)
+RETURN(s)
+INT FUNC RightWord()
+  calls==+1 order=BYTE(order*10+2)
+RETURN(t)
+BYTE FUNC Retarget()
+  calls==+1 order=BYTE(order*10+1) p=nextBase
+RETURN(a)
+BYTE FUNC Id(BYTE value)
+RETURN(value)
+BYTE FUNC Choose()
+  IF a THEN RETURN(s<t) FI
+RETURN(u<v)
+
+PROC Main()
+  calls=0 order=0 p=base
+  result(0)=(a<b)
+  result(1)=(a<=b)
+  result(2)=(a>=b)
+  result(3)=(a>b)
+  result(4)=(a=b)
+  result(5)=(a#b)
+  result(6)=(u<v)
+  result(7)=(u<=v)
+  result(8)=(u>=v)
+  result(9)=(u>v)
+  result(10)=(u=v)
+  result(11)=(u#v)
+  result(12)=(s<t)
+  result(13)=(s<=t)
+  result(14)=(s>=t)
+  result(15)=(s>t)
+  result(16)=(s=t)
+  result(17)=(s#t)
+  result(18)=Id(s<t)
+  result(19)=(a<b)+(u<v)
+  result(20)=(s<t AND u<v)
+  result(21)=(s<t) OR 2
+  result(22)=(s<t) XOR 1
+  result(23)=(a<b)=(u<v)
+  result(24)=(Left()<Right())
+  result(25)=(LeftWord()<RightWord())
+  result(26)=(Left()<Right() AND LeftWord()<RightWord())
+  result(27)=Id(Left()<Right())
+  result(28)=(p(0)<p(1))
+  result(29)=table(s<t)
+  result(30)=BYTE((s<t)+5)
+  result(31)=Choose()
+  wide=(s<t)
+  table(index)=(u<v)
+  words(index)=(s<t)
+  p(index)=(Retarget()<Right())
+  signature=$A5
+  DO OD
+RETURN

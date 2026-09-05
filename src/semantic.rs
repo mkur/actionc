@@ -401,6 +401,7 @@ pub struct StmtFlowFacts {
 pub struct SemanticOptions {
     pub native_real: bool,
     pub lexical_blocks: bool,
+    pub comparison_values: bool,
     pub target: TargetId,
 }
 
@@ -409,6 +410,7 @@ impl SemanticOptions {
         Self {
             native_real: true,
             lexical_blocks: true,
+            comparison_values: true,
             target: TargetId::Atari6502,
         }
     }
@@ -1691,9 +1693,9 @@ impl Analyzer {
 
     fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
         let diagnostic_count = self.diagnostics.len();
-        self.expect_expr(scope, expr, expr.span);
+        self.expect_expr_in_context(scope, expr, expr.span, true);
         if self.diagnostics.len() == diagnostic_count {
-            self.lower_expr(scope, expr);
+            self.lower_expr_in_context(scope, expr, true);
         }
     }
 
@@ -2065,6 +2067,15 @@ impl Analyzer {
     }
 
     fn classify_subject(&mut self, scope: ScopeId, expr: &Expr) -> subject::SemSubject {
+        self.classify_subject_in_context(scope, expr, false)
+    }
+
+    fn classify_subject_in_context(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        condition: bool,
+    ) -> subject::SemSubject {
         match &expr.kind {
             ExprKind::Missing => self.subject_error(expr.span),
             ExprKind::Raw => subject::SemSubject::Expr(subject::SemExpr {
@@ -2224,8 +2235,19 @@ impl Analyzer {
                 })
             }
             ExprKind::Binary { op, left, right } => {
-                let left = self.expect_expr(scope, left, expr.span);
-                let right = self.expect_expr(scope, right, expr.span);
+                if is_condition_op(*op) && !condition && !self.options.comparison_values {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        "comparison values require the modern profile",
+                    ));
+                }
+                // Only conditional AND/OR propagate predicate context. A
+                // comparison's operands, casts, calls and indexes still need
+                // ordinary values, even when nested inside an IF condition.
+                let predicate_operands = condition && matches!(op, BinaryOp::And | BinaryOp::Or);
+                let left = self.expect_expr_in_context(scope, left, expr.span, predicate_operands);
+                let right =
+                    self.expect_expr_in_context(scope, right, expr.span, predicate_operands);
                 let uses_real = left.ty.is_real() || right.ty.is_real();
                 let ty =
                     if uses_real && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value()) {
@@ -2778,7 +2800,17 @@ impl Analyzer {
     }
 
     fn expect_expr(&mut self, scope: ScopeId, expr: &Expr, span: Span) -> subject::SemExpr {
-        match self.classify_subject(scope, expr) {
+        self.expect_expr_in_context(scope, expr, span, false)
+    }
+
+    fn expect_expr_in_context(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        span: Span,
+        condition: bool,
+    ) -> subject::SemExpr {
+        match self.classify_subject_in_context(scope, expr, condition) {
             subject::SemSubject::Expr(expr) => expr,
             subject::SemSubject::Place(place) => subject::SemExpr {
                 ty: place.ty.clone(),
@@ -2989,7 +3021,16 @@ impl Analyzer {
     }
 
     fn lower_expr(&mut self, scope: ScopeId, expr: &Expr) -> subject::SemExpr {
-        let subject = self.classify_subject(scope, expr);
+        self.lower_expr_in_context(scope, expr, false)
+    }
+
+    fn lower_expr_in_context(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        condition: bool,
+    ) -> subject::SemExpr {
+        let subject = self.classify_subject_in_context(scope, expr, condition);
         if matches!(subject, subject::SemSubject::TypeRef(_)) {
             self.diagnostics
                 .push(Diagnostic::new(expr.span, "expected value expression"));
@@ -4928,8 +4969,12 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
             }
         }
         subject::SemExprKind::Binary { op, left, right } => {
-            let left = evaluate_const_expr(left)?.bits;
-            let right = evaluate_const_expr(right)?.bits;
+            let left_value = evaluate_const_expr(left)?;
+            let right_value = evaluate_const_expr(right)?;
+            let signed =
+                ScalarType::promote_binary(left_value.ty, right_value.ty) == ScalarType::Int;
+            let left = left_value.bits;
+            let right = right_value.bits;
             match op {
                 BinaryOp::Add => left.wrapping_add(right),
                 BinaryOp::Sub => left.wrapping_sub(right),
@@ -4961,7 +5006,20 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
                 | BinaryOp::Le
                 | BinaryOp::Gt
                 | BinaryOp::Ge => {
-                    return Err("comparisons are not supported in CONST expressions".to_string());
+                    let (left, right) = if signed {
+                        (i32::from(left as i16), i32::from(right as i16))
+                    } else {
+                        (i32::from(left), i32::from(right))
+                    };
+                    u16::from(match op {
+                        BinaryOp::Eq => left == right,
+                        BinaryOp::Ne => left != right,
+                        BinaryOp::Lt => left < right,
+                        BinaryOp::Le => left <= right,
+                        BinaryOp::Gt => left > right,
+                        BinaryOp::Ge => left >= right,
+                        _ => unreachable!(),
+                    })
                 }
             }
         }
@@ -9498,6 +9556,92 @@ mod tests {
         assert!(errors
             .iter()
             .any(|diagnostic| diagnostic.message.contains("has no field `missing`")));
+    }
+
+    #[test]
+    fn comparison_values_require_modern_in_every_value_context() {
+        for body in [
+            "result=(x<j)",
+            "word=(x<j)",
+            "result=(x<j)+1",
+            "result=BYTE(x<j)",
+            "result=(x<j AND j<255)",
+            "result=(x<j) XOR (j=0)",
+            "result=Id(x<j)",
+            "data(x<j)=7",
+            "result==+(x<j)",
+            "IF Id(x<j) THEN result=1 FI",
+            "IF (x<j)+1 THEN result=1 FI",
+            "IF (x<j)=1 THEN result=1 FI",
+        ] {
+            let source = format!(
+                "INT x BYTE j,result CARD word BYTE ARRAY data(2) \
+                 BYTE FUNC Id(BYTE a) RETURN(a) PROC Main() {body} RETURN"
+            );
+            let errors = analyze_source_err(&source);
+            assert!(
+                errors
+                    .iter()
+                    .any(|error| error.message == "comparison values require the modern profile"),
+                "{body}: {errors:?}"
+            );
+            analyze_modern_source(&source);
+        }
+        let source = "INT x BYTE j BYTE FUNC Less() RETURN(x<j) PROC Main() RETURN";
+        assert!(
+            analyze_source_err(source)
+                .iter()
+                .any(|error| error.message == "comparison values require the modern profile")
+        );
+        analyze_modern_source(source);
+        // This gate precedes constant folding, including CONST definitions.
+        let source = "CONST Less=(1<2) PROC Main() RETURN";
+        assert!(
+            analyze_source_err(source)
+                .iter()
+                .any(|error| error.message == "comparison values require the modern profile")
+        );
+        analyze_modern_source(source);
+    }
+
+    #[test]
+    fn compatibility_keeps_comparisons_in_conditional_contexts() {
+        analyze_source(
+            "INT x BYTE j,result PROC Main() \
+             IF x<j AND j<255 OR x=0 THEN result=1 FI \
+             WHILE x<j DO x==+1 OD DO x==-1 UNTIL x<=j OD RETURN",
+        );
+    }
+
+    #[test]
+    fn modern_constant_comparisons_use_operand_promotion_and_byte_results() {
+        for (expr, expected) in [
+            ("1<2", 1),
+            ("1<=1", 1),
+            ("2>1", 1),
+            ("1>=2", 0),
+            ("1=1", 1),
+            ("1#1", 0),
+            ("INT($8000)<INT($7FFF)", 1),
+            ("INT($FFFF)<BYTE(255)", 1),
+            ("INT($FFFF)<CARD(1)", 0),
+            ("CARD($FFFF)=INT(-1)", 1),
+            ("(1<2) OR 2", 3),
+        ] {
+            let model = analyze_modern_source(&format!("CONST Answer=({expr}) PROC Main() RETURN"));
+            let id = model
+                .symbols
+                .lookup(model.symbols.global_scope(), "Answer")
+                .unwrap();
+            assert_eq!(
+                model.constants[&id],
+                ConstValue {
+                    ty: ScalarType::Byte,
+                    bits: expected,
+                },
+                "{expr}"
+            );
+        }
     }
 
     fn analyze_source(source: &str) -> SemanticModel {

@@ -825,6 +825,9 @@ impl Generator {
                 op: UnaryOp::Plus | UnaryOp::Neg,
                 ..
             } => self.emit_unary_expr_to_slot(expr, slot),
+            ExprKind::Binary { op, .. } if branch::CompareOp::from_binary(*op).is_some() => {
+                self.emit_comparison_value_to_slot(expr, slot)
+            }
             ExprKind::Binary {
                 op:
                     BinaryOp::Add

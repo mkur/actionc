@@ -67,9 +67,17 @@ declarations, and machine-block label-byte syntax. They are not the switch that
 makes a source file "modern"; they are available so source can express intent
 explicitly.
 
-Explicit lexical `BEGIN`/`END` blocks are the exception: they require the modern
-profile. In compatibility source, `BEGIN` and `END` remain ordinary identifier
-spellings and do not acquire cartridge token IDs.
+Explicit lexical `BEGIN`/`END` blocks and comparison-as-value expressions
+require the modern profile. In compatibility source, `BEGIN` and `END` remain
+ordinary identifier spellings and do not acquire cartridge token IDs.
+
+Modern classic and MIR6502 materialize comparisons as BYTE 0/1 values, including
+arguments, returns, indexes, composed expressions and scalar CONST definitions.
+Widening zero-extends the result; operand promotion is unchanged. Value-context
+AND/OR/XOR remain eager bitwise operators, not new short-circuit operators.
+Compatibility accepts comparisons in conditional contexts, but rejects numeric
+comparison values during semantic analysis with a modern-profile diagnostic.
+See [comparison values](SYNTAX_EXTENSIONS.md#comparison-values).
 
 Legacy accepts many old Action! idioms that depend on implicit address-taking or
 loose routine-address handling. Modern prefers the explicit extension forms for
@@ -142,6 +150,12 @@ expression wrappers. This is a correctness contract, not a modern optimization;
 the single-result forwarding shortcut remains modern-only. It does not relax
 the legacy call-statement restrictions above or alter no-call staging paths.
 
+Inferred accumulator return-byte facts require a proven equality at every
+value return. Memory-content aliases use the processor tracker's equality
+proof; matching `Unknown` descriptions never establish equal runtime bytes.
+Known low/high-byte return forwarding remains available, while unproven
+results are read from their public ABI slots.
+
 ## Codegen Optimizations
 
 Modern-only optimizations are guarded by
@@ -206,6 +220,11 @@ different indexed bytes just because both inputs are unknown. Destructive
 accumulator operations also cannot retain an old-`A` identity, and subtraction
 facts require an identified carry input (no borrow, or a tracked low-byte
 comparison). Without these proofs, normal reloads remain.
+
+Signed subtract-based comparisons must test N xor V, not N alone. Both classic
+profiles correct overflow before the sign branch, including staged, indirect
+and call-return operands. This is an intentional correctness divergence from
+the original subtract/sign byte shape at signed-word limits.
 
 ## Proof-Guided Lowering
 

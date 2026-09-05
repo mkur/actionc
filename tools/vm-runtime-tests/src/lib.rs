@@ -1870,33 +1870,20 @@ mod tests {
 
     #[test]
     fn circle_int_math_executes_through_the_vm_library() {
-        let classic = hex_bytes(
-            "40 9c ff 7f 00 00 80 7f 00 02 80 05 80 01 01 00 00 00 00 01 01 00 01 01 \
-             00 01 00 00 00 a5",
-        );
-        assert_cartridge_runtime_case(
-            "CIRCLE INT arithmetic",
-            "circle_int_math.act",
-            CompileMode::Optimized,
-            20_000,
-            &[MemoryExpectation {
-                start: RESULT_START,
-                bytes: &classic,
-            }],
-        );
-
-        let mir6502 = hex_bytes(
+        // Signed order is mathematical even when subtracting the operands
+        // overflows. ABS(-32768) wraps to -32768, so it remains less than 32767.
+        // The previous classic-only oracle encoded the old N-without-V bug.
+        let expected = hex_bytes(
             "40 9c ff 7f 00 00 80 7f 00 02 80 05 80 01 01 00 00 00 00 01 01 01 00 01 \
              00 01 00 01 00 a5",
         );
-        assert_cartridge_runtime_case(
+        assert_both_cartridge_backends(
             "CIRCLE INT arithmetic",
             "circle_int_math.act",
-            CompileMode::Mir6502,
             20_000,
             &[MemoryExpectation {
                 start: RESULT_START,
-                bytes: &mir6502,
+                bytes: &expected,
             }],
         );
     }

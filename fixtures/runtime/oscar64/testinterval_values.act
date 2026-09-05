@@ -1,0 +1,19 @@
+; Modern comparison-value companion to testinterval.act.
+; Adapted from Oscar64 autotest/testinterval.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+BYTE ARRAY truth(8)=$0640
+INT lo=$06E4,hi=$06E6,probe=$06E8
+BYTE signature=$06FF
+PROC Main()
+  truth(0)=(probe>=lo AND probe<hi)
+  truth(1)=(probe<hi AND probe>=lo)
+  truth(2)=(probe>=lo AND probe<=hi)
+  truth(3)=(probe<=hi AND probe>=lo)
+  truth(4)=(probe>lo AND probe<hi)
+  truth(5)=(probe<hi AND probe>lo)
+  truth(6)=(probe>lo AND probe<=hi)
+  truth(7)=(probe<=hi AND probe>lo)
+  signature=$A5
+  DO OD
+RETURN

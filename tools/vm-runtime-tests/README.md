@@ -9,12 +9,13 @@ Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 
 ```sh
-cargo test --locked
+cargo test --locked --no-fail-fast
 ```
 
 The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
 array indexing, word-pointer transfers, loop bounds, comparisons, masks,
-shift/add/sub composition, signed multiplication, and reverse-copy loops
+shift/add/sub composition, signed multiplication, reverse-copy loops, nested
+calls, signed intervals, and mixed INT/BYTE comparison values
 using independent host-side oracles. Run them separately with:
 
 ```sh
@@ -23,10 +24,16 @@ cargo test --locked --test oscar64_conformance
 
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
-now brings the total to 19 active passing tests and 3,708 passing cases,
+now brings the total to 24 active tests and 4,380 VM cases,
 including the 512 repaired Compatibility nested-call cases and 120 repaired
-classic reverse-copy cases. No Oscar64 tests are ignored. See the fixture
-README for the mode/case matrix and resolved compiler regressions.
+classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
+and 264 numeric comparison-value cases across modern classic and MIR6502.
+Compatibility's semantic rejection of the extension is checked separately.
+No Oscar64 tests are ignored. See the fixture README for the mode/case matrix
+and resolved compiler regressions. `cargo test --locked --test comparison_values`
+also runs 24 modern consumer cases checking widths, calls, eager composition,
+indexed destinations and captured pointers.
+Use `--no-fail-fast` to run the remaining test binaries after a failing one.
 
 The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public
 `SYS` routine to a fixture that invokes it and is wired into this harness. Any

@@ -96,6 +96,43 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
+fn comparison_values_have_a_semantic_profile_gate() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "comparison-value.act",
+        "INT x=$0600 BYTE y=$0602,result=$0603 PROC Main() result=(x<y) RETURN",
+    );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let error = compile_file(
+            &source,
+            &CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(runtime),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .diagnostics()
+                .iter()
+                .all(|diagnostic| diagnostic.phase == CompilerPhase::Semantic)
+        );
+        assert!(
+            error
+                .diagnostics()
+                .iter()
+                .any(|diagnostic| diagnostic.message
+                    == "comparison values require the modern profile")
+        );
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_or_else(|error| panic!("{mode:?}/{runtime:?}: {error}"));
+        }
+    }
+}
+
+#[test]
 fn compile_options_preserve_project_root_and_ordered_module_paths() {
     let options = CompileOptions::default()
         .with_project_root("project")

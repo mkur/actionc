@@ -23,8 +23,19 @@ Stage 3 adds 1,536 passing nested-call VM cases. `OSCAR-COMPAT-NESTED-CALL`
 is fixed by sharing protected argument staging across classic profiles, looking
 through casts, and materializing each stacked argument at the public ABI base.
 All 3,708 Oscar64 cases now pass without changing port expressions or oracles.
-The [diagnosis](bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md) still records a separate
-optimized word-return accumulator-lane observation for focused follow-up.
+The separately exposed optimized word-return accumulator-fact regression is
+also fixed: inferred return facts now use the existing register/value equality
+proof instead of equating `Unknown` descriptions. Focused execution covers
+assignment, argument and pointer-index consumers, plus multiple return paths.
+See the [diagnosis and repairs](bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md).
+
+Stage 4 now distinguishes cartridge-compatible branches from the agreed modern
+comparison-value extension. Shared comparison machinery supports BYTE 0/1
+values in modern classic and MIR6502; Compatibility rejects value uses during
+semantic analysis. The broader grid also exposed and repaired signed-subtract
+overflow in both classic profiles. The 408 branch/count cases and 264 modern
+value cases bring Oscar64 coverage to 4,380 cases in 24 tests. Stage 5's record
+ports remain next; see [the contract and repairs](bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
 ## Standalone Runtime Licensing
 

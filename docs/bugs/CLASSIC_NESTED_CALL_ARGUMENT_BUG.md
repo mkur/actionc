@@ -2,7 +2,7 @@
 
 Status: nested-argument regression fixed, 2026-09-05. Exposed by the stage 3
 Oscar64 port against compiler `590ef47`. The separate word-return accumulator
-fact observation below remains open.
+fact regression below is also fixed.
 
 ## Trigger and regression coverage
 
@@ -86,10 +86,10 @@ cargo run --bin actionc -- --mode compatibility --runtime standalone \
   fixtures/runtime/oscar64/fastcalltest.act
 ```
 
-## Separate observation: optimized word-return accumulator fact
+## Separate regression: optimized word-return accumulator fact — fixed
 
-An exploratory pointer-preservation probe also exposed an independent
-Optimized failure, outside the `fastcalltest` port:
+An exploratory pointer-preservation probe exposed an independent Optimized
+failure, outside the `fastcalltest` port:
 
 ```action
 CARD n=$0600,i=$0602,base=$0604,otherBase=$0606,observed=$0608,updated=$060C
@@ -108,15 +108,28 @@ RETURN
 ```
 
 With `n=129`, `i=1`, `base=$5001`, `otherBase=$5803`, the captured-base
-load must read word 127 at `$50FF`. Compatibility does; Optimized does not.
-The callee correctly stores the subtraction's low byte in `$A0` and high byte
+load must read word 127 at `$50FF`. Compatibility did; Optimized did not.
+The callee correctly stored the subtraction's low byte in `$A0` and high byte
 in `$A1`, leaving A holding the **high** byte. The optimized caller immediately
-emits `STA $C0; LDA $A1; STA $C1`, incorrectly treating A as the low byte of
-the index. The pointer itself is saved/restored correctly around the call.
+emitted `STA $C0; LDA $A1; STA $C1`, incorrectly treating A as the low byte of
+the index. The pointer itself was saved/restored correctly around the call.
 
-Audit inferred return-lane facts and their consumers separately. The focused
-pointer-order regression uses a byte-returning effectful call with the nested
-word subtraction in its caller, isolating base lifetime from this return-value
-fault. No pre-existing port or oracle was changed. This observation is recorded
-for a subsequent focused execution regression and compiler repair; it is not
-counted in the Oscar64 case totals.
+`record_inferred_return_facts` compared memory and accumulator descriptions
+using raw enum equality. Both untracked subtraction bytes could be described
+as `Unknown`, falsely proving that A matched both result bytes. The low-byte
+forwarding consumer then trusted that invalid fact.
+
+Memory-content aliases now use the existing
+`ProcessorState::accumulator_value_matches` proof, which rejects unknown values.
+The existing slot proof and intersection of facts across returns remain in
+place; known low/high return forwarding stays enabled. No pointer-index or
+source-expression recognition was added.
+
+A fact-level test rejects unknown equality for byte and word returns. An
+emitted-execution test covers direct assignment, nested argument forwarding,
+multiple return paths, and the effectful pointer-index consumer, using distinct
+low/high bytes, borrow/wraparound inputs, unchanged guarded memory, exactly-once
+calls and the public `$A0/$A1` result. It passes in both classic profiles and
+failed in Optimized before the repair. Run `cargo test --lib return_` for these
+tests and the existing positive return-forwarding coverage. No pre-existing
+port or oracle was changed; these checks are outside the Oscar64 case totals.

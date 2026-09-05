@@ -7747,14 +7747,16 @@ fn modern_comparison_materializes_function_call_operands() {
         output
             .bytes
             .windows(2)
-            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ELEMENT_ADDR.address()])
+            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ARRAY_ADDR.address()])
     );
     assert!(
         output
             .bytes
             .windows(2)
-            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ADDR.address()])
+            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ARGS.address()])
     );
+    assert!(output.bytes.contains(&opcode::PHA));
+    assert!(output.bytes.contains(&opcode::PLA));
 }
 
 #[test]
@@ -8442,14 +8444,14 @@ fn generates_signed_int_greater_equal_comparison() {
 }
 
 #[test]
-fn compatible_signed_comparisons_use_original_subtract_sign_shape() {
+fn compatible_signed_comparisons_correct_subtract_overflow() {
     let output = generate_compatible_source_with_origin(
         "INT a,b BYTE x PROC Main() IF a<b THEN x=1 FI IF a>=b THEN x=2 FI RETURN",
         0x3000,
     )
     .unwrap();
 
-    assert!(output.bytes.windows(13).any(|bytes| bytes
+    assert!(output.bytes.windows(17).any(|bytes| bytes
         == [
             opcode::LDA_ABS,
             0x00,
@@ -8463,9 +8465,13 @@ fn compatible_signed_comparisons_use_original_subtract_sign_shape() {
             opcode::SBC_ABS,
             0x03,
             0x30,
+            opcode::BVC_REL,
+            0x02,
+            opcode::EOR_IMM,
+            0x80,
             opcode::BMI_REL,
         ]));
-    assert!(output.bytes.windows(13).any(|bytes| bytes
+    assert!(output.bytes.windows(17).any(|bytes| bytes
         == [
             opcode::LDA_ABS,
             0x00,
@@ -8479,6 +8485,10 @@ fn compatible_signed_comparisons_use_original_subtract_sign_shape() {
             opcode::SBC_ABS,
             0x03,
             0x30,
+            opcode::BVC_REL,
+            0x02,
+            opcode::EOR_IMM,
+            0x80,
             opcode::BPL_REL,
         ]));
 }
@@ -11323,7 +11333,7 @@ fn compatible_int_array_word_index_compare_uses_signed_indirect_branch() {
     )
     .unwrap();
 
-    assert!(output.bytes.windows(11).any(|bytes| {
+    assert!(output.bytes.windows(15).any(|bytes| {
         bytes
             == [
                 opcode::LDA_IZY,
@@ -11335,6 +11345,10 @@ fn compatible_int_array_word_index_compare_uses_signed_indirect_branch() {
                 runtime_zp::ELEMENT_ADDR.address(),
                 opcode::SBC_IZY,
                 runtime_zp::ARRAY_ADDR.address(),
+                opcode::BVC_REL,
+                0x02,
+                opcode::EOR_IMM,
+                0x80,
                 opcode::BMI_REL,
                 0x03,
             ]
@@ -11349,7 +11363,7 @@ fn compatible_signed_call_greater_than_zero_uses_reversed_zero_subtract() {
     )
     .unwrap();
 
-    assert!(output.bytes.windows(10).any(|bytes| {
+    assert!(output.bytes.windows(14).any(|bytes| {
         bytes
             == [
                 opcode::LDA_IMM,
@@ -11360,6 +11374,10 @@ fn compatible_signed_call_greater_than_zero_uses_reversed_zero_subtract() {
                 0x00,
                 opcode::SBC_ZP,
                 runtime_zp::ARGS.offset(1).address(),
+                opcode::BVC_REL,
+                0x02,
+                opcode::EOR_IMM,
+                0x80,
                 opcode::BMI_REL,
                 0x03,
             ]
@@ -15905,6 +15923,94 @@ fn modern_profile_infers_word_function_accumulator_high_return_fact() {
         ),
         0
     );
+}
+
+#[test]
+fn inferred_return_facts_do_not_equate_unknown_bytes() {
+    for size in [1, 2] {
+        let mut generator = test_generator(CodegenProfile::Modern);
+        let result = StorageSlot::zero_page(runtime_zp::ARGS.address(), size);
+        generator.current_inferred_routine_facts = Some(InferredRoutineFacts {
+            returns_a_equals_a0_candidate: true,
+            returns_a_equals_a1_candidate: size == 2,
+            saw_value_return: false,
+        });
+        // Two unavailable value descriptions are not proof that the
+        // corresponding runtime bytes are equal.
+        generator.processor.set_a_fact(ValueFact::Unknown);
+        for lane in 0..size {
+            generator
+                .processor
+                .set_memory_byte(result, lane, ValueFact::Unknown);
+        }
+        generator.record_inferred_return_facts(result);
+        let facts = generator.current_inferred_routine_facts.unwrap();
+        assert!(!facts.returns_a_equals_a0_candidate, "size={size}");
+        assert!(!facts.returns_a_equals_a1_candidate, "size={size}");
+        assert!(facts.saw_value_return);
+    }
+}
+
+#[test]
+fn classic_word_return_consumers_preserve_distinct_result_bytes() {
+    let source = "CARD n=$0600,i=$0602,direct=$0604,branch=$0606,argument=$0608,\
+                  base=$060A,otherBase=$060C,indexed=$060E,updated=$0610 \
+                  BYTE pick=$0612,calls=$0613 CARD POINTER p \
+                  CARD FUNC Difference() calls==+1 p=otherBase RETURN(n-i-1) \
+                  CARD FUNC Multiple() IF pick THEN RETURN(n-i-1) FI RETURN(n) \
+                  CARD FUNC Id(CARD x) RETURN(x) \
+                  PROC Main() p=base calls=0 direct=Difference() branch=Multiple() \
+                  argument=Id(Difference()) p=base indexed=p(Difference()) updated=p RETURN";
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        for (n, i) in [
+            (129u16, 1u16),
+            (0x2345, 0x2222),
+            (0x80FF, 0x8000),
+            (0x200, 0xFF),
+            (0, 0),
+            (0x8000, 0),
+        ] {
+            for pick in [0u8, 1] {
+                let answer = n.wrapping_sub(i).wrapping_sub(1);
+                let mut memory = [0u8; 65536];
+                memory[0x3000..0x3000 + output.bytes.len()].copy_from_slice(&output.bytes);
+                memory[0x0600..0x0620].fill(0xCC);
+                memory[0x4F00..0x5F00].fill(0xA5);
+                for (address, value) in
+                    [(0x0600, n), (0x0602, i), (0x060A, 0x5001), (0x060C, 0x5803)]
+                {
+                    memory[address..address + 2].copy_from_slice(&value.to_le_bytes());
+                }
+                memory[0x0612] = pick;
+                for (base, value) in [(0x5001u16, 0xF13Bu16), (0x5803, 0xABCD)] {
+                    let address = usize::from(base.wrapping_add(answer.wrapping_mul(2)));
+                    assert!((0x4F00..0x5EFF).contains(&address));
+                    memory[address..address + 2].copy_from_slice(&value.to_le_bytes());
+                }
+                let buffers = memory[0x4F00..0x5F00].to_vec();
+                let mut expected = memory[0x0600..0x0620].to_vec();
+                for (offset, value) in [
+                    (4, answer),
+                    (6, if pick == 0 { n } else { answer }),
+                    (8, answer),
+                    (14, 0xF13B),
+                    (16, 0x5803),
+                ] {
+                    expected[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
+                }
+                expected[0x13] = 3;
+                indexed_test_cpu::run_memory(&mut memory, usize::from(output.run_address));
+                assert_eq!(
+                    &memory[0x0600..0x0620],
+                    &expected,
+                    "{profile:?}, n={n:04X}, i={i:04X}, pick={pick}"
+                );
+                assert_eq!(&memory[0x4F00..0x5F00], &buffers);
+                assert_eq!(&memory[0xA0..0xA2], &answer.to_le_bytes());
+            }
+        }
+    }
 }
 
 #[test]

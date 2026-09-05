@@ -1,6 +1,24 @@
 # Oscar64 behavioral ports: second batch
 
-Status: stages 1 through 3 ported, 2026-09-05; stages 4 and 5 planned.
+Status: stages 1 through 4 ported, 2026-09-05; stage 5 pending.
+Stage 4 now separates cartridge-compatible comparisons from the agreed modern
+comparison-value extension. The 408 branch/count cases run in all modes; 264
+value cases run in modern classic and MIR6502. Compatibility rejects numeric
+comparison uses during semantic analysis. Both classic profiles also correct
+signed-subtract overflow exposed by the boundary grid. See
+[the contract and repairs](bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
+
+Current validation after the comparison-value implementation:
+
+- Root `cargo test --quiet --no-fail-fast`: 2,662 passed, zero failed,
+  22 existing ignored.
+- Isolated VM `cargo test --locked --no-fail-fast --quiet`: 100 passed,
+  zero failed or ignored. All 24 Oscar64 tests and 4,380 VM cases pass.
+- The separate comparison-value consumer fixture passes another 24 VM cases
+  across both modern backends and both runtimes.
+- NIR snapshots and the 33-fixture sweep pass. The broad corpus contains
+  315 valid roots and the same five declared module-only semantic failures.
+
 Stages 1 through 3 now pass all six mode/runtime combinations. The classic computed
 pointer-index regression exposed by stage 2 was fixed separately, without
 changing the ports' expressions or oracles. See
@@ -14,7 +32,28 @@ each stacked argument at the ABI base. The original 512 Compatibility failures
 are repaired without changing port expressions or oracles. See
 [the diagnosis and repair](bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md).
 
-Current validation after the nested-call repair:
+The separate classic word-return regression is now fixed. Return-fact inference
+uses the existing register/value proof instead of treating two `Unknown`
+descriptions as equal bytes. Before adding stage 4, root tests passed 2,656
+checks (22 existing ignored), all 94 VM tests passed, and the NIR snapshot test
+and 33-fixture sweep passed. Assignment, argument and pointer-index consumers,
+multiple return paths, and the public return bytes have focused coverage.
+
+Historical validation of the initial stage-4 translation, before checking
+the cartridge language boundary and implementing modern comparison values:
+
+- Root `cargo test --quiet`: 2,656 passed, zero failed, 22 existing ignored.
+- Isolated VM `cargo test --locked --no-fail-fast --quiet`: 94 passed, three
+  failed, none ignored. Only the three new stage-4 tests fail, at compilation.
+- Oscar64 subset: 22 active tests, 19 passing; all existing 3,708 VM cases
+  pass. The 408 intended stage-4 cases have not executed.
+- Broad NIR corpus: 312 valid roots and the same five declared module-only
+  semantic failures. Both new fixtures pass NIR validation. NIR snapshots
+  and the 33-fixture sweep also pass.
+- No failing mode was ignored. The subsequent cartridge probe established that
+  numeric comparison values are an extension, motivating the profile split below.
+
+Historical validation after the nested-call repair:
 
 - Root `cargo test --quiet`: 2,654 passed, zero failed, 22 existing ignored.
 - Isolated VM `cargo test --locked --no-fail-fast --quiet`: 94 passed, zero
@@ -155,7 +194,7 @@ Explicit BYTE narrowing supplies wraparound for the byte companion. A full
 exactly-once counters. It does not impose C's unspecified argument order or
 require a particular inlining decision. Compatibility's former stack-staging
 profile gate left earlier results vulnerable to later calls; the generic repair
-is documented above. Stages 4 and 5 remain follow-ups.
+is documented above.
 
 ## Stage 4: signed intervals and mixed comparisons
 
@@ -166,6 +205,28 @@ endpoints, and INT/BYTE comparisons in both operand orders. Extend existing
 comparison coverage with broader runtime grids and branch/materialized-result
 forms. Derive exact counts and truth values in Rust using established Action!
 promotion rules. Omit signed-byte cases.
+
+Implemented: `testinterval.act` retains the four 500-count checks and adds
+runtime intervals, empty/reversed bounds, endpoint probes and eight explicit IF
+forms (41 host cases). `mixsigncmptest.act` retains all four original sweeps
+(one host case) and adds a 26-word by 256-byte grid for all six predicates in
+both operand orders, with branch result tables. INT/BYTE
+promotion follows Action!'s INT precedence; no signed BYTE is invented.
+Full host-page/result-table guards and unchanged inputs are checked.
+
+The original cartridge rejects comparison-as-value. `_values` companion
+fixtures retain those expressions as modern-only coverage: 40 interval cases
+and 26 mixed-comparison grids across two backends/two runtimes (264 VM cases).
+The same independent truth/count oracles serve the branch and value tests.
+This intentional profile split replaces the initial translation's assumption
+that cartridge Action! supports numeric comparison results.
+
+Modern classic and MIR6502 now reuse their comparison/branch machinery for
+BYTE 0/1 results. Compatibility diagnoses value uses in semantic analysis.
+The wider grid also repaired classic signed-subtract overflow; both profiles
+now correct V before branching on N. Oscar64 totals are 4,380 VM cases in 24
+tests. The separate modern consumer fixture adds 24 cases covering width,
+composition, calls and indexed/pointer destinations. Stage 5 remains pending.
 
 ## Stage 5: record operations inside loops
 

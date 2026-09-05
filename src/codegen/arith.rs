@@ -1635,9 +1635,10 @@ impl Generator {
                     return true;
                 }
                 let right_slot = StorageSlot::zero_page(runtime_zp::ADDR.address(), slot.size);
-                if *op == BinaryOp::Add
-                    && (expr_contains_routine_call(left, &self.routines)
-                        || Self::expr_uses_runtime_arithmetic_helper(left))
+                if self.profile.enables_modern_optimizations()
+                    || (*op == BinaryOp::Add
+                        && (expr_contains_routine_call(left, &self.routines)
+                            || Self::expr_uses_runtime_arithmetic_helper(left)))
                 {
                     let left_slot =
                         StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), slot.size);
@@ -1659,30 +1660,6 @@ impl Generator {
                     for byte_index in 0..left_slot.size {
                         self.emit_pla();
                         self.emit_sta_slot_byte(left_slot, byte_index);
-                    }
-                    return self.emit_binary_slot_slot_to_slot(*op, left_slot, right_slot, slot);
-                }
-                if self.profile.enables_modern_optimizations()
-                    && expr_contains_routine_call(left, &self.routines)
-                    && expr_contains_routine_call(right, &self.routines)
-                {
-                    let left_slot =
-                        StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), slot.size);
-                    let left_emitted = if bitwise {
-                        self.emit_bitwise_operand_to_slot(left, left_slot)
-                    } else {
-                        self.emit_expr_to_slot(left, left_slot)
-                    };
-                    if !left_emitted {
-                        return false;
-                    }
-                    let right_emitted = if bitwise {
-                        self.emit_bitwise_operand_to_slot(right, right_slot)
-                    } else {
-                        self.emit_expr_to_slot(right, right_slot)
-                    };
-                    if !right_emitted {
-                        return false;
                     }
                     return self.emit_binary_slot_slot_to_slot(*op, left_slot, right_slot, slot);
                 }
@@ -2646,7 +2623,13 @@ impl Generator {
                     | BinaryOp::Rsh
                     | BinaryOp::Mul
                     | BinaryOp::Div
-                    | BinaryOp::Mod,
+                    | BinaryOp::Mod
+                    | BinaryOp::Eq
+                    | BinaryOp::Ne
+                    | BinaryOp::Lt
+                    | BinaryOp::Le
+                    | BinaryOp::Gt
+                    | BinaryOp::Ge,
                 ..
             } => true,
             _ => false,

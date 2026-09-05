@@ -771,14 +771,17 @@ impl Generator {
             facts.returns_a_equals_a1_candidate = false;
             return;
         }
-        let accumulator = self.processor.a_value_fact();
+        // Raw fact equality is not an equality proof: distinct untracked
+        // computations can both be Unknown. Reuse the tracker's conservative
+        // register/value proof for memory-content aliases as well as slots.
         if slot.size == 1 {
             let value = ValueFact::SlotByte {
                 slot,
                 byte_index: 0,
             };
             let memory = self.processor.memory_value(slot, 0);
-            if !self.processor.accumulator_matches_load_result(value) && memory != Some(accumulator)
+            if !self.processor.accumulator_matches_load_result(value)
+                && !memory.is_some_and(|value| self.processor.accumulator_value_matches(value))
             {
                 facts.returns_a_equals_a0_candidate = false;
             }
@@ -791,7 +794,8 @@ impl Generator {
             byte_index: 1,
         };
         let high_memory = self.processor.memory_value(slot, 1);
-        if !self.processor.accumulator_matches_load_result(high) && high_memory != Some(accumulator)
+        if !self.processor.accumulator_matches_load_result(high)
+            && !high_memory.is_some_and(|value| self.processor.accumulator_value_matches(value))
         {
             facts.returns_a_equals_a1_candidate = false;
         }
@@ -800,7 +804,9 @@ impl Generator {
             byte_index: 0,
         };
         let low_memory = self.processor.memory_value(slot, 0);
-        if !self.processor.accumulator_matches_load_result(low) && low_memory != Some(accumulator) {
+        if !self.processor.accumulator_matches_load_result(low)
+            && !low_memory.is_some_and(|value| self.processor.accumulator_value_matches(value))
+        {
             facts.returns_a_equals_a0_candidate = false;
         }
     }

@@ -191,6 +191,7 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
         SemanticOptions {
             native_real: true,
             lexical_blocks: false,
+            comparison_values: false,
             target: crate::target::TargetId::Atari6502,
         },
     )

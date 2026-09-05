@@ -14,6 +14,147 @@ use crate::mir6502::{
 };
 use crate::nir::{LocalId, ParamId, SymbolId};
 
+#[test]
+fn comparison_value_expansion_uses_a_byte_merge_before_later_effects() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    for width in [MirWidth::Byte, MirWidth::Word] {
+        for op in [
+            MirCompareOp::Eq,
+            MirCompareOp::Ne,
+            MirCompareOp::Lt,
+            MirCompareOp::Le,
+            MirCompareOp::Gt,
+            MirCompareOp::Ge,
+        ] {
+            let mut routine =
+                txa_direct_store_routine(Vec::new(), MirTerminator::Return, Vec::new());
+            routine.temps = (0..3).map(|id| MirTemp { id: MirTempId(id) }).collect();
+            let tail = vec![
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+                    src: MirValue::ConstU8(0xA5),
+                    width: MirWidth::Byte,
+                },
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::Absolute(0x4001)),
+                    src: MirValue::Def(MirDef::VTemp(MirTempId(2))),
+                    width: MirWidth::Byte,
+                },
+            ];
+            routine.blocks[0].ops = vec![
+                MirOp::LoadImm {
+                    dst: MirDef::VTemp(MirTempId(0)),
+                    value: 1,
+                    width,
+                },
+                MirOp::LoadImm {
+                    dst: MirDef::VTemp(MirTempId(1)),
+                    value: 2,
+                    width,
+                },
+                MirOp::Compare {
+                    dst: MirCondDest::Temp(MirTempId(2)),
+                    op,
+                    left: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+                    right: MirValue::Def(MirDef::VTemp(MirTempId(1))),
+                    width,
+                    signed: width == MirWidth::Word,
+                },
+            ];
+            routine.blocks[0].ops.extend(tail.clone());
+            compare_branch::expand_compare_value_consumers(&mut routine, &layout);
+            verify_cfg_after_transform(&routine, "comparison value test").unwrap();
+            let join = routine
+                .blocks
+                .iter()
+                .find(|block| !block.params.is_empty())
+                .unwrap();
+            assert_eq!(
+                join.params,
+                vec![super::super::ir::MirBlockParam {
+                    dest: MirTempId(2),
+                    width: MirWidth::Byte
+                }]
+            );
+            assert_eq!(join.ops, tail);
+            let mut incoming: Vec<_> = routine
+                .blocks
+                .iter()
+                .filter_map(|block| {
+                    let MirTerminator::Jump(edge) = &block.terminator else {
+                        return None;
+                    };
+                    (edge.target == join.id).then(|| edge.args.clone())
+                })
+                .collect();
+            incoming.sort_by_key(|args| format!("{args:?}"));
+            assert_eq!(
+                incoming,
+                [0, 1].map(|value| vec![super::super::ir::MirEdgeArg {
+                    value: MirValue::ConstU8(value),
+                    width: MirWidth::Byte
+                }])
+            );
+            assert!(
+                !routine
+                    .blocks
+                    .iter()
+                    .flat_map(|block| &block.ops)
+                    .any(|op| matches!(
+                        op,
+                        MirOp::Compare {
+                            dst: MirCondDest::Temp(_),
+                            ..
+                        }
+                    ))
+            );
+            lower_block_arguments(&mut routine).unwrap();
+            verify_cfg_after_transform(&routine, "comparison merge lowered").unwrap();
+        }
+    }
+}
+
+#[test]
+fn comparison_branch_selection_preserves_a_result_used_by_a_successor() {
+    let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+    let mut routine = txa_direct_store_routine(Vec::new(), MirTerminator::Return, Vec::new());
+    routine.temps = vec![MirTemp { id: MirTempId(0) }];
+    let compare = MirOp::Compare {
+        dst: MirCondDest::Temp(MirTempId(0)),
+        op: MirCompareOp::Lt,
+        left: MirValue::ConstU16(255),
+        right: MirValue::ConstU16(256),
+        width: MirWidth::Word,
+        signed: false,
+    };
+    routine.blocks[0].ops = vec![compare.clone()];
+    routine.blocks[0].terminator = MirTerminator::Branch {
+        cond: MirCond::BoolValue(MirValue::Def(MirDef::VTemp(MirTempId(0)))),
+        then_edge: MirEdge::plain(MirBlockId(1)),
+        else_edge: MirEdge::plain(MirBlockId(1)),
+    };
+    routine.blocks.push(MirBlock {
+        id: MirBlockId(1),
+        label: "consumer".into(),
+        params: Vec::new(),
+        ops: vec![MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0x4000)),
+            src: MirValue::Def(MirDef::VTemp(MirTempId(0))),
+            width: MirWidth::Byte,
+        }],
+        terminator: MirTerminator::Return,
+    });
+    expand_compare_branch_consumers(&mut routine.blocks, &layout, &Mir6502Config::default());
+    assert_eq!(routine.blocks[0].ops, vec![compare]);
+    compare_branch::expand_compare_value_consumers(&mut routine, &layout);
+    assert!(routine.blocks.iter().any(|block| {
+        block.params.iter().any(|param| param.dest == MirTempId(0))
+    }));
+    lower_block_arguments(&mut routine).unwrap();
+    verify_cfg_after_transform(&routine, "shared comparison consumer").unwrap();
+}
+
 fn txa_direct_store_routine(
     trailing_ops: Vec<MirOp>,
     terminator: MirTerminator,

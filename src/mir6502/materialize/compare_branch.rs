@@ -8,7 +8,6 @@ use super::pointers::pointer_value_from_mem;
 #[cfg(test)]
 use super::stats::MirPeepholeStats;
 use super::temp_rewrite::replace_temp_value;
-#[cfg(test)]
 use super::temp_uses::terminator_uses_temp;
 use super::temp_uses::{op_uses_temp, op_uses_temp_more_than_once, value_uses_temp};
 use super::temp_widths::collect_temp_widths;
@@ -26,10 +25,10 @@ use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirSite};
 #[cfg(test)]
 use crate::mir6502::ir::RoutineId;
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirCallResult, MirCarryIn,
-    MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirFixedZpSlot, MirFlagTest,
-    MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirRoutine, MirTempId, MirTerminator,
-    MirValue, MirWidth,
+    MirAddr, MirAddressConsumer, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCallResult,
+    MirCarryIn, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDef, MirEdge, MirEdgeArg,
+    MirFixedZpSlot, MirFlagTest, MirMem, MirOp, MirPointerPair, MirReg, MirResultHome, MirRoutine,
+    MirTempId, MirTerminator, MirValue, MirWidth,
 };
 use crate::mir6502::passes::Mir6502Config;
 use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext};
@@ -1094,6 +1093,101 @@ fn zero_extended_byte_temp(value: &MirValue) -> Option<MirTempId> {
     }
 }
 
+/// Materialize a comparison's numeric result through the same byte/word
+/// branch expansion used for predicates. Splitting at the definition keeps
+/// all operand evaluation and later effects in their original order. The
+/// continuation parameter owns the single BYTE result; ordinary block-argument
+/// lowering and home assignment handle its two incoming constants.
+pub(super) fn expand_compare_value_consumers(routine: &mut MirRoutine, layout: &MaterializeLayout) {
+    let mut next_id = routine
+        .blocks
+        .iter()
+        .map(|block| block.id.0)
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let mut index = 0;
+    while index < routine.blocks.len() {
+        let candidate = routine.blocks[index]
+            .ops
+            .iter()
+            .enumerate()
+            .find_map(|(op_index, op)| {
+                let MirOp::Compare {
+                    dst: MirCondDest::Temp(temp),
+                    ..
+                } = op
+                else {
+                    return None;
+                };
+                let compare = short_circuit_compare_for_branch(op)?;
+                let branch_only = op_index + 1 == routine.blocks[index].ops.len()
+                    && branch_bool_temp(&routine.blocks[index])
+                        .is_some_and(|(id, _, _)| id == *temp)
+                    && matches!(&routine.blocks[index].terminator,
+                    MirTerminator::Branch { then_edge, else_edge, .. }
+                    if then_edge.args.is_empty() && else_edge.args.is_empty())
+                    && routine
+                        .blocks
+                        .iter()
+                        .enumerate()
+                        .all(|(other_index, block)| {
+                            !block.ops.iter().any(|op| op_uses_temp(op, *temp))
+                                && (other_index == index
+                                    || !terminator_uses_temp(&block.terminator, *temp))
+                        });
+                (!branch_only).then_some((op_index, *temp, compare))
+            });
+        if let Some((op_index, temp, compare)) = candidate {
+            let yes = fresh_block_id(&mut next_id);
+            let no = fresh_block_id(&mut next_id);
+            let continuation = fresh_block_id(&mut next_id);
+            let tail = routine.blocks[index].ops.split_off(op_index + 1);
+            routine.blocks[index].ops.pop();
+            let old_terminator =
+                std::mem::replace(&mut routine.blocks[index].terminator, MirTerminator::Return);
+            let mut prefix = std::mem::take(&mut routine.blocks[index].ops);
+            let terminator = materialize_short_circuit_compare_branch(
+                compare,
+                &mut prefix,
+                &mut routine.blocks,
+                layout,
+                &mut next_id,
+                yes,
+                no,
+            );
+            routine.blocks[index].ops = prefix;
+            routine.blocks[index].terminator = terminator;
+            for (id, value) in [(yes, 1), (no, 0)] {
+                routine.blocks.push(MirBlock {
+                    id,
+                    label: format!("cmp_value_{}", id.0),
+                    params: Vec::new(),
+                    ops: Vec::new(),
+                    terminator: MirTerminator::Jump(MirEdge {
+                        target: continuation,
+                        args: vec![MirEdgeArg {
+                            value: MirValue::ConstU8(value),
+                            width: MirWidth::Byte,
+                        }],
+                    }),
+                });
+            }
+            routine.blocks.push(MirBlock {
+                id: continuation,
+                label: format!("cmp_value_join_{}", continuation.0),
+                params: vec![MirBlockParam {
+                    dest: temp,
+                    width: MirWidth::Byte,
+                }],
+                ops: tail,
+                terminator: old_terminator,
+            });
+        }
+        index += 1;
+    }
+}
+
 pub(super) fn expand_compare_branch_consumers(
     blocks: &mut Vec<MirBlock>,
     layout: &MaterializeLayout,
@@ -1107,6 +1201,16 @@ pub(super) fn expand_compare_branch_consumers(
         .saturating_add(1);
     let original_len = blocks.len();
     for index in 0..original_len {
+        // A comparison can now feed both a condition and a numeric consumer.
+        // Branch selection must not delete the latter's definition.
+        if let Some((temp, _, _)) = branch_bool_temp(&blocks[index])
+            && blocks.iter().enumerate().any(|(other, block)| {
+                block.ops.iter().any(|op| op_uses_temp(op, temp))
+                    || (other != index && terminator_uses_temp(&block.terminator, temp))
+            })
+        {
+            continue;
+        }
         if try_expand_short_circuit_branch(index, blocks, layout, &mut next_id) {
             continue;
         }
@@ -3141,6 +3245,29 @@ fn try_expand_short_circuit_branch(
         .any(|index| *index >= final_compare_index)
     {
         return false;
+    }
+    for &site in &chain.used_indices {
+        let temp = match &ops[site] {
+            MirOp::Compare {
+                dst: MirCondDest::Temp(temp),
+                ..
+            }
+            | MirOp::Binary {
+                dst: MirDef::VTemp(temp),
+                ..
+            } => *temp,
+            _ => return false,
+        };
+        if blocks.iter().enumerate().any(|(index, block)| {
+            terminator_uses_temp(&block.terminator, temp)
+                || block.ops.iter().enumerate().any(|(site, op)| {
+                    op_uses_temp(op, temp)
+                        && (index != block_index
+                            || (!chain.used_indices.contains(&site) && site != final_compare_index))
+                })
+        }) {
+            return false;
+        }
     }
     let original_ops = blocks[block_index].ops.clone();
     for (index, op) in original_ops

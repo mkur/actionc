@@ -167,6 +167,28 @@ pub(super) fn debug_assert_compare_slots_shape(left: StorageSlot, right: Storage
 }
 
 impl Generator {
+    pub(super) fn emit_comparison_value_to_slot(&mut self, expr: &Expr, slot: StorageSlot) -> bool {
+        if self.profile != CodegenProfile::Modern {
+            return false;
+        }
+        let yes = self.next_label("compare:value:true");
+        let done = self.next_label("compare:value:done");
+        if !self.emit_branch_if_true(expr, &yes, expr.span) {
+            return false;
+        }
+        self.emit_lda_imm(0);
+        self.emit_jmp_label(&done, expr.span);
+        self.bind_codegen_label(yes, expr.span);
+        self.emit_lda_imm(1);
+        self.bind_codegen_label(done, expr.span);
+        self.emit_sta_slot_byte(slot, 0);
+        if slot.size > 1 {
+            self.emit_lda_imm(0);
+            self.emit_sta_slot_byte(slot, 1);
+        }
+        true
+    }
+
     pub(super) fn emit_branch_if_false(
         &mut self,
         condition: &Expr,
@@ -915,12 +937,16 @@ impl Generator {
         self.emit_lda_slot_byte(first, 1);
         self.emit_sbc_slot_byte(second, 1);
         self.preserve_y_one_for_branch_target(label);
-        let (branch, flags) = if self.is_signed_compare(left, right, 2) {
-            (opcode::BMI_REL, CompareBranchFlags::SignedOrder)
+        if self.is_signed_compare(left, right, 2) {
+            self.emit_signed_subtract_branch(opcode::BMI_REL, label, span);
         } else {
-            (opcode::BCC_REL, CompareBranchFlags::UnsignedOrder)
-        };
-        self.emit_compare_branch_label(branch, flags, label, span);
+            self.emit_compare_branch_label(
+                opcode::BCC_REL,
+                CompareBranchFlags::UnsignedOrder,
+                label,
+                span,
+            );
+        }
         true
     }
 
@@ -1006,12 +1032,7 @@ impl Generator {
                     self.emit_lda_slot_byte(return_slot, 1);
                     self.emit_sbc_immediate(immediate, 1);
                 }
-                self.emit_compare_branch_label(
-                    branch,
-                    CompareBranchFlags::SignedOrder,
-                    label,
-                    span,
-                );
+                self.emit_signed_subtract_branch(branch, label, span);
                 true
             }
             _ => false,
@@ -1045,28 +1066,34 @@ impl Generator {
         label: &str,
         span: Span,
     ) -> bool {
-        if !self.segment_storage
-            || self.profile.enables_modern_optimizations()
-            || width > 2
-            || !Self::compare_operand_needs_materialization(left)
-            || !Self::compare_operand_needs_materialization(right)
-            || !expr_contains_routine_call(right, &self.routines)
-        {
+        let needs_staging = if self.profile.enables_modern_optimizations() {
+            Self::compare_operand_needs_materialization(left)
+                || Self::compare_operand_needs_materialization(right)
+        } else {
+            Self::compare_operand_needs_materialization(left)
+                && Self::compare_operand_needs_materialization(right)
+                && expr_contains_routine_call(right, &self.routines)
+        };
+        if !self.segment_storage || width > 2 || !needs_staging {
             return false;
         }
 
-        let left_slot = StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), width)
-            .signed(self.expr_signed(left));
-        if !self.emit_expr_to_slot(left, left_slot) {
+        let signed = self.is_signed_compare(left, right, width);
+        let left_slot =
+            StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), width).signed(signed);
+        // A pointer scratch pair may itself address the indexed source. Use
+        // the public value frame during evaluation, then restore the captured
+        // left result to the scratch pair only after right evaluation.
+        let value_slot = StorageSlot::zero_page(runtime_zp::ARGS.address(), width).signed(signed);
+        if !self.emit_expr_to_slot(left, value_slot) {
             return false;
         }
         for byte_index in (0..width).rev() {
-            self.emit_lda_slot_byte(left_slot, byte_index);
+            self.emit_lda_slot_byte(value_slot, byte_index);
             self.emitter.emit_pha();
         }
 
-        let right_slot = StorageSlot::zero_page(runtime_zp::ARGS.address(), width)
-            .signed(self.expr_signed(right));
+        let right_slot = value_slot;
         if !self.emit_expr_to_slot(right, right_slot) {
             return false;
         }
@@ -1079,6 +1106,14 @@ impl Generator {
     }
 
     pub(super) fn compare_operand_needs_materialization(expr: &Expr) -> bool {
+        if let ExprKind::Cast { expr, .. }
+        | ExprKind::Unary {
+            op: UnaryOp::Plus,
+            expr,
+        } = &expr.kind
+        {
+            return Self::compare_operand_needs_materialization(expr);
+        }
         matches!(
             expr.kind,
             ExprKind::Call { .. }
@@ -1096,7 +1131,13 @@ impl Generator {
                         | BinaryOp::Or
                         | BinaryOp::Xor
                         | BinaryOp::Lsh
-                        | BinaryOp::Rsh,
+                        | BinaryOp::Rsh
+                        | BinaryOp::Eq
+                        | BinaryOp::Ne
+                        | BinaryOp::Lt
+                        | BinaryOp::Le
+                        | BinaryOp::Gt
+                        | BinaryOp::Ge,
                     ..
                 }
         )
@@ -1343,7 +1384,7 @@ impl Generator {
         self.emit_lda_slot_byte(cmp_left, 1);
         self.emit_sbc_slot_byte(cmp_right, 1);
         self.preserve_y_one_for_branch_target(label);
-        self.emit_compare_branch_label(branch_opcode, CompareBranchFlags::SignedOrder, label, span);
+        self.emit_signed_subtract_branch(branch_opcode, label, span);
         true
     }
 
@@ -2073,7 +2114,7 @@ impl Generator {
             return false;
         }
         self.preserve_y_one_for_branch_target(label);
-        self.emit_compare_branch_label(branch_opcode, CompareBranchFlags::SignedOrder, label, span);
+        self.emit_signed_subtract_branch(branch_opcode, label, span);
         true
     }
 
@@ -2100,8 +2141,19 @@ impl Generator {
         self.emit_lda_imm(0);
         self.emit_sbc_slot_byte(slot, 1);
         self.preserve_y_one_for_branch_target(label);
-        self.emit_compare_branch_label(branch_opcode, CompareBranchFlags::SignedOrder, label, span);
+        self.emit_signed_subtract_branch(branch_opcode, label, span);
         true
+    }
+
+    fn emit_signed_subtract_branch(&mut self, branch: u8, label: &str, span: Span) {
+        // A signed subtraction is negative iff N xor V. Testing N alone
+        // reverses comparisons when operands straddle the signed limits.
+        let no_overflow = self.next_label("compare:no_overflow");
+        self.emitter
+            .emit_branch_label(opcode::BVC_REL, &no_overflow, span);
+        self.emit_eor_imm(0x80);
+        self.bind_codegen_label(no_overflow, span);
+        self.emit_compare_branch_label(branch, CompareBranchFlags::SignedOrder, label, span);
     }
 
     pub(super) fn emit_compatible_unsigned_subtract_compare(

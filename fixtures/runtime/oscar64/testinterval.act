@@ -1,0 +1,55 @@
+; Adapted from Oscar64 autotest/testinterval.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+; Retain the INT original; Action! has no signed BYTE counterpart.
+CARD ARRAY original(4)=$0600,counts(8)=$0610
+BYTE ARRAY truth(8)=$0640
+INT first=$06E0,finish=$06E2,lo=$06E4,hi=$06E6,probe=$06E8
+BYTE originalOnly=$06FC,signature=$06FF
+
+PROC CheckOriginal()
+  INT i
+  original(0)=0 original(1)=0 original(2)=0 original(3)=0
+  i=-1000
+  WHILE i<1000 DO
+    IF i>=0 AND i<500 THEN original(0)==+1 FI
+    IF i<500 AND i>=0 THEN original(1)==+1 FI
+    IF i>=0 AND i<=499 THEN original(2)==+1 FI
+    IF i<=499 AND i>=0 THEN original(3)==+1 FI
+    i==+1
+  OD
+RETURN
+
+PROC Extended()
+  INT i
+  BYTE k
+  k=0 WHILE k<8 DO counts(k)=0 k==+1 OD
+  i=first
+  WHILE i<finish DO
+    IF i>=lo AND i<hi THEN counts(0)==+1 FI
+    IF i<hi AND i>=lo THEN counts(1)==+1 FI
+    IF i>=lo AND i<=hi THEN counts(2)==+1 FI
+    IF i<=hi AND i>=lo THEN counts(3)==+1 FI
+    IF i>lo AND i<hi THEN counts(4)==+1 FI
+    IF i<hi AND i>lo THEN counts(5)==+1 FI
+    IF i>lo AND i<=hi THEN counts(6)==+1 FI
+    IF i<=hi AND i>lo THEN counts(7)==+1 FI
+    i==+1
+  OD
+  IF probe>=lo AND probe<hi THEN truth(0)=1 ELSE truth(0)=0 FI
+  IF probe<hi AND probe>=lo THEN truth(1)=1 ELSE truth(1)=0 FI
+  IF probe>=lo AND probe<=hi THEN truth(2)=1 ELSE truth(2)=0 FI
+  IF probe<=hi AND probe>=lo THEN truth(3)=1 ELSE truth(3)=0 FI
+  IF probe>lo AND probe<hi THEN truth(4)=1 ELSE truth(4)=0 FI
+  IF probe<hi AND probe>lo THEN truth(5)=1 ELSE truth(5)=0 FI
+  IF probe>lo AND probe<=hi THEN truth(6)=1 ELSE truth(6)=0 FI
+  IF probe<=hi AND probe>lo THEN truth(7)=1 ELSE truth(7)=0 FI
+RETURN
+
+PROC Main()
+  signature=0
+  IF originalOnly THEN CheckOriginal() ELSE Extended() FI
+  signature=$A5
+  DO OD
+RETURN

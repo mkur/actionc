@@ -2654,6 +2654,10 @@ fn run_prehome_canonicalization_group(
     );
     expand_compare_branch_consumers(&mut routine.blocks, layout, config);
     verify_cfg_after_transform(routine, "compare/branch expansion")?;
+    compare_branch::expand_compare_value_consumers(routine, layout);
+    verify_cfg_after_transform(routine, "comparison value expansion")?;
+    lower_block_arguments(routine).map_err(|diagnostic| vec![diagnostic])?;
+    verify_cfg_after_transform(routine, "comparison value merge lowering")?;
     collapse_empty_jump_blocks(routine);
     verify_cfg_after_transform(routine, "empty-jump collapse")
 }
