@@ -318,7 +318,6 @@ fn oscar64_classic_word_vector_increment_crosses_index_128() {
 }
 
 #[test]
-#[ignore = "OSCAR-MIR-SELF-INDEX-STORE: original inline word-array initialization reads an unwritten spill; see fixtures/runtime/oscar64/README.md"]
 fn oscar64_mir_word_vector_copy_preserves_source_and_guards() {
     run_cases_in_modes(
         "copyintvec",
@@ -329,7 +328,6 @@ fn oscar64_mir_word_vector_copy_preserves_source_and_guards() {
 }
 
 #[test]
-#[ignore = "OSCAR-MIR-SELF-INDEX-STORE: original inline word-array initialization reads an unwritten spill; see fixtures/runtime/oscar64/README.md"]
 fn oscar64_mir_word_vector_increment_preserves_carry_and_guards() {
     run_cases_in_modes(
         "incvector",

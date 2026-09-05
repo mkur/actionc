@@ -4,7 +4,9 @@ use std::ops::Range;
 use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{MirAddr, MirBlockId, MirMem, MirOp, MirRoutine, MirWidth};
-use crate::mir6502::rewrite::context::{MirExitStateChange, MirProof, PostHomeRewriteContext};
+use crate::mir6502::rewrite::context::{
+    MirExitStateChange, MirProof, MirProofBlocker, PostHomeRewriteContext,
+};
 use crate::mir6502::rewrite::plan::{
     MirChangeSet, MirPostHomeRewritePlan, MirRemovedHomeDefinition,
 };
@@ -32,6 +34,12 @@ pub(in crate::mir6502) fn structural_plan(
         return None;
     }
     let removed_homes = removed_home_definitions(block, &range, block_ops, &replacement);
+    if let Err(blocker) =
+        replacement_home_dependencies(&block_ops[range.clone()], &removed_homes, &replacement)
+    {
+        context.record_blocker(stat, block, range.start, &blocker);
+        return None;
+    }
     let original_write_counts = home_write_counts(&block_ops[range.clone()]);
     for (home, replacement_count) in home_write_counts(&replacement) {
         if replacement_count > original_write_counts.get(&home).copied().unwrap_or(0) {
@@ -195,7 +203,7 @@ fn width_cost(width: MirWidth, byte: (u16, u16), word: (u16, u16)) -> (u16, u16)
     }
 }
 
-fn removed_home_definitions(
+pub(in crate::mir6502) fn removed_home_definitions(
     block: MirBlockId,
     range: &Range<usize>,
     block_ops: &[MirOp],
@@ -226,6 +234,87 @@ fn removed_home_definitions(
     }
     removed.sort();
     removed
+}
+
+/// A disappearing definition cannot supply a surviving replacement read.
+/// Entry values (including a previous loop iteration's value) are not a
+/// substitute for a removed in-window store. A replacement must first write
+/// the home itself or preserve an unchanged original entry-value read. Reads
+/// are checked before writes, including address operands
+/// and read/modify/write operations. Matchers still own value equivalence for
+/// the writes they preserve. This is a dependency check, not an equivalence
+/// proof or permission to replace an index with an aliasing source variable.
+pub(in crate::mir6502) fn replacement_home_dependencies(
+    original: &[MirOp],
+    removed: &[MirRemovedHomeDefinition],
+    replacement: &[MirOp],
+) -> Result<(), MirProofBlocker> {
+    let mut unavailable: BTreeSet<_> = removed.iter().map(|definition| definition.home).collect();
+    // Retain unchanged reads of the window-entry value (e.g. the input to an
+    // accumulator chain whose later scratch store is removed). Match each
+    // original read at most once, and only before the first original write.
+    let mut written = BTreeSet::new();
+    let mut entry_reads = Vec::new();
+    for op in original {
+        let effects = classify_op(op);
+        for home in effects
+            .homes
+            .reads
+            .iter()
+            .chain(&effects.addresses.pair_reads)
+        {
+            if unavailable.contains(home) && !written.contains(home) {
+                entry_reads.push((*home, op));
+            }
+        }
+        written.extend(effects.homes.writes);
+        written.extend(effects.addresses.pair_writes);
+    }
+    for (op_index, op) in replacement.iter().enumerate() {
+        let effects = classify_op(op);
+        for home in effects
+            .homes
+            .reads
+            .iter()
+            .chain(&effects.addresses.pair_reads)
+        {
+            if unavailable.contains(home) {
+                if let Some(index) = entry_reads
+                    .iter()
+                    .position(|(entry_home, entry_op)| entry_home == home && *entry_op == op)
+                {
+                    entry_reads.remove(index);
+                    continue;
+                }
+                return Err(MirProofBlocker::ReplacementHomeRead {
+                    home: *home,
+                    op_index,
+                });
+            }
+        }
+        // Unknown readers can observe fixed ABI homes, but private spills and
+        // virtual ZP cannot escape. Unknown writes do not establish a value.
+        if effects.homes.unknown_reads {
+            if let Some(home) = unavailable
+                .iter()
+                .find(|home| matches!(home, MirHomeByte::FixedZeroPage(_)))
+            {
+                return Err(MirProofBlocker::ReplacementHomeRead {
+                    home: *home,
+                    op_index,
+                });
+            }
+        }
+        for home in effects
+            .homes
+            .writes
+            .iter()
+            .chain(&effects.addresses.pair_writes)
+        {
+            unavailable.remove(home);
+        }
+    }
+    Ok(())
 }
 
 fn written_homes(op: &MirOp) -> BTreeSet<MirHomeByte> {
@@ -387,5 +476,134 @@ mod tests {
                 "later read of ${later_read:02X} must block pointer-home retargeting"
             );
         }
+    }
+
+    #[test]
+    fn structural_plan_rejects_removed_staging_used_in_address_operands() {
+        use crate::mir6502::ir::{MirAddressConsumer, MirPointerPair};
+        let lane = |id| {
+            MirValue::PointerCell(MirMem::Spill {
+                id: MirSpillId(id),
+                offset: 0,
+            })
+        };
+        let word = |lo, hi| MirValue::Word {
+            lo: Box::new(lo),
+            hi: Box::new(hi),
+        };
+        for (base, index) in [
+            (MirValue::ConstU16(0x5000), word(lane(0), lane(1))),
+            (
+                MirValue::ConstU16(0x5000),
+                word(lane(0), MirValue::ConstU8(0)),
+            ),
+            (
+                MirValue::ConstU16(0x5000),
+                word(MirValue::ConstU8(0), lane(1)),
+            ),
+            (word(lane(0), lane(1)), MirValue::ConstU8(0)),
+        ] {
+            let address = MirOp::MaterializeIndexedAddress {
+                consumer: MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+                    lo: MirFixedZpSlot(0xA8),
+                }),
+                base,
+                index,
+                scale: 2,
+            };
+            let routine = routine(
+                vec![store(0), store(1), address.clone()],
+                MirTerminator::Return,
+            );
+            let snapshot =
+                PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial()).unwrap();
+            let context = PostHomeRewriteContext::new(&snapshot);
+            assert!(
+                structural_plan(
+                    &routine,
+                    &context,
+                    MirBlockId(0),
+                    0..3,
+                    vec![address],
+                    MirExitStateChange::default(),
+                    "staging",
+                    0
+                )
+                .is_none()
+            );
+            assert_eq!(
+                context.take_blocked_sites()[0].reason,
+                "replacement-home-read"
+            );
+        }
+    }
+
+    #[test]
+    fn replacement_home_reads_require_an_earlier_replacement_write() {
+        let removed = vec![MirRemovedHomeDefinition {
+            home: MirHomeByte::Spill {
+                id: MirSpillId(0),
+                offset: 0,
+            },
+            store: MirSite::Op {
+                block: MirBlockId(0),
+                op_index: 0,
+            },
+        }];
+        assert!(replacement_home_dependencies(&[], &removed, &[load(0), store(0)]).is_err());
+        assert!(replacement_home_dependencies(&[], &removed, &[store(0), load(0)]).is_ok());
+        assert!(replacement_home_dependencies(&[], &removed, &[load(1)]).is_ok());
+        assert!(
+            replacement_home_dependencies(&[load(0), store(0), load(0)], &removed, &[load(0)])
+                .is_ok()
+        );
+        assert!(
+            replacement_home_dependencies(
+                &[load(0), store(0), load(0)],
+                &removed,
+                &[load(0), load(0)]
+            )
+            .is_err()
+        );
+        let mut read_modify_write = store(0);
+        if let MirOp::Store { src, .. } = &mut read_modify_write {
+            *src = MirValue::PointerCell(MirMem::Spill {
+                id: MirSpillId(0),
+                offset: 0,
+            });
+        }
+        assert!(replacement_home_dependencies(&[], &removed, &[read_modify_write]).is_err());
+    }
+
+    #[test]
+    fn structural_plan_keeps_a_definition_read_on_the_backedge() {
+        use crate::mir6502::ir::MirEdge;
+        let routine = routine(
+            vec![load(0), store(0)],
+            MirTerminator::Jump(MirEdge {
+                target: MirBlockId(0),
+                args: Vec::new(),
+            }),
+        );
+        let snapshot =
+            PostHomeAnalysisSnapshot::new(&routine, MirRoutineGeneration::initial()).unwrap();
+        let context = PostHomeRewriteContext::new(&snapshot);
+        assert!(
+            structural_plan(
+                &routine,
+                &context,
+                MirBlockId(0),
+                1..2,
+                Vec::new(),
+                MirExitStateChange::default(),
+                "loop-store",
+                0
+            )
+            .is_none()
+        );
+        assert_eq!(
+            context.take_blocked_sites()[0].reason,
+            "home-definition-live"
+        );
     }
 }

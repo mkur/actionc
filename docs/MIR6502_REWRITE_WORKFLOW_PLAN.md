@@ -529,6 +529,18 @@ and do not by themselves keep the removed definition alive.
 Address-consumer operations read both bytes of their pointer pair through the
 central effects model.
 
+The structural-plan builder and post-home driver must also check replacement
+dependencies: a replacement read cannot consume a disappearing home definition
+unless an earlier replacement write supplies that home. Unchanged reads of
+the window-entry value may be preserved, matched one-to-one against original
+reads before the first original write. An available value from an earlier loop
+iteration is not a substitute for a removed in-window definition. This is a
+necessary dependency proof, not a value-equivalence proof: matchers still own
+equivalence for preserved writes and any address/value substitution. Unknown
+readers remain conservative for fixed ABI homes; unknown writes cannot supply
+missing definitions. Driver validation derives disappearing writes itself so
+an incomplete declaration cannot bypass this check.
+
 ### Machine-state liveness
 
 Implement backward liveness for A, X, Y, SP where represented, and C/Z/N/V.

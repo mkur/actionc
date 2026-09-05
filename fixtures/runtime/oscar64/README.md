@@ -37,12 +37,10 @@ translations or tests of C-only language behavior.
 | `maskcheck` | Every byte input and eight literal masks; four masked equality/inequality forms | Independently checks every truth value, not just equality of paired results: 8,192 result bytes |
 
 All modes use both ActionCart and Standalone runtime linking. The normal suite
-currently executes **222 VM cases in twelve passing tests**. Two separate,
-explicitly ignored regression tests retain **36 failing cases** for the
-outstanding MIR6502 issue below. This is not yet a fully passing six-way matrix:
-the MIR6502 copy/increment ports remain deferred. All classic cases are active.
-There are no changed expected values, expected-panic tests, or source rewrites
-to make those miscompilations pass.
+executes **258 VM cases in fourteen passing tests**, with no ignored cases.
+Both MIR6502 copy/increment regressions are active with their original loops
+and independent expected values; there are no expected-panic tests or source
+workarounds for the former miscompilations.
 
 ## Action! semantics and harness contract
 
@@ -81,17 +79,17 @@ cd tools/vm-runtime-tests
 cargo test --locked --test oscar64_conformance
 ```
 
-Run the retained failing regressions explicitly (currently exits unsuccessfully):
+Run just the MIR6502 word-vector regressions:
 
 ```sh
-cargo test --locked --test oscar64_conformance -- --ignored --nocapture
+cargo test --locked --test oscar64_conformance oscar64_mir_word_vector
 ```
 
 The existing VM CI job runs `cargo test --locked`, so the active tests need no
 new runner, dependency, or workflow. Root `cargo test` does not execute this
 isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
-## Outstanding compiler regressions
+## Compiler regressions
 
 ### OSCAR-CLASSIC-WORD-INDEX — fixed
 
@@ -115,24 +113,28 @@ carry combinations, both scratch pointer pairs, unchanged X/Y and stack balance,
 INT/CARD indexes, `i+3`, and load/store/increment/copy consumers. Address-only
 checks cover full 16-bit wrapping without dereferencing wrapped addresses.
 
-### OSCAR-MIR-SELF-INDEX-STORE
+### OSCAR-MIR-SELF-INDEX-STORE — fixed
 
-MIR6502 fails the original 100-element copy and increment checks in both
+MIR6502 previously failed the original 100-element copy and increment checks in both
 runtimes, even with the extra transfer length set to zero. This is not merely
 an extended boundary-case failure. Both residuals are `$ED0D` (-4851), not zero:
 the copy sum is 99 rather than 4950, and the increment sum is 199 rather than
 5050.
 
-The initialization shape is `INT i; ... words(i)=i`. The emitted listings for
-both fixtures read a one-byte `spill_main_*` twice to form the scaled word
-index, but never store to that spill. Consequently the loop repeatedly writes
-one element instead of filling the original table. The store value itself
-still comes from the real two-byte induction variable. The exact pass that
-loses the index definition remains to be isolated; do not work around this by
-changing the original loop to a different source shape.
+The initialization shape is `INT i; ... words(i)=i`. The post-home
+`word-array-store-value-staging` rewrite removed both staged value stores but
+kept an indexed-address operation reading those same spill bytes. Subsequent
+coloring of the already-invalid MIR made both index lanes share one spill;
+coloring was not the original defect.
 
-Two ignored `oscar64_mir_word_vector_*` tests retain the original zero-residual
-checks and the extended pointer-buffer checks. To inspect the emitted code:
+The shared structural-plan builder and rewrite driver now check surviving
+replacement home reads against disappearing definitions, including address
+bases, indexes, and pointer-pair bytes. Unsafe staging elimination is rejected;
+independent-index staging elimination remains available. Routine-wide deadness
+still protects uses after the window and on backedges.
+
+Both `oscar64_mir_word_vector_*` tests retain the original zero-residual checks
+and extended pointer-buffer checks. To inspect the emitted code:
 
 ```sh
 cargo run --bin actionc -- --mode mir6502 --runtime standalone \
@@ -140,6 +142,5 @@ cargo run --bin actionc -- --mode mir6502 --runtime standalone \
   fixtures/runtime/oscar64/copyintvec.act
 ```
 
-Run that command from the repository root. After fixing the shared lowering or
-materialization problem, enable both tests without altering the fixture loops
-or expected results.
+Run that command from the repository root. Neither fixture loops nor expected
+results were changed to enable these tests.

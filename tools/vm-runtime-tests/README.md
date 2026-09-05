@@ -20,9 +20,9 @@ using independent host-side oracles. Run them separately with:
 cargo test --locked --test oscar64_conformance
 ```
 
-Two explicitly ignored tests retain correct expectations for the outstanding
-MIR6502 index-definition bug; see the fixture README for the affected mode/case
-matrix and reproduction commands. They are not counted as passing runtime coverage.
+All 14 Oscar64 tests are active: 258 VM cases, including the formerly failing
+MIR6502 word-vector initialization checks. See the fixture README for the
+mode/case matrix and resolved compiler regressions.
 
 The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public
 `SYS` routine to a fixture that invokes it and is wired into this harness. Any

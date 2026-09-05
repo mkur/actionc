@@ -471,6 +471,26 @@ fn validate_posthome_plan(
         });
     }
 
+    let mut removed_homes = super::posthome::removed_home_definitions(
+        plan.block,
+        &plan.range,
+        &block.ops,
+        &plan.replacement,
+    );
+    // Value-redundancy plans can preserve exit values without declaring a dead
+    // definition. Still derive disappearing writes independently so a missing
+    // declaration cannot bypass the replacement's internal dependency check.
+    removed_homes.extend(plan.removed_homes.iter().copied());
+    super::posthome::replacement_home_dependencies(
+        &block.ops[plan.range.clone()],
+        &removed_homes,
+        &plan.replacement,
+    )
+    .map_err(|blocker| MirRewriteError::InvalidDeclaration {
+        stat: plan.stat,
+        message: format!("replacement depends on removed home definition: {blocker:?}"),
+    })?;
+
     let end = context.point(MirSite::Op {
         block: plan.block,
         op_index: plan.range.end - 1,
@@ -1859,6 +1879,38 @@ mod tests {
         assert_eq!(result.blocked_by_stat["remove-live-store"], 1);
         assert_eq!(result.blocked_sites[0].block, MirBlockId(0));
         assert_eq!(result.blocked_sites[0].op_index, 0);
+    }
+
+    #[test]
+    fn posthome_validation_rechecks_replacement_dependencies_and_declarations() {
+        let input = routine(spill_store(0));
+        let generation = MirRoutineGeneration::initial();
+        let snapshot = PostHomeAnalysisSnapshot::new(&input, generation).unwrap();
+        let context = PostHomeRewriteContext::new(&snapshot);
+        let plan = super::super::posthome::structural_plan(
+            &input,
+            &context,
+            MirBlockId(0),
+            0..1,
+            Vec::new(),
+            MirExitStateChange::default(),
+            "remove-store",
+            0,
+        )
+        .unwrap();
+        let mut missing = plan.clone();
+        missing.removed_homes.clear();
+        missing.replacement.push(spill_load(0));
+        assert!(
+            matches!(validate_posthome_plan(&input, generation, &context, &missing),
+            Err(MirRewriteError::InvalidDeclaration { message, .. }) if message.contains("replacement depends"))
+        );
+        let mut dependent = plan;
+        dependent.replacement.push(spill_load(0));
+        assert!(
+            matches!(validate_posthome_plan(&input, generation, &context, &dependent),
+            Err(MirRewriteError::InvalidDeclaration { message, .. }) if message.contains("replacement depends"))
+        );
     }
 
     #[test]

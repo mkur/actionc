@@ -5,18 +5,12 @@ single backend or survey note.
 
 ## Oscar64 Conformance Regressions
 
-The [first eight test ports](../fixtures/runtime/oscar64/README.md#outstanding-compiler-regressions)
-retain one outstanding correctness issue as two explicitly ignored VM tests:
-
-- `OSCAR-MIR-SELF-INDEX-STORE`: isolate why an inline word-array store with the
-  same induction variable as index and value reads an undefined index spill;
-  restore the typed word-index definition through lowering/materialization.
-
-Enable the retained correct-result tests after each fix; do not change their
-source loops or accept the current wrong values as backend-specific semantics.
-
-`OSCAR-CLASSIC-WORD-INDEX` is fixed: the general pointer path now uses the array
-path's two-carry schedule. All three classic boundary regressions are active.
+The [first eight test ports](../fixtures/runtime/oscar64/README.md#compiler-regressions)
+now pass all 258 VM cases (14 tests, no ignored cases). Both
+`OSCAR-CLASSIC-WORD-INDEX` and `OSCAR-MIR-SELF-INDEX-STORE` are fixed without
+changing the source loops or expected values. MIR post-home rewrites check
+replacement dependencies. The broader indexed-backing coverage audit remains
+a separate follow-up.
 
 ## Standalone Runtime Licensing
 

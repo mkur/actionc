@@ -67,6 +67,10 @@ pub(in crate::mir6502) enum MirProofBlocker {
         store: MirSite,
         end: MirSite,
     },
+    ReplacementHomeRead {
+        home: MirHomeByte,
+        op_index: usize,
+    },
     HomeLive {
         home: MirHomeByte,
         point: MirSite,
@@ -121,6 +125,7 @@ impl MirProofBlocker {
             Self::MachineValues(_) => "machine-values-error",
             Self::ParamAvailability(_) => "parameter-availability-error",
             Self::HomeDefinitionLive { .. } => "home-definition-live",
+            Self::ReplacementHomeRead { .. } => "replacement-home-read",
             Self::HomeLive { .. } => "home-live",
             Self::RegisterLive { .. } => "register-live",
             Self::StackPointerLive { .. } => "stack-pointer-live",

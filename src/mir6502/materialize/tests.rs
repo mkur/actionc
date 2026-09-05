@@ -10766,7 +10766,26 @@ fn word_array_store_value_staging_delays_value_loads() {
     ];
     let mut stats = MirPeepholeStats::default();
 
+    let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+        id: MirBlockId(0),
+        label: "entry".to_string(),
+        params: Vec::new(),
+        ops: ops.clone(),
+        terminator: MirTerminator::Return,
+    }]);
+    let analyzed = MirPostHomeRewriteDriver::default()
+        .run_fixed_point(&mut routine, |routine, context| {
+            peepholes::discover_word_array_value_staging(routine, context, &layout)
+        })
+        .unwrap();
+    assert_eq!(
+        analyzed
+            .applied_by_stat
+            .get("word-array-store-value-staging"),
+        Some(&1)
+    );
     let rewritten = fold_word_array_store_value_staging(ops, RoutineId(0), &layout, &mut stats);
+    assert_eq!(routine.blocks[0].ops, rewritten);
 
     assert_eq!(rewritten.len(), 6);
     assert_eq!(rewritten[0], index_load);
