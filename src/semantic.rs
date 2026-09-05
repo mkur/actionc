@@ -15,13 +15,16 @@ pub(crate) mod materialize;
 pub mod subject;
 pub mod types;
 
+#[cfg(test)]
+mod embedded_record_arrays_tests;
+
 pub use layout::{
     ArrayLayoutId, RecordLayoutId, SemanticArrayLayout, SemanticArrayOrigin, SemanticLayoutFacts,
     SemanticRecordFieldLayout, SemanticRecordLayout,
 };
 pub use types::{
-    ArrayType, CallableType, PointerType, RecordFieldType, RecordIdentity, RecordIdentityRef,
-    RecordType, ScalarSignedness, ScalarType, TypeCompatibility, ValueTypeKind,
+    ArrayType, CallableType, PointerType, RecordFieldStorage, RecordFieldType, RecordIdentity,
+    RecordIdentityRef, RecordType, ScalarSignedness, ScalarType, TypeCompatibility, ValueTypeKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -242,6 +245,10 @@ pub struct SemanticField {
     pub owner: SymbolId,
     pub name: String,
     pub ty: ValueType,
+    pub storage: RecordFieldStorage,
+    /// Complete field extent, not just the array element width.
+    pub size: u16,
+    pub alignment: u16,
     pub offset: u16,
     pub span: Span,
 }
@@ -402,6 +409,9 @@ pub struct SemanticOptions {
     pub native_real: bool,
     pub lexical_blocks: bool,
     pub comparison_values: bool,
+    /// Semantic-development capability only until lowering and both backends
+    /// support embedded arrays. Public compile modes leave this disabled.
+    pub embedded_record_arrays: bool,
     pub target: TargetId,
 }
 
@@ -411,6 +421,7 @@ impl SemanticOptions {
             native_real: true,
             lexical_blocks: true,
             comparison_values: true,
+            embedded_record_arrays: false,
             target: TargetId::Atari6502,
         }
     }
@@ -3682,28 +3693,116 @@ impl Analyzer {
     ) {
         let mut field_ids = HashMap::new();
         let mut offset = 0u16;
+        let mut record_alignment = 1;
         for field in fields {
+            if field.storage == VarStorage::Array && !self.options.embedded_record_arrays {
+                // Preserve the public rejection until all consumers understand
+                // inline storage. Do not manufacture scalar-width array fields.
+                continue;
+            }
             let ty = self.value_type_from_type_ref(scope, &field.ty);
-            let width = self.value_storage_width(&ty).unwrap_or(0);
-            let alignment = self.value_storage_alignment(&ty).unwrap_or(1);
+            let Some((element_size, alignment)) = self
+                .value_storage_width(&ty)
+                .zip(self.value_storage_alignment(&ty))
+            else {
+                self.diagnostics.push(Diagnostic::new(
+                    field.span,
+                    "record field requires a complete, non-recursive element layout",
+                ));
+                continue;
+            };
+            record_alignment = record_alignment.max(alignment);
             for entry in &field.entries {
-                offset = align_u16(offset, alignment).unwrap_or(offset);
+                let (storage, size) = if field.storage == VarStorage::Array {
+                    let Some(length) = self.embedded_array_length(scope, entry) else {
+                        continue;
+                    };
+                    let Some((stride, size)) = align_u16(element_size, alignment)
+                        .filter(|stride| *stride != 0)
+                        .and_then(|stride| length.checked_mul(stride).map(|size| (stride, size)))
+                    else {
+                        self.diagnostics.push(Diagnostic::new(
+                            entry.span,
+                            "embedded array storage extent must fit in 1..65535 bytes",
+                        ));
+                        continue;
+                    };
+                    (
+                        RecordFieldStorage::InlineArray {
+                            array_type: ArrayType::new(ty.clone(), Some(length)),
+                            stride,
+                        },
+                        size,
+                    )
+                } else {
+                    (RecordFieldStorage::Value, element_size)
+                };
+                let Some((field_offset, end)) = align_u16(offset, alignment)
+                    .and_then(|start| start.checked_add(size).map(|end| (start, end)))
+                else {
+                    self.diagnostics.push(Diagnostic::new(
+                        entry.span,
+                        "record storage extent exceeds 65535 bytes",
+                    ));
+                    continue;
+                };
                 let id = FieldId(self.fields.len());
                 self.fields.push(SemanticField {
                     id,
                     owner,
                     name: entry.name.clone(),
                     ty: ty.clone(),
-                    offset,
+                    storage,
+                    size,
+                    alignment,
+                    offset: field_offset,
                     span: entry.span,
                 });
                 field_ids.insert(normalize_name(&entry.name), id);
-                offset = offset.saturating_add(width);
+                offset = end;
             }
+        }
+        if align_u16(offset, record_alignment).is_none() {
+            self.diagnostics.push(Diagnostic::new(
+                self.symbols.symbols[owner.0].span,
+                "aligned record storage extent exceeds 65535 bytes",
+            ));
         }
         let lookup_name = self.symbols.symbols[owner.0].qualified_name.clone();
         self.field_lookup
             .insert(normalize_name(&lookup_name), field_ids);
+    }
+
+    fn embedded_array_length(&mut self, scope: ScopeId, entry: &DeclEntry) -> Option<u16> {
+        let Some(bound) = &entry.size else {
+            self.diagnostics.push(Diagnostic::new(
+                entry.span,
+                "embedded array fields require an explicit constant bound",
+            ));
+            return None;
+        };
+        let diagnostic_count = self.diagnostics.len();
+        let expression = self.lower_expr(scope, bound);
+        if self.diagnostics.len() != diagnostic_count {
+            return None;
+        }
+        match evaluate_const_expr(&expression) {
+            Ok(value) if exact_const_value(value) > 0 => Some(value.bits),
+            Ok(_) => {
+                self.diagnostics.push(Diagnostic::new(
+                    bound.span,
+                    "embedded array bound must be a positive constant",
+                ));
+                None
+            }
+            Err(message) => {
+                self.diagnostics.push(Diagnostic::new(
+                    bound.span,
+                    format!("embedded array bound must be a scalar constant: {message}"),
+                ));
+                None
+            }
+        }
     }
 
     fn record_field_descriptor(&self, base: &ValueType, field: &str) -> Option<&SemanticField> {
@@ -3767,12 +3866,13 @@ impl Analyzer {
         let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_) | TypeBase::Callable(_))
             || field.ty.pointer
             || self.type_ref_is_record(scope, &field.ty);
-        if field.storage != VarStorage::Plain
+        let inline_array = field.storage == VarStorage::Array && self.options.embedded_record_arrays;
+        if (!inline_array && field.storage != VarStorage::Plain)
             || !valid_value_type
             || field
                 .entries
                 .iter()
-                .any(|entry| entry.size.is_some() || entry.initializer.is_some())
+                .any(|entry| (!inline_array && entry.size.is_some()) || entry.initializer.is_some())
         {
             self.diagnostics.push(Diagnostic::new(
                 field.span,
@@ -3830,10 +3930,9 @@ impl Analyzer {
         let fields = self.field_lookup.get(&normalize_name(name))?;
         let size = fields.values().try_fold(0u16, |size, id| {
             let field = self.fields.get(id.0)?;
-            let width = self.value_storage_width(&field.ty).unwrap_or(0);
-            Some(size.max(field.offset.saturating_add(width)))
+            Some(size.max(field.offset.checked_add(field.size)?))
         })?;
-        align_u16(size, self.record_storage_alignment(name).unwrap_or(1))
+        align_u16(size, self.record_storage_alignment(name)?)
     }
 
     fn record_storage_alignment(&self, name: &str) -> Option<u16> {
@@ -3842,7 +3941,7 @@ impl Analyzer {
             fields
                 .values()
                 .filter_map(|id| self.fields.get(id.0))
-                .filter_map(|field| self.value_storage_alignment(&field.ty))
+                .map(|field| field.alignment)
                 .max()
                 .unwrap_or(1),
         )

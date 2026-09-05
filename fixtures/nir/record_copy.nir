@@ -1,5 +1,5 @@
 nir program
-global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "word", ty: ValueType { base: Fund(Card), pointer: false }, offset: 1 }], size: 3 } fields=2
+global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "word", ty: ValueType { base: Fund(Card), pointer: false }, storage: Value, offset: 1 }], size: 3 } fields=2
 global pairs: array ArrayType { element: ValueType { base: Named("Pair"), pointer: false }, length: Some(2) } length=2 storage=Array origin=global init zero_fill=6 section=global mutable=true
 global current: Pair
 

@@ -1,8 +1,8 @@
 nir program
 target wdc-65816-small cpu=Wdc65816 endian=Little address_bits=24 data_pointer=2 code_pointer=2 abi=Wdc65816Small activation=native-reentrant
 global result: Byte
-global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Fund(Card), pointer: false }, offset: 2 }], size: 4 } fields=2
-global Holder: type RecordType { name: "Holder", fields: [RecordFieldType { id: Some(FieldId(2)), name: "ptr", ty: ValueType { base: Fund(Byte), pointer: true }, offset: 0 }], size: 2 } fields=1
+global Pair: type RecordType { name: "Pair", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Fund(Card), pointer: false }, storage: Value, offset: 2 }], size: 4 } fields=2
+global Holder: type RecordType { name: "Holder", fields: [RecordFieldType { id: Some(FieldId(2)), name: "ptr", ty: ValueType { base: Fund(Byte), pointer: true }, storage: Value, offset: 0 }], size: 2 } fields=1
 static __nir_init_Initialized_0:Byte bytes=[$03 $04 $05] = "entry initializer for bytes"
 static __nir_init_Initialized_1:Card bytes=[$00 $00 $00 $00] fragments=[0:int16=$6, 2:int16=$7] = "entry initializer for words"
 static __nir_init_Initialized_2:Pair bytes=[$08 $00 $00 $00] fragments=[2:int16=$9] = "entry initializer for pair"

@@ -53,7 +53,19 @@ pub struct RecordFieldType {
     pub id: Option<FieldId>,
     pub name: String,
     pub ty: ValueType,
+    pub storage: RecordFieldStorage,
     pub offset: u16,
+}
+
+/// Arrays remain addressable storage, not scalar values. Their element type
+/// and bound reuse ArrayType; stride is resolved for the selected target.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecordFieldStorage {
+    Value,
+    InlineArray {
+        array_type: ArrayType,
+        stride: u16,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -881,12 +893,14 @@ mod tests {
                     id: Some(FieldId(1)),
                     name: "tag".to_string(),
                     ty: ValueType::fund(FundType::Byte),
+                    storage: RecordFieldStorage::Value,
                     offset: 0,
                 },
                 RecordFieldType {
                     id: Some(FieldId(2)),
                     name: "word".to_string(),
                     ty: ValueType::fund(FundType::Card),
+                    storage: RecordFieldStorage::Value,
                     offset: 1,
                 },
             ],

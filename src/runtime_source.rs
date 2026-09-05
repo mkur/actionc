@@ -192,6 +192,7 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
             native_real: true,
             lexical_blocks: false,
             comparison_values: false,
+            embedded_record_arrays: false,
             target: crate::target::TargetId::Atari6502,
         },
     )

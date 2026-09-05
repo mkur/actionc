@@ -2741,10 +2741,17 @@ impl<'a> IrBuilder<'a> {
             .record_for_owner(symbol.id)
             .map(|layout| layout.record_type.clone())
             .unwrap_or_else(|| {
+                assert!(
+                    !fields.iter().any(|field| {
+                        matches!(field.storage, SemDeclarationStorage::Array { .. })
+                    }),
+                    "embedded record arrays require canonical semantic layout facts"
+                );
                 let record_fields = fields.iter().map(|field| RecordFieldType {
                     id: field.id,
                     name: field.name.clone(),
                     ty: field.ty.value.clone(),
+                    storage: super::RecordFieldStorage::Value,
                     offset: field.offset.unwrap_or(0),
                 });
                 let size = fields.iter().fold(0u16, |size, field| {

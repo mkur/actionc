@@ -96,6 +96,35 @@ fn compatibility_api_matches_the_existing_classic_pipeline() {
 }
 
 #[test]
+fn embedded_record_arrays_are_not_publicly_enabled_before_backend_support() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "embedded-record-array.act",
+        "TYPE Buffer=[INT ARRAY values(100)] PROC Main() RETURN",
+    );
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let error = compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_err();
+            assert!(error.diagnostics().iter().all(|diagnostic| {
+                diagnostic.phase == CompilerPhase::Semantic
+            }));
+            assert!(error.diagnostics().iter().any(|diagnostic| {
+                diagnostic.message.contains("record fields must be fundamental variables")
+            }));
+        }
+    }
+}
+
+#[test]
 fn comparison_values_have_a_semantic_profile_gate() {
     let temp = TestDir::new();
     let source = write_source(

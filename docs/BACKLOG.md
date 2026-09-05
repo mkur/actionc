@@ -37,6 +37,10 @@ overflow in both classic profiles. The 408 branch/count cases and 264 modern
 value cases bring Oscar64 coverage to 4,380 cases in 24 tests. Stage 5's record
 ports remain next; see [the contract and repairs](bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
+Stage 5 is paused while [embedded fixed-length record arrays](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md)
+are implemented. Preserve inline member storage in `structmembertest.c` rather
+than adapting it to pointer fields. The feature is not publicly enabled yet.
+
 ## Standalone Runtime Licensing
 
 - Replace the GPL-only standalone `SYS` implementation with an independently

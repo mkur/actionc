@@ -4,8 +4,8 @@ use crate::source::Span;
 use crate::target::{RecordLayoutPolicy, TargetLayout};
 
 use super::{
-    FieldId, RecordFieldType, RecordType, SemanticField, SymbolClass, SymbolId, SymbolTable,
-    ValueType,
+    FieldId, RecordFieldStorage, RecordFieldType, RecordType, SemanticField, SymbolClass,
+    SymbolId, SymbolTable, ValueType,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -40,6 +40,8 @@ pub struct SemanticRecordFieldLayout {
     pub id: FieldId,
     pub name: String,
     pub ty: ValueType,
+    pub storage: RecordFieldStorage,
+    pub size: u16,
     pub offset: u16,
     pub alignment: u16,
     pub span: Span,
@@ -78,7 +80,7 @@ impl SemanticLayoutFacts {
         target_layout: TargetLayout,
     ) -> Self {
         let mut facts = Self::default();
-        facts.collect_records(symbols, fields, target_layout);
+        facts.collect_records(symbols, fields);
         facts.collect_arrays(symbols, array_symbols, array_lengths, target_layout);
         facts
     }
@@ -117,7 +119,6 @@ impl SemanticLayoutFacts {
         &mut self,
         symbols: &SymbolTable,
         fields: &[SemanticField],
-        target_layout: TargetLayout,
     ) {
         let mut fields_by_owner: HashMap<SymbolId, Vec<&SemanticField>> = HashMap::new();
         for field in fields {
@@ -134,23 +135,18 @@ impl SemanticLayoutFacts {
                 continue;
             };
             owner_fields.sort_by_key(|field| (field.offset, field.id.0));
-            let known_records = self
-                .records
-                .iter()
-                .map(|record| (record.name.clone(), (record.size, record.alignment)))
-                .collect::<HashMap<_, _>>();
             let alignment = owner_fields
                 .iter()
-                .filter_map(|field| semantic_value_alignment(&field.ty, &known_records, target_layout))
+                .map(|field| field.alignment)
                 .max()
                 .unwrap_or(1);
             let unpadded_size = owner_fields.iter().fold(0u16, |size, field| {
-                let width = semantic_value_width(&field.ty, &known_records, target_layout)
-                    .unwrap_or(0);
-                size.max(field.offset.saturating_add(width))
+                size.max(
+                    field.offset.checked_add(field.size).expect("validated field extent"),
+                )
             });
-            let size = align_up(unpadded_size, alignment).unwrap_or(unpadded_size);
-            let tail_padding = size.saturating_sub(unpadded_size);
+            let size = align_up(unpadded_size, alignment).expect("validated record extent");
+            let tail_padding = size - unpadded_size;
             let id = RecordLayoutId(self.records.len());
             self.record_lookup.insert(owner, id);
             let record_name = symbol.qualified_name.clone();
@@ -160,6 +156,7 @@ impl SemanticLayoutFacts {
                     id: Some(field.id),
                     name: field.name.clone(),
                     ty: field.ty.clone(),
+                    storage: field.storage.clone(),
                     offset: field.offset,
                 }),
                 size,
@@ -175,13 +172,10 @@ impl SemanticLayoutFacts {
                         id: field.id,
                         name: field.name.clone(),
                         ty: field.ty.clone(),
+                        storage: field.storage.clone(),
+                        size: field.size,
                         offset: field.offset,
-                        alignment: semantic_value_alignment(
-                            &field.ty,
-                            &known_records,
-                            target_layout,
-                        )
-                        .unwrap_or(1),
+                        alignment: field.alignment,
                         span: field.span,
                     })
                     .collect(),

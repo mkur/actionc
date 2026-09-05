@@ -1,5 +1,5 @@
 nir program
-global Sample: type RecordType { name: "Sample", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Real, pointer: false }, offset: 1 }], size: 7 } fields=2
+global Sample: type RecordType { name: "Sample", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Real, pointer: false }, storage: Value, offset: 1 }], size: 7 } fields=2
 global initialized: array ArrayType { element: ValueType { base: Real, pointer: false }, length: Some(2) } length=2 storage=Array origin=global init descriptor size=4 backing=g1 bytes=[$40 $01 $25 $00 $00 $00 $C0 $02 $50 $00 $00 $00] zero_fill=0 backing_section=global.backing size_word=$0000 section=global mutable=true
 global values: array ArrayType { element: ValueType { base: Real, pointer: false }, length: Some(2) } length=2 storage=Array origin=global init zero_fill=12 section=global mutable=true
 global ptr: REAL*

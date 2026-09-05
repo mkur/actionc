@@ -184,6 +184,18 @@ field layout entries by owning `TYPE`/`RECORD` symbol, preserving field ID,
 name, type, offset, and total record size. Downstream code should consume these
 facts instead of rebuilding record layouts from declaration text.
 
+Resolved field facts also carry storage shape, complete byte extent and target
+alignment. Scalar fields use their value width. Embedded fixed-length array
+fields retain an `ArrayType` and element stride separately from their complete
+storage extent; they are not scalar values or pointer cells. Field placement
+and record tail padding use checked arithmetic, and incomplete or recursive
+by-value layouts are diagnosed before layout facts are published.
+
+Embedded fields currently have only an experimental semantic/layout capability;
+all public modes still reject them while array-place lowering and backend
+support are unfinished. See the
+[implementation plan](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
+
 The shared semantic type model exposes record shape as `RecordType`:
 
 - `name` is the source record/type name;

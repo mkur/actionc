@@ -232,6 +232,11 @@ composition, calls and indexed/pointer destinations. Stage 5 remains pending.
 
 Sources: `structarraycopy.c`, `structmembertest.c`.
 
+Paused pending [fixed-length embedded array fields](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
+The `x[100]`/`y[100]` members in `structmembertest.c` must remain inline;
+pointer fields or flattened backing tables would change the structure under
+test. No stage-5 fixtures have been added yet.
+
 Keep record structure: repeated record-array copies after conditional calls,
 field-to-field copies through pointers, and array members within records.
 Include mixed-width fields, page-crossing strides, and checks for unchanged
