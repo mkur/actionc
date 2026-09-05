@@ -159,6 +159,14 @@ The processor-state tracker records known immediate values in `A`, `X`, and
 jumps, label joins, stack pulls, and memory loads unless a local proof says the
 value is still safe to use.
 
+Indexed word loads must preserve their address pointer until both bytes have
+been read. This includes arithmetic operands materialized into the same
+zero-page pair used for addressing. The scaled and general effective-address
+paths share an overlap-safe consumer: overlapping destinations stage the low
+byte on the stack until the high-byte read completes, without borrowing `X` or
+another scratch pair. Partial overlaps and fixed absolute aliases of zero-page
+storage obey the same rule; non-overlapping loads require no staging.
+
 ## Proof-Guided Lowering
 
 Some modern optimizations are backed by explicit proof records. The current

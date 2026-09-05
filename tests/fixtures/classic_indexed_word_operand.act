@@ -1,0 +1,14 @@
+ORG $3000
+INT ARRAY table(256)=$4B00
+BYTE input=$0600
+INT value=$0602
+CARD shifted=$0604
+
+PROC Probe(BYTE i)
+  value=127+table(i)/2
+  shifted=CARD(value) LSH 8
+RETURN
+
+PROC Main()
+  Probe(input)
+RETURN

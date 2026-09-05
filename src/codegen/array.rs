@@ -540,7 +540,6 @@ impl Generator {
             return false;
         }
         if slot.size >= 2
-            && !slot_overlaps_zero_page(slot, runtime_zp::ARRAY_ADDR, 2)
             && self
                 .scaled_word_effective_address_parts(expr, runtime_zp::ARRAY_ADDR)
                 .is_some()
@@ -552,14 +551,10 @@ impl Generator {
             ) {
                 return false;
             }
-            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
-            self.emit_sta_slot_byte(slot, 0);
-            self.emit_iny();
-            self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(runtime_zp::ARRAY_ADDR));
-            self.emit_sta_slot_byte(slot, 1);
+            self.emit_prepared_indexed_word_to_slot(runtime_zp::ARRAY_ADDR, slot);
             self.record_modern_optimization(
                 CodegenOptimizationKind::EffectiveAddressLowered,
-                4,
+                4 - 2 * i16::from(slot_overlaps_zero_page(slot, runtime_zp::ARRAY_ADDR, 2)),
                 Some(expr.span),
                 "loaded scaled (zp),Y word without materializing its element pointer",
             );
@@ -594,20 +589,42 @@ impl Generator {
                 if !self.emit_effective_address_pointer_and_y(address, 0) {
                     return false;
                 }
-                self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(address.pointer));
-                self.emit_sta_slot_byte(slot, 0);
-                self.emit_iny();
-                self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(address.pointer));
-                self.emit_sta_slot_byte(slot, 1);
+                self.emit_prepared_indexed_word_to_slot(address.pointer, slot);
                 self.record_modern_optimization(
                     CodegenOptimizationKind::EffectiveAddressLowered,
-                    8,
+                    8 - 2 * i16::from(slot_overlaps_zero_page(slot, address.pointer, 2)),
                     Some(expr.span),
                     "prepared word effective address once for indexed load",
                 );
                 true
             }
             _ => false,
+        }
+    }
+
+    /// Both effective-address paths must finish reading before a destination
+    /// write can change the prepared pointer. Arithmetic operands are sometimes
+    /// materialized into ARRAY_ADDR itself. Stage only in that overlapping case;
+    /// do not borrow X or another scratch pair which may hold a live operand.
+    pub(super) fn emit_prepared_indexed_word_to_slot(
+        &mut self,
+        pointer: ZeroPage,
+        slot: StorageSlot,
+    ) {
+        debug_assert!(slot.size >= 2);
+        let overlaps = slot_overlaps_zero_page(slot, pointer, 2);
+        self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(pointer));
+        if overlaps {
+            self.emitter.emit_pha();
+        } else {
+            self.emit_sta_slot_byte(slot, 0);
+        }
+        self.emit_iny();
+        self.emit_lda_indirect_indexed_y(IndirectIndexedY::new(pointer));
+        self.emit_sta_slot_byte(slot, 1);
+        if overlaps {
+            self.emit_pla();
+            self.emit_sta_slot_byte(slot, 0);
         }
     }
 

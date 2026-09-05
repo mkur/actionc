@@ -3,6 +3,120 @@ use crate::lexer::tokenize;
 use crate::parser::parse;
 use crate::semantic::analyze;
 
+#[path = "test_cpu.rs"]
+mod indexed_test_cpu;
+
+#[test]
+fn prepared_indexed_word_load_handles_pointer_overlap_and_preserves_xy() {
+    for pointer in [runtime_zp::ARRAY_ADDR, runtime_zp::ADDR] {
+        for displacement in [-2i16, -1, 0, 1, 2] {
+            let target = (i16::from(pointer.address()) + displacement) as u16;
+            for absolute in [false, true] {
+                let slot = if absolute {
+                    StorageSlot::absolute(target, 2)
+                } else {
+                    StorageSlot::zero_page(target as u8, 2)
+                };
+                for (base, y) in [(0x4B00u16, 8u8), (0x4BF1, 14), (0x4BF1, 254)] {
+                    let mut generator = test_generator(CodegenProfile::Modern);
+                    generator.emit_ldx_imm(0x6D);
+                    generator.emit_ldy_imm(y);
+                    generator.emit_prepared_indexed_word_to_slot(pointer, slot);
+                    generator.emitter.emit_stx_absolute(Absolute::new(0x600));
+                    generator.emitter.emit_sty_absolute(Absolute::new(0x601));
+                    generator.emitter.emit_rts();
+                    let bytes = generator.emitter.finish().unwrap();
+                    let mut memory = [0u8; 65536];
+                    memory[0x3000..0x3000 + bytes.len()].copy_from_slice(&bytes);
+                    memory[0x4B00..0x4E00].fill(0xFA);
+                    let address = usize::from(base) + usize::from(y);
+                    memory[address..address + 2].copy_from_slice(&0xFFF3u16.to_le_bytes());
+                    let ptr = usize::from(pointer.address());
+                    memory[ptr..ptr + 2].copy_from_slice(&base.to_le_bytes());
+                    indexed_test_cpu::run_memory(&mut memory, 0x3000);
+                    assert_eq!(
+                        &memory[usize::from(target)..usize::from(target) + 2],
+                        &[0xF3, 0xFF],
+                        "pointer={pointer:?}, slot={slot:?}, base={base:04X}, y={y}"
+                    );
+                    assert_eq!(&memory[0x600..0x602], &[0x6D, y + 1]);
+                    let stages = bytes.iter().filter(|b| **b == opcode::PHA).count();
+                    assert_eq!(stages, usize::from((-1..=1).contains(&displacement)));
+                    assert_eq!(bytes.iter().filter(|b| **b == opcode::PLA).count(), stages);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn pointer_overlap_distinguishes_fixed_absolute_aliases_from_relocations() {
+    let pointer = runtime_zp::ARRAY_ADDR;
+    assert!(slot_overlaps_zero_page(
+        StorageSlot::absolute(0xAE, 2),
+        pointer,
+        2
+    ));
+    assert!(!slot_overlaps_zero_page(
+        StorageSlot::absolute(0xAE, 2).output_relative_if(true),
+        pointer,
+        2
+    ));
+    assert!(!slot_overlaps_zero_page(
+        StorageSlot::absolute(0x4BAE, 2),
+        pointer,
+        2
+    ));
+}
+
+#[test]
+fn indexed_word_runtime_operand_matches_signed_arithmetic_for_all_byte_indexes() {
+    use crate::compiler::{CompileMode, CompileOptions, compile_file};
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/classic_indexed_word_operand.act");
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap();
+        for input in 0..=255u8 {
+            let output = &compiled.output;
+            let mut memory = [0u8; 65536];
+            let origin = usize::from(output.origin);
+            memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
+            memory[0x4B00..0x4E00].fill(0xFA);
+            // Positive and negative values; nonzero low bytes expose pointer
+            // corruption. Includes the Astroscone sample -13 at index 132.
+            for index in 0..=255 {
+                let value = if index == 132 {
+                    -13i16
+                } else {
+                    (index as i16 - 128) * 113 + 3
+                };
+                memory[0x4B00 + index * 2..0x4B02 + index * 2]
+                    .copy_from_slice(&value.to_le_bytes());
+            }
+            let address = 0x4B00 + usize::from(input) * 2;
+            let operand = i16::from_le_bytes([memory[address], memory[address + 1]]);
+            let expected = 127 + operand / 2;
+            memory[0x600] = input;
+            let table = memory[0x4B00..0x4E00].to_vec();
+            indexed_test_cpu::run_memory(&mut memory, usize::from(output.run_address));
+            assert_eq!(
+                &memory[0x602..0x604],
+                &expected.to_le_bytes(),
+                "mode={mode:?}, index={input}, operand={operand}"
+            );
+            assert_eq!(
+                &memory[0x604..0x606],
+                &((expected as u16) << 8).to_le_bytes()
+            );
+            assert_eq!(&memory[0x4B00..0x4E00], &table);
+        }
+    }
+}
+
 #[test]
 fn immediate_selects_low_and_high_bytes() {
     let immediate = Immediate::new(0x1234);

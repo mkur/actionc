@@ -414,7 +414,8 @@ fn ranges_overlap(left_address: u16, left_size: u16, right_address: u16, right_s
 }
 
 fn slot_overlaps_zero_page(slot: StorageSlot, zero_page: ZeroPage, size: u16) -> bool {
-    slot.space == AddressSpace::ZeroPage
+    matches!(slot.space, AddressSpace::ZeroPage | AddressSpace::Absolute)
+        && !slot.output_relative
         && ranges_overlap(
             slot.address,
             slot.size,
