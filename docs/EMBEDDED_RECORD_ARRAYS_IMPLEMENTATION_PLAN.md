@@ -169,7 +169,7 @@ coverage; it is not an embedded-array special case.
 
 ### 3. Array places, SemIR and NIR
 
-Status: pending.
+Status: complete. Public modes remain gated pending slices 4–5.
 
 - Generalize indexing, decay and layout queries from array symbols to array
   places, including nested/indexed record fields.
@@ -179,6 +179,34 @@ Status: pending.
 - Tighten NIR validation of extents, stride and addressable subobjects. Add
   structural/snapshot tests for direct, pointer and nested cases and ordered
   effectful base/index evaluation.
+
+Implemented: canonical array-place queries support symbols and fields; fields
+support indexing, exact element-pointer decay in runtime assignments/arguments,
+explicit address-of, and unevaluated layout queries. Bare array loads, stores,
+rebinding, arithmetic, record-copy operands and unindexed member selection are
+diagnosed. Named-array behavior remains unchanged.
+
+SemIR field references retain canonical ownership, complete storage extent,
+shape and stride. Field declarations resolve by owner SymbolId rather than
+unqualified type spelling, including named modules. NIR uses existing
+field/index/address forms with complete element widths. It checks full inline
+field extent at lowering and verifies normalized element extents, nonzero
+strides and field/index type consistency. No new scalar array type, descriptor
+load, runtime bounds check or backend optimization has been introduced.
+
+Thirteen development-only tests cover direct/local/absolute/nested/pointer
+records, indexed record arrays, record elements, named modules, layout queries,
+ordered calls, volatile elements, invalid scalar uses and malformed IR. The
+layout matrix includes all four targets; BYTE/CHAR/INT/CARD/REAL element cases
+include bounds 1/129/257 and offsets above 255. A new NIR snapshot records the
+400-byte Buffers layout with member offsets 0/200 and two-byte element stride.
+Existing NIR snapshots are unchanged.
+
+Static initializers referring to inline-array subobjects are explicitly gated
+until slice 5: the existing scalar initializer path cannot yet encode their
+addresses. This includes explicit address-of/casts and element addresses, not
+just implicit decay. Compile-time layout queries remain allowed. No public
+profile exposes this intermediate capability.
 
 ### 4. Backend support
 
@@ -196,6 +224,8 @@ Status: pending.
 
 - Extend the shared initializer leaf walker through embedded array elements;
   preserve partial initialization, zero-fill, relocations and diagnostics.
+- Resolve inline-array subobject address initializers through the shared static
+  address/relocation contract before removing slice 3's explicit diagnostic.
 - Verify enclosing `RecordCopy`/`CopyBytes` uses the full extent, including
   copies above 255 bytes, self-copy and overlap in both directions.
 - Add guarded VM tests for BYTE/CHAR, INT/CARD and other eligible complete
@@ -239,9 +269,22 @@ Slice 2 and its source-span prerequisite validated on 2026-09-05:
   mode/runtime combinations. The inline-string listing expectation now uses
   the literal's actual source column (metadata-only change).
 
-These checks validate slices 1–2 and preservation of existing behavior;
-they do not establish executable embedded-array support. Slices 3–6 remain
-unfinished; next is array-place indexing, decay and SemIR/NIR lowering.
+Slice 3 validated on 2026-09-05:
+
+- Root suite: 2,694 passed, 0 failed, 22 existing ignored; 13 new development
+  tests exercise the experimental semantic/SemIR/NIR capability.
+- Isolated VM suite: 100 passed, 0 failed, 0 ignored. These preserve existing
+  execution coverage; they do not yet execute embedded record arrays. Oscar64
+  coverage remains 4,380 cases in 24 tests with no stage-5 ports counted.
+- Explicit NIR snapshots passed; all 33 public sweep fixtures passed with no
+  load, semantic, lowering, verification or optimization failures. The new
+  experimental NIR snapshot runs through its dedicated test, not the public
+  sweep. Existing fixture expectations are unchanged.
+- `git diff --check` passed.
+
+These checks validate semantic/IR development slices and preservation of
+existing behavior; they do not establish executable embedded-array support.
+Slices 4–6 remain unfinished; next is classic/MIR6502 backend execution support.
 
 After each semantic/lowering slice:
 

@@ -2980,6 +2980,48 @@ impl NirVerifier {
             }
             _ => {}
         }
+        match &place.kind {
+            NirPlaceKind::Field {
+                base, offset, ty: field_ty,
+            } => {
+                self.place_type(routine, block, base, "field base");
+                self.type_shape(routine, block, field_ty, "field element");
+                if field_ty.kind != ty.kind || field_ty.width != ty.width {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name, &block.label,
+                        format!("{label} field element type does not match place type"),
+                    ));
+                }
+                if let Some(NirType {
+                    kind: NirTypeKind::Record { size: Some(size), .. }, ..
+                }) = &base.ty
+                    && field_ty.width.is_none_or(|width| {
+                        offset.get().checked_add(width.get()).is_none_or(|end| end > size.get())
+                    })
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name, &block.label,
+                        format!("{label} field extent exceeds its enclosing record"),
+                    ));
+                }
+            }
+            NirPlaceKind::Index { elem_ty, elem_size, .. } => {
+                self.type_shape(routine, block, elem_ty, "index element");
+                if elem_size.is_zero() || elem_ty.width.is_some_and(|width| *elem_size < width) {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name, &block.label,
+                        format!("{label} index stride must cover a complete nonzero element"),
+                    ));
+                }
+                if elem_ty.kind != ty.kind || elem_ty.width != ty.width {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name, &block.label,
+                        format!("{label} index element type does not match place type"),
+                    ));
+                }
+            }
+            _ => {}
+        }
     }
 
     fn type_shape(&mut self, routine: &NirRoutine, block: &NirBlock, ty: &NirType, label: &str) {

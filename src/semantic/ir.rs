@@ -896,7 +896,11 @@ pub struct SemFieldRef {
     pub id: Option<FieldId>,
     pub owner: Option<SymbolId>,
     pub name: String,
+    /// The value type, or element type for inline array storage.
     pub ty: ValueType,
+    pub storage: super::RecordFieldStorage,
+    /// Complete field storage extent, not just one array element's width.
+    pub size: u16,
     pub offset: Option<u16>,
     pub span: Span,
 }
@@ -2504,7 +2508,7 @@ impl<'a> IrBuilder<'a> {
     fn lower_type_decl(&mut self, scope: ScopeId, decl: &TypeDecl) -> Vec<SemDeclaration> {
         self.symbol_ref(scope, &decl.name, decl.span)
             .map(|symbol| {
-                let fields = self.lower_record_fields(scope, symbol.id, &decl.name, &decl.fields);
+                let fields = self.lower_record_fields(scope, symbol.id, &decl.fields);
                 let record_type = self.record_type_from_fields(&symbol, &fields);
                 vec![SemDeclaration {
                     ty: self.sem_type_from_symbol(&symbol),
@@ -2525,7 +2529,7 @@ impl<'a> IrBuilder<'a> {
     fn lower_record_decl(&mut self, scope: ScopeId, decl: &RecordDecl) -> Vec<SemDeclaration> {
         self.symbol_ref(scope, &decl.name, decl.span)
             .map(|symbol| {
-                let fields = self.lower_record_fields(scope, symbol.id, &decl.name, &decl.fields);
+                let fields = self.lower_record_fields(scope, symbol.id, &decl.fields);
                 let record_type = self.record_type_from_fields(&symbol, &fields);
                 vec![SemDeclaration {
                     ty: self.sem_type_from_symbol(&symbol),
@@ -2674,31 +2678,35 @@ impl<'a> IrBuilder<'a> {
         &mut self,
         scope: ScopeId,
         owner: SymbolId,
-        owner_name: &str,
         fields: &[VarDecl],
     ) -> Vec<SemRecordField> {
         let mut lowered = Vec::new();
         let mut offset = 0u16;
         for field in fields {
             for entry in &field.entries {
-                let descriptor = self
-                    .field_descriptor_by_name(owner_name, &entry.name)
-                    .map(|field| (field.id, field.ty.clone(), field.offset));
+                let descriptor = self.model.fields.iter()
+                    .find(|field| field.owner == owner && field.name.eq_ignore_ascii_case(&entry.name))
+                    .cloned();
                 let ty = self.resolved_type_ref(scope, &field.ty);
                 let field_value = descriptor
                     .as_ref()
-                    .map(|(_, ty, _)| ty.clone())
+                    .map(|field| field.ty.clone())
                     .unwrap_or_else(|| ty.clone());
                 let width = self.value_storage_width(&field_value);
                 let storage = if field.storage == VarStorage::Array {
                     SemDeclarationStorage::Array {
-                        array_type: ArrayType::new(
-                            field_value.clone(),
-                            entry
-                                .size
-                                .as_ref()
-                                .and_then(|expr| self.const_u16_expr_in_scope(scope, expr)),
-                        ),
+                        array_type: match &descriptor
+                            .as_ref()
+                            .expect("inline array requires canonical field facts")
+                            .storage
+                        {
+                            super::RecordFieldStorage::InlineArray { array_type, .. } => {
+                                array_type.clone()
+                            }
+                            super::RecordFieldStorage::Value => {
+                                panic!("inline array requires array storage facts")
+                            }
+                        },
                         length: entry.size.as_ref().map(|size| self.lower_expr(scope, size)),
                         fixed_address: None,
                         action_storage: field.storage,
@@ -2707,9 +2715,12 @@ impl<'a> IrBuilder<'a> {
                 } else {
                     SemDeclarationStorage::Scalar
                 };
-                let alignment = self.value_storage_alignment(&field_value);
+                let alignment = descriptor
+                    .as_ref()
+                    .map(|field| field.alignment)
+                    .or_else(|| self.value_storage_alignment(&field_value));
                 lowered.push(SemRecordField {
-                    id: descriptor.as_ref().map(|(id, _, _)| *id),
+                    id: descriptor.as_ref().map(|field| field.id),
                     owner: Some(owner),
                     symbol: None,
                     name: entry.name.clone(),
@@ -2721,11 +2732,15 @@ impl<'a> IrBuilder<'a> {
                     storage,
                     offset: descriptor
                         .as_ref()
-                        .map(|(_, _, offset)| *offset)
+                        .map(|field| field.offset)
                         .or(Some(offset)),
                     span: entry.span,
                 });
-                offset = offset.saturating_add(width.unwrap_or(0));
+                offset = descriptor.as_ref()
+                    .map(|field| {
+                        field.offset.checked_add(field.size).expect("validated field extent")
+                    })
+                    .unwrap_or_else(|| offset.saturating_add(width.unwrap_or(0)));
             }
         }
         lowered
@@ -3316,6 +3331,9 @@ impl<'a> IrBuilder<'a> {
                     .expect("guarded direct symbol");
                 self.expr_kind_for_symbol(scope, expr, symbol)
             }
+            ExprKind::Field { .. } if self.model.array_place_type(scope, expr.span).is_some() => {
+                SemExprKind::ArrayDecay(self.array_decay_for_place(scope, expr))
+            }
             ExprKind::Index { .. } | ExprKind::Field { .. } => {
                 SemExprKind::LValue(Box::new(self.lower_lvalue(scope, expr)))
             }
@@ -3786,15 +3804,39 @@ impl<'a> IrBuilder<'a> {
         expected: &ValueType,
         expr: &Expr,
     ) -> Option<SemArrayDecay> {
-        let ExprKind::Name(name) = &expr.kind else {
-            return None;
+        let decay = if self.model.array_place_type(scope, expr.span).is_some() {
+            self.array_decay_for_place(scope, expr)
+        } else {
+            let symbol = self.direct_symbol_ref_for_expr(scope, expr)?;
+            if !self.is_array_symbol(symbol.id) {
+                return None;
+            }
+            self.array_decay_for_symbol(scope, expr, symbol)
         };
-        let symbol = self.symbol_ref(scope, name, expr.span)?;
-        if !self.is_array_symbol(symbol.id) {
-            return None;
+        let compatible = if decay.origin == SemArrayOrigin::RecordField {
+            expected == &decay.pointer_type
+        } else {
+            array_decay_pointer_types_compatible(expected, &decay.pointer_type)
+        };
+        compatible.then_some(decay)
+    }
+
+    fn array_decay_for_place(&mut self, scope: ScopeId, expr: &Expr) -> SemArrayDecay {
+        if let Some(symbol) = self.direct_symbol_ref_for_expr(scope, expr)
+            && self.is_array_symbol(symbol.id)
+        {
+            return self.array_decay_for_symbol(scope, expr, symbol);
         }
-        let decay = self.array_decay_for_symbol(scope, expr, symbol);
-        array_decay_pointer_types_compatible(expected, &decay.pointer_type).then_some(decay)
+        let array_type = self.model
+            .array_place_type(scope, expr.span)
+            .expect("resolved array place")
+            .clone();
+        SemArrayDecay {
+            array: Box::new(self.lower_lvalue(scope, expr)),
+            pointer_type: array_type.pointer_type(),
+            element_type: *array_type.element,
+            origin: SemArrayOrigin::RecordField,
+        }
     }
 
     fn expr_is_named_place(&self, scope: ScopeId, expr: &Expr) -> bool {
@@ -4011,6 +4053,10 @@ impl<'a> IrBuilder<'a> {
                             ty: descriptor
                                 .map(|field| field.ty.clone())
                                 .unwrap_or_else(byte_type),
+                            storage: descriptor
+                                .map(|field| field.storage.clone())
+                                .unwrap_or(super::RecordFieldStorage::Value),
+                            size: descriptor.map(|field| field.size).unwrap_or(0),
                             offset: descriptor.map(|field| field.offset),
                             span: expr.span,
                         },

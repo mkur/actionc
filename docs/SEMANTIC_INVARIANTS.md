@@ -199,9 +199,9 @@ visibility is independent of resolution order, so resolving a constant for a
 later record does not make forward CONST references legal. A pointer's own
 width does not require a complete pointee layout.
 
-Embedded fields currently have only an experimental semantic/layout capability;
-all public modes still reject them while array-place lowering and backend
-support are unfinished. See the
+Embedded fields currently have an experimental semantic/SemIR/NIR capability;
+all public modes still reject them while backend and aggregate support are
+unfinished. See the
 [implementation plan](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
 
 The shared semantic type model exposes record shape as `RecordType`:
@@ -317,6 +317,28 @@ SemIR array declarations and array parameters should carry an `ArrayType`
 alongside their existing element `SemType`. The element `SemType` remains the
 bridge for current codegen, but future semantic-IR/native lowering should use
 `ArrayType` when it needs array shape or decay information.
+
+Experimental embedded array fields follow the same array-place model, with
+their canonical shape obtained from the owning `FieldId`. The semantic model
+retains resolved array-place types by scope and expression source site for
+SemIR; these are authoritative facts, not expression observations. Indexing
+produces an element place even when the field belongs to a nested record,
+record pointer or indexed record. `SIZEOF` uses the full field extent,
+`ELEMENTS` uses its bound, and layout-query operands remain unevaluated.
+
+A bare embedded array field is not a scalar load, store, record-copy operand,
+or rebindable array descriptor. Runtime assignments and arguments with an
+exactly matching element-pointer type lower to `SemArrayDecay` with
+`RecordField` origin. Explicit address-of and casts remain available. This
+does not change the existing named-array conversion policy.
+
+`SemFieldRef` carries storage shape and full byte extent in addition to the
+element type and offset. Complete field extent is distinct from element width:
+an `INT ARRAY values(100)` field occupies 200 bytes but has a two-byte element.
+NIR lowering consumes this distinction without introducing array scalar values.
+Static initializers referring to inline-array subobjects are explicitly
+diagnosed until the initializer-lowering slice supports them; runtime pointer
+assignment is the supported experimental alternative.
 
 Plain scalar variables do not decay to pointers. A pointer can still be
 assigned a `CARD` value as an explicit raw-address escape hatch.

@@ -1910,6 +1910,10 @@ impl NirBuilder {
                 }
             }
             SemStmt::Assign { target, value, .. } => {
+                assert!(
+                    !lvalue_is_inline_array(target),
+                    "inline array cannot be a scalar store target"
+                );
                 let is_volatile = target.is_volatile;
                 let fallback_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
@@ -1927,6 +1931,10 @@ impl NirBuilder {
                 size,
                 ..
             } => {
+                assert!(
+                    !lvalue_is_inline_array(destination) && !lvalue_is_inline_array(source),
+                    "inline arrays are not whole-record copy operands"
+                );
                 let destination_volatile = destination.is_volatile;
                 let source_volatile = source.is_volatile;
                 let destination = self.lower_place(destination);
@@ -1942,6 +1950,10 @@ impl NirBuilder {
             SemStmt::CompoundAssign {
                 target, op, value, ..
             } => {
+                assert!(
+                    !lvalue_is_inline_array(target),
+                    "inline array cannot be a compound store target"
+                );
                 let is_volatile = target.is_volatile;
                 let fallback_ty = NirFacts::type_from_value(&target.ty);
                 let target = self.lower_place(target);
@@ -2418,6 +2430,10 @@ impl NirBuilder {
                 }));
             }
             SemExprKind::LValue(lvalue) => {
+                assert!(
+                    !lvalue_is_inline_array(lvalue),
+                    "inline array cannot be a REAL scalar load"
+                );
                 let source = self.lower_place(lvalue);
                 self.push(NirOp::Real(NirRealOp::Copy {
                     destination,
@@ -2757,6 +2773,10 @@ impl NirBuilder {
                 Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::LValue(lvalue) => {
+                assert!(
+                    !lvalue_is_inline_array(lvalue),
+                    "inline array cannot be a scalar load"
+                );
                 let is_volatile = lvalue.is_volatile;
                 let place = self.lower_place(lvalue);
                 let dest = self.next_temp();
@@ -2955,14 +2975,37 @@ impl NirBuilder {
                 kind: self.lower_index_place(base, index, element_type),
                 ty,
             },
-            SemLValueKind::Field { base, field } => NirPlace {
-                kind: NirPlaceKind::Field {
-                    base: Box::new(self.lower_place(base)),
-                    offset: ByteOffset::from(field.offset.unwrap_or(0)),
-                    ty: NirFacts::type_from_value(&field.ty),
-                },
-                ty,
-            },
+            SemLValueKind::Field { base, field } => {
+                if let crate::semantic::RecordFieldStorage::InlineArray { array_type, stride } = &field.storage {
+                    assert_eq!(
+                        array_type.length.and_then(|length| length.checked_mul(*stride)),
+                        Some(field.size),
+                        "inline array field extent must match its canonical shape"
+                    );
+                    assert_eq!(
+                        self.element_width(&field.ty), Some(ByteSize::from(*stride)),
+                        "inline array field stride must match its complete element layout"
+                    );
+                    let base_type = base.ty.pointee_type();
+                    let base_size = self.element_width(&base_type).expect("complete enclosing record layout");
+                    assert!(
+                        field.offset.and_then(|offset| offset.checked_add(field.size))
+                            .is_some_and(|end| u32::from(end) <= base_size.get()),
+                        "inline array field extent exceeds enclosing record"
+                    );
+                }
+                // Inline arrays become addresses of their first element. The
+                // enclosing record retains the complete storage/copy extent;
+                // no new aggregate scalar or descriptor-backed field is formed.
+                NirPlace {
+                    kind: NirPlaceKind::Field {
+                        base: Box::new(self.lower_place(base)),
+                        offset: ByteOffset::from(field.offset.expect("resolved field offset")),
+                        ty: self.storage_type_for_value(&field.ty),
+                    },
+                    ty,
+                }
+            }
         }
     }
 
@@ -3074,7 +3117,7 @@ impl NirBuilder {
         index: &SemExpr,
         element_type: &ValueType,
     ) -> NirPlaceKind {
-        let elem_ty = NirFacts::type_from_value(element_type);
+        let elem_ty = self.storage_type_for_value(element_type);
         let elem_size = self.element_width(element_type).unwrap_or(ByteSize::ONE);
         NirPlaceKind::Index {
             base_addr: self.index_base_addr(base, element_type),
@@ -3811,6 +3854,11 @@ impl NirBuilder {
             args: Vec::new(),
         }
     }
+}
+
+fn lvalue_is_inline_array(lvalue: &SemLValue) -> bool {
+    matches!(&lvalue.kind, SemLValueKind::Field { field, .. }
+        if matches!(field.storage, crate::semantic::RecordFieldStorage::InlineArray { .. }))
 }
 
 fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u16> {

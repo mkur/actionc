@@ -12,6 +12,7 @@ use crate::target::{TargetId, TargetLayout};
 pub mod ir;
 pub mod layout;
 pub(crate) mod materialize;
+mod array_places;
 mod declarations;
 pub mod subject;
 pub mod types;
@@ -60,11 +61,13 @@ pub struct SemanticModel {
     pub fixed_array_backing_addresses: HashMap<SymbolId, u16>,
     /// Compile-time layout-query results, keyed by the semantic scope and
     /// source expression. SemIR consumes these as ordinary constants.
-    layout_query_values: HashMap<LayoutQueryKey, ConstValue>,
+    layout_query_values: HashMap<ExpressionSite, ConstValue>,
+    /// Authoritative array-place shape at a source site, not an observation.
+    array_place_types: HashMap<ExpressionSite, ArrayType>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct LayoutQueryKey {
+struct ExpressionSite {
     scope: ScopeId,
     start: usize,
     end: usize,
@@ -136,12 +139,12 @@ impl SemanticModel {
 
     pub(crate) fn layout_query_value(&self, scope: ScopeId, span: Span) -> Option<ConstValue> {
         self.layout_query_values
-            .get(&LayoutQueryKey::new(scope, span))
+            .get(&ExpressionSite::new(scope, span))
             .copied()
     }
 }
 
-impl LayoutQueryKey {
+impl ExpressionSite {
     const fn new(scope: ScopeId, span: Span) -> Self {
         Self {
             scope,
@@ -512,6 +515,7 @@ impl Analyzer {
             real_constants: self.real_constants,
             fixed_array_backing_addresses: self.fixed_array_backing_addresses,
             layout_query_values: self.layout_query_values,
+            array_place_types: self.array_place_types,
         })
     }
 }
@@ -542,7 +546,8 @@ struct Analyzer {
     real_constants: HashMap<SymbolId, RealConstValue>,
     fixed_array_backing_addresses: HashMap<SymbolId, u16>,
     layout_intrinsics: HashMap<SymbolId, LayoutIntrinsic>,
-    layout_query_values: HashMap<LayoutQueryKey, ConstValue>,
+    layout_query_values: HashMap<ExpressionSite, ConstValue>,
+    array_place_types: HashMap<ExpressionSite, ArrayType>,
     named_layout_declarations: declarations::NamedLayoutDeclarations,
 }
 
@@ -616,6 +621,7 @@ impl Analyzer {
             fixed_array_backing_addresses: HashMap::new(),
             layout_intrinsics: HashMap::new(),
             layout_query_values: HashMap::new(),
+            array_place_types: HashMap::new(),
             named_layout_declarations: declarations::NamedLayoutDeclarations::default(),
         }
     }
@@ -1789,6 +1795,9 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.reject_inline_array_target(&target_place, span) {
+            return;
+        }
         if matches!(
             target_place.access,
             subject::PlaceAccess::ReadOnly | subject::PlaceAccess::Error
@@ -1817,7 +1826,7 @@ impl Analyzer {
             return;
         }
 
-        let value = self.lower_expr(scope, value_expr);
+        let value = self.lower_expr_for_expected_type(scope, value_expr, Some(expected));
         let actual = &value.ty;
         if actual.is_error() {
             return;
@@ -1858,7 +1867,17 @@ impl Analyzer {
         expr: &Expr,
     ) -> Option<subject::SemPlace> {
         match self.classify_subject(scope, expr) {
-            subject::SemSubject::Place(place) => Some(place),
+            subject::SemSubject::Place(place) => {
+                if self.inline_array_type(&place).is_some() {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        "embedded array field must be indexed before copying a record element",
+                    ));
+                    None
+                } else {
+                    Some(place)
+                }
+            }
             subject::SemSubject::Error(_) => None,
             subject::SemSubject::Expr(_)
             | subject::SemSubject::Callable(_)
@@ -1882,6 +1901,9 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.reject_inline_array_target(&target_place, span) {
+            return;
+        }
         let value = self.lower_expr(scope, value_expr);
         if !matches!(target_place.access, subject::PlaceAccess::Assignable) {
             if !matches!(target_place.access, subject::PlaceAccess::Error) {
@@ -1991,6 +2013,9 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.reject_inline_array_target(&target_place, span) {
+            return;
+        }
         let diagnostic_count = self.diagnostics.len();
         let start_expr = self.expect_expr(scope, start, start.span);
         if self.diagnostics.len() == diagnostic_count {
@@ -2063,7 +2088,7 @@ impl Analyzer {
         expr: &Expr,
         condition: bool,
     ) -> subject::SemSubject {
-        match &expr.kind {
+        let subject = match &expr.kind {
             ExprKind::Missing => self.subject_error(expr.span),
             ExprKind::Raw => subject::SemSubject::Expr(subject::SemExpr {
                 ty: ValueType::error(),
@@ -2342,6 +2367,13 @@ impl Analyzer {
                     subject
                 } else {
                     let base = self.expect_place(scope, base, base.span);
+                    if self.inline_array_type(&base).is_some() {
+                        self.diagnostics.push(Diagnostic::new(
+                            expr.span,
+                            "embedded array field must be indexed before selecting a member",
+                        ));
+                        return self.subject_error(expr.span);
+                    }
                     let descriptor = self.record_field_facts_or_diagnostic(
                         typed_ref(&base.ty),
                         field,
@@ -2369,7 +2401,14 @@ impl Analyzer {
                     })
                 }
             }
+        };
+        if let subject::SemSubject::Place(place) = &subject
+            && let Some(array_type) = self.array_place_type(place)
+        {
+            self.array_place_types
+                .insert(ExpressionSite::new(scope, expr.span), array_type);
         }
+        subject
     }
 
     fn layout_intrinsic_for_callee(
@@ -2401,7 +2440,7 @@ impl Analyzer {
         args: &[Expr],
         span: Span,
     ) -> subject::SemSubject {
-        let key = LayoutQueryKey::new(scope, span);
+        let key = ExpressionSite::new(scope, span);
         if let Some(value) = self.layout_query_values.get(&key).copied() {
             return self.layout_query_subject(value, span);
         }
@@ -2469,6 +2508,12 @@ impl Analyzer {
                 self.complete_layout_width(&type_ref.ty, operand.span).map(u64::from)
             }
             subject::SemSubject::Place(place) => {
+                if let Some(array_type) = self.inline_array_type(&place) {
+                    let length = array_type.length.expect("fixed inline array bound");
+                    return self
+                        .complete_layout_width(&array_type.element, operand.span)
+                        .map(|width| u64::from(length) * u64::from(width));
+                }
                 if let subject::SemPlaceKind::Symbol(symbol) = place.kind
                     && self.array_symbols.contains(&symbol)
                 {
@@ -2506,6 +2551,9 @@ impl Analyzer {
             }
             return None;
         };
+        if let Some(array_type) = self.inline_array_type(&place) {
+            return array_type.length.map(u64::from);
+        }
         let subject::SemPlaceKind::Symbol(symbol) = place.kind else {
             self.diagnostics.push(Diagnostic::new(
                 operand.span,
@@ -2810,11 +2858,7 @@ impl Analyzer {
     ) -> subject::SemExpr {
         match self.classify_subject_in_context(scope, expr, condition) {
             subject::SemSubject::Expr(expr) => expr,
-            subject::SemSubject::Place(place) => subject::SemExpr {
-                ty: place.ty.clone(),
-                kind: subject::SemExprKind::Load(Box::new(place)),
-                span: expr.span,
-            },
+            subject::SemSubject::Place(place) => self.place_value(place, expr.span, None),
             subject::SemSubject::Define(_) => subject::SemExpr {
                 ty: ValueType::error(),
                 kind: subject::SemExprKind::Raw(expr.text.clone()),
@@ -2854,11 +2898,7 @@ impl Analyzer {
 
         match subject {
             subject::SemSubject::Expr(expr) => expr,
-            subject::SemSubject::Place(place) => subject::SemExpr {
-                ty: place.ty.clone(),
-                kind: subject::SemExprKind::Load(Box::new(place)),
-                span: expr.span,
-            },
+            subject::SemSubject::Place(place) => self.place_value(place, expr.span, expected),
             subject::SemSubject::Define(_) => subject::SemExpr {
                 ty: ValueType::error(),
                 kind: subject::SemExprKind::Raw(expr.text.clone()),
@@ -2897,6 +2937,13 @@ impl Analyzer {
         match self.classify_subject(scope, expr) {
             subject::SemSubject::Callable(callable) => callable,
             subject::SemSubject::Place(place) => {
+                if self.inline_array_type(&place).is_some() {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "embedded array field must be indexed before calling an element",
+                    ));
+                    return self.error_callable(span);
+                }
                 if let Some(callable) = place.ty.as_callable_pointer().cloned() {
                     subject::SemCallable {
                         ty: callable,
@@ -2937,14 +2984,7 @@ impl Analyzer {
     }
 
     fn place_can_be_indexed(&self, place: &subject::SemPlace) -> bool {
-        if place.ty.is_pointer() {
-            return true;
-        }
-
-        matches!(
-            &place.kind,
-            subject::SemPlaceKind::Symbol(symbol_id) if self.is_array_symbol(*symbol_id)
-        )
+        self.array_place_type(place).is_some() || place.ty.is_pointer()
     }
 
     fn indexed_place_type_or_diagnostic(
@@ -2954,15 +2994,11 @@ impl Analyzer {
         span: Span,
     ) -> ValueType {
         self.validate_index_type(&index.ty, index.span);
+        if let Some(array_type) = self.array_place_type(base) {
+            return *array_type.element;
+        }
         if base.ty.is_pointer() {
             return indexed_value_type(Some(&base.ty)).unwrap_or_else(ValueType::error);
-        }
-        if let subject::SemPlaceKind::Symbol(symbol_id) = &base.kind
-            && self.is_array_symbol(*symbol_id)
-        {
-            return self
-                .array_element_type(*symbol_id)
-                .unwrap_or_else(ValueType::error);
         }
         if !base.ty.is_error() {
             self.diagnostics.push(Diagnostic::new(
@@ -3028,7 +3064,31 @@ impl Analyzer {
         expr: &Expr,
         condition: bool,
     ) -> subject::SemExpr {
-        let subject = self.classify_subject_in_context(scope, expr, condition);
+        self.lower_expr_with_expected_context(scope, expr, condition, None)
+    }
+
+    fn lower_expr_for_expected_type(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        expected: Option<&ValueType>,
+    ) -> subject::SemExpr {
+        self.lower_expr_with_expected_context(scope, expr, false, expected)
+    }
+
+    fn lower_expr_with_expected_context(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        condition: bool,
+        expected: Option<&ValueType>,
+    ) -> subject::SemExpr {
+        let mut subject = self.classify_subject_in_context(scope, expr, condition);
+        if let subject::SemSubject::Place(place) = &subject
+            && self.inline_array_type(place).is_some()
+        {
+            subject = subject::SemSubject::Expr(self.place_value(place.clone(), expr.span, expected));
+        }
         if matches!(subject, subject::SemSubject::TypeRef(_)) {
             self.diagnostics
                 .push(Diagnostic::new(expr.span, "expected value expression"));
@@ -3178,11 +3238,8 @@ impl Analyzer {
     }
 
     fn validate_call(&mut self, scope: ScopeId, callee: &Expr, args: &[Expr], span: Span) {
-        for arg in args {
-            self.lower_expr(scope, arg);
-        }
-
         if args.len() == 1 && self.can_subject_be_indexed(scope, callee) {
+            self.lower_expr(scope, &args[0]);
             return;
         }
 
@@ -3261,7 +3318,7 @@ impl Analyzer {
             let Some(expected) = signature.params.get(index).or(signature.variadic.as_ref()) else {
                 continue;
             };
-            let actual = self.lower_expr(scope, arg);
+            let actual = self.lower_expr_for_expected_type(scope, arg, Some(expected));
             if !actual.ty.is_error()
                 && !self.type_can_pass_arg_expr(scope, expected, arg, &actual.ty)
             {
@@ -3302,7 +3359,7 @@ impl Analyzer {
             let Some(expected) = signature.params.get(index).or(signature.variadic.as_ref()) else {
                 continue;
             };
-            let actual = self.lower_expr(scope, arg);
+            let actual = self.lower_expr_for_expected_type(scope, arg, Some(expected));
             if !actual.ty.is_error()
                 && !self.type_can_pass_arg_expr(scope, expected, arg, &actual.ty)
             {
@@ -3371,6 +3428,12 @@ impl Analyzer {
     }
 
     fn array_decay_pointer_type(&self, scope: ScopeId, expr: &Expr) -> Option<ValueType> {
+        if let Some(array_type) = self
+            .array_place_types
+            .get(&ExpressionSite::new(scope, expr.span))
+        {
+            return Some(array_type.pointer_type());
+        }
         let symbol_id = self.symbol_id_for_place_expr(scope, expr)?;
         self.array_element_type(symbol_id)
             .map(ValueType::pointer_to)
@@ -4260,8 +4323,17 @@ impl Analyzer {
                         .push(Diagnostic::new(initializer.span, error.to_string()));
                 }
             }
-            _ if module_for_scope(&self.symbols, scope).is_some() => {
-                self.lower_expr(scope, initializer);
+            _ if module_for_scope(&self.symbols, scope).is_some()
+                || self.options.embedded_record_arrays =>
+            {
+                let value =
+                    self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
+                if self.expression_uses_inline_array(&value) {
+                    self.diagnostics.push(Diagnostic::new(
+                        initializer.span,
+                        "embedded array field initializers are not supported yet; assign the pointer at runtime",
+                    ));
+                }
             }
             _ => {}
         }

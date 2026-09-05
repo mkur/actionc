@@ -473,6 +473,28 @@ Rules:
 - Dereference and index forms use values, not legacy operands.
 - Source syntax may be kept only as metadata for diagnostics or source maps.
 
+Embedded fixed-length record arrays reuse `Field`, `AddrOf` and `Index`; they
+do not introduce an array-valued scalar or a field descriptor cell. SemIR owns
+the field's bound, full storage extent and element type. On entry to NIR
+lowering, the complete field extent must agree with bound times element stride
+and fit the enclosing record. The normalized field place denotes its first
+element, with the complete element type and width. Decay takes this place's
+address; it never loads a pointer from the first bytes of the array.
+
+The enclosing record storage and `CopyBytes` retain the full record extent.
+An indexed embedded array is ordinary address computation using the captured
+base address, the field's byte offset and the complete element stride. Base
+addresses are evaluated before effectful indexes and assignment right operands;
+volatile accesses retain their conservative effects. MIR needs no source array
+name, field name or SemIR lookup to consume the normalized result.
+
+The verifier recursively validates field bases, field/index element type
+consistency, nonzero strides covering the full element width, and normalized
+field extents within complete enclosing record places. This is structural
+validation, not runtime bounds checking: NIR does not retain source array
+bounds across pointer temporaries. The SemIR-to-NIR boundary rejects bare
+inline-array scalar loads/stores and whole-array copies before normalization.
+
 ## Operations
 
 Recommended core operation set:
