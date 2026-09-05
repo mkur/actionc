@@ -919,6 +919,12 @@ impl SemIrAstLowerer<'_> {
             SemExprKind::Literal(literal) => return Some(self.literal(literal, expr.span)),
             SemExprKind::Symbol(symbol) => ExprKind::Name(self.symbol_name(symbol)),
             SemExprKind::LValue(lvalue) => return self.lvalue(lvalue),
+            SemExprKind::ArrayDecay(decay) if decay.origin == SemArrayOrigin::RecordField => {
+                ExprKind::Unary {
+                    op: UnaryOp::AddressOf,
+                    expr: Box::new(self.lvalue(&decay.array)?),
+                }
+            }
             SemExprKind::ArrayDecay(decay) => return self.lvalue(&decay.array),
             SemExprKind::ImplicitAddressOf(address) => ExprKind::Unary {
                 op: UnaryOp::AddressOf,
@@ -990,11 +996,11 @@ impl SemIrAstLowerer<'_> {
                 ..
             } => match syntax {
                 SemIndexSyntax::Call => ExprKind::Call {
-                    callee: Box::new(self.expr(base)?),
+                    callee: Box::new(self.index_base(base)?),
                     args: vec![self.expr(index)?],
                 },
                 SemIndexSyntax::Index => ExprKind::Index {
-                    base: Box::new(self.expr(base)?),
+                    base: Box::new(self.index_base(base)?),
                     index: Box::new(self.expr(index)?),
                 },
             },
@@ -1009,6 +1015,17 @@ impl SemIrAstLowerer<'_> {
             text,
             span: lvalue.span,
         })
+    }
+
+    fn index_base(&mut self, base: &SemExpr) -> Option<Expr> {
+        // Indexing consumes an array place, whereas a decay used as a value
+        // must explicitly compute its address. Classic retains inline shape
+        // in the canonical field table; it never loads a field descriptor.
+        if let SemExprKind::ArrayDecay(decay) = &base.kind {
+            self.lvalue(&decay.array)
+        } else {
+            self.expr(base)
+        }
     }
 
     fn call_expr(&mut self, call: &SemCall) -> Option<Expr> {
@@ -2067,6 +2084,9 @@ fn binary_text(op: BinaryOp) -> &'static str {
 
 #[cfg(test)]
 mod record_layout_tests;
+
+#[cfg(test)]
+mod array_execution_tests;
 
 #[cfg(test)]
 mod tests {

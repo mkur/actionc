@@ -620,6 +620,15 @@ Rules:
 - Do not add source-shaped address forms.
 - `Field` lowering must already have a byte offset before MIR.
 - `Index` lowering should use element size facts from NIR, not source syntax.
+- NIR address-of accepts computed field/index places, not only direct storage.
+  Direct storage retains `LeaAddr`; computed addresses use existing loads,
+  typed word arithmetic and temps. A pointer-cell value is captured at the
+  address operation, not reloaded at a later use after a call. Inline array
+  decay is an address calculation, never a field-descriptor load.
+- Scalar/REAL accesses retain the existing byte-scale selectors. Strides above
+  255 expand through word arithmetic before selection rather than being
+  truncated to the scale byte. Aggregate copies retain their own address
+  preparation and complete byte-count contract.
 - `ComputedIndex` bases such as `GlobalAddr`, `StaticAddr`, and storage-address
   byte pairs are addresses, not pointer cells. Materialization must not read
   the first element as a pointer. `PointerIndex` explicitly requests a pointer
@@ -637,11 +646,19 @@ Rules:
 - `Deref` lowering should materialize pointer values into an explicit address
   strategy, usually a zero-page pointer pair plus `Y` for indirect-indexed work.
 - `AdvanceAddress` accepts any nonzero byte scale representable by the MIR form.
+  Its index can contain stored byte/word lanes, just like
+  `MaterializeIndexedAddress`; the operation consumes those lanes itself.
   Scale 1/2 retain their compact paths. Larger strides stage the index and use
   a costed binary shift/add encoding when it improves both bytes and cycles,
   with repeated word addition retained as a conservative fallback. The
   calculation wraps at 16 bits before updating the prepared pointer, matching
   MIR address arithmetic across page and `$FFFF` boundaries.
+- Ordinary indirect-Y load/store offsets must fit in Y. Larger offsets (or a
+  word spanning Y's end) require pointer advancement before byte accesses;
+  verification must not permit silent low-byte truncation.
+- Indexed pointer-staging elimination does not move pointer-source reads
+  across unsummarized calls, machine blocks or barriers. Empty call-site
+  effects are not a transitive known-callee preservation proof.
 
 ### Index-preserving indirect-Y consumers
 

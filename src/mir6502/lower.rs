@@ -1414,7 +1414,8 @@ fn lower_ops(
                     ));
                     continue;
                 };
-                let Some(src) = lower_place_addr(routine, block, place, &addr_defs, diagnostics)
+                let Some(src) = lower_access_addr(routine, block, place, &addr_defs,
+                    next_generated_temp, generated_temps, &mut lowered, diagnostics)
                 else {
                     continue;
                 };
@@ -1441,7 +1442,8 @@ fn lower_ops(
                     ));
                     continue;
                 };
-                let Some(dst) = lower_place_addr(routine, block, place, &addr_defs, diagnostics)
+                let Some(dst) = lower_access_addr(routine, block, place, &addr_defs,
+                    next_generated_temp, generated_temps, &mut lowered, diagnostics)
                 else {
                     continue;
                 };
@@ -1562,7 +1564,18 @@ fn lower_ops(
                     ));
                     continue;
                 };
-                let Some(target) = lower_place_mem(routine, block, place, diagnostics) else {
+                let Some(address) = lower_place_addr(routine, block, place, &addr_defs, diagnostics) else {
+                    continue;
+                };
+                let MirAddr::Direct(target) = address else {
+                    if let Some(src) = lower_computed_address_value(
+                        routine, block, address, place, next_generated_temp,
+                        generated_temps, &mut lowered, diagnostics,
+                    ) {
+                        lowered.push(MirOp::Move {
+                            dst: MirDef::VTemp(MirTempId(dest.0)), src, width,
+                        });
+                    }
                     continue;
                 };
                 addr_defs.insert(
@@ -2273,11 +2286,13 @@ fn lower_real_op(
             source,
         } => {
             let Some(destination) =
-                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
+                lower_access_addr(routine, block, destination, addr_defs,
+                    next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
-            let source = lower_real_source_addr(routine, block, source, addr_defs, diagnostics);
+            let source = lower_real_source_addr(routine, block, source, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics);
             let Some(source) = source else {
                 return;
             };
@@ -2298,15 +2313,18 @@ fn lower_real_op(
                 return;
             };
             let Some(destination) =
-                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
+                lower_access_addr(routine, block, destination, addr_defs,
+                    next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
-            let Some(left) = lower_real_source_addr(routine, block, left, addr_defs, diagnostics)
+            let Some(left) = lower_real_source_addr(routine, block, left, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
-            let Some(right) = lower_real_source_addr(routine, block, right, addr_defs, diagnostics)
+            let Some(right) = lower_real_source_addr(routine, block, right, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
@@ -2333,7 +2351,8 @@ fn lower_real_op(
             source_type,
         } => {
             let Some(destination) =
-                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
+                lower_access_addr(routine, block, destination, addr_defs,
+                    next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
@@ -2367,12 +2386,14 @@ fn lower_real_op(
             operand,
         } => {
             let Some(destination) =
-                lower_place_addr(routine, block, destination, addr_defs, diagnostics)
+                lower_access_addr(routine, block, destination, addr_defs,
+                    next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
             let Some(operand) =
-                lower_real_source_addr(routine, block, operand, addr_defs, diagnostics)
+                lower_real_source_addr(routine, block, operand, addr_defs,
+                    next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
@@ -2388,11 +2409,13 @@ fn lower_real_op(
             right,
             ..
         } => {
-            let Some(left) = lower_real_source_addr(routine, block, left, addr_defs, diagnostics)
+            let Some(left) = lower_real_source_addr(routine, block, left, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
-            let Some(right) = lower_real_source_addr(routine, block, right, addr_defs, diagnostics)
+            let Some(right) = lower_real_source_addr(routine, block, right, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
@@ -2430,7 +2453,8 @@ fn lower_real_op(
             result_type,
             source,
         } => {
-            let Some(source) = lower_place_addr(routine, block, source, addr_defs, diagnostics)
+            let Some(source) = lower_access_addr(routine, block, source, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics)
             else {
                 return;
             };
@@ -3112,11 +3136,15 @@ fn lower_real_source_addr(
     block: &str,
     source: &NirRealSource,
     addr_defs: &BTreeMap<TempId, MirAddrDef>,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirAddr> {
     match source {
         NirRealSource::Place(source) => {
-            lower_place_addr(routine, block, source, addr_defs, diagnostics)
+            lower_access_addr(routine, block, source, addr_defs,
+                next_generated_temp, generated_temps, lowered, diagnostics)
         }
         NirRealSource::Static { id, .. } => {
             Some(MirAddr::Direct(MirMem::Static { id: *id, offset: 0 }))
@@ -3585,6 +3613,32 @@ fn inline_register_set(registers: crate::asm6502::InlineAsmRegisterSet) -> MirRe
     }
 }
 
+fn lower_access_addr(
+    routine: &str,
+    block: &str,
+    place: &NirPlace,
+    addr_defs: &BTreeMap<TempId, MirAddrDef>,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+    diagnostics: &mut Vec<MirDiagnostic>,
+) -> Option<MirAddr> {
+    let address = lower_place_addr(routine, block, place, addr_defs, diagnostics)?;
+    let (stride, offset) = match &address {
+        MirAddr::ComputedIndex { elem_size, offset, .. }
+        | MirAddr::PointerIndex { elem_size, offset, .. } => (*elem_size, *offset),
+        MirAddr::Deref { offset, .. } | MirAddr::PointerCell { offset, .. } => (1, *offset),
+        _ => return Some(address),
+    };
+    let width = place.ty.as_ref().and_then(|ty| ty.width).map(ByteSize::get).unwrap_or(1);
+    if stride <= u16::from(u8::MAX) && (offset == 0 || u32::from(offset) + width <= 256) {
+        return Some(address);
+    }
+    let ptr = lower_computed_address_value(routine, block, address, place,
+        next_generated_temp, generated_temps, lowered, diagnostics)?;
+    Some(MirAddr::Deref { ptr, offset: 0 })
+}
+
 fn lower_place_addr(
     routine: &str,
     block: &str,
@@ -3616,6 +3670,82 @@ fn lower_place_addr(
             lower_field_addr(routine, block, &base, offset, addr_defs, diagnostics)
         }
     }
+}
+
+// AddrOf captures an effective address as a value. Keep direct storage in the
+// existing LeaAddr path; compose computed addresses from ordinary word ops so
+// subsequent uses do not reload a pointer cell after an intervening call.
+fn lower_computed_address_value(
+    routine: &str,
+    block: &str,
+    address: MirAddr,
+    place: &NirPlace,
+    next_generated_temp: &mut u32,
+    generated_temps: &mut Vec<MirTemp>,
+    lowered: &mut Vec<MirOp>,
+    diagnostics: &mut Vec<MirDiagnostic>,
+) -> Option<MirValue> {
+    let (base, index, offset) = match address {
+        MirAddr::Deref { ptr, offset } => (ptr, None, offset),
+        MirAddr::ComputedIndex { base, index, elem_size, offset } =>
+            (base, Some((index, elem_size)), offset),
+        MirAddr::PointerCell { ref ptr, offset }
+        | MirAddr::PointerIndex { ref ptr, offset, .. } => {
+            let result = generated_temp(next_generated_temp, generated_temps);
+            lowered.push(MirOp::Load {
+                dst: MirDef::VTemp(result), src: MirAddr::Direct(ptr.clone()), width: MirWidth::Word,
+            });
+            let index = match address {
+                MirAddr::PointerIndex { index, elem_size, .. } => Some((index, elem_size)),
+                _ => None,
+            };
+            (temp_value(result), index, offset)
+        }
+        _ => {
+            diagnostics.push(MirDiagnostic::block(routine, block,
+                "unsupported computed address value before MIR6502 materialization"));
+            return None;
+        }
+    };
+    let mut value = base;
+    if let Some((mut index, elem_size)) = index {
+        fn index_width(place: &NirPlace) -> Option<MirWidth> {
+            match &place.kind {
+                nir::NirPlaceKind::Index { index, .. } => value_width(index),
+                nir::NirPlaceKind::Field { base, .. } => index_width(base),
+                _ => None,
+            }
+        }
+        match index_width(place) {
+            Some(MirWidth::Byte) => {
+                let result = generated_temp(next_generated_temp, generated_temps);
+                lowered.push(MirOp::Extend {
+                    dst: MirDef::VTemp(result), src: index,
+                    from_width: MirWidth::Byte, to_width: MirWidth::Word, signed: false,
+                });
+                index = temp_value(result);
+            }
+            Some(MirWidth::Word) => {}
+            None => {
+                diagnostics.push(MirDiagnostic::block(routine, block,
+                    "computed address index needs an explicit byte or word width"));
+                return None;
+            }
+        }
+        if elem_size != 1 {
+            index = temp_value(push_generated_binary(MirBinaryOp::Mul, index,
+                MirValue::ConstU16(elem_size), MirWidth::Word,
+                next_generated_temp, generated_temps, lowered));
+        }
+        value = temp_value(push_generated_binary(MirBinaryOp::Add, value, index,
+            MirWidth::Word, next_generated_temp, generated_temps, lowered));
+    }
+    if offset != 0 {
+        value = temp_value(push_generated_binary(MirBinaryOp::Add, value,
+            MirValue::ConstU16(offset), MirWidth::Word,
+            next_generated_temp, generated_temps, lowered));
+    }
+    Some(value)
 }
 
 fn lower_index_addr(

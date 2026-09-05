@@ -2489,10 +2489,13 @@ impl Generator {
             {
                 return true;
             }
-            let Some(address) = self.address_of_lvalue(expr) else {
-                return false;
-            };
-            self.emit_lda_immediate(Immediate::from_absolute(address), byte_index);
+            if let Some(address) = self.address_of_lvalue(expr) {
+                self.emit_lda_immediate(Immediate::from_absolute(address), byte_index);
+            } else {
+                let temp = StorageSlot::zero_page(runtime_zp::VALUE_TEMP.address(), 2);
+                if !self.emit_dynamic_lvalue_address_to_slot(expr, temp) { return false; }
+                self.emit_lda_slot_byte(temp, byte_index);
+            }
             return true;
         }
 

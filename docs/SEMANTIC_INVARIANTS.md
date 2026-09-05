@@ -195,6 +195,16 @@ Pointer-valued record fields still lack a classic field-place carrier and
 produce an explicit unsupported diagnostic rather than being treated as
 inline records.
 
+Experimental inline-array indexing uses those projected field facts for
+element width, signedness and record identity, independently of the full field
+extent. Runtime decay computes the subobject address; it never reads an array
+descriptor from the field. Static-address queries do not emit code. Dynamic
+address evaluation happens once, with captured destinations and old compound
+values preserved across later index/RHS calls. Named arrays retain their
+existing descriptor/backing rules. Public support remains gated until the
+shared compound-typing follow-up, aggregate initialization and copy validation
+are complete.
+
 Resolved field facts also carry storage shape, complete byte extent and target
 alignment. Scalar fields use their value width. Embedded fixed-length array
 fields retain an `ArrayType` and element stride separately from their complete

@@ -1383,7 +1383,10 @@ impl MirVerifier {
             } => {
                 self.verify_address_consumer(routine, block, consumer);
                 self.reject_scaled_y_consumer(routine, block, consumer, "address advance");
-                self.verify_value(routine, block, index, static_ids, global_ids, routine_ids);
+                // Like indexed materialization, address advance consumes
+                // stored index bytes itself, including a word-valued index.
+                self.verify_value_allow_pointer_cell(
+                    routine, block, index, static_ids, global_ids, routine_ids);
                 if *scale == 0 {
                     self.diagnostics.push(MirDiagnostic::block(
                         &routine.name,
@@ -2251,6 +2254,11 @@ impl MirVerifier {
                 &routine.name,
                 block,
                 "scaled-Y indirect access only supports offsets zero and one",
+            ));
+        } else if !consumer.preserves_index_in_y() && offset > u16::from(u8::MAX) {
+            self.diagnostics.push(MirDiagnostic::block(
+                &routine.name, block,
+                "indirect-Y byte offset must fit in Y; advance the pointer first",
             ));
         }
     }
@@ -4212,6 +4220,49 @@ mod tests {
 
         verify_program(&program, MirPhase::PreEmission)
             .expect("scaled-Y word lanes may be read high-first");
+    }
+
+    #[test]
+    fn accepts_stored_word_index_in_address_advance() {
+        let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xac),
+        });
+        let program = program_with_routines(vec![routine(
+            RoutineId(0), "Main", vec![block_with_ops(
+                MirBlockId(0), "bb0", vec![
+                    MirOp::MaterializeAddress { consumer, value: MirValue::ConstU16(0x4000) },
+                    MirOp::AdvanceAddress {
+                        consumer,
+                        index: MirValue::Word {
+                            lo: Box::new(MirValue::PointerCell(MirMem::Absolute(0x0600))),
+                            hi: Box::new(MirValue::PointerCell(MirMem::Absolute(0x0601))),
+                        },
+                        scale: 6,
+                    },
+                    MirOp::LoadIndirect { consumer, dst: MirDef::Reg(MirReg::A), offset: 0 },
+                ], MirTerminator::Return,
+            )],
+        )]);
+        verify_program(&program, MirPhase::PreEmission).expect("address selector consumes stored index lanes");
+    }
+
+    #[test]
+    fn rejects_unmaterialized_wide_indirect_y_offset() {
+        let consumer = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
+            lo: MirFixedZpSlot(0xac),
+        });
+        for access in [
+            MirOp::LoadIndirect { consumer, dst: MirDef::Reg(MirReg::A), offset: 256 },
+            MirOp::StoreIndirect { consumer, src: MirValue::ConstU8(1), offset: 256 },
+        ] {
+            let program = program_with_routines(vec![routine(
+                RoutineId(0), "Main", vec![block_with_ops(
+                    MirBlockId(0), "bb0", vec![access], MirTerminator::Return,
+                )],
+            )]);
+            let diagnostics = verify_program(&program, MirPhase::PreEmission).unwrap_err();
+            assert!(diagnostics.iter().any(|diagnostic| diagnostic.message.contains("advance the pointer first")));
+        }
     }
 
     #[test]

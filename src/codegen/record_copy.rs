@@ -55,7 +55,7 @@ impl Generator {
             Some(destination) if destination.size == size => destination,
             _ => return Some(false),
         };
-        if !self.emit_record_slot_address(destination, runtime_zp::ARRAY_ADDR) {
+        if !self.emit_slot_address(destination, runtime_zp::ARRAY_ADDR) {
             return Some(false);
         }
         self.emit_lda_zero_page(runtime_zp::ARRAY_ADDR);
@@ -67,7 +67,7 @@ impl Generator {
             Some(source) if source.size == size => source,
             _ => return Some(false),
         };
-        if !self.emit_record_slot_address(source, runtime_zp::ARRAY_ADDR) {
+        if !self.emit_slot_address(source, runtime_zp::ARRAY_ADDR) {
             return Some(false);
         }
         self.emit_pointer_to_record_scratch(runtime_zp::ARRAY_ADDR, scratch, size, span);
@@ -78,7 +78,7 @@ impl Generator {
         Some(true)
     }
 
-    fn emit_record_slot_address(&mut self, slot: StorageSlot, pointer: ZeroPage) -> bool {
+    pub(super) fn emit_slot_address(&mut self, slot: StorageSlot, pointer: ZeroPage) -> bool {
         match slot.space {
             AddressSpace::Absolute | AddressSpace::ZeroPage => {
                 let immediate = slot.address_immediate();

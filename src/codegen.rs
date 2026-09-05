@@ -357,6 +357,7 @@ mod array;
 mod copy;
 
 mod lvalue;
+mod array_place;
 
 mod routine;
 
@@ -941,6 +942,12 @@ impl Generator {
     }
 
     pub(super) fn emit_copy_expr_to_slot(&mut self, expr: &Expr, slot: StorageSlot) -> bool {
+        if let ExprKind::Unary { op: UnaryOp::AddressOf, expr: place } = &expr.kind
+            && !matches!(place.kind, ExprKind::Name(_))
+            && self.address_of_lvalue(place).is_none()
+        {
+            return self.emit_dynamic_lvalue_address_to_slot(place, slot);
+        }
         if self.emit_effective_address_to_slot(expr, slot) {
             return true;
         }

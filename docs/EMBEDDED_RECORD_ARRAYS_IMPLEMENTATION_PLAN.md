@@ -210,7 +210,8 @@ profile exposes this intermediate capability.
 
 ### 4. Backend support
 
-Status: in progress; canonical classic layout projection (4a) is complete.
+Status: 4a canonical layout projection and 4b executable array places complete.
+4c shared compound-operation typing follow-up remains before public enablement.
 
 Classic: project canonical layouts; generalize field-based indexing and array
 decay through existing effective-address/staging paths. MIR6502: retain inline
@@ -233,9 +234,40 @@ pointer-valued record fields. Codegen checks run under both runtimes. Removing
 projected bound expressions leaves allocation and emitted code unchanged,
 proving layout no longer depends on that syntax. Existing fixtures are unchanged.
 
-Remaining in slice 4: generalize classic field-based effective addresses and
-decay; execute indexed loads/stores/compound assignments and ordered calls on
-classic and MIR6502. Public enablement and aggregate initialization remain gated.
+4b generalizes classic indexing to addressable field bases using canonical
+element widths and the existing slot-address emitter. Named arrays and pointers
+share full-word constant-stride expansion; one/two-byte fast paths remain.
+Field decay projects as address-of, while indexing retains the field place.
+Static address queries are read-only; dynamic addresses and complex compound
+destinations are evaluated once and protected across RHS/index calls.
+
+MIR lowers computed address values with existing loads, word arithmetic and
+temps. Ordinary indexed accesses retain existing small-stride selection;
+strides above 255 expand without truncating the scale. `AdvanceAddress` accepts
+the same stored index lanes as indexed materialization. Large indirect offsets
+are incorporated into the pointer; verification rejects unprepared offsets
+that cannot fit in Y. Indexed pointer-staging elimination cannot move a source
+pointer read across unsummarized calls, machine blocks or barriers. Existing
+aggregate-copy selection and both NIR/MIR fixture snapshots are unchanged.
+
+Nine execution tests run classic and MIR6502 with ActionCart and Standalone.
+They cover BYTE/CHAR/INT/CARD/REAL, record elements, local/global/absolute/nested/
+pointer bases, strides 3/6/400/516, the full planned scalar bound matrix,
+page-crossing offsets, guarded neighboring bytes, pointer/array-argument decay,
+compound updates and exactly-once ordered calls. The root test executor loads
+the cartridge's initial arithmetic-service mapping where needed; these are
+development-capability executions, not public compiler-profile support or new
+Oscar64 cases. Two MIR verifier tests cover stored-word indexes and rejection
+of oversized indirect-Y load/store offsets.
+
+4c is required by extra stress cases: BYTE compound multiplication produces
+invalid NIR, and division by a CARD-valued 256 produces `$FF` instead of zero
+on MIR. Both reproduce with ordinary named arrays and are retained as two
+explicit characterization tests, not counted as successful semantic cases.
+Follow [the shared compound typing note](bugs/COMPOUND_ASSIGNMENT_TYPED_LOWERING_GAPS.md):
+reuse ordinary SemIR binary typing, lower computation and store conversion
+separately, and settle old-value read ordering before expanding the execution
+matrix. Do not add a special backend implementation for inline arrays.
 
 ### 5. Aggregate behavior and public enablement
 
@@ -312,10 +344,23 @@ Slice 4a validated on 2026-09-05:
   are unchanged; the bound-removal regression verifies canonical allocation in
   both runtime-linking paths.
 
-These checks validate the semantic/IR and classic allocation development slices
-and preservation of existing behavior; they do not establish executable
-embedded-array access. Slices 4–6 remain unfinished; next is classic field-based
-indexing/decay and cross-backend execution coverage.
+Slice 4b validated on 2026-09-05:
+
+- Root suite: 2,713 passed, 0 failed, 22 existing ignored. Thirteen new tests:
+  nine cross-backend/runtime execution tests, two MIR verifier tests and two
+  explicit characterizations of the open compound-operation defects. Those
+  characterizations are not successful semantic executions of the reproducers.
+- Isolated VM suite: 100 passed, 0 failed, 0 ignored. Oscar64 coverage remains
+  4,380 cases in 24 tests; no stage-5 ports added.
+- Explicit NIR snapshots and all 33 NIR sweep fixtures passed. Existing NIR
+  and MIR snapshots and emitted-code expectations remain unchanged.
+- `git diff --check` passed. Public embedded-array profiles remain disabled.
+
+Slice 4b adds executable embedded-array access under the experimental capability.
+The compound-operation typing/order follow-up in slice 4c remains open.
+Aggregate initialization, subobject address relocations, full record-copy
+validation and public enablement remain slice 5. Structurally faithful Oscar64
+stage-5 ports remain slice 6.
 
 After each semantic/lowering slice:
 

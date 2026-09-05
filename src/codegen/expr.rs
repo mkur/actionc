@@ -78,15 +78,7 @@ impl Generator {
         if args.len() != 1 {
             return None;
         }
-        let ExprKind::Name(name) = &callee.kind else {
-            return None;
-        };
-        let slot = self.lookup_slot(name)?;
-        if slot.array.is_some() {
-            Some(slot.size)
-        } else {
-            slot.pointee_size
-        }
+        self.index_element(callee).map(|element| element.size)
     }
 
     // Extracted from src/codegen.rs: array_call_signed
@@ -94,11 +86,7 @@ impl Generator {
         if args.len() != 1 {
             return None;
         }
-        let ExprKind::Name(name) = &callee.kind else {
-            return None;
-        };
-        let slot = self.lookup_slot(name)?;
-        (slot.array.is_some() || slot.pointee_size.is_some()).then_some(slot.signed)
+        self.index_element(callee).map(|element| element.signed)
     }
 
     // Extracted from src/codegen.rs: array_argument_base
@@ -227,10 +215,7 @@ impl Generator {
                 }
             }),
             ExprKind::Index { base, .. } => {
-                let ExprKind::Name(name) = &base.kind else {
-                    return None;
-                };
-                self.lookup_slot(name).map(|slot| slot.size)
+                self.index_element(base).map(|element| element.size)
             }
             ExprKind::Field { base, field } => self
                 .record_field_metadata(base, field)
@@ -284,11 +269,8 @@ impl Generator {
                 }
             }
             ExprKind::Index { base, .. } => {
-                let ExprKind::Name(name) = &base.kind else {
-                    return None;
-                };
-                let slot = self.lookup_slot(name)?;
-                scalar_type_for_storage(slot.size, slot.signed)
+                let element = self.index_element(base)?;
+                scalar_type_for_storage(element.size, element.signed)
             }
             ExprKind::Field { base, field } => self
                 .record_field_metadata(base, field)
@@ -403,16 +385,10 @@ impl Generator {
         match &expr.kind {
             ExprKind::Name(name) => self.lookup_slot(name)?.record,
             ExprKind::Index { base, .. } => {
-                let ExprKind::Name(name) = &base.kind else {
-                    return None;
-                };
-                self.lookup_slot(name)?.record
+                self.index_element(base)?.record
             }
             ExprKind::Call { callee, args } if args.len() == 1 => {
-                let ExprKind::Name(name) = &callee.kind else {
-                    return None;
-                };
-                self.lookup_slot(name)?.record
+                self.index_element(callee)?.record
             }
             ExprKind::Field { base, field } => self
                 .record_layouts
@@ -499,7 +475,10 @@ impl Generator {
                 .checked_add(field.offset)?
                 .checked_add(field.size.saturating_sub(1))?;
             if last > u16::from(u8::MAX) {
-                return None;
+                let pointer = slot.zero_page_byte(0);
+                self.emit_add_constant_to_addr(pointer, slot.index_offset.checked_add(field.offset)?);
+                return Some(StorageSlot::indirect_indexed_y(pointer, field.size)
+                    .record(field.record).signed(field.signed).volatile(slot.is_volatile));
             }
         } else if !matches!(
             slot.space,
@@ -518,7 +497,7 @@ impl Generator {
     // Extracted from src/codegen.rs: index_slot
     pub(super) fn index_slot(&mut self, base: &Expr, index: &Expr) -> Option<StorageSlot> {
         let ExprKind::Name(name) = &base.kind else {
-            return None;
+            return self.field_array_index_slot(base, index, runtime_zp::ARRAY_ADDR);
         };
         let slot = self.lookup_slot(name)?;
         if slot.pointee_size.is_some() {
@@ -679,6 +658,20 @@ impl Generator {
         if !self.emit_pointer_slot_to_addr(pointer, addr) {
             return None;
         }
+        if !self.emit_add_scaled_index_to_addr(index, size, addr) {
+            return None;
+        }
+        pointer_pointee_slot(pointer, addr)
+    }
+
+    pub(super) fn emit_add_scaled_index_to_addr(
+        &mut self, index: &Expr, size: u16, addr: ZeroPage,
+    ) -> bool {
+        if size == 0 { return false; }
+        if let Some(index) = self.constant_u16(index) {
+            self.emit_add_constant_to_addr(addr, index.wrapping_mul(size));
+            return true;
+        }
         let temp = if addr == runtime_zp::ADDR {
             runtime_zp::ARRAY_ADDR
         } else {
@@ -696,7 +689,7 @@ impl Generator {
             self.emitter.emit_pha();
         }
         if !self.emit_index_expr_to_temp(index, temp) {
-            return None;
+            return false;
         }
         if preserve_base {
             self.emit_pla();
@@ -704,14 +697,39 @@ impl Generator {
             self.emit_pla();
             self.emit_sta_zero_page(addr.offset(1));
         }
+        if size > 2 {
+            // General constant-stride address expansion, shared by pointer,
+            // named-array and inline-subobject indexing. No helper ABI or new
+            // storage is needed: accumulate selected shifts of the index.
+            let mut scale = size;
+            while scale != 0 {
+                if scale & 1 != 0 {
+                    self.emit_clc();
+                    self.emit_lda_zero_page_value_only(temp);
+                    self.emit_adc_zero_page(addr);
+                    self.emit_sta_zero_page(addr);
+                    self.emit_lda_zero_page_value_only(temp.offset(1));
+                    self.emit_adc_zero_page(addr.offset(1));
+                    self.emit_sta_zero_page(addr.offset(1));
+                }
+                scale >>= 1;
+                if scale != 0 {
+                    self.emit_lda_zero_page_value_only(temp);
+                    self.emit_asl_a();
+                    self.emit_sta_zero_page(temp);
+                    self.emit_lda_zero_page_value_only(temp.offset(1));
+                    self.emit_rol_a();
+                    self.emit_sta_zero_page(temp.offset(1));
+                }
+            }
+            return true;
+        }
         self.emit_lda_zero_page_value_only(temp);
         if size == 2 {
             self.emit_asl_a();
             // Match the array word-index schedule: preserve the scale carry
             // separately from the carry produced by adding the base low byte.
             self.emitter.emit_php();
-        } else if size != 1 {
-            return None;
         }
         self.emit_clc();
         self.emit_adc_zero_page(addr);
@@ -725,11 +743,11 @@ impl Generator {
         }
         self.emit_adc_zero_page(addr.offset(1));
         self.emit_sta_zero_page(addr.offset(1));
-        pointer_pointee_slot(pointer, addr)
+        true
     }
 
     // Extracted from src/codegen.rs: address_of_lvalue
-    pub(super) fn address_of_lvalue(&mut self, expr: &Expr) -> Option<Absolute> {
+    pub(super) fn address_of_lvalue(&self, expr: &Expr) -> Option<Absolute> {
         if let ExprKind::Name(name) = &expr.kind
             && !self.local_symbols.contains_key(&normalize_name(name))
             && let Some(address) = self
@@ -742,8 +760,7 @@ impl Generator {
         }
         let slot = match &expr.kind {
             ExprKind::Name(name) => self.lookup_slot(name)?,
-            ExprKind::Call { callee, args } => self.array_call_slot(callee, args)?,
-            _ => self.lvalue_slot(expr)?,
+            _ => self.peek_lvalue_slot(expr)?,
         };
         match slot.space {
             AddressSpace::Absolute | AddressSpace::ZeroPage => Some(slot.absolute_byte(0)),

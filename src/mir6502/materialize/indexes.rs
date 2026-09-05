@@ -1467,6 +1467,8 @@ pub(super) fn try_fuse_indexed_word_copy(
         layout,
         out,
     );
+    let dst_offset = materialize_wide_indirect_offset(
+        destination_consumer, dst_offset, MirWidth::Word, out);
     materialize_indexed_address_to_consumer(
         src_base,
         src_index,
@@ -1475,6 +1477,8 @@ pub(super) fn try_fuse_indexed_word_copy(
         layout,
         out,
     );
+    let src_offset = materialize_wide_indirect_offset(
+        source_consumer, src_offset, MirWidth::Word, out);
     out.push(MirOp::LoadIndirect {
         consumer: source_consumer,
         dst: MirDef::Reg(MirReg::A),
@@ -2736,7 +2740,9 @@ fn mem_is_stable_except(
 ) -> bool {
     ops[start..end].iter().enumerate().all(|(offset, op)| {
         let index = start + offset;
-        ignored_indices.contains(&index) || !op_may_write_mem(op, mem)
+        ignored_indices.contains(&index)
+            || (!matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. })
+                && !op_may_write_mem(op, mem))
     })
 }
 
@@ -3485,6 +3491,7 @@ pub(super) fn materialize_computed_index_read(
         return;
     }
     materialize_indexed_address(base.clone(), index.clone(), elem_size, layout, out);
+    let offset = materialize_wide_indirect_offset(DEFAULT_POINTER_PAIR, offset, width, out);
     match width {
         MirWidth::Byte => out.push(MirOp::LoadIndirect {
             consumer: DEFAULT_POINTER_PAIR,
@@ -3608,6 +3615,7 @@ pub(super) fn materialize_computed_index_write(
         return;
     }
     materialize_indexed_address(base, index, elem_size, layout, out);
+    let offset = materialize_wide_indirect_offset(DEFAULT_POINTER_PAIR, offset, width, out);
     match width {
         MirWidth::Byte => {
             let src = materialize_byte_value_to_a(src, out);
@@ -3630,6 +3638,22 @@ pub(super) fn materialize_computed_index_write(
                 offset: offset.saturating_add(1),
             });
         }
+    }
+}
+
+fn materialize_wide_indirect_offset(
+    consumer: MirAddressConsumer,
+    offset: u16,
+    width: MirWidth,
+    out: &mut Vec<MirOp>,
+) -> u16 {
+    if u32::from(offset) + u32::from(width_bytes(width)) > 256 {
+        out.push(MirOp::AdvanceAddress {
+            consumer, index: MirValue::ConstU16(offset), scale: 1,
+        });
+        0
+    } else {
+        offset
     }
 }
 

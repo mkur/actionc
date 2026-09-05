@@ -714,6 +714,11 @@ impl Generator {
         array: StorageSlot,
         index: &Expr,
     ) -> Option<ZeroPage> {
+        if array.size > 2 {
+            let pointer = runtime_zp::ARRAY_ADDR;
+            self.emit_array_base_to_pointer(array, pointer)?;
+            return self.emit_add_scaled_index_to_addr(index, array.size, pointer).then_some(pointer);
+        }
         if !self.segment_storage {
             return self.emit_legacy_dynamic_array_address(array, index);
         }
@@ -1328,13 +1333,19 @@ impl Generator {
         pointer: ZeroPage,
     ) -> Option<StorageSlot> {
         let ExprKind::Name(name) = &base.kind else {
-            return None;
+            return self.field_array_index_slot(base, index, pointer);
         };
         let slot = self.lookup_slot(name)?;
         if slot.pointee_size.is_some() {
             return self.pointer_index_slot_with_addr(slot, index, pointer);
         }
         slot.array?;
+        if slot.size > 2 {
+            self.emit_array_base_to_pointer(slot, pointer)?;
+            if !self.emit_add_scaled_index_to_addr(index, slot.size, pointer) { return None; }
+            return Some(StorageSlot::indirect_indexed_y(pointer, slot.size)
+                .record(slot.record).signed(slot.signed).volatile(slot.is_volatile));
+        }
         if self.constant_u16(index).is_none() {
             if !self.emit_array_base_plus_scaled_byte_index_to_pointer(slot, index, pointer) {
                 let temp = if pointer == runtime_zp::ADDR {

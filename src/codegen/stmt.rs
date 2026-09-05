@@ -1205,6 +1205,17 @@ impl Generator {
             }
             return;
         }
+        if self.segment_storage && !matches!(target.kind, ExprKind::Name(_))
+            && (Self::expr_address_needs_nested_scratch(target)
+                || self.expr_side_effect_facts(target).has_routine_call
+                || self.expr_side_effect_facts(value).has_routine_call)
+        {
+            if !self.emit_captured_compound_assignment(target, op, value, span) {
+                self.diagnostics.push(Diagnostic::new(span,
+                    "classic code generation could not materialize the captured compound assignment"));
+            }
+            return;
+        }
         if self.emit_compatible_compound_peephole(target, op, value) {
             return;
         }

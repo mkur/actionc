@@ -774,6 +774,9 @@ impl Generator {
         if !self.segment_storage || target.space != AddressSpace::IndirectIndexedY {
             return false;
         }
+        if Self::expr_address_needs_nested_scratch(value) {
+            return self.emit_staged_rhs_preserving_pointer(target, value);
+        }
         // Nested binary operands are staged through the canonical Action!
         // scratch pairs.  Lvalue preparation may have selected one of those
         // same pairs for the destination, even when the RHS itself contains
@@ -1049,6 +1052,11 @@ impl Generator {
             }
         }
 
+        self.emit_staged_rhs_preserving_pointer(target, value)
+    }
+
+    fn emit_staged_rhs_preserving_pointer(&mut self, target: StorageSlot, value: &Expr) -> bool {
+        let pointer = target.zero_page_byte(0);
         let temp = StorageSlot::zero_page(runtime_zp::ARGS.address(), target.size);
         self.emit_lda_zero_page_value_only(pointer.offset(1));
         self.emitter.emit_pha();

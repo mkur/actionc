@@ -13,7 +13,7 @@ pub(crate) fn run_memory_with_limit(
     step_limit: usize,
 ) -> Vec<u8> {
     let (mut a, mut x, mut y, mut sp) = (0u8, 0u8, 0u8, 0xffu8);
-    let (mut c, mut z, mut n) = (false, false, false);
+    let (mut c, mut z, mut n, mut v) = (false, false, false, false);
     let mut pc = entry;
     let mut depth = 0;
     let mut returns = Vec::new();
@@ -102,6 +102,7 @@ pub(crate) fn run_memory_with_limit(
             "ADC" | "SBC" => {
                 let rhs = if name == "SBC" { !value } else { value };
                 let sum = u16::from(a) + u16::from(rhs) + u16::from(c);
+                v = (!(a ^ rhs) & (a ^ sum as u8) & 0x80) != 0;
                 c = sum > 255;
                 a = sum as u8;
                 zn = Some(a);
@@ -153,13 +154,15 @@ pub(crate) fn run_memory_with_limit(
                 y = y.wrapping_sub(1);
                 zn = Some(y);
             }
-            "BCC" | "BCS" | "BEQ" | "BNE" | "BMI" | "BPL" => {
+            "BCC" | "BCS" | "BEQ" | "BNE" | "BMI" | "BPL" | "BVC" | "BVS" => {
                 let take = match name {
                     "BCC" => !c,
                     "BCS" => c,
                     "BEQ" => z,
                     "BNE" => !z,
                     "BMI" => n,
+                    "BVC" => !v,
+                    "BVS" => v,
                     _ => !n,
                 };
                 if take {
@@ -193,7 +196,7 @@ pub(crate) fn run_memory_with_limit(
             }
             "PHP" => {
                 memory[0x100 + usize::from(sp)] =
-                    0x30 | u8::from(c) | (u8::from(z) << 1) | (u8::from(n) << 7);
+                    0x30 | u8::from(c) | (u8::from(z) << 1) | (u8::from(v) << 6) | (u8::from(n) << 7);
                 sp = sp.wrapping_sub(1);
             }
             "PLP" => {
@@ -202,6 +205,7 @@ pub(crate) fn run_memory_with_limit(
                 c = status & 1 != 0;
                 z = status & 2 != 0;
                 n = status & 0x80 != 0;
+                v = status & 0x40 != 0;
             }
             "PLA" => {
                 sp = sp.wrapping_add(1);
