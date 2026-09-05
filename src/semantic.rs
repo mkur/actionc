@@ -14,6 +14,7 @@ pub mod layout;
 pub(crate) mod materialize;
 mod array_places;
 mod declarations;
+mod initializers;
 pub mod subject;
 pub mod types;
 
@@ -4342,37 +4343,13 @@ impl Analyzer {
     }
 
     fn static_initializer_leaf_types(&self, ty: &ValueType) -> Option<Vec<ValueType>> {
-        fn append(
-            analyzer: &Analyzer,
-            ty: &ValueType,
-            active_records: &mut HashSet<String>,
-            leaves: &mut Vec<ValueType>,
-        ) -> Option<()> {
-            if ty.value_width_bytes().is_some() {
-                leaves.push(ty.clone());
-                return Some(());
-            }
-            let record_name = ty.as_record_name()?;
-            let key = normalize_name(record_name);
-            if !active_records.insert(key.clone()) {
-                return None;
-            }
-            let field_ids = analyzer.field_lookup.get(&key)?;
-            let mut fields = field_ids
-                .values()
-                .filter_map(|id| analyzer.fields.get(id.0))
-                .collect::<Vec<_>>();
-            fields.sort_by_key(|field| (field.offset, field.id.0));
-            for field in fields {
-                append(analyzer, &field.ty, active_records, leaves)?;
-            }
-            active_records.remove(&key);
-            Some(())
-        }
-
-        let mut leaves = Vec::new();
-        append(self, ty, &mut HashSet::new(), &mut leaves)?;
-        Some(leaves)
+        initializers::static_initializer_leaves(
+            ty,
+            TargetLayout::for_target(self.options.target),
+            &self.fields,
+            &self.field_lookup,
+        )
+        .map(|leaves| leaves.into_iter().map(|leaf| leaf.ty).collect())
     }
 
     fn validate_type_ref(&mut self, scope: ScopeId, ty: &TypeRef, span: Span) {

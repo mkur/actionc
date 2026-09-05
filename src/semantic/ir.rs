@@ -2153,13 +2153,6 @@ struct IrBuilder<'a> {
     numeric_defines: HashMap<SymbolId, NumberLiteral>,
 }
 
-struct SemStaticInitializerLeaf {
-    offset: u16,
-    ty: ValueType,
-    width: u16,
-    path: String,
-}
-
 impl<'a> IrBuilder<'a> {
     fn new(model: &'a SemanticModel) -> Self {
         Self {
@@ -2577,8 +2570,12 @@ impl<'a> IrBuilder<'a> {
             }
         };
         let element_width = self.value_storage_width(element_type)?;
-        let mut leaves = Vec::new();
-        self.append_static_initializer_leaves(element_type, 0, String::new(), &mut leaves)?;
+        let leaves = super::initializers::static_initializer_leaves(
+            element_type,
+            self.model.target_layout,
+            &self.model.fields,
+            &self.model.field_lookup,
+        )?;
         if leaves.is_empty() {
             return None;
         }
@@ -2647,43 +2644,6 @@ impl<'a> IrBuilder<'a> {
             writes,
         })
     }
-
-    fn append_static_initializer_leaves(
-        &self,
-        ty: &ValueType,
-        base_offset: u16,
-        path: String,
-        leaves: &mut Vec<SemStaticInitializerLeaf>,
-    ) -> Option<()> {
-        if let Some(width) = ty.value_width_bytes_for_layout(self.model.target_layout) {
-            leaves.push(SemStaticInitializerLeaf {
-                offset: base_offset,
-                ty: ty.clone(),
-                width,
-                path,
-            });
-            return Some(());
-        }
-        let record = self
-            .model
-            .layout
-            .record_for_name(ty.as_record_name()?)?;
-        for field in &record.fields {
-            let field_path = if path.is_empty() {
-                field.name.clone()
-            } else {
-                format!("{path}.{}", field.name)
-            };
-            self.append_static_initializer_leaves(
-                &field.ty,
-                base_offset.checked_add(field.offset)?,
-                field_path,
-                leaves,
-            )?;
-        }
-        Some(())
-    }
-
     fn lower_record_fields(
         &mut self,
         scope: ScopeId,

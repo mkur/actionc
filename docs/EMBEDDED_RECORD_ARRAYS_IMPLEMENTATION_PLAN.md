@@ -282,7 +282,16 @@ cartridge probes and arithmetic-scope details.
 
 ### 5. Aggregate behavior and public enablement
 
-Status: pending.
+Status: 5a (aggregate initializer leaf traversal) implemented; static subobject
+addresses, record-copy validation and public enablement remain pending.
+
+5a shares one canonical typed leaf walker between semantic validation and
+SemIR initializer planning. Inline arrays repeat their resolved count/stride;
+nested record elements recurse without treating padding as source elements.
+The existing static-write and relocation contract is unchanged. Tests cover
+recursive declaration order, partial/inferred zero-fill, local/global storage,
+REAL and address leaves, BYTE/CHAR/INT/CARD page-boundary lengths, aligned-target
+offsets and precise invalid-leaf diagnostics. Public profiles remain gated.
 
 - Extend the shared initializer leaf walker through embedded array elements;
   preserve partial initialization, zero-fill, relocations and diagnostics.
@@ -384,6 +393,15 @@ Slice 4c validated on 2026-09-05:
 - Original-cartridge probes confirm RHS-before-load ordering through scalar,
   array and captured-pointer targets. The companion arithmetic probe records
   the cartridge's negative MOD quirk without redefining it in this slice.
+- `git diff --check` passed. Public embedded-array profiles remain disabled.
+
+Slice 5a validated on 2026-09-05:
+
+- Root suite: 2,727 passed, 0 failed, 22 existing ignored. Five new tests
+  exercise recursive/partial initialization, REAL/relocations, the complete
+  scalar length matrix, aligned offsets/paths and invalid scalar leaves.
+- Isolated VM suite: 101 passed, 0 failed, 0 ignored; Oscar64 unchanged.
+- Explicit NIR snapshots and all 33 NIR sweep fixtures passed unchanged.
 - `git diff --check` passed. Public embedded-array profiles remain disabled.
 
 Slice 4 completes executable embedded-array access and the shared integer

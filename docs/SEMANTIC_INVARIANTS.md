@@ -388,6 +388,13 @@ For example, `Pair ARRAY pairs(2)=[1 $2345 2 $6789]` for
 are recursively flattened, while their field paths remain diagnostic metadata
 and do not become executable field-name dependencies.
 
+With the embedded-array capability enabled, the same shared leaf walk repeats
+each inline field's resolved element count and stride, recursively visiting
+record elements. Padding is not a source element. Partial lists zero-fill the
+remaining full object extent; diagnostic paths include inline element indexes.
+Validation and SemIR planning use this one canonical walk, including on aligned
+targets, rather than independently reconstructing scalar-only record layouts.
+
 Semantic analysis and SemIR own this interpretation. A verified
 `SemStaticInitializer` records the total initialized extent plus typed writes
 with explicit byte offsets, widths, values, stable relocation targets, and

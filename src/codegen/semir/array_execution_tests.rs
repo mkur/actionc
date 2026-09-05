@@ -8,7 +8,7 @@ use crate::semantic::{self, SemanticOptions};
 #[path = "../test_cpu.rs"]
 mod cpu;
 
-fn outputs(source: &str) -> Vec<(String, CodegenOutput)> {
+pub(super) fn outputs(source: &str) -> Vec<(String, CodegenOutput)> {
     let ast = parse(&tokenize(source).unwrap()).unwrap();
     let model = semantic::analyze_with_options(
         &ast,
@@ -49,7 +49,7 @@ fn outputs(source: &str) -> Vec<(String, CodegenOutput)> {
     outputs
 }
 
-fn execute(output: &CodegenOutput, initialize: impl FnOnce(&mut [u8; 65536])) -> [u8; 65536] {
+pub(super) fn execute(output: &CodegenOutput, initialize: impl FnOnce(&mut [u8; 65536])) -> [u8; 65536] {
     let mut memory = [0u8; 65536];
     if output.map.runtime == Runtime::ActionCart {
         // These arithmetic-only fixtures use the initial OSS type-15 mapping;
