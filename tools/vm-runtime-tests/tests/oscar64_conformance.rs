@@ -488,3 +488,88 @@ fn oscar64_signed_multiply_literal_and_runtime_operands_match() {
         .collect();
     run_cases("testsigned16mul", 60_000, &cases);
 }
+
+fn reverse_cases() -> Vec<Case> {
+    let mut cases = Vec::new();
+    for bases in [
+        [0x5000u16, 0x5400, 0x5800, 0x5C00, 0x6000],
+        [0x5001u16, 0x5403, 0x5805, 0x5C07, 0x6009],
+        [0x50F1u16, 0x54FD, 0x58FF, 0x5CF9, 0x60FB],
+    ] {
+        for count in [0u16, 1, 2, 100, 127, 128, 129, 255, 256, 257] {
+            let mut case = Case::new(format!("bases={bases:04X?}, count={count}"));
+            case.read_only_words(0x06F0, &bases);
+            case.read_only_words(0x06FA, &[count]);
+            let mut initial = vec![0xA5; 0x1600];
+            let edge_words = [0u16, 0x00FF, 0x0100, 0x7FFF, 0x8000, 0xFFFF, 0x1234];
+            let source: Vec<u16> = (0..usize::from(count))
+                .map(|i| {
+                    if i < edge_words.len() {
+                        edge_words[i]
+                    } else {
+                        (i as u16).wrapping_mul(257).wrapping_add(0x3157)
+                    }
+                })
+                .collect();
+            if count >= 2 {
+                assert_ne!(
+                    source,
+                    source.iter().rev().copied().collect::<Vec<_>>(),
+                    "oracle input must distinguish reverse from forward copy"
+                );
+            }
+            for (i, &value) in source.iter().enumerate() {
+                write_word(&mut initial, usize::from(bases[0] - 0x4F00) + 2 * i, value);
+            }
+            let mut expected = initial.clone();
+            for (i, &value) in source.iter().enumerate() {
+                for destination in 1..5 {
+                    if destination >= 3 && count > 255 {
+                        continue;
+                    }
+                    let answer = if destination % 2 == 0 {
+                        source[source.len() - i - 1]
+                    } else {
+                        value
+                    };
+                    write_word(
+                        &mut expected,
+                        usize::from(bases[destination] - 0x4F00) + 2 * i,
+                        answer,
+                    );
+                }
+            }
+            case.setup.push((0x4F00, initial));
+            case.expected.push((0x4F00, expected));
+
+            // Preserve the original six sum checks, but also inspect all
+            // three original buffers: sums alone cannot prove reversal.
+            let mut original = vec![0xA5; 0xB00];
+            case.setup.push((0x6F00, original.clone()));
+            for i in 0..100usize {
+                write_word(&mut original, 0x101 + 2 * i, (i % 10) as u16);
+                write_word(&mut original, 0x503 + 2 * i, (i % 10) as u16);
+                write_word(&mut original, 0x905 + 2 * i, ((99 - i) % 10) as u16);
+            }
+            case.expected.push((0x6F00, original));
+            for i in 0..6 {
+                case.word(0x0600 + 2 * i, 450);
+            }
+            cases.push(case);
+        }
+    }
+    cases
+}
+
+#[test]
+fn oscar64_classic_reverse_and_copy_check_every_word_and_guard() {
+    // Active regression: nested subtraction currently overwrites the source
+    // address while classic codegen prepares s(n-i-1). Do not replace that
+    // expression with a precomputed scalar index or weaken its memory oracle.
+    run_cases_in_modes("arraytest", 250_000, &reverse_cases(), CLASSIC_MODES);
+}
+
+#[test]
+fn oscar64_mir_reverse_and_copy_check_every_word_and_guard() {
+    run_cases_in_modes("arraytest", 250_000, &reverse_cases(), MIR_MODE);
+}

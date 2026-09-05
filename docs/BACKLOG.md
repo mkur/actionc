@@ -12,6 +12,14 @@ changing the source loops or expected values. MIR post-home rewrites check
 replacement dependencies, and verification rejects undefined private scratch
 reads. The broader indexed-backing coverage audit remains a separate follow-up.
 
+The [second-batch plan](OSCAR64_TEST_PORTING_PLAN.md) has arithmetic composition
+and reverse-copy ports implemented. Arithmetic passes all modes/runtimes, but
+`OSCAR-CLASSIC-COMPUTED-INDEX` is open: preparing `s(n-i-1)` overwrites its source
+base with an intermediate subtraction result in both classic modes. All 120
+classic reverse-copy cases remain active failures; the 60 MIR cases pass.
+See [the diagnosis](bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md). Repair generic
+pointer/index scratch preservation separately from the test ports.
+
 ## Standalone Runtime Licensing
 
 - Replace the GPL-only standalone `SYS` implementation with an independently

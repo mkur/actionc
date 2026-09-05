@@ -13,16 +13,21 @@ cargo test --locked
 ```
 
 The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
-array indexing, word-pointer transfers, loop bounds, comparisons, and masks
+array indexing, word-pointer transfers, loop bounds, comparisons, masks,
+shift/add/sub composition, signed multiplication, and reverse-copy loops
 using independent host-side oracles. Run them separately with:
 
 ```sh
 cargo test --locked --test oscar64_conformance
 ```
 
-All 14 Oscar64 tests are active: 258 VM cases, including the formerly failing
-MIR6502 word-vector initialization checks. See the fixture README for the
-mode/case matrix and resolved compiler regressions.
+The original 14 Oscar64 tests retain 258 passing VM cases, including the
+formerly failing MIR6502 word-vector initialization checks. The second batch
+brings the total to 18 active tests and 2,172 cases: 17 tests pass, while one
+classic reverse-copy regression fails (120 cases); the same 60 MIR reverse-copy
+cases pass. No Oscar64 tests are ignored. See the fixture README for the
+mode/case matrix and open/resolved compiler regressions. Use `cargo test
+--locked --no-fail-fast` to run all test binaries despite the open regression.
 
 The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public
 `SYS` routine to a fixture that invokes it and is wired into this harness. Any

@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These eight Action! fixtures adapt Oscar64 autotests into the existing
+These eleven Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -13,7 +13,8 @@ Adapted on 2026-09-05 from Oscar64 by drmortalwombat and contributors:
 - Upstream: <https://github.com/drmortalwombat/oscar64>.
 - Inspected fork: <https://github.com/mkur/oscar64>.
 - Source revision: `8deb94c4d762bab3aa60c9565412691f01021bbb`.
-- Original paths: `autotest/<fixture-stem>.c`, listed below.
+- Original paths: `autotest/<fixture-stem>.c`, listed below, except
+  `shiftbyteaddconst.cpp`.
 - The source repository supplies GNU GPL version 3 in its `LICENSE`; the
   selected files have no additional per-file license notice. These adaptations
   retain GPL-3.0 attribution. The license text is in this repository's
@@ -35,12 +36,28 @@ translations or tests of C-only language behavior.
 | `loopboundtest` | All 16 sums: lengths 50/100, strict/inclusive ascending/descending loops, INT/CARD accumulators | Odd fixed base, independently computed sums, final table contents and guards |
 | `cmprangeshortcuttest` | Signed/unsigned induction over 5..14; exact counts for six comparison predicates | All five thresholds 4, 5, 10, 14, 15 for every predicate: 60 counters |
 | `maskcheck` | Every byte input and eight literal masks; four masked equality/inequality forms | Independently checks every truth value, not just equality of paired results: 8,192 result bytes |
+| `shiftbyteaddconst` (`.cpp` source) | Shift a widened byte by 0..15 and add 15/16/111/4096/13421 or subtract 15/16/4096 | All 256 byte inputs; all four literal/runtime shift/amount combinations; explicitly unsigned word wrapping; guarded indexed destinations, including 127/128 |
+| `testsigned16mul` | Multiply runtime INT by every coefficient -16..15, contrasting literal expansion with the runtime loop | Both operand orders; 33 representative inputs in -1024..1024 (not the original exhaustive outer sweep); guarded destination indexes up to 255 |
+| `arraytest` (16-bit portions) | All six sum/copy/reverse checks on 100 words with BYTE/INT indexes; original sums are 450 | Exact forward/reversed contents and unchanged sources; disjoint buffers at three base layouts; lengths 0, 1, 2, 100, 127, 128, 129, 255, 256, 257; BYTE-count variants only through 255 |
 
-All modes use both ActionCart and Standalone runtime linking. The normal suite
-executes **258 VM cases in fourteen passing tests**, with no ignored cases.
-Both MIR6502 copy/increment regressions are active with their original loops
-and independent expected values; there are no expected-panic tests or source
-workarounds for the former miscompilations.
+All modes use both ActionCart and Standalone runtime linking. The first eight
+ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
+copy/increment regressions remain active with their original loops and
+independent expected values.
+
+The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
+1 and 2 ported. Their current results are:
+
+| Fixture | Host cases | VM cases (three modes, two runtimes) | Result |
+| --- | ---: | ---: | --- |
+| `shiftbyteaddconst` | 256 | 1,536 | All pass |
+| `testsigned16mul` | 33 | 198 | All pass |
+| `arraytest` | 30 | 180 | 60 MIR6502 pass; 120 classic fail |
+
+Overall: **2,172 VM cases, 2,052 passing and 120 failing**, in **18 active tests
+(17 passing, one failing)**. The classic reverse-copy failure is intentionally
+visible in the normal suite; no test is ignored or expects a panic. See
+[OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--open).
 
 ## Action! semantics and harness contract
 
@@ -59,6 +76,21 @@ workarounds for the former miscompilations.
 - Explicit `BYTE(...)` narrowing preserves byte wrapping, and CARD operands
   keep the extended indexes/offsets word-sized. No C integer-promotion rules
   are assumed for dynamic Action! BYTE expressions.
+- `shiftbyteaddconst` uses `CARD(value)` before shifting and CARD amounts.
+  Rust computes in a wider unsigned type and truncates to 16 bits. The four
+  result tables each have their own expected words, so identical wrong
+  constant/runtime implementations cannot mask a failure. Literal expressions
+  explicitly replace Oscar64's templates and compile-time loops. This larger
+  fixture uses `ORG $2000` to keep its expanded code below its host workspace.
+- `testsigned16mul` explicitly expands literal coefficients in both operand
+  orders. Its 33 host inputs cover zero, signs, and neighbors of byte/word
+  boundaries within -1024..1024; all 4,224 products per mode/runtime fit INT.
+  This deliberately samples the original 2,049-input outer sweep rather than
+  claiming exhaustive signed multiplication coverage.
+- `arraytest` retains `d(i)=s(n-i-1)` with no scalar-index workaround. Host
+  patterns distinguish reversal from copying, which the original sum-only
+  check could not do. BYTE-count routines are not invoked for 256/257-element
+  external buffers. These are disjoint copies, not `memmove` semantics.
 - Oscar64's compile-time `#for` in `maskcheck` is expanded to literal-mask
   branches. Automatic C zero-initialized arrays become explicit initialization
   on each Action! call.
@@ -66,6 +98,11 @@ workarounds for the former miscompilations.
   `$A5` at `$06FF`. All result/configuration bytes start poisoned. Fixed test
   buffers are surrounded by checked guards; inputs/guards cannot overlap a
   loaded object segment. Each case gets a fresh VM.
+- New arithmetic tables use guarded `$6001/$6403/$6805/$6C07` backing (signed
+  multiplication) or `$7001/$7403/$7805/$7C07` (shift composition). Host offset
+  inputs exercise different destination indexes. The reverse-copy test uses
+  five disjoint external buffers plus three independently guarded original
+  buffers. All new host input words/tables must remain unchanged.
 - Fixtures finish in `DO OD`. The harness requires completion within a bounded
   instruction budget, then checks memory. These budgets are watchdogs, not
   benchmark timings. Optimizer selection counts are deliberately not asserted.
@@ -85,11 +122,34 @@ Run just the MIR6502 word-vector regressions:
 cargo test --locked --test oscar64_conformance oscar64_mir_word_vector
 ```
 
+Run the new categories separately:
+
+```sh
+cargo test --locked --test oscar64_conformance oscar64_shift_add_sub
+cargo test --locked --test oscar64_conformance oscar64_signed_multiply
+cargo test --locked --test oscar64_conformance oscar64_mir_reverse
+# Currently fails: active classic computed-index regression.
+cargo test --locked --test oscar64_conformance oscar64_classic_reverse
+```
+
 The existing VM CI job runs `cargo test --locked`, so the active tests need no
 new runner, dependency, or workflow. Root `cargo test` does not execute this
 isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
 ## Compiler regressions
+
+### OSCAR-CLASSIC-COMPUTED-INDEX — open
+
+Both classic modes and both runtimes fail `arraytest`'s original reverse-copy
+shape. In `d(i)=s(n-i-1)`, the source base is loaded into `$AC/$AD`, then the
+inner subtraction materializes `n-i` into those same bytes. Address scaling
+therefore adds the final index to a corrupted base. This affects BYTE and INT
+indexes and is distinct from the already-fixed scale-carry loss below.
+
+MIR6502 passes all 60 reverse-copy cases. The classic test retains all 120
+failing cases, including original-size checks, with correct memory oracles.
+See the [diagnosis and reproduction commands](../../../docs/bugs/CLASSIC_COMPUTED_POINTER_INDEX_BUG.md).
+No compiler implementation was changed in the second test-port batch.
 
 ### OSCAR-CLASSIC-WORD-INDEX — fixed
 

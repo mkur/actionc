@@ -1,0 +1,79 @@
+; Adapted from Oscar64 autotest/arraytest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+
+; Only the 16-bit element variants are ported. BYTE counts never represent
+; 256/257: those host cases exercise only the word-count routines.
+CARD ARRAY originalSums(6)=$0600
+INT ARRAY originalSource(100)=$7001,originalCopy(100)=$7403,
+          originalReverse(100)=$7805
+CARD sourceAddress=$06F0,copyAddress=$06F2,reverseAddress=$06F4,
+     byteCopyAddress=$06F6,byteReverseAddress=$06F8,count=$06FA
+INT POINTER source,destCopy,destReverse,destByteCopy,destByteReverse
+BYTE signature=$06FF
+
+INT FUNC Sum(INT POINTER a INT n)
+  INT i,total
+  total=0 i=0
+  WHILE i<n DO total==+a(i) i==+1 OD
+RETURN(total)
+
+PROC Copy(INT POINTER d,s INT n)
+  INT i
+  i=0
+  WHILE i<n DO d(i)=s(i) i==+1 OD
+RETURN
+
+PROC Reverse(INT POINTER d,s INT n)
+  INT i
+  i=0
+  WHILE i<n DO d(i)=s(n-i-1) i==+1 OD
+RETURN
+
+INT FUNC SumByte(INT POINTER a BYTE n)
+  BYTE i
+  INT total
+  total=0 i=0
+  WHILE i<n DO total==+a(i) i==+1 OD
+RETURN(total)
+
+PROC CopyByte(INT POINTER d,s BYTE n)
+  BYTE i
+  i=0
+  WHILE i<n DO d(i)=s(i) i==+1 OD
+RETURN
+
+PROC ReverseByte(INT POINTER d,s BYTE n)
+  BYTE i
+  i=0
+  WHILE i<n DO d(i)=s(n-i-1) i==+1 OD
+RETURN
+
+PROC Main()
+  INT i
+  signature=0
+  i=0
+  WHILE i<100 DO originalSource(i)=i MOD 10 i==+1 OD
+  originalSums(0)=Sum(originalSource,100)
+  Copy(originalCopy,originalSource,100)
+  originalSums(1)=Sum(originalCopy,100)
+  Reverse(originalReverse,originalSource,100)
+  originalSums(2)=Sum(originalReverse,100)
+  originalSums(3)=SumByte(originalSource,100)
+  CopyByte(originalCopy,originalSource,100)
+  originalSums(4)=SumByte(originalCopy,100)
+  ReverseByte(originalReverse,originalSource,100)
+  originalSums(5)=SumByte(originalReverse,100)
+
+  source=sourceAddress
+  destCopy=copyAddress destReverse=reverseAddress
+  destByteCopy=byteCopyAddress destByteReverse=byteReverseAddress
+  Copy(destCopy,source,INT(count))
+  Reverse(destReverse,source,INT(count))
+  IF count<=255 THEN
+    CopyByte(destByteCopy,source,BYTE(count))
+    ReverseByte(destByteReverse,source,BYTE(count))
+  FI
+  signature=$A5
+  DO OD
+RETURN
