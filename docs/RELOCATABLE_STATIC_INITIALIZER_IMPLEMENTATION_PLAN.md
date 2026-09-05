@@ -35,6 +35,13 @@ being folded before layout.
 An array address always means its element backing address. It must not silently
 change to the address of a pointer or descriptor cell.
 
+The modern embedded-array extension also resolves static field/index places
+through this contract. Semantics proves the base and constant byte offset;
+SemIR represents both pointer-declaration and list forms as existing address
+leaves, never deferred field/index expressions. No new NIR relocation kind is
+needed. MIR resolves local alias backing identities before dropping absolute
+and global-alias locals from its frame, including references in data images.
+
 ## Data contract
 
 All data-bearing NIR initializers should use one shared shape:

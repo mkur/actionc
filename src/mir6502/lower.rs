@@ -768,6 +768,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                                 local,
                                 &routine_ids,
                                 RoutineId(routine.id.0),
+                                &routine.locals,
                             );
                             MirStorageSlot {
                             id: MirStorageId(index as u32),
@@ -1069,6 +1070,7 @@ fn lower_local_storage_init(
     local: &crate::nir::NirLocal,
     routine_ids: &BTreeMap<&str, RoutineId>,
     owner: RoutineId,
+    locals: &[nir::NirLocal],
 ) -> Option<MirStorageInit> {
     if let Some(name) = local_pointer_init_symbol(local)
         && let Some(routine) = routine_ids.get(name.as_str()).copied()
@@ -1084,10 +1086,10 @@ fn lower_local_storage_init(
     local
         .init
         .as_ref()
-        .map(|init| lower_storage_init(init, owner))
+        .map(|init| lower_storage_init(init, owner, locals))
 }
 
-fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> MirStorageInit {
+fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId, locals: &[nir::NirLocal]) -> MirStorageInit {
     match init {
         crate::nir::NirStorageInit::Bytes {
             image,
@@ -1095,7 +1097,7 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
             mutable,
             section,
         } => MirStorageInit::Bytes {
-            image: lower_data_image(image, Some(owner)),
+            image: lower_local_data_image(image, owner, locals),
             zero_fill: nir_size_u16(*zero_fill),
             mutable: *mutable,
             section: section.clone(),
@@ -1108,7 +1110,7 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
             section,
         } => MirStorageInit::Descriptor {
             backing: MirStorageBacking {
-                image: lower_data_image(&backing.image, Some(owner)),
+                image: lower_local_data_image(&backing.image, owner, locals),
                 zero_fill: nir_size_u16(backing.zero_fill),
                 section: backing.section.clone(),
             },
@@ -1127,6 +1129,34 @@ fn lower_storage_init(init: &crate::nir::NirStorageInit, owner: RoutineId) -> Mi
             section: section.clone(),
         },
     }
+}
+
+fn lower_local_data_image(image: &nir::NirDataImage, owner: RoutineId, locals: &[nir::NirLocal]) -> MirDataImage {
+    let mut image = lower_data_image(image, Some(owner));
+    for relocation in &mut image.relocations {
+        // Absolute/global aliases are omitted from the MIR frame, so resolve
+        // their data references just as executable local addresses are resolved.
+        for _ in 0..locals.len() {
+            let MirDataRelocationTarget::Local { id, .. } = relocation.target else { break };
+            let local = locals.iter().find(|local| local.id == id)
+                .expect("verified NIR local relocation target");
+            match local.backing {
+                NirLocalBacking::Ordinary => break,
+                NirLocalBacking::Absolute(address) => {
+                    relocation.target = MirDataRelocationTarget::Absolute(nir_address_u16(address));
+                }
+                NirLocalBacking::Alias { target, offset, .. } => {
+                    relocation.target = MirDataRelocationTarget::Local { routine: owner, id: target };
+                    relocation.addend += i32::from(nir_offset_u16(offset));
+                }
+                NirLocalBacking::GlobalAlias { target, offset, .. } => {
+                    relocation.target = MirDataRelocationTarget::Global(target);
+                    relocation.addend += i32::from(nir_offset_u16(offset));
+                }
+            }
+        }
+    }
+    image
 }
 
 fn lower_data_image(image: &crate::nir::NirDataImage, owner: Option<RoutineId>) -> MirDataImage {

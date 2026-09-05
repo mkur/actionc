@@ -202,11 +202,10 @@ include bounds 1/129/257 and offsets above 255. A new NIR snapshot records the
 400-byte Buffers layout with member offsets 0/200 and two-byte element stride.
 Existing NIR snapshots are unchanged.
 
-Static initializers referring to inline-array subobjects are explicitly gated
-until slice 5: the existing scalar initializer path cannot yet encode their
-addresses. This includes explicit address-of/casts and element addresses, not
-just implicit decay. Compile-time layout queries remain allowed. No public
-profile exposes this intermediate capability.
+Slice 3 originally gated static inline-subobject initializers pending a shared
+relocation path. Slice 5b replaces that diagnostic for statically resolvable
+pointer and list initializers. Compile-time layout queries remain allowed.
+No public profile exposes this intermediate capability before slice 5c.
 
 ### 4. Backend support
 
@@ -282,8 +281,9 @@ cartridge probes and arithmetic-scope details.
 
 ### 5. Aggregate behavior and public enablement
 
-Status: 5a (aggregate initializer leaf traversal) implemented; static subobject
-addresses, record-copy validation and public enablement remain pending.
+Status: 5a (aggregate initializer leaf traversal) and 5b (static subobject
+addresses) implemented; record-copy validation and public enablement remain
+pending.
 
 5a shares one canonical typed leaf walker between semantic validation and
 SemIR initializer planning. Inline arrays repeat their resolved count/stride;
@@ -292,6 +292,17 @@ The existing static-write and relocation contract is unchanged. Tests cover
 recursive declaration order, partial/inferred zero-fill, local/global storage,
 REAL and address leaves, BYTE/CHAR/INT/CARD page-boundary lengths, aligned-target
 offsets and precise invalid-leaf diagnostics. Public profiles remain gated.
+
+5b resolves static subobjects in semantics to the existing SymbolId/addend
+contract. Pointer declarations accept exact field decay, address-of and explicit
+pointer casts; flat address lists additionally accept indexed/nested subobjects
+with low/high selectors and literal byte addends. Dynamic bases/indexes and
+implicit pointer-type mismatches are diagnosed. This does not generalize scalar
+non-pointer alias declarations. Tests cover allocated and absolute globals and
+locals, nested/record-array offsets above 255, inferred initialized arrays,
+module-owned storage and leaf-width errors. MIR data lowering now resolves
+local absolute/global/local aliases before omitted frame identities can become
+unknown relocation targets; ordinary alias-list regression coverage is included.
 
 - Extend the shared initializer leaf walker through embedded array elements;
   preserve partial initialization, zero-fill, relocations and diagnostics.
@@ -400,6 +411,15 @@ Slice 5a validated on 2026-09-05:
 - Root suite: 2,727 passed, 0 failed, 22 existing ignored. Five new tests
   exercise recursive/partial initialization, REAL/relocations, the complete
   scalar length matrix, aligned offsets/paths and invalid scalar leaves.
+- Isolated VM suite: 101 passed, 0 failed, 0 ignored; Oscar64 unchanged.
+- Explicit NIR snapshots and all 33 NIR sweep fixtures passed unchanged.
+- `git diff --check` passed. Public embedded-array profiles remain disabled.
+
+Slice 5b validated on 2026-09-06:
+
+- Root suite: 2,733 passed, 0 failed, 22 existing ignored. Six new tests
+  cover static pointer/list relocations, local alias normalization, inferred
+  record arrays, module identities and rejected runtime/mistyped addresses.
 - Isolated VM suite: 101 passed, 0 failed, 0 ignored; Oscar64 unchanged.
 - Explicit NIR snapshots and all 33 NIR sweep fixtures passed unchanged.
 - `git diff --check` passed. Public embedded-array profiles remain disabled.

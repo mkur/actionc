@@ -620,6 +620,11 @@ pub enum InitializerElementKind {
         target: QualifiedName,
         addend: i32,
     },
+    SubobjectAddress {
+        selector: Option<AddressByteSelector>,
+        target: Box<Expr>,
+        addend: i32,
+    },
     Invalid,
 }
 

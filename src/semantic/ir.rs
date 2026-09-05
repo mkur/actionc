@@ -2491,7 +2491,29 @@ impl<'a> IrBuilder<'a> {
                 let initializer = entry
                     .initializer
                     .as_ref()
-                    .map(|initializer| self.lower_expr(scope, initializer));
+                    .map(|initializer| {
+                        if let Some(address) = self.model.static_subobject_addresses
+                            .get(&super::ExpressionSite::new(scope, initializer.span))
+                        {
+                            SemExpr {
+                                kind: SemExprKind::InitializerList(vec![SemInitializerElement {
+                                    kind: SemInitializerElementKind::Address {
+                                        selector: None,
+                                        target: self.symbol_ref_by_id(address.target, initializer.span),
+                                        addend: address.addend,
+                                    },
+                                    text: initializer.text.clone(),
+                                    span: initializer.span,
+                                }]),
+                                ty: ty.value.clone(),
+                                class: SemExprClass::Value,
+                                eval_order: None,
+                                span: initializer.span,
+                            }
+                        } else {
+                            self.lower_expr(scope, initializer)
+                        }
+                    });
                 let static_initializer = initializer.as_ref().and_then(|initializer| {
                     self.layout_static_initializer(&symbol, &ty, &storage, initializer)
                 });
@@ -3406,6 +3428,24 @@ impl<'a> IrBuilder<'a> {
         scope: ScopeId,
         element: &InitializerElement,
     ) -> SemInitializerElement {
+        if let Some(address) = self.model.static_subobject_addresses
+            .get(&super::ExpressionSite::new(scope, element.span))
+        {
+            let selector = match &element.kind {
+                InitializerElementKind::Address { selector, .. }
+                | InitializerElementKind::SubobjectAddress { selector, .. } => *selector,
+                _ => unreachable!("static address fact belongs to an address element"),
+            };
+            return SemInitializerElement {
+                kind: SemInitializerElementKind::Address {
+                    selector,
+                    target: self.symbol_ref_by_id(address.target, element.span),
+                    addend: address.addend,
+                },
+                text: element.text.clone(),
+                span: element.span,
+            };
+        }
         let kind = match &element.kind {
             InitializerElementKind::Literal { value, negative } => {
                 let value = match value {
@@ -3450,7 +3490,8 @@ impl<'a> IrBuilder<'a> {
                     addend: *addend,
                 })
                 .unwrap_or(SemInitializerElementKind::Invalid),
-            InitializerElementKind::Invalid => SemInitializerElementKind::Invalid,
+            InitializerElementKind::SubobjectAddress { .. }
+            | InitializerElementKind::Invalid => SemInitializerElementKind::Invalid,
         };
         SemInitializerElement {
             kind,

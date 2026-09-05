@@ -244,7 +244,7 @@ fn embedded_array_places_allow_explicit_address_reinterpretation() {
 }
 
 #[test]
-fn embedded_array_field_initializers_are_gated_until_static_address_lowering() {
+fn embedded_array_field_initializers_require_static_addresses() {
     for initializer in [
         "data.values",
         "@data.values",
@@ -256,14 +256,17 @@ fn embedded_array_field_initializers_are_gated_until_static_address_lowering() {
              PROC Main() RETURN"
         );
         let program = parse(&tokenize(&source).unwrap()).unwrap();
-        let errors = semantic::analyze_with_options(&program, options(TargetId::Atari6502))
-            .expect_err("inline subobject initializers must not silently become zero storage");
-        assert!(
-            errors.iter().any(|error| error
-                .message
-                .contains("embedded array field initializers are not supported yet")),
-            "{source}: {errors:#?}"
-        );
+        semantic::analyze_with_options(&program, options(TargetId::Atari6502)).unwrap();
+        lower(&source, TargetId::Atari6502);
+    }
+    for initializer in ["@data.values(index)", "@ptr.values", "@data.values(Pick())"] {
+        let source = format!("TYPE Buffer=[INT ARRAY values(2)] Buffer data \
+            Buffer POINTER ptr CARD index BYTE FUNC Pick() RETURN(1) \
+            PROC Main() INT POINTER p={initializer} RETURN");
+        let program = parse(&tokenize(&source).unwrap()).unwrap();
+        let errors = semantic::analyze_with_options(&program, options(TargetId::Atari6502)).unwrap_err();
+        assert!(errors.iter().any(|error| error.message.contains("requires a static storage base")),
+            "{source}: {errors:#?}");
     }
     lower(
         "TYPE Buffer=[INT ARRAY values(2)] Buffer data \

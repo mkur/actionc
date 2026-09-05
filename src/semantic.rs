@@ -15,6 +15,7 @@ pub(crate) mod materialize;
 mod array_places;
 mod declarations;
 mod initializers;
+mod static_addresses;
 pub mod subject;
 pub mod types;
 
@@ -67,6 +68,8 @@ pub struct SemanticModel {
     layout_query_values: HashMap<ExpressionSite, ConstValue>,
     /// Authoritative array-place shape at a source site, not an observation.
     array_place_types: HashMap<ExpressionSite, ArrayType>,
+    /// Proven subobject relocations; never recover their offsets from source in a backend.
+    static_subobject_addresses: HashMap<ExpressionSite, static_addresses::StaticSubobjectAddress>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -519,6 +522,7 @@ impl Analyzer {
             fixed_array_backing_addresses: self.fixed_array_backing_addresses,
             layout_query_values: self.layout_query_values,
             array_place_types: self.array_place_types,
+            static_subobject_addresses: self.static_subobject_addresses,
         })
     }
 }
@@ -551,7 +555,9 @@ struct Analyzer {
     layout_intrinsics: HashMap<SymbolId, LayoutIntrinsic>,
     layout_query_values: HashMap<ExpressionSite, ConstValue>,
     array_place_types: HashMap<ExpressionSite, ArrayType>,
+    static_subobject_addresses: HashMap<ExpressionSite, static_addresses::StaticSubobjectAddress>,
     named_layout_declarations: declarations::NamedLayoutDeclarations,
+    static_array_backings: HashSet<SymbolId>,
 }
 
 #[derive(Clone, Copy)]
@@ -625,7 +631,9 @@ impl Analyzer {
             layout_intrinsics: HashMap::new(),
             layout_query_values: HashMap::new(),
             array_place_types: HashMap::new(),
+            static_subobject_addresses: HashMap::new(),
             named_layout_declarations: declarations::NamedLayoutDeclarations::default(),
+            static_array_backings: HashSet::new(),
         }
     }
 
@@ -4064,6 +4072,12 @@ impl Analyzer {
         declaration: &VarDecl,
         entry: &DeclEntry,
     ) {
+        if (declaration.storage == VarStorage::Array || is_string_type_ref(&declaration.ty))
+            && (entry.size.is_some() || entry.initializer.as_ref().is_some_and(|expr|
+                matches!(expr.kind, ExprKind::InitializerList(_) | ExprKind::String(_))))
+        {
+            self.static_array_backings.insert(symbol);
+        }
         let Some(size) = &entry.size else {
             return;
         };
@@ -4220,8 +4234,8 @@ impl Analyzer {
                             }
                         }
                         InitializerElementKind::Address {
-                            selector, target, ..
-                        } => {
+                            selector, ..
+                        } | InitializerElementKind::SubobjectAddress { selector, .. } => {
                             let target_layout =
                                 TargetLayout::for_target(self.options.target);
                             let expected_width = if selector.is_some() {
@@ -4264,6 +4278,12 @@ impl Analyzer {
                                 ));
                                 continue;
                             }
+                            if self.resolve_subobject_initializer(scope, element) {
+                                continue;
+                            }
+                            let InitializerElementKind::Address { target, .. } = &element.kind else {
+                                unreachable!("subobject initializer handled above");
+                            };
                             let class = if module_for_scope(&self.symbols, scope).is_some() {
                                 self.resolve_qualified_symbol(scope, target, element.span)
                                     .and_then(|id| self.symbols.symbols.get(id.0))
@@ -4332,10 +4352,19 @@ impl Analyzer {
                 let value =
                     self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
                 if self.expression_uses_inline_array(&value) {
-                    self.diagnostics.push(Diagnostic::new(
-                        initializer.span,
-                        "embedded array field initializers are not supported yet; assign the pointer at runtime",
-                    ));
+                    if decl.storage != VarStorage::Plain || !element_type.is_pointer() {
+                        self.diagnostics.push(Diagnostic::new(initializer.span,
+                            "static subobject initializer requires a scalar pointer destination"));
+                    } else if !type_can_assign(&element_type, &value.ty) {
+                        self.diagnostics.push(Diagnostic::new(initializer.span,
+                            "subobject initializer pointer type does not match the destination; use an explicit pointer cast"));
+                    } else if let Some(address) = self.static_subobject_address(&value) {
+                        self.static_subobject_addresses.insert(
+                            ExpressionSite::new(scope, initializer.span), address);
+                    } else {
+                        self.diagnostics.push(Diagnostic::new(initializer.span,
+                            "subobject initializer requires a static storage base and constant indexes; assign runtime addresses in a routine"));
+                    }
                 }
             }
             _ => {}

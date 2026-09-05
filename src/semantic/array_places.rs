@@ -11,8 +11,8 @@ impl SemanticModel {
 }
 
 impl Analyzer {
-    // Static subobject initialization is a later rollout slice. Inspect typed
-    // expressions so unevaluated layout-query operands do not trigger the gate.
+    // Inspect typed expressions so unevaluated layout queries do not impose
+    // static-address restrictions on their discarded operands.
     pub(super) fn expression_uses_inline_array(&self, expr: &subject::SemExpr) -> bool {
         use subject::SemExprKind;
         match &expr.kind {

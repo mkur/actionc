@@ -2661,7 +2661,7 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                     index += 1;
                 }
                 let Some(Token {
-                    kind: TokenKind::Ident(target),
+                    kind: TokenKind::Ident(_),
                     ..
                 }) = body.get(index)
                 else {
@@ -2674,16 +2674,13 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                     ));
                     continue;
                 };
-                let mut target_components = vec![target.clone()];
-                index += 1;
-                while index + 1 < body.len()
-                    && matches!(body[index].kind, TokenKind::Dot)
-                    && let TokenKind::Ident(component) = &body[index + 1].kind
-                {
-                    target_components.push(component.clone());
-                    index += 2;
-                }
-                let target = QualifiedName::new(target_components);
+                let mut parser = ExprParser::new(&body[index..]);
+                let Some(target) = parser.parse_prefix() else {
+                    index += 1;
+                    elements.push(initializer_element(&body[start..index], InitializerElementKind::Invalid));
+                    continue;
+                };
+                index += parser.pos;
                 let mut addend = 0i32;
                 if index + 1 < body.len()
                     && matches!(body[index].kind, TokenKind::Plus | TokenKind::Minus)
@@ -2696,10 +2693,10 @@ fn initializer_list_expr(tokens: Vec<Token>, span: Span) -> Expr {
                     }
                     index += 2;
                 }
-                InitializerElementKind::Address {
-                    selector,
-                    target,
-                    addend,
+                if let Some(name) = qualified_name_from_expr_kind(&target.kind) {
+                    InitializerElementKind::Address { selector, target: name, addend }
+                } else {
+                    InitializerElementKind::SubobjectAddress { selector, target: Box::new(target), addend }
                 }
             }
             _ => {

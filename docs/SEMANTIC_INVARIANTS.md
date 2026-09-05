@@ -368,9 +368,14 @@ does not change the existing named-array conversion policy.
 element type and offset. Complete field extent is distinct from element width:
 an `INT ARRAY values(100)` field occupies 200 bytes but has a two-byte element.
 NIR lowering consumes this distinction without introducing array scalar values.
-Static initializers referring to inline-array subobjects are explicitly
-diagnosed until the initializer-lowering slice supports them; runtime pointer
-assignment is the supported experimental alternative.
+Static pointer initializers may decay a matching inline field or explicitly
+address a subobject of known storage with constant indexes. Initializer-list
+address leaves also accept these places, including low/high-byte selectors
+and constant byte addends. Semantics resolves each to a storage SymbolId plus
+byte addend using canonical field offsets and strides; SemIR emits the existing
+typed static-write plan. Runtime pointers, array parameters and dynamic indexes
+are not static bases. Scalar non-pointer alias declarations are not generalized
+by this extension; use pointer declarations or address-valued list leaves.
 
 Plain scalar variables do not decay to pointers. A pointer can still be
 assigned a `CARD` value as an explicit raw-address escape hatch.

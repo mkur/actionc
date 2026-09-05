@@ -486,7 +486,7 @@ impl SemIrAstLowerer<'_> {
     }
 
     fn project_static_initializer(&mut self, declaration: &SemDeclaration) {
-        if !declaration.ty.value.is_record() {
+        if !declaration.ty.value.is_record() && !declaration.ty.value.is_pointer() {
             return;
         }
         let Some(plan) = &declaration.static_initializer else {
