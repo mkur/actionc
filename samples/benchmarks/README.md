@@ -35,12 +35,12 @@ compiled with the compatibility profile. All roots use the named modules below
 | `floating_single` | `BENCH.FLOATING_REAL` | elapsed RTC ticks; native `REAL` adaptation |
 
 The screen-writing kernels use OS graphics setup instead of the Pascal suite's
-custom display-list and vertical-blank UI. The two flame kernels retain their
-fixed-address buffer calculations but do not install the original DLI-based
-presentation layer. Their measured loops and memory-access patterns remain
-intact. The harness reports standard kernels in Atari RTC ticks and preserves
-the original time-window/iteration scoring for the four frame-rate kernels and
-`yoshplus`.
+custom vertical-blank UI. The two flame kernels share a small presentation
+module which installs the original narrow ANTIC mode 2 and GTIA mode 9 display,
+but omits the suite's DLI-driven status row. Their display setup remains outside
+the measured loop. The harness reports standard kernels in Atari RTC ticks and
+preserves the original time-window/iteration scoring for the four frame-rate
+kernels and `yoshplus`.
 
 All suite roots load generated code at `$2000` and reserve `$8000-$9FFF` as a
 shared benchmark workspace. The sieve, bubble-sort, and flame kernels reuse

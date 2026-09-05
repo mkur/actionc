@@ -8,7 +8,8 @@ VOLATILE BYTE RTCLOK_MIDDLE=$0013,
 
 CONST BYTE RESULT_COUNT=16,
            RESULT_TICKS=0,
-           RESULT_ITERATIONS=1
+           RESULT_ITERATIONS=1,
+           RESULT_LABEL_WIDTH=26
 
 PUBLIC CARD ARRAY results(RESULT_COUNT)
 PUBLIC BYTE ARRAY resultKinds(RESULT_COUNT),
@@ -68,21 +69,42 @@ PUBLIC PROC SaveIterations(BYTE resultIndex,
   resultKinds(resultIndex)=RESULT_ITERATIONS
 RETURN
 
-PUBLIC PROC PrintResult(BYTE resultIndex)
-  BYTE offset
+PROC PrintPaddedCard(CARD value)
+  IF value<10000 THEN SYS.Put('0) FI
+  IF value<1000 THEN SYS.Put('0) FI
+  IF value<100 THEN SYS.Put('0) FI
+  IF value<10 THEN SYS.Put('0) FI
+  SYS.PrintC(value)
+RETURN
+
+PUBLIC PROC PrintResult(STRING benchmarkName,BYTE resultIndex)
+  BYTE offset,column
+
+  SYS.Print(benchmarkName)
+  column=benchmarkName(0)
+  WHILE column<RESULT_LABEL_WIDTH DO
+    SYS.Put(' )
+    column==+1
+  OD
 
   IF resultKinds(resultIndex)=RESULT_TICKS THEN
-    SYS.PrintC(results(resultIndex))
-    SYS.PrintE(" ticks")
+    ; ESC quotes the following ATASCII cursor-control byte so E: displays it.
+    SYS.Put('\{ESC})
+    SYS.Put('\{$1D})
+    SYS.Put(' )
+    PrintPaddedCard(results(resultIndex))
   ELSE
+    SYS.Put('\{ESC})
+    SYS.Put('\{$1C})
+    SYS.Put(' )
     offset=resultIndex*5
     SYS.PrintB(iterationDigits(offset))
     SYS.PrintB(iterationDigits(offset+1))
     SYS.PrintB(iterationDigits(offset+2))
     SYS.PrintB(iterationDigits(offset+3))
     SYS.PrintB(iterationDigits(offset+4))
-    SYS.PrintE(" iterations")
   FI
+  SYS.PutE()
 RETURN
 
 ENDMODULE

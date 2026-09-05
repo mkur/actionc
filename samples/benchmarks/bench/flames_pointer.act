@@ -1,19 +1,16 @@
 MODULE BENCH.FLAMES_POINTER
 
-USE SYS
 USE ATARI.OS
 USE ATARI.POKEY
+USE BENCH.FLAMES_DISPLAY
 USE BENCH.SUPPORT
 
-CONST CARD FIRE_SCREEN=$8400
-
-BYTE ARRAY workspace=$8000
 BYTE POINTER first=$F0,second=$F2,third=$F4
 BYTE index=$E0
 BYTE tenThousands=$CB,thousands=$CC,hundreds=$CD,tens=$CE,ones=$CF
 
 PUBLIC PROC Run(BYTE resultIndex)
-  SYS.Zero(workspace,$1000)
+  FLAMES_DISPLAY.Start()
   tenThousands=0
   thousands=0
   hundreds=0
@@ -22,9 +19,9 @@ PUBLIC PROC Run(BYTE resultIndex)
   OS.RTCLOK_LO=0
 
   WHILE OS.RTCLOK_LO<250 DO
-    first=FIRE_SCREEN-31
-    second=FIRE_SCREEN-31+$100
-    third=FIRE_SCREEN-31+$200
+    first=FLAMES_DISPLAY.FIRE_ANCHOR-31
+    second=FLAMES_DISPLAY.FIRE_ANCHOR-31+$100
+    third=FLAMES_DISPLAY.FIRE_ANCHOR-31+$200
 
     FOR index=255 TO 0 STEP -1 DO
       first^=BYTE(first(30)+first(31)+first(32)+first(63)) RSH 2
@@ -35,7 +32,7 @@ PUBLIC PROC Run(BYTE resultIndex)
       third==+1
     OD
 
-    first=FIRE_SCREEN+$2E0
+    first=FLAMES_DISPLAY.FIRE_ANCHOR+$2E0
     FOR index=31 TO 0 STEP -1 DO
       first(index)=POKEY.RANDOM&15
     OD
@@ -47,6 +44,7 @@ PUBLIC PROC Run(BYTE resultIndex)
     IF thousands=10 THEN tenThousands==+1 thousands=0 FI
   OD
 
+  FLAMES_DISPLAY.Stop()
   SUPPORT.SaveIterations(resultIndex,tenThousands,thousands,hundreds,tens,ones)
 RETURN
 

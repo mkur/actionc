@@ -10,16 +10,14 @@ BYTE ARRAY baseHeights(14)=[170 150 144 144 122 122 110
            columnHeights(14)=$E2
 
 BYTE stopRow=$E0,startRow=$E1,color,column,half,pass
-BYTE POINTER pixel
+BYTE POINTER pixel=$F0
 CARD distance
 CARD screenAddress
 
 PUBLIC PROC Run()
-  ; Mad Pascal's mode8 helper selects ANTIC Graphics 8.  PRIOR then changes
-  ; interpretation of that bitmap to GTIA mode 9.
   SYS.Graphics(24)
-  GTIA.PRIOR=GTIA.MODE_9
-  GTIA.COLBAK=$B0
+  OS.GPRIOR=GTIA.MODE_9
+  OS.COLOR4=$B0
   screenAddress=OS.SAVMSC
 
   FOR pass=9 TO 0 STEP -1 DO
@@ -64,6 +62,7 @@ PUBLIC PROC Run()
     OD
   OD
 
+  OS.GPRIOR=0
   GTIA.PRIOR=0
 RETURN
 
