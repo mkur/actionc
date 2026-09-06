@@ -343,7 +343,7 @@ pub(crate) fn select_semir_with_plan(
             SemItem::Declaration(declaration)
                 if matches!(
                     declaration.storage,
-                    SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. }
+                    SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } | SemDeclarationStorage::Enum { .. }
                 ) =>
             {
                 true

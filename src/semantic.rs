@@ -1515,6 +1515,16 @@ impl Analyzer {
                     if let Some(name) = name {
                         let resolution =
                             resolve_semantic_name(&self.symbols, &self.modules, scope, name);
+                        if let SemanticNameResolution::Symbol(id) = &resolution {
+                            let symbol = &self.symbols.symbols[id.0];
+                            if matches!(symbol.class, SymbolClass::Const | SymbolClass::Type)
+                                && symbol.ty.as_ref().is_some_and(|ty| ty.as_enum().is_some())
+                            {
+                                self.diagnostics.push(Diagnostic::new(*span,
+                                    "machine data requires an integer CONST bridge, not an enum value or type"));
+                                continue;
+                            }
+                        }
                         let legacy_unknown = matches!(resolution, SemanticNameResolution::Unknown)
                             && name.simple_name().is_some()
                             && module_for_scope(&self.symbols, scope).is_none();
@@ -1593,6 +1603,12 @@ impl Analyzer {
                             matches!(symbol.class, SymbolClass::Define | SymbolClass::Const)
                         }
                     };
+                    if symbol.class == SymbolClass::Const
+                        && symbol.ty.as_ref().is_some_and(|ty| ty.as_enum().is_some())
+                    {
+                        self.diagnostics.push(Diagnostic::new(relocation.span,
+                            "inline assembler requires an integer CONST bridge for enum values"));
+                    }
                     if !valid {
                         self.diagnostics.push(Diagnostic::new(
                             relocation.span,
@@ -1869,7 +1885,7 @@ impl Analyzer {
         if actual.is_error() {
             return;
         }
-        if (expected.as_enum().is_some() || actual.as_enum().is_some()) && expected != actual {
+        if !expected.pointer && (expected.as_enum().is_some() || actual.as_enum().is_some()) && expected != actual {
             self.diagnostics.push(Diagnostic::new(value.span, "enum assignment requires the exact enum type; use an explicit integer conversion"));
             return;
         }
@@ -3884,6 +3900,10 @@ impl Analyzer {
                 // inline storage. Do not manufacture scalar-width array fields.
                 continue;
             }
+            if let TypeBase::Named(name) = &field.ty.base
+                && let SemanticNameResolution::Symbol(id) = resolve_semantic_name(&self.symbols, &self.modules, scope, name)
+                && !self.ensure_named_enum_type(id, field.span)
+            { continue; }
             let ty = self.value_type_from_type_ref(scope, &field.ty);
             if !ty.pointer && !self.ensure_named_record_layout(&ty, field.span) {
                 continue;
@@ -4055,6 +4075,7 @@ impl Analyzer {
         }
         let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_) | TypeBase::Callable(_))
             || field.ty.pointer
+            || self.value_type_from_type_ref(scope, &field.ty).as_enum().is_some()
             || self.type_ref_is_record(scope, &field.ty);
         let inline_array = field.storage == VarStorage::Array && self.options.embedded_record_arrays;
         if (!inline_array && field.storage != VarStorage::Plain)
@@ -4215,6 +4236,10 @@ impl Analyzer {
             return;
         };
         let expression = self.lower_expr(scope, size);
+        if expression.ty.as_enum().is_some() {
+            self.diagnostics.push(Diagnostic::new(size.span, "array size requires an integer, not an enum; use an explicit conversion"));
+            return;
+        }
         if declaration.storage != VarStorage::Array && !is_string_type_ref(&declaration.ty) {
             return;
         }
@@ -4327,6 +4352,9 @@ impl Analyzer {
                     }
                     let destination_width =
                         self.value_storage_width(destination_type).unwrap_or(0);
+                    if self.validate_enum_initializer(scope, destination_type, element) {
+                        continue;
+                    }
                     match &element.kind {
                         InitializerElementKind::Literal { value, negative } => {
                             if destination_type.is_real() {
@@ -4480,6 +4508,9 @@ impl Analyzer {
                     }
                 }
             }
+            ExprKind::String(_) if element_type.as_enum().is_some() => self.diagnostics.push(Diagnostic::new(
+                initializer.span, "enum storage cannot use a string initializer",
+            )),
             ExprKind::Raw => self.diagnostics.push(Diagnostic::new(
                 initializer.span,
                 format!("unsupported initializer for `{}`", entry.name),
@@ -4498,6 +4529,10 @@ impl Analyzer {
                 // a divide-by-zero fixed address into ordinary storage.
                 let value =
                     self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
+                if value.ty.as_enum().is_some() && self.array_decay_pointer_type(scope, initializer).is_none() {
+                    self.diagnostics.push(Diagnostic::new(initializer.span,
+                        "a storage address requires an integer; use [Enum.Member] for an initial enum value"));
+                }
                 if self.expression_uses_inline_array(&value) {
                     if decl.storage != VarStorage::Plain || !element_type.is_pointer() {
                         self.diagnostics.push(Diagnostic::new(initializer.span,
@@ -4541,6 +4576,7 @@ impl Analyzer {
 
         match resolve_semantic_name(&self.symbols, &self.modules, scope, name) {
             SemanticNameResolution::Symbol(symbol_id) => {
+                self.ensure_named_enum_type(symbol_id, span);
                 let symbol = &self.symbols.symbols[symbol_id.0];
                 if !matches!(
                     symbol.class,
@@ -5148,7 +5184,9 @@ fn evaluate_exact_fixed_address_expr(
         }
         subject::SemExprKind::Literal(subject::SemLiteral::Enum(_)) => Err(FixedArrayAddressError::Invalid),
         subject::SemExprKind::Cast { ty, expr: inner } => {
-            let value = evaluate_exact_fixed_address_expr(inner)?;
+            let value = if inner.ty.as_enum().is_some() && ty.as_scalar().is_some() {
+                exact_const_value(evaluate_const_expr(inner).map_err(|_| FixedArrayAddressError::Invalid)?)
+            } else { evaluate_exact_fixed_address_expr(inner)? };
             let scalar = ty.as_scalar().ok_or(FixedArrayAddressError::Invalid)?;
             Ok(exact_scalar_cast(value, scalar))
         }

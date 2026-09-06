@@ -47,9 +47,69 @@ pub struct EnumFacts {
     pub constants: HashMap<SymbolId, EnumValue>,
     pub(super) member_values: HashMap<ExpressionSite, EnumValue>,
     pub(super) casts: HashMap<ExpressionSite, ValueType>,
+    pub(super) initializers: HashMap<ExpressionSite, EnumValue>,
 }
 
 impl Analyzer {
+    /// Handle enum leaves before the legacy numeric/address initializer encoder.
+    pub(super) fn validate_enum_initializer(
+        &mut self,
+        scope: ScopeId,
+        destination: &ValueType,
+        element: &InitializerElement,
+    ) -> bool {
+        if let InitializerElementKind::Constant { target, negative } = &element.kind {
+            let mut parts = target.components.iter();
+            let Some(first) = parts.next() else {
+                return false;
+            };
+            let mut expr = Expr {
+                kind: ExprKind::Name(first.clone()),
+                text: first.clone(),
+                span: element.span,
+            };
+            for field in parts {
+                expr = Expr {
+                    kind: ExprKind::Field {
+                        base: Box::new(expr),
+                        field: field.clone(),
+                    },
+                    text: target.to_string(),
+                    span: element.span,
+                };
+            }
+            let value = self.lower_expr(scope, &expr);
+            if destination.as_enum().is_none() && value.ty.as_enum().is_none() {
+                return false;
+            }
+            if *negative || value.ty != *destination || destination.as_enum().is_none() {
+                self.diagnostics.push(Diagnostic::new(element.span, "initializer requires the exact enum type; use a typed CONST with an explicit conversion"));
+            } else if let Ok(payload) = evaluate_const_expr(&value) {
+                self.enums.initializers.insert(
+                    ExpressionSite::new(scope, element.span),
+                    EnumValue {
+                        identity: destination.as_enum().unwrap().clone(),
+                        bits: payload.bits as u8,
+                    },
+                );
+            } else {
+                self.diagnostics.push(Diagnostic::new(
+                    element.span,
+                    "enum initializer must be constant",
+                ));
+            }
+            return true;
+        }
+        if destination.as_enum().is_some() {
+            self.diagnostics.push(Diagnostic::new(
+                element.span,
+                "enum initializer requires a same-enum member or CONST",
+            ));
+            return true;
+        }
+        false
+    }
+
     pub(super) fn resolve_routine_result(
         &mut self,
         scope: ScopeId,

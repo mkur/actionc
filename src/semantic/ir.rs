@@ -818,6 +818,7 @@ pub struct SemInitializerElement {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemInitializerElementKind {
+    Enum(super::EnumValue),
     Literal {
         value: SemInitializerLiteral,
         negative: bool,
@@ -2667,6 +2668,9 @@ impl<'a> IrBuilder<'a> {
                 .checked_mul(element_width)?;
             let offset = base.checked_add(leaf.offset)?;
             let value = match &element.kind {
+                SemInitializerElementKind::Enum(value) => SemStaticInitializerValue::Literal {
+                    value: SemInitializerLiteral::Number(value.representation().number_literal()), negative: false,
+                },
                 SemInitializerElementKind::Literal { value, negative } => {
                     SemStaticInitializerValue::Literal {
                         value: value.clone(),
@@ -3523,6 +3527,9 @@ impl<'a> IrBuilder<'a> {
                 text: element.text.clone(),
                 span: element.span,
             };
+        }
+        if let Some(value) = self.model.enums.initializers.get(&super::ExpressionSite::new(scope, element.span)) {
+            return SemInitializerElement { kind: SemInitializerElementKind::Enum(value.clone()), text: element.text.clone(), span: element.span };
         }
         let kind = match &element.kind {
             InitializerElementKind::Literal { value, negative } => {

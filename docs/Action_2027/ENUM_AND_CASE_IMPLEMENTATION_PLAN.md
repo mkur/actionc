@@ -340,6 +340,16 @@ callable-pointer behavior remains covered. This slice is mandatory for release.
 
 ### Slice 6 — Storage, scopes, modules, and metadata integration
 
+Status: complete. All 2,804 compiler tests and the 35-fixture sweep pass against
+the staged slice in an isolated checkout, including unchanged NIR snapshots.
+Six storage/module tests and six internal execution/materialization tests pass;
+the latter cover all 256 bytes, offsets above 255, zero-fill, and link selection.
+65816 and 68k enum storage lowering canaries also pass. Enum
+scalar/array/record initializer leaves are typed before encoding, with explicit
+numeric bridges for sizes and addresses. Both import forms, private names,
+shadowed types, and named-module layout dependencies have focused tests. Enum
+metadata survives selective linking; executable values remain ordinary bytes.
+
 - Reuse scalar/record/array layout and initializer walkers for enum globals,
   locals, parameters, arrays, record fields, nested records, and embedded arrays.
   Validate enum initializer types before encoding bytes. Preserve zero-fill and

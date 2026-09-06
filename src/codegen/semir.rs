@@ -1136,6 +1136,9 @@ impl SemIrAstLowerer<'_> {
 
     fn initializer_element(&self, element: &SemInitializerElement) -> InitializerElement {
         let kind = match &element.kind {
+            SemInitializerElementKind::Enum(value) => InitializerElementKind::Literal {
+                value: InitializerLiteral::Number(value.representation().number_literal()), negative: false,
+            },
             SemInitializerElementKind::Literal { value, negative } => {
                 let value = match value {
                     SemInitializerLiteral::Number(number) => {

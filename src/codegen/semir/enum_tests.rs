@@ -197,3 +197,94 @@ RETURN
         }
     }
 }
+
+#[test]
+fn enum_arrays_records_and_pointers_execute_without_neighbor_writes() {
+    let source = r#"
+TYPE E=ENUM [OFF=0 ON=17]
+TYPE Nonzero=ENUM [ONE=1]
+Nonzero ARRAY zeros(2)
+CONST Alias=E.ON
+TYPE Pair=[E first,second]
+TYPE Packet=[BYTE ARRAY pad(257) E state E ARRAY states(2) BYTE tail]
+Pair defaults=[E.ON E.OFF]
+Packet data=$5001
+E initial=[Alias]
+E ARRAY table(3)=[E.ON E.OFF Alias]
+E POINTER ep
+BYTE input=$0600,result=$0601,initialized=$0602,localResult=$0603,zeroResult=$0604
+PROC SetFirst(E ARRAY a E item)
+  a(0)=item
+RETURN
+PROC Main()
+  E local=[Alias]
+  data.state=E(input)
+  ep=@data.states
+  ep^=table(0)
+  SetFirst(data.states,E.OFF)
+  data.states(1)=defaults.first
+  result=BYTE(data.state)
+  initialized=BYTE(initial)+BYTE(table(2))
+  localResult=BYTE(local)
+  zeroResult=BYTE(zeros(1))
+RETURN
+"#;
+    for (mode, output) in outputs_with_options(
+        source,
+        SemanticOptions {
+            enum_types: true,
+            ..SemanticOptions::modern()
+        },
+    ) {
+        for input in 0..=255u8 {
+            let memory = execute(&output, |memory| {
+                memory[0x5000..0x5107].fill(0xA5);
+                memory[0x600] = input;
+            });
+            let mut expected = [0xA5u8; 0x107];
+            expected[0x102..0x105].copy_from_slice(&[input, 0, 17]);
+            assert_eq!(&memory[0x5000..0x5107], &expected, "{mode}/{input}");
+            assert_eq!(
+                &memory[0x600..0x605],
+                &[input, input, 34, 17, 0],
+                "{mode}/{input}"
+            );
+        }
+    }
+}
+
+#[test]
+fn enum_modules_execute_after_selective_linking_and_keep_type_metadata() {
+    use crate::includes::{ModuleLoadOptions, load_compilation_from_provider};
+    use crate::source::{InMemorySourceProvider, SourceOrigin};
+    let root = SourceOrigin::host("project/main.act");
+    let provider = InMemorySourceProvider::default()
+        .with_source(root.clone(), b"MODULE App USE Lib AS API API.E value=[API.E.ON] BYTE out=$0600 PROC Main() out=BYTE(API.Echo(value)) RETURN ENDMODULE".to_vec())
+        .with_source(SourceOrigin::host("project/lib.act"), b"MODULE Lib PUBLIC TYPE E=ENUM [OFF ON=17] PUBLIC E FUNC Echo(E arg) RETURN(arg) BYTE FUNC Unused() RETURN(99) ENDMODULE".to_vec());
+    let loaded =
+        load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default()).unwrap();
+    let model = crate::semantic::analyze_compilation_with_options(
+        &loaded,
+        SemanticOptions {
+            enum_types: true,
+            ..SemanticOptions::modern()
+        },
+    )
+    .unwrap();
+    let ir = crate::semantic::ir::lower_compilation(&loaded, &model);
+    let selected =
+        crate::linker::select_semir(&ir, crate::linker::SemLinkPolicy::EntryReachable).unwrap();
+    assert!(selected.modules.iter().flat_map(|m| &m.items).any(|item| matches!(item, crate::semantic::ir::SemItem::Declaration(d) if matches!(d.storage, crate::semantic::ir::SemDeclarationStorage::Enum { .. }))));
+    assert!(!selected.modules.iter().flat_map(|m| &m.items).any(|item| matches!(item, crate::semantic::ir::SemItem::Routine(r) if r.symbol.name.ends_with("Unused"))));
+    for (mode, output) in super::array_execution_tests::outputs_from_semir(&selected) {
+        let memory = execute(&output, |_| {});
+        assert_eq!(memory[0x600], 17, "{mode}");
+        assert!(
+            output
+                .map
+                .storage_symbols
+                .iter()
+                .any(|symbol| symbol.name.to_ascii_lowercase().contains("value"))
+        );
+    }
+}

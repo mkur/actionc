@@ -317,6 +317,10 @@ named-member coverage does not prove an enum CASE exhaustive. Enum declarations
 and CONST bindings remain semantic metadata and allocate no runtime storage.
 The legacy AST materializer retains enum CONST bindings rather than replacing
 them with untyped numeric literals and losing identity under shadowing.
+Enum initializer leaves are checked against the destination's nominal type
+before the canonical static-data plan encodes their bytes. Partial aggregate
+initializers keep existing zero-fill semantics, including unnamed zero values.
+Type metadata survives selective linking but does not allocate storage.
 
 Function and callable signatures carry a resolved `ValueType` result, including
 nominal enum identity. Source result syntax is fundamental-or-qualified-name;

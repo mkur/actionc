@@ -5103,7 +5103,7 @@ fn legacy_scalar_array_initializer_data_image(
     let mut image = NirDataImage::default();
     for element in elements {
         match &element.kind {
-            SemInitializerElementKind::Literal { .. } => {
+            SemInitializerElementKind::Literal { .. } | SemInitializerElementKind::Enum(_) => {
                 if real_elements {
                     image.bytes.extend(
                         sem_initializer_real_value(element)
@@ -5361,6 +5361,7 @@ fn numeric_initializer_values(expr: &SemExpr) -> Option<Vec<u16>> {
 }
 
 fn sem_initializer_literal_value(element: &SemInitializerElement) -> Option<u16> {
+    if let SemInitializerElementKind::Enum(value) = &element.kind { return Some(u16::from(value.bits)); }
     let SemInitializerElementKind::Literal { value, negative } = &element.kind else {
         return None;
     };

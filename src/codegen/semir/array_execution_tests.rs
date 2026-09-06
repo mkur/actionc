@@ -20,6 +20,10 @@ pub(super) fn outputs_with_options(source: &str, options: SemanticOptions) -> Ve
     )
     .unwrap_or_else(|errors| panic!("{source}\n{errors:#?}"));
     let semir = semantic::ir::lower_program(&ast, &model);
+    outputs_from_semir(&semir)
+}
+
+pub(super) fn outputs_from_semir(semir: &semantic::ir::SemProgram) -> Vec<(String, CodegenOutput)> {
     let nir = crate::nir::lower_program(&semir);
     let nir = crate::nir::optimize_program(&nir).unwrap();
     let mut outputs = Vec::new();
@@ -36,7 +40,7 @@ pub(super) fn outputs_with_options(source: &str, options: SemanticOptions) -> Ve
                 CodegenProfile::Modern,
             ),
         }
-        .unwrap_or_else(|errors| panic!("classic/{runtime:?}: {source}\n{errors:#?}"));
+        .unwrap_or_else(|errors| panic!("classic/{runtime:?}: {errors:#?}"));
         outputs.push((format!("classic/{runtime:?}"), classic));
         let mir = crate::mir6502::generate_output_with_config_and_runtime(
             &nir,
@@ -44,7 +48,7 @@ pub(super) fn outputs_with_options(source: &str, options: SemanticOptions) -> Ve
             &crate::mir6502::Mir6502Config::default(),
             runtime,
         )
-        .unwrap_or_else(|errors| panic!("MIR6502/{runtime:?}: {source}\n{errors:#?}"));
+        .unwrap_or_else(|errors| panic!("MIR6502/{runtime:?}: {errors:#?}"));
         outputs.push((format!("MIR6502/{runtime:?}"), mir));
     }
     outputs

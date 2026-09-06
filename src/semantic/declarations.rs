@@ -164,6 +164,14 @@ impl Analyzer {
         self.resolve_named_layout_declaration(id, span)
     }
 
+    pub(super) fn ensure_named_enum_type(&mut self, id: SymbolId, span: Span) -> bool {
+        if self.named_layout_declarations.nodes.get(&id)
+            .is_some_and(|node| matches!(node.kind, LayoutDeclarationKind::Enum { .. }))
+        {
+            self.resolve_named_layout_declaration(id, span)
+        } else { true }
+    }
+
     /// Callers requesting a pointer's own width must skip this method; callers
     /// selecting a field need the pointee record layout as well.
     pub(super) fn ensure_named_record_layout(&mut self, ty: &ValueType, span: Span) -> bool {
