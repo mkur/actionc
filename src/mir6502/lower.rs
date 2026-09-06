@@ -965,7 +965,8 @@ fn runtime_helper_decls_from_bindings(nir_program: &NirProgram) -> Vec<MirRuntim
             effects: super::materialize::helper_effects(&helper),
             helper,
             target,
-            abi: super::materialize::helper_abi(),
+            abi: super::materialize::helper_abi_for(helper),
+            additional_results: super::materialize::helper_additional_results(helper),
         });
     }
     decls
@@ -1672,7 +1673,13 @@ fn lower_ops(
                     continue;
                 };
                 lowered.push(MirOp::Binary {
-                    op: mir_binary_op(*op),
+                    op: match (*op, &ty.kind) {
+                        (NirBinaryOp::Div, NirTypeKind::I16) => MirBinaryOp::Div,
+                        (NirBinaryOp::Mod, NirTypeKind::I16) => MirBinaryOp::Mod,
+                        (NirBinaryOp::Div, _) => MirBinaryOp::UDiv,
+                        (NirBinaryOp::Mod, _) => MirBinaryOp::UMod,
+                        _ => mir_binary_op(*op),
+                    },
                     dst: MirDef::VTemp(MirTempId(dest.0)),
                     left,
                     right,

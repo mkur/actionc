@@ -186,7 +186,7 @@ use runtime::{
     ensure_helper_decl, helper_for_typed_binary, materialize_runtime_helper_binary,
     runtime_helper_result_width,
 };
-pub(super) use runtime::{helper_abi, helper_args, helper_effects};
+pub(super) use runtime::{helper_abi_for, helper_additional_results, helper_args, helper_effects};
 #[cfg(test)]
 use spills::op_may_clobber_reg;
 #[cfg(test)]
@@ -238,7 +238,9 @@ use temp_uses::{
     count_call_target_temp_uses, count_value_temp_uses, op_uses_temp, op_uses_temp_more_than_once,
     terminator_uses_temp, value_uses_temp,
 };
-use temp_widths::{collect_routine_temp_widths, collect_temp_widths};
+pub(in crate::mir6502) use temp_widths::collect_routine_temp_widths;
+use temp_widths::collect_temp_widths;
+pub(in crate::mir6502) use runtime::helper_implements_binary;
 use temps::{
     cleanup_pre_materialization_temp_artifacts,
     cleanup_pre_materialization_temp_artifacts_with_liveness, def_is_used_after,
@@ -1433,6 +1435,9 @@ pub(super) fn materialize_program_with_reporting(
         lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
         let routine_temp_widths = collect_routine_temp_widths(routine);
         run_prehome_canonicalization_group(routine, config, &layout, &mut peephole_stats)?;
+        runtime::expose_zero_extended_binary_inputs(routine);
+        let divmod_pairs = runtime::fuse_adjacent_divmod(routine, config, &layout, &mut helpers);
+        peephole_stats.record_many(routine.id, "shared-divmod-selected", divmod_pairs);
         run_prehome_selection_group(routine, config, &layout, &mut helpers, &mut peephole_stats)?;
         for block in &mut routine.blocks {
             block.ops = materialize_ops_impl(
@@ -5456,7 +5461,7 @@ fn materialize_ops_impl(
                     Some(dst),
                     left,
                     right,
-                    MirWidth::Byte,
+                    [MirWidth::Byte; 2],
                     MirWidth::Byte,
                     layout,
                     &temp_widths,
@@ -5478,6 +5483,8 @@ fn materialize_ops_impl(
                     &right,
                     &temp_widths,
                     config.select_widening_byte_multiply,
+                    config.enable_peepholes,
+                    helpers,
                 )
                 .is_some() =>
             {
@@ -5488,6 +5495,8 @@ fn materialize_ops_impl(
                     &right,
                     &temp_widths,
                     config.select_widening_byte_multiply,
+                    config.enable_peepholes,
+                    helpers,
                 )
                 .expect("helper selection exists");
                 let helper = selection.helper;
@@ -5503,7 +5512,7 @@ fn materialize_ops_impl(
                     Some(dst),
                     left,
                     right,
-                    selection.operand_width,
+                    selection.input_widths,
                     result_width,
                     layout,
                     &temp_widths,
@@ -5864,6 +5873,8 @@ fn binary_temp_consumer_op_stat(op: MirBinaryOp) -> &'static str {
         MirBinaryOp::Mul => "binary-temp-consumer-op-mul",
         MirBinaryOp::Div => "binary-temp-consumer-op-div",
         MirBinaryOp::Mod => "binary-temp-consumer-op-mod",
+        MirBinaryOp::UDiv => "binary-temp-consumer-op-udiv",
+        MirBinaryOp::UMod => "binary-temp-consumer-op-umod",
         MirBinaryOp::Lsh => "binary-temp-consumer-op-lsh",
         MirBinaryOp::Rsh => "binary-temp-consumer-op-rsh",
         MirBinaryOp::And => "binary-temp-consumer-op-and",

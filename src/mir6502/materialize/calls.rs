@@ -1457,7 +1457,7 @@ fn materialize_paired_word_shift_call(
         None,
         first_left,
         first_right,
-        MirWidth::Word,
+        [MirWidth::Word, MirWidth::Byte],
         MirWidth::Word,
         layout,
         &temp_widths,
@@ -1482,7 +1482,7 @@ fn materialize_paired_word_shift_call(
         None,
         second_left,
         second_right,
-        MirWidth::Word,
+        [MirWidth::Word, MirWidth::Byte],
         MirWidth::Word,
         layout,
         &temp_widths,
@@ -3041,6 +3041,7 @@ fn materialize_byte_mul_expr_to_ax(
         width: MirWidth::Byte,
     });
     out.push(MirOp::RuntimeHelper {
+        additional_results: Vec::new(),
         helper: MirRuntimeHelper::Mul,
         args: super::helper_args(&MirRuntimeHelper::Mul),
         result: None,

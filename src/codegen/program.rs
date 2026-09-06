@@ -193,7 +193,13 @@ impl Generator {
 
     fn current_compatible_high_water(&self) -> u16 {
         let current = self.current_compatible_location();
-        if self.layout.array_backings.is_empty() {
+        let helper_bytes: u16 = self.used_default_runtime_helpers.iter().copied()
+            .filter(|helper| helper.is_owned_division())
+            .map(|helper| (crate::integer6502::division_body(
+                matches!(helper, RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod),
+                matches!(helper, RuntimeHelperSlot::Mod | RuntimeHelperSlot::UMod),
+            ).len() + 1) as u16).sum();
+        if self.layout.array_backings.is_empty() && helper_bytes == 0 {
             return current;
         }
 
@@ -206,7 +212,7 @@ impl Generator {
         self.layout
             .array_backings
             .iter()
-            .fold(current.wrapping_add(final_rts_len), |address, backing| {
+            .fold(current.wrapping_add(final_rts_len).wrapping_add(helper_bytes), |address, backing| {
                 address.wrapping_add(backing.size)
             })
     }

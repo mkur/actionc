@@ -1615,6 +1615,20 @@ impl NirVerifier {
             } => {
                 self.op_type(routine, block, ty, "binary result");
                 self.reject_real_type(routine, block, ty, "ordinary binary result");
+                if matches!(op, NirBinaryOp::Div | NirBinaryOp::Mod) {
+                    let matches_domain = |value: &NirValue| match value {
+                        NirValue::Temp { ty: actual, .. } => actual.kind == ty.kind && actual.width == ty.width,
+                        NirValue::ConstU8(_) => ty.width == Some(ByteSize::ONE),
+                        NirValue::ConstU16(_) => ty.width == Some(ByteSize::new(2)),
+                        _ => false,
+                    };
+                    if !matches!(ty.kind, NirTypeKind::U8 | NirTypeKind::U16 | NirTypeKind::I16)
+                        || !matches_domain(left) || !matches_domain(right)
+                    {
+                        self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                            "integer division/remainder requires explicitly converted operands in its result domain"));
+                    }
+                }
                 self.value_type(routine, block, left, "binary left operand");
                 self.reject_real_value(routine, block, left, "ordinary binary left operand");
                 self.value_temp_use(

@@ -1488,52 +1488,7 @@ fn builtin_storage_slot(name: &str) -> Option<StorageSlot> {
 }
 
 fn constant_u16(expr: &Expr) -> Option<u16> {
-    match &expr.kind {
-        ExprKind::Number(number) => number.value,
-        ExprKind::Char(ch) => source_char_byte(*ch).map(u16::from),
-        ExprKind::Cast { ty, expr } => {
-            let value = constant_u16(expr)?;
-            Some(if type_size(ty) == Some(1) {
-                value & 0x00FF
-            } else {
-                value
-            })
-        }
-        ExprKind::Unary {
-            op: UnaryOp::Plus,
-            expr,
-        } => constant_u16(expr),
-        ExprKind::Unary {
-            op: UnaryOp::Neg,
-            expr,
-        } => Some(0u16.wrapping_sub(constant_u16(expr)?)),
-        ExprKind::Binary { op, left, right } => {
-            let left = constant_u16(left)?;
-            let right = constant_u16(right)?;
-            match op {
-                BinaryOp::Add => Some(left.wrapping_add(right)),
-                BinaryOp::Sub => Some(left.wrapping_sub(right)),
-                BinaryOp::Mul => Some(left.wrapping_mul(right)),
-                BinaryOp::Div if right != 0 => Some(left / right),
-                BinaryOp::Mod if right != 0 => Some(left % right),
-                BinaryOp::Lsh => Some(if right >= 16 {
-                    0
-                } else {
-                    left.wrapping_shl(u32::from(right))
-                }),
-                BinaryOp::Rsh => Some(if right >= 16 {
-                    0
-                } else {
-                    left.wrapping_shr(u32::from(right))
-                }),
-                BinaryOp::And => Some(left & right),
-                BinaryOp::Or => Some(left | right),
-                BinaryOp::Xor => Some(left ^ right),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
+    data::constant_u16_with_defines(expr, &HashMap::new())
 }
 
 fn expr_uses_compatible_runtime_arithmetic(expr: &Expr) -> bool {

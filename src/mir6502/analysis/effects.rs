@@ -783,6 +783,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
         MirOp::RuntimeHelper {
             args,
             result,
+            additional_results,
             effects,
             ..
         } => {
@@ -791,6 +792,17 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             }
             if let Some(result) = result {
                 record_result_home_write(result, &mut summary);
+            }
+            for result in additional_results {
+                match result.home {
+                    MirResultHome::FixedZeroPage(slot) => record_definite_memory_range_write(
+                        &MirMem::FixedZeroPage(slot), result.width, &mut summary),
+                    MirResultHome::Absolute(address) => record_definite_memory_range_write(
+                        &MirMem::Absolute(address), result.width, &mut summary),
+                    MirResultHome::ZeroPage(slot) => record_definite_memory_range_write(
+                        &MirMem::ZeroPage(slot), result.width, &mut summary),
+                    _ => record_result_home_write(&result.home, &mut summary),
+                }
             }
             apply_structured_effects(effects, false, &mut summary);
             summary.machine.conservative_register_clobbers =
@@ -1992,6 +2004,7 @@ mod tests {
             (
                 MirOpKind::RuntimeHelper,
                 MirOp::RuntimeHelper {
+                    additional_results: Vec::new(),
                     helper: MirRuntimeHelper::Mul,
                     args: vec![MirArgHome::FixedZeroPage(MirFixedZpSlot(0x80))],
                     result: Some(MirResultHome::FixedZeroPage(MirFixedZpSlot(0x82))),

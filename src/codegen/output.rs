@@ -9,10 +9,22 @@ fn codegen_symbol_scope_key(scope: &CodegenSymbolScope) -> (&str, &str) {
 
 impl Generator {
     pub(super) fn finish_with_runtime_requirements(
-        self,
+        mut self,
     ) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
+        }
+
+        for helper in self.used_default_runtime_helpers.iter().copied().filter(|helper| helper.is_owned_division()) {
+            self.emitter.bind_label(helper.owned_label(), Span::new(0, 0))
+                .map_err(|error| vec![error])?;
+            for byte in crate::integer6502::division_body(
+                matches!(helper, RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod),
+                matches!(helper, RuntimeHelperSlot::Mod | RuntimeHelperSlot::UMod),
+            ) {
+                self.emitter.emit_u8(byte);
+            }
+            self.emitter.emit_u8(0x60);
         }
 
         let origin = self.emitter.origin;
@@ -42,7 +54,7 @@ impl Generator {
         let optimizations = self.optimizations;
         let proofs = self.proofs;
         let proof_attempts = self.proof_attempts;
-        let runtime_bindings = self
+        let mut runtime_bindings = self
             .used_atari_fpp_services
             .iter()
             .copied()
@@ -56,9 +68,23 @@ impl Generator {
                 kind: CodegenRuntimeBindingKind::AtariFpp,
                 license: None,
             })
-            .collect();
+            .collect::<Vec<_>>();
+        runtime_bindings.extend(self.used_default_runtime_helpers.iter().copied()
+            .filter(|helper| helper.is_owned_division())
+            .map(|helper| CodegenRuntimeBinding {
+                helper: helper.name().to_string(),
+                implementation: helper.owned_label(),
+                address: self.emitter.labels.get(&helper.owned_label())
+                    .map(|offset| origin.wrapping_add(*offset as u16)),
+                reason: "modern integer division/remainder".to_string(),
+                origin: "compiler-owned 6502 arithmetic".to_string(),
+                suppressed_default: None,
+                kind: CodegenRuntimeBindingKind::CompilerHelper,
+                license: None,
+            }));
         let classic_runtime_requirements =
-            self.used_default_runtime_helpers.iter().copied().collect();
+            self.used_default_runtime_helpers.iter().copied()
+                .filter(|helper| !helper.is_owned_division()).collect();
         let mut storage_symbols = self.layout.codegen_storage_symbols();
         storage_symbols.extend(self.storage_symbols);
         storage_symbols.sort_by(|left, right| {

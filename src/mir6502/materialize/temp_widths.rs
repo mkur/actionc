@@ -1,7 +1,7 @@
 use crate::mir6502::ir::{MirCondDest, MirDef, MirOp, MirRoutine, MirTempId, MirWidth};
 use std::collections::BTreeMap;
 
-pub(super) fn collect_routine_temp_widths(routine: &MirRoutine) -> BTreeMap<MirTempId, MirWidth> {
+pub(in crate::mir6502) fn collect_routine_temp_widths(routine: &MirRoutine) -> BTreeMap<MirTempId, MirWidth> {
     let mut widths = BTreeMap::new();
     for block in &routine.blocks {
         for param in &block.params {

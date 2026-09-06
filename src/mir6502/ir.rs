@@ -166,7 +166,14 @@ pub struct MirRuntimeHelperDecl {
     pub helper: MirRuntimeHelper,
     pub target: MirRuntimeHelperTarget,
     pub abi: MirCallAbi,
+    pub additional_results: Vec<MirHelperResult>,
     pub effects: MirEffects,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirHelperResult {
+    pub home: MirResultHome,
+    pub width: MirWidth,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -613,6 +620,7 @@ pub enum MirOp {
         helper: MirRuntimeHelper,
         args: Vec<MirArgHome>,
         result: Option<MirResultHome>,
+        additional_results: Vec<MirHelperResult>,
         effects: MirEffects,
     },
     MaterializeAddress {
@@ -846,6 +854,9 @@ pub enum MirBinaryOp {
     Mul,
     Div,
     Mod,
+    /// Full-range unsigned division/remainder. Div/Mod are signed word ops.
+    UDiv,
+    UMod,
     Lsh,
     Rsh,
     And,
@@ -1046,6 +1057,14 @@ pub enum MirRuntimeHelper {
     Mul,
     Div,
     Mod,
+    UDiv,
+    UMod,
+    DivU8,
+    ModU8,
+    DivU16U8,
+    ModU16U8,
+    DivMod,
+    UDivMod,
     Lsh,
     Rsh,
     SArgs,

@@ -212,7 +212,8 @@ pub(crate) fn run_memory_with_limit(
                 a = memory[0x100 + usize::from(sp)];
                 zn = Some(a);
             }
-            "NOP" => {}
+            // Arithmetic in this small executor is always binary.
+            "NOP" | "CLD" => {}
             _ => panic!(
                 "unsupported test CPU instruction {name} {mode:?} at {:04x}",
                 pc - len

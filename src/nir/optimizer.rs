@@ -322,6 +322,9 @@ fn reuse_does_not_extend_live_range(
 }
 
 fn pure_expression(op: &NirOp) -> Option<PureExpression> {
+    if binary_may_fault(op) {
+        return None;
+    }
     match op {
         NirOp::AddrOf { ty, place, .. } => Some(PureExpression::AddrOf {
             ty: ty.clone(),
@@ -819,7 +822,7 @@ fn folded_constant(op: &NirOp) -> Option<(TempId, NirValue)> {
             op,
             left,
             right,
-        } => Some((*dest, value_for_type(eval_binary(*op, left, right)?, ty)?)),
+        } => Some((*dest, value_for_type(eval_binary(*op, left, right, ty)?, ty)?)),
         NirOp::PointerOffset { .. } => None,
         NirOp::Compare {
             dest,
@@ -905,21 +908,30 @@ fn apply_compare<T: Ord>(op: NirCompareOp, left: T, right: T) -> bool {
     }
 }
 
-fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16> {
+fn eval_binary(op: NirBinaryOp, left: &NirValue, right: &NirValue, ty: &NirType) -> Option<u16> {
     let left = const_u16(left)?;
     let right = const_u16(right)?;
     match op {
         NirBinaryOp::Add => Some(left.wrapping_add(right)),
         NirBinaryOp::Sub => Some(left.wrapping_sub(right)),
         NirBinaryOp::Mul => Some(left.wrapping_mul(right)),
-        NirBinaryOp::Div if right != 0 => Some(left / right),
-        NirBinaryOp::Mod if right != 0 => Some(left % right),
+        NirBinaryOp::Div | NirBinaryOp::Mod => {
+            use crate::semantic::types::ScalarType;
+            let domain = match ty.kind {
+                NirTypeKind::I16 => ScalarType::Int,
+                NirTypeKind::U16 => ScalarType::Card,
+                NirTypeKind::U8 => ScalarType::Byte,
+                _ => return None,
+            };
+            let result = crate::semantic::integer::divmod(domain, left, right).ok()?;
+            Some(if op == NirBinaryOp::Div { result.quotient } else { result.remainder })
+        }
         NirBinaryOp::Lsh if right < 16 => Some(left.wrapping_shl(u32::from(right))),
         NirBinaryOp::Rsh if right < 16 => Some(left.wrapping_shr(u32::from(right))),
         NirBinaryOp::And => Some(left & right),
         NirBinaryOp::Or => Some(left | right),
         NirBinaryOp::Xor => Some(left ^ right),
-        NirBinaryOp::Div | NirBinaryOp::Mod | NirBinaryOp::Lsh | NirBinaryOp::Rsh => None,
+        NirBinaryOp::Lsh | NirBinaryOp::Rsh => None,
     }
 }
 
@@ -1277,6 +1289,9 @@ fn collect_value_use(value: &NirValue, out: &mut BTreeSet<TempId>) {
 }
 
 fn is_pure_temp_op(op: &NirOp) -> bool {
+    if binary_may_fault(op) {
+        return false;
+    }
     matches!(
         op,
         NirOp::Unary { .. }
@@ -1285,6 +1300,11 @@ fn is_pure_temp_op(op: &NirOp) -> bool {
             | NirOp::Binary { .. }
             | NirOp::Compare { .. }
     )
+}
+
+fn binary_may_fault(op: &NirOp) -> bool {
+    matches!(op, NirOp::Binary { op: NirBinaryOp::Div | NirBinaryOp::Mod, right, .. }
+        if const_u16(right).is_none_or(|value| value == 0))
 }
 
 fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {

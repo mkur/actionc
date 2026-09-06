@@ -2103,10 +2103,11 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
     }
 }
 
-fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
+pub(crate) fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
     let value = match &expr.kind {
         SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
         SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+        SemExprKind::Literal(SemLiteral::Char(ch)) => crate::source::source_char_byte(*ch).map(u16::from),
         SemExprKind::Cast { expr, .. } => const_u16_sem_expr(expr),
         SemExprKind::Unary { op, expr } => {
             let value = const_u16_sem_expr(expr)?;
@@ -2123,10 +2124,10 @@ fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
                 BinaryOp::Add => Some(left.wrapping_add(right)),
                 BinaryOp::Sub => Some(left.wrapping_sub(right)),
                 BinaryOp::Mul => Some(left.wrapping_mul(right)),
-                BinaryOp::Div => (right != 0).then_some(left / right),
-                BinaryOp::Mod => (right != 0).then_some(left % right),
-                BinaryOp::Lsh => Some(left.wrapping_shl(u32::from(right & 0x0F))),
-                BinaryOp::Rsh => Some(left.wrapping_shr(u32::from(right & 0x0F))),
+                BinaryOp::Div => super::integer::divmod(expr.ty.as_scalar()?, left, right).ok().map(|result| result.quotient),
+                BinaryOp::Mod => super::integer::divmod(expr.ty.as_scalar()?, left, right).ok().map(|result| result.remainder),
+                BinaryOp::Lsh => Some(if right >= 16 { 0 } else { left << right }),
+                BinaryOp::Rsh => Some(if right >= 16 { 0 } else { left >> right }),
                 BinaryOp::And => Some(left & right),
                 BinaryOp::Or => Some(left | right),
                 BinaryOp::Xor => Some(left ^ right),
@@ -2469,13 +2470,10 @@ impl<'a> IrBuilder<'a> {
                 let is_array_storage =
                     decl.storage == VarStorage::Array || symbol.class == SymbolClass::Array;
                 let storage = if is_array_storage {
+                    let length = entry.size.as_ref().map(|size| self.lower_expr(scope, size));
                     SemDeclarationStorage::Array {
-                        array_type: self.array_type_from_symbol(
-                            scope,
-                            &symbol,
-                            entry.size.as_ref(),
-                        ),
-                        length: entry.size.as_ref().map(|size| self.lower_expr(scope, size)),
+                        array_type: self.array_type_from_symbol(&symbol, length.as_ref()),
+                        length,
                         fixed_address: self
                             .model
                             .fixed_array_backing_addresses
@@ -2871,7 +2869,8 @@ impl<'a> IrBuilder<'a> {
             for entry in &param.entries {
                 if let Some(symbol) = self.symbol_ref(scope, &entry.name, entry.span) {
                     let array_type = if storage == SemParamStorage::Array {
-                        Some(self.array_type_from_symbol(scope, &symbol, entry.size.as_ref()))
+                        let length = entry.size.as_ref().map(|size| self.lower_expr(scope, size));
+                        Some(self.array_type_from_symbol(&symbol, length.as_ref()))
                     } else {
                         None
                     };
@@ -3638,6 +3637,12 @@ impl<'a> IrBuilder<'a> {
         if left.ty.is_real() || right.ty.is_real() {
             left = self.coerce_integer_expr_to_real(left);
             right = self.coerce_integer_expr_to_real(right);
+        } else if matches!(op, BinaryOp::Div | BinaryOp::Mod)
+            && left.ty.as_scalar().is_some() && right.ty.as_scalar().is_some()
+        {
+            let operand_ty = promote_numeric_types(&left.ty, &right.ty);
+            left = self.coerce_scalar_comparison_expr(left, &operand_ty);
+            right = self.coerce_scalar_comparison_expr(right, &operand_ty);
         } else if is_compare_op(op)
             && left.ty.as_scalar().is_some()
             && right.ty.as_scalar().is_some()
@@ -3749,7 +3754,8 @@ impl<'a> IrBuilder<'a> {
         } = expr;
 
         match kind {
-            SemExprKind::Binary { op, left, right } if !is_compare_op(op) => SemExpr {
+            SemExprKind::Binary { op, left, right }
+                if !is_compare_op(op) && !matches!(op, BinaryOp::Div | BinaryOp::Mod) => SemExpr {
                 kind: SemExprKind::Binary {
                     op,
                     left: Box::new(self.widen_arithmetic_tree_for_expected_type(*left, expected)),
@@ -3919,9 +3925,8 @@ impl<'a> IrBuilder<'a> {
 
     fn array_type_from_symbol(
         &self,
-        scope: ScopeId,
         symbol: &SemSymbolRef,
-        length: Option<&Expr>,
+        length: Option<&SemExpr>,
     ) -> ArrayType {
         let element = self
             .model
@@ -3932,67 +3937,12 @@ impl<'a> IrBuilder<'a> {
             .unwrap_or_else(ValueType::error);
         ArrayType::new(
             element,
-            length.and_then(|expr| self.const_u16_expr_in_scope(scope, expr)),
+            // DEFINE expansion is resolved during SemIR construction. Use its
+            // typed evaluator rather than a second untyped AST arithmetic walk.
+            length.and_then(const_u16_sem_expr),
         )
     }
 
-    fn const_u16_expr_in_scope(&self, scope: ScopeId, expr: &Expr) -> Option<u16> {
-        match &expr.kind {
-            ExprKind::Number(number) => number.value,
-            ExprKind::Name(name) => {
-                let symbol = self.symbol_ref(scope, name, expr.span)?;
-                self.model
-                    .constants
-                    .get(&symbol.id)
-                    .map(|value| value.bits)
-                    .or_else(|| {
-                        self.numeric_defines
-                            .get(&symbol.id)
-                            .and_then(|number| number.value)
-                    })
-            }
-            ExprKind::Unary {
-                op: UnaryOp::Plus,
-                expr,
-            } => self.const_u16_expr_in_scope(scope, expr),
-            ExprKind::Unary {
-                op: UnaryOp::Neg,
-                expr,
-            } => Some(0u16.wrapping_sub(self.const_u16_expr_in_scope(scope, expr)?)),
-            ExprKind::Binary { op, left, right } => {
-                let left = self.const_u16_expr_in_scope(scope, left)?;
-                let right = self.const_u16_expr_in_scope(scope, right)?;
-                match op {
-                    BinaryOp::Add => Some(left.wrapping_add(right)),
-                    BinaryOp::Sub => Some(left.wrapping_sub(right)),
-                    BinaryOp::Mul => Some(left.wrapping_mul(right)),
-                    BinaryOp::Div if right != 0 => Some(left / right),
-                    BinaryOp::Mod if right != 0 => Some(left % right),
-                    BinaryOp::Div | BinaryOp::Mod => None,
-                    BinaryOp::Lsh => Some(if right >= 16 {
-                        0
-                    } else {
-                        left.wrapping_shl(u32::from(right))
-                    }),
-                    BinaryOp::Rsh => Some(if right >= 16 {
-                        0
-                    } else {
-                        left.wrapping_shr(u32::from(right))
-                    }),
-                    BinaryOp::And => Some(left & right),
-                    BinaryOp::Or => Some(left | right),
-                    BinaryOp::Xor => Some(left ^ right),
-                    BinaryOp::Eq
-                    | BinaryOp::Ne
-                    | BinaryOp::Lt
-                    | BinaryOp::Le
-                    | BinaryOp::Gt
-                    | BinaryOp::Ge => None,
-                }
-            }
-            _ => None,
-        }
-    }
 
     fn lower_condition(&mut self, scope: ScopeId, expr: &Expr) -> SemCondition {
         let lowered = self.lower_expr(scope, expr);

@@ -341,51 +341,68 @@ pub(super) fn constant_u16_with_defines(
     expr: &Expr,
     numeric_defines: &HashMap<String, u16>,
 ) -> Option<u16> {
-    match &expr.kind {
-        ExprKind::Name(name) => numeric_defines.get(&normalize_name(name)).copied(),
-        ExprKind::Cast { ty, expr } => {
-            let value = constant_u16_with_defines(expr, numeric_defines)?;
-            Some(if type_size(ty) == Some(1) {
-                value & 0x00FF
-            } else {
-                value
-            })
+    constant_integer_with_defines(expr, numeric_defines).map(|(_, bits)| bits)
+}
+
+/// The projection retains casts and typed literals. This adapter only walks
+/// constant syntax; the arithmetic policy itself belongs to semantic::integer.
+fn constant_integer_with_defines(
+    expr: &Expr,
+    numeric_defines: &HashMap<String, u16>,
+) -> Option<(ScalarType, u16)> {
+    let (ty, bits) = match &expr.kind {
+        ExprKind::Number(number) => (ScalarType::from_number_kind(number.kind)?, number.value?),
+        ExprKind::Char(ch) => (ScalarType::Char, u16::from(source_char_byte(*ch)?)),
+        ExprKind::Name(name) => {
+            let bits = *numeric_defines.get(&normalize_name(name))?;
+            (if bits <= 255 { ScalarType::Byte } else { ScalarType::Card }, bits)
         }
-        ExprKind::Unary {
-            op: UnaryOp::Plus,
-            expr,
-        } => constant_u16_with_defines(expr, numeric_defines),
-        ExprKind::Unary {
-            op: UnaryOp::Neg,
-            expr,
-        } => Some(0u16.wrapping_sub(constant_u16_with_defines(expr, numeric_defines)?)),
-        ExprKind::Binary { op, left, right } => {
-            let left = constant_u16_with_defines(left, numeric_defines)?;
-            let right = constant_u16_with_defines(right, numeric_defines)?;
+        ExprKind::Cast { ty, expr } => {
+            let (_, bits) = constant_integer_with_defines(expr, numeric_defines)?;
+            let scalar = match &ty.base {
+                TypeBase::Fund(fund) if !ty.pointer => ScalarType::from_fund(*fund),
+                _ if ty.pointer => ScalarType::Card,
+                _ => return None,
+            };
+            (scalar, bits)
+        }
+        ExprKind::Unary { op, expr } => {
+            let (ty, bits) = constant_integer_with_defines(expr, numeric_defines)?;
             match op {
-                BinaryOp::Add => Some(left.wrapping_add(right)),
-                BinaryOp::Sub => Some(left.wrapping_sub(right)),
-                BinaryOp::Mul => Some(left.wrapping_mul(right)),
-                BinaryOp::Div if right != 0 => Some(left / right),
-                BinaryOp::Mod if right != 0 => Some(left % right),
-                BinaryOp::Lsh => Some(if right >= 16 {
-                    0
-                } else {
-                    left.wrapping_shl(u32::from(right))
-                }),
-                BinaryOp::Rsh => Some(if right >= 16 {
-                    0
-                } else {
-                    left.wrapping_shr(u32::from(right))
-                }),
-                BinaryOp::And => Some(left & right),
-                BinaryOp::Or => Some(left | right),
-                BinaryOp::Xor => Some(left ^ right),
-                _ => None,
+                UnaryOp::Plus => (ty, bits),
+                UnaryOp::Neg => (ScalarType::Int, bits.wrapping_neg()),
+                _ => return None,
             }
         }
-        _ => constant_u16(expr),
-    }
+        ExprKind::Binary { op, left, right } => {
+            let (left_ty, left) = constant_integer_with_defines(left, numeric_defines)?;
+            let (right_ty, right) = constant_integer_with_defines(right, numeric_defines)?;
+            let exact = match op {
+                BinaryOp::Add => Some(left.wrapping_add(right)),
+                BinaryOp::Sub => Some(left.wrapping_sub(right)),
+                _ => None,
+            };
+            let ty = ScalarType::arithmetic_result(*op, left_ty, right_ty, exact);
+            let bits = match op {
+                BinaryOp::Add => left.wrapping_add(right),
+                BinaryOp::Sub => left.wrapping_sub(right),
+                BinaryOp::Mul => left.wrapping_mul(right),
+                BinaryOp::Div | BinaryOp::Mod => {
+                    let result = crate::semantic::integer::divmod(ty, left, right).ok()?;
+                    if *op == BinaryOp::Div { result.quotient } else { result.remainder }
+                }
+                BinaryOp::Lsh => if right >= 16 { 0 } else { left.wrapping_shl(u32::from(right)) },
+                BinaryOp::Rsh => if right >= 16 { 0 } else { left.wrapping_shr(u32::from(right)) },
+                BinaryOp::And => left & right,
+                BinaryOp::Or => left | right,
+                BinaryOp::Xor => left ^ right,
+                _ => return None,
+            };
+            (ty, bits)
+        }
+        _ => return None,
+    };
+    Some((ty, if ty.width_bytes() == 1 { bits & 255 } else { bits }))
 }
 
 pub(super) fn array_len_with_defines(

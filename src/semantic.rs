@@ -18,6 +18,7 @@ mod initializers;
 mod static_addresses;
 pub mod subject;
 pub mod types;
+pub mod integer;
 
 #[cfg(test)]
 mod embedded_record_arrays_tests;
@@ -1990,6 +1991,15 @@ impl Analyzer {
                 "compound assignment value must be numeric",
             ));
         }
+        if matches!(op, BinaryOp::Div | BinaryOp::Mod)
+            && evaluate_const_expr(&value).is_ok_and(|value| value.bits == 0)
+        {
+            self.diagnostics.push(Diagnostic::new(span, if op == BinaryOp::Div {
+                "division by zero in constant expression"
+            } else {
+                "modulo by zero in constant expression"
+            }));
+        }
     }
 
     fn compound_assignment_target_type(
@@ -2271,6 +2281,19 @@ impl Analyzer {
                 let right =
                     self.expect_expr_in_context(scope, right, expr.span, predicate_operands);
                 let uses_real = left.ty.is_real() || right.ty.is_real();
+                if !uses_real
+                    && matches!(op, BinaryOp::Div | BinaryOp::Mod)
+                    && evaluate_const_expr(&right).is_ok_and(|value| value.bits == 0)
+                {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        if *op == BinaryOp::Div {
+                            "division by zero in constant expression"
+                        } else {
+                            "modulo by zero in constant expression"
+                        },
+                    ));
+                }
                 let ty =
                     if uses_real && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value()) {
                         self.diagnostics.push(Diagnostic::new(
@@ -3660,8 +3683,15 @@ impl Analyzer {
             }
             Err(message) => {
                 self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
-                self.diagnostics
-                    .push(Diagnostic::new(entry.value.span, message));
+                // Executable-expression checking also diagnoses statically
+                // zero divisors. Do not report the same failed CONST twice.
+                if !message.contains("by zero") || !self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.span.start >= entry.value.span.start
+                        && diagnostic.span.end <= entry.value.span.end
+                        && diagnostic.message.contains("by zero")
+                }) {
+                    self.diagnostics.push(Diagnostic::new(entry.value.span, message));
+                }
             }
         }
     }
@@ -4358,9 +4388,10 @@ impl Analyzer {
                         .push(Diagnostic::new(initializer.span, error.to_string()));
                 }
             }
-            _ if module_for_scope(&self.symbols, scope).is_some()
-                || self.options.embedded_record_arrays =>
-            {
+            _ => {
+                // Validate scalar/address expressions in every profile. In
+                // particular, a failed constant fold must not silently turn
+                // a divide-by-zero fixed address into ordinary storage.
                 let value =
                     self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
                 if self.expression_uses_inline_array(&value) {
@@ -4379,7 +4410,6 @@ impl Analyzer {
                     }
                 }
             }
-            _ => {}
         }
     }
 
@@ -4984,6 +5014,12 @@ fn evaluate_fixed_array_backing_address(
 fn evaluate_exact_fixed_address_expr(
     expr: &subject::SemExpr,
 ) -> Result<i64, FixedArrayAddressError> {
+    if matches!(expr.kind, subject::SemExprKind::Binary { op: BinaryOp::Div | BinaryOp::Mod, .. }) {
+        // Division is scalar arithmetic even inside an address expression.
+        // Keep the surrounding checked address additions/multiplications exact.
+        return evaluate_const_expr(expr).map(exact_const_value)
+            .map_err(|_| FixedArrayAddressError::Invalid);
+    }
     match &expr.kind {
         subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
             .value
@@ -5154,8 +5190,10 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
                 BinaryOp::Add => left.wrapping_add(right),
                 BinaryOp::Sub => left.wrapping_sub(right),
                 BinaryOp::Mul => left.wrapping_mul(right),
-                BinaryOp::Div if right != 0 => left / right,
-                BinaryOp::Mod if right != 0 => left % right,
+                BinaryOp::Div if right != 0 => integer::divmod(scalar, left, right)
+                    .map_err(|_| "division by zero in CONST expression".to_string())?.quotient,
+                BinaryOp::Mod if right != 0 => integer::divmod(scalar, left, right)
+                    .map_err(|_| "modulo by zero in CONST expression".to_string())?.remainder,
                 BinaryOp::Div => return Err("division by zero in CONST expression".to_string()),
                 BinaryOp::Mod => return Err("modulo by zero in CONST expression".to_string()),
                 BinaryOp::Lsh => {

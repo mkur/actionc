@@ -36,6 +36,29 @@ pub(super) fn resolve_helpers(
     runtime: Runtime,
 ) -> Result<(), Vec<MirDiagnostic>> {
     bind_generated_byte_multiply(program);
+    for helper in [MirRuntimeHelper::Div, MirRuntimeHelper::Mod, MirRuntimeHelper::UDiv, MirRuntimeHelper::UMod,
+        MirRuntimeHelper::DivU8, MirRuntimeHelper::ModU8, MirRuntimeHelper::DivU16U8, MirRuntimeHelper::ModU16U8,
+        MirRuntimeHelper::DivMod, MirRuntimeHelper::UDivMod] {
+        if let Some(declaration) = program.runtime_helpers.iter().find(|decl| decl.helper == helper) {
+            if !matches!(declaration.target, MirRuntimeHelperTarget::Deferred) {
+                return Err(vec![MirDiagnostic::routine("<runtime>",
+                    "legacy division/remainder SET overrides cannot replace modern integer operators",
+                )]);
+            }
+            let bytes = if matches!(helper, MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod) {
+                crate::integer6502::divmod_body(helper == MirRuntimeHelper::DivMod)
+            } else if matches!(helper, MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 | MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8) {
+                crate::integer6502::narrow_division_body(
+                    matches!(helper, MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8),
+                    matches!(helper, MirRuntimeHelper::ModU8 | MirRuntimeHelper::ModU16U8),
+                )
+            } else { crate::integer6502::division_body(
+                matches!(helper, MirRuntimeHelper::Div | MirRuntimeHelper::Mod),
+                matches!(helper, MirRuntimeHelper::Mod | MirRuntimeHelper::UMod),
+            ) };
+            bind_generated_helper(program, helper, bytes);
+        }
+    }
     program
         .runtime_helpers
         .sort_by_key(|declaration| declaration.helper);
@@ -60,6 +83,14 @@ pub(super) const fn helper_name(helper: MirRuntimeHelper) -> &'static str {
         MirRuntimeHelper::Mul => "MultI",
         MirRuntimeHelper::Div => "DivI",
         MirRuntimeHelper::Mod => "RemI",
+        MirRuntimeHelper::UDiv => "DivU16",
+        MirRuntimeHelper::UMod => "RemU16",
+        MirRuntimeHelper::DivU8 => "DivU8",
+        MirRuntimeHelper::ModU8 => "RemU8",
+        MirRuntimeHelper::DivU16U8 => "DivU16U8",
+        MirRuntimeHelper::ModU16U8 => "RemU16U8",
+        MirRuntimeHelper::DivMod => "DivModI16",
+        MirRuntimeHelper::UDivMod => "DivModU16",
         MirRuntimeHelper::Lsh => "LShift",
         MirRuntimeHelper::Rsh => "RShift",
         MirRuntimeHelper::SArgs => "SArgs",
@@ -70,12 +101,13 @@ fn cartridge_address(helper: MirRuntimeHelper) -> u16 {
     use crate::codegen::runtime_helper;
 
     match helper {
-        MirRuntimeHelper::MulByte => {
-            unreachable!("compiler-owned MultB is bound before cartridge resolution")
+        MirRuntimeHelper::MulByte | MirRuntimeHelper::Div | MirRuntimeHelper::Mod
+        | MirRuntimeHelper::UDiv | MirRuntimeHelper::UMod
+        | MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 | MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8
+        | MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod => {
+            unreachable!("compiler-owned arithmetic is bound before cartridge resolution")
         }
         MirRuntimeHelper::Mul => runtime_helper::CARTRIDGE_MUL.address(),
-        MirRuntimeHelper::Div => runtime_helper::CARTRIDGE_DIV.address(),
-        MirRuntimeHelper::Mod => runtime_helper::CARTRIDGE_MOD.address(),
         MirRuntimeHelper::Lsh => runtime_helper::CARTRIDGE_LSH.address(),
         MirRuntimeHelper::Rsh => runtime_helper::CARTRIDGE_RSH.address(),
         MirRuntimeHelper::SArgs => runtime_helper::CARTRIDGE_SARGS.address(),
@@ -83,8 +115,12 @@ fn cartridge_address(helper: MirRuntimeHelper) -> u16 {
 }
 
 fn bind_generated_byte_multiply(program: &mut MirProgram) {
+    bind_generated_helper(program, MirRuntimeHelper::MulByte, GENERATED_BYTE_MULTIPLY_BYTES.to_vec());
+}
+
+fn bind_generated_helper(program: &mut MirProgram, helper: MirRuntimeHelper, bytes: Vec<u8>) {
     let Some(declaration_index) = program.runtime_helpers.iter().position(|declaration| {
-        declaration.helper == MirRuntimeHelper::MulByte
+        declaration.helper == helper
             && matches!(declaration.target, MirRuntimeHelperTarget::Deferred)
     }) else {
         return;
@@ -106,27 +142,27 @@ fn bind_generated_byte_multiply(program: &mut MirProgram) {
             .max()
             .map_or(0, |id| id.wrapping_add(1)),
     );
-    let mut effects = super::materialize::helper_effects(&MirRuntimeHelper::MulByte);
+    let mut effects = super::materialize::helper_effects(&helper);
     effects.reads = MirRegisterSet {
         a: true,
         x: true,
         ..MirRegisterSet::default()
     };
 
-    // Input is A:X, output is the complete unsigned product in A:X. The
+    // The declaration owns each helper's input/output signature. The
     // generated helper is target-owned and therefore works with either the
     // cartridge or standalone runtime without depending on a private ROM
     // entry point.
     program.machine_blocks.push(MirMachineBlock {
         id: machine_id,
-        items: GENERATED_BYTE_MULTIPLY_BYTES
+        items: bytes
             .into_iter()
             .map(MirMachineItem::Byte)
             .collect(),
     });
     program.routines.push(MirRoutine {
         id: routine_id,
-        name: "ACTION.RUNTIME.ACTIONC::MultB".to_string(),
+        name: format!("ACTION.RUNTIME.ACTIONC::{}", helper_name(helper)),
         abi: MirRoutineAbi::ActionObservable,
         frame: MirFrame::default(),
         temps: Vec::new(),
@@ -151,7 +187,7 @@ mod tests {
     use crate::mir6502::ir::MirRuntimeHelperDecl;
 
     #[test]
-    fn cart_resolution_preserves_established_addresses() {
+    fn cart_resolution_preserves_services_but_replaces_legacy_division() {
         let mut program = MirProgram {
             statics: Vec::new(),
             globals: Vec::new(),
@@ -167,9 +203,10 @@ mod tests {
             ]
             .into_iter()
             .map(|helper| MirRuntimeHelperDecl {
+                additional_results: Vec::new(),
                 helper,
                 target: MirRuntimeHelperTarget::Deferred,
-                abi: crate::mir6502::materialize::helper_abi(),
+                abi: crate::mir6502::materialize::helper_abi_for(helper),
                 effects: crate::mir6502::materialize::helper_effects(&helper),
             })
             .collect(),
@@ -180,14 +217,15 @@ mod tests {
         let addresses = program
             .runtime_helpers
             .iter()
-            .map(|decl| match decl.target {
-                MirRuntimeHelperTarget::KnownAbsolute(address) => address,
-                _ => panic!("cart helper was not resolved to an absolute address"),
+            .filter_map(|decl| match decl.target {
+                MirRuntimeHelperTarget::KnownAbsolute(address) => Some(address),
+                MirRuntimeHelperTarget::Routine(_) if matches!(decl.helper, MirRuntimeHelper::Div | MirRuntimeHelper::Mod) => None,
+                _ => panic!("cart service or owned helper not resolved"),
             })
             .collect::<Vec<_>>();
         assert_eq!(
             addresses,
-            vec![0xA000, 0xA090, 0xA0DE, 0xB5C0, 0xA0E6, 0xA0F5]
+            vec![0xA000, 0xB5C0, 0xA0E6, 0xA0F5]
         );
     }
 
@@ -200,9 +238,10 @@ mod tests {
                 routines: Vec::new(),
                 machine_blocks: Vec::new(),
                 runtime_helpers: vec![MirRuntimeHelperDecl {
+                    additional_results: Vec::new(),
                     helper: MirRuntimeHelper::MulByte,
                     target: MirRuntimeHelperTarget::Deferred,
-                    abi: crate::mir6502::materialize::helper_abi(),
+                    abi: crate::mir6502::materialize::helper_abi_for(MirRuntimeHelper::MulByte),
                     effects: crate::mir6502::materialize::helper_effects(
                         &MirRuntimeHelper::MulByte,
                     ),

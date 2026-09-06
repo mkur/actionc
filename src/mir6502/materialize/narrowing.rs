@@ -349,7 +349,8 @@ mod tests {
 
     #[test]
     fn arithmetic_narrowing_rejects_high_dependent_operations_and_live_word_results() {
-        for operation in [MirBinaryOp::Div, MirBinaryOp::Mod, MirBinaryOp::Rsh, MirBinaryOp::Lsh] {
+        for operation in [MirBinaryOp::Div, MirBinaryOp::Mod, MirBinaryOp::UDiv,
+            MirBinaryOp::UMod, MirBinaryOp::Rsh, MirBinaryOp::Lsh] {
             let mut routine = product_routine(None, MirValue::Def(MirDef::VTemp(MirTempId(0))));
             let MirOp::Binary { op, .. } = &mut routine.blocks[0].ops[1] else { panic!() };
             *op = operation;

@@ -1,5 +1,6 @@
 mod action_abi;
 mod analysis;
+pub(crate) mod integer6502;
 
 pub mod asm6502;
 pub mod ast;

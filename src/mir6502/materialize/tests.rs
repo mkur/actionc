@@ -1,4 +1,6 @@
 use super::*;
+#[path = "arithmetic_tests.rs"]
+mod arithmetic_tests;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{
@@ -803,6 +805,7 @@ fn runtime_helper_effects_use_documented_zero_page_ranges() {
         }])
     );
     let classified = crate::mir6502::analysis::effects::classify_op(&MirOp::RuntimeHelper {
+        additional_results: Vec::new(),
         helper: MirRuntimeHelper::Rsh,
         args: helper_args(&MirRuntimeHelper::Rsh),
         result: None,
@@ -828,6 +831,16 @@ fn runtime_helper_effects_use_documented_zero_page_ranges() {
                 kind: MirMemoryRegionKind::ZeroPage,
                 offset: 0xc0,
                 size: 3,
+            },
+            MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: 0xc6,
+                size: 2,
+            },
+            MirMemoryRegion {
+                kind: MirMemoryRegionKind::ZeroPage,
+                offset: 0xd3,
+                size: 1,
             },
         ])
     );
@@ -873,6 +886,7 @@ fn word_rsh8_high_projection_test_routine(terminator: MirTerminator) -> MirRouti
                 width: MirWidth::Byte,
             },
             MirOp::RuntimeHelper {
+                additional_results: Vec::new(),
                 helper: MirRuntimeHelper::Rsh,
                 args: helper_args(&MirRuntimeHelper::Rsh),
                 result: None,
@@ -1420,6 +1434,7 @@ fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) 
             width: MirWidth::Byte,
         },
         MirOp::RuntimeHelper {
+            additional_results: Vec::new(),
             args: helper_args(&helper),
             effects: helper_effects(&helper),
             helper,

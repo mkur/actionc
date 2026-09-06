@@ -44,6 +44,63 @@ fn hello_world() -> PathBuf {
         .join("hello-world.act")
 }
 
+#[test]
+fn constant_zero_divisors_are_semantic_errors_in_every_mode_and_runtime() {
+    let temp = TestDir::new();
+    for expression in ["1/0", "1 MOD 0", "(1/0)+1", "(1 MOD 0)+1", "1/BYTE(256)"] {
+        for body in [format!("q={expression}"), format!("FOR q=0 TO 1 STEP {expression} DO OD")] {
+            let path = write_source(&temp, "zero.act", &format!("CARD q PROC Main() {body} RETURN"));
+            for mode in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502] {
+                for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                    let error = compile_file(&path, &CompileOptions::for_mode(mode).with_runtime(runtime))
+                        .expect_err("constant zero must be diagnosed without a host panic");
+                    assert!(error.diagnostics().iter().any(|diagnostic| {
+                        diagnostic.phase == CompilerPhase::Semantic
+                            && diagnostic.message.contains("by zero")
+                    }), "{body}/{mode:?}/{runtime:?}: {error}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn converted_zero_is_diagnosed_in_compounds_constants_and_returns() {
+    let temp = TestDir::new();
+    for source in [
+        "CARD q PROC Main() q==/BYTE(256) RETURN",
+        "CARD q PROC Main() q==MOD BYTE(256) RETURN",
+        "CONST CARD q=1/BYTE(256) PROC Main() RETURN",
+        "CARD ARRAY q(1/BYTE(256)) PROC Main() RETURN",
+        "CARD q=1/BYTE(256) PROC Main() RETURN",
+        "CARD FUNC Divide() RETURN (1/BYTE(256)) PROC Main() CARD q q=Divide() RETURN",
+    ] {
+        let path = write_source(&temp,"converted-zero.act",source);
+        for mode in [CompileMode::Compatibility,CompileMode::Optimized,CompileMode::Mir6502] {
+            for runtime in [Runtime::ActionCart,Runtime::Standalone] {
+                let error=compile_file(&path,&CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap_err();
+                assert!(error.diagnostics().iter().any(|d|d.phase==CompilerPhase::Semantic && d.message.contains("by zero")),"{source}/{mode:?}/{runtime:?}: {error}");
+            }
+        }
+    }
+}
+
+#[test]
+fn legacy_math_overrides_cannot_change_modern_operator_semantics() {
+    let temp=TestDir::new();
+    for (slot,operator) in [("$4EA","/"),("$4EC","MOD")] {
+        for ty in ["INT","CARD"] {
+            let path=write_source(&temp,"override.act",&format!("SET {slot}=$A090 {ty} a=$6E0,b=$6E2,q=$600 PROC Main() q=a {operator} b RETURN"));
+            for mode in [CompileMode::Compatibility,CompileMode::Optimized,CompileMode::Mir6502] {
+                for runtime in [Runtime::ActionCart,Runtime::Standalone] {
+                    let error=compile_file(&path,&CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap_err();
+                    assert!(error.diagnostics().iter().any(|d|d.message.contains("override")),"{slot}/{ty}/{mode:?}/{runtime:?}: {error}");
+                }
+            }
+        }
+    }
+}
+
 fn write_source(temp: &TestDir, name: &str, source: &str) -> PathBuf {
     let path = temp.path().join(name);
     fs::write(&path, source).expect("write Action source");

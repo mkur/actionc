@@ -1976,6 +1976,8 @@ pub(super) fn select_word_helper_store_consumer(
         right,
         temp_widths,
         config.select_widening_byte_multiply,
+        config.enable_peepholes,
+        helpers,
     ) else {
         return 0;
     };
@@ -2001,7 +2003,7 @@ pub(super) fn select_word_helper_store_consumer(
         None,
         left.clone(),
         right.clone(),
-        selection.operand_width,
+        selection.input_widths,
         selection.result_width,
         layout,
         temp_widths,
@@ -2247,7 +2249,7 @@ fn select_byte_mul_add_sub_word_store_consumer_with_deadness(
         None,
         mul_left.clone(),
         mul_right.clone(),
-        MirWidth::Byte,
+        [MirWidth::Byte; 2],
         MirWidth::Word,
         layout,
         temp_widths,
@@ -2344,7 +2346,7 @@ pub(super) fn try_fuse_byte_mul_word_store_consumer(
         None,
         left.clone(),
         right.clone(),
-        MirWidth::Byte,
+        [MirWidth::Byte; 2],
         MirWidth::Word,
         layout,
         temp_widths,

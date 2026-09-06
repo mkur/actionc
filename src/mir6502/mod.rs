@@ -421,6 +421,11 @@ fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
         MirRuntimeHelper::Mul => "integer multiplication requires a runtime helper",
         MirRuntimeHelper::Div => "integer division requires a runtime helper",
         MirRuntimeHelper::Mod => "integer remainder requires a runtime helper",
+        MirRuntimeHelper::UDiv => "unsigned division requires a runtime helper",
+        MirRuntimeHelper::UMod => "unsigned remainder requires a runtime helper",
+        MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 => "costed unsigned byte division/remainder",
+        MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8 => "costed unsigned word/byte division/remainder",
+        MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod => "shared quotient/remainder of captured operands",
         MirRuntimeHelper::Lsh => "word left shift requires a runtime helper",
         MirRuntimeHelper::Rsh => "word right shift requires a runtime helper",
     }
@@ -5953,6 +5958,7 @@ mod tests {
             }],
             machine_blocks: Vec::new(),
             runtime_helpers: vec![MirRuntimeHelperDecl {
+                additional_results: Vec::new(),
                 helper: MirRuntimeHelper::Mul,
                 target: MirRuntimeHelperTarget::Deferred,
                 abi: MirCallAbi {
@@ -7193,10 +7199,11 @@ mod tests {
                     label: "bb0".to_string(),
                     params: Vec::new(),
                     ops: vec![MirOp::RuntimeHelper {
+                        additional_results: Vec::new(),
                         helper: MirRuntimeHelper::Mul,
-                        args: Vec::new(),
+                        args: materialize::helper_args(&MirRuntimeHelper::Mul),
                         result: None,
-                        effects: MirEffects::default(),
+                        effects: materialize::helper_effects(&MirRuntimeHelper::Mul),
                     }],
                     terminator: MirTerminator::Return,
                 }],
@@ -7204,15 +7211,11 @@ mod tests {
             }],
             machine_blocks: Vec::new(),
             runtime_helpers: vec![MirRuntimeHelperDecl {
+                additional_results: Vec::new(),
                 helper: MirRuntimeHelper::Mul,
                 target: MirRuntimeHelperTarget::KnownAbsolute(0xA000),
-                abi: MirCallAbi {
-                    params: Vec::new(),
-                    result: None,
-                    clobbers: MirRegisterSet::default(),
-                    preserves: MirRegisterSet::default(),
-                },
-                effects: MirEffects::default(),
+                abi: materialize::helper_abi_for(MirRuntimeHelper::Mul),
+                effects: materialize::helper_effects(&MirRuntimeHelper::Mul),
             }],
         };
 

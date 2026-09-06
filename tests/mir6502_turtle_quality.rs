@@ -88,9 +88,16 @@ fn turtle_exposes_the_expected_codegen_baseline() {
 
     let output = mir6502::generate_output(&nir_program, CODE_ORIGIN)
         .unwrap_or_else(|err| panic!("emit MIR6502 for {}: {err:?}", fixture.display()));
+    // Correct division/remainder now travel with cartridge-linked programs.
+    // Preserve the existing application budget; account separately for the
+    // two selectively linked bodies (RemI: 128 bytes, RemU8: 47 bytes).
+    let owned_bytes: usize = output.map.routine_ranges.iter()
+        .filter(|range| range.name.starts_with("ACTION.RUNTIME.ACTIONC::"))
+        .map(|range| usize::from(range.end - range.start)).sum();
+    assert!(owned_bytes <= 175, "TURTLE arithmetic helpers grew to {owned_bytes} bytes");
     assert!(
-        output.bytes.len() <= 1_078,
-        "expected TURTLE1 MIR6502 output no larger than 1078 bytes, got {}",
-        output.bytes.len()
+        output.bytes.len() - owned_bytes <= 1_078,
+        "expected TURTLE1 application no larger than 1078 bytes, got {} (plus {owned_bytes} helper bytes)",
+        output.bytes.len() - owned_bytes
     );
 }

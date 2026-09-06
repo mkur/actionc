@@ -985,8 +985,22 @@ impl Generator {
     ) -> bool {
         let helper = match op {
             BinaryOp::Mul => RuntimeHelperSlot::Mul,
-            BinaryOp::Div => RuntimeHelperSlot::Div,
-            BinaryOp::Mod => RuntimeHelperSlot::Mod,
+            BinaryOp::Div | BinaryOp::Mod => {
+                let legacy_slot = if op == BinaryOp::Div { RuntimeHelperSlot::Div } else { RuntimeHelperSlot::Mod };
+                if self.runtime_helpers.target(legacy_slot) != RuntimeHelperTarget::Label(legacy_slot.owned_label()) {
+                    self.diagnostics.push(Diagnostic::new(left.span,
+                        "legacy division/remainder SET overrides cannot replace modern integer operators"));
+                    return true;
+                }
+                let signed = self.expr_scalar_type(left).zip(self.expr_scalar_type(right))
+                    .is_some_and(|(left, right)| ScalarType::promote_binary(left, right) == ScalarType::Int);
+                match (op, signed) {
+                    (BinaryOp::Div, true) => RuntimeHelperSlot::Div,
+                    (BinaryOp::Mod, true) => RuntimeHelperSlot::Mod,
+                    (BinaryOp::Div, false) => RuntimeHelperSlot::UDiv,
+                    _ => RuntimeHelperSlot::UMod,
+                }
+            }
             _ => return false,
         };
         self.emit_runtime_helper_expr_to_slot(
@@ -1084,7 +1098,7 @@ impl Generator {
         debug_assert_runtime_helper_abi_shape(helper_slot, &helper, slot, store_right_high);
         let materialized_left =
             if self.segment_storage && Self::arithmetic_operand_needs_materialization(left) {
-                let temp_size = self.expr_size(left).unwrap_or(slot.size).min(slot.size);
+                let temp_size = self.expr_size(left).unwrap_or(slot.size);
                 let temp = StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), temp_size);
                 if !self.emit_expr_to_slot(left, temp) {
                     return false;
@@ -1107,7 +1121,7 @@ impl Generator {
             && self.segment_storage
             && Self::arithmetic_operand_needs_materialization(right)
         {
-            let temp_size = self.expr_size(right).unwrap_or(slot.size).min(slot.size);
+            let temp_size = self.expr_size(right).unwrap_or(slot.size);
             let temp = StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), temp_size);
             if !self.emit_expr_to_slot(right, temp) {
                 return false;
@@ -1242,7 +1256,7 @@ impl Generator {
         span: Span,
     ) {
         debug_assert_runtime_helper_target_is_callable(&target);
-        if target.is_default_standalone_slot(helper_slot) {
+        if helper_slot.is_owned_division() || target.is_default_standalone_slot(helper_slot) {
             self.used_default_runtime_helpers.insert(helper_slot);
         }
         match target {

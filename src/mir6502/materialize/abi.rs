@@ -743,6 +743,7 @@ fn action_abi_sargs_param_prologue(
     });
     vec![
         MirOp::RuntimeHelper {
+            additional_results: Vec::new(),
             helper: MirRuntimeHelper::SArgs,
             args: super::helper_args(&MirRuntimeHelper::SArgs),
             result: None,

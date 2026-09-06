@@ -12,6 +12,9 @@ mod indirect_copy;
 #[path = "tests/record_array_decay.rs"]
 mod record_array_decay;
 
+#[path = "tests/arithmetic.rs"]
+mod arithmetic;
+
 #[test]
 fn prepared_indexed_word_load_handles_pointer_overlap_and_preserves_xy() {
     for pointer in [runtime_zp::ARRAY_ADDR, runtime_zp::ADDR] {
@@ -165,16 +168,6 @@ fn check_classic_indexed_table_arithmetic(routine: &str, negation: bool) {
         let entry = routine_address(output, routine).unwrap();
         for input in 0..=if negation { 127u8 } else { 255u8 } {
             for value in [0u16, 1, 127, 128, 255, 256, 32767, 32768, 0xFFF3, 65535] {
-                // CARD signed-helper selection is a separate existing backlog
-                // item. Keep division/remainder in the common positive range;
-                // negation, multiply and shifts exercise both high-bit states.
-                if matches!(
-                    routine,
-                    "Divide" | "DividePlain" | "DivideComputed" | "Remainder"
-                ) && value > i16::MAX as u16
-                {
-                    continue;
-                }
                 let mut memory = [0u8; 65536];
                 let origin = usize::from(output.origin);
                 memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
@@ -702,7 +695,7 @@ fn cartridge_runtime_target_uses_initialized_helper_vector_contents() {
     );
     assert_eq!(
         helpers.target(RuntimeHelperSlot::Div),
-        RuntimeHelperTarget::Absolute(runtime_helper::CARTRIDGE_DIV)
+        RuntimeHelperTarget::Label(RuntimeHelperSlot::Div.owned_label())
     );
     assert_eq!(
         helpers.target(RuntimeHelperSlot::SArgs),
@@ -720,7 +713,7 @@ fn standalone_slots_runtime_target_uses_helper_vector_addresses() {
     );
     assert_eq!(
         helpers.target(RuntimeHelperSlot::Div),
-        RuntimeHelperTarget::Absolute(runtime_helper::DIV_SLOT)
+        RuntimeHelperTarget::Label(RuntimeHelperSlot::Div.owned_label())
     );
     assert_eq!(
         helpers.target(RuntimeHelperSlot::SArgs),
@@ -4337,7 +4330,9 @@ fn compatible_runtime_arithmetic_left_plus_materialized_byte_preserves_right_aft
     )
     .unwrap();
 
-    for helper in [runtime_helper::CARTRIDGE_DIV, runtime_helper::CARTRIDGE_MOD] {
+    for name in ["DivU16", "RemU16"] {
+        let helper = Absolute::new(output.map.runtime_bindings.iter()
+            .find(|binding| binding.helper == name).unwrap().address.unwrap());
         let helper_pos = output
             .bytes
             .windows(3)
@@ -6320,75 +6315,22 @@ fn generates_runtime_compound_multiply_assignment() {
 
 #[test]
 fn generates_runtime_divide_and_mod_assignment() {
-    let div = generate_source("INT a,b,x PROC Main() x=a/b RETURN").unwrap();
-    assert_eq!(
-        div.bytes,
-        vec![
-            0xAD,
-            0x03,
-            0x06,
-            0x85,
-            0x85,
-            0xAD,
-            0x02,
-            0x06,
-            0x85,
-            0x84,
-            0xAD,
-            0x01,
-            0x06,
-            0xAA,
-            0xAD,
-            0x00,
-            0x06,
-            0x20,
-            0xEA,
-            0x04,
-            0x8D,
-            0x04,
-            0x06,
-            0x8A,
-            0x8D,
-            0x05,
-            0x06,
-            opcode::RTS,
-        ]
-    );
-
-    let rem = generate_source("INT a,b,x PROC Main() x=a MOD b RETURN").unwrap();
-    assert_eq!(
-        rem.bytes,
-        vec![
-            0xAD,
-            0x03,
-            0x06,
-            0x85,
-            0x85,
-            0xAD,
-            0x02,
-            0x06,
-            0x85,
-            0x84,
-            0xAD,
-            0x01,
-            0x06,
-            0xAA,
-            0xAD,
-            0x00,
-            0x06,
-            0x20,
-            0xEC,
-            0x04,
-            0x8D,
-            0x04,
-            0x06,
-            0x8A,
-            0x8D,
-            0x05,
-            0x06,
-            opcode::RTS,
-        ]
-    );
+    for (operator, name) in [("/", "DivI"), ("MOD", "RemI")] {
+        let output = generate_source(&format!("INT a,b,x PROC Main() x=a {operator} b RETURN")).unwrap();
+        let address = output.map.runtime_bindings.iter()
+            .find(|binding| binding.helper == name).unwrap().address.unwrap();
+        let mut expected = vec![
+            0xAD, 0x03, 0x06, 0x85, 0x85, 0xAD, 0x02, 0x06, 0x85, 0x84,
+            0xAD, 0x01, 0x06, 0xAA, 0xAD, 0x00, 0x06, 0x20,
+        ];
+        expected.extend(address.to_le_bytes());
+        expected.extend([0x8D, 0x04, 0x06, 0x8A, 0x8D, 0x05, 0x06, opcode::RTS]);
+        assert_eq!(&output.bytes[..expected.len()], &expected);
+        assert_eq!(address, output.origin + expected.len() as u16);
+        let mut body = crate::integer6502::division_body(true, operator == "MOD");
+        body.push(opcode::RTS);
+        assert_eq!(&output.bytes[expected.len()..], &body);
+    }
 }
 
 #[test]
@@ -15154,7 +15096,8 @@ fn modern_profile_stages_runtime_helper_operand_in_tail_call_arg() {
         generate_profile_source_with_origin(source, 0x3000, CodegenProfile::Modern).unwrap();
 
     assert_eq!(
-        count_jsr_to(&modern.bytes, runtime_helper::CARTRIDGE_MOD.address()),
+        count_jsr_to(&modern.bytes, modern.map.runtime_bindings.iter()
+            .find(|binding| binding.helper == "RemU16").unwrap().address.unwrap()),
         1
     );
     assert!(

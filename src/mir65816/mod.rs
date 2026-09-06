@@ -291,6 +291,7 @@ pub enum Mir65816Op {
     Binary {
         dest: TempId,
         width: ByteSize,
+        signed: bool,
         operation: NirBinaryOp,
         left: Mir65816Value,
         right: Mir65816Value,

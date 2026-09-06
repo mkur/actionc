@@ -104,7 +104,8 @@ pub(super) fn debug_assert_runtime_helper_abi_shape(
         "runtime helper result must be value storage, not array storage"
     );
     match helper {
-        RuntimeHelperSlot::Mul | RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod => {
+        RuntimeHelperSlot::Mul | RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod
+        | RuntimeHelperSlot::UDiv | RuntimeHelperSlot::UMod => {
             debug_assert!(
                 store_right_high,
                 "{helper:?} ABI requires right operand low/high in AFCUR/AFSIZE"

@@ -43,6 +43,8 @@ pub(crate) enum RuntimeHelperSlot {
     Mul,
     Div,
     Mod,
+    UDiv,
+    UMod,
     SArgs,
 }
 
@@ -54,6 +56,8 @@ impl RuntimeHelperSlot {
             Self::Mul => "MultI",
             Self::Div => "DivI",
             Self::Mod => "RemI",
+            Self::UDiv => "DivU16",
+            Self::UMod => "RemU16",
             Self::SArgs => "SArgs",
         }
     }
@@ -65,6 +69,8 @@ impl RuntimeHelperSlot {
             Self::Mul => runtime_helper::MUL_SLOT,
             Self::Div => runtime_helper::DIV_SLOT,
             Self::Mod => runtime_helper::MOD_SLOT,
+            Self::UDiv => runtime_helper::DIV_SLOT,
+            Self::UMod => runtime_helper::MOD_SLOT,
             Self::SArgs => runtime_helper::SARGS_SLOT,
         }
     }
@@ -79,6 +85,14 @@ impl RuntimeHelperSlot {
             address if address == runtime_helper::SARGS_SLOT.address() => Some(Self::SArgs),
             _ => None,
         }
+    }
+
+    pub(crate) fn is_owned_division(self) -> bool {
+        matches!(self, Self::Div | Self::Mod | Self::UDiv | Self::UMod)
+    }
+
+    pub(super) fn owned_label(self) -> String {
+        format!("ACTION.RUNTIME.ACTIONC::{}", self.name())
     }
 }
 
@@ -105,16 +119,16 @@ impl RuntimeHelperTargets {
                 lsh: runtime_helper::CARTRIDGE_LSH.into(),
                 rsh: runtime_helper::CARTRIDGE_RSH.into(),
                 mul: runtime_helper::CARTRIDGE_MUL.into(),
-                div: runtime_helper::CARTRIDGE_DIV.into(),
-                rem: runtime_helper::CARTRIDGE_MOD.into(),
+                div: RuntimeHelperTarget::Label(RuntimeHelperSlot::Div.owned_label()),
+                rem: RuntimeHelperTarget::Label(RuntimeHelperSlot::Mod.owned_label()),
                 sargs: runtime_helper::CARTRIDGE_SARGS.into(),
             },
             RuntimeTarget::StandaloneSlots => Self {
                 lsh: runtime_helper::LSH_SLOT.into(),
                 rsh: runtime_helper::RSH_SLOT.into(),
                 mul: runtime_helper::MUL_SLOT.into(),
-                div: runtime_helper::DIV_SLOT.into(),
-                rem: runtime_helper::MOD_SLOT.into(),
+                div: RuntimeHelperTarget::Label(RuntimeHelperSlot::Div.owned_label()),
+                rem: RuntimeHelperTarget::Label(RuntimeHelperSlot::Mod.owned_label()),
                 sargs: runtime_helper::SARGS_SLOT.into(),
             },
         }
@@ -139,6 +153,8 @@ impl RuntimeHelperTargets {
             RuntimeHelperSlot::Mul => self.mul.clone(),
             RuntimeHelperSlot::Div => self.div.clone(),
             RuntimeHelperSlot::Mod => self.rem.clone(),
+            RuntimeHelperSlot::UDiv => RuntimeHelperTarget::Label(RuntimeHelperSlot::UDiv.owned_label()),
+            RuntimeHelperSlot::UMod => RuntimeHelperTarget::Label(RuntimeHelperSlot::UMod.owned_label()),
             RuntimeHelperSlot::SArgs => self.sargs.clone(),
         }
     }
@@ -153,10 +169,17 @@ pub(super) fn runtime_helper_effects(slot: RuntimeHelperSlot) -> RoutineEffects 
         RuntimeHelperSlot::Mul => {
             record_zero_page_effect_range(&mut effects, 0x82, 0x87);
             record_zero_page_effect_range(&mut effects, 0xC0, 0xC2);
+            // Cartridge and extracted SYSLIB use different private workspace.
+            // Conservatively describe their union while sharing this slot.
+            record_zero_page_effect_range(&mut effects, 0xC6, 0xC7);
+            effects.record_zero_page_write(ZeroPage::new(0xD3));
         }
         RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod => {
             record_zero_page_effect_range(&mut effects, 0x82, 0x87);
-            effects.record_zero_page_write(ZeroPage::new(0xC2));
+            record_zero_page_effect_range(&mut effects, 0xC2, 0xC3);
+        }
+        RuntimeHelperSlot::UDiv | RuntimeHelperSlot::UMod => {
+            record_zero_page_effect_range(&mut effects, 0x82, 0x87);
         }
         RuntimeHelperSlot::SArgs => {
             record_zero_page_effect_range(&mut effects, 0x82, 0x85);

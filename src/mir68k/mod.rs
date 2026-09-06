@@ -250,6 +250,7 @@ pub enum Mir68kOp {
     Binary {
         dest: TempId,
         width: ByteSize,
+        signed: bool,
         operation: NirBinaryOp,
         left: Mir68kValue,
         right: Mir68kValue,

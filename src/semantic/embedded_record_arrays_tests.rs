@@ -175,7 +175,7 @@ fn embedded_record_arrays_reject_invalid_bounds_and_incomplete_layouts() {
             "TYPE Bad=[BYTE ARRAY values(Count)] CONST Count=4",
             "undefined symbol",
         ),
-        ("TYPE Bad=[BYTE ARRAY values(1/0)]", "scalar constant"),
+        ("TYPE Bad=[BYTE ARRAY values(1/0)]", "division by zero"),
         ("TYPE Bad=[BYTE ARRAY values(1.5)]", "scalar constant"),
         (
             "TYPE Bad=[BYTE ARRAY values(4)=[1 2 3 4]]",

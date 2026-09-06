@@ -1402,14 +1402,14 @@ fn standalone_arithmetic_selects_deterministic_minimal_dependency_closures() {
         (
             "div",
             "/",
-            &["SetSign", "SS1", "SMOps", "DivI"],
-            &["LShift", "RShift", "MultB", "MultI", "RemI"],
+            &["DivU16"],
+            &["LShift", "RShift", "MultB", "MultI", "DivI", "RemI", "SetSign", "SS1", "SMOps"],
         ),
         (
             "rem",
             "MOD",
-            &["SetSign", "SS1", "SMOps", "DivI", "RemI"],
-            &["LShift", "RShift", "MultB", "MultI"],
+            &["RemU16"],
+            &["LShift", "RShift", "MultB", "MultI", "DivI", "RemI", "SetSign", "SS1", "SMOps"],
         ),
     ];
     let temp = TestDir::new();
@@ -1442,11 +1442,12 @@ fn standalone_arithmetic_selects_deterministic_minimal_dependency_closures() {
         );
         let map = String::from_utf8_lossy(&output.stdout);
         for routine in expected {
+            let module = if matches!(label, "div" | "rem") { "ACTIONC" } else { "SYSLIB" };
             let address_rows = map
                 .lines()
                 .filter(|line| {
                     line.starts_with('$')
-                        && line.ends_with(&format!("ACTION.RUNTIME.SYSLIB::{routine}"))
+                        && line.ends_with(&format!("ACTION.RUNTIME.{module}::{routine}"))
                 })
                 .count();
             assert_eq!(address_rows, 1, "{label} selected {routine} more than once");

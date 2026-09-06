@@ -204,6 +204,9 @@ fn temp_is_live_out(live_out: &MirTempLiveSet, temp: MirTempId) -> bool {
 }
 
 fn op_is_side_effect_free_temp_def(op: &MirOp) -> bool {
+    if matches!(op, MirOp::Binary { op: MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod, .. }) {
+        return false;
+    }
     matches!(
         op,
         MirOp::LoadImm {

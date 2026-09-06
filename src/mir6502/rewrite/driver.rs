@@ -624,10 +624,11 @@ fn validate_plan(
         });
     }
     validate_removed_definitions(block.id, &block.ops[plan.range.clone()], plan)?;
-    if !effect_delta_is_valid(
+    if !effect_delta_is_valid_with_widths(
         &block.ops[plan.range.clone()],
         &plan.replacement,
         plan.exit_effect_delta,
+        &crate::mir6502::materialize::collect_routine_temp_widths(routine),
     ) {
         return Err(MirRewriteError::InvalidDeclaration {
             stat: plan.stat,
@@ -637,7 +638,13 @@ fn validate_plan(
     Ok(())
 }
 
+#[cfg(test)]
 fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta) -> bool {
+    effect_delta_is_valid_with_widths(original, replacement, delta, &BTreeMap::new())
+}
+
+fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta,
+    widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>) -> bool {
     let original_ops = original;
     let replacement_ops = replacement;
     if matches!(
@@ -727,7 +734,7 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
                 return false;
             }
             if materialized_helper
-                && !runtime_helper_source_is_preserved(original_ops, replacement_ops)
+                && !runtime_helper_source_is_preserved(original_ops, replacement_ops, widths)
             {
                 return false;
             }
@@ -822,11 +829,9 @@ fn indexed_address_reads_are_justified(original: &[MirOp], replacement: &[MirOp]
     true
 }
 
-fn runtime_helper_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {
-    let [MirOp::Binary { op, width, .. }, MirOp::Store { .. }] = original else {
-        return false;
-    };
-    let Some(expected) = crate::mir6502::materialize::helper_for_binary(*op, *width) else {
+fn runtime_helper_source_is_preserved(original: &[MirOp], replacement: &[MirOp],
+    widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>) -> bool {
+    let [MirOp::Binary { op, width, left, right, .. }, MirOp::Store { .. }] = original else {
         return false;
     };
     let helpers = replacement
@@ -836,7 +841,8 @@ fn runtime_helper_source_is_preserved(original: &[MirOp], replacement: &[MirOp])
             _ => None,
         })
         .collect::<Vec<_>>();
-    matches!(helpers.as_slice(), [helper] if **helper == expected)
+    matches!(helpers.as_slice(), [helper] if crate::mir6502::materialize::helper_implements_binary(
+        **helper, *op, *width, left, right, widths))
 }
 
 fn strip_runtime_helper_projection(effects: &mut ObservableEffects, ops: &[MirOp]) {

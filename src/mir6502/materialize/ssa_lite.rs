@@ -2422,6 +2422,9 @@ fn op_def_as_temp_byte_lane(op: &MirOp) -> Option<(MirTempId, u8)> {
 }
 
 fn op_is_dead_copy_prop_temp_def(op: &MirOp, layout: &MaterializeLayout) -> bool {
+    if matches!(op, MirOp::Binary { op: MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod, .. }) {
+        return false;
+    }
     match op {
         MirOp::LoadImm {
             dst: MirDef::VTemp(_),
@@ -2461,6 +2464,9 @@ fn op_is_dead_copy_prop_temp_def(op: &MirOp, layout: &MaterializeLayout) -> bool
 }
 
 fn op_is_removable_dead_copy_prop_temp_byte_def(op: &MirOp, layout: &MaterializeLayout) -> bool {
+    if matches!(op, MirOp::Binary { op: MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod, .. }) {
+        return false;
+    }
     match op {
         MirOp::LoadImm {
             dst: MirDef::VTempByte { .. },
@@ -2490,6 +2496,9 @@ fn byte_binary_def_is_removable(carry_in: Option<MirCarryIn>, carry_out: MirCarr
 }
 
 fn op_is_dead_copy_prop_temp_byte_def(op: &MirOp, layout: &MaterializeLayout) -> bool {
+    if matches!(op, MirOp::Binary { op: MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod, .. }) {
+        return false;
+    }
     match op {
         MirOp::LoadImm {
             dst: MirDef::VTempByte { .. },
@@ -2914,6 +2923,8 @@ fn rewrite_mir_copy_prop_const_op(
                 | MirBinaryOp::Mul
                 | MirBinaryOp::Div
                 | MirBinaryOp::Mod
+                | MirBinaryOp::UDiv
+                | MirBinaryOp::UMod
                 | MirBinaryOp::Lsh
                 | MirBinaryOp::Rsh => rewrite_mir_copy_prop_const_value(left, env),
             };
@@ -2925,6 +2936,8 @@ fn rewrite_mir_copy_prop_const_op(
                 | MirBinaryOp::Mul
                 | MirBinaryOp::Div
                 | MirBinaryOp::Mod
+                | MirBinaryOp::UDiv
+                | MirBinaryOp::UMod
                 | MirBinaryOp::Lsh
                 | MirBinaryOp::Rsh => rewrite_mir_copy_prop_const_value(right, env),
             };

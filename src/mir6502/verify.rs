@@ -182,6 +182,20 @@ impl MirVerifier {
                 }
             }
         }
+        for helper in &program.runtime_helpers {
+            if helper.additional_results != super::materialize::helper_additional_results(helper.helper) {
+                self.diagnostics.push(MirDiagnostic::routine("runtime_helpers",
+                    "runtime helper additional result homes/widths do not match its signature"));
+            }
+            if helper.abi != super::materialize::helper_abi_for(helper.helper) {
+                self.diagnostics.push(MirDiagnostic::routine("runtime_helpers",
+                    "runtime helper argument/result homes do not match its private signature"));
+            }
+            if helper.effects != super::materialize::helper_effects(&helper.helper) {
+                self.diagnostics.push(MirDiagnostic::routine("runtime_helpers",
+                    "runtime helper effects do not match its declared contract"));
+            }
+        }
         for routine in &program.routines {
             if !routine_ids.insert(routine.id) {
                 self.diagnostics.push(MirDiagnostic::routine(
@@ -1413,6 +1427,10 @@ impl MirVerifier {
                 ..
             } => {
                 self.verify_pre_emission_width(routine, block, *width);
+                if matches!(op, MirBinaryOp::Div | MirBinaryOp::Mod) && *width != MirWidth::Word {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "signed integer division/remainder requires word width"));
+                }
                 self.verify_def(routine, block, dst);
                 self.verify_value(routine, block, left, static_ids, global_ids, routine_ids);
                 self.verify_rhs_value(routine, block, right, static_ids, global_ids, routine_ids);
@@ -1955,9 +1973,19 @@ impl MirVerifier {
                     }
                 }
             }
-            MirOp::PackedRealCompare { .. }
-            | MirOp::RuntimeHelper { .. }
-            | MirOp::Barrier { .. } => {}
+            MirOp::RuntimeHelper { helper, args, effects, additional_results, .. } => {
+                if self.phase == MirPhase::PreEmission
+                    && (*args != super::materialize::helper_args(helper)
+                        || *effects != super::materialize::helper_effects(helper)) {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "runtime helper call inputs/effects do not match its private signature"));
+                }
+                if *additional_results != super::materialize::helper_additional_results(*helper) {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "runtime helper call additional result homes/widths do not match its signature"));
+                }
+            }
+            MirOp::PackedRealCompare { .. } | MirOp::Barrier { .. } => {}
             MirOp::MachineBlock { id, .. } => {
                 if !machine_ids.contains(id) {
                     self.diagnostics.push(MirDiagnostic::block(
@@ -3221,6 +3249,7 @@ mod tests {
     fn private_scratch_verifier_keeps_abi_homes_external_and_unknown_writes_are_not_definitions() {
         use crate::mir6502::{MirMemoryEffect, MirResultHome, MirZpSlot};
         let helper = MirOp::RuntimeHelper {
+            additional_results: Vec::new(),
             helper: MirRuntimeHelper::MulByte,
             args: vec![MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0))],
             result: Some(MirResultHome::ZeroPage(MirZpSlot(0))),
@@ -3948,15 +3977,11 @@ mod tests {
     fn rejects_deferred_runtime_helper_target_before_emission() {
         let mut program = program_with_routines(Vec::new());
         program.runtime_helpers.push(MirRuntimeHelperDecl {
+            additional_results: Vec::new(),
             helper: MirRuntimeHelper::Mul,
             target: MirRuntimeHelperTarget::Deferred,
-            abi: MirCallAbi {
-                params: Vec::new(),
-                result: None,
-                clobbers: MirRegisterSet::default(),
-                preserves: MirRegisterSet::default(),
-            },
-            effects: MirEffects::default(),
+            abi: super::super::materialize::helper_abi_for(MirRuntimeHelper::Mul),
+            effects: super::super::materialize::helper_effects(&MirRuntimeHelper::Mul),
         });
 
         assert!(verify_program(&program, MirPhase::PreMaterialization).is_ok());

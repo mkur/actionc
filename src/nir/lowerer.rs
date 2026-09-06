@@ -743,6 +743,7 @@ impl NirLowerer {
         let value = match &expr.kind {
             SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
             SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+            SemExprKind::Literal(SemLiteral::Char(ch)) => source_char_byte(*ch).map(u16::from),
             SemExprKind::Symbol(symbol) => self.semantic_absolute_globals.get(&symbol.id).copied(),
             SemExprKind::LValue(lvalue) => self.const_u16_lvalue(lvalue),
             SemExprKind::Cast { expr, .. } => self.const_u16_expr(expr),
@@ -761,10 +762,10 @@ impl NirLowerer {
                     BinaryOp::Add => Some(left.wrapping_add(right)),
                     BinaryOp::Sub => Some(left.wrapping_sub(right)),
                     BinaryOp::Mul => Some(left.wrapping_mul(right)),
-                    BinaryOp::Div => (right != 0).then_some(left / right),
-                    BinaryOp::Mod => (right != 0).then_some(left % right),
-                    BinaryOp::Lsh => Some(left.wrapping_shl(u32::from(right & 0x0F))),
-                    BinaryOp::Rsh => Some(left.wrapping_shr(u32::from(right & 0x0F))),
+                    BinaryOp::Div => crate::semantic::integer::divmod(expr.ty.as_scalar()?, left, right).ok().map(|result| result.quotient),
+                    BinaryOp::Mod => crate::semantic::integer::divmod(expr.ty.as_scalar()?, left, right).ok().map(|result| result.remainder),
+                    BinaryOp::Lsh => Some(if right >= 16 { 0 } else { left << right }),
+                    BinaryOp::Rsh => Some(if right >= 16 { 0 } else { left >> right }),
                     BinaryOp::And => Some(left & right),
                     BinaryOp::Or => Some(left | right),
                     BinaryOp::Xor => Some(left ^ right),
@@ -2627,6 +2628,12 @@ impl NirBuilder {
                 subtract: op == NirBinaryOp::Sub,
             });
         } else {
+            let (left, src) = if matches!(op, NirBinaryOp::Div | NirBinaryOp::Mod) {
+                (self.convert_integer_operation_input(left, &operation_ty),
+                 self.convert_integer_operation_input(src, &operation_ty))
+            } else {
+                (left, src)
+            };
             self.push(NirOp::Binary {
                 dest: result,
                 ty: operation_ty.clone(),
@@ -2655,6 +2662,29 @@ impl NirBuilder {
             target_ty,
             is_volatile,
         );
+    }
+
+    fn convert_integer_operation_input(&mut self, value: NirValue, to: &NirType) -> NirValue {
+        match value {
+            NirValue::ConstU8(bits) => if to.width == Some(ByteSize::ONE) {
+                NirValue::ConstU8(bits)
+            } else { NirValue::ConstU16(u16::from(bits)) },
+            NirValue::ConstU16(bits) => if to.width == Some(ByteSize::ONE) {
+                NirValue::ConstU8(bits as u8)
+            } else { NirValue::ConstU16(bits) },
+            NirValue::Temp { id, ty } if ty.kind != to.kind || ty.width != to.width => {
+                let dest = self.next_temp();
+                self.push(NirOp::Cast {
+                    dest,
+                    src: NirValue::Temp { id, ty: ty.clone() },
+                    kind: nir_cast_kind(&ty, to),
+                    from: ty,
+                    to: to.clone(),
+                });
+                NirValue::Temp { id: dest, ty: to.clone() }
+            }
+            value => value,
+        }
     }
 
     fn value(&mut self, expr: &SemExpr) -> Option<NirValue> {

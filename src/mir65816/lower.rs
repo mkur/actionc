@@ -749,6 +749,7 @@ fn lower_op(
         } => Some(Mir65816Op::Binary {
             dest: *dest,
             width: width(ty),
+            signed: matches!(ty.kind, crate::nir::NirTypeKind::I16),
             operation: *op,
             left: lower_value(left, data_pointer_width, code_pointer_width),
             right: lower_value(right, data_pointer_width, code_pointer_width),

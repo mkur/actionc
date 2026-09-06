@@ -8,6 +8,7 @@ use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ExpressionSideEffectFacts {
+    pub may_fault: bool,
     pub(super) has_routine_call: bool,
     pub(super) has_unknown_raw: bool,
     pub(super) reads_memory: bool,
@@ -165,6 +166,7 @@ pub(super) struct ZeroPageTempPlacementProof {
 impl ExpressionSideEffectFacts {
     pub(super) fn pure() -> Self {
         Self {
+            may_fault: false,
             has_routine_call: false,
             has_unknown_raw: false,
             reads_memory: false,
@@ -177,6 +179,7 @@ impl ExpressionSideEffectFacts {
 
     pub(super) fn routine_call() -> Self {
         Self {
+            may_fault: true,
             has_routine_call: true,
             has_unknown_raw: false,
             reads_memory: false,
@@ -189,6 +192,7 @@ impl ExpressionSideEffectFacts {
 
     pub(super) fn unknown_raw() -> Self {
         Self {
+            may_fault: true,
             has_routine_call: false,
             has_unknown_raw: true,
             reads_memory: false,
@@ -201,6 +205,7 @@ impl ExpressionSideEffectFacts {
 
     pub(super) fn merge(self, other: Self) -> Self {
         Self {
+            may_fault: self.may_fault || other.may_fault,
             has_routine_call: self.has_routine_call || other.has_routine_call,
             has_unknown_raw: self.has_unknown_raw || other.has_unknown_raw,
             reads_memory: self.reads_memory || other.reads_memory,
@@ -213,7 +218,7 @@ impl ExpressionSideEffectFacts {
     }
 
     pub(super) fn is_read_only(self) -> bool {
-        !self.has_routine_call && !self.has_unknown_raw && !self.writes_through_pointer
+        !self.may_fault && !self.has_routine_call && !self.has_unknown_raw && !self.writes_through_pointer
     }
 
     pub(super) fn can_duplicate(self) -> bool {
@@ -273,10 +278,12 @@ impl Generator {
                 }
                 facts
             }
-            ExprKind::Binary { left, right, .. } => {
+            ExprKind::Binary { op, left, right } => {
                 let left_facts = self.expr_side_effect_facts(left);
                 let right_facts = self.expr_side_effect_facts(right);
                 let mut facts = left_facts.merge(right_facts);
+                facts.may_fault |= matches!(op, BinaryOp::Div | BinaryOp::Mod)
+                    && self.constant_u16(right).is_none_or(|divisor| divisor == 0);
                 if left_facts.has_routine_call || right_facts.has_routine_call {
                     facts.evaluation_order_sensitive = true;
                 }

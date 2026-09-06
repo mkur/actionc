@@ -727,9 +727,10 @@ fn op_summary(op: &MirOp) -> String {
             helper,
             args,
             result,
+            additional_results,
             effects,
         } => format!(
-            "helper {} args=[{}] result={} effects={}",
+            "helper {} args=[{}] result={}{} effects={}",
             helper_summary(helper),
             args.iter()
                 .map(arg_home_summary)
@@ -739,6 +740,11 @@ fn op_summary(op: &MirOp) -> String {
                 .as_ref()
                 .map(result_home_summary)
                 .unwrap_or_else(|| "-".to_string()),
+            if additional_results.is_empty() { String::new() } else {
+                format!(" additional=[{}]", additional_results.iter()
+                    .map(|result| format!("{}:{:?}", result_home_summary(&result.home), result.width))
+                    .collect::<Vec<_>>().join(", "))
+            },
             effects_summary(effects)
         ),
         MirOp::Barrier { effects } => format!("barrier effects={}", effects_summary(effects)),
@@ -889,6 +895,8 @@ fn binary_summary(op: MirBinaryOp) -> &'static str {
         MirBinaryOp::Mul => "mul",
         MirBinaryOp::Div => "div",
         MirBinaryOp::Mod => "mod",
+        MirBinaryOp::UDiv => "udiv",
+        MirBinaryOp::UMod => "umod",
         MirBinaryOp::Lsh => "lsh",
         MirBinaryOp::Rsh => "rsh",
         MirBinaryOp::And => "and",
@@ -1002,6 +1010,14 @@ fn helper_summary(helper: &MirRuntimeHelper) -> &'static str {
         MirRuntimeHelper::Mul => "mul",
         MirRuntimeHelper::Div => "div",
         MirRuntimeHelper::Mod => "mod",
+        MirRuntimeHelper::UDiv => "udiv",
+        MirRuntimeHelper::UMod => "umod",
+        MirRuntimeHelper::DivU8 => "div-u8",
+        MirRuntimeHelper::ModU8 => "mod-u8",
+        MirRuntimeHelper::DivU16U8 => "div-u16-u8",
+        MirRuntimeHelper::ModU16U8 => "mod-u16-u8",
+        MirRuntimeHelper::DivMod => "divmod-i16",
+        MirRuntimeHelper::UDivMod => "divmod-u16",
         MirRuntimeHelper::Lsh => "lsh",
         MirRuntimeHelper::Rsh => "rsh",
         MirRuntimeHelper::SArgs => "sargs",
