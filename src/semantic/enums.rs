@@ -139,7 +139,7 @@ impl Analyzer {
         if !self.options.enum_types {
             self.diagnostics.push(Diagnostic::new(
                 span,
-                "ENUM requires the modern profile (feature not yet enabled)",
+                "ENUM requires the modern profile",
             ));
             return;
         }

@@ -95,9 +95,13 @@ impl Analyzer {
         span: Span,
         expected: Option<&ValueType>,
     ) -> subject::SemExpr {
-        if let Some(array_type) = self.inline_array_type(&place) {
+        if let Some(array_type) = self.contextual_array_value_type(&place) {
             let pointer_type = array_type.pointer_type();
-            if expected == Some(&pointer_type) {
+            // Named ARRAYs are pointer cells. Preserve their ordinary decay
+            // even without an expected type (for example in array^), but do
+            // not confuse the address with the nominal enum element type.
+            // Inline fields retain their existing contextual-decay contract.
+            if self.inline_array_type(&place).is_none() || expected == Some(&pointer_type) {
                 return subject::SemExpr {
                     ty: pointer_type,
                     kind: subject::SemExprKind::AddressOf(Box::new(place)),
@@ -115,5 +119,15 @@ impl Analyzer {
             kind: subject::SemExprKind::Load(Box::new(place)),
             span,
         }
+    }
+
+    // Nominal enum arrays must not masquerade as scalar enum values simply
+    // because the source place carries its element type. Reuse array-place
+    // facts to type their decay; explicit @array remains an address expression.
+    pub(super) fn contextual_array_value_type(&self, place: &subject::SemPlace) -> Option<ArrayType> {
+        self.inline_array_type(place).or_else(|| {
+            self.array_place_type(place)
+                .filter(|array| array.element.as_enum().is_some())
+        })
     }
 }

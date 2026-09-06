@@ -1,0 +1,19 @@
+TYPE Code=ENUM [LOW=0 HIGH=255]
+BYTE input,count,result
+Code value
+Code FUNC Read()
+  count==+1
+RETURN(Code(input))
+Code FUNC Echo(Code arg)
+RETURN(arg)
+Code FUNC POINTER callback
+PROC Main()
+  callback=@Read
+  value=Echo(callback())
+  CASE Echo(value) OF
+  WHEN Code.LOW THEN
+    result=1
+  ELSE
+    result=BYTE(value)
+  ESAC
+RETURN

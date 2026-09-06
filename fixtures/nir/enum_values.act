@@ -1,0 +1,20 @@
+TYPE Code=ENUM [LOW=0 MID=128 HIGH=255]
+CONST Alias=Code.MID
+TYPE PacketType=[BYTE tag Code value Code ARRAY trail(2)]
+PacketType packet=[1 Code.HIGH Code.LOW Alias]
+Code ARRAY table(3)=[Code.LOW Alias Code.HIGH]
+Code value
+BYTE input,result
+PROC Main()
+  value=Code(input)
+  packet.value=value
+  result=BYTE(table(1))
+  CASE packet.value OF
+  WHEN Code.LOW, Alias THEN
+    result=1
+  WHEN Code.HIGH THEN
+    result=2
+  ELSE
+    result=3
+  ESAC
+RETURN

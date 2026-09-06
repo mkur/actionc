@@ -15,6 +15,15 @@ representable internally. The verifier rejects those variants from executable
 NIR, and `fixtures/nir` is the optimizer-facing snapshot contract. There is no
 separate TAC module or TAC fixture contract.
 
+Modern enum values enter executable NIR as U8 loads/stores, literals, casts,
+parameters, and results. Nominal identities and member names remain semantic or
+debug metadata; equal machine widths never authorize a source enum conversion.
+SemIR validates initializer leaves and CASE label types before this boundary.
+CASE lowers one captured selector into ordinary Compare/Branch/Goto blocks,
+preserving source arm order and a no-match continuation when ELSE is absent.
+There is no executable Enum, Switch, source label expression, or enum runtime
+helper. The existing verifier and optimizer operate on these ordinary forms.
+
 ## Position In The Compiler
 
 The intended pipeline is:

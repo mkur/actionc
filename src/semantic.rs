@@ -426,7 +426,7 @@ pub struct StmtFlowFacts {
 pub struct SemanticOptions {
     /// Modern-profile CASE statements; independent of enum support.
     pub case_statements: bool,
-    /// Internal rollout gate for nominal BYTE enums.
+    /// Modern-profile nominal BYTE enums; independent of CASE support.
     pub enum_types: bool,
     pub native_real: bool,
     pub lexical_blocks: bool,
@@ -440,7 +440,7 @@ impl SemanticOptions {
     pub const fn modern() -> Self {
         Self {
             case_statements: true,
-            enum_types: false,
+            enum_types: true,
             native_real: true,
             lexical_blocks: true,
             comparison_values: true,
@@ -1859,7 +1859,13 @@ impl Analyzer {
             return;
         }
 
-        let expected = &target_place.ty;
+        // Nominal element checks must not mistake an enum ARRAY's pointer
+        // cell for an element. Reuse the existing compound-target facts;
+        // leave legacy non-enum assignment permissiveness unchanged.
+        let enum_storage_type = target_place.ty
+            .as_enum()
+            .and_then(|_| self.compound_assignment_target_type(scope, target, &target_place));
+        let expected = enum_storage_type.as_ref().unwrap_or(&target_place.ty);
         if expected.is_error() {
             return;
         }
@@ -1988,15 +1994,14 @@ impl Analyzer {
             ));
             return;
         }
-        if target_place.ty.as_enum().is_some() || value.ty.as_enum().is_some() {
-            self.diagnostics.push(Diagnostic::new(span, "enum arithmetic requires an explicit integer conversion"));
-            return;
-        }
-
         let Some(target_ty) = self.compound_assignment_target_type(scope, target, &target_place)
         else {
             return;
         };
+        if target_ty.as_enum().is_some() || value.ty.as_enum().is_some() {
+            self.diagnostics.push(Diagnostic::new(span, "enum arithmetic requires an explicit integer conversion"));
+            return;
+        }
         let value_ty = &value.ty;
         if value_ty.is_error() {
             return;
@@ -3199,7 +3204,7 @@ impl Analyzer {
     ) -> subject::SemExpr {
         let mut subject = self.classify_subject_in_context(scope, expr, condition);
         if let subject::SemSubject::Place(place) = &subject
-            && self.inline_array_type(place).is_some()
+            && self.contextual_array_value_type(place).is_some()
         {
             subject = subject::SemSubject::Expr(self.place_value(place.clone(), expr.span, expected));
         }

@@ -1,7 +1,8 @@
 # ENUM and CASE Implementation Plan
 
-Status: implementation in progress. This plan incorporates the
-language review in [ENUM and CASE design](ENUM_AND_CASE_DESIGN.md).
+Status: base implementation complete (slices 0–7). Guards and guarded wildcards
+remain a separate follow-on. This plan incorporates the language review in
+[ENUM and CASE design](ENUM_AND_CASE_DESIGN.md).
 
 Inspected baseline: `5d4d164` (`Route arithmetic faults through Atari Error`).
 Oscar64 porting remains
@@ -52,8 +53,9 @@ PROC Main()
 RETURN
 ```
 
-This is proposed syntax, not a currently runnable sample. The final runtime
-fixture must use observable output rather than a dead local result.
+This syntax is implemented. See `samples/enum-case.act` for a runnable example
+with observable output and `fixtures/runtime/enum_types.act` for externally fed
+VM execution tests with memory oracles and guard bytes.
 
 All 256 enum representation values remain defined, including unnamed values
 from memory or explicit casts. No membership trap or new runtime helper is
@@ -374,6 +376,23 @@ No new aggregate-return or parameterized callable syntax is required.
 
 ### Slice 7 — Public enum enablement and complete-feature validation
 
+Status: complete. All 2,807 compiler tests, all 118 VM harness tests,
+NIR snapshots, and all 37 sweep fixtures pass on the final implementation.
+The API and CLI accept ENUM in both modern backends/runtimes, including default
+and explicit classic AST/SemIR source selections. Compatibility rejects it
+semantically; raw AST emitters reject unprojected enum syntax explicitly.
+The new ROM-backed VM test passes all 256 input bytes in all four combinations.
+Four new enum snapshots cover values/storage and direct/indirect results;
+existing snapshots are unchanged. The state-machine sample is registered for
+both modern backends and runtimes. Independent 65816/68k lowering canaries pass;
+these are not native runtime tests.
+
+Final acceptance also covers named enum ARRAY pointer-cell rebinding,
+advancement, parameter decay, and dereference. Canonical array-place facts keep
+the pointer value distinct from its nominal enum element; bare arrays cannot
+masquerade as enum assignments, arguments, results, or CASE selectors. Existing
+non-enum array rules and embedded-array rebinding restrictions remain unchanged.
+
 - Enable enums in the modern profile only after slices 4–6 pass together.
 - Add a small runnable enum-returning state-machine example using CASE and
   observable outputs, plus a sample-build entry under both linking modes.
@@ -404,10 +423,11 @@ cartridge compiler, as the oracle for these new language constructs.
 | Cross-target | Enum U8 layout/stride and integer CASE lowering on Atari6502, Wdc65816Small, Wdc65816Native, and Motorola68000 |
 | Regression | Existing records, BYTE FUNC, CONST, comparisons, loops, lexical blocks, pointer signatures, ABI baselines, and error handling |
 
-New test homes (proposed, not present yet):
+Test homes:
 
-- `tests/case_statements.rs`, `tests/enum_types.rs`, and
-  `tests/enum_routines.rs` for focused semantic/lowering/public API coverage.
+- `tests/case_statements.rs`, `tests/enum_types.rs`, `tests/enum_routines.rs`,
+  `tests/enum_storage.rs`, and `tests/enum_public.rs` for focused parser,
+  semantic/lowering/storage/public API coverage.
 - `fixtures/nir/case_dispatch.act`, `case_ranges.act`, `enum_values.act`, and
   `enum_calls.act`, with lowered/optimized snapshots registered in
   `tests/nir_fixture_support/mod.rs` and any relevant sweep inventory.

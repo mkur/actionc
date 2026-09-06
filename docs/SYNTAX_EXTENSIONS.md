@@ -13,6 +13,7 @@ some ambiguous routine-address cases.
 
 - [Compile-Time Constants](#compile-time-constants)
 - [Comparison Values](#comparison-values)
+- [BYTE Enums](#byte-enums)
 - [CASE Statements](#case-statements)
 - [Fixed-Length Arrays Inside Records](#fixed-length-arrays-inside-records)
 - [Volatile Storage](#volatile-storage)
@@ -27,9 +28,62 @@ some ambiguous routine-address cases.
 - [Explicit Lexical Blocks](#explicit-lexical-blocks)
 - [Compatibility Policy](#compatibility-policy)
 
+## BYTE Enums
+
+Modern classic and MIR6502 support nominal BYTE enums with both runtimes:
+
+```action
+TYPE ResultCode=ENUM [OK=0 FAILED=1 BUSY=10 RETRY]
+CONST ResultCode Default=ResultCode.OK
+ResultCode status=[Default]
+ResultCode ARRAY codes(2)=[ResultCode.OK ResultCode.RETRY]
+
+ResultCode FUNC TryStart(BYTE busy)
+  IF busy THEN RETURN(ResultCode.BUSY) FI
+RETURN(ResultCode.OK)
+```
+
+Members are qualified and case-insensitive. Commas are optional. The first
+implicit value is zero; each next implicit value is the preceding value plus
+one. Here RETRY is 11. `OK=0 FAILED=11 BUSY=10 RETRY` is an error because RETRY
+duplicates 11; numbering does not skip occupied values. Duplicate names/values
+and values outside 0..255 are errors. No representation annotation is supported.
+
+Each enum is a distinct type. Assignment, arguments, returns, initializer leaves,
+and comparisons require the same enum. `ResultCode(raw)` explicitly converts an
+integer to the low byte; `BYTE(status)`, `CHAR(status)`, `CARD(status)`, and
+`INT(status)` explicitly expose its unsigned representation. All 256 values are
+defined, including unnamed values. There are no membership traps. Arithmetic,
+truthiness, loop counters, and array indexes require an explicit integer bridge.
+
+Enums work in globals, locals, arrays, record fields and embedded arrays,
+pointers, parameters, FUNC results, and `ResultCode FUNC POINTER reader`.
+Named ARRAY pointer-cell rebinding and advancement retain their existing pointer
+meaning; embedded arrays cannot be rebound. Neither operation is enum arithmetic.
+An array value is a pointer, not an enum element; use indexing or `array^` for an
+element. Array/pointer compatibility retains the exact enum element identity.
+Existing declaration rules remain: `status=[ResultCode.OK]` initializes a value;
+`status=$0600` binds storage at an address. Partial arrays/records retain zero-fill
+even when zero has no member name. Initializer lists accept members and enum
+CONSTs; use a typed CONST for a computed enum initializer. Assembly/data numeric
+interfaces use a numeric CONST such as `CONST Opcode=BYTE(ResultCode.OK)`.
+
+TYPE declarations follow existing global/module/routine/BEGIN scopes. A PUBLIC
+enum exports its type and members; `USE Library AS API` and `USE ALL FROM Library`
+preserve its identity without importing bare member names. Compatibility rejects
+ENUM. Wider enums, aliases with duplicate numeric values, reflection, and
+parameterized callable-pointer syntax are not included.
+
+See [the runnable state-machine sample](../samples/enum-case.act), which prints
+`0, 1, 2, 3, 0` on separate lines:
+
+```sh
+cargo run --bin actionc -- --mode optimized --runtime standalone -o /tmp/enum-case.xex samples/enum-case.act
+```
+
 ## CASE Statements
 
-Modern classic and MIR6502 support integer CASE with both cartridge-linked and
+Modern classic and MIR6502 support integer and enum CASE with both cartridge-linked and
 standalone runtimes:
 
 ```action
@@ -43,12 +97,17 @@ ELSE
 ESAC
 ```
 
-The selector can be BYTE, CHAR, CARD, or INT and is evaluated exactly once.
+The selector can be BYTE, CHAR, CARD, INT, or an enum and is evaluated exactly once.
 Labels are compile-time integer constants; inclusive ranges retain the
 selector's signedness. Descending ranges, duplicates, and overlapping labels
 are errors. Label values must fit without implicit truncation. Existing literal
 typing applies: `$FFFF` or `CARD(65535)` denotes unsigned 65535, whereas decimal
 `65535` alone is INT -1.
+
+Enum selectors require constant labels of the exact same enum, such as
+`WHEN ResultCode.OK, ResultCode.RETRY THEN`. Numeric labels, other enums, and
+enum ranges are rejected. Named-member coverage does not eliminate the no-match
+path, because unnamed byte representations remain valid.
 
 Arms do not fall through. ELSE is optional, unique, and last; an unmatched CASE
 without ELSE continues after ESAC. RETURN exits the routine; EXIT exits the
@@ -58,8 +117,7 @@ declarations. A FUNC still needs a return path when no arm matches.
 The CASE/OF header, each WHEN/THEN header, ELSE, and ESAC each occupy their own
 physical source line. CASE, OF, WHEN, and ESAC remain contextual identifiers,
 so calls such as `Case()` and `When()` remain legal. ENDCASE is not an alias.
-Compatibility rejects CASE. Guards and wildcard arms are not supported yet;
-ENUM is tracked separately in the [implementation plan](Action_2027/ENUM_AND_CASE_IMPLEMENTATION_PLAN.md).
+Compatibility rejects CASE. Guards and wildcard arms are not supported yet.
 
 ## Fixed-Length Arrays Inside Records
 
@@ -80,7 +138,7 @@ RETURN
 
 Bounds must be positive compile-time constants. Storage is inline: this example
 has 200 bytes for `x`, then 200 for `y`, with no member-array descriptor.
-BYTE, CHAR, INT, CARD, REAL and complete supported record elements are covered.
+BYTE, CHAR, INT, CARD, REAL, enum and complete supported record elements are covered.
 Classic's existing restriction on pointer-valued record fields remains, including
 arrays of pointers. Incomplete and recursive by-value layouts are rejected.
 

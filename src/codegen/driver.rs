@@ -315,6 +315,10 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
 fn ast_static_initializer_facts(
     program: &Program,
 ) -> Result<ClassicStaticInitializerFacts, Vec<Diagnostic>> {
+    if let Some(span) = unprojected_enum_span(program) {
+        return Err(vec![Diagnostic::new(span,
+            "ENUM requires semantic lowering; use the compiler entry point or SemIR code generation")]);
+    }
     let record_layouts = collect_record_layouts(program);
     if !program.modules.iter().any(|module| {
         module.items.iter().any(|item| match item {
@@ -414,6 +418,47 @@ fn var_decl_has_aggregate_initializer(decl: &VarDecl, record_layouts: &RecordLay
                 Some(ExprKind::InitializerList(_))
             )
         })
+}
+
+// This legacy entry point has no semantic type facts. Never guess an enum's
+// layout or a named FUNC result from unresolved AST spelling.
+fn unprojected_enum_span(program: &Program) -> Option<Span> {
+    fn named_result(kind: &RoutineKind) -> bool {
+        matches!(kind, RoutineKind::Func { return_type: RoutineResultType::Named(_) })
+    }
+    fn declaration(decl: &Decl) -> Option<Span> {
+        match decl {
+            Decl::Type(decl) => match &decl.definition {
+                TypeDefinition::Enum(_) => Some(decl.span),
+                TypeDefinition::Record(fields) => fields.iter().find_map(variable),
+            },
+            Decl::Record(decl) => decl.fields.iter().find_map(variable),
+            Decl::Var(decl) => variable(decl),
+            Decl::Const(decl) if matches!(decl.declared_type, Some(ConstDeclaredType::Named(_))) => Some(decl.span),
+            _ => None,
+        }
+    }
+    fn variable(decl: &VarDecl) -> Option<Span> {
+        matches!(&decl.ty.base, TypeBase::Callable(kind) if named_result(kind)).then_some(decl.span)
+    }
+    fn statement(stmt: &Stmt) -> Option<Span> {
+        match stmt {
+            Stmt::LexicalBlock { declarations, body, .. } => declarations.iter().find_map(declaration).or_else(|| body.iter().find_map(statement)),
+            Stmt::Case { arms, .. } => arms.iter().flat_map(|arm| &arm.body).find_map(statement),
+            Stmt::If { branches, else_body, .. } => branches.iter().flat_map(|branch| &branch.body).chain(else_body).find_map(statement),
+            Stmt::While { body, .. } | Stmt::DoUntil { body, .. } | Stmt::For { body, .. } => body.iter().find_map(statement),
+            _ => None,
+        }
+    }
+    program.modules.iter().flat_map(|m| &m.items).find_map(|item| match item {
+        Item::Declaration(decl) => declaration(decl),
+        Item::Routine(routine) => named_result(&routine.kind).then_some(routine.span)
+            .or_else(|| routine.params.iter().find_map(variable))
+            .or_else(|| routine.locals.iter().find_map(declaration))
+            .or_else(|| routine.body.iter().find_map(statement)),
+        Item::Statement(stmt) => statement(stmt),
+        _ => None,
+    })
 }
 
 fn program_code_origin(program: &Program) -> Option<u16> {

@@ -68,7 +68,7 @@ makes a source file "modern"; they are available so source can express intent
 explicitly.
 
 Explicit lexical `BEGIN`/`END` blocks, fixed-length arrays embedded inside
-records, integer CASE statements, and comparison-as-value expressions
+records, BYTE enums, CASE statements, and comparison-as-value expressions
 require the modern profile. In compatibility source, `BEGIN` and `END` remain
 ordinary identifier spellings and do not acquire cartridge token IDs.
 
@@ -86,9 +86,14 @@ overlap-safe whole-record copies. Compatibility still rejects array fields.
 Classic's existing pointer-valued record-field restriction is unchanged. See
 [embedded arrays](SYNTAX_EXTENSIONS.md#fixed-length-arrays-inside-records).
 
-CASE evaluates its BYTE/CHAR/CARD/INT selector once and supports singleton,
-comma-separated, and inclusive range labels. Both modern backends and runtimes
+CASE evaluates its integer or enum selector once and supports singleton and
+comma-separated labels; inclusive ranges are integer-only. Both modern backends and runtimes
 support it; compatibility rejects it. See [CASE statements](SYNTAX_EXTENSIONS.md#case-statements).
+
+Enums retain nominal identity through semantic checking, including parameters,
+FUNC/FUNC POINTER results, pointers, and record/array initializers. Both modern
+backends use the existing BYTE representation and ABI. All byte values are
+defined, including unnamed values. See [BYTE enums](SYNTAX_EXTENSIONS.md#byte-enums).
 
 Legacy accepts many old Action! idioms that depend on implicit address-taking or
 loose routine-address handling. Modern prefers the explicit extension forms for

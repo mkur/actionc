@@ -1,0 +1,40 @@
+nir program
+global Code: enum Code members=3
+global PacketType: type RecordType { name: "PacketType", fields: [RecordFieldType { id: Some(FieldId(0)), name: "tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(1)), name: "value", ty: ValueType { base: Enum(EnumIdentity { symbol: SymbolId(82), name: "Code", canonical_name: "CODE" }), pointer: false }, storage: Value, offset: 1 }, RecordFieldType { id: Some(FieldId(2)), name: "trail", ty: ValueType { base: Enum(EnumIdentity { symbol: SymbolId(82), name: "Code", canonical_name: "CODE" }), pointer: false }, storage: InlineArray { array_type: ArrayType { element: ValueType { base: Enum(EnumIdentity { symbol: SymbolId(82), name: "Code", canonical_name: "CODE" }), pointer: false }, length: Some(2) }, stride: 1 }, offset: 2 }], size: 4 } fields=3
+global packet: PacketType init bytes=[$01 $FF $00 $80] zero_fill=0 section=global mutable=true
+global table: array ArrayType { element: ValueType { base: Enum(EnumIdentity { symbol: SymbolId(82), name: "Code", canonical_name: "CODE" }), pointer: false }, length: Some(3) } length=3 storage=Array origin=global init bytes=[$00 $80 $FF] zero_fill=0 section=global mutable=true
+global value: Code
+global input: Byte
+global result: Byte
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb0:
+  %t0:Byte = load input
+  %t1:Code = cast Byte -> Code %t0
+  store value = %t1
+  %t2:Code = load value
+  store packet.+1 = %t2
+  %t3:Code* = addr table
+  %t4:Code = load %t3[1;1]
+  %t5:Byte = cast Code -> Byte %t4
+  store result = %t5
+  %t6:Code = load packet.+1
+  %t7:condition = cmp %t6 Eq 0 operand_ty=Code
+  branch %t7 ? bb2 : bb4
+bb4:
+  %t8:condition = cmp %t6 Eq 128 operand_ty=Code
+  branch %t8 ? bb2 : bb3
+bb2:
+  store result = 1
+  goto bb1
+bb3:
+  %t9:condition = cmp %t6 Eq 255 operand_ty=Code
+  branch %t9 ? bb5 : bb6
+bb5:
+  store result = 2
+  goto bb1
+bb6:
+  store result = 3
+  goto bb1
+bb1:
+  return

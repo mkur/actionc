@@ -137,6 +137,10 @@ cast/wrapping behavior of the resulting values; it does not create a separate
 namespace or storage class. Without a declared type, each entry's type is
 inferred independently.
 
+In modern source, a CONST may also have a named enum annotation, including a
+module-qualified type. Inferred enum constants retain the same nominal identity
+as their member or enum-valued initializer. They are not untyped integers.
+
 Binding records each constant as a stable `SymbolId` with a canonical scalar
 type and value. Constants have no storage identity and are not lvalues.
 Executable SemIR references carry the typed value, and executable NIR sees an
@@ -148,6 +152,15 @@ facts before backend lowering.
 
 `TYPE` and `RECORD` names bind like ordinary symbols, but their legal use is
 context-sensitive.
+
+Modern `TYPE Name=ENUM [...]` uses that same namespace. `Name.Member` first binds
+the type through normal scope/module lookup, then the member within that enum.
+Members do not enter the ordinary namespace. Imported aliases preserve the
+defining SymbolId; same-spelled local enums are distinct. PUBLIC exports the type
+and its members; private type names cannot be reached through qualified paths.
+CASE arms do not add scopes; explicit BEGIN/END blocks do. Named enum FUNC and
+FUNC POINTER results resolve to the header's defining scope, not a shadowing
+type in the routine body.
 
 Field names are different: they are resolved relative to the bound record/type
 of the base expression, not through the ordinary local/global/library lookup

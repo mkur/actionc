@@ -86,11 +86,12 @@ fn enum_parser_rejects_incomplete_and_unsupported_definitions() {
 }
 
 #[test]
-fn incomplete_enums_are_rejected_before_public_lowering() {
+fn enum_types_are_modern_only() {
     let ast =
         parse(&tokenize("TYPE Result=ENUM [OK=0 BUSY=10 RETRY]\nPROC Main() RETURN").unwrap())
             .unwrap();
-    for options in [SemanticOptions::default(), SemanticOptions::modern()] {
+    semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
+    for options in [SemanticOptions::default(), SemanticOptions { enum_types: false, ..SemanticOptions::modern() }] {
         let errors = semantic::analyze_with_options(&ast, options).unwrap_err();
         assert!(
             errors

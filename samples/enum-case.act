@@ -1,0 +1,25 @@
+; Modern classic or MIR6502, cart or standalone.
+; Prints 0, 1, 2, 3, 0 on separate lines.
+TYPE GameState=ENUM [TITLE PLAYING PAUSED GAME_OVER]
+
+GameState FUNC Advance(GameState current)
+  CASE current OF
+  WHEN GameState.TITLE THEN
+    RETURN(GameState.PLAYING)
+  WHEN GameState.PLAYING THEN
+    RETURN(GameState.PAUSED)
+  WHEN GameState.PAUSED THEN
+    RETURN(GameState.GAME_OVER)
+  ELSE
+    RETURN(GameState.TITLE)
+  ESAC
+
+PROC Main()
+  GameState state
+  BYTE i
+  state=GameState.TITLE
+  FOR i=0 TO 4 DO
+    PrintBE(BYTE(state))
+    state=Advance(state)
+  OD
+RETURN

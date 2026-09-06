@@ -166,12 +166,12 @@ fn case_is_modern_only_and_enum_capability_remains_independent() {
         ] {
             let options = options.with_target(target);
             assert_eq!(options.case_statements, options.lexical_blocks);
-            assert!(!options.enum_types);
+            assert_eq!(options.enum_types, options.lexical_blocks);
             let cases = SemanticOptions {
                 case_statements: true,
                 ..options
             };
-            assert!(!cases.enum_types);
+            assert_eq!(cases.enum_types, options.enum_types);
             let enums = SemanticOptions {
                 enum_types: true,
                 ..options

@@ -1,0 +1,52 @@
+; VM supplies all 256 representations, including unnamed values.
+TYPE Code=ENUM [LOW=0 MID=128 HIGH=255]
+TYPE Nonzero=ENUM [ONE=1]
+TYPE PacketType=[BYTE ARRAY pad(257) Code value Code ARRAY trail(2) BYTE tail]
+CONST Alias=Code.MID
+Code ARRAY table(3)=[Code.LOW Alias Code.HIGH]
+Code ARRAY view
+Nonzero ARRAY zeros(2)
+PacketType packet=$5001
+VOLATILE BYTE input=$0600
+BYTE calls=$0601,selected=$0602,converted=$0603,missing=$0604
+BYTE initial=$0605,zeroResult=$0606,done=$06FF
+Code value=$0607
+BYTE arrayResult=$0608
+Code FUNC Read()
+  calls==+1
+RETURN(Code(input))
+Code FUNC Echo(Code arg)
+  calls==+1
+RETURN(arg)
+Code FUNC POINTER callback
+PROC Main()
+  Code POINTER p
+  calls=0
+  callback=@Read
+  value=Echo(Echo(callback()))
+  converted=BYTE(value)
+  packet.value=value
+  p=@packet.trail
+  p^=table(1)
+  packet.trail(1)=Code.HIGH
+  initial=BYTE(table(2))
+  view=table
+  view==+1
+  arrayResult=BYTE(view^)
+  zeroResult=BYTE(zeros(1))
+  CASE Echo(value) OF
+  WHEN Code.LOW, Code.MID THEN
+    selected=1
+  WHEN Code.HIGH THEN
+    selected=2
+  ELSE
+    selected=3
+  ESAC
+  missing=71
+  CASE value OF
+  WHEN Code.HIGH THEN
+    missing=72
+  ESAC
+  done=$A5
+  DO OD
+RETURN

@@ -1,0 +1,44 @@
+nir program
+global Code: enum Code members=2
+global input: Byte
+global count: Byte
+global result: Byte
+global value: Code
+global callback: Func { return_type: Code }
+
+routine r0 Read signature=s1153769831 convention=target-public activation=classic-static entry=relocatable params=[-] locals=[-]
+bb0:
+  %t0:Byte = load count
+  %t1:Byte = %t0 Add 1
+  store count = %t1
+  %t2:Byte = load input
+  %t3:Code = cast Byte -> Code %t2
+  return %t3
+
+routine r1 Echo signature=s1518558295 convention=target-public activation=classic-static entry=relocatable params=[arg] locals=[-]
+  param p0 arg: Scalar Code duration=routine-static size=1 align=1
+bb1:
+  %t0:Code = load arg
+  return %t0
+
+routine r2 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb2:
+  store callback = routine_addr0(Read)
+  %t1:Func { return_type: Code } = load callback
+  %t0:Code = call indirect(%t1)() signature=s1153769831 convention=target-public
+  %t2:Code = call Echo(%t0) signature=s1518558295 convention=target-public
+  store value = %t2
+  %t3:Code = load value
+  %t4:Code = call Echo(%t3) signature=s1518558295 convention=target-public
+  %t5:condition = cmp %t4 Eq 0 operand_ty=Code
+  branch %t5 ? bb4 : bb5
+bb4:
+  store result = 1
+  goto bb3
+bb5:
+  %t6:Code = load value
+  %t7:Byte = cast Code -> Byte %t6
+  store result = %t7
+  goto bb3
+bb3:
+  return

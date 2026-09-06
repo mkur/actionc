@@ -288,3 +288,32 @@ fn enum_modules_execute_after_selective_linking_and_keep_type_metadata() {
         );
     }
 }
+
+#[test]
+fn enum_array_pointer_cells_can_rebind_and_advance_without_enum_arithmetic() {
+    let source = r#"
+TYPE E=ENUM [OFF=0 ON=17]
+E ARRAY view
+E ARRAY source(2)=[E.ON E.OFF]
+BYTE first=$0600,second=$0601,third=$0602,fourth=$0603
+PROC Use(E ARRAY a)
+  first=BYTE(a^)
+  a==+1
+  second=BYTE(a(0))
+RETURN
+PROC Main()
+  view=source
+  Use(view)
+  view==+1
+  third=BYTE(view^)
+  view=$5000
+  view(0)=E.ON
+  fourth=BYTE(view(0))
+RETURN
+"#;
+    for (mode, output) in outputs_with_options(source, SemanticOptions::modern()) {
+        let memory = execute(&output, |memory| memory[0x5001] = 0xA5);
+        assert_eq!(&memory[0x600..0x604], &[17, 0, 0, 17], "{mode}");
+        assert_eq!(&memory[0x5000..0x5002], &[17, 0xA5], "{mode}");
+    }
+}

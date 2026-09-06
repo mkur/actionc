@@ -1,7 +1,12 @@
 # ENUM and CASE Design
 
-Status: proposed design, not implemented. This document recommends the language
-contract and implementation boundaries; it does not enable either feature.
+The base language described here is implemented in the modern profile. See the
+[syntax reference](../SYNTAX_EXTENSIONS.md#byte-enums) and
+[implementation plan](ENUM_AND_CASE_IMPLEMENTATION_PLAN.md) for validation and
+explicitly deferred follow-ons. Native 65816/68k checks are lowering canaries,
+not executable runtime validation.
+
+Status: base ENUM and CASE implemented; guards and guarded wildcards deferred.
 
 The [implementation plan](ENUM_AND_CASE_IMPLEMENTATION_PLAN.md) defines the
 delivery slices and checks. Review decisions incorporated here include TYPE-based
@@ -47,7 +52,8 @@ PROC Main()
 RETURN
 ```
 
-All new syntax below is proposed, including the examples.
+The base syntax below is implemented; the separate guard extension remains
+deferred.
 
 ## 1. ENUM Contract
 
@@ -60,7 +66,7 @@ enum-member      := identifier [ '=' constant-expression ]
 ```
 
 At least one member is required. Whitespace separates members; line breaks are
-formatting and commas are optional. The current proposal uses TYPE and brackets,
+formatting and commas are optional. The declaration uses TYPE and brackets,
 not a separate `ENUM name ... ENDENUM` declaration form.
 
 Every enum has BYTE representation: exactly 8 unsigned bits, with values 0

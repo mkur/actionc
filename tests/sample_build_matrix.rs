@@ -136,6 +136,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
     use Runtime::{ActionCart, Standalone};
 
     vec![
+        executable(
+            "samples/enum-case.act",
+            vec![release(Optimized, ActionCart), release(Optimized, Standalone), experimental(ActionCart), experimental(Standalone)],
+        ),
         source_only(
             "samples/action-runtime/modern/ST.ACT",
             "library source fragment whose SYSBLK.ACT and SYSSTR.ACT inputs live outside the maintained sample tree",
