@@ -94,6 +94,11 @@ crowding the active reference set.
 - [RUNTIME_HELPER_EFFECTS.md](RUNTIME_HELPER_EFFECTS.md) - known runtime helper
   effects.
 - [SYNTAX_EXTENSIONS.md](SYNTAX_EXTENSIONS.md) - supported syntax extensions.
+- [ENUM and CASE design](Action_2027/ENUM_AND_CASE_DESIGN.md) - proposed modern
+  BYTE enum types and non-fallthrough dispatch; not yet implemented.
+- [ENUM and CASE implementation plan](Action_2027/ENUM_AND_CASE_IMPLEMENTATION_PLAN.md)
+  - sliced delivery of TYPE-based enums, enum function results, and CASE/ESAC,
+    with separate guard follow-on and backend/runtime acceptance gates.
 - [resident_library.md](resident_library.md) - resident library notes.
 
 ## Architecture And Status

@@ -189,6 +189,8 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
     let model = analyze_compilation_with_options(
         &loaded,
         SemanticOptions {
+            case_statements: false,
+            enum_types: false,
             native_real: true,
             lexical_blocks: false,
             comparison_values: false,
