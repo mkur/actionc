@@ -161,3 +161,24 @@ fn case_linking_retains_calls_that_only_appear_in_arms() {
     assert!(names.contains(&"Used"));
     assert!(!names.contains(&"Unused"));
 }
+
+#[test]
+fn case_char_ranges_preserve_unsigned_byte_ordering() {
+    let source = "CHAR input=$0600 BYTE result=$0601\nPROC Main()\nCASE input OF\nWHEN 0 TO 127 THEN\nresult=1\nWHEN 128 TO 254 THEN\nresult=2\nWHEN 255 THEN\nresult=3\nESAC\nRETURN";
+    for (mode, output) in outputs_with_options(source, options()) {
+        for input in 0..=255u8 {
+            let memory = execute(&output, |memory| memory[0x600] = input);
+            assert_eq!(
+                memory[0x601],
+                if input < 128 {
+                    1
+                } else if input < 255 {
+                    2
+                } else {
+                    3
+                },
+                "{mode}/{input}"
+            );
+        }
+    }
+}

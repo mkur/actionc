@@ -1,0 +1,21 @@
+BYTE input=$0600,result=$0601,calls=$0602,done=$06FF
+BYTE denominator=$0603
+
+PROC Mark()
+  calls==+1
+RETURN
+
+PROC Main()
+  result=71 calls=0
+  CASE input OF
+  WHEN 0 THEN
+    Mark()
+  WHEN 1 TO 2 THEN
+    result=10/denominator
+    result=0
+  ELSE
+    result=72
+  ESAC
+  done=$A5
+  DO OD
+RETURN

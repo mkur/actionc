@@ -1,0 +1,18 @@
+INT signedInput=$0600
+CARD unsignedInput=$0602
+BYTE signedResult=$0604,unsignedResult=$0605
+
+PROC Main()
+  CASE signedInput OF
+  WHEN -32768 TO -1 THEN
+    signedResult=10
+  WHEN 0 TO 32767 THEN
+    signedResult=20
+  ESAC
+  CASE unsignedInput OF
+  WHEN 0 TO 255, $FFFE TO $FFFF THEN
+    unsignedResult=30
+  ELSE
+    unsignedResult=40
+  ESAC
+RETURN

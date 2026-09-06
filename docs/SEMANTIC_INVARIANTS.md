@@ -101,6 +101,13 @@ error.
 
 ## Typed Nodes
 
+CASE retains ordered arms and the distinction between no ELSE and an explicit
+empty ELSE. SemIR owns selector type, constant interval validation, overlap
+diagnostics, and return/EXIT flow. Labels never execute. NIR captures the selector
+once and emits ordinary typed comparisons and CFG; classic projection uses a
+collision-free captured scalar and existing IF branches. Neither backend
+re-evaluates source labels or duplicates selector effects.
+
 Typed semantic subjects are the authoritative representation for expression,
 place, callable, and type-reference meaning.
 

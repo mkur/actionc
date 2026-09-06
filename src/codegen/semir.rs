@@ -37,6 +37,7 @@ pub(crate) fn semir_to_projection(
     let projection_names = classic_projection_names(program);
     let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
+        occupied_capture_names: case::capture_reserved_names(program, &projection_names),
         case_captures: Vec::new(),
         next_case_capture: 0,
         diagnostics: Vec::new(),
@@ -73,6 +74,7 @@ pub(crate) fn semir_to_cart_projection(
     let projection_names = classic_projection_names(program);
     let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
+        occupied_capture_names: case::capture_reserved_names(program, &projection_names),
         case_captures: Vec::new(),
         next_case_capture: 0,
         diagnostics: Vec::new(),
@@ -146,6 +148,7 @@ pub(crate) fn cart_external_addresses(
 }
 
 struct SemIrAstLowerer<'a> {
+    occupied_capture_names: BTreeSet<String>,
     case_captures: Vec<Decl>,
     next_case_capture: usize,
     diagnostics: Vec<Diagnostic>,

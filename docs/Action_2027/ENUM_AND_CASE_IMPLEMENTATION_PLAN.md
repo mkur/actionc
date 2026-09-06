@@ -206,6 +206,24 @@ call. Public CASE remains gated until slice 2.
 
 ### Slice 2 — Integer ranges, flow/effect hardening, CASE enablement
 
+Status: complete. Integer CASE is publicly enabled in modern only. Eight focused
+integration tests, five internal execution/linking tests, both new VM tests, the
+full 2,779-test compiler suite, snapshots, and all 35 NIR sweep fixtures pass.
+The VM tests execute all 256 byte inputs with signed/unsigned word boundaries,
+pointer selectors, canaries, and selector-call counts in all four combinations.
+CHAR ranges pass the internal executor matrix. Volatile NIR has exactly one
+selector read before and after optimization. Selected faults reach Error(100)
+without continuation; unselected calls/stores/faults have no effects. Fault tests
+install an explicit returning Error observer; other cart execution uses real ROMs.
+
+The capture-name canary found and fixed a collision with ordinary routine locals;
+capture reservation now includes globals, parameters, locals, and lexical names.
+Two new lowered/optimized NIR fixture pairs document ordinary typed dispatch;
+existing snapshots and the feature inventory remain unchanged. The broad-corpus
+inventory grows from 321 to 325 successful fixtures, with its same five declared
+non-entrypoints. Integer CASE also passes independent 65816/68k lowering canaries
+(not native execution). Guards and enums remain separately unavailable.
+
 - Normalize inclusive `low TO high` intervals without expanding them. Reject
   descending ranges and all initial unguarded overlaps, including within one arm
   and duplicates created by constant folding or explicit casts.

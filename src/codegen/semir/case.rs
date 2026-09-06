@@ -14,10 +14,9 @@ impl SemIrAstLowerer<'_> {
         let name = loop {
             let name = format!("__actionc_case_{}", self.next_case_capture);
             self.next_case_capture += 1;
-            if !self
-                .projection_names
-                .values()
-                .any(|other| other.eq_ignore_ascii_case(&name))
+            if self
+                .occupied_capture_names
+                .insert(name.to_ascii_uppercase())
             {
                 break name;
             }
@@ -50,18 +49,24 @@ impl SemIrAstLowerer<'_> {
             };
             let mut condition = None;
             for label in labels {
-                assert_eq!(label.low, label.high, "interval support not enabled yet");
-                let literal = ConstValue {
-                    ty: scalar,
-                    bits: label.low,
-                }
-                .number_literal();
-                let right = Expr {
-                    text: literal.text.clone(),
-                    kind: ExprKind::Number(literal),
-                    span: label.span,
+                let literal = |bits| {
+                    let literal = ConstValue { ty: scalar, bits }.number_literal();
+                    Expr {
+                        text: literal.text.clone(),
+                        kind: ExprKind::Number(literal),
+                        span: label.span,
+                    }
                 };
-                let compare = case_binary(BinaryOp::Eq, target.clone(), right, span);
+                let compare = if label.low == label.high {
+                    case_binary(BinaryOp::Eq, target.clone(), literal(label.low), span)
+                } else {
+                    case_binary(
+                        BinaryOp::And,
+                        case_binary(BinaryOp::Ge, target.clone(), literal(label.low), span),
+                        case_binary(BinaryOp::Le, target.clone(), literal(label.high), span),
+                        span,
+                    )
+                };
                 condition = Some(match condition {
                     None => compare,
                     Some(previous) => case_binary(BinaryOp::Or, previous, compare, span),
@@ -85,6 +90,39 @@ impl SemIrAstLowerer<'_> {
             },
         ]
     }
+}
+
+pub(super) fn capture_reserved_names(
+    program: &SemProgram,
+    projections: &BTreeMap<SymbolId, String>,
+) -> BTreeSet<String> {
+    let mut names = projections
+        .values()
+        .map(|name| name.to_ascii_uppercase())
+        .collect::<BTreeSet<_>>();
+    for item in program.modules.iter().flat_map(|module| &module.items) {
+        if let Some(symbol) = sem_item_symbol(item) {
+            names.insert(symbol.name.to_ascii_uppercase());
+        }
+        if let SemItem::Routine(routine) = item {
+            names.extend(
+                routine
+                    .params
+                    .iter()
+                    .map(|param| param.symbol.name.to_ascii_uppercase()),
+            );
+            names.extend(
+                routine
+                    .locals
+                    .iter()
+                    .map(|decl| decl.symbol.name.to_ascii_uppercase()),
+            );
+            visit_lexical_declarations(&routine.body, &mut |_, decl| {
+                names.insert(decl.symbol.name.to_ascii_uppercase());
+            });
+        }
+    }
+    names
 }
 
 fn case_binary(op: BinaryOp, left: Expr, right: Expr, span: Span) -> Expr {

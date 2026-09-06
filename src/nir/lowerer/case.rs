@@ -25,10 +25,20 @@ impl NirBuilder {
                 } else {
                     lowering.next_block_label()
                 };
-                assert_eq!(label.low, label.high, "interval support not enabled yet");
-                let condition =
-                    self.case_compare(value.clone(), &operand_ty, NirCompareOp::Eq, label.low);
-                self.terminate_branch(condition, &body, &failed);
+                if label.low == label.high {
+                    let condition =
+                        self.case_compare(value.clone(), &operand_ty, NirCompareOp::Eq, label.low);
+                    self.terminate_branch(condition, &body, &failed);
+                } else {
+                    let upper_test = lowering.next_block_label();
+                    let condition =
+                        self.case_compare(value.clone(), &operand_ty, NirCompareOp::Ge, label.low);
+                    self.terminate_branch(condition, &upper_test, &failed);
+                    self.start_block(upper_test);
+                    let condition =
+                        self.case_compare(value.clone(), &operand_ty, NirCompareOp::Le, label.high);
+                    self.terminate_branch(condition, &body, &failed);
+                }
                 if index + 1 < labels.len() {
                     self.start_block(failed);
                 }

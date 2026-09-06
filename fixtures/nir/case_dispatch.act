@@ -1,0 +1,16 @@
+BYTE input=$0600,result=$0601,calls=$0602
+
+BYTE FUNC Selector()
+  calls==+1
+RETURN(input)
+
+PROC Main()
+  CASE Selector() OF
+  WHEN 0, 2 THEN
+    result=10
+  WHEN 255 THEN
+    result=20
+  ELSE
+    result=30
+  ESAC
+RETURN

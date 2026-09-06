@@ -40,10 +40,8 @@ impl Analyzer {
         context: ControlContext<'_>,
     ) {
         if !self.options.case_statements {
-            self.diagnostics.push(Diagnostic::new(
-                span,
-                "CASE requires the modern profile (feature not yet enabled)",
-            ));
+            self.diagnostics
+                .push(Diagnostic::new(span, "CASE requires the modern profile"));
             return;
         }
         let selector = self.lower_expr(scope, selector);
@@ -61,15 +59,16 @@ impl Analyzer {
                 labels
                     .iter()
                     .filter_map(|label| {
-                        if label.high.is_some() {
-                            self.diagnostics.push(Diagnostic::new(
-                                label.span,
-                                "CASE ranges are not enabled yet",
-                            ));
+                        let low = self.case_constant(scope, &label.low, scalar)?;
+                        let high = match &label.high {
+                            Some(high) => self.case_constant(scope, high, scalar)?,
+                            None => low,
+                        };
+                        if low > high {
+                            self.diagnostics
+                                .push(Diagnostic::new(label.span, "descending CASE range"));
                             return None;
                         }
-                        let low = self.case_constant(scope, &label.low, scalar)?;
-                        let high = low;
                         if let Some((_, _, earlier)) =
                             previous.iter().find(|(a, b, _)| low <= *b && high >= *a)
                         {

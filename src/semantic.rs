@@ -420,7 +420,7 @@ pub struct StmtFlowFacts {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SemanticOptions {
-    /// Internal rollout gate for CASE; independent of profile/runtime selection.
+    /// Modern-profile CASE statements; independent of enum support.
     pub case_statements: bool,
     /// Internal rollout gate for nominal BYTE enums.
     pub enum_types: bool,
@@ -435,7 +435,7 @@ pub struct SemanticOptions {
 impl SemanticOptions {
     pub const fn modern() -> Self {
         Self {
-            case_statements: false,
+            case_statements: true,
             enum_types: false,
             native_real: true,
             lexical_blocks: true,

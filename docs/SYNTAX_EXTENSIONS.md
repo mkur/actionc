@@ -13,6 +13,7 @@ some ambiguous routine-address cases.
 
 - [Compile-Time Constants](#compile-time-constants)
 - [Comparison Values](#comparison-values)
+- [CASE Statements](#case-statements)
 - [Fixed-Length Arrays Inside Records](#fixed-length-arrays-inside-records)
 - [Volatile Storage](#volatile-storage)
 - [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
@@ -25,6 +26,40 @@ some ambiguous routine-address cases.
 - [MADS-Style Inline Assembler](#mads-style-inline-assembler)
 - [Explicit Lexical Blocks](#explicit-lexical-blocks)
 - [Compatibility Policy](#compatibility-policy)
+
+## CASE Statements
+
+Modern classic and MIR6502 support integer CASE with both cartridge-linked and
+standalone runtimes:
+
+```action
+CASE key OF
+WHEN 0 THEN
+  HandleZero()
+WHEN 1 TO 9, 13 THEN
+  HandleCommand()
+ELSE
+  HandleOther()
+ESAC
+```
+
+The selector can be BYTE, CHAR, CARD, or INT and is evaluated exactly once.
+Labels are compile-time integer constants; inclusive ranges retain the
+selector's signedness. Descending ranges, duplicates, and overlapping labels
+are errors. Label values must fit without implicit truncation. Existing literal
+typing applies: `$FFFF` or `CARD(65535)` denotes unsigned 65535, whereas decimal
+`65535` alone is INT -1.
+
+Arms do not fall through. ELSE is optional, unique, and last; an unmatched CASE
+without ELSE continues after ESAC. RETURN exits the routine; EXIT exits the
+nearest enclosing loop. Arms do not introduce scopes: use BEGIN/END for local
+declarations. A FUNC still needs a return path when no arm matches.
+
+The CASE/OF header, each WHEN/THEN header, ELSE, and ESAC each occupy their own
+physical source line. CASE, OF, WHEN, and ESAC remain contextual identifiers,
+so calls such as `Case()` and `When()` remain legal. ENDCASE is not an alias.
+Compatibility rejects CASE. Guards and wildcard arms are not supported yet;
+ENUM is tracked separately in the [implementation plan](Action_2027/ENUM_AND_CASE_IMPLEMENTATION_PLAN.md).
 
 ## Fixed-Length Arrays Inside Records
 
