@@ -10,6 +10,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 mod case;
 #[cfg(test)]
 mod case_tests;
+#[cfg(test)]
+mod enum_tests;
 
 use super::native_real::{
     ClassicNativeExpr, ClassicNativeRealFacts, ClassicRealValue, real_address_temp_name,
@@ -416,6 +418,7 @@ impl SemIrAstLowerer<'_> {
         }
 
         match &decl.storage {
+            SemDeclarationStorage::Enum { .. } => return None,
             SemDeclarationStorage::Type { fields, .. } => {
                 return Some(Decl::Type(TypeDecl {
                     visibility: Visibility::Private,
@@ -453,7 +456,7 @@ impl SemIrAstLowerer<'_> {
         let storage = match &first.storage {
             SemDeclarationStorage::Scalar => VarStorage::Plain,
             SemDeclarationStorage::Array { .. } => VarStorage::Array,
-            SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
+            SemDeclarationStorage::Enum { .. } | SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
                 return None;
             }
         };
@@ -480,7 +483,7 @@ impl SemIrAstLowerer<'_> {
                                 length.as_ref().and_then(|expr| self.expr(expr))
                             }
                             SemDeclarationStorage::Scalar => None,
-                            SemDeclarationStorage::Type { .. }
+                            SemDeclarationStorage::Enum { .. } | SemDeclarationStorage::Type { .. }
                             | SemDeclarationStorage::Record { .. } => None,
                         },
                         initializer: fixed_address
@@ -690,6 +693,7 @@ impl SemIrAstLowerer<'_> {
             .map(|field| {
                 let (storage, size) = match &field.storage {
                     SemDeclarationStorage::Scalar
+                    | SemDeclarationStorage::Enum { .. }
                     | SemDeclarationStorage::Type { .. }
                     | SemDeclarationStorage::Record { .. } => (VarStorage::Plain, None),
                     SemDeclarationStorage::Array { length, .. } => (
@@ -1112,6 +1116,10 @@ impl SemIrAstLowerer<'_> {
 
     fn literal(&self, literal: &SemLiteral, span: Span) -> Expr {
         let (kind, text) = match literal {
+            SemLiteral::Enum(value) => {
+                let number = value.representation().number_literal();
+                (ExprKind::Number(number.clone()), number.text)
+            }
             SemLiteral::Number(number) => (ExprKind::Number(number.clone()), number.text.clone()),
             SemLiteral::Real { source, .. } => {
                 (ExprKind::Number(source.clone()), source.text.clone())
@@ -1165,6 +1173,7 @@ impl SemIrAstLowerer<'_> {
         TypeRef {
             base: match &ty.base {
                 ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
+                ValueTypeBase::Enum(_) => TypeBase::Fund(FundType::Byte),
                 ValueTypeBase::Real => TypeBase::NativeReal,
                 ValueTypeBase::Named(name) => TypeBase::Named(
                     self.type_link_names

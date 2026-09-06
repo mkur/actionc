@@ -73,6 +73,7 @@ pub enum NirTypeKind {
 impl NirTypeKind {
     pub(super) fn from_value(value: &ValueType) -> Self {
         match value.kind() {
+            ValueTypeKind::Enum(_) => Self::U8,
             ValueTypeKind::Scalar(scalar) => Self::from_scalar(scalar),
             ValueTypeKind::Real => Self::Real,
             ValueTypeKind::Pointer(pointer) => Self::Pointer {
@@ -212,6 +213,10 @@ pub(super) fn signature_id(
                 text(hash, &format!("{fund:?}"));
             }
             ValueTypeBase::Real => byte(hash, 2),
+            ValueTypeBase::Enum(identity) => {
+                byte(hash, 6);
+                text(hash, &identity.canonical_name);
+            }
             ValueTypeBase::Named(name) => {
                 byte(hash, 3);
                 text(hash, name);
@@ -337,6 +342,7 @@ pub(super) fn type_summary(ty: &ValueType) -> String {
     let base = match &ty.base {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
         ValueTypeBase::Real => "REAL".to_string(),
+        ValueTypeBase::Enum(identity) => identity.name.clone(),
         ValueTypeBase::Named(name) => name.clone(),
         ValueTypeBase::Callable(callable) => format!("{:?}", callable.kind),
         ValueTypeBase::Error => "error".to_string(),

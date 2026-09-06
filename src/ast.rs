@@ -224,10 +224,11 @@ pub struct ConstDecl {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstDeclaredType {
     Fund(FundType),
     Real,
+    Named(QualifiedName),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

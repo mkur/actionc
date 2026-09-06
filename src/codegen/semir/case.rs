@@ -39,7 +39,10 @@ impl SemIrAstLowerer<'_> {
             }],
             span,
         }));
-        let scalar = selector.ty.as_scalar().expect("validated integer CASE");
+        let scalar = selector
+            .ty
+            .representation_scalar()
+            .expect("validated integer/enum CASE");
         let mut branches = Vec::new();
         let mut else_body = Vec::new();
         for arm in arms {

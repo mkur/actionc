@@ -278,6 +278,7 @@ fn semantic_value_alignment(
         return semantic_value_width(value, records, target_layout).map(|_| 1);
     }
     match value.kind() {
+        super::ValueTypeKind::Enum(_) => Some(1),
         super::ValueTypeKind::Scalar(scalar) => Some(
             scalar
                 .width_bytes()

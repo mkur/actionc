@@ -421,7 +421,7 @@ impl SemGraphBuilder {
                     self.declaration_storage(owner, &field.storage);
                 }
             }
-            SemDeclarationStorage::Scalar => {}
+            SemDeclarationStorage::Scalar | SemDeclarationStorage::Enum { .. } => {}
         }
     }
 

@@ -16,6 +16,8 @@ mod array_places;
 mod case;
 pub use case::CaseRange;
 mod declarations;
+mod enums;
+pub use enums::{EnumFacts, EnumIdentity, EnumMemberValue, EnumType, EnumValue};
 mod initializers;
 mod static_addresses;
 pub mod subject;
@@ -38,6 +40,7 @@ pub use types::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticModel {
+    pub enums: EnumFacts,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     pub target_layout: TargetLayout,
     pub symbols: SymbolTable,
@@ -359,6 +362,7 @@ pub struct ValueType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTypeBase {
     Fund(FundType),
+    Enum(EnumIdentity),
     Real,
     Named(String),
     Callable(Box<CallableType>),
@@ -513,6 +517,7 @@ impl Analyzer {
             TargetLayout::for_target(self.options.target),
         );
         Ok(SemanticModel {
+            enums: self.enums,
             case_labels: self.case_labels,
             target_layout: TargetLayout::for_target(self.options.target),
             symbols: self.symbols,
@@ -538,6 +543,7 @@ impl Analyzer {
 }
 
 struct Analyzer {
+    enums: EnumFacts,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     options: SemanticOptions,
     symbols: SymbolTable,
@@ -616,6 +622,7 @@ impl Analyzer {
 
         Self {
             options,
+            enums: EnumFacts::default(),
             case_labels: HashMap::new(),
             symbols,
             builtin_scope,
@@ -1710,7 +1717,10 @@ impl Analyzer {
 
     fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
         let diagnostic_count = self.diagnostics.len();
-        self.expect_expr_in_context(scope, expr, expr.span, true);
+        let condition = self.expect_expr_in_context(scope, expr, expr.span, true);
+        if condition.ty.as_enum().is_some() {
+            self.diagnostics.push(Diagnostic::new(expr.span, "enum values are not truth values; compare explicitly"));
+        }
         if self.diagnostics.len() == diagnostic_count {
             self.lower_expr_in_context(scope, expr, true);
         }
@@ -1855,6 +1865,10 @@ impl Analyzer {
         if actual.is_error() {
             return;
         }
+        if (expected.as_enum().is_some() || actual.as_enum().is_some()) && expected != actual {
+            self.diagnostics.push(Diagnostic::new(value.span, "enum assignment requires the exact enum type; use an explicit integer conversion"));
+            return;
+        }
         if expected.pointer {
             if !self.pointer_target_accepts_expr(scope, expected, value_expr, actual) {
                 self.diagnostics.push(Diagnostic::new(
@@ -1944,6 +1958,10 @@ impl Analyzer {
                 span,
                 "compound assignment is not supported for records",
             ));
+            return;
+        }
+        if target_place.ty.as_enum().is_some() || value.ty.as_enum().is_some() {
+            self.diagnostics.push(Diagnostic::new(span, "enum arithmetic requires an explicit integer conversion"));
             return;
         }
 
@@ -2158,6 +2176,9 @@ impl Analyzer {
             ExprKind::Cast { ty, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
                 let ty = self.value_type_from_type_ref(scope, ty);
+                if inner.ty.as_enum().is_some() && ty.as_scalar().is_none() {
+                    self.diagnostics.push(Diagnostic::new(expr.span, "enum values require an explicit integer conversion"));
+                }
                 if inner.ty.is_real() {
                     if let Some(target) = ty.as_scalar() {
                         self.validate_static_real_integer_cast(expr.span, target, &inner);
@@ -2265,6 +2286,9 @@ impl Analyzer {
             }
             ExprKind::Unary { op, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
+                if inner.ty.as_enum().is_some() {
+                    self.diagnostics.push(Diagnostic::new(expr.span, "enum arithmetic requires an explicit integer conversion"));
+                }
                 let ty = if *op == UnaryOp::Neg && inner.ty.as_scalar().is_some() {
                     fund_value(FundType::Int)
                 } else {
@@ -2294,6 +2318,11 @@ impl Analyzer {
                 let right =
                     self.expect_expr_in_context(scope, right, expr.span, predicate_operands);
                 let uses_real = left.ty.is_real() || right.ty.is_real();
+                if (left.ty.as_enum().is_some() || right.ty.as_enum().is_some())
+                    && !(is_condition_op(*op) && left.ty == right.ty)
+                {
+                    self.diagnostics.push(Diagnostic::new(expr.span, "enum operators require comparison of the same enum type; convert to integers for arithmetic"));
+                }
                 if !uses_real
                     && matches!(op, BinaryOp::Div | BinaryOp::Mod)
                     && evaluate_const_expr(&right).is_ok_and(|value| value.bits == 0)
@@ -2351,6 +2380,10 @@ impl Analyzer {
                     .expect("guarded layout intrinsic");
                 self.classify_layout_query(scope, intrinsic, args, expr.span)
             }
+            ExprKind::Call { callee, args } if self.enum_type_for_expr(scope, callee).is_some() => {
+                let identity = self.enum_type_for_expr(scope, callee).unwrap();
+                self.enum_cast_subject(scope, identity, args, expr.span)
+            }
             ExprKind::Call { callee, args }
                 if args.len() == 1 && self.can_subject_be_indexed(scope, callee) =>
             {
@@ -2407,7 +2440,9 @@ impl Analyzer {
                 })
             }
             ExprKind::Field { base, field } => {
-                if let Some(subject) =
+                if let Some(subject) = self.enum_member_subject(scope, base, field, expr.span) {
+                    subject
+                } else if let Some(subject) =
                     self.classify_module_member_subject(scope, base, field, expr.span)
                 {
                     subject
@@ -2798,6 +2833,11 @@ impl Analyzer {
             && !self.ensure_named_constant(symbol_id, span)
         {
             return self.subject_error(span);
+        }
+        if let Some(value) = self.enums.constants.get(&symbol_id).cloned() {
+            return subject::SemSubject::Expr(subject::SemExpr {
+                ty: value.value_type(), kind: subject::SemExprKind::Literal(subject::SemLiteral::Enum(value)), span,
+            });
         }
         let symbol = &self.symbols.symbols[symbol_id.0];
 
@@ -3574,9 +3614,14 @@ impl Analyzer {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
             Decl::Const(constants) => self.analyze_const_decl(scope, constants),
             Decl::Type(type_decl) => {
-                let TypeDefinition::Record(fields) = &type_decl.definition else {
-                    self.diagnostics.push(Diagnostic::new(type_decl.span, "ENUM requires the modern profile (feature not yet enabled)"));
+                if let TypeDefinition::Enum(members) = &type_decl.definition {
+                    if let Some(owner) = self.declare(scope, type_decl.name.clone(), SymbolClass::Type, None, type_decl.span) {
+                        self.define_enum(scope, owner, members, type_decl.span);
+                    }
                     return;
+                }
+                let TypeDefinition::Record(fields) = &type_decl.definition else {
+                    unreachable!()
                 };
                 if let Some(owner) = self.declare(
                     scope,
@@ -3625,7 +3670,7 @@ impl Analyzer {
                 continue;
             };
 
-            self.evaluate_declared_const(scope, symbol_id, declaration.declared_type, entry);
+            self.evaluate_declared_const(scope, symbol_id, declaration.declared_type.clone(), entry);
         }
     }
 
@@ -3657,6 +3702,31 @@ impl Analyzer {
         entry: &ConstEntry,
     ) {
         let expression = self.lower_expr(scope, &entry.value);
+        let expected_enum = if let Some(ConstDeclaredType::Named(name)) = &declared_type {
+            let ty = TypeRef { base: TypeBase::Named(name.clone()), pointer: false };
+            self.validate_type_ref(scope, &ty, entry.span);
+            let expected = self.value_type_from_type_ref(scope, &ty);
+            if expected.as_enum().is_none() {
+                self.diagnostics.push(Diagnostic::new(entry.span, "named CONST annotation must be an enum type"));
+                return;
+            }
+            Some(expected)
+        } else { None };
+        if expected_enum.is_some() || expression.ty.as_enum().is_some() {
+            let expected = expected_enum.unwrap_or_else(|| expression.ty.clone());
+            if expected != expression.ty || matches!(declared_type, Some(ConstDeclaredType::Fund(_) | ConstDeclaredType::Real)) {
+                self.diagnostics.push(Diagnostic::new(entry.span, "enum CONST requires a value of the exact enum type; use an explicit conversion"));
+                return;
+            }
+            match evaluate_const_expr(&expression) {
+                Ok(value) => {
+                    self.enums.constants.insert(symbol_id, EnumValue { identity: expected.as_enum().unwrap().clone(), bits: value.bits as u8 });
+                    self.symbols.symbols[symbol_id.0].ty = Some(expected);
+                }
+                Err(message) => self.diagnostics.push(Diagnostic::new(entry.span, message)),
+            }
+            return;
+        }
         if declared_type == Some(ConstDeclaredType::Real) {
             if !self.options.native_real {
                 self.symbols.symbols[symbol_id.0].ty = Some(ValueType::error());
@@ -3692,6 +3762,7 @@ impl Analyzer {
         match evaluate_const_expr(&expression).map(|value| match declared_type {
             Some(ConstDeclaredType::Fund(declared_type)) => value.cast(declared_type),
             Some(ConstDeclaredType::Real) => unreachable!(),
+            Some(ConstDeclaredType::Named(_)) => unreachable!(),
             None => value,
         }) {
             Ok(value) => {
@@ -4013,6 +4084,7 @@ impl Analyzer {
             return self.value_storage_width(value).map(|_| 1);
         }
         match value.kind() {
+            ValueTypeKind::Enum(_) => Some(1),
             ValueTypeKind::Scalar(scalar) => Some(
                 scalar
                     .width_bytes()
@@ -4502,7 +4574,9 @@ impl Analyzer {
             )
         {
             let symbol = &self.symbols.symbols[symbol_id.0];
-            value.base = if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
+            value.base = if let Some(identity) = symbol.ty.as_ref().and_then(ValueType::as_enum) {
+                ValueTypeBase::Enum(identity.clone())
+            } else if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
                 ValueTypeBase::Real
             } else {
                 ValueTypeBase::Named(symbol.qualified_name.clone())
@@ -4892,6 +4966,7 @@ fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
     match (&symbol.class, symbol.ty.as_ref()) {
         (SymbolClass::Func | SymbolClass::BuiltinFunc, Some(ty)) => match ty.base {
             ValueTypeBase::Fund(fund) => RoutineKind::Func { return_type: fund },
+            ValueTypeBase::Enum(_) => unreachable!("enum results are gated until routine signature integration"),
             ValueTypeBase::Real => RoutineKind::Proc,
             ValueTypeBase::Named(_) => RoutineKind::Proc,
             ValueTypeBase::Callable(_) => RoutineKind::Proc,
@@ -5048,6 +5123,7 @@ fn evaluate_exact_fixed_address_expr(
         subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)) => {
             Ok(exact_const_value(*value))
         }
+        subject::SemExprKind::Literal(subject::SemLiteral::Enum(_)) => Err(FixedArrayAddressError::Invalid),
         subject::SemExprKind::Cast { ty, expr: inner } => {
             let value = evaluate_exact_fixed_address_expr(inner)?;
             let scalar = ty.as_scalar().ok_or(FixedArrayAddressError::Invalid)?;
@@ -5164,7 +5240,7 @@ fn exact_scalar_cast(value: i64, target: ScalarType) -> i64 {
 fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
     let scalar = expr
         .ty
-        .as_scalar()
+        .representation_scalar()
         .ok_or_else(|| "CONST expression must produce a scalar value".to_string())?;
     let mask = scalar_mask(scalar);
     let bits = match &expr.kind {
@@ -5179,6 +5255,7 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
                 .ok_or_else(|| "character cannot be represented as an Action! byte".to_string())?,
         ),
         subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)) => value.bits,
+        subject::SemExprKind::Literal(subject::SemLiteral::Enum(value)) => u16::from(value.bits),
         subject::SemExprKind::Literal(subject::SemLiteral::String(_)) => {
             return Err("strings are not supported in CONST expressions".to_string());
         }
@@ -10152,6 +10229,10 @@ mod tests {
 
     fn assert_semir_storage_types(storage: &ir::SemDeclarationStorage) {
         match storage {
+            ir::SemDeclarationStorage::Enum { enum_type } => {
+                assert!(!enum_type.members.is_empty());
+                assert!(enum_type.members.len() <= 256);
+            }
             ir::SemDeclarationStorage::Scalar => {}
             ir::SemDeclarationStorage::Array { length, .. } => {
                 if let Some(length) = length {

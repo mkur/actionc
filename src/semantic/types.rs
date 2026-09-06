@@ -1,7 +1,7 @@
 use crate::ast::{BinaryOp, FundType, RoutineKind};
 use crate::lexer::NumberKind;
 
-use super::{FieldId, ValueType, ValueTypeBase};
+use super::{EnumIdentity, FieldId, ValueType, ValueTypeBase};
 use crate::target::TargetLayout;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -79,6 +79,7 @@ pub struct CallableType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTypeKind {
     Scalar(ScalarType),
+    Enum(EnumIdentity),
     Real,
     Pointer(PointerType),
     CallablePointer(CallableType),
@@ -319,6 +320,22 @@ impl ScalarType {
 }
 
 impl ValueType {
+    pub fn enumeration(identity: EnumIdentity) -> Self {
+        Self { base: ValueTypeBase::Enum(identity), pointer: false }
+    }
+
+    pub fn as_enum(&self) -> Option<&EnumIdentity> {
+        match &self.base {
+            ValueTypeBase::Enum(identity) if !self.pointer => Some(identity),
+            _ => None,
+        }
+    }
+
+    /// Storage/constant payload type, never an implicit source conversion.
+    pub fn representation_scalar(&self) -> Option<ScalarType> {
+        self.as_scalar().or_else(|| self.as_enum().map(|_| ScalarType::Byte))
+    }
+
     pub fn scalar(scalar: ScalarType) -> Self {
         Self {
             base: ValueTypeBase::Fund(scalar.fund_type()),
@@ -394,6 +411,7 @@ impl ValueType {
         match self.base {
             ValueTypeBase::Fund(fund) => Some(ScalarType::from_fund(fund)),
             ValueTypeBase::Real
+            | ValueTypeBase::Enum(_)
             | ValueTypeBase::Named(_)
             | ValueTypeBase::Callable(_)
             | ValueTypeBase::Error => None,
@@ -419,6 +437,7 @@ impl ValueType {
     pub fn value_width_bytes(&self) -> Option<u16> {
         match self.kind() {
             ValueTypeKind::Scalar(scalar) => Some(scalar.width_bytes()),
+            ValueTypeKind::Enum(_) => Some(1),
             ValueTypeKind::Real => Some(6),
             ValueTypeKind::Pointer(_) => Some(2),
             ValueTypeKind::CallablePointer(_) => Some(2),
@@ -431,6 +450,7 @@ impl ValueType {
     pub fn value_width_bytes_for_layout(&self, layout: TargetLayout) -> Option<u16> {
         match self.kind() {
             ValueTypeKind::Scalar(scalar) => Some(scalar.width_bytes()),
+            ValueTypeKind::Enum(_) => Some(1),
             ValueTypeKind::Real => Some(6),
             ValueTypeKind::Pointer(_) => u16::try_from(layout.data_pointer.size_bytes.get()).ok(),
             ValueTypeKind::CallablePointer(_) => {
@@ -455,6 +475,7 @@ impl ValueType {
 
         match &self.base {
             ValueTypeBase::Fund(fund) => ValueTypeKind::Scalar(ScalarType::from_fund(*fund)),
+            ValueTypeBase::Enum(identity) => ValueTypeKind::Enum(identity.clone()),
             ValueTypeBase::Real => ValueTypeKind::Real,
             ValueTypeBase::Named(name) => ValueTypeKind::Record(name.clone()),
             ValueTypeBase::Callable(callable) if !self.pointer => {
@@ -490,6 +511,7 @@ impl ValueType {
                 is_pointer: self.pointer,
             }),
             ValueTypeBase::Fund(_)
+            | ValueTypeBase::Enum(_)
             | ValueTypeBase::Real
             | ValueTypeBase::Callable(_)
             | ValueTypeBase::Error => None,

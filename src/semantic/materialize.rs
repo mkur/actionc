@@ -46,7 +46,7 @@ impl Materializer<'_> {
                 self.expr(global_scope, &mut set.address);
                 self.expr(global_scope, &mut set.value);
             }
-            Item::Declaration(Decl::Const(_)) => return None,
+            Item::Declaration(declaration) if !self.keep_declaration(global_scope, declaration) => return None,
             Item::Declaration(declaration) => self.declaration(global_scope, declaration),
             Item::Routine(routine) => self.routine(global_scope, routine),
             Item::Statement(statement) => self.statement(global_scope, statement),
@@ -73,7 +73,7 @@ impl Materializer<'_> {
         }
         routine
             .locals
-            .retain(|decl| !matches!(decl, Decl::Const(_)));
+            .retain(|decl| self.keep_declaration(routine_scope, decl));
         for declaration in &mut routine.locals {
             self.declaration(routine_scope, declaration);
         }
@@ -100,8 +100,22 @@ impl Materializer<'_> {
                     self.var_declaration(scope, field);
                 }
             }
-            Decl::Const(_) => {}
+            Decl::Const(declaration) => {
+                for entry in &mut declaration.entries { self.expr(scope, &mut entry.value); }
+            }
         }
+    }
+
+    fn keep_declaration(&self, scope: ScopeId, declaration: &Decl) -> bool {
+        let Decl::Const(constants) = declaration else { return true };
+        // A numeric AST literal cannot carry nominal enum identity. Keep enum
+        // CONST bindings (including their defining scope) until the modern
+        // SemIR projection erases them deliberately to BYTE. Mixed groups stay
+        // together; numeric references in their initializers still materialize.
+        constants.entries.iter().any(|entry| {
+            self.model.symbols.lookup(scope, &entry.name)
+                .is_some_and(|id| self.model.enums.constants.contains_key(&id))
+        })
     }
 
     fn var_declaration(&self, scope: ScopeId, declaration: &mut VarDecl) {
@@ -148,7 +162,7 @@ impl Materializer<'_> {
                     .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
                     .map(|block| block.scope)
                     .unwrap_or(scope);
-                declarations.retain(|declaration| !matches!(declaration, Decl::Const(_)));
+                declarations.retain(|declaration| self.keep_declaration(block_scope, declaration));
                 for declaration in declarations {
                     self.declaration(block_scope, declaration);
                 }

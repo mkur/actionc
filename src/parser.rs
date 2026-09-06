@@ -698,7 +698,8 @@ impl<'a> Parser<'a> {
                     self.bump();
                     ConstDeclaredType::Real
                 })
-            });
+            })
+            .or_else(|| self.parse_named_const_type());
         let mut entries = Vec::new();
 
         loop {
@@ -1820,6 +1821,19 @@ impl<'a> Parser<'a> {
     }
 
     fn is_const_decl_start_at(&self, pos: usize) -> bool {
+        if self.is_contextual_at(pos, "CONST") {
+            let mut end = pos + 2;
+            if matches!(self.tokens.get(pos + 1).map(|token| &token.kind), Some(TokenKind::Ident(_))) {
+                while matches!(self.tokens.get(end).map(|token| &token.kind), Some(TokenKind::Dot))
+                    && matches!(self.tokens.get(end + 1).map(|token| &token.kind), Some(TokenKind::Ident(_))) {
+                    end += 2;
+                }
+                if matches!(self.tokens.get(end).map(|token| &token.kind), Some(TokenKind::Ident(_)))
+                    && matches!(self.tokens.get(end + 1).map(|token| &token.kind), Some(TokenKind::Assign)) {
+                    return true;
+                }
+            }
+        }
         let untyped = matches!(
             (
                 self.tokens.get(pos).map(|token| &token.kind),

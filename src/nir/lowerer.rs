@@ -3964,7 +3964,7 @@ fn insert_record_storage_size(sizes: &mut BTreeMap<String, u16>, declaration: &S
         | SemDeclarationStorage::Record { record_type, .. } => {
             sizes.insert(record_type.name.clone(), record_type.size);
         }
-        SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. } => {}
+        SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. } | SemDeclarationStorage::Enum { .. } => {}
     }
 }
 
@@ -4255,6 +4255,7 @@ fn op_temp_def(op: &NirOp) -> Option<(TempId, &NirType)> {
 
 fn declaration_kind(declaration: &SemDeclaration) -> String {
     let mut kind = match &declaration.storage {
+        SemDeclarationStorage::Enum { enum_type } => format!("enum {} members={}", enum_type.identity.name, enum_type.members.len()),
         SemDeclarationStorage::Scalar => type_summary(&declaration.ty.value),
         SemDeclarationStorage::Array {
             array_type,
@@ -4295,7 +4296,7 @@ fn declaration_storage_class(storage: &SemDeclarationStorage) -> NirStorageClass
         SemDeclarationStorage::Scalar => NirStorageClass::Scalar,
         SemDeclarationStorage::Array { .. } => NirStorageClass::Array,
         SemDeclarationStorage::Record { .. } => NirStorageClass::Record,
-        SemDeclarationStorage::Type { .. } => NirStorageClass::Type,
+        SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Enum { .. } => NirStorageClass::Type,
     }
 }
 
@@ -4389,7 +4390,7 @@ fn declaration_local_object_layout(
         SemDeclarationStorage::Array { .. } | SemDeclarationStorage::Scalar => {
             ByteSize::from(declaration.ty.alignment.unwrap_or(1))
         }
-        SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => ByteSize::ONE,
+        SemDeclarationStorage::Enum { .. } | SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => ByteSize::ONE,
     };
     NirObjectLayout::new(declared_size.max(initialized_size), alignment)
 }
@@ -4443,7 +4444,7 @@ fn declaration_storage_size(
             address_initializer,
             target_layout,
         ),
-        SemDeclarationStorage::Type { .. } => 0,
+        SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Enum { .. } => 0,
         SemDeclarationStorage::Record { record_type, .. } => record_type.size,
     }
 }
@@ -4801,7 +4802,7 @@ fn declaration_global_init(
             })
         }
         SemDeclarationStorage::Record { .. } => None,
-        SemDeclarationStorage::Type { .. } => None,
+        SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Enum { .. } => None,
     }
 }
 
@@ -4996,7 +4997,7 @@ fn declaration_local_init(
                 }
             })
         }
-        SemDeclarationStorage::Record { .. } | SemDeclarationStorage::Type { .. } => None,
+        SemDeclarationStorage::Record { .. } | SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Enum { .. } => None,
     }
 }
 
@@ -5934,6 +5935,7 @@ fn inline_asm_regions(code: &NirForeignCode, reads: bool) -> Option<Vec<NirMemor
 
 fn literal_summary(literal: &SemLiteral) -> String {
     match literal {
+        SemLiteral::Enum(value) => value.representation().number_literal().text,
         SemLiteral::Number(number) => number.text.clone(),
         SemLiteral::Real { source, .. } => source.text.clone(),
         SemLiteral::String(value) => format!("{value:?}"),
@@ -5961,6 +5963,7 @@ fn real_nir_type() -> NirType {
 
 fn literal_value(literal: &SemLiteral, ty: &NirType) -> Option<NirValue> {
     let value = match literal {
+        SemLiteral::Enum(value) => u16::from(value.bits),
         SemLiteral::Number(number) => number.value?,
         SemLiteral::Real { .. } => return None,
         SemLiteral::Char(value) => *value as u16,

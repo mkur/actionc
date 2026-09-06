@@ -234,6 +234,7 @@ pub enum SemStaticInitializerValue {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemDeclarationStorage {
+    Enum { enum_type: super::EnumType },
     Scalar,
     Array {
         array_type: ArrayType,
@@ -860,6 +861,7 @@ pub struct SemArrayDecay {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemLiteral {
+    Enum(super::EnumValue),
     Number(NumberLiteral),
     Real {
         source: NumberLiteral,
@@ -1105,7 +1107,7 @@ fn collect_external_storage_references(
                 collect_external_storage_references(&field.storage, external, referenced);
             }
         }
-        SemDeclarationStorage::Scalar => {}
+        SemDeclarationStorage::Scalar | SemDeclarationStorage::Enum { .. } => {}
     }
 }
 
@@ -1426,6 +1428,11 @@ impl SemIrFormatter {
                 });
             }
             match &decl.storage {
+                SemDeclarationStorage::Enum { enum_type } => {
+                    for member in &enum_type.members {
+                        this.line(format!("member {}={}", member.name, member.bits));
+                    }
+                }
                 SemDeclarationStorage::Type { fields, .. }
                 | SemDeclarationStorage::Record { fields, .. } => {
                     for field in fields {
@@ -1859,6 +1866,7 @@ fn lvalue_summary(lvalue: &SemLValue) -> String {
 
 fn literal_summary(literal: &SemLiteral) -> String {
     match literal {
+        SemLiteral::Enum(value) => format!("{}({})", value.identity.name, value.bits),
         SemLiteral::Number(number) => number.text.clone(),
         SemLiteral::Real { source, .. } => source.text.clone(),
         SemLiteral::String(text) => format!("{text:?}"),
@@ -1941,6 +1949,7 @@ fn symbol_display_name(symbol: &SemSymbolRef) -> &str {
 
 fn declaration_storage_summary(storage: &SemDeclarationStorage) -> String {
     match storage {
+        SemDeclarationStorage::Enum { enum_type } => format!("enum BYTE members={}", enum_type.members.len()),
         SemDeclarationStorage::Scalar => "scalar".to_string(),
         SemDeclarationStorage::Array {
             array_type,
@@ -2004,6 +2013,7 @@ fn sem_array_origin_from_layout(origin: super::SemanticArrayOrigin) -> SemArrayO
 fn type_summary(ty: &ValueType) -> String {
     let base = match &ty.base {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
+        ValueTypeBase::Enum(identity) => identity.name.clone(),
         ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Named(name) => name.clone(),
         ValueTypeBase::Callable(callable) => callable_type_summary(callable),
@@ -2475,7 +2485,8 @@ impl<'a> IrBuilder<'a> {
             .iter()
             .filter_map(|entry| {
                 let symbol = self.symbol_ref(scope, &entry.name, entry.span)?;
-                let value = self.model.constants.get(&symbol.id).copied()?;
+                let value = self.model.constants.get(&symbol.id).copied()
+                    .or_else(|| self.model.enums.constants.get(&symbol.id).map(super::EnumValue::representation))?;
                 Some(SemConst {
                     symbol,
                     value,
@@ -2561,6 +2572,15 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_type_decl(&mut self, scope: ScopeId, decl: &TypeDecl) -> Vec<SemDeclaration> {
+        if let TypeDefinition::Enum(_) = &decl.definition {
+            let symbol = self.symbol_ref(scope, &decl.name, decl.span).expect("validated enum symbol");
+            let enum_type = self.model.enums.types[&symbol.id].clone();
+            return vec![SemDeclaration {
+                ty: self.sem_type_from_symbol(&symbol), symbol,
+                storage: SemDeclarationStorage::Enum { enum_type },
+                initializer: None, static_initializer: None, span: decl.span, group_span: decl.span,
+            }];
+        }
         let TypeDefinition::Record(fields) = &decl.definition else {
             unreachable!("ENUM definitions are rejected before SemIR until their capability is enabled")
         };
@@ -2620,7 +2640,7 @@ impl<'a> IrBuilder<'a> {
                 (array_type.element.as_ref(), true)
             }
             SemDeclarationStorage::Scalar => (&ty.value, false),
-            SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
+            SemDeclarationStorage::Enum { .. } | SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
                 return None;
             }
         };
@@ -3289,6 +3309,15 @@ impl<'a> IrBuilder<'a> {
 
     fn lower_expr(&mut self, scope: ScopeId, expr: &Expr) -> SemExpr {
         let kind = match &expr.kind {
+            _ if self.model.enums.member_values.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
+                SemExprKind::Literal(SemLiteral::Enum(self.model.enums.member_values[&super::ExpressionSite::new(scope, expr.span)].clone()))
+            }
+            ExprKind::Call { args, .. } if self.model.enums.casts.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
+                SemExprKind::Cast {
+                    ty: self.model.enums.casts[&super::ExpressionSite::new(scope, expr.span)].clone(),
+                    expr: Box::new(self.lower_expr(scope, &args[0])),
+                }
+            }
             ExprKind::Missing => SemExprKind::Missing,
             ExprKind::Raw => SemExprKind::Raw(expr.text.clone()),
             ExprKind::InitializerList(elements) => SemExprKind::InitializerList(
@@ -3409,7 +3438,9 @@ impl<'a> IrBuilder<'a> {
         expr: &Expr,
         symbol: SemSymbolRef,
     ) -> SemExprKind {
-        if symbol.class == SymbolClass::Const
+        if let Some(value) = self.model.enums.constants.get(&symbol.id).cloned() {
+            SemExprKind::Literal(SemLiteral::Enum(value))
+        } else if symbol.class == SymbolClass::Const
             && let Some(value) = self.model.constants.get(&symbol.id).copied()
         {
             SemExprKind::Literal(SemLiteral::Constant(value))
@@ -3443,6 +3474,7 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::Literal(SemLiteral::String(_)) => ValueType::pointer_to(char_type()),
             SemExprKind::Literal(SemLiteral::Char(_)) => char_type(),
             SemExprKind::Literal(SemLiteral::Constant(value)) => value.value_type(),
+            SemExprKind::Literal(SemLiteral::Enum(value)) => value.value_type(),
             SemExprKind::Symbol(symbol) => symbol.ty.clone().unwrap_or_else(ValueType::error),
             SemExprKind::LValue(lvalue) => lvalue.ty.clone(),
             SemExprKind::AddressOf(lvalue) => ValueType::pointer_to(lvalue.ty.clone()),
@@ -4690,7 +4722,9 @@ impl<'a> IrBuilder<'a> {
         if let Some(symbol) = self.qualified_symbol_ref(scope, name, Span::new(0, 0))
             && matches!(symbol.class, SymbolClass::Type | SymbolClass::Record)
         {
-            value.base = if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
+            value.base = if let Some(identity) = symbol.ty.as_ref().and_then(ValueType::as_enum) {
+                ValueTypeBase::Enum(identity.clone())
+            } else if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
                 ValueTypeBase::Real
             } else {
                 ValueTypeBase::Named(symbol.qualified_name)

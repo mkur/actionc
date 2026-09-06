@@ -308,6 +308,16 @@ identity from names.
 
 ## Scalar Type Foundation
 
+Nominal BYTE enums retain their defining type identity through semantic subjects,
+constants, and SemIR. `as_scalar()` deliberately excludes enums; the separate
+representation query is for storage and already-validated constant payloads,
+not implicit numeric compatibility. Only NIR lowering and classic projection
+erase enum values to unsigned bytes. Every byte representation is defined, so
+named-member coverage does not prove an enum CASE exhaustive. Enum declarations
+and CONST bindings remain semantic metadata and allocate no runtime storage.
+The legacy AST materializer retains enum CONST bindings rather than replacing
+them with untyped numeric literals and losing identity under shadowing.
+
 The canonical scalar semantic model is `ScalarType`:
 
 - `BYTE`: 1 byte, unsigned;

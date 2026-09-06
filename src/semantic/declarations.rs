@@ -21,6 +21,7 @@ struct LayoutDeclaration {
 
 #[derive(Clone)]
 enum LayoutDeclarationKind {
+    Enum { members: Vec<EnumMember>, span: Span },
     Record {
         name: String,
         fields: Vec<VarDecl>,
@@ -48,6 +49,12 @@ impl Analyzer {
             for item in &region.items {
                 match item {
                     Item::Declaration(Decl::Type(decl)) => {
+                        if let TypeDefinition::Enum(members) = &decl.definition {
+                            if let Some(id) = self.register_named_layout_declaration(scope, &decl.name, LayoutDeclarationKind::Enum { members: members.clone(), span: decl.span }) {
+                                records.push(id);
+                            }
+                            continue;
+                        }
                         let TypeDefinition::Record(fields) = &decl.definition else {
                             self.diagnostics.push(Diagnostic::new(decl.span, "ENUM requires the modern profile (feature not yet enabled)"));
                             continue;
@@ -81,7 +88,7 @@ impl Analyzer {
                                 scope,
                                 &entry.name,
                                 LayoutDeclarationKind::Constant {
-                                    declared_type: decl.declared_type,
+                                    declared_type: decl.declared_type.clone(),
                                     entry: entry.clone(),
                                 },
                             ) {
@@ -220,6 +227,7 @@ impl Analyzer {
         self.named_layout_declarations.active.push(id);
         let diagnostic_count = self.diagnostics.len();
         match kind {
+            LayoutDeclarationKind::Enum { members, span } => self.define_enum(scope, id, &members, span),
             LayoutDeclarationKind::Record { name, fields } => {
                 self.validate_predeclared_record_type(scope, &name, &fields);
             }

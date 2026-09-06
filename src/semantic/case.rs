@@ -45,7 +45,7 @@ impl Analyzer {
             return;
         }
         let selector = self.lower_expr(scope, selector);
-        let Some(scalar) = selector.ty.as_scalar() else {
+        let Some(scalar) = selector.ty.representation_scalar() else {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 "CASE selector must be an integer or enum",
@@ -59,9 +59,13 @@ impl Analyzer {
                 labels
                     .iter()
                     .filter_map(|label| {
-                        let low = self.case_constant(scope, &label.low, scalar)?;
+                        if selector.ty.as_enum().is_some() && label.high.is_some() {
+                            self.diagnostics.push(Diagnostic::new(label.span, "enum CASE ranges are not supported; convert the selector to an integer explicitly"));
+                            return None;
+                        }
+                        let low = self.case_constant(scope, &label.low, &selector.ty, scalar)?;
                         let high = match &label.high {
-                            Some(high) => self.case_constant(scope, high, scalar)?,
+                            Some(high) => self.case_constant(scope, high, &selector.ty, scalar)?,
                             None => low,
                         };
                         if low > high {
@@ -103,8 +107,23 @@ impl Analyzer {
         );
     }
 
-    fn case_constant(&mut self, scope: ScopeId, expr: &Expr, scalar: ScalarType) -> Option<i64> {
+    fn case_constant(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+        selector_type: &ValueType,
+        scalar: ScalarType,
+    ) -> Option<i64> {
         let value = self.lower_expr(scope, expr);
+        if selector_type.as_enum().is_some() || value.ty.as_enum().is_some() {
+            if &value.ty != selector_type {
+                self.diagnostics.push(Diagnostic::new(
+                    expr.span,
+                    "enum CASE label must have the exact selector enum type",
+                ));
+                return None;
+            }
+        }
         let constant = match evaluate_const_expr(&value) {
             Ok(value) => value,
             Err(message) => {

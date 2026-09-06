@@ -271,6 +271,16 @@ enum parsing is covered but cannot reach unsupported public code generation.
 
 ### Slice 4 — Nominal BYTE enum core, end to end
 
+Status: complete behind the enum capability. Nine focused integration tests,
+three internal execution/materialization tests, all 2,791 compiler tests,
+snapshots, and the 35-fixture NIR sweep pass. All 256 byte values execute across
+both backends/runtimes; signed/wide casts, zero extension, unnamed values,
+comparisons, CASE, and no-match continuation have independent expectations.
+The RETRY=11 collision, 256-member overflow, invalid nominal mixing, typed/
+inferred CONST, and shadow-safe materialization are covered. Enum storage is U8
+in all four target layouts and passes independent 65816/68k lowering canaries.
+Enums remain unavailable publicly until routine and complete storage integration.
+
 - Build enum/member semantic facts in declaration order. Implement checked
   previous-member-plus-one numbering and duplicate name/value diagnostics.
 - Bind qualified members, typed/inferred enum CONST, and explicit enum casts.

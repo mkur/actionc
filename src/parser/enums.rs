@@ -1,6 +1,32 @@
 use super::*;
 
 impl Parser<'_> {
+    pub(super) fn parse_named_const_type(&mut self) -> Option<ConstDeclaredType> {
+        let TokenKind::Ident(_) = &self.peek().kind else {
+            return None;
+        };
+        let mut end = self.pos + 1;
+        while matches!(
+            self.tokens.get(end).map(|token| &token.kind),
+            Some(TokenKind::Dot)
+        ) && matches!(
+            self.tokens.get(end + 1).map(|token| &token.kind),
+            Some(TokenKind::Ident(_))
+        ) {
+            end += 2;
+        }
+        if !matches!(
+            self.tokens.get(end).map(|token| &token.kind),
+            Some(TokenKind::Ident(_))
+        ) {
+            return None;
+        }
+        let name = self.expect_ident().unwrap();
+        Some(ConstDeclaredType::Named(
+            self.parse_qualified_name_tail(name, &mut Vec::new()),
+        ))
+    }
+
     pub(super) fn parse_enum_members(&mut self) -> Vec<EnumMember> {
         let mut members = Vec::new();
         while !self.at_eof() && !matches!(self.peek().kind, TokenKind::RBracket) {

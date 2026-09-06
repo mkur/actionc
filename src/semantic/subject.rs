@@ -52,6 +52,7 @@ pub enum SemExprKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemLiteral {
+    Enum(super::EnumValue),
     Number(NumberLiteral),
     Real {
         source: NumberLiteral,
