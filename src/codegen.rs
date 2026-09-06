@@ -1344,8 +1344,8 @@ fn fund_type_trace_name(fund: FundType) -> &'static str {
         FundType::Card => "CARD",
         FundType::Char => "CHAR",
         FundType::Int => "INT",
-        FundType::Long => "LONG",
-        FundType::ULong => "ULONG",
+        FundType::LongInt => "LONGINT",
+        FundType::LongCard => "LONGCARD",
         FundType::Address => "ADDRESS",
         FundType::Size => "SIZE",
     }

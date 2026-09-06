@@ -763,7 +763,7 @@ pub(super) fn cast_type_size(ty: &TypeRef) -> Option<u16> {
         TypeBase::Fund(FundType::Card | FundType::Int | FundType::Address | FundType::Size) => {
             Some(2)
         }
-        TypeBase::Fund(FundType::Long | FundType::ULong) => Some(4),
+        TypeBase::Fund(FundType::LongInt | FundType::LongCard) => Some(4),
         TypeBase::NativeReal => Some(6),
         TypeBase::Callable(_) => Some(2),
         TypeBase::Named(_) => None,

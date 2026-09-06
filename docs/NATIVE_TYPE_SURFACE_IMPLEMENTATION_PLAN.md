@@ -14,7 +14,7 @@ The completed NIR target-layout and native-routine work already supports
 target-width pointers, automatic storage, and typed call signatures. This plan
 adds the missing source surface:
 
-1. fixed-width signed `LONG` and unsigned `ULONG`, both 32 bits;
+1. fixed-width signed `LONGINT` and unsigned `LONGCARD`, both 32 bits;
 2. function results for every register-sized value type;
 3. callable-pointer declarations with complete parameter and result types;
 4. target-sized `ADDRESS` and `SIZE` integer types.
@@ -37,19 +37,26 @@ name or summary string.
 
 ### Fixed-width integers
 
-`LONG` is a signed 32-bit two's-complement integer. `ULONG` is an unsigned
+`LONGINT` is a signed 32-bit two's-complement integer. `LONGCARD` is an unsigned
 32-bit integer. Their widths do not vary by target. `BYTE`, `CHAR`, `CARD`, and
 `INT` retain their current widths, signedness, promotions, and overflow
 behavior.
 
-The names match the classic Amiga `exec/types.h` interface. They are
-compiler-provided contextual type symbols rather than lexer keywords. Existing
-programs may continue to declare values or fields named `long` or `ulong`.
-Normal type lookup applies in type position.
+The names extend Action!'s INT/CARD signedness convention; LONG changes only
+the width. They replace the unmerged LONG/ULONG spellings, without retaining
+those spellings as built-in aliases. They are compiler-provided contextual
+type symbols rather than lexer keywords. Programs may still declare values,
+fields, or user-defined types with any of these names. Normal type lookup
+applies in type position.
 
-Wide decimal literals infer `LONG` when they no longer fit the existing
+Expression widths are operand-driven. An INT/CARD-only expression stays
+16-bit even when assigned to a LONGINT/LONGCARD destination. A wide operand
+or an explicit conversion before an operation requests wide arithmetic;
+converting an already-computed narrow result does not undo its wrapping.
+
+Wide decimal literals infer `LONGINT` when they no longer fit the existing
 16-bit literal classes and fit 32 bits. Wide hexadecimal literals infer
-`ULONG`. Explicit casts remain available when the programmer needs a different
+`LONGCARD`. Explicit casts remain available when the programmer needs a different
 interpretation. Constant evaluation retains a value wide enough to diagnose
 overflow before applying the destination type's wrapping rule.
 
@@ -58,7 +65,7 @@ overflow before applying the destination type's wrapping rule.
 A function result is a complete value type rather than a `FundType` embedded
 in `RoutineKind`. The initial returnable set is:
 
-- `BYTE`, `CHAR`, `CARD`, `INT`, `LONG`, and `ULONG`;
+- `BYTE`, `CHAR`, `CARD`, `INT`, `LONGINT`, and `LONGCARD`;
 - `ADDRESS` and `SIZE`;
 - data pointers;
 - callable pointers.
@@ -82,7 +89,7 @@ complete prototype:
 
 ```action
 PROC POINTER notify(BYTE event, ADDRESS context)
-ULONG FUNC POINTER checksum(BYTE POINTER data, SIZE length)
+LONGCARD FUNC POINTER checksum(BYTE POINTER data, SIZE length)
 BYTE POINTER FUNC POINTER allocator(SIZE bytes)
 ```
 
@@ -103,14 +110,14 @@ destination pointee and address space.
 layout records its width explicitly rather than asking semantic lowering to
 guess it from a pointer width.
 
-| Target | `LONG` / `ULONG` | `ADDRESS` | `SIZE` |
+| Target | `LONGINT` / `LONGCARD` | `ADDRESS` | `SIZE` |
 | --- | ---: | ---: | ---: |
 | Atari 6502 | 32 | 16 | 16 |
 | WDC 65816 small | 32 | 24 | 16 |
 | WDC 65816 native | 32 | 24 | 24 |
 | Motorola 68000 | 32 | 32 | 32 |
 
-The canonical compiler-owned type identities are `SYS.LONG`, `SYS.ULONG`,
+The canonical compiler-owned type identities are `SYS.LONGINT`, `SYS.LONGCARD`,
 `SYS.ADDRESS`, and `SYS.SIZE`. The normal unqualified spellings are contextual,
 shadowable prelude aliases. In particular, `CARD size` and a record field named
 `address` remain legal source.
@@ -208,17 +215,17 @@ Suggested commit:
 nir: generalize fixed-width integer representation
 ```
 
-### Slice 2: `LONG` and `ULONG`
+### Slice 2: `LONGINT` and `LONGCARD`
 
 Status: complete. Both contextual scalar aliases lower to fixed 32-bit NIR
 integers, wide literals and constants retain all bits, native MIRs accept
 32-bit values, and MIR6502 rejects runtime wide integers explicitly.
 
-1. Register contextual `SYS.LONG` and `SYS.ULONG` type identities and their
+1. Register contextual `SYS.LONGINT` and `SYS.LONGCARD` type identities and their
    unqualified aliases without adding lexer keywords.
 2. Support declarations, parameters, locals, fields, arrays, constants, casts,
    arithmetic, comparisons, and initializers.
-3. Extend promotions conservatively: `ULONG` dominates `LONG`; `LONG`
+3. Extend promotions conservatively: `LONGCARD` dominates `LONGINT`; `LONGINT`
    dominates the established 8/16-bit integers; pointer conversion remains
    explicit.
 4. Infer wide decimal and hexadecimal literals according to the source

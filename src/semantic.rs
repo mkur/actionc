@@ -191,8 +191,8 @@ impl ConstValue {
             ScalarType::Byte | ScalarType::Char => NumberKind::Byte,
             ScalarType::Card => NumberKind::Card,
             ScalarType::Int => NumberKind::Int,
-            ScalarType::Long => NumberKind::Long,
-            ScalarType::ULong => NumberKind::ULong,
+            ScalarType::LongInt => NumberKind::LongInt,
+            ScalarType::LongCard => NumberKind::LongCard,
             ScalarType::Address | ScalarType::Size => NumberKind::Card,
         };
         let text = match self.ty.width_bytes() {
@@ -1754,8 +1754,8 @@ impl Analyzer {
             ScalarType::Char => "CHAR",
             ScalarType::Card => "CARD",
             ScalarType::Int => "INT",
-            ScalarType::Long => "LONG",
-            ScalarType::ULong => "ULONG",
+            ScalarType::LongInt => "LONGINT",
+            ScalarType::LongCard => "LONGCARD",
             ScalarType::Address => "ADDRESS",
             ScalarType::Size => "SIZE",
         };
@@ -1777,8 +1777,8 @@ impl Analyzer {
             ScalarType::Byte | ScalarType::Char => (0..=u8::MAX as i128).contains(&integer.value),
             ScalarType::Card => (0..=u16::MAX as i128).contains(&integer.value),
             ScalarType::Int => (i16::MIN as i128..=i16::MAX as i128).contains(&integer.value),
-            ScalarType::Long => (i32::MIN as i128..=i32::MAX as i128).contains(&integer.value),
-            ScalarType::ULong => (0..=u32::MAX as i128).contains(&integer.value),
+            ScalarType::LongInt => (i32::MIN as i128..=i32::MAX as i128).contains(&integer.value),
+            ScalarType::LongCard => (0..=u32::MAX as i128).contains(&integer.value),
             ScalarType::Address | ScalarType::Size => {
                 let layout = TargetLayout::for_target(self.options.target);
                 let bits = if target == ScalarType::Address {
@@ -4450,8 +4450,8 @@ impl Analyzer {
 
     fn builtin_scalar_type(&self, scope: ScopeId, name: &QualifiedName) -> Option<ScalarType> {
         let scalar = match name.components.last()?.to_ascii_uppercase().as_str() {
-            "LONG" => ScalarType::Long,
-            "ULONG" => ScalarType::ULong,
+            "LONGINT" => ScalarType::LongInt,
+            "LONGCARD" => ScalarType::LongCard,
             "ADDRESS" => ScalarType::Address,
             "SIZE" => ScalarType::Size,
             _ => return None,
@@ -4806,8 +4806,8 @@ fn is_qualified_only_sys_extension(name: &str) -> bool {
 
 fn contextual_scalar_type_name(name: &str) -> Option<ScalarType> {
     match name.to_ascii_uppercase().as_str() {
-        "LONG" => Some(ScalarType::Long),
-        "ULONG" => Some(ScalarType::ULong),
+        "LONGINT" => Some(ScalarType::LongInt),
+        "LONGCARD" => Some(ScalarType::LongCard),
         "ADDRESS" => Some(ScalarType::Address),
         "SIZE" => Some(ScalarType::Size),
         _ => None,
@@ -4869,11 +4869,11 @@ impl SemanticCallableSignature {
         let return_type = match &routine.kind {
             RoutineKind::Proc => None,
             RoutineKind::Func { return_type } => Some(match &return_type.base {
-                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("LONG") => {
-                    ValueType::scalar(ScalarType::Long)
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("LONGINT") => {
+                    ValueType::scalar(ScalarType::LongInt)
                 }
-                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("ULONG") => {
-                    ValueType::scalar(ScalarType::ULong)
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("LONGCARD") => {
+                    ValueType::scalar(ScalarType::LongCard)
                 }
                 TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("ADDRESS") => {
                     ValueType::scalar(ScalarType::Address)

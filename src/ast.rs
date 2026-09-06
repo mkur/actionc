@@ -430,8 +430,8 @@ pub enum FundType {
     Card,
     Char,
     Int,
-    Long,
-    ULong,
+    LongInt,
+    LongCard,
     Address,
     Size,
 }

@@ -182,8 +182,8 @@ impl NirTypeKind {
             ScalarType::Byte | ScalarType::Char => Self::U8,
             ScalarType::Card => Self::U16,
             ScalarType::Int => Self::I16,
-            ScalarType::Long => Self::Integer(NirIntegerType::I32),
-            ScalarType::ULong => Self::Integer(NirIntegerType::U32),
+            ScalarType::LongInt => Self::Integer(NirIntegerType::I32),
+            ScalarType::LongCard => Self::Integer(NirIntegerType::U32),
             ScalarType::Address => Self::Integer(NirIntegerType::address(16)),
             ScalarType::Size => Self::Integer(NirIntegerType::size(16)),
         }

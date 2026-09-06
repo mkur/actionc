@@ -51,8 +51,8 @@ pub enum NumberKind {
     Byte,
     Int,
     Card,
-    Long,
-    ULong,
+    LongInt,
+    LongCard,
     Real,
 }
 
@@ -174,8 +174,8 @@ impl NumberKind {
             NumberKind::Byte => 128 + 2,
             NumberKind::Int => 128 + 3,
             NumberKind::Card => 128 + 4,
-            NumberKind::Long => 128 + 5,
-            NumberKind::ULong => 128 + 5,
+            NumberKind::LongInt => 128 + 5,
+            NumberKind::LongCard => 128 + 5,
             NumberKind::Real => 128 + 6,
         }
     }
@@ -485,7 +485,7 @@ impl<'a> Lexer<'a> {
             let kind = match value {
                 Some(value) if value <= u64::from(u8::MAX) => NumberKind::Byte,
                 Some(value) if value <= u64::from(u16::MAX) => NumberKind::Card,
-                _ => NumberKind::ULong,
+                _ => NumberKind::LongCard,
             };
             return Token {
                 kind: TokenKind::Number(NumberLiteral { text, kind, value }),
@@ -528,7 +528,7 @@ impl<'a> Lexer<'a> {
             match text.parse::<u64>() {
                 Ok(value) if value <= u64::from(u8::MAX) => (NumberKind::Byte, Some(value)),
                 Ok(value) if value <= u64::from(u16::MAX) => (NumberKind::Int, Some(value)),
-                Ok(value) if value <= u64::from(u32::MAX) => (NumberKind::Long, Some(value)),
+                Ok(value) if value <= u64::from(u32::MAX) => (NumberKind::LongInt, Some(value)),
                 Ok(_) => {
                     self.diagnostics.push(Diagnostic::new(
                         Span::new(start, self.pos),
@@ -1041,11 +1041,11 @@ mod tests {
         assert_number(&tokens[1].kind, "255", NumberKind::Byte, Some(255));
         assert_number(&tokens[2].kind, "256", NumberKind::Int, Some(256));
         assert_number(&tokens[3].kind, "65535", NumberKind::Int, Some(65535));
-        assert_number(&tokens[4].kind, "65536", NumberKind::Long, Some(65536));
+        assert_number(&tokens[4].kind, "65536", NumberKind::LongInt, Some(65536));
         assert_number(&tokens[5].kind, "$0", NumberKind::Byte, Some(0));
         assert_number(&tokens[6].kind, "$FF", NumberKind::Byte, Some(255));
         assert_number(&tokens[7].kind, "$1234", NumberKind::Card, Some(0x1234));
-        assert_number(&tokens[8].kind, "$10000", NumberKind::ULong, Some(0x10000));
+        assert_number(&tokens[8].kind, "$10000", NumberKind::LongCard, Some(0x10000));
     }
 
     #[test]

@@ -2,18 +2,18 @@
 ; pointer results, complete callback signatures, and layout queries all cross
 ; routine boundaries without losing their source-level type roles.
 
-TYPE Pair=[ADDRESS location SIZE length ULONG checksum]
+TYPE Pair=[ADDRESS location SIZE length LONGCARD checksum]
 
 BYTE anchor
 BYTE ARRAY samples(300)
-ULONG result
+LONGCARD result
 BYTE POINTER recovered
-ULONG FUNC POINTER callback(ADDRESS location SIZE count ULONG seed)
+LONGCARD FUNC POINTER callback(ADDRESS location SIZE count LONGCARD seed)
 
-ULONG FUNC Fold(ADDRESS location SIZE count ULONG seed)
-  ULONG mixed
+LONGCARD FUNC Fold(ADDRESS location SIZE count LONGCARD seed)
+  LONGCARD mixed
 
-  mixed=seed+ULONG(count)
+  mixed=seed+LONGCARD(count)
   IF location>0 THEN
     mixed==+$10000
   FI
@@ -34,7 +34,7 @@ RETURN(BYTE POINTER(location))
 PROC Main()
   ADDRESS location
   SIZE count
-  ULONG seed
+  LONGCARD seed
 
   callback=@Fold
   location=Locate(3)

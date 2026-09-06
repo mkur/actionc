@@ -19,15 +19,15 @@ fn lower(source: &str, target: TargetId) -> nir::NirProgram {
 }
 
 #[test]
-fn long_and_ulong_are_contextual_fixed_width_types() {
+fn longint_and_longcard_are_contextual_fixed_width_types() {
     let program = lower(
-        "LONG signedValue=-200000
-ULONG unsignedValue=$FEDCBA98
-CONST LONG Negative=-200000
-CONST ULONG Mask=$FEDCBA98
+        "LONGINT signedValue=-200000
+LONGCARD unsignedValue=$FEDCBA98
+CONST LONGINT Negative=-200000
+CONST LONGCARD Mask=$FEDCBA98
 
 PROC Main()
-  LONG local
+  LONGINT local
   signedValue=Negative
   unsignedValue=Mask
   local=signedValue+1
@@ -67,10 +67,10 @@ RETURN
 }
 
 #[test]
-fn a_declared_type_can_shadow_the_long_alias() {
+fn a_declared_type_can_shadow_the_longint_alias() {
     let program = lower(
-        "TYPE LONG=[BYTE value]
-LONG item
+        "TYPE LONGINT=[BYTE value]
+LONGINT item
 PROC Main()
   item.value=1
 RETURN
@@ -79,7 +79,7 @@ RETURN
     );
     assert!(program.globals.iter().any(|global| {
         global.ty.as_ref().is_some_and(
-            |ty| matches!(&ty.kind, NirTypeKind::Record { name, .. } if name.ends_with("LONG")),
+            |ty| matches!(&ty.kind, NirTypeKind::Record { name, .. } if name.ends_with("LONGINT")),
         )
     }));
 }
@@ -99,40 +99,49 @@ fn declared_types_can_shadow_address_and_size_aliases() {
 }
 
 #[test]
-fn long_and_ulong_do_not_become_lexer_keywords() {
-    let tokens = tokenize("BYTE long, ulong").expect("tokenize identifiers");
-    assert!(tokens.iter().any(
-        |token| matches!(&token.kind, actionc::lexer::TokenKind::Ident(name) if name == "long")
-    ));
-    assert!(tokens.iter().any(
-        |token| matches!(&token.kind, actionc::lexer::TokenKind::Ident(name) if name == "ulong")
-    ));
+fn wide_type_names_remain_contextual_identifiers() {
+    let tokens = tokenize("BYTE longint, longcard, long, ulong").expect("tokenize identifiers");
+    for expected in ["longint", "longcard", "long", "ulong"] {
+        assert!(tokens.iter().any(
+            |token| matches!(&token.kind, actionc::lexer::TokenKind::Ident(name) if name == expected)
+        ));
+    }
+}
+
+#[test]
+fn qualified_wide_names_work_and_old_builtin_aliases_are_removed() {
+    lower("SYS.LONGINT signedValue SYS.LONGCARD unsignedValue PROC Main() signedValue=LONGINT(-70000) unsignedValue=LONGCARD($FEDCBA98) RETURN", TargetId::Motorola68000);
+    for name in ["LONG", "ULONG", "SYS.LONG", "SYS.ULONG"] {
+        let source = format!("{name} value PROC Main() RETURN");
+        let program = parse(&tokenize(&source).unwrap()).unwrap();
+        assert!(analyze_with_options(&program, SemanticOptions::modern()).is_err(), "{name}");
+    }
 }
 
 #[test]
 fn native_backends_accept_wide_integer_operations() {
-    let source = "LONG left, result
-ULONG right
+    let source = "LONGINT left, result
+LONGCARD right
 PROC Main()
   left=-200000
   right=$FEDCBA98
-  result=left+LONG(right)
+  result=left+LONGINT(right)
 RETURN
 ";
     let m68k = lower(source, TargetId::Motorola68000);
-    actionc::mir68k::lower_program(&m68k).expect("lower LONG operations to MIR68K");
+    actionc::mir68k::lower_program(&m68k).expect("lower LONGINT operations to MIR68K");
 
     let m65816 = lower(source, TargetId::Wdc65816Native);
-    actionc::mir65816::lower_program(&m65816).expect("lower LONG operations to MIR65816");
+    actionc::mir65816::lower_program(&m65816).expect("lower LONGINT operations to MIR65816");
 }
 
 #[test]
 fn mir6502_rejects_wide_runtime_values_without_truncating() {
     let program = lower(
-        "LONG value PROC Main() value=70000 RETURN",
+        "LONGINT value PROC Main() value=70000 RETURN",
         TargetId::Atari6502,
     );
-    let diagnostics = actionc::mir6502::lower_program(&program).expect_err("reject LONG on 6502");
+    let diagnostics = actionc::mir6502::lower_program(&program).expect_err("reject LONGINT on 6502");
     assert!(
         diagnostics
             .iter()
@@ -146,11 +155,11 @@ fn functions_can_return_wide_values_and_data_pointers() {
         "BYTE storage
 BYTE POINTER FUNC Address()
   RETURN(@storage)
-ULONG FUNC Wide()
+LONGCARD FUNC Wide()
   RETURN($FEDCBA98)
 PROC Main()
   BYTE POINTER p
-  ULONG value
+  LONGCARD value
   p=Address()
   value=Wide()
 RETURN

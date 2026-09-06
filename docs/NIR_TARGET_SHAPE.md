@@ -120,7 +120,7 @@ data and code pointers, and selects bytewise access for a 16-bit value unless
 its base alignment and even displacement prove a legal 68000 word access.
 
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, `CARD` and
-`INT` are 16-bit, and `LONG` and `ULONG` are 32-bit. `ADDRESS` and `SIZE` are
+`INT` are 16-bit, and `LONGINT` and `LONGCARD` are 32-bit. `ADDRESS` and `SIZE` are
 distinct unsigned integer roles whose widths come from the selected target
 layout. Pointer and callable widths are selected by their address spaces and
 are not aliases for `CARD` on native 65816 or 68k targets. The classic Atari

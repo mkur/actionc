@@ -677,7 +677,7 @@ impl<'a> Parser<'a> {
                     (TokenKind::Ident(name), Some(TokenKind::Ident(_)))
                         if matches!(
                             name.to_ascii_uppercase().as_str(),
-                            "LONG" | "ULONG" | "ADDRESS" | "SIZE"
+                            "LONGINT" | "LONGCARD" | "ADDRESS" | "SIZE"
                         )
                 );
                 if is_typed_native_integer {
@@ -1936,7 +1936,7 @@ impl<'a> Parser<'a> {
             ) if keyword.eq_ignore_ascii_case("CONST")
                 && matches!(
                     ty.to_ascii_uppercase().as_str(),
-                    "LONG" | "ULONG" | "ADDRESS" | "SIZE"
+                    "LONGINT" | "LONGCARD" | "ADDRESS" | "SIZE"
                 )
         );
         untyped || typed || typed_real || typed_native_integer

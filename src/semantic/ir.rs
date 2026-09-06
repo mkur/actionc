@@ -1830,8 +1830,8 @@ fn const_value_summary(value: ConstValue) -> String {
         ScalarType::Card => "CARD",
         ScalarType::Char => "CHAR",
         ScalarType::Int => "INT",
-        ScalarType::Long => "LONG",
-        ScalarType::ULong => "ULONG",
+        ScalarType::LongInt => "LONGINT",
+        ScalarType::LongCard => "LONGCARD",
         ScalarType::Address => "ADDRESS",
         ScalarType::Size => "SIZE",
     };
@@ -4609,8 +4609,8 @@ impl<'a> IrBuilder<'a> {
             return None;
         }
         match name.to_ascii_uppercase().as_str() {
-            "LONG" => Some(ScalarType::Long),
-            "ULONG" => Some(ScalarType::ULong),
+            "LONGINT" => Some(ScalarType::LongInt),
+            "LONGCARD" => Some(ScalarType::LongCard),
             "ADDRESS" => Some(ScalarType::Address),
             "SIZE" => Some(ScalarType::Size),
             _ => None,
@@ -4673,14 +4673,14 @@ impl<'a> IrBuilder<'a> {
                 ValueTypeBase::Named(symbol.qualified_name)
             };
         } else if name.components.len() == 1
-            || name.to_string().eq_ignore_ascii_case("SYS.LONG")
-            || name.to_string().eq_ignore_ascii_case("SYS.ULONG")
+            || name.to_string().eq_ignore_ascii_case("SYS.LONGINT")
+            || name.to_string().eq_ignore_ascii_case("SYS.LONGCARD")
             || name.to_string().eq_ignore_ascii_case("SYS.ADDRESS")
             || name.to_string().eq_ignore_ascii_case("SYS.SIZE")
         {
             value.base = match name.components.last().map(|part| part.to_ascii_uppercase()) {
-                Some(name) if name == "LONG" => ValueTypeBase::Fund(FundType::Long),
-                Some(name) if name == "ULONG" => ValueTypeBase::Fund(FundType::ULong),
+                Some(name) if name == "LONGINT" => ValueTypeBase::Fund(FundType::LongInt),
+                Some(name) if name == "LONGCARD" => ValueTypeBase::Fund(FundType::LongCard),
                 Some(name) if name == "ADDRESS" => ValueTypeBase::Fund(FundType::Address),
                 Some(name) if name == "SIZE" => ValueTypeBase::Fund(FundType::Size),
                 _ => value.base,
@@ -4846,8 +4846,8 @@ fn value_type_for_number(number: &NumberLiteral) -> ValueType {
         crate::lexer::NumberKind::Byte => byte_type(),
         crate::lexer::NumberKind::Int => int_type(),
         crate::lexer::NumberKind::Card => card_type(),
-        crate::lexer::NumberKind::Long => ValueType::scalar(ScalarType::Long),
-        crate::lexer::NumberKind::ULong => ValueType::scalar(ScalarType::ULong),
+        crate::lexer::NumberKind::LongInt => ValueType::scalar(ScalarType::LongInt),
+        crate::lexer::NumberKind::LongCard => ValueType::scalar(ScalarType::LongCard),
         crate::lexer::NumberKind::Real => ValueType::real(),
     }
 }
