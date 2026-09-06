@@ -806,7 +806,12 @@ impl ProcessorState {
     }
 
     pub(super) fn memory_value(&self, slot: StorageSlot, byte_index: u16) -> Option<ValueFact> {
-        if slot.is_volatile {
+        // Addressing templates do not name stable bytes: a captured pointer
+        // or X can change while the template remains identical. Apply the
+        // same restriction as slot_byte_value_fact to cached store aliases.
+        if slot.is_volatile
+            || matches!(slot.space, AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY)
+        {
             return None;
         }
         self.memory.value(MemoryByte { slot, byte_index })

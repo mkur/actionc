@@ -1074,7 +1074,6 @@ impl Generator {
             } else {
                 Self::compare_operand_needs_materialization(left)
                     && Self::compare_operand_needs_materialization(right)
-                    && expr_contains_routine_call(right, &self.routines)
             };
         if !self.segment_storage || width > 2 || !needs_staging {
             return false;
