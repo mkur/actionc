@@ -48,12 +48,16 @@ impl Analyzer {
             for item in &region.items {
                 match item {
                     Item::Declaration(Decl::Type(decl)) => {
+                        let TypeDefinition::Record(fields) = &decl.definition else {
+                            self.diagnostics.push(Diagnostic::new(decl.span, "ENUM requires the modern profile (feature not yet enabled)"));
+                            continue;
+                        };
                         if let Some(id) = self.register_named_layout_declaration(
                             scope,
                             &decl.name,
                             LayoutDeclarationKind::Record {
                                 name: decl.name.clone(),
-                                fields: decl.fields.clone(),
+                                fields: fields.clone(),
                             },
                         ) {
                             records.push(id);

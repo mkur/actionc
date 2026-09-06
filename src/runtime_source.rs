@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::ast::{Decl, Item, VarDecl};
+use crate::ast::{Decl, Item, TypeDefinition, VarDecl};
 use crate::diagnostic::Diagnostic;
 use crate::embedded_vfs::EmbeddedSourceProvider;
 use crate::includes::{
@@ -603,8 +603,8 @@ fn collect_decl_names(decl: &Decl, output: &mut BTreeSet<String>) {
         }
         Decl::Type(decl) => {
             output.insert(decl.name.clone());
-            for field in &decl.fields {
-                collect_var_names(field, output);
+            if let TypeDefinition::Record(fields) = &decl.definition {
+                for field in fields { collect_var_names(field, output); }
             }
         }
         Decl::Record(decl) => {

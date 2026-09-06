@@ -10,7 +10,7 @@ use crate::ast::{
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
     Item, LexicalBlockSyntaxId, MachineAddressAtom, MachineAddressExpr, MachineItem, Module,
     OrgDirective, Program, QualifiedName, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
-    TypeBase, TypeDecl, TypeRef, UnaryOp, VarDecl, VarStorage,
+    TypeBase, TypeDecl, TypeDefinition, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
 use crate::atari_real::AtariReal;
 use crate::foreign::{ForeignCodeMode, ForeignRelocationEncoding, ForeignSymbolUse};
@@ -2561,9 +2561,12 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_type_decl(&mut self, scope: ScopeId, decl: &TypeDecl) -> Vec<SemDeclaration> {
+        let TypeDefinition::Record(fields) = &decl.definition else {
+            unreachable!("ENUM definitions are rejected before SemIR until their capability is enabled")
+        };
         self.symbol_ref(scope, &decl.name, decl.span)
             .map(|symbol| {
-                let fields = self.lower_record_fields(scope, symbol.id, &decl.fields);
+                let fields = self.lower_record_fields(scope, symbol.id, fields);
                 let record_type = self.record_type_from_fields(&symbol, &fields);
                 vec![SemDeclaration {
                     ty: self.sem_type_from_symbol(&symbol),

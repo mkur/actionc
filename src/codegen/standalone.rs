@@ -712,8 +712,11 @@ fn rewrite_decl_names(decl: &mut Decl, replacements: &BTreeMap<String, String>) 
             }
         }
         Decl::Type(decl) => {
-            for field in &mut decl.fields {
-                rewrite_var_names(field, replacements);
+            match &mut decl.definition {
+                TypeDefinition::Record(fields) => for field in fields { rewrite_var_names(field, replacements); },
+                TypeDefinition::Enum(members) => for member in members {
+                    if let Some(value) = &mut member.value { rewrite_expr_names(value, replacements); }
+                },
             }
         }
         Decl::Record(decl) => {
@@ -924,8 +927,11 @@ fn collect_decl_names(decl: &Decl, candidates: &BTreeSet<String>, output: &mut B
             }
         }
         Decl::Type(decl) => {
-            for field in &decl.fields {
-                collect_var_names(field, candidates, output);
+            match &decl.definition {
+                TypeDefinition::Record(fields) => for field in fields { collect_var_names(field, candidates, output); },
+                TypeDefinition::Enum(members) => for member in members {
+                    if let Some(value) = &member.value { collect_expr_names(value, candidates, output); }
+                },
             }
         }
         Decl::Record(decl) => {

@@ -86,8 +86,13 @@ impl Materializer<'_> {
         match declaration {
             Decl::Var(declaration) => self.var_declaration(scope, declaration),
             Decl::Type(declaration) => {
-                for field in &mut declaration.fields {
-                    self.var_declaration(scope, field);
+                match &mut declaration.definition {
+                    TypeDefinition::Record(fields) => for field in fields {
+                        self.var_declaration(scope, field);
+                    },
+                    TypeDefinition::Enum(members) => for member in members {
+                        if let Some(value) = &mut member.value { self.expr(scope, value); }
+                    },
                 }
             }
             Decl::Record(declaration) => {

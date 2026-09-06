@@ -1503,7 +1503,10 @@ pub(super) fn collect_record_layouts(program: &Program) -> RecordLayouts {
 
 pub(super) fn collect_record_layout_decl(records: &mut RecordLayouts, decl: &Decl) {
     let (name, fields) = match decl {
-        Decl::Type(type_decl) => (&type_decl.name, &type_decl.fields),
+        Decl::Type(type_decl) => match &type_decl.definition {
+            TypeDefinition::Record(fields) => (&type_decl.name, fields),
+            TypeDefinition::Enum(_) => return,
+        },
         Decl::Record(record_decl) => (&record_decl.name, &record_decl.fields),
         Decl::Var(_) | Decl::Const(_) => return,
     };

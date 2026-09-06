@@ -246,6 +246,14 @@ unchanged. Document only this completed surface at this stage.
 
 ### Slice 3 — TYPE definition representation migration
 
+Status: complete. TYPE now discriminates Record and Enum definitions. ENUM
+member parsing delegates complete expressions to the existing precedence parser,
+independently of line breaks. Four focused parser/gating tests, all 2,783 compiler
+tests, snapshots, the 35-fixture NIR sweep, and the record-array/lexical-block VM
+tests pass. Existing record layouts and snapshots are unchanged. Enum definitions
+remain rejected by semantic analysis in public profiles until the remaining
+type, routine, and storage slices are complete.
+
 - Change `TypeDecl` from a record-only field list to a named type definition.
   Migrate all existing record consumers to the Record branch without changing
   layout, name resolution, initializers, emitted bytes, or RECORD syntax.

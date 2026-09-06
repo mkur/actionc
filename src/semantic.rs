@@ -3574,6 +3574,10 @@ impl Analyzer {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
             Decl::Const(constants) => self.analyze_const_decl(scope, constants),
             Decl::Type(type_decl) => {
+                let TypeDefinition::Record(fields) = &type_decl.definition else {
+                    self.diagnostics.push(Diagnostic::new(type_decl.span, "ENUM requires the modern profile (feature not yet enabled)"));
+                    return;
+                };
                 if let Some(owner) = self.declare(
                     scope,
                     type_decl.name.clone(),
@@ -3581,9 +3585,9 @@ impl Analyzer {
                     None,
                     type_decl.span,
                 ) {
-                    self.remember_record_fields(scope, owner, &type_decl.name, &type_decl.fields);
+                    self.remember_record_fields(scope, owner, &type_decl.name, fields);
                 }
-                for field in &type_decl.fields {
+                for field in fields {
                     self.validate_record_field_decl(scope, field);
                 }
             }

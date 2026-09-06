@@ -264,7 +264,20 @@ pub struct DeclEntry {
 pub struct TypeDecl {
     pub visibility: Visibility,
     pub name: String,
-    pub fields: Vec<VarDecl>,
+    pub definition: TypeDefinition,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TypeDefinition {
+    Record(Vec<VarDecl>),
+    Enum(Vec<EnumMember>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumMember {
+    pub name: String,
+    pub value: Option<Expr>,
     pub span: Span,
 }
 

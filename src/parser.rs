@@ -5,6 +5,7 @@ use crate::source::Span;
 use std::collections::{HashMap, HashSet};
 
 mod case;
+mod enums;
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Vec<Diagnostic>> {
     let mut parser = Parser::new(tokens);
@@ -634,14 +635,26 @@ impl<'a> Parser<'a> {
             .expect_ident()
             .unwrap_or_else(|| "<missing type name>".to_string());
         self.expect(TokenKind::Assign);
+        let is_enum = self.is_contextual_at(self.pos, "ENUM");
+        if is_enum {
+            self.bump();
+            if self.eat(TokenKind::Colon) {
+                self.diagnostics.push(Diagnostic::new(self.peek().span, "ENUM has BYTE representation; type annotations are not supported"));
+                self.bump();
+            }
+        }
         self.expect(TokenKind::LBracket);
-        let fields = self.parse_field_decls_until(TokenKind::RBracket);
+        let definition = if is_enum {
+            TypeDefinition::Enum(self.parse_enum_members())
+        } else {
+            TypeDefinition::Record(self.parse_field_decls_until(TokenKind::RBracket))
+        };
         self.expect(TokenKind::RBracket);
 
         TypeDecl {
             visibility: Visibility::Private,
             name,
-            fields,
+            definition,
             span: Span::new(start, self.previous_end()),
         }
     }

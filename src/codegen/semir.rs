@@ -420,7 +420,7 @@ impl SemIrAstLowerer<'_> {
                 return Some(Decl::Type(TypeDecl {
                     visibility: Visibility::Private,
                     name: self.symbol_name(&decl.symbol),
-                    fields: self.record_fields(fields),
+                    definition: TypeDefinition::Record(self.record_fields(fields)),
                     span: decl.span,
                 }));
             }
