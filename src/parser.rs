@@ -4,6 +4,8 @@ use crate::lexer::{Keyword, Token, TokenKind};
 use crate::source::Span;
 use std::collections::{HashMap, HashSet};
 
+mod case;
+
 pub fn parse(tokens: &[Token]) -> Result<Program, Vec<Diagnostic>> {
     let mut parser = Parser::new(tokens);
     let program = parser.parse_program();
@@ -42,6 +44,7 @@ struct Parser<'a> {
     in_named_module: bool,
     next_lexical_block_syntax_id: u32,
     lexical_block_depth: usize,
+    case_depth: usize,
     origin: Option<OrgDirective>,
 }
 
@@ -56,6 +59,7 @@ impl<'a> Parser<'a> {
             in_named_module: false,
             next_lexical_block_syntax_id: 0,
             lexical_block_depth: 0,
+            case_depth: 0,
             origin: None,
         }
     }
@@ -961,7 +965,9 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Stmt {
         let start = self.peek().span.start;
-        if self.is_bare_contextual_at(self.pos, "BEGIN") {
+        if self.is_case_start_at(self.pos) {
+            self.parse_case_statement()
+        } else if self.is_bare_contextual_at(self.pos, "BEGIN") {
             self.parse_lexical_block_statement()
         } else if self.eat_keyword(Keyword::Return) {
             let expr = if self.eat(TokenKind::LParen) {
@@ -1842,6 +1848,9 @@ impl<'a> Parser<'a> {
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
+        if self.is_case_start_at(pos) || self.is_case_arm_start_at(pos) {
+            return false;
+        }
         if self.is_bare_contextual_at(pos, "BEGIN") || self.is_bare_contextual_at(pos, "END") {
             return false;
         }
@@ -2056,7 +2065,9 @@ impl<'a> Parser<'a> {
     }
 
     fn is_structural_statement_terminator(&self) -> bool {
-        self.check_keyword(Keyword::ElseIf)
+        self.is_case_arm_start_at(self.pos)
+            || (self.case_depth > 0 && self.is_bare_contextual_at(self.pos, "ESAC"))
+            || self.check_keyword(Keyword::ElseIf)
             || self.check_keyword(Keyword::Else)
             || self.check_keyword(Keyword::Fi)
             || self.check_keyword(Keyword::Od)

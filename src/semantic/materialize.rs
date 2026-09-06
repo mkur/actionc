@@ -120,6 +120,16 @@ impl Materializer<'_> {
 
     fn statement(&self, scope: ScopeId, statement: &mut Stmt) {
         match statement {
+            Stmt::Case { selector, arms, .. } => {
+                self.expr(scope, selector);
+                for arm in arms {
+                    for label in arm.labels.iter_mut().flatten() {
+                        self.expr(scope, &mut label.low);
+                        if let Some(high) = &mut label.high { self.expr(scope, high); }
+                    }
+                    for statement in &mut arm.body { self.statement(scope, statement); }
+                }
+            }
             Stmt::LexicalBlock {
                 syntax_id,
                 declarations,

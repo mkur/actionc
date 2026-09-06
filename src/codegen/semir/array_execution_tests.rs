@@ -9,13 +9,14 @@ use crate::semantic::{self, SemanticOptions};
 mod cpu;
 
 pub(super) fn outputs(source: &str) -> Vec<(String, CodegenOutput)> {
+    outputs_with_options(source, SemanticOptions::modern())
+}
+
+pub(super) fn outputs_with_options(source: &str, options: SemanticOptions) -> Vec<(String, CodegenOutput)> {
     let ast = parse(&tokenize(source).unwrap()).unwrap();
     let model = semantic::analyze_with_options(
         &ast,
-        SemanticOptions {
-            embedded_record_arrays: true,
-            ..SemanticOptions::modern()
-        },
+        options,
     )
     .unwrap_or_else(|errors| panic!("{source}\n{errors:#?}"));
     let semir = semantic::ir::lower_program(&ast, &model);

@@ -450,6 +450,11 @@ pub struct SemCompoundOperation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemStmt {
+    Case {
+        selector: SemExpr,
+        arms: Vec<SemCaseArm>,
+        span: Span,
+    },
     LexicalBlock {
         scope: SemLexicalScopeRef,
         declarations: Vec<SemDeclaration>,
@@ -553,6 +558,13 @@ pub struct SemIfBranch {
     pub body: Vec<SemStmt>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemCaseArm {
+    pub labels: Option<Vec<super::CaseRange>>,
+    pub body: Vec<SemStmt>,
+    pub span: Span,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SemStmtFlowAnnotation {
     pub index: usize,
@@ -615,6 +627,10 @@ fn statement_list_flow_facts_at_depth(statements: &[SemStmt], loop_depth: usize)
 
 fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts {
     match stmt {
+        SemStmt::Case { arms, .. } => super::case::case_flow_facts(
+            arms.iter().map(|arm| statement_list_flow_facts_at_depth(&arm.body, loop_depth)),
+            arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
+        ),
         SemStmt::LexicalBlock { body, .. } => statement_list_flow_facts_at_depth(body, loop_depth),
         SemStmt::Return { .. } => StmtFlowFacts {
             may_continue: false,
@@ -1100,6 +1116,10 @@ fn collect_external_stmt_references(
 ) {
     for statement in statements {
         match statement {
+            SemStmt::Case { selector, arms, .. } => {
+                collect_external_expr_references(selector, external, referenced);
+                for arm in arms { collect_external_stmt_references(&arm.body, external, referenced); }
+            }
             SemStmt::LexicalBlock {
                 declarations, body, ..
             } => {
@@ -1520,6 +1540,18 @@ impl SemIrFormatter {
 
     fn stmt(&mut self, stmt: &SemStmt) {
         match stmt {
+            SemStmt::Case { selector, arms, .. } => {
+                self.line(format!("case {}", expr_summary(selector)));
+                self.indented(|this| {
+                    for arm in arms {
+                        this.line(match &arm.labels {
+                            Some(labels) => format!("when {:?}", labels),
+                            None => "else".to_string(),
+                        });
+                        this.indented(|this| this.stmt_list(&arm.body));
+                    }
+                });
+            }
             SemStmt::LexicalBlock {
                 scope,
                 declarations,
@@ -2945,6 +2977,20 @@ impl<'a> IrBuilder<'a> {
                 } else {
                     defines.into_iter().map(SemStmt::Define).collect()
                 }
+            }
+            Stmt::Case { selector, arms, span } => {
+                let labels = self.model.case_labels.get(&super::ExpressionSite {
+                    scope, start: span.start, end: span.end,
+                }).expect("validated CASE labels").clone();
+                vec![SemStmt::Case {
+                    selector: self.lower_expr(scope, selector),
+                    arms: arms.iter().zip(labels).map(|(arm, labels)| SemCaseArm {
+                        labels,
+                        body: arm.body.iter().flat_map(|stmt| self.lower_stmt(scope, stmt)).collect(),
+                        span: arm.span,
+                    }).collect(),
+                    span: *span,
+                }]
             }
             Stmt::Return(expr) => vec![SemStmt::Return {
                 value: expr.as_ref().map(|expr| self.lower_expr(scope, expr)),
@@ -4476,6 +4522,9 @@ impl<'a> IrBuilder<'a> {
         defines: &mut HashMap<SymbolId, NumberLiteral>,
     ) {
         match stmt {
+            Stmt::Case { arms, .. } => {
+                for arm in arms { for stmt in &arm.body { self.collect_numeric_define_stmt(scope, stmt, defines); } }
+            }
             Stmt::LexicalBlock {
                 syntax_id, body, ..
             } => {

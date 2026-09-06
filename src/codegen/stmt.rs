@@ -183,6 +183,7 @@ impl Generator {
     fn stmt_has_direct_volatile_access(&self, stmt: &Stmt) -> bool {
         let reads_volatile = |expr: &Expr| self.expr_side_effect_facts(expr).reads_volatile;
         match stmt {
+            Stmt::Case { selector, .. } => reads_volatile(selector),
             Stmt::LexicalBlock { body, .. } => body
                 .iter()
                 .any(|stmt| self.stmt_has_direct_volatile_access(stmt)),
@@ -427,6 +428,7 @@ impl Generator {
     fn next_y_constant_store_in_straight_line(&self, body: &[Stmt]) -> Option<u8> {
         for stmt in body {
             match stmt {
+                Stmt::Case { .. } => return None,
                 Stmt::Define(_) => continue,
                 Stmt::LexicalBlock { body, .. } => {
                     if let Some(value) = self.next_y_constant_store_in_straight_line(body) {

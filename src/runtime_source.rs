@@ -478,6 +478,11 @@ fn collect_runtime_statement_globals(
     globals: &mut BTreeSet<String>,
 ) -> Result<(), Vec<Diagnostic>> {
     match statement {
+        ir::SemStmt::Case { arms, .. } => {
+            for arm in arms { for statement in &arm.body {
+                collect_runtime_statement_globals(statement, expected, globals)?;
+            } }
+        }
         ir::SemStmt::LexicalBlock {
             declarations, body, ..
         } => {

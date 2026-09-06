@@ -427,6 +427,10 @@ impl SemGraphBuilder {
 
     fn statement(&mut self, owner: SemLinkNode, statement: &SemStmt) {
         match statement {
+            SemStmt::Case { selector, arms, .. } => {
+                self.expression(owner, selector, LinkReason::StorageReference);
+                for arm in arms { for statement in &arm.body { self.statement(owner, statement); } }
+            }
             SemStmt::LexicalBlock {
                 declarations, body, ..
             } => {

@@ -27,6 +27,8 @@ use super::facts::{
 };
 use super::ir::*;
 
+mod case;
+
 #[derive(Default)]
 pub(super) struct NirLowerer {
     target_layout: TargetLayout,
@@ -1203,6 +1205,9 @@ fn collect_nested_declarations<'a>(
 ) {
     for statement in statements {
         match statement {
+            SemStmt::Case { arms, .. } => {
+                for arm in arms { collect_nested_declarations(&arm.body, declarations); }
+            }
             SemStmt::LexicalBlock {
                 declarations: nested,
                 body,
@@ -1906,6 +1911,7 @@ impl NirBuilder {
 
     fn stmt(&mut self, stmt: &SemStmt, lowering: &mut NirLowerer) {
         match stmt {
+            SemStmt::Case { selector, arms, .. } => self.case_statement(selector, arms, lowering),
             SemStmt::LexicalBlock { body, .. } => self.stmt_list(body, lowering),
             SemStmt::Define(_) => {}
             SemStmt::Return { value, .. } => {
@@ -4022,6 +4028,9 @@ fn collect_machine_define_ids_from_stmt(
     ids: &mut BTreeMap<usize, Vec<MachineItem>>,
 ) {
     match stmt {
+        SemStmt::Case { arms, .. } => {
+            for arm in arms { collect_machine_define_ids_from_statements(&arm.body, ids); }
+        }
         SemStmt::LexicalBlock { body, .. } => {
             collect_machine_define_ids_from_statements(body, ids);
         }
@@ -4077,6 +4086,9 @@ fn collect_machine_define_names_from_stmt(
     names: &mut BTreeMap<String, Vec<MachineItem>>,
 ) {
     match stmt {
+        SemStmt::Case { arms, .. } => {
+            for arm in arms { collect_machine_define_names_from_statements(&arm.body, names); }
+        }
         SemStmt::LexicalBlock { body, .. } => {
             collect_machine_define_names_from_statements(body, names);
         }
@@ -4112,6 +4124,9 @@ fn collect_machine_define_names_from_stmt(
 
 fn collect_machine_defines_from_stmt(stmt: &SemStmt, defines: &mut MachineDefines) {
     match stmt {
+        SemStmt::Case { arms, .. } => {
+            for arm in arms { collect_machine_defines_from_statements(&arm.body, defines); }
+        }
         SemStmt::LexicalBlock { body, .. } => {
             collect_machine_defines_from_statements(body, defines);
         }

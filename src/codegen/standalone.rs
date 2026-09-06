@@ -743,6 +743,16 @@ fn rewrite_stmt_list_names(statements: &mut [Stmt], replacements: &BTreeMap<Stri
 
 fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) {
     match stmt {
+        Stmt::Case { selector, arms, .. } => {
+            rewrite_expr_names(selector, replacements);
+            for arm in arms {
+                for label in arm.labels.iter_mut().flatten() {
+                    rewrite_expr_names(&mut label.low, replacements);
+                    if let Some(high) = &mut label.high { rewrite_expr_names(high, replacements); }
+                }
+                rewrite_stmt_list_names(&mut arm.body, replacements);
+            }
+        }
         Stmt::LexicalBlock {
             declarations, body, ..
         } => {
@@ -949,6 +959,16 @@ fn collect_stmt_list_names(
 
 fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut BTreeSet<String>) {
     match stmt {
+        Stmt::Case { selector, arms, .. } => {
+            collect_expr_names(selector, candidates, output);
+            for arm in arms {
+                for label in arm.labels.iter().flatten() {
+                    collect_expr_names(&label.low, candidates, output);
+                    if let Some(high) = &label.high { collect_expr_names(high, candidates, output); }
+                }
+                collect_stmt_list_names(&arm.body, candidates, output);
+            }
+        }
         Stmt::LexicalBlock {
             declarations, body, ..
         } => {

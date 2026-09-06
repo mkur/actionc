@@ -424,6 +424,11 @@ pub struct LexicalBlockSyntaxId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
+    Case {
+        selector: Expr,
+        arms: Vec<CaseArm>,
+        span: Span,
+    },
     LexicalBlock {
         syntax_id: LexicalBlockSyntaxId,
         declarations: Vec<Decl>,
@@ -492,6 +497,21 @@ pub enum Stmt {
 pub struct IfBranch {
     pub condition: Expr,
     pub body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaseArm {
+    /// None is an explicit ELSE, not a missing default path.
+    pub labels: Option<Vec<CaseLabel>>,
+    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaseLabel {
+    pub low: Expr,
+    pub high: Option<Expr>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

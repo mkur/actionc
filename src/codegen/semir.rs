@@ -7,6 +7,10 @@ use crate::semantic::{SymbolId, ValueType, ValueTypeBase};
 use crate::source::{Span, source_char_byte};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+mod case;
+#[cfg(test)]
+mod case_tests;
+
 use super::native_real::{
     ClassicNativeExpr, ClassicNativeRealFacts, ClassicRealValue, real_address_temp_name,
     real_integer_temp_name, real_sign_temp_name, real_temp_name,
@@ -33,6 +37,8 @@ pub(crate) fn semir_to_projection(
     let projection_names = classic_projection_names(program);
     let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
+        case_captures: Vec::new(),
+        next_case_capture: 0,
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program, &projection_names),
         projection_names,
@@ -67,6 +73,8 @@ pub(crate) fn semir_to_cart_projection(
     let projection_names = classic_projection_names(program);
     let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
+        case_captures: Vec::new(),
+        next_case_capture: 0,
         diagnostics: Vec::new(),
         type_link_names: module_type_link_names(program, &projection_names),
         projection_names,
@@ -138,6 +146,8 @@ pub(crate) fn cart_external_addresses(
 }
 
 struct SemIrAstLowerer<'a> {
+    case_captures: Vec<Decl>,
+    next_case_capture: usize,
     diagnostics: Vec<Diagnostic>,
     type_link_names: BTreeMap<String, String>,
     projection_names: BTreeMap<SymbolId, String>,
@@ -589,6 +599,7 @@ impl SemIrAstLowerer<'_> {
         let previous_native_real_scope = self.native_real_scope.take();
         self.native_real_scope = Some(routine.symbol.name.to_ascii_uppercase());
         let body = self.stmt_list(&routine.body);
+        locals.append(&mut self.case_captures);
         self.native_real_scope = previous_native_real_scope;
         Some(Routine {
             visibility: Visibility::Private,
@@ -702,6 +713,10 @@ impl SemIrAstLowerer<'_> {
 
     fn stmt(&mut self, stmt: &SemStmt) -> Option<Stmt> {
         match stmt {
+            SemStmt::Case { span, .. } => {
+                self.diagnostics.push(Diagnostic::new(*span, "CASE must occur inside a routine statement list"));
+                None
+            }
             SemStmt::LexicalBlock { .. } => None,
             SemStmt::Define(define) => Some(Stmt::Define(DefineDecl {
                 entries: vec![DefineEntry {
@@ -885,6 +900,7 @@ impl SemIrAstLowerer<'_> {
         let mut output = Vec::new();
         for statement in statements {
             match statement {
+                SemStmt::Case { selector, arms, span } => output.extend(self.case_statement(selector, arms, *span)),
                 SemStmt::LexicalBlock { body, .. } => output.extend(self.stmt_list(body)),
                 _ => output.extend(self.stmt(statement)),
             }
@@ -1484,6 +1500,9 @@ fn visit_lexical_declarations<'a>(
 ) {
     for statement in statements {
         match statement {
+            SemStmt::Case { arms, .. } => {
+                for arm in arms { visit_lexical_declarations(&arm.body, visitor); }
+            }
             SemStmt::LexicalBlock {
                 scope,
                 declarations,
@@ -1619,6 +1638,9 @@ fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Spa
 
 fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u16, ValueType, Span)>) {
     match stmt {
+        SemStmt::Case { arms, .. } => {
+            for arm in arms { for stmt in &arm.body { consider_record_copy_temp(stmt, largest); } }
+        }
         SemStmt::RecordCopy {
             destination,
             size,
@@ -1730,6 +1752,8 @@ fn routine_native_real_node_count(routine: &SemRoutine) -> usize {
 
 fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
     match stmt {
+        SemStmt::Case { selector, arms, .. } => expr_uses_native_real(selector)
+            || arms.iter().any(|arm| arm.body.iter().any(stmt_uses_native_real)),
         SemStmt::LexicalBlock {
             declarations, body, ..
         } => {
@@ -1833,6 +1857,8 @@ fn lvalue_uses_native_real(value: &SemLValue) -> bool {
 
 fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
     match stmt {
+        SemStmt::Case { selector, arms, .. } => expr_node_count(selector)
+            + arms.iter().flat_map(|arm| &arm.body).map(stmt_expr_node_count).sum::<usize>(),
         SemStmt::LexicalBlock {
             declarations, body, ..
         } => {

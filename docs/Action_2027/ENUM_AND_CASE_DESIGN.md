@@ -265,6 +265,8 @@ For integer selectors:
   fit the selector's type without implicit wrapping or reinterpretation.
   A BYTE selector rejects `256`; a CARD selector rejects an INT value of `-1`.
   An explicit cast requests the existing conversion and is checked afterward.
+  Existing literal typing still applies: decimal `65535` has type INT and value
+  `-1`; write `$FFFF` or `CARD(65535)` for the unsigned CARD value `65535`.
 - Comma-separated values and inclusive `low TO high` ranges are supported.
 - Signed comparisons retain signed meaning. For example, `-4 TO -1` on an INT
   selector covers four negative values.

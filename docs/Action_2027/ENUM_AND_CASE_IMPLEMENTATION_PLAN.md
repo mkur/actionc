@@ -171,6 +171,14 @@ explicit and cannot accidentally be enabled by runtime or backend selection.
 
 ### Slice 1 — Integer CASE vertical slice
 
+Status: complete. Four focused semantic/NIR tests and four internal execution/
+linking tests pass. The execution tests cover every BYTE input, INT/CARD word
+labels, single selector evaluation, nested CASE/IF/loops, lexical blocks, EXIT,
+RETURN, and missing ELSE across both backends and runtimes. These use the
+existing test-only 6502 executor, not the separate VM harness; public VM tests
+follow in slice 2. The full compiler suite, snapshots, and all 33 NIR sweep
+fixtures pass unchanged. Public CASE remains gated in this slice.
+
 Primary files: `src/ast.rs`, `src/parser.rs`, `src/semantic.rs`,
 `src/semantic/ir.rs`, `src/nir/lowerer.rs`, `src/codegen/semir.rs`.
 

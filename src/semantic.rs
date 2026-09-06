@@ -13,6 +13,8 @@ pub mod ir;
 pub mod layout;
 pub(crate) mod materialize;
 mod array_places;
+mod case;
+pub use case::CaseRange;
 mod declarations;
 mod initializers;
 mod static_addresses;
@@ -36,6 +38,7 @@ pub use types::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticModel {
+    case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     pub target_layout: TargetLayout,
     pub symbols: SymbolTable,
     /// Named-module scopes and their collected public interfaces. Legacy
@@ -510,6 +513,7 @@ impl Analyzer {
             TargetLayout::for_target(self.options.target),
         );
         Ok(SemanticModel {
+            case_labels: self.case_labels,
             target_layout: TargetLayout::for_target(self.options.target),
             symbols: self.symbols,
             modules: self.modules,
@@ -534,6 +538,7 @@ impl Analyzer {
 }
 
 struct Analyzer {
+    case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     options: SemanticOptions,
     symbols: SymbolTable,
     builtin_scope: ScopeId,
@@ -611,6 +616,7 @@ impl Analyzer {
 
         Self {
             options,
+            case_labels: HashMap::new(),
             symbols,
             builtin_scope,
             global_scope,
@@ -1461,6 +1467,7 @@ impl Analyzer {
 
     fn analyze_stmt(&mut self, scope: ScopeId, stmt: &Stmt, context: ControlContext<'_>) {
         match stmt {
+            Stmt::Case { selector, arms, span } => self.analyze_case(scope, selector, arms, *span, context),
             Stmt::LexicalBlock {
                 syntax_id,
                 declarations,
@@ -5496,6 +5503,10 @@ pub(super) fn routine_uses_machine_return(routine: &Routine) -> bool {
 
 fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
     match stmt {
+        Stmt::Case { arms, .. } => case::case_flow_facts(
+            arms.iter().map(|arm| statement_list_flow_facts(&arm.body, loop_depth)),
+            arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
+        ),
         Stmt::LexicalBlock { body, .. } => statement_list_flow_facts(body, loop_depth),
         Stmt::Return(_) => StmtFlowFacts {
             may_continue: false,
@@ -5686,6 +5697,11 @@ fn collect_retargeted_routine_names_from_stmt(
     targets: &mut HashSet<String>,
 ) {
     match stmt {
+        Stmt::Case { arms, .. } => {
+            for arm in arms { for stmt in &arm.body {
+                collect_retargeted_routine_names_from_stmt(stmt, routine_names, targets);
+            } }
+        }
         Stmt::Assign { target, value, .. } => {
             if let (ExprKind::Name(target_name), ExprKind::Name(value_name)) =
                 (&target.kind, &value.kind)
@@ -10173,6 +10189,10 @@ mod tests {
 
     fn assert_semir_stmt_types(stmt: &ir::SemStmt) {
         match stmt {
+            ir::SemStmt::Case { selector, arms, .. } => {
+                assert_semir_value_expr_typed(selector);
+                for arm in arms { assert_semir_stmt_list_types(&arm.body); }
+            }
             ir::SemStmt::LexicalBlock {
                 declarations, body, ..
             } => {

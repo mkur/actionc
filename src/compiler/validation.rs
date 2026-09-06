@@ -63,6 +63,10 @@ fn collect_standalone_stmt_list_diagnostics(
 
 fn collect_standalone_stmt_diagnostics(statement: &SemStmt, diagnostics: &mut Vec<Diagnostic>) {
     match statement {
+        SemStmt::Case { selector, arms, .. } => {
+            collect_standalone_expr_diagnostics(selector, diagnostics);
+            for arm in arms { collect_standalone_stmt_list_diagnostics(&arm.body, diagnostics); }
+        }
         SemStmt::LexicalBlock {
             declarations, body, ..
         } => {
@@ -296,6 +300,11 @@ fn collect_legacy_routine_retargeting_diagnostics(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match stmt {
+        Stmt::Case { arms, .. } => {
+            for arm in arms { for stmt in &arm.body {
+                collect_legacy_routine_retargeting_diagnostics(stmt, routine_names, diagnostics);
+            } }
+        }
         Stmt::Assign {
             target,
             value,
