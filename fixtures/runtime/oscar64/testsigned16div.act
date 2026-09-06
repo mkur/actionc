@@ -1,0 +1,61 @@
+; Adapted from Oscar64 autotest/testsigned16div.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+; Expand unroll(full) into actual literal divisors; keep the runtime loop.
+; The host replaces the exhaustive outer sweep with a documented signed grid.
+INT ARRAY multab(32)=$5001,runtimeTab(32)=$5101
+INT value=$06F0
+CARD failures=$0600
+BYTE signature=$06FF
+
+PROC FillMulli(INT m)
+  multab(0)=m/(-16)
+  multab(1)=m/(-15)
+  multab(2)=m/(-14)
+  multab(3)=m/(-13)
+  multab(4)=m/(-12)
+  multab(5)=m/(-11)
+  multab(6)=m/(-10)
+  multab(7)=m/(-9)
+  multab(8)=m/(-8)
+  multab(9)=m/(-7)
+  multab(10)=m/(-6)
+  multab(11)=m/(-5)
+  multab(12)=m/(-4)
+  multab(13)=m/(-3)
+  multab(14)=m/(-2)
+  multab(15)=m/(-1)
+  multab(17)=m/(1)
+  multab(18)=m/(2)
+  multab(19)=m/(3)
+  multab(20)=m/(4)
+  multab(21)=m/(5)
+  multab(22)=m/(6)
+  multab(23)=m/(7)
+  multab(24)=m/(8)
+  multab(25)=m/(9)
+  multab(26)=m/(10)
+  multab(27)=m/(11)
+  multab(28)=m/(12)
+  multab(29)=m/(13)
+  multab(30)=m/(14)
+  multab(31)=m/(15)
+RETURN
+
+PROC CheckMulli(INT m)
+  INT i
+  FOR i=-16 TO 15
+  DO
+    IF i<>0 THEN
+      runtimeTab(i+16)=m/i
+      IF multab(i+16)<>runtimeTab(i+16) THEN failures==+1 FI
+    FI
+  OD
+RETURN
+
+PROC Main()
+  failures=0
+  FillMulli(value)
+  CheckMulli(value)
+  signature=$A5
+RETURN

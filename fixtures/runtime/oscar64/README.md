@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These eighteen Action! fixtures adapt Oscar64 autotests into the existing
+These twenty Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -45,6 +45,8 @@ translations or tests of C-only language behavior.
 | `testinterval_values`, `mixsigncmptest_values` | Modern-only companions to the two preceding ports | The same interval and mixed-comparison truth oracles, using numeric comparison values instead of IF assignments |
 | `structarraycopy` | Eight Point record-array copies following three conditional calls; sum plus 144 is zero | Exactly 12 original calls; twice-repeated seven-byte mixed-width record copies; runtime lengths 0, 1, 2, 8, 100, 127, 128, 129, 255, 256, 257 at aligned, odd and page-boundary bases; complete images and guards |
 | `structmembertest` | The original record with inline `INT x(100),y(100)` and 100 three-INT vectors; pointer-based field-copy loops | Modern-only; additional inline arrays of 257 INTs and seven-byte tagged vectors; runtime lengths 0, 1, 2, 100, 127, 128, 129, 255, 256, 257 at three base layouts; all fields, source members, unused elements and guards |
+| `testsigned16div` | Runtime INT divided by each nonzero coefficient -16..15; actual literal expansion contrasted with the original runtime loop | 39 representative signed inputs, including inexact quotients; guarded odd-base literal/runtime tables and unchanged inputs |
+| `divmodtest` | Quotient/remainder identities with byte divisors 1..255 and wrapping CARD power-of-three divisors | Every original outer-loop value supplied by the host; exact quotient and remainder checked independently, full CARD high-bit range, guarded odd-base row table |
 
 Cartridge-compatible sources run in all three modes; modern comparison-value
 companions and `structmembertest` run in Optimized and MIR6502. All use both ActionCart and Standalone
@@ -68,10 +70,12 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `mixsigncmptest_values` | 26 | 104 | Both modern backends/runtimes |
 | `structarraycopy` | 33 | 198 | All six mode/runtime combinations |
 | `structmembertest` | 30 | 120 | Both modern backends/runtimes; Compatibility rejection checked separately |
+| `testsigned16div` | 39 | 234 | All six mode/runtime combinations |
+| `divmodtest` | 1,190 | 7,140 | All six mode/runtime combinations |
 
-Overall: **4,698 VM cases in 26 active tests**: the existing 3,708 cases, 408
-stage-4 branch/count cases, 264 modern-only value cases, and 318 stage-5 record
-cases. The two member-fixture Compatibility rejection checks are not VM cases.
+Overall: **12,072 VM cases in 28 active tests**: the previous 4,698 cases plus
+7,374 division/remainder executions. The two member-fixture Compatibility
+rejection checks are not VM cases.
 No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
@@ -82,6 +86,16 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
 
 ## Action! semantics and harness contract
 
+- Arithmetic ports use the [modern integer contract](../../../docs/MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md)
+  in every profile/runtime. `testsigned16div` retains all 31 nonzero literal
+  divisors explicitly; its 39 host inputs are a sample, not the original
+  exhaustive signed outer loop. `divmodtest` retains all original outer grids:
+  0..255 step 11, 0..6999 step 11, and 0..63999 step 121 (24+637+529 inputs).
+  The host supplies those outer values so each VM invocation has a bounded
+  watchdog; original inner loops remain in Action! code. Quotient/remainder
+  rows are checked directly, not only through a possibly wrapping identity.
+  Division-by-zero and signed overflow tests live separately in
+  `modern_arithmetic.rs`, not in these valid C-domain translations.
 - Oscar64's unsigned byte `char` maps to `BYTE`, signed word `int` to `INT`,
   and unsigned word to `CARD`. There is no invented signed-byte Action! type.
 - C `for` predicates become explicit `WHILE` predicates. In particular,

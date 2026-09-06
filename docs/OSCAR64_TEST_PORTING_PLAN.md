@@ -1,6 +1,8 @@
 # Oscar64 behavioral ports: second batch
 
-Status: stages 1 through 5 complete, 2026-09-06.
+Status: stages 1 through 5 and the deferred division/remainder batch complete,
+2026-09-06. Current arithmetic rollout coverage: 12,072 Oscar64 VM cases in 28
+active tests; see the [fixture coverage table](../fixtures/runtime/oscar64/README.md).
 Stage 5 adds 198 all-mode record-copy executions and 120 modern embedded-member
 executions: 4,698 Oscar64 VM cases in 26 active tests. Compatibility rejection
 of embedded members is checked separately, not counted as execution coverage.
@@ -301,9 +303,18 @@ are part of these ports.
 
 ## Deferred batch
 
-Signed division, full-range CARD division/remainder, volatile-device tests, and
-additional unrolling cases remain follow-ups. CARD division/remainder first
-needs the existing arithmetic compatibility audit. Volatile tests need
+Signed division and full-range CARD division/remainder are now ported as
+`testsigned16div.act` and `divmodtest.act`: 234 and 7,140 six-way executions.
+The original unsigned outer grids and inner loops are retained (outer values
+are host-driven); the signed outer grid is sampled, with all 31 nonzero
+literal/runtime divisors retained. The
+[arithmetic audit](bugs/LEGACY_INTEGER_ARITHMETIC_AUDIT.md) is complete and
+exposed compiler/runtime gaps repaired by the
+[modern arithmetic implementation plan](MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md)
+before these ports were enabled. All actionc profiles use correct
+shared semantics, including when linked with cartridge services; original
+compiler bugs are historical observations, not port oracles. Volatile-device
+tests and additional unrolling cases remain follow-ups. Volatile tests need
 observable access counts or a deterministic test device, not only RAM's final
 contents. Most named cases in Oscar64's `loopunrolltest.cpp` are disabled in
 its entry point and must be assessed rather than copied wholesale.

@@ -1,0 +1,29 @@
+; Adapted from Oscar64 autotest/divmodtest.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+; The host supplies each original outer-loop i; the inner loops remain here.
+; phase=0 visits 1..255, phase=1 visits wrapping CARD powers of three below i.
+; Every dividend/divisor/quotient/remainder row is independently checked.
+CARD dividend=$06F0
+BYTE phase=$06F2,signature=$06FF
+CARD count=$0600,failures=$0602
+CARD ARRAY rows(1020)=$5001
+
+PROC Main()
+  CARD i,j,q,r,index
+  i=dividend j=1 count=0 failures=0 index=0
+  DO
+    IF phase=0 THEN
+      IF j>=256 THEN EXIT FI
+    ELSE
+      IF j>=i THEN EXIT FI
+    FI
+    q=i/j r=i MOD j
+    IF CARD(q*j+r)<>i THEN failures==+1 FI
+    IF r>=j THEN failures==+1 FI
+    rows(index)=i rows(index+1)=j rows(index+2)=q rows(index+3)=r
+    index==+4 count==+1
+    IF phase=0 THEN j==+1 ELSE j==*3 FI
+  OD
+  signature=$A5
+RETURN

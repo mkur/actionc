@@ -24,6 +24,7 @@ struct Case {
     label: String,
     setup: Vec<(u16, Vec<u8>)>,
     expected: Vec<(u16, Vec<u8>)>,
+    max_steps: Option<u64>,
 }
 
 impl Case {
@@ -80,6 +81,7 @@ fn run_cases_in_modes(name: &str, max_steps: u64, cases: &[Case], modes: &[Compi
                 }
             };
             for case in cases {
+                let max_steps = case.max_steps.unwrap_or(max_steps);
                 let label = format!("{name}/{mode:?}/{runtime:?}/{}", case.label);
                 let mut vm = CompilerVm::default();
                 let profile = match runtime {
@@ -171,6 +173,74 @@ fn run_cases_in_modes(name: &str, max_steps: u64, cases: &[Case], modes: &[Compi
 
 fn write_word(bytes: &mut [u8], offset: usize, value: u16) {
     bytes[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
+}
+
+#[test]
+fn oscar64_signed_division_literal_and_runtime_coefficients() {
+    let mut inputs: Vec<i16> = (-1024..=1024).step_by(64).collect();
+    inputs.extend([-1023, -513, -1, 1, 513, 1023]);
+    inputs.sort_unstable();
+    inputs.dedup();
+    let cases: Vec<_> = inputs.into_iter().map(|m| {
+        let mut case = Case::new(format!("m={m}"));
+        case.read_only_words(0x06F0, &[m as u16]);
+        case.word(0x0600, 0);
+        for start in [0x5000, 0x5100] {
+            let mut expected = vec![POISON; 0x80];
+            case.setup.push((start, expected.clone()));
+            for coefficient in -16..16i32 {
+                if coefficient == 0 { continue; }
+                let magnitude = i32::from(m).abs() / coefficient.abs();
+                let q = if (m < 0) != (coefficient < 0) { -magnitude } else { magnitude };
+                write_word(&mut expected, 1 + (coefficient + 16) as usize * 2, q as u16);
+            }
+            case.expected.push((start, expected));
+        }
+        let mut page = vec![POISON; 0x100];
+        write_word(&mut page, 0, 0);
+        write_word(&mut page, 0xF0, m as u16);
+        page[0xFF] = 0xA5;
+        case.expected.push((0x0600, page));
+        case
+    }).collect();
+    run_cases("testsigned16div", 80_000, &cases);
+}
+
+#[test]
+fn oscar64_unsigned_divmod_original_outer_grids() {
+    let mut cases = Vec::new();
+    for (phase, limit, stride) in [(0u8, 256u32, 11usize), (1, 7000, 11), (1, 64000, 121)] {
+        for i in (0..limit).step_by(stride) {
+            let mut case = Case::new(format!("phase={phase}/limit={limit}/i={i}"));
+            let mut page = vec![POISON; 0x100];
+            write_word(&mut page, 0xF0, i as u16);
+            page[0xF2] = phase;
+            case.setup.push((0x0600, page.clone()));
+            let mut rows = vec![POISON; 0x800];
+            case.setup.push((0x5000, rows.clone()));
+            let mut j = 1u16;
+            let mut count = 0usize;
+            while if phase == 0 { j < 256 } else { u32::from(j) < i } {
+                assert!(count < 255, "bounded original C inner loop");
+                let q = i / u32::from(j);
+                let r = i - q * u32::from(j);
+                assert!(r < u32::from(j));
+                for (column, value) in [i as u16, j, q as u16, r as u16].into_iter().enumerate() {
+                    write_word(&mut rows, 1 + count * 8 + column * 2, value);
+                }
+                count += 1;
+                j = if phase == 0 { j + 1 } else { j.wrapping_mul(3) };
+            }
+            write_word(&mut page, 0, count as u16);
+            write_word(&mut page, 2, 0);
+            page[0xFF] = 0xA5;
+            case.expected.push((0x0600, page));
+            case.expected.push((0x5000, rows));
+            case.max_steps = Some(20_000 + count as u64 * 2500);
+            cases.push(case);
+        }
+    }
+    run_cases("divmodtest", 900_000, &cases);
 }
 
 #[test]
