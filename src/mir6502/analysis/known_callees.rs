@@ -197,6 +197,17 @@ pub(in crate::mir6502) struct MirKnownCalleeSummaries {
 
 impl MirKnownCalleeSummaries {
     pub(in crate::mir6502) fn analyze(program: &MirProgram) -> Self {
+        Self::analyze_exit_facts(program, true)
+    }
+
+    /// Local rewrites do not yet preserve an interprocedural N/Z exit contract.
+    /// Keep exact flags from immutable machine routines, but do not publish a
+    /// mutable MIR routine's incidental return flags to another routine.
+    pub(in crate::mir6502) fn analyze_for_rewriting(program: &MirProgram) -> Self {
+        Self::analyze_exit_facts(program, false)
+    }
+
+    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool) -> Self {
         let direct_call_targets = program
             .routines
             .iter()
@@ -243,7 +254,10 @@ impl MirKnownCalleeSummaries {
                 if machine_summaries.contains_key(&routine.id) {
                     continue;
                 }
-                let summary = summarize_mir_routine(routine, &previous);
+                let mut summary = summarize_mir_routine(routine, &previous);
+                if !mutable_return_flags {
+                    summary.zn = None;
+                }
                 if summaries.routines.get(&routine.id) != Some(&summary) {
                     summaries.routines.insert(routine.id, summary);
                     changed = true;

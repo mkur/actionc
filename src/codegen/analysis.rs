@@ -242,7 +242,7 @@ pub(super) fn single_int_scalar_param_name(routine: &Routine) -> Option<&str> {
     if !matches!(
         routine.kind,
         RoutineKind::Func {
-            return_type: FundType::Int
+            return_type: RoutineResultType::Fund(FundType::Int)
         }
     ) {
         return None;

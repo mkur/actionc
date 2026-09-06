@@ -318,6 +318,18 @@ and CONST bindings remain semantic metadata and allocate no runtime storage.
 The legacy AST materializer retains enum CONST bindings rather than replacing
 them with untyped numeric literals and losing identity under shadowing.
 
+Function and callable signatures carry a resolved `ValueType` result, including
+nominal enum identity. Source result syntax is fundamental-or-qualified-name;
+records are not valid named results. Signature IDs use canonical enum identity,
+not alias spelling or byte width. Only the backend adapter erases an enum result
+to the existing BYTE ABI.
+
+Returning A equal to a result slot does not prove that the callee's N/Z flags
+describe A. Classic call facts keep this distinction. MIR rewrite-time callee
+summaries publish exact N/Z only for immutable machine-code routines: local
+rewrites do not yet preserve an interprocedural flag-exit contract for mutable
+MIR routines. Analysis of a fixed MIR program may still report exact N/Z.
+
 The canonical scalar semantic model is `ScalarType`:
 
 - `BYTE`: 1 byte, unsigned;

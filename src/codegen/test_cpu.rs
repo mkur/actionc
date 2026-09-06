@@ -15,7 +15,6 @@ pub(crate) fn run_memory_with_limit(
     let (mut a, mut x, mut y, mut sp) = (0u8, 0u8, 0u8, 0xffu8);
     let (mut c, mut z, mut n, mut v) = (false, false, false, false);
     let mut pc = entry;
-    let mut depth = 0;
     let mut returns = Vec::new();
     for _ in 0..step_limit {
         let (name, mode, len) = decode_6502_opcode(memory[pc]).unwrap();
@@ -170,17 +169,25 @@ pub(crate) fn run_memory_with_limit(
                 }
             }
             "JMP" if mode == AddressingMode::Absolute => pc = addr,
+            "JMP" if mode == AddressingMode::Indirect => {
+                // NMOS 6502 wraps the high-byte fetch within the pointer page.
+                let high = (word & 0xff00) | u16::from((word as u8).wrapping_add(1));
+                pc = usize::from(u16::from_le_bytes([
+                    memory[usize::from(word)], memory[usize::from(high)],
+                ]));
+            }
             "JSR" => {
                 let ret = (pc - 1) as u16;
                 memory[0x100 + usize::from(sp)] = (ret >> 8) as u8;
                 sp = sp.wrapping_sub(1);
                 memory[0x100 + usize::from(sp)] = ret as u8;
                 sp = sp.wrapping_sub(1);
-                depth += 1;
                 pc = addr;
             }
             "RTS" => {
-                if depth == 0 {
+                // Also supports compiler-generated indirect-call trampolines
+                // which push return addresses explicitly before JMP/RTS.
+                if sp == 0xff {
                     return returns;
                 }
                 sp = sp.wrapping_add(1);
@@ -188,7 +195,6 @@ pub(crate) fn run_memory_with_limit(
                 sp = sp.wrapping_add(1);
                 let hi = memory[0x100 + usize::from(sp)];
                 pc = usize::from(u16::from_le_bytes([lo, hi])) + 1;
-                depth -= 1;
             }
             "PHA" => {
                 memory[0x100 + usize::from(sp)] = a;

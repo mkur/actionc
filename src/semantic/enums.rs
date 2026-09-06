@@ -50,6 +50,25 @@ pub struct EnumFacts {
 }
 
 impl Analyzer {
+    pub(super) fn resolve_routine_result(
+        &mut self,
+        scope: ScopeId,
+        result: &RoutineResultType,
+        span: Span,
+    ) -> ValueType {
+        let syntax = result.type_ref();
+        self.validate_type_ref(scope, &syntax, span);
+        let ty = self.value_type_from_type_ref(scope, &syntax);
+        if matches!(result, RoutineResultType::Named(_)) && ty.as_enum().is_none() {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "named FUNC result must be an enum type",
+            ));
+            return ValueType::error();
+        }
+        ty
+    }
+
     pub(super) fn define_enum(
         &mut self,
         scope: ScopeId,

@@ -252,6 +252,9 @@ impl Generator {
             self.processor.set_a_fact(value);
             self.processor.set_zp_from_a(runtime_zp::ARGS.offset(1));
         }
+        // Return facts prove A equals a result byte, not that N/Z describe A.
+        // A callee may preserve that byte through INC, CMP, or other flag writes.
+        self.processor.invalidate_value_flags();
     }
 }
 

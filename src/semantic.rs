@@ -697,7 +697,7 @@ impl Analyzer {
                 symbol_id,
                 SemanticCallableSignature {
                     kind: RoutineKind::Func {
-                        return_type: FundType::Card,
+                        return_type: FundType::Card.into(),
                     },
                     params: Vec::new(),
                     variadic: None,
@@ -748,10 +748,10 @@ impl Analyzer {
             if is_qualified_only_sys_extension(&routine.name) {
                 continue;
             }
-            let (class, ty) = match routine.kind {
+            let (class, ty) = match &routine.kind {
                 RoutineKind::Proc => (SymbolClass::BuiltinProc, None),
                 RoutineKind::Func { return_type } => {
-                    (SymbolClass::BuiltinFunc, Some(fund_value(return_type)))
+                    (SymbolClass::BuiltinFunc, Some(ValueType::unresolved_routine_result(return_type)))
                 }
             };
             let Some(symbol_id) = self.declare(
@@ -1000,9 +1000,9 @@ impl Analyzer {
                             RoutineKind::Proc => SymbolClass::Proc,
                             RoutineKind::Func { .. } => SymbolClass::Func,
                         };
-                        let ty = match routine.kind {
+                        let ty = match &routine.kind {
                             RoutineKind::Proc => None,
-                            RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
+                            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
                         };
                         let symbol_id = self
                             .coalesce_sys_compatibility_routine(module_id, scope, routine)
@@ -1075,14 +1075,14 @@ impl Analyzer {
 
         let module_path = self.modules[module_id.0 as usize].path.clone();
         let symbol = &mut self.symbols.symbols[symbol_id.0];
-        match routine.kind {
+        match &routine.kind {
             RoutineKind::Proc => {
                 symbol.class = SymbolClass::Proc;
                 symbol.ty = None;
             }
             RoutineKind::Func { return_type } => {
                 symbol.class = SymbolClass::Func;
-                symbol.ty = Some(fund_value(return_type));
+                symbol.ty = Some(ValueType::unresolved_routine_result(return_type));
             }
         }
         symbol.defining_module = Some(module_id);
@@ -1416,9 +1416,9 @@ impl Analyzer {
             RoutineKind::Proc => SymbolClass::Proc,
             RoutineKind::Func { .. } => SymbolClass::Func,
         };
-        let ty = match routine.kind {
+        let ty = match &routine.kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
+            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
         };
 
         if let Some(symbol_id) = self.declare(scope, routine.name.clone(), class, ty, routine.span)
@@ -1427,6 +1427,7 @@ impl Analyzer {
                 symbol_id,
                 SemanticCallableSignature::from_routine(routine),
             );
+            self.resolve_predeclared_routine_signature(scope, routine);
         }
     }
 
@@ -1786,7 +1787,10 @@ impl Analyzer {
                 "function RETURN requires a value",
             )),
             (Some(RoutineKind::Func { return_type }), Some(expr), Some(typed)) => {
-                let expected = fund_value(*return_type);
+                let expected = self.active_routine_symbol
+                    .and_then(|symbol| self.routines_by_symbol.get(&symbol))
+                    .and_then(|signature| signature.return_type.clone())
+                    .unwrap_or_else(|| ValueType::unresolved_routine_result(return_type));
                 if !typed.ty.is_error() && !type_can_assign(&expected, &typed.ty) {
                     self.diagnostics.push(Diagnostic::new(
                         expr.span,
@@ -1867,6 +1871,14 @@ impl Analyzer {
         }
         if (expected.as_enum().is_some() || actual.as_enum().is_some()) && expected != actual {
             self.diagnostics.push(Diagnostic::new(value.span, "enum assignment requires the exact enum type; use an explicit integer conversion"));
+            return;
+        }
+        if let (Some(expected), Some(actual)) = (expected.as_callable_pointer(), actual.as_callable_pointer())
+            && (expected.return_type.as_ref().is_some_and(|ty| ty.as_enum().is_some())
+                || actual.return_type.as_ref().is_some_and(|ty| ty.as_enum().is_some()))
+            && expected.return_type != actual.return_type
+        {
+            self.diagnostics.push(Diagnostic::new(value.span, "callable assignment requires the exact enum result type"));
             return;
         }
         if expected.pointer {
@@ -3830,14 +3842,17 @@ impl Analyzer {
                 params.push(ty.clone());
             }
         }
-        let return_type = match routine.kind {
+        let return_type = match &routine.kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
+            RoutineKind::Func { return_type } => Some(self.resolve_routine_result(scope, return_type, routine.span)),
         };
+        self.symbols.symbols[symbol_id.0].ty = return_type.clone();
+        let kind = return_type.as_ref().and_then(ValueType::routine_result_type)
+            .map(|return_type| RoutineKind::Func { return_type }).unwrap_or_else(|| routine.kind.clone());
         self.remember_routine_signature(
             symbol_id,
             SemanticCallableSignature {
-                kind: routine.kind.clone(),
+                kind,
                 params,
                 variadic: None,
                 return_type,
@@ -4513,6 +4528,9 @@ impl Analyzer {
     }
 
     fn validate_type_ref(&mut self, scope: ScopeId, ty: &TypeRef, span: Span) {
+        if let TypeBase::Callable(RoutineKind::Func { return_type }) = &ty.base {
+            self.resolve_routine_result(scope, return_type, span);
+        }
         let TypeBase::Named(name) = &ty.base else {
             return;
         };
@@ -4555,6 +4573,12 @@ impl Analyzer {
     }
 
     fn value_type_from_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
+        if let TypeBase::Callable(RoutineKind::Func { return_type }) = &ty.base {
+            let result = self.value_type_from_type_ref(scope, &return_type.type_ref());
+            return ValueType::callable_pointer(CallableType::new(
+                RoutineKind::Func { return_type: return_type.clone() }, Vec::new(), Some(result),
+            ));
+        }
         let mut value = ValueType::from_type_ref(ty);
         let TypeBase::Named(name) = &ty.base else {
             return value;
@@ -4943,9 +4967,9 @@ impl SemanticCallableSignature {
             }
         }
 
-        let return_type = match routine.kind {
+        let return_type = match &routine.kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(fund_value(return_type)),
+            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
         };
 
         Self {
@@ -4965,8 +4989,7 @@ impl SemanticCallableSignature {
 fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
     match (&symbol.class, symbol.ty.as_ref()) {
         (SymbolClass::Func | SymbolClass::BuiltinFunc, Some(ty)) => match ty.base {
-            ValueTypeBase::Fund(fund) => RoutineKind::Func { return_type: fund },
-            ValueTypeBase::Enum(_) => unreachable!("enum results are gated until routine signature integration"),
+            ValueTypeBase::Fund(_) | ValueTypeBase::Enum(_) => RoutineKind::Func { return_type: ty.routine_result_type().unwrap() },
             ValueTypeBase::Real => RoutineKind::Proc,
             ValueTypeBase::Named(_) => RoutineKind::Proc,
             ValueTypeBase::Callable(_) => RoutineKind::Proc,
@@ -7572,7 +7595,7 @@ mod tests {
         assert_eq!(
             signature.kind,
             RoutineKind::Func {
-                return_type: FundType::Byte
+                return_type: FundType::Byte.into()
             }
         );
         assert_eq!(
@@ -9420,14 +9443,14 @@ mod tests {
         assert_eq!(
             routines[1].signature.kind,
             RoutineKind::Func {
-                return_type: FundType::Card
+                return_type: FundType::Card.into()
             }
         );
         assert_eq!(
             routines[1].signature.params,
             vec![fund_value(FundType::Byte), fund_value(FundType::Card)]
         );
-        assert_eq!(routines[1].signature.return_type, Some(FundType::Card));
+        assert_eq!(routines[1].signature.return_type, Some(fund_value(FundType::Card)));
         assert_semir_types_complete(&ir);
     }
 
@@ -10183,7 +10206,7 @@ mod tests {
             routine.symbol.name
         );
 
-        match (&routine.signature.kind, routine.signature.return_type) {
+        match (&routine.signature.kind, &routine.signature.return_type) {
             (RoutineKind::Proc, None) => {
                 assert_eq!(routine.symbol.class, SymbolClass::Proc);
                 assert_eq!(routine.symbol.ty, None);
@@ -10191,13 +10214,13 @@ mod tests {
                 assert_eq!(routine.callable_type.return_type, None);
             }
             (RoutineKind::Func { return_type }, Some(signature_return)) => {
-                assert_eq!(*return_type, signature_return);
+                assert_eq!(Some(return_type.clone()), signature_return.routine_result_type());
                 assert_eq!(routine.symbol.class, SymbolClass::Func);
-                assert_eq!(routine.symbol.ty, Some(fund_value(*return_type)));
+                assert_eq!(routine.symbol.ty.as_ref(), Some(signature_return));
                 assert_eq!(routine.callable_type.kind, routine.signature.kind);
                 assert_eq!(
-                    routine.callable_type.return_type,
-                    Some(fund_value(*return_type))
+                    routine.callable_type.return_type.as_ref(),
+                    Some(signature_return)
                 );
             }
             _ => panic!(

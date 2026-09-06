@@ -962,7 +962,7 @@ pub enum SemCallable {
 pub struct SemRoutineSignature {
     pub kind: RoutineKind,
     pub params: Vec<ValueType>,
-    pub return_type: Option<FundType>,
+    pub return_type: Option<ValueType>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2861,10 +2861,8 @@ impl<'a> IrBuilder<'a> {
             .map(|routine| routine.scope)
             .unwrap_or(parent_scope);
         let params = self.lower_params(routine_scope, &routine.params);
-        let signature = SemRoutineSignature::from_header(
-            routine.kind.clone(),
-            params.iter().map(param_signature_type),
-        );
+        let callable = self.callable_type_for_callee(&SemCallable::User(symbol.clone()));
+        let signature = SemRoutineSignature::from_callable_type(&callable);
 
         SemRoutine {
             is_external: routine.is_external,
@@ -4712,6 +4710,12 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn resolved_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
+        if let TypeBase::Callable(RoutineKind::Func { return_type }) = &ty.base {
+            let result = self.resolved_type_ref(scope, &return_type.type_ref());
+            return ValueType::callable_pointer(CallableType::new(
+                RoutineKind::Func { return_type: return_type.clone() }, Vec::new(), Some(result),
+            ));
+        }
         let mut value = ValueType::from(ty);
         let TypeBase::Named(name) = &ty.base else {
             return value;
@@ -4774,24 +4778,11 @@ impl From<ExprClass> for SemExprClass {
 }
 
 impl SemRoutineSignature {
-    fn from_header(kind: RoutineKind, params: impl IntoIterator<Item = ValueType>) -> Self {
-        let return_type = match kind {
-            RoutineKind::Func { return_type } => Some(return_type),
-            RoutineKind::Proc => None,
-        };
-
-        Self {
-            kind,
-            params: params.into_iter().collect(),
-            return_type,
-        }
-    }
-
     fn from_callable_type(callable: &CallableType) -> Self {
         Self {
             kind: callable.kind.clone(),
             params: callable.params.clone(),
-            return_type: fund_type_from_value_ref(callable.return_type.as_ref()),
+            return_type: callable.return_type.clone(),
         }
     }
 
@@ -4807,13 +4798,13 @@ impl SemRoutineSignature {
         CallableType::new(
             self.kind.clone(),
             self.params.clone(),
-            self.return_type.map(ValueType::fund),
+            self.return_type.clone(),
         )
     }
 }
 
 fn callable_kind_from_return_type(return_type: Option<&ValueType>) -> RoutineKind {
-    match return_type.and_then(fund_type_from_value) {
+    match return_type.and_then(ValueType::routine_result_type) {
         Some(return_type) => RoutineKind::Func { return_type },
         None => RoutineKind::Proc,
     }
@@ -4829,24 +4820,6 @@ fn callable_type_from_signature_parts(
         CallableType::new_variadic(kind, params, variadic, return_type)
     } else {
         CallableType::new(kind, params, return_type)
-    }
-}
-
-fn fund_type_from_value(ty: &ValueType) -> Option<FundType> {
-    match (&ty.base, ty.pointer) {
-        (ValueTypeBase::Fund(fund), false) => Some(*fund),
-        _ => None,
-    }
-}
-
-fn fund_type_from_value_ref(ty: Option<&ValueType>) -> Option<FundType> {
-    ty.and_then(fund_type_from_value)
-}
-
-fn param_signature_type(param: &SemParam) -> ValueType {
-    match param.storage {
-        SemParamStorage::Value => param.ty.value.clone(),
-        SemParamStorage::Array => ValueType::pointer_to(param.ty.value.clone()),
     }
 }
 

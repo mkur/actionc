@@ -610,7 +610,7 @@ impl SemIrAstLowerer<'_> {
         Some(Routine {
             visibility: Visibility::Private,
             is_external: routine.is_external,
-            kind: routine.signature.kind.clone(),
+            kind: projected_callable_kind(&routine.callable_type),
             name: routine.symbol.name.clone(),
             system_address: routine
                 .system_address
@@ -1182,7 +1182,7 @@ impl SemIrAstLowerer<'_> {
                         .unwrap_or_else(|| name.clone())
                         .into(),
                 ),
-                ValueTypeBase::Callable(callable) => TypeBase::Callable(callable.kind.clone()),
+                ValueTypeBase::Callable(callable) => TypeBase::Callable(projected_callable_kind(callable)),
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
             pointer: ty.pointer && !matches!(ty.base, ValueTypeBase::Callable(_)),
@@ -2088,17 +2088,17 @@ fn routine_kind_text(kind: &RoutineKind) -> String {
     match kind {
         RoutineKind::Proc => "PROC POINTER".to_string(),
         RoutineKind::Func { return_type } => {
-            format!("{} FUNC POINTER", fund_type_text(*return_type))
+            format!("{} FUNC POINTER", super::result_type_trace_name(return_type))
         }
     }
 }
 
-fn fund_type_text(fund: FundType) -> &'static str {
-    match fund {
-        FundType::Byte => "BYTE",
-        FundType::Card => "CARD",
-        FundType::Char => "CHAR",
-        FundType::Int => "INT",
+fn projected_callable_kind(callable: &crate::semantic::CallableType) -> RoutineKind {
+    match &callable.return_type {
+        None => RoutineKind::Proc,
+        Some(result) => RoutineKind::Func {
+            return_type: result.representation_scalar().expect("validated scalar/enum FUNC result").fund_type().into(),
+        },
     }
 }
 

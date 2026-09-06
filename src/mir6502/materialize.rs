@@ -1525,7 +1525,7 @@ pub(super) fn materialize_program_with_reporting(
     // memory summaries so a callee's private scratch writes have exact
     // physical identities for cross-call preservation proofs.
     allocate_zero_page_slots(&mut program);
-    let known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
     let layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
         for block in &mut routine.blocks {
@@ -1565,7 +1565,7 @@ pub(super) fn materialize_program_with_reporting(
         }
     }
     allocate_zero_page_slots(&mut program);
-    let zero_page_known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let zero_page_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
     let reused_zero_page_remaps =
         lower_known_call_result_spills_to_reused_zero_page(&mut program, &zero_page_known_callees);
     for (routine, remap) in reused_zero_page_remaps {
@@ -1582,7 +1582,7 @@ pub(super) fn materialize_program_with_reporting(
     // same physical byte at a CFG edge. Rebuild machine-value and exact Z/N
     // provenance facts after that remap so final physical reloads can be
     // removed safely.
-    let final_known_callees = MirKnownCalleeSummaries::analyze(&program);
+    let final_known_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
     let final_layout = MaterializeLayout::new(&program, object_origin);
     for routine in &mut program.routines {
         run_analyzed_ssa_lite_byte_rewrites(

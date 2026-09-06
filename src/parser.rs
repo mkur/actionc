@@ -740,7 +740,7 @@ impl<'a> Parser<'a> {
         let kind = if self.eat_keyword(Keyword::Proc) {
             RoutineKind::Proc
         } else {
-            let return_type = self.parse_fund_type().unwrap_or(FundType::Card);
+            let return_type = self.parse_routine_result_type();
             self.expect_keyword(Keyword::Func);
             RoutineKind::Func { return_type }
         };
@@ -1527,12 +1527,16 @@ impl<'a> Parser<'a> {
         } else if let Some(fund) = self.parse_fund_type() {
             if self.eat_keyword(Keyword::Func) {
                 self.expect_keyword(Keyword::Pointer);
-                TypeBase::Callable(RoutineKind::Func { return_type: fund })
+                TypeBase::Callable(RoutineKind::Func { return_type: fund.into() })
             } else {
                 TypeBase::Fund(fund)
             }
         } else if let Some(name) = self.expect_ident_if_present() {
-            TypeBase::Named(self.parse_qualified_name_tail(name, &mut Vec::new()))
+            let name = self.parse_qualified_name_tail(name, &mut Vec::new());
+            if self.eat_keyword(Keyword::Func) {
+                self.expect_keyword(Keyword::Pointer);
+                TypeBase::Callable(RoutineKind::Func { return_type: RoutineResultType::Named(name) })
+            } else { TypeBase::Named(name) }
         } else {
             self.diagnostics
                 .push(Diagnostic::new(self.peek().span, "expected type"));
@@ -1941,19 +1945,18 @@ impl<'a> Parser<'a> {
     }
 
     fn is_func_pointer_decl_start_at(&self, pos: usize) -> bool {
-        self.is_fund_type_start_at(pos)
-            && matches!(
+        self.routine_result_end_at(pos).is_some_and(|end| matches!(
                 (
-                    self.tokens.get(pos + 1).map(|token| &token.kind),
-                    self.tokens.get(pos + 2).map(|token| &token.kind),
-                    self.tokens.get(pos + 3).map(|token| &token.kind)
+                    self.tokens.get(end).map(|token| &token.kind),
+                    self.tokens.get(end + 1).map(|token| &token.kind),
+                    self.tokens.get(end + 2).map(|token| &token.kind)
                 ),
                 (
                     Some(TokenKind::Keyword(Keyword::Func)),
                     Some(TokenKind::Keyword(Keyword::Pointer)),
                     Some(TokenKind::Ident(_))
                 )
-            )
+            ))
     }
 
     fn is_named_var_decl_start_at(&self, pos: usize) -> bool {
@@ -1996,17 +1999,16 @@ impl<'a> Parser<'a> {
     }
 
     fn is_func_decl_start_at(&self, pos: usize) -> bool {
-        self.is_fund_type_start_at(pos)
-            && matches!(
+        self.routine_result_end_at(pos).is_some_and(|end| matches!(
                 (
-                    self.tokens.get(pos + 1).map(|token| &token.kind),
-                    self.tokens.get(pos + 2).map(|token| &token.kind)
+                    self.tokens.get(end).map(|token| &token.kind),
+                    self.tokens.get(end + 1).map(|token| &token.kind)
                 ),
                 (
                     Some(TokenKind::Keyword(Keyword::Func)),
                     Some(TokenKind::Ident(_))
                 )
-            )
+            ))
     }
 
     fn next_token_is_routine_name_after_define_directive(&self) -> bool {
@@ -4333,7 +4335,7 @@ mod tests {
         let TypeBase::Callable(RoutineKind::Func { return_type }) = &func_ptr.ty.base else {
             panic!("expected FUNC POINTER type, got {:#?}", func_ptr.ty);
         };
-        assert_eq!(*return_type, FundType::Byte);
+        assert_eq!(*return_type, FundType::Byte.into());
     }
 
     #[test]

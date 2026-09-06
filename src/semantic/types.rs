@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, FundType, RoutineKind};
+use crate::ast::{BinaryOp, FundType, QualifiedName, RoutineKind, RoutineResultType};
 use crate::lexer::NumberKind;
 
 use super::{EnumIdentity, FieldId, ValueType, ValueTypeBase};
@@ -112,6 +112,9 @@ impl CallableType {
         params: impl IntoIterator<Item = ValueType>,
         return_type: Option<ValueType>,
     ) -> Self {
+        let kind = if let Some(result) = return_type.as_ref().filter(|ty| ty.as_enum().is_some()) {
+            RoutineKind::Func { return_type: result.routine_result_type().unwrap() }
+        } else { kind };
         Self {
             kind,
             params: params.into_iter().collect(),
@@ -126,21 +129,18 @@ impl CallableType {
         variadic: ValueType,
         return_type: Option<ValueType>,
     ) -> Self {
-        Self {
-            kind,
-            params: params.into_iter().collect(),
-            variadic: Some(variadic),
-            return_type,
-        }
+        let mut callable = Self::new(kind, params, return_type);
+        callable.variadic = Some(variadic);
+        callable
     }
 
     pub fn from_routine_kind(
         kind: RoutineKind,
         params: impl IntoIterator<Item = ValueType>,
     ) -> Self {
-        let return_type = match kind {
+        let return_type = match &kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::fund(return_type)),
+            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
         };
         Self::new(kind, params, return_type)
     }
@@ -151,7 +151,7 @@ impl CallableType {
 
     pub fn from_return_fund(return_type: FundType) -> Self {
         Self::new(
-            RoutineKind::Func { return_type },
+            RoutineKind::Func { return_type: return_type.into() },
             Vec::new(),
             Some(ValueType::fund(return_type)),
         )
@@ -320,6 +320,16 @@ impl ScalarType {
 }
 
 impl ValueType {
+    /// Used only while collecting source declarations, before scope resolution.
+    pub(crate) fn unresolved_routine_result(result: &RoutineResultType) -> Self {
+        result.as_fund().map(Self::fund).unwrap_or_else(Self::error)
+    }
+
+    pub(crate) fn routine_result_type(&self) -> Option<RoutineResultType> {
+        if let Some(scalar) = self.as_scalar() { return Some(scalar.fund_type().into()); }
+        self.as_enum().map(|identity| RoutineResultType::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())))
+    }
+
     pub fn enumeration(identity: EnumIdentity) -> Self {
         Self { base: ValueTypeBase::Enum(identity), pointer: false }
     }
@@ -870,14 +880,14 @@ mod tests {
 
         let function = CallableType::from_routine_kind(
             RoutineKind::Func {
-                return_type: FundType::Byte,
+                return_type: FundType::Byte.into(),
             },
             [ValueType::fund(FundType::Card)],
         );
         assert_eq!(
             function.kind,
             RoutineKind::Func {
-                return_type: FundType::Byte
+                return_type: FundType::Byte.into()
             }
         );
         assert_eq!(function.params, vec![ValueType::fund(FundType::Card)]);

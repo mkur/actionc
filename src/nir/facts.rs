@@ -229,11 +229,16 @@ pub(super) fn signature_id(
         }
     }
     fn callable_type(hash: &mut u32, callable: &CallableType) {
-        match callable.kind {
+        match &callable.kind {
             RoutineKind::Proc => byte(hash, 1),
             RoutineKind::Func { return_type } => {
                 byte(hash, 2);
-                text(hash, &format!("{return_type:?}"));
+                match return_type {
+                    crate::ast::RoutineResultType::Fund(fund) => text(hash, &format!("{fund:?}")),
+                    // The resolved nominal identity is hashed below with the
+                    // result value type; source aliases must not affect it.
+                    crate::ast::RoutineResultType::Named(_) => text(hash, "ENUM"),
+                }
             }
         }
         for param in &callable.params {

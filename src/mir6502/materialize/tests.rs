@@ -14865,6 +14865,13 @@ fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
         runtime_helpers: Vec::new(),
     };
     let summaries = MirKnownCalleeSummaries::analyze(&program);
+    let rewrite_summaries = MirKnownCalleeSummaries::analyze_for_rewriting(&program);
+    let mut mutable_caller = caller.clone();
+    assert_eq!(
+        ssa_lite::fold_exact_zn_zero_compares(&mut mutable_caller, &rewrite_summaries),
+        0,
+        "mutable callee return flags have no preserved interprocedural contract"
+    );
     let mut caller = caller;
 
     assert_eq!(

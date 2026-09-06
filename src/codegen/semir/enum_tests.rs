@@ -141,3 +141,59 @@ fn enum_constant_materialization_preserves_defining_scope_under_shadowing() {
         .collect::<std::collections::HashSet<_>>();
     assert_eq!(identities.len(), 2);
 }
+
+#[test]
+fn enum_routines_and_indirect_results_execute_with_byte_abi() {
+    let source = r#"
+TYPE E=ENUM [ZERO=0 TOP=255]
+BYTE input=$0600,count=$0601,selected=$0602,converted=$0604
+E result=$0603
+E FUNC Echo(E value)
+  count==+1
+RETURN(value)
+E FUNC Read()
+  count==+1
+RETURN(E(input))
+E FUNC POINTER callback
+PROC Main()
+  count=0
+  callback=@Read
+  result=Echo(Echo(callback()))
+  converted=BYTE(result)
+  CASE Echo(result) OF
+  WHEN E.ZERO THEN
+    selected=1
+  WHEN E.TOP THEN
+    selected=2
+  ELSE
+    selected=3
+  ESAC
+RETURN
+"#;
+    for (mode, output) in outputs_with_options(
+        source,
+        SemanticOptions {
+            enum_types: true,
+            ..SemanticOptions::modern()
+        },
+    ) {
+        for input in 0..=255u8 {
+            let memory = execute(&output, |memory| memory[0x600] = input);
+            assert_eq!(
+                &memory[0x600..0x605],
+                &[
+                    input,
+                    4,
+                    match input {
+                        0 => 1,
+                        255 => 2,
+                        _ => 3,
+                    },
+                    input,
+                    input
+                ],
+                "{mode}/{input}"
+            );
+        }
+    }
+}

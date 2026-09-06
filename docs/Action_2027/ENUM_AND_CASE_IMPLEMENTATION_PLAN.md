@@ -309,6 +309,15 @@ gated pending complete routine/storage integration.
 
 ### Slice 5 — Enum parameters, function results, and callable results
 
+Status: complete. All 2,796 compiler tests, unchanged NIR snapshots, and all 35
+NIR sweep fixtures pass. Four
+focused parser/signature tests and four internal execution/materialization tests
+pass. Enum results, nested direct calls, indirect calls, and counted CASE
+selectors execute for all 256 byte values in both backends and runtimes.
+This uncovered and fixed incorrect call-return flag assumptions in classic and
+stale MIR N/Z exit summaries during rewriting. General BYTE ABI and signature
+formats remain unchanged; enum signatures retain their nominal result identity.
+
 - Generalize routine/result annotations and all associated lookahead predicates:
   routine start/end, named declarations, FUNC POINTER, PUBLIC/EXTERNAL forms,
   module-qualified result names, and CONST annotations. Do not patch only
