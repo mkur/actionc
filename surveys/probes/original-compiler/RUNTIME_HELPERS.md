@@ -1,5 +1,11 @@
 # ACTION! Runtime Helper Notes
 
+Historical implementation notes, amended 2026-09-06 after the
+[integer arithmetic audit](../../../docs/bugs/LEGACY_INTEGER_ARITHMETIC_AUDIT.md).
+The legacy MOD entries below do not provide a correct general signed remainder.
+These observations are not actionc's portable arithmetic contract.
+See the [modern implementation plan](../../../docs/MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md).
+
 Source analyzed from the runtime block containing:
 
 - `r_Lsh`, `r_Rsh`, `r_Mul`, `r_Div`, `r_Mod`, `r_Par`
@@ -25,7 +31,7 @@ initialized by the active runtime, not as the helper routines themselves.
 | `$04E6` | `r_Rsh` | 16-bit logical right shift |
 | `$04E8` | `r_Mul` | signed 16-bit multiply |
 | `$04EA` | `r_Div` | signed 16-bit divide |
-| `$04EC` | `r_Mod` | signed 16-bit remainder |
+| `$04EC` | `r_Mod` | legacy MOD wrapper; remainder corrupted on sign correction |
 | `$04EE` | `r_Par` | save call arguments into callee parameter frame |
 
 The runtime source writes these slots with:
@@ -53,24 +59,35 @@ for `SArgs`/`r_Par`.
 | `CARD RSH` | `$A0E6` | `$04E6` / `r_Rsh` |
 | signed multiply | `$A000` | `$04E8` / `r_Mul` |
 | signed divide | `$A090` | `$04EA` / `r_Div` |
-| signed modulo | `$A0DE` | `$04EC` / `r_Mod` |
+| legacy MOD | `$A0DE` | `$04EC` / `r_Mod` |
 
 These cartridge addresses are from the original compiler environment used for
 the probes. Keep them distinct from the standalone runtime vector table slots
 when comparing byte-for-byte output.
 
-## Current actionc Target Model
+## Audited binding and implemented replacement
 
-For now, `actionc` treats cartridge-compatible output as the primary model. In
-that mode, the default helper targets are the contents of the cartridge-
-initialized vector slots, so generated code calls `$A000`, `$A090`, `$A0F5`,
-and the other observed cartridge helper entries directly.
+At the audited revision `5777b0f`, cartridge linking binds general arithmetic
+to resident entries, while standalone linking selects and links SYSLIB helpers.
+Both routes consequently expose the legacy division/MOD defects. Standalone
+linking is implemented; the earlier note that it was only a future target is
+obsolete. Math `SET` directives still affect compile-time helper targets.
 
-`SET $04E4..$04EE=value` still mutates the compile-time helper target table,
-matching Action!'s runtime-library mechanism. The standalone slot addresses
-remain available for the older plain codegen path, but standalone runtime
-linking is not the active target until the runtime package is compiled or
-bundled by `actionc`.
+The implemented replacement is one correct arithmetic contract for all
+actionc profiles, including Compatibility, under both linking choices.
+Cartridge-linked programs may call ordinary ROM services and local,
+compiler-owned arithmetic helpers together. No global ROM/vector replacement
+is required. The compiler-owned widening byte multiply is an existing
+runtime-independent binding precedent, not the same routine as SYSLIB MultB.
+
+Current generated division and MOD use compiler-owned signed/unsigned helpers
+under both runtimes. Literal/foldable converted zero is diagnosed; dynamic
+zero stops in a non-returning loop (6502 A=1, carry set). Legacy `$04EA/$04EC`
+SET overrides cannot replace those operators. Historical helper bytes and
+captured artifacts below are deliberately retained unchanged.
+
+The planned original-compiler VM mode is separate: it runs the historical
+compiler rather than asking actionc to imitate its arithmetic bugs.
 
 ## Calling Convention
 
@@ -96,7 +113,9 @@ Shift helpers use:
 | result low byte | `A` |
 | result high byte | `X` |
 
-`r_Mod` calls `r_Div` and returns the remainder from `$86/$87` in `A/X`.
+`r_Mod` calls `r_Div` and returns the contents of `$86/$87` in `A/X`.
+Those bytes are not necessarily the remainder: quotient sign correction
+overwrites them.
 
 ## Zero-Page Temporaries
 
@@ -111,6 +130,10 @@ Observed helper scratch usage:
 | `$C0..$C2` | multiply/sign temporaries |
 
 These helpers are not leaf-safe with respect to those zero-page locations.
+Scratch maps are implementation-specific: extracted SYSLIB uses `$C6/$C7`
+for multiply temporaries and `$D3` for sign tracking, unlike the historical
+`r_*` map above. Do not derive a specialized helper's effects from its name
+or reuse one variant's workspace declaration without auditing its body.
 
 ## r_1
 
@@ -188,8 +211,9 @@ Flow:
 2. Uses a shorter path when the divisor high byte is zero.
 3. Uses a wider path for full 16-bit divisors.
 4. Leaves quotient in `A/X`.
-5. Leaves remainder in `$86/$87`.
-6. Negates the quotient when the operand signs differed.
+5. Leaves a magnitude remainder in `$86/$87` before sign correction.
+6. Negates the quotient when the operand signs differed; the negation helper
+   saves its input in `$86/$87`, destroying that remainder.
 
 There is no obvious explicit divide-by-zero trap in this helper block.
 
@@ -202,7 +226,10 @@ It calls `r_Div`, then returns:
 - `A = $86`
 - `X = $87`
 
-So the modulo operation returns the remainder left by division.
+If quotient sign correction runs, these bytes can contain the quotient's
+magnitude instead of the remainder. Otherwise they contain the magnitude
+remainder, not a signed remainder with the dividend's sign. For example,
+INT `-513 MOD 256` returns 2 and `-7 MOD -3` returns 1.
 
 ## r_Lsh
 

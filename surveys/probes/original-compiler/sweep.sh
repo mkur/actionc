@@ -44,7 +44,7 @@ probes=(
   "ABICALLS:abi_calls:exact"
   "ABISYS:abi_system_call:exact"
   "ARGTHR:argthr:exact"
-  "ARITH:arith:exact"
+  "ARITH:arith:accepted-divergence"
   "ARRASN:array_assign:exact"
   "ARRFIX:array_fixed_origin:exact"
   "ARRTHB:array_inline_boundary:accepted-divergence"
@@ -92,6 +92,7 @@ probes=(
 )
 
 accepted_reasons_record_args="original compiler emits broken direct TYPE-field call setup (JSR \$0000); actionc keeps sane semantics"
+accepted_reasons_arith="modern signed/unsigned division and remainder use compiler-owned helpers under cartridge linking; original arithmetic defects are not reproduced"
 accepted_reasons_fnamecmp="pointer-deref EOR/CMP indirect-indexed semantics now match; actionc remains a few bytes smaller from known-register and branch/layout choices"
 accepted_reasons_large_local_arrays="large backing storage and array-to-array pointer code now match; remaining two bytes are apparent original uninitialized small local array residue"
 accepted_reasons_array_inline_boundary="threshold layout matches; remaining bytes are original inline local byte-array metadata residue"

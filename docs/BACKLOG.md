@@ -43,8 +43,9 @@ were enabled in modern profiles. The original record structures remain intact:
 in both modern backends, all with both runtimes. Total: 4,698 VM cases in 26
 tests. The [newly exposed record-array gaps](bugs/RECORD_ARRAY_PORTING_GAPS.md)
 and [scalar-copy pointer overlap](bugs/CLASSIC_INDIRECT_SCALAR_COPY_POINTER_BUG.md)
-are repaired. The porting plan's deferred arithmetic/volatile categories remain
-follow-ups; wider-stride MIR copy fusion needs a nonconflicting scratch plan
+are repaired. The subsequent arithmetic rollout adds 7,374 executions (12,072
+total in 28 Oscar64 tests). Volatile categories remain follow-ups;
+wider-stride MIR copy fusion needs a nonconflicting scratch plan
 before it can replace the current safe staged path.
 
 ## Standalone Runtime Licensing
@@ -56,16 +57,37 @@ before it can replace the current safe staged path.
 - Until that replacement exists, retain the standalone GPL warning for selected
   `SYS` procedures, compiler helpers, and their runtime dependencies.
 
-## Arithmetic Compatibility Follow-ups
+## Modern Integer Arithmetic
 
-- Extend the executable original-compiler probe corpus for integer arithmetic;
-  the compiler regressions now cover ordered multiplication types, products
-  above `$FF`, comparison contexts, unary negation, constant BYTE widening, and
-  explicit truncation.
-- Audit mixed-type shift result width against the cartridge and document any
-  intentionally rejected quirks.
-- Audit signed-helper selection for `CARD` division and remainder against the
-  cartridge before changing those operators.
+The [legacy division/remainder audit](bugs/LEGACY_INTEGER_ARITHMETIC_AUDIT.md)
+is complete. It found unsigned folding of signed expressions, signed runtime
+helpers for CARD, the original remainder-workspace corruption, a compiler
+panic on nested constant division by zero, an independent optimized-classic
+captured-reload bug, and arithmetic-domain loss in target IRs. These audited
+gaps are now repaired; the earlier port suites did not cover those domains.
+
+Delivered by the [implementation plan](MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md):
+
+- Repaired the host panic and captured-operand fact lifetime independently.
+- Established one typed arithmetic contract for every actionc profile, including
+  Compatibility, with consistent folding and runtime execution.
+- Kept cartridge-linked programs: correct compiler-owned
+  arithmetic beside existing cartridge services, also under standalone linking.
+- Generalized existing helper selection to per-input/per-result signatures,
+  explicit effects and costed specialization; preserve domains for 68k/65816.
+- Added signed division and full-range CARD division/remainder ports after
+  the coordinated semantic rollout. Both pass independent six-way VM oracles.
+
+The bounded shared-divmod selector only combines adjacent operations on
+identical captured MIR values. Repeated source expressions that reload storage
+remain separate; broader pairing needs reusable capture/alias proofs. Narrow
+helper selection uses a documented speed/size model, not benchmark-specific
+rules. Native 68k/65816 executable arithmetic remains future backend work.
+
+Historical behavior belongs to the separately planned original-compiler VM
+mode, not to a bug-emulation branch in actionc. Multiplication result-type
+modernization and mixed-type shift/overflow policies remain explicit language
+decisions; the plan does not silently change them.
 
 ## Builtin Symbol Coverage
 

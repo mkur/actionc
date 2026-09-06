@@ -55,6 +55,16 @@ for INT -513 and 256, ordinary division returns -2, but ordinary and compound
 MOD both return 2, not C's -1. This repair does not redefine cartridge arithmetic
 helpers. The VM matrix uses nonnegative MOD operands and logical RSH oracles.
 
+The subsequent [integer arithmetic audit](LEGACY_INTEGER_ARITHMETIC_AUDIT.md)
+explains the remainder-workspace corruption and records a separate captured-
+reload defect in optimized classic. The width/order repairs above remain
+implemented; they do not establish correct signed MOD or full-range CARD
+division. The [modern arithmetic plan](../MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md)
+replaces incorrect arithmetic in every actionc profile, including Compatibility,
+and is now implemented. The captured-reload bug, CARD helper selection and
+signed MOD defects are covered by the new independent arithmetic matrix,
+without removing cartridge-linked output.
+
 Correct typing exposes a high byte that some BYTE stores discard. The existing
 MIR discarded-high-product proof was generalized for Add/Sub/And/Or/Xor with a
 sole adjacent truncation consumer. It retains memory reads and rejects live

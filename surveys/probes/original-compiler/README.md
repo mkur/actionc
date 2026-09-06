@@ -5,18 +5,33 @@ compiler.
 
 ## North Star
 
-The current goal is broad original-compiler compatibility for valid programs,
-without intentionally reproducing clear original compiler bugs. Prefer the
-original Action! code shape, ABI, storage layout, and load-file structure when
-probes or the official manual give us evidence. When the original compiler
-rejects valid-looking source or emits clearly broken code, keep `actionc`
-semantically sane and document the divergence.
+The goal is source/interface compatibility for supported programs, without
+reproducing original compiler defects in any actionc profile. Compatibility
+and Modern share correct arithmetic semantics; syntax extensions and
+optimization choices may differ. ABI, storage-layout and load-file evidence
+remain useful, but byte-identical output is not the semantic authority.
 
-Keep compatibility work evidence-driven and narrowly scoped. Probe before
-generalizing a pattern, especially for peepholes and register-liveness hints.
-At the same time, keep codegen flexible: compatibility choices should live in
-recognizable helpers or policy-shaped seams so a later pass can add improved
-modern code generation after the compatibility baseline is broad and stable.
+The separately planned original-compiler-in-VM mode obtains historical behavior
+by executing the original compiler. This is different from actionc generating
+a program linked with cartridge services. Such a program can contain corrected
+compiler-owned arithmetic helpers while retaining cartridge library calls.
+
+Keep probes evidence-driven and narrowly scoped. Record original behavior
+as characterization; use independent oracles for actionc conformance and
+differential comparisons only where the contracts agree. See the
+[legacy arithmetic findings](../../../docs/bugs/LEGACY_INTEGER_ARITHMETIC_AUDIT.md)
+and [implementation plan](../../../docs/MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md).
+Probe before generalizing codegen patterns, especially register-liveness hints.
+
+Arithmetic rollout check (2026-09-06): compared the catalog against a clean
+`5777b0f` build without replacing captured artifacts. Only `arith` changes
+from that baseline (309 to 565 load-file bytes); the sweep classifies this as
+an intentional compiler-owned arithmetic divergence. The existing cartridge
+differences in `bool_edges`, `bools`, `control_flow`, `signedge`, and previously
+accepted probes remain. `strnam` also fails at the baseline with the same
+`fnam+$FFFF` relocation-overflow diagnostic. Do not report this historical
+byte-comparison sweep as fully passing; independent modern runtime conformance
+is tracked separately.
 
 Layout:
 

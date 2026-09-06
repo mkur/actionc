@@ -312,6 +312,33 @@ Existing `ValueType` remains the bridge used by the current analyzer and
 codegen, but scalar decisions should route through the scalar model rather than
 duplicated width/signedness tables.
 
+### Arithmetic migration policy
+
+All actionc profiles, including Compatibility, share correct
+target-independent integer semantics. Cartridge runtime linking is not a
+numeric dialect: compiler-owned helpers may coexist with cartridge services.
+Historical behavior will be obtained by running the original compiler in the
+separately planned VM mode, not by emulating its bugs in actionc.
+
+The [legacy audit](bugs/LEGACY_INTEGER_ARITHMETIC_AUDIT.md) records historical gaps;
+the [modern arithmetic plan](MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md)
+records the numeric rules and implemented rollout. Operand types,
+result types, faults and conversions belong to semantic/NIR contracts; helper
+signatures and physical bindings must implement those contracts, not define them.
+
+Division/MOD use CARD's unsigned domain if either operand is CARD, otherwise
+INT's signed domain if either is INT, otherwise unsigned BYTE/CHAR. Convert
+operands explicitly before the operation; destination narrowing/widening does
+not change that operation or its operand tree. Signed division truncates toward
+zero, and nonzero remainder has the dividend's sign. INT_MIN/-1 wraps to
+INT_MIN with remainder zero. Multiplication retains its existing INT result.
+
+Literal/foldable converted-zero divisors are semantic errors. Dynamic zero
+raises the non-returning DivisionByZero fault (6502: A=1, carry set, BCS self).
+An unused result does not make a potentially faulting computation discardable
+or movable across effects. Unexecuted runtime branches do not fault. All
+constant evaluators and backends implement these same rules.
+
 ## Array Semantics
 
 Source arrays have an element type. For example, `BYTE ARRAY a(10)` has `BYTE`
