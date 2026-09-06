@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These seventeen Action! fixtures adapt Oscar64 autotests into the existing
+These eighteen Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -8,7 +8,7 @@ backends. Expected results are calculated independently in
 
 ## Provenance
 
-Adapted on 2026-09-05 from Oscar64 by drmortalwombat and contributors:
+Adapted on 2026-09-05 and 2026-09-06 from Oscar64 by drmortalwombat and contributors:
 
 - Upstream: <https://github.com/drmortalwombat/oscar64>.
 - Inspected fork: <https://github.com/mkur/oscar64>.
@@ -44,16 +44,17 @@ translations or tests of C-only language behavior.
 | `mixsigncmptest` | Four signed-word/unsigned-byte sweeps with exact true/false counts | 26 signed word inputs against all 256 BYTE values; all six predicates in both operand orders, branch results, odd-base guarded tables |
 | `testinterval_values`, `mixsigncmptest_values` | Modern-only companions to the two preceding ports | The same interval and mixed-comparison truth oracles, using numeric comparison values instead of IF assignments |
 | `structarraycopy` | Eight Point record-array copies following three conditional calls; sum plus 144 is zero | Exactly 12 original calls; twice-repeated seven-byte mixed-width record copies; runtime lengths 0, 1, 2, 8, 100, 127, 128, 129, 255, 256, 257 at aligned, odd and page-boundary bases; complete images and guards |
+| `structmembertest` | The original record with inline `INT x(100),y(100)` and 100 three-INT vectors; pointer-based field-copy loops | Modern-only; additional inline arrays of 257 INTs and seven-byte tagged vectors; runtime lengths 0, 1, 2, 100, 127, 128, 129, 255, 256, 257 at three base layouts; all fields, source members, unused elements and guards |
 
 Cartridge-compatible sources run in all three modes; modern comparison-value
-companions run in Optimized and MIR6502. All use both ActionCart and Standalone
+companions and `structmembertest` run in Optimized and MIR6502. All use both ActionCart and Standalone
 runtime linking. The first eight
 ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
 copy/increment regressions remain active with their original loops and
 independent expected values.
 
 The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
-1 through 4 ported, plus the first stage-5 record port. Their current results are:
+1 through 5 ported. Their current results are:
 
 | Fixture | Host cases | VM cases | Result |
 | --- | ---: | ---: | --- |
@@ -66,9 +67,12 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `testinterval_values` | 40 | 160 | Both modern backends/runtimes |
 | `mixsigncmptest_values` | 26 | 104 | Both modern backends/runtimes |
 | `structarraycopy` | 33 | 198 | All six mode/runtime combinations |
+| `structmembertest` | 30 | 120 | Both modern backends/runtimes; Compatibility rejection checked separately |
 
-Overall: **4,578 VM cases in 25 active tests**: the existing 3,708 cases, 408
-stage-4 branch/count cases, 264 modern-only value cases, and 198 record-copy cases. No test is ignored
+Overall: **4,698 VM cases in 26 active tests**: the existing 3,708 cases, 408
+stage-4 branch/count cases, 264 modern-only value cases, and 318 stage-5 record
+cases. The two member-fixture Compatibility rejection checks are not VM cases.
+No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
 [OSCAR-CLASSIC-COMPUTED-INDEX](#oscar-classic-computed-index--fixed).
@@ -124,6 +128,15 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
   different from its source. Rust independently derives all record bytes and
   call counts, including unchanged unused records, source buffers, guards and
   the host configuration page. These are disjoint copies, not overlap tests.
+- `structmembertest` retains both original record layouts and their 100-iteration
+  loops, including local declarations, typed pointer arguments and direct
+  `a.x(i)=a.y(i)` / `v(i).x=v(i).y` assignments. Local objects use fixed host
+  RAM for complete observation; inline members are never replaced by pointer
+  fields or separate arrays. The added `Wide` record has two 257-element inline
+  INT arrays; `Marked` has a BYTE tag and three INT fields. Rust derives every
+  expected word independently and checks untouched `y`, `z`, tags, unused `x`
+  elements and guards. The original scalar failure counter is supplementary,
+  not the oracle. No comparison-as-value extension is used in this fixture.
 - `testinterval` omits Oscar64's signed-byte section. Rust derives interval
   counts by intersecting bounds in a wider signed type; endpoint probes check
   each truth value independently. `mixsigncmptest` uses Action!'s
@@ -181,6 +194,7 @@ cargo test --locked --test oscar64_conformance oscar64_nested_calls
 cargo test --locked --test oscar64_conformance oscar64_signed_intervals
 cargo test --locked --test oscar64_conformance oscar64_mixed_signed_comparison
 cargo test --locked --test oscar64_conformance oscar64_record_array_copies
+cargo test --locked --test oscar64_conformance oscar64_record_members
 ```
 
 The existing VM CI job runs `cargo test --locked`, so the active tests need no
@@ -188,6 +202,16 @@ new runner, dependency, or workflow. Root `cargo test` does not execute this
 isolated crate; it does include the new fixtures in the broad NIR corpus sweep.
 
 ## Compiler regressions
+
+### OSCAR-RECORD-ARRAY-BACKING / COPY / COMPARE — fixed
+
+The member port exposed record-array decay being mistaken for single-record
+addressing, lost local fixed backing in classic and NIR, MIR allocation using
+element width for a descriptor, a scratch-conflicting MIR copy fusion, and
+classic comparisons recomputing field addresses across live accumulator state.
+All 120 modern cases now pass with unchanged source loops and memory oracles.
+The general fixes and focused cross-profile coverage are described in the
+[record-array regression note](../../../docs/bugs/RECORD_ARRAY_PORTING_GAPS.md).
 
 ### OSCAR-CLASSIC-INDIRECT-SCALAR-COPY — fixed
 

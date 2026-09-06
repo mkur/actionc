@@ -2,7 +2,7 @@
 //! Oracles are computed here, independently of the Action! code under test.
 use std::path::{Path, PathBuf};
 
-use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
+use actionc::compiler::{CompileMode, CompileOptions, CompilerPhase, Runtime, compile_file};
 use actionc_vm::{
     CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
     StopReason, VmRunner,
@@ -236,6 +236,84 @@ fn oscar64_record_array_copies_follow_conditional_calls() {
     }
     assert_eq!(cases.len(), 33);
     run_cases("structarraycopy", 400_000, &cases);
+}
+
+#[test]
+fn oscar64_record_members_preserve_inline_arrays_and_neighboring_fields() {
+    // This is a language extension, not six-mode execution coverage. Verify
+    // Compatibility's rejection explicitly instead of silently skipping it.
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let error = compile_file(
+            repository_root().join("fixtures/runtime/oscar64/structmembertest.act"),
+            &CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(runtime),
+        )
+        .expect_err("embedded array fields must remain modern-only");
+        assert!(
+            error.diagnostics().iter().all(|diagnostic| {
+                diagnostic.phase == CompilerPhase::Semantic
+            }),
+            "{runtime:?}: {error}"
+        );
+        assert!(
+            error.diagnostics().iter().any(|diagnostic| {
+                diagnostic.message.contains("record fields must be fundamental variables")
+            }),
+            "{runtime:?}: {error}"
+        );
+    }
+    let mut cases = Vec::new();
+    for (arrays, vectors) in [(0x5000u16, 0x6000u16), (0x5001, 0x6003), (0x50FF, 0x60FD)] {
+        for count in [0u16, 1, 2, 100, 127, 128, 129, 255, 256, 257] {
+            let mut case = Case::new(format!(
+                "arrays={arrays:04X}, vectors={vectors:04X}, count={count}"
+            ));
+            case.read_only_words(0x06F0, &[arrays, vectors, count]);
+
+            // Keep the original 400-byte inline-array record and the 100
+            // six-byte vectors. The original leaves z untouched: give it a
+            // nonuniform host value and check it, instead of relying on zero.
+            let mut original = (0..0x900)
+                .map(|i| (i * 29 + 0x93) as u8)
+                .collect::<Vec<_>>();
+            case.setup.push((0x7000, original.clone()));
+            for i in 0..100 {
+                for offset in [1 + i * 2, 201 + i * 2, 0x403 + i * 6, 0x405 + i * 6] {
+                    write_word(&mut original, offset, i as u16);
+                }
+            }
+            case.expected.push((0x7000, original));
+
+            let mut initial = vec![0xA5; 0x1D00];
+            let a = usize::from(arrays - 0x4F00);
+            let v = usize::from(vectors - 0x4F00);
+            let words = [0u16, 0xFFFF, 0x7FFF, 0x8000, 0x00FF, 0xFF00, 0x1234];
+            for i in 0..257 {
+                let value = words[i % words.len()];
+                write_word(&mut initial, a + i * 2, !value);
+                write_word(&mut initial, a + 514 + i * 2, value);
+                initial[v + i * 7] = (i * 37 + 11) as u8;
+                let value = words[(i + 3) % words.len()];
+                write_word(&mut initial, v + i * 7 + 1, !value);
+                write_word(&mut initial, v + i * 7 + 3, value);
+                write_word(&mut initial, v + i * 7 + 5, (i as u16).wrapping_mul(113));
+            }
+            let mut expected = initial.clone();
+            for i in 0..usize::from(count) {
+                // Derive values from the host pattern, not from another
+                // compiled loop's output or the fixture's failure counter.
+                write_word(&mut expected, a + i * 2, words[i % words.len()]);
+                write_word(&mut expected, v + i * 7 + 1, words[(i + 3) % words.len()]);
+            }
+            case.setup.push((0x4F00, initial));
+            case.expected.push((0x4F00, expected));
+            let mut page = host_page_after_setup(&case);
+            write_word(&mut page, 0, 0);
+            case.expected.push((0x0600, page));
+            cases.push(case);
+        }
+    }
+    assert_eq!(cases.len(), 30);
+    run_cases_in_modes("structmembertest", 400_000, &cases, MODERN_MODES);
 }
 
 #[test]

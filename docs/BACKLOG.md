@@ -34,12 +34,18 @@ comparison-value extension. Shared comparison machinery supports BYTE 0/1
 values in modern classic and MIR6502; Compatibility rejects value uses during
 semantic analysis. The broader grid also exposed and repaired signed-subtract
 overflow in both classic profiles. The 408 branch/count cases and 264 modern
-value cases bring Oscar64 coverage to 4,380 cases in 24 tests. Stage 5's record
-ports remain next; see [the contract and repairs](bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
+value cases brought Oscar64 coverage to 4,380 cases in 24 tests; see
+[the contract and repairs](bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
-Stage 5 is paused while [embedded fixed-length record arrays](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md)
-are implemented. Preserve inline member storage in `structmembertest.c` rather
-than adapting it to pointer fields. The feature is not publicly enabled yet.
+Stage 5 is complete after [embedded fixed-length record arrays](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md)
+were enabled in modern profiles. The original record structures remain intact:
+198 record-array copy cases run in all modes, and 120 inline-member cases run
+in both modern backends, all with both runtimes. Total: 4,698 VM cases in 26
+tests. The [newly exposed record-array gaps](bugs/RECORD_ARRAY_PORTING_GAPS.md)
+and [scalar-copy pointer overlap](bugs/CLASSIC_INDIRECT_SCALAR_COPY_POINTER_BUG.md)
+are repaired. The porting plan's deferred arithmetic/volatile categories remain
+follow-ups; wider-stride MIR copy fusion needs a nonconflicting scratch plan
+before it can replace the current safe staged path.
 
 ## Standalone Runtime Licensing
 

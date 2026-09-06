@@ -1,8 +1,8 @@
 # Fixed-length arrays embedded inside records
 
-Status: slices 1-5 complete, 2026-09-06. Atari modern classic and MIR6502
-support is enabled with both runtimes; slice 6's record-array copy port is
-added, with the embedded-member port pending.
+Status: slices 1-6 complete, 2026-09-06. Atari modern classic and MIR6502
+support is enabled with both runtimes; the structurally faithful Oscar64
+record-array and embedded-member ports pass their full applicable matrices.
 Baseline: `6c73c1d`; 2,662 root tests passed (22 existing ignored), 100 VM
 tests passed, including 4,380 Oscar64 cases before the stage-5 ports.
 
@@ -340,7 +340,7 @@ guards, static addresses, partial initialization and exactly-once calls.
 
 ### 6. Structurally faithful Oscar64 stage-5 ports
 
-Status: record-array copy port added; embedded-member port pending.
+Status: complete.
 
 Port `structarraycopy.c` and `structmembertest.c` in their original record
 structure. Keep conditional calls observable, preserve inline member arrays,
@@ -361,6 +361,30 @@ The original checksum exposed a classic indirect scalar-copy pointer overlap;
 the [general repair](bugs/CLASSIC_INDIRECT_SCALAR_COPY_POINTER_BUG.md) is separate
 from the port. Focused execution, the full 2,410-test library suite, unchanged
 NIR snapshots and the 33-fixture sweep pass.
+
+The second port retains the original 400-byte inline-array record and
+100 six-byte vectors, with local fixed backing for full observation. Extended
+257-element inline arrays and seven-byte tagged records cover ten runtime
+lengths and three base layouts: 30 host cases / 120 modern VM executions.
+Compatibility rejection is checked for both runtimes without claiming VM
+execution. The full 4,698-case Oscar64 matrix has 26 active tests.
+
+Independent oracles exposed additional general record-array conversion,
+backing/layout, copy-fusion and comparison gaps, repaired separately from the
+ports. See [the diagnosis and coverage](bugs/RECORD_ARRAY_PORTING_GAPS.md).
+
+Final slice-6 validation, 2026-09-06:
+
+- Full root `cargo test --quiet --no-fail-fast`: 2,746 passed, 0 failed,
+  22 pre-existing ignored; sample build matrices, including TN/TNDBG, pass.
+- Isolated `cargo test --locked --no-fail-fast --quiet`: 104 passed, 0 failed,
+  0 ignored. All 26 Oscar64 tests / 4,698 cases pass; the Oscar64 target also
+  passes a final rerun after the pointer-view sizing adjustment.
+- Explicit NIR snapshots pass unchanged; all 33 dedicated sweep fixtures pass.
+  The broad corpus verifies 319 entrypoints and the same five declared
+  nonentrypoints, with no lowering, verification or optimization failures.
+- `git diff --check` passes. No test was ignored, no oracle was weakened, and
+  no benchmark-specific optimizer or new IR representation was introduced.
 
 ## Validation and handoff
 
@@ -482,7 +506,8 @@ Slice 5c validated on 2026-09-06:
 
 Slices 1-5 provide layout, executable places, aggregate initialization, static
 subobject relocations, full record-copy behavior and public modern support.
-Structurally faithful Oscar64 stage-5 ports remain slice 6 and are not included
+At the slice-5 handoff, structurally faithful Oscar64 stage-5 ports remained
+slice 6 and were not included
 in the compiler implementation commits or current conformance totals.
 
 After each semantic/lowering slice:

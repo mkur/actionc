@@ -1,7 +1,15 @@
 # Oscar64 behavioral ports: second batch
 
-Status: stages 1 through 4 ported; stage 5 record-array copy port added,
-2026-09-06. The embedded-member port remains pending.
+Status: stages 1 through 5 complete, 2026-09-06.
+Stage 5 adds 198 all-mode record-copy executions and 120 modern embedded-member
+executions: 4,698 Oscar64 VM cases in 26 active tests. Compatibility rejection
+of embedded members is checked separately, not counted as execution coverage.
+
+Final stage-5 validation: 2,746 root tests pass (22 pre-existing ignored),
+104 isolated VM tests pass (none ignored), NIR snapshots are unchanged and all
+33 dedicated sweep fixtures pass. The broad corpus verifies 319 entrypoints
+plus the same five declared nonentrypoints. No port regression remains open.
+
 Stage 4 now separates cartridge-compatible comparisons from the agreed modern
 comparison-value extension. The 408 branch/count cases run in all modes; 264
 value cases run in modern classic and MIR6502. Compatibility rejects numeric
@@ -9,7 +17,7 @@ comparison uses during semantic analysis. Both classic profiles also correct
 signed-subtract overflow exposed by the boundary grid. See
 [the contract and repairs](bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
-Current validation after the comparison-value implementation:
+Historical validation after the comparison-value implementation:
 
 - Root `cargo test --quiet --no-fail-fast`: 2,662 passed, zero failed,
   22 existing ignored.
@@ -226,8 +234,8 @@ Modern classic and MIR6502 now reuse their comparison/branch machinery for
 BYTE 0/1 results. Compatibility diagnoses value uses in semantic analysis.
 The wider grid also repaired classic signed-subtract overflow; both profiles
 now correct V before branching on N. Oscar64 totals are 4,380 VM cases in 24
-tests. The separate modern consumer fixture adds 24 cases covering width,
-composition, calls and indexed/pointer destinations. Stage 5 remains pending.
+tests at the stage-4 handoff. The separate modern consumer fixture adds 24 cases
+covering width, composition, calls and indexed/pointer destinations.
 
 ## Stage 5: record operations inside loops
 
@@ -245,7 +253,20 @@ seven-byte mixed-width record copies twice for 11 runtime lengths and three
 base layouts: 33 host cases / 198 VM executions across all six mode/runtime
 combinations. Rust computes complete source/destination/guard images and call
 counts independently; empty and shorter transfers leave unused records intact.
-`structmembertest.act` remains the second stage-5 slice.
+`structmembertest.act` retains both original record structures and loops, with
+local fixed backing for full host observation. Additional inline arrays of
+257 INTs and seven-byte tagged vectors cover ten runtime lengths and three
+base layouts: 30 host cases / 120 VM executions in modern classic and MIR6502,
+with both runtimes. Compatibility's semantic rejection is asserted for both
+runtimes and is not counted as VM coverage. Independent full-memory images
+include source members, untouched tags/z fields, unused elements and guards.
+
+The ports uncovered general compiler gaps in scalar pointer overlap, record-array
+decay, local fixed backing, descriptor sizing, MIR copy-fusion scratch use and
+classic computed-field comparisons. Repairs are separate from the port commits;
+neither port's original expressions nor independent oracles were weakened. See
+the [scalar-copy note](bugs/CLASSIC_INDIRECT_SCALAR_COPY_POINTER_BUG.md) and
+[record-array note](bugs/RECORD_ARRAY_PORTING_GAPS.md).
 
 Keep record structure: repeated record-array copies after conditional calls,
 field-to-field copies through pointers, and array members within records.

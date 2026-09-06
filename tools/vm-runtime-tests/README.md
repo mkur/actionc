@@ -15,7 +15,8 @@ cargo test --locked --no-fail-fast
 The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
 array indexing, word-pointer transfers, loop bounds, comparisons, masks,
 shift/add/sub composition, signed multiplication, reverse-copy loops, nested
-calls, signed intervals, mixed INT/BYTE comparison values, and record-array copies
+calls, signed intervals, mixed INT/BYTE comparison values, record-array copies,
+and inline record-member arrays
 using independent host-side oracles. Run them separately with:
 
 ```sh
@@ -24,13 +25,16 @@ cargo test --locked --test oscar64_conformance
 
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
-now brings the total to 25 active tests and 4,578 VM cases,
+now brings the total to 26 active tests and 4,698 VM cases,
 including the 512 repaired Compatibility nested-call cases and 120 repaired
 classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
 and 264 numeric comparison-value cases across modern classic and MIR6502.
 Compatibility's semantic rejection of the extension is checked separately.
 Stage 5's first port adds 198 record-array copy cases with observable calls,
 mixed-width fields, page-boundary layouts and independent complete-memory oracles.
+The second port adds 120 modern inline-member/vector cases, preserving the
+original record layouts. Its two Compatibility rejection checks are not
+counted as VM executions. No pointer-backed workaround replaces inline members.
 No Oscar64 tests are ignored. See the fixture README for the mode/case matrix
 and resolved compiler regressions. `cargo test --locked --test comparison_values`
 also runs 24 modern consumer cases checking widths, calls, eager composition,
@@ -40,7 +44,7 @@ executions (five input sets, three modes, both runtimes), each checking ten
 compound operators for BYTE, CARD and INT with neighboring-byte guards and
 counted RHS calls. The signed MOD inputs are nonnegative: the original
 cartridge's negative MOD behavior is not C's remainder rule. This coverage is
-separate from the Oscar64 case count and from experimental embedded arrays.
+separate from the Oscar64 case count and from the modern embedded-array tests.
 Use `--no-fail-fast` to run the remaining test binaries after a failing one.
 
 The test-enforced coverage ledger in `src/sys_coverage.rs` maps every public
