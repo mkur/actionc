@@ -48,3 +48,10 @@ Notes:
   `Error: 17`; the manual defines it as a bad expression or illegal expression
   format.
 
+Additional source-verified library convention (not an Appendix C entry):
+`lib/LIB.MSC.asm` in the preserved Action! 3.6 source archive uses `LDY #100;
+JSR Error` for an invalid Sound voice. The cartridge's `MAIN.IO.asm` `SysErr`
+reports Y. Original division has no explicit zero check or assigned divide-by-zero
+code. actionc reuses 100 for an invalid zero divisor, not 1 (missing quote).
+See [Atari runtime errors](../../../docs/ATARI_RUNTIME_ERRORS.md) for sources,
+standalone behavior, and executable ABI tests.

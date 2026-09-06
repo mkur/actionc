@@ -488,6 +488,15 @@ fn analyze_routine_storage(
                         }
                     }
                 }
+                NirOp::Binary { .. } if crate::nir::optimizer::binary_may_fault(op) => {
+                    // Error can inspect fixed/escaped storage before terminating.
+                    has_conservative_escape_barrier = true;
+                    for facts in homes.values_mut() {
+                        if !facts.is_invocation_relative() || facts.address_required {
+                            facts.calls_may_read = true;
+                        }
+                    }
+                }
                 NirOp::Real(_) => {
                     for facts in homes.values_mut() {
                         facts.machine_visible = true;

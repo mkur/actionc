@@ -77,11 +77,15 @@ ordering; a helper optimization cannot duplicate a call or hardware read.
   never a Rust panic.
 - Dynamic-zero rule: a deterministic, non-returning arithmetic
   fault, with no normal result and no following source effects executed.
-  The target-independent kind is `ArithmeticFault::DivisionByZero`. On 6502,
-  the helper leaves A=1, sets carry, and enters a `BCS` self-loop. No normal
-  return or following source effect occurs. This is a watchdog/debugger-visible
-  stop, not exception unwinding or recovery. Each native emitter must define
-  its delivery before executable support is enabled.
+  The target-independent kind is `ArithmeticFault::DivisionByZero`. On Atari
+  6502, the helper calls existing Error with A=100, X=0, Y=100 (cartridge `$04CB`
+  or linked standalone SYSLIB Error). Code 100 reuses the cartridge library's
+  invalid Sound argument convention; the original division has no zero check
+  or dedicated error code. If Error returns, the helper clears decimal mode,
+  restores A/Y=100, sets carry, and enters a `BCS` self-loop. No normal return
+  or following source effect occurs. This is not exception unwinding or
+  recovery. Each native emitter must define its delivery before executable
+  support is enabled. See [Atari runtime errors](ATARI_RUNTIME_ERRORS.md).
 - Optimizer-discovered zero in a reachable runtime computation becomes that
   fault, not a whole-program compile error inferred from an unreachable path.
   Unreachable runtime paths do not fault. Statically invalid constant syntax
@@ -500,7 +504,9 @@ not hidden requirements for that milestone.
 ### Private 6502 signatures and selection limits
 
 All helpers clear decimal mode, may fault on zero, and clobber A/X/Y/flags.
-Returning paths are stack-balanced. These are private target signatures, not
+Returning paths are stack-balanced; the scratch table describes only those
+paths. Error has arbitrary memory/OS effects, and earlier source writes must
+remain observable to its handler. These are private target signatures, not
 changes to the Action! public calling convention.
 
 | Operation | Inputs | Outputs | Writable scratch |

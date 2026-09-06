@@ -272,7 +272,7 @@ fn codegen_output(
         .map_or(origin, |routine| routine.address);
     let map = crate::codegen::CodegenMap {
         runtime,
-        runtime_bindings: runtime_bindings(mir, &routine_addresses),
+        runtime_bindings: runtime_bindings(mir, &routine_addresses, runtime),
         origin,
         run_address,
         skipped_ranges: skipped_ranges.clone(),
@@ -306,6 +306,7 @@ fn codegen_output(
 fn runtime_bindings(
     mir: &MirProgram,
     routine_addresses: &[crate::codegen::RoutineAddress],
+    runtime: crate::runtime::Runtime,
 ) -> Vec<crate::codegen::CodegenRuntimeBinding> {
     let mut bindings = mir
         .runtime_helpers
@@ -384,6 +385,44 @@ fn runtime_bindings(
             }
         })
         .collect::<Vec<_>>();
+    if mir
+        .runtime_helpers
+        .iter()
+        .any(|declaration| runtime::is_division(declaration.helper))
+    {
+        let standalone = runtime == crate::runtime::Runtime::Standalone;
+        let linked = standalone.then(|| {
+            routine_addresses
+                .iter()
+                .find(|routine| {
+                    matches!(
+                        routine.name.as_str(),
+                        "ACTION.RUNTIME.SYSLIB::Error" | "ACTION.RUNTIME.RESIDENT::Error"
+                    )
+                })
+                .expect("standalone division links Error")
+        });
+        bindings.push(crate::codegen::CodegenRuntimeBinding {
+            helper: "Error".to_string(),
+            implementation: linked.map_or_else(
+                || "Action! cartridge Error".to_string(),
+                |routine| routine.name.clone(),
+            ),
+            address: Some(linked.map_or(
+                crate::integer6502::CARTRIDGE_ERROR,
+                |routine| routine.address,
+            )),
+            reason: "integer division/remainder by zero".to_string(),
+            origin: if standalone {
+                "<runtime:SYSLIB.ACT>"
+            } else {
+                "Action! cartridge"
+            }.to_string(),
+            suppressed_default: None,
+            kind: crate::codegen::CodegenRuntimeBindingKind::CompilerHelper,
+            license: standalone.then_some(crate::codegen::CodegenRuntimeLicense::Gpl3OrLater),
+        });
+    }
     let services = mir
         .routines
         .iter()

@@ -4,7 +4,8 @@ use super::*;
 fn owned_narrow_division_bodies_exhaust_byte_pairs_and_word_boundaries() {
     for word_dividend in [false, true] {
         for remainder in [false, true] {
-            let mut body = crate::integer6502::narrow_division_body(word_dividend, remainder);
+            let mut body = crate::integer6502::narrow_division_body(word_dividend, remainder)
+                .with_error_address(0x0700);
             body.push(0x60);
             let mut memory = [0xCCu8; 65536];
             memory[0x3100..0x3100 + body.len()].copy_from_slice(&body);
@@ -59,7 +60,7 @@ fn owned_narrow_division_bodies_exhaust_byte_pairs_and_word_boundaries() {
 #[test]
 fn owned_shared_divmod_signs_both_results_independently() {
     for signed in [false, true] {
-        let mut body = crate::integer6502::divmod_body(signed);
+        let mut body = crate::integer6502::divmod_body(signed).with_error_address(0x0700);
         body.push(0x60);
         for (left, right) in [
             (65529u16, 3u16),
@@ -112,7 +113,8 @@ fn owned_word_division_bodies_match_oracles_and_scratch_contracts() {
     ];
     for signed in [false, true] {
         for remainder in [false, true] {
-            let mut body = crate::integer6502::division_body(signed, remainder);
+            let mut body = crate::integer6502::division_body(signed, remainder)
+                .with_error_address(0x0700);
             body.push(0x60);
             for left in words {
                 for right in words.into_iter().filter(|right| *right != 0) {

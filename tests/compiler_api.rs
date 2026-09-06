@@ -334,6 +334,37 @@ fn standalone_sys_warning_is_structured_and_backend_independent() {
 }
 
 #[test]
+fn standalone_arithmetic_fault_records_the_error_runtime_dependency() {
+    let temp = TestDir::new();
+    let source = write_source(
+        &temp,
+        "error-dependency.act",
+        "CARD a,b,q PROC Main() q=a/b RETURN",
+    );
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let standalone = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+        )
+        .unwrap();
+        assert_eq!(
+            standalone.warnings(),
+            &[CompileWarning::StandaloneGplRuntime {
+                sys_routines: Vec::new(),
+                helpers: vec!["Error".to_string()],
+            }],
+            "{mode:?}"
+        );
+        let cart = compile_file(&source, &CompileOptions::for_mode(mode)).unwrap();
+        assert!(cart.warnings().is_empty(), "{mode:?}");
+    }
+}
+
+#[test]
 fn origin_precedence_is_consistent_in_all_modes() {
     let temp = TestDir::new();
     let source = write_source(

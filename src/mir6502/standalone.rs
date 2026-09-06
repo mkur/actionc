@@ -176,6 +176,43 @@ pub(super) fn link_helpers(program: &mut MirProgram) -> Result<(), Vec<MirDiagno
     Ok(())
 }
 
+/// Select the same SYSLIB Error implementation used by SYS.Error, without
+/// pulling in screen/I/O services or introducing another fatal-error runtime.
+pub(super) fn link_error(program: &mut MirProgram) -> Result<RoutineId, Vec<MirDiagnostic>> {
+    if let Some(routine) = program.routines.iter().find(|routine| {
+        matches!(
+            routine.name.as_str(),
+            "ACTION.RUNTIME.SYSLIB::Error" | "ACTION.RUNTIME.RESIDENT::Error"
+        )
+    }) {
+        return Ok(routine.id);
+    }
+    let source = crate::runtime_source::select_runtime_unit(
+        "syslib.act",
+        "ACTION.RUNTIME.SYSLIB",
+        &BTreeSet::from(["Error".into()]),
+    )
+    .map_err(|diagnostics| frontend_diagnostics("syslib.act", diagnostics))?;
+    let runtime = lower_runtime_semir(&source.semir, "syslib.act")?;
+    let error = runtime
+        .routines
+        .iter()
+        .find(|routine| {
+            runtime_routine_name(&routine.name, "ACTION_RUNTIME_SYSLIB").eq_ignore_ascii_case("Error")
+        })
+        .expect("selected SYSLIB Error")
+        .id;
+    let selection = bind_runtime_selection(&runtime, &source.selection, "ACTION_RUNTIME_SYSLIB")?;
+    let rebase = append_runtime_selection(
+        program,
+        &runtime,
+        &selection,
+        "ACTION.RUNTIME.SYSLIB",
+        "ACTION_RUNTIME_SYSLIB",
+    )?;
+    Ok(rebase[&error])
+}
+
 pub(super) fn append_runtime_selection(
     program: &mut MirProgram,
     runtime: &MirProgram,

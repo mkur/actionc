@@ -1156,6 +1156,7 @@ struct Generator {
     numeric_defines: HashMap<String, u16>,
     machine_defines: HashMap<String, Vec<MachineItem>>,
     runtime_helpers: RuntimeHelperTargets,
+    runtime_error_target: RuntimeHelperTarget,
     used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,

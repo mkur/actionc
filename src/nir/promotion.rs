@@ -145,15 +145,16 @@ fn is_bounded_scalar_relay(routine: &NirRoutine, cfg: &NirCfg, facts: &NirStorag
 }
 
 fn is_bounded_relay_barrier(op: &NirOp) -> bool {
-    matches!(
-        op,
-        NirOp::VolatileLoad { .. }
-            | NirOp::VolatileStore { .. }
-            | NirOp::Call { .. }
-            | NirOp::ForeignCode { .. }
-            | NirOp::Unsupported { .. }
-            | NirOp::Real(_)
-    )
+    super::optimizer::binary_may_fault(op)
+        || matches!(
+            op,
+            NirOp::VolatileLoad { .. }
+                | NirOp::VolatileStore { .. }
+                | NirOp::Call { .. }
+                | NirOp::ForeignCode { .. }
+                | NirOp::Unsupported { .. }
+                | NirOp::Real(_)
+        )
 }
 
 /// Finds word locals which are updated by an add/sub recurrence and used as
@@ -420,6 +421,19 @@ fn rename_block(
                 current = coerce_to_home_type(src.clone(), &mut rewritten, context);
                 if current.is_none() {
                     return false;
+                }
+            }
+            NirOp::Binary { .. }
+                if super::optimizer::binary_may_fault(&op) && !context.private_invocation =>
+            {
+                let Some(value) = current.clone() else {
+                    return false;
+                };
+                rewritten.push(sync_store(context, value));
+                let result = op_result(&op);
+                rewritten.push(op);
+                if let Some(result) = result {
+                    replacements.remove(&result);
                 }
             }
             NirOp::Call {
@@ -1308,6 +1322,53 @@ mod tests {
             |op| !matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
                 if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
         ));
+    }
+
+    #[test]
+    fn arithmetic_fault_syncs_promoted_fixed_homes_but_not_private_invocation_homes() {
+        for operation in [NirBinaryOp::Div, NirBinaryOp::Mod] {
+            let mut ops = vec![volatile_load_barrier(8), store(41)];
+            ops.extend((0..MIN_HOT_HOME_LOADS as u32).map(load));
+            ops.push(NirOp::Binary {
+                dest: TempId(9),
+                ty: byte_type(),
+                op: operation,
+                left: NirValue::ConstU8(7),
+                right: NirValue::Temp {
+                    id: TempId(8),
+                    ty: byte_type(),
+                },
+            });
+            ops.push(store(42));
+            let program = program(vec![block(0, ops, NirTerminator::Return(None))]);
+            for private in [false, true] {
+                let input = if private {
+                    native(program.clone())
+                } else {
+                    program.clone()
+                };
+                let promoted = promote_program(&input).expect("promote across arithmetic fault");
+                let elided = crate::nir::home_elision::elide_program(&promoted).unwrap();
+                let ops = &elided.routines[0].blocks[0].ops;
+                assert!(
+                    !ops.iter().any(|op| matches!(op, NirOp::Load { .. })),
+                    "home was promoted"
+                );
+                let fault = ops.iter()
+                    .position(|op| matches!(op, NirOp::Binary { .. })).unwrap();
+                let saved = ops.iter().position(|op| {
+                    matches!(op, NirOp::Store { src: NirValue::ConstU8(41), .. })
+                });
+                if private {
+                    assert!(
+                        saved.is_none(),
+                        "a private invocation home is not error-observable"
+                    );
+                } else {
+                    assert!(saved.is_some_and(|saved| saved < fault), "{ops:#?}");
+                }
+            }
+        }
     }
 
     #[test]

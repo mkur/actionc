@@ -3,7 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{
-    CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest, VmRunner,
+    CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
+    StopReason, VmRunner,
 };
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -26,6 +27,10 @@ impl Drop for Source {
 }
 
 fn run(image: &[u8], runtime: Runtime, a: u16, b: u16) -> Vec<u8> {
+    run_with_observer(image, runtime, a, b, false)
+}
+
+fn run_with_observer(image: &[u8], runtime: Runtime, a: u16, b: u16, observe: bool) -> Vec<u8> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut vm = CompilerVm::default();
     let profile = match runtime {
@@ -60,6 +65,44 @@ fn run(image: &[u8], runtime: Runtime, a: u16, b: u16) -> Vec<u8> {
             vm.bus_mut().ram_mut().write(address + i as u16, byte);
         }
     }
+    // The synthetic object profiles do not boot the cartridge or DOS. Install
+    // a returning handler and verify both dispatch and the non-return guard.
+    // Keep captures outside the application's guarded result/input page.
+    assert!(
+        load.segments
+            .iter()
+            .all(|s| s.end < 0x700 || s.start > 0x743)
+    );
+    let mut handler = vec![
+        0x8D, 0x20, 0x07, // STA $0720
+        0x8E, 0x21, 0x07, // STX $0721
+        0x8C, 0x22, 0x07, // STY $0722
+        0xEE, 0x23, 0x07, // INC $0723: number of calls
+    ];
+    if observe {
+        handler.extend_from_slice(&[
+            0xAD, 0xE4, 0x06, 0x85, 0x80, // pointer from $06E4
+            0xAD, 0xE5, 0x06, 0x85, 0x81, 0xA0, 0, 0xB1, 0x80, 0x8D, 0x40, 0x07, 0xC8, 0xB1, 0x80,
+            0x8D, 0x41, 0x07,
+        ]);
+    }
+    // Locate the handler away from its capture bytes, with no loaded overlap.
+    assert!(
+        load.segments
+            .iter()
+            .all(|s| s.end < 0x780 || s.start > 0x7C0)
+    );
+    handler.extend_from_slice(&[0xF8, 0x60]); // SED; RTS: exercise fallback
+    vm.bus_mut().ram_mut().map(0x780, &handler).unwrap();
+    vm.bus_mut().ram_mut().write(0x723, 0);
+    match runtime {
+        Runtime::ActionCart => vm
+            .bus_mut()
+            .ram_mut()
+            .map(0x04CB, &[0x4C, 0x80, 7])
+            .unwrap(),
+        Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, 0x0780),
+    }
     let result = VmRunner::new(vm).run(RunRequest {
         max_steps: 15_000,
         history_len: 4,
@@ -67,9 +110,16 @@ fn run(image: &[u8], runtime: Runtime, a: u16, b: u16) -> Vec<u8> {
     });
     if result.memory().read(0x6FF) == 0xCC {
         assert_eq!(
-            result.report.registers.a, 1,
+            result.report.registers.a, 100,
             "noncompletion must be the arithmetic fault"
         );
+        assert_eq!(
+            (0x720..=0x723)
+                .map(|a| result.memory().read(a))
+                .collect::<Vec<_>>(),
+            [100, 0, 100, 1]
+        );
+        assert_eq!(result.report.registers.status & 8, 0);
         let pc = result.report.registers.pc;
         assert_eq!(
             (
@@ -78,10 +128,95 @@ fn run(image: &[u8], runtime: Runtime, a: u16, b: u16) -> Vec<u8> {
             ),
             (0xB0, 0xFE)
         );
+    } else {
+        assert_eq!(
+            result.memory().read(0x723),
+            0,
+            "successful arithmetic must not call Error"
+        );
     }
-    (0x600..=0x6FF)
+    let mut bytes: Vec<_> = (0x600..=0x6FF)
         .map(|address| result.memory().read(address))
-        .collect()
+        .collect();
+    if observe {
+        bytes.extend((0x740..=0x741).map(|address| result.memory().read(address)));
+    }
+    bytes
+}
+
+#[test]
+fn error_handler_observes_state_before_the_failed_operation() {
+    for operation in ["/", "MOD", "==/", "==MOD"] {
+        let expression = if operation.starts_with("==") {
+            format!("q=a q {operation} b")
+        } else {
+            format!("q=a {operation} b")
+        };
+        let source = Source::new(&format!(
+            "CARD a=$6E0,b=$6E2,observer=$6E4,state,q BYTE done=$6FF \
+             PROC Main() observer=@state state=41 {expression} state=42 done=$A5 RETURN"
+        ));
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let compiled = compile_file(
+                    &source.0,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap();
+                let bytes = run_with_observer(compiled.object_bytes(), runtime, 7, 0, true);
+                assert_eq!(word(&bytes, 256), 41, "{operation}/{mode:?}/{runtime:?}");
+                assert_eq!(bytes[255], 0xCC);
+            }
+        }
+    }
+}
+
+#[test]
+fn division_fault_uses_the_unmodified_cartridge_error_handler() {
+    let source =
+        Source::new("CARD a=$6E0,b=$6E2,q=$600 BYTE done=$6FF PROC Main() q=a/b done=$A5 RETURN");
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode)).unwrap();
+        let mut vm = CompilerVm::default();
+        vm.prepare_execution_profile(ExecutionProfile::OriginalCompiler)
+            .unwrap();
+        vm.reset_cpu();
+        for _ in 0..1_000_000 {
+            vm.step_cpu().unwrap();
+        }
+        vm.load_atari_object(compiled.object_bytes()).unwrap();
+        vm.bus_mut().ram_mut().write_word(0x6E0, 7);
+        vm.bus_mut().ram_mut().write_word(0x6E2, 0);
+        vm.bus_mut().ram_mut().write(0x6FF, 0xCC);
+        vm.set_pc(compiled.run_address());
+        let outcome = VmRunner::new(vm).run(RunRequest {
+            max_steps: 300_000,
+            stop_after_pc: Some(0xB889),
+            history_len: 8,
+        });
+        assert_eq!(
+            outcome.stop_reason(),
+            StopReason::PcReached { pc: 0xB889 },
+            "{mode:?}: Error must enter the monitor"
+        );
+        // The original SysErr formatted Y into numbuf: "100".
+        assert_eq!(
+            (0x550..0x554)
+                .map(|a| outcome.memory().read(a))
+                .collect::<Vec<_>>(),
+            [3, b'1', b'0', b'0'],
+            "{mode:?}"
+        );
+        assert_eq!(outcome.memory().read(0x6FF), 0xCC);
+    }
 }
 
 fn word(bytes: &[u8], offset: usize) -> u16 {

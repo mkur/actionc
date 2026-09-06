@@ -849,7 +849,9 @@ fn strip_runtime_helper_projection(effects: &mut ObservableEffects, ops: &[MirOp
     let helpers = ops
         .iter()
         .filter_map(|op| match op {
-            MirOp::RuntimeHelper { effects, .. } => Some(effects),
+            MirOp::RuntimeHelper { helper, .. } => {
+                Some(crate::mir6502::materialize::helper_return_effects(helper))
+            }
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -869,12 +871,14 @@ fn strip_runtime_helper_projection(effects: &mut ObservableEffects, ops: &[MirOp
                 .map(|address| format!("fixed-zp:{address}"))
         })
         .collect::<BTreeSet<_>>();
+    // Strip only the private scratch projection. Unknown Error-handler effects
+    // must match the original operation and survive rewrite validation.
     effects
         .memory_reads
-        .retain(|key| !key.starts_with("structured:") && !scratch.contains(key));
+        .retain(|key| !key.starts_with("structured:Regions") && !scratch.contains(key));
     effects
         .memory_writes
-        .retain(|key| !key.starts_with("structured:") && !scratch.contains(key));
+        .retain(|key| !key.starts_with("structured:Regions") && !scratch.contains(key));
 }
 
 fn pointer_source_is_preserved(original: &[MirOp], replacement: &[MirOp]) -> bool {

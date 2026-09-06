@@ -195,6 +195,7 @@ pub(super) fn generate_with_options_and_projection_facts(
         segment_storage,
         profile,
         runtime_target,
+        None,
     )
     .map(|(output, _)| output)
 }
@@ -210,13 +211,24 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
     segment_storage: bool,
     profile: CodegenProfile,
     runtime_target: RuntimeTarget,
-) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
+    runtime_error: Option<&str>,
+) -> Result<(CodegenOutput, Vec<String>), Vec<Diagnostic>> {
     let storage_base = if segment_storage { origin } else { DATA_BASE };
     let record_layouts = record_layouts
         .cloned()
         .unwrap_or_else(|| collect_record_layouts(program));
     validate_aggregate_static_initializer_facts(program, &record_layouts, static_initializers)?;
     let routines = collect_routine_info(program, &record_layouts, runtime_target)?;
+    let runtime_error_target = match runtime_error {
+        Some(name) => RuntimeHelperTarget::Label(
+            routines
+                .get(&normalize_name(name))
+                .expect("selected Error routine is part of the runtime projection")
+                .label
+                .clone(),
+        ),
+        None => RuntimeHelperTarget::Absolute(Absolute::new(crate::integer6502::CARTRIDGE_ERROR)),
+    };
     let routine_assignment_targets = collect_routine_assignment_targets(program, &routines);
     let numeric_defines = collect_numeric_defines(program);
     match profile {
@@ -246,6 +258,7 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
         numeric_defines,
         machine_defines,
         runtime_helpers: RuntimeHelperTargets::default_for_target(runtime_target),
+        runtime_error_target,
         used_default_runtime_helpers: BTreeSet::new(),
         routine_assignment_targets,
         local_symbols: HashMap::new(),

@@ -162,6 +162,14 @@ impl RuntimeHelperTargets {
 
 pub(super) fn runtime_helper_effects(slot: RuntimeHelperSlot) -> RoutineEffects {
     let mut effects = RoutineEffects::known_empty();
+    // A zero divisor invokes the user-visible Error handler. Effects cannot
+    // move earlier source writes past that observation, even though this
+    // branch never returns to the arithmetic computation.
+    if slot.is_owned_division() {
+        effects.record_unknown_absolute_write();
+        record_zero_page_effect_range(&mut effects, 0, 255);
+        return effects;
+    }
     match slot {
         RuntimeHelperSlot::Lsh | RuntimeHelperSlot::Rsh => {
             effects.record_zero_page_write(ZeroPage::new(0x85));

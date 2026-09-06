@@ -3,6 +3,72 @@ use actionc::semantic::{SemanticOptions, analyze_with_options};
 use actionc::target::{ByteSize, TargetId};
 
 #[test]
+fn arithmetic_fault_preserves_prior_fixed_local_stores_for_error() {
+    use actionc::nir::{NirOp, NirStorageId, NirValue, direct_storage_id};
+
+    for operation in ["/", "MOD"] {
+        for divisor in ["b", "2"] {
+            let source = format!(
+                "CARD a,b,output PROC Main() CARD state,q \
+                 state=41 q=a {operation} {divisor} state=42 output=state RETURN"
+            );
+            let ast = actionc::parser::parse(&actionc::lexer::tokenize(&source).unwrap()).unwrap();
+            let model = analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
+            let semir = actionc::semantic::ir::lower_program(&ast, &model);
+            let nir = actionc::nir::lower_program(&semir);
+            let main = nir
+                .routines
+                .iter()
+                .find(|routine| routine.name == "Main")
+                .unwrap();
+            let state = NirStorageId::Local(
+                main.locals
+                    .iter()
+                    .find(|local| local.name == "state")
+                    .unwrap()
+                    .id,
+            );
+            let optimized = actionc::nir::optimize_program(&nir).unwrap();
+            let main = optimized
+                .routines
+                .iter()
+                .find(|routine| routine.name == "Main")
+                .unwrap();
+            let ops: Vec<_> = main.blocks.iter().flat_map(|block| &block.ops).collect();
+            let saved = ops.iter().position(|op| {
+                matches!(op,
+                    NirOp::Store { place, src: NirValue::ConstU16(41), .. }
+                    if direct_storage_id(place) == Some(state)
+                )
+            });
+            if divisor == "b" {
+                let fault = ops
+                    .iter()
+                    .position(|op| {
+                        matches!(
+                            op,
+                            NirOp::Binary {
+                                op: NirBinaryOp::Div | NirBinaryOp::Mod,
+                                ..
+                            }
+                        )
+                    })
+                    .expect("dead result must not remove a possible fault");
+                assert!(
+                    saved.is_some_and(|saved| saved < fault),
+                    "{operation}: {main:#?}"
+                );
+            } else {
+                assert!(
+                    saved.is_none(),
+                    "a proven nonzero operation needs no error-observable store"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn typed_array_bound_folding_preserves_large_shift_counts() {
     for expression in ["(1 LSH 16)+1", "(256 RSH 16)+1", "(INT(-513)/INT(256))+3"] {
         let source = format!("BYTE ARRAY table({expression}) PROC Main() RETURN");

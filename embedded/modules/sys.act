@@ -32,6 +32,8 @@ PUBLIC EXTERNAL CARD FUNC PeekC(CARD address)
 PUBLIC EXTERNAL PROC Poke(CARD address, BYTE value)
 PUBLIC EXTERNAL PROC PokeC(CARD address, value)
 
+; Raw A/X/Y ABI: the cartridge reports Y, standalone Error jumps to DOSVEC.
+; Use Error(code,0,code) to supply the same code to A-based handlers and the cart.
 PUBLIC EXTERNAL PROC Error(BYTE code, x, y)
 PUBLIC EXTERNAL PROC Break()
 

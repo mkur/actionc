@@ -209,6 +209,11 @@ fn transfer_op_backwards(
             add_place_dependencies(source, live, candidates);
         }
         NirOp::AddrOf { place, .. } => add_place_dependencies(place, live, candidates),
+        NirOp::Binary { .. } if super::optimizer::binary_may_fault(op) => {
+            live.extend(
+                candidates.iter().filter(|id| !private_invocation.contains(id)).copied(),
+            );
+        }
         NirOp::Call {
             callee, effects, ..
         } => {

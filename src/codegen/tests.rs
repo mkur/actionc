@@ -6327,7 +6327,8 @@ fn generates_runtime_divide_and_mod_assignment() {
         expected.extend([0x8D, 0x04, 0x06, 0x8A, 0x8D, 0x05, 0x06, opcode::RTS]);
         assert_eq!(&output.bytes[..expected.len()], &expected);
         assert_eq!(address, output.origin + expected.len() as u16);
-        let mut body = crate::integer6502::division_body(true, operator == "MOD");
+        let mut body = crate::integer6502::division_body(true, operator == "MOD")
+            .with_error_address(crate::integer6502::CARTRIDGE_ERROR);
         body.push(opcode::RTS);
         assert_eq!(&output.bytes[expected.len()..], &body);
     }
@@ -17049,11 +17050,13 @@ fn runtime_helper_effects_match_action_scratch_ranges() {
     assert!(!mul.writes_zero_page(runtime_zp::ARRAY_ADDR));
 
     let div = runtime_helper_effects(RuntimeHelperSlot::Div);
-    for address in 0x82..=0x87 {
+    // Division may call Error on a zero divisor; its handler has arbitrary
+    // memory effects even though the successful kernel has bounded scratch.
+    assert!(div.known);
+    assert!(div.writes_unknown_absolute);
+    for address in 0..=255 {
         assert!(div.writes_zero_page(ZeroPage::new(address)));
     }
-    assert!(div.writes_zero_page(ZeroPage::new(0xC2)));
-    assert!(!div.writes_zero_page(ZeroPage::new(0xC0)));
 
     let sargs = runtime_helper_effects(RuntimeHelperSlot::SArgs);
     assert!(sargs.writes_unknown_absolute);
@@ -18237,6 +18240,7 @@ fn classic_codegen_rejects_aggregate_initializers_without_semantic_facts() {
         true,
         CodegenProfile::Compat,
         RuntimeTarget::Cartridge,
+        None,
     )
     .expect_err("missing aggregate initializer facts");
 
@@ -18376,6 +18380,9 @@ fn test_generator(profile: CodegenProfile) -> Generator {
         numeric_defines: HashMap::new(),
         machine_defines: HashMap::new(),
         runtime_helpers: RuntimeHelperTargets::default_for_target(RuntimeTarget::Cartridge),
+        runtime_error_target: RuntimeHelperTarget::Absolute(Absolute::new(
+            crate::integer6502::CARTRIDGE_ERROR,
+        )),
         used_default_runtime_helpers: BTreeSet::new(),
         routine_assignment_targets: HashSet::new(),
         local_symbols: HashMap::new(),

@@ -617,8 +617,9 @@ fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
 /// without rewriting the preserved source corpus. The Action! 3.6 compiler
 /// accepts `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR
 /// $A508`, while SYSIO.ACT accidentally omits the device parameter. `Error`
-/// accepts an error code in A plus optional X/Y handler context, as exercised
-/// by CATCH.ACT, while SYSLIB.ACT declares only the first byte. `PrintH` stores
+/// has a raw three-byte A/X/Y ABI, as exercised by CATCH.ACT; the cartridge
+/// reports Y, while SYSLIB.ACT declares only the first byte and jumps through
+/// DOSVEC without using it. Preserve all three registers. `PrintH` stores
 /// its shifting value in `$A4/$A5`, but its call to `Put` reaches `CCIO`, which
 /// overwrites `$A4`; move that private value to the unused `$A2/$A3` pair. The
 /// normalized routines remain current-location machine-code entries because

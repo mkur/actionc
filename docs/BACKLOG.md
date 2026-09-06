@@ -48,6 +48,20 @@ total in 28 Oscar64 tests). Volatile categories remain follow-ups;
 wider-stride MIR copy fusion needs a nonconflicting scratch plan
 before it can replace the current safe staged path.
 
+## Oscar64 Volatile Test Port
+
+Status: deferred at user request; not the next active test batch.
+
+- Port `autotest/volatiletest.c` when this work is resumed, following the
+  [deferred porting batch](OSCAR64_TEST_PORTING_PLAN.md#deferred-batch).
+- Start with read/write ordering, unused reads, reads through small functions,
+  and loop reads whose results are only partly used. Keep the DMA case as a
+  separate follow-up slice.
+- Use observable access counts or a deterministic VM test device; final RAM
+  contents alone cannot detect removed, duplicated, or reordered accesses.
+- Exercise all supported compiler profiles and both runtime link modes. Keep
+  any compiler repairs separate from the test ports.
+
 ## Standalone Runtime Licensing
 
 - Replace the GPL-only standalone `SYS` implementation with an independently
@@ -56,6 +70,23 @@ before it can replace the current safe staged path.
   programs do not need source changes.
 - Until that replacement exists, retain the standalone GPL warning for selected
   `SYS` procedures, compiler helpers, and their runtime dependencies.
+
+## Standalone Runtime Error Diagnostics
+
+Priority: low; deferred.
+
+Standalone SYSLIB `Error` currently jumps through DOSVEC without printing a
+message. See the [runtime error audit](ATARI_RUNTIME_ERRORS.md).
+
+- Enhance the existing standalone `Error` implementation to open GR.0, print
+  `Error: <code>` (for example, `Error: 100` for division by zero), and terminate
+  through DOSVEC. Do not introduce a separate fatal-error API.
+- Preserve the cartridge-compatible A/X/Y interface, reporting the code from Y;
+  leave the cartridge `$04CB` binding unchanged.
+- Keep selective linking and the arithmetic non-return guard if the handler
+  returns. Avoid recursive error reporting if screen setup or output fails.
+- Add VM coverage for visible output from a graphics screen, DOS handoff, and
+  the absence of post-fault source effects in classic and MIR6502 builds.
 
 ## Modern Integer Arithmetic
 

@@ -334,10 +334,18 @@ zero, and nonzero remainder has the dividend's sign. INT_MIN/-1 wraps to
 INT_MIN with remainder zero. Multiplication retains its existing INT result.
 
 Literal/foldable converted-zero divisors are semantic errors. Dynamic zero
-raises the non-returning DivisionByZero fault (6502: A=1, carry set, BCS self).
+raises the non-returning DivisionByZero fault. Atari 6502 helpers call the
+existing Error entry with A=100, X=0, Y=100: cartridge `$04CB`, or linked
+SYSLIB Error in standalone builds. If it returns, clear decimal mode, restore
+A/Y=100, set carry, and enter a BCS self-loop. See the
+[Atari runtime error audit](ATARI_RUNTIME_ERRORS.md) for the code and ABI evidence.
 An unused result does not make a potentially faulting computation discardable
 or movable across effects. Unexecuted runtime branches do not fault. All
-constant evaluators and backends implement these same rules.
+constant evaluators and backends implement these same rules. Potential faults
+also observe prior fixed/escaped storage through the error handler. NIR home
+promotion synchronizes such storage before the operation; dead-store elimination
+preserves those writes. MIR exposes unknown handler memory/OS effects separately
+from the arithmetic kernel's bounded returning-path scratch.
 
 ## Array Semantics
 

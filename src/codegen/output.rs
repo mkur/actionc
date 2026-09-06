@@ -10,7 +10,7 @@ fn codegen_symbol_scope_key(scope: &CodegenSymbolScope) -> (&str, &str) {
 impl Generator {
     pub(super) fn finish_with_runtime_requirements(
         mut self,
-    ) -> Result<(CodegenOutput, Vec<RuntimeHelperSlot>), Vec<Diagnostic>> {
+    ) -> Result<(CodegenOutput, Vec<String>), Vec<Diagnostic>> {
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
         }
@@ -18,11 +18,23 @@ impl Generator {
         for helper in self.used_default_runtime_helpers.iter().copied().filter(|helper| helper.is_owned_division()) {
             self.emitter.bind_label(helper.owned_label(), Span::new(0, 0))
                 .map_err(|error| vec![error])?;
-            for byte in crate::integer6502::division_body(
+            let body = crate::integer6502::division_body(
                 matches!(helper, RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod),
                 matches!(helper, RuntimeHelperSlot::Mod | RuntimeHelperSlot::UMod),
-            ) {
-                self.emitter.emit_u8(byte);
+            );
+            for (offset, byte) in body.bytes.into_iter().enumerate() {
+                if offset == body.error_operand {
+                    match &self.runtime_error_target {
+                        RuntimeHelperTarget::Absolute(address) => {
+                            self.emitter.emit_u16_le(address.address());
+                        }
+                        RuntimeHelperTarget::Label(label) => {
+                            self.emitter.emit_u16_label(label, Span::new(0, 0));
+                        }
+                    }
+                } else if offset != body.error_operand + 1 {
+                    self.emitter.emit_u8(byte);
+                }
             }
             self.emitter.emit_u8(0x60);
         }
@@ -82,9 +94,12 @@ impl Generator {
                 kind: CodegenRuntimeBindingKind::CompilerHelper,
                 license: None,
             }));
-        let classic_runtime_requirements =
-            self.used_default_runtime_helpers.iter().copied()
-                .filter(|helper| !helper.is_owned_division()).collect();
+        let classic_runtime_requirements = self.used_default_runtime_helpers
+            .iter()
+            .map(|helper| {
+                if helper.is_owned_division() { "Error" } else { helper.name() }.to_string()
+            })
+            .collect();
         let mut storage_symbols = self.layout.codegen_storage_symbols();
         storage_symbols.extend(self.storage_symbols);
         storage_symbols.sort_by(|left, right| {

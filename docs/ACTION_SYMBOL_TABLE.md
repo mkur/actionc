@@ -237,7 +237,7 @@ more probes say otherwise.
 | `ValI` | `INT FUNC` | `INT FUNC ValI(<string>)` | `$A59A` | `resident_string_convert.act` emits `JSR $A59A` |
 | `Rand` | `BYTE FUNC` | `BYTE FUNC Rand(BYTE r)` | `$A6F1` | `resident_misc_memory.act` emits `JSR $A6F1` |
 | `Break` | `PROC` | `PROC Break()` | `$A7DA` | `resident_misc_memory.act` emits `JSR $A7DA` |
-| `Error` | `PROC` | `PROC Error(BYTE e,x,y)`; trailing context is optional | `$04CB` | `resident_misc_memory.act` emits `LDA #1; JSR $04CB`; `CATCH.ACT` supplies A/X/Y context |
+| `Error` | `PROC` | Raw A/X/Y ABI: `PROC Error(BYTE e,x,y)`; the cartridge reports **Y** | `$04CB` | `MAIN.IO.asm` `SysErr(,,errnum)` reads Y; the ROM VM probe verifies this. A one-argument call does not establish the reported code. See [runtime error audit](ATARI_RUNTIME_ERRORS.md). |
 | `Peek` | `BYTE FUNC` | `BYTE FUNC Peek(CARD a)` | `$A767` | `resident_misc_memory.act` emits `JSR $A767` |
 | `PeekC` | `CARD FUNC` | `CARD FUNC PeekC(CARD a)` | `$A767` | `resident_misc_memory.act` emits `JSR $A767` |
 | `Poke` | `PROC` | `PROC Poke(CARD a,BYTE v)` | `$A777` | `resident_misc_memory.act` emits `JSR $A777` |

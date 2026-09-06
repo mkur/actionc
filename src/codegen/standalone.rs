@@ -117,10 +117,10 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
             true,
             profile,
             RuntimeTarget::StandaloneSlots,
+            None,
         )?;
     let helper_roots = classic_runtime_requirements
-        .iter()
-        .map(|helper| helper.name().to_string())
+        .into_iter()
         .collect::<BTreeSet<_>>();
     let selected_syslib = crate::runtime_source::select_runtime_unit(
         "syslib.act",
@@ -158,7 +158,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     ));
     application.modules = modules;
 
-    let mut output = super::driver::generate_with_options_and_projection_facts(
+    let (mut output, _) = super::driver::generate_with_options_and_requirements_with_projection_facts(
         &application,
         &native_real,
         &record_copies,
@@ -169,6 +169,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         true,
         profile,
         RuntimeTarget::StandaloneSlots,
+        syslib_names.get("ERROR").map(String::as_str),
     )?;
     append_runtime_binding_metadata(
         &mut output,

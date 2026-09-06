@@ -1302,7 +1302,7 @@ fn is_pure_temp_op(op: &NirOp) -> bool {
     )
 }
 
-fn binary_may_fault(op: &NirOp) -> bool {
+pub(super) fn binary_may_fault(op: &NirOp) -> bool {
     matches!(op, NirOp::Binary { op: NirBinaryOp::Div | NirBinaryOp::Mod, right, .. }
         if const_u16(right).is_none_or(|value| value == 0))
 }

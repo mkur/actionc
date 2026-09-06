@@ -283,6 +283,11 @@ fn transfer_op(
                 routine_id,
             );
         }
+        NirOp::Binary { dest, .. } if super::optimizer::binary_may_fault(&op) => {
+            facts.replacements.remove(dest);
+            retain_available_storage_values(facts, block, op_index, use_def);
+            facts.storage.clear();
+        }
         NirOp::Real(real) => {
             if let NirRealOp::Compare { result, .. } | NirRealOp::RealToInteger { result, .. } =
                 real

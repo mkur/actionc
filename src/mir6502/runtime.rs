@@ -1,7 +1,7 @@
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirBlock, MirBlockId, MirFrame, MirMachineBlock, MirMachineBlockId, MirMachineItem, MirOp,
-    MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi, MirRuntimeHelper,
+    MirBlock, MirBlockId, MirFrame, MirInlineAsmTarget, MirMachineBlock, MirMachineBlockId,
+    MirMachineItem, MirOp, MirProgram, MirRegisterSet, MirRoutine, MirRoutineAbi, MirRuntimeHelper,
     MirRuntimeHelperTarget, MirTerminator, RoutineId,
 };
 use crate::runtime::Runtime;
@@ -36,27 +36,82 @@ pub(super) fn resolve_helpers(
     runtime: Runtime,
 ) -> Result<(), Vec<MirDiagnostic>> {
     bind_generated_byte_multiply(program);
-    for helper in [MirRuntimeHelper::Div, MirRuntimeHelper::Mod, MirRuntimeHelper::UDiv, MirRuntimeHelper::UMod,
-        MirRuntimeHelper::DivU8, MirRuntimeHelper::ModU8, MirRuntimeHelper::DivU16U8, MirRuntimeHelper::ModU16U8,
-        MirRuntimeHelper::DivMod, MirRuntimeHelper::UDivMod] {
-        if let Some(declaration) = program.runtime_helpers.iter().find(|decl| decl.helper == helper) {
+    let error_target = if program
+        .runtime_helpers
+        .iter()
+        .any(|decl| is_division(decl.helper))
+    {
+        Some(match runtime {
+            Runtime::ActionCart => {
+                MirInlineAsmTarget::Absolute(crate::integer6502::CARTRIDGE_ERROR)
+            }
+            Runtime::Standalone => {
+                MirInlineAsmTarget::Routine(super::standalone::link_error(program)?)
+            }
+        })
+    } else {
+        None
+    };
+    for helper in [
+        MirRuntimeHelper::Div,
+        MirRuntimeHelper::Mod,
+        MirRuntimeHelper::UDiv,
+        MirRuntimeHelper::UMod,
+        MirRuntimeHelper::DivU8,
+        MirRuntimeHelper::ModU8,
+        MirRuntimeHelper::DivU16U8,
+        MirRuntimeHelper::ModU16U8,
+        MirRuntimeHelper::DivMod,
+        MirRuntimeHelper::UDivMod,
+    ] {
+        if let Some(declaration) = program
+            .runtime_helpers
+            .iter()
+            .find(|decl| decl.helper == helper)
+        {
             if !matches!(declaration.target, MirRuntimeHelperTarget::Deferred) {
-                return Err(vec![MirDiagnostic::routine("<runtime>",
+                return Err(vec![MirDiagnostic::routine(
+                    "<runtime>",
                     "legacy division/remainder SET overrides cannot replace modern integer operators",
                 )]);
             }
-            let bytes = if matches!(helper, MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod) {
+            let body = if matches!(helper, MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod) {
                 crate::integer6502::divmod_body(helper == MirRuntimeHelper::DivMod)
-            } else if matches!(helper, MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 | MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8) {
+            } else if matches!(
+                helper,
+                MirRuntimeHelper::DivU8
+                    | MirRuntimeHelper::ModU8
+                    | MirRuntimeHelper::DivU16U8
+                    | MirRuntimeHelper::ModU16U8
+            ) {
                 crate::integer6502::narrow_division_body(
-                    matches!(helper, MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8),
+                    matches!(
+                        helper,
+                        MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8
+                    ),
                     matches!(helper, MirRuntimeHelper::ModU8 | MirRuntimeHelper::ModU16U8),
                 )
-            } else { crate::integer6502::division_body(
-                matches!(helper, MirRuntimeHelper::Div | MirRuntimeHelper::Mod),
-                matches!(helper, MirRuntimeHelper::Mod | MirRuntimeHelper::UMod),
-            ) };
-            bind_generated_helper(program, helper, bytes);
+            } else {
+                crate::integer6502::division_body(
+                    matches!(helper, MirRuntimeHelper::Div | MirRuntimeHelper::Mod),
+                    matches!(helper, MirRuntimeHelper::Mod | MirRuntimeHelper::UMod),
+                )
+            };
+            let mut items = Vec::new();
+            for (offset, byte) in body.bytes.into_iter().enumerate() {
+                if offset == body.error_operand {
+                    items.push(MirMachineItem::Relocation {
+                        kind: crate::asm6502::InlineAsmRelocationKind::Absolute16,
+                        target: error_target.clone().expect("division error binding"),
+                        addend: 0,
+                        requires_zero_page: false,
+                        span: crate::source::Span::new(0, 0),
+                    });
+                } else if offset != body.error_operand + 1 {
+                    items.push(MirMachineItem::Byte(byte));
+                }
+            }
+            bind_generated_helper(program, helper, items);
         }
     }
     program
@@ -75,6 +130,22 @@ pub(super) fn resolve_helpers(
             MirRuntimeHelperTarget::KnownAbsolute(cartridge_address(declaration.helper));
     }
     Ok(())
+}
+
+pub(super) fn is_division(helper: MirRuntimeHelper) -> bool {
+    matches!(
+        helper,
+        MirRuntimeHelper::Div
+            | MirRuntimeHelper::Mod
+            | MirRuntimeHelper::UDiv
+            | MirRuntimeHelper::UMod
+            | MirRuntimeHelper::DivU8
+            | MirRuntimeHelper::ModU8
+            | MirRuntimeHelper::DivU16U8
+            | MirRuntimeHelper::ModU16U8
+            | MirRuntimeHelper::DivMod
+            | MirRuntimeHelper::UDivMod
+    )
 }
 
 pub(super) const fn helper_name(helper: MirRuntimeHelper) -> &'static str {
@@ -115,10 +186,21 @@ fn cartridge_address(helper: MirRuntimeHelper) -> u16 {
 }
 
 fn bind_generated_byte_multiply(program: &mut MirProgram) {
-    bind_generated_helper(program, MirRuntimeHelper::MulByte, GENERATED_BYTE_MULTIPLY_BYTES.to_vec());
+    bind_generated_helper(
+        program,
+        MirRuntimeHelper::MulByte,
+        GENERATED_BYTE_MULTIPLY_BYTES
+            .into_iter()
+            .map(MirMachineItem::Byte)
+            .collect(),
+    );
 }
 
-fn bind_generated_helper(program: &mut MirProgram, helper: MirRuntimeHelper, bytes: Vec<u8>) {
+fn bind_generated_helper(
+    program: &mut MirProgram,
+    helper: MirRuntimeHelper,
+    items: Vec<MirMachineItem>,
+) {
     let Some(declaration_index) = program.runtime_helpers.iter().position(|declaration| {
         declaration.helper == helper
             && matches!(declaration.target, MirRuntimeHelperTarget::Deferred)
@@ -155,10 +237,7 @@ fn bind_generated_helper(program: &mut MirProgram, helper: MirRuntimeHelper, byt
     // entry point.
     program.machine_blocks.push(MirMachineBlock {
         id: machine_id,
-        items: bytes
-            .into_iter()
-            .map(MirMachineItem::Byte)
-            .collect(),
+        items,
     });
     program.routines.push(MirRoutine {
         id: routine_id,
@@ -219,14 +298,15 @@ mod tests {
             .iter()
             .filter_map(|decl| match decl.target {
                 MirRuntimeHelperTarget::KnownAbsolute(address) => Some(address),
-                MirRuntimeHelperTarget::Routine(_) if matches!(decl.helper, MirRuntimeHelper::Div | MirRuntimeHelper::Mod) => None,
+                MirRuntimeHelperTarget::Routine(_)
+                    if matches!(decl.helper, MirRuntimeHelper::Div | MirRuntimeHelper::Mod) =>
+                {
+                    None
+                }
                 _ => panic!("cart service or owned helper not resolved"),
             })
             .collect::<Vec<_>>();
-        assert_eq!(
-            addresses,
-            vec![0xA000, 0xB5C0, 0xA0E6, 0xA0F5]
-        );
+        assert_eq!(addresses, vec![0xA000, 0xB5C0, 0xA0E6, 0xA0F5]);
     }
 
     #[test]

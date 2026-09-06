@@ -142,6 +142,18 @@ pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHo
 }
 
 pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffects {
+    let mut effects = helper_return_effects(helper);
+    if super::super::runtime::is_division(*helper) {
+        effects.memory_reads = MirMemoryEffect::Unknown;
+        effects.memory_writes = MirMemoryEffect::Unknown;
+        effects.may_call_os = true;
+    }
+    effects
+}
+
+/// Private scratch used by returning computations, distinct from the Error
+/// handler's observable effects on a non-returning path.
+pub(in crate::mir6502) fn helper_return_effects(helper: &MirRuntimeHelper) -> MirEffects {
     let (memory_reads, memory_writes) = match helper {
         MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh => (
             zero_page_effect(&[(0x84, 1)]),

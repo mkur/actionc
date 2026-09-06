@@ -434,6 +434,24 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_binary_flags(*op, &mut summary.machine.flag_writes);
             mark_register_result_flags(dst, &mut summary);
             summary.removable_when_results_dead = true;
+            if matches!(
+                op,
+                MirBinaryOp::Div | MirBinaryOp::Mod | MirBinaryOp::UDiv | MirBinaryOp::UMod
+            ) {
+                // Zero can invoke Error, which observes arbitrary program
+                // storage. Preserve that boundary before helper selection.
+                apply_structured_effects(
+                    &MirEffects {
+                        memory_reads: MirMemoryEffect::Unknown,
+                        memory_writes: MirMemoryEffect::Unknown,
+                        may_call_os: true,
+                        ..MirEffects::default()
+                    },
+                    false,
+                    &mut summary,
+                );
+                summary.removable_when_results_dead = false;
+            }
         }
         MirOp::BinaryDirectIndexedByte {
             op,
