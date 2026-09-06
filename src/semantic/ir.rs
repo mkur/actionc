@@ -3506,6 +3506,22 @@ impl<'a> IrBuilder<'a> {
         expected: &ValueType,
         expr: &Expr,
     ) -> SemExpr {
+        // A record array carries its element type as its lvalue type too.
+        // Preserve the array/backing identity before considering the implicit
+        // address of an individual record (not the array descriptor).
+        if expected.pointer
+            && let Some(mut decay) = self.array_decay_for_expected_pointer(scope, expected, expr)
+        {
+            decay.pointer_type = expected.clone();
+            return SemExpr {
+                kind: SemExprKind::ArrayDecay(decay),
+                ty: expected.clone(),
+                class: SemExprClass::Value,
+                eval_order: Some(self.next_eval_order()),
+                span: expr.span,
+            };
+        }
+
         if expected.is_record_pointer()
             && let Some(actual) = self.lvalue_expr_type(scope, expr)
             && !actual.pointer
@@ -3519,19 +3535,6 @@ impl<'a> IrBuilder<'a> {
                     reason: SemImplicitAddressReason::RecordToPointer,
                     pointer_type: expected.clone(),
                 }),
-                ty: expected.clone(),
-                class: SemExprClass::Value,
-                eval_order: Some(self.next_eval_order()),
-                span: expr.span,
-            };
-        }
-
-        if expected.pointer
-            && let Some(mut decay) = self.array_decay_for_expected_pointer(scope, expected, expr)
-        {
-            decay.pointer_type = expected.clone();
-            return SemExpr {
-                kind: SemExprKind::ArrayDecay(decay),
                 ty: expected.clone(),
                 class: SemExprClass::Value,
                 eval_order: Some(self.next_eval_order()),

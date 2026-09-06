@@ -1,0 +1,30 @@
+TYPE Row=[INT x,y,z]
+Row ARRAY rows(258)=$5001
+BYTE ARRAY flags(14)=$0600
+INT expected=$0620
+CARD index=$0622
+BYTE calls=$0624
+
+CARD FUNC Pick()
+  calls==+1
+RETURN(index)
+
+PROC Main()
+  BYTE i
+  i=0 calls=0
+  WHILE i<14 DO flags(i)=0 i==+1 OD
+  IF rows(Pick()).x=expected THEN flags(0)=1 FI
+  IF rows(Pick()).x#expected THEN flags(1)=1 FI
+  IF rows(Pick()).x<expected THEN flags(2)=1 FI
+  IF rows(Pick()).x<=expected THEN flags(3)=1 FI
+  IF rows(Pick()).x>expected THEN flags(4)=1 FI
+  IF rows(Pick()).x>=expected THEN flags(5)=1 FI
+  IF expected=rows(Pick()).x THEN flags(6)=1 FI
+  IF expected#rows(Pick()).x THEN flags(7)=1 FI
+  IF expected<rows(Pick()).x THEN flags(8)=1 FI
+  IF expected<=rows(Pick()).x THEN flags(9)=1 FI
+  IF expected>rows(Pick()).x THEN flags(10)=1 FI
+  IF expected>=rows(Pick()).x THEN flags(11)=1 FI
+  IF rows(Pick()).x=rows(Pick()).y THEN flags(12)=1 FI
+  IF rows(Pick()).x#rows(Pick()).y THEN flags(13)=1 FI
+RETURN

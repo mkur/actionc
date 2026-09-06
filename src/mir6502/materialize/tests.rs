@@ -9250,6 +9250,46 @@ fn scaled_y_word_store_rewrite_selects_staged_sources() {
 }
 
 #[test]
+fn indexed_word_copy_fusion_requires_scratch_free_address_scales() {
+    let program = empty_test_program();
+    let layout = MaterializeLayout::new(&program, 0x3000);
+    for source_stride in [1, 2, 3, 4, 6, 7, 128, 255] {
+        for destination_stride in [1, 2, 3, 4, 6, 7, 128, 255] {
+            let value = MirDef::VTemp(MirTempId(0));
+            let address = |base, elem_size| MirAddr::ComputedIndex {
+                base: MirValue::ConstU16(base),
+                index: MirValue::ConstU16(128),
+                elem_size,
+                offset: 0,
+            };
+            let ops = vec![
+                MirOp::Load {
+                    dst: value.clone(),
+                    src: address(0x5001, source_stride),
+                    width: MirWidth::Word,
+                },
+                MirOp::Store {
+                    dst: address(0x6003, destination_stride),
+                    src: MirValue::Def(value),
+                    width: MirWidth::Word,
+                },
+            ];
+            let mut out = Vec::new();
+            let fused = try_fuse_indexed_word_copy(&ops, 0, &layout, &mut out);
+            let eligible = source_stride <= 2 && destination_stride <= 2;
+            assert_eq!(
+                fused, if eligible { 2 } else { 0 },
+                "source stride={source_stride}, destination stride={destination_stride}"
+            );
+            if !eligible {
+                assert!(out.is_empty(),
+                    "rejected selection must not emit a partial sequence");
+            }
+        }
+    }
+}
+
+#[test]
 fn same_index_word_copy_shares_scaled_y_across_pointer_pairs() {
     let program = empty_test_program();
     let layout = MaterializeLayout::new(&program, 0x3000);

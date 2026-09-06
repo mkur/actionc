@@ -336,6 +336,14 @@ impl NirLowerer {
                                     .semantic_absolute_array_element_bases
                                     .insert(local.symbol.id, address.value as u16);
                             }
+                            if let Some(address) = address_initializer
+                                && declaration_array_address_initializer_uses_pointer_storage(
+                                    local, &record_storage_sizes, self.target_layout,
+                                )
+                            {
+                                builder.semantic_absolute_array_value_addresses
+                                    .insert(local.symbol.id, address);
+                            }
                             if let Some(ty) =
                                 declaration_symbol_storage_type(local, address_initializer)
                             {
@@ -348,6 +356,7 @@ impl NirLowerer {
                                 local,
                                 &record_storage_sizes,
                                 &backing,
+                                address_initializer,
                                 &self.global_ids,
                                 &self.routine_ids,
                                 &param_ids_by_symbol,
@@ -4664,12 +4673,7 @@ fn declaration_global_init(
                     target_layout,
                 )
             {
-                let address = address.to_le_bytes();
-                let bytes = if array_type.length.is_some() {
-                    vec![address[0], address[1], address[0], address[1]]
-                } else {
-                    vec![address[0], address[1]]
-                };
+                let bytes = fixed_array_pointer_initializer_bytes(array_type, address);
                 return Some(bytes_init(bytes, storage_size));
             }
             if let Some(name) = symbolic_array_initializer_routine(declaration) {
@@ -4808,6 +4812,7 @@ fn declaration_local_init(
     declaration: &SemDeclaration,
     record_storage_sizes: &BTreeMap<String, u16>,
     backing: &NirLocalBacking,
+    address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,
     routine_ids: &BTreeMap<String, RoutineId>,
     param_ids: &BTreeMap<SemSymbolId, ParamId>,
@@ -4822,8 +4827,9 @@ fn declaration_local_init(
     ) {
         return None;
     }
-    let storage_size =
-        declaration_storage_size(declaration, record_storage_sizes, None, target_layout);
+    let storage_size = declaration_storage_size(
+        declaration, record_storage_sizes, address_initializer, target_layout,
+    );
     match &declaration.storage {
         SemDeclarationStorage::Scalar => {
             if let Some(initializer) = &declaration.static_initializer {
@@ -4852,6 +4858,16 @@ fn declaration_local_init(
             None
         }
         SemDeclarationStorage::Array { array_type, .. } => {
+            if let Some(address) = address_initializer
+                && declaration_array_address_initializer_uses_pointer_storage(
+                    declaration, record_storage_sizes, target_layout,
+                )
+            {
+                return Some(storage_data_image_init(
+                    NirDataImage::literal(fixed_array_pointer_initializer_bytes(array_type, address)),
+                    storage_size,
+                ));
+            }
             let elem_size =
                 array_element_width(array_type, record_storage_sizes, target_layout).unwrap_or(1);
             let data_image = match &declaration.static_initializer {
@@ -4936,6 +4952,15 @@ fn declaration_local_init(
             })
         }
         SemDeclarationStorage::Record { .. } | SemDeclarationStorage::Type { .. } => None,
+    }
+}
+
+fn fixed_array_pointer_initializer_bytes(array_type: &ArrayType, address: u16) -> Vec<u8> {
+    let address = address.to_le_bytes();
+    if array_type.length.is_some() {
+        vec![address[0], address[1], address[0], address[1]]
+    } else {
+        vec![address[0], address[1]]
     }
 }
 

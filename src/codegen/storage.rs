@@ -939,6 +939,7 @@ fn add_var_decl_to_routine_storage(
         }
         let descriptor_backed_array = decl_is_array_like(decl)
             && !pointer_backed_array
+            && absolute_array_address_initializer(entry).is_none()
             && projected_initializers.is_none()
             && (element_size > 1 || large_uninitialized_byte_array);
         if descriptor_backed_array && let Some(len) = array_len_with_defines(entry, numeric_defines)

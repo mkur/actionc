@@ -1066,14 +1066,16 @@ impl Generator {
         label: &str,
         span: Span,
     ) -> bool {
-        let needs_staging = if self.profile.enables_modern_optimizations() {
-            Self::compare_operand_needs_materialization(left)
-                || Self::compare_operand_needs_materialization(right)
-        } else {
-            Self::compare_operand_needs_materialization(left)
-                && Self::compare_operand_needs_materialization(right)
-                && expr_contains_routine_call(right, &self.routines)
-        };
+        let needs_staging = Self::expr_address_needs_nested_scratch(left)
+            || Self::expr_address_needs_nested_scratch(right)
+            || if self.profile.enables_modern_optimizations() {
+                Self::compare_operand_needs_materialization(left)
+                    || Self::compare_operand_needs_materialization(right)
+            } else {
+                Self::compare_operand_needs_materialization(left)
+                    && Self::compare_operand_needs_materialization(right)
+                    && expr_contains_routine_call(right, &self.routines)
+            };
         if !self.segment_storage || width > 2 || !needs_staging {
             return false;
         }
@@ -1106,6 +1108,9 @@ impl Generator {
     }
 
     pub(super) fn compare_operand_needs_materialization(expr: &Expr) -> bool {
+        if Self::expr_address_needs_nested_scratch(expr) {
+            return true;
+        }
         if let ExprKind::Cast { expr, .. }
         | ExprKind::Unary {
             op: UnaryOp::Plus,

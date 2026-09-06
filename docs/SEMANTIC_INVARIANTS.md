@@ -195,7 +195,7 @@ Pointer-valued record fields still lack a classic field-place carrier and
 produce an explicit unsupported diagnostic rather than being treated as
 inline records.
 
-Experimental inline-array indexing uses those projected field facts for
+Inline-array indexing uses those projected field facts for
 element width, signedness and record identity, independently of the full field
 extent. Runtime decay computes the subobject address; it never reads an array
 descriptor from the field. Static-address queries do not emit code. Dynamic
@@ -231,10 +231,17 @@ visibility is independent of resolution order, so resolving a constant for a
 later record does not make forward CONST references legal. A pointer's own
 width does not require a complete pointee layout.
 
-Embedded fields currently have an experimental semantic/SemIR/NIR capability;
-all public modes still reject them while backend and aggregate support are
-unfinished. See the
+Embedded fields are enabled in modern classic and MIR6502 with both Atari
+runtimes; Compatibility rejects the extension. See the
 [implementation plan](EMBEDDED_RECORD_ARRAYS_IMPLEMENTATION_PLAN.md).
+
+Record arrays decay to their element backing before considering implicit
+address-of for individual records. Their element record type must not make
+them appear to be single record objects. Local fixed-address arrays preserve
+the same resolved backing facts and pointer-image rules as globals. NIR's
+object layout describes storage extent, separately from element width; MIR
+consumes that extent while retaining its existing explicit pointer-view and
+descriptor/backing allocation rules.
 
 The shared semantic type model exposes record shape as `RecordType`:
 

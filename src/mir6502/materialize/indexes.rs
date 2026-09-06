@@ -1440,6 +1440,15 @@ pub(super) fn try_fuse_indexed_word_copy(
         return 0;
     };
 
+    // This fusion keeps the destination in $AE/$AF while constructing the
+    // source in $AC/$AD. General constant-stride address expansion uses
+    // $AE/$AF as its index scratch, so neither address may need that path.
+    // The ordinary load-then-store materializer stages the word and computes
+    // one address at a time, retaining the general constant-scale selector.
+    if !matches!(src_elem_size, 1 | 2) || !matches!(dst_elem_size, 1 | 2) {
+        return 0;
+    }
+
     let use_scaled_y = src_elem_size == 2
         && dst_elem_size == 2
         && src_offset == 0

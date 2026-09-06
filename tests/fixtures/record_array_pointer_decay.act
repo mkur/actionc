@@ -1,0 +1,38 @@
+TYPE Vector=[INT x,y,z]
+Vector ARRAY rows(3)=[0 11 12 0 21 22 0 31 32],fixed(258)=$5001
+Vector rec=$6F01
+Vector POINTER cursor
+INT ARRAY result(6)=$0600
+CARD small=$060C,large=$060E
+CARD ARRAY seen(6)=$0620
+CARD pick,slot
+
+PROC Visit(Vector POINTER v)
+  seen(slot)=CARD(v)
+  v(pick).x=v(pick).y
+  result(slot)=v(pick).x
+RETURN
+
+PROC Relay(Vector ARRAY v)
+  Visit(v)
+RETURN
+
+PROC Main()
+  Vector ARRAY localRows(3)=[0 41 42 0 51 52 0 61 62],
+               localPlain(3),localFixed(258)=$5803
+  BYTE i
+  i=0
+  WHILE i<3 DO
+    localPlain(i).x=0
+    localPlain(i).y=CARD(i)+71
+    localPlain(i).z=CARD(i)+81
+    i==+1
+  OD
+  pick=small slot=0 Visit(rows)
+  cursor=localRows
+  slot=1 Visit(cursor)
+  slot=2 Relay(localPlain)
+  pick=large slot=3 Visit(fixed)
+  slot=4 Visit(localFixed)
+  pick=0 slot=5 Visit(rec)
+RETURN

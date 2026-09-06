@@ -4172,17 +4172,16 @@ fn local_storage_size(
     scalar_width: Option<MirWidth>,
     init: Option<&MirStorageInit>,
 ) -> u16 {
+    // NIR owns the complete object layout. An array's value type describes
+    // its element, not its storage: a four-byte fixed-backing descriptor may
+    // refer to records wider than four bytes.
+    // Retain the existing pointer-view lowering (including routine-address
+    // array aliases); its backing is accounted for by the initializer below.
     let declared_size = if local_pointer_backed_array(local) {
-        MirWidth::Word
+        mir_width_bytes(MirWidth::Word)
     } else {
-        scalar_width.unwrap_or(MirWidth::Byte)
-    };
-    let declared_size = local
-        .ty
-        .width
-        .filter(|_| !local_pointer_backed_array(local))
-        .map(nir_size_u16)
-        .unwrap_or_else(|| mir_width_bytes(declared_size));
+        nir_size_u16(local.layout.size)
+    }.max(scalar_width.map(mir_width_bytes).unwrap_or(1));
     init.map_or(declared_size, |init| {
         mir_storage_init_object_size(init, declared_size)
     })

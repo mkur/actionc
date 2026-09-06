@@ -8833,6 +8833,52 @@ mod tests {
     }
 
     #[test]
+    fn semantic_ir_record_arrays_decay_before_single_record_address_conversion() {
+        let (program, model) = analyze_program_source(
+            "TYPE Pair=[INT x,y] Pair ARRAY rows(3),fixed(257)=$5001 Pair rec \
+             Pair POINTER p PROC Relay(Pair ARRAY arg) p=arg RETURN \
+             PROC Main() Pair ARRAY local(3),initialized=[1 2 3 4] \
+             p=rows p=fixed p=local p=initialized p=rec Relay(rows) RETURN",
+        );
+        let semir = ir::lower_program(&program, &model);
+        for item in &semir.modules[0].items {
+            let ir::SemItem::Routine(routine) = item else {
+                continue;
+            };
+            let origins: &[ir::SemArrayOrigin] = match routine.symbol.name.as_str() {
+                "Relay" => &[ir::SemArrayOrigin::Parameter],
+                "Main" => &[
+                    ir::SemArrayOrigin::Global,
+                    ir::SemArrayOrigin::Global,
+                    ir::SemArrayOrigin::Local,
+                    ir::SemArrayOrigin::Local,
+                ],
+                _ => continue,
+            };
+            for (statement, origin) in routine.body.iter().zip(origins) {
+                let ir::SemStmt::Assign { value, .. } = statement else {
+                    panic!("assignment");
+                };
+                let ir::SemExprKind::ArrayDecay(decay) = &value.kind else {
+                    panic!("record array must decay, not take its descriptor address: {value:?}");
+                };
+                assert_eq!(decay.origin, *origin);
+                assert!(decay.pointer_type.is_record_pointer());
+            }
+            if routine.symbol.name == "Main" {
+                let ir::SemStmt::Assign { value, .. } = &routine.body[4] else {
+                    panic!("record assignment");
+                };
+                assert!(matches!(&value.kind, ir::SemExprKind::ImplicitAddressOf(address)
+                    if address.reason == ir::SemImplicitAddressReason::RecordToPointer));
+            }
+        }
+        let nir = crate::nir::lower_program(&semir);
+        crate::nir::verify_program(&nir).unwrap();
+        crate::nir::optimize_program(&nir).unwrap();
+    }
+
+    #[test]
     fn semantic_ir_record_assignment_uses_implicit_address() {
         let (program, model) = analyze_program_source(
             "TYPE Pair=[BYTE tag] Pair rec Pair POINTER p PROC Main() p=rec RETURN",
