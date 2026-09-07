@@ -13,6 +13,7 @@ some ambiguous routine-address cases.
 
 - [32-bit Integers](#32-bit-integers)
 - [Compile-Time Constants](#compile-time-constants)
+- [Immutable Runtime Bindings](#immutable-runtime-bindings)
 - [Comparison Values](#comparison-values)
 - [BYTE Enums](#byte-enums)
 - [CASE Statements](#case-statements)
@@ -263,6 +264,76 @@ original Action! cartridge compiler does not recognize it.
 
 `DEFINE` remains available for textual type aliases, directive macros, and
 machine-byte macros. `CONST` does not change those expansion rules.
+
+## Immutable Runtime Bindings
+
+Modern source supports Rust/OCaml-style immutable local bindings:
+
+```action
+LET count=ReadCount()
+LET count=count+1
+LET CARD limit=ReadLimit()
+```
+
+The syntax is `LET [type] name=expression`, with one binding and a required
+initializer. Each initializer executes once whenever control reaches that
+statement, including on each loop iteration or routine invocation. The second
+`count` is a new binding whose initializer reads the first; it is not an
+assignment. `CONST` still means a compile-time value, and ordinary typed variable
+declarations remain mutable. LET is not a static storage initializer.
+
+Without an annotation the binding retains the expression's canonical type.
+An annotation applies ordinary assignment conversions, including integer
+narrowing, without widening intermediate calculations. For CARD operands,
+`LET LONGCARD result=a*b` wraps the product at 16 bits before conversion;
+`LET result=LONGCARD(a)*b` computes a 32-bit product.
+
+Place LET directly in a routine or an explicit `BEGIN`/`END` statement list,
+before or after other executable statements. IF/CASE arms and loop bodies
+require an explicit block:
+
+```action
+FOR i=0 TO 9 DO
+  BEGIN
+    LET current=ReadCount()
+    PrintBE(current)
+  END
+OD
+```
+
+The name becomes visible after its initializer until the end of its containing
+block or routine. Sequential shadowing is legal, including parameters, ordinary
+variables, types, and module aliases. Earlier references retain their original
+meaning; leaving an explicit block restores the outer bindings. Ordinary
+same-scope duplicate declarations are still errors.
+
+Assignment, compound assignment, and using a binding as a FOR counter are
+errors. Initially, taking its storage address, making a static storage alias,
+or naming its home in machine code/inline ASM is also rejected. A pointer
+binding is immutable, not its pointee: `LET p=@value` permits `p^=2`, but not
+`p=@other`. A volatile initializer captures one value; reading the binding does
+not reread the hardware. Unused bindings do not discard initializer effects.
+
+Supported values are scalar integers, enums, native REAL, typed data pointers,
+and typed callable pointers. Use `@Routine` to form a callable value. Array
+values require an explicit pointer annotation or cast; LET does not own an
+array or record. Enum identity and callable signatures remain checked. Runtime
+LET values cannot be CONST expressions, CASE labels, static initializers, or
+array bounds, even when initialized with literals. Unevaluated layout queries
+such as `SIZEOF(binding)` remain compile-time values.
+
+Classic and MIR6502 support LET with cartridge-linked or standalone runtime,
+within their existing type/ABI limits: Atari LONGINT/LONGCARD need MIR6502,
+classic indirect calls support zero arguments, and native REAL uses the Atari
+OS floating-point package. LET does not add stack locals or reentrancy to Atari
+routine storage. Native 68k/65816 have lowering/ABI checks, not execution claims.
+Global bindings, `LET MUT`, deferred initialization, destructuring, and
+expression-form `LET ... IN` are not supported. LET is contextual: ordinary
+identifiers such as `Let()` and `let=1` remain valid. The legacy profile rejects
+LET bindings, independently of the selected runtime.
+
+See [samples/let-bindings.act](../samples/let-bindings.act), which prints
+`1, 3, 2, 3, 4` on separate lines.
 
 ## Comparison Values
 
@@ -622,11 +693,12 @@ PROC Main()
 RETURN
 ```
 
-Each explicit block creates one lexical scope. Its declarations form a prefix:
-all declarations must appear before the first executable statement. A block may
-shadow names from an outer block, the routine, a module/global scope, or the
-resident library. Lookup after `END` resumes in the parent scope, and sibling
-blocks cannot see one another's declarations.
+Each explicit block creates one lexical scope. Its ordinary declarations form
+a prefix before the first executable statement. LET is an executable binding
+statement and may appear among statements; it does not reopen that declaration
+prefix. A block may shadow names from an outer block, the routine, a module/global
+scope, or the resident library. Lookup after `END` resumes in the parent scope,
+and sibling blocks cannot see one another's declarations.
 
 Supported block declarations include scalar and array storage, pointers,
 `VOLATILE` and absolute storage, storage aliases, native `REAL`, `CONST`,
@@ -637,7 +709,8 @@ An `IF`, loop, or other control-flow body does not create a scope by itself; put
 an explicit block inside it when local declarations or shadowing are wanted.
 Lexical visibility also does not imply stack allocation. Block locals retain
 Action!'s static routine-storage lifetime, so an address may escape the block
-even though the declaration's name is no longer visible.
+even though the declaration's name is no longer visible. LET homes are the
+exception: exposing their addresses is currently prohibited.
 
 `BEGIN` and `END` are contextual words rather than lexer keywords. They remain
 legal ordinary identifier spellings in compatibility source. A lexical block

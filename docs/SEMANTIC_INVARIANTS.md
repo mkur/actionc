@@ -82,6 +82,39 @@ Codegen should not perform ordinary source-name lookup. It should consume
 already-bound symbols, field descriptors, types, layout facts, and resident
 library metadata.
 
+## Modern Immutable Runtime Bindings
+
+LET is an executable local binding, not CONST or a static declaration
+initializer. Analysis creates a fresh child scope for the remaining routine or
+explicit-block statements. The annotation and initializer use the parent scope;
+later uses bind to the new immutable SymbolId. Sequential shadowing never
+changes earlier resolutions. Control-flow bodies need an explicit BEGIN/END.
+
+Inference retains canonical scalar, enum, REAL, data-pointer and callable types.
+An annotation uses assignment conversions; it cannot widen narrow intermediate
+arithmetic. Whole owned aggregates are rejected. Invalid/non-value initializers
+must produce a diagnostic, never a successful model with a missing binding scope.
+
+Semantic symbols carry immutable-binding facts and source places are read-only.
+Assignment, compound assignment and FOR writes are rejected, as are address
+escape, static storage aliases and machine/ASM references to the binding home.
+Dereferencing an immutable pointer produces an ordinary writable pointee place.
+Runtime LET dependencies cannot enter compile-time/static initializer or bound
+contexts; unevaluated layout queries do not read the binding value.
+
+SemIR represents a LET with existing lexical storage and one compiler-owned
+initialization assignment at the source execution point. Its declaration has
+neither a static initializer nor an executable declaration initializer. All
+subsequent source places remain read-only. A loop executes the initialization
+on each encounter; an untaken branch does not execute it. The target's existing
+activation/storage rules are unchanged.
+
+Immutability is not purity: calls, volatile reads and other initializer effects
+remain ordered and cannot be discarded merely because the result is unused.
+It also does not imply permanently read-only storage or immutable pointees.
+Classic projection and NIR consume resolved scopes, types and ordinary ordered
+initialization; neither backend decides LET source semantics.
+
 ## Symbol Class Versus Use Context
 
 Name resolution chooses a symbol. Semantic validation then decides whether that

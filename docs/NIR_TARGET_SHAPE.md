@@ -24,6 +24,16 @@ preserving source arm order and a no-match continuation when ELSE is absent.
 There is no executable Enum, Switch, source label expression, or enum runtime
 helper. The existing verifier and optimizer operate on these ordinary forms.
 
+Modern LET bindings enter NIR as ordinary typed local storage, initializer
+computation, stores and loads. SemIR resolves sequential scopes and enforces
+immutability before this boundary; there is no executable LET operation or
+source-name lookup. Each binding has a distinct storage identity. Initialization
+remains at the source execution point, including repeated loop entries, and is
+not emitted as static data. Source immutability does not mark the storage as
+permanently read-only or prove initializer purity. Existing verified passes may
+propagate values/remove unused homes only while preserving calls, volatile reads
+and other ordered effects. LET adds no specialized optimizer or target strategy.
+
 ## Position In The Compiler
 
 The intended pipeline is:

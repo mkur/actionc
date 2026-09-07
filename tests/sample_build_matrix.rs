@@ -371,6 +371,15 @@ fn sample_catalog() -> Vec<SampleSpec> {
             vec![release(Compatibility, ActionCart)],
         ),
         executable(
+            "samples/let-bindings.act",
+            vec![
+                release(Optimized, ActionCart),
+                release(Optimized, Standalone),
+                experimental(ActionCart),
+                experimental(Standalone),
+            ],
+        ),
+        executable(
             "samples/lexical-blocks.act",
             vec![release(Optimized, ActionCart)],
         ),

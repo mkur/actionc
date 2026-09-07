@@ -1,6 +1,6 @@
 # Immutable runtime LET bindings
 
-Status: implementation in progress.
+Status: complete within the initial type/backend capability matrix below.
 
 ## Contract
 
@@ -119,4 +119,9 @@ passes and conservative effects. Do not introduce LET-specific optimizers.
   arguments, Atari wide integers need MIR6502, and REAL uses the OS floating-point
   package on either runtime. These are not LET-specific restrictions. The full
   locked VM suite passes 136 tests; focused LET tests also pass after diagnostic
-  hardening. Public documentation and a runnable sample are the final slice.
+  hardening. The compiler suite passes 2,845 tests, with all 38 NIR sweep fixtures
+  and snapshot checks passing.
+- Public syntax, name-resolution, semantic-invariant and NIR-boundary documents
+  describe the completed contract. `samples/let-bindings.act` demonstrates
+  immutable initialization, sequential shadowing and loop-entry initialization;
+  the sample build matrix covers classic/MIR6502 with cart/standalone runtime.

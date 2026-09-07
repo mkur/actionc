@@ -34,7 +34,7 @@ User-visible symbol classes include:
 - `CONST`
 - `TYPE`
 - `RECORD`
-- scalar variables
+- scalar variables, including modern immutable LET bindings
 - array variables
 - routine parameters
 - `PROC`
@@ -55,19 +55,28 @@ Examples:
 ## Scope Order
 
 Inside a routine body, lookup proceeds through every active explicit lexical
-block from innermost to outermost, then through the routine scope, global or
-module scope, and finally the resident library. The routine scope contains
-parameters and declarations after the routine header, including routine-local
-`DEFINE`, `CONST`, `TYPE`, and `RECORD` declarations.
+block and sequential LET scope from innermost to outermost, then through the
+routine scope, global or module scope, and finally the resident library. The
+routine scope contains parameters and declarations after the routine header,
+including routine-local `DEFINE`, `CONST`, `TYPE`, and `RECORD` declarations.
 
 An explicit modern-profile `BEGIN`/`END` block creates exactly one child scope.
 Declarations in its prefix may shadow any outer user or resident-library name.
 After `END`, lookup resumes in the parent scope. Sibling blocks do not see one
 another's declarations. Duplicate names in the same scope remain errors.
 
+Each modern LET introduces a fresh child scope covering the rest of its
+containing routine/block statement list. Its annotation and initializer resolve
+in the parent scope; the new immutable variable is visible only afterward.
+Thus `LET n=n+1` reads an outer/earlier `n` and gives later uses a distinct
+SymbolId. It does not modify an existing scope or rebind earlier references.
+Sequential LETs can shadow any ordinary name, including parameters, types and
+module aliases. This is nested-scope shadowing, not an exception to same-scope
+duplicate checking. Leaving BEGIN/END discards all LET visibility inside it.
+
 Control-flow syntax does not create an implicit scope: `IF`, `ELSE`, loop, and
 similar bodies use their surrounding scope unless the body contains an explicit
-`BEGIN`/`END` block.
+`BEGIN`/`END` block. LET in these bodies requires that explicit block.
 
 At global/module level, only the global scope is searched before the resident
 library.
@@ -105,6 +114,9 @@ compiler would discard a previous routine's local symbol-table entries.
 Explicit lexical visibility does not change Action!'s storage model. A block
 local has statically allocated routine storage, so an address taken inside the
 block remains valid after `END`; only the source name becomes unavailable.
+LET uses the same target activation rules, but exposing its storage address is
+currently rejected. Its initializer is executable on each encounter, unlike
+an ordinary static declaration initializer.
 
 ## Defines
 

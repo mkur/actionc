@@ -1,0 +1,25 @@
+; Modern classic or MIR6502, cart or standalone.
+; Prints 1, 3, 2, 3, 4 on separate lines.
+CONST BYTE INCREMENT=2
+BYTE calls
+
+BYTE FUNC NextValue()
+  calls==+1
+RETURN(calls)
+
+PROC Main()
+  BYTE i
+
+  calls=0
+  LET value=NextValue()     ; Runtime initialization, once on this encounter.
+  PrintBE(value)
+  LET value=value+INCREMENT ; New immutable binding; reads the previous value.
+  PrintBE(value)
+
+  FOR i=0 TO 2 DO           ; Ordinary variables remain mutable.
+    BEGIN
+      LET current=NextValue() ; Initialized again on each iteration.
+      PrintBE(current)
+    END
+  OD
+RETURN
