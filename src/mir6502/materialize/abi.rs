@@ -26,7 +26,7 @@ pub(super) fn prepend_action_abi_param_prologue(
         .frame
         .params
         .iter()
-        .filter_map(|param| param.scalar_width.map(width_bytes))
+        .map(parameter_byte_width)
         .sum::<u16>();
     let prologue = if arg_bytes <= crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES {
         action_abi_direct_param_prologue(routine)
@@ -59,7 +59,7 @@ pub(super) fn elide_write_only_param_homes(
         .frame
         .params
         .iter()
-        .filter_map(|param| param.scalar_width.map(width_bytes))
+        .map(parameter_byte_width)
         .sum::<u16>();
     if arg_bytes == 0 || arg_bytes > 2 {
         return;
@@ -766,39 +766,22 @@ fn action_abi_direct_param_prologue(routine: &crate::mir6502::ir::MirRoutine) ->
             _ => continue,
         };
         let start = offset;
-        match param.scalar_width {
-            Some(MirWidth::Byte) => {
-                if needs_capture {
-                    bytes.push(store_param_byte_from_abi_home(
-                        id,
-                        0,
-                        action_abi_byte_home(start),
-                    ));
-                }
-                offset = offset.saturating_add(1);
+        let width = parameter_byte_width(param);
+        if needs_capture {
+            for byte in 0..width {
+                bytes.push(store_param_byte_from_abi_home(id, byte, action_abi_byte_home(start + byte)));
             }
-            Some(MirWidth::Word) => {
-                if needs_capture {
-                    bytes.push(store_param_byte_from_abi_home(
-                        id,
-                        0,
-                        action_abi_byte_home(start),
-                    ));
-                    bytes.push(store_param_byte_from_abi_home(
-                        id,
-                        1,
-                        action_abi_byte_home(start.saturating_add(1)),
-                    ));
-                }
-                offset = offset.saturating_add(2);
-            }
-            None => continue,
         }
+        offset = offset.saturating_add(width);
     }
     if bytes.len() == 2 {
         bytes.swap(0, 1);
     }
     bytes
+}
+
+fn parameter_byte_width(param: &crate::mir6502::ir::MirStorageSlot) -> u16 {
+    param.abi_byte_width().unwrap_or(0)
 }
 
 fn action_abi_byte_home(offset: u16) -> MirArgHome {

@@ -136,17 +136,14 @@ RETURN
 }
 
 #[test]
-fn mir6502_rejects_wide_runtime_values_without_truncating() {
+fn mir6502_accepts_wide_runtime_storage_without_truncating() {
     let program = lower(
         "LONGINT value PROC Main() value=70000 RETURN",
         TargetId::Atari6502,
     );
-    let diagnostics = actionc::mir6502::lower_program(&program).expect_err("reject LONGINT on 6502");
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("wider than 16 bits"))
-    );
+    let mir = actionc::mir6502::lower_program(&program).expect("lower LONGINT on 6502");
+    assert!(mir.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops).any(|op|
+        matches!(op, actionc::mir6502::MirOp::Store { src: actionc::mir6502::MirValue::ConstU16(1), .. })));
 }
 
 #[test]

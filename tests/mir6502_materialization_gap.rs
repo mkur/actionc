@@ -959,8 +959,9 @@ fn indirect_call_targets_materialize_to_callable_home() {
             "{fixture} did not emit JMP ($00E4)"
         );
         assert!(
-            bytes.windows(1).any(|bytes| bytes == [0x48]),
-            "{fixture} did not push an indirect-call return address"
+            bytes.windows(9).any(|bytes| bytes[0] == 0x20
+                && bytes[3] == 0x4C && bytes[6..9] == [0x6C, 0xE4, 0x00]),
+            "{fixture} did not use the argument-preserving JSR/JMP trampoline"
         );
     }
 }

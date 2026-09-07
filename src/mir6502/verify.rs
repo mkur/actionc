@@ -622,7 +622,7 @@ impl MirVerifier {
     fn verify_frame_inits(&mut self, routine: &MirRoutine) {
         for param in &routine.frame.params {
             self.verify_storage_slot(&routine.name, &format!("p{}", param.id.0), param);
-            if param.scalar_width.is_none() {
+            if param.abi_byte_width().is_none() {
                 self.diagnostics.push(MirDiagnostic::routine(
                     &routine.name,
                     format!(

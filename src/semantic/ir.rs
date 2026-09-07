@@ -4257,30 +4257,15 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn is_indexable_lvalue(&self, scope: ScopeId, expr: &Expr) -> bool {
-        match &expr.kind {
-            ExprKind::Name(name) => self
-                .symbol_ref(scope, name, expr.span)
-                .is_some_and(|symbol| {
-                    matches!(
-                        symbol.class,
-                        SymbolClass::Array | SymbolClass::Param | SymbolClass::Var
-                    )
-                }),
-            ExprKind::Field { .. } if self.direct_symbol_ref_for_expr(scope, expr).is_some() => {
-                self.direct_symbol_ref_for_expr(scope, expr)
-                    .is_some_and(|symbol| {
-                        matches!(
-                            symbol.class,
-                            SymbolClass::Array | SymbolClass::Param | SymbolClass::Var
-                        )
-                    })
-            }
-            ExprKind::Field { .. }
-            | ExprKind::Unary {
-                op: UnaryOp::Deref, ..
-            } => true,
-            _ => false,
+        if self.model.array_place_type(scope, expr.span).is_some() { return true; }
+        if let Some(symbol) = self.direct_symbol_ref_for_expr(scope, expr) {
+            return self.is_array_symbol(symbol.id)
+                || (matches!(symbol.class, SymbolClass::Var | SymbolClass::Param)
+                    && symbol.ty.as_ref().is_some_and(ValueType::is_pointer));
         }
+        // A callable variable with one argument is a call, not an array access.
+        // Consume its canonical value type, just as semantic classification does.
+        self.lvalue_expr_type(scope, expr).is_some_and(|ty| ty.is_pointer())
     }
 
     fn lower_call_expr(&mut self, scope: ScopeId, expr: &Expr) -> SemCall {

@@ -308,6 +308,20 @@ pub struct MirStorageSlot {
     pub init: Option<MirStorageInit>,
 }
 
+impl MirStorageSlot {
+    /// Scalar ABI extent. A four-byte scalar is legalized into two word lanes;
+    /// it does not require a new machine-operation width. Aggregate slots are
+    /// not accepted merely because their byte extent happens to be four.
+    pub(crate) fn abi_byte_width(&self) -> Option<u16> {
+        match self.scalar_width {
+            Some(MirWidth::Byte) => Some(1),
+            Some(MirWidth::Word) => Some(2),
+            None if self.storage == MirStorageClass::Scalar && self.storage_size == 4 => Some(4),
+            None => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MirStorageClass {
     Scalar,

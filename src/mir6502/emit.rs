@@ -3636,26 +3636,24 @@ fn emit_tail_call_target(
 }
 
 fn emit_indirect_call(ctx: &mut MirEmitContext<'_>, address: u16, emitter: &mut TrackedEmitter) {
-    let return_minus_one = format!(
-        "__mir6502_indirect_return_minus_one_{}",
-        ctx.indirect_call_counter
-    );
+    let trampoline = format!("__mir6502_indirect_trampoline_{}", ctx.indirect_call_counter);
+    let after = format!("__mir6502_indirect_after_{}", ctx.indirect_call_counter);
     ctx.indirect_call_counter = ctx.indirect_call_counter.saturating_add(1);
-    emitter.emit_u8(opcode::LDA_IMM);
-    emitter.emit_u8_label_high(return_minus_one.clone(), SYNTHETIC_SPAN);
-    emitter.emit_pha();
-    emitter.emit_u8(opcode::LDA_IMM);
-    emitter.emit_u8_label_low(return_minus_one.clone(), SYNTHETIC_SPAN);
-    emitter.emit_pha();
+    // Let JSR push the return address without overwriting the argument in A.
+    // The trampoline tail-jumps through the already captured pointer.
+    emitter.emit_jsr_label(trampoline.clone(), SYNTHETIC_SPAN);
+    emitter.emit_jmp_label(after.clone(), SYNTHETIC_SPAN);
+    if let Err(diagnostic) = emitter.bind_label(trampoline, SYNTHETIC_SPAN) {
+        ctx.diagnostics.push(MirDiagnostic { routine: None, block: None, message: diagnostic.message });
+    }
     emitter.emit_jmp_indirect(address);
-    if let Err(diagnostic) = emitter.bind_label(return_minus_one, SYNTHETIC_SPAN) {
+    if let Err(diagnostic) = emitter.bind_label(after, SYNTHETIC_SPAN) {
         ctx.diagnostics.push(MirDiagnostic {
             routine: None,
             block: None,
             message: diagnostic.message,
         });
     }
-    emitter.emit_u8(0xEA);
 }
 
 fn indirect_call_target_address(

@@ -46,7 +46,11 @@ pub(super) fn plan_call(
         runtime_targets,
         diagnostics,
     )?;
-    if signature.variadic.is_none() && args.len() > signature.params.len() {
+    // Source arity has already been verified. A wide source argument has two
+    // word lanes here, but retains one logical parameter in the NIR signature.
+    let fixed_lanes: usize = signature.params.iter().map(|ty|
+        if ty.kind.integer().is_some_and(|integer| integer.bits == 32) { 2 } else { 1 }).sum();
+    if signature.variadic.is_none() && args.len() > fixed_lanes {
         diagnostics.push(MirDiagnostic::block(
             routine,
             block,
@@ -54,7 +58,7 @@ pub(super) fn plan_call(
         ));
         return None;
     }
-    if signature.variadic.is_some() && args.len() < signature.params.len() {
+    if signature.variadic.is_some() && args.len() < fixed_lanes {
         diagnostics.push(MirDiagnostic::block(
             routine,
             block,

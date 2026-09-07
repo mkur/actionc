@@ -463,6 +463,25 @@ fn collect_call_arg_home_addresses(home: &MirArgHome, width: MirWidth, out: &mut
     }
 }
 
+/// A deferred read must not observe an argument-home write performed while
+/// preparing the very call it feeds (notably wide results at $A2/$A3).
+fn value_overlaps_call_setup(value: &MirValue, args: &[MirCallArg], target: &MirCallTarget) -> bool {
+    let mut writes = Vec::new();
+    for arg in args { collect_call_arg_home_addresses(&arg.home, arg.width, &mut writes); }
+    if matches!(target, MirCallTarget::Indirect { .. }) {
+        writes.extend([u16::from(INDIRECT_CALL_TARGET_LO), u16::from(INDIRECT_CALL_TARGET_HI)]);
+    }
+    fn overlaps(value: &MirValue, writes: &[u16]) -> bool {
+        match value {
+            MirValue::PointerCell(MirMem::FixedZeroPage(slot)) => writes.contains(&u16::from(slot.0)),
+            MirValue::PointerCell(MirMem::Absolute(address)) => writes.contains(address),
+            MirValue::Word { lo, hi } => overlaps(lo, writes) || overlaps(hi, writes),
+            _ => false,
+        }
+    }
+    overlaps(value, &writes)
+}
+
 fn collect_call_arg_expr_plan(
     ops: &[MirOp],
     index: usize,
@@ -508,6 +527,8 @@ fn collect_call_arg_expr_plan(
     if call_target_uses_collected_temp(target, &exprs) || !call_arg_expr_homes_supported(args) {
         return None;
     }
+    if ops[index..cursor].iter().filter_map(call_arg_producer_value)
+        .any(|(_, value)| value_overlaps_call_setup(&value, args, target)) { return None; }
     let has_indexed_word_load = exprs
         .values()
         .any(|expr| matches!(expr, CallArgExpr::IndexedWordLoad { .. }));
@@ -3285,6 +3306,10 @@ pub(in crate::mir6502) fn call_arg_producer_rewrite_candidate(
         }
     }
 
+    if producers.iter().any(|(_, value, _)| value_overlaps_call_setup(value, args, target)) {
+        return None;
+    }
+
     let mut rewritten_target = target.clone();
     let mut rewritten_args = args.clone();
     for (temp, replacement, _) in &producers {
@@ -4718,6 +4743,13 @@ fn materialize_call_target(
         return target;
     };
     let (lo, hi) = split_value_as_word(target, layout);
+    if lo == MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(INDIRECT_CALL_TARGET_LO)))
+        && hi == MirValue::PointerCell(MirMem::FixedZeroPage(MirFixedZpSlot(INDIRECT_CALL_TARGET_HI)))
+    {
+        // A prepared call may pass through materialization again. Re-reading
+        // these cells would clobber an argument already placed in A.
+        return MirCallTarget::Indirect { target: MirValue::Word { lo: Box::new(lo), hi: Box::new(hi) }, width };
+    }
     out.push(MirOp::Store {
         dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
             INDIRECT_CALL_TARGET_LO,

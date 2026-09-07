@@ -70,5 +70,30 @@ Existing snapshot changes must be explained; no blanket snapshot acceptance.
   pass. The only additional test-contract changes are SIZE-role query constants
   and native record extents no longer artificially limited to 16 bits. Enum
   snapshot spelling and callable signature identities remain unchanged.
-- Slices 3–5: pending. MIR6502 still deliberately rejects runtime wide values
-  at this integration boundary; native backends retain their existing lowering.
+- Slice 3: wide storage, casts, add/subtract, negation, bitwise operations,
+  comparisons, calls and returns are legalized into ordinary word lanes.
+  Runtime coverage includes externally supplied signed/unsigned boundaries,
+  wrap-before-widen, nested direct/typed-indirect calls, and embedded arrays.
+  Shifts, multiply, division and remainder remain explicitly diagnosed until
+  slice 4. Callback lowering now distinguishes callable values from array/data
+  pointers; the indirect-call trampoline preserves the first argument in A.
+- Slices 4–5: pending.
+
+## MIR6502 legalization and ABI
+
+A 32-bit NIR temp/block parameter is represented by low and high word temps.
+Edges carry both lanes. Loads/stores capture an indirect effective address once
+and access offsets 0 and 2; memory remains little-endian. Carry/borrow between
+word operations is an explicit value, not an implicit flags dependency.
+
+Source signatures still describe one logical LONGINT/LONGCARD parameter. The
+Action ABI concatenates its four little-endian bytes with other arguments:
+the first three bytes occupy A/X/Y, and subsequent bytes use the usual $A3-up
+argument area (including the existing SArgs path for larger signatures).
+Four-byte results occupy $A0..$A3. Caller-side result capture must precede any
+overlapping outgoing argument write, particularly at $A3. Private arithmetic
+helpers have their own independently described input/result signatures.
+
+The existing materialization fixture now checks the argument-preserving
+JSR/JMP/indirect-JMP trampoline instead of requiring a PHA-based return-address
+sequence. This is an intentional emission bug fix; NIR snapshots are unchanged.

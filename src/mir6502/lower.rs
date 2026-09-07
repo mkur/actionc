@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+mod wide;
+
 use crate::ast::machine_address_symbolic_offset;
 use crate::backend::VerifiedNir;
 use crate::codegen::runtime_zp;
@@ -501,11 +503,11 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
     if !activation_diagnostics.is_empty() {
         return Err(activation_diagnostics);
     }
-    if program_uses_wide_integers(nir_program) {
+    if program_uses_unsupported_integer_widths(nir_program) {
         return Err(vec![MirDiagnostic {
             routine: None,
             block: None,
-            message: "MIR6502 does not support runtime integer values wider than 16 bits"
+            message: "MIR6502 supports only 8-, 16- and 32-bit runtime integers"
                 .to_string(),
         }]);
     }
@@ -585,6 +587,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                 .max()
                 .map_or(0, |id| id.saturating_add(1));
             let mut generated_temps = Vec::new();
+            let wide_values = wide::WideValues::new(routine, &mut next_generated_temp, &mut generated_temps);
             let mut next_generated_local = routine
                 .locals
                 .iter()
@@ -607,6 +610,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                         &routine.name,
                         &block.label,
                         &block.ops,
+                        &wide_values,
                         &routine_ids,
                         &routine_system_addresses_by_id,
                         &runtime_targets,
@@ -624,20 +628,32 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                         &mut real_branch_values,
                         &mut diagnostics,
                     );
-                    lower_return_value_ops(
+                    if routine.signature.result.as_ref().is_some_and(wide::wide_type) {
+                        if let NirTerminator::Return(Some(value)) = &block.terminator {
+                            let pair = (wide::Builder { values: &wide_values, routine: &routine.name,
+                                block: &block.label, next: &mut next_generated_temp, temps: &mut generated_temps,
+                                ops: &mut ops, diagnostics: &mut diagnostics }).pair(value, None);
+                            if let Some(pair) = pair {
+                                for (half, src) in pair.into_iter().enumerate() {
+                                    ops.push(MirOp::Store { dst: MirAddr::Direct(return_slot_mem(half as u16 * 2)), src, width: MirWidth::Word });
+                                }
+                            }
+                        }
+                    } else { lower_return_value_ops(
                         &routine.name,
                         &block.label,
                         routine_return_width(routine),
                         &block.terminator,
                         &mut ops,
                         &mut diagnostics,
-                    );
+                    ); }
                     let mut terminator = lower_terminator(
                         &routine.name,
                         &block.label,
                         block.id,
                         &block.terminator,
                         &block_ids,
+                        &wide_values,
                         &mut diagnostics,
                     );
                     if let MirTerminator::Branch {
@@ -666,7 +682,8 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                         params: block
                             .params
                             .iter()
-                            .filter_map(|param| {
+                            .flat_map(|param| {
+                                if let Some(params) = wide_values.block_params(param) { return params.to_vec(); }
                                 mir_width(&param.ty)
                                     .map(|width| MirBlockParam {
                                         dest: MirTempId(param.dest.0),
@@ -682,7 +699,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                                             ),
                                         ));
                                         None
-                                    })
+                                    }).into_iter().collect::<Vec<_>>()
                             })
                             .collect(),
                         ops,
@@ -913,8 +930,8 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
     Ok(program)
 }
 
-fn program_uses_wide_integers(program: &NirProgram) -> bool {
-    let wide = |ty: &NirType| ty.kind.integer().is_some_and(|integer| integer.bits > 16);
+fn program_uses_unsupported_integer_widths(program: &NirProgram) -> bool {
+    let wide = |ty: &NirType| ty.kind.integer().is_some_and(|integer| !matches!(integer.bits, 8 | 16 | 32));
     program
         .globals
         .iter()
@@ -1446,6 +1463,7 @@ fn lower_ops(
     routine: &str,
     block: &str,
     ops: &[NirOpKind],
+    wide_values: &wide::WideValues,
     routine_ids: &BTreeMap<&str, RoutineId>,
     routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
     runtime_targets: &BTreeMap<crate::nir::RuntimeSymbolId, crate::nir::NirRuntimeTarget>,
@@ -1466,6 +1484,10 @@ fn lower_ops(
     let mut lowered = Vec::new();
     let mut addr_defs = BTreeMap::<TempId, MirAddrDef>::new();
     for op in ops {
+        if (wide::Builder { values: wide_values, routine, block, next: next_generated_temp,
+            temps: generated_temps, ops: &mut lowered, diagnostics }).lower_op(op, &addr_defs) {
+            continue;
+        }
         match op {
             NirOpKind::Load { dest, ty, place } | NirOpKind::VolatileLoad { dest, ty, place } => {
                 let is_volatile = matches!(op, NirOpKind::VolatileLoad { .. });
@@ -1823,6 +1845,15 @@ fn lower_ops(
                 let mut lowered_args = Vec::new();
                 let mut args_ok = true;
                 for (index, arg) in args.iter().enumerate() {
+                    let expected_ty = signature.params.get(index).or(signature.variadic.as_ref());
+                    if expected_ty.is_some_and(wide::wide_type) {
+                        if let Some(pair) = (wide::Builder { values: wide_values, routine, block,
+                            next: next_generated_temp, temps: generated_temps, ops: &mut lowered,
+                            diagnostics }).pair(arg, None) {
+                            lowered_args.extend(pair.into_iter().map(|value| (value, MirWidth::Word)));
+                        } else { args_ok = false; }
+                        continue;
+                    }
                     let Some(mut value) = lower_value(routine, block, arg, diagnostics) else {
                         args_ok = false;
                         continue;
@@ -1856,7 +1887,7 @@ fn lower_ops(
                 }
                 let lowered_result = match result {
                     Some(result) => {
-                        let Some(width) = mir_width(&result.ty) else {
+                        let Some(width) = (if wide::wide_type(&result.ty) { Some(MirWidth::Word) } else { mir_width(&result.ty) }) else {
                             diagnostics.push(MirDiagnostic::block(
                                 routine,
                                 block,
@@ -1908,6 +1939,10 @@ fn lower_ops(
                     result: plan.result,
                     effects: plan.effects,
                 });
+                if let Some(result) = result.as_ref().filter(|result| wide::wide_type(&result.ty)) {
+                    lowered.push(MirOp::Load { dst: wide_values.defs(result.dest)[1].clone(),
+                        src: MirAddr::Direct(return_slot_mem(2)), width: MirWidth::Word });
+                }
             }
             NirOpKind::ForeignCode { code, effects } => {
                 let Some((items, effects)) = (match &code.payload {
@@ -4096,7 +4131,7 @@ fn unsupported_place(
 }
 
 fn is_signed(ty: &NirType) -> bool {
-    matches!(ty.kind, NirTypeKind::I8 | NirTypeKind::I16)
+    ty.kind.integer().is_some_and(|integer| integer.signed)
 }
 
 fn lower_compare_value(
@@ -4288,11 +4323,12 @@ fn lower_terminator(
     block_id: BlockId,
     terminator: &NirTerminator,
     block_ids: &BTreeMap<BlockId, MirBlockId>,
+    wide_values: &wide::WideValues,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> MirTerminator {
     match terminator {
         NirTerminator::Fallthrough => MirTerminator::Unreachable,
-        NirTerminator::Goto(edge) => lower_edge(routine, block, edge, block_ids, diagnostics)
+        NirTerminator::Goto(edge) => lower_edge(routine, block, edge, block_ids, wide_values, diagnostics)
             .map(MirTerminator::Jump)
             .unwrap_or(MirTerminator::Unreachable),
         NirTerminator::Branch {
@@ -4301,8 +4337,8 @@ fn lower_terminator(
             else_edge,
             ..
         } => {
-            let then_edge = lower_edge(routine, block, then_edge, block_ids, diagnostics);
-            let else_edge = lower_edge(routine, block, else_edge, block_ids, diagnostics);
+            let then_edge = lower_edge(routine, block, then_edge, block_ids, wide_values, diagnostics);
+            let else_edge = lower_edge(routine, block, else_edge, block_ids, wide_values, diagnostics);
             match (then_edge, else_edge) {
                 (Some(then_edge), Some(else_edge)) => MirTerminator::Branch {
                     cond: lower_value(routine, block, condition, diagnostics)
@@ -4329,11 +4365,16 @@ fn lower_edge(
     block: &str,
     edge: &nir::NirEdge,
     block_ids: &BTreeMap<BlockId, MirBlockId>,
+    wide_values: &wide::WideValues,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirEdge> {
     let target = block_ids.get(&edge.target).copied()?;
     let mut args = Vec::with_capacity(edge.args.len());
     for arg in &edge.args {
+        if let Some(pair) = wide_values.edge_values(arg) {
+            args.extend(pair.into_iter().map(|value| MirEdgeArg { value, width: MirWidth::Word }));
+            continue;
+        }
         let Some(width) = value_width(arg) else {
             diagnostics.push(MirDiagnostic::block(
                 routine,
