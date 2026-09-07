@@ -1,6 +1,7 @@
 # NIR Bounded Scalar-Relay Promotion Plan
 
-Status: implemented 2026-09-05. Created 2026-09-04.
+Status: implemented 2026-09-05; connected-home extension 2026-09-07.
+Created 2026-09-04.
 
 This plan adds the general optimization needed to compose a pointer byte load
 with a following static-table lookup. The motivating AES `SubBytes` source is:
@@ -56,7 +57,8 @@ A bounded scalar relay is eligible only when:
 - it is an ordinary one-byte local scalar;
 - every direct access is in one reachable basic block;
 - the first access is a store and accesses alternate store/load;
-- there are at least two store/load pairs;
+- there are at least two store/load pairs in one home, or one pair each in
+  at least two connected homes (see the extension contract below);
 - no store-to-load interval contains more than three intervening operations;
 - each stored definition is therefore read exactly once before replacement;
 - the access sequence does not cross a call, foreign-code operation,
@@ -64,8 +66,7 @@ A bounded scalar relay is eligible only when:
 - promotion needs no entry seed, block parameter, or exit synchronization.
 
 These conditions keep the tier distinct from hot-home and indexed-induction
-promotion. In particular, the existing cold one-store/one-load pressure guard
-remains unchanged.
+promotion. An isolated cold one-store/one-load home remains unpromoted.
 
 Promotion may lengthen the lifetime of the stored SSA value only within the
 bounded block-local interval which formerly held that value in the local. It
@@ -147,3 +148,39 @@ On the standalone Atari AES benchmark, the change produces:
 - `SubBytes`: two absolute stores and one absolute reload become one `TAY`.
 
 The complete `cargo test` suite and both NIR/MIR6502 fixture sweeps pass.
+
+## Connected-home extension contract
+
+The LET audit exposed the same relay split across distinct single-definition
+locals. Reuse the interval classifier, shared storage eligibility and SSA
+renamer; do not lower the general cold-home threshold or inspect source names,
+binding syntax, or immutability. The original reused-home tier is unchanged.
+
+Additional gates for the single-definition tier:
+
+- Each eligible byte home has exactly one store and one load in one reachable
+  block, with the original three-intervening-operation store/load bound.
+- Its loaded temp has exactly one use in that same block, at most three
+  intervening operations later. A same-block terminator can be this use.
+- To connect two homes, the first load must reach the second store's **source**
+  through a single-use def-use chain, within three intervening operations total.
+  Normal loads may consume a temp as an address/index and produce the next
+  value. Intermediate results must also have one use. Mere adjacency, use in a
+  store address, and fan-out do not establish a connection.
+- The first store through the next load, and each pair through its immediate
+  loaded-temp consumer, must not cross a call, volatile access, foreign code,
+  unsupported operation, REAL operation, possibly faulting division/remainder,
+  or aggregate copy. This includes barriers between the individual pairs.
+- Only homes participating in a connection are selected. Word/wide homes,
+  escaped/initialized/alias-backed homes, cross-block values and long gaps keep
+  their existing eligibility and pressure rules.
+
+This is a structural profitability gate, not a target cycle-cost oracle.
+Promotion does not reorder the intervening memory operations or relax alias
+analysis. Existing target selection decides whether the resulting SSA chain
+can stay in A/Y or needs a spill. The MIR indexed-copy static-source selection
+was repaired first to avoid worsening the already-promoted global-pointer case.
+
+Measurements, baseline/optimized execution coverage and the deliberately
+deferred volatile-boundary work are recorded in the
+[LET code-generation follow-up](Action_2027/LET_CODEGEN_FIXES.md).

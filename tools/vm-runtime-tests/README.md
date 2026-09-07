@@ -20,6 +20,17 @@ and both runtimes. Set `ACTIONC_LET_AUDIT_DIR` to an existing empty directory to
 retain sources, IR, listings, objects and CSV measurements. Performance numbers
 are reports, not golden assertions; functional results use independent oracles.
 
+The accompanying optimizer regressions can be run with:
+
+```sh
+cargo test --locked --test static_table_pointer_copy --test connected_scalar_relays
+```
+
+They check 1,008 captured-pointer/index copy cases and 24,576 connected-relay
+executions respectively, with raw/optimized MIR, both runtimes, two origins,
+byte wrapping, all byte values and page crossings. They check complete guarded
+output regions; the relay test also requires elimination of the staging homes.
+
 The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
 array indexing, word-pointer transfers, loop bounds, comparisons, masks,
 shift/add/sub composition, signed multiplication, reverse-copy loops, nested

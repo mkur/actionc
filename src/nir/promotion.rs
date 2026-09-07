@@ -5,6 +5,7 @@ use super::analysis::{
     dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
     dominance::NirDominance,
     storage::{NirRoutineStorageAnalysis, NirStorageFacts},
+    use_def::{NirUseDef, NirUseKind, NirUseSite},
 };
 use super::facts::{BlockId, NirStorageId, NirType, NirValue, RoutineId, TempId, value_width};
 use super::ir::*;
@@ -46,6 +47,7 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         return;
     }
     let induction_address_homes = induction_address_homes(routine, &cfg);
+    let bounded_relay_homes = bounded_relay_homes(routine, &cfg, analysis);
 
     let mut next_temp = routine
         .temps
@@ -66,7 +68,7 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
                 || width == Some(ByteSize::new(2))
                     && facts.direct_loads >= MIN_INDUCTION_ADDRESS_LOADS
                     && induction_address_homes.contains(&facts.id)
-                || is_bounded_scalar_relay(routine, &cfg, facts)
+                || bounded_relay_homes.contains(&facts.id)
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -80,32 +82,122 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
     routine.temps = collect_temps(&routine.blocks);
 }
 
-/// Selects a cold byte home when it is only a bounded, block-local relay
-/// between SSA values. The shared storage analysis has already established
-/// that the home is promotable; this predicate is solely the conservative
-/// profitability tier which keeps the existing cold-home pressure guard.
-fn is_bounded_scalar_relay(routine: &NirRoutine, cfg: &NirCfg, facts: &NirStorageFacts) -> bool {
+#[derive(Clone, Copy)]
+struct BoundedRelayPair {
+    store: usize,
+    load: usize,
+    loaded: TempId,
+}
+
+/// Selects bounded relays, either through one repeatedly reused home or
+/// through connected single-definition homes. Storage eligibility and SSA
+/// rewriting remain shared with the other promotion tiers. Merely placing
+/// unrelated cold locals next to one another does not meet the cost gate.
+fn bounded_relay_homes(
+    routine: &NirRoutine,
+    cfg: &NirCfg,
+    analysis: &NirRoutineStorageAnalysis,
+) -> BTreeSet<NirStorageId> {
+    let use_def = NirUseDef::from_routine(routine);
+    let mut selected = BTreeSet::new();
+    let mut singles = BTreeMap::new();
+    for facts in analysis
+        .homes
+        .values()
+        .filter(|facts| facts.is_promotable() && matches!(facts.id, NirStorageId::Local(_)))
+    {
+        let Some((block, pairs)) = bounded_relay_pairs(routine, cfg, facts) else {
+            continue;
+        };
+        if pairs.len() >= MIN_BOUNDED_RELAY_PAIRS {
+            selected.insert(facts.id);
+        } else if let [pair] = pairs.as_slice() {
+            let [use_site] = use_def.uses(pair.loaded) else {
+                continue;
+            };
+            // Do not use a connected chain to admit a fan-out or a new
+            // cross-block/long-lived value in the single-definition tier.
+            let ops = &routine.blocks.iter().find(|b| b.id == block).unwrap().ops;
+            let use_index = use_site.op_index().unwrap_or(ops.len());
+            if use_site.block() == block
+                && use_index > pair.load
+                && use_index - pair.load - 1 <= MAX_BOUNDED_RELAY_GAP_OPS
+                && !ops[pair.store + 1..use_index]
+                    .iter()
+                    .any(is_connected_relay_barrier)
+            {
+                singles.insert((block, pair.store), (facts.id, *pair));
+            }
+        }
+    }
+
+    for (&(block, _), &(home, pair)) in &singles {
+        let ops = &routine.blocks.iter().find(|b| b.id == block).unwrap().ops;
+        let mut value = pair.loaded;
+        let mut previous = pair.load;
+        // Follow an existing single-use def-use chain, not source syntax or
+        // a particular operation sequence. A table load can consume the
+        // preceding byte as an index and produce the next stored byte.
+        while let [NirUseSite::Op {
+            block: used_block,
+            op_index,
+            kind,
+        }] = use_def.uses(value)
+        {
+            if *used_block != block
+                || *op_index <= previous
+                || *op_index - pair.load - 1 > MAX_BOUNDED_RELAY_GAP_OPS
+            {
+                break;
+            }
+            if let Some(&(next_home, next_pair)) = singles.get(&(block, *op_index)) {
+                if *kind == NirUseKind::StoreSource
+                    && !ops[pair.store + 1..next_pair.load]
+                        .iter()
+                        .any(is_connected_relay_barrier)
+                {
+                    selected.extend([home, next_home]);
+                }
+                break;
+            }
+            let Some(next_value) = op_result(&ops[*op_index]) else {
+                break;
+            };
+            value = next_value;
+            previous = *op_index;
+        }
+    }
+    selected
+}
+
+fn is_connected_relay_barrier(op: &NirOp) -> bool {
+    is_bounded_relay_barrier(op) || matches!(op, NirOp::CopyBytes { .. })
+}
+
+/// Classifies the same bounded store/load intervals for both relay forms.
+/// Pair count and connectivity are profitability decisions of the caller.
+fn bounded_relay_pairs(
+    routine: &NirRoutine,
+    cfg: &NirCfg,
+    facts: &NirStorageFacts,
+) -> Option<(BlockId, Vec<BoundedRelayPair>)> {
     if facts.direct_access_ty.as_ref().and_then(|ty| ty.width) != Some(ByteSize::ONE)
         || facts.value_needed_at_exit
-        || facts.direct_loads < MIN_BOUNDED_RELAY_PAIRS
+        || facts.direct_loads == 0
         || facts.direct_loads != facts.direct_stores
     {
-        return false;
+        return None;
     }
 
     let mut access_blocks = facts.load_blocks.union(&facts.store_blocks).copied();
-    let Some(block_id) = access_blocks.next() else {
-        return false;
-    };
+    let block_id = access_blocks.next()?;
     if access_blocks.next().is_some() || !cfg.reachable().contains(&block_id) {
-        return false;
+        return None;
     }
-    let Some(block) = routine.blocks.iter().find(|block| block.id == block_id) else {
-        return false;
-    };
+    let block = routine.blocks.iter().find(|block| block.id == block_id)?;
 
     let mut pending_store = None;
-    let mut pairs = 0usize;
+    let mut pairs = Vec::new();
     for (op_index, op) in block.ops.iter().enumerate() {
         let access = match op {
             NirOp::Store { place, .. } if direct_storage_id(place) == Some(facts.id) => Some(false),
@@ -113,7 +205,7 @@ fn is_bounded_scalar_relay(routine: &NirRoutine, cfg: &NirCfg, facts: &NirStorag
             NirOp::VolatileLoad { place, .. } | NirOp::VolatileStore { place, .. }
                 if direct_storage_id(place) == Some(facts.id) =>
             {
-                return false;
+                return None;
             }
             _ => None,
         };
@@ -121,27 +213,29 @@ fn is_bounded_scalar_relay(routine: &NirRoutine, cfg: &NirCfg, facts: &NirStorag
         match access {
             Some(false) => {
                 if pending_store.replace(op_index).is_some() {
-                    return false;
+                    return None;
                 }
             }
             Some(true) => {
-                let Some(store_index) = pending_store.take() else {
-                    return false;
-                };
+                let store_index = pending_store.take()?;
                 if op_index.saturating_sub(store_index + 1) > MAX_BOUNDED_RELAY_GAP_OPS
                     || block.ops[store_index + 1..op_index]
                         .iter()
                         .any(is_bounded_relay_barrier)
                 {
-                    return false;
+                    return None;
                 }
-                pairs = pairs.saturating_add(1);
+                pairs.push(BoundedRelayPair {
+                    store: store_index,
+                    load: op_index,
+                    loaded: op_result(op)?,
+                });
             }
             None => {}
         }
     }
 
-    pending_store.is_none() && pairs >= MIN_BOUNDED_RELAY_PAIRS && pairs == facts.direct_loads
+    (pending_store.is_none() && pairs.len() == facts.direct_loads).then_some((block_id, pairs))
 }
 
 fn is_bounded_relay_barrier(op: &NirOp) -> bool {
@@ -1087,6 +1181,10 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
     }
     temps
 }
+
+#[cfg(test)]
+#[path = "promotion_connected_tests.rs"]
+mod connected_tests;
 
 #[cfg(test)]
 mod tests {

@@ -32,11 +32,52 @@ The regression compares raw and optimized lowering with both runtimes, two
 origins, byte wrapping, word indexes, page crossings and writes overlapping
 the captured source index, destination index and pointer cells.
 
-## Remaining slices
+## Slice 2: connected single-definition byte relays
 
-2. Extend the bounded byte-relay profitability tier to connected single-pair
-   homes using the existing storage analysis, def-use facts and SSA promotion.
-   Retain the cold-home guard for isolated, long-lived or barrier-crossing values.
-3. Keep volatile-boundary dead-store elimination separate. Atari locals have
-   static backing; immutability does not prove that storage is unobservable.
-   Do not weaken the barrier without a reusable alias/effect proof.
+The existing NIR bounded-relay selector now admits connected single-pair homes.
+It shares interval classification with reused-home relays and follows existing
+single-use def-use facts into the next store's source. The original SSA renamer
+performs promotion; no new optimizer pass or IR operation is involved.
+See the [extension contract](../NIR_BOUNDED_SCALAR_RELAY_PROMOTION_PLAN.md#connected-home-extension-contract)
+for the exact bounds, barriers and eligibility rules.
+
+Both table probes now eliminate all staging homes, loads and stores for reused
+mutable locals, fresh mutable locals, and LET. Their MIR6502 output agrees in
+both runtimes:
+
+| Probe | Baseline LET bytes / cycles | After both fixes, all forms |
+| --- | --- | --- |
+| Global-pointer table relay | 83 / 69 | 73 / 59 |
+| Parameter-indexed table relay | 86 / 75 | 76 / 65 |
+
+The six other nonvolatile probes and every classic-backend size/timing are
+unchanged. Full post-fix measurements are in
+[LET_CODEGEN_AFTER_FIXES.csv](LET_CODEGEN_AFTER_FIXES.csv); the audit command and
+interpretation of XEX bytes/VM cycles are unchanged.
+
+Ten new NIR tests cover multi-home chains, table indexing, fresh/LET parity,
+idempotence, isolated and unrelated homes, fan-out, cross-block uses, escaped,
+initialized and absolute storage, wider types, gap limits and ordering/fault
+barriers. A new VM test covers 24,576 executions: three source forms, global and
+parameter pointers, raw/optimized lowering, both runtimes, two origins, all 256
+byte inputs and two destination indexes including a page-crossing store.
+
+Final validation passes: 2,858 compiler tests, unchanged NIR snapshots, all 38
+NIR and 167 MIR fixtures, and 139 VM harness tests (the full 138-test suite plus
+the newly added connected-relay regression run separately). This includes the
+1,296-execution audit and slice 1's 1,008-execution pointer-copy regression.
+
+The existing standalone AES source in `atari/c-bench-64/benchmarks/action/aes256.act`
+produces **byte-identical 4,211-byte XEX files before and after slice 2**.
+The pre-promotion-extension image checks `SUM: 0` and 1,626 PAL ticks in Atari800
+at origin $2000 (elapsed bytes `$5A $06`). This is a current before/after check
+of the promotion extension, not a comparison with the historical inliner build
+or with the pre-slice-1 compiler. The benchmark repository is not modified.
+
+## Deferred: volatile-boundary elimination
+
+The volatile snapshot retains its four-byte/four-cycle LET overhead. Atari
+locals have static backing; immutability does not prove that storage is
+unobservable. Keep this work separate until a reusable alias/effect proof can
+justify weakening the barrier. No source semantics or volatile-access ordering
+rules have changed.

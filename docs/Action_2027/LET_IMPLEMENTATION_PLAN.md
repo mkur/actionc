@@ -133,3 +133,7 @@ locals, distinct mutable locals and LET across both Atari backends/runtimes.
 It records current measurements and proposes general instruction-selection and
 bounded-relay extensions; it does not change the completed LET contract or
 introduce LET-specific optimizer behavior.
+
+The [general code-generation fixes](LET_CODEGEN_FIXES.md) implement the first
+two follow-up slices. Volatile-boundary elimination remains separate and
+requires a reusable storage-observability proof.
