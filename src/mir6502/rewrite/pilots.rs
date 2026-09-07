@@ -4073,8 +4073,14 @@ mod tests {
             &local.blocks[0].ops[..],
             [
                 MirOp::MaterializeIndexedAddress { .. },
-                MirOp::MaterializeIndexedAddress { .. },
-                MirOp::LoadIndirect { .. },
+                MirOp::LoadImm {
+                    dst: MirDef::Reg(crate::mir6502::ir::MirReg::Y),
+                    ..
+                },
+                MirOp::Load {
+                    src: MirAddr::AbsoluteIndexedY { .. },
+                    ..
+                },
                 MirOp::StoreIndirect { .. }
             ]
         ));
@@ -4665,8 +4671,17 @@ mod tests {
             candidate.blocks[0]
                 .ops
                 .iter()
-                .any(|op| matches!(op, MirOp::LoadIndirect { .. }))
+                .any(|op| matches!(op, MirOp::StoreIndirect { .. }))
         );
+        assert!(candidate.blocks[0].ops.iter().any(|op| matches!(
+            op,
+            MirOp::Load {
+                src: MirAddr::AbsoluteIndexedY {
+                    base: MirMem::Global { offset: 0, .. }
+                },
+                ..
+            }
+        )));
     }
 
     #[test]

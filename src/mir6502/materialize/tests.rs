@@ -1,6 +1,8 @@
 use super::*;
 #[path = "arithmetic_tests.rs"]
 mod arithmetic_tests;
+#[path = "indexed_copy_tests.rs"]
+mod indexed_copy_tests;
 use crate::mir6502::analysis::posthome::PostHomeAnalysisSnapshot;
 use crate::mir6502::analysis::sites::MirRoutineGeneration;
 use crate::mir6502::ir::{

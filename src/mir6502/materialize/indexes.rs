@@ -1215,6 +1215,20 @@ pub(super) fn try_fuse_indexed_byte_copy(
         Some(delayed_byte_indexes),
         out,
     );
+    // A static byte source does not need its own indirect pointer. Keep the
+    // same destination-before-source preparation order, but reuse ordinary
+    // absolute indexed-Y selection instead of expanding table+index in A.
+    // Virtual indexes remain live across destination preparation; explicit
+    // register inputs retain the existing generic path below.
+    if materialize_static_byte_copy_source(ops, index, &src_parts, delayed_byte_indexes, layout, out)
+    {
+        out.push(MirOp::StoreIndirect {
+            consumer: DEST_POINTER_PAIR,
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            offset: dst_parts.offset,
+        });
+        return 2;
+    }
     materialize_indexed_address_for_consumer(
         src_parts.clone(),
         DEFAULT_POINTER_PAIR,
@@ -1233,6 +1247,44 @@ pub(super) fn try_fuse_indexed_byte_copy(
         offset: dst_parts.offset,
     });
     2
+}
+
+fn materialize_static_byte_copy_source(
+    ops: &[MirOp],
+    index: usize,
+    source: &IndexedAddrParts,
+    delayed: &DelayedByteIndexPlan,
+    layout: &MaterializeLayout,
+    out: &mut Vec<MirOp>,
+) -> bool {
+    if source.elem_size != 1 || matches!(source.index, MirValue::Def(MirDef::Reg(_))) {
+        return false;
+    }
+    let base = resolve_indexed_base_producer(ops, index, source.base.clone());
+    if address_value_mem(&base).is_none() {
+        return false;
+    }
+    if let Some(expr) = delayed.expr_for_value(&source.index) {
+        // Preserve byte arithmetic (and its wrapping), rather than folding a
+        // delayed addition into the table address without a range proof.
+        materialize_delayed_byte_indexed_read(
+            MirDef::Reg(MirReg::A),
+            base,
+            expr,
+            source.offset,
+            layout,
+            out,
+        );
+        return true;
+    }
+    let (source, _) = narrow_known_byte_index(source.clone(), &collect_temp_widths(ops));
+    materialize_direct_byte_indexed_read(
+        MirDef::Reg(MirReg::A),
+        &base,
+        source.index,
+        source.offset,
+        out,
+    )
 }
 
 /// Copies one byte between two indexes of the same pointer-backed array while

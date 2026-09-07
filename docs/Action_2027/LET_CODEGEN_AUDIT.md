@@ -3,6 +3,8 @@
 Date: 2026-09-07. Compiler baseline: `c29329e` on `main`.
 Status: audit complete; no compiler or optimizer behavior changed.
 
+Subsequent implementation and measurements: [code-generation fixes](LET_CODEGEN_FIXES.md).
+
 ## Conclusion
 
 LET does not generally impose a MIR6502 execution penalty. Existing storage
