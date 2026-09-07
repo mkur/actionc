@@ -200,7 +200,7 @@ impl SemIrAstLowerer<'_> {
                 self.symbol_name(&declaration.symbol).to_ascii_uppercase(), id,
             );
             records.layouts.push(RecordLayout {
-                size: record_type.size,
+                size: u16::try_from(record_type.size).map_err(|_| vec![Diagnostic::new(declaration.span, "classic record extent exceeds 65535 bytes")])?,
                 fields: HashMap::new(),
             });
         }
@@ -239,22 +239,22 @@ impl SemIrAstLowerer<'_> {
                         let length = array_type.length
                             .filter(|length| *length > 0)
                             .ok_or_else(invalid)?;
-                        if *stride != element_size || array_type.element.as_ref() != &field.ty {
+                        if *stride != u32::from(element_size) || array_type.element.as_ref() != &field.ty {
                             return Err(invalid());
                         }
                         (
-                            length.checked_mul(*stride).ok_or_else(invalid)?,
-                            Some(RecordArrayField { length, stride: *stride }),
+                            u16::try_from(length.checked_mul(*stride).ok_or_else(invalid)?).map_err(|_| invalid())?,
+                            Some(RecordArrayField { length: u16::try_from(length).map_err(|_| invalid())?, stride: u16::try_from(*stride).map_err(|_| invalid())? }),
                         )
                     }
                 };
-                if field.offset.checked_add(size).is_none_or(|end| end > record_type.size) {
+                if field.offset.checked_add(u32::from(size)).is_none_or(|end| end > record_type.size) {
                     return Err(invalid());
                 }
                 records.layouts[id].fields.insert(
                     field.name.to_ascii_uppercase(),
                     RecordField {
-                        offset: field.offset,
+                        offset: u16::try_from(field.offset).map_err(|_| invalid())?,
                         size,
                         record,
                         signed: field.ty.as_scalar().is_some_and(|scalar| scalar.is_signed()),
@@ -287,7 +287,7 @@ impl SemIrAstLowerer<'_> {
                     kind: ExprKind::Number(NumberLiteral {
                         text: format!("${:04X}", origin.address),
                         kind: crate::lexer::NumberKind::Card,
-                        value: Some(origin.address),
+                        value: Some(u64::from(origin.address)),
                     }),
                     text: format!("${:04X}", origin.address),
                     span: origin.span,
@@ -508,8 +508,15 @@ impl SemIrAstLowerer<'_> {
         let Some(plan) = &declaration.static_initializer else {
             return;
         };
+        let Ok(initialized_extent) = u16::try_from(plan.initialized_extent) else {
+            self.diagnostics.push(Diagnostic::new(
+                declaration.span,
+                "classic backend cannot project an initializer larger than 65535 bytes",
+            ));
+            return;
+        };
         let mut initializers = Vec::new();
-        let mut cursor = 0u16;
+        let mut cursor = 0u32;
         for write in &plan.writes {
             if write.offset < cursor {
                 self.invalid_static_initializer_projection(declaration, write);
@@ -517,7 +524,7 @@ impl SemIrAstLowerer<'_> {
             }
             initializers.extend(std::iter::repeat_n(
                 StorageInit::Byte(0),
-                usize::from(write.offset - cursor),
+                usize::try_from(write.offset - cursor).unwrap_or(usize::MAX),
             ));
             match &write.value {
                 SemStaticInitializerValue::Literal { .. } if write.destination.is_real() => {
@@ -562,16 +569,16 @@ impl SemIrAstLowerer<'_> {
                     });
                 }
             }
-            cursor = write.offset.saturating_add(write.width);
+            cursor = write.offset.saturating_add(u32::from(write.width));
         }
         initializers.extend(std::iter::repeat_n(
             StorageInit::Byte(0),
-            usize::from(plan.initialized_extent.saturating_sub(cursor)),
+            usize::try_from(plan.initialized_extent.saturating_sub(cursor)).unwrap_or(usize::MAX),
         ));
         self.static_initializers.insert(
             declaration.span,
             ClassicStaticInitializer {
-                initialized_extent: plan.initialized_extent,
+                initialized_extent,
                 initializers,
             },
         );
@@ -610,7 +617,7 @@ impl SemIrAstLowerer<'_> {
         Some(Routine {
             visibility: Visibility::Private,
             is_external: routine.is_external,
-            kind: projected_callable_kind(&routine.callable_type),
+            kind: self.projected_callable_kind(&routine.callable_type),
             name: routine.symbol.name.clone(),
             system_address: routine
                 .system_address
@@ -623,7 +630,7 @@ impl SemIrAstLowerer<'_> {
                             kind: ExprKind::Number(NumberLiteral {
                                 text: format!("${address:04X}"),
                                 kind: crate::lexer::NumberKind::Card,
-                                value: Some(*address),
+                                value: Some(u64::from(*address)),
                             }),
                             text: format!("${address:04X}"),
                             span: routine.span,
@@ -751,8 +758,15 @@ impl SemIrAstLowerer<'_> {
                 size,
                 span,
             } => {
-                self.record_copies
-                    .insert(self.native_real_scope.as_deref(), *span, *size);
+                if let Ok(size) = u16::try_from(*size) {
+                    self.record_copies
+                        .insert(self.native_real_scope.as_deref(), *span, size);
+                } else {
+                    self.diagnostics.push(Diagnostic::new(
+                        *span,
+                        "classic backend cannot copy a record larger than 65535 bytes",
+                    ));
+                }
                 Some(Stmt::Assign {
                     target: self.lvalue(destination)?,
                     value: self.lvalue(source)?,
@@ -881,7 +895,7 @@ impl SemIrAstLowerer<'_> {
                 } else {
                     crate::lexer::NumberKind::Card
                 },
-                value: Some(amount),
+                value: Some(u64::from(amount)),
             }),
             text: text.clone(),
             span,
@@ -1172,6 +1186,13 @@ impl SemIrAstLowerer<'_> {
         }
     }
 
+    fn projected_callable_kind(&self, callable: &crate::semantic::CallableType) -> RoutineKind {
+        match &callable.return_type {
+            None => RoutineKind::Proc,
+            Some(result) => RoutineKind::Func { return_type: Box::new(self.type_ref(result)) },
+        }
+    }
+
     fn type_ref(&self, ty: &ValueType) -> TypeRef {
         TypeRef {
             base: match &ty.base {
@@ -1185,7 +1206,12 @@ impl SemIrAstLowerer<'_> {
                         .unwrap_or_else(|| name.clone())
                         .into(),
                 ),
-                ValueTypeBase::Callable(callable) => TypeBase::Callable(projected_callable_kind(callable)),
+                ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                    kind: self.projected_callable_kind(callable),
+                    params: callable.params.iter().map(|ty| crate::ast::CallableParamTypeRef {
+                        ty: self.type_ref(ty), storage: VarStorage::Plain,
+                    }).collect(),
+                })),
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
             },
             pointer: ty.pointer && !matches!(ty.base, ValueTypeBase::Callable(_)),
@@ -1651,7 +1677,7 @@ fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Spa
     largest.map(|(_, ty, span)| (ty, span))
 }
 
-fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u16, ValueType, Span)>) {
+fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u32, ValueType, Span)>) {
     match stmt {
         SemStmt::Case { arms, .. } => {
             for arm in arms { for stmt in &arm.body { consider_record_copy_temp(stmt, largest); } }
@@ -1978,14 +2004,14 @@ fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -
     };
     let value = match value {
         SemInitializerLiteral::Number(number) => number.value?,
-        SemInitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        SemInitializerLiteral::Char(ch) => u64::from(source_char_byte(*ch)?),
         SemInitializerLiteral::True => 1,
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value)
+        0u16.wrapping_sub(value as u16)
     } else {
-        value
+        value as u16
     })
 }
 
@@ -1995,7 +2021,7 @@ fn fixed_array_address_expr(address: u16, span: Span) -> Expr {
         kind: ExprKind::Number(NumberLiteral {
             text: text.clone(),
             kind: crate::lexer::NumberKind::Card,
-            value: Some(address),
+            value: Some(u64::from(address)),
         }),
         text,
         span,
@@ -2075,10 +2101,14 @@ fn type_ref_text(ty: &TypeRef) -> String {
             FundType::Card => "CARD".to_string(),
             FundType::Char => "CHAR".to_string(),
             FundType::Int => "INT".to_string(),
+            FundType::LongInt => "LONGINT".to_string(),
+            FundType::LongCard => "LONGCARD".to_string(),
+            FundType::Address => "ADDRESS".to_string(),
+            FundType::Size => "SIZE".to_string(),
         },
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
-        TypeBase::Callable(kind) => routine_kind_text(kind),
+        TypeBase::Callable(callable) => routine_kind_text(&callable.kind),
     };
     if ty.pointer {
         format!("{base} POINTER")
@@ -2091,17 +2121,8 @@ fn routine_kind_text(kind: &RoutineKind) -> String {
     match kind {
         RoutineKind::Proc => "PROC POINTER".to_string(),
         RoutineKind::Func { return_type } => {
-            format!("{} FUNC POINTER", super::result_type_trace_name(return_type))
+            format!("{} FUNC POINTER", type_ref_text(return_type))
         }
-    }
-}
-
-fn projected_callable_kind(callable: &crate::semantic::CallableType) -> RoutineKind {
-    match &callable.return_type {
-        None => RoutineKind::Proc,
-        Some(result) => RoutineKind::Func {
-            return_type: result.representation_scalar().expect("validated scalar/enum FUNC result").fund_type().into(),
-        },
     }
 }
 

@@ -54,11 +54,7 @@ fn output_bytes(output: &CodegenOutput, address: u16, len: usize) -> &[u8] {
     &output.bytes[offset..offset + len]
 }
 
-fn record_array_backing<'a>(
-    output: &'a CodegenOutput,
-    name: &str,
-    byte_len: usize,
-) -> &'a [u8] {
+fn record_array_backing<'a>(output: &'a CodegenOutput, name: &str, byte_len: usize) -> &'a [u8] {
     let descriptor = global_address(output, name);
     let pointer = u16::from_le_bytes(
         output_bytes(output, descriptor, 2)
@@ -85,16 +81,14 @@ fn storage_record_array_backing<'a>(
 fn all_backend_outputs(source: &str) -> [(String, CodegenOutput); 3] {
     let (program, model) = parse_and_analyze(source);
     let semir = ir::lower_program(&program, &model);
-    let compatibility =
-        generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Compat)
-            .expect("compatibility/classic aggregate initializer");
+    let compatibility = generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Compat)
+        .expect("compatibility/classic aggregate initializer");
     let modern = generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Modern)
         .expect("modern/classic aggregate initializer");
     let nir = nir::lower_program(&semir);
     let nir = nir::optimize_program(&nir).expect("verify aggregate initializer NIR");
-    let mir6502 =
-        mir6502::generate_output_with_config(&nir, ORIGIN, &Mir6502Config::optimized())
-            .expect("MIR6502 aggregate initializer");
+    let mir6502 = mir6502::generate_output_with_config(&nir, ORIGIN, &Mir6502Config::optimized())
+        .expect("MIR6502 aggregate initializer");
     [
         ("compatibility/classic".to_string(), compatibility),
         ("modern/classic".to_string(), modern),
@@ -104,9 +98,8 @@ fn all_backend_outputs(source: &str) -> [(String, CodegenOutput); 3] {
 
 #[test]
 fn flat_initializer_list_preserves_one_element_per_source_value() {
-    let (program, _) = parse_and_analyze(
-        "BYTE ARRAY data(6)=[1 -2 'A TRUE FALSE NIL] PROC Main() RETURN",
-    );
+    let (program, _) =
+        parse_and_analyze("BYTE ARRAY data(6)=[1 -2 'A TRUE FALSE NIL] PROC Main() RETURN");
     let Item::Declaration(Decl::Var(declaration)) = &program.modules[0].items[0] else {
         panic!("expected array declaration");
     };
@@ -291,7 +284,10 @@ fn semir_rounds_partial_inferred_record_array_to_a_complete_element() {
 
     assert_eq!(plan.initialized_extent, 6);
     assert_eq!(
-        plan.writes.iter().map(|write| write.offset).collect::<Vec<_>>(),
+        plan.writes
+            .iter()
+            .map(|write| write.offset)
+            .collect::<Vec<_>>(),
         [0, 1, 3]
     );
 }
@@ -328,7 +324,10 @@ fn semantic_address_width_checks_use_the_record_leaf_destination() {
         SemStaticInitializerValue::Address { selector: None, .. }
     ));
     assert_eq!(
-        plan.writes.iter().map(|write| write.width).collect::<Vec<_>>(),
+        plan.writes
+            .iter()
+            .map(|write| write.width)
+            .collect::<Vec<_>>(),
         [1, 2]
     );
 }
@@ -340,19 +339,14 @@ fn global_mixed_width_record_array_has_identical_backing_in_all_backends() {
                   PROC Main() RETURN";
     let (program, model) = parse_and_analyze(source);
     let semir = ir::lower_program(&program, &model);
-    let compatibility =
-        generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Compat)
-            .expect("compatibility/classic aggregate initializer");
+    let compatibility = generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Compat)
+        .expect("compatibility/classic aggregate initializer");
     let modern = generate_semir_profile_with_origin(&semir, ORIGIN, CodegenProfile::Modern)
         .expect("modern/classic aggregate initializer");
     let nir = nir::lower_program(&semir);
     let nir = nir::optimize_program(&nir).expect("verify aggregate initializer NIR");
-    let mir6502 = mir6502::generate_output_with_config(
-        &nir,
-        ORIGIN,
-        &Mir6502Config::optimized(),
-    )
-    .expect("MIR6502 aggregate initializer");
+    let mir6502 = mir6502::generate_output_with_config(&nir, ORIGIN, &Mir6502Config::optimized())
+        .expect("MIR6502 aggregate initializer");
 
     for (backend, output) in [
         ("compatibility/classic", compatibility),
@@ -565,7 +559,12 @@ fn record_leaf_relocations_resolve_forward_targets_in_all_backends() {
         let target = global_address(&output, "target");
         assert_eq!(
             record_array_backing(&output, "refs", 4),
-            [target as u8, (target >> 8) as u8, target as u8, (target >> 8) as u8],
+            [
+                target as u8,
+                (target >> 8) as u8,
+                target as u8,
+                (target >> 8) as u8
+            ],
             "{backend} record leaf relocations"
         );
     }

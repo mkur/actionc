@@ -85,7 +85,10 @@ fn qualified_constant_fixed_arrays_share_exact_storage_facts_in_all_modes() {
             NirGlobalBacking::Absolute(nir::AddressValue::data(0x83F1))
         );
         assert_eq!(
-            global.array.as_ref().and_then(|array| array.address_initializer),
+            global
+                .array
+                .as_ref()
+                .and_then(|array| array.address_initializer),
             Some(nir::AddressValue::data(0x83F1))
         );
     }
@@ -99,18 +102,22 @@ fn qualified_constant_fixed_arrays_share_exact_storage_facts_in_all_modes() {
     missing_backing.globals[symbolic_index].backing = NirGlobalBacking::Ordinary;
     let diagnostics = nir::verify_program(&missing_backing)
         .expect_err("direct fixed array without absolute backing must fail verification");
-    assert!(diagnostics.iter().any(|diagnostic| diagnostic
-        .message
-        .contains("must have absolute backing $83F1")));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("must have absolute backing $83F1")
+    }));
 
     let mut mismatched_backing = nir.clone();
     mismatched_backing.globals[symbolic_index].backing =
         NirGlobalBacking::Absolute(nir::AddressValue::data(0x83F2));
     let diagnostics = nir::verify_program(&mismatched_backing)
         .expect_err("direct fixed array with mismatched backing must fail verification");
-    assert!(diagnostics.iter().any(|diagnostic| diagnostic
-        .message
-        .contains("backing $83F2 but address initializer $83F1")));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("backing $83F2 but address initializer $83F1")
+    }));
 
     for mode in [
         CompileMode::Compatibility,

@@ -41,6 +41,7 @@ pub use types::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticModel {
     pub enums: EnumFacts,
+    resolved_casts: HashMap<ExpressionSite, ValueType>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     pub target_layout: TargetLayout,
     pub symbols: SymbolTable,
@@ -57,7 +58,7 @@ pub struct SemanticModel {
     pub array_symbols: HashSet<SymbolId>,
     /// Declared element counts for statically sized arrays. Unsized array
     /// parameters and pointer-backed arrays deliberately have no entry.
-    pub array_lengths: HashMap<SymbolId, u16>,
+    pub array_lengths: HashMap<SymbolId, u32>,
     pub fields: Vec<SemanticField>,
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
     pub layout: SemanticLayoutFacts,
@@ -192,7 +193,7 @@ impl SemanticModuleScope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConstValue {
     pub ty: ScalarType,
-    pub bits: u16,
+    pub bits: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -202,14 +203,13 @@ pub struct RealConstValue {
 }
 
 impl ConstValue {
-    fn cast(self, declared_type: FundType) -> Self {
-        let ty = ScalarType::from_fund(declared_type);
-        Self {
-            ty,
-            bits: self.bits & scalar_mask(ty),
-        }
+    pub fn cast(self, ty: ScalarType) -> Self {
+        self.cast_for_layout(ty, TargetLayout::default())
     }
 
+    fn cast_for_layout(self, ty: ScalarType, layout: TargetLayout) -> Self {
+        Self { ty, bits: exact_const_value(self) as u64 & scalar_mask_for_layout(ty, layout) }
+    }
     pub fn value_type(self) -> ValueType {
         ValueType::scalar(self.ty)
     }
@@ -219,11 +219,14 @@ impl ConstValue {
             ScalarType::Byte | ScalarType::Char => NumberKind::Byte,
             ScalarType::Card => NumberKind::Card,
             ScalarType::Int => NumberKind::Int,
+            ScalarType::LongInt => NumberKind::LongInt,
+            ScalarType::LongCard => NumberKind::LongCard,
+            ScalarType::Address | ScalarType::Size => NumberKind::Card,
         };
-        let text = if self.ty.width_bytes() == 1 {
-            format!("${:02X}", self.bits as u8)
-        } else {
-            format!("${:04X}", self.bits)
+        let text = match self.ty.width_bytes() {
+            1 => format!("${:02X}", self.bits as u8),
+            2 => format!("${:04X}", self.bits),
+            _ => format!("${:08X}", self.bits),
         };
         NumberLiteral {
             text,
@@ -264,9 +267,9 @@ pub struct SemanticField {
     pub ty: ValueType,
     pub storage: RecordFieldStorage,
     /// Complete field extent, not just the array element width.
-    pub size: u16,
-    pub alignment: u16,
-    pub offset: u16,
+    pub size: u32,
+    pub alignment: u32,
+    pub offset: u32,
     pub span: Span,
 }
 
@@ -275,7 +278,7 @@ struct FieldDescriptorFacts {
     id: FieldId,
     owner: SymbolId,
     ty: ValueType,
-    offset: u16,
+    offset: u32,
 }
 
 /// Source-visible declarations only. Compiler-generated storage, such as loop
@@ -504,7 +507,7 @@ pub fn analyze_compilation_with_options(
 }
 
 impl Analyzer {
-    fn finish(self) -> Result<SemanticModel, Vec<Diagnostic>> {
+    fn finish(mut self) -> Result<SemanticModel, Vec<Diagnostic>> {
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
         }
@@ -516,10 +519,58 @@ impl Analyzer {
             &self.fields,
             TargetLayout::for_target(self.options.target),
         );
+        let target_layout = TargetLayout::for_target(self.options.target);
+        let size_limit = integer_value_limit(target_layout.size_integer_bits);
+        let address_limit = integer_value_limit(target_layout.address_bits);
+        let object_limit = size_limit.min(address_limit);
+        for record in &layout.records {
+            if u64::from(record.size) > object_limit {
+                self.diagnostics.push(Diagnostic::new(
+                    record.span,
+                    format!(
+                        "record `{}` requires {} bytes, exceeding the target object limit of {object_limit}",
+                        record.name, record.size
+                    ),
+                ));
+            }
+        }
+        for array in &layout.arrays {
+            let Some(length) = array.length else {
+                continue;
+            };
+            if u64::from(length) > size_limit {
+                self.diagnostics.push(Diagnostic::new(
+                    array.span,
+                    format!(
+                        "array `{}` has {length} elements, exceeding the target SIZE limit of {size_limit}",
+                        array.name
+                    ),
+                ));
+                continue;
+            }
+            match array.storage_size {
+                Some(storage_size) if u64::from(storage_size) <= object_limit => {}
+                Some(storage_size) => self.diagnostics.push(Diagnostic::new(
+                    array.span,
+                    format!(
+                        "array `{}` requires {storage_size} bytes, exceeding the target object limit of {object_limit}",
+                        array.name
+                    ),
+                )),
+                None => self.diagnostics.push(Diagnostic::new(
+                    array.span,
+                    format!("array `{}` storage size overflows the compiler layout model", array.name),
+                )),
+            }
+        }
+        if !self.diagnostics.is_empty() {
+            return Err(self.diagnostics);
+        }
         Ok(SemanticModel {
             enums: self.enums,
+            resolved_casts: self.resolved_casts,
             case_labels: self.case_labels,
-            target_layout: TargetLayout::for_target(self.options.target),
+            target_layout,
             symbols: self.symbols,
             modules: self.modules,
             expression_observations: self.expression_observations,
@@ -544,6 +595,7 @@ impl Analyzer {
 
 struct Analyzer {
     enums: EnumFacts,
+    resolved_casts: HashMap<ExpressionSite, ValueType>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     options: SemanticOptions,
     symbols: SymbolTable,
@@ -561,7 +613,7 @@ struct Analyzer {
     routine_scopes: Vec<RoutineScope>,
     lexical_blocks: Vec<SemanticLexicalBlock>,
     array_symbols: HashSet<SymbolId>,
-    array_lengths: HashMap<SymbolId, u16>,
+    array_lengths: HashMap<SymbolId, u32>,
     fields: Vec<SemanticField>,
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
     diagnostics: Vec<Diagnostic>,
@@ -623,6 +675,7 @@ impl Analyzer {
         Self {
             options,
             enums: EnumFacts::default(),
+            resolved_casts: HashMap::new(),
             case_labels: HashMap::new(),
             symbols,
             builtin_scope,
@@ -687,7 +740,7 @@ impl Analyzer {
                 self.builtin_scope,
                 name.to_string(),
                 SymbolClass::BuiltinFunc,
-                Some(fund_value(FundType::Card)),
+                Some(fund_value(FundType::Size)),
                 Span::new(0, 0),
             ) else {
                 continue;
@@ -697,11 +750,11 @@ impl Analyzer {
                 symbol_id,
                 SemanticCallableSignature {
                     kind: RoutineKind::Func {
-                        return_type: FundType::Card.into(),
+                        return_type: Box::new(fund_type_ref(FundType::Size)),
                     },
                     params: Vec::new(),
                     variadic: None,
-                    return_type: Some(fund_value(FundType::Card)),
+                    return_type: Some(fund_value(FundType::Size)),
                     source: SemanticCallableSource::Unknown,
                 },
             );
@@ -750,9 +803,10 @@ impl Analyzer {
             }
             let (class, ty) = match &routine.kind {
                 RoutineKind::Proc => (SymbolClass::BuiltinProc, None),
-                RoutineKind::Func { return_type } => {
-                    (SymbolClass::BuiltinFunc, Some(ValueType::unresolved_routine_result(return_type)))
-                }
+                RoutineKind::Func { return_type } => (
+                    SymbolClass::BuiltinFunc,
+                    Some(ValueType::from_type_ref(return_type)),
+                ),
             };
             let Some(symbol_id) = self.declare(
                 self.builtin_scope,
@@ -901,7 +955,7 @@ impl Analyzer {
             return;
         };
         let expression = self.lower_expr(scope, &origin.address);
-        if let Err(message) = evaluate_const_expr(&expression) {
+        if let Err(message) = self.evaluate_const_expr(&expression) {
             self.diagnostics.push(Diagnostic::new(
                 origin.address.span,
                 format!("ORG address must be a compile-time scalar constant: {message}"),
@@ -942,11 +996,7 @@ impl Analyzer {
         let module_id = self.modules[module_index].id;
         let scope = self.modules[module_index].scope;
         let module_path = self.modules[module_index].path.clone();
-        let intrinsics = self
-            .layout_intrinsics
-            .keys()
-            .copied()
-            .collect::<Vec<_>>();
+        let intrinsics = self.layout_intrinsics.keys().copied().collect::<Vec<_>>();
 
         for symbol_id in intrinsics {
             let name = self.symbols.symbols[symbol_id.0].name.clone();
@@ -996,13 +1046,15 @@ impl Analyzer {
                         self.collect_named_declaration(module_id, scope, decl)
                     }
                     Item::Routine(routine) => {
-                        let class = match routine.kind {
+                        let class = match &routine.kind {
                             RoutineKind::Proc => SymbolClass::Proc,
                             RoutineKind::Func { .. } => SymbolClass::Func,
                         };
                         let ty = match &routine.kind {
                             RoutineKind::Proc => None,
-                            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
+                            RoutineKind::Func { return_type } => {
+                                Some(self.value_type_from_type_ref(scope, return_type))
+                            }
                         };
                         let symbol_id = self
                             .coalesce_sys_compatibility_routine(module_id, scope, routine)
@@ -1020,7 +1072,7 @@ impl Analyzer {
                         if let Some(symbol_id) = symbol_id {
                             self.remember_routine_signature(
                                 symbol_id,
-                                SemanticCallableSignature::from_routine(routine),
+                                self.resolved_routine_signature(scope, routine),
                             );
                         }
                     }
@@ -1082,7 +1134,7 @@ impl Analyzer {
             }
             RoutineKind::Func { return_type } => {
                 symbol.class = SymbolClass::Func;
-                symbol.ty = Some(ValueType::unresolved_routine_result(return_type));
+                symbol.ty = Some(ValueType::from_type_ref(return_type));
             }
         }
         symbol.defining_module = Some(module_id);
@@ -1412,20 +1464,22 @@ impl Analyzer {
     }
 
     fn declare_routine(&mut self, scope: ScopeId, routine: &Routine) {
-        let class = match routine.kind {
+        let class = match &routine.kind {
             RoutineKind::Proc => SymbolClass::Proc,
             RoutineKind::Func { .. } => SymbolClass::Func,
         };
         let ty = match &routine.kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
+            RoutineKind::Func { return_type } => {
+                Some(self.value_type_from_type_ref(scope, return_type))
+            }
         };
 
         if let Some(symbol_id) = self.declare(scope, routine.name.clone(), class, ty, routine.span)
         {
             self.remember_routine_signature(
                 symbol_id,
-                SemanticCallableSignature::from_routine(routine),
+                self.resolved_routine_signature(scope, routine),
             );
             self.resolve_predeclared_routine_signature(scope, routine);
         }
@@ -1757,6 +1811,10 @@ impl Analyzer {
             ScalarType::Char => "CHAR",
             ScalarType::Card => "CARD",
             ScalarType::Int => "INT",
+            ScalarType::LongInt => "LONGINT",
+            ScalarType::LongCard => "LONGCARD",
+            ScalarType::Address => "ADDRESS",
+            ScalarType::Size => "SIZE",
         };
         let Some(integer) = value.rounded_integer() else {
             self.diagnostics.push(Diagnostic::new(
@@ -1776,6 +1834,17 @@ impl Analyzer {
             ScalarType::Byte | ScalarType::Char => (0..=u8::MAX as i128).contains(&integer.value),
             ScalarType::Card => (0..=u16::MAX as i128).contains(&integer.value),
             ScalarType::Int => (i16::MIN as i128..=i16::MAX as i128).contains(&integer.value),
+            ScalarType::LongInt => (i32::MIN as i128..=i32::MAX as i128).contains(&integer.value),
+            ScalarType::LongCard => (0..=u32::MAX as i128).contains(&integer.value),
+            ScalarType::Address | ScalarType::Size => {
+                let layout = TargetLayout::for_target(self.options.target);
+                let bits = if target == ScalarType::Address {
+                    layout.address_integer_bits
+                } else {
+                    layout.size_integer_bits
+                };
+                (0..=((1i128 << bits) - 1)).contains(&integer.value)
+            }
         };
         if !in_range {
             self.diagnostics.push(Diagnostic::new(
@@ -1931,6 +2000,15 @@ impl Analyzer {
             ));
             return;
         }
+        if expected.as_callable_pointer().is_some()
+            && actual.as_callable_pointer().is_some()
+            && !type_can_assign(expected, actual)
+        {
+            self.diagnostics.push(Diagnostic::new(
+                value.span,
+                format!("cannot assign {:?} to {:?}", actual, expected),
+            ));
+        }
     }
 
     fn record_assignment_source(
@@ -2056,7 +2134,7 @@ impl Analyzer {
             ));
         }
         if matches!(op, BinaryOp::Div | BinaryOp::Mod)
-            && evaluate_const_expr(&value).is_ok_and(|value| value.bits == 0)
+            && self.evaluate_const_expr(&value).is_ok_and(|value| value.bits == 0)
         {
             self.diagnostics.push(Diagnostic::new(span, if op == BinaryOp::Div {
                 "division by zero in constant expression"
@@ -2322,7 +2400,7 @@ impl Analyzer {
                 if inner.ty.as_enum().is_some() {
                     self.diagnostics.push(Diagnostic::new(expr.span, "enum arithmetic requires an explicit integer conversion"));
                 }
-                let ty = if *op == UnaryOp::Neg && inner.ty.as_scalar().is_some() {
+                let ty = if *op == UnaryOp::Neg && inner.ty.as_scalar().is_some_and(|ty| ty.width_bytes() <= 2) {
                     fund_value(FundType::Int)
                 } else {
                     inner.ty.clone()
@@ -2358,7 +2436,7 @@ impl Analyzer {
                 }
                 if !uses_real
                     && matches!(op, BinaryOp::Div | BinaryOp::Mod)
-                    && evaluate_const_expr(&right).is_ok_and(|value| value.bits == 0)
+                    && self.evaluate_const_expr(&right).is_ok_and(|value| value.bits == 0)
                 {
                     self.diagnostics.push(Diagnostic::new(
                         expr.span,
@@ -2369,32 +2447,50 @@ impl Analyzer {
                         },
                     ));
                 }
-                let ty =
-                    if uses_real && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value()) {
-                        self.diagnostics.push(Diagnostic::new(
-                            expr.span,
-                            "REAL operators require numeric operands",
-                        ));
-                        ValueType::error()
-                    } else if uses_real && !real_binary_operator_supported(*op) {
-                        self.diagnostics.push(Diagnostic::new(
-                            expr.span,
-                            format!(
-                                "operator {} is not supported for REAL",
-                                binary_operator_text(*op)
-                            ),
-                        ));
-                        ValueType::error()
-                    } else if is_condition_op(*op) {
-                        fund_value(FundType::Byte)
-                    } else {
-                        promote_numeric(
-                            *op,
-                            &left.ty,
-                            &right.ty,
-                            constant_binary_result(*op, &left, &right),
-                        )
-                    };
+                let ty = if uses_real
+                    && (!left.ty.is_numeric_value() || !right.ty.is_numeric_value())
+                {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        "REAL operators require numeric operands",
+                    ));
+                    ValueType::error()
+                } else if uses_real && !real_binary_operator_supported(*op) {
+                    self.diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        format!(
+                            "operator {} is not supported for REAL",
+                            binary_operator_text(*op)
+                        ),
+                    ));
+                    ValueType::error()
+                } else if is_condition_op(*op) {
+                    fund_value(FundType::Byte)
+                } else if let (Some(left_scalar), Some(right_scalar)) =
+                    (left.ty.as_scalar(), right.ty.as_scalar())
+                    && (left_scalar == ScalarType::Address || right_scalar == ScalarType::Address)
+                {
+                    match ScalarType::address_arithmetic_result(*op, left_scalar, right_scalar) {
+                        Some(result) => ValueType::scalar(result),
+                        None => {
+                            self.diagnostics.push(Diagnostic::new(
+                                expr.span,
+                                format!(
+                                    "operator {} is not valid for ADDRESS operands",
+                                    binary_operator_text(*op)
+                                ),
+                            ));
+                            ValueType::error()
+                        }
+                    }
+                } else {
+                    promote_numeric(
+                        *op,
+                        &left.ty,
+                        &right.ty,
+                        constant_binary_result(*op, &left, &right),
+                    )
+                };
                 subject::SemSubject::Expr(subject::SemExpr {
                     ty,
                     kind: subject::SemExprKind::Binary {
@@ -2416,6 +2512,24 @@ impl Analyzer {
             ExprKind::Call { callee, args } if self.enum_type_for_expr(scope, callee).is_some() => {
                 let identity = self.enum_type_for_expr(scope, callee).unwrap();
                 self.enum_cast_subject(scope, identity, args, expr.span)
+            }
+            ExprKind::Call { callee, args }
+                if args.len() == 1 && self.contextual_scalar_cast_type(scope, callee).is_some() =>
+            {
+                let scalar = self
+                    .contextual_scalar_cast_type(scope, callee)
+                    .expect("guarded contextual scalar cast");
+                let inner = self.expect_expr(scope, &args[0], args[0].span);
+                let ty = ValueType::scalar(scalar);
+                self.resolved_casts.insert(ExpressionSite::new(scope, expr.span), ty.clone());
+                subject::SemSubject::Expr(subject::SemExpr {
+                    ty: ty.clone(),
+                    kind: subject::SemExprKind::Cast {
+                        ty,
+                        expr: Box::new(inner),
+                    },
+                    span: expr.span,
+                })
             }
             ExprKind::Call { callee, args }
                 if args.len() == 1 && self.can_subject_be_indexed(scope, callee) =>
@@ -2567,7 +2681,10 @@ impl Analyzer {
             let name = self.layout_intrinsic_name(intrinsic);
             self.diagnostics.push(Diagnostic::new(
                 span,
-                format!("`{name}` expects exactly {expected} argument(s), got {}", args.len()),
+                format!(
+                    "`{name}` expects exactly {expected} argument(s), got {}",
+                    args.len()
+                ),
             ));
             return subject::SemSubject::Expr(self.error_expr(span));
         }
@@ -2581,19 +2698,21 @@ impl Analyzer {
         let Some(value) = value else {
             return subject::SemSubject::Expr(self.error_expr(span));
         };
-        let Ok(bits) = u16::try_from(value) else {
+        let size_bits = TargetLayout::for_target(self.options.target).size_integer_bits;
+        let size_limit = integer_value_limit(size_bits);
+        if value > size_limit {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 format!(
-                    "{} result {value} does not fit the current CARD result type",
-                    self.layout_intrinsic_name(intrinsic)
+                    "{} result {value} does not fit the target's {size_bits}-bit SIZE type",
+                    self.layout_intrinsic_name(intrinsic),
                 ),
             ));
             return subject::SemSubject::Expr(self.error_expr(span));
-        };
+        }
         let value = ConstValue {
-            ty: ScalarType::Card,
-            bits,
+            ty: ScalarType::Size,
+            bits: value,
         };
         self.layout_query_values.insert(key, value);
         self.layout_query_subject(value, span)
@@ -2618,9 +2737,9 @@ impl Analyzer {
 
     fn layout_size_of(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
         match self.classify_subject(scope, operand) {
-            subject::SemSubject::TypeRef(type_ref) => {
-                self.complete_layout_width(&type_ref.ty, operand.span).map(u64::from)
-            }
+            subject::SemSubject::TypeRef(type_ref) => self
+                .complete_layout_width(&type_ref.ty, operand.span)
+                .map(u64::from),
             subject::SemSubject::Place(place) => {
                 if let Some(array_type) = self.inline_array_type(&place) {
                     let length = array_type.length.expect("fixed inline array bound");
@@ -2641,7 +2760,8 @@ impl Analyzer {
                     let width = self.complete_layout_width(&place.ty, operand.span)?;
                     return Some(u64::from(length) * u64::from(width));
                 }
-                self.complete_layout_width(&place.ty, operand.span).map(u64::from)
+                self.complete_layout_width(&place.ty, operand.span)
+                    .map(u64::from)
             }
             subject::SemSubject::Error(_) => None,
             _ => {
@@ -2682,13 +2802,17 @@ impl Analyzer {
             ));
             return None;
         }
-        self.array_lengths.get(&symbol).copied().map(u64::from).or_else(|| {
-            self.diagnostics.push(Diagnostic::new(
-                operand.span,
-                "ELEMENTS cannot determine the count of an unsized or pointer-backed array",
-            ));
-            None
-        })
+        self.array_lengths
+            .get(&symbol)
+            .copied()
+            .map(u64::from)
+            .or_else(|| {
+                self.diagnostics.push(Diagnostic::new(
+                    operand.span,
+                    "ELEMENTS cannot determine the count of an unsized or pointer-backed array",
+                ));
+                None
+            })
     }
 
     fn layout_align_of(&mut self, scope: ScopeId, operand: &Expr) -> Option<u64> {
@@ -2754,15 +2878,13 @@ impl Analyzer {
         Some(u64::from(field.offset))
     }
 
-    fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u16> {
+    fn complete_layout_width(&mut self, ty: &ValueType, span: Span) -> Option<u32> {
         if !ty.pointer && !self.ensure_named_record_layout(ty, span) {
             return None;
         }
         self.value_storage_width(ty).or_else(|| {
-            self.diagnostics.push(Diagnostic::new(
-                span,
-                "layout is incomplete for this type",
-            ));
+            self.diagnostics
+                .push(Diagnostic::new(span, "layout is incomplete for this type"));
             None
         })
     }
@@ -2853,12 +2975,29 @@ impl Analyzer {
         name: &str,
         span: Span,
     ) -> subject::SemSubject {
+        if self.lookup_symbol(scope, name).is_none() {
+            let scalar = contextual_scalar_type_name(name);
+            if let Some(scalar) = scalar {
+                return subject::SemSubject::TypeRef(subject::SemTypeRef {
+                    ty: ValueType::scalar(scalar),
+                    kind: subject::SemTypeRefKind::Inline(TypeRef {
+                        base: TypeBase::Fund(scalar.fund_type()),
+                        pointer: false,
+                    }),
+                    span,
+                });
+            }
+        }
         let Some(symbol_id) = self.lookup_symbol(scope, name) else {
             self.diagnostics
                 .push(Diagnostic::new(span, format!("undefined symbol `{name}`")));
             return self.subject_error(span);
         };
         self.classify_symbol_subject(symbol_id, span)
+    }
+
+    fn contextual_scalar_cast_type(&self, scope: ScopeId, expr: &Expr) -> Option<ScalarType> {
+        self.builtin_scalar_type(scope, &enums::expression_name(expr)?)
     }
 
     fn classify_symbol_subject(&mut self, symbol_id: SymbolId, span: Span) -> subject::SemSubject {
@@ -3462,11 +3601,22 @@ impl Analyzer {
         args: &[Expr],
         span: Span,
     ) {
-        if signature.variadic.is_none() && args.len() > signature.params.len() {
+        if signature.variadic.is_none() && args.len() != signature.params.len() {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 format!(
-                    "`{name}` expects at most {} argument(s), got {}",
+                    "`{name}` expects {} argument(s), got {}",
+                    signature.params.len(),
+                    args.len()
+                ),
+            ));
+            return;
+        }
+        if signature.variadic.is_some() && args.len() < signature.params.len() {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!(
+                    "`{name}` expects at least {} argument(s), got {}",
                     signature.params.len(),
                     args.len()
                 ),
@@ -3739,19 +3889,20 @@ impl Analyzer {
             let ty = TypeRef { base: TypeBase::Named(name.clone()), pointer: false };
             self.validate_type_ref(scope, &ty, entry.span);
             let expected = self.value_type_from_type_ref(scope, &ty);
-            if expected.as_enum().is_none() {
-                self.diagnostics.push(Diagnostic::new(entry.span, "named CONST annotation must be an enum type"));
+            if expected.as_enum().is_none() && expected.as_scalar().is_none() {
+                self.diagnostics.push(Diagnostic::new(entry.span, "named CONST annotation must be a scalar or enum type"));
                 return;
             }
-            Some(expected)
+            expected.as_enum().is_some().then_some(expected)
         } else { None };
         if expected_enum.is_some() || expression.ty.as_enum().is_some() {
+            let scalar_annotation = declared_type.is_some() && expected_enum.is_none();
             let expected = expected_enum.unwrap_or_else(|| expression.ty.clone());
-            if expected != expression.ty || matches!(declared_type, Some(ConstDeclaredType::Fund(_) | ConstDeclaredType::Real)) {
+            if expected != expression.ty || scalar_annotation {
                 self.diagnostics.push(Diagnostic::new(entry.span, "enum CONST requires a value of the exact enum type; use an explicit conversion"));
                 return;
             }
-            match evaluate_const_expr(&expression) {
+            match self.evaluate_const_expr(&expression) {
                 Ok(value) => {
                     self.enums.constants.insert(symbol_id, EnumValue { identity: expected.as_enum().unwrap().clone(), bits: value.bits as u8 });
                     self.symbols.symbols[symbol_id.0].ty = Some(expected);
@@ -3792,11 +3943,13 @@ impl Analyzer {
             return;
         }
 
-        match evaluate_const_expr(&expression).map(|value| match declared_type {
-            Some(ConstDeclaredType::Fund(declared_type)) => value.cast(declared_type),
-            Some(ConstDeclaredType::Real) => unreachable!(),
-            Some(ConstDeclaredType::Named(_)) => unreachable!(),
-            None => value,
+        let declared_scalar = match declared_type.as_ref() {
+            Some(ConstDeclaredType::Fund(fund)) => Some(ScalarType::from_fund(*fund)),
+            Some(ConstDeclaredType::Named(name)) => self.builtin_scalar_type(scope, name),
+            Some(ConstDeclaredType::Real) | None => None,
+        };
+        match self.evaluate_const_expr(&expression).map(|value| {
+            declared_scalar.map_or(value, |ty| value.cast_for_layout(ty, TargetLayout::for_target(self.options.target)))
         }) {
             Ok(value) => {
                 self.symbols.symbols[symbol_id.0].ty = Some(value.value_type());
@@ -3840,12 +3993,7 @@ impl Analyzer {
                         .is_some_and(|id| self.symbols.symbols[id.0].is_volatile);
                 self.symbols.symbols[symbol_id.0].is_volatile =
                     declaration.qualifiers.is_volatile || inherits_volatile;
-                self.record_fixed_array_backing_address(
-                    scope,
-                    symbol_id,
-                    declaration,
-                    entry,
-                );
+                self.record_fixed_array_backing_address(scope, symbol_id, declaration, entry);
                 self.record_declared_array_length(scope, symbol_id, declaration, entry);
             }
             self.validate_initializer_elements(scope, declaration, entry);
@@ -3856,34 +4004,21 @@ impl Analyzer {
         let Some(symbol_id) = self.symbols.lookup_exact(scope, &routine.name) else {
             return;
         };
-        let mut params = Vec::new();
-        for declaration in &routine.params {
-            let ty = self.param_signature_type(scope, declaration);
-            for _ in &declaration.entries {
-                params.push(ty.clone());
-            }
+        let signature = self.resolved_routine_signature(scope, routine);
+        let return_type = signature.return_type.clone();
+        if let Some(return_type) = &return_type
+            && matches!(
+                return_type.kind(),
+                ValueTypeKind::Real | ValueTypeKind::Record(_)
+            )
+        {
+            self.diagnostics.push(Diagnostic::new(
+                routine.span,
+                "function result must be a register-sized scalar or pointer type",
+            ));
         }
-        let return_type = match &routine.kind {
-            RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(self.resolve_routine_result(scope, return_type, routine.span)),
-        };
-        self.symbols.symbols[symbol_id.0].ty = return_type.clone();
-        let kind = return_type.as_ref().and_then(ValueType::routine_result_type)
-            .map(|return_type| RoutineKind::Func { return_type }).unwrap_or_else(|| routine.kind.clone());
-        self.remember_routine_signature(
-            symbol_id,
-            SemanticCallableSignature {
-                kind,
-                params,
-                variadic: None,
-                return_type,
-                source: if routine.is_external {
-                    SemanticCallableSource::Runtime
-                } else {
-                    SemanticCallableSource::User
-                },
-            },
-        );
+        self.symbols.symbols[symbol_id.0].ty = return_type;
+        self.remember_routine_signature(symbol_id, signature);
         if let Some(address) = &routine.system_address {
             self.lower_expr(scope, address);
         }
@@ -3897,7 +4032,8 @@ impl Analyzer {
         fields: &[VarDecl],
     ) {
         let mut field_ids = HashMap::new();
-        let mut offset = 0u16;
+        let mut offset = 0u32;
+        let max_extent = u32::MAX >> (32 - TargetLayout::for_target(self.options.target).size_integer_bits);
         let mut record_alignment = 1;
         for field in fields {
             if field.storage == VarStorage::Array && !self.options.embedded_record_arrays {
@@ -3929,9 +4065,9 @@ impl Analyzer {
                     let Some(length) = self.embedded_array_length(scope, entry) else {
                         continue;
                     };
-                    let Some((stride, size)) = align_u16(element_size, alignment)
+                    let Some((stride, size)) = align_u32(element_size, alignment)
                         .filter(|stride| *stride != 0)
-                        .and_then(|stride| length.checked_mul(stride).map(|size| (stride, size)))
+                        .and_then(|stride| length.checked_mul(stride).filter(|size| *size <= max_extent).map(|size| (stride, size)))
                     else {
                         self.diagnostics.push(Diagnostic::new(
                             entry.span,
@@ -3949,8 +4085,8 @@ impl Analyzer {
                 } else {
                     (RecordFieldStorage::Value, element_size)
                 };
-                let Some((field_offset, end)) = align_u16(offset, alignment)
-                    .and_then(|start| start.checked_add(size).map(|end| (start, end)))
+                let Some((field_offset, end)) = align_u32(offset, alignment)
+                    .and_then(|start| start.checked_add(size).filter(|end| *end <= max_extent).map(|end| (start, end)))
                 else {
                     self.diagnostics.push(Diagnostic::new(
                         entry.span,
@@ -3974,7 +4110,7 @@ impl Analyzer {
                 offset = end;
             }
         }
-        if align_u16(offset, record_alignment).is_none() {
+        if align_u32(offset, record_alignment).filter(|end| *end <= max_extent).is_none() {
             self.diagnostics.push(Diagnostic::new(
                 self.symbols.symbols[owner.0].span,
                 "aligned record storage extent exceeds 65535 bytes",
@@ -3985,7 +4121,7 @@ impl Analyzer {
             .insert(normalize_name(&lookup_name), field_ids);
     }
 
-    fn embedded_array_length(&mut self, scope: ScopeId, entry: &DeclEntry) -> Option<u16> {
+    fn embedded_array_length(&mut self, scope: ScopeId, entry: &DeclEntry) -> Option<u32> {
         let Some(bound) = &entry.size else {
             self.diagnostics.push(Diagnostic::new(
                 entry.span,
@@ -3998,8 +4134,8 @@ impl Analyzer {
         if self.diagnostics.len() != diagnostic_count {
             return None;
         }
-        match evaluate_const_expr(&expression) {
-            Ok(value) if exact_const_value(value) > 0 => Some(value.bits),
+        match self.evaluate_const_expr(&expression) {
+            Ok(value) if exact_const_value(value) > 0 => u32::try_from(value.bits).ok(),
             Ok(_) => {
                 self.diagnostics.push(Diagnostic::new(
                     bound.span,
@@ -4081,6 +4217,7 @@ impl Analyzer {
         let valid_value_type = matches!(field.ty.base, TypeBase::Fund(_) | TypeBase::Callable(_))
             || field.ty.pointer
             || self.value_type_from_type_ref(scope, &field.ty).as_enum().is_some()
+            || matches!(&field.ty.base, TypeBase::Named(name) if self.builtin_scalar_type(scope, name).is_some())
             || self.type_ref_is_record(scope, &field.ty);
         let inline_array = field.storage == VarStorage::Array && self.options.embedded_record_arrays;
         if (!inline_array && field.storage != VarStorage::Plain)
@@ -4109,9 +4246,10 @@ impl Analyzer {
         .is_some_and(|symbol| matches!(symbol.class, SymbolClass::Type | SymbolClass::Record))
     }
 
-    fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_width(&self, value: &ValueType) -> Option<u32> {
         value
             .value_width_bytes_for_layout(TargetLayout::for_target(self.options.target))
+            .map(u32::from)
             .or_else(|| {
                 value
                     .as_record_name()
@@ -4119,7 +4257,7 @@ impl Analyzer {
             })
     }
 
-    fn value_storage_alignment(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_alignment(&self, value: &ValueType) -> Option<u32> {
         let layout = TargetLayout::for_target(self.options.target);
         if layout.record_layout == crate::target::RecordLayoutPolicy::Packed {
             return self.value_storage_width(value).map(|_| 1);
@@ -4129,30 +4267,27 @@ impl Analyzer {
             ValueTypeKind::Scalar(scalar) => Some(
                 scalar
                     .width_bytes()
-                    .min(u16::from(layout.natural_word_alignment_bytes)),
+                    .min(u16::from(layout.natural_word_alignment_bytes))
+                    .into(),
             ),
-            ValueTypeKind::Real => Some(u16::from(layout.natural_word_alignment_bytes)),
-            ValueTypeKind::Pointer(_) => {
-                u16::try_from(layout.data_pointer.alignment_bytes.get()).ok()
-            }
-            ValueTypeKind::CallablePointer(_) => {
-                u16::try_from(layout.code_pointer.alignment_bytes.get()).ok()
-            }
+            ValueTypeKind::Real => Some(u32::from(layout.natural_word_alignment_bytes)),
+            ValueTypeKind::Pointer(_) => Some(layout.data_pointer.alignment_bytes.get()),
+            ValueTypeKind::CallablePointer(_) => Some(layout.code_pointer.alignment_bytes.get()),
             ValueTypeKind::Record(name) => self.record_storage_alignment(&name),
             ValueTypeKind::Error => None,
         }
     }
 
-    fn record_storage_width(&self, name: &str) -> Option<u16> {
+    fn record_storage_width(&self, name: &str) -> Option<u32> {
         let fields = self.field_lookup.get(&normalize_name(name))?;
-        let size = fields.values().try_fold(0u16, |size, id| {
+        let size = fields.values().try_fold(0u32, |size, id| {
             let field = self.fields.get(id.0)?;
             Some(size.max(field.offset.checked_add(field.size)?))
         })?;
-        align_u16(size, self.record_storage_alignment(name)?)
+        align_u32(size, self.record_storage_alignment(name)?)
     }
 
-    fn record_storage_alignment(&self, name: &str) -> Option<u16> {
+    fn record_storage_alignment(&self, name: &str) -> Option<u32> {
         let fields = self.field_lookup.get(&normalize_name(name))?;
         Some(
             fields
@@ -4248,8 +4383,28 @@ impl Analyzer {
         if declaration.storage != VarStorage::Array && !is_string_type_ref(&declaration.ty) {
             return;
         }
-        if let Ok(value) = evaluate_const_expr(&expression) {
-            self.array_lengths.insert(symbol, value.bits);
+        if let Ok(value) = self.evaluate_const_expr(&expression) {
+            let layout = TargetLayout::for_target(self.options.target);
+            let limit = integer_value_limit(layout.size_integer_bits);
+            if value.bits > limit {
+                self.diagnostics.push(Diagnostic::new(
+                    size.span,
+                    format!(
+                        "array length {} does not fit the target's {}-bit SIZE type",
+                        value.bits, layout.size_integer_bits
+                    ),
+                ));
+            } else if let Ok(length) = u32::try_from(value.bits) {
+                self.array_lengths.insert(symbol, length);
+            } else {
+                self.diagnostics.push(Diagnostic::new(
+                    size.span,
+                    format!(
+                        "array length {} exceeds the compiler layout range",
+                        value.bits
+                    ),
+                ));
+            }
         }
     }
 
@@ -4323,7 +4478,7 @@ impl Analyzer {
                     if leaves_per_element > 0
                         && let Some(width) = self.value_storage_width(&element_type)
                         && elements.len().div_ceil(leaves_per_element)
-                            .checked_mul(usize::from(width))
+                            .checked_mul(width as usize)
                             .is_none_or(|extent| extent > usize::from(u16::MAX))
                     {
                         self.diagnostics.push(Diagnostic::new(initializer.span,
@@ -4348,10 +4503,7 @@ impl Analyzer {
                     {
                         self.diagnostics.push(Diagnostic::new(
                             element.span,
-                            format!(
-                                "too many initializer elements for record `{}`",
-                                entry.name
-                            ),
+                            format!("too many initializer elements for record `{}`", entry.name),
                         ));
                         continue;
                     }
@@ -4417,12 +4569,12 @@ impl Analyzer {
                         } | InitializerElementKind::SubobjectAddress { selector, .. } => {
                             let target_layout =
                                 TargetLayout::for_target(self.options.target);
-                            let expected_width = if selector.is_some() {
+                            let expected_width: u32 = if selector.is_some() {
                                 1
                             } else if destination_type.as_callable_pointer().is_some() {
-                                target_layout.code_pointer.size_bytes.get() as u16
+                                target_layout.code_pointer.size_bytes.get()
                             } else if destination_type.is_pointer() {
-                                target_layout.data_pointer.size_bytes.get() as u16
+                                target_layout.data_pointer.size_bytes.get()
                             } else {
                                 2
                             };
@@ -4568,14 +4720,19 @@ impl Analyzer {
     }
 
     fn validate_type_ref(&mut self, scope: ScopeId, ty: &TypeRef, span: Span) {
-        if let TypeBase::Callable(RoutineKind::Func { return_type }) = &ty.base {
-            self.resolve_routine_result(scope, return_type, span);
+        if let TypeBase::Callable(callable) = &ty.base {
+            if let RoutineKind::Func { return_type } = &callable.kind {
+                self.resolve_routine_result(scope, return_type, span);
+            }
+            for param in &callable.params { self.validate_type_ref(scope, &param.ty, span); }
         }
         let TypeBase::Named(name) = &ty.base else {
             return;
         };
 
-        if self.is_sys_native_real_type(scope, name) {
+        if self.builtin_scalar_type(scope, name).is_some()
+            || self.is_sys_native_real_type(scope, name)
+        {
             return;
         }
 
@@ -4614,16 +4771,35 @@ impl Analyzer {
     }
 
     fn value_type_from_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
-        if let TypeBase::Callable(RoutineKind::Func { return_type }) = &ty.base {
-            let result = self.value_type_from_type_ref(scope, &return_type.type_ref());
+        if let TypeBase::Callable(callable) = &ty.base {
+            let params = callable.params.iter().map(|param| {
+                let ty = self.value_type_from_type_ref(scope, &param.ty);
+                if param.storage == VarStorage::Array || is_string_type_ref(&param.ty) {
+                    ValueType::pointer_to(ty)
+                } else {
+                    ty
+                }
+            });
+            let return_type = match &callable.kind {
+                RoutineKind::Proc => None,
+                RoutineKind::Func { return_type } => {
+                    Some(self.value_type_from_type_ref(scope, return_type))
+                }
+            };
             return ValueType::callable_pointer(CallableType::new(
-                RoutineKind::Func { return_type: return_type.clone() }, Vec::new(), Some(result),
+                callable.kind.clone(),
+                params,
+                return_type,
             ));
         }
         let mut value = ValueType::from_type_ref(ty);
         let TypeBase::Named(name) = &ty.base else {
             return value;
         };
+        if let Some(scalar) = self.builtin_scalar_type(scope, name) {
+            value.base = ValueTypeBase::Fund(scalar.fund_type());
+            return value;
+        }
         if self.is_sys_native_real_type(scope, name) {
             value.base = ValueTypeBase::Real;
             return value;
@@ -4662,12 +4838,64 @@ impl Analyzer {
             .is_some_and(|module| module.path.canonical_name() == "sys")
     }
 
+    fn builtin_scalar_type(&self, scope: ScopeId, name: &QualifiedName) -> Option<ScalarType> {
+        let scalar = match name.components.last()?.to_ascii_uppercase().as_str() {
+            "LONGINT" => ScalarType::LongInt,
+            "LONGCARD" => ScalarType::LongCard,
+            "ADDRESS" => ScalarType::Address,
+            "SIZE" => ScalarType::Size,
+            _ => return None,
+        };
+        if name.components.len() == 2 && name.components[0].eq_ignore_ascii_case("SYS") {
+            return Some(scalar);
+        }
+        if name.components.len() != 1 {
+            return None;
+        }
+        matches!(
+            resolve_semantic_name(&self.symbols, &self.modules, scope, name),
+            SemanticNameResolution::Unknown
+        )
+        .then_some(scalar)
+    }
+
     fn param_signature_type(&self, scope: ScopeId, parameter: &VarDecl) -> ValueType {
         let ty = self.value_type_from_type_ref(scope, &parameter.ty);
         if parameter.storage == VarStorage::Array || is_string_type_ref(&parameter.ty) {
             ValueType::pointer_to(ty)
         } else {
             ty
+        }
+    }
+
+    fn resolved_routine_signature(
+        &self,
+        scope: ScopeId,
+        routine: &Routine,
+    ) -> SemanticCallableSignature {
+        let mut params = Vec::new();
+        for declaration in &routine.params {
+            let ty = self.param_signature_type(scope, declaration);
+            for _ in &declaration.entries {
+                params.push(ty.clone());
+            }
+        }
+        let return_type = match &routine.kind {
+            RoutineKind::Proc => None,
+            RoutineKind::Func { return_type } => {
+                Some(self.value_type_from_type_ref(scope, return_type))
+            }
+        };
+        SemanticCallableSignature {
+            kind: routine.kind.clone(),
+            params,
+            variadic: None,
+            return_type,
+            source: if routine.is_external {
+                SemanticCallableSource::Runtime
+            } else {
+                SemanticCallableSource::User
+            },
         }
     }
 
@@ -4966,6 +5194,16 @@ fn is_qualified_only_sys_extension(name: &str) -> bool {
     )
 }
 
+fn contextual_scalar_type_name(name: &str) -> Option<ScalarType> {
+    match name.to_ascii_uppercase().as_str() {
+        "LONGINT" => Some(ScalarType::LongInt),
+        "LONGCARD" => Some(ScalarType::LongCard),
+        "ADDRESS" => Some(ScalarType::Address),
+        "SIZE" => Some(ScalarType::Size),
+        _ => None,
+    }
+}
+
 impl ValueType {
     pub fn error() -> Self {
         Self {
@@ -4982,9 +5220,19 @@ impl ValueType {
                 ValueTypeBase::Fund(FundType::Char)
             }
             TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
-            TypeBase::Callable(kind) => ValueTypeBase::Callable(Box::new(
-                CallableType::from_routine_kind(kind.clone(), Vec::new()),
-            )),
+            TypeBase::Callable(callable) => {
+                ValueTypeBase::Callable(Box::new(CallableType::from_routine_kind(
+                    callable.kind.clone(),
+                    callable.params.iter().map(|param| {
+                        let ty = ValueType::from_type_ref(&param.ty);
+                        if param.storage == VarStorage::Array {
+                            ValueType::pointer_to(ty)
+                        } else {
+                            ty
+                        }
+                    }),
+                )))
+            }
         };
 
         Self {
@@ -5010,7 +5258,21 @@ impl SemanticCallableSignature {
 
         let return_type = match &routine.kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
+            RoutineKind::Func { return_type } => Some(match &return_type.base {
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("LONGINT") => {
+                    ValueType::scalar(ScalarType::LongInt)
+                }
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("LONGCARD") => {
+                    ValueType::scalar(ScalarType::LongCard)
+                }
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("ADDRESS") => {
+                    ValueType::scalar(ScalarType::Address)
+                }
+                TypeBase::Named(name) if name.to_string().eq_ignore_ascii_case("SIZE") => {
+                    ValueType::scalar(ScalarType::Size)
+                }
+                _ => ValueType::from_type_ref(return_type),
+            }),
         };
 
         Self {
@@ -5042,6 +5304,13 @@ fn callable_kind_from_symbol(symbol: &Symbol) -> RoutineKind {
 
 fn fund_value(fund: FundType) -> ValueType {
     ValueType::fund(fund)
+}
+
+fn fund_type_ref(fund: FundType) -> TypeRef {
+    TypeRef {
+        base: TypeBase::Fund(fund),
+        pointer: false,
+    }
 }
 
 fn static_subject_real(expr: &subject::SemExpr) -> Option<crate::atari_real::AtariReal> {
@@ -5142,8 +5411,8 @@ fn constant_binary_result(
     if !matches!(op, BinaryOp::Add | BinaryOp::Sub) {
         return None;
     }
-    let left = evaluate_const_expr(left).ok()?.bits;
-    let right = evaluate_const_expr(right).ok()?.bits;
+    let left = evaluate_const_expr(left).ok()?.bits as u16;
+    let right = evaluate_const_expr(right).ok()?.bits as u16;
     Some(match op {
         BinaryOp::Add => left.wrapping_add(right),
         BinaryOp::Sub => left.wrapping_sub(right),
@@ -5179,7 +5448,7 @@ fn evaluate_exact_fixed_address_expr(
     match &expr.kind {
         subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
             .value
-            .map(i64::from)
+            .and_then(|value| i64::try_from(value).ok())
             .ok_or(FixedArrayAddressError::Invalid),
         subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => source_char_byte(*ch)
             .map(i64::from)
@@ -5232,12 +5501,12 @@ fn evaluate_exact_fixed_address_expr(
                 BinaryOp::Mod if right != 0 => Ok(left % right),
                 BinaryOp::Div | BinaryOp::Mod => Err(FixedArrayAddressError::Invalid),
                 BinaryOp::Lsh | BinaryOp::Rsh => {
-                    let shift = u32::try_from(right).map_err(|_| FixedArrayAddressError::Invalid)?;
+                    let shift =
+                        u32::try_from(right).map_err(|_| FixedArrayAddressError::Invalid)?;
                     if shift >= 16 {
                         return Ok(0);
                     }
-                    let bits = u16::try_from(left)
-                        .map_err(|_| FixedArrayAddressError::Overflow)?;
+                    let bits = u16::try_from(left).map_err(|_| FixedArrayAddressError::Overflow)?;
                     Ok(i64::from(if *op == BinaryOp::Lsh {
                         bits.wrapping_shl(shift)
                     } else {
@@ -5277,23 +5546,23 @@ fn evaluate_exact_fixed_address_expr(
 
 fn exact_const_value(value: ConstValue) -> i64 {
     if value.ty.signedness() == ScalarSignedness::Signed {
-        if value.ty.width_bytes() == 1 {
-            i64::from(value.bits as u8 as i8)
-        } else {
-            i64::from(value.bits as i16)
+        match value.ty.width_bytes() {
+            1 => i64::from(value.bits as u8 as i8),
+            2 => i64::from(value.bits as u16 as i16),
+            _ => i64::from(value.bits as u32 as i32),
         }
     } else if value.ty.width_bytes() == 1 {
         i64::from(value.bits as u8)
     } else {
-        i64::from(value.bits)
+        value.bits as i64
     }
 }
 
 fn exact_scalar_cast(value: i64, target: ScalarType) -> i64 {
-    let modulus = if target.width_bytes() == 1 {
-        0x100_i64
-    } else {
-        0x1_0000_i64
+    let modulus = match target.width_bytes() {
+        1 => 0x100_i64,
+        2 => 0x1_0000_i64,
+        _ => 0x1_0000_0000_i64,
     };
     let bits = value.rem_euclid(modulus);
     if target.signedness() == ScalarSignedness::Signed && bits >= modulus / 2 {
@@ -5304,11 +5573,21 @@ fn exact_scalar_cast(value: i64, target: ScalarType) -> i64 {
 }
 
 fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
+    evaluate_const_expr_for_layout(expr, TargetLayout::default())
+}
+
+impl Analyzer {
+    fn evaluate_const_expr(&self, expr: &subject::SemExpr) -> Result<ConstValue, String> {
+        evaluate_const_expr_for_layout(expr, TargetLayout::for_target(self.options.target))
+    }
+}
+
+fn evaluate_const_expr_for_layout(expr: &subject::SemExpr, layout: TargetLayout) -> Result<ConstValue, String> {
     let scalar = expr
         .ty
         .representation_scalar()
         .ok_or_else(|| "CONST expression must produce a scalar value".to_string())?;
-    let mask = scalar_mask(scalar);
+    let mask = scalar_mask_for_layout(scalar, layout);
     let bits = match &expr.kind {
         subject::SemExprKind::Literal(subject::SemLiteral::Number(number)) => number
             .value
@@ -5316,21 +5595,21 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
         subject::SemExprKind::Literal(subject::SemLiteral::Real { .. }) => {
             return Err("real values are not supported in CONST expressions".to_string());
         }
-        subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => u16::from(
+        subject::SemExprKind::Literal(subject::SemLiteral::Char(ch)) => u64::from(
             source_char_byte(*ch)
                 .ok_or_else(|| "character cannot be represented as an Action! byte".to_string())?,
         ),
         subject::SemExprKind::Literal(subject::SemLiteral::Constant(value)) => value.bits,
-        subject::SemExprKind::Literal(subject::SemLiteral::Enum(value)) => u16::from(value.bits),
+        subject::SemExprKind::Literal(subject::SemLiteral::Enum(value)) => u64::from(value.bits),
         subject::SemExprKind::Literal(subject::SemLiteral::String(_)) => {
             return Err("strings are not supported in CONST expressions".to_string());
         }
-        subject::SemExprKind::Cast { expr: inner, .. } => evaluate_const_expr(inner)?.bits,
+        subject::SemExprKind::Cast { expr: inner, .. } => evaluate_const_expr_for_layout(inner, layout)?.cast_for_layout(scalar, layout).bits,
         subject::SemExprKind::Unary { op, expr: inner } => {
-            let value = evaluate_const_expr(inner)?.bits;
+            let value = evaluate_const_expr_for_layout(inner, layout)?.cast_for_layout(scalar, layout).bits;
             match op {
                 UnaryOp::Plus => value,
-                UnaryOp::Neg => 0u16.wrapping_sub(value),
+                UnaryOp::Neg => 0u64.wrapping_sub(value),
                 UnaryOp::AddressOf | UnaryOp::Deref => {
                     return Err(
                         "address and pointer operations are not supported in CONST expressions"
@@ -5340,34 +5619,36 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
             }
         }
         subject::SemExprKind::Binary { op, left, right } => {
-            let left_value = evaluate_const_expr(left)?;
-            let right_value = evaluate_const_expr(right)?;
-            let signed =
-                ScalarType::promote_binary(left_value.ty, right_value.ty) == ScalarType::Int;
+            let left_value = evaluate_const_expr_for_layout(left, layout)?;
+            let right_value = evaluate_const_expr_for_layout(right, layout)?;
+            let domain = if is_condition_op(*op) {
+                ScalarType::promote_binary(left_value.ty, right_value.ty)
+            } else { scalar };
+            let left_value = left_value.cast_for_layout(domain, layout);
+            let right_value = right_value.cast_for_layout(domain, layout);
             let left = left_value.bits;
             let right = right_value.bits;
+            let width = scalar_bits_for_layout(domain, layout);
             match op {
                 BinaryOp::Add => left.wrapping_add(right),
                 BinaryOp::Sub => left.wrapping_sub(right),
                 BinaryOp::Mul => left.wrapping_mul(right),
-                BinaryOp::Div if right != 0 => integer::divmod(scalar, left, right)
+                BinaryOp::Div => integer::divmod_bits(width, domain.signedness() == ScalarSignedness::Signed, left, right)
                     .map_err(|_| "division by zero in CONST expression".to_string())?.quotient,
-                BinaryOp::Mod if right != 0 => integer::divmod(scalar, left, right)
+                BinaryOp::Mod => integer::divmod_bits(width, domain.signedness() == ScalarSignedness::Signed, left, right)
                     .map_err(|_| "modulo by zero in CONST expression".to_string())?.remainder,
-                BinaryOp::Div => return Err("division by zero in CONST expression".to_string()),
-                BinaryOp::Mod => return Err("modulo by zero in CONST expression".to_string()),
                 BinaryOp::Lsh => {
-                    if right >= 16 {
+                    if right >= u64::from(width) {
                         0
                     } else {
-                        left.wrapping_shl(u32::from(right))
+                        left.wrapping_shl(right as u32)
                     }
                 }
                 BinaryOp::Rsh => {
-                    if right >= 16 {
+                    if right >= u64::from(width) {
                         0
                     } else {
-                        left.wrapping_shr(u32::from(right))
+                        left.wrapping_shr(right as u32)
                     }
                 }
                 BinaryOp::And => left & right,
@@ -5379,12 +5660,8 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
                 | BinaryOp::Le
                 | BinaryOp::Gt
                 | BinaryOp::Ge => {
-                    let (left, right) = if signed {
-                        (i32::from(left as i16), i32::from(right as i16))
-                    } else {
-                        (i32::from(left), i32::from(right))
-                    };
-                    u16::from(match op {
+                    let (left, right) = (exact_const_value(left_value), exact_const_value(right_value));
+                    u64::from(match op {
                         BinaryOp::Eq => left == right,
                         BinaryOp::Ne => left != right,
                         BinaryOp::Lt => left < right,
@@ -5416,12 +5693,20 @@ fn evaluate_const_expr(expr: &subject::SemExpr) -> Result<ConstValue, String> {
     })
 }
 
-fn scalar_mask(ty: ScalarType) -> u16 {
-    if ty.width_bytes() == 1 {
-        0x00FF
-    } else {
-        0xFFFF
+fn scalar_mask(ty: ScalarType) -> u64 {
+    scalar_mask_for_layout(ty, TargetLayout::default())
+}
+
+fn scalar_bits_for_layout(ty: ScalarType, layout: TargetLayout) -> u8 {
+    match ty {
+        ScalarType::Address => layout.address_integer_bits,
+        ScalarType::Size => layout.size_integer_bits,
+        _ => (ty.width_bytes() * 8) as u8,
     }
+}
+
+fn scalar_mask_for_layout(ty: ScalarType, layout: TargetLayout) -> u64 {
+    u64::MAX >> (64 - scalar_bits_for_layout(ty, layout))
 }
 
 fn storage_alias_source_name(expr: &Expr) -> Option<&str> {
@@ -5762,13 +6047,21 @@ fn normalize_name(name: &str) -> String {
     name.to_ascii_uppercase()
 }
 
-fn align_u16(value: u16, alignment: u16) -> Option<u16> {
+fn align_u32(value: u32, alignment: u32) -> Option<u32> {
     if alignment <= 1 {
         return Some(value);
     }
     value
-        .checked_add(alignment - 1)
-        .map(|value| value / alignment * alignment)
+        .checked_add(u32::from(alignment - 1))
+        .map(|value| value / u32::from(alignment) * u32::from(alignment))
+}
+
+fn integer_value_limit(bits: u8) -> u64 {
+    if bits >= 64 {
+        u64::MAX
+    } else {
+        (1_u64 << bits) - 1
+    }
 }
 
 fn collect_retargeted_routine_names(program: &Program) -> HashSet<String> {
@@ -6210,8 +6503,8 @@ mod tests {
                  ENDMODULE\n",
             ),
             (
-                 "project/lib/data.act",
-                 "MODULE LIB.DATA\n\
+                "project/lib/data.act",
+                "MODULE LIB.DATA\n\
                  PUBLIC CONST BYTE Width=4\n\
                  PUBLIC CONST CARD Base=$8410\n\
                  PUBLIC VOLATILE BYTE Register=$D400\n\
@@ -6227,7 +6520,10 @@ mod tests {
         let register = data.public_symbol("Register").unwrap();
         assert!(model.symbols.symbols[register.0].is_volatile);
         let app_model = named_module(&model, "APP");
-        let buffer = model.symbols.lookup_exact(app_model.scope, "buffer").unwrap();
+        let buffer = model
+            .symbols
+            .lookup_exact(app_model.scope, "buffer")
+            .unwrap();
         assert_eq!(
             model.fixed_array_backing_addresses.get(&buffer),
             Some(&0x83F1)
@@ -6277,18 +6573,24 @@ mod tests {
         let overflow = analyze_source_err(
             "CONST CARD Base=$FFFF BYTE ARRAY data(4)=Base+1 PROC Main() RETURN",
         );
-        assert!(overflow.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("fixed array backing address for `data` is outside the 16-bit address space")),
+        assert!(
+            overflow
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(
+                    "fixed array backing address for `data` is outside the 16-bit address space"
+                )),
             "{overflow:?}"
         );
 
         let runtime = analyze_source_err(
             "CARD FUNC Address() RETURN($8000) BYTE ARRAY data(4)=Address() PROC Main() RETURN",
         );
-        assert!(runtime.iter().any(|diagnostic| diagnostic.message.contains(
-            "fixed array backing address for `data` must be a compile-time scalar expression"
-        )), "{runtime:?}");
+        assert!(
+            runtime.iter().any(|diagnostic| diagnostic.message.contains(
+                "fixed array backing address for `data` must be a compile-time scalar expression"
+            )),
+            "{runtime:?}"
+        );
     }
 
     #[test]
@@ -6488,7 +6790,7 @@ mod tests {
             value("Difference"),
             ConstValue {
                 ty: ScalarType::Int,
-                bits: u16::MAX,
+                bits: u64::from(u16::MAX),
             }
         );
         assert_eq!(
@@ -6509,7 +6811,7 @@ mod tests {
             value("ExplicitDifference"),
             ConstValue {
                 ty: ScalarType::Byte,
-                bits: u16::from(u8::MAX),
+                bits: u64::from(u8::MAX),
             }
         );
         assert_eq!(
@@ -6530,7 +6832,7 @@ mod tests {
             value("TruncatedDifference"),
             ConstValue {
                 ty: ScalarType::Byte,
-                bits: u16::from(u8::MAX),
+                bits: u64::from(u8::MAX),
             }
         );
     }
@@ -6573,7 +6875,7 @@ mod tests {
             constant("Negative"),
             ConstValue {
                 ty: ScalarType::Int,
-                bits: (-300i16) as u16,
+                bits: u64::from((-300i16) as u16),
             }
         );
         assert_eq!(constant("Inferred").ty, ScalarType::Card);
@@ -7638,7 +7940,7 @@ mod tests {
         assert_eq!(
             signature.kind,
             RoutineKind::Func {
-                return_type: FundType::Byte.into()
+                return_type: Box::new(fund_type_ref(FundType::Byte))
             }
         );
         assert_eq!(
@@ -7721,9 +8023,7 @@ mod tests {
 
     #[test]
     fn record_fields_accept_pointer_and_callable_values_but_not_inline_arrays() {
-        analyze_source(
-            "TYPE Pair=[BYTE tag CHAR POINTER ptr PROC POINTER callback] Pair value",
-        );
+        analyze_source("TYPE Pair=[BYTE tag CHAR POINTER ptr PROC POINTER callback] Pair value");
         let err = analyze_source_err("TYPE Pair=[BYTE ARRAY bytes(4)]");
         assert!(
             err[0]
@@ -7892,51 +8192,34 @@ mod tests {
                       Matrix ARRAY rows(2)";
         let cases = [
             (TargetId::Atari6502, 11, 1, 0, 1, 3, 5, 7, 10, 11, 22),
-            (
-                TargetId::Wdc65816Native,
-                16,
-                2,
-                1,
-                2,
-                4,
-                7,
-                10,
-                14,
-                16,
-                32,
-            ),
-            (
-                TargetId::Wdc65816Small,
-                14,
-                2,
-                1,
-                2,
-                4,
-                6,
-                8,
-                12,
-                14,
-                28,
-            ),
-            (
-                TargetId::Motorola68000,
-                18,
-                2,
-                1,
-                2,
-                4,
-                8,
-                12,
-                16,
-                18,
-                36,
-            ),
+            (TargetId::Wdc65816Native, 16, 2, 1, 2, 4, 7, 10, 14, 16, 32),
+            (TargetId::Wdc65816Small, 14, 2, 1, 2, 4, 6, 8, 12, 14, 28),
+            (TargetId::Motorola68000, 18, 2, 1, 2, 4, 8, 12, 16, 18, 36),
         ];
 
-        for (target, size, alignment, tail_padding, word, data, callback, nested, tail, stride, total) in cases {
+        for (
+            target,
+            size,
+            alignment,
+            tail_padding,
+            word,
+            data,
+            callback,
+            nested,
+            tail,
+            stride,
+            total,
+        ) in cases
+        {
             let model = analyze_source_target(source, target);
-            let matrix = model.layout.record_for_name("Matrix").expect("matrix layout");
-            assert_eq!((matrix.size, matrix.alignment, matrix.tail_padding), (size, alignment, tail_padding));
+            let matrix = model
+                .layout
+                .record_for_name("Matrix")
+                .expect("matrix layout");
+            assert_eq!(
+                (matrix.size, matrix.alignment, matrix.tail_padding),
+                (size, alignment, tail_padding)
+            );
             let offset = |name: &str| {
                 matrix
                     .fields
@@ -7946,7 +8229,13 @@ mod tests {
                     .expect("matrix field")
             };
             assert_eq!(
-                (offset("word"), offset("data"), offset("callback"), offset("nested"), offset("tail")),
+                (
+                    offset("word"),
+                    offset("data"),
+                    offset("callback"),
+                    offset("nested"),
+                    offset("tail")
+                ),
                 (word, data, callback, nested, tail),
             );
             let rows = model
@@ -7954,7 +8243,10 @@ mod tests {
                 .lookup(model.symbols.global_scope(), "rows")
                 .expect("rows");
             let array = model.layout.array_for_symbol(rows).expect("array layout");
-            assert_eq!((array.element_size, array.stride, array.storage_size), (size, stride, Some(total)));
+            assert_eq!(
+                (array.element_size, array.stride, array.storage_size),
+                (size, stride, Some(total))
+            );
         }
     }
 
@@ -9486,14 +9778,17 @@ mod tests {
         assert_eq!(
             routines[1].signature.kind,
             RoutineKind::Func {
-                return_type: FundType::Card.into()
+                return_type: Box::new(fund_type_ref(FundType::Card))
             }
         );
         assert_eq!(
             routines[1].signature.params,
             vec![fund_value(FundType::Byte), fund_value(FundType::Card)]
         );
-        assert_eq!(routines[1].signature.return_type, Some(fund_value(FundType::Card)));
+        assert_eq!(
+            routines[1].signature.return_type,
+            Some(fund_value(FundType::Card))
+        );
         assert_semir_types_complete(&ir);
     }
 
@@ -9969,21 +10264,27 @@ mod tests {
         let errors = analyze_source_err(
             "BYTE ARRAY values CARD result PROC Main() result=ELEMENTS(values) RETURN",
         );
-        assert!(errors.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("unsized or pointer-backed array")));
+        assert!(errors.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("unsized or pointer-backed array")
+        }));
 
         let errors = analyze_source_err("CARD result PROC Main() result=SIZEOF(1) RETURN");
-        assert!(errors.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("expects a type or addressable object")));
+        assert!(errors.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("expects a type or addressable object")
+        }));
 
         let errors = analyze_source_err(
             "TYPE Pair=[BYTE tag] CARD result PROC Main() result=OFFSETOF(Pair,missing) RETURN",
         );
-        assert!(errors
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("has no field `missing`")));
+        assert!(
+            errors
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("has no field `missing`"))
+        );
     }
 
     #[test]

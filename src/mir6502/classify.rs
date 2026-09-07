@@ -1,4 +1,5 @@
 use crate::nir::{NirPlace, NirPlaceKind, NirValue};
+use crate::target::ByteSize;
 
 use super::ir::MirMem;
 use crate::nir::SymbolId;
@@ -81,8 +82,15 @@ pub(super) fn classify_place(place: &NirPlace) -> MirPlaceShape {
 
 pub(super) fn classify_value(value: &NirValue) -> MirValueShape {
     match value {
-        NirValue::ConstU8(value) => MirValueShape::ConstByte(*value),
-        NirValue::ConstU16(value) => MirValueShape::ConstWord(*value),
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
+            MirValueShape::ConstByte(*bits as u8)
+        }
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::new(2) => {
+            MirValueShape::ConstWord(*bits as u16)
+        }
+        NirValue::IntegerConst { .. } => {
+            unreachable!("verified Atari NIR integer fits in one or two bytes")
+        }
         NirValue::Null { .. } => MirValueShape::ConstWord(0),
         NirValue::AddressConst { address, .. } => MirValueShape::ConstWord(
             u16::try_from(address.value).expect("verified Atari NIR address fits in 16 bits"),

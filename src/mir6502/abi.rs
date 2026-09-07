@@ -89,7 +89,8 @@ pub(super) fn mir_memory_effect(effect: &NirMemoryAccess) -> MirMemoryEffect {
                         NirMemoryRegionKind::Static(id) => MirMemoryRegionKind::Static(id),
                         NirMemoryRegionKind::AbsoluteRange(space)
                             if space == crate::target::TargetLayout::DATA_ADDRESS_SPACE
-                                && region.offset.get().saturating_add(region.size.get()) <= 0x100 =>
+                                && region.offset.get().saturating_add(region.size.get())
+                                    <= 0x100 =>
                         {
                             MirMemoryRegionKind::ZeroPage
                         }

@@ -2,6 +2,7 @@ use std::fmt::Write as _;
 
 use super::facts::{BlockId, NirStorageId, NirValue, TempId};
 use super::ir::*;
+use crate::target::ByteSize;
 
 #[derive(Default)]
 pub(super) struct NirPrinter {
@@ -264,9 +265,9 @@ fn global_init_suffix(init: Option<&NirGlobalInit>) -> String {
             width,
             mutable,
             section,
-        } => format!(
-            " init link_value={value:?} width={width} section={section} mutable={mutable}"
-        ),
+        } => {
+            format!(" init link_value={value:?} width={width} section={section} mutable={mutable}")
+        }
         NirGlobalInit::RoutineAddress {
             routine,
             descriptor_size,
@@ -846,8 +847,10 @@ fn edge_summary(edge: &NirEdge, labels: &std::collections::BTreeMap<BlockId, &st
 
 fn value_summary(value: &NirValue) -> String {
     match value {
-        NirValue::ConstU8(value) => value.to_string(),
-        NirValue::ConstU16(value) => format!("${value:X}"),
+        NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
+            bits.to_string()
+        }
+        NirValue::IntegerConst { bits, .. } => format!("${bits:X}"),
         NirValue::Null { .. } => "$0".to_string(),
         NirValue::AddressConst { address, .. } => format!("${address:X}"),
         NirValue::StaticAddr { name, .. } => format!("&{name}"),

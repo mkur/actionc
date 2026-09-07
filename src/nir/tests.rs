@@ -62,7 +62,10 @@ fn runtime_helper_sets_become_verified_program_bindings() {
     verify_program(&program).expect("runtime helper binding NIR should verify");
 
     assert!(
-        program.routines.iter().all(|routine| routine.name != "<program>"),
+        program
+            .routines
+            .iter()
+            .all(|routine| routine.name != "<program>"),
         "a metadata-only SET must not create an executable routine"
     );
     assert_eq!(program.runtime_bindings.len(), 1);
@@ -95,15 +98,10 @@ fn verifier_rejects_runtime_symbol_identity_mismatches() {
 fn verifier_rejects_6502_foreign_code_for_other_targets() {
     for (source, kind) in [
         ("PROC Main() [$60]", "machine block"),
-        (
-            "PROC Main()\nASM\n  NOP\nENDASM\nRETURN",
-            "inline assembly",
-        ),
+        ("PROC Main()\nASM\n  NOP\nENDASM\nRETURN", "inline assembly"),
     ] {
-        let program = lower_modern_source_for_target(
-            source,
-            crate::target::TargetId::Motorola68000,
-        );
+        let program =
+            lower_modern_source_for_target(source, crate::target::TargetId::Motorola68000);
         let diagnostics = verify_program(&program).expect_err("6502 payload must be rejected");
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.message.contains(kind)
@@ -368,7 +366,7 @@ fn mixed_scalar_comparison_widens_negative_literal_to_word() {
             _ => None,
         })
         .expect("optimized word comparison");
-    assert_eq!(right, &NirValue::ConstU16(0xFFC0));
+    assert_eq!(right, &NirValue::integer_const(0xFFC0, NirIntegerType::I16));
 }
 
 #[test]
@@ -453,7 +451,9 @@ fn cartridge_integer_arithmetic_types_survive_semir_and_nir_lowering() {
         .flat_map(|block| &block.ops)
         .filter_map(|op| match op {
             NirOp::Store { src, .. } => match src {
-                NirValue::ConstU8(value) => Some(*value),
+                NirValue::IntegerConst { bits, ty } if *ty == NirIntegerType::U8 => {
+                    Some(*bits as u8)
+                }
                 _ => None,
             },
             _ => None,
@@ -623,14 +623,18 @@ fn optimizer_folds_constant_int_comparisons_as_signed() {
         .flat_map(|block| &block.ops)
         .filter_map(|op| match op {
             NirOp::Store {
-                src: NirValue::ConstU8(value),
+                src:
+                    NirValue::IntegerConst {
+                        bits: value,
+                        ty: NirIntegerType::U8,
+                    },
                 place:
                     NirPlace {
                         kind: NirPlaceKind::Global { name, .. },
                         ..
                     },
                 ..
-            } if name == "result" => Some(*value),
+            } if name == "result" => Some(*value as u8),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -781,9 +785,8 @@ fn lexical_blocks_lower_shadowed_storage_by_stable_local_id() {
 
 #[test]
 fn focused_lexical_declaration_fixtures_preserve_storage_and_type_facts() {
-    let storage_program = lower_modern_source(include_str!(
-        "../../fixtures/nir/local_storage_views.act"
-    ));
+    let storage_program =
+        lower_modern_source(include_str!("../../fixtures/nir/local_storage_views.act"));
     verify_program(&storage_program).expect("local storage-view NIR should verify");
     let storage_routine = storage_program
         .routines
@@ -881,9 +884,8 @@ fn focused_lexical_declaration_fixtures_preserve_storage_and_type_facts() {
             )
     ));
 
-    let scopes_program = lower_modern_source(include_str!(
-        "../../fixtures/nir/lexical_type_scopes.act"
-    ));
+    let scopes_program =
+        lower_modern_source(include_str!("../../fixtures/nir/lexical_type_scopes.act"));
     verify_program(&scopes_program).expect("lexical type-scope NIR should verify");
     let scopes_routine = scopes_program
         .routines
@@ -1165,8 +1167,15 @@ fn aggregate_layout_facts_reach_nir_without_semir_reconstruction() {
             .find(|global| global.name.eq_ignore_ascii_case("rows"))
             .expect("record array");
         assert_eq!(rows.storage_size, ByteSize::new(size * 2));
-        assert_eq!(rows.array.as_ref().map(|array| array.elem_size), Some(ByteSize::new(size)));
-        let main = program.routines.iter().find(|routine| routine.name == "Main").expect("Main");
+        assert_eq!(
+            rows.array.as_ref().map(|array| array.elem_size),
+            Some(ByteSize::new(size))
+        );
+        let main = program
+            .routines
+            .iter()
+            .find(|routine| routine.name == "Main")
+            .expect("Main");
         assert!(main.blocks.iter().flat_map(|block| &block.ops).any(|op| {
             matches!(op, NirOp::Store { place: NirPlace { kind: NirPlaceKind::Field { offset, .. }, .. }, .. }
                 if *offset == ByteOffset::new(tail_offset))
@@ -1224,19 +1233,40 @@ fn callable_types_have_stable_structural_signature_ids() {
     };
 
     assert_eq!(id(first), id(same));
-    assert_ne!(id(different), id(crate::semantic::CallableType::unknown_proc()));
+    assert_ne!(
+        id(different),
+        id(crate::semantic::CallableType::unknown_proc())
+    );
 }
 
 #[test]
 fn pointer_arithmetic_lowers_to_a_distinct_pointer_offset_operation() {
     let program = lower_modern_source("BYTE POINTER data PROC Main() data=data+1 RETURN");
     verify_program(&program).expect("pointer offset NIR should verify");
-    assert!(program.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
-        matches!(op, NirOp::PointerOffset { subtract: false, .. })
-    }));
-    assert!(!program.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
-        matches!(op, NirOp::Binary { ty, .. } if ty.kind.is_pointer())
-    }));
+    assert!(
+        program
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .any(|op| {
+                matches!(
+                    op,
+                    NirOp::PointerOffset {
+                        subtract: false,
+                        ..
+                    }
+                )
+            })
+    );
+    assert!(
+        !program
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .any(|op| { matches!(op, NirOp::Binary { ty, .. } if ty.kind.is_pointer()) })
+    );
 
     let native = lower_modern_source_for_target(
         "BYTE POINTER data PROC Main() data=data+1 RETURN",
@@ -1252,10 +1282,17 @@ fn native_pointer_integer_conversions_are_explicit_and_checked() {
         crate::target::TargetId::Motorola68000,
     );
     verify_program(&constant).expect("a fitting numeric address constant is portable");
-    assert!(constant.routines.iter().flat_map(|routine| &routine.blocks).flat_map(|block| &block.ops).any(|op| {
-        matches!(op, NirOp::Store { src: NirValue::AddressConst { address, ty }, .. }
+    assert!(
+        constant
+            .routines
+            .iter()
+            .flat_map(|routine| &routine.blocks)
+            .flat_map(|block| &block.ops)
+            .any(|op| {
+                matches!(op, NirOp::Store { src: NirValue::AddressConst { address, ty }, .. }
             if address.value == 0x1234 && ty.width == Some(ByteSize::new(4)))
-    }));
+            })
+    );
 
     for target in [
         crate::target::TargetId::Wdc65816Native,
@@ -1269,7 +1306,9 @@ fn native_pointer_integer_conversions_are_explicit_and_checked() {
         let diagnostics = verify_program(&dynamic)
             .expect_err("dynamic CARD-to-pointer conversion needs a native ADDRESS type");
         assert!(diagnostics.iter().any(|diagnostic| {
-            diagnostic.message.contains("native pointer stores require an explicit")
+            diagnostic
+                .message
+                .contains("native pointer stores require an explicit")
                 || diagnostic.message.contains("pointer/integer conversion")
         }));
     }
@@ -1802,7 +1841,7 @@ fn const_declarations_lower_to_typed_literals_without_nir_storage_or_metadata() 
             .any(|op| matches!(
                 op,
                 NirOp::Cast {
-                    src: NirValue::ConstU16(9),
+                    src: NirValue::IntegerConst { bits: 9, ty: NirIntegerType::U16 },
                     from,
                     to,
                     ..
@@ -1866,7 +1905,10 @@ fn lowers_self_and_forward_addresses_to_nir_data_relocations() {
             && *second == later.id
     ));
     let formatted = format_program(&program);
-    assert!(formatted.contains("fragments=[1:atari-6502-byte0(g"), "{formatted}");
+    assert!(
+        formatted.contains("fragments=[1:atari-6502-byte0(g"),
+        "{formatted}"
+    );
     assert!(formatted.contains("+2)"), "{formatted}");
 }
 
@@ -1923,7 +1965,11 @@ fn typed_integer_static_data_projects_with_target_endianness() {
             target,
         );
         verify_program(&program).expect("logical integer initializer should verify");
-        let word = program.globals.iter().find(|global| global.name == "values").unwrap();
+        let word = program
+            .globals
+            .iter()
+            .find(|global| global.name == "values")
+            .unwrap();
         let Some(NirGlobalInit::Descriptor { backing, .. }) = &word.init else {
             panic!("expected word initializer");
         };
@@ -1934,7 +1980,10 @@ fn typed_integer_static_data_projects_with_target_endianness() {
             [NirDataFragment::Integer { offset: ByteOffset::ZERO, width, value: 0x1234 }]
                 if *width == ByteSize::new(2)
         ));
-        assert_eq!(image.project_constants(endian).as_deref(), Some(expected.as_slice()));
+        assert_eq!(
+            image.project_constants(endian).as_deref(),
+            Some(expected.as_slice())
+        );
     }
 }
 
@@ -1949,7 +1998,11 @@ fn static_address_fragments_use_data_and_code_pointer_layouts() {
     ] {
         let program = lower_modern_source_for_target(source, target);
         verify_program(&program).expect("typed address initializer should verify");
-        let value = program.globals.iter().find(|global| global.name == "value").unwrap();
+        let value = program
+            .globals
+            .iter()
+            .find(|global| global.name == "value")
+            .unwrap();
         let Some(NirGlobalInit::Bytes { image, .. }) = &value.init else {
             panic!("expected record initializer");
         };
@@ -2233,7 +2286,10 @@ fn verifier_checks_absolute_extents_against_the_selected_target() {
         crate::target::TargetLayout::atari_6502(),
         AddressValue::data(0xFFFF),
     );
-    assert!(verify_program(&crossing).is_err(), "the complete extent must fit");
+    assert!(
+        verify_program(&crossing).is_err(),
+        "the complete extent must fit"
+    );
 
     let wrong_space = program_for(
         crate::target::TargetLayout::motorola_68000(),
@@ -2496,8 +2552,7 @@ fn raw_machine_items_lower_to_explicit_unsupported_ops() {
             "expected `{expected_note}` for `{item}`, got {ops:#?}"
         );
         assert!(
-            ops.iter()
-                .all(|op| structured_machine_items(op).is_none()),
+            ops.iter().all(|op| structured_machine_items(op).is_none()),
             "raw machine item must not enter an executable machine block: {ops:#?}"
         );
     }
@@ -3517,9 +3572,13 @@ fn optimizer_threads_repeated_param_predicates_from_both_edges() {
         .flat_map(|block| &block.ops)
         .filter_map(|op| match op {
             NirOp::Store {
-                src: NirValue::ConstU8(value),
+                src:
+                    NirValue::IntegerConst {
+                        bits: value,
+                        ty: NirIntegerType::U8,
+                    },
                 ..
-            } => Some(*value),
+            } => Some(*value as u8),
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -3819,7 +3878,7 @@ fn optimizer_propagates_folded_constant_to_successor_block() {
     assert!(matches!(
         &optimized.routines[0].blocks[1].ops[0],
         NirOp::Store {
-            src: NirValue::ConstU8(3),
+            src: NirValue::IntegerConst { bits: 3, .. },
             ..
         }
     ));
@@ -4025,7 +4084,7 @@ fn optimizer_propagates_constant_through_loop_backedge() {
     assert!(matches!(
         &optimized.routines[0].blocks[1].ops[0],
         NirOp::Store {
-            src: NirValue::ConstU8(3),
+            src: NirValue::IntegerConst { bits: 3, .. },
             ..
         }
     ));
@@ -4486,9 +4545,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
                     callee: NirCallee::Builtin("Touch".to_string()),
                     args: Vec::new(),
                     result: None,
-                    signature: Some(NirCallableSignature::empty_proc(
-                        NirCallConvention::Runtime,
-                    )),
+                    signature: Some(NirCallableSignature::empty_proc(NirCallConvention::Runtime)),
                     effects: NirCallEffects {
                         memory: NirMemoryEffects {
                             reads: NirMemoryAccess::None,

@@ -1,4 +1,4 @@
-use actionc::ast::{Item, RoutineKind, RoutineResultType, TypeBase};
+use actionc::ast::{Item, RoutineKind, TypeBase};
 use actionc::lexer::tokenize;
 use actionc::parser::parse;
 use actionc::semantic::{self, SemanticOptions};
@@ -31,13 +31,13 @@ fn named_func_headers_and_callable_declarations_have_complete_boundaries() {
         panic!("routine")
     };
     assert!(
-        matches!(&first.kind, RoutineKind::Func { return_type: RoutineResultType::Named(name) } if name.to_string() == "E")
+        matches!(&first.kind, RoutineKind::Func { return_type } if matches!(&return_type.base, TypeBase::Named(name) if name.to_string() == "E"))
     );
     let Item::Declaration(actionc::ast::Decl::Var(reader)) = &ast.modules[0].items[4] else {
         panic!("pointer")
     };
     assert!(
-        matches!(&reader.ty.base, TypeBase::Callable(RoutineKind::Func { return_type: RoutineResultType::Named(name) }) if name.to_string() == "LIB.E")
+        matches!(&reader.ty.base, TypeBase::Callable(callable) if matches!(&callable.kind, RoutineKind::Func { return_type } if matches!(&return_type.base, TypeBase::Named(name) if name.to_string() == "LIB.E")))
     );
 }
 

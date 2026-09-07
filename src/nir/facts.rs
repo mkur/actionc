@@ -30,7 +30,8 @@ impl NirType {
     }
 
     pub(super) fn from_value_with_layout(value: &ValueType, layout: TargetLayout) -> Self {
-        let kind = NirTypeKind::from_value(value);
+        let mut kind = NirTypeKind::from_value(value);
+        kind.apply_target_layout(layout);
         let width = kind.width(layout);
         Self {
             kind,
@@ -51,18 +52,18 @@ impl NirType {
 pub enum NirTypeKind {
     Void,
     Bool,
-    U8,
-    I8,
-    U16,
-    I16,
+    Integer(NirIntegerType),
     Real,
     Pointer {
         pointee: Option<Box<NirTypeKind>>,
         address_space: AddressSpaceId,
     },
-    Record { name: String, size: Option<ByteSize> },
+    Record {
+        name: String,
+        size: Option<ByteSize>,
+    },
     Callable {
-        kind: String,
+        kind: NirCallableKind,
         signature: SignatureId,
         convention: NirCallConvention,
         address_space: AddressSpaceId,
@@ -70,7 +71,93 @@ pub enum NirTypeKind {
     Error,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirIntegerRole {
+    Ordinary,
+    Address,
+    Size,
+}
+
+/// Source-level callable category retained as a structured NIR fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum NirCallableKind {
+    Proc,
+    Func,
+}
+
+impl From<&RoutineKind> for NirCallableKind {
+    fn from(kind: &RoutineKind) -> Self {
+        match kind {
+            RoutineKind::Proc => Self::Proc,
+            RoutineKind::Func { .. } => Self::Func,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NirIntegerType {
+    pub bits: u8,
+    pub signed: bool,
+    pub role: NirIntegerRole,
+}
+
+impl NirIntegerType {
+    pub const U8: Self = Self::ordinary(8, false);
+    pub const I8: Self = Self::ordinary(8, true);
+    pub const U16: Self = Self::ordinary(16, false);
+    pub const I16: Self = Self::ordinary(16, true);
+    pub const U32: Self = Self::ordinary(32, false);
+    pub const I32: Self = Self::ordinary(32, true);
+
+    pub const fn address(bits: u8) -> Self {
+        Self {
+            bits,
+            signed: false,
+            role: NirIntegerRole::Address,
+        }
+    }
+
+    pub const fn size(bits: u8) -> Self {
+        Self {
+            bits,
+            signed: false,
+            role: NirIntegerRole::Size,
+        }
+    }
+
+    pub const fn ordinary(bits: u8, signed: bool) -> Self {
+        Self {
+            bits,
+            signed,
+            role: NirIntegerRole::Ordinary,
+        }
+    }
+
+    pub const fn storage_width(self) -> ByteSize {
+        ByteSize::new((self.bits as u32).div_ceil(8))
+    }
+
+    pub const fn mask(self) -> u64 {
+        if self.bits >= 64 {
+            u64::MAX
+        } else if self.bits == 0 {
+            0
+        } else {
+            (1u64 << self.bits) - 1
+        }
+    }
+}
+
 impl NirTypeKind {
+    #[allow(non_upper_case_globals)]
+    pub const U8: Self = Self::Integer(NirIntegerType::U8);
+    #[allow(non_upper_case_globals)]
+    pub const I8: Self = Self::Integer(NirIntegerType::I8);
+    #[allow(non_upper_case_globals)]
+    pub const U16: Self = Self::Integer(NirIntegerType::U16);
+    #[allow(non_upper_case_globals)]
+    pub const I16: Self = Self::Integer(NirIntegerType::I16);
+
     pub(super) fn from_value(value: &ValueType) -> Self {
         match value.kind() {
             ValueTypeKind::Enum(_) => Self::U8,
@@ -81,7 +168,7 @@ impl NirTypeKind {
                 address_space: TargetLayout::DATA_ADDRESS_SPACE,
             },
             ValueTypeKind::CallablePointer(callable) => Self::Callable {
-                kind: format!("{:?}", callable.kind),
+                kind: NirCallableKind::from(&callable.kind),
                 signature: signature_id(&callable, NirCallConvention::TargetPublic),
                 convention: NirCallConvention::TargetPublic,
                 address_space: TargetLayout::CODE_ADDRESS_SPACE,
@@ -96,14 +183,18 @@ impl NirTypeKind {
             ScalarType::Byte | ScalarType::Char => Self::U8,
             ScalarType::Card => Self::U16,
             ScalarType::Int => Self::I16,
+            ScalarType::LongInt => Self::Integer(NirIntegerType::I32),
+            ScalarType::LongCard => Self::Integer(NirIntegerType::U32),
+            ScalarType::Address => Self::Integer(NirIntegerType::address(16)),
+            ScalarType::Size => Self::Integer(NirIntegerType::size(16)),
         }
     }
 
     pub(super) fn width(&self, layout: TargetLayout) -> Option<ByteSize> {
         match self {
             Self::Void => Some(ByteSize::ZERO),
-            Self::Bool | Self::U8 | Self::I8 => Some(ByteSize::new(1)),
-            Self::U16 | Self::I16 => Some(ByteSize::new(2)),
+            Self::Bool => Some(ByteSize::new(1)),
+            Self::Integer(integer) => Some(integer.storage_width()),
             Self::Pointer { address_space, .. }
                 if *address_space == layout.data_pointer.address_space =>
             {
@@ -129,6 +220,13 @@ impl NirTypeKind {
         matches!(self, Self::Pointer { .. } | Self::Callable { .. })
     }
 
+    pub fn integer(&self) -> Option<NirIntegerType> {
+        match self {
+            Self::Integer(integer) => Some(*integer),
+            _ => None,
+        }
+    }
+
     fn apply_target_layout(&mut self, layout: TargetLayout) {
         match self {
             Self::Pointer {
@@ -143,6 +241,11 @@ impl NirTypeKind {
             Self::Callable { address_space, .. } => {
                 *address_space = layout.code_pointer.address_space;
             }
+            Self::Integer(integer) => match integer.role {
+                NirIntegerRole::Address => integer.bits = layout.address_integer_bits,
+                NirIntegerRole::Size => integer.bits = layout.size_integer_bits,
+                NirIntegerRole::Ordinary => {}
+            },
             _ => {}
         }
     }
@@ -191,10 +294,7 @@ pub fn runtime_symbol_id(name: &str) -> RuntimeSymbolId {
     RuntimeSymbolId(hash)
 }
 
-pub(super) fn signature_id(
-    callable: &CallableType,
-    convention: NirCallConvention,
-) -> SignatureId {
+pub(super) fn signature_id(callable: &CallableType, convention: NirCallConvention) -> SignatureId {
     fn byte(hash: &mut u32, value: u8) {
         *hash ^= u32::from(value);
         *hash = hash.wrapping_mul(16_777_619);
@@ -233,11 +333,13 @@ pub(super) fn signature_id(
             RoutineKind::Proc => byte(hash, 1),
             RoutineKind::Func { return_type } => {
                 byte(hash, 2);
-                match return_type {
-                    crate::ast::RoutineResultType::Fund(fund) => text(hash, &format!("{fund:?}")),
-                    // The resolved nominal identity is hashed below with the
-                    // result value type; source aliases must not affect it.
-                    crate::ast::RoutineResultType::Named(_) => text(hash, "ENUM"),
+                // Preserve existing scalar and nominal enum signature identities.
+                if callable.return_type.as_ref().is_some_and(|ty| ty.as_enum().is_some()) {
+                    text(hash, "ENUM");
+                } else if !return_type.pointer
+                    && let crate::ast::TypeBase::Fund(fund) = &return_type.base
+                {
+                    text(hash, &format!("{fund:?}"));
                 }
             }
         }
@@ -300,8 +402,10 @@ pub(super) fn root_storage_id(place: &NirPlace) -> Option<NirStorageId> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirValue {
-    ConstU8(u8),
-    ConstU16(u16),
+    IntegerConst {
+        bits: u64,
+        ty: NirIntegerType,
+    },
     Null {
         ty: NirType,
     },
@@ -328,11 +432,40 @@ pub enum NirValue {
 }
 
 impl NirValue {
+    #[allow(non_snake_case)]
+    pub fn ConstU8(value: u8) -> Self {
+        Self::IntegerConst {
+            bits: u64::from(value),
+            ty: NirIntegerType::U8,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub fn ConstU16(value: u16) -> Self {
+        Self::IntegerConst {
+            bits: u64::from(value),
+            ty: NirIntegerType::U16,
+        }
+    }
+
+    pub fn integer_const(bits: u64, ty: NirIntegerType) -> Self {
+        Self::IntegerConst {
+            bits: bits & ty.mask(),
+            ty,
+        }
+    }
+
+    pub fn as_integer_const(&self) -> Option<(u64, NirIntegerType)> {
+        match self {
+            Self::IntegerConst { bits, ty } => Some((*bits, *ty)),
+            _ => None,
+        }
+    }
+
     pub(super) fn temp(&self) -> Option<TempId> {
         match self {
             Self::Temp { id, .. } => Some(*id),
-            Self::ConstU8(_)
-            | Self::ConstU16(_)
+            Self::IntegerConst { .. }
             | Self::Null { .. }
             | Self::AddressConst { .. }
             | Self::StaticAddr { .. }
@@ -349,8 +482,28 @@ pub(super) fn type_summary(ty: &ValueType) -> String {
         ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Enum(identity) => identity.name.clone(),
         ValueTypeBase::Named(name) => name.clone(),
-        ValueTypeBase::Callable(callable) => format!("{:?}", callable.kind),
+        ValueTypeBase::Callable(callable) => callable_kind_summary(&callable.kind),
         ValueTypeBase::Error => "error".to_string(),
+    };
+    if ty.pointer { format!("{base}*") } else { base }
+}
+
+fn callable_kind_summary(kind: &RoutineKind) -> String {
+    match kind {
+        RoutineKind::Proc => "Proc".to_string(),
+        RoutineKind::Func { return_type } => format!(
+            "Func {{ return_type: {} }}",
+            ast_type_ref_summary(return_type)
+        ),
+    }
+}
+
+fn ast_type_ref_summary(ty: &crate::ast::TypeRef) -> String {
+    let base = match &ty.base {
+        crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
+        crate::ast::TypeBase::NativeReal => "REAL".to_string(),
+        crate::ast::TypeBase::Named(name) => name.to_string(),
+        crate::ast::TypeBase::Callable(callable) => callable_kind_summary(&callable.kind),
     };
     if ty.pointer { format!("{base}*") } else { base }
 }
@@ -366,8 +519,7 @@ pub(super) fn condition_type() -> NirType {
 
 pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
     match value {
-        NirValue::ConstU8(_) => Some(ByteSize::new(1)),
-        NirValue::ConstU16(_) => Some(ByteSize::new(2)),
+        NirValue::IntegerConst { ty, .. } => Some(ty.storage_width()),
         NirValue::Null { ty }
         | NirValue::AddressConst { ty, .. }
         | NirValue::StaticAddr { ty, .. }
@@ -378,13 +530,9 @@ pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
 }
 
 pub(super) fn value_is_oversized_literal(value: &NirValue, width: ByteSize) -> bool {
-    let NirValue::ConstU16(value) = value else {
+    let NirValue::IntegerConst { bits, .. } = value else {
         return false;
     };
-    match width.get() {
-        0 => true,
-        1 => *value > 0x00FF,
-        2 => false,
-        _ => false,
-    }
+    let width_bits = width.get().saturating_mul(8);
+    width_bits == 0 || (width_bits < 64 && *bits > (1u64 << width_bits) - 1)
 }

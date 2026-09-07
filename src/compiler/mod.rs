@@ -601,8 +601,10 @@ pub(crate) fn program_default_origin_from_semir(program: &ir::SemProgram, fallba
 
 fn sem_const_u16(expr: &ir::SemExpr) -> Option<u16> {
     match &expr.kind {
-        ir::SemExprKind::Literal(ir::SemLiteral::Number(number)) => number.value,
-        ir::SemExprKind::Literal(ir::SemLiteral::Constant(value)) => Some(value.bits),
+        ir::SemExprKind::Literal(ir::SemLiteral::Number(number)) => {
+            number.value.and_then(|value| u16::try_from(value).ok())
+        }
+        ir::SemExprKind::Literal(ir::SemLiteral::Constant(value)) => u16::try_from(value.bits).ok(),
         _ => None,
     }
 }

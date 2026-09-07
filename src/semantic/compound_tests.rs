@@ -37,6 +37,10 @@ fn compounds_reuse_ordinary_binary_types_and_record_store_conversion() {
                     ScalarType::Char => "CHAR",
                     ScalarType::Int => "INT",
                     ScalarType::Card => "CARD",
+                    ScalarType::LongInt => "LONGINT",
+                    ScalarType::LongCard => "LONGCARD",
+                    ScalarType::Address => "ADDRESS",
+                    ScalarType::Size => "SIZE",
                 };
                 let source = source.replace("PROC Main", &format!("{result_name} FUNC Main"));
                 let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();

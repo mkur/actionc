@@ -1,39 +1,6 @@
 use super::*;
 
 impl Parser<'_> {
-    pub(super) fn routine_result_end_at(&self, pos: usize) -> Option<usize> {
-        if self.is_fund_type_start_at(pos) {
-            return Some(pos + 1);
-        }
-        if !matches!(
-            self.tokens.get(pos).map(|token| &token.kind),
-            Some(TokenKind::Ident(_))
-        ) {
-            return None;
-        }
-        let mut end = pos + 1;
-        while matches!(
-            self.tokens.get(end).map(|token| &token.kind),
-            Some(TokenKind::Dot)
-        ) && matches!(
-            self.tokens.get(end + 1).map(|token| &token.kind),
-            Some(TokenKind::Ident(_))
-        ) {
-            end += 2;
-        }
-        Some(end)
-    }
-
-    pub(super) fn parse_routine_result_type(&mut self) -> RoutineResultType {
-        if let Some(fund) = self.parse_fund_type() {
-            return fund.into();
-        }
-        let name = self
-            .expect_ident()
-            .unwrap_or_else(|| "<missing result type>".to_string());
-        RoutineResultType::Named(self.parse_qualified_name_tail(name, &mut Vec::new()))
-    }
-
     pub(super) fn parse_named_const_type(&mut self) -> Option<ConstDeclaredType> {
         let TokenKind::Ident(_) = &self.peek().kind else {
             return None;

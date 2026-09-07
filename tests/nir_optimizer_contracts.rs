@@ -55,7 +55,7 @@ fn optimizer_snapshots_exercise_transformation_families() {
         matches!(
             op,
             NirOp::Store {
-                src: NirValue::ConstU8(1),
+                src: NirValue::IntegerConst { bits: 1, .. },
                 ..
             }
         )

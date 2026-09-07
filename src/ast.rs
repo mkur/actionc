@@ -227,8 +227,8 @@ pub struct ConstDecl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstDeclaredType {
     Fund(FundType),
-    Real,
     Named(QualifiedName),
+    Real,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -297,6 +297,18 @@ pub struct TypeRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallableTypeRef {
+    pub kind: RoutineKind,
+    pub params: Vec<CallableParamTypeRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallableParamTypeRef {
+    pub ty: TypeRef,
+    pub storage: VarStorage,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeBase {
     Fund(FundType),
     /// Compiler-internal carrier for the modern semantic native REAL type.
@@ -305,7 +317,7 @@ pub enum TypeBase {
     /// identifier spelling.
     NativeReal,
     Named(QualifiedName),
-    Callable(RoutineKind),
+    Callable(Box<CallableTypeRef>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -422,39 +434,7 @@ impl AnnotationAddressRanges {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RoutineKind {
     Proc,
-    Func { return_type: RoutineResultType },
-}
-
-/// Result syntax is intentionally nonrecursive: callable results name a
-/// fundamental type or a resolved named enum, not another full TypeRef.
-#[derive(Clone, PartialEq, Eq)]
-pub enum RoutineResultType {
-    Fund(FundType),
-    Named(QualifiedName),
-}
-
-impl RoutineResultType {
-    pub fn as_fund(&self) -> Option<FundType> {
-        match self { Self::Fund(fund) => Some(*fund), Self::Named(_) => None }
-    }
-
-    pub fn type_ref(&self) -> TypeRef {
-        TypeRef { base: match self { Self::Fund(fund) => TypeBase::Fund(*fund), Self::Named(name) => TypeBase::Named(name.clone()) }, pointer: false }
-    }
-}
-
-impl From<FundType> for RoutineResultType {
-    fn from(value: FundType) -> Self { Self::Fund(value) }
-}
-
-// Keep existing fundamental signature/debug snapshots stable.
-impl std::fmt::Debug for RoutineResultType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Fund(fund) => std::fmt::Debug::fmt(fund, f),
-            Self::Named(name) => write!(f, "{name}"),
-        }
-    }
+    Func { return_type: Box<TypeRef> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -463,6 +443,10 @@ pub enum FundType {
     Card,
     Char,
     Int,
+    LongInt,
+    LongCard,
+    Address,
+    Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

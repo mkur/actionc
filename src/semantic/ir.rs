@@ -204,13 +204,13 @@ pub struct SemDeclaration {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemStaticInitializer {
-    pub initialized_extent: u16,
+    pub initialized_extent: u32,
     pub writes: Vec<SemStaticInitializerWrite>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemStaticInitializerWrite {
-    pub offset: u16,
+    pub offset: u32,
     pub destination: ValueType,
     pub width: u16,
     pub value: SemStaticInitializerValue,
@@ -264,24 +264,24 @@ pub struct SemRecordField {
     pub name: String,
     pub ty: SemType,
     pub storage: SemDeclarationStorage,
-    pub offset: Option<u16>,
+    pub offset: Option<u32>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemType {
     pub value: ValueType,
-    pub width: Option<u16>,
-    pub alignment: Option<u16>,
+    pub width: Option<u32>,
+    pub alignment: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemTypeFacts {
-    pub width: Option<u16>,
+    pub width: Option<u32>,
     pub signedness: Option<ScalarSignedness>,
     pub is_pointer: bool,
     pub pointee: Option<ValueType>,
-    pub pointee_width: Option<u16>,
+    pub pointee_width: Option<u32>,
     pub record_base: Option<String>,
     pub is_error: bool,
 }
@@ -295,7 +295,7 @@ impl SemType {
         }
     }
 
-    pub fn with_width(value: ValueType, width: u16) -> Self {
+    pub fn with_width(value: ValueType, width: u32) -> Self {
         Self {
             value,
             width: Some(width),
@@ -308,10 +308,13 @@ impl SemTypeFacts {
     pub fn from_value(value: &ValueType) -> Self {
         let scalar = value.as_scalar();
         let pointee = value.as_pointer().map(|pointer| *pointer.pointee);
-        let pointee_width = pointee.as_ref().and_then(ValueType::value_width_bytes);
+        let pointee_width = pointee
+            .as_ref()
+            .and_then(ValueType::value_width_bytes)
+            .map(u32::from);
 
         Self {
-            width: value.value_width_bytes(),
+            width: value.value_width_bytes().map(u32::from),
             signedness: scalar.map(ScalarType::signedness),
             is_pointer: value.is_pointer(),
             pointee,
@@ -479,7 +482,7 @@ pub enum SemStmt {
     RecordCopy {
         destination: SemLValue,
         source: SemLValue,
-        size: u16,
+        size: u32,
         span: Span,
     },
     CompoundAssign {
@@ -929,8 +932,8 @@ pub struct SemFieldRef {
     pub ty: ValueType,
     pub storage: super::RecordFieldStorage,
     /// Complete field storage extent, not just one array element's width.
-    pub size: u16,
-    pub offset: Option<u16>,
+    pub size: u32,
+    pub offset: Option<u32>,
     pub span: Span,
 }
 
@@ -971,8 +974,8 @@ pub struct SemStorageRef {
     pub symbol: Option<SemSymbolRef>,
     pub space: SemAddressSpace,
     pub address: Option<u16>,
-    pub offset: u16,
-    pub width: u16,
+    pub offset: u32,
+    pub width: u32,
     pub signed: bool,
     pub span: Span,
 }
@@ -1882,6 +1885,10 @@ fn const_value_summary(value: ConstValue) -> String {
         ScalarType::Card => "CARD",
         ScalarType::Char => "CHAR",
         ScalarType::Int => "INT",
+        ScalarType::LongInt => "LONGINT",
+        ScalarType::LongCard => "LONGCARD",
+        ScalarType::Address => "ADDRESS",
+        ScalarType::Size => "SIZE",
     };
     format!("{}:{ty}", value.number_literal().text)
 }
@@ -1994,7 +2001,21 @@ fn declaration_storage_summary(storage: &SemDeclarationStorage) -> String {
 fn routine_kind_summary(kind: &RoutineKind) -> String {
     match kind {
         RoutineKind::Proc => "PROC".to_string(),
-        RoutineKind::Func { return_type } => format!("{return_type:?} FUNC"),
+        RoutineKind::Func { return_type } => format!("{} FUNC", type_ref_summary(return_type)),
+    }
+}
+
+fn type_ref_summary(ty: &crate::ast::TypeRef) -> String {
+    let base = match &ty.base {
+        crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
+        crate::ast::TypeBase::NativeReal => "REAL".to_string(),
+        crate::ast::TypeBase::Named(name) => name.to_string(),
+        crate::ast::TypeBase::Callable(callable) => routine_kind_summary(&callable.kind),
+    };
+    if ty.pointer {
+        format!("{base} POINTER")
+    } else {
+        base
     }
 }
 
@@ -2138,7 +2159,7 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
         SemExprKind::Literal(SemLiteral::Constant(value))
             if value.ty == ScalarType::Int && value.bits & 0x8000 != 0 =>
         {
-            SemForStep::Down(0u16.wrapping_sub(value.bits))
+            SemForStep::Down(0u16.wrapping_sub(value.bits as u16))
         }
         _ => const_u16_sem_expr(expr)
             .map(SemForStep::Up)
@@ -2147,9 +2168,20 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
 }
 
 pub(crate) fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
+    // This compatibility query must never evaluate a wide arithmetic tree with
+    // 16-bit intermediates. Wide layout extents come from canonical model facts.
+    if expr.ty.as_scalar().is_some_and(|ty| ty.width_bytes() > 2) {
+        return match &expr.kind {
+            SemExprKind::Literal(SemLiteral::Number(number)) => u16::try_from(number.value?).ok(),
+            SemExprKind::Literal(SemLiteral::Constant(value)) => u16::try_from(value.bits).ok(),
+            _ => None,
+        };
+    }
     let value = match &expr.kind {
-        SemExprKind::Literal(SemLiteral::Number(number)) => number.value,
-        SemExprKind::Literal(SemLiteral::Constant(value)) => Some(value.bits),
+        SemExprKind::Literal(SemLiteral::Number(number)) => {
+            number.value.and_then(|value| u16::try_from(value).ok())
+        }
+        SemExprKind::Literal(SemLiteral::Constant(value)) => u16::try_from(value.bits).ok(),
         SemExprKind::Literal(SemLiteral::Char(ch)) => crate::source::source_char_byte(*ch).map(u16::from),
         SemExprKind::Cast { expr, .. } => const_u16_sem_expr(expr),
         SemExprKind::Unary { op, expr } => {
@@ -2187,7 +2219,7 @@ pub(crate) fn const_u16_sem_expr(expr: &SemExpr) -> Option<u16> {
     Some(
         expr.ty
             .as_scalar()
-            .map_or(value, |ty| value & super::scalar_mask(ty)),
+            .map_or(value, |ty| value & super::scalar_mask(ty) as u16),
     )
 }
 
@@ -2637,9 +2669,7 @@ impl<'a> IrBuilder<'a> {
             return None;
         };
         let (element_type, repeats) = match storage {
-            SemDeclarationStorage::Array { array_type, .. } => {
-                (array_type.element.as_ref(), true)
-            }
+            SemDeclarationStorage::Array { array_type, .. } => (array_type.element.as_ref(), true),
             SemDeclarationStorage::Scalar => (&ty.value, false),
             SemDeclarationStorage::Enum { .. } | SemDeclarationStorage::Type { .. } | SemDeclarationStorage::Record { .. } => {
                 return None;
@@ -2663,7 +2693,7 @@ impl<'a> IrBuilder<'a> {
                 return None;
             }
             let leaf = &leaves[index % leaves.len()];
-            let base = u16::try_from(element_index)
+            let base = u32::try_from(element_index)
                 .ok()?
                 .checked_mul(element_width)?;
             let offset = base.checked_add(leaf.offset)?;
@@ -2712,7 +2742,7 @@ impl<'a> IrBuilder<'a> {
             0
         } else if repeats {
             let initialized_elements = elements.len().div_ceil(leaves.len());
-            u16::try_from(initialized_elements)
+            u32::try_from(initialized_elements)
                 .ok()?
                 .checked_mul(element_width)?
         } else {
@@ -2730,7 +2760,7 @@ impl<'a> IrBuilder<'a> {
         fields: &[VarDecl],
     ) -> Vec<SemRecordField> {
         let mut lowered = Vec::new();
-        let mut offset = 0u16;
+        let mut offset = 0u32;
         for field in fields {
             for entry in &field.entries {
                 let descriptor = self.model.fields.iter()
@@ -2818,7 +2848,7 @@ impl<'a> IrBuilder<'a> {
                     storage: super::RecordFieldStorage::Value,
                     offset: field.offset.unwrap_or(0),
                 });
-                let size = fields.iter().fold(0u16, |size, field| {
+                let size = fields.iter().fold(0u32, |size, field| {
                     let offset = field.offset.unwrap_or(0);
                     let width = field
                         .ty
@@ -2828,6 +2858,7 @@ impl<'a> IrBuilder<'a> {
                                 .ty
                                 .value
                                 .value_width_bytes_for_layout(self.model.target_layout)
+                                .map(u32::from)
                         })
                         .unwrap_or(0);
                     size.max(offset.saturating_add(width))
@@ -2836,18 +2867,19 @@ impl<'a> IrBuilder<'a> {
             })
     }
 
-    fn value_storage_width(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_width(&self, value: &ValueType) -> Option<u32> {
         value
             .value_width_bytes_for_layout(self.model.target_layout)
+            .map(u32::from)
             .or_else(|| {
-            value.as_record_name().and_then(|name| {
-                self.model
-                    .layout
-                    .records
-                    .iter()
-                    .find(|record| record.name.eq_ignore_ascii_case(name))
-                    .map(|record| record.size)
-            })
+                value.as_record_name().and_then(|name| {
+                    self.model
+                        .layout
+                        .records
+                        .iter()
+                        .find(|record| record.name.eq_ignore_ascii_case(name))
+                        .map(|record| record.size)
+                })
             })
     }
 
@@ -3314,9 +3346,9 @@ impl<'a> IrBuilder<'a> {
             _ if self.model.enums.member_values.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
                 SemExprKind::Literal(SemLiteral::Enum(self.model.enums.member_values[&super::ExpressionSite::new(scope, expr.span)].clone()))
             }
-            ExprKind::Call { args, .. } if self.model.enums.casts.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
+            ExprKind::Call { args, .. } if self.model.resolved_casts.contains_key(&super::ExpressionSite::new(scope, expr.span)) => {
                 SemExprKind::Cast {
-                    ty: self.model.enums.casts[&super::ExpressionSite::new(scope, expr.span)].clone(),
+                    ty: self.model.resolved_casts[&super::ExpressionSite::new(scope, expr.span)].clone(),
                     expr: Box::new(self.lower_expr(scope, &args[0])),
                 }
             }
@@ -3393,9 +3425,7 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             ExprKind::Binary { op, left, right } => self.lower_binary_expr(scope, *op, left, right),
-            ExprKind::Call { .. }
-                if self.model.layout_query_value(scope, expr.span).is_some() =>
-            {
+            ExprKind::Call { .. } if self.model.layout_query_value(scope, expr.span).is_some() => {
                 SemExprKind::Literal(SemLiteral::Constant(
                     self.model
                         .layout_query_value(scope, expr.span)
@@ -3487,7 +3517,7 @@ impl<'a> IrBuilder<'a> {
             SemExprKind::Unary {
                 op: UnaryOp::Neg,
                 expr,
-            } if expr.ty.as_scalar().is_some() => ValueType::scalar(ScalarType::Int),
+            } if expr.ty.as_scalar().is_some_and(|ty| ty.width_bytes() <= 2) => ValueType::scalar(ScalarType::Int),
             SemExprKind::Unary { expr, .. } => expr.ty.clone(),
             SemExprKind::Binary { op, left, right } => {
                 if is_compare_op(*op) {
@@ -3720,9 +3750,16 @@ impl<'a> IrBuilder<'a> {
     ) -> SemExprKind {
         let mut left = self.lower_expr(scope, left);
         let mut right = self.lower_expr(scope, right);
+        let wide_domain = left.ty.as_scalar().zip(right.ty.as_scalar())
+            .map(|(left, right)| ScalarType::arithmetic_result(op, left, right, None))
+            .filter(|domain| matches!(domain, ScalarType::LongInt | ScalarType::LongCard));
         if left.ty.is_real() || right.ty.is_real() {
             left = self.coerce_integer_expr_to_real(left);
             right = self.coerce_integer_expr_to_real(right);
+        } else if let Some(domain) = wide_domain {
+            let operand_ty = ValueType::scalar(domain);
+            left = self.coerce_scalar_comparison_expr(left, &operand_ty);
+            right = self.coerce_scalar_comparison_expr(right, &operand_ty);
         } else if matches!(op, BinaryOp::Div | BinaryOp::Mod)
             && left.ty.as_scalar().is_some() && right.ty.as_scalar().is_some()
         {
@@ -3741,16 +3778,24 @@ impl<'a> IrBuilder<'a> {
         } else if is_compare_op(op)
             && left.ty.is_pointer()
             && right.ty.as_scalar().is_some()
-            && left.ty.value_width_bytes_for_layout(self.model.target_layout)
-                != right.ty.value_width_bytes_for_layout(self.model.target_layout)
+            && left
+                .ty
+                .value_width_bytes_for_layout(self.model.target_layout)
+                != right
+                    .ty
+                    .value_width_bytes_for_layout(self.model.target_layout)
         {
             let operand_ty = left.ty.clone();
             right = self.coerce_scalar_expr_for_expected_type(right, &operand_ty);
         } else if is_compare_op(op)
             && right.ty.is_pointer()
             && left.ty.as_scalar().is_some()
-            && right.ty.value_width_bytes_for_layout(self.model.target_layout)
-                != left.ty.value_width_bytes_for_layout(self.model.target_layout)
+            && right
+                .ty
+                .value_width_bytes_for_layout(self.model.target_layout)
+                != left
+                    .ty
+                    .value_width_bytes_for_layout(self.model.target_layout)
         {
             let operand_ty = right.ty.clone();
             left = self.coerce_scalar_expr_for_expected_type(left, &operand_ty);
@@ -3820,6 +3865,11 @@ impl<'a> IrBuilder<'a> {
         expr: SemExpr,
         expected: &ValueType,
     ) -> SemExpr {
+        // Destination/comparison context must not turn a narrow subexpression
+        // into a 32-bit calculation. Widen its completed value instead.
+        if expected.as_scalar().is_some_and(|ty| ty.width_bytes() > 2) {
+            return expr;
+        }
         if !scalar_expected_type_can_accept_expr(expected, &expr.ty) {
             return expr;
         }
@@ -4025,10 +4075,10 @@ impl<'a> IrBuilder<'a> {
             element,
             // DEFINE expansion is resolved during SemIR construction. Use its
             // typed evaluator rather than a second untyped AST arithmetic walk.
-            length.and_then(const_u16_sem_expr),
+            self.model.array_lengths.get(&symbol.id).copied()
+                .or_else(|| length.and_then(const_u16_sem_expr).map(u32::from)),
         )
     }
-
 
     fn lower_condition(&mut self, scope: ScopeId, expr: &Expr) -> SemCondition {
         let lowered = self.lower_expr(scope, expr);
@@ -4509,7 +4559,7 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
-    fn value_storage_alignment(&self, value: &ValueType) -> Option<u16> {
+    fn value_storage_alignment(&self, value: &ValueType) -> Option<u32> {
         self.model
             .layout
             .value_alignment(value, self.model.target_layout)
@@ -4717,10 +4767,17 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn resolved_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
-        if let TypeBase::Callable(RoutineKind::Func { return_type }) = &ty.base {
-            let result = self.resolved_type_ref(scope, &return_type.type_ref());
+        if let TypeBase::Callable(callable) = &ty.base {
+            let result = match &callable.kind {
+                RoutineKind::Func { return_type } => Some(self.resolved_type_ref(scope, return_type)),
+                RoutineKind::Proc => None,
+            };
+            let params: Vec<_> = callable.params.iter().map(|param| {
+                let value = self.resolved_type_ref(scope, &param.ty);
+                if param.storage == VarStorage::Array { ValueType::pointer_to(value) } else { value }
+            }).collect();
             return ValueType::callable_pointer(CallableType::new(
-                RoutineKind::Func { return_type: return_type.clone() }, Vec::new(), Some(result),
+                callable.kind.clone(), params, result,
             ));
         }
         let mut value = ValueType::from(ty);
@@ -4739,6 +4796,19 @@ impl<'a> IrBuilder<'a> {
                 ValueTypeBase::Real
             } else {
                 ValueTypeBase::Named(symbol.qualified_name)
+            };
+        } else if name.components.len() == 1
+            || name.to_string().eq_ignore_ascii_case("SYS.LONGINT")
+            || name.to_string().eq_ignore_ascii_case("SYS.LONGCARD")
+            || name.to_string().eq_ignore_ascii_case("SYS.ADDRESS")
+            || name.to_string().eq_ignore_ascii_case("SYS.SIZE")
+        {
+            value.base = match name.components.last().map(|part| part.to_ascii_uppercase()) {
+                Some(name) if name == "LONGINT" => ValueTypeBase::Fund(FundType::LongInt),
+                Some(name) if name == "LONGCARD" => ValueTypeBase::Fund(FundType::LongCard),
+                Some(name) if name == "ADDRESS" => ValueTypeBase::Fund(FundType::Address),
+                Some(name) if name == "SIZE" => ValueTypeBase::Fund(FundType::Size),
+                _ => value.base,
             };
         }
         value
@@ -4760,9 +4830,19 @@ impl From<&crate::ast::TypeRef> for ValueType {
                 ValueTypeBase::Fund(FundType::Char)
             }
             crate::ast::TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
-            crate::ast::TypeBase::Callable(kind) => ValueTypeBase::Callable(Box::new(
-                CallableType::from_routine_kind(kind.clone(), Vec::new()),
-            )),
+            crate::ast::TypeBase::Callable(callable) => {
+                ValueTypeBase::Callable(Box::new(CallableType::from_routine_kind(
+                    callable.kind.clone(),
+                    callable.params.iter().map(|param| {
+                        let ty = ValueType::from(&param.ty);
+                        if param.storage == crate::ast::VarStorage::Array {
+                            ValueType::pointer_to(ty)
+                        } else {
+                            ty
+                        }
+                    }),
+                )))
+            }
         };
 
         Self {
@@ -4811,9 +4891,30 @@ impl SemRoutineSignature {
 }
 
 fn callable_kind_from_return_type(return_type: Option<&ValueType>) -> RoutineKind {
-    match return_type.and_then(ValueType::routine_result_type) {
-        Some(return_type) => RoutineKind::Func { return_type },
+    match return_type {
+        Some(return_type) => RoutineKind::Func {
+            return_type: Box::new(type_ref_from_value(return_type)),
+        },
         None => RoutineKind::Proc,
+    }
+}
+
+fn type_ref_from_value(value: &ValueType) -> crate::ast::TypeRef {
+    crate::ast::TypeRef {
+        base: match &value.base {
+            ValueTypeBase::Fund(fund) => crate::ast::TypeBase::Fund(*fund),
+            ValueTypeBase::Enum(identity) => crate::ast::TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
+            ValueTypeBase::Real => crate::ast::TypeBase::NativeReal,
+            ValueTypeBase::Named(name) => crate::ast::TypeBase::Named(name.as_str().into()),
+            ValueTypeBase::Callable(callable) => {
+                crate::ast::TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                    kind: callable.kind.clone(),
+                    params: Vec::new(),
+                }))
+            }
+            ValueTypeBase::Error => crate::ast::TypeBase::Named("<error>".into()),
+        },
+        pointer: value.pointer,
     }
 }
 
@@ -4851,6 +4952,8 @@ fn value_type_for_number(number: &NumberLiteral) -> ValueType {
         crate::lexer::NumberKind::Byte => byte_type(),
         crate::lexer::NumberKind::Int => int_type(),
         crate::lexer::NumberKind::Card => card_type(),
+        crate::lexer::NumberKind::LongInt => ValueType::scalar(ScalarType::LongInt),
+        crate::lexer::NumberKind::LongCard => ValueType::scalar(ScalarType::LongCard),
         crate::lexer::NumberKind::Real => ValueType::real(),
     }
 }
@@ -5037,6 +5140,12 @@ fn arithmetic_numeric_result_type(
     let Some(right) = right.as_scalar() else {
         return ValueType::error();
     };
+
+    if left == ScalarType::Address || right == ScalarType::Address {
+        return ScalarType::address_arithmetic_result(op, left, right)
+            .map(ValueType::scalar)
+            .unwrap_or_else(ValueType::error);
+    }
 
     ValueType::scalar(ScalarType::arithmetic_result(
         op,

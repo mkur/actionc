@@ -1387,7 +1387,7 @@ fn byte_item(value: u8) -> MachineItem {
     MachineItem::Number(NumberLiteral {
         text: format!("${value:02X}"),
         kind: NumberKind::Byte,
-        value: Some(u16::from(value)),
+        value: Some(u64::from(value)),
     })
 }
 

@@ -4,8 +4,9 @@ use super::analysis::cfg::NirCfg;
 use super::analysis::dominance::NirDominance;
 use super::analysis::use_def::{NirDefSite, NirUseDef};
 use super::facts::{
-    NirStorageId, NirType, NirTypeKind, NirValue, RoutineId, RuntimeSymbolId, SignatureId,
-    SymbolId, TempId, runtime_symbol_id, value_is_oversized_literal, value_width,
+    NirIntegerRole, NirIntegerType, NirStorageId, NirType, NirTypeKind, NirValue, RoutineId,
+    RuntimeSymbolId, SignatureId, SymbolId, TempId, runtime_symbol_id, value_is_oversized_literal,
+    value_width,
 };
 use super::ir::*;
 use crate::target::{AddressValue, ByteSize, TargetLayout};
@@ -1485,7 +1486,9 @@ impl NirVerifier {
                         format!("duplicate temp definition `%t{}`", dest.0),
                     ));
                 }
-                if *op == NirUnaryOp::Neg && ty.kind != NirTypeKind::I16 {
+                if *op == NirUnaryOp::Neg && ty.kind != NirTypeKind::I16
+                    && !ty.kind.integer().is_some_and(|integer| integer.bits == 32)
+                {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -1540,6 +1543,17 @@ impl NirVerifier {
                         kind,
                         NirCastKind::IntegerToPointer | NirCastKind::PointerToInteger
                     )
+                    && !match kind {
+                        NirCastKind::IntegerToPointer => from
+                            .kind
+                            .integer()
+                            .is_some_and(|integer| integer.role == NirIntegerRole::Address),
+                        NirCastKind::PointerToInteger => to
+                            .kind
+                            .integer()
+                            .is_some_and(|integer| integer.role == NirIntegerRole::Address),
+                        _ => false,
+                    }
                 {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
@@ -1618,11 +1632,10 @@ impl NirVerifier {
                 if matches!(op, NirBinaryOp::Div | NirBinaryOp::Mod) {
                     let matches_domain = |value: &NirValue| match value {
                         NirValue::Temp { ty: actual, .. } => actual.kind == ty.kind && actual.width == ty.width,
-                        NirValue::ConstU8(_) => ty.width == Some(ByteSize::ONE),
-                        NirValue::ConstU16(_) => ty.width == Some(ByteSize::new(2)),
+                        NirValue::IntegerConst { ty: actual, .. } => ty.kind.integer().is_some_and(|domain| domain.bits == actual.bits),
                         _ => false,
                     };
-                    if !matches!(ty.kind, NirTypeKind::U8 | NirTypeKind::U16 | NirTypeKind::I16)
+                    if ty.kind.integer().is_none()
                         || !matches_domain(left) || !matches_domain(right)
                     {
                         self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
@@ -1657,7 +1670,9 @@ impl NirVerifier {
                         format!("duplicate temp definition `%t{}`", dest.0),
                     ));
                 }
-                if *op == NirBinaryOp::Mul && ty.kind != NirTypeKind::I16 {
+                if *op == NirBinaryOp::Mul && ty.kind != NirTypeKind::I16
+                    && !ty.kind.integer().is_some_and(|integer| integer.bits == 32)
+                {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
                         &block.label,
@@ -2689,7 +2704,7 @@ impl NirVerifier {
         routine: &str,
         block: Option<&str>,
         signature: &NirCallableSignature,
-        label: &str,
+        _label: &str,
     ) {
         if let Some(existing) = self.signatures.get(&signature.id) {
             if existing != signature {
@@ -2704,13 +2719,6 @@ impl NirVerifier {
             }
         } else {
             self.signatures.insert(signature.id, signature.clone());
-        }
-        if signature.kind.is_empty() {
-            let message = format!("{label} kind must not be empty");
-            self.diagnostics.push(match block {
-                Some(block) => NirDiagnostic::block(routine, block, message),
-                None => NirDiagnostic::routine(routine, message),
-            });
         }
     }
 
@@ -3100,7 +3108,15 @@ impl NirVerifier {
         label: &str,
     ) {
         match value {
-            NirValue::ConstU8(_) | NirValue::ConstU16(_) => {}
+            NirValue::IntegerConst { bits, ty } => {
+                if !(1..=64).contains(&ty.bits) || *bits > ty.mask() {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name,
+                        &block.label,
+                        format!("{label} has an invalid integer constant"),
+                    ));
+                }
+            }
             NirValue::Null { ty } => {
                 self.type_shape(routine, block, ty, label);
                 if !ty.kind.is_address() {
@@ -3175,10 +3191,9 @@ impl NirVerifier {
 
     fn branch_condition_type(&mut self, routine: &NirRoutine, block: &NirBlock, value: &NirValue) {
         let valid = match value {
-            NirValue::ConstU8(value) => *value <= 1,
+            NirValue::IntegerConst { bits, ty } => *ty == NirIntegerType::U8 && *bits <= 1,
             NirValue::Temp { ty, .. } => matches!(ty.kind, NirTypeKind::Bool),
-            NirValue::ConstU16(_)
-            | NirValue::Null { .. }
+            NirValue::Null { .. }
             | NirValue::AddressConst { .. }
             | NirValue::StaticAddr { .. }
             | NirValue::Param(_)
@@ -3208,8 +3223,7 @@ impl NirVerifier {
             if let Some(temp) = temp_facts.temps.get(&id) {
                 let value_type = match value {
                     NirValue::Temp { ty, .. } => Some(ty),
-                    NirValue::ConstU8(_)
-                    | NirValue::ConstU16(_)
+                    NirValue::IntegerConst { .. }
                     | NirValue::Null { .. }
                     | NirValue::AddressConst { .. }
                     | NirValue::StaticAddr { .. }
@@ -3452,10 +3466,7 @@ impl NirVerifier {
             | NirValue::Null { ty }
             | NirValue::AddressConst { ty, .. }
             | NirValue::RoutineAddr { ty, .. } => ty,
-            NirValue::ConstU8(_)
-            | NirValue::ConstU16(_)
-            | NirValue::Param(_)
-            | NirValue::GlobalAddr(_) => return,
+            NirValue::IntegerConst { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => return,
         };
         let Some(expected) = compare_machine_type(operand_ty) else {
             return;
@@ -3532,8 +3543,7 @@ impl NirVerifier {
 
 fn constant_binary_value(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> Option<u16> {
     let value = |value: &NirValue| match value {
-        NirValue::ConstU8(value) => Some(u16::from(*value)),
-        NirValue::ConstU16(value) => Some(*value),
+        NirValue::IntegerConst { bits, .. } => u16::try_from(*bits).ok(),
         _ => None,
     };
     let left = value(left)?;
@@ -3547,8 +3557,7 @@ fn constant_binary_value(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> 
 
 fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
     match value {
-        NirValue::ConstU8(_) => expected.width == Some(ByteSize::ONE),
-        NirValue::ConstU16(_) => expected.width == Some(ByteSize::new(2)),
+        NirValue::IntegerConst { ty, .. } => expected.width == Some(ty.storage_width()),
         NirValue::Null { ty }
         | NirValue::AddressConst { ty, .. }
         | NirValue::RoutineAddr { ty, .. }
@@ -3592,13 +3601,10 @@ fn pointer_type_address_space(ty: &NirType) -> Option<crate::target::AddressSpac
 }
 
 fn compare_machine_type(ty: &NirType) -> Option<(u16, bool)> {
-    let signed = matches!(ty.kind, NirTypeKind::I8 | NirTypeKind::I16);
+    let signed = ty.kind.integer().is_some_and(|integer| integer.signed);
     match ty.kind {
         NirTypeKind::Bool
-        | NirTypeKind::U8
-        | NirTypeKind::I8
-        | NirTypeKind::U16
-        | NirTypeKind::I16
+        | NirTypeKind::Integer(_)
         | NirTypeKind::Pointer { .. }
         | NirTypeKind::Callable { .. } => ty
             .width

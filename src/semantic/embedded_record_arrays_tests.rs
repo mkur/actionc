@@ -31,7 +31,7 @@ fn embedded_record_arrays_preserve_element_shape_and_full_extent() {
     for (index, field) in layout.fields.iter().enumerate() {
         assert_eq!(
             (field.offset, field.size, field.alignment),
-            (index as u16 * 200, 200, 1)
+            (index as u32 * 200, 200, 1)
         );
         assert_eq!(field.ty, ValueType::fund(FundType::Int));
         assert_eq!(
@@ -113,13 +113,13 @@ fn embedded_record_arrays_use_target_alignment_and_nested_record_stride() {
 #[test]
 fn embedded_record_arrays_cover_scalar_widths_and_page_sized_extents() {
     for (element, width) in [
-        ("BYTE", 1u16),
+        ("BYTE", 1u32),
         ("CHAR", 1),
         ("INT", 2),
         ("CARD", 2),
         ("REAL", 6),
     ] {
-        for length in [1u16, 2, 100, 127, 128, 129, 255, 256, 257] {
+        for length in [1u32, 2, 100, 127, 128, 129, 255, 256, 257] {
             let source =
                 format!("TYPE Buffer=[BYTE prefix {element} ARRAY values({length}) BYTE suffix]");
             let model = analyze_layout(&source, TargetId::Atari6502).unwrap();
@@ -224,7 +224,11 @@ fn embedded_record_array_extent_and_record_tail_padding_never_wrap() {
     let source = "TYPE Limit=[CARD head BYTE ARRAY values(CARD(65533))]";
     let packed = analyze_layout(source, TargetId::Atari6502).unwrap();
     assert_eq!(packed.layout.record_for_name("Limit").unwrap().size, 65535);
-    let errors = analyze_layout(source, TargetId::Motorola68000).unwrap_err();
+    let native = analyze_layout(source, TargetId::Motorola68000).unwrap();
+    assert_eq!(native.layout.record_for_name("Limit").unwrap().size, 65536);
+    // Native layouts no longer have a 16-bit carrier, but tail alignment must
+    // still be checked at the actual limit rather than wrapping at u32::MAX.
+    let errors = analyze_layout("TYPE Limit=[CARD head BYTE ARRAY values(LONGCARD($FFFFFFFD))]", TargetId::Motorola68000).unwrap_err();
     assert!(
         errors
             .iter()

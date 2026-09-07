@@ -101,7 +101,7 @@ impl Analyzer {
             } => {
                 let mut address = self.static_subobject_address(left)?;
                 let mut addend =
-                    i32::try_from(exact_const_value(evaluate_const_expr(right).ok()?)).ok()?;
+                    i32::try_from(exact_const_value(self.evaluate_const_expr(right).ok()?)).ok()?;
                 if matches!(
                     &expr.kind,
                     SemExprKind::Binary {
@@ -133,7 +133,7 @@ impl Analyzer {
             }
             SemPlaceKind::Field { base, field } if !base.ty.is_pointer() => {
                 let mut address = self.static_place_address(base)?;
-                address.addend = address.addend.checked_add(i32::from(field.offset?))?;
+                address.addend = address.addend.checked_add(i32::try_from(field.offset?).ok()?)?;
                 Some(address)
             }
             SemPlaceKind::Index { base, index } => {
@@ -149,11 +149,11 @@ impl Analyzer {
                 }
                 let stride = self.value_storage_width(&array.element)?;
                 let index =
-                    i32::try_from(exact_const_value(evaluate_const_expr(index).ok()?)).ok()?;
+                    i32::try_from(exact_const_value(self.evaluate_const_expr(index).ok()?)).ok()?;
                 let mut address = self.static_place_address(base)?;
                 address.addend = address
                     .addend
-                    .checked_add(index.checked_mul(i32::from(stride))?)?;
+                    .checked_add(index.checked_mul(i32::try_from(stride).ok()?)?)?;
                 Some(address)
             }
             _ => None,

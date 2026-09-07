@@ -311,10 +311,12 @@ fn branch_predicate(
                 _ => None,
             })?;
     let (operand, value) = match (left, right) {
-        (operand @ NirValue::Temp { .. }, NirValue::ConstU8(value)) => (operand, u16::from(*value)),
-        (operand @ NirValue::Temp { .. }, NirValue::ConstU16(value)) => (operand, *value),
-        (NirValue::ConstU8(value), operand @ NirValue::Temp { .. }) => (operand, u16::from(*value)),
-        (NirValue::ConstU16(value), operand @ NirValue::Temp { .. }) => (operand, *value),
+        (operand @ NirValue::Temp { .. }, NirValue::IntegerConst { bits, .. }) => {
+            (operand, u16::try_from(*bits).ok()?)
+        }
+        (NirValue::IntegerConst { bits, .. }, operand @ NirValue::Temp { .. }) => {
+            (operand, u16::try_from(*bits).ok()?)
+        }
         _ => return None,
     };
     let equal = match op {
@@ -532,11 +534,11 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
-            id: crate::nir::RoutineId(0),
-            signature: crate::nir::NirCallableSignature::default(),
-            convention: crate::nir::NirCallConvention::TargetPublic,
-            activation: crate::nir::NirActivationModel::ClassicStatic,
-            entry: crate::nir::NirRoutineEntry::default(),
+                id: crate::nir::RoutineId(0),
+                signature: crate::nir::NirCallableSignature::default(),
+                convention: crate::nir::NirCallConvention::TargetPublic,
+                activation: crate::nir::NirActivationModel::ClassicStatic,
+                entry: crate::nir::NirRoutineEntry::default(),
                 name: "Test".to_string(),
                 params: vec![NirParam {
                     id: ParamId(0),

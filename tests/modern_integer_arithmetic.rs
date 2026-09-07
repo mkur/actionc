@@ -37,7 +37,7 @@ fn arithmetic_fault_preserves_prior_fixed_local_stores_for_error() {
             let ops: Vec<_> = main.blocks.iter().flat_map(|block| &block.ops).collect();
             let saved = ops.iter().position(|op| {
                 matches!(op,
-                    NirOp::Store { place, src: NirValue::ConstU16(41), .. }
+                    NirOp::Store { place, src: NirValue::IntegerConst { bits: 41, .. }, .. }
                     if direct_storage_id(place) == Some(state)
                 )
             });

@@ -424,7 +424,7 @@ fn var_decl_has_aggregate_initializer(decl: &VarDecl, record_layouts: &RecordLay
 // layout or a named FUNC result from unresolved AST spelling.
 fn unprojected_enum_span(program: &Program) -> Option<Span> {
     fn named_result(kind: &RoutineKind) -> bool {
-        matches!(kind, RoutineKind::Func { return_type: RoutineResultType::Named(_) })
+        matches!(kind, RoutineKind::Func { return_type } if matches!(return_type.base, TypeBase::Named(_)))
     }
     fn declaration(decl: &Decl) -> Option<Span> {
         match decl {
@@ -439,7 +439,7 @@ fn unprojected_enum_span(program: &Program) -> Option<Span> {
         }
     }
     fn variable(decl: &VarDecl) -> Option<Span> {
-        matches!(&decl.ty.base, TypeBase::Callable(kind) if named_result(kind)).then_some(decl.span)
+        matches!(&decl.ty.base, TypeBase::Callable(callable) if named_result(&callable.kind)).then_some(decl.span)
     }
     fn statement(stmt: &Stmt) -> Option<Span> {
         match stmt {

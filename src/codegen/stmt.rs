@@ -85,7 +85,7 @@ fn for_guard_constant(value: u16, width: u16, span: Span) -> Expr {
             } else {
                 crate::lexer::NumberKind::Card
             },
-            value: Some(value),
+            value: Some(u64::from(value)),
         }),
         text,
         span,

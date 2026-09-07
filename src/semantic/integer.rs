@@ -13,22 +13,42 @@ pub struct DivMod {
     pub remainder: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WideDivMod {
+    pub quotient: u64,
+    pub remainder: u64,
+}
+
+/// Fixed-width, target-independent arithmetic. Mask before checking the divisor;
+/// use a wider host intermediate so MIN / -1 wraps without a host overflow.
+pub fn divmod_bits(width: u8, signed: bool, left: u64, right: u64) -> Result<WideDivMod, ArithmeticFault> {
+    assert!((1..=64).contains(&width));
+    let mask = u64::MAX >> (64 - width);
+    let number = |bits: u64| {
+        let bits = bits & mask;
+        if signed && bits & (1u64 << (width - 1)) != 0 {
+            i128::from(bits) - (1i128 << width)
+        } else {
+            i128::from(bits)
+        }
+    };
+    let (left, right) = (number(left), number(right));
+    if right == 0 { return Err(ArithmeticFault::DivisionByZero); }
+    Ok(WideDivMod {
+        quotient: (left / right) as u64 & mask,
+        remainder: (left % right) as u64 & mask,
+    })
+}
+
 /// Operands have already undergone their source conversions. BYTE/CHAR are
 /// always unsigned; CARD wins mixed promotion. INT_MIN/-1 wraps deliberately.
 pub fn divmod(domain: ScalarType, left: u16, right: u16) -> Result<DivMod, ArithmeticFault> {
-    let (left, right) = match domain {
-        ScalarType::Byte | ScalarType::Char => (i32::from(left as u8), i32::from(right as u8)),
-        ScalarType::Card => (i32::from(left), i32::from(right)),
-        ScalarType::Int => (i32::from(left as i16), i32::from(right as i16)),
-    };
-    if right == 0 {
-        return Err(ArithmeticFault::DivisionByZero);
-    }
-    // i32 intermediates also represent +32768, avoiding host overflow in the
-    // one signed overflow case. Rust division truncates toward zero.
+    let result = divmod_bits((domain.width_bytes() * 8) as u8,
+        domain.signedness() == super::types::ScalarSignedness::Signed,
+        u64::from(left), u64::from(right))?;
     Ok(DivMod {
-        quotient: (left / right) as u16,
-        remainder: (left % right) as u16,
+        quotient: result.quotient as u16,
+        remainder: result.remainder as u16,
     })
 }
 

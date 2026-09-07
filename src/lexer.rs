@@ -43,7 +43,7 @@ pub enum Keyword {
 pub struct NumberLiteral {
     pub text: String,
     pub kind: NumberKind,
-    pub value: Option<u16>,
+    pub value: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +51,8 @@ pub enum NumberKind {
     Byte,
     Int,
     Card,
+    LongInt,
+    LongCard,
     Real,
 }
 
@@ -172,6 +174,8 @@ impl NumberKind {
             NumberKind::Byte => 128 + 2,
             NumberKind::Int => 128 + 3,
             NumberKind::Card => 128 + 4,
+            NumberKind::LongInt => 128 + 5,
+            NumberKind::LongCard => 128 + 5,
             NumberKind::Real => 128 + 6,
         }
     }
@@ -467,9 +471,9 @@ impl<'a> Lexer<'a> {
                 ));
                 None
             } else {
-                match u16::from_str_radix(digits, 16) {
-                    Ok(value) => Some(value),
-                    Err(_) => {
+                match u64::from_str_radix(digits, 16) {
+                    Ok(value) if value <= u64::from(u32::MAX) => Some(value),
+                    Ok(_) | Err(_) => {
                         self.diagnostics.push(Diagnostic::new(
                             Span::new(start, self.pos),
                             "hexadecimal constant is too large",
@@ -479,8 +483,9 @@ impl<'a> Lexer<'a> {
                 }
             };
             let kind = match value {
-                Some(value) if value <= u16::from(u8::MAX) => NumberKind::Byte,
-                _ => NumberKind::Card,
+                Some(value) if value <= u64::from(u8::MAX) => NumberKind::Byte,
+                Some(value) if value <= u64::from(u16::MAX) => NumberKind::Card,
+                _ => NumberKind::LongCard,
             };
             return Token {
                 kind: TokenKind::Number(NumberLiteral { text, kind, value }),
@@ -520,9 +525,10 @@ impl<'a> Lexer<'a> {
         let (kind, value) = if is_real {
             (NumberKind::Real, None)
         } else {
-            match text.parse::<u32>() {
-                Ok(value) if value <= u8::MAX as u32 => (NumberKind::Byte, Some(value as u16)),
-                Ok(value) if value <= u16::MAX as u32 => (NumberKind::Int, Some(value as u16)),
+            match text.parse::<u64>() {
+                Ok(value) if value <= u64::from(u8::MAX) => (NumberKind::Byte, Some(value)),
+                Ok(value) if value <= u64::from(u16::MAX) => (NumberKind::Int, Some(value)),
+                Ok(value) if value <= u64::from(u32::MAX) => (NumberKind::LongInt, Some(value)),
                 Ok(_) => {
                     self.diagnostics.push(Diagnostic::new(
                         Span::new(start, self.pos),
@@ -1030,14 +1036,16 @@ mod tests {
 
     #[test]
     fn classifies_numeric_literals_like_lexdig_and_lexhex() {
-        let tokens = tokenize("0 255 256 65535 $0 $FF $1234").unwrap();
+        let tokens = tokenize("0 255 256 65535 65536 $0 $FF $1234 $10000").unwrap();
         assert_number(&tokens[0].kind, "0", NumberKind::Byte, Some(0));
         assert_number(&tokens[1].kind, "255", NumberKind::Byte, Some(255));
         assert_number(&tokens[2].kind, "256", NumberKind::Int, Some(256));
         assert_number(&tokens[3].kind, "65535", NumberKind::Int, Some(65535));
-        assert_number(&tokens[4].kind, "$0", NumberKind::Byte, Some(0));
-        assert_number(&tokens[5].kind, "$FF", NumberKind::Byte, Some(255));
-        assert_number(&tokens[6].kind, "$1234", NumberKind::Card, Some(0x1234));
+        assert_number(&tokens[4].kind, "65536", NumberKind::LongInt, Some(65536));
+        assert_number(&tokens[5].kind, "$0", NumberKind::Byte, Some(0));
+        assert_number(&tokens[6].kind, "$FF", NumberKind::Byte, Some(255));
+        assert_number(&tokens[7].kind, "$1234", NumberKind::Card, Some(0x1234));
+        assert_number(&tokens[8].kind, "$10000", NumberKind::LongCard, Some(0x10000));
     }
 
     #[test]
@@ -1053,8 +1061,8 @@ mod tests {
     #[test]
     fn diagnoses_malformed_numeric_literals() {
         assert!(tokenize("$").is_err());
-        assert!(tokenize("$10000").is_err());
-        assert!(tokenize("65536").is_err());
+        assert!(tokenize("$100000000").is_err());
+        assert!(tokenize("4294967296").is_err());
         assert!(tokenize("1E").is_err());
         assert!(tokenize("1e+").is_err());
     }
@@ -1154,9 +1162,11 @@ mod tests {
             identifiers,
             ["BEGIN", "END", "Begin", "End", "begin", "end"]
         );
-        assert!(tokens[..tokens.len() - 1]
-            .iter()
-            .all(|token| token.kind.action_token_id().is_none()));
+        assert!(
+            tokens[..tokens.len() - 1]
+                .iter()
+                .all(|token| token.kind.action_token_id().is_none())
+        );
     }
 
     #[test]
@@ -1193,7 +1203,7 @@ mod tests {
         kind: &TokenKind,
         expected_text: &str,
         expected_kind: NumberKind,
-        expected_value: Option<u16>,
+        expected_value: Option<u64>,
     ) {
         let TokenKind::Number(number) = kind else {
             panic!("expected number token, got {kind:?}");

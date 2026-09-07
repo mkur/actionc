@@ -321,7 +321,10 @@ pub(super) fn resolve_storage_initializer_targets(
 pub(super) fn type_size(ty: &TypeRef) -> Option<u16> {
     match &ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),
-        TypeBase::Fund(FundType::Card | FundType::Int) => Some(2),
+        TypeBase::Fund(FundType::Card | FundType::Int | FundType::Address | FundType::Size) => {
+            Some(2)
+        }
+        TypeBase::Fund(FundType::LongInt | FundType::LongCard) => Some(4),
         TypeBase::NativeReal => Some(6),
         TypeBase::Named(name) if is_string_type_name(name) => Some(1),
         TypeBase::Named(_) => None,
@@ -351,7 +354,7 @@ fn constant_integer_with_defines(
     numeric_defines: &HashMap<String, u16>,
 ) -> Option<(ScalarType, u16)> {
     let (ty, bits) = match &expr.kind {
-        ExprKind::Number(number) => (ScalarType::from_number_kind(number.kind)?, number.value?),
+        ExprKind::Number(number) => (ScalarType::from_number_kind(number.kind)?, u16::try_from(number.value?).ok()?),
         ExprKind::Char(ch) => (ScalarType::Char, u16::from(source_char_byte(*ch)?)),
         ExprKind::Name(name) => {
             let bits = *numeric_defines.get(&normalize_name(name))?;
@@ -686,14 +689,14 @@ fn initializer_literal_value(element: &InitializerElement) -> Option<u16> {
     };
     let value = match value {
         InitializerLiteral::Number(number) => number.value?,
-        InitializerLiteral::Char(ch) => u16::from(source_char_byte(*ch)?),
+        InitializerLiteral::Char(ch) => u64::from(source_char_byte(*ch)?),
         InitializerLiteral::True => 1,
         InitializerLiteral::False | InitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value)
+        0u16.wrapping_sub(value as u16)
     } else {
-        value
+        value as u16
     })
 }
 
@@ -727,7 +730,7 @@ fn raw_initializer_values(inner: &str) -> Option<Vec<u16>> {
 
 fn parse_raw_initializer_value(token: &TokenKind) -> Option<u16> {
     match token {
-        TokenKind::Number(number) => number.value,
+        TokenKind::Number(number) => number.value.and_then(|value| u16::try_from(value).ok()),
         TokenKind::Char(ch) => source_char_byte(*ch).map(u16::from),
         TokenKind::Ident(name) => match normalize_name(name).as_str() {
             "TRUE" => Some(1),

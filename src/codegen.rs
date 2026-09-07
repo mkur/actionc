@@ -1324,7 +1324,7 @@ fn codegen_routine_signature_from_ast(
         RoutineKind::Proc => ("PROC".to_string(), None, None),
         RoutineKind::Func { return_type } => (
             "FUNC".to_string(),
-            Some(result_type_trace_name(return_type)),
+            Some(type_ref_trace_name(&return_type)),
             return_slot.map(|slot| slot.size),
         ),
     };
@@ -1342,10 +1342,10 @@ fn type_ref_trace_name(ty: &TypeRef) -> String {
         TypeBase::Fund(fund) => fund_type_trace_name(*fund).to_string(),
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
-        TypeBase::Callable(kind) => match kind {
+        TypeBase::Callable(callable) => match &callable.kind {
             RoutineKind::Proc => "PROC".to_string(),
             RoutineKind::Func { return_type } => {
-                format!("{}FUNC", result_type_trace_name(return_type))
+                format!("{}FUNC", type_ref_trace_name(return_type))
             }
         },
     };
@@ -1355,19 +1355,16 @@ fn type_ref_trace_name(ty: &TypeRef) -> String {
     text
 }
 
-fn result_type_trace_name(result: &RoutineResultType) -> String {
-    match result {
-        RoutineResultType::Fund(fund) => fund_type_trace_name(*fund).to_string(),
-        RoutineResultType::Named(name) => name.to_string(),
-    }
-}
-
 fn fund_type_trace_name(fund: FundType) -> &'static str {
     match fund {
         FundType::Byte => "BYTE",
         FundType::Card => "CARD",
         FundType::Char => "CHAR",
         FundType::Int => "INT",
+        FundType::LongInt => "LONGINT",
+        FundType::LongCard => "LONGCARD",
+        FundType::Address => "ADDRESS",
+        FundType::Size => "SIZE",
     }
 }
 
@@ -1423,15 +1420,15 @@ fn collect_callable_pointer_decl(
     decl: &VarDecl,
     pointers: &mut HashMap<String, CallablePointerInfo>,
 ) {
-    let TypeBase::Callable(kind) = &decl.ty.base else {
+    let TypeBase::Callable(callable) = &decl.ty.base else {
         return;
     };
-    let return_slot = callable_pointer_return_slot(kind);
+    let return_slot = callable_pointer_return_slot(&callable.kind);
     for entry in &decl.entries {
         pointers.insert(
             normalize_name(&entry.name),
             CallablePointerInfo {
-                kind: kind.clone(),
+                kind: callable.kind.clone(),
                 return_slot,
             },
         );
@@ -1442,7 +1439,7 @@ fn callable_pointer_return_slot(kind: &RoutineKind) -> Option<StorageSlot> {
     match kind {
         RoutineKind::Proc => None,
         RoutineKind::Func { return_type } => {
-            let ty = return_type.type_ref();
+            let ty = return_type.as_ref();
             type_size(&ty).map(|size| {
                 StorageSlot::zero_page(runtime_zp::ARGS.address(), size).signed(type_is_signed(&ty))
             })

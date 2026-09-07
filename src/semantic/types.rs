@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, FundType, QualifiedName, RoutineKind, RoutineResultType};
+use crate::ast::{BinaryOp, FundType, QualifiedName, RoutineKind, TypeRef, TypeBase};
 use crate::lexer::NumberKind;
 
 use super::{EnumIdentity, FieldId, ValueType, ValueTypeBase};
@@ -10,6 +10,10 @@ pub enum ScalarType {
     Card,
     Char,
     Int,
+    LongInt,
+    LongCard,
+    Address,
+    Size,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,14 +30,14 @@ pub struct PointerType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArrayType {
     pub element: Box<ValueType>,
-    pub length: Option<u16>,
+    pub length: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordType {
     pub name: String,
     pub fields: Vec<RecordFieldType>,
-    pub size: u16,
+    pub size: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +58,7 @@ pub struct RecordFieldType {
     pub name: String,
     pub ty: ValueType,
     pub storage: RecordFieldStorage,
-    pub offset: u16,
+    pub offset: u32,
 }
 
 /// Arrays remain addressable storage, not scalar values. Their element type
@@ -64,7 +68,7 @@ pub enum RecordFieldStorage {
     Value,
     InlineArray {
         array_type: ArrayType,
-        stride: u16,
+        stride: u32,
     },
 }
 
@@ -140,7 +144,7 @@ impl CallableType {
     ) -> Self {
         let return_type = match &kind {
             RoutineKind::Proc => None,
-            RoutineKind::Func { return_type } => Some(ValueType::unresolved_routine_result(return_type)),
+            RoutineKind::Func { return_type } => Some(ValueType::from_type_ref(return_type)),
         };
         Self::new(kind, params, return_type)
     }
@@ -151,7 +155,12 @@ impl CallableType {
 
     pub fn from_return_fund(return_type: FundType) -> Self {
         Self::new(
-            RoutineKind::Func { return_type: return_type.into() },
+            RoutineKind::Func {
+                return_type: Box::new(crate::ast::TypeRef {
+                    base: crate::ast::TypeBase::Fund(return_type),
+                    pointer: false,
+                }),
+            },
             Vec::new(),
             Some(ValueType::fund(return_type)),
         )
@@ -167,7 +176,7 @@ impl CallableType {
 }
 
 impl ArrayType {
-    pub fn new(element: ValueType, length: Option<u16>) -> Self {
+    pub fn new(element: ValueType, length: Option<u32>) -> Self {
         Self {
             element: Box::new(element),
             length,
@@ -182,10 +191,10 @@ impl ArrayType {
         self.element.value_width_bytes()
     }
 
-    pub fn total_width_bytes(&self) -> Option<u16> {
+    pub fn total_width_bytes(&self) -> Option<u32> {
         self.length
             .zip(self.element_width_bytes())
-            .map(|(length, width)| length.saturating_mul(width))
+            .map(|(length, width)| length.saturating_mul(u32::from(width)))
     }
 }
 
@@ -193,7 +202,7 @@ impl RecordType {
     pub fn new(
         name: impl Into<String>,
         fields: impl IntoIterator<Item = RecordFieldType>,
-        size: u16,
+        size: u32,
     ) -> Self {
         Self {
             name: name.into(),
@@ -233,6 +242,10 @@ impl ScalarType {
             FundType::Card => Self::Card,
             FundType::Char => Self::Char,
             FundType::Int => Self::Int,
+            FundType::LongInt => Self::LongInt,
+            FundType::LongCard => Self::LongCard,
+            FundType::Address => Self::Address,
+            FundType::Size => Self::Size,
         }
     }
 
@@ -241,6 +254,8 @@ impl ScalarType {
             NumberKind::Byte => Some(Self::Byte),
             NumberKind::Card => Some(Self::Card),
             NumberKind::Int => Some(Self::Int),
+            NumberKind::LongInt => Some(Self::LongInt),
+            NumberKind::LongCard => Some(Self::LongCard),
             NumberKind::Real => None,
         }
     }
@@ -251,20 +266,27 @@ impl ScalarType {
             Self::Card => FundType::Card,
             Self::Char => FundType::Char,
             Self::Int => FundType::Int,
+            Self::LongInt => FundType::LongInt,
+            Self::LongCard => FundType::LongCard,
+            Self::Address => FundType::Address,
+            Self::Size => FundType::Size,
         }
     }
 
     pub fn width_bytes(self) -> u16 {
         match self {
             Self::Byte | Self::Char => 1,
-            Self::Card | Self::Int => 2,
+            Self::Card | Self::Int | Self::Address | Self::Size => 2,
+            Self::LongInt | Self::LongCard => 4,
         }
     }
 
     pub fn signedness(self) -> ScalarSignedness {
         match self {
-            Self::Int => ScalarSignedness::Signed,
-            Self::Byte | Self::Card | Self::Char => ScalarSignedness::Unsigned,
+            Self::Int | Self::LongInt => ScalarSignedness::Signed,
+            Self::Byte | Self::Card | Self::Char | Self::LongCard | Self::Address | Self::Size => {
+                ScalarSignedness::Unsigned
+            }
         }
     }
 
@@ -280,16 +302,49 @@ impl ScalarType {
                     | (Self::Char, Self::Byte)
                     | (Self::Int, Self::Byte | Self::Char)
                     | (Self::Card, Self::Byte | Self::Char | Self::Int)
+                    | (Self::LongInt, Self::Byte | Self::Char | Self::Int | Self::Card)
+                    | (
+                        Self::LongCard,
+                        Self::Byte | Self::Char | Self::Int | Self::Card | Self::LongInt
+                    )
+                    | (Self::Address, Self::Address)
+                    | (
+                        Self::Size,
+                        Self::Byte | Self::Char | Self::Int | Self::Card | Self::Size
+                    )
             )
     }
 
     pub fn promote_binary(left: Self, right: Self) -> Self {
         match (left, right) {
+            (Self::Address, Self::Address) => Self::Size,
+            (Self::Address, _) | (_, Self::Address) => Self::Address,
+            (Self::Size, _) | (_, Self::Size) => Self::Size,
+            (Self::LongCard, _) | (_, Self::LongCard) => Self::LongCard,
+            (Self::LongInt, _) | (_, Self::LongInt) => Self::LongInt,
             (Self::Card, _) | (_, Self::Card) => Self::Card,
             (Self::Int, _) | (_, Self::Int) => Self::Int,
             (Self::Byte, Self::Byte) => Self::Byte,
             (Self::Char, Self::Char) => Self::Char,
             (Self::Byte | Self::Char, Self::Byte | Self::Char) => Self::Byte,
+        }
+    }
+
+    pub fn address_arithmetic_result(op: BinaryOp, left: Self, right: Self) -> Option<Self> {
+        if left != Self::Address && right != Self::Address {
+            return None;
+        }
+        match (op, left, right) {
+            (BinaryOp::Add, Self::Address, Self::Size)
+            | (BinaryOp::Add, Self::Size, Self::Address)
+            | (BinaryOp::Sub, Self::Address, Self::Size) => Some(Self::Address),
+            (BinaryOp::Sub, Self::Address, Self::Address) => Some(Self::Size),
+            (
+                BinaryOp::And | BinaryOp::Or | BinaryOp::Xor | BinaryOp::Lsh | BinaryOp::Rsh,
+                Self::Address,
+                _,
+            ) => Some(Self::Address),
+            _ => None,
         }
     }
 
@@ -305,8 +360,12 @@ impl ScalarType {
         right: Self,
         constant_result: Option<u16>,
     ) -> Self {
+        if left == Self::Address || right == Self::Address {
+            return Self::address_arithmetic_result(op, left, right).unwrap_or(Self::Address);
+        }
         let promoted = Self::promote_binary(left, right);
         match op {
+            BinaryOp::Mul if matches!(promoted, Self::LongInt | Self::LongCard) => promoted,
             BinaryOp::Mul => Self::Int,
             BinaryOp::Add | BinaryOp::Sub
                 if promoted == Self::Byte
@@ -321,13 +380,25 @@ impl ScalarType {
 
 impl ValueType {
     /// Used only while collecting source declarations, before scope resolution.
-    pub(crate) fn unresolved_routine_result(result: &RoutineResultType) -> Self {
-        result.as_fund().map(Self::fund).unwrap_or_else(Self::error)
+    pub(crate) fn unresolved_routine_result(result: &TypeRef) -> Self {
+        if matches!(result.base, TypeBase::Named(_)) { Self::error() }
+        else { Self::from_type_ref(result) }
     }
 
-    pub(crate) fn routine_result_type(&self) -> Option<RoutineResultType> {
-        if let Some(scalar) = self.as_scalar() { return Some(scalar.fund_type().into()); }
-        self.as_enum().map(|identity| RoutineResultType::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())))
+    pub(crate) fn routine_result_type(&self) -> Option<Box<TypeRef>> {
+        let base = match &self.base {
+            ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
+            ValueTypeBase::Enum(identity) => TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
+            ValueTypeBase::Named(name) if self.pointer => TypeBase::Named(name.clone().into()),
+            ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
+                kind: callable.kind.clone(),
+                params: callable.params.iter().map(|ty| Some(crate::ast::CallableParamTypeRef {
+                    ty: *ty.routine_result_type()?, storage: crate::ast::VarStorage::Plain,
+                })).collect::<Option<Vec<_>>>()?,
+            })),
+            _ => return None,
+        };
+        Some(Box::new(TypeRef { base, pointer: self.pointer }))
     }
 
     pub fn enumeration(identity: EnumIdentity) -> Self {
@@ -459,6 +530,12 @@ impl ValueType {
     /// fixed; only data and callable pointers vary with the target layout.
     pub fn value_width_bytes_for_layout(&self, layout: TargetLayout) -> Option<u16> {
         match self.kind() {
+            ValueTypeKind::Scalar(ScalarType::Address) => {
+                Some(u16::from(layout.address_integer_bits.div_ceil(8)))
+            }
+            ValueTypeKind::Scalar(ScalarType::Size) => {
+                Some(u16::from(layout.size_integer_bits.div_ceil(8)))
+            }
             ValueTypeKind::Scalar(scalar) => Some(scalar.width_bytes()),
             ValueTypeKind::Enum(_) => Some(1),
             ValueTypeKind::Real => Some(6),
@@ -880,14 +957,20 @@ mod tests {
 
         let function = CallableType::from_routine_kind(
             RoutineKind::Func {
-                return_type: FundType::Byte.into(),
+                return_type: Box::new(crate::ast::TypeRef {
+                    base: crate::ast::TypeBase::Fund(FundType::Byte),
+                    pointer: false,
+                }),
             },
             [ValueType::fund(FundType::Card)],
         );
         assert_eq!(
             function.kind,
             RoutineKind::Func {
-                return_type: FundType::Byte.into()
+                return_type: Box::new(crate::ast::TypeRef {
+                    base: crate::ast::TypeBase::Fund(FundType::Byte),
+                    pointer: false,
+                })
             }
         );
         assert_eq!(function.params, vec![ValueType::fund(FundType::Card)]);

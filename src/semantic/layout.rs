@@ -29,9 +29,9 @@ pub struct SemanticRecordLayout {
     pub name: String,
     pub record_type: RecordType,
     pub fields: Vec<SemanticRecordFieldLayout>,
-    pub size: u16,
-    pub alignment: u16,
-    pub tail_padding: u16,
+    pub size: u32,
+    pub alignment: u32,
+    pub tail_padding: u32,
     pub span: Span,
 }
 
@@ -41,9 +41,9 @@ pub struct SemanticRecordFieldLayout {
     pub name: String,
     pub ty: ValueType,
     pub storage: RecordFieldStorage,
-    pub size: u16,
-    pub offset: u16,
-    pub alignment: u16,
+    pub size: u32,
+    pub offset: u32,
+    pub alignment: u32,
     pub span: Span,
 }
 
@@ -53,11 +53,11 @@ pub struct SemanticArrayLayout {
     pub symbol: SymbolId,
     pub name: String,
     pub element_type: ValueType,
-    pub length: Option<u16>,
+    pub length: Option<u32>,
     pub pointer_type: ValueType,
-    pub element_size: u16,
-    pub element_alignment: u16,
-    pub stride: u16,
+    pub element_size: u32,
+    pub element_alignment: u32,
+    pub stride: u32,
     pub storage_size: Option<u32>,
     pub origin: SemanticArrayOrigin,
     pub span: Span,
@@ -75,7 +75,7 @@ impl SemanticLayoutFacts {
     pub fn build(
         symbols: &SymbolTable,
         array_symbols: &HashSet<SymbolId>,
-        array_lengths: &HashMap<SymbolId, u16>,
+        array_lengths: &HashMap<SymbolId, u32>,
         fields: &[SemanticField],
         target_layout: TargetLayout,
     ) -> Self {
@@ -106,7 +106,7 @@ impl SemanticLayoutFacts {
     /// Final target-selected alignment of a semantic value. Record alignment
     /// comes from the resolved layout table rather than being reconstructed by
     /// a backend.
-    pub fn value_alignment(&self, value: &ValueType, target_layout: TargetLayout) -> Option<u16> {
+    pub fn value_alignment(&self, value: &ValueType, target_layout: TargetLayout) -> Option<u32> {
         let records = self
             .records
             .iter()
@@ -140,7 +140,7 @@ impl SemanticLayoutFacts {
                 .map(|field| field.alignment)
                 .max()
                 .unwrap_or(1);
-            let unpadded_size = owner_fields.iter().fold(0u16, |size, field| {
+            let unpadded_size = owner_fields.iter().fold(0u32, |size, field| {
                 size.max(
                     field.offset.checked_add(field.size).expect("validated field extent"),
                 )
@@ -191,7 +191,7 @@ impl SemanticLayoutFacts {
         &mut self,
         symbols: &SymbolTable,
         array_symbols: &HashSet<SymbolId>,
-        array_lengths: &HashMap<SymbolId, u16>,
+        array_lengths: &HashMap<SymbolId, u32>,
         target_layout: TargetLayout,
     ) {
         let mut ids: Vec<_> = array_symbols.iter().copied().collect();
@@ -209,8 +209,8 @@ impl SemanticLayoutFacts {
                 .iter()
                 .map(|record| (record.name.clone(), (record.size, record.alignment)))
                 .collect::<HashMap<_, _>>();
-            let element_size = semantic_value_width(&element_type, &records, target_layout)
-                .unwrap_or(0);
+            let element_size =
+                semantic_value_width(&element_type, &records, target_layout).unwrap_or(0);
             let element_alignment =
                 semantic_value_alignment(&element_type, &records, target_layout).unwrap_or(1);
             let stride = align_up(element_size, element_alignment).unwrap_or(element_size);
@@ -225,7 +225,7 @@ impl SemanticLayoutFacts {
                 element_size,
                 element_alignment,
                 stride,
-                storage_size: length.map(|length| u32::from(length) * u32::from(stride)),
+                storage_size: length.and_then(|length| length.checked_mul(stride)),
                 element_type,
                 origin: array_origin(symbols, symbol_id, &symbol.class),
                 span: symbol.span,
@@ -259,46 +259,45 @@ fn array_origin(
 
 fn semantic_value_width(
     value: &ValueType,
-    records: &HashMap<String, (u16, u16)>,
+    records: &HashMap<String, (u32, u32)>,
     target_layout: TargetLayout,
-) -> Option<u16> {
-    value.value_width_bytes_for_layout(target_layout).or_else(|| {
-        value
-            .as_record_name()
-            .and_then(|name| records.get(name).map(|(size, _)| *size))
-    })
+) -> Option<u32> {
+    value
+        .value_width_bytes_for_layout(target_layout)
+        .map(u32::from)
+        .or_else(|| {
+            value
+                .as_record_name()
+                .and_then(|name| records.get(name).map(|(size, _)| *size))
+        })
 }
 
 fn semantic_value_alignment(
     value: &ValueType,
-    records: &HashMap<String, (u16, u16)>,
+    records: &HashMap<String, (u32, u32)>,
     target_layout: TargetLayout,
-) -> Option<u16> {
+) -> Option<u32> {
     if target_layout.record_layout == RecordLayoutPolicy::Packed {
         return semantic_value_width(value, records, target_layout).map(|_| 1);
     }
     match value.kind() {
         super::ValueTypeKind::Enum(_) => Some(1),
-        super::ValueTypeKind::Scalar(scalar) => Some(
+        super::ValueTypeKind::Scalar(scalar) => Some(u32::from(
             scalar
                 .width_bytes()
                 .min(u16::from(target_layout.natural_word_alignment_bytes)),
-        ),
-        super::ValueTypeKind::Real => {
-            Some(u16::from(target_layout.natural_word_alignment_bytes))
-        }
-        super::ValueTypeKind::Pointer(_) => {
-            u16::try_from(target_layout.data_pointer.alignment_bytes.get()).ok()
-        }
+        )),
+        super::ValueTypeKind::Real => Some(u32::from(target_layout.natural_word_alignment_bytes)),
+        super::ValueTypeKind::Pointer(_) => Some(target_layout.data_pointer.alignment_bytes.get()),
         super::ValueTypeKind::CallablePointer(_) => {
-            u16::try_from(target_layout.code_pointer.alignment_bytes.get()).ok()
+            Some(target_layout.code_pointer.alignment_bytes.get())
         }
         super::ValueTypeKind::Record(name) => records.get(&name).map(|(_, alignment)| *alignment),
         super::ValueTypeKind::Error => None,
     }
 }
 
-fn align_up(value: u16, alignment: u16) -> Option<u16> {
+fn align_up(value: u32, alignment: u32) -> Option<u32> {
     if alignment <= 1 {
         return Some(value);
     }

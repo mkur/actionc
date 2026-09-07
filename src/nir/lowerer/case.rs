@@ -57,7 +57,7 @@ impl NirBuilder {
         left: NirValue,
         operand_ty: &NirType,
         op: NirCompareOp,
-        bits: u16,
+        bits: u64,
     ) -> NirValue {
         let dest = self.next_temp();
         let ty = NirFacts::condition_type();
@@ -67,7 +67,7 @@ impl NirBuilder {
             operand_ty: operand_ty.clone(),
             op,
             left,
-            right: nir_scalar_constant(operand_ty, bits),
+            right: NirValue::IntegerConst { bits, ty: operand_ty.kind.integer().expect("integer CASE selector") },
         });
         NirValue::Temp { id: dest, ty }
     }

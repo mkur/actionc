@@ -118,7 +118,7 @@ fn embedded_array_layout_queries_do_not_execute_indexes() {
             }
         })
         .collect::<Vec<_>>();
-    assert_eq!(values, [200, 100, 2, 200, 1].map(nir::NirValue::ConstU16));
+    assert_eq!(values, [200, 100, 2, 200, 1].map(|bits| nir::NirValue::integer_const(bits, nir::NirIntegerType::size(16))));
     assert!(
         !main
             .blocks

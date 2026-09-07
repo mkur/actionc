@@ -23,7 +23,7 @@ impl EnumValue {
     pub fn representation(&self) -> ConstValue {
         ConstValue {
             ty: ScalarType::Byte,
-            bits: u16::from(self.bits),
+            bits: u64::from(self.bits),
         }
     }
 }
@@ -46,7 +46,6 @@ pub struct EnumFacts {
     pub types: HashMap<SymbolId, EnumType>,
     pub constants: HashMap<SymbolId, EnumValue>,
     pub(super) member_values: HashMap<ExpressionSite, EnumValue>,
-    pub(super) casts: HashMap<ExpressionSite, ValueType>,
     pub(super) initializers: HashMap<ExpressionSite, EnumValue>,
 }
 
@@ -84,7 +83,7 @@ impl Analyzer {
             }
             if *negative || value.ty != *destination || destination.as_enum().is_none() {
                 self.diagnostics.push(Diagnostic::new(element.span, "initializer requires the exact enum type; use a typed CONST with an explicit conversion"));
-            } else if let Ok(payload) = evaluate_const_expr(&value) {
+            } else if let Ok(payload) = self.evaluate_const_expr(&value) {
                 self.enums.initializers.insert(
                     ExpressionSite::new(scope, element.span),
                     EnumValue {
@@ -113,16 +112,15 @@ impl Analyzer {
     pub(super) fn resolve_routine_result(
         &mut self,
         scope: ScopeId,
-        result: &RoutineResultType,
+        result: &TypeRef,
         span: Span,
     ) -> ValueType {
-        let syntax = result.type_ref();
-        self.validate_type_ref(scope, &syntax, span);
-        let ty = self.value_type_from_type_ref(scope, &syntax);
-        if matches!(result, RoutineResultType::Named(_)) && ty.as_enum().is_none() {
+        self.validate_type_ref(scope, result, span);
+        let ty = self.value_type_from_type_ref(scope, result);
+        if ty.is_record() || ty.is_real() {
             self.diagnostics.push(Diagnostic::new(
                 span,
-                "named FUNC result must be an enum type",
+                "function result must be a register-sized scalar, enum or pointer type",
             ));
             return ValueType::error();
         }
@@ -180,7 +178,7 @@ impl Analyzer {
                     self.diagnostics.push(Diagnostic::new(member.span, "ENUM member value requires an integer constant or an earlier member of this enum"));
                     None
                 } else {
-                    match evaluate_const_expr(&value) {
+                    match self.evaluate_const_expr(&value) {
                         Ok(value) => u16::try_from(exact_const_value(value)).ok(),
                         Err(message) => {
                             self.diagnostics.push(Diagnostic::new(
@@ -299,8 +297,7 @@ impl Analyzer {
             return self.subject_error(span);
         }
         let ty = ValueType::enumeration(identity);
-        self.enums
-            .casts
+        self.resolved_casts
             .insert(ExpressionSite::new(scope, span), ty.clone());
         subject::SemSubject::Expr(subject::SemExpr {
             ty: ty.clone(),
@@ -313,7 +310,7 @@ impl Analyzer {
     }
 }
 
-fn expression_name(expr: &Expr) -> Option<QualifiedName> {
+pub(super) fn expression_name(expr: &Expr) -> Option<QualifiedName> {
     match &expr.kind {
         ExprKind::Name(name) => Some(QualifiedName::new(vec![name.clone()])),
         ExprKind::Field { base, field } => {

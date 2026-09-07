@@ -82,9 +82,17 @@ pub(crate) fn parse_bindings(
                 )));
             }
             let target = if let ExprKind::Number(number) = &set.value.kind {
-                BindingTarget::Absolute(number.value.ok_or_else(|| {
-                    diagnostic(format!("binding value `{}` is not numeric", set.value.text))
-                })?)
+                BindingTarget::Absolute(
+                    number
+                        .value
+                        .and_then(|value| u16::try_from(value).ok())
+                        .ok_or_else(|| {
+                            diagnostic(format!(
+                                "binding value `{}` is not a 16-bit address",
+                                set.value.text
+                            ))
+                        })?,
+                )
             } else {
                 let Some(implementation) = qualified_expr_name(&set.value) else {
                     return Err(diagnostic(format!(

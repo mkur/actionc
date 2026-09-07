@@ -377,8 +377,7 @@ impl Generator {
 
     // Extracted from src/codegen.rs: record_field_metadata
     pub(super) fn record_field_metadata(&self, base: &Expr, field: &str) -> Option<RecordField> {
-        self.record_layouts
-            .field(self.expr_record_id(base)?, field)
+        self.record_layouts.field(self.expr_record_id(base)?, field)
     }
 
     fn expr_record_id(&self, expr: &Expr) -> Option<usize> {
@@ -390,10 +389,11 @@ impl Generator {
             ExprKind::Call { callee, args } if args.len() == 1 => {
                 self.index_element(callee)?.record
             }
-            ExprKind::Field { base, field } => self
-                .record_layouts
-                .field(self.expr_record_id(base)?, field)?
-                .record,
+            ExprKind::Field { base, field } => {
+                self.record_layouts
+                    .field(self.expr_record_id(base)?, field)?
+                    .record
+            }
             _ => None,
         }
     }
@@ -800,7 +800,10 @@ pub(super) fn cast_type_size(ty: &TypeRef) -> Option<u16> {
     }
     match ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),
-        TypeBase::Fund(FundType::Card | FundType::Int) => Some(2),
+        TypeBase::Fund(FundType::Card | FundType::Int | FundType::Address | FundType::Size) => {
+            Some(2)
+        }
+        TypeBase::Fund(FundType::LongInt | FundType::LongCard) => Some(4),
         TypeBase::NativeReal => Some(6),
         TypeBase::Callable(_) => Some(2),
         TypeBase::Named(_) => None,

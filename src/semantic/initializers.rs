@@ -3,7 +3,7 @@
 use super::*;
 
 pub(super) struct StaticInitializerLeaf {
-    pub offset: u16,
+    pub offset: u32,
     pub ty: ValueType,
     pub width: u16,
     pub path: String,
@@ -24,9 +24,9 @@ pub(super) fn static_initializer_leaves(
     }
 
     impl Walker<'_> {
-        fn append(&mut self, ty: &ValueType, offset: u16, path: String) -> Option<()> {
+        fn append(&mut self, ty: &ValueType, offset: u32, path: String) -> Option<()> {
             if let Some(width) = ty.value_width_bytes_for_layout(self.target) {
-                offset.checked_add(width)?;
+                offset.checked_add(u32::from(width))?;
                 self.leaves.push(StaticInitializerLeaf {
                     offset,
                     ty: ty.clone(),

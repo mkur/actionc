@@ -4,8 +4,8 @@ use super::*;
 /// established by semantic analysis, not by ordering these storage bits.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaseRange {
-    pub low: u16,
-    pub high: u16,
+    pub low: u64,
+    pub high: u64,
     pub span: Span,
 }
 
@@ -87,8 +87,8 @@ impl Analyzer {
                         }
                         previous.push((low, high, label.span));
                         Some(CaseRange {
-                            low: low as u16,
-                            high: high as u16,
+                            low: low as u64 & scalar_mask_for_layout(scalar, TargetLayout::for_target(self.options.target)),
+                            high: high as u64 & scalar_mask_for_layout(scalar, TargetLayout::for_target(self.options.target)),
                             span: label.span,
                         })
                     })
@@ -124,7 +124,7 @@ impl Analyzer {
                 return None;
             }
         }
-        let constant = match evaluate_const_expr(&value) {
+        let constant = match self.evaluate_const_expr(&value) {
             Ok(value) => value,
             Err(message) => {
                 self.diagnostics.push(Diagnostic::new(
@@ -135,11 +135,11 @@ impl Analyzer {
             }
         };
         let numeric = exact_const_value(constant);
-        let (minimum, maximum) = match scalar {
-            ScalarType::Byte | ScalarType::Char => (0, 255),
-            ScalarType::Card => (0, 65535),
-            ScalarType::Int => (-32768, 32767),
-        };
+        let layout = TargetLayout::for_target(self.options.target);
+        let width = scalar_bits_for_layout(scalar, layout);
+        let (minimum, maximum) = if scalar.is_signed() {
+            (-(1i64 << (width - 1)), (1i64 << (width - 1)) - 1)
+        } else { (0, (1i64 << width) - 1) };
         if !(minimum..=maximum).contains(&numeric) {
             self.diagnostics.push(Diagnostic::new(
                 expr.span,

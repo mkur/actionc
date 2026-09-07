@@ -410,7 +410,9 @@ fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nir::{LocalId, NirLocalBacking, NirType, NirTypeKind, NirValue, TempId};
+    use crate::nir::{
+        LocalId, NirIntegerType, NirLocalBacking, NirType, NirTypeKind, NirValue, TempId,
+    };
 
     fn byte_type() -> NirType {
         NirType {
@@ -434,7 +436,10 @@ mod tests {
     fn store(value: u8) -> NirOp {
         NirOp::Store {
             place: place(),
-            src: NirValue::ConstU8(value),
+            src: NirValue::IntegerConst {
+                bits: u64::from(value),
+                ty: NirIntegerType::U8,
+            },
             ty: byte_type(),
         }
     }
@@ -538,7 +543,7 @@ mod tests {
         assert!(matches!(
             &ops[0],
             NirOp::Store {
-                src: NirValue::ConstU8(2),
+                src: NirValue::IntegerConst { bits: 2, .. },
                 ..
             }
         ));

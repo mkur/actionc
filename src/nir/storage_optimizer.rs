@@ -318,10 +318,15 @@ fn transfer_op(
 
 fn value_for_storage(value: NirValue, ty: &NirType) -> Option<NirValue> {
     match (value, ty.width.map(ByteSize::get)) {
-        (NirValue::ConstU8(value), Some(1)) => Some(NirValue::ConstU8(value)),
-        (NirValue::ConstU8(value), Some(2)) => Some(NirValue::ConstU16(u16::from(value))),
-        (NirValue::ConstU16(value), Some(1)) => Some(NirValue::ConstU8(value as u8)),
-        (NirValue::ConstU16(value), Some(2)) => Some(NirValue::ConstU16(value)),
+        (NirValue::IntegerConst { bits, .. }, Some(width)) if width <= 8 => {
+            let mask = if width == 8 {
+                u64::MAX
+            } else {
+                (1_u64 << (width * 8)) - 1
+            };
+            let integer = ty.kind.integer()?;
+            Some(NirValue::integer_const(bits & mask, integer))
+        }
         (value, width) if value_width(&value).map(ByteSize::get) == width => Some(value),
         _ => None,
     }
@@ -829,7 +834,7 @@ mod tests {
         assert!(matches!(
             routine.blocks[0].ops.last(),
             Some(NirOp::Store {
-                src: NirValue::ConstU8(7),
+                src: NirValue::IntegerConst { bits: 7, .. },
                 ..
             })
         ));
@@ -1200,7 +1205,7 @@ mod tests {
         assert!(matches!(
             optimized.blocks[0].ops.last(),
             Some(NirOp::Store {
-                src: NirValue::ConstU8(3),
+                src: NirValue::IntegerConst { bits: 3, .. },
                 ..
             })
         ));
@@ -1296,7 +1301,7 @@ mod tests {
         assert!(matches!(
             routine.blocks[0].ops.last(),
             Some(NirOp::Store {
-                src: NirValue::ConstU8(4),
+                src: NirValue::IntegerConst { bits: 4, .. },
                 ..
             })
         ));
