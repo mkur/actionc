@@ -11,6 +11,7 @@ some ambiguous routine-address cases.
 
 ## Contents
 
+- [32-bit Integers](#32-bit-integers)
 - [Compile-Time Constants](#compile-time-constants)
 - [Comparison Values](#comparison-values)
 - [BYTE Enums](#byte-enums)
@@ -27,6 +28,53 @@ some ambiguous routine-address cases.
 - [MADS-Style Inline Assembler](#mads-style-inline-assembler)
 - [Explicit Lexical Blocks](#explicit-lexical-blocks)
 - [Compatibility Policy](#compatibility-policy)
+
+## 32-bit Integers
+
+`LONGINT` is signed 32-bit (-2147483648..2147483647); `LONGCARD` is unsigned
+32-bit (0..4294967295). The MIR6502 backend generates executable Atari code for
+both, with cartridge-linked or standalone runtime. Classic diagnoses these
+types instead of truncating them. Native 68k/65816 support remains typed
+lowering/ABI validation, not executable backend support.
+
+`INT` and `CARD` stay 16-bit on every target. A wide operand or cast before an
+operation selects wide computation; a wide assignment destination alone does
+not widen an already-narrow expression:
+
+```action
+CARD a=[$FFFF], b=[1]
+LONGCARD narrow, wide
+PROC Main()
+  narrow=a+b            ; 0: the CARD addition wraps first
+  wide=LONGCARD(a)+b     ; 65536: addition is 32-bit
+RETURN
+```
+
+Conversions sign-extend signed sources, zero-extend unsigned sources, and
+truncate to low bits when narrowing. LONGCARD dominates LONGINT in mixed wide
+arithmetic; LONGINT dominates narrow integer operands. Nested narrow operations
+stay narrow even inside a wide expression. Existing literal typing is unchanged:
+decimal `65535` is INT -1, while `$FFFF` is CARD 65535. Larger decimal literals
+infer LONGINT when representable, otherwise LONGCARD; wide hex uses LONGCARD.
+
+Arithmetic wraps at its selected width. Division truncates toward zero;
+remainder has the dividend's sign. MIN/-1 wraps to MIN. Runtime division or
+remainder by zero invokes Error(100), and does not resume the failed operation.
+LSH/RSH are logical shifts; counts at least the operand width produce zero.
+
+Wide types work in variables, initializers, arrays, embedded record arrays,
+pointer elements, parameters, FUNC results and typed FUNC POINTER signatures.
+Existing library routines keep their declared BYTE/CARD/INT interfaces; this
+does not add 32-bit formatted I/O or widen cartridge runtime entry points.
+Direct conversions between REAL and 32-bit integers remain unsupported.
+Wide CASE uses 32-bit comparisons; BYTE/INT/CARD/enum CASE retains its own width.
+Constant-step FOR loops retain direction and stop before wrapping past the
+induction type's limit, including steps greater than 65535.
+
+These names are contextual types, also available as `SYS.LONGINT` and
+`SYS.LONGCARD`. `LONG`/`ULONG` are not built-in aliases; ordinary identifiers
+with those names remain legal. See the
+[integration and ABI contract](LONG_INTEGER_INTEGRATION_AND_MIR6502_PLAN.md).
 
 ## BYTE Enums
 
@@ -97,7 +145,8 @@ ELSE
 ESAC
 ```
 
-The selector can be BYTE, CHAR, CARD, INT, or an enum and is evaluated exactly once.
+The selector can be BYTE, CHAR, CARD, INT, LONGINT, LONGCARD, or an enum and is
+evaluated exactly once. Wide selectors require MIR6502 for Atari execution.
 Labels are compile-time integer constants; inclusive ranges retain the
 selector's signedness. Descending ranges, duplicates, and overlapping labels
 are errors. Label values must fit without implicit truncation. Existing literal

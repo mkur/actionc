@@ -1,6 +1,6 @@
 # LONGINT/LONGCARD integration and MIR6502 implementation
 
-Status: in progress. Each major slice is a separately verified commit.
+Status: complete (2026-09-07). Each major slice is a separately verified commit.
 
 ## Contract
 
@@ -18,6 +18,9 @@ Status: in progress. Each major slice is a separately verified commit.
   selectors and calculations do not acquire wide runtime operations.
 - Native 68k/65816 validation remains lowering/ABI canaries, not executable
   validation. MIR6502 execution must be tested with cart and standalone.
+- This follow-up covers integer conversions and integer code generation;
+  direct REAL/32-bit conversions and 32-bit formatted library I/O are separate
+  follow-ups. Their existing narrow interfaces are not silently widened.
 
 ## Slices
 
@@ -82,7 +85,20 @@ Existing snapshot changes must be explained; no blanket snapshot acceptance.
   assignments, wrap-before-widen multiplication, and Error(100) with a returning
   handler. Baseline and optimized MIR discover mandatory legalization helpers
   independently of optional helper-selection rewrites.
-- Slice 5: pending.
+- Slice 5: complete. Wide CASE preserves all
+  label bits, signed range order, and one selector evaluation. FOR step facts
+  preserve typed constants before induction conversion; wrap thresholds use
+  the induction width. Absolute variable addresses are not constant bounds.
+  Tests cover numeric limits, large steps, dynamic array/pointer indexing,
+  aggregate guards, initializers and pointer-cell overlap. Classic compiler and
+  inspection CLI entry points reject wide integer codegen with an explicit
+  MIR6502 diagnostic.
+
+Final acceptance: all 2,831 compiler tests and 131 VM tests pass, including the
+13 wide-integer/related regression tests. NIR snapshots are unchanged and all
+37 sweep fixtures pass. Baseline, optimized and disabled-peephole/helper-selection
+configurations verify mandatory wide legalization. Native target type/ABI
+canaries remain green. User-owned unrelated artifacts were not included.
 
 ## MIR6502 legalization and ABI
 
@@ -113,3 +129,12 @@ operators, and no width-changing optimization is required for correctness.
 The existing materialization fixture now checks the argument-preserving
 JSR/JMP/indirect-JMP trampoline instead of requiring a PHA-based return-address
 sequence. This is an intentional emission bug fix; NIR snapshots are unchanged.
+
+Boolean results composed from word comparisons expose their physical branch
+reads before spill coloring and cleanup. The existing retained-comparison
+selector remains responsible for direct compare predicates. Post-home
+verification permits a virtual Boolean condition only with such a retained
+compare producer; other condition reads require explicit homes. The barrier
+regression now checks the captured Boolean's load/test after the barrier rather
+than an implicit temporary reference. This is a correctness fix, not a new
+wide-specific optimization pass.

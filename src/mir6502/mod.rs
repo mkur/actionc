@@ -5900,7 +5900,9 @@ mod tests {
 
         let formatted = format_program(&mir);
         assert!(formatted.contains("barrier effects="));
-        assert!(formatted.contains("branch bool v0 ? b1 : b2"));
+        // The captured Boolean now has an explicit load/test after the barrier;
+        // it must not borrow the original compare's flags across that barrier.
+        assert!(formatted.contains("branch flag z_clear"), "{formatted}");
         assert!(!formatted.contains("branch fused"));
     }
 

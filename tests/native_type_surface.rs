@@ -148,8 +148,11 @@ fn mir6502_accepts_wide_runtime_storage_without_truncating() {
 
 #[test]
 fn wide_helpers_are_mandatory_legalization_in_baseline_and_optimized_mir() {
-    let nir = lower("LONGCARD a,b,r LONGINT sa,sb,sr PROC Main() r=a*b r=a/b r=a MOD b r=a LSH b r=a RSH b sr=sa/sb sr=sa MOD sb RETURN", TargetId::Atari6502);
-    for config in [actionc::mir6502::Mir6502Config::default(), actionc::mir6502::Mir6502Config::optimized()] {
+    let nir = lower("LONGCARD a,b,r LONGINT sa,sb,sr BYTE flag PROC Main() r=a*b r=a/b r=a MOD b r=a LSH b r=a RSH b sr=sa/sb sr=sa MOD sb IF a=b THEN flag=1 ELSE flag=0 FI RETURN", TargetId::Atari6502);
+    for config in [actionc::mir6502::Mir6502Config::default(), actionc::mir6502::Mir6502Config::optimized(), actionc::mir6502::Mir6502Config {
+        enable_peepholes: false, select_runtime_helpers: false,
+        ..actionc::mir6502::Mir6502Config::default()
+    }] {
         let mir = actionc::mir6502::lower_program(&nir).unwrap();
         let materialized = actionc::mir6502::materialize_program(mir, &config).unwrap();
         assert_eq!(materialized.runtime_helpers.iter().filter(|decl| matches!(decl.helper,
@@ -157,6 +160,17 @@ fn wide_helpers_are_mandatory_legalization_in_baseline_and_optimized_mir() {
             | actionc::mir6502::MirRuntimeHelper::UMod32 | actionc::mir6502::MirRuntimeHelper::Lsh32
             | actionc::mir6502::MirRuntimeHelper::Rsh32 | actionc::mir6502::MirRuntimeHelper::Div32
             | actionc::mir6502::MirRuntimeHelper::Mod32)).count(),7);
+    }
+}
+
+#[test]
+fn wide_for_guards_keep_the_induction_width_and_do_not_fold_absolute_bounds() {
+    for target in [TargetId::Atari6502,TargetId::Motorola68000,TargetId::Wdc65816Small,TargetId::Wdc65816Native] {
+        let nir=lower("LONGCARD index,limit=$6E0 BYTE result PROC Main() FOR index=2 TO limit STEP -1 DO result==+1 OD RETURN",target);
+        assert!(nir.routines.iter().flat_map(|r|&r.blocks).flat_map(|b|&b.ops).any(|op|matches!(op,
+            NirOp::Compare { operand_ty, op:actionc::nir::NirCompareOp::Lt, right:NirValue::IntegerConst { bits:1,ty }, .. }
+            if operand_ty.kind == NirTypeKind::Integer(NirIntegerType::U32) && ty.bits==32)),"{target}");
+        nir::verify_program(&nir::optimize_program(&nir).unwrap()).unwrap();
     }
 }
 

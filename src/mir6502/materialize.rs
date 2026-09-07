@@ -1480,6 +1480,7 @@ pub(super) fn materialize_program_with_reporting(
                     &routine_temp_widths,
                 );
             block.ops = ops;
+            temps::materialize_boolean_home(&mut block.terminator, &mut block.ops, &mut routine.frame.spills);
             peephole_stats.record_many(
                 routine.id,
                 "ssa-lite-redundant-address",

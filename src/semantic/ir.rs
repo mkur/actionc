@@ -438,8 +438,8 @@ pub enum SemArrayOrigin {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SemForStep {
-    Up(u16),
-    Down(u16),
+    Up(u64),
+    Down(u64),
     Unknown,
 }
 
@@ -2154,14 +2154,16 @@ fn sem_for_step_expr(expr: &SemExpr) -> SemForStep {
             op: UnaryOp::Neg,
             expr,
         } => const_u16_sem_expr(expr)
+            .map(u64::from)
             .map(SemForStep::Down)
             .unwrap_or(SemForStep::Unknown),
         SemExprKind::Literal(SemLiteral::Constant(value))
             if value.ty == ScalarType::Int && value.bits & 0x8000 != 0 =>
         {
-            SemForStep::Down(0u16.wrapping_sub(value.bits as u16))
+            SemForStep::Down(u64::from(0u16.wrapping_sub(value.bits as u16)))
         }
         _ => const_u16_sem_expr(expr)
+            .map(u64::from)
             .map(SemForStep::Up)
             .unwrap_or(SemForStep::Unknown),
     }
@@ -3175,10 +3177,21 @@ impl<'a> IrBuilder<'a> {
             } => {
                 let target = self.lower_lvalue(scope, target);
                 let target_ty = target.ty.clone();
+                // Consume the analyzer's typed constant before the implicit
+                // conversion to an unsigned induction variable loses direction.
+                let wide_step = step.as_ref().and_then(|expr| {
+                    let value = self.model.for_step_constants.get(&super::ExpressionSite::new(scope, expr.span))?;
+                    if target_ty.as_scalar().is_some_and(|ty| ty.width_bytes() > 2)
+                        || value.ty.width_bytes() > 2
+                    {
+                        let exact = super::exact_const_value(*value);
+                        Some(if exact < 0 { SemForStep::Down(exact.unsigned_abs()) } else { SemForStep::Up(exact as u64) })
+                    } else { None }
+                });
                 let step = step
                     .as_ref()
                     .map(|expr| self.lower_scalar_value_for_expected_type(scope, &target_ty, expr));
-                let step_control = sem_for_step(step.as_ref());
+                let step_control = wide_step.unwrap_or_else(|| sem_for_step(step.as_ref()));
                 vec![SemStmt::For {
                     target,
                     start: self.lower_scalar_value_for_expected_type(scope, &target_ty, start),

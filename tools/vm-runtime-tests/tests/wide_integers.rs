@@ -107,7 +107,9 @@ fn execute(image: &[u8], runtime: Runtime, a: u32, b: u32, fault: bool) -> Vec<u
     assert_eq!(
         bytes[255],
         if fault { 0xCC } else { 0xA5 },
-        "completion {runtime:?} {a:08x} {b:08x}"
+        "completion {runtime:?} {a:08x} {b:08x}; prefix={:?}; {:?}",
+        &bytes[..8],
+        outcome.report
     );
     if fault {
         assert_eq!(
@@ -350,14 +352,180 @@ fn wide_multiply_divide_remainder_and_shifts_match_host_oracles() {
 
 #[test]
 fn wide_composition_compound_assignments_and_mixed_operands_keep_typed_widths() {
-    let source = Source::new("LONGCARD a=$6E0,b=$6E4,result=$600,left=$604,right=$608,wide=$60C,narrow=$610 LONGINT signed=$614,sa=$6E0 INT small=$6E4 CARD na=$6E0,nb=$6E4 BYTE done=$6FF\nPROC Main() result=(a*b)+(b*a) result==XOR a left=a LSH LONGCARD(0) right=a RSH LONGCARD(0) wide=LONGCARD(na)*nb narrow=LONGCARD(CARD(na*nb)) signed=sa*small signed==+small done=$A5 RETURN");
+    let source = Source::new(
+        "LONGCARD a=$6E0,b=$6E4,result=$600,left=$604,right=$608,wide=$60C,narrow=$610 LONGINT signed=$614,sa=$6E0 INT small=$6E4 CARD na=$6E0,nb=$6E4 BYTE done=$6FF\nPROC Main() result=(a*b)+(b*a) result==XOR a left=a LSH LONGCARD(0) right=a RSH LONGCARD(0) wide=LONGCARD(na)*nb narrow=LONGCARD(CARD(na*nb)) signed=sa*small signed==+small done=$A5 RETURN",
+    );
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-        let compiled = compile_file(&source.0, &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime)).unwrap();
-        for (a,b) in [(65535,2),(0x80000000,0xFFFF),(0x12345678,0xFEDCBA98),(0xFFFFFFFF,0),(0x80008000,0x8000)] {
-            let bytes=run(compiled.object_bytes(),runtime,a,b);
-            let small=b as u16 as i16 as i32;
-            let expected=[a.wrapping_mul(b).wrapping_mul(2)^a,a,a,u32::from(a as u16)*u32::from(b as u16),u32::from((a as u16).wrapping_mul(b as u16)),(a as i32).wrapping_mul(small).wrapping_add(small) as u32];
-            for (i,value) in expected.into_iter().enumerate() { assert_eq!(word(&bytes,i*4),value,"{i} {runtime:?} {a:08x} {b:08x}"); }
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        for (a, b) in [
+            (65535, 2),
+            (0x80000000, 0xFFFF),
+            (0x12345678, 0xFEDCBA98),
+            (0xFFFFFFFF, 0),
+            (0x80008000, 0x8000),
+        ] {
+            let bytes = run(compiled.object_bytes(), runtime, a, b);
+            let small = b as u16 as i16 as i32;
+            let expected = [
+                a.wrapping_mul(b).wrapping_mul(2) ^ a,
+                a,
+                a,
+                u32::from(a as u16) * u32::from(b as u16),
+                u32::from((a as u16).wrapping_mul(b as u16)),
+                (a as i32).wrapping_mul(small).wrapping_add(small) as u32,
+            ];
+            for (i, value) in expected.into_iter().enumerate() {
+                assert_eq!(
+                    word(&bytes, i * 4),
+                    value,
+                    "{i} {runtime:?} {a:08x} {b:08x}"
+                );
+            }
         }
+    }
+}
+
+#[test]
+fn wide_case_labels_preserve_high_bits_and_single_evaluation() {
+    let source = Source::new(
+        "LONGCARD input=$6E0 BYTE unsigned=$600,signed=$601,calls=$602,done=$6FF\nLONGCARD FUNC Capture() calls==+1 RETURN(input)\nPROC Main() calls=0\nCASE Capture() OF\nWHEN $10001 THEN\nunsigned=1\nWHEN $20001 THEN\nunsigned=2\nWHEN $FFFFFFF0 TO $FFFFFFFF THEN\nunsigned=3\nELSE\nunsigned=4\nESAC\nCASE LONGINT(input) OF\nWHEN -2147483648 TO -2147483646 THEN\nsigned=1\nWHEN -1 THEN\nsigned=2\nWHEN 65537 THEN\nsigned=3\nELSE\nsigned=4\nESAC\ndone=$A5 RETURN",
+    );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        for a in [
+            0u32, 1, 0x10001, 0x20001, 0x80000000, 0x80000001, 0x80000002, 0x80000003, 0xFFFFFFF0,
+            0xFFFFFFFF,
+        ] {
+            let bytes = run(compiled.object_bytes(), runtime, a, 0);
+            let unsigned = if a == 0x10001 {
+                1
+            } else if a == 0x20001 {
+                2
+            } else if a >= 0xFFFFFFF0 {
+                3
+            } else {
+                4
+            };
+            let signed = if (i32::MIN..=i32::MIN + 2).contains(&(a as i32)) {
+                1
+            } else if a == 0xFFFFFFFF {
+                2
+            } else if a == 65537 {
+                3
+            } else {
+                4
+            };
+            assert_eq!(
+                &bytes[..4],
+                &[unsigned, signed, 1, 0xCC],
+                "{runtime:?} {a:08x}"
+            );
+        }
+    }
+}
+
+#[test]
+fn wide_for_loops_terminate_at_signed_and_unsigned_limits() {
+    let source = Source::new(
+        "LONGCARD index,start=$6E0,finish=$6E4 LONGINT signedIndex,ss=$6E0,se=$6E4 BYTE up=$600,down=$601,sup=$602,sdown=$603,done=$6FF\nPROC Main() up=0 down=0 sup=0 sdown=0\nFOR index=start TO finish DO up==+1 OD\nFOR index=finish TO start STEP -1 DO down==+1 OD\nFOR signedIndex=ss TO se DO sup==+1 OD\nFOR signedIndex=se TO ss STEP -1 DO sdown==+1 OD\ndone=$A5 RETURN",
+    );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        for (a, b) in [
+            (0, 2),
+            (65535, 65537),
+            (0x7FFFFFFD, 0x7FFFFFFF),
+            (0x80000000, 0x80000002),
+            (0xFFFFFFFD, 0xFFFFFFFF),
+            (7, 5),
+        ] {
+            let bytes = run(compiled.object_bytes(), runtime, a, b);
+            assert_eq!(
+                &bytes[..4],
+                &[if a <= b { 3 } else { 0 }; 4],
+                "{runtime:?} {a:08x} {b:08x}"
+            );
+        }
+    }
+}
+
+#[test]
+fn wide_initializers_dynamic_indexes_large_steps_and_overlapping_pointer_cells() {
+    let source = Source::new(
+        "LONGCARD a=$6E0,result=$600,initial=[$12345678] LONGINT negative=[-70000] LONGCARD POINTER ptr=$640 TYPE Container=[BYTE before LONGCARD ARRAY data(260) BYTE after] Container buffer BYTE guards=$604,up=$605,down=$606,done=$6FF\nPROC Main() CARD offset LONGCARD i,local=[$87654321]\noffset=CARD(a) & 255 buffer.before=$12 buffer.after=$34 ptr=@buffer.data(0) ptr(offset)=a buffer.data(259)=initial result=buffer.data(offset)+buffer.data(259)+local+LONGCARD(negative) guards=buffer.before XOR buffer.after\nptr=$640 ptr(0)=a\nup=0 down=0 FOR i=0 TO $30000 STEP $10000 DO up==+1 OD FOR i=$30000 TO 0 STEP -LONGINT($10000) DO down==+1 OD done=$A5 RETURN",
+    );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        for a in [0u32, 0x12345681, 0x800000FF, 0xFFFF0001] {
+            let bytes = run(compiled.object_bytes(), runtime, a, 0);
+            assert_eq!(
+                word(&bytes, 0),
+                a.wrapping_add(0x12345678)
+                    .wrapping_add(0x87654321)
+                    .wrapping_sub(70000)
+            );
+            assert_eq!(&bytes[4..8], &[0x26, 4, 4, 0xCC]);
+            assert_eq!(
+                word(&bytes, 64),
+                a,
+                "a store must capture its address before overwriting the pointer cell"
+            );
+            assert_eq!(&bytes[68..72], &[0xCC; 4]);
+        }
+    }
+}
+
+#[test]
+fn classic_diagnoses_wide_types_instead_of_truncating() {
+    for text in [
+        "LONGCARD value PROC Main() value=$12345678 RETURN",
+        "CARD value PROC Main() value=CARD(LONGINT(70000)) RETURN",
+    ] {
+        let source = Source::new(text);
+        for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let error = compile_file(
+                    &source.0,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap_err();
+                assert!(
+                    format!("{error:?}").contains("requires the MIR6502 backend"),
+                    "{error:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn narrow_absolute_loop_bounds_are_values_not_constant_addresses() {
+    let source = Source::new(
+        "CARD index,limit=$6E4 BYTE count=$600,done=$6FF\nPROC Main() count=0 FOR index=$FFFD TO limit DO count==+1 OD done=$A5 RETURN",
+    );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        let bytes = run(compiled.object_bytes(), runtime, 0, 65535);
+        assert_eq!(bytes[0], 3);
     }
 }

@@ -2012,6 +2012,21 @@ impl MirVerifier {
     }
 
     fn verify_condition_temp_use(&mut self, routine: &MirRoutine, block: &str, def: &MirDef) {
+        let id = match def {
+            MirDef::VTemp(id) | MirDef::VTempByte { id, .. } => *id,
+            MirDef::Reg(_) => unreachable!("condition temp helper called with a register"),
+        };
+        // The retained compare selector is the sole post-home exception.
+        // Other Boolean values must expose their physical reads before coloring.
+        if !routine.blocks.iter().flat_map(|block| &block.ops).any(|op| matches!(op,
+            MirOp::Compare { dst: MirCondDest::Temp(actual), .. }
+            | MirOp::CompareIndirectBytes { dst: MirCondDest::Temp(actual), .. }
+            | MirOp::CompareDirectIndexedBytes { dst: MirCondDest::Temp(actual), .. }
+            | MirOp::CompareIndirectWords { dst: MirCondDest::Temp(actual), .. } if *actual == id))
+        {
+            self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                "post-home Boolean temp requires a retained compare producer; other branch reads must have explicit homes"));
+        }
         match def {
             MirDef::VTemp(id) => {
                 if !routine.temps.iter().any(|temp| temp.id == *id) {
@@ -3154,6 +3169,14 @@ mod tests {
         ]);
         program.routines[0].temps.push(MirTemp { id: MirTempId(0) });
         verify_program(&program, MirPhase::PostHome).expect("compare defines its projected spill");
+        let compare = program.routines[0].blocks[0].ops[0].clone();
+        program.routines[0].blocks[0].ops[0] = MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Spill { id: super::super::ir::MirSpillId(0), offset: 0 }),
+            src: MirValue::ConstU8(1), width: MirWidth::Byte,
+        };
+        assert!(verify_program(&program, MirPhase::PostHome).unwrap_err().iter()
+            .any(|d| d.message.contains("retained compare producer")));
+        program.routines[0].blocks[0].ops[0] = compare;
         program.routines[0].blocks[0].ops.clear();
         let diagnostics = verify_program(&program, MirPhase::PostHome).unwrap_err();
         assert!(diagnostics.iter().any(|diagnostic| {

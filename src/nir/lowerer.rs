@@ -2138,12 +2138,12 @@ impl NirBuilder {
                 ..
             } => {
                 let is_volatile = target.is_volatile;
-                let target_ty = NirFacts::type_from_value(&target.ty);
+                let target_ty = NirType::from_value_with_layout(&target.ty, lowering.target_layout);
                 let wrap_guard = match step_control {
                     SemForStep::Up(amount) => ascending_for_wrap_threshold(&target_ty, *amount)
                         .and_then(|threshold| {
                             let guard_is_unnecessary =
-                                lowering.const_u16_expr(end).is_some_and(|bound| {
+                                crate::semantic::ir::const_u16_sem_expr(end).is_some_and(|bound| {
                                     for_bound_is_at_or_below(&target_ty, bound, threshold)
                                 });
                             (!guard_is_unnecessary).then_some((NirCompareOp::Gt, threshold))
@@ -2151,7 +2151,7 @@ impl NirBuilder {
                     SemForStep::Down(amount) => descending_for_wrap_threshold(&target_ty, *amount)
                         .and_then(|threshold| {
                             let guard_is_unnecessary =
-                                lowering.const_u16_expr(end).is_some_and(|bound| {
+                                crate::semantic::ir::const_u16_sem_expr(end).is_some_and(|bound| {
                                     for_bound_is_at_or_above(&target_ty, bound, threshold)
                                 });
                             (!guard_is_unnecessary).then_some((NirCompareOp::Lt, threshold))
@@ -3450,7 +3450,7 @@ impl NirBuilder {
         target: &NirPlace,
         target_ty: &NirType,
         op: NirCompareOp,
-        threshold: u16,
+        threshold: u64,
         is_volatile: bool,
     ) -> NirValue {
         let left_temp = self.next_temp();
@@ -5573,51 +5573,45 @@ fn native_data_pointer_type(
     }
 }
 
-fn descending_for_wrap_threshold(ty: &NirType, amount: u16) -> Option<u16> {
-    match ty.kind {
-        NirTypeKind::U8 if amount <= u16::from(u8::MAX) => Some(amount),
-        NirTypeKind::I8 if amount <= 0x80 => Some((0x80 + amount) & 0x00FF),
-        NirTypeKind::U16 => Some(amount),
-        NirTypeKind::I16 if amount <= 0x8000 => Some(0x8000u16.wrapping_add(amount)),
-        _ => None,
-    }
+fn integer_mask(bits: u8) -> u64 { u64::MAX >> (64 - bits) }
+
+fn descending_for_wrap_threshold(ty: &NirType, amount: u64) -> Option<u64> {
+    let integer = ty.kind.integer()?;
+    let mask = integer_mask(integer.bits);
+    let minimum = if integer.signed { 1u64 << (integer.bits - 1) } else { 0 };
+    (amount <= if integer.signed { minimum } else { mask }).then_some(minimum.wrapping_add(amount) & mask)
 }
 
-fn ascending_for_wrap_threshold(ty: &NirType, amount: u16) -> Option<u16> {
-    match ty.kind {
-        NirTypeKind::U8 if amount <= u16::from(u8::MAX) => Some(u16::from(u8::MAX) - amount),
-        NirTypeKind::I8 if amount <= 0x80 => Some(0x007F_u16.wrapping_sub(amount)),
-        NirTypeKind::U16 => Some(u16::MAX - amount),
-        NirTypeKind::I16 if amount <= 0x8000 => Some(0x7FFF_u16.wrapping_sub(amount)),
-        _ => None,
-    }
+fn ascending_for_wrap_threshold(ty: &NirType, amount: u64) -> Option<u64> {
+    let integer = ty.kind.integer()?;
+    let mask = integer_mask(integer.bits);
+    let maximum = if integer.signed { mask >> 1 } else { mask };
+    (amount <= if integer.signed { maximum + 1 } else { mask }).then_some(maximum.wrapping_sub(amount) & mask)
 }
 
-fn for_bound_is_at_or_above(ty: &NirType, bound: u16, threshold: u16) -> bool {
-    match ty.kind {
-        NirTypeKind::U8 => (bound as u8) >= threshold as u8,
-        NirTypeKind::I8 => (bound as u8 as i8) >= threshold as u8 as i8,
-        NirTypeKind::U16 => bound >= threshold,
-        NirTypeKind::I16 => (bound as i16) >= threshold as i16,
-        _ => false,
-    }
+fn for_bound_is_at_or_above(ty: &NirType, bound: u16, threshold: u64) -> bool {
+    for_bound_ordering(ty, u64::from(bound), threshold).is_some_and(|order| !order.is_lt())
 }
 
-fn for_bound_is_at_or_below(ty: &NirType, bound: u16, threshold: u16) -> bool {
-    match ty.kind {
-        NirTypeKind::U8 => (bound as u8) <= threshold as u8,
-        NirTypeKind::I8 => (bound as u8 as i8) <= threshold as u8 as i8,
-        NirTypeKind::U16 => bound <= threshold,
-        NirTypeKind::I16 => (bound as i16) <= threshold as i16,
-        _ => false,
-    }
+fn for_bound_is_at_or_below(ty: &NirType, bound: u16, threshold: u64) -> bool {
+    for_bound_ordering(ty, u64::from(bound), threshold).is_some_and(|order| !order.is_gt())
 }
 
-fn nir_scalar_constant(ty: &NirType, value: u16) -> NirValue {
-    if ty.width == Some(ByteSize::ONE) {
+fn for_bound_ordering(ty: &NirType, a: u64, b: u64) -> Option<std::cmp::Ordering> {
+    let integer = ty.kind.integer()?;
+    let mask = integer_mask(integer.bits);
+    // XOR the sign bit to map signed order to ordinary unsigned order.
+    let sign = if integer.signed { 1u64 << (integer.bits - 1) } else { 0 };
+    Some(((a & mask) ^ sign).cmp(&((b & mask) ^ sign)))
+}
+
+fn nir_scalar_constant(ty: &NirType, value: u64) -> NirValue {
+    if let Some(integer) = ty.kind.integer() && integer.bits > 16 {
+        NirValue::IntegerConst { bits: value & integer_mask(integer.bits), ty: integer }
+    } else if ty.width == Some(ByteSize::ONE) {
         NirValue::ConstU8(value as u8)
     } else {
-        NirValue::ConstU16(value)
+        NirValue::ConstU16(value as u16)
     }
 }
 

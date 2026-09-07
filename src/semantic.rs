@@ -42,6 +42,7 @@ pub use types::{
 pub struct SemanticModel {
     pub enums: EnumFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
+    for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     pub target_layout: TargetLayout,
     pub symbols: SymbolTable,
@@ -569,6 +570,7 @@ impl Analyzer {
         Ok(SemanticModel {
             enums: self.enums,
             resolved_casts: self.resolved_casts,
+            for_step_constants: self.for_step_constants,
             case_labels: self.case_labels,
             target_layout,
             symbols: self.symbols,
@@ -596,6 +598,7 @@ impl Analyzer {
 struct Analyzer {
     enums: EnumFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
+    for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
     options: SemanticOptions,
     symbols: SymbolTable,
@@ -676,6 +679,7 @@ impl Analyzer {
             options,
             enums: EnumFacts::default(),
             resolved_casts: HashMap::new(),
+            for_step_constants: HashMap::new(),
             case_labels: HashMap::new(),
             symbols,
             builtin_scope,
@@ -2196,6 +2200,11 @@ impl Analyzer {
             }
             expr
         });
+        if let (Some(step), Some(typed)) = (step, step_expr.as_ref())
+            && let Ok(value) = self.evaluate_const_expr(typed)
+        {
+            self.for_step_constants.insert(ExpressionSite::new(scope, step.span), value);
+        }
 
         if !matches!(target_place.access, subject::PlaceAccess::Assignable) {
             if !matches!(target_place.access, subject::PlaceAccess::Error) {

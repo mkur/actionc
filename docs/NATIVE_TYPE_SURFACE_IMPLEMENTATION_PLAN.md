@@ -6,6 +6,12 @@ Status: complete. All seven slices are implemented and verified. The source
 surface, SemIR/NIR roles, native MIR contracts, and Atari compatibility
 baselines now cover the complete scope below.
 
+Follow-up (2026-09-07): the source spellings are now LONGINT/LONGCARD, this work
+has merged into main, and MIR6502 also implements executable 32-bit arithmetic.
+The historical slice boundaries below describe the native-only migration; see
+[the integration follow-up](LONG_INTEGER_INTEGRATION_AND_MIR6502_PLAN.md) for
+the current Atari implementation and acceptance contract.
+
 ## Objective
 
 Expose the value types needed by the first Motorola 68000 and WDC 65816

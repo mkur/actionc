@@ -10,6 +10,20 @@ use crate::semantic::{
     },
 };
 
+/// Capability check shared by the compiler facade and the inspection CLI.
+/// Use semantic type identities, including casts without wide declarations.
+pub(crate) fn classic_wide_integer_diagnostic(model: &crate::semantic::SemanticModel) -> Option<Diagnostic> {
+    let wide = |ty: &crate::semantic::ValueType| ty.as_scalar().is_some_and(|scalar|
+        matches!(scalar, crate::semantic::ScalarType::LongInt | crate::semantic::ScalarType::LongCard));
+    let span = model.symbols.symbols.iter().find_map(|symbol| {
+        (symbol.class != SymbolClass::Type && symbol.ty.as_ref().is_some_and(&wide))
+            .then_some(symbol.span)
+    }).or_else(|| model.expression_observations.iter().find_map(|expr| {
+        expr.ty.as_ref().is_some_and(&wide).then_some(expr.span)
+    }))?;
+    Some(Diagnostic::new(span, "LONGINT/LONGCARD code generation requires the MIR6502 backend; classic supports only 8/16-bit integers"))
+}
+
 pub(crate) fn standalone_resident_diagnostics(program: &SemProgram) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for module in &program.modules {

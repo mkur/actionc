@@ -1162,6 +1162,36 @@ fn materialize_rhs_temp(value: MirValue, spills: &mut Vec<MirSpillId>) -> MirVal
     })
 }
 
+/// Expose branch reads before spill coloring and dead-store analysis. Keeping
+/// a VTemp here hides its spill use from post-home consumers and prevents them
+/// from remapping it together with the definition.
+pub(super) fn materialize_boolean_home(terminator: &mut MirTerminator, ops: &mut Vec<MirOp>, spills: &mut Vec<MirSpillId>) {
+    let MirTerminator::Branch { cond: MirCond::BoolValue(value), then_edge, else_edge } = terminator else { return; };
+    // Direct compare predicates still belong to the existing late comparison
+    // selector (including indirect/indexed comparisons and disabled fusion).
+    if let MirValue::Def(MirDef::VTemp(id)) = value
+        && ops.iter().any(|op| matches!(op,
+            MirOp::Compare { dst: MirCondDest::Temp(actual), .. }
+            | MirOp::CompareIndirectBytes { dst: MirCondDest::Temp(actual), .. }
+            | MirOp::CompareDirectIndexedBytes { dst: MirCondDest::Temp(actual), .. }
+            | MirOp::CompareIndirectWords { dst: MirCondDest::Temp(actual), .. } if actual == id))
+    { return; }
+    if let MirValue::ConstU8(bits) = value {
+        *terminator = MirTerminator::Jump(if *bits == 0 { else_edge.clone() } else { then_edge.clone() });
+        return;
+    }
+    if let MirValue::ConstU16(bits) = value {
+        *terminator = MirTerminator::Jump(if *bits == 0 { else_edge.clone() } else { then_edge.clone() });
+        return;
+    }
+    let value = materialize_rhs_temp(value.clone(), spills);
+    let source = materialize_value_to_a(ops, value, spills);
+    ops.push(MirOp::Compare { dst: MirCondDest::Flags, op: MirCompareOp::Ne,
+        left: source, right: MirValue::ConstU8(0), width: MirWidth::Byte, signed: false });
+    *terminator = MirTerminator::Branch { cond: MirCond::FlagTest(MirFlagTest::ZClear),
+        then_edge: then_edge.clone(), else_edge: else_edge.clone() };
+}
+
 fn materialize_value_to_reg(
     out: &mut Vec<MirOp>,
     value: MirValue,

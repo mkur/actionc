@@ -471,6 +471,13 @@ fn compile_classic(
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
+    if let Some(diagnostic) = validation::classic_wide_integer_diagnostic(model) {
+        return Err(CompileError::from_source_diagnostics(
+            CompilerPhase::Codegen,
+            vec![diagnostic],
+            source, path, Some(source_map),
+        ));
+    }
     if request.runtime == Runtime::Standalone {
         let origin = request
             .origin

@@ -890,7 +890,7 @@ impl SemIrAstLowerer<'_> {
         let magnitude = Expr {
             kind: ExprKind::Number(NumberLiteral {
                 text: text.clone(),
-                kind: if amount <= u16::from(u8::MAX) {
+                kind: if amount <= u64::from(u8::MAX) {
                     crate::lexer::NumberKind::Byte
                 } else {
                     crate::lexer::NumberKind::Card
