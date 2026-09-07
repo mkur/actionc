@@ -89,4 +89,8 @@ passes and conservative effects. Do not introduce LET-specific optimizers.
 
 ## Progress
 
-- Contract recorded; no compiler implementation yet.
+- Contract and contextual syntax are committed. Parser/AST traversal coverage
+  preserves ordinary LET identifiers, accepts inferred and annotated bindings,
+  and diagnoses malformed initializers. Semantic use is explicitly gated until
+  the next slice. Compiler tests, unchanged NIR snapshots and all 37 sweep
+  fixtures pass.

@@ -1533,6 +1533,8 @@ impl Analyzer {
 
     fn analyze_stmt(&mut self, scope: ScopeId, stmt: &Stmt, context: ControlContext<'_>) {
         match stmt {
+            Stmt::Let { span, .. } => self.diagnostics.push(Diagnostic::new(*span,
+                "LET semantic support is not available yet")),
             Stmt::Case { selector, arms, span } => self.analyze_case(scope, selector, arms, *span, context),
             Stmt::LexicalBlock {
                 syntax_id,
@@ -5995,7 +5997,8 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
                 max_loop_depth: body.max_loop_depth.max(loop_depth + 1),
             }
         }
-        Stmt::Define(_)
+        Stmt::Let { .. }
+        | Stmt::Define(_)
         | Stmt::Assign { .. }
         | Stmt::CompoundAssign { .. }
         | Stmt::Call { .. }

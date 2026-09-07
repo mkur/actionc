@@ -454,6 +454,13 @@ pub struct LexicalBlockSyntaxId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
+    Let {
+        syntax_id: LexicalBlockSyntaxId,
+        name: String,
+        declared_type: Option<TypeRef>,
+        value: Expr,
+        span: Span,
+    },
     Case {
         selector: Expr,
         arms: Vec<CaseArm>,

@@ -2980,6 +2980,9 @@ impl<'a> IrBuilder<'a> {
 
     fn lower_stmt(&mut self, scope: ScopeId, stmt: &Stmt) -> Vec<SemStmt> {
         match stmt {
+            Stmt::Let { span, .. } => vec![SemStmt::Unsupported {
+                span: *span, note: "LET requires semantic statement-list lowering".into(),
+            }],
             Stmt::LexicalBlock {
                 syntax_id,
                 declarations,
@@ -4647,7 +4650,8 @@ impl<'a> IrBuilder<'a> {
                     self.collect_numeric_define_stmt(scope, stmt, defines);
                 }
             }
-            Stmt::Return(_)
+            Stmt::Let { .. }
+            | Stmt::Return(_)
             | Stmt::Exit { .. }
             | Stmt::Assign { .. }
             | Stmt::CompoundAssign { .. }

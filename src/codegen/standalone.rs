@@ -746,6 +746,7 @@ fn rewrite_stmt_list_names(statements: &mut [Stmt], replacements: &BTreeMap<Stri
 
 fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) {
     match stmt {
+        Stmt::Let { value, .. } => rewrite_expr_names(value, replacements),
         Stmt::Case { selector, arms, .. } => {
             rewrite_expr_names(selector, replacements);
             for arm in arms {
@@ -965,6 +966,7 @@ fn collect_stmt_list_names(
 
 fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut BTreeSet<String>) {
     match stmt {
+        Stmt::Let { value, .. } => collect_expr_names(value, candidates, output),
         Stmt::Case { selector, arms, .. } => {
             collect_expr_names(selector, candidates, output);
             for arm in arms {

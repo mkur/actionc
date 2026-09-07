@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 
 mod case;
 mod enums;
+mod let_binding;
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Vec<Diagnostic>> {
     let mut parser = Parser::new(tokens);
@@ -1029,7 +1030,9 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Stmt {
         let start = self.peek().span.start;
-        if self.is_case_start_at(self.pos) {
+        if self.is_let_start_at(self.pos) {
+            self.parse_let_statement()
+        } else if self.is_case_start_at(self.pos) {
             self.parse_case_statement()
         } else if self.is_bare_contextual_at(self.pos, "BEGIN") {
             self.parse_lexical_block_statement()
@@ -1977,6 +1980,9 @@ impl<'a> Parser<'a> {
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
+        if self.is_let_start_at(pos) {
+            return false;
+        }
         if self.is_case_start_at(pos) || self.is_case_arm_start_at(pos) {
             return false;
         }
@@ -2218,7 +2224,8 @@ impl<'a> Parser<'a> {
     }
 
     fn is_statement_boundary(&self) -> bool {
-        self.is_routine_boundary()
+        self.is_let_start_at(self.pos)
+            || self.is_routine_boundary()
             || self.check_keyword(Keyword::Include)
             || self.check_keyword(Keyword::Set)
             || self.check_keyword(Keyword::Define)

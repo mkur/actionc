@@ -184,6 +184,7 @@ impl Generator {
         let reads_volatile = |expr: &Expr| self.expr_side_effect_facts(expr).reads_volatile;
         match stmt {
             Stmt::Case { selector, .. } => reads_volatile(selector),
+            Stmt::Let { value, .. } => reads_volatile(value),
             Stmt::LexicalBlock { body, .. } => body
                 .iter()
                 .any(|stmt| self.stmt_has_direct_volatile_access(stmt)),
@@ -462,7 +463,8 @@ impl Generator {
                     }
                     return None;
                 }
-                Stmt::CompoundAssign { .. }
+                Stmt::Let { .. }
+                | Stmt::CompoundAssign { .. }
                 | Stmt::Call { .. }
                 | Stmt::MachineBlock { .. }
                 | Stmt::InlineAsm { .. }

@@ -93,7 +93,8 @@ fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
         Stmt::While { body, .. } | Stmt::DoUntil { body, .. } | Stmt::For { body, .. } => {
             stmt_list_contains_machine_block(body)
         }
-        Stmt::Define(_)
+        Stmt::Let { .. }
+        | Stmt::Define(_)
         | Stmt::Assign { .. }
         | Stmt::CompoundAssign { .. }
         | Stmt::Return(_)
@@ -125,6 +126,7 @@ fn stmt_list_exprs_any(body: &[Stmt], predicate: &impl Fn(&Expr) -> bool) -> boo
 
 fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
     match stmt {
+        Stmt::Let { value, .. } => expr_tree_any(value, predicate),
         Stmt::Case { selector, arms, .. } => expr_tree_any(selector, predicate)
             || arms.iter().any(|arm| stmt_list_exprs_any(&arm.body, predicate)
                 || arm.labels.iter().flatten().any(|label| expr_tree_any(&label.low, predicate)

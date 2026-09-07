@@ -139,6 +139,7 @@ impl Materializer<'_> {
 
     fn statement(&self, scope: ScopeId, statement: &mut Stmt) {
         match statement {
+            Stmt::Let { value, .. } => self.expr(scope, value),
             Stmt::Case { selector, arms, .. } => {
                 self.expr(scope, selector);
                 for arm in arms {

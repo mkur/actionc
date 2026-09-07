@@ -588,6 +588,7 @@ impl Generator {
 
     fn collect_modern_hidden_stmt(&mut self, stmt: &Stmt) {
         match stmt {
+            Stmt::Let { value, .. } => self.collect_modern_hidden_expr(value),
             Stmt::Case { selector, arms, .. } => {
                 self.collect_modern_hidden_expr(selector);
                 for arm in arms { self.collect_modern_hidden_stmt_list(&arm.body); }
@@ -885,6 +886,7 @@ fn stmt_list_contains_string_literal(body: &[Stmt]) -> bool {
 
 fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
     match stmt {
+        Stmt::Let { value, .. } => expr_contains_string_literal(value),
         Stmt::Case { selector, arms, .. } => expr_contains_string_literal(selector)
             || arms.iter().any(|arm| stmt_list_contains_string_literal(&arm.body)),
         Stmt::LexicalBlock { body, .. } => stmt_list_contains_string_literal(body),
