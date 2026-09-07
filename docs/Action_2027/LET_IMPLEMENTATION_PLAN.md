@@ -103,5 +103,20 @@ passes and conservative effects. Do not introduce LET-specific optimizers.
   unevaluated layout queries remain legal. The existing typed-place traversal
   is shared with embedded-array validation. The broad corpus now includes one
   additional positive runtime fixture (329 positive roots).
-- Extended runtime/type and optimization coverage is the next slice; the
-  feature is not yet declared complete.
+- Extended coverage includes eleven semantic/IR tests and five VM tests across
+  baseline/optimized execution and supported backend/runtime combinations.
+  It covers unused effectful initialization, REAL, enum CASE, record/array
+  pointee writes, callable signatures, wide arithmetic, annotation versus
+  operand widening, module aliases and native 68k/65816 lowering. Bare routine
+  initializers now receive a value-expression diagnostic instead of producing
+  an incomplete semantic model.
+- A new lowered/optimized NIR snapshot pair proves distinct homes, executable
+  initialization and retained volatile effects when unused storage disappears.
+  Existing snapshots are unchanged; the NIR sweep has 38 positive fixtures and
+  the broad fixture corpus has 330 positive roots. No new NIR or MIR operations,
+  optimizer passes or target strategies were introduced.
+- Existing capabilities remain explicit: classic indirect calls accept zero
+  arguments, Atari wide integers need MIR6502, and REAL uses the OS floating-point
+  package on either runtime. These are not LET-specific restrictions. The full
+  locked VM suite passes 136 tests; focused LET tests also pass after diagnostic
+  hardening. Public documentation and a runnable sample are the final slice.

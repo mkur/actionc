@@ -1,0 +1,32 @@
+nir program
+global source: Byte absolute $D40B
+global result: Byte
+
+routine r0 ReadValue signature=s1079941742 convention=target-public activation=classic-static entry=relocatable params=[-] locals=[-]
+bb0:
+  %t0:Byte = load volatile source
+  return %t0
+
+routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[Main::block0::value, Main::block0::block1::value, Main::block0::block1::block2::block3::value]
+  local Main::block0::value: Byte duration=routine-static size=1 align=1
+  local Main::block0::block1::value: Byte duration=routine-static size=1 align=1
+  local Main::block0::block1::block2::block3::value: Byte duration=routine-static size=1 align=1
+bb1:
+  %t0:Byte = call ReadValue() signature=s1079941742 convention=target-public
+  store Main::block0::value = %t0
+  store result = %t0
+  %t3:Byte = %t0 Add 1
+  store Main::block0::block1::value = %t3
+  %t4:Byte = load volatile source
+  %t5:condition = cmp %t4 Ne 0 operand_ty=Byte
+  branch %t5 ? bb3 : bb2
+bb3:
+  %t6:Byte = call ReadValue() signature=s1079941742 convention=target-public
+  store Main::block0::block1::block2::block3::value = %t6
+  store result = %t6
+  goto bb2
+bb2:
+  %t8:Byte = load Main::block0::block1::value
+  store result = %t8
+  %t9:Byte = load volatile source
+  return

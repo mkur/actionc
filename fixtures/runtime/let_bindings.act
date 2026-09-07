@@ -48,6 +48,8 @@ PROC Main()
   LET final=callback()
   output(10)=final
   output(11)=calls
-  output(12)=$A5
+  LET unused=ReadValue()
+  output(12)=calls
+  output(13)=$A5
   DO OD
 RETURN

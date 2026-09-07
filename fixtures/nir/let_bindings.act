@@ -1,0 +1,19 @@
+VOLATILE BYTE source=$D40B
+BYTE result
+
+BYTE FUNC ReadValue()
+RETURN(source)
+
+PROC Main()
+  LET value=ReadValue()
+  result=value
+  LET value=value+1
+  IF source THEN
+    BEGIN
+      LET value=ReadValue()
+      result=value
+    END
+  FI
+  result=value
+  LET unused=source
+RETURN

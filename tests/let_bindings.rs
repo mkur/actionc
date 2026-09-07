@@ -202,6 +202,14 @@ fn let_scope_visibility_and_constant_contexts_are_enforced() {
 #[test]
 fn let_keeps_nominal_checks_and_excludes_owned_aggregates() {
     rejected(
+        "BYTE FUNC Read() RETURN(1)\nPROC Main() LET reader=Read RETURN",
+        "value expression",
+    );
+    rejected(
+        "PROC Nothing() RETURN\nPROC Main() LET result=Nothing() RETURN",
+        "procedure call cannot be used as a value",
+    );
+    rejected(
         "TYPE E=ENUM [A]\nPROC Main() LET E x=0 RETURN",
         "exact enum type",
     );
@@ -242,9 +250,51 @@ fn let_native_lowering_reuses_target_types_and_activation() {
         TargetId::Wdc65816Native,
         TargetId::Wdc65816Small,
     ] {
-        checked_target(
+        let semir = checked_target(
             "CARD result\nPROC Main()\nLET CARD n=1\nLET LONGCARD wide=LONGCARD(n)+65536\nresult=CARD(wide)\nRETURN",
             target,
         );
+        let nir = actionc::nir::lower_program(&semir);
+        match target {
+            TargetId::Motorola68000 => {
+                actionc::mir68k::lower_program(&nir).unwrap();
+            }
+            TargetId::Wdc65816Native | TargetId::Wdc65816Small => {
+                actionc::mir65816::lower_program(&nir).unwrap();
+            }
+            _ => unreachable!(),
+        }
     }
+}
+
+#[test]
+fn let_can_shadow_module_aliases_without_rebinding_earlier_qualified_uses() {
+    use actionc::includes::{ModuleLoadOptions, load_compilation_from_provider};
+    use actionc::source::{InMemorySourceProvider, SourceOrigin};
+    let root = SourceOrigin::host("project/main.act");
+    let provider = InMemorySourceProvider::default()
+        .with_source(root.clone(), b"MODULE App\nUSE Lib AS API\nBYTE result\nPROC Main()\nLET API.E first=API.Read()\nLET API=API.Read()\nLET again=API\nresult=BYTE(first)+BYTE(again)\nRETURN\nENDMODULE".to_vec())
+        .with_source(SourceOrigin::host("project/lib.act"), b"MODULE Lib\nPUBLIC TYPE E=ENUM [A=17]\nPUBLIC E FUNC Read() RETURN(E.A)\nENDMODULE".to_vec());
+    let loaded =
+        load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default()).unwrap();
+    let model =
+        semantic::analyze_compilation_with_options(&loaded, SemanticOptions::modern()).unwrap();
+    let semir = ir::lower_compilation(&loaded, &model);
+    let nir = actionc::nir::lower_program(&semir);
+    actionc::nir::verify_program(&nir).unwrap();
+    actionc::nir::optimize_program(&nir).unwrap();
+    let bindings = model
+        .symbols
+        .symbols
+        .iter()
+        .filter(|s| s.is_immutable)
+        .collect::<Vec<_>>();
+    assert_eq!(bindings.len(), 3);
+    assert!(
+        bindings
+            .iter()
+            .all(|s| s.ty.as_ref().unwrap().as_enum().is_some())
+    );
+    assert_eq!(bindings[0].ty, bindings[1].ty);
+    assert_eq!(bindings[1].ty, bindings[2].ty);
 }

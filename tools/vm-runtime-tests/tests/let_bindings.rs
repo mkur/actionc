@@ -40,7 +40,7 @@ fn execute(image: &[u8], runtime: Runtime) -> Vec<u8> {
         "{:?}",
         result.report
     );
-    (0x0600..0x060D)
+    (0x0600..0x060E)
         .map(|address| result.memory().read(address))
         .collect()
 }
@@ -56,7 +56,7 @@ fn let_initializes_on_execution_and_preserves_snapshots_across_calls_and_loops()
             .unwrap_or_else(|e| panic!("{mode:?}/{runtime:?}: {e}"));
             assert_eq!(
                 execute(compiled.object_bytes(), runtime),
-                [10, 11, 101, 10, 7, 8, 9, 11, 6, 42, 42, 7, 0xA5],
+                [10, 11, 101, 10, 7, 8, 9, 11, 6, 42, 42, 7, 8, 0xA5],
                 "{mode:?}/{runtime:?}"
             );
         }

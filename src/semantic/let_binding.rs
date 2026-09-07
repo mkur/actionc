@@ -46,6 +46,7 @@ impl Analyzer {
                 ));
                 continue;
             };
+            let diagnostic_count = self.diagnostics.len();
             let explicit = declared_type.as_ref().map(|ty| {
                 self.validate_type_ref(scope, ty, *span);
                 self.value_type_from_type_ref(scope, ty)
@@ -55,6 +56,15 @@ impl Analyzer {
             let initializer = self.lower_expr_for_expected_type(scope, value, explicit.as_ref());
             let ty = explicit.unwrap_or_else(|| initializer.ty.clone());
             if ty.is_error() || initializer.ty.is_error() {
+                // Some non-value subjects (for example a bare routine name)
+                // have an error type without an expression diagnostic. Never
+                // accept a LET whose binding scope could not be constructed.
+                if self.diagnostics.len() == diagnostic_count {
+                    self.diagnostics.push(Diagnostic::new(
+                        value.span,
+                        "LET requires a value expression; use @routine for a callable value",
+                    ));
+                }
                 continue;
             }
             if self

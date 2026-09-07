@@ -89,6 +89,8 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("inline_asm_fixed_array"),
     lowered_atari_case!("integer_operations"),
     lowered_atari_case!("layout_queries"),
+    lowered_atari_case!("let_bindings"),
+    optimized_atari_case!("let_bindings"),
     lowered_atari_case!("lexical_blocks"),
     lowered_atari_case!("lexical_type_scopes"),
     lowered_atari_case!("local_aggregate_declarations"),
