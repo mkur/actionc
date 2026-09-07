@@ -74,10 +74,15 @@ Existing snapshot changes must be explained; no blanket snapshot acceptance.
   comparisons, calls and returns are legalized into ordinary word lanes.
   Runtime coverage includes externally supplied signed/unsigned boundaries,
   wrap-before-widen, nested direct/typed-indirect calls, and embedded arrays.
-  Shifts, multiply, division and remainder remain explicitly diagnosed until
-  slice 4. Callback lowering now distinguishes callable values from array/data
+  Callback lowering now distinguishes callable values from array/data
   pointers; the indirect-call trampoline preserves the first argument in A.
-- Slices 4–5: pending.
+- Slice 4: wide shifts, multiplication, signed/unsigned division and remainder
+  use compiler-owned kernels through the existing structured helper contracts.
+  Runtime tests cover boundary grids, compositions, mixed operands, compound
+  assignments, wrap-before-widen multiplication, and Error(100) with a returning
+  handler. Baseline and optimized MIR discover mandatory legalization helpers
+  independently of optional helper-selection rewrites.
+- Slice 5: pending.
 
 ## MIR6502 legalization and ABI
 
@@ -93,6 +98,17 @@ argument area (including the existing SArgs path for larger signatures).
 Four-byte results occupy $A0..$A3. Caller-side result capture must precede any
 overlapping outgoing argument write, particularly at $A3. Private arithmetic
 helpers have their own independently described input/result signatures.
+
+The initial wide arithmetic helpers consume four word lanes at $82/$84/$C0/$C2
+and return low/high words at $C4/$C6. They declare private scratch $82..$87 and
+$C0..$C7, A/X/Y/flags clobbers and balanced returning stack effects. They link
+only when used, on either runtime. Division additionally declares the existing
+Error handler's conservative memory/OS effects. Signed division truncates
+toward zero, remainder follows the dividend sign, and MIN/-1 wraps; a runtime
+zero divisor reports Error(100) and cannot resume the failed operation. Shifts
+are logical and produce zero for counts at least 32, without truncating a wide
+count to its low byte. No cartridge arithmetic implementation is used for wide
+operators, and no width-changing optimization is required for correctness.
 
 The existing materialization fixture now checks the argument-preserving
 JSR/JMP/indirect-JMP trampoline instead of requiring a PHA-based return-address

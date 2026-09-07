@@ -1067,6 +1067,13 @@ pub enum MirResultHome {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MirRuntimeHelper {
+    Mul32,
+    Div32,
+    Mod32,
+    UDiv32,
+    UMod32,
+    Lsh32,
+    Rsh32,
     MulByte,
     Mul,
     Div,
@@ -1082,6 +1089,13 @@ pub enum MirRuntimeHelper {
     Lsh,
     Rsh,
     SArgs,
+}
+
+impl MirRuntimeHelper {
+    pub(crate) fn is_wide(self) -> bool {
+        matches!(self, Self::Mul32 | Self::Div32 | Self::Mod32 | Self::UDiv32
+            | Self::UMod32 | Self::Lsh32 | Self::Rsh32)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -1,6 +1,7 @@
 //! Target-owned legalization of a 32-bit NIR integer into two ordinary words.
 //! No source typing or expression reassociation occurs here.
 use super::*;
+use crate::mir6502::ir::MirResultHome;
 
 #[derive(Default)]
 pub(super) struct WideValues {
@@ -168,6 +169,42 @@ impl Builder<'_> {
                 width: MirWidth::Word,
             });
         }
+    }
+
+    fn helper(
+        &mut self,
+        helper: MirRuntimeHelper,
+        left: [MirValue; 2],
+        right: [MirValue; 2],
+    ) -> [MirValue; 2] {
+        // The helper's four word inputs are independent of the public routine
+        // ABI. Values are already captured; no source operands are re-read.
+        for (address, src) in [0x82, 0x84, 0xC0, 0xC2]
+            .into_iter()
+            .zip(left.into_iter().chain(right))
+        {
+            self.ops.push(MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(address))),
+                src,
+                width: MirWidth::Word,
+            });
+        }
+        self.ops.push(MirOp::RuntimeHelper {
+            helper,
+            args: super::super::materialize::helper_args(&helper),
+            result: Some(MirResultHome::FixedZeroPage(MirFixedZpSlot(0xC4))),
+            additional_results: super::super::materialize::helper_additional_results(helper),
+            effects: super::super::materialize::helper_effects(&helper),
+        });
+        [0xC4, 0xC6].map(|address| {
+            let dst = self.temp();
+            self.ops.push(MirOp::Load {
+                dst: MirDef::VTemp(dst),
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(address))),
+                width: MirWidth::Word,
+            });
+            temp_value(dst)
+        })
     }
 
     fn address(
@@ -381,10 +418,27 @@ impl Builder<'_> {
                                 MirWidth::Word,
                             ),
                         ],
-                        _ => {
-                            self.unsupported(&format!("{op:?}"));
-                            return true;
-                        }
+                        NirBinaryOp::Mul => self.helper(MirRuntimeHelper::Mul32, left, right),
+                        NirBinaryOp::Div => self.helper(
+                            if is_signed(ty) {
+                                MirRuntimeHelper::Div32
+                            } else {
+                                MirRuntimeHelper::UDiv32
+                            },
+                            left,
+                            right,
+                        ),
+                        NirBinaryOp::Mod => self.helper(
+                            if is_signed(ty) {
+                                MirRuntimeHelper::Mod32
+                            } else {
+                                MirRuntimeHelper::UMod32
+                            },
+                            left,
+                            right,
+                        ),
+                        NirBinaryOp::Lsh => self.helper(MirRuntimeHelper::Lsh32, left, right),
+                        NirBinaryOp::Rsh => self.helper(MirRuntimeHelper::Rsh32, left, right),
                     };
                     self.move_pair(*dest, pair);
                 }

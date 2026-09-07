@@ -26,6 +26,10 @@ impl Drop for Source {
 }
 
 fn run(image: &[u8], runtime: Runtime, a: u32, b: u32) -> Vec<u8> {
+    execute(image, runtime, a, b, false)
+}
+
+fn execute(image: &[u8], runtime: Runtime, a: u32, b: u32, fault: bool) -> Vec<u8> {
     let mut vm = CompilerVm::default();
     let profile = match runtime {
         Runtime::Standalone => ExecutionProfile::StandaloneObject,
@@ -60,6 +64,32 @@ fn run(image: &[u8], runtime: Runtime, a: u32, b: u32) -> Vec<u8> {
             vm.bus_mut().ram_mut().write(address + offset as u16, byte);
         }
     }
+    if fault {
+        assert!(
+            load.segments
+                .iter()
+                .all(|segment| segment.end < 0x700 || segment.start > 0x7FF)
+        );
+        vm.bus_mut()
+            .ram_mut()
+            .map(
+                0x780,
+                &[
+                    0x8D, 0x20, 0x07, 0x8E, 0x21, 0x07, 0x8C, 0x22, 0x07, 0xEE, 0x23, 0x07, 0xF8,
+                    0x60,
+                ],
+            )
+            .unwrap(); // Capture A/X/Y and count; SED; RTS exercises the defensive guard.
+        vm.bus_mut().ram_mut().write(0x723, 0);
+        match runtime {
+            Runtime::ActionCart => vm
+                .bus_mut()
+                .ram_mut()
+                .map(0x04CB, &[0x4C, 0x80, 7])
+                .unwrap(),
+            Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, 0x0780),
+        }
+    }
     let outcome = VmRunner::new(vm).run(RunRequest {
         max_steps: 25_000,
         history_len: 8,
@@ -74,12 +104,51 @@ fn run(image: &[u8], runtime: Runtime, a: u32, b: u32) -> Vec<u8> {
     let bytes: Vec<_> = (0x600..=0x6FF)
         .map(|address| outcome.memory().read(address))
         .collect();
-    assert_eq!(bytes[255], 0xA5, "completion {runtime:?} {a:08x} {b:08x}");
+    assert_eq!(
+        bytes[255],
+        if fault { 0xCC } else { 0xA5 },
+        "completion {runtime:?} {a:08x} {b:08x}"
+    );
+    if fault {
+        assert_eq!(
+            (0x720..=0x723)
+                .map(|a| outcome.memory().read(a))
+                .collect::<Vec<_>>(),
+            [100, 0, 100, 1]
+        );
+        assert_eq!(outcome.report.registers.status & 8, 0);
+        let pc = outcome.report.registers.pc;
+        assert_eq!(
+            [outcome.memory().read(pc), outcome.memory().read(pc + 1)],
+            [0xB0, 0xFE]
+        );
+    }
     bytes
 }
 
 fn word(bytes: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap())
+}
+
+#[test]
+fn wide_zero_divisors_fault_before_stores_and_do_not_resume() {
+    for ty in ["LONGINT", "LONGCARD"] {
+        for operation in ["/", "MOD"] {
+            let source = Source::new(&format!(
+                "{ty} a=$6E0,b=$6E4,result=$600 BYTE state=$604,done=$6FF\nPROC Main() state=41 result=a {operation} b state=42 done=$A5 RETURN"
+            ));
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let compiled = compile_file(
+                    &source.0,
+                    &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+                )
+                .unwrap();
+                let bytes = execute(compiled.object_bytes(), runtime, 0x80000000, 0, true);
+                assert_eq!(&bytes[..4], &[0xCC; 4]);
+                assert_eq!(bytes[4], 41);
+            }
+        }
+    }
 }
 
 #[test]
@@ -234,6 +303,61 @@ fn wide_record_arrays_and_pointer_views_preserve_guards_and_capture_addresses() 
             assert_eq!(word(&bytes, 0), a.wrapping_add(b));
             assert_eq!(bytes[4], 0x26);
             assert_eq!(&bytes[5..8], &[0xCC; 3]);
+        }
+    }
+}
+
+#[test]
+fn wide_multiply_divide_remainder_and_shifts_match_host_oracles() {
+    let source = Source::new(
+        "LONGCARD a=$6E0,b=$6E4,product=$600,quotient=$604,remainder=$608,left=$614,right=$618\nLONGINT sa=$6E0,sb=$6E4,sq=$60C,sr=$610 BYTE done=$6FF\nPROC Main() product=a*b quotient=a/b remainder=a MOD b sq=sa/sb sr=sa MOD sb left=a LSH b right=a RSH b done=$A5 RETURN",
+    );
+    let values = [
+        0u32, 1, 2, 7, 8, 15, 16, 17, 31, 32, 33, 255, 256, 65535, 65536, 0x7FFFFFFF, 0x80000000,
+        0x80000001, 0xFFFF0001, 0xFFFFFFFF, 0x89ABCDEF,
+    ];
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        for a in values {
+            for b in values.into_iter().filter(|b| *b != 0) {
+                let bytes = run(compiled.object_bytes(), runtime, a, b);
+                let expected = [
+                    a.wrapping_mul(b),
+                    a / b,
+                    a % b,
+                    (a as i32).wrapping_div(b as i32) as u32,
+                    (a as i32).wrapping_rem(b as i32) as u32,
+                    a.checked_shl(b).unwrap_or(0),
+                    a.checked_shr(b).unwrap_or(0),
+                ];
+                for (index, expected) in expected.into_iter().enumerate() {
+                    assert_eq!(
+                        word(&bytes, index * 4),
+                        expected,
+                        "operation {index} {runtime:?} {a:08x} {b:08x}\n{}",
+                        compiled.source_listing()
+                    );
+                }
+                assert_eq!(&bytes[28..32], &[0xCC; 4]);
+            }
+        }
+    }
+}
+
+#[test]
+fn wide_composition_compound_assignments_and_mixed_operands_keep_typed_widths() {
+    let source = Source::new("LONGCARD a=$6E0,b=$6E4,result=$600,left=$604,right=$608,wide=$60C,narrow=$610 LONGINT signed=$614,sa=$6E0 INT small=$6E4 CARD na=$6E0,nb=$6E4 BYTE done=$6FF\nPROC Main() result=(a*b)+(b*a) result==XOR a left=a LSH LONGCARD(0) right=a RSH LONGCARD(0) wide=LONGCARD(na)*nb narrow=LONGCARD(CARD(na*nb)) signed=sa*small signed==+small done=$A5 RETURN");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(&source.0, &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime)).unwrap();
+        for (a,b) in [(65535,2),(0x80000000,0xFFFF),(0x12345678,0xFEDCBA98),(0xFFFFFFFF,0),(0x80008000,0x8000)] {
+            let bytes=run(compiled.object_bytes(),runtime,a,b);
+            let small=b as u16 as i16 as i32;
+            let expected=[a.wrapping_mul(b).wrapping_mul(2)^a,a,a,u32::from(a as u16)*u32::from(b as u16),u32::from((a as u16).wrapping_mul(b as u16)),(a as i32).wrapping_mul(small).wrapping_add(small) as u32];
+            for (i,value) in expected.into_iter().enumerate() { assert_eq!(word(&bytes,i*4),value,"{i} {runtime:?} {a:08x} {b:08x}"); }
         }
     }
 }

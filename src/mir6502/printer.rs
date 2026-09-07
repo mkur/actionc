@@ -1006,6 +1006,13 @@ fn result_home_summary(home: &MirResultHome) -> String {
 
 fn helper_summary(helper: &MirRuntimeHelper) -> &'static str {
     match helper {
+        MirRuntimeHelper::Mul32 => "mul32",
+        MirRuntimeHelper::Div32 => "div-i32",
+        MirRuntimeHelper::Mod32 => "mod-i32",
+        MirRuntimeHelper::UDiv32 => "div-u32",
+        MirRuntimeHelper::UMod32 => "mod-u32",
+        MirRuntimeHelper::Lsh32 => "lsh32",
+        MirRuntimeHelper::Rsh32 => "rsh32",
         MirRuntimeHelper::MulByte => "mulb",
         MirRuntimeHelper::Mul => "mul",
         MirRuntimeHelper::Div => "div",

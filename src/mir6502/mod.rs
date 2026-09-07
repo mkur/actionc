@@ -452,6 +452,8 @@ fn runtime_bindings(
 
 fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
     match helper {
+        MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
+        | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => "32-bit arithmetic legalized to a compiler-owned helper",
         MirRuntimeHelper::SArgs => "call frame exceeds four direct argument bytes",
         MirRuntimeHelper::MulByte => "unsigned byte multiplication produces a word result",
         MirRuntimeHelper::Mul => "integer multiplication requires a runtime helper",

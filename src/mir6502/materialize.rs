@@ -1336,7 +1336,13 @@ pub(super) fn materialize_program_with_reporting(
     object_origin: u16,
     report: bool,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let mut helpers = Vec::new();
+    // Legalization can introduce mandatory helpers before optional rewrites.
+    // Discover them even when helper-selection/peephole passes are disabled.
+    let mut helpers = program.routines.iter().flat_map(|routine| &routine.blocks)
+        .flat_map(|block| &block.ops).filter_map(|op| match op {
+            MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+            _ => None,
+        }).collect::<Vec<_>>();
     let mut peephole_stats = MirPeepholeStats::default();
     let mut home_fates = BTreeMap::<RoutineId, HomeFateTracker>::new();
     for routine in &mut program.routines {

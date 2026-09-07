@@ -2,6 +2,8 @@
 //! Independently implemented; no dependency on cartridge arithmetic bodies.
 use crate::asm6502::{InlineAsmMode, InlineAsmRelocationKind, InlineAsmRelocationTarget, assemble};
 
+pub(crate) mod wide;
+
 /// Existing library convention for an invalid runtime argument (LIB.MSC Sound).
 /// The cartridge's SysErr prints Y, not A. This is not a historical div/0 code.
 pub(crate) const INVALID_ARGUMENT_ERROR: u8 = 100;

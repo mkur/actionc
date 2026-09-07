@@ -36,6 +36,15 @@ pub(super) fn resolve_helpers(
     runtime: Runtime,
 ) -> Result<(), Vec<MirDiagnostic>> {
     bind_generated_byte_multiply(program);
+    for helper in [MirRuntimeHelper::Mul32, MirRuntimeHelper::Lsh32, MirRuntimeHelper::Rsh32] {
+        if !program.runtime_helpers.iter().any(|decl| decl.helper == helper) { continue; }
+        let body = match helper {
+            MirRuntimeHelper::Mul32 => crate::integer6502::wide::multiply(),
+            MirRuntimeHelper::Lsh32 => crate::integer6502::wide::shift_body(true),
+            _ => crate::integer6502::wide::shift_body(false),
+        };
+        bind_generated_helper(program, helper, body.into_iter().map(MirMachineItem::Byte).collect());
+    }
     let error_target = if program
         .runtime_helpers
         .iter()
@@ -53,6 +62,10 @@ pub(super) fn resolve_helpers(
         None
     };
     for helper in [
+        MirRuntimeHelper::Div32,
+        MirRuntimeHelper::Mod32,
+        MirRuntimeHelper::UDiv32,
+        MirRuntimeHelper::UMod32,
         MirRuntimeHelper::Div,
         MirRuntimeHelper::Mod,
         MirRuntimeHelper::UDiv,
@@ -75,7 +88,12 @@ pub(super) fn resolve_helpers(
                     "legacy division/remainder SET overrides cannot replace modern integer operators",
                 )]);
             }
-            let body = if matches!(helper, MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod) {
+            let body = if helper.is_wide() {
+                crate::integer6502::wide::division(
+                    matches!(helper, MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32),
+                    matches!(helper, MirRuntimeHelper::Mod32 | MirRuntimeHelper::UMod32),
+                )
+            } else if matches!(helper, MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod) {
                 crate::integer6502::divmod_body(helper == MirRuntimeHelper::DivMod)
             } else if matches!(
                 helper,
@@ -135,7 +153,8 @@ pub(super) fn resolve_helpers(
 pub(super) fn is_division(helper: MirRuntimeHelper) -> bool {
     matches!(
         helper,
-        MirRuntimeHelper::Div
+        MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32 | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32
+            | MirRuntimeHelper::Div
             | MirRuntimeHelper::Mod
             | MirRuntimeHelper::UDiv
             | MirRuntimeHelper::UMod
@@ -150,6 +169,13 @@ pub(super) fn is_division(helper: MirRuntimeHelper) -> bool {
 
 pub(super) const fn helper_name(helper: MirRuntimeHelper) -> &'static str {
     match helper {
+        MirRuntimeHelper::Mul32 => "Mult32",
+        MirRuntimeHelper::Div32 => "DivI32",
+        MirRuntimeHelper::Mod32 => "RemI32",
+        MirRuntimeHelper::UDiv32 => "DivU32",
+        MirRuntimeHelper::UMod32 => "RemU32",
+        MirRuntimeHelper::Lsh32 => "LShift32",
+        MirRuntimeHelper::Rsh32 => "RShift32",
         MirRuntimeHelper::MulByte => "MultB",
         MirRuntimeHelper::Mul => "MultI",
         MirRuntimeHelper::Div => "DivI",
@@ -172,7 +198,9 @@ fn cartridge_address(helper: MirRuntimeHelper) -> u16 {
     use crate::codegen::runtime_helper;
 
     match helper {
-        MirRuntimeHelper::MulByte | MirRuntimeHelper::Div | MirRuntimeHelper::Mod
+        MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
+        | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32
+        | MirRuntimeHelper::MulByte | MirRuntimeHelper::Div | MirRuntimeHelper::Mod
         | MirRuntimeHelper::UDiv | MirRuntimeHelper::UMod
         | MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 | MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8
         | MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod => {
@@ -226,8 +254,8 @@ fn bind_generated_helper(
     );
     let mut effects = super::materialize::helper_effects(&helper);
     effects.reads = MirRegisterSet {
-        a: true,
-        x: true,
+        a: !helper.is_wide(),
+        x: !helper.is_wide(),
         ..MirRegisterSet::default()
     };
 

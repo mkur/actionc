@@ -147,6 +147,20 @@ fn mir6502_accepts_wide_runtime_storage_without_truncating() {
 }
 
 #[test]
+fn wide_helpers_are_mandatory_legalization_in_baseline_and_optimized_mir() {
+    let nir = lower("LONGCARD a,b,r LONGINT sa,sb,sr PROC Main() r=a*b r=a/b r=a MOD b r=a LSH b r=a RSH b sr=sa/sb sr=sa MOD sb RETURN", TargetId::Atari6502);
+    for config in [actionc::mir6502::Mir6502Config::default(), actionc::mir6502::Mir6502Config::optimized()] {
+        let mir = actionc::mir6502::lower_program(&nir).unwrap();
+        let materialized = actionc::mir6502::materialize_program(mir, &config).unwrap();
+        assert_eq!(materialized.runtime_helpers.iter().filter(|decl| matches!(decl.helper,
+            actionc::mir6502::MirRuntimeHelper::Mul32 | actionc::mir6502::MirRuntimeHelper::UDiv32
+            | actionc::mir6502::MirRuntimeHelper::UMod32 | actionc::mir6502::MirRuntimeHelper::Lsh32
+            | actionc::mir6502::MirRuntimeHelper::Rsh32 | actionc::mir6502::MirRuntimeHelper::Div32
+            | actionc::mir6502::MirRuntimeHelper::Mod32)).count(),7);
+    }
+}
+
+#[test]
 fn functions_can_return_wide_values_and_data_pointers() {
     let program = lower(
         "BYTE storage
