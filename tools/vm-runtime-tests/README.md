@@ -12,6 +12,14 @@ the pinned `actionc-vm` revision:
 cargo test --locked --no-fail-fast
 ```
 
+The [LET code-generation audit](../../docs/Action_2027/LET_CODEGEN_AUDIT.md)
+compares a reused mutable local, distinct mutable locals, and sequential LET
+bindings. `cargo test --locked --test let_codegen_audit -- --nocapture` checks
+1,296 executions and reports XEX sizes and CPU cycles in both modern backends
+and both runtimes. Set `ACTIONC_LET_AUDIT_DIR` to an existing empty directory to
+retain sources, IR, listings, objects and CSV measurements. Performance numbers
+are reports, not golden assertions; functional results use independent oracles.
+
 The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
 array indexing, word-pointer transfers, loop bounds, comparisons, masks,
 shift/add/sub composition, signed multiplication, reverse-copy loops, nested

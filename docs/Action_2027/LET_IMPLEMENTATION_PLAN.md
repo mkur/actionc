@@ -125,3 +125,11 @@ passes and conservative effects. Do not introduce LET-specific optimizers.
   describe the completed contract. `samples/let-bindings.act` demonstrates
   immutable initialization, sequential shadowing and loop-entry initialization;
   the sample build matrix covers classic/MIR6502 with cart/standalone runtime.
+
+## Code-quality follow-up
+
+The [post-implementation audit](LET_CODEGEN_AUDIT.md) compares reused mutable
+locals, distinct mutable locals and LET across both Atari backends/runtimes.
+It records current measurements and proposes general instruction-selection and
+bounded-relay extensions; it does not change the completed LET contract or
+introduce LET-specific optimizer behavior.
