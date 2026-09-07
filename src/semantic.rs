@@ -19,6 +19,7 @@ mod declarations;
 mod enums;
 pub use enums::{EnumFacts, EnumIdentity, EnumMemberValue, EnumType, EnumValue};
 mod initializers;
+mod let_binding;
 mod static_addresses;
 pub mod subject;
 pub mod types;
@@ -326,6 +327,8 @@ pub struct Symbol {
     pub class: SymbolClass,
     pub ty: Option<ValueType>,
     pub is_volatile: bool,
+    /// Source binding immutability; does not make pointed-to memory read-only.
+    pub is_immutable: bool,
     pub scope: ScopeId,
     pub defining_module: Option<ModuleId>,
     pub visibility: Visibility,
@@ -428,6 +431,7 @@ pub struct StmtFlowFacts {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SemanticOptions {
+    pub let_bindings: bool,
     /// Modern-profile CASE statements; independent of enum support.
     pub case_statements: bool,
     /// Modern-profile nominal BYTE enums; independent of CASE support.
@@ -443,6 +447,7 @@ pub struct SemanticOptions {
 impl SemanticOptions {
     pub const fn modern() -> Self {
         Self {
+            let_bindings: true,
             case_statements: true,
             enum_types: true,
             native_real: true,
@@ -1521,9 +1526,7 @@ impl Analyzer {
         }
 
         let context = ControlContext::routine(&routine.kind);
-        for stmt in &routine.body {
-            self.analyze_stmt(routine_scope, stmt, context);
-        }
+        self.analyze_binding_statements(routine_scope, &routine.body, context);
         self.validate_routine_return_paths(routine);
         self.active_module = previous_module;
         self.active_routine = previous_routine;
@@ -1534,7 +1537,9 @@ impl Analyzer {
     fn analyze_stmt(&mut self, scope: ScopeId, stmt: &Stmt, context: ControlContext<'_>) {
         match stmt {
             Stmt::Let { span, .. } => self.diagnostics.push(Diagnostic::new(*span,
-                "LET semantic support is not available yet")),
+                if !self.options.let_bindings { "LET requires the modern profile" }
+                else if self.active_routine_symbol.is_none() { "LET is only allowed inside routines" }
+                else { "LET in a control-flow body requires an explicit BEGIN/END block" })),
             Stmt::Case { selector, arms, span } => self.analyze_case(scope, selector, arms, *span, context),
             Stmt::LexicalBlock {
                 syntax_id,
@@ -1576,6 +1581,7 @@ impl Analyzer {
                         let resolution =
                             resolve_semantic_name(&self.symbols, &self.modules, scope, name);
                         if let SemanticNameResolution::Symbol(id) = &resolution {
+                            if self.reject_binding_address(*id, *span) { continue; }
                             let symbol = &self.symbols.symbols[id.0];
                             if matches!(symbol.class, SymbolClass::Const | SymbolClass::Type)
                                 && symbol.ty.as_ref().is_some_and(|ty| ty.as_enum().is_some())
@@ -1623,6 +1629,7 @@ impl Analyzer {
                             continue;
                         }
                     };
+                    if self.reject_binding_address(symbol_id, relocation.span) { continue; }
                     let symbol = &self.symbols.symbols[symbol_id.0];
                     let valid = match relocation.symbol_use {
                         crate::asm6502::InlineAsmSymbolUse::Call
@@ -1777,7 +1784,7 @@ impl Analyzer {
         for declaration in declarations {
             self.analyze_decl(scope, declaration, false);
         }
-        self.analyze_statements(scope, body, context);
+        self.analyze_binding_statements(scope, body, context);
         self.active_lexical_path.pop();
     }
 
@@ -1924,6 +1931,7 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.reject_read_only_write(&target_place, span) { return; }
         if self.reject_inline_array_target(&target_place, span) {
             return;
         }
@@ -1941,6 +1949,10 @@ impl Analyzer {
             .as_enum()
             .and_then(|_| self.compound_assignment_target_type(scope, target, &target_place));
         let expected = enum_storage_type.as_ref().unwrap_or(&target_place.ty);
+        self.validate_assignment_value_type(scope, expected, value_expr);
+    }
+
+    fn validate_assignment_value_type(&mut self, scope: ScopeId, expected: &ValueType, value_expr: &Expr) {
         if expected.is_error() {
             return;
         }
@@ -2057,6 +2069,7 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.reject_read_only_write(&target_place, span) { return; }
         if self.reject_inline_array_target(&target_place, span) {
             return;
         }
@@ -2181,6 +2194,7 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.reject_read_only_write(&target_place, span) { return; }
         if self.reject_inline_array_target(&target_place, span) {
             return;
         }
@@ -2325,6 +2339,11 @@ impl Analyzer {
                 expr: inner,
             } => match self.classify_subject(scope, inner) {
                 subject::SemSubject::Place(place) => {
+                    if let subject::SemPlaceKind::Symbol(id) = &place.kind
+                        && self.reject_binding_address(*id, expr.span)
+                    {
+                        return self.subject_error(expr.span);
+                    }
                     let ty = ValueType::pointer_to(place.ty.clone());
                     subject::SemSubject::Expr(subject::SemExpr {
                         ty,
@@ -2624,7 +2643,7 @@ impl Analyzer {
                         .unwrap_or_else(ValueType::error);
                     subject::SemSubject::Place(subject::SemPlace {
                         ty: ty.clone(),
-                        access: base.access,
+                        access: if base.ty.is_pointer() { subject::PlaceAccess::Assignable } else { base.access },
                         kind: subject::SemPlaceKind::Field {
                             base: Box::new(base),
                             field: subject::SemFieldRef {
@@ -3028,7 +3047,7 @@ impl Analyzer {
             SymbolClass::Var | SymbolClass::Array | SymbolClass::Param => {
                 subject::SemSubject::Place(subject::SemPlace {
                     ty: symbol.ty.clone().unwrap_or_else(ValueType::error),
-                    access: subject::PlaceAccess::Assignable,
+                    access: if symbol.is_immutable { subject::PlaceAccess::ReadOnly } else { subject::PlaceAccess::Assignable },
                     kind: subject::SemPlaceKind::Symbol(symbol_id),
                     span,
                 })
@@ -4387,6 +4406,7 @@ impl Analyzer {
             return;
         };
         let expression = self.lower_expr(scope, size);
+        if self.reject_static_binding_value(&expression) { return; }
         if expression.ty.as_enum().is_some() {
             self.diagnostics.push(Diagnostic::new(size.span, "array size requires an integer, not an enum; use an explicit conversion"));
             return;
@@ -4477,6 +4497,13 @@ impl Analyzer {
         let Some(initializer) = &entry.initializer else {
             return;
         };
+        if decl.storage == VarStorage::Plain && !decl.ty.pointer
+            && let Some(name) = storage_alias_source_name(initializer)
+            && let Some(id) = self.lookup_symbol(scope, name)
+            && self.reject_binding_address(id, initializer.span)
+        {
+            return;
+        }
         let element_type = self.value_type_from_type_ref(scope, &decl.ty);
         match &initializer.kind {
             ExprKind::InitializerList(elements) => {
@@ -4626,6 +4653,12 @@ impl Analyzer {
                             let InitializerElementKind::Address { target, .. } = &element.kind else {
                                 unreachable!("subobject initializer handled above");
                             };
+                            if let SemanticNameResolution::Symbol(id) =
+                                resolve_semantic_name(&self.symbols, &self.modules, scope, target)
+                                && self.reject_binding_address(id, element.span)
+                            {
+                                continue;
+                            }
                             let class = if module_for_scope(&self.symbols, scope).is_some() {
                                 self.resolve_qualified_symbol(scope, target, element.span)
                                     .and_then(|id| self.symbols.symbols.get(id.0))
@@ -4697,6 +4730,7 @@ impl Analyzer {
                 // a divide-by-zero fixed address into ordinary storage.
                 let value =
                     self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
+                if self.reject_static_binding_value(&value) { return; }
                 if value.ty.as_enum().is_some() && self.array_decay_pointer_type(scope, initializer).is_none() {
                     self.diagnostics.push(Diagnostic::new(initializer.span,
                         "a storage address requires an integer; use [Enum.Member] for an initial enum value"));
@@ -5056,6 +5090,7 @@ impl SymbolTable {
             class,
             ty,
             is_volatile: false,
+            is_immutable: false,
             scope,
             defining_module,
             visibility,

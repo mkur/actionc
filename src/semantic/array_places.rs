@@ -14,44 +14,7 @@ impl Analyzer {
     // Inspect typed expressions so unevaluated layout queries do not impose
     // static-address restrictions on their discarded operands.
     pub(super) fn expression_uses_inline_array(&self, expr: &subject::SemExpr) -> bool {
-        use subject::SemExprKind;
-        match &expr.kind {
-            SemExprKind::Load(place) | SemExprKind::AddressOf(place) => {
-                self.place_uses_inline_array(place)
-            }
-            SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => {
-                self.expression_uses_inline_array(expr)
-            }
-            SemExprKind::Binary { left, right, .. } => {
-                self.expression_uses_inline_array(left) || self.expression_uses_inline_array(right)
-            }
-            SemExprKind::Call { callee, args } => {
-                matches!(&callee.kind, subject::SemCallableKind::FunctionValue(expr)
-                    if self.expression_uses_inline_array(expr))
-                    || args
-                        .iter()
-                        .any(|arg| self.expression_uses_inline_array(arg))
-            }
-            SemExprKind::Literal(_)
-            | SemExprKind::CurrentLocation
-            | SemExprKind::AddressOfSymbol(_)
-            | SemExprKind::Raw(_)
-            | SemExprKind::Error => false,
-        }
-    }
-
-    fn place_uses_inline_array(&self, place: &subject::SemPlace) -> bool {
-        if self.inline_array_type(place).is_some() {
-            return true;
-        }
-        match &place.kind {
-            subject::SemPlaceKind::Field { base, .. } => self.place_uses_inline_array(base),
-            subject::SemPlaceKind::Index { base, index } => {
-                self.place_uses_inline_array(base) || self.expression_uses_inline_array(index)
-            }
-            subject::SemPlaceKind::Deref(expr) => self.expression_uses_inline_array(expr),
-            subject::SemPlaceKind::Symbol(_) | subject::SemPlaceKind::Error => false,
-        }
+        expr.any_place(&|place| self.inline_array_type(place).is_some())
     }
 
     pub(super) fn inline_array_type(&self, place: &subject::SemPlace) -> Option<ArrayType> {

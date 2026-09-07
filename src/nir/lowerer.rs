@@ -6178,6 +6178,7 @@ mod memory_effect_tests {
             class: SymbolClass::Var,
             ty: None,
             is_volatile: false,
+            is_immutable: false,
             scope: ScopeId(1),
             span: crate::source::Span::new(0, 1),
         };

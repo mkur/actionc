@@ -94,3 +94,14 @@ passes and conservative effects. Do not introduce LET-specific optimizers.
   and diagnoses malformed initializers. Semantic use is explicitly gated until
   the next slice. Compiler tests, unchanged NIR snapshots and all 37 sweep
   fixtures pass.
+- Sequential semantic scopes, immutable symbol/place facts, shared assignment
+  conversion checks and SemIR-to-NIR lowering are implemented. Classic projection
+  and MIR6502 execute the basic binding/effect fixture on both runtimes without
+  new backend operations. Ten semantic/IR tests and the four-way runtime check
+  pass; the compiler suite, unchanged snapshots and 37 NIR fixtures pass.
+- Static initializer and bound consumers reject evaluated LET dependencies;
+  unevaluated layout queries remain legal. The existing typed-place traversal
+  is shared with embedded-array validation. The broad corpus now includes one
+  additional positive runtime fixture (329 positive roots).
+- Extended runtime/type and optimization coverage is the next slice; the
+  feature is not yet declared complete.

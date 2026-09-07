@@ -1,0 +1,53 @@
+BYTE ARRAY output=$0600
+VOLATILE BYTE input=$0680
+BYTE calls
+
+BYTE FUNC ReadValue()
+  calls==+1
+RETURN(input)
+
+BYTE FUNC Compute(BYTE arg)
+  LET value=ReadValue()
+  LET value=value+arg
+RETURN(value)
+
+PROC Main()
+  BYTE i
+
+  calls=0
+  input=10
+  LET snapshot=ReadValue()
+  input=99
+  output(0)=snapshot
+  LET snapshot=snapshot+1
+  output(1)=snapshot
+  output(2)=Compute(2)
+  input=7
+  output(3)=Compute(3)
+
+  FOR i=0 TO 2 DO
+    BEGIN
+      LET each=ReadValue()
+      output(4+i)=each
+      input==+1
+    END
+  OD
+  IF 0 THEN
+    BEGIN
+      LET skipped=ReadValue()
+      output(0)=skipped
+    END
+  FI
+
+  output(7)=snapshot
+  output(8)=calls
+  LET ptr=@input
+  ptr^=42
+  output(9)=ptr^
+  LET callback=@ReadValue
+  LET final=callback()
+  output(10)=final
+  output(11)=calls
+  output(12)=$A5
+  DO OD
+RETURN

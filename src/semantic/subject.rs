@@ -22,6 +22,24 @@ pub struct SemExpr {
     pub span: Span,
 }
 
+impl SemExpr {
+    /// Visit evaluated places, including bases/indexes and indirect callees.
+    /// Unevaluated layout queries have already become literals at this point.
+    pub(super) fn any_place(&self, predicate: &impl Fn(&SemPlace) -> bool) -> bool {
+        match &self.kind {
+            SemExprKind::Load(place) | SemExprKind::AddressOf(place) => place.any_place(predicate),
+            SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => expr.any_place(predicate),
+            SemExprKind::Binary { left, right, .. } => left.any_place(predicate) || right.any_place(predicate),
+            SemExprKind::Call { callee, args } => {
+                matches!(&callee.kind, SemCallableKind::FunctionValue(value) if value.any_place(predicate))
+                    || args.iter().any(|value| value.any_place(predicate))
+            }
+            SemExprKind::Literal(_) | SemExprKind::CurrentLocation | SemExprKind::AddressOfSymbol(_)
+            | SemExprKind::Raw(_) | SemExprKind::Error => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemExprKind {
     Literal(SemLiteral),
@@ -69,6 +87,17 @@ pub struct SemPlace {
     pub access: PlaceAccess,
     pub kind: SemPlaceKind,
     pub span: Span,
+}
+
+impl SemPlace {
+    fn any_place(&self, predicate: &impl Fn(&SemPlace) -> bool) -> bool {
+        predicate(self) || match &self.kind {
+            SemPlaceKind::Field { base, .. } => base.any_place(predicate),
+            SemPlaceKind::Index { base, index } => base.any_place(predicate) || index.any_place(predicate),
+            SemPlaceKind::Deref(value) => value.any_place(predicate),
+            SemPlaceKind::Symbol(_) | SemPlaceKind::Error => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

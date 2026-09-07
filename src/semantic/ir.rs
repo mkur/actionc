@@ -157,6 +157,7 @@ pub struct SemSymbolRef {
     pub class: SymbolClass,
     pub ty: Option<ValueType>,
     pub is_volatile: bool,
+    pub is_immutable: bool,
     pub scope: ScopeId,
     pub span: Span,
 }
@@ -1397,12 +1398,13 @@ impl SemIrFormatter {
 
     fn declaration(&mut self, decl: &SemDeclaration) {
         self.line(format!(
-            "decl{} {} {} {}",
+            "decl{}{} {} {} {}",
             if decl.symbol.is_volatile {
                 " volatile"
             } else {
                 ""
             },
+            if decl.symbol.is_immutable { " immutable" } else { "" },
             type_summary(&decl.ty.value),
             symbol_summary(&decl.symbol),
             declaration_storage_summary(&decl.storage)
@@ -2922,11 +2924,7 @@ impl<'a> IrBuilder<'a> {
                 })
                 .flat_map(|constants| self.lower_const_decl(routine_scope, constants))
                 .collect(),
-            body: routine
-                .body
-                .iter()
-                .flat_map(|stmt| self.lower_stmt(routine_scope, stmt))
-                .collect(),
+            body: self.lower_binding_statements(routine_scope, &routine.body),
             system_address: routine
                 .system_address
                 .as_ref()
@@ -2978,6 +2976,43 @@ impl<'a> IrBuilder<'a> {
         lowered
     }
 
+    fn lower_binding_statements(&mut self, scope: ScopeId, statements: &[Stmt]) -> Vec<SemStmt> {
+        let mut output = Vec::new();
+        for (index, statement) in statements.iter().enumerate() {
+            let Stmt::Let { syntax_id, name, value, span, .. } = statement else {
+                output.extend(self.lower_stmt(scope, statement));
+                continue;
+            };
+            let block = self.model.lexical_blocks.iter()
+                .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
+                .expect("validated LET scope");
+            let child = block.scope;
+            let scope_ref = SemLexicalScopeRef {
+                syntax_id: *syntax_id, scope: child, parent: scope,
+                depth: block.depth, ordinal: block.ordinal,
+            };
+            let symbol = self.symbol_ref(child, name, *span).expect("validated LET symbol");
+            let ty = self.sem_type_from_symbol(&symbol);
+            let initializer = self.lower_scalar_value_for_expected_type(scope, &ty.value, value);
+            let target = SemLValue {
+                kind: SemLValueKind::Symbol(symbol.clone()), ty: ty.value.clone(),
+                // This is compiler-owned initialization, not source assignment.
+                access: PlaceAccess::Assignable, is_volatile: false, storage: None, span: *span,
+            };
+            let declaration = SemDeclaration {
+                symbol, ty, storage: SemDeclarationStorage::Scalar,
+                initializer: None, static_initializer: None, span: *span, group_span: *span,
+            };
+            let mut body = vec![SemStmt::Assign { target, value: initializer, span: *span }];
+            body.extend(self.lower_binding_statements(child, &statements[index + 1..]));
+            output.push(SemStmt::LexicalBlock {
+                scope: scope_ref, declarations: vec![declaration], constants: Vec::new(), body, span: *span,
+            });
+            break;
+        }
+        output
+    }
+
     fn lower_stmt(&mut self, scope: ScopeId, stmt: &Stmt) -> Vec<SemStmt> {
         match stmt {
             Stmt::Let { span, .. } => vec![SemStmt::Unsupported {
@@ -3022,10 +3057,7 @@ impl<'a> IrBuilder<'a> {
                         })
                         .flat_map(|constants| self.lower_const_decl(block_scope, constants))
                         .collect(),
-                    body: body
-                        .iter()
-                        .flat_map(|statement| self.lower_stmt(block_scope, statement))
-                        .collect(),
+                    body: self.lower_binding_statements(block_scope, body),
                     span: *span,
                 }]
             }
@@ -4254,6 +4286,7 @@ impl<'a> IrBuilder<'a> {
 
     fn lvalue_access(&self, kind: &SemLValueKind) -> PlaceAccess {
         match kind {
+            SemLValueKind::Symbol(symbol) if symbol.is_immutable => PlaceAccess::ReadOnly,
             SemLValueKind::Symbol(symbol) => match symbol.class {
                 SymbolClass::Var | SymbolClass::Array | SymbolClass::Param => {
                     PlaceAccess::Assignable
@@ -4268,7 +4301,9 @@ impl<'a> IrBuilder<'a> {
             },
             SemLValueKind::UnresolvedName(_) => PlaceAccess::Error,
             SemLValueKind::Deref { .. } | SemLValueKind::Index { .. } => PlaceAccess::Assignable,
-            SemLValueKind::Field { base, .. } => base.access,
+            SemLValueKind::Field { base, .. } => {
+                if base.ty.is_pointer() { PlaceAccess::Assignable } else { base.access }
+            }
         }
     }
 
@@ -4516,6 +4551,7 @@ impl<'a> IrBuilder<'a> {
             class: symbol.class.clone(),
             ty: symbol.ty.clone(),
             is_volatile: symbol.is_volatile,
+            is_immutable: symbol.is_immutable,
             scope: symbol.scope,
             span,
         }
@@ -4546,6 +4582,7 @@ impl<'a> IrBuilder<'a> {
             class,
             ty: None,
             is_volatile: false,
+            is_immutable: false,
             scope: self.model.symbols.global_scope(),
             span,
         }
@@ -4588,9 +4625,7 @@ impl<'a> IrBuilder<'a> {
                             .find(|scope| scope.symbol == routine_symbol)
                             .map(|routine| routine.scope)
                             .unwrap_or(top_scope);
-                        for stmt in &routine.body {
-                            self.collect_numeric_define_stmt(routine_scope, stmt, &mut defines);
-                        }
+                        self.collect_numeric_define_statements(routine_scope, &routine.body, &mut defines);
                     }
                     Item::Statement(Stmt::Define(define)) => {
                         self.collect_numeric_define_decl(top_scope, define, &mut defines);
@@ -4604,6 +4639,23 @@ impl<'a> IrBuilder<'a> {
             }
         }
         defines
+    }
+
+    fn collect_numeric_define_statements(
+        &self,
+        mut scope: ScopeId,
+        statements: &[Stmt],
+        defines: &mut HashMap<SymbolId, NumberLiteral>,
+    ) {
+        for statement in statements {
+            if let Stmt::Let { syntax_id, .. } = statement {
+                scope = self.model.lexical_blocks.iter()
+                    .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
+                    .expect("validated LET scope").scope;
+            } else {
+                self.collect_numeric_define_stmt(scope, statement, defines);
+            }
+        }
     }
 
     fn collect_numeric_define_stmt(
@@ -4626,9 +4678,7 @@ impl<'a> IrBuilder<'a> {
                     .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
                     .map(|block| block.scope)
                     .unwrap_or(scope);
-                for stmt in body {
-                    self.collect_numeric_define_stmt(block_scope, stmt, defines);
-                }
+                self.collect_numeric_define_statements(block_scope, body, defines);
             }
             Stmt::Define(define) => self.collect_numeric_define_decl(scope, define, defines),
             Stmt::If {
