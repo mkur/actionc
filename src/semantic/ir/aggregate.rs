@@ -586,7 +586,7 @@ impl IrBuilder<'_> {
         body
     }
 
-    pub(super) fn capture_aggregate_call_arguments(
+    pub(super) fn capture_ordered_call_arguments(
         &mut self, scope: ScopeId, call: &mut SemCall, args: &[Expr],
     ) {
         if let SemCallable::Indirect { target, .. } = &mut call.callee {

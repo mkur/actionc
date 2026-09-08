@@ -40,7 +40,7 @@ mod tests {
             assert_eq!(SemanticOptions::default().with_target(target).algebraic_types,
                 AlgebraicTypeCapabilities::DISABLED);
             assert_eq!(SemanticOptions::modern().with_target(target).algebraic_types,
-                AlgebraicTypeCapabilities { aggregate_values: true, variants: true, aggregate_calls: true, ..AlgebraicTypeCapabilities::DISABLED });
+                AlgebraicTypeCapabilities { aggregate_values: true, variants: true, aggregate_calls: true, indirect_aggregate_calls: true, ..AlgebraicTypeCapabilities::DISABLED });
         }
     }
 

@@ -4477,9 +4477,12 @@ impl<'a> IrBuilder<'a> {
                     target: Box::new(self.lower_expr(scope, callee)),
                     signature: SemRoutineSignature::unknown_proc(),
                 }),
-            None => SemCallable::Indirect {
-                target: Box::new(self.lower_expr(scope, callee)),
-                signature: SemRoutineSignature::unknown_proc(),
+            None => {
+                let target = self.lower_expr(scope, callee);
+                let signature = target.ty.as_callable_pointer()
+                    .map(SemRoutineSignature::from_callable_type)
+                    .unwrap_or_else(SemRoutineSignature::unknown_proc);
+                SemCallable::Indirect { target: Box::new(target), signature }
             },
         };
 
@@ -4488,13 +4491,16 @@ impl<'a> IrBuilder<'a> {
         let return_type = callable_type.return_type.clone();
         let effects = self.call_effects_for_callee(&callee);
 
+        let capture_arguments = expected_params.iter().any(ValueType::is_record)
+            || return_type.as_ref().is_some_and(ValueType::is_record)
+            || (matches!(callee, SemCallable::Indirect { .. }) && !args.is_empty());
+
         let mut call = SemCall {
             preparation: Vec::new(),
             aggregate_result: None,
             callee,
             callable_type: callable_type.clone(),
-            args: if expected_params.iter().any(ValueType::is_record)
-                || return_type.as_ref().is_some_and(ValueType::is_record) {
+            args: if capture_arguments {
                 Vec::new()
             } else { args
                 .iter()
@@ -4510,9 +4516,8 @@ impl<'a> IrBuilder<'a> {
             effects,
             span: expr.span,
         };
-        if expected_params.iter().any(ValueType::is_record)
-            || call.return_type.as_ref().is_some_and(ValueType::is_record) {
-            self.capture_aggregate_call_arguments(scope, &mut call, args);
+        if capture_arguments {
+            self.capture_ordered_call_arguments(scope, &mut call, args);
         }
         call
     }

@@ -459,15 +459,30 @@ impl Generator {
         span: Span,
         tail_jump: bool,
     ) -> bool {
-        let Some(_pointer_info) = self.callable_pointer_info(name) else {
+        let Some(pointer_info) = self.callable_pointer_info(name) else {
             return false;
         };
-        if !args.is_empty() {
+        if args.len() != pointer_info.params.len() {
             return false;
         }
         let Some(slot) = self.lookup_slot(name).filter(|slot| slot.size == 2) else {
             return false;
         };
+
+        if !args.is_empty() {
+            let mut offset = u16::from(runtime_zp::ARGS.address());
+            let mut params = Vec::new();
+            for param in &pointer_info.params {
+                let Some(size) = (if param.storage == VarStorage::Array { Some(2) }
+                    else { storage_size_with_records(&param.ty, &self.record_layouts) }) else { return false; };
+                if offset + size > 0x100 { return false; }
+                params.push(StorageSlot::zero_page(offset as u8, size).signed(type_is_signed(&param.ty)));
+                offset += size;
+            }
+            // SemIR stages aggregate callees and all argument values before
+            // this physical call. Reuse the ordinary protected ABI packing.
+            if !self.emit_left_to_right_staged_call_arguments(args, &params) { return false; }
+        }
 
         if tail_jump {
             self.emitter.emit_jmp_indirect(slot.address);

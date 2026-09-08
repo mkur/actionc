@@ -469,6 +469,7 @@ impl SemanticOptions {
                 aggregate_values: true,
                 variants: true,
                 aggregate_calls: true,
+                indirect_aggregate_calls: true,
                 ..AlgebraicTypeCapabilities::DISABLED
             },
             target: TargetId::Atari6502,
@@ -2023,6 +2024,12 @@ impl Analyzer {
         if actual.is_error() {
             return;
         }
+        if expected.as_callable_pointer().is_some_and(CallableType::has_aggregate_boundary) {
+            if expected != actual {
+                self.diagnostics.push(Diagnostic::new(value.span, "aggregate callable assignment requires the exact nominal signature; raw addresses have no declared aggregate ABI"));
+            }
+            return;
+        }
         if self.contains_variant(actual) {
             self.diagnostics.push(Diagnostic::new(value.span,
                 "variant values require exact nominal aggregate assignment; use an explicit typed pointer for their address"));
@@ -2366,6 +2373,9 @@ impl Analyzer {
                     return self.subject_error(expr.span);
                 }
                 let ty = self.value_type_from_type_ref(scope, ty);
+                if ty.as_callable_pointer().is_some_and(CallableType::has_aggregate_boundary) && ty != inner.ty {
+                    self.diagnostics.push(Diagnostic::new(expr.span, "aggregate callable casts require the exact nominal signature; raw addresses have no declared aggregate ABI"));
+                }
                 if inner.ty.as_enum().is_some() && ty.as_scalar().is_none() {
                     self.diagnostics.push(Diagnostic::new(expr.span, "enum values require an explicit integer conversion"));
                 }
@@ -3243,6 +3253,11 @@ impl Analyzer {
         if let (Some(expected), subject::SemSubject::Callable(callable)) = (expected, &subject)
             && routine_address_can_pass_as(expected)
         {
+            if expected.as_callable_pointer().is_some_and(|s| s.has_aggregate_boundary() || callable.ty.has_aggregate_boundary())
+                && expected.as_callable_pointer() != Some(&callable.ty) {
+                self.diagnostics.push(Diagnostic::new(span, "aggregate callable requires the exact nominal signature"));
+                return self.error_expr(expr.span);
+            }
             return match &callable.kind {
                 subject::SemCallableKind::Function(symbol_id)
                 | subject::SemCallableKind::Builtin(symbol_id) => subject::SemExpr {
@@ -3443,6 +3458,16 @@ impl Analyzer {
         expected: Option<&ValueType>,
     ) -> subject::SemExpr {
         let mut subject = self.classify_subject_in_context(scope, expr, condition);
+        if let subject::SemSubject::Callable(callable) = &subject
+            && expected.and_then(ValueType::as_callable_pointer)
+                .is_some_and(|s| s.has_aggregate_boundary() || callable.ty.has_aggregate_boundary())
+            && let subject::SemCallableKind::Function(id) | subject::SemCallableKind::Builtin(id) = callable.kind
+        {
+            subject = subject::SemSubject::Expr(subject::SemExpr {
+                ty: ValueType::callable_pointer(callable.ty.clone()),
+                kind: subject::SemExprKind::AddressOfSymbol(id), span: expr.span,
+            });
+        }
         if let subject::SemSubject::Place(place) = &subject
             && (self.contextual_array_value_type(place).is_some()
                 || (place.ty.is_record() && expected.is_some_and(|ty| !ty.is_record())))
@@ -4668,6 +4693,24 @@ impl Analyzer {
                     }
                     let destination_width =
                         self.value_storage_width(destination_type).unwrap_or(0);
+                    if let Some(signature) = destination_type.as_callable_pointer().filter(|s| s.has_aggregate_boundary()) {
+                        let valid = match &element.kind {
+                            InitializerElementKind::Literal { value: crate::ast::InitializerLiteral::Nil, negative: false } => true,
+                            InitializerElementKind::Address { target, selector: None, addend: 0 } => {
+                                match resolve_semantic_name(&self.symbols, &self.modules, scope, target) {
+                                    SemanticNameResolution::Symbol(id) if self.routines_by_symbol.contains_key(&id) =>
+                                        self.callable_subject(id, element.span).ty == *signature,
+                                    _ => false,
+                                }
+                            }
+                            _ => false,
+                        };
+                        if !valid {
+                            self.diagnostics.push(Diagnostic::new(element.span,
+                                "aggregate callable initializer requires NIL or a routine address with the exact nominal signature"));
+                            continue;
+                        }
+                    }
                     if self.validate_enum_initializer(scope, destination_type, element) {
                         continue;
                     }

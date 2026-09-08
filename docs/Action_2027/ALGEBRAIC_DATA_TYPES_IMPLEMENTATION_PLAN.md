@@ -2,8 +2,8 @@
 
 Status: accepted; implementation in progress on `main`, 2026-09-08.
 Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
-are enabled after their end-to-end acceptance gates; direct aggregate calls are
-implemented, while indirect aggregate calls, generics,
+are enabled after their end-to-end acceptance gates; direct and typed indirect
+aggregate calls are implemented, while generics,
 nested patterns and guards remain future slices. See implementation progress.
 
 ## 1. Objective and boundaries
@@ -761,3 +761,24 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
 - Acceptance: 2,896 compiler tests pass; the full pinned VM suite passes (158
   tests), plus the added parameter-address initializer case (159 current tests).
   NIR snapshots, the 40-source NIR sweep and the 167-source MIR sweep pass.
+
+### Slice 6 — Typed indirect aggregate calls (complete)
+
+- Typed PROC/FUNC POINTER parameters and results retain exact nominal types,
+  including record fields, routine parameters and static callback initializers.
+  Numeric addresses, mismatched same-layout types and undeclared foreign ABIs
+  cannot be used as aggregate callbacks. Existing scalar address rules remain.
+- SemIR captures indirect targets before argument effects and uses the same
+  ordered argument/result captures as direct aggregate calls. Classic packs
+  typed indirect arguments through its existing protected argument staging.
+  Scalar indirect calls with arguments use the same ordering rule.
+- Raw/optimized NIR and real-VM execution cover both Atari backends/runtimes,
+  changed callbacks, mutable parameters, nested forwarding, immediate CASE,
+  ignored results and simultaneously live result values.
+- 68k/65816 canaries check hidden first target-width result pointers, independent
+  automatic value homes, mixed arguments and stack-neutral indirect calls.
+  Native variant faults still require Error adapters, diagnosed before frame
+  planning so an absent adapter is not reported as an oversized frame.
+- Added direct/optimized indirect-call snapshots; existing snapshots are unchanged.
+- Acceptance: all 2,903 compiler tests and 162 pinned VM tests pass. NIR
+  snapshots, the 41-source NIR sweep and 167-source MIR sweep pass.

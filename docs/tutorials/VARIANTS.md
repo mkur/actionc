@@ -73,15 +73,21 @@ activation is unchanged: recursive data does not enable recursive/reentrant
 procedures. Existing backend limits also apply, including classic's
 LONGINT/LONGCARD restrictions.
 
-Record and variant parameters and function results are supported on direct
-compiler-defined calls in the modern profile. Parameters are independent mutable
+Record and variant parameters and function results are supported on direct and
+typed indirect compiler-defined calls in the modern profile. Parameters are independent mutable
 copies; use an explicit POINTER parameter to modify the caller's object. Function
 results compose with LET, assignment, constructor arguments, RETURN and CASE.
 Arguments are captured once, left to right, before later argument effects.
 Aggregate calls require all arguments, including trailing scalar arguments.
 Foreign/cartridge entry signatures are not inferred from these source types.
 
-Not yet supported: typed indirect aggregate calls, generic types,
+Use signatures such as `Event FUNC POINTER transform(Event input BYTE n)` or
+`PROC POINTER consume(Event input)`. The callback is captured before argument
+effects; callbacks must have exactly matching nominal parameter/result types.
+Raw numeric addresses cannot acquire an aggregate ABI. Static initialization
+accepts a matching, already-declared routine address (`[@Make]`) or `[NIL]`.
+
+Not yet supported: generic types,
 nested patterns, guards, direct ARRAY payload declarations, volatile variants,
 absolute/alias-backed variant declarations or raw/static variant initializers.
 Use a record payload to contain an inline array. Typed pointers into explicitly

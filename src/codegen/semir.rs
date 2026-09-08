@@ -2233,6 +2233,8 @@ mod array_execution_tests;
 #[cfg(test)]
 mod aggregate_call_tests;
 #[cfg(test)]
+mod aggregate_indirect_tests;
+#[cfg(test)]
 mod array_aggregate_tests;
 #[cfg(test)]
 mod array_copy_tests;

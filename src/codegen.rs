@@ -1228,6 +1228,7 @@ struct RoutineParameterCapture {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CallablePointerInfo {
     kind: RoutineKind,
+    params: Vec<crate::ast::CallableParamTypeRef>,
     return_slot: Option<StorageSlot>,
 }
 
@@ -1439,6 +1440,7 @@ fn collect_callable_pointer_decl(
             normalize_name(&entry.name),
             CallablePointerInfo {
                 kind: callable.kind.clone(),
+                params: callable.params.clone(),
                 return_slot,
             },
         );

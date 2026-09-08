@@ -84,6 +84,12 @@ pub(super) fn lower_program(
     let storage = crate::nir::analyze_program_storage(program);
     let mut routines = Vec::with_capacity(program.routines.len());
     for (routine, storage) in program.routines.iter().zip(&storage.routines) {
+        if let Some(block) = routine.blocks.iter().find(|block| block.ops.iter().any(|op|
+            matches!(op, NirOp::Call { callee: NirCallee::Fault(_), .. }))) {
+            diagnostics.push(diagnostic(Some(&routine.name), Some(&block.label),
+                "invalid-variant runtime fault requires a native target Error adapter"));
+            continue;
+        }
         if matches!(
             routine.convention,
             crate::nir::NirCallConvention::External(_)

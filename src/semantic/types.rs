@@ -174,7 +174,7 @@ impl CallableType {
         params: impl IntoIterator<Item = ValueType>,
         return_type: Option<ValueType>,
     ) -> Self {
-        let kind = if let Some(result) = return_type.as_ref().filter(|ty| ty.as_enum().is_some()) {
+        let kind = if let Some(result) = return_type.as_ref().filter(|ty| ty.as_enum().is_some() || ty.is_record()) {
             RoutineKind::Func { return_type: result.routine_result_type().unwrap() }
         } else { kind };
         Self {
@@ -230,6 +230,10 @@ impl CallableType {
 
     pub fn is_proc(&self) -> bool {
         self.return_type.is_none()
+    }
+
+    pub fn has_aggregate_boundary(&self) -> bool {
+        self.params.iter().chain(self.return_type.iter()).any(ValueType::is_record)
     }
 }
 
@@ -450,7 +454,7 @@ impl ValueType {
         let base = match &self.base {
             ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
             ValueTypeBase::Enum(identity) => TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
-            ValueTypeBase::Named(identity) if self.pointer => TypeBase::Named(identity.name.clone().into()),
+            ValueTypeBase::Named(identity) => TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
             ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
                 kind: callable.kind.clone(),
                 params: callable.params.iter().map(|ty| Some(crate::ast::CallableParamTypeRef {
@@ -708,6 +712,7 @@ impl ValueType {
         }
         if matches!(self.kind(), ValueTypeKind::CallablePointer(_))
             && matches!(actual.kind(), ValueTypeKind::Scalar(ScalarType::Card))
+            && !self.as_callable_pointer().is_some_and(CallableType::has_aggregate_boundary)
         {
             return TypeCompatibility::PointerAddress;
         }
