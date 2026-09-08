@@ -210,15 +210,6 @@ impl SemIrAstLowerer<'_> {
         // nested field. No declaration-order or AST-bound recomputation is used.
         for (id, (declaration, record_type)) in declarations.into_iter().enumerate() {
             for field in &record_type.fields {
-                // The legacy classic field-place carrier does not distinguish
-                // a pointer-valued field from an inline record. Preserve its
-                // unsupported boundary rather than accepting a wrong layout.
-                if field.ty.is_pointer() {
-                    return Err(vec![Diagnostic::new(
-                        declaration.span,
-                        "classic backend does not support pointer-valued record fields yet",
-                    )]);
-                }
                 let invalid = || vec![Diagnostic::new(
                     declaration.span,
                     format!(
@@ -233,6 +224,12 @@ impl SemIrAstLowerer<'_> {
                     .value_width_bytes_for_layout(program.target_layout)
                     .or_else(|| record.map(|id| records.layouts[id].size))
                     .ok_or_else(invalid)?;
+                let pointee = field.ty.pointee_type();
+                let pointee_size = if field.ty.is_pointer() {
+                    Some(pointee.value_width_bytes_for_layout(program.target_layout)
+                        .or_else(|| record.map(|id| records.layouts[id].size))
+                        .ok_or_else(invalid)?)
+                } else { None };
                 let (size, array) = match &field.storage {
                     RecordFieldStorage::Value => (element_size, None),
                     RecordFieldStorage::InlineArray { array_type, stride } => {
@@ -257,7 +254,9 @@ impl SemIrAstLowerer<'_> {
                         offset: u16::try_from(field.offset).map_err(|_| invalid())?,
                         size,
                         record,
-                        signed: field.ty.as_scalar().is_some_and(|scalar| scalar.is_signed()),
+                        pointee_size,
+                        signed: (if field.ty.is_pointer() { &pointee } else { &field.ty })
+                            .as_scalar().is_some_and(|scalar| scalar.is_signed()),
                         array,
                     },
                 );

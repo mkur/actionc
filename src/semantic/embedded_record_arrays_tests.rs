@@ -181,8 +181,8 @@ fn embedded_record_arrays_reject_invalid_bounds_and_incomplete_layouts() {
             "TYPE Bad=[BYTE ARRAY values(4)=[1 2 3 4]]",
             "record fields must be fundamental variables",
         ),
-        ("TYPE Bad=[Bad ARRAY values(2)]", "complete, non-recursive"),
-        ("TYPE Bad=[Bad value]", "complete, non-recursive"),
+        ("TYPE Bad=[Bad ARRAY values(2)]", "cyclic constant/record layout dependency"),
+        ("TYPE Bad=[Bad value]", "cyclic constant/record layout dependency"),
     ] {
         let errors = analyze_layout(source, TargetId::Atari6502).unwrap_err();
         assert!(

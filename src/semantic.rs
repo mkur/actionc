@@ -462,7 +462,10 @@ impl SemanticOptions {
             lexical_blocks: true,
             comparison_values: true,
             embedded_record_arrays: true,
-            algebraic_types: AlgebraicTypeCapabilities::DISABLED,
+            algebraic_types: AlgebraicTypeCapabilities {
+                aggregate_values: true,
+                ..AlgebraicTypeCapabilities::DISABLED
+            },
             target: TargetId::Atari6502,
         }
     }
@@ -2330,6 +2333,9 @@ impl Analyzer {
             ExprKind::Name(name) => self.classify_name_subject(scope, name, expr.span),
             ExprKind::Cast { ty, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
+                if self.reject_aggregate_address_conversion(&inner) {
+                    return self.subject_error(expr.span);
+                }
                 let ty = self.value_type_from_type_ref(scope, ty);
                 if inner.ty.as_enum().is_some() && ty.as_scalar().is_none() {
                     self.diagnostics.push(Diagnostic::new(expr.span, "enum values require an explicit integer conversion"));
@@ -2358,9 +2364,7 @@ impl Analyzer {
                 expr: inner,
             } => match self.classify_subject(scope, inner) {
                 subject::SemSubject::Place(place) => {
-                    if let subject::SemPlaceKind::Symbol(id) = &place.kind
-                        && self.reject_binding_address(*id, expr.span)
-                    {
+                    if self.reject_read_only_address(&place, expr.span) {
                         return self.subject_error(expr.span);
                     }
                     let ty = ValueType::pointer_to(place.ty.clone());
@@ -2446,6 +2450,9 @@ impl Analyzer {
             }
             ExprKind::Unary { op, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
+                if self.reject_aggregate_address_conversion(&inner) {
+                    return self.subject_error(expr.span);
+                }
                 if inner.ty.as_enum().is_some() {
                     self.diagnostics.push(Diagnostic::new(expr.span, "enum arithmetic requires an explicit integer conversion"));
                 }
@@ -2477,6 +2484,11 @@ impl Analyzer {
                 let left = self.expect_expr_in_context(scope, left, expr.span, predicate_operands);
                 let right =
                     self.expect_expr_in_context(scope, right, expr.span, predicate_operands);
+                if self.reject_aggregate_address_conversion(&left)
+                    || self.reject_aggregate_address_conversion(&right)
+                {
+                    return self.subject_error(expr.span);
+                }
                 let uses_real = left.ty.is_real() || right.ty.is_real();
                 if (left.ty.as_enum().is_some() || right.ty.as_enum().is_some())
                     && !(is_condition_op(*op) && left.ty == right.ty)
@@ -2569,6 +2581,9 @@ impl Analyzer {
                     .contextual_scalar_cast_type(scope, callee)
                     .expect("guarded contextual scalar cast");
                 let inner = self.expect_expr(scope, &args[0], args[0].span);
+                if self.reject_aggregate_address_conversion(&inner) {
+                    return self.subject_error(expr.span);
+                }
                 let ty = ValueType::scalar(scalar);
                 self.resolved_casts.insert(ExpressionSite::new(scope, expr.span), ty.clone());
                 subject::SemSubject::Expr(subject::SemExpr {
@@ -2588,7 +2603,7 @@ impl Analyzer {
                 let ty = self.indexed_place_type_or_diagnostic(&base, &index, expr.span);
                 subject::SemSubject::Place(subject::SemPlace {
                     ty,
-                    access: subject::PlaceAccess::Assignable,
+                    access: self.indexed_access(&base),
                     kind: subject::SemPlaceKind::Index {
                         base: Box::new(base),
                         index: Box::new(index),
@@ -2627,7 +2642,7 @@ impl Analyzer {
                 let ty = self.indexed_place_type_or_diagnostic(&base, &index, expr.span);
                 subject::SemSubject::Place(subject::SemPlace {
                     ty,
-                    access: subject::PlaceAccess::Assignable,
+                    access: self.indexed_access(&base),
                     kind: subject::SemPlaceKind::Index {
                         base: Box::new(base),
                         index: Box::new(index),
@@ -3392,7 +3407,8 @@ impl Analyzer {
     ) -> subject::SemExpr {
         let mut subject = self.classify_subject_in_context(scope, expr, condition);
         if let subject::SemSubject::Place(place) = &subject
-            && self.contextual_array_value_type(place).is_some()
+            && (self.contextual_array_value_type(place).is_some()
+                || (place.ty.is_record() && expected.is_some_and(|ty| !ty.is_record())))
         {
             subject = subject::SemSubject::Expr(self.place_value(place.clone(), expr.span, expected));
         }
@@ -4364,6 +4380,13 @@ impl Analyzer {
                 decl.span,
                 "by-value REAL parameters are not supported yet; use REAL POINTER",
             ));
+        }
+        if is_param && decl.storage == VarStorage::Plain && resolved_ty.is_record()
+            && self.options.algebraic_types.aggregate_values
+            && !self.options.algebraic_types.aggregate_calls
+        {
+            self.diagnostics.push(Diagnostic::new(decl.span,
+                "by-value aggregate parameters are not supported yet; use an explicit POINTER"));
         }
 
         if decl.qualifiers.is_volatile && is_param {

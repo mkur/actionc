@@ -495,6 +495,10 @@ pub struct NirLocal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirLocalPurpose {
     Storage,
+    /// Runtime-initialized aggregate snapshot. Source code may read its value
+    /// but cannot expose its storage address. This is not an optimizer no-alias
+    /// promise: indirect memory, calls and static activation remain conservative.
+    AggregateCapture,
     /// Invocation-local element storage owned by an automatic array
     /// descriptor. The descriptor and backing deliberately have distinct
     /// identities so native MIRs can place both in the current frame.

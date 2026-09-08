@@ -2995,17 +2995,24 @@ impl<'a> IrBuilder<'a> {
             };
             let symbol = self.symbol_ref(child, name, *span).expect("validated LET symbol");
             let ty = self.sem_type_from_symbol(&symbol);
-            let initializer = self.lower_scalar_value_for_expected_type(scope, &ty.value, value);
             let target = SemLValue {
                 kind: SemLValueKind::Symbol(symbol.clone()), ty: ty.value.clone(),
                 // This is compiler-owned initialization, not source assignment.
                 access: PlaceAccess::Assignable, is_volatile: false, storage: None, span: *span,
             };
+            let initialization = if ty.value.is_record() {
+                self.lower_aggregate_copy(scope, target, value, *span)
+            } else {
+                SemStmt::Assign {
+                    value: self.lower_scalar_value_for_expected_type(scope, &ty.value, value),
+                    target, span: *span,
+                }
+            };
             let declaration = SemDeclaration {
                 symbol, ty, storage: SemDeclarationStorage::Scalar,
                 initializer: None, static_initializer: None, span: *span, group_span: *span,
             };
-            let mut body = vec![SemStmt::Assign { target, value: initializer, span: *span }];
+            let mut body = vec![initialization];
             body.extend(self.lower_binding_statements(child, &statements[index + 1..]));
             output.push(SemStmt::LexicalBlock {
                 scope: scope_ref, declarations: vec![declaration], constants: Vec::new(), body, span: *span,
@@ -3100,13 +3107,7 @@ impl<'a> IrBuilder<'a> {
             } => {
                 let destination = self.lower_lvalue(scope, target);
                 if destination.ty.is_record() {
-                    let size = self.value_storage_width(&destination.ty).unwrap_or(0);
-                    vec![SemStmt::RecordCopy {
-                        destination,
-                        source: self.lower_lvalue(scope, value),
-                        size,
-                        span: *span,
-                    }]
+                    vec![self.lower_aggregate_copy(scope, destination, value, *span)]
                 } else {
                     vec![SemStmt::Assign {
                         target: destination,
@@ -4160,6 +4161,18 @@ impl<'a> IrBuilder<'a> {
             span: expr.span,
             expr: lowered,
             kind,
+        }
+    }
+
+    /// Aggregate values are captured through their typed source place, never
+    /// through a scalar load or an integer standing in for an address. Assignment
+    /// and immutable snapshots share the same overlap-safe value transfer.
+    fn lower_aggregate_copy(
+        &mut self, scope: ScopeId, destination: SemLValue, value: &Expr, span: Span,
+    ) -> SemStmt {
+        let size = self.value_storage_width(&destination.ty).expect("complete aggregate layout");
+        SemStmt::RecordCopy {
+            destination, source: self.lower_lvalue(scope, value), size, span,
         }
     }
 

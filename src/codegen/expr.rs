@@ -274,7 +274,8 @@ impl Generator {
             }
             ExprKind::Field { base, field } => self
                 .record_field_metadata(base, field)
-                .and_then(|field| scalar_type_for_storage(field.size, field.signed)),
+                .and_then(|field| if field.pointee_size.is_some() { Some(ScalarType::Card) }
+                    else { scalar_type_for_storage(field.size, field.signed) }),
             ExprKind::Call { callee, args } => {
                 if let Some(size) = self.array_call_slot_size(callee, args) {
                     scalar_type_for_storage(
@@ -360,19 +361,22 @@ impl Generator {
 
     // Extracted from src/codegen.rs: pointer_expr_pointee_size
     pub(super) fn pointer_expr_pointee_size(&self, expr: &Expr) -> Option<u16> {
-        let ExprKind::Name(name) = &expr.kind else {
-            return None;
-        };
-        self.lookup_slot(name)?.pointee_size
+        match &expr.kind {
+            ExprKind::Name(name) => self.lookup_slot(name)?.pointee_size,
+            ExprKind::Field { base, field } => self.record_field_metadata(base, field)?.pointee_size,
+            _ => None,
+        }
     }
 
     // Extracted from src/codegen.rs: pointer_expr_pointee_signed
     pub(super) fn pointer_expr_pointee_signed(&self, expr: &Expr) -> bool {
-        let ExprKind::Name(name) = &expr.kind else {
-            return false;
-        };
-        self.lookup_slot(name)
-            .is_some_and(|slot| slot.pointee_size.is_some() && slot.signed)
+        match &expr.kind {
+            ExprKind::Name(name) => self.lookup_slot(name)
+                .is_some_and(|slot| slot.pointee_size.is_some() && slot.signed),
+            ExprKind::Field { base, field } => self.record_field_metadata(base, field)
+                .is_some_and(|field| field.pointee_size.is_some() && field.signed),
+            _ => false,
+        }
     }
 
     // Extracted from src/codegen.rs: record_field_metadata
@@ -394,6 +398,7 @@ impl Generator {
                     .field(self.expr_record_id(base)?, field)?
                     .record
             }
+            ExprKind::Unary { op: UnaryOp::Deref, expr } => self.expr_record_id(expr),
             _ => None,
         }
     }
@@ -437,11 +442,9 @@ impl Generator {
                 if !self.emit_pointer_slot_to_addr(slot, addr) {
                     return None;
                 }
-                let field_slot = StorageSlot::indirect_indexed_y(addr, field.size)
+                let field_slot = field.apply_to(StorageSlot::indirect_indexed_y(addr, field.size)
                     .offset_bytes(field.offset)
-                    .record(field.record)
-                    .signed(field.signed)
-                    .volatile(slot.is_volatile);
+                    .volatile(slot.is_volatile));
                 debug_assert_prepared_indirect_slot(field_slot, addr, "record field");
                 self.processor.mark_prepared_pointer(
                     addr,
@@ -462,10 +465,8 @@ impl Generator {
                 }
                 self.emit_add_constant_to_addr(addr, field.offset);
             }
-            let field_slot = StorageSlot::indirect_indexed_y(addr, field.size)
-                .record(field.record)
-                .signed(field.signed)
-                .volatile(slot.is_volatile);
+            let field_slot = field.apply_to(StorageSlot::indirect_indexed_y(addr, field.size)
+                .volatile(slot.is_volatile));
             debug_assert_prepared_indirect_slot(field_slot, addr, "record field");
             return Some(field_slot);
         }
@@ -477,8 +478,8 @@ impl Generator {
             if last > u16::from(u8::MAX) {
                 let pointer = slot.zero_page_byte(0);
                 self.emit_add_constant_to_addr(pointer, slot.index_offset.checked_add(field.offset)?);
-                return Some(StorageSlot::indirect_indexed_y(pointer, field.size)
-                    .record(field.record).signed(field.signed).volatile(slot.is_volatile));
+                return Some(field.apply_to(StorageSlot::indirect_indexed_y(pointer, field.size)
+                    .volatile(slot.is_volatile)));
             }
         } else if !matches!(
             slot.space,
@@ -487,10 +488,7 @@ impl Generator {
             return None;
         }
         Some(
-            slot.offset_bytes(field.offset)
-                .with_size(field.size)
-                .record(field.record)
-                .signed(field.signed),
+            field.apply_to(slot.offset_bytes(field.offset)),
         )
     }
 
@@ -589,11 +587,10 @@ impl Generator {
         addr: ZeroPage,
     ) -> Option<StorageSlot> {
         debug_assert_scratch_indirect_pointer(addr, "pointer dereference");
-        let ExprKind::Name(name) = &expr.kind else {
-            return None;
+        let (pointer, fact_key) = match &expr.kind {
+            ExprKind::Name(name) => (self.lookup_slot(name)?, Some(normalize_name(name))),
+            _ => (self.lvalue_slot(expr)?, None),
         };
-        let fact_key = normalize_name(name);
-        let pointer = self.lookup_slot(name)?;
         let slot = if pointer.space == AddressSpace::ZeroPage && pointer.address < 0xFF {
             pointer_pointee_slot(pointer, ZeroPage::new(pointer.address as u8))?
         } else {
@@ -604,6 +601,7 @@ impl Generator {
         };
         if self.profile.enables_modern_optimizations()
             && slot.space == AddressSpace::IndirectIndexedY
+            && let Some(fact_key) = fact_key
         {
             self.processor.mark_prepared_pointer(
                 slot.zero_page_byte(0),

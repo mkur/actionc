@@ -30,19 +30,17 @@ mod tests {
     use crate::target::TargetId;
 
     #[test]
-    fn algebraic_capabilities_are_closed_in_public_profiles_on_every_target() {
+    fn only_verified_algebraic_capabilities_are_open_in_public_profiles() {
         for target in [
             TargetId::Atari6502,
             TargetId::Wdc65816Native,
             TargetId::Wdc65816Small,
             TargetId::Motorola68000,
         ] {
-            for profile in [SemanticOptions::default(), SemanticOptions::modern()] {
-                assert_eq!(
-                    profile.with_target(target).algebraic_types,
-                    AlgebraicTypeCapabilities::DISABLED,
-                );
-            }
+            assert_eq!(SemanticOptions::default().with_target(target).algebraic_types,
+                AlgebraicTypeCapabilities::DISABLED);
+            assert_eq!(SemanticOptions::modern().with_target(target).algebraic_types,
+                AlgebraicTypeCapabilities { aggregate_values: true, ..AlgebraicTypeCapabilities::DISABLED });
         }
     }
 

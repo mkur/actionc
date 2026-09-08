@@ -200,7 +200,7 @@ fn let_scope_visibility_and_constant_contexts_are_enforced() {
 }
 
 #[test]
-fn let_keeps_nominal_checks_and_excludes_owned_aggregates() {
+fn let_keeps_nominal_checks_and_excludes_owned_arrays() {
     rejected(
         "BYTE FUNC Read() RETURN(1)\nPROC Main() LET reader=Read RETURN",
         "value expression",
@@ -213,10 +213,7 @@ fn let_keeps_nominal_checks_and_excludes_owned_aggregates() {
         "TYPE E=ENUM [A]\nPROC Main() LET E x=0 RETURN",
         "exact enum type",
     );
-    rejected(
-        "TYPE R=[BYTE x]\nR value\nPROC Main() LET r=value RETURN",
-        "owned aggregates",
-    );
+    checked("TYPE R=[BYTE x]\nR value\nPROC Main() LET r=value RETURN");
     rejected("PROC Main() LET text=\"hello\" RETURN", "owned aggregates");
     checked("TYPE E=ENUM [A]\nPROC Main()\nLET E=E.A\nLET value=E\nRETURN");
     rejected(

@@ -19,6 +19,8 @@ pub(super) struct RecordField {
     /// Complete inline storage extent, including every array element.
     pub(super) size: u16,
     pub(super) record: Option<usize>,
+    /// Data-pointer field width is independent of its pointee's complete extent.
+    pub(super) pointee_size: Option<u16>,
     pub(super) signed: bool,
     pub(super) array: Option<RecordArrayField>,
 }
@@ -27,6 +29,17 @@ pub(super) struct RecordField {
 pub(super) struct RecordArrayField {
     pub(super) length: u16,
     pub(super) stride: u16,
+}
+
+impl RecordField {
+    pub(super) fn apply_to(self, mut slot: StorageSlot) -> StorageSlot {
+        slot.size = self.size;
+        slot.record = self.record;
+        slot.pointee_size = self.pointee_size;
+        slot.signed = self.signed;
+        slot.array = None;
+        slot
+    }
 }
 
 pub(super) fn record_field_fits_indirect_y(field: RecordField) -> bool {
@@ -1541,6 +1554,7 @@ fn build_record_layout_with_records(
                     offset: layout.size,
                     size,
                     record: record_id_for_type(&decl.ty, records),
+                    pointee_size: None,
                     signed: type_is_signed(&decl.ty),
                     array: None,
                 },

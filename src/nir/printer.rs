@@ -127,6 +127,7 @@ impl NirPrinter {
         }
         for local in &routine.locals {
             let purpose = match local.purpose {
+                NirLocalPurpose::AggregateCapture => " purpose=aggregate-capture".to_string(),
                 NirLocalPurpose::AggregateBacking { owner } => {
                     format!(" purpose=aggregate-backing(l{})", owner.0)
                 }

@@ -429,6 +429,7 @@ pub enum NirFeature {
     LocalPurposeStorage,
     LocalPurposeAggregateBacking,
     LocalPurposeRealTemporary,
+    LocalPurposeAggregateCapture,
     StorageClassScalar,
     StorageClassArray,
     StorageClassRecord,
@@ -693,6 +694,7 @@ pub fn collect_features(program: &NirProgram) -> BTreeSet<NirFeature> {
                     NirFeature::LocalPurposeAggregateBacking
                 }
                 NirLocalPurpose::RealTemporary => NirFeature::LocalPurposeRealTemporary,
+                NirLocalPurpose::AggregateCapture => NirFeature::LocalPurposeAggregateCapture,
             });
             visit_storage_class(local.storage, &mut features);
             visit_duration(local.duration, &mut features);

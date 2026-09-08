@@ -575,6 +575,14 @@ impl NirVerifier {
                     ),
                 ));
             }
+            if matches!(local.purpose, NirLocalPurpose::AggregateCapture)
+                && (!matches!(local.ty.kind, NirTypeKind::Record { definition: Some(_), .. })
+                    || !matches!(local.backing, NirLocalBacking::Ordinary)
+                    || local.init.is_some())
+            {
+                self.diagnostics.push(NirDiagnostic::routine(&routine.name,
+                    format!("aggregate capture `{}` must have a resolved aggregate type, ordinary backing and executable initialization", local.name)));
+            }
             if local.duration == NirStorageDuration::Automatic && local.init.is_some() {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,

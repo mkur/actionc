@@ -172,19 +172,14 @@ fn canonical_classic_layout_rejects_inconsistent_field_shapes() {
 }
 
 #[test]
-fn canonical_classic_layout_does_not_enable_unsupported_pointer_fields() {
+fn canonical_classic_layout_retains_pointer_field_shape() {
     let semir = lower(
         "TYPE Cell=[BYTE value] TYPE Link=[Cell POINTER next] \
         Link item PROC Main() item.next.value=1 RETURN",
     );
-    let errors = semir_to_projection(&semir)
-        .err()
-        .expect("pointer field needs a typed carrier");
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.message.contains("pointer-valued record fields"))
-    );
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        generate(&semir, runtime);
+    }
 }
 
 #[test]

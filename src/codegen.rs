@@ -705,6 +705,11 @@ impl Generator {
         let Some(size) = pointer.pointee_size else {
             return false;
         };
+        if pointer.space == AddressSpace::IndirectIndexedY {
+            // Generic address staging captures the pointer before evaluating an
+            // index that may itself reuse scratch or call an effectful routine.
+            return false;
+        }
         if size > 2 {
             let temp = if addr == runtime_zp::ADDR {
                 runtime_zp::ARRAY_ADDR

@@ -80,6 +80,7 @@ impl Analyzer {
                 || ty.as_enum().is_some()
                 || ty.is_real()
                 || ty.is_pointer()
+                || (self.options.algebraic_types.aggregate_values && ty.is_record())
                 || ty.as_callable_pointer().is_some())
                 || matches!(
                     value.kind,
@@ -143,5 +144,32 @@ impl Analyzer {
             "cannot expose the storage address of an immutable LET binding",
         ));
         true
+    }
+
+    pub(super) fn reject_read_only_address(&mut self, place: &subject::SemPlace, span: Span) -> bool {
+        if place.access != subject::PlaceAccess::ReadOnly {
+            return false;
+        }
+        self.diagnostics.push(Diagnostic::new(span,
+            "cannot expose the storage address of an immutable LET binding"));
+        true
+    }
+
+    pub(super) fn indexed_access(&self, base: &subject::SemPlace) -> subject::PlaceAccess {
+        if self.inline_array_type(base).is_some() {
+            base.access
+        } else {
+            // A pointer binding is immutable; its pointee is not.
+            subject::PlaceAccess::Assignable
+        }
+    }
+
+    pub(super) fn reject_aggregate_address_conversion(&mut self, expr: &subject::SemExpr) -> bool {
+        if let subject::SemExprKind::Load(place) = &expr.kind
+            && place.ty.is_record()
+        {
+            return self.reject_read_only_address(place, expr.span);
+        }
+        false
     }
 }

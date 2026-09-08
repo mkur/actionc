@@ -369,9 +369,10 @@ fn staged_type_visibility_does_not_enable_forward_constants_variables_or_routine
 }
 
 #[test]
-fn new_type_scope_visibility_remains_disabled_in_public_profiles() {
+fn new_type_scope_visibility_is_modern_only() {
     let ast = parse(&tokenize("TYPE A=[B POINTER next] TYPE B=[A POINTER prev]").unwrap()).unwrap();
-    for options in [SemanticOptions::default(), SemanticOptions::modern()] {
+    semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
+    for options in [SemanticOptions::default()] {
         let errors = semantic::analyze_with_options(&ast, options).unwrap_err();
         assert!(
             errors

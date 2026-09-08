@@ -38,6 +38,11 @@ and storage rules; it does not add Atari recursion/reentrancy or stack storage.
 
 ## Architecture
 
+The later algebraic-data-types slice 2 extends this original contract with
+record-valued snapshots, including records containing inline arrays. Pointees
+remain mutable; the snapshot's inline storage cannot be addressed or aliased.
+Owned arrays and aggregate call/result ABIs remain outside this LET extension.
+
 AST retains a distinct LET statement and stable syntax identity. Semantic
 analysis introduces a fresh child lexical scope for the remainder of a
 routine/block statement list. The initializer is analyzed in its parent scope.

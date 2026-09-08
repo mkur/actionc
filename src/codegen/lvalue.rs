@@ -141,10 +141,9 @@ impl Generator {
                     return None;
                 }
                 Some(
-                    StorageSlot::indirect_indexed_y(pointer, field.size)
+                    field.apply_to(StorageSlot::indirect_indexed_y(pointer, field.size)
                         .offset_bytes(field.offset)
-                        .signed(field.signed)
-                        .volatile(slot.is_volatile),
+                        .volatile(slot.is_volatile)),
                 )
             }
             ExprKind::Index { base, index } => self.prepared_index_slot(base, index, pointer),
@@ -296,10 +295,9 @@ impl Generator {
                 if !self.emit_pointer_slot_to_addr(slot, pointer) {
                     return None;
                 }
-                let field_slot = StorageSlot::indirect_indexed_y(pointer, field.size)
+                let field_slot = field.apply_to(StorageSlot::indirect_indexed_y(pointer, field.size)
                     .offset_bytes(field.offset)
-                    .signed(field.signed)
-                    .volatile(slot.is_volatile);
+                    .volatile(slot.is_volatile));
                 debug_assert_prepared_indirect_slot(field_slot, pointer, "record field");
                 return Some(field_slot);
             }
@@ -311,9 +309,8 @@ impl Generator {
             if !emitted {
                 return None;
             }
-            let field_slot = StorageSlot::indirect_indexed_y(pointer, field.size)
-                .signed(field.signed)
-                .volatile(slot.is_volatile);
+            let field_slot = field.apply_to(StorageSlot::indirect_indexed_y(pointer, field.size)
+                .volatile(slot.is_volatile));
             debug_assert_prepared_indirect_slot(field_slot, pointer, "record field");
             return Some(field_slot);
         }
@@ -321,9 +318,7 @@ impl Generator {
             return None;
         }
         Some(
-            slot.offset_bytes(field.offset)
-                .with_size(field.size)
-                .signed(field.signed),
+            field.apply_to(slot.offset_bytes(field.offset)),
         )
     }
 }

@@ -220,6 +220,17 @@ impl Generator {
     }
 
     pub(super) fn emit_pointer_slot_to_addr(&mut self, slot: StorageSlot, addr: ZeroPage) -> bool {
+        if slot.space == AddressSpace::IndirectIndexedY && slot.size >= 2 {
+            // A pointer-valued subobject may itself be addressed through addr.
+            // Read both bytes before replacing that address pair.
+            self.emit_lda_slot_byte(slot, 1);
+            self.emitter.emit_pha();
+            self.emit_lda_slot_byte(slot, 0);
+            self.emit_sta_zero_page(addr);
+            self.emit_pla();
+            self.emit_sta_zero_page(addr.offset(1));
+            return true;
+        }
         if slot.array.is_some() {
             self.emit_load_array_pointer_value_slot_byte_value_only(slot, 0);
             self.emit_sta_zero_page(addr);
@@ -696,6 +707,11 @@ impl Generator {
         offset: u16,
         addr: ZeroPage,
     ) -> bool {
+        if slot.space == AddressSpace::IndirectIndexedY {
+            if !self.emit_pointer_slot_to_addr(slot, addr) { return false; }
+            self.emit_add_constant_to_addr(addr, offset);
+            return true;
+        }
         if slot.size < 2 {
             return false;
         }

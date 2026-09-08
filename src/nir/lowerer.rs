@@ -387,7 +387,9 @@ impl NirLowerer {
                                 id: LocalId(index as u32),
                                 name: semantic_local_display_name(&local.symbol),
                                 kind: declaration_kind(local),
-                                purpose: NirLocalPurpose::Storage,
+                                purpose: if local.symbol.is_immutable && local.ty.value.is_record() {
+                                    NirLocalPurpose::AggregateCapture
+                                } else { NirLocalPurpose::Storage },
                                 storage: declaration_storage_class(&local.storage),
                                 duration,
                                 layout,
@@ -3086,9 +3088,23 @@ impl NirBuilder {
                 // Inline arrays become addresses of their first element. The
                 // enclosing record retains the complete storage/copy extent;
                 // no new aggregate scalar or descriptor-backed field is formed.
+                let mut lowered_base = self.lower_place(base);
+                if base.ty.is_pointer() && !matches!(base.kind, SemLValueKind::Symbol(_)) {
+                    // A pointer-valued subobject is not a direct pointer cell.
+                    // Capture its value before selecting the pointee's field;
+                    // arbitrary nested/indexed storage then uses ordinary NIR
+                    // loads and dereferences on every target.
+                    let pointer_ty = self.storage_type_for_value(&base.ty);
+                    let temp = self.next_temp();
+                    self.push_load(temp, pointer_ty.clone(), lowered_base, base.is_volatile);
+                    lowered_base = NirPlace {
+                        kind: NirPlaceKind::Deref { addr: NirValue::Temp { id: temp, ty: pointer_ty } },
+                        ty: Some(self.storage_type_for_value(&base.ty.pointee_type())),
+                    };
+                }
                 NirPlace {
                     kind: NirPlaceKind::Field {
-                        base: Box::new(self.lower_place(base)),
+                        base: Box::new(lowered_base),
                         offset: ByteOffset::from(field.offset.expect("resolved field offset")),
                         ty: self.storage_type_for_value(&field.ty),
                     },
@@ -4887,6 +4903,12 @@ fn declaration_local_init(
     local_ids: &BTreeMap<SemSymbolId, LocalId>,
     target_layout: TargetLayout,
 ) -> Option<NirStorageInit> {
+    if declaration.symbol.is_immutable && declaration.ty.value.is_record() {
+        // Aggregate captures receive their complete value at the lexical
+        // execution point, including repeated loop entries. No static image
+        // establishes that value or changes its initialization lifetime.
+        return None;
+    }
     if matches!(
         backing,
         NirLocalBacking::Absolute(_)

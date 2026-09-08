@@ -243,7 +243,6 @@ pub(super) fn debug_assert_lvalue_slot_shape(expr: &Expr, slot: StorageSlot) {
         expr.kind,
         ExprKind::Index { .. }
             | ExprKind::Call { .. }
-            | ExprKind::Field { .. }
             | ExprKind::Unary {
                 op: UnaryOp::Deref,
                 ..
@@ -253,6 +252,9 @@ pub(super) fn debug_assert_lvalue_slot_shape(expr: &Expr, slot: StorageSlot) {
             slot.pointee_size.is_none(),
             "lvalue expression must resolve to pointee value storage, not pointer storage"
         );
+    }
+    if matches!(expr.kind, ExprKind::Field { .. }) && slot.pointee_size.is_some() {
+        debug_assert_eq!(slot.size, 2, "data-pointer fields have word-sized storage");
     }
 }
 

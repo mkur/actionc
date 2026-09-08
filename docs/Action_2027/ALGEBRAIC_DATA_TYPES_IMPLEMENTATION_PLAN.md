@@ -635,4 +635,36 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   All 140 locked VM harness tests pass. NIR snapshots, 38 NIR and 167 MIR6502
   fixtures pass unchanged; `cargo check --all-targets` passes. Fresh AES XEX and
   assembly are byte-for-byte identical to the slice 0 baseline (4,211 XEX bytes).
-- Slice 2 and subsequent public capabilities are not implemented yet.
+- Subsequent capability gates remained closed at the end of this slice.
+
+### Slice 2 — Shared aggregate values and classic pointer fields (complete)
+
+- Modern record-valued LET uses the shared typed-place/RecordCopy transfer,
+  with independent backing and runtime initialization on every encounter.
+  NIR identifies these homes as AggregateCapture and rejects scalar types,
+  static initialization and external/alias backing for that purpose. Existing
+  storage duration and conservative memory effects remain unchanged; the new
+  role is not an optimizer no-alias or Atari reentrancy promise.
+- Read-only access propagates through record fields and embedded array elements.
+  Explicit/implicit addresses, casts, arithmetic-address conversions, static
+  aliases and machine-code access cannot expose snapshot storage. Explicit
+  pointers copied into a snapshot retain mutable pointees. Aggregate value
+  parameters/results remain gated pending their own ABI implementation.
+- Classic field shapes distinguish pointer-cell width, pointee extent, record
+  identity and pointee signedness. Nested/array-backed fields use shared address
+  staging, including capture of both pointer bytes before replacing scratch.
+  NIR explicitly loads pointer-valued subobjects before selecting pointee fields;
+  this also repairs the MIR6502 indexed-pointer-field composition gap.
+- Opened aggregate_values in the modern profile only, including the provisional
+  type-scope resolver from slice 1. Inline recursive layouts remain rejected,
+  now with an explicit cycle diagnostic. No existing NIR snapshot changed.
+- Verification: full compiler suite passes 2,875 tests; the final library and
+  focused runs also pass, including one added aggregate-call gate test (2,876
+  tests now). All 142 locked VM tests, 38 NIR fixtures and 167 MIR6502 fixtures
+  pass. New guarded-memory oracles cover nested signed pointer fields, snapshots,
+  effectful addresses, repeated 257-byte captures, self-copy and both overlap
+  directions on classic/public MIR/raw and optimized NIR, in both runtimes.
+  Native canaries cover capture layout and lowering within existing frame limits.
+  AES XEX and assembly remain byte-identical to baseline (4,211 XEX bytes).
+- Variants, construction/matching and recursive variant execution remain slices
+  3–4; their public gate is still closed.

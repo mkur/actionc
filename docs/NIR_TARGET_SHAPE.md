@@ -34,6 +34,16 @@ permanently read-only or prove initializer purity. Existing verified passes may
 propagate values/remove unused homes only while preserving calls, volatile reads
 and other ordered effects. LET adds no specialized optimizer or target strategy.
 
+Record-valued bindings use the shared typed-place/`CopyBytes` value transfer.
+Their local purpose is `AggregateCapture`: ordinary backing, complete nominal
+aggregate layout and executable initialization, with the target's existing
+storage duration. The verifier rejects scalar types, external/alias backing or
+static initializers for this purpose. The semantic boundary prohibits source
+address escape; the marker alone does not license alias-sensitive optimization
+or imply that Atari static activation is reentrant. Pointer-valued subobjects
+are loaded explicitly before selecting pointee fields, so nested/indexed pointer
+cells need no target-specific source reconstruction.
+
 Aggregate references carry the defining semantic `SymbolId` through SemIR into
 `NirTypeKind::Record.definition`, including through pointers and callable facts.
 The reference is finite: it never contains the record's recursively expanded

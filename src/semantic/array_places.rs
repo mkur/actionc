@@ -65,6 +65,9 @@ impl Analyzer {
             // not confuse the address with the nominal enum element type.
             // Inline fields retain their existing contextual-decay contract.
             if self.inline_array_type(&place).is_none() || expected == Some(&pointer_type) {
+                if self.reject_read_only_address(&place, span) {
+                    return self.error_expr(span);
+                }
                 return subject::SemExpr {
                     ty: pointer_type,
                     kind: subject::SemExprKind::AddressOf(Box::new(place)),
@@ -75,6 +78,11 @@ impl Analyzer {
                 span,
                 "embedded array field requires indexing or a matching element-pointer context",
             ));
+            return self.error_expr(span);
+        }
+        if place.ty.is_record() && expected.is_some_and(|ty| !ty.is_record())
+            && self.reject_read_only_address(&place, span)
+        {
             return self.error_expr(span);
         }
         subject::SemExpr {

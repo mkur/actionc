@@ -32,7 +32,7 @@ impl Generator {
             } => {
                 let field = self.record_field_metadata(record, field)?;
                 Some(IndexElement {
-                    size: field.array?.stride,
+                    size: field.array.map(|array| array.stride).or(field.pointee_size)?,
                     signed: field.signed,
                     record: field.record,
                     is_volatile: self.expr_side_effect_facts(base).reads_volatile,
@@ -50,6 +50,9 @@ impl Generator {
     ) -> Option<StorageSlot> {
         let element = self.index_element(base)?;
         let field = self.lvalue_slot(base)?;
+        if field.pointee_size.is_some() {
+            return self.pointer_index_slot_with_addr(field, index, pointer);
+        }
         if !self.emit_slot_address(field, pointer)
             || !self.emit_add_scaled_index_to_addr(index, element.size, pointer)
         {

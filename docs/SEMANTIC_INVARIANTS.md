@@ -90,20 +90,24 @@ explicit-block statements. The annotation and initializer use the parent scope;
 later uses bind to the new immutable SymbolId. Sequential shadowing never
 changes earlier resolutions. Control-flow bodies need an explicit BEGIN/END.
 
-Inference retains canonical scalar, enum, REAL, data-pointer and callable types.
+Inference retains canonical scalar, enum, REAL, data-pointer, callable and record types.
 An annotation uses assignment conversions; it cannot widen narrow intermediate
-arithmetic. Whole owned aggregates are rejected. Invalid/non-value initializers
+arithmetic. Records are complete value snapshots; owned arrays and record
+constructor syntax are not introduced. Invalid/non-value initializers
 must produce a diagnostic, never a successful model with a missing binding scope.
 
 Semantic symbols carry immutable-binding facts and source places are read-only.
 Assignment, compound assignment and FOR writes are rejected, as are address
 escape, static storage aliases and machine/ASM references to the binding home.
-Dereferencing an immutable pointer produces an ordinary writable pointee place.
+Read-only access propagates through inline record fields and inline-array
+elements. Neither explicit addresses, implicit record/array decay, nor casts may
+expose these subobjects. Dereferencing an immutable pointer (including a pointer
+field of an immutable record) produces an ordinary writable pointee place.
 Runtime LET dependencies cannot enter compile-time/static initializer or bound
 contexts; unevaluated layout queries do not read the binding value.
 
 SemIR represents a LET with existing lexical storage and one compiler-owned
-initialization assignment at the source execution point. Its declaration has
+initialization assignment or typed `RecordCopy` at the source execution point. Its declaration has
 neither a static initializer nor an executable declaration initializer. All
 subsequent source places remain read-only. A loop executes the initialization
 on each encounter; an untaken branch does not execute it. The target's existing
