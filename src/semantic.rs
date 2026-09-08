@@ -468,6 +468,7 @@ impl SemanticOptions {
             algebraic_types: AlgebraicTypeCapabilities {
                 aggregate_values: true,
                 variants: true,
+                aggregate_calls: true,
                 ..AlgebraicTypeCapabilities::DISABLED
             },
             target: TargetId::Atari6502,
@@ -1994,7 +1995,8 @@ impl Analyzer {
         }
         if expected.is_record() {
             let value = self.lower_expr_for_expected_type(scope, value_expr, Some(expected));
-            if matches!(value.kind, subject::SemExprKind::VariantConstructor { .. }) {
+            if matches!(value.kind, subject::SemExprKind::VariantConstructor { .. })
+                || (self.options.algebraic_types.aggregate_calls && matches!(value.kind, subject::SemExprKind::Call { .. })) {
                 if value.ty != *expected {
                     self.diagnostics.push(Diagnostic::new(value.span, "aggregate assignment requires the exact nominal type"));
                 }
@@ -2324,6 +2326,7 @@ impl Analyzer {
         condition: bool,
     ) -> subject::SemSubject {
         let subject = match &expr.kind {
+            ExprKind::Prepared { .. } => { self.diagnostics.push(Diagnostic::new(expr.span, "compiler-only prepared expression is not source syntax")); self.subject_error(expr.span) }
             ExprKind::Missing => self.subject_error(expr.span),
             ExprKind::Raw => subject::SemSubject::Expr(subject::SemExpr {
                 ty: ValueType::error(),
@@ -3642,6 +3645,11 @@ impl Analyzer {
             | subject::SemCallableKind::Builtin(symbol_id) => *symbol_id,
             subject::SemCallableKind::Error => return,
             _ => {
+                if !self.options.algebraic_types.indirect_aggregate_calls
+                    && callable.ty.params.iter().chain(callable.ty.return_type.iter()).any(ValueType::is_record) {
+                    self.diagnostics.push(Diagnostic::new(span, "typed indirect aggregate calls are not supported yet"));
+                    return;
+                }
                 self.validate_signature_args(scope, "<function pointer>", &callable.ty, args, span);
                 return;
             }
@@ -3661,6 +3669,14 @@ impl Analyzer {
         let Some(signature) = self.routines_by_symbol.get(&symbol_id).cloned() else {
             return;
         };
+
+        if self.options.algebraic_types.aggregate_calls
+            && signature.params.iter().chain(signature.return_type.iter()).any(ValueType::is_record)
+            && args.len() != signature.params.len() {
+            self.diagnostics.push(Diagnostic::new(span,
+                format!("aggregate call `{name}` requires all {} arguments, got {}", signature.params.len(), args.len())));
+            return;
+        }
 
         if signature.variadic.is_none() && args.len() > signature.params.len() {
             self.diagnostics.push(Diagnostic::new(
@@ -4115,12 +4131,16 @@ impl Analyzer {
             return;
         };
         let signature = self.resolved_routine_signature(scope, routine);
+        if self.options.algebraic_types.aggregate_calls
+            && signature.params.iter().chain(signature.return_type.iter()).any(ValueType::is_record)
+            && (routine.is_external || routine.system_address.is_some()) {
+            self.diagnostics.push(Diagnostic::new(routine.span,
+                "aggregate parameters/results require a typed compiler-defined routine; foreign ABI adapters are not supported"));
+        }
         let return_type = signature.return_type.clone();
         if let Some(return_type) = &return_type
-            && matches!(
-                return_type.kind(),
-                ValueTypeKind::Real | ValueTypeKind::Record(_)
-            )
+            && (return_type.is_real()
+                || (return_type.is_record() && !self.options.algebraic_types.aggregate_calls))
         {
             self.diagnostics.push(Diagnostic::new(
                 routine.span,
@@ -4433,11 +4453,12 @@ impl Analyzer {
             ));
         }
         if is_param && decl.storage == VarStorage::Plain && resolved_ty.is_record()
-            && self.options.algebraic_types.aggregate_values
             && !self.options.algebraic_types.aggregate_calls
         {
             self.diagnostics.push(Diagnostic::new(decl.span,
-                "by-value aggregate parameters are not supported yet; use an explicit POINTER"));
+                if self.options.algebraic_types.aggregate_values {
+                    "by-value aggregate parameters are not supported yet; use an explicit POINTER"
+                } else { "by-value aggregate parameters require the modern profile; use an explicit POINTER" }));
         }
 
         if decl.qualifiers.is_volatile && is_param {
@@ -4870,6 +4891,11 @@ impl Analyzer {
                 self.resolve_routine_result(scope, return_type, span);
             }
             for param in &callable.params { self.validate_type_ref(scope, &param.ty, span); }
+            if !self.options.algebraic_types.indirect_aggregate_calls
+                && self.value_type_from_type_ref(scope, ty).as_callable_pointer().is_some_and(|callable|
+                    callable.params.iter().chain(callable.return_type.iter()).any(ValueType::is_record)) {
+                self.diagnostics.push(Diagnostic::new(span, "typed indirect aggregate calls are not supported yet"));
+            }
         }
         let TypeBase::Named(name) = &ty.base else {
             return;
@@ -8709,9 +8735,12 @@ mod tests {
 
     #[test]
     fn rejects_user_call_argument_type_mismatch() {
-        let err =
-            analyze_source_err("TYPE Pair=[BYTE x] PROC P(Pair x) RETURN PROC Main() P(1) RETURN");
-        assert!(err[0].message.contains("argument 1 expects"));
+        let source = "TYPE Pair=[BYTE x] PROC P(Pair x) RETURN PROC Main() P(1) RETURN";
+        let program = parse(&tokenize(source).unwrap()).unwrap();
+        for options in [SemanticOptions::default(), SemanticOptions::modern()] {
+            let errors = analyze_with_options(&program, options).unwrap_err();
+            assert!(errors.iter().any(|error| error.message.contains("argument 1 expects")), "{errors:?}");
+        }
     }
 
     #[test]

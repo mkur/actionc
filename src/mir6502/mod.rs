@@ -1495,6 +1495,7 @@ mod tests {
         };
         let mut main = empty_routine("Main", 1, 0);
         main.blocks[0].ops.push(NirOp::Call {
+            aggregate_result: None,
             callee: crate::nir::NirCallee::User {
                 id: crate::nir::RoutineId(0),
                 name: "Touch".to_string(),

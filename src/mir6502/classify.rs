@@ -82,6 +82,7 @@ pub(super) fn classify_place(place: &NirPlace) -> MirPlaceShape {
 
 pub(super) fn classify_value(value: &NirValue) -> MirValueShape {
     match value {
+        NirValue::Aggregate { .. } => unreachable!("aggregate ABI expansion precedes scalar MIR selection"),
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
             MirValueShape::ConstByte(*bits as u8)
         }

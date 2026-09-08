@@ -256,6 +256,7 @@ impl Materializer<'_> {
         }
 
         match &mut expr.kind {
+            ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
             ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => self.expr(scope, expr),
             ExprKind::Binary { left, right, .. } => {
                 self.expr(scope, left);

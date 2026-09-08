@@ -188,6 +188,7 @@ impl Generator {
 
     // Extracted from src/codegen.rs: expr_size
     pub(super) fn expr_size(&self, expr: &Expr) -> Option<u16> {
+        if let ExprKind::Prepared { value, .. } = &expr.kind { return self.expr_size(value); }
         if matches!(
             &expr.kind,
             ExprKind::Unary {
@@ -246,6 +247,7 @@ impl Generator {
 
     pub(super) fn expr_scalar_type(&self, expr: &Expr) -> Option<ScalarType> {
         match &expr.kind {
+            ExprKind::Prepared { value, .. } => self.expr_scalar_type(value),
             ExprKind::CurrentLocation | ExprKind::String(_) => Some(ScalarType::Card),
             ExprKind::Number(number) => ScalarType::from_number_kind(number.kind),
             ExprKind::Char(_) => Some(ScalarType::Char),

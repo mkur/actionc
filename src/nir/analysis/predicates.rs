@@ -641,6 +641,7 @@ mod tests {
     #[test]
     fn call_barrier_kills_storage_predicates() {
         let call = NirOp::Call {
+            aggregate_result: None,
             callee: NirCallee::Builtin("Touch".to_string()),
             args: Vec::new(),
             result: None,

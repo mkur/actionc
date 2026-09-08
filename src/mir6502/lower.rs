@@ -497,7 +497,9 @@ fn record_storage_init_local_references(
 }
 
 pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<MirDiagnostic>> {
-    let nir_program = input.program();
+    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| errors.into_iter()
+        .map(|error| MirDiagnostic { routine: error.routine, block: error.block, message: error.message }).collect::<Vec<_>>())?;
+    let nir_program = expanded.as_ref();
     debug_assert_eq!(input.target(), crate::target::TargetId::Atari6502);
     let activation_diagnostics = validate_classic_activation(nir_program);
     if !activation_diagnostics.is_empty() {
@@ -1817,7 +1819,9 @@ fn lower_ops(
                 result,
                 signature,
                 effects,
+                aggregate_result,
             } => {
+                assert!(aggregate_result.is_none(), "aggregate ABI expansion precedes scalar MIR selection");
                 if let crate::nir::NirCallee::Fault(crate::runtime_fault::RuntimeFault::InvalidVariant) = callee {
                     let helper = MirRuntimeHelper::InvalidVariant;
                     lowered.push(MirOp::RuntimeHelper {
@@ -4203,7 +4207,7 @@ fn value_width(value: &NirValueKind) -> Option<MirWidth> {
         | NirValueKind::Temp { ty, .. }
         | NirValueKind::StaticAddr { ty, .. }
         | NirValueKind::RoutineAddr { ty, .. } => mir_width(ty),
-        NirValueKind::Param(_) | NirValueKind::GlobalAddr(_) => None,
+        NirValueKind::Aggregate { .. } | NirValueKind::Param(_) | NirValueKind::GlobalAddr(_) => None,
     }
 }
 

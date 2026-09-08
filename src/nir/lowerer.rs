@@ -195,7 +195,8 @@ impl NirLowerer {
                             .get(&storage_key(&routine.symbol.name))
                             .expect("collected routine must have a stable NIR id");
                         let convention = NirCallConvention::TargetPublic;
-                        let signature = nir_callable_signature(&routine.callable_type, convention);
+                        let mut signature = nir_callable_signature(&routine.callable_type, convention);
+                        complete_aggregate_signature(&mut signature, &record_storage_sizes);
                         let activation = nir_activation_model(routine.activation);
                         let placement = match routine.system_address.as_ref() {
                             Some(address)
@@ -282,7 +283,7 @@ impl NirLowerer {
                                 name: param.symbol.name.clone(),
                                 storage: match param.storage {
                                     crate::semantic::ir::SemParamStorage::Value => {
-                                        NirStorageClass::Scalar
+                                        if param.ty.value.is_record() { NirStorageClass::Record } else { NirStorageClass::Scalar }
                                     }
                                     crate::semantic::ir::SemParamStorage::Array => {
                                         NirStorageClass::Array
@@ -390,7 +391,9 @@ impl NirLowerer {
                                 purpose: if local.symbol.is_immutable && local.ty.value.is_record() {
                                     NirLocalPurpose::AggregateCapture
                                 } else { NirLocalPurpose::Storage },
-                                storage: declaration_storage_class(&local.storage),
+                                storage: if local.symbol.is_immutable && local.ty.value.is_record() {
+                                    NirStorageClass::Record
+                                } else { declaration_storage_class(&local.storage) },
                                 duration,
                                 layout,
                                 ty: nir_type_from_sem_type(&local.ty, self.target_layout),
@@ -419,7 +422,9 @@ impl NirLowerer {
                         for (name, items) in machine_define_names_from_statements(&routine.body) {
                             builder.machine_define_names.insert(name, items);
                         }
-                        builder.stmt_list(&routine.body, self);
+                        builder.next_label = self.next_label;
+                        builder.stmt_list(&routine.body);
+                        self.next_label = builder.next_label;
                         builder.finish_open_with(NirTerminator::Fallthrough);
                         let (routine, routine_statics, routine_bindings, next_static) =
                             builder.finish();
@@ -466,7 +471,9 @@ impl NirLowerer {
                 self.machine_define_names.clone(),
                 self.target_layout,
             );
-            builder.stmt_list(&top_level, self);
+            builder.next_label = self.next_label;
+            builder.stmt_list(&top_level);
+            self.next_label = builder.next_label;
             builder.finish_open_with(NirTerminator::Fallthrough);
             let (routine, routine_statics, routine_bindings, next_static) = builder.finish();
             self.next_static = next_static;
@@ -972,6 +979,7 @@ fn apply_target_layout_to_op(op: &mut NirOp, layout: TargetLayout) {
             callee,
             args,
             result,
+            aggregate_result,
             signature,
             ..
         } => {
@@ -984,6 +992,9 @@ fn apply_target_layout_to_op(op: &mut NirOp, layout: TargetLayout) {
             }
             if let Some(result) = result {
                 result.ty.apply_target_layout(layout);
+            }
+            if let Some(place) = aggregate_result {
+                apply_target_layout_to_place(place, layout);
             }
             if let Some(signature) = signature {
                 for param in &mut signature.params {
@@ -1089,6 +1100,7 @@ fn apply_target_layout_to_place(place: &mut NirPlace, layout: TargetLayout) {
 
 fn apply_target_layout_to_value(value: &mut NirValue, layout: TargetLayout) {
     match value {
+        NirValue::Aggregate { place } => apply_target_layout_to_place(place, layout),
         NirValue::AddressConst { address, ty } => {
             ty.apply_target_layout(layout);
             if let Some(address_space) = pointer_address_space(ty) {
@@ -1294,6 +1306,7 @@ pub(super) struct NirBuilder {
     current: usize,
     loop_exits: Vec<String>,
     next_block: u32,
+    next_label: usize,
     next_temp: u32,
     statics: Vec<NirStaticData>,
     runtime_bindings: Vec<NirRuntimeBinding>,
@@ -1301,6 +1314,12 @@ pub(super) struct NirBuilder {
 }
 
 impl NirBuilder {
+    fn next_block_label(&mut self) -> String {
+        let label = format!("bb{}", self.next_label);
+        self.next_label += 1;
+        label
+    }
+
     fn new(
         name: &str,
         entry_label: String,
@@ -1358,6 +1377,7 @@ impl NirBuilder {
             current: 0,
             loop_exits: Vec::new(),
             next_block: 1,
+            next_label: 0,
             next_temp: 0,
             statics: Vec::new(),
             runtime_bindings: Vec::new(),
@@ -1922,25 +1942,26 @@ impl NirBuilder {
         }
     }
 
-    fn stmt_list(&mut self, statements: &[SemStmt], lowering: &mut NirLowerer) {
+    fn stmt_list(&mut self, statements: &[SemStmt]) {
         for stmt in statements {
-            self.stmt(stmt, lowering);
+            self.stmt(stmt);
         }
     }
 
-    fn stmt(&mut self, stmt: &SemStmt, lowering: &mut NirLowerer) {
+    fn stmt(&mut self, stmt: &SemStmt) {
         match stmt {
             SemStmt::Fault { kind, .. } => {
                 self.push(NirOp::Call {
-                    callee: NirCallee::Fault(*kind), args: Vec::new(), result: None, signature: None,
+                    callee: NirCallee::Fault(*kind), args: Vec::new(), result: None,
+                    aggregate_result: None, signature: None,
                     effects: NirCallEffects { memory: NirMemoryEffects {
                         reads: NirMemoryAccess::Unknown, writes: NirMemoryAccess::Unknown,
                     }, may_call_external: true, opaque: true },
                 });
                 self.terminate(NirTerminator::Exit);
             }
-            SemStmt::Case { selector, arms, .. } => self.case_statement(selector, arms, lowering),
-            SemStmt::LexicalBlock { body, .. } => self.stmt_list(body, lowering),
+            SemStmt::Case { selector, arms, .. } => self.case_statement(selector, arms),
+            SemStmt::LexicalBlock { body, .. } => self.stmt_list(body),
             SemStmt::Define(_) => {}
             SemStmt::Return { value, .. } => {
                 let value = value.as_ref().map(|value| self.nir_value(value));
@@ -2031,19 +2052,7 @@ impl NirBuilder {
                     }
                     return;
                 }
-                let args = call.args.iter().map(|arg| self.nir_value(arg)).collect();
-                let result = call.return_type.as_ref().map(|return_type| NirCallResult {
-                    dest: self.next_temp(),
-                    ty: NirFacts::type_from_value(return_type),
-                });
-                let callee = self.nir_callee(&call.callee);
-                self.push(NirOp::Call {
-                    callee,
-                    args,
-                    result,
-                    signature: Some(nir_call_signature(call, &self.routine_ids)),
-                    effects: self.nir_call_effects(&call.effects),
-                });
+                self.materialize_call(call);
             }
             SemStmt::MachineBlock {
                 items,
@@ -2082,22 +2091,22 @@ impl NirBuilder {
                 else_body,
                 ..
             } => {
-                let after_label = lowering.next_block_label();
+                let after_label = self.next_block_label();
                 for (index, branch) in branches.iter().enumerate() {
-                    let body_label = lowering.next_block_label();
+                    let body_label = self.next_block_label();
                     let next_label = if index + 1 == branches.len() && else_body.is_empty() {
                         after_label.clone()
                     } else {
-                        lowering.next_block_label()
+                        self.next_block_label()
                     };
-                    self.terminate_condition(&branch.condition, &body_label, &next_label, lowering);
+                    self.terminate_condition(&branch.condition, &body_label, &next_label);
                     self.start_block(body_label);
-                    self.stmt_list(&branch.body, lowering);
+                    self.stmt_list(&branch.body);
                     self.finish_open_goto(&after_label);
                     self.start_block(next_label);
                 }
                 if !else_body.is_empty() {
-                    self.stmt_list(else_body, lowering);
+                    self.stmt_list(else_body);
                     self.finish_open_goto(&after_label);
                 }
                 if self.current_label() != after_label {
@@ -2107,15 +2116,15 @@ impl NirBuilder {
             SemStmt::While {
                 condition, body, ..
             } => {
-                let test_label = lowering.next_block_label();
-                let body_label = lowering.next_block_label();
-                let after_label = lowering.next_block_label();
+                let test_label = self.next_block_label();
+                let body_label = self.next_block_label();
+                let after_label = self.next_block_label();
                 self.finish_open_goto(&test_label);
                 self.start_block(test_label.clone());
-                self.terminate_condition(condition, &body_label, &after_label, lowering);
+                self.terminate_condition(condition, &body_label, &after_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
-                self.stmt_list(body, lowering);
+                self.stmt_list(body);
                 self.finish_open_goto(&test_label);
                 self.loop_exits.pop();
                 self.start_block(after_label);
@@ -2123,15 +2132,15 @@ impl NirBuilder {
             SemStmt::DoUntil {
                 body, condition, ..
             } => {
-                let body_label = lowering.next_block_label();
-                let after_label = lowering.next_block_label();
+                let body_label = self.next_block_label();
+                let after_label = self.next_block_label();
                 self.finish_open_goto(&body_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label.clone());
-                self.stmt_list(body, lowering);
+                self.stmt_list(body);
                 if let Some(condition) = condition {
                     if self.current_is_open() {
-                        self.terminate_condition(condition, &after_label, &body_label, lowering);
+                        self.terminate_condition(condition, &after_label, &body_label);
                     }
                 } else {
                     self.finish_open_goto(&body_label);
@@ -2149,7 +2158,7 @@ impl NirBuilder {
                 ..
             } => {
                 let is_volatile = target.is_volatile;
-                let target_ty = NirType::from_value_with_layout(&target.ty, lowering.target_layout);
+                let target_ty = NirType::from_value_with_layout(&target.ty, self.target_layout);
                 let wrap_guard = match step_control {
                     SemForStep::Up(amount) => ascending_for_wrap_threshold(&target_ty, *amount)
                         .and_then(|threshold| {
@@ -2170,9 +2179,9 @@ impl NirBuilder {
                     SemForStep::Unknown => None,
                 };
                 let target = self.lower_place(target);
-                let test_label = lowering.next_block_label();
-                let body_label = lowering.next_block_label();
-                let after_label = lowering.next_block_label();
+                let test_label = self.next_block_label();
+                let body_label = self.next_block_label();
+                let after_label = self.next_block_label();
                 let start = self.value(start);
                 self.assign_or_store(target.clone(), target_ty.clone(), start, is_volatile);
                 self.finish_open_goto(&test_label);
@@ -2185,11 +2194,11 @@ impl NirBuilder {
                 self.terminate_branch(condition, &body_label, &after_label);
                 self.loop_exits.push(after_label.clone());
                 self.start_block(body_label);
-                self.stmt_list(body, lowering);
+                self.stmt_list(body);
                 if let Some((op, threshold)) = wrap_guard
                     && self.current_is_open()
                 {
-                    let step_label = lowering.next_block_label();
+                    let step_label = self.next_block_label();
                     let condition =
                         self.for_wrap_condition(&target, &target_ty, op, threshold, is_volatile);
                     self.terminate_branch(condition, &after_label, &step_label);
@@ -2879,6 +2888,9 @@ impl NirBuilder {
                 );
                 let is_volatile = lvalue.is_volatile;
                 let place = self.lower_place(lvalue);
+                if expr.ty.is_record() {
+                    return Some(NirValue::Aggregate { place: Box::new(place) });
+                }
                 let dest = self.next_temp();
                 let ty = NirFacts::type_from_value(&expr.ty);
                 self.push_load(dest, ty.clone(), place, is_volatile);
@@ -2963,27 +2975,40 @@ impl NirBuilder {
                 Some(NirValue::Temp { id: dest, ty })
             }
             SemExprKind::Call(call) if NirClassifier::is_materializable_call(call) => {
-                let args = call.args.iter().map(|arg| self.nir_value(arg)).collect();
-                let dest = self.next_temp();
-                let ty = NirFacts::type_from_value(&expr.ty);
-                let callee = self.nir_callee(&call.callee);
-                self.push(NirOp::Call {
-                    callee,
-                    args,
-                    result: Some(NirCallResult {
-                        dest,
-                        ty: ty.clone(),
-                    }),
-                    signature: Some(nir_call_signature(call, &self.routine_ids)),
-                    effects: self.nir_call_effects(&call.effects),
-                });
-                Some(NirValue::Temp { id: dest, ty })
+                self.materialize_call(call)
             }
             SemExprKind::Literal(literal) => {
                 literal_value(literal, &NirFacts::type_from_value(&expr.ty))
             }
             _ => None,
         }
+    }
+
+    fn materialize_call(&mut self, call: &SemCall) -> Option<NirValue> {
+        self.stmt_list(&call.preparation);
+        let args: Vec<_> = call.args.iter().map(|arg| self.nir_value(arg)).collect();
+        let aggregate_result = call.aggregate_result.as_ref().map(|place| self.lower_place(place));
+        let result = call.return_type.as_ref().filter(|ty| !ty.is_record()).map(|ty| NirCallResult {
+            dest: self.next_temp(), ty: NirFacts::type_from_value(ty),
+        });
+        let value = result.as_ref().map(|result| NirValue::Temp {
+            id: result.dest, ty: result.ty.clone(),
+        });
+        let callee = self.nir_callee(&call.callee);
+        let mut effects = self.nir_call_effects(&call.effects);
+        if aggregate_result.is_some() || args.iter().any(|arg| matches!(arg, NirValue::Aggregate { .. })) {
+            effects.memory = NirMemoryEffects {
+                reads: NirMemoryAccess::Unknown, writes: NirMemoryAccess::Unknown,
+            };
+            effects.opaque = true;
+        }
+        let mut signature = nir_call_signature(call, &self.routine_ids);
+        complete_aggregate_signature(&mut signature, &self.record_storage_sizes);
+        self.push(NirOp::Call {
+            callee, args, result, aggregate_result,
+            signature: Some(signature), effects,
+        });
+        value
     }
 
     fn nir_value(&mut self, expr: &SemExpr) -> NirValue {
@@ -3350,14 +3375,12 @@ impl NirBuilder {
         condition: &SemCondition,
         then_label: &str,
         else_label: &str,
-        lowering: &mut NirLowerer,
     ) {
         if condition.kind == SemConditionKind::Logical {
             self.terminate_logical_condition_expr(
                 &condition.expr,
                 then_label,
                 else_label,
-                lowering,
             );
             return;
         }
@@ -3371,7 +3394,6 @@ impl NirBuilder {
         expr: &SemExpr,
         then_label: &str,
         else_label: &str,
-        lowering: &mut NirLowerer,
     ) {
         let SemExprKind::Binary {
             op: BinaryOp::And | BinaryOp::Or,
@@ -3384,18 +3406,18 @@ impl NirBuilder {
             return;
         };
 
-        let right_label = lowering.next_block_label();
+        let right_label = self.next_block_label();
         match &expr.kind {
             SemExprKind::Binary {
                 op: BinaryOp::And, ..
-            } => self.terminate_logical_condition_expr(left, &right_label, else_label, lowering),
+            } => self.terminate_logical_condition_expr(left, &right_label, else_label),
             SemExprKind::Binary {
                 op: BinaryOp::Or, ..
-            } => self.terminate_logical_condition_expr(left, then_label, &right_label, lowering),
+            } => self.terminate_logical_condition_expr(left, then_label, &right_label),
             _ => unreachable!("logical expression root was checked above"),
         }
         self.start_block(right_label);
-        self.terminate_logical_condition_expr(right, then_label, else_label, lowering);
+        self.terminate_logical_condition_expr(right, then_label, else_label);
     }
 
     fn logical_operand_condition(&mut self, expr: &SemExpr) -> NirValue {
@@ -5873,6 +5895,15 @@ fn nir_call_signature(
         &call.callable_type,
         nir_call_convention(&call.callee, routine_ids),
     )
+}
+
+fn complete_aggregate_signature(signature: &mut NirCallableSignature, sizes: &BTreeMap<SemSymbolId, u32>) {
+    for ty in signature.params.iter_mut().chain(signature.result.iter_mut()) {
+        if let NirTypeKind::Record { definition: Some(owner), size, .. } = &mut ty.kind {
+            *size = sizes.get(owner).copied().map(ByteSize::new);
+            ty.width = *size;
+        }
+    }
 }
 
 fn nir_call_convention(

@@ -173,6 +173,7 @@ fn collect_standalone_stmt_diagnostics(statement: &SemStmt, diagnostics: &mut Ve
 }
 
 fn collect_standalone_call_diagnostics(call: &SemCall, diagnostics: &mut Vec<Diagnostic>) {
+    collect_standalone_stmt_list_diagnostics(&call.preparation, diagnostics);
     match &call.callee {
         SemCallable::Builtin(symbol) => {
             report_standalone_resident_symbol(symbol, call.span, diagnostics);

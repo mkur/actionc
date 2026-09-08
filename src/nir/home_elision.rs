@@ -516,6 +516,7 @@ mod tests {
 
     fn recursive_unknown_call() -> NirOp {
         NirOp::Call {
+            aggregate_result: None,
             callee: NirCallee::User {
                 id: crate::nir::RoutineId(0),
                 name: "Main".to_string(),
@@ -573,6 +574,7 @@ mod tests {
         let elided = elide_program(&program(vec![
             store(1),
             NirOp::Call {
+                aggregate_result: None,
                 callee: NirCallee::User {
                     id: crate::nir::RoutineId(0),
                     name: "Observe".to_string(),

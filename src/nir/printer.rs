@@ -527,6 +527,7 @@ fn op_summary(op: &NirOp) -> String {
             callee,
             args,
             result,
+            aggregate_result,
             signature,
             effects,
         } => {
@@ -545,7 +546,10 @@ fn op_summary(op: &NirOp) -> String {
                         result.ty.summary
                     )
                 })
-                .unwrap_or_else(|| format!("call {callee}({args})"));
+                .unwrap_or_else(|| match aggregate_result {
+                    Some(place) => format!("aggregate {} = call {callee}({args})", place_summary(place)),
+                    None => format!("call {callee}({args})"),
+                });
             let signature = signature.as_ref().map_or_else(String::new, |signature| {
                 format!(
                     " signature=s{} convention={}",
@@ -849,6 +853,7 @@ fn edge_summary(edge: &NirEdge, labels: &std::collections::BTreeMap<BlockId, &st
 
 fn value_summary(value: &NirValue) -> String {
     match value {
+        NirValue::Aggregate { place } => format!("value({})", place_summary(place)),
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
             bits.to_string()
         }

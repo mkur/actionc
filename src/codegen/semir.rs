@@ -8,6 +8,7 @@ use crate::source::{Span, source_char_byte};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 mod case;
+mod aggregate_calls;
 #[cfg(test)]
 mod case_tests;
 #[cfg(test)]
@@ -36,6 +37,7 @@ pub(crate) struct ClassicProjection {
 pub(crate) fn semir_to_projection(
     program: &SemProgram,
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
+    aggregate_calls::validate_entry(program)?;
     let projection_names = classic_projection_names(program);
     let storage_display_names = classic_storage_display_names(program, &projection_names);
     let mut lowerer = SemIrAstLowerer {
@@ -51,6 +53,8 @@ pub(crate) fn semir_to_projection(
         compound_operations: super::compound::ClassicCompoundFacts::default(),
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
+        aggregate_sizes: program.layout.records.iter().map(|record| (record.owner, record.size)).collect(),
+        aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
     let program = lowerer.program(program);
@@ -72,6 +76,7 @@ pub(crate) fn semir_to_projection(
 pub(crate) fn semir_to_cart_projection(
     program: &SemProgram,
 ) -> Result<ClassicProjection, Vec<Diagnostic>> {
+    aggregate_calls::validate_entry(program)?;
     let addresses = cart_external_addresses(program)?;
     let projection_names = classic_projection_names(program);
     let storage_display_names = classic_storage_display_names(program, &projection_names);
@@ -88,6 +93,8 @@ pub(crate) fn semir_to_cart_projection(
         compound_operations: super::compound::ClassicCompoundFacts::default(),
         native_real_scope: None,
         static_initializers: ClassicStaticInitializerFacts::default(),
+        aggregate_sizes: program.layout.records.iter().map(|record| (record.owner, record.size)).collect(),
+        aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
     let program = lowerer.program(program);
@@ -162,6 +169,8 @@ struct SemIrAstLowerer<'a> {
     compound_operations: super::compound::ClassicCompoundFacts,
     native_real_scope: Option<String>,
     static_initializers: ClassicStaticInitializerFacts,
+    aggregate_sizes: BTreeMap<SymbolId, u32>,
+    aggregate_result: Option<(Expr, ValueType)>,
 }
 
 impl SemIrAstLowerer<'_> {
@@ -610,7 +619,9 @@ impl SemIrAstLowerer<'_> {
         }
         let previous_native_real_scope = self.native_real_scope.take();
         self.native_real_scope = Some(routine.symbol.name.to_ascii_uppercase());
-        let body = self.stmt_list(&routine.body);
+        let (params, mut body) = self.aggregate_parameters(routine, &mut locals);
+        body.extend(self.stmt_list(&routine.body));
+        self.aggregate_result = None;
         locals.append(&mut self.case_captures);
         self.native_real_scope = previous_native_real_scope;
         Some(Routine {
@@ -635,11 +646,7 @@ impl SemIrAstLowerer<'_> {
                             span: routine.span,
                         })
                 }),
-            params: routine
-                .params
-                .iter()
-                .map(|param| self.param(param))
-                .collect(),
+            params,
             locals,
             body,
             annotations: routine.annotations.clone(),
@@ -923,6 +930,10 @@ impl SemIrAstLowerer<'_> {
         let mut output = Vec::new();
         for statement in statements {
             match statement {
+                SemStmt::Return { value: Some(value), span } if self.aggregate_result.is_some() => {
+                    if let Some(copy) = self.aggregate_return(value, *span) { output.push(copy); }
+                    output.push(Stmt::Return(None));
+                }
                 SemStmt::Case { selector, arms, span } => output.extend(self.case_statement(selector, arms, *span)),
                 SemStmt::LexicalBlock { body, .. } => output.extend(self.stmt_list(body)),
                 _ => output.extend(self.stmt(statement)),
@@ -1096,25 +1107,33 @@ impl SemIrAstLowerer<'_> {
                 span: call.span,
             },
         };
-        let args = call
+        let mut args = call
             .args
             .iter()
             .filter_map(|arg| self.expr(arg))
             .collect::<Vec<_>>();
+        for (arg, source) in args.iter_mut().zip(&call.args) {
+            if source.ty.is_record() { *arg = aggregate_calls::address(arg.clone()); }
+        }
+        if let Some(result) = &call.aggregate_result { args.insert(0, aggregate_calls::address(self.lvalue(result)?)); }
         let kind = ExprKind::Call {
             callee: Box::new(callee),
             args,
         };
         let text = expr_text(&kind);
-        Some(Expr {
+        let value = Expr {
             kind,
             text,
             span: call.span,
-        })
+        };
+        if call.preparation.is_empty() { Some(value) } else {
+            Some(Expr { text: value.text.clone(), span: value.span,
+                kind: ExprKind::Prepared { statements: self.stmt_list(&call.preparation), value: Box::new(value) } })
+        }
     }
 
     fn call_stmt_expr(&mut self, call: &SemCall) -> Option<Expr> {
-        if call.args.is_empty()
+        if call.args.is_empty() && call.preparation.is_empty() && call.aggregate_result.is_none()
             && let SemCallable::Indirect { target, .. } = &call.callee
             && let Some(name) = self.bare_call_stmt_name(target)
         {
@@ -1191,6 +1210,7 @@ impl SemIrAstLowerer<'_> {
     fn projected_callable_kind(&self, callable: &crate::semantic::CallableType) -> RoutineKind {
         match &callable.return_type {
             None => RoutineKind::Proc,
+            Some(result) if result.is_record() => RoutineKind::Proc,
             Some(result) => RoutineKind::Func { return_type: Box::new(self.type_ref(result)) },
         }
     }
@@ -1209,8 +1229,8 @@ impl SemIrAstLowerer<'_> {
                 ),
                 ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
                     kind: self.projected_callable_kind(callable),
-                    params: callable.params.iter().map(|ty| crate::ast::CallableParamTypeRef {
-                        ty: self.type_ref(ty), storage: VarStorage::Plain,
+                    params: callable.return_type.iter().filter(|ty| ty.is_record()).chain(callable.params.iter()).map(|ty| crate::ast::CallableParamTypeRef {
+                        ty: self.type_ref(&if ty.is_record() { ValueType::pointer_to(ty.clone()) } else { ty.clone() }), storage: VarStorage::Plain,
                     }).collect(),
                 })),
                 ValueTypeBase::Error => TypeBase::Fund(FundType::Byte),
@@ -1698,6 +1718,12 @@ fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Spa
     for item in program.modules.iter().flat_map(|module| &module.items) {
         match item {
             SemItem::Routine(routine) => {
+                for ty in routine.callable_type.params.iter().chain(routine.callable_type.return_type.iter()).filter(|ty| ty.is_record()) {
+                    if let Some(layout) = ty.as_aggregate_identity().and_then(|id| id.symbol).and_then(|id| program.layout.record_for_owner(id))
+                        && largest.as_ref().is_none_or(|(size, _, _)| layout.size > *size) {
+                        largest = Some((layout.size, ty.clone(), routine.span));
+                    }
+                }
                 for stmt in &routine.body {
                     consider_record_copy_temp(stmt, &mut largest);
                 }
@@ -1848,7 +1874,7 @@ fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
             ..
         } => lvalue_uses_native_real(destination) || lvalue_uses_native_real(source),
         SemStmt::Return { value, .. } => value.as_ref().is_some_and(expr_uses_native_real),
-        SemStmt::Call { call, .. } => call.args.iter().any(expr_uses_native_real),
+        SemStmt::Call { call, .. } => call.preparation.iter().any(stmt_uses_native_real) || call.args.iter().any(expr_uses_native_real),
         SemStmt::If {
             branches,
             else_body,
@@ -1906,7 +1932,7 @@ fn expr_uses_native_real(expr: &SemExpr) -> bool {
             SemExprKind::Binary { left, right, .. } => {
                 expr_uses_native_real(left) || expr_uses_native_real(right)
             }
-            SemExprKind::Call(call) => call.args.iter().any(expr_uses_native_real),
+            SemExprKind::Call(call) => call.preparation.iter().any(stmt_uses_native_real) || call.args.iter().any(expr_uses_native_real),
             SemExprKind::Missing
             | SemExprKind::Raw(_)
             | SemExprKind::InitializerList(_)
@@ -1953,7 +1979,7 @@ fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
             ..
         } => lvalue_expr_node_count(destination) + lvalue_expr_node_count(source),
         SemStmt::Return { value, .. } => value.as_ref().map_or(0, expr_node_count),
-        SemStmt::Call { call, .. } => call.args.iter().map(expr_node_count).sum(),
+        SemStmt::Call { call, .. } => call.preparation.iter().map(stmt_expr_node_count).sum::<usize>() + call.args.iter().map(expr_node_count).sum::<usize>(),
         SemStmt::If {
             branches,
             else_body,
@@ -2012,7 +2038,7 @@ fn expr_node_count(expr: &SemExpr) -> usize {
         SemExprKind::ImplicitAddressOf(value) => lvalue_expr_node_count(&value.place),
         SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => expr_node_count(expr),
         SemExprKind::Binary { left, right, .. } => expr_node_count(left) + expr_node_count(right),
-        SemExprKind::Call(call) => call.args.iter().map(expr_node_count).sum(),
+        SemExprKind::Call(call) => call.preparation.iter().map(stmt_expr_node_count).sum::<usize>() + call.args.iter().map(expr_node_count).sum::<usize>(),
         SemExprKind::Missing
         | SemExprKind::Raw(_)
         | SemExprKind::InitializerList(_)
@@ -2102,6 +2128,7 @@ fn is_var_declaration(decl: &SemDeclaration) -> bool {
 
 fn expr_text(kind: &ExprKind) -> String {
     match kind {
+        ExprKind::Prepared { value, .. } => value.text.clone(),
         ExprKind::Missing => String::new(),
         ExprKind::Raw => String::new(),
         ExprKind::InitializerList(elements) => format!(
@@ -2203,6 +2230,8 @@ mod record_layout_tests;
 
 #[cfg(test)]
 mod array_execution_tests;
+#[cfg(test)]
+mod aggregate_call_tests;
 #[cfg(test)]
 mod array_aggregate_tests;
 #[cfg(test)]

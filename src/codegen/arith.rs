@@ -2182,6 +2182,7 @@ impl Generator {
 
     fn expr_uses_runtime_arithmetic_helper(expr: &Expr) -> bool {
         match &expr.kind {
+            ExprKind::Prepared { .. } => true,
             ExprKind::Binary { op, left, right } => {
                 matches!(op, BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod)
                     || Self::expr_uses_runtime_arithmetic_helper(left)
@@ -2618,6 +2619,7 @@ impl Generator {
 
     pub(super) fn arithmetic_operand_needs_materialization(expr: &Expr) -> bool {
         match &expr.kind {
+            ExprKind::Prepared { .. } => true,
             ExprKind::Call { .. } | ExprKind::Index { .. } | ExprKind::Field { .. } => true,
             ExprKind::Unary {
                 op: UnaryOp::Deref | UnaryOp::Neg,

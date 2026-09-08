@@ -254,10 +254,14 @@ fn record_op_uses(
         NirOp::Call {
             callee,
             args,
+            aggregate_result,
             result: _,
             signature: _,
             effects: _,
         } => {
+            if let Some(place) = aggregate_result {
+                record_place(uses, place, site(NirUseKind::StorePlace));
+            }
             if let NirCallee::Indirect { target, .. } = callee {
                 record_value(uses, target, site(NirUseKind::IndirectCallee));
             }
@@ -351,6 +355,9 @@ fn record_real_source(
 }
 
 fn record_value(uses: &mut BTreeMap<TempId, Vec<NirUseSite>>, value: &NirValue, site: NirUseSite) {
+    if let NirValue::Aggregate { place } = value {
+        record_place(uses, place, site);
+    }
     if let NirValue::Temp { id, .. } = value {
         uses.entry(*id).or_default().push(site);
     }
@@ -415,6 +422,7 @@ mod tests {
                         right: temp(12),
                     },
                     NirOp::Call {
+                        aggregate_result: None,
                         callee: NirCallee::Indirect {
                             target: temp(13),
                             ty: byte_type(),

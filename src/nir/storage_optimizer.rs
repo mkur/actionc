@@ -496,7 +496,8 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
             rewrite_value(offset, replacements);
         }
         NirOp::Real(real) => rewrite_real_op_values(real, replacements),
-        NirOp::Call { callee, args, .. } => {
+        NirOp::Call { callee, args, aggregate_result, .. } => {
+            if let Some(place) = aggregate_result { rewrite_place_values(place, replacements); }
             if let NirCallee::Indirect { target, .. } = callee {
                 rewrite_value(target, replacements);
             }
@@ -582,6 +583,7 @@ fn rewrite_place_values(place: &mut NirPlace, replacements: &BTreeMap<TempId, Ni
 }
 
 fn rewrite_value(value: &mut NirValue, replacements: &BTreeMap<TempId, NirValue>) {
+    if let NirValue::Aggregate { place } = value { rewrite_place_values(place, replacements); }
     *value = resolve_value(value, replacements);
 }
 
@@ -782,6 +784,7 @@ mod tests {
 
     fn recursive_call(effects: NirCallEffects) -> NirOp {
         NirOp::Call {
+            aggregate_result: None,
             callee: NirCallee::User {
                 id: crate::nir::RoutineId(0),
                 name: "Main".to_string(),
@@ -1131,6 +1134,7 @@ mod tests {
                 vec![
                     store(0, "x", NirValue::ConstU8(3)),
                     NirOp::Call {
+                        aggregate_result: None,
                         callee: NirCallee::Builtin("Pure".to_string()),
                         args: Vec::new(),
                         result: None,
@@ -1142,6 +1146,7 @@ mod tests {
                     load(0, 0, "x"),
                     store(0, "x", NirValue::ConstU8(4)),
                     NirOp::Call {
+                        aggregate_result: None,
                         callee: NirCallee::Builtin("Unknown".to_string()),
                         args: Vec::new(),
                         result: None,
@@ -1261,6 +1266,7 @@ mod tests {
                     store(0, "x", NirValue::ConstU8(3)),
                     store(1, "y", NirValue::ConstU8(4)),
                     NirOp::Call {
+                        aggregate_result: None,
                         callee: NirCallee::Builtin("WritesX".to_string()),
                         args: Vec::new(),
                         result: None,

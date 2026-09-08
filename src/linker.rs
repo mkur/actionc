@@ -539,6 +539,12 @@ impl SemGraphBuilder {
     }
 
     fn call(&mut self, owner: SemLinkNode, call: &SemCall) {
+        for statement in &call.preparation {
+            self.statement(owner, statement);
+        }
+        if let Some(place) = &call.aggregate_result {
+            self.lvalue(owner, place, LinkReason::StorageReference);
+        }
         match &call.callee {
             SemCallable::User(symbol) | SemCallable::Builtin(symbol) => {
                 self.symbol(owner, symbol.id, LinkReason::DirectCall);

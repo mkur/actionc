@@ -627,6 +627,9 @@ pub struct Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExprKind {
+    /// Compiler-only classic projection: ordered runtime preparation belonging
+    /// to this expression evaluation, never a source expression form.
+    Prepared { statements: Vec<Stmt>, value: Box<Expr> },
     Missing,
     Raw,
     InitializerList(Vec<InitializerElement>),

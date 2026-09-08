@@ -2,7 +2,8 @@
 
 Status: accepted; implementation in progress on `main`, 2026-09-08.
 Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
-are enabled after their end-to-end acceptance gates; aggregate calls, generics,
+are enabled after their end-to-end acceptance gates; direct aggregate calls are
+implemented, while indirect aggregate calls, generics,
 nested patterns and guards remain future slices. See implementation progress.
 
 ## 1. Objective and boundaries
@@ -732,3 +733,31 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   byte-for-byte identical to baseline (4,211 XEX bytes).
 - Native runtime validation still requires target Error adapters;
   layout/construction canaries do not claim native execution.
+
+### Slice 5 — Direct aggregate call boundaries (complete)
+
+- Records and variants have independent mutable value parameters and caller-owned
+  function results. Constructor/place/call producers compose with LET, assignment,
+  RETURN, nested arguments, ignored results and immediate CASE consumers.
+- SemIR captures argument values left to right before later argument effects.
+  Assignment captures its destination before evaluating the result producer.
+  Whole-value reads and results retain active-variant validation and Error 100.
+- Logical NIR uses complete nominal capture places, never scalar aggregate temps.
+  Calls have separate aggregate result destinations, exact aggregate types and
+  arity, and opaque unknown memory effects. Backends share verified physical ABI
+  expansion: hidden first result pointer, captured argument addresses, and
+  callee-private parameter copies. Parameter-address relocations follow the copy.
+- Classic projects the same contract through ordinary record copies and an
+  internal prepared-expression carrier. Existing call/effect/helper visitors see
+  the preparation; it executes at the original expression evaluation point.
+- Aggregate calls require all arguments. Compatibility, program-entry aggregate
+  parameters, foreign/system aggregate entries, and typed indirect aggregate calls
+  remain explicit diagnostics. No cartridge/SYS signatures or Atari activation
+  lifetimes change; native indirect/frame acceptance is slice 6.
+- Added lowered/optimized aggregate-call snapshots and strict negative verifier
+  checks. Existing snapshots remain unchanged. Capture storage is explicitly
+  record-shaped, reflected in the feature inventory. The fixture corpus grows
+  by one source, with no additional waived failures.
+- Acceptance: 2,896 compiler tests pass; the full pinned VM suite passes (158
+  tests), plus the added parameter-address initializer case (159 current tests).
+  NIR snapshots, the 40-source NIR sweep and the 167-source MIR sweep pass.

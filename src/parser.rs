@@ -3197,6 +3197,7 @@ fn normalize_expr_spans(expr: &mut Expr, fallback: Span) {
     }
     let span = expr.span;
     match &mut expr.kind {
+        ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
         ExprKind::Unary { expr, .. } => normalize_expr_spans(expr, span),
         ExprKind::Cast { expr, .. } => normalize_expr_spans(expr, span),
         ExprKind::Binary { left, right, .. } => {

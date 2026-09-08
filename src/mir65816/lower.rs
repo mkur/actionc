@@ -11,7 +11,9 @@ use crate::target::{AbiId, ByteOffset, ByteSize, Endian, TargetId};
 pub(super) fn lower_program(
     input: VerifiedNir<'_>,
 ) -> Result<Mir65816Program, Vec<Mir65816Diagnostic>> {
-    let program = input.program();
+    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| errors.into_iter()
+        .map(|error| diagnostic(error.routine.as_deref(), error.block.as_deref(), &error.message)).collect::<Vec<_>>())?;
+    let program = expanded.as_ref();
     let layout = input.target_layout();
     let convention = match layout.abi {
         AbiId::Wdc65816Native => Mir65816CallConvention::Native,
@@ -1002,6 +1004,7 @@ fn lower_value(
     code_pointer_width: ByteSize,
 ) -> Mir65816Value {
     match value {
+        NirValue::Aggregate { .. } => unreachable!("aggregate ABI expansion precedes scalar MIR selection"),
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
             Mir65816Value::U8(*bits as u8)
         }

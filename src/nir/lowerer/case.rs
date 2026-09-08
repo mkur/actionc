@@ -6,31 +6,30 @@ impl NirBuilder {
         &mut self,
         selector: &SemExpr,
         arms: &[SemCaseArm],
-        lowering: &mut NirLowerer,
     ) {
         let value = self.nir_value(selector);
         let operand_ty = NirFacts::type_from_value(&selector.ty);
-        let after = lowering.next_block_label();
+        let after = self.next_block_label();
         for arm in arms {
             let Some(labels) = &arm.labels else {
-                self.stmt_list(&arm.body, lowering);
+                self.stmt_list(&arm.body);
                 self.finish_open_goto(&after);
                 break;
             };
-            let body = lowering.next_block_label();
-            let next_arm = lowering.next_block_label();
+            let body = self.next_block_label();
+            let next_arm = self.next_block_label();
             for (index, label) in labels.iter().enumerate() {
                 let failed = if index + 1 == labels.len() {
                     next_arm.clone()
                 } else {
-                    lowering.next_block_label()
+                    self.next_block_label()
                 };
                 if label.low == label.high {
                     let condition =
                         self.case_compare(value.clone(), &operand_ty, NirCompareOp::Eq, label.low);
                     self.terminate_branch(condition, &body, &failed);
                 } else {
-                    let upper_test = lowering.next_block_label();
+                    let upper_test = self.next_block_label();
                     let condition =
                         self.case_compare(value.clone(), &operand_ty, NirCompareOp::Ge, label.low);
                     self.terminate_branch(condition, &upper_test, &failed);
@@ -44,7 +43,7 @@ impl NirBuilder {
                 }
             }
             self.start_block(body);
-            self.stmt_list(&arm.body, lowering);
+            self.stmt_list(&arm.body);
             self.finish_open_goto(&after);
             self.start_block(next_arm);
         }

@@ -117,11 +117,14 @@ impl Analyzer {
     ) -> ValueType {
         self.validate_type_ref(scope, result, span);
         let ty = self.value_type_from_type_ref(scope, result);
-        if ty.is_record() || ty.is_real() {
+        if (ty.is_record() && !self.options.algebraic_types.aggregate_calls) || ty.is_real() {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 "function result must be a register-sized scalar, enum or pointer type",
             ));
+            return ValueType::error();
+        }
+        if ty.is_record() && !self.ensure_named_record_layout(&ty, span) {
             return ValueType::error();
         }
         ty

@@ -715,6 +715,8 @@ pub enum NirOp {
         callee: NirCallee,
         args: Vec<NirValue>,
         result: Option<NirCallResult>,
+        /// Complete caller-owned result object, mutually exclusive with result.
+        aggregate_result: Option<NirPlace>,
         signature: Option<NirCallableSignature>,
         effects: NirCallEffects,
     },

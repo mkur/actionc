@@ -707,7 +707,7 @@ fn coerce_to_home_type(
         | NirValue::StaticAddr { ty, .. }
         | NirValue::Temp { ty, .. }
         | NirValue::RoutineAddr { ty, .. } => ty.clone(),
-        NirValue::Param(_) | NirValue::GlobalAddr(_) => return None,
+        NirValue::Aggregate { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => return None,
     };
     if actual == context.ty {
         return Some(value);
@@ -1014,7 +1014,8 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
             rewrite_value(offset, replacements);
         }
         NirOp::Real(real) => rewrite_real_op_values(real, replacements),
-        NirOp::Call { callee, args, .. } => {
+        NirOp::Call { callee, args, aggregate_result, .. } => {
+            if let Some(place) = aggregate_result { rewrite_place_values(place, replacements); }
             if let NirCallee::Indirect { target, .. } = callee {
                 rewrite_value(target, replacements);
             }
@@ -1097,6 +1098,7 @@ fn rewrite_real_source_values(
 }
 
 fn rewrite_value(value: &mut NirValue, replacements: &BTreeMap<TempId, NirValue>) {
+    if let NirValue::Aggregate { place } = value { rewrite_place_values(place, replacements); }
     let mut visited = BTreeSet::new();
     while let NirValue::Temp { id, .. } = value {
         if !visited.insert(*id) {
@@ -1323,6 +1325,7 @@ mod tests {
 
     fn recursive_unknown_call() -> NirOp {
         NirOp::Call {
+            aggregate_result: None,
             callee: NirCallee::User {
                 id: crate::nir::RoutineId(0),
                 name: "Main".to_string(),
@@ -1343,6 +1346,7 @@ mod tests {
 
     fn benign_call_barrier() -> NirOp {
         NirOp::Call {
+            aggregate_result: None,
             callee: NirCallee::User {
                 id: crate::nir::RoutineId(0),
                 name: "Main".to_string(),

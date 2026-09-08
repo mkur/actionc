@@ -459,6 +459,7 @@ fn effect_regions_use_object_layout_not_element_type_width() {
             .expect("array local")
             .id;
         worker.blocks[0].ops.push(NirOp::Call {
+            aggregate_result: None,
             callee: NirCallee::Builtin("ObserveLastByte".to_string()),
             args: Vec::new(),
             result: None,

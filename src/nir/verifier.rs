@@ -380,6 +380,12 @@ impl NirVerifier {
             ));
         }
         self.intern_signature(&routine.name, None, &routine.signature, "routine signature");
+        if routine.signature.params.iter().chain(routine.signature.result.iter()).any(|ty| matches!(ty.kind, NirTypeKind::Record { .. }))
+            && (routine.entry.program || routine.entry.external || !matches!(routine.entry.placement, NirRoutinePlacement::Relocatable)
+                || !matches!(routine.convention, NirCallConvention::TargetPublic | NirCallConvention::TargetInternal)) {
+            self.diagnostics.push(NirDiagnostic::routine(&routine.name,
+                "aggregate boundaries require a typed, non-entry compiler-defined routine"));
+        }
         if routine.signature.params.len() != routine.params.len() {
             self.diagnostics.push(NirDiagnostic::routine(
                 &routine.name,
@@ -788,6 +794,10 @@ impl NirVerifier {
                 ));
             }
             self.type_shape_static(&temp.ty, &format!("temp `%t{}`", temp.id.0));
+            if matches!(temp.ty.kind, NirTypeKind::Record { .. }) {
+                self.diagnostics.push(NirDiagnostic::routine(&routine.name,
+                    "aggregate values cannot occupy scalar temps"));
+            }
             if matches!(temp.ty.kind, NirTypeKind::Real) {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
@@ -892,7 +902,19 @@ impl NirVerifier {
                     self.require_edge(routine, block, else_edge, &temp_facts);
                 }
                 NirTerminator::Return(Some(value)) => {
-                    self.value_type(routine, block, value, "return value");
+                    if let NirValue::Aggregate { place } = value {
+                        self.aggregate_capture_place(routine, block, place, "aggregate return");
+                        if place.ty.as_ref() != routine.signature.result.as_ref() {
+                            self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                                "aggregate return type does not match routine signature"));
+                        }
+                    } else {
+                        self.value_type(routine, block, value, "return value");
+                        if routine.signature.result.as_ref().is_some_and(|ty| matches!(ty.kind, NirTypeKind::Record { .. })) {
+                            self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                                "aggregate return requires a captured value"));
+                        }
+                    }
                     self.value_temp_use(
                         routine,
                         block,
@@ -902,7 +924,13 @@ impl NirVerifier {
                         "return value",
                     );
                 }
-                NirTerminator::Fallthrough | NirTerminator::Return(None) | NirTerminator::Exit => {}
+                NirTerminator::Fallthrough | NirTerminator::Return(None) => {
+                    if routine.signature.result.as_ref().is_some_and(|ty| matches!(ty.kind, NirTypeKind::Record { .. })) {
+                        self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                            "aggregate function cannot return without a complete value"));
+                    }
+                }
+                NirTerminator::Exit => {}
             }
         }
     }
@@ -1803,12 +1831,13 @@ impl NirVerifier {
                 callee,
                 args,
                 result,
+                aggregate_result,
                 signature,
                 effects,
             } => {
                 self.callee_type(routine, block, callee, op_index, temp_facts);
                 if matches!(callee, NirCallee::Fault(_)) {
-                    if !args.is_empty() || result.is_some() || signature.is_some()
+                    if !args.is_empty() || result.is_some() || aggregate_result.is_some() || signature.is_some()
                         || effects.memory.reads != NirMemoryAccess::Unknown
                         || effects.memory.writes != NirMemoryAccess::Unknown
                         || !effects.may_call_external || !effects.opaque
@@ -1821,7 +1850,11 @@ impl NirVerifier {
                     return;
                 }
                 for arg in args {
-                    self.value_type(routine, block, arg, "call argument");
+                    if let NirValue::Aggregate { place } = arg {
+                        self.aggregate_capture_place(routine, block, place, "aggregate argument");
+                    } else {
+                        self.value_type(routine, block, arg, "call argument");
+                    }
                     self.reject_real_value(routine, block, arg, "call argument");
                     self.value_temp_use(routine, block, arg, op_index, temp_facts, "call argument");
                 }
@@ -1837,8 +1870,19 @@ impl NirVerifier {
                         ));
                     }
                 }
+                if let Some(place) = aggregate_result {
+                    self.aggregate_capture_place(routine, block, place, "aggregate result");
+                    self.place_temp_uses(routine, block, place, op_index, temp_facts, "aggregate result");
+                }
+                if (aggregate_result.is_some() || args.iter().any(|arg| matches!(arg, NirValue::Aggregate { .. })))
+                    && (effects.memory.reads != NirMemoryAccess::Unknown
+                        || effects.memory.writes != NirMemoryAccess::Unknown || !effects.opaque)
+                {
+                    self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                        "aggregate calls require opaque unknown memory effects"));
+                }
                 if let Some(signature) = signature {
-                    self.call_signature(routine, block, callee, args, result.as_ref(), signature);
+                    self.call_signature(routine, block, callee, args, result.as_ref(), aggregate_result.as_ref(), signature);
                     if let NirCallee::Indirect { ty, .. } = callee
                         && let NirTypeKind::Callable {
                             signature: callee_signature,
@@ -2382,6 +2426,24 @@ impl NirVerifier {
         }
     }
 
+    fn aggregate_capture_place(&mut self, routine: &NirRoutine, block: &NirBlock, place: &NirPlace, label: &str) {
+        self.place_type(routine, block, place, label);
+        let valid = if let NirPlaceKind::Local { id, .. } = place.kind {
+            routine.locals.iter().find(|local| local.id == id).is_some_and(|local| {
+                local.purpose == NirLocalPurpose::AggregateCapture
+                    && local.storage == NirStorageClass::Record
+                    && matches!(local.backing, NirLocalBacking::Ordinary)
+                    && place.ty.as_ref() == Some(&local.ty)
+                    && matches!(local.ty.kind, NirTypeKind::Record { definition: Some(_), size: Some(size), .. }
+                        if !size.is_zero() && local.ty.width == Some(size) && local.layout.size == size)
+            })
+        } else { false };
+        if !valid {
+            self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                format!("{label} requires a complete nominal aggregate in compiler-owned capture storage")));
+        }
+    }
+
     fn copy_bytes_place_extent(&self, routine: &NirRoutine, place: &NirPlace) -> Option<ByteSize> {
         match &place.kind {
             NirPlaceKind::Param { id, .. } => routine
@@ -2744,6 +2806,16 @@ impl NirVerifier {
         signature: &NirCallableSignature,
         label: &str,
     ) {
+        if signature.params.iter().chain(signature.result.iter()).any(|ty| match ty.kind {
+            NirTypeKind::Record { size, .. } => size.is_none_or(|size| size.is_zero() || ty.width != Some(size)),
+            _ => false,
+        }) {
+            let message = format!("{label} requires complete aggregate extents");
+            self.diagnostics.push(match block {
+                Some(block) => NirDiagnostic::block(routine, block, message),
+                None => NirDiagnostic::routine(routine, message),
+            });
+        }
         if signature.params.iter().chain(signature.variadic.iter()).chain(signature.result.iter())
             .any(|ty| has_unresolved_aggregate(&ty.kind))
         {
@@ -2776,6 +2848,7 @@ impl NirVerifier {
         callee: &NirCallee,
         args: &[NirValue],
         result: Option<&NirCallResult>,
+        aggregate_result: Option<&NirPlace>,
         signature: &NirCallableSignature,
     ) {
         self.intern_signature(
@@ -2813,6 +2886,13 @@ impl NirVerifier {
                 "direct call signature does not match its callee",
             ));
         }
+        let aggregate = signature.params.iter().chain(signature.result.iter())
+            .any(|ty| matches!(ty.kind, NirTypeKind::Record { .. }));
+        if aggregate && (args.len() != signature.params.len() || signature.variadic.is_some()
+            || !matches!(signature.convention, NirCallConvention::TargetInternal | NirCallConvention::TargetPublic)) {
+            self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                "aggregate calls require complete arity and a typed target convention"));
+        }
         if signature.variadic.is_none() && args.len() > signature.params.len() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
@@ -2843,10 +2923,21 @@ impl NirVerifier {
                 continue;
             };
             self.type_shape(routine, block, expected, &format!("call param {index}"));
+            if (matches!(expected.kind, NirTypeKind::Record { .. }) || matches!(arg, NirValue::Aggregate { .. }))
+                && !value_matches_type(arg, expected) {
+                self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                    "aggregate argument type does not match callable signature"));
+            }
             self.match_value_widths(routine, block, Some(expected), arg, "call argument");
         }
-        match (result, &signature.result) {
-            (Some(result), Some(expected)) => {
+        match (result, aggregate_result, &signature.result) {
+            (None, Some(place), Some(expected)) if matches!(expected.kind, NirTypeKind::Record { .. }) => {
+                if place.ty.as_ref() != Some(expected) {
+                    self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                        "aggregate result type does not match callable signature"));
+                }
+            }
+            (Some(result), None, Some(expected)) => {
                 self.type_shape(routine, block, expected, "call signature result");
                 if &result.ty != expected {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -2856,17 +2947,19 @@ impl NirVerifier {
                     ));
                 }
             }
-            (None, Some(_)) => self.diagnostics.push(NirDiagnostic::block(
+            (None, None, Some(_)) => self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
                 "call drops result required by callable signature",
             )),
-            (Some(_), None) => self.diagnostics.push(NirDiagnostic::block(
+            (Some(_), None, None) => self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
                 &block.label,
                 "call materializes result for procedure signature",
             )),
-            (None, None) => {}
+            (None, None, None) => {}
+            _ => self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                "call must use exactly the result carrier required by its signature")),
         }
     }
 
@@ -3167,6 +3260,8 @@ impl NirVerifier {
         label: &str,
     ) {
         match value {
+            NirValue::Aggregate { .. } => self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                format!("{label}: aggregate values are allowed only at call/return boundaries"))),
             NirValue::IntegerConst { bits, ty } => {
                 if !(1..=64).contains(&ty.bits) || *bits > ty.mask() {
                     self.diagnostics.push(NirDiagnostic::block(
@@ -3253,6 +3348,7 @@ impl NirVerifier {
             NirValue::IntegerConst { bits, ty } => *ty == NirIntegerType::U8 && *bits <= 1,
             NirValue::Temp { ty, .. } => matches!(ty.kind, NirTypeKind::Bool),
             NirValue::Null { .. }
+            | NirValue::Aggregate { .. }
             | NirValue::AddressConst { .. }
             | NirValue::StaticAddr { .. }
             | NirValue::Param(_)
@@ -3277,12 +3373,16 @@ impl NirVerifier {
         temp_facts: &NirTempFacts<'_>,
         label: &str,
     ) {
+        if let NirValue::Aggregate { place } = value {
+            self.place_temp_uses(routine, block, place, use_index, temp_facts, label);
+        }
         if let Some(id) = value.temp() {
             self.require_temp_available(routine, block, id, use_index, temp_facts, label);
             if let Some(temp) = temp_facts.temps.get(&id) {
                 let value_type = match value {
                     NirValue::Temp { ty, .. } => Some(ty),
                     NirValue::IntegerConst { .. }
+                    | NirValue::Aggregate { .. }
                     | NirValue::Null { .. }
                     | NirValue::AddressConst { .. }
                     | NirValue::StaticAddr { .. }
@@ -3422,6 +3522,7 @@ impl NirVerifier {
     }
 
     fn op_type(&mut self, routine: &NirRoutine, block: &NirBlock, ty: &NirType, label: &str) {
+        self.reject_record_type(routine, block, ty, label);
         if ty.summary.is_empty() {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
@@ -3525,7 +3626,7 @@ impl NirVerifier {
             | NirValue::Null { ty }
             | NirValue::AddressConst { ty, .. }
             | NirValue::RoutineAddr { ty, .. } => ty,
-            NirValue::IntegerConst { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => return,
+            NirValue::Aggregate { .. } | NirValue::IntegerConst { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => return,
         };
         let Some(expected) = compare_machine_type(operand_ty) else {
             return;
@@ -3624,6 +3725,7 @@ fn has_unresolved_aggregate(kind: &NirTypeKind) -> bool {
 
 fn value_matches_type(value: &NirValue, expected: &NirType) -> bool {
     match value {
+        NirValue::Aggregate { place } => place.ty.as_ref() == Some(expected),
         NirValue::IntegerConst { ty, .. } => expected.width == Some(ty.storage_width()),
         NirValue::Null { ty }
         | NirValue::AddressConst { ty, .. }

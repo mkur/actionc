@@ -11,7 +11,9 @@ use crate::target::{AbiId, ByteOffset, ByteSize, Endian, TargetId};
 pub(super) fn lower_program(
     input: VerifiedNir<'_>,
 ) -> Result<Mir68kProgram, Vec<Mir68kDiagnostic>> {
-    let program = input.program();
+    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| errors.into_iter()
+        .map(|error| diagnostic(error.routine.as_deref(), error.block.as_deref(), &error.message)).collect::<Vec<_>>())?;
+    let program = expanded.as_ref();
     let layout = input.target_layout();
     if layout.abi != AbiId::Motorola68kNative {
         return Err(vec![diagnostic(None, None, "invalid ABI for MIR68K")]);
@@ -919,6 +921,7 @@ fn with_displacement(mut address: Mir68kAddress, offset: ByteOffset) -> Mir68kAd
 
 fn lower_value(value: &NirValue, data_width: ByteSize, code_width: ByteSize) -> Mir68kValue {
     match value {
+        NirValue::Aggregate { .. } => unreachable!("aggregate ABI expansion precedes scalar MIR selection"),
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
             Mir68kValue::U8(*bits as u8)
         }

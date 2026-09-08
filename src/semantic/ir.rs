@@ -943,6 +943,10 @@ pub struct SemFieldRef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemCall {
+    /// Ordered value captures, executed at this call's evaluation point.
+    pub preparation: Vec<SemStmt>,
+    /// Caller-owned complete aggregate result; never a scalar return slot.
+    pub aggregate_result: Option<SemLValue>,
     pub callee: SemCallable,
     pub callable_type: CallableType,
     pub args: Vec<SemExpr>,
@@ -1224,6 +1228,10 @@ fn collect_external_call_references(
     external: &HashSet<SymbolId>,
     referenced: &mut HashSet<SymbolId>,
 ) {
+    collect_external_stmt_references(&call.preparation, external, referenced);
+    if let Some(place) = &call.aggregate_result {
+        collect_external_lvalue_references(place, external, referenced);
+    }
     match &call.callee {
         SemCallable::User(symbol) | SemCallable::Builtin(symbol) => {
             record_external_symbol(symbol, external, referenced);
@@ -1713,6 +1721,13 @@ impl SemIrFormatter {
     }
 
     fn call(&mut self, call: &SemCall) {
+        if !call.preparation.is_empty() {
+            self.line("prepare call values");
+            self.indented(|this| this.stmt_list(&call.preparation));
+        }
+        if let Some(place) = &call.aggregate_result {
+            self.line(format!("aggregate result into {}", lvalue_summary(place)));
+        }
         self.line(format!(
             "call {} -> {} callable={} effects={}",
             callable_summary(&call.callee),
@@ -2237,6 +2252,7 @@ struct IrBuilder<'a> {
     numeric_defines: HashMap<SymbolId, NumberLiteral>,
     next_private_symbol: usize,
     aggregate_locals: Vec<SemDeclaration>,
+    routine_result: Option<ValueType>,
 }
 
 mod aggregate;
@@ -2249,6 +2265,7 @@ impl<'a> IrBuilder<'a> {
             numeric_defines: HashMap::new(),
             next_private_symbol: model.symbols.symbols.len(),
             aggregate_locals: Vec::new(),
+            routine_result: None,
         }
     }
 
@@ -2939,6 +2956,8 @@ impl<'a> IrBuilder<'a> {
         let callable = self.callable_type_for_callee(&SemCallable::User(symbol.clone()));
         let signature = SemRoutineSignature::from_callable_type(&callable);
 
+        self.routine_result = signature.return_type.clone();
+
         debug_assert!(self.aggregate_locals.is_empty());
         let mut lowered = SemRoutine {
             is_external: routine.is_external,
@@ -2982,6 +3001,7 @@ impl<'a> IrBuilder<'a> {
             symbol,
         };
         lowered.locals.append(&mut self.aggregate_locals);
+        self.routine_result = None;
         lowered
     }
 
@@ -3036,7 +3056,8 @@ impl<'a> IrBuilder<'a> {
                 // This is compiler-owned initialization, not source assignment.
                 access: PlaceAccess::Assignable, is_volatile: false, storage: None, span: *span,
             };
-            let initialization = if self.aggregate_requires_validation(&ty.value) {
+            let initialization = if self.aggregate_requires_validation(&ty.value)
+                || (ty.value.is_record() && self.is_aggregate_call_source(scope, value)) {
                 self.lower_checked_aggregate_assignment(scope, target, value, *span)
             } else if ty.value.is_record() {
                 vec![self.lower_aggregate_copy(scope, target, value, *span)]
@@ -3137,10 +3158,17 @@ impl<'a> IrBuilder<'a> {
                     span: *span,
                 }]
             }
-            Stmt::Return(expr) => vec![SemStmt::Return {
-                value: expr.as_ref().map(|expr| self.lower_expr(scope, expr)),
-                span: expr.as_ref().map_or(Span::new(0, 0), |expr| expr.span),
-            }],
+            Stmt::Return(expr) => {
+                if let (Some(value), Some(ty)) = (expr, self.routine_result.clone())
+                    && ty.is_record()
+                {
+                    return self.lower_aggregate_return(scope, &ty, value);
+                }
+                vec![SemStmt::Return {
+                    value: expr.as_ref().map(|expr| self.lower_expr(scope, expr)),
+                    span: expr.as_ref().map_or(Span::new(0, 0), |expr| expr.span),
+                }]
+            }
             Stmt::Exit { span } => vec![SemStmt::Exit { span: *span }],
             Stmt::Assign {
                 target,
@@ -3148,7 +3176,8 @@ impl<'a> IrBuilder<'a> {
                 span,
             } => {
                 let destination = self.lower_lvalue(scope, target);
-                if self.aggregate_requires_validation(&destination.ty) {
+                if self.aggregate_requires_validation(&destination.ty)
+                    || (destination.ty.is_record() && self.is_aggregate_call_source(scope, value)) {
                     self.lower_checked_aggregate_assignment(scope, destination, value, *span)
                 } else if destination.ty.is_record() {
                     vec![self.lower_aggregate_copy(scope, destination, value, *span)]
@@ -3183,10 +3212,13 @@ impl<'a> IrBuilder<'a> {
                     span: *span,
                 }]
             }
-            Stmt::Call { expr, span } => vec![SemStmt::Call {
-                call: self.lower_call_expr(scope, expr),
-                span: *span,
-            }],
+            Stmt::Call { expr, span } => {
+                let mut call = self.lower_call_expr(scope, expr);
+                if let Some(ty) = &call.return_type && ty.is_record() {
+                    call.aggregate_result = Some(self.private_value_place(scope, ty.clone(), *span));
+                }
+                vec![SemStmt::Call { call, span: *span }]
+            }
             Stmt::MachineBlock { items, text, span } => vec![SemStmt::MachineBlock {
                 items: items.clone(),
                 resolved_symbols: self.resolve_machine_symbols(scope, items),
@@ -3447,6 +3479,7 @@ impl<'a> IrBuilder<'a> {
                     expr: Box::new(self.lower_expr(scope, &args[0])),
                 }
             }
+            ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
             ExprKind::Missing => SemExprKind::Missing,
             ExprKind::Raw => SemExprKind::Raw(expr.text.clone()),
             ExprKind::InitializerList(elements) => SemExprKind::InitializerList(
@@ -4301,6 +4334,7 @@ impl<'a> IrBuilder<'a> {
 
     fn lvalue_expr_is_volatile(&self, scope: ScopeId, expr: &Expr) -> bool {
         match &expr.kind {
+            ExprKind::Prepared { .. } => false,
             ExprKind::Name(name) => self
                 .model
                 .symbols
@@ -4381,6 +4415,8 @@ impl<'a> IrBuilder<'a> {
     fn lower_call_expr(&mut self, scope: ScopeId, expr: &Expr) -> SemCall {
         let ExprKind::Call { callee, args } = &expr.kind else {
             return SemCall {
+                preparation: Vec::new(),
+                aggregate_result: None,
                 callee: SemCallable::Indirect {
                     target: Box::new(self.lower_expr(scope, expr)),
                     signature: SemRoutineSignature::unknown_proc(),
@@ -4452,10 +4488,15 @@ impl<'a> IrBuilder<'a> {
         let return_type = callable_type.return_type.clone();
         let effects = self.call_effects_for_callee(&callee);
 
-        SemCall {
+        let mut call = SemCall {
+            preparation: Vec::new(),
+            aggregate_result: None,
             callee,
-            callable_type,
-            args: args
+            callable_type: callable_type.clone(),
+            args: if expected_params.iter().any(ValueType::is_record)
+                || return_type.as_ref().is_some_and(ValueType::is_record) {
+                Vec::new()
+            } else { args
                 .iter()
                 .enumerate()
                 .map(|(index, arg)| {
@@ -4464,11 +4505,16 @@ impl<'a> IrBuilder<'a> {
                         .map(|expected| self.lower_value_for_expected_type(scope, expected, arg))
                         .unwrap_or_else(|| self.lower_expr(scope, arg))
                 })
-                .collect(),
+                .collect() },
             return_type,
             effects,
             span: expr.span,
+        };
+        if expected_params.iter().any(ValueType::is_record)
+            || call.return_type.as_ref().is_some_and(ValueType::is_record) {
+            self.capture_aggregate_call_arguments(scope, &mut call, args);
         }
+        call
     }
 
     fn call_effects_for_callee(&self, callee: &SemCallable) -> SemEffects {

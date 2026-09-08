@@ -1300,6 +1300,7 @@ mod tests {
                         place: local_place(3, "v3"),
                     },
                     NirOp::Call {
+                        aggregate_result: None,
                         callee: NirCallee::Builtin("External".to_string()),
                         args: Vec::new(),
                         result: None,
@@ -1629,6 +1630,7 @@ mod tests {
                 0,
                 "entry",
                 vec![NirOp::Call {
+                    aggregate_result: None,
                     callee: crate::nir::NirCallee::Builtin("TouchX".to_string()),
                     args: Vec::new(),
                     result: None,

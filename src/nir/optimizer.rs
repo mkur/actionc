@@ -181,7 +181,7 @@ fn uniform_value_dominates(
             .is_some_and(|temp| {
                 temp.def.op_index.is_some() && dominance.dominates(temp.def.block, target)
             }),
-        NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
+        NirValue::Aggregate { .. } | NirValue::Param(_) | NirValue::GlobalAddr(_) => false,
     }
 }
 
@@ -493,7 +493,8 @@ impl NirDataflowProblem for NirValuePropagationProblem<'_> {
                     | NirValue::Temp { .. }
                     | NirValue::Param(_)
                     | NirValue::GlobalAddr(_)
-                    | NirValue::RoutineAddr { .. } => {
+                    | NirValue::Aggregate { .. }
+        | NirValue::RoutineAddr { .. } => {
                         then_edge.target == to || else_edge.target == to
                     }
                 }
@@ -893,6 +894,7 @@ fn const_address(value: &NirValue) -> Option<crate::target::AddressValue> {
         | NirValue::Temp { .. }
         | NirValue::Param(_)
         | NirValue::GlobalAddr(_)
+        | NirValue::Aggregate { .. }
         | NirValue::RoutineAddr { .. } => None,
     }
 }
@@ -954,6 +956,7 @@ fn const_integer_bits(value: &NirValue) -> Option<u64> {
         | NirValue::Temp { .. }
         | NirValue::Param(_)
         | NirValue::GlobalAddr(_)
+        | NirValue::Aggregate { .. }
         | NirValue::RoutineAddr { .. } => None,
     }
 }
@@ -995,7 +998,8 @@ fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
             rewrite_value(offset, constants);
         }
         NirOp::Real(real) => rewrite_real_op_values(real, constants),
-        NirOp::Call { callee, args, .. } => {
+        NirOp::Call { callee, args, aggregate_result, .. } => {
+            if let Some(place) = aggregate_result { rewrite_place_values(place, constants); }
             if let NirCallee::Indirect { target, .. } = callee {
                 rewrite_value(target, constants);
             }
@@ -1108,6 +1112,7 @@ fn rewrite_real_source_values(source: &mut NirRealSource, constants: &BTreeMap<T
 }
 
 fn rewrite_value(value: &mut NirValue, constants: &BTreeMap<TempId, NirValue>) {
+    if let NirValue::Aggregate { place } = value { rewrite_place_values(place, constants); }
     let mut visited = BTreeSet::new();
     while let NirValue::Temp { id, .. } = value {
         if !visited.insert(*id) {
@@ -1182,7 +1187,8 @@ fn collect_op_uses(op: &NirOp, out: &mut BTreeSet<TempId>) {
             collect_value_use(offset, out);
         }
         NirOp::Real(real) => collect_real_op_uses(real, out),
-        NirOp::Call { callee, args, .. } => {
+        NirOp::Call { callee, args, aggregate_result, .. } => {
+            if let Some(place) = aggregate_result { collect_place_uses(place, out); }
             if let NirCallee::Indirect { target, .. } = callee {
                 collect_value_use(target, out);
             }
@@ -1290,6 +1296,7 @@ fn collect_real_source_uses(source: &NirRealSource, out: &mut BTreeSet<TempId>) 
 }
 
 fn collect_value_use(value: &NirValue, out: &mut BTreeSet<TempId>) {
+    if let NirValue::Aggregate { place } = value { collect_place_uses(place, out); }
     if let NirValue::Temp { id, .. } = value {
         out.insert(*id);
     }

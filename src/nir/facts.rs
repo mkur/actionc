@@ -407,6 +407,9 @@ pub(super) fn root_storage_id(place: &NirPlace) -> Option<NirStorageId> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirValue {
+    /// A complete captured aggregate value, legal only at call/return boundaries.
+    /// This is not a pointer, scalar temporary or implicit array decay.
+    Aggregate { place: Box<NirPlace> },
     IntegerConst {
         bits: u64,
         ty: NirIntegerType,
@@ -467,10 +470,11 @@ impl NirValue {
         }
     }
 
-    pub(super) fn temp(&self) -> Option<TempId> {
+    pub(crate) fn temp(&self) -> Option<TempId> {
         match self {
             Self::Temp { id, .. } => Some(*id),
-            Self::IntegerConst { .. }
+            Self::Aggregate { .. }
+            | Self::IntegerConst { .. }
             | Self::Null { .. }
             | Self::AddressConst { .. }
             | Self::StaticAddr { .. }
@@ -524,6 +528,7 @@ pub(super) fn condition_type() -> NirType {
 
 pub(super) fn value_width(value: &NirValue) -> Option<ByteSize> {
     match value {
+        NirValue::Aggregate { place } => place.ty.as_ref().and_then(|ty| ty.width),
         NirValue::IntegerConst { ty, .. } => Some(ty.storage_width()),
         NirValue::Null { ty }
         | NirValue::AddressConst { ty, .. }

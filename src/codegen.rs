@@ -768,6 +768,10 @@ impl Generator {
     }
 
     pub(super) fn emit_expr_to_slot(&mut self, expr: &Expr, slot: StorageSlot) -> bool {
+        if let ExprKind::Prepared { statements, value } = &expr.kind {
+            self.generate_stmt_list(statements);
+            return self.emit_expr_to_slot(value, slot);
+        }
         if let Some(emitted) = self.try_emit_native_real_expr_to_slot(expr, slot) {
             return emitted;
         }

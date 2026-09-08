@@ -1,0 +1,11 @@
+TYPE Pair=[BYTE x CARD y]
+Pair source,output
+
+Pair FUNC Updated(Pair input BYTE amount)
+  input.x==+amount
+RETURN(input)
+
+PROC Main()
+  LET saved=Updated(source,3)
+  output=Updated(saved,4)
+RETURN

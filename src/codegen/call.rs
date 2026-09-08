@@ -123,7 +123,7 @@ pub(super) fn expr_needs_call_staging(expr: &Expr) -> bool {
     }
 
     match &expr.kind {
-        ExprKind::Call { .. } | ExprKind::Binary { .. } => true,
+        ExprKind::Prepared { .. } | ExprKind::Call { .. } | ExprKind::Binary { .. } => true,
         ExprKind::Unary {
             op: UnaryOp::Neg, ..
         } => true,
@@ -1870,6 +1870,11 @@ impl Generator {
 
 impl Generator {
     pub(super) fn generate_call_stmt(&mut self, expr: &Expr, span: Span) {
+        if let ExprKind::Prepared { statements, value } = &expr.kind {
+            self.generate_stmt_list(statements);
+            self.generate_call_stmt(value, span);
+            return;
+        }
         let ExprKind::Call { callee, args } = &expr.kind else {
             if let ExprKind::Name(name) = &expr.kind
                 && let Some(items) = self.machine_defines.get(&normalize_name(name)).cloned()

@@ -39,6 +39,7 @@ LocalPurposeRealTemporary
 LocalPurposeAggregateCapture
 StorageClassScalar
 StorageClassArray
+StorageClassRecord
 StorageDurationAutomatic
 StorageDurationRoutineStatic
 StorageDurationExternal
@@ -93,6 +94,7 @@ OpRealCompare
 OpIntegerToReal
 OpRealToInteger
 OpCall
+OpAggregateCallResult
 OpForeignCode
 CalleeUser
 CalleeBuiltin
@@ -130,6 +132,7 @@ ValueNull
 ValueAddressConst
 ValueStaticAddr
 ValueTemp
+ValueAggregate
 ValueRoutineAddr
 TerminatorFallthrough
 TerminatorGoto

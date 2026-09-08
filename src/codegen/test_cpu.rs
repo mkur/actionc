@@ -68,6 +68,8 @@ pub(crate) fn run_memory_with_limit(
                     returns.push(v);
                 }
             }
+            "TSX" => { x = sp; zn = Some(x); }
+            "TXS" => { sp = x; }
             "TAX" => {
                 x = a;
                 zn = Some(x);

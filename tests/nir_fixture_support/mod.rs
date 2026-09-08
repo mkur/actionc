@@ -71,6 +71,8 @@ macro_rules! optimized_atari_case {
 pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("activation_storage"),
     lowered_atari_case!("aggregate_static_initializer"),
+    lowered_atari_case!("aggregate_calls"),
+    optimized_atari_case!("aggregate_calls"),
     lowered_atari_case!("bare_do"),
     lowered_atari_case!("calls_returns"),
     lowered_atari_case!("case_dispatch"),
@@ -286,6 +288,7 @@ pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
         },
         NirOp::Call {
             callee: NirCallee::Builtin("CoverageBuiltin".to_string()),
+            aggregate_result: None,
             args: Vec::new(),
             result: None,
             signature: Some(NirCallableSignature::empty_proc(NirCallConvention::Runtime)),
@@ -307,6 +310,7 @@ pub fn structural_coverage_programs(repo_root: &Path) -> Vec<NirProgram> {
                 symbol: runtime,
                 name: "CoverageRuntime".to_string(),
             },
+            aggregate_result: None,
             args: Vec::new(),
             result: None,
             signature: Some(NirCallableSignature::empty_proc(NirCallConvention::Runtime)),
@@ -492,6 +496,7 @@ pub enum NirFeature {
     OpIntegerToReal,
     OpRealToInteger,
     OpCall,
+    OpAggregateCallResult,
     OpForeignCode,
     OpUnsupported,
     CalleeUser,
@@ -545,6 +550,7 @@ pub enum NirFeature {
     ValueAddressConst,
     ValueStaticAddr,
     ValueTemp,
+    ValueAggregate,
     ValueParam,
     ValueGlobalAddr,
     ValueRoutineAddr,
@@ -602,6 +608,7 @@ pub const REQUIRED_EXECUTABLE_FEATURES: &[NirFeature] = &[
     NirFeature::OpIntegerToReal,
     NirFeature::OpRealToInteger,
     NirFeature::OpCall,
+    NirFeature::OpAggregateCallResult,
     NirFeature::OpForeignCode,
     NirFeature::CalleeUser,
     NirFeature::CalleeBuiltin,
@@ -621,6 +628,7 @@ pub const REQUIRED_EXECUTABLE_FEATURES: &[NirFeature] = &[
     NirFeature::ValueAddressConst,
     NirFeature::ValueStaticAddr,
     NirFeature::ValueTemp,
+    NirFeature::ValueAggregate,
     NirFeature::ValueRoutineAddr,
     NirFeature::TerminatorFallthrough,
     NirFeature::TerminatorGoto,
@@ -1015,10 +1023,12 @@ fn visit_op(op: &NirOp, features: &mut BTreeSet<NirFeature>) {
             callee,
             args,
             result,
+            aggregate_result,
             signature,
             effects,
         } => {
             features.insert(NirFeature::OpCall);
+            if let Some(place) = aggregate_result { features.insert(NirFeature::OpAggregateCallResult); visit_place(place, features); }
             visit_callee(callee, features);
             for arg in args {
                 visit_value(arg, features);
@@ -1320,6 +1330,7 @@ fn visit_place(place: &NirPlace, features: &mut BTreeSet<NirFeature>) {
 
 fn visit_value(value: &NirValue, features: &mut BTreeSet<NirFeature>) {
     match value {
+        NirValue::Aggregate { place } => { features.insert(NirFeature::ValueAggregate); visit_place(place, features); }
         NirValue::IntegerConst { ty, .. } => {
             features.insert(if ty.storage_width() == ByteSize::ONE {
                 NirFeature::ValueConstU8

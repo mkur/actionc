@@ -4543,6 +4543,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
                 label: "bb0".to_string(),
                 params: Vec::new(),
                 ops: vec![NirOp::Call {
+                    aggregate_result: None,
                     callee: NirCallee::Builtin("Touch".to_string()),
                     args: Vec::new(),
                     result: None,

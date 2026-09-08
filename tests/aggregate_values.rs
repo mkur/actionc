@@ -107,12 +107,14 @@ fn snapshot_pointees_remain_mutable_and_field_values_remain_copyable() {
 }
 
 #[test]
-fn snapshots_do_not_enable_the_unimplemented_aggregate_call_abi() {
+fn snapshots_alone_do_not_enable_the_aggregate_call_abi() {
     let source = "TYPE Row=[BYTE value] Row original \
         PROC Take(Row arg) arg.value=7 RETURN \
         PROC Main() LET saved=original Take(saved) RETURN";
     let ast = parse(&tokenize(source).unwrap()).unwrap();
-    let errors = semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap_err();
+    let mut options = SemanticOptions::modern();
+    options.algebraic_types.aggregate_calls = false;
+    let errors = semantic::analyze_with_options(&ast, options).unwrap_err();
     assert!(
         errors
             .iter()

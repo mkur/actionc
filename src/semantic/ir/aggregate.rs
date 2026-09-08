@@ -155,7 +155,7 @@ impl IrBuilder<'_> {
         visit(self.model, ty, &mut HashSet::new())
     }
 
-    fn private_value_place(&mut self, scope: ScopeId, ty: ValueType, span: Span) -> SemLValue {
+    pub(super) fn private_value_place(&mut self, scope: ScopeId, ty: ValueType, span: Span) -> SemLValue {
         let (id, name) = loop {
             let id = SymbolId(self.next_private_symbol);
             self.next_private_symbol += 1;
@@ -434,6 +434,12 @@ impl IrBuilder<'_> {
                 value: Self::integer_expr(ScalarType::Byte, u64::from(id.tag), expr.span),
                 span: expr.span,
             });
+        } else if self.is_aggregate_call_source(scope, expr) {
+            let mut call = self.lower_call_expr(scope, expr);
+            assert_eq!(call.return_type.as_ref(), Some(expected));
+            call.aggregate_result = Some(capture.clone());
+            preparation.push(SemStmt::Call { call, span: expr.span });
+            preparation.extend(self.validate_aggregate_value(scope, &capture));
         } else {
             let source = self.lower_lvalue(scope, expr);
             preparation.push(self.copy_value(capture.clone(), source, expr.span));
@@ -560,5 +566,49 @@ impl IrBuilder<'_> {
         };
         result.push(self.copy_value(destination, captured.place, span));
         result
+    }
+
+    pub(super) fn is_aggregate_call_source(&self, scope: ScopeId, expr: &Expr) -> bool {
+        matches!(&expr.kind, ExprKind::Call { callee, .. }
+            if !self.is_indexable_lvalue(scope, callee))
+            && !self.model.variants.expressions.contains_key(
+                &super::super::ExpressionSite::new(scope, expr.span))
+    }
+
+    pub(super) fn lower_aggregate_return(
+        &mut self, scope: ScopeId, ty: &ValueType, value: &Expr,
+    ) -> Vec<SemStmt> {
+        let captured = self.capture_aggregate_value(scope, ty, value);
+        let mut body = captured.preparation;
+        body.push(SemStmt::Return {
+            value: Some(Self::value_expr(&captured.place)), span: value.span,
+        });
+        body
+    }
+
+    pub(super) fn capture_aggregate_call_arguments(
+        &mut self, scope: ScopeId, call: &mut SemCall, args: &[Expr],
+    ) {
+        if let SemCallable::Indirect { target, .. } = &mut call.callee {
+            let capture = self.private_value_place(scope, target.ty.clone(), target.span);
+            call.preparation.push(SemStmt::Assign {
+                target: capture.clone(), value: *target.clone(), span: target.span,
+            });
+            **target = Self::value_expr(&capture);
+        }
+        for (arg, expected) in args.iter().zip(call.callable_type.params.clone()) {
+            if expected.is_record() {
+                let capture = self.capture_aggregate_value(scope, &expected, arg);
+                call.preparation.extend(capture.preparation);
+                call.args.push(Self::value_expr(&capture.place));
+            } else {
+                let capture = self.private_value_place(scope, expected.clone(), arg.span);
+                let value = self.lower_value_for_expected_type(scope, &expected, arg);
+                call.preparation.push(SemStmt::Assign {
+                    target: capture.clone(), value, span: arg.span,
+                });
+                call.args.push(Self::value_expr(&capture));
+            }
+        }
     }
 }

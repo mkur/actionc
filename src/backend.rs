@@ -7,6 +7,9 @@
 use crate::nir::{NirDiagnostic, NirProgram, NirRuntimeBinding};
 use crate::target::{TargetId, TargetLayout};
 
+mod aggregate_abi;
+pub(crate) use aggregate_abi::expand_aggregate_abi;
+
 #[derive(Debug, Clone, Copy)]
 pub struct VerifiedNir<'a> {
     program: &'a NirProgram,

@@ -73,7 +73,15 @@ activation is unchanged: recursive data does not enable recursive/reentrant
 procedures. Existing backend limits also apply, including classic's
 LONGINT/LONGCARD restrictions.
 
-Not yet supported: aggregate function parameters/results, generic types,
+Record and variant parameters and function results are supported on direct
+compiler-defined calls in the modern profile. Parameters are independent mutable
+copies; use an explicit POINTER parameter to modify the caller's object. Function
+results compose with LET, assignment, constructor arguments, RETURN and CASE.
+Arguments are captured once, left to right, before later argument effects.
+Aggregate calls require all arguments, including trailing scalar arguments.
+Foreign/cartridge entry signatures are not inferred from these source types.
+
+Not yet supported: typed indirect aggregate calls, generic types,
 nested patterns, guards, direct ARRAY payload declarations, volatile variants,
 absolute/alias-backed variant declarations or raw/static variant initializers.
 Use a record payload to contain an inline array. Typed pointers into explicitly

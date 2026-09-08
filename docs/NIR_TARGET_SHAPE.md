@@ -53,8 +53,36 @@ stable canonical declaration key, not allocation-order IDs or import aliases.
 The verifier rejects name-only aggregate references in storage, signatures and
 executable types. Existing record copies still lower to ordinary address
 computation and overlap-safe `CopyBytes`; aggregate scalar loads/stores remain
-rejected. No variant construction, aggregate call ABI or pattern operations are
+rejected. No variant construction or pattern operations are
 introduced by this identity migration.
+
+### Aggregate call boundaries
+
+SemIR owns by-value argument capture, left-to-right evaluation, result-buffer
+lifetimes and variant validation. A `SemCall` carries ordered preparation and an
+optional aggregate result place. Classic projects preparation as a compiler-only
+`Prepared` expression, executed at the original expression evaluation point.
+It is not source syntax and must remain visible to call/effect/helper visitors.
+
+Logical NIR represents whole-object arguments and returns as `NirValue::Aggregate`
+with a typed place. `NirOp::Call.aggregate_result` names a complete caller-owned
+object, separate from scalar `result`/TempId. The verifier requires exact nominal
+types and extents, ordinary compiler-owned capture storage, complete arity, and
+opaque unknown memory effects. Aggregates cannot inhabit scalar temps, loads,
+stores, operators, conditions or block arguments. External/raw entry conventions
+and program-entry aggregate signatures are rejected.
+
+After logical NIR verification and optimization, the shared backend ABI expansion
+converts these carriers to pointer operands before existing target ABI planning.
+The first physical argument is the result destination when needed; each aggregate
+argument is the address of its captured value. Callees copy incoming objects into
+independent mutable homes, and returns copy into the incoming result destination.
+Atari homes retain routine-static duration; native homes follow automatic frame
+duration. Existing scalar signatures bypass this expansion unchanged.
+
+Physical NIR is verified again. Signature IDs retain logical nominal identity;
+they are not recomputed from the erased physical pointer signature. MIR consumes
+only this verified physical view, with no SemIR lookup or source reconstruction.
 
 ## Position In The Compiler
 
