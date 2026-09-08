@@ -530,7 +530,7 @@ impl SemGraphBuilder {
             SemStmt::Unsupported { .. } => {
                 self.opaque_owners.insert(owner);
             }
-            SemStmt::Define(_) | SemStmt::Exit { .. } => {}
+            SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Fault { .. } => {}
         }
     }
 

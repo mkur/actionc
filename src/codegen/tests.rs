@@ -18382,6 +18382,7 @@ fn test_generator(profile: CodegenProfile) -> Generator {
         numeric_defines: HashMap::new(),
         machine_defines: HashMap::new(),
         runtime_helpers: RuntimeHelperTargets::default_for_target(RuntimeTarget::Cartridge),
+        uses_runtime_fault: false,
         runtime_error_target: RuntimeHelperTarget::Absolute(Absolute::new(
             crate::integer6502::CARTRIDGE_ERROR,
         )),

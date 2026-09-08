@@ -1028,6 +1028,7 @@ fn helper_summary(helper: &MirRuntimeHelper) -> &'static str {
         MirRuntimeHelper::Lsh => "lsh",
         MirRuntimeHelper::Rsh => "rsh",
         MirRuntimeHelper::SArgs => "sargs",
+        MirRuntimeHelper::InvalidVariant => "invalid-variant",
     }
 }
 

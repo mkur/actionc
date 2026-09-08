@@ -1818,6 +1818,14 @@ fn lower_ops(
                 signature,
                 effects,
             } => {
+                if let crate::nir::NirCallee::Fault(crate::runtime_fault::RuntimeFault::InvalidVariant) = callee {
+                    let helper = MirRuntimeHelper::InvalidVariant;
+                    lowered.push(MirOp::RuntimeHelper {
+                        helper, args: Vec::new(), result: None, additional_results: Vec::new(),
+                        effects: super::materialize::helper_effects(&helper),
+                    });
+                    continue;
+                }
                 let Some(signature) = signature else {
                     diagnostics.push(MirDiagnostic::block(
                         routine,

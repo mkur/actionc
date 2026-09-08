@@ -90,6 +90,9 @@ impl Materializer<'_> {
                     TypeDefinition::Record(fields) => for field in fields {
                         self.var_declaration(scope, field);
                     },
+                    TypeDefinition::Variant(alternatives) => for alternative in alternatives {
+                        for field in &mut alternative.fields { self.var_declaration(scope, field); }
+                    },
                     TypeDefinition::Enum(members) => for member in members {
                         if let Some(value) = &mut member.value { self.expr(scope, value); }
                     },
@@ -238,7 +241,7 @@ impl Materializer<'_> {
             Stmt::Define(_)
             | Stmt::Exit { .. }
             | Stmt::MachineBlock { .. }
-            | Stmt::Unsupported { .. } => {}
+            | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
         }
     }
 

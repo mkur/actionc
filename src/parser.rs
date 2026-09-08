@@ -637,6 +637,8 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|| "<missing type name>".to_string());
         self.expect(TokenKind::Assign);
         let is_enum = self.is_contextual_at(self.pos, "ENUM");
+        let is_variant = self.is_contextual_at(self.pos, "VARIANT");
+        if is_variant { self.bump(); }
         if is_enum {
             self.bump();
             if self.eat(TokenKind::Colon) {
@@ -647,6 +649,20 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBracket);
         let definition = if is_enum {
             TypeDefinition::Enum(self.parse_enum_members())
+        } else if is_variant {
+            let mut alternatives = Vec::new();
+            while !self.at_eof() && !self.check(TokenKind::RBracket) {
+                if self.eat(TokenKind::Comma) { continue; }
+                let start = self.peek().span.start;
+                let Some(name) = self.expect_ident() else { self.bump(); continue; };
+                let fields = if self.eat(TokenKind::LBracket) {
+                    let fields = self.parse_field_decls_until(TokenKind::RBracket);
+                    self.expect(TokenKind::RBracket);
+                    fields
+                } else { Vec::new() };
+                alternatives.push(VariantAlternative { name, fields, span: Span::new(start, self.previous_end()) });
+            }
+            TypeDefinition::Variant(alternatives)
         } else {
             TypeDefinition::Record(self.parse_field_decls_until(TokenKind::RBracket))
         };

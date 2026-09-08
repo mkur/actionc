@@ -22,7 +22,7 @@ use super::{
     ArrayType, CallableType, ConstValue, ExprClass, FieldId, RecordFieldType, RecordType,
     ScalarSignedness, ScalarType, ScopeId, SemanticLayoutFacts, SemanticModel,
     SemanticNameResolution, StmtFlowFacts, SymbolClass, SymbolId, ValueType, ValueTypeBase,
-    routine_control_flow_facts, subject::PlaceAccess,
+    routine_control_flow_with_variants, subject::PlaceAccess,
 };
 
 pub fn lower_program(program: &Program, model: &SemanticModel) -> SemProgram {
@@ -455,6 +455,7 @@ pub struct SemCompoundOperation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemStmt {
+    Fault { kind: crate::runtime_fault::RuntimeFault, span: Span },
     Case {
         selector: SemExpr,
         arms: Vec<SemCaseArm>,
@@ -632,6 +633,8 @@ fn statement_list_flow_facts_at_depth(statements: &[SemStmt], loop_depth: usize)
 
 fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts {
     match stmt {
+        SemStmt::Fault { .. } => StmtFlowFacts { may_continue: false, may_return: false,
+            always_returns: false, may_exit_loop: false, contains_loop: false, max_loop_depth: loop_depth },
         SemStmt::Case { arms, .. } => super::case::case_flow_facts(
             arms.iter().map(|arm| statement_list_flow_facts_at_depth(&arm.body, loop_depth)),
             arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
@@ -1211,7 +1214,7 @@ fn collect_external_stmt_references(
                 }
                 collect_external_stmt_references(body, external, referenced);
             }
-            SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Unsupported { .. } => {}
+            SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
         }
     }
 }
@@ -1553,6 +1556,7 @@ impl SemIrFormatter {
 
     fn stmt(&mut self, stmt: &SemStmt) {
         match stmt {
+            SemStmt::Fault { kind, .. } => self.line(format!("fault {kind:?}")),
             SemStmt::Case { selector, arms, .. } => {
                 self.line(format!("case {}", expr_summary(selector)));
                 self.indented(|this| {
@@ -2231,7 +2235,11 @@ struct IrBuilder<'a> {
     model: &'a SemanticModel,
     next_eval_order: u32,
     numeric_defines: HashMap<SymbolId, NumberLiteral>,
+    next_private_symbol: usize,
+    aggregate_locals: Vec<SemDeclaration>,
 }
+
+mod aggregate;
 
 impl<'a> IrBuilder<'a> {
     fn new(model: &'a SemanticModel) -> Self {
@@ -2239,6 +2247,8 @@ impl<'a> IrBuilder<'a> {
             model,
             next_eval_order: 0,
             numeric_defines: HashMap::new(),
+            next_private_symbol: model.symbols.symbols.len(),
+            aggregate_locals: Vec::new(),
         }
     }
 
@@ -2594,6 +2604,14 @@ impl<'a> IrBuilder<'a> {
                     });
                 let static_initializer = initializer.as_ref().and_then(|initializer| {
                     self.layout_static_initializer(&symbol, &ty, &storage, initializer)
+                }).or_else(|| {
+                    // Invalid-zero is a storage-lifetime obligation, including
+                    // one-byte/two-byte variants which otherwise look like
+                    // uninitialized scalars to downstream storage planners.
+                    (initializer.is_none() && self.aggregate_requires_validation(&ty.value)
+                        && (!is_array_storage || matches!(&storage,
+                            SemDeclarationStorage::Array { array_type, .. } if array_type.length.is_some())))
+                        .then_some(SemStaticInitializer { initialized_extent: 0, writes: Vec::new() })
                 });
                 Some(SemDeclaration {
                     ty,
@@ -2609,6 +2627,21 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_type_decl(&mut self, scope: ScopeId, decl: &TypeDecl) -> Vec<SemDeclaration> {
+        if let TypeDefinition::Variant(_) = &decl.definition {
+            let symbol = self.symbol_ref(scope, &decl.name, decl.span).expect("validated variant symbol");
+            let layout = self.model.layout.record_for_owner(symbol.id).expect("complete variant layout");
+            let fields = layout.fields.iter().map(|field| SemRecordField {
+                id: Some(field.id), name: field.name.clone(),
+                ty: SemType { value: field.ty.clone(), width: Some(field.size), alignment: Some(field.alignment) },
+                storage: SemDeclarationStorage::Scalar,
+                owner: Some(symbol.id), symbol: None, offset: Some(field.offset), span: field.span,
+            }).collect();
+            return vec![SemDeclaration {
+                ty: self.sem_type_from_symbol(&symbol), symbol,
+                storage: SemDeclarationStorage::Type { record_type: layout.record_type.clone(), fields },
+                initializer: None, static_initializer: None, span: decl.span, group_span: decl.span,
+            }];
+        }
         if let TypeDefinition::Enum(_) = &decl.definition {
             let symbol = self.symbol_ref(scope, &decl.name, decl.span).expect("validated enum symbol");
             let enum_type = self.model.enums.types[&symbol.id].clone();
@@ -2906,7 +2939,8 @@ impl<'a> IrBuilder<'a> {
         let callable = self.callable_type_for_callee(&SemCallable::User(symbol.clone()));
         let signature = SemRoutineSignature::from_callable_type(&callable);
 
-        SemRoutine {
+        debug_assert!(self.aggregate_locals.is_empty());
+        let mut lowered = SemRoutine {
             is_external: routine.is_external,
             callable_type: signature.callable_type(),
             activation: self.model.target_layout.routine_activation.into(),
@@ -2934,7 +2968,7 @@ impl<'a> IrBuilder<'a> {
             annotations: routine.annotations.clone(),
             effects: SemEffects::default(),
             control_flow: {
-                let facts = routine_control_flow_facts(routine);
+                let facts = routine_control_flow_with_variants(routine, &self.model.variants);
                 SemControlFlow {
                     always_returns: facts.always_returns,
                     may_fall_through: facts.may_fall_through,
@@ -2946,7 +2980,9 @@ impl<'a> IrBuilder<'a> {
             },
             span: routine.span,
             symbol,
-        }
+        };
+        lowered.locals.append(&mut self.aggregate_locals);
+        lowered
     }
 
     fn lower_params(&mut self, scope: ScopeId, params: &[VarDecl]) -> Vec<SemParam> {
@@ -3000,19 +3036,21 @@ impl<'a> IrBuilder<'a> {
                 // This is compiler-owned initialization, not source assignment.
                 access: PlaceAccess::Assignable, is_volatile: false, storage: None, span: *span,
             };
-            let initialization = if ty.value.is_record() {
-                self.lower_aggregate_copy(scope, target, value, *span)
+            let initialization = if self.aggregate_requires_validation(&ty.value) {
+                self.lower_checked_aggregate_assignment(scope, target, value, *span)
+            } else if ty.value.is_record() {
+                vec![self.lower_aggregate_copy(scope, target, value, *span)]
             } else {
-                SemStmt::Assign {
+                vec![SemStmt::Assign {
                     value: self.lower_scalar_value_for_expected_type(scope, &ty.value, value),
                     target, span: *span,
-                }
+                }]
             };
             let declaration = SemDeclaration {
                 symbol, ty, storage: SemDeclarationStorage::Scalar,
                 initializer: None, static_initializer: None, span: *span, group_span: *span,
             };
-            let mut body = vec![initialization];
+            let mut body = initialization;
             body.extend(self.lower_binding_statements(child, &statements[index + 1..]));
             output.push(SemStmt::LexicalBlock {
                 scope: scope_ref, declarations: vec![declaration], constants: Vec::new(), body, span: *span,
@@ -3024,6 +3062,7 @@ impl<'a> IrBuilder<'a> {
 
     fn lower_stmt(&mut self, scope: ScopeId, stmt: &Stmt) -> Vec<SemStmt> {
         match stmt {
+            Stmt::RuntimeFault { kind, span } => vec![SemStmt::Fault { kind: *kind, span: *span }],
             Stmt::Let { span, .. } => vec![SemStmt::Unsupported {
                 span: *span, note: "LET requires semantic statement-list lowering".into(),
             }],
@@ -3082,6 +3121,9 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             Stmt::Case { selector, arms, span } => {
+                if self.model.variants.matches.contains_key(&super::ExpressionSite::new(scope, *span)) {
+                    return self.lower_variant_case(scope, selector, arms, *span);
+                }
                 let labels = self.model.case_labels.get(&super::ExpressionSite {
                     scope, start: span.start, end: span.end,
                 }).expect("validated CASE labels").clone();
@@ -3106,7 +3148,9 @@ impl<'a> IrBuilder<'a> {
                 span,
             } => {
                 let destination = self.lower_lvalue(scope, target);
-                if destination.ty.is_record() {
+                if self.aggregate_requires_validation(&destination.ty) {
+                    self.lower_checked_aggregate_assignment(scope, destination, value, *span)
+                } else if destination.ty.is_record() {
                     vec![self.lower_aggregate_copy(scope, destination, value, *span)]
                 } else {
                     vec![SemStmt::Assign {
@@ -4711,7 +4755,7 @@ impl<'a> IrBuilder<'a> {
             | Stmt::Call { .. }
             | Stmt::MachineBlock { .. }
             | Stmt::InlineAsm { .. }
-            | Stmt::Unsupported { .. } => {}
+            | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
         }
     }
 

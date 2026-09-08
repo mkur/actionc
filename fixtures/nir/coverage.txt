@@ -36,6 +36,7 @@ DataAddressTargetAbsolute
 LocalPurposeStorage
 LocalPurposeAggregateBacking
 LocalPurposeRealTemporary
+LocalPurposeAggregateCapture
 StorageClassScalar
 StorageClassArray
 StorageDurationAutomatic
@@ -97,6 +98,7 @@ CalleeUser
 CalleeBuiltin
 CalleeIndirect
 CalleeRuntime
+CalleeFault
 ForeignLegacyMachineBlock
 ForeignInlineAssembly
 ForeignPayloadStructured

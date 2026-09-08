@@ -94,12 +94,15 @@ impl Generator {
                 kind: CodegenRuntimeBindingKind::CompilerHelper,
                 license: None,
             }));
-        let classic_runtime_requirements = self.used_default_runtime_helpers
+        let mut classic_runtime_requirements: Vec<String> = self.used_default_runtime_helpers
             .iter()
             .map(|helper| {
                 if helper.is_owned_division() { "Error" } else { helper.name() }.to_string()
             })
             .collect();
+        if self.uses_runtime_fault && !classic_runtime_requirements.iter().any(|name| name == "Error") {
+            classic_runtime_requirements.push("Error".into());
+        }
         let mut storage_symbols = self.layout.codegen_storage_symbols();
         storage_symbols.extend(self.storage_symbols);
         storage_symbols.sort_by(|left, right| {

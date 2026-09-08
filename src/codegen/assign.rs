@@ -348,7 +348,7 @@ impl Generator {
                 op: UnaryOp::AddressOf,
                 ..
             } => false,
-            ExprKind::Unary { expr, .. } => Self::expr_contains_indirect_lvalue(expr),
+            ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => Self::expr_contains_indirect_lvalue(expr),
             ExprKind::Binary { left, right, .. } => {
                 Self::expr_contains_indirect_lvalue(left)
                     || Self::expr_contains_indirect_lvalue(right)
@@ -369,7 +369,7 @@ impl Generator {
                 op: UnaryOp::AddressOf,
                 ..
             } => false,
-            ExprKind::Unary { expr, .. } => Self::expr_contains_indirect_lvalue(expr),
+            ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => Self::expr_contains_indirect_lvalue(expr),
             ExprKind::Binary { left, right, .. } => {
                 Self::expr_contains_indirect_lvalue(left)
                     || Self::expr_contains_indirect_lvalue(right)
@@ -774,7 +774,8 @@ impl Generator {
         if !self.segment_storage || target.space != AddressSpace::IndirectIndexedY {
             return false;
         }
-        if Self::expr_address_needs_nested_scratch(value) {
+        if Self::expr_address_needs_nested_scratch(value)
+            || self.expr_side_effect_facts(value).has_routine_call {
             return self.emit_staged_rhs_preserving_pointer(target, value);
         }
         // Nested binary operands are staged through the canonical Action!

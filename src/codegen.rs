@@ -1162,6 +1162,7 @@ struct Generator {
     machine_defines: HashMap<String, Vec<MachineItem>>,
     runtime_helpers: RuntimeHelperTargets,
     runtime_error_target: RuntimeHelperTarget,
+    uses_runtime_fault: bool,
     used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,
@@ -1534,7 +1535,7 @@ fn stmt_span(stmt: &Stmt) -> Span {
         | Stmt::While { span, .. }
         | Stmt::DoUntil { span, .. }
         | Stmt::For { span, .. }
-        | Stmt::Unsupported { span, .. } => *span,
+        | Stmt::Unsupported { span, .. } | Stmt::RuntimeFault { span, .. } => *span,
     }
 }
 
@@ -1563,6 +1564,7 @@ fn stmt_source_range_name(stmt: &Stmt) -> &'static str {
         Stmt::DoUntil { .. } => "do-until",
         Stmt::For { .. } => "for",
         Stmt::Unsupported { .. } => "unsupported",
+        Stmt::RuntimeFault { .. } => "runtime fault",
     }
 }
 

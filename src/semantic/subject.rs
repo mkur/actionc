@@ -34,6 +34,7 @@ impl SemExpr {
                 matches!(&callee.kind, SemCallableKind::FunctionValue(value) if value.any_place(predicate))
                     || args.iter().any(|value| value.any_place(predicate))
             }
+            SemExprKind::VariantConstructor { args, .. } => args.iter().any(|value| value.any_place(predicate)),
             SemExprKind::Literal(_) | SemExprKind::CurrentLocation | SemExprKind::AddressOfSymbol(_)
             | SemExprKind::Raw(_) | SemExprKind::Error => false,
         }
@@ -42,6 +43,7 @@ impl SemExpr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemExprKind {
+    VariantConstructor { constructor: super::VariantConstructorId, args: Vec<SemExpr> },
     Literal(SemLiteral),
     CurrentLocation,
     Load(Box<SemPlace>),

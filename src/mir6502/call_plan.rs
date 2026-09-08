@@ -123,6 +123,10 @@ fn lower_call_target(
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<MirCallTarget> {
     match callee {
+        NirCallee::Fault(_) => {
+            diagnostics.push(MirDiagnostic::block(routine, block, "fault must lower as a nonreturning helper"));
+            None
+        }
         NirCallee::User { id, name } => {
             if let Some(address) = routine_system_addresses.get(id) {
                 return Some(MirCallTarget::Runtime {

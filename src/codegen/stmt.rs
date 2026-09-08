@@ -101,6 +101,22 @@ impl Generator {
         }
         match stmt {
             Stmt::Define(define) => self.generate_define(define),
+            Stmt::RuntimeFault { kind: crate::runtime_fault::RuntimeFault::InvalidVariant, span } => {
+                self.uses_runtime_fault = true;
+                self.record_current_unknown_effects();
+                let body = crate::integer6502::fault_body();
+                for (offset, byte) in body.bytes.into_iter().enumerate() {
+                    if offset == body.error_operand {
+                        match &self.runtime_error_target {
+                            RuntimeHelperTarget::Absolute(address) => self.emitter.emit_u16_le(address.address()),
+                            RuntimeHelperTarget::Label(label) => self.emitter.emit_u16_label(label, *span),
+                        }
+                    } else if offset != body.error_operand + 1 {
+                        self.emitter.emit_u8(byte);
+                    }
+                }
+                self.invalidate_volatile_access_state();
+            }
             Stmt::Return(expr) => self.generate_return(expr.as_ref()),
             Stmt::Assign {
                 target,
@@ -214,7 +230,7 @@ impl Generator {
             | Stmt::Exit { .. }
             | Stmt::MachineBlock { .. }
             | Stmt::InlineAsm { .. }
-            | Stmt::Unsupported { .. } => false,
+            | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => false,
         }
     }
 
@@ -473,7 +489,7 @@ impl Generator {
                 | Stmt::For { .. }
                 | Stmt::Exit { .. }
                 | Stmt::Return(_)
-                | Stmt::Unsupported { .. } => return None,
+                | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => return None,
             }
         }
         None

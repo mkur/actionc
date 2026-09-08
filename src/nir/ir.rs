@@ -295,6 +295,8 @@ pub enum NirCompareOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NirCallee {
+    /// Compiler-owned non-returning runtime failure, not a user-callable ABI.
+    Fault(crate::runtime_fault::RuntimeFault),
     User {
         id: RoutineId,
         /// Readable backend/link name; `id` is the executable identity.

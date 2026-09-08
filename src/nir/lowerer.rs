@@ -377,7 +377,7 @@ impl NirLowerer {
                             let executable_init = activation == NirActivationModel::NativeReentrant
                                 && duration == NirStorageDuration::Automatic
                                 && matches!(backing, NirLocalBacking::Ordinary)
-                                && local.initializer.is_some();
+                                && (local.initializer.is_some() || local.static_initializer.is_some());
                             let init = if activation == NirActivationModel::ClassicStatic {
                                 load_time_init.clone()
                             } else {
@@ -1251,7 +1251,7 @@ fn collect_nested_declarations<'a>(
             | SemStmt::Call { .. }
             | SemStmt::MachineBlock { .. }
             | SemStmt::InlineAsm { .. }
-            | SemStmt::Unsupported { .. } => {}
+            | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
         }
     }
 }
@@ -1930,6 +1930,15 @@ impl NirBuilder {
 
     fn stmt(&mut self, stmt: &SemStmt, lowering: &mut NirLowerer) {
         match stmt {
+            SemStmt::Fault { kind, .. } => {
+                self.push(NirOp::Call {
+                    callee: NirCallee::Fault(*kind), args: Vec::new(), result: None, signature: None,
+                    effects: NirCallEffects { memory: NirMemoryEffects {
+                        reads: NirMemoryAccess::Unknown, writes: NirMemoryAccess::Unknown,
+                    }, may_call_external: true, opaque: true },
+                });
+                self.terminate(NirTerminator::Exit);
+            }
             SemStmt::Case { selector, arms, .. } => self.case_statement(selector, arms, lowering),
             SemStmt::LexicalBlock { body, .. } => self.stmt_list(body, lowering),
             SemStmt::Define(_) => {}
@@ -4093,7 +4102,7 @@ fn collect_machine_define_ids_from_stmt(
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
         | SemStmt::InlineAsm { .. }
-        | SemStmt::Unsupported { .. } => {}
+        | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
     }
 }
 
@@ -4151,7 +4160,7 @@ fn collect_machine_define_names_from_stmt(
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
         | SemStmt::InlineAsm { .. }
-        | SemStmt::Unsupported { .. } => {}
+        | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
     }
 }
 
@@ -4189,7 +4198,7 @@ fn collect_machine_defines_from_stmt(stmt: &SemStmt, defines: &mut MachineDefine
         | SemStmt::Call { .. }
         | SemStmt::MachineBlock { .. }
         | SemStmt::InlineAsm { .. }
-        | SemStmt::Unsupported { .. } => {}
+        | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
     }
 }
 

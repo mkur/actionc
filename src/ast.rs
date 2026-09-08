@@ -273,6 +273,14 @@ pub struct TypeDecl {
 pub enum TypeDefinition {
     Record(Vec<VarDecl>),
     Enum(Vec<EnumMember>),
+    Variant(Vec<VariantAlternative>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VariantAlternative {
+    pub name: String,
+    pub fields: Vec<VarDecl>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -454,6 +462,8 @@ pub struct LexicalBlockSyntaxId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
+    /// Compiler projection only; no source spelling introduces this statement.
+    RuntimeFault { kind: crate::runtime_fault::RuntimeFault, span: Span },
     Let {
         syntax_id: LexicalBlockSyntaxId,
         name: String,
@@ -538,6 +548,7 @@ pub struct IfBranch {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaseArm {
+    pub syntax_id: LexicalBlockSyntaxId,
     /// None is an explicit ELSE, not a missing default path.
     pub labels: Option<Vec<CaseLabel>>,
     pub body: Vec<Stmt>,

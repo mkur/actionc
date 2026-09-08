@@ -5,21 +5,23 @@ pub(super) const RECORD_COPY_ADDRESS_TEMP: &str = "$ACTIONC_RECORD_COPY_ADDRESS"
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct ClassicRecordCopyFacts {
-    statements: HashMap<(String, usize, usize), u16>,
+    statements: HashMap<(String, usize, usize), Vec<(Expr, Expr, u16)>>,
 }
 
 impl ClassicRecordCopyFacts {
-    pub(super) fn insert(&mut self, scope: Option<&str>, span: Span, size: u16) {
-        self.statements.insert(
-            (scope.unwrap_or_default().to_owned(), span.start, span.end),
-            size,
-        );
+    pub(super) fn insert(&mut self, scope: Option<&str>, span: Span, target: Expr, source: Expr, size: u16) {
+        // Several compiler-generated operations can share a source span. A
+        // span is provenance, not an instruction identity: only the exact
+        // projected transfer carries this resolved width.
+        self.statements.entry((scope.unwrap_or_default().to_owned(), span.start, span.end))
+            .or_default().push((target, source, size));
     }
 
-    pub(super) fn statement_size(&self, scope: Option<&str>, span: Span) -> Option<u16> {
+    pub(super) fn statement_size(&self, scope: Option<&str>, span: Span, target: &Expr, source: &Expr) -> Option<u16> {
         self.statements
             .get(&(scope.unwrap_or_default().to_owned(), span.start, span.end))
-            .copied()
+            .and_then(|entries| entries.iter().find(|(a, b, _)| a == target && b == source))
+            .map(|(_, _, size)| *size)
     }
 
     pub(super) fn is_empty(&self) -> bool {
@@ -36,7 +38,7 @@ impl Generator {
     ) -> Option<bool> {
         let size = self
             .record_copies
-            .statement_size(self.current_record_copy_scope.as_deref(), span)?;
+            .statement_size(self.current_record_copy_scope.as_deref(), span, target, value)?;
         let scratch = self.lookup_slot(RECORD_COPY_TEMP)?;
         let saved_destination = self.lookup_slot(RECORD_COPY_ADDRESS_TEMP)?;
         if size == 0

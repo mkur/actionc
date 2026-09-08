@@ -668,3 +668,34 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   AES XEX and assembly remain byte-identical to baseline (4,211 XEX bytes).
 - Variants, construction/matching and recursive variant execution remain slices
   3–4; their public gate is still closed.
+
+### Slice 3 implemented — 2026-09-08
+
+- Opened modern monomorphic variants after construction, snapshots, whole-value
+  replacement and flat matching passed classic/MIR6502 execution in both Atari
+  runtimes, including raw and optimized NIR paths.
+- Canonical alternatives share the nominal record dependency/layout machinery.
+  The SemIR builder retains resolved constructor/field/binder IDs until checking
+  projection ownership, membership, exact type and extent, then lowers through
+  ordinary typed captures, copies, stores and dispatch. No per-backend pattern
+  reconstruction or string-based NIR operation was added.
+- BYTE tags reserve zero, with 1..255 valid alternatives. Storage zeroing follows
+  load/activation lifetime, not every Atari call. Construction stages arguments
+  left to right and writes a complete zero-padded value only after preparation.
+  Active nested values validate before consumption; pointers/inactive payloads
+  are not traversed. Flat bindings are immutable, scoped to their arms, and
+  exhaustive matches contribute correct RETURN/EXIT flow.
+- Added a verifier-enforced terminal Fault call and shared Error(100) helper,
+  including the returning-handler guard. Native construction and zero-lifetime
+  canaries pass; native fault calls explicitly await a target Error adapter.
+- Hardened classic projection against source-span reuse for generated transfers
+  and heterogeneous temporary declarations. General cast/call RHS staging now
+  preserves already-evaluated indirect destinations.
+- Verification: 149 locked VM tests pass, including mixed REAL/enum/pointer
+  payloads, 257-byte nested array snapshots, malformed tags, both overlap
+  directions, effectful destination selection, tag 255 and routine-static
+  persistence. Compiler library (2,459 tests), eight variant semantic/IR tests,
+  39 NIR sources and 167 MIR6502 sources pass. Added lowered/optimized variant
+  snapshots and capture/fault feature coverage; existing snapshots are unchanged.
+- Aggregate calls/results, generic types, nested patterns and guards remain
+  independently gated. Slice 4 adds recursive-data examples and execution.

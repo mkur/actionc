@@ -21,6 +21,8 @@ pub use case::CaseRange;
 mod declarations;
 mod enums;
 pub use enums::{EnumFacts, EnumIdentity, EnumMemberValue, EnumType, EnumValue};
+mod variants;
+pub use variants::{VariantConstructorId, VariantConstructor, VariantType, VariantFacts};
 mod initializers;
 mod let_binding;
 mod static_addresses;
@@ -45,6 +47,7 @@ pub use types::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticModel {
     pub enums: EnumFacts,
+    pub variants: VariantFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
@@ -464,6 +467,7 @@ impl SemanticOptions {
             embedded_record_arrays: true,
             algebraic_types: AlgebraicTypeCapabilities {
                 aggregate_values: true,
+                variants: true,
                 ..AlgebraicTypeCapabilities::DISABLED
             },
             target: TargetId::Atari6502,
@@ -586,6 +590,7 @@ impl Analyzer {
         }
         Ok(SemanticModel {
             enums: self.enums,
+            variants: self.variants,
             resolved_casts: self.resolved_casts,
             for_step_constants: self.for_step_constants,
             case_labels: self.case_labels,
@@ -615,6 +620,7 @@ impl Analyzer {
 
 struct Analyzer {
     enums: EnumFacts,
+    variants: VariantFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
@@ -697,6 +703,7 @@ impl Analyzer {
         Self {
             options,
             enums: EnumFacts::default(),
+            variants: VariantFacts::default(),
             resolved_casts: HashMap::new(),
             for_step_constants: HashMap::new(),
             case_labels: HashMap::new(),
@@ -1758,7 +1765,7 @@ impl Analyzer {
                 self.validate_for_operands(scope, target, start, end, step.as_ref(), *span);
                 self.analyze_statements(scope, body, context.inside_loop());
             }
-            Stmt::Exit { .. } | Stmt::Unsupported { .. } => {}
+            Stmt::Exit { .. } | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
         }
     }
 
@@ -1824,6 +1831,9 @@ impl Analyzer {
     fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
         let diagnostic_count = self.diagnostics.len();
         let condition = self.expect_expr_in_context(scope, expr, expr.span, true);
+        if self.contains_variant(&condition.ty) {
+            self.diagnostics.push(Diagnostic::new(expr.span, "variant values are not truth values; use CASE"));
+        }
         if condition.ty.as_enum().is_some() {
             self.diagnostics.push(Diagnostic::new(expr.span, "enum values are not truth values; compare explicitly"));
         }
@@ -1936,7 +1946,7 @@ impl Analyzer {
         {
             return;
         }
-        let flow = routine_control_flow_facts(routine);
+        let flow = routine_control_flow_with_variants(routine, &self.variants);
         if flow.may_fall_through {
             self.diagnostics.push(Diagnostic::new(
                 routine.span,
@@ -1953,6 +1963,10 @@ impl Analyzer {
         span: Span,
     ) {
         let target_place = self.expect_place(scope, target, span);
+        if self.active_routine_symbol.is_none() && self.contains_variant(&target_place.ty) {
+            self.diagnostics.push(Diagnostic::new(span, "variant assignment requires runtime code inside a routine"));
+            return;
+        }
         if self.reject_read_only_write(&target_place, span) { return; }
         if self.reject_inline_array_target(&target_place, span) {
             return;
@@ -1979,6 +1993,13 @@ impl Analyzer {
             return;
         }
         if expected.is_record() {
+            let value = self.lower_expr_for_expected_type(scope, value_expr, Some(expected));
+            if matches!(value.kind, subject::SemExprKind::VariantConstructor { .. }) {
+                if value.ty != *expected {
+                    self.diagnostics.push(Diagnostic::new(value.span, "aggregate assignment requires the exact nominal type"));
+                }
+                return;
+            }
             let Some(source_place) = self.record_assignment_source(scope, value_expr) else {
                 return;
             };
@@ -1998,6 +2019,11 @@ impl Analyzer {
         let value = self.lower_expr_for_expected_type(scope, value_expr, Some(expected));
         let actual = &value.ty;
         if actual.is_error() {
+            return;
+        }
+        if self.contains_variant(actual) {
+            self.diagnostics.push(Diagnostic::new(value.span,
+                "variant values require exact nominal aggregate assignment; use an explicit typed pointer for their address"));
             return;
         }
         if !expected.pointer && (expected.as_enum().is_some() || actual.as_enum().is_some()) && expected != actual {
@@ -2563,6 +2589,12 @@ impl Analyzer {
                 })
             }
             ExprKind::Call { callee, args }
+                if self.variant_constructor_head(scope, callee).is_some() =>
+            {
+                let (owner, name) = self.variant_constructor_head(scope, callee).unwrap();
+                self.variant_constructor_subject(scope, owner, &name, Some(args), expr.span)
+            }
+            ExprKind::Call { callee, args }
                 if self.layout_intrinsic_for_callee(scope, callee).is_some() =>
             {
                 let intrinsic = self
@@ -2651,7 +2683,9 @@ impl Analyzer {
                 })
             }
             ExprKind::Field { base, field } => {
-                if let Some(subject) = self.enum_member_subject(scope, base, field, expr.span) {
+                if let Some(owner) = self.variant_type_for_expr(scope, base) {
+                    self.variant_constructor_subject(scope, owner, field, None, expr.span)
+                } else if let Some(subject) = self.enum_member_subject(scope, base, field, expr.span) {
                     subject
                 } else if let Some(subject) =
                     self.classify_module_member_subject(scope, base, field, expr.span)
@@ -3496,6 +3530,9 @@ impl Analyzer {
 
     fn record_sem_expr(&mut self, expr: &subject::SemExpr) {
         match &expr.kind {
+            subject::SemExprKind::VariantConstructor { args, .. } => {
+                for arg in args { self.record_sem_expr(arg); }
+            }
             subject::SemExprKind::Load(place) => {
                 self.record_sem_place_with_class(place, ExprClass::LValue);
                 return;
@@ -3863,6 +3900,12 @@ impl Analyzer {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
             Decl::Const(constants) => self.analyze_const_decl(scope, constants),
             Decl::Type(type_decl) => {
+                if let TypeDefinition::Variant(alternatives) = &type_decl.definition {
+                    if let Some(owner) = self.declare(scope, type_decl.name.clone(), SymbolClass::Type, None, type_decl.span) {
+                        self.define_variant(scope, owner, alternatives, type_decl.span);
+                    }
+                    return;
+                }
                 if let TypeDefinition::Enum(members) = &type_decl.definition {
                     if let Some(owner) = self.declare(scope, type_decl.name.clone(), SymbolClass::Type, None, type_decl.span) {
                         self.define_enum(scope, owner, members, type_decl.span);
@@ -4039,6 +4082,7 @@ impl Analyzer {
     fn validate_predeclared_var(&mut self, scope: ScopeId, declaration: &VarDecl) {
         self.validate_type_ref(scope, &declaration.ty, declaration.span);
         let ty = self.value_type_from_type_ref(scope, &declaration.ty);
+        self.validate_variant_storage(&ty, declaration);
         if declaration.qualifiers.is_volatile && declaration.ty.pointer {
             self.diagnostics.push(Diagnostic::new(
                 declaration.span,
@@ -4247,6 +4291,12 @@ impl Analyzer {
         span: Span,
     ) -> Option<FieldDescriptorFacts> {
         let base = base?;
+        if base.as_aggregate_identity().and_then(|id| id.symbol)
+            .is_some_and(|owner| self.variants.types.contains_key(&owner))
+        {
+            self.diagnostics.push(Diagnostic::new(span, "variant payloads and tags are not fields; use CASE to access a payload"));
+            return None;
+        }
         if !self.ensure_named_record_layout(base, span) {
             return None;
         }
@@ -4373,6 +4423,7 @@ impl Analyzer {
         self.validate_type_ref(scope, &decl.ty, decl.span);
         let resolved_ty = self.value_type_from_type_ref(scope, &decl.ty);
         if !resolved_ty.pointer && !self.ensure_named_record_layout(&resolved_ty, decl.span) { return; }
+        self.validate_variant_storage(&resolved_ty, decl);
         let ty = Some(resolved_ty.clone());
 
         if is_param && resolved_ty.is_real() {
@@ -5644,7 +5695,7 @@ fn evaluate_exact_fixed_address_expr(
         subject::SemExprKind::Load(_)
         | subject::SemExprKind::AddressOf(_)
         | subject::SemExprKind::AddressOfSymbol(_) => Err(FixedArrayAddressError::Relocatable),
-        subject::SemExprKind::Call { .. } => Err(FixedArrayAddressError::RuntimeDependent),
+        subject::SemExprKind::Call { .. } | subject::SemExprKind::VariantConstructor { .. } => Err(FixedArrayAddressError::RuntimeDependent),
         subject::SemExprKind::Literal(subject::SemLiteral::Real { .. })
         | subject::SemExprKind::Literal(subject::SemLiteral::String(_))
         | subject::SemExprKind::CurrentLocation
@@ -5788,6 +5839,7 @@ fn evaluate_const_expr_for_layout(expr: &subject::SemExpr, layout: TargetLayout)
         subject::SemExprKind::Load(_)
         | subject::SemExprKind::AddressOf(_)
         | subject::SemExprKind::AddressOfSymbol(_)
+        | subject::SemExprKind::VariantConstructor { .. }
         | subject::SemExprKind::Call { .. } => {
             return Err("CONST expression depends on a runtime value".to_string());
         }
@@ -5989,9 +6041,19 @@ fn is_action_reference_expr(expr: &Expr) -> bool {
     )
 }
 
+#[cfg(test)]
 pub(super) fn routine_control_flow_facts(routine: &Routine) -> RoutineControlFlowFacts {
+    routine_control_flow_with_cases(routine, &|_| false)
+}
+
+pub(super) fn routine_control_flow_with_variants(routine: &Routine, variants: &VariantFacts) -> RoutineControlFlowFacts {
+    routine_control_flow_with_cases(routine, &|span| variants.matches.keys()
+        .any(|site| site.start == span.start && site.end == span.end))
+}
+
+fn routine_control_flow_with_cases(routine: &Routine, exhaustive: &dyn Fn(Span) -> bool) -> RoutineControlFlowFacts {
     if routine_uses_machine_return(routine) {
-        let body = statement_list_flow_facts(&routine.body, 0);
+        let body = statement_list_flow_with_cases(&routine.body, 0, exhaustive);
         return RoutineControlFlowFacts {
             may_fall_through: false,
             always_returns: true,
@@ -6002,7 +6064,7 @@ pub(super) fn routine_control_flow_facts(routine: &Routine) -> RoutineControlFlo
         };
     }
 
-    let body = statement_list_flow_facts(&routine.body, 0);
+    let body = statement_list_flow_with_cases(&routine.body, 0, exhaustive);
     RoutineControlFlowFacts {
         may_fall_through: body.may_continue,
         always_returns: body.always_returns,
@@ -6013,12 +6075,12 @@ pub(super) fn routine_control_flow_facts(routine: &Routine) -> RoutineControlFlo
     }
 }
 
-pub(super) fn statement_list_flow_facts(statements: &[Stmt], loop_depth: usize) -> StmtFlowFacts {
+fn statement_list_flow_with_cases(statements: &[Stmt], loop_depth: usize, exhaustive: &dyn Fn(Span) -> bool) -> StmtFlowFacts {
     let mut facts = StmtFlowFacts::empty_continuing();
     let mut reachable = true;
 
     for stmt in statements {
-        let stmt = stmt_flow_facts(stmt, loop_depth);
+        let stmt = stmt_flow_facts(stmt, loop_depth, exhaustive);
         facts.may_return |= stmt.may_return;
         facts.may_exit_loop |= stmt.may_exit_loop;
         facts.contains_loop |= stmt.contains_loop;
@@ -6042,13 +6104,17 @@ pub(super) fn routine_uses_machine_return(routine: &Routine) -> bool {
             .any(|stmt| matches!(stmt, Stmt::MachineBlock { .. } | Stmt::InlineAsm { .. }))
 }
 
-fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
+fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize, exhaustive: &dyn Fn(Span) -> bool) -> StmtFlowFacts {
     match stmt {
-        Stmt::Case { arms, .. } => case::case_flow_facts(
-            arms.iter().map(|arm| statement_list_flow_facts(&arm.body, loop_depth)),
-            arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
+        Stmt::RuntimeFault { .. } => StmtFlowFacts {
+            may_continue: false, may_return: false, always_returns: false,
+            may_exit_loop: false, contains_loop: false, max_loop_depth: loop_depth,
+        },
+        Stmt::Case { arms, span, .. } => case::case_flow_facts(
+            arms.iter().map(|arm| statement_list_flow_with_cases(&arm.body, loop_depth, exhaustive)),
+            exhaustive(*span) || arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
         ),
-        Stmt::LexicalBlock { body, .. } => statement_list_flow_facts(body, loop_depth),
+        Stmt::LexicalBlock { body, .. } => statement_list_flow_with_cases(body, loop_depth, exhaustive),
         Stmt::Return(_) => StmtFlowFacts {
             may_continue: false,
             may_return: true,
@@ -6069,9 +6135,9 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
             branches,
             else_body,
             ..
-        } => if_flow_facts(branches, else_body, loop_depth),
+        } => if_flow_facts(branches, else_body, loop_depth, exhaustive),
         Stmt::While { body, .. } | Stmt::For { body, .. } => {
-            let body = statement_list_flow_facts(body, loop_depth + 1);
+            let body = statement_list_flow_with_cases(body, loop_depth + 1, exhaustive);
             StmtFlowFacts {
                 may_continue: true,
                 may_return: body.may_return,
@@ -6084,7 +6150,7 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
         Stmt::DoUntil {
             body, condition, ..
         } => {
-            let body = statement_list_flow_facts(body, loop_depth + 1);
+            let body = statement_list_flow_with_cases(body, loop_depth + 1, exhaustive);
             let has_condition = condition.is_some();
             StmtFlowFacts {
                 may_continue: body.may_exit_loop || (has_condition && body.may_continue),
@@ -6106,7 +6172,7 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize) -> StmtFlowFacts {
     }
 }
 
-fn if_flow_facts(branches: &[IfBranch], else_body: &[Stmt], loop_depth: usize) -> StmtFlowFacts {
+fn if_flow_facts(branches: &[IfBranch], else_body: &[Stmt], loop_depth: usize, exhaustive: &dyn Fn(Span) -> bool) -> StmtFlowFacts {
     let mut facts = StmtFlowFacts {
         may_continue: else_body.is_empty(),
         may_return: false,
@@ -6117,7 +6183,7 @@ fn if_flow_facts(branches: &[IfBranch], else_body: &[Stmt], loop_depth: usize) -
     };
 
     for branch in branches {
-        let branch = statement_list_flow_facts(&branch.body, loop_depth);
+        let branch = statement_list_flow_with_cases(&branch.body, loop_depth, exhaustive);
         facts.may_continue |= branch.may_continue;
         facts.may_return |= branch.may_return;
         facts.may_exit_loop |= branch.may_exit_loop;
@@ -6127,7 +6193,7 @@ fn if_flow_facts(branches: &[IfBranch], else_body: &[Stmt], loop_depth: usize) -
 
     let has_else = !else_body.is_empty();
     if has_else {
-        let else_facts = statement_list_flow_facts(else_body, loop_depth);
+        let else_facts = statement_list_flow_with_cases(else_body, loop_depth, exhaustive);
         facts.may_continue |= else_facts.may_continue;
         facts.may_return |= else_facts.may_return;
         facts.may_exit_loop |= else_facts.may_exit_loop;
@@ -10835,7 +10901,7 @@ mod tests {
                 }
                 assert_semir_stmt_list_types(body);
             }
-            ir::SemStmt::Unsupported { .. } => {}
+            ir::SemStmt::Unsupported { .. } | ir::SemStmt::Fault { .. } => {}
         }
     }
 

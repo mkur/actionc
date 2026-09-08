@@ -1205,6 +1205,30 @@ Target-specific optimizations such as zero-page placement, compare/branch flag
 fusion, indexed addressing selection, helper selection, and peepholes belong in
 MIR6502 or later.
 
+## Nonreturning runtime faults
+
+`NirCallee::Fault(InvalidVariant)` is a compiler-owned nonreturning call, not a
+user-callable routine or a missing callable signature. Verification requires
+no arguments, result or signature; unknown read/write effects, external/opaque
+effects; and placement as the final operation of an Exit block. Ordinary calls
+still require signatures. This preserves all observable stores before failure
+and forbids a continuation after it.
+
+Variant construction and matching erase in shared SemIR lowering after nominal
+constructor/projection checks. NIR uses ordinary typed capture locals,
+overlap-safe CopyBytes, canonical field offsets, ordered stores and CFG.
+Contiguous valid tags without inline nested variants use one existing CASE
+interval. Active inline nested values are validated recursively; pointers are
+never followed. A semantic zero image without a source initializer is still an
+executable native activation initializer, including one-/two-byte aggregates.
+
+MIR6502 maps InvalidVariant to a private helper using the existing Error(100)
+convention: A=100, X=0, Y=100. Both Atari runtime linkers select the real Error
+entry independently of user routine names. If Error returns, a defensive guard
+clears decimal mode and stops. Native construction/layout lowering is supported;
+native fault calls explicitly require an Error adapter and are diagnosed until
+that target runtime contract exists.
+
 ## Red Lines
 
 Do not consider NIR complete while any of these are true:
@@ -1212,7 +1236,8 @@ Do not consider NIR complete while any of these are true:
 - optimizer passes run on legacy/stringly NIR shapes;
 - MIR6502 consults SemIR to recover missing NIR facts;
 - executable field/index forms preserve source syntax instead of semantic facts;
-- calls lack signatures or conservative effects;
+- ordinary calls lack signatures or conservative effects, or compiler faults
+  fail their explicit terminal-call contract;
 - machine blocks lack payload/effect handling or an explicit unsupported barrier;
 - cross-block temp use is not verified;
 - branch conditions are not typed or explicitly tested;

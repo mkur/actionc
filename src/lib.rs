@@ -25,6 +25,7 @@ pub mod parser;
 pub mod resident;
 pub mod runner;
 pub mod runtime;
+pub mod runtime_fault;
 pub(crate) mod runtime_bindings;
 pub(crate) mod runtime_link_manifest;
 pub(crate) mod runtime_source;

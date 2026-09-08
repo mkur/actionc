@@ -74,6 +74,8 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("bare_do"),
     lowered_atari_case!("calls_returns"),
     lowered_atari_case!("case_dispatch"),
+    lowered_atari_case!("variant_match"),
+    optimized_atari_case!("variant_match"),
     optimized_atari_case!("case_dispatch"),
     lowered_atari_case!("case_ranges"),
     optimized_atari_case!("case_ranges"),
@@ -496,6 +498,7 @@ pub enum NirFeature {
     CalleeBuiltin,
     CalleeIndirect,
     CalleeRuntime,
+    CalleeFault,
     ForeignLegacyMachineBlock,
     ForeignInlineAssembly,
     ForeignPayloadStructured,
@@ -604,6 +607,7 @@ pub const REQUIRED_EXECUTABLE_FEATURES: &[NirFeature] = &[
     NirFeature::CalleeBuiltin,
     NirFeature::CalleeIndirect,
     NirFeature::CalleeRuntime,
+    NirFeature::CalleeFault,
     NirFeature::PlaceParam,
     NirFeature::PlaceLocal,
     NirFeature::PlaceGlobal,
@@ -1167,6 +1171,7 @@ fn visit_callee(callee: &NirCallee, features: &mut BTreeSet<NirFeature>) {
             NirFeature::CalleeIndirect
         }
         NirCallee::Runtime { .. } => NirFeature::CalleeRuntime,
+        NirCallee::Fault(_) => NirFeature::CalleeFault,
     };
     features.insert(feature);
 }

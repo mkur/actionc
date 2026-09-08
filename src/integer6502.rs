@@ -27,6 +27,10 @@ impl IntegerHelperBody {
     }
 }
 
+pub(crate) fn fault_body() -> IntegerHelperBody {
+    assemble_body(&fault_source())
+}
+
 fn fault_source() -> String {
     format!(
         "LDY #{INVALID_ARGUMENT_ERROR}\nTYA\nLDX #0\nJSR Error\n\

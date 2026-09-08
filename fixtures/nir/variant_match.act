@@ -1,0 +1,13 @@
+TYPE Status=VARIANT [EMPTY VALUE [BYTE value]]
+Status current
+BYTE result
+
+PROC Main()
+  current=Status.VALUE(7)
+  CASE current OF
+  WHEN Status.EMPTY THEN
+    result=0
+  WHEN Status.VALUE(value) THEN
+    result=value
+  ESAC
+RETURN

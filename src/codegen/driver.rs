@@ -259,6 +259,7 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
         machine_defines,
         runtime_helpers: RuntimeHelperTargets::default_for_target(runtime_target),
         runtime_error_target,
+        uses_runtime_fault: false,
         used_default_runtime_helpers: BTreeSet::new(),
         routine_assignment_targets,
         local_symbols: HashMap::new(),
@@ -429,7 +430,7 @@ fn unprojected_enum_span(program: &Program) -> Option<Span> {
     fn declaration(decl: &Decl) -> Option<Span> {
         match decl {
             Decl::Type(decl) => match &decl.definition {
-                TypeDefinition::Enum(_) => Some(decl.span),
+                TypeDefinition::Enum(_) | TypeDefinition::Variant(_) => Some(decl.span),
                 TypeDefinition::Record(fields) => fields.iter().find_map(variable),
             },
             Decl::Record(decl) => decl.fields.iter().find_map(variable),

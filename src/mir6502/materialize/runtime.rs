@@ -51,6 +51,11 @@ pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
 /// a register-pair input and a separately homed zero-page word input.
 pub(in crate::mir6502) fn helper_abi_for(helper: MirRuntimeHelper) -> MirCallAbi {
     let mut abi = helper_abi();
+    if helper == MirRuntimeHelper::InvalidVariant {
+        abi.params.clear();
+        abi.result = None;
+        return abi;
+    }
     if helper.is_wide() {
         abi.params = [0x82, 0x84, 0xC0, 0xC2].into_iter().map(|low| MirArgHome::BytePair {
             lo: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(low))),
@@ -128,6 +133,7 @@ pub(in crate::mir6502) fn helper_additional_results(
 pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHome> {
     let mut args = vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)];
     match helper {
+        MirRuntimeHelper::InvalidVariant => return Vec::new(),
         MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
         | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => {
             return (0x82..=0x85).chain(0xC0..=0xC3)
@@ -161,7 +167,7 @@ pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHo
 
 pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffects {
     let mut effects = helper_return_effects(helper);
-    if super::super::runtime::is_division(*helper) {
+    if super::super::runtime::requires_error(*helper) {
         effects.memory_reads = MirMemoryEffect::Unknown;
         effects.memory_writes = MirMemoryEffect::Unknown;
         effects.may_call_os = true;
@@ -173,6 +179,7 @@ pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffect
 /// handler's observable effects on a non-returning path.
 pub(in crate::mir6502) fn helper_return_effects(helper: &MirRuntimeHelper) -> MirEffects {
     let (memory_reads, memory_writes) = match helper {
+        MirRuntimeHelper::InvalidVariant => (MirMemoryEffect::Unknown, MirMemoryEffect::Unknown),
         MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
         | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => (
             zero_page_effect(&[(0x82, 4), (0xC0, 4)]),
@@ -683,6 +690,7 @@ pub(super) fn materialize_runtime_helper_binary(
             );
         }
         MirRuntimeHelper::SArgs => {}
+        MirRuntimeHelper::InvalidVariant => unreachable!("fault has no binary operands"),
         MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
         | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => {
             unreachable!("wide helper operands are legalized as word lanes")

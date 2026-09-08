@@ -762,6 +762,7 @@ fn memory_region_summary(region: &NirMemoryRegion) -> String {
 
 fn callee_summary(callee: &NirCallee) -> String {
     match callee {
+        NirCallee::Fault(kind) => format!("fault::{kind:?}"),
         NirCallee::User { name, .. } | NirCallee::Builtin(name) => name.clone(),
         NirCallee::Indirect { target, .. } => format!("indirect({})", value_summary(target)),
         NirCallee::Runtime { symbol, name } => format!("{name}[rs{}]", symbol.0),

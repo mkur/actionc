@@ -567,6 +567,37 @@ Modern profile may eventually add extensions, but they should be explicit and
 reported as modern behavior. They should not silently change the default meaning
 of Action! source.
 
+## Monomorphic variant values
+
+Modern `TYPE Name=VARIANT [EMPTY VALUE [BYTE value]]` declarations define
+nominal alternatives. Qualified constructors are runtime values: nullary
+constructors omit parentheses; payload arguments are positional and captured
+once, left to right. Assignment captures its destination address first, stages
+the complete RHS, then replaces the whole destination. Payload/tag fields are
+not source lvalues. Ordinary records, embedded arrays and typed pointers reuse
+their existing layouts and aggregate-copy semantics.
+
+Tags are BYTE on every target: 1..255 in declaration order; zero is invalid.
+Construction zeros padding/inactive payload bytes and writes the tag last.
+Variant-containing declarations have an explicit zero image: load time for
+Atari routine-static/global storage, activation entry for native automatic
+storage. Immutable captures initialize at execution, not activation entry.
+Direct volatile, absolute/alias and static-initializer variant declarations are
+rejected. Typed pointers can address low-level memory; copying or matching such
+a value still validates its tag, but does not establish pointer lifetime/safety.
+
+Flat CASE patterns resolve constructor IDs, canonical field IDs and immutable
+arm-local symbol IDs. Bindings or `_` discard each payload; nested patterns and
+guards remain gated. Every valid alternative must be covered or a final ELSE
+provided. Invalid tags fault before any arm, including ELSE. Exhaustive returning
+matches count toward function return coverage; pointer payloads are not followed.
+
+The shared SemIR builder captures and validates source values, checks projection
+owner, constructor membership, exact nominal type and canonical extent, and only
+then erases patterns into typed copies, field projections and dispatch. NIR
+receives no pattern strings or backend-specific aggregate ABI. Aggregate
+parameters/results, generics and guards retain separate closed gates.
+
 ## Current Implementation Gaps
 
 Known gaps between these invariants and the current implementation:

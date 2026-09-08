@@ -665,6 +665,11 @@ fn lower_op(
             signature,
             ..
         } => {
+            if matches!(callee, NirCallee::Fault(_)) {
+                diagnostics.push(diagnostic(Some(&routine.name), Some(block),
+                    "invalid-variant runtime fault requires a native target Error adapter"));
+                return None;
+            }
             let Some(signature) = signature.as_ref() else {
                 diagnostics.push(diagnostic(
                     Some(&routine.name),
@@ -946,6 +951,7 @@ fn lower_callee(
     code_width: ByteSize,
 ) -> Mir68kCallTarget {
     match callee {
+        NirCallee::Fault(_) => unreachable!("fault diagnosed before native call planning"),
         NirCallee::User { id, .. } => Mir68kCallTarget::Direct(id.0),
         NirCallee::Builtin(name) => Mir68kCallTarget::Builtin(name.clone()),
         NirCallee::Runtime { symbol, .. } => Mir68kCallTarget::Runtime(*symbol),

@@ -21,6 +21,7 @@ struct LayoutDeclaration {
 #[derive(Clone)]
 enum LayoutDeclarationKind {
     Enum { members: Vec<EnumMember>, span: Span },
+    Variant { alternatives: Vec<crate::ast::VariantAlternative>, span: Span },
     Record {
         name: String,
         fields: Vec<VarDecl>,
@@ -60,6 +61,9 @@ impl Analyzer {
                         TypeDefinition::Enum(members) => LayoutDeclarationKind::Enum {
                             members: members.clone(), span: decl.span,
                         },
+                        TypeDefinition::Variant(alternatives) => LayoutDeclarationKind::Variant {
+                            alternatives: alternatives.clone(), span: decl.span,
+                        },
                     };
                     (&decl.name, SymbolClass::Type, decl.span, kind)
                 }
@@ -94,6 +98,13 @@ impl Analyzer {
             for item in &region.items {
                 match item {
                     Item::Declaration(Decl::Type(decl)) => {
+                        if let TypeDefinition::Variant(alternatives) = &decl.definition {
+                            if let Some(id) = self.register_named_layout_declaration(scope, &decl.name,
+                                LayoutDeclarationKind::Variant { alternatives: alternatives.clone(), span: decl.span }) {
+                                records.push(id);
+                            }
+                            continue;
+                        }
                         if let TypeDefinition::Enum(members) = &decl.definition {
                             if let Some(id) = self.register_named_layout_declaration(scope, &decl.name, LayoutDeclarationKind::Enum { members: members.clone(), span: decl.span }) {
                                 records.push(id);
@@ -267,6 +278,7 @@ impl Analyzer {
         let diagnostic_count = self.diagnostics.len();
         match kind {
             LayoutDeclarationKind::Enum { members, span } => self.define_enum(scope, id, &members, span),
+            LayoutDeclarationKind::Variant { alternatives, span } => self.define_variant(scope, id, &alternatives, span),
             LayoutDeclarationKind::Record { name, fields } => {
                 self.validate_predeclared_record_type(scope, &name, &fields);
             }

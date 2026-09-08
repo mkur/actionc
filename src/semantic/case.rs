@@ -45,6 +45,10 @@ impl Analyzer {
             return;
         }
         let selector = self.lower_expr(scope, selector);
+        if self.variant_for_type(&selector.ty).is_some() {
+            self.analyze_variant_case(scope, &selector.ty, arms, span, context);
+            return;
+        }
         let Some(scalar) = selector.ty.representation_scalar() else {
             self.diagnostics.push(Diagnostic::new(
                 span,

@@ -1,0 +1,68 @@
+nir program
+global Status: type RecordType { name: "Status", fields: [RecordFieldType { id: Some(FieldId(1)), name: "__variant_tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(0)), name: "__variant_2_0", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 1 }], size: 2 } fields=2
+global current: Status init bytes=[] zero_fill=2 section=global mutable=true
+global result: Byte
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_0, __actionc_value_1, __actionc_value_2, __actionc_value_3, __actionc_value_4, Main::block1::value]
+  local __actionc_value_0: Status* duration=routine-static size=2 align=1
+  local __actionc_value_1: Status duration=routine-static size=2 align=1 purpose=aggregate-capture
+  local __actionc_value_2: Byte* duration=routine-static size=2 align=1
+  local __actionc_value_3: Size duration=routine-static size=2 align=1
+  local __actionc_value_4: Status duration=routine-static size=2 align=1 purpose=aggregate-capture
+  local Main::block1::value: Byte duration=routine-static size=1 align=1
+bb0:
+  %t0:Status* = addr current
+  store __actionc_value_0 = %t0
+  %t1:Status* = addr __actionc_value_1
+  %t2:Byte* = cast Status* -> Byte* %t1
+  store __actionc_value_2 = %t2
+  store __actionc_value_3 = $0
+  goto bb1
+bb1:
+  %t3:Size = load __actionc_value_3
+  %t4:condition = cmp %t3 Le $1 operand_ty=Size
+  branch %t4 ? bb2 : bb3
+bb2:
+  %t5:Byte* = load __actionc_value_2
+  %t6:Size = load __actionc_value_3
+  store %t5[%t6;1] = 0
+  %t7:Size = load __actionc_value_3
+  %t8:Size = %t7 Add 1
+  store __actionc_value_3 = %t8
+  goto bb1
+bb3:
+  store __actionc_value_1.+1 = 7
+  store __actionc_value_1.+0 = 2
+  %t9:Status* = load __actionc_value_0
+  copy_bytes *%t9 = __actionc_value_1 size=2
+  copy_bytes __actionc_value_4 = current size=2
+  %t10:Byte = load __actionc_value_4.+0
+  %t11:condition = cmp %t10 Ge 1 operand_ty=Byte
+  branch %t11 ? bb7 : bb6
+bb7:
+  %t12:condition = cmp %t10 Le 2 operand_ty=Byte
+  branch %t12 ? bb5 : bb6
+bb5:
+  goto bb4
+bb6:
+  call fault::InvalidVariant() effects=reads:unknown writes:unknown external opaque
+  exit
+bb4:
+  %t13:Byte = load __actionc_value_4.+0
+  %t14:condition = cmp %t13 Eq 1 operand_ty=Byte
+  branch %t14 ? bb9 : bb10
+bb9:
+  store result = 0
+  goto bb8
+bb10:
+  %t15:condition = cmp %t13 Eq 2 operand_ty=Byte
+  branch %t15 ? bb11 : bb12
+bb11:
+  %t16:Byte = load __actionc_value_4.+1
+  store result = %t16
+  goto bb8
+bb12:
+  call fault::InvalidVariant() effects=reads:unknown writes:unknown external opaque
+  exit
+bb8:
+  return

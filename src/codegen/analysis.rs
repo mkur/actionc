@@ -100,7 +100,7 @@ fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
         | Stmt::Return(_)
         | Stmt::Exit { .. }
         | Stmt::Call { .. }
-        | Stmt::Unsupported { .. } => false,
+        | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => false,
     }
 }
 
@@ -178,7 +178,7 @@ fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }
         | Stmt::InlineAsm { .. }
-        | Stmt::Unsupported { .. } => false,
+        | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => false,
     }
 }
 

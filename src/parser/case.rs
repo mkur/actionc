@@ -104,7 +104,10 @@ impl Parser<'_> {
                 continue;
             };
             let body = self.parse_statement_list_until(&[Keyword::Else]);
+            let syntax_id = LexicalBlockSyntaxId(self.next_lexical_block_syntax_id);
+            self.next_lexical_block_syntax_id += 1;
             arms.push(CaseArm {
+                syntax_id,
                 labels,
                 body,
                 span: Span::new(arm_start, self.previous_end()),

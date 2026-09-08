@@ -168,7 +168,7 @@ fn collect_standalone_stmt_diagnostics(statement: &SemStmt, diagnostics: &mut Ve
             }
             collect_standalone_stmt_list_diagnostics(body, diagnostics);
         }
-        SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Unsupported { .. } => {}
+        SemStmt::Define(_) | SemStmt::Exit { .. } | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
     }
 }
 

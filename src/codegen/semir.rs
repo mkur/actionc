@@ -364,7 +364,7 @@ impl SemIrAstLowerer<'_> {
             let SemItem::Declaration(next) = &items[end] else {
                 break;
             };
-            if !is_var_declaration(next) || next.group_span != first.group_span {
+            if !same_var_declaration_group(first, next) {
                 break;
             }
             end += 1;
@@ -663,7 +663,7 @@ impl SemIrAstLowerer<'_> {
             let mut end = index + 1;
             while end < locals.len()
                 && is_var_declaration(&locals[end])
-                && locals[end].group_span == first.group_span
+                && same_var_declaration_group(first, &locals[end])
             {
                 end += 1;
             }
@@ -726,6 +726,7 @@ impl SemIrAstLowerer<'_> {
 
     fn stmt(&mut self, stmt: &SemStmt) -> Option<Stmt> {
         match stmt {
+            SemStmt::Fault { kind, span } => Some(Stmt::RuntimeFault { kind: *kind, span: *span }),
             SemStmt::Case { span, .. } => {
                 self.diagnostics.push(Diagnostic::new(*span, "CASE must occur inside a routine statement list"));
                 None
@@ -757,9 +758,11 @@ impl SemIrAstLowerer<'_> {
                 size,
                 span,
             } => {
+                let target = self.lvalue(destination)?;
+                let value = self.lvalue(source)?;
                 if let Ok(size) = u16::try_from(*size) {
                     self.record_copies
-                        .insert(self.native_real_scope.as_deref(), *span, size);
+                        .insert(self.native_real_scope.as_deref(), *span, target.clone(), value.clone(), size);
                 } else {
                     self.diagnostics.push(Diagnostic::new(
                         *span,
@@ -767,8 +770,8 @@ impl SemIrAstLowerer<'_> {
                     ));
                 }
                 Some(Stmt::Assign {
-                    target: self.lvalue(destination)?,
-                    value: self.lvalue(source)?,
+                    target,
+                    value,
                     span: *span,
                 })
             }
@@ -1606,6 +1609,7 @@ fn visit_lexical_declarations<'a>(
             | SemStmt::MachineBlock { .. }
             | SemStmt::InlineAsm { .. }
             | SemStmt::Unsupported { .. } => {}
+            SemStmt::Fault { .. } => {}
         }
     }
 }
@@ -1754,6 +1758,7 @@ fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u32, ValueTyp
         | SemStmt::MachineBlock { .. }
         | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => {}
+        SemStmt::Fault { .. } => {}
     }
 }
 
@@ -1884,6 +1889,7 @@ fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
         | SemStmt::MachineBlock { .. }
         | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => false,
+        SemStmt::Fault { .. } => false,
     }
 }
 
@@ -1994,6 +2000,7 @@ fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
         | SemStmt::MachineBlock { .. }
         | SemStmt::InlineAsm { .. }
         | SemStmt::Unsupported { .. } => 0,
+        SemStmt::Fault { .. } => 0,
     }
 }
 
@@ -2077,6 +2084,13 @@ fn classic_static_initializer_real_value(
         magnitude
     };
     crate::atari_real::AtariReal::from_decimal(&text).ok()
+}
+
+fn same_var_declaration_group(first: &SemDeclaration, next: &SemDeclaration) -> bool {
+    is_var_declaration(next) && next.group_span == first.group_span
+        && next.ty.value == first.ty.value
+        && std::mem::discriminant(&next.storage) == std::mem::discriminant(&first.storage)
+        && next.symbol.is_volatile == first.symbol.is_volatile
 }
 
 fn is_var_declaration(decl: &SemDeclaration) -> bool {

@@ -1807,6 +1807,19 @@ impl NirVerifier {
                 effects,
             } => {
                 self.callee_type(routine, block, callee, op_index, temp_facts);
+                if matches!(callee, NirCallee::Fault(_)) {
+                    if !args.is_empty() || result.is_some() || signature.is_some()
+                        || effects.memory.reads != NirMemoryAccess::Unknown
+                        || effects.memory.writes != NirMemoryAccess::Unknown
+                        || !effects.may_call_external || !effects.opaque
+                        || op_index + 1 != block.ops.len()
+                        || !matches!(block.terminator, NirTerminator::Exit)
+                    {
+                        self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                            "fault requires no arguments/result/signature, opaque unknown effects, and a terminal Exit block"));
+                    }
+                    return;
+                }
                 for arg in args {
                     self.value_type(routine, block, arg, "call argument");
                     self.reject_real_value(routine, block, arg, "call argument");
@@ -2720,7 +2733,7 @@ impl NirVerifier {
                     ));
                 }
             }
-            NirCallee::Builtin(_) => {}
+            NirCallee::Builtin(_) | NirCallee::Fault(_) => {}
         }
     }
 
@@ -2772,6 +2785,7 @@ impl NirVerifier {
             "call signature",
         );
         let expected_convention = match callee {
+            NirCallee::Fault(_) => None,
             NirCallee::User { id, .. } => self
                 .routine_signatures
                 .get(id)
