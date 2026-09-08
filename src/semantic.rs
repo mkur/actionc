@@ -38,7 +38,7 @@ pub use layout::{
     SemanticRecordFieldLayout, SemanticRecordLayout,
 };
 pub use types::{
-    ArrayType, CallableType, PointerType, RecordFieldStorage, RecordFieldType, RecordIdentity,
+    AggregateIdentity, ArrayType, CallableType, PointerType, RecordFieldStorage, RecordFieldType, RecordIdentity,
     RecordIdentityRef, RecordType, ScalarSignedness, ScalarType, TypeCompatibility, ValueTypeKind,
 };
 
@@ -66,6 +66,8 @@ pub struct SemanticModel {
     pub array_lengths: HashMap<SymbolId, u32>,
     pub fields: Vec<SemanticField>,
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
+    /// Authoritative field lookup; the name-keyed table is a debug projection.
+    pub record_fields_by_owner: HashMap<SymbolId, HashMap<String, FieldId>>,
     pub layout: SemanticLayoutFacts,
     pub routine_signatures: HashMap<String, SemanticCallableSignature>,
     /// Authoritative callable facts keyed by the declaration identity. The
@@ -374,7 +376,7 @@ pub enum ValueTypeBase {
     Fund(FundType),
     Enum(EnumIdentity),
     Real,
-    Named(String),
+    Named(AggregateIdentity),
     Callable(Box<CallableType>),
     Error,
 }
@@ -594,6 +596,7 @@ impl Analyzer {
             array_lengths: self.array_lengths,
             fields: self.fields,
             field_lookup: self.field_lookup,
+            record_fields_by_owner: self.record_fields_by_owner,
             layout,
             routine_signatures: self.routines,
             routine_signatures_by_symbol: self.routines_by_symbol,
@@ -631,6 +634,7 @@ struct Analyzer {
     array_lengths: HashMap<SymbolId, u32>,
     fields: Vec<SemanticField>,
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
+    record_fields_by_owner: HashMap<SymbolId, HashMap<String, FieldId>>,
     diagnostics: Vec<Diagnostic>,
     expression_observations: Vec<ExpressionObservation>,
     constants: HashMap<SymbolId, ConstValue>,
@@ -711,6 +715,7 @@ impl Analyzer {
             array_lengths: HashMap::new(),
             fields: Vec::new(),
             field_lookup: HashMap::new(),
+            record_fields_by_owner: HashMap::new(),
             diagnostics: Vec::new(),
             expression_observations: Vec::new(),
             constants: HashMap::new(),
@@ -852,6 +857,11 @@ impl Analyzer {
     }
 
     fn analyze_program(&mut self, program: &Program) {
+        self.predeclare_aggregate_types(self.global_scope,
+            program.modules.iter().flat_map(|module| &module.items).filter_map(|item| {
+                if let Item::Declaration(decl) = item { Some(decl) } else { None }
+            }),
+        );
         self.retargeted_routine_names = collect_retargeted_routine_names(program);
         self.static_initializer_targets = collect_static_initializer_targets(program);
         for module in &program.modules {
@@ -1528,6 +1538,7 @@ impl Analyzer {
             self.analyze_var_decl(routine_scope, param, true);
         }
 
+        self.predeclare_aggregate_types(routine_scope, &routine.locals);
         for local in &routine.locals {
             self.analyze_decl(routine_scope, local, false);
         }
@@ -1788,6 +1799,7 @@ impl Analyzer {
         }
 
         self.active_lexical_path.push(syntax_id.0);
+        self.predeclare_aggregate_types(scope, declarations);
         for declaration in declarations {
             self.analyze_decl(scope, declaration, false);
         }
@@ -3071,7 +3083,7 @@ impl Analyzer {
                         if symbol.name.eq_ignore_ascii_case("STRING") {
                             fund_value(FundType::Char)
                         } else {
-                            ValueType::record(symbol.qualified_name.clone())
+                            ValueType::aggregate(symbol.aggregate_identity(symbol_id))
                         }
                     }),
                     kind: subject::SemTypeRefKind::Symbol(symbol_id),
@@ -3830,6 +3842,7 @@ impl Analyzer {
     }
 
     fn analyze_decl(&mut self, scope: ScopeId, decl: &Decl, is_param: bool) {
+        if self.analyze_predeclared_aggregate_type(scope, decl) { return; }
         match decl {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
             Decl::Const(constants) => self.analyze_const_decl(scope, constants),
@@ -4033,7 +4046,7 @@ impl Analyzer {
                 self.record_fixed_array_backing_address(scope, symbol_id, declaration, entry);
                 self.record_declared_array_length(scope, symbol_id, declaration, entry);
             }
-            self.validate_initializer_elements(scope, declaration, entry);
+            self.validate_initializer_elements(scope, declaration, entry, ty.clone());
         }
     }
 
@@ -4154,6 +4167,7 @@ impl Analyzer {
             ));
         }
         let lookup_name = self.symbols.symbols[owner.0].qualified_name.clone();
+        self.record_fields_by_owner.insert(owner, field_ids.clone());
         self.field_lookup
             .insert(normalize_name(&lookup_name), field_ids);
     }
@@ -4191,11 +4205,11 @@ impl Analyzer {
     }
 
     fn record_field_descriptor(&self, base: &ValueType, field: &str) -> Option<&SemanticField> {
-        let record_name = base.as_record_identity()?.name;
+        let owner = base.as_record_identity()?.symbol?;
 
         let id = self
-            .field_lookup
-            .get(&normalize_name(record_name))?
+            .record_fields_by_owner
+            .get(&owner)?
             .get(&normalize_name(field))?;
         self.fields.get(id.0)
     }
@@ -4225,7 +4239,9 @@ impl Analyzer {
         }
 
         if let Some(name) = base.as_record_base_name() {
-            if self.field_lookup.contains_key(&normalize_name(name)) {
+            if base.as_record_identity().and_then(|identity| identity.symbol)
+                .is_some_and(|owner| self.record_fields_by_owner.contains_key(&owner))
+            {
                 self.diagnostics.push(Diagnostic::new(
                     span,
                     format!("unknown field `{field}` for record `{name}`"),
@@ -4289,8 +4305,9 @@ impl Analyzer {
             .map(u32::from)
             .or_else(|| {
                 value
-                    .as_record_name()
-                    .and_then(|name| self.record_storage_width(name))
+                    .as_record_identity()
+                    .and_then(|identity| identity.symbol)
+                    .and_then(|owner| self.record_storage_width(owner))
             })
     }
 
@@ -4310,22 +4327,22 @@ impl Analyzer {
             ValueTypeKind::Real => Some(u32::from(layout.natural_word_alignment_bytes)),
             ValueTypeKind::Pointer(_) => Some(layout.data_pointer.alignment_bytes.get()),
             ValueTypeKind::CallablePointer(_) => Some(layout.code_pointer.alignment_bytes.get()),
-            ValueTypeKind::Record(name) => self.record_storage_alignment(&name),
+            ValueTypeKind::Record(_) => self.record_storage_alignment(value.as_record_identity()?.symbol?),
             ValueTypeKind::Error => None,
         }
     }
 
-    fn record_storage_width(&self, name: &str) -> Option<u32> {
-        let fields = self.field_lookup.get(&normalize_name(name))?;
+    fn record_storage_width(&self, owner: SymbolId) -> Option<u32> {
+        let fields = self.record_fields_by_owner.get(&owner)?;
         let size = fields.values().try_fold(0u32, |size, id| {
             let field = self.fields.get(id.0)?;
             Some(size.max(field.offset.checked_add(field.size)?))
         })?;
-        align_u32(size, self.record_storage_alignment(name)?)
+        align_u32(size, self.record_storage_alignment(owner)?)
     }
 
-    fn record_storage_alignment(&self, name: &str) -> Option<u32> {
-        let fields = self.field_lookup.get(&normalize_name(name))?;
+    fn record_storage_alignment(&self, owner: SymbolId) -> Option<u32> {
+        let fields = self.record_fields_by_owner.get(&owner)?;
         Some(
             fields
                 .values()
@@ -4339,6 +4356,7 @@ impl Analyzer {
     fn analyze_var_decl(&mut self, scope: ScopeId, decl: &VarDecl, is_param: bool) {
         self.validate_type_ref(scope, &decl.ty, decl.span);
         let resolved_ty = self.value_type_from_type_ref(scope, &decl.ty);
+        if !resolved_ty.pointer && !self.ensure_named_record_layout(&resolved_ty, decl.span) { return; }
         let ty = Some(resolved_ty.clone());
 
         if is_param && resolved_ty.is_real() {
@@ -4392,7 +4410,7 @@ impl Analyzer {
                 }
                 self.record_declared_array_length(scope, symbol_id, decl, entry);
             }
-            self.validate_initializer_elements(scope, decl, entry);
+            self.validate_initializer_elements(scope, decl, entry, resolved_ty.clone());
         }
     }
 
@@ -4500,7 +4518,7 @@ impl Analyzer {
         }
     }
 
-    fn validate_initializer_elements(&mut self, scope: ScopeId, decl: &VarDecl, entry: &DeclEntry) {
+    fn validate_initializer_elements(&mut self, scope: ScopeId, decl: &VarDecl, entry: &DeclEntry, element_type: ValueType) {
         let Some(initializer) = &entry.initializer else {
             return;
         };
@@ -4511,7 +4529,8 @@ impl Analyzer {
         {
             return;
         }
-        let element_type = self.value_type_from_type_ref(scope, &decl.ty);
+        // The declaration head was resolved before introducing its entries.
+        // A legal local such as `Holder holder` may now shadow that type name.
         match &initializer.kind {
             ExprKind::InitializerList(elements) => {
                 let aggregate_leaves = element_type
@@ -4766,7 +4785,7 @@ impl Analyzer {
             ty,
             TargetLayout::for_target(self.options.target),
             &self.fields,
-            &self.field_lookup,
+            &self.record_fields_by_owner,
         )
         .map(|leaves| leaves.into_iter().map(|leaf| leaf.ty).collect())
     }
@@ -4872,7 +4891,7 @@ impl Analyzer {
             } else if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
                 ValueTypeBase::Real
             } else {
-                ValueTypeBase::Named(symbol.qualified_name.clone())
+                ValueTypeBase::Named(symbol.aggregate_identity(symbol_id))
             };
         }
         value
@@ -5005,6 +5024,14 @@ impl Analyzer {
                 ),
                 format!("{}{}.{}", owner, lexical_path.1, name),
             )
+        } else if matches!(class, SymbolClass::Type | SymbolClass::Record)
+            && let Some(owner) = &self.active_routine
+        {
+            self.symbols.declare_with_identity(
+                scope, name.clone(), class, ty, span, None, Visibility::Private,
+                format!("{}::{}", owner.to_ascii_lowercase(), name.to_ascii_lowercase()),
+                name.clone(),
+            )
         } else {
             self.symbols.declare(scope, name.clone(), class, ty, span)
         };
@@ -5036,6 +5063,12 @@ impl Analyzer {
             .map(|ordinal| format!(".block{ordinal}"))
             .collect::<String>();
         (canonical, display)
+    }
+}
+
+impl Symbol {
+    pub fn aggregate_identity(&self, id: SymbolId) -> AggregateIdentity {
+        AggregateIdentity::resolved(id, self.qualified_name.clone(), self.canonical_qualified_key.clone())
     }
 }
 
@@ -5272,7 +5305,7 @@ impl ValueType {
             TypeBase::Named(name) if is_string_type_name(name) => {
                 ValueTypeBase::Fund(FundType::Char)
             }
-            TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
+            TypeBase::Named(name) => ValueTypeBase::Named(AggregateIdentity::unresolved(name.to_string())),
             TypeBase::Callable(callable) => {
                 ValueTypeBase::Callable(Box::new(CallableType::from_routine_kind(
                     callable.kind.clone(),
@@ -7300,7 +7333,7 @@ mod tests {
         assert_eq!(
             model.symbols.symbols[value.0].ty,
             Some(ValueType {
-                base: ValueTypeBase::Named("Pair".to_string()),
+                base: ValueTypeBase::Named(model.symbols.symbols[pair.0].aggregate_identity(pair)),
                 pointer: false,
             })
         );
@@ -7326,7 +7359,7 @@ mod tests {
         assert_eq!(
             model.symbols.symbols[value.0].ty,
             Some(ValueType {
-                base: ValueTypeBase::Named("REAL".to_string()),
+                base: ValueTypeBase::Named(model.symbols.symbols[real.0].aggregate_identity(real)),
                 pointer: false,
             })
         );
@@ -7388,7 +7421,7 @@ mod tests {
         assert_eq!(
             model.symbols.symbols[value.0].ty,
             Some(ValueType {
-                base: ValueTypeBase::Named("REAL".to_string()),
+                base: ValueTypeBase::Named(model.symbols.symbols[real.0].aggregate_identity(real)),
                 pointer: false,
             })
         );
@@ -9459,7 +9492,7 @@ mod tests {
         assert_eq!(
             address.pointer_type,
             ValueType::pointer_to(ValueType {
-                base: ValueTypeBase::Named("Pair".to_string()),
+                base: ValueTypeBase::Named(model.layout.record_for_name("Pair").unwrap().record_type.identity.clone()),
                 pointer: false,
             })
         );
@@ -9525,7 +9558,7 @@ mod tests {
         assert_eq!(
             value_facts.pointee,
             Some(ValueType {
-                base: ValueTypeBase::Named("Pair".to_string()),
+                base: ValueTypeBase::Named(model.layout.record_for_name("Pair").unwrap().record_type.identity.clone()),
                 pointer: false,
             })
         );

@@ -71,11 +71,11 @@ TYPE Event=VARIANT [
   MOVE [INT x,y]
 ]
 
-Event event
+Event current
 
 PROC Main()
-  event=Event.MOVE(12,-3)
-  LET saved=event
+  current=Event.MOVE(12,-3)
+  LET saved=current
 
   CASE saved OF
   WHEN Event.NONE THEN
@@ -100,6 +100,9 @@ RETURN
   types interchangeable. Imports preserve the defining identity. PUBLIC exports
   the type and its constructors, as for ENUM; validate the reachable payload-type
   interface instead of resolving private implementation names in the importer.
+- Preserve Action!'s case-insensitive shared declaration namespace. A type and
+  variable in the same scope need distinct names (`Event current`, not
+  `Event event`); ADTs do not introduce a separate type namespace.
 - Constructor arguments use ordinary assignment conversions to the declared
   field types. An INT/CARD argument expression retains its existing arithmetic
   width unless an operand is explicitly widened. No new arithmetic semantics.
@@ -600,4 +603,36 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   MIR6502 AES build remains 4,211 XEX bytes; no new AES execution timing is claimed.
 - The two capability-gate tests and `cargo check --all-targets` pass after adding
   the gates. Runtime-source analysis explicitly keeps them disabled too.
-- Later slices are not implemented yet.
+### Slice 1 — Finite nominal aggregate identities (complete)
+
+- Resolved records now carry their defining SymbolId and canonical signature key.
+  Equality, record-family checks, layout dependencies, field lookup, initializer
+  walks, NIR storage extents and classic type projection use that identity.
+  Pointers retain finite references; existing record layout/field tables remain
+  the graph. Concrete generic instance interning is still slice 7, not an unused
+  parallel registry introduced ahead of its consumers.
+- Reused the named-declaration resolver for provisional type entries in ordinary
+  module/routine/lexical type scopes. This new visibility is behind the internal
+  aggregate-values gate; it does not enable forward constants, variables or
+  routines. Existing public type visibility is unchanged.
+- NIR retains record definition identities and rejects name-only references.
+  Callable signature keys remain stable across unrelated declaration-ID shifts.
+  Readable record dumps retain their previous format; no snapshot update is
+  intended.
+- Corrected homonymous routine-local record handling: classic's flat layout
+  registry gives colliding declarations distinct projected names, while NIR
+  selects field/array extents by declaration identity.
+- Initializers consume the type resolved at the declaration head, preserving
+  legal local declarations such as `Holder holder=[@first]` after the entry
+  shadows the type name. The native entry-initialization regression suite passes.
+- Semantic/NIR and native backend canaries cover self/mutual pointers, inline/
+  array layout cycles, import aliases, typed callback parameters and local
+  shadowing. A separate independent whole-memory guard oracle covers same-named
+  local record layouts/copies on classic/MIR6502, raw/optimized NIR and both
+  Atari runtimes. Classic pointer-valued fields remain a slice 2 boundary.
+- Verification: all 2,871 tests in the full compiler run passed, followed by the
+  final 11-test aggregate-identity run (one additional callback-alias test).
+  All 140 locked VM harness tests pass. NIR snapshots, 38 NIR and 167 MIR6502
+  fixtures pass unchanged; `cargo check --all-targets` passes. Fresh AES XEX and
+  assembly are byte-for-byte identical to the slice 0 baseline (4,211 XEX bytes).
+- Slice 2 and subsequent public capabilities are not implemented yet.

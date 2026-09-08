@@ -13,13 +13,13 @@ pub(super) fn static_initializer_leaves(
     ty: &ValueType,
     target: TargetLayout,
     fields: &[SemanticField],
-    field_lookup: &HashMap<String, HashMap<String, FieldId>>,
+    field_lookup: &HashMap<SymbolId, HashMap<String, FieldId>>,
 ) -> Option<Vec<StaticInitializerLeaf>> {
     struct Walker<'a> {
         target: TargetLayout,
         fields: &'a [SemanticField],
-        lookup: &'a HashMap<String, HashMap<String, FieldId>>,
-        active: HashSet<String>,
+        lookup: &'a HashMap<SymbolId, HashMap<String, FieldId>>,
+        active: HashSet<SymbolId>,
         leaves: Vec<StaticInitializerLeaf>,
     }
 
@@ -35,8 +35,8 @@ pub(super) fn static_initializer_leaves(
                 });
                 return Some(());
             }
-            let key = normalize_name(ty.as_record_name()?);
-            if !self.active.insert(key.clone()) {
+            let key = ty.as_record_identity()?.symbol?;
+            if !self.active.insert(key) {
                 return None;
             }
             let mut fields = self

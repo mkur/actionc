@@ -34,6 +34,18 @@ permanently read-only or prove initializer purity. Existing verified passes may
 propagate values/remove unused homes only while preserving calls, volatile reads
 and other ordered effects. LET adds no specialized optimizer or target strategy.
 
+Aggregate references carry the defining semantic `SymbolId` through SemIR into
+`NirTypeKind::Record.definition`, including through pointers and callable facts.
+The reference is finite: it never contains the record's recursively expanded
+fields. Semantic field/layout lookup and NIR storage-size lowering use IDs;
+record names remain printable metadata. Callable signature serialization uses a
+stable canonical declaration key, not allocation-order IDs or import aliases.
+The verifier rejects name-only aggregate references in storage, signatures and
+executable types. Existing record copies still lower to ordinary address
+computation and overlap-safe `CopyBytes`; aggregate scalar loads/stores remain
+rejected. No variant construction, aggregate call ABI or pattern operations are
+introduced by this identity migration.
+
 ## Position In The Compiler
 
 The intended pipeline is:

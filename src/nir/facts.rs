@@ -59,6 +59,7 @@ pub enum NirTypeKind {
         address_space: AddressSpaceId,
     },
     Record {
+        definition: Option<crate::semantic::SymbolId>,
         name: String,
         size: Option<ByteSize>,
     },
@@ -173,7 +174,11 @@ impl NirTypeKind {
                 convention: NirCallConvention::TargetPublic,
                 address_space: TargetLayout::CODE_ADDRESS_SPACE,
             },
-            ValueTypeKind::Record(name) => Self::Record { name, size: None },
+            ValueTypeKind::Record(name) => Self::Record {
+                definition: value.as_aggregate_identity().and_then(|identity| identity.symbol),
+                name,
+                size: None,
+            },
             ValueTypeKind::Error => Self::Error,
         }
     }
@@ -317,9 +322,9 @@ pub(super) fn signature_id(callable: &CallableType, convention: NirCallConventio
                 byte(hash, 6);
                 text(hash, &identity.canonical_name);
             }
-            ValueTypeBase::Named(name) => {
+            ValueTypeBase::Named(identity) => {
                 byte(hash, 3);
-                text(hash, name);
+                text(hash, &identity.canonical_name);
             }
             ValueTypeBase::Callable(callable) => {
                 byte(hash, 4);
@@ -481,7 +486,7 @@ pub(super) fn type_summary(ty: &ValueType) -> String {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
         ValueTypeBase::Real => "REAL".to_string(),
         ValueTypeBase::Enum(identity) => identity.name.clone(),
-        ValueTypeBase::Named(name) => name.clone(),
+        ValueTypeBase::Named(identity) => identity.name.clone(),
         ValueTypeBase::Callable(callable) => callable_kind_summary(&callable.kind),
         ValueTypeBase::Error => "error".to_string(),
     };

@@ -94,7 +94,7 @@ fn embedded_record_arrays_use_target_alignment_and_nested_record_stride() {
         assert_eq!(
             packet.fields[1].storage,
             RecordFieldStorage::InlineArray {
-                array_type: ArrayType::new(ValueType::record("Point"), Some(2)),
+                array_type: ArrayType::new(model.layout.record_for_name("Point").unwrap().record_type.value_type(), Some(2)),
                 stride: point_size,
             }
         );

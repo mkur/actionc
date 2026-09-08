@@ -1,7 +1,7 @@
 use crate::ast::{BinaryOp, FundType, QualifiedName, RoutineKind, TypeRef, TypeBase};
 use crate::lexer::NumberKind;
 
-use super::{EnumIdentity, FieldId, ValueType, ValueTypeBase};
+use super::{EnumIdentity, FieldId, SymbolId, ValueType, ValueTypeBase};
 use crate::target::TargetLayout;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -33,21 +33,79 @@ pub struct ArrayType {
     pub length: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct RecordType {
     pub name: String,
+    pub identity: AggregateIdentity,
     pub fields: Vec<RecordFieldType>,
     pub size: u32,
 }
 
+/// A finite reference to a nominal aggregate declaration. Fields live in the
+/// layout table, never recursively inside this reference. An unresolved name
+/// is permitted only while translating syntax (and in synthetic type tests).
+#[derive(Clone)]
+pub struct AggregateIdentity {
+    pub symbol: Option<SymbolId>,
+    pub name: String,
+    pub canonical_name: String,
+}
+
+// Preserve readable IR dumps and existing snapshots. Declaration IDs are
+// authoritative facts, not part of the source-facing debug spelling.
+impl std::fmt::Debug for AggregateIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.name.fmt(f)
+    }
+}
+
+impl std::fmt::Debug for RecordType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RecordType")
+            .field("name", &self.name)
+            .field("fields", &self.fields)
+            .field("size", &self.size)
+            .finish()
+    }
+}
+
+impl PartialEq for AggregateIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        self.same_definition(other)
+    }
+}
+
+impl Eq for AggregateIdentity {}
+
+impl AggregateIdentity {
+    pub fn resolved(symbol: SymbolId, name: String, canonical_name: String) -> Self {
+        Self { symbol: Some(symbol), name, canonical_name }
+    }
+
+    pub fn unresolved(name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self { symbol: None, canonical_name: name.to_ascii_uppercase(), name }
+    }
+
+    pub fn same_definition(&self, other: &Self) -> bool {
+        match (self.symbol, other.symbol) {
+            (Some(left), Some(right)) => left == right,
+            (None, None) => self.canonical_name.eq_ignore_ascii_case(&other.canonical_name),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordIdentity {
+    pub symbol: Option<SymbolId>,
     pub name: String,
     pub is_pointer: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RecordIdentityRef<'a> {
+    pub symbol: Option<SymbolId>,
     pub name: &'a str,
     pub is_pointer: bool,
 }
@@ -204,15 +262,17 @@ impl RecordType {
         fields: impl IntoIterator<Item = RecordFieldType>,
         size: u32,
     ) -> Self {
+        let name = name.into();
         Self {
-            name: name.into(),
+            identity: AggregateIdentity::unresolved(name.clone()),
+            name,
             fields: fields.into_iter().collect(),
             size,
         }
     }
 
     pub fn value_type(&self) -> ValueType {
-        ValueType::record(self.name.clone())
+        ValueType::aggregate(self.identity.clone())
     }
 
     pub fn pointer_type(&self) -> ValueType {
@@ -229,6 +289,7 @@ impl RecordType {
 impl RecordIdentityRef<'_> {
     pub fn to_owned(self) -> RecordIdentity {
         RecordIdentity {
+            symbol: self.symbol,
             name: self.name.to_string(),
             is_pointer: self.is_pointer,
         }
@@ -389,7 +450,7 @@ impl ValueType {
         let base = match &self.base {
             ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
             ValueTypeBase::Enum(identity) => TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
-            ValueTypeBase::Named(name) if self.pointer => TypeBase::Named(name.clone().into()),
+            ValueTypeBase::Named(identity) if self.pointer => TypeBase::Named(identity.name.clone().into()),
             ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
                 kind: callable.kind.clone(),
                 params: callable.params.iter().map(|ty| Some(crate::ast::CallableParamTypeRef {
@@ -436,9 +497,20 @@ impl ValueType {
     }
 
     pub fn record(name: impl Into<String>) -> Self {
+        Self::aggregate(AggregateIdentity::unresolved(name))
+    }
+
+    pub fn aggregate(identity: AggregateIdentity) -> Self {
         Self {
-            base: ValueTypeBase::Named(name.into()),
+            base: ValueTypeBase::Named(identity),
             pointer: false,
+        }
+    }
+
+    pub fn as_aggregate_identity(&self) -> Option<&AggregateIdentity> {
+        match &self.base {
+            ValueTypeBase::Named(identity) => Some(identity),
+            _ => None,
         }
     }
 
@@ -564,7 +636,7 @@ impl ValueType {
             ValueTypeBase::Fund(fund) => ValueTypeKind::Scalar(ScalarType::from_fund(*fund)),
             ValueTypeBase::Enum(identity) => ValueTypeKind::Enum(identity.clone()),
             ValueTypeBase::Real => ValueTypeKind::Real,
-            ValueTypeBase::Named(name) => ValueTypeKind::Record(name.clone()),
+            ValueTypeBase::Named(identity) => ValueTypeKind::Record(identity.name.clone()),
             ValueTypeBase::Callable(callable) if !self.pointer => {
                 ValueTypeKind::CallablePointer((**callable).clone())
             }
@@ -593,8 +665,9 @@ impl ValueType {
 
     pub fn as_record_identity(&self) -> Option<RecordIdentityRef<'_>> {
         match &self.base {
-            ValueTypeBase::Named(name) => Some(RecordIdentityRef {
-                name,
+            ValueTypeBase::Named(identity) => Some(RecordIdentityRef {
+                symbol: identity.symbol,
+                name: &identity.name,
                 is_pointer: self.pointer,
             }),
             ValueTypeBase::Fund(_)
@@ -615,9 +688,9 @@ impl ValueType {
     }
 
     pub fn same_record_family(&self, other: &Self) -> bool {
-        self.as_record_base_name()
-            .zip(other.as_record_base_name())
-            .is_some_and(|(left, right)| left.eq_ignore_ascii_case(right))
+        self.as_aggregate_identity()
+            .zip(other.as_aggregate_identity())
+            .is_some_and(|(left, right)| left.same_definition(right))
     }
 
     pub fn assignment_compatibility(&self, actual: &Self) -> TypeCompatibility {
@@ -859,6 +932,7 @@ mod tests {
         assert_eq!(
             record_pointer.record_identity(),
             Some(RecordIdentity {
+                symbol: None,
                 name: "Pair".to_string(),
                 is_pointer: true
             })

@@ -1092,6 +1092,7 @@ fn nir_type_kind_tracks_semir_value_types() {
     assert_eq!(
         record.kind,
         NirTypeKind::Record {
+            definition: None,
             name: "Pair".to_string(),
             size: None
         }

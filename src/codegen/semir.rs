@@ -154,7 +154,7 @@ struct SemIrAstLowerer<'a> {
     case_captures: Vec<Decl>,
     next_case_capture: usize,
     diagnostics: Vec<Diagnostic>,
-    type_link_names: BTreeMap<String, String>,
+    type_link_names: BTreeMap<SymbolId, String>,
     projection_names: BTreeMap<SymbolId, String>,
     external_addresses: Option<&'a HashMap<SymbolId, u16>>,
     native_real: ClassicNativeRealFacts,
@@ -194,8 +194,10 @@ impl SemIrAstLowerer<'_> {
             })
             .collect::<Vec<_>>();
         let mut records = RecordLayouts::default();
+        let mut record_ids = BTreeMap::new();
         for (declaration, record_type) in &declarations {
             let id = records.layouts.len();
+            record_ids.insert(declaration.symbol.id, id);
             records.by_name.insert(
                 self.symbol_name(&declaration.symbol).to_ascii_uppercase(), id,
             );
@@ -224,11 +226,9 @@ impl SemIrAstLowerer<'_> {
                         declaration.symbol.name, field.name,
                     ),
                 )];
-                let ty = self.type_ref(&field.ty);
-                let record = match &ty.base {
-                    TypeBase::Named(name) => records.get(&name.display_name()).map(|(id, _)| id),
-                    _ => None,
-                };
+                let record = field.ty.as_aggregate_identity()
+                    .and_then(|identity| identity.symbol)
+                    .and_then(|owner| record_ids.get(&owner).copied());
                 let element_size = field.ty
                     .value_width_bytes_for_layout(program.target_layout)
                     .or_else(|| record.map(|id| records.layouts[id].size))
@@ -1199,11 +1199,10 @@ impl SemIrAstLowerer<'_> {
                 ValueTypeBase::Fund(fund) => TypeBase::Fund(*fund),
                 ValueTypeBase::Enum(_) => TypeBase::Fund(FundType::Byte),
                 ValueTypeBase::Real => TypeBase::NativeReal,
-                ValueTypeBase::Named(name) => TypeBase::Named(
-                    self.type_link_names
-                        .get(&name.to_ascii_uppercase())
+                ValueTypeBase::Named(identity) => TypeBase::Named(
+                    identity.symbol.and_then(|owner| self.type_link_names.get(&owner))
                         .cloned()
-                        .unwrap_or_else(|| name.clone())
+                        .unwrap_or_else(|| identity.name.clone())
                         .into(),
                 ),
                 ValueTypeBase::Callable(callable) => TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
@@ -1465,6 +1464,36 @@ fn classic_projection_names(program: &SemProgram) -> BTreeMap<SymbolId, String> 
         }
     }
 
+    // Classic's layout registry is flat, unlike source scopes. Keep existing
+    // spellings when unique, but distinguish homonymous routine-local types.
+    // Type references use declaration IDs to select these projected names.
+    let mut occupied_types = program.modules.iter().flat_map(|module| &module.items)
+        .filter_map(sem_item_symbol)
+        .filter(|symbol| matches!(symbol.class, crate::semantic::SymbolClass::Type | crate::semantic::SymbolClass::Record))
+        .map(|symbol| symbol.name.to_ascii_uppercase())
+        .collect::<BTreeSet<_>>();
+    let mut locals = Vec::new();
+    let mut used = global_names;
+    for routine in program.modules.iter().flat_map(|module| &module.items).filter_map(|item| {
+        if let SemItem::Routine(routine) = item { Some(routine) } else { None }
+    }) {
+        used.extend(routine.params.iter().map(|param| param.symbol.name.to_ascii_uppercase()));
+        locals.extend(&routine.locals);
+        visit_lexical_declarations(&routine.body, &mut |_, declaration| locals.push(declaration));
+    }
+    used.extend(locals.iter().map(|decl| decl.symbol.name.to_ascii_uppercase()));
+    used.extend(output.values().map(|name| name.to_ascii_uppercase()));
+    for declaration in locals {
+        if !matches!(declaration.symbol.class, crate::semantic::SymbolClass::Type | crate::semantic::SymbolClass::Record) { continue; }
+        let projected = output.get(&declaration.symbol.id)
+            .cloned().unwrap_or_else(|| declaration.symbol.name.clone());
+        if !occupied_types.insert(projected.to_ascii_uppercase()) {
+            let ordinal = u32::try_from(declaration.symbol.id.0).expect("classic projection symbol ID");
+            let unique = unique_lexical_name(ordinal, &projected, &mut used);
+            occupied_types.insert(unique.to_ascii_uppercase());
+            output.insert(declaration.symbol.id, unique);
+        }
+    }
     output
 }
 
@@ -1583,7 +1612,7 @@ fn visit_lexical_declarations<'a>(
 }
 
 fn insert_type_link_name(
-    output: &mut BTreeMap<String, String>,
+    output: &mut BTreeMap<SymbolId, String>,
     declaration: &SemDeclaration,
     projection_names: &BTreeMap<SymbolId, String>,
 ) {
@@ -1592,7 +1621,7 @@ fn insert_type_link_name(
         crate::semantic::SymbolClass::Type | crate::semantic::SymbolClass::Record
     ) {
         output.insert(
-            declaration.symbol.qualified_name.to_ascii_uppercase(),
+            declaration.symbol.id,
             projection_names
                 .get(&declaration.symbol.id)
                 .cloned()
@@ -1638,7 +1667,7 @@ fn relink_machine_items(
 fn module_type_link_names(
     program: &SemProgram,
     projection_names: &BTreeMap<SymbolId, String>,
-) -> BTreeMap<String, String> {
+) -> BTreeMap<SymbolId, String> {
     let mut output = BTreeMap::new();
     for module in &program.modules {
         for item in &module.items {

@@ -165,6 +165,11 @@ impl NirVerifier {
             self.global_sizes.insert(global.id, global.storage_size);
             if let Some(ty) = &global.ty {
                 self.global_types.insert(global.id, ty.clone());
+                if has_unresolved_aggregate(&ty.kind) {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "global `{}` requires a resolved aggregate definition identity", global.name,
+                    )));
+                }
             }
             if !global_ids.insert(global.id) {
                 self.diagnostics.push(NirDiagnostic::program(format!(
@@ -434,6 +439,12 @@ impl NirVerifier {
         let mut params = BTreeSet::new();
         let mut param_ids = BTreeSet::new();
         for param in &routine.params {
+            if has_unresolved_aggregate(&param.ty.kind) {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!("parameter `{}` requires a resolved aggregate definition identity", param.name),
+                ));
+            }
             if !param_ids.insert(param.id) {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
@@ -484,6 +495,12 @@ impl NirVerifier {
 
         let mut local_ids = BTreeSet::new();
         for local in &routine.locals {
+            if has_unresolved_aggregate(&local.ty.kind) {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!("local `{}` requires a resolved aggregate definition identity", local.name),
+                ));
+            }
             if !local_ids.insert(local.id) {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,
@@ -2704,8 +2721,17 @@ impl NirVerifier {
         routine: &str,
         block: Option<&str>,
         signature: &NirCallableSignature,
-        _label: &str,
+        label: &str,
     ) {
+        if signature.params.iter().chain(signature.variadic.iter()).chain(signature.result.iter())
+            .any(|ty| has_unresolved_aggregate(&ty.kind))
+        {
+            let message = format!("{label} requires a resolved aggregate definition identity");
+            self.diagnostics.push(match block {
+                Some(block) => NirDiagnostic::block(routine, block, message),
+                None => NirDiagnostic::routine(routine, message),
+            });
+        }
         if let Some(existing) = self.signatures.get(&signature.id) {
             if existing != signature {
                 let message = format!(
@@ -3047,6 +3073,12 @@ impl NirVerifier {
     }
 
     fn type_shape(&mut self, routine: &NirRoutine, block: &NirBlock, ty: &NirType, label: &str) {
+        if has_unresolved_aggregate(&ty.kind) {
+            self.diagnostics.push(NirDiagnostic::block(
+                &routine.name, &block.label,
+                format!("{label} requires a resolved aggregate definition identity"),
+            ));
+        }
         if ty.kind.width(self.target_layout) != ty.width {
             self.diagnostics.push(NirDiagnostic::block(
                 &routine.name,
@@ -3074,6 +3106,11 @@ impl NirVerifier {
     }
 
     fn type_shape_static(&mut self, ty: &NirType, label: &str) {
+        if has_unresolved_aggregate(&ty.kind) {
+            self.diagnostics.push(NirDiagnostic::program(format!(
+                "static data `{label}` requires a resolved aggregate definition identity",
+            )));
+        }
         if ty.kind.width(self.target_layout) != ty.width {
             self.diagnostics.push(NirDiagnostic::program(format!(
                 "static data `{label}` NIR type width mismatch: kind {:?} has {:?}, legacy width is {:?}",
@@ -3552,6 +3589,14 @@ fn constant_binary_value(op: NirBinaryOp, left: &NirValue, right: &NirValue) -> 
         NirBinaryOp::Add => Some(left.wrapping_add(right)),
         NirBinaryOp::Sub => Some(left.wrapping_sub(right)),
         _ => None,
+    }
+}
+
+fn has_unresolved_aggregate(kind: &NirTypeKind) -> bool {
+    match kind {
+        NirTypeKind::Record { definition, .. } => definition.is_none(),
+        NirTypeKind::Pointer { pointee: Some(pointee), .. } => has_unresolved_aggregate(pointee),
+        _ => false,
     }
 }
 

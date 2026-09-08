@@ -1,4 +1,4 @@
-//! Named-module constants and record layouts share an explicit dependency
+//! Constants and record layouts share an explicit dependency
 //! lifecycle. Dependencies are requested by semantic consumers, not recovered
 //! by a second AST expression evaluator or by speculative diagnostic retries.
 
@@ -7,7 +7,6 @@ use super::*;
 #[derive(Default)]
 pub(super) struct NamedLayoutDeclarations {
     nodes: HashMap<SymbolId, LayoutDeclaration>,
-    records_by_name: HashMap<String, SymbolId>,
     active: Vec<SymbolId>,
 }
 
@@ -41,6 +40,52 @@ enum ResolutionState {
 }
 
 impl Analyzer {
+    /// Staged TYPE-scope visibility. Only type identities are collected here;
+    /// constants, variables and routines retain their existing source order.
+    /// Layouts are requested lazily by the same dependency resolver used for
+    /// named modules, with data pointers acting as layout-cycle barriers.
+    pub(super) fn predeclare_aggregate_types<'a>(
+        &mut self,
+        scope: ScopeId,
+        declarations: impl IntoIterator<Item = &'a Decl>,
+    ) {
+        if !self.options.algebraic_types.aggregate_values { return; }
+        for declaration in declarations {
+            let (name, class, span, kind) = match declaration {
+                Decl::Type(decl) => {
+                    let kind = match &decl.definition {
+                        TypeDefinition::Record(fields) => LayoutDeclarationKind::Record {
+                            name: decl.name.clone(), fields: fields.clone(),
+                        },
+                        TypeDefinition::Enum(members) => LayoutDeclarationKind::Enum {
+                            members: members.clone(), span: decl.span,
+                        },
+                    };
+                    (&decl.name, SymbolClass::Type, decl.span, kind)
+                }
+                Decl::Record(decl) => (&decl.name, SymbolClass::Record, decl.span,
+                    LayoutDeclarationKind::Record { name: decl.name.clone(), fields: decl.fields.clone() }),
+                _ => continue,
+            };
+            if self.declare(scope, name.clone(), class, None, span).is_some() {
+                self.register_named_layout_declaration(scope, name, kind);
+            }
+        }
+    }
+
+    pub(super) fn analyze_predeclared_aggregate_type(&mut self, scope: ScopeId, decl: &Decl) -> bool {
+        if !self.options.algebraic_types.aggregate_values { return false; }
+        let (name, span) = match decl {
+            Decl::Type(decl) => (&decl.name, decl.span),
+            Decl::Record(decl) => (&decl.name, decl.span),
+            _ => return false,
+        };
+        let Some(id) = self.symbols.lookup_exact(scope, name) else { return false; };
+        if !self.named_layout_declarations.nodes.contains_key(&id) { return false; }
+        self.resolve_named_layout_declaration(id, span);
+        true
+    }
+
     pub(super) fn resolve_named_layout_declarations(&mut self, scope: ScopeId, program: &Program) {
         debug_assert!(self.named_layout_declarations.nodes.is_empty());
         let mut records = Vec::new();
@@ -122,12 +167,6 @@ impl Analyzer {
         if pending.nodes.contains_key(&id) {
             return None;
         }
-        if matches!(kind, LayoutDeclarationKind::Record { .. }) {
-            pending.records_by_name.insert(
-                normalize_name(&self.symbols.symbols[id.0].qualified_name),
-                id,
-            );
-        }
         pending.nodes.insert(
             id,
             LayoutDeclaration {
@@ -175,15 +214,7 @@ impl Analyzer {
     /// Callers requesting a pointer's own width must skip this method; callers
     /// selecting a field need the pointee record layout as well.
     pub(super) fn ensure_named_record_layout(&mut self, ty: &ValueType, span: Span) -> bool {
-        let Some(name) = ty.as_record_base_name() else {
-            return true;
-        };
-        let Some(id) = self
-            .named_layout_declarations
-            .records_by_name
-            .get(&normalize_name(name))
-            .copied()
-        else {
+        let Some(id) = ty.as_record_identity().and_then(|identity| identity.symbol) else {
             return true;
         };
         self.resolve_named_layout_declaration(id, span)

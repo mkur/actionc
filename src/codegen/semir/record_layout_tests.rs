@@ -35,6 +35,23 @@ fn generate(program: &SemProgram, runtime: Runtime) -> CodegenOutput {
 }
 
 #[test]
+fn classic_layouts_keep_homonymous_routine_types_separate() {
+    let semir = lower(
+        "PROC First() TYPE Pair=[BYTE value] Pair ARRAY rows(3) rows(2).value=7 RETURN \
+         PROC Second() TYPE Pair=[CARD value] Pair ARRAY rows(3) rows(2).value=$1234 RETURN \
+         PROC Main() First() Second() RETURN",
+    );
+    let projection = semir_to_projection(&semir).unwrap();
+    assert_eq!(projection.record_layouts.layouts.len(), 2);
+    assert_eq!(projection.record_layouts.by_name.len(), 2);
+    assert_eq!(projection.record_layouts.layouts[0].size, 1);
+    assert_eq!(projection.record_layouts.layouts[1].size, 2);
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        generate(&semir, runtime);
+    }
+}
+
+#[test]
 fn canonical_classic_layout_keeps_inline_extents_offsets_and_nested_record_ids() {
     let semir = lower(
         "CONST Count=100 TYPE Pair=[BYTE tag CARD value] \

@@ -621,7 +621,7 @@ impl NirLowerer {
     fn declaration_backing(
         &mut self,
         declaration: &SemDeclaration,
-        record_storage_sizes: &BTreeMap<String, u32>,
+        record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
         address_initializer: Option<u16>,
         alias_initializer: Option<(SemSymbolId, String, u16)>,
     ) -> NirGlobalBacking {
@@ -819,7 +819,7 @@ impl NirLowerer {
     fn local_backing(
         &self,
         declaration: &SemDeclaration,
-        record_storage_sizes: &BTreeMap<String, u32>,
+        record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
         address_initializer: Option<u16>,
         local_alias_targets: &BTreeMap<SemSymbolId, (LocalId, String)>,
     ) -> NirLocalBacking {
@@ -1283,7 +1283,7 @@ pub(super) struct NirBuilder {
     semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
     param_ids_by_symbol: BTreeMap<SemSymbolId, ParamId>,
     local_ids_by_symbol: BTreeMap<SemSymbolId, LocalId>,
-    record_storage_sizes: BTreeMap<String, u32>,
+    record_storage_sizes: BTreeMap<SemSymbolId, u32>,
     machine_defines: BTreeMap<usize, Vec<MachineItem>>,
     machine_define_names: BTreeMap<String, Vec<MachineItem>>,
     notes: Vec<NirRoutineNote>,
@@ -1315,7 +1315,7 @@ impl NirBuilder {
         semantic_storage_types: BTreeMap<SemSymbolId, NirType>,
         semantic_absolute_array_element_bases: BTreeMap<SemSymbolId, u16>,
         semantic_absolute_array_value_addresses: BTreeMap<SemSymbolId, u16>,
-        record_storage_sizes: BTreeMap<String, u32>,
+        record_storage_sizes: BTreeMap<SemSymbolId, u32>,
         machine_defines: BTreeMap<usize, Vec<MachineItem>>,
         machine_define_names: BTreeMap<String, Vec<MachineItem>>,
         target_layout: TargetLayout,
@@ -3177,8 +3177,8 @@ impl NirBuilder {
 
     fn storage_type_for_value(&self, value: &ValueType) -> NirType {
         let mut ty = NirType::from_value_with_layout(value, self.target_layout);
-        if let NirTypeKind::Record { name, size } = &mut ty.kind
-            && let Some(storage_size) = self.record_storage_sizes.get(name).copied()
+        if let NirTypeKind::Record { definition: Some(owner), size, .. } = &mut ty.kind
+            && let Some(storage_size) = self.record_storage_sizes.get(owner).copied()
         {
             *size = Some(ByteSize::from(storage_size));
             ty.width = Some(ByteSize::from(storage_size));
@@ -3250,8 +3250,9 @@ impl NirBuilder {
         ty.value_width_bytes_for_layout(self.target_layout)
             .map(ByteSize::from)
             .or_else(|| {
-                ty.as_record_name()
-                    .and_then(|name| self.record_storage_sizes.get(name).copied())
+                ty.as_aggregate_identity()
+                    .and_then(|identity| identity.symbol)
+                    .and_then(|owner| self.record_storage_sizes.get(&owner).copied())
                     .map(ByteSize::from)
             })
     }
@@ -3949,7 +3950,7 @@ fn lvalue_is_inline_array(lvalue: &SemLValue) -> bool {
         if matches!(field.storage, crate::semantic::RecordFieldStorage::InlineArray { .. }))
 }
 
-fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u32> {
+fn record_storage_sizes(program: &SemProgram) -> BTreeMap<SemSymbolId, u32> {
     let mut sizes = BTreeMap::new();
     for module in &program.modules {
         for item in &module.items {
@@ -3974,11 +3975,11 @@ fn record_storage_sizes(program: &SemProgram) -> BTreeMap<String, u32> {
     sizes
 }
 
-fn insert_record_storage_size(sizes: &mut BTreeMap<String, u32>, declaration: &SemDeclaration) {
+fn insert_record_storage_size(sizes: &mut BTreeMap<SemSymbolId, u32>, declaration: &SemDeclaration) {
     match &declaration.storage {
         SemDeclarationStorage::Type { record_type, .. }
         | SemDeclarationStorage::Record { record_type, .. } => {
-            sizes.insert(record_type.name.clone(), record_type.size);
+            sizes.insert(declaration.symbol.id, record_type.size);
         }
         SemDeclarationStorage::Scalar | SemDeclarationStorage::Array { .. } | SemDeclarationStorage::Enum { .. } => {}
     }
@@ -4370,7 +4371,7 @@ fn sem_type_object_layout(ty: &SemType, target_layout: TargetLayout) -> NirObjec
 
 fn declaration_local_object_layout(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     address_initializer: Option<u16>,
     init: Option<&NirStorageInit>,
     target_layout: TargetLayout,
@@ -4436,7 +4437,7 @@ fn routine_symbol_initializer(declaration: &SemDeclaration) -> Option<&str> {
 
 fn declaration_storage_size(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     address_initializer: Option<u16>,
     target_layout: TargetLayout,
 ) -> u32 {
@@ -4450,8 +4451,9 @@ fn declaration_storage_size(
                 declaration
                     .ty
                     .value
-                    .as_record_name()
-                    .and_then(|name| record_storage_sizes.get(name).copied())
+                    .as_aggregate_identity()
+                    .and_then(|identity| identity.symbol)
+                    .and_then(|owner| record_storage_sizes.get(&owner).copied())
             })
             .unwrap_or(0),
         SemDeclarationStorage::Array { array_type, .. } => declaration_array_storage_size(
@@ -4517,7 +4519,7 @@ fn literal_expr_u16(expr: &SemExpr) -> Option<u16> {
 fn declaration_array_storage_size(
     declaration: &SemDeclaration,
     array_type: &ArrayType,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     address_initializer: Option<u16>,
     target_layout: TargetLayout,
 ) -> u32 {
@@ -4558,7 +4560,7 @@ fn declaration_array_storage_size(
 
 fn declaration_array_address_initializer_uses_pointer_storage(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     target_layout: TargetLayout,
 ) -> bool {
     let SemDeclarationStorage::Array { array_type, .. } = &declaration.storage else {
@@ -4600,7 +4602,7 @@ fn symbolic_array_initializer_routine_expr(expr: &SemExpr) -> Option<String> {
 
 fn array_element_width(
     array_type: &ArrayType,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     target_layout: TargetLayout,
 ) -> Option<u32> {
     array_type
@@ -4610,8 +4612,9 @@ fn array_element_width(
         .or_else(|| {
             array_type
                 .element
-                .as_record_name()
-                .and_then(|name| record_storage_sizes.get(name).copied())
+                .as_aggregate_identity()
+                .and_then(|identity| identity.symbol)
+                .and_then(|owner| record_storage_sizes.get(&owner).copied())
         })
 }
 
@@ -4639,7 +4642,7 @@ fn callable_descriptor_size(target_layout: TargetLayout, has_size_word: bool) ->
 
 fn declaration_array_fact(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     address_initializer: Option<u16>,
     target_layout: TargetLayout,
 ) -> Option<NirArrayGlobalFact> {
@@ -4685,7 +4688,7 @@ fn declaration_symbol_storage_type(
 fn declaration_global_init(
     id: SymbolId,
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     backing: &NirGlobalBacking,
     address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,
@@ -4875,7 +4878,7 @@ fn apply_program_end_symbol_set(globals: &mut [NirGlobal], set: &SemSet) -> bool
 
 fn declaration_local_init(
     declaration: &SemDeclaration,
-    record_storage_sizes: &BTreeMap<String, u32>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
     backing: &NirLocalBacking,
     address_initializer: Option<u16>,
     global_ids: &BTreeMap<String, SymbolId>,

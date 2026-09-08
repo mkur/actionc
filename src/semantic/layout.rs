@@ -110,7 +110,7 @@ impl SemanticLayoutFacts {
         let records = self
             .records
             .iter()
-            .map(|record| (record.name.clone(), (record.size, record.alignment)))
+            .map(|record| (record.owner, (record.size, record.alignment)))
             .collect::<HashMap<_, _>>();
         semantic_value_alignment(value, &records, target_layout)
     }
@@ -150,7 +150,7 @@ impl SemanticLayoutFacts {
             let id = RecordLayoutId(self.records.len());
             self.record_lookup.insert(owner, id);
             let record_name = symbol.qualified_name.clone();
-            let record_type = RecordType::new(
+            let mut record_type = RecordType::new(
                 record_name.clone(),
                 owner_fields.iter().map(|field| RecordFieldType {
                     id: Some(field.id),
@@ -161,6 +161,7 @@ impl SemanticLayoutFacts {
                 }),
                 size,
             );
+            record_type.identity = symbol.aggregate_identity(owner);
             self.records.push(SemanticRecordLayout {
                 id,
                 owner,
@@ -207,7 +208,7 @@ impl SemanticLayoutFacts {
             let records = self
                 .records
                 .iter()
-                .map(|record| (record.name.clone(), (record.size, record.alignment)))
+                .map(|record| (record.owner, (record.size, record.alignment)))
                 .collect::<HashMap<_, _>>();
             let element_size =
                 semantic_value_width(&element_type, &records, target_layout).unwrap_or(0);
@@ -259,7 +260,7 @@ fn array_origin(
 
 fn semantic_value_width(
     value: &ValueType,
-    records: &HashMap<String, (u32, u32)>,
+    records: &HashMap<SymbolId, (u32, u32)>,
     target_layout: TargetLayout,
 ) -> Option<u32> {
     value
@@ -267,14 +268,15 @@ fn semantic_value_width(
         .map(u32::from)
         .or_else(|| {
             value
-                .as_record_name()
-                .and_then(|name| records.get(name).map(|(size, _)| *size))
+                .as_aggregate_identity()
+                .and_then(|identity| identity.symbol)
+                .and_then(|owner| records.get(&owner).map(|(size, _)| *size))
         })
 }
 
 fn semantic_value_alignment(
     value: &ValueType,
-    records: &HashMap<String, (u32, u32)>,
+    records: &HashMap<SymbolId, (u32, u32)>,
     target_layout: TargetLayout,
 ) -> Option<u32> {
     if target_layout.record_layout == RecordLayoutPolicy::Packed {
@@ -292,7 +294,10 @@ fn semantic_value_alignment(
         super::ValueTypeKind::CallablePointer(_) => {
             Some(target_layout.code_pointer.alignment_bytes.get())
         }
-        super::ValueTypeKind::Record(name) => records.get(&name).map(|(_, alignment)| *alignment),
+        super::ValueTypeKind::Record(_) => {
+            let owner = value.as_aggregate_identity()?.symbol?;
+            records.get(&owner).map(|(_, alignment)| *alignment)
+        }
         super::ValueTypeKind::Error => None,
     }
 }

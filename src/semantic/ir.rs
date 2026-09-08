@@ -2039,7 +2039,7 @@ fn type_summary(ty: &ValueType) -> String {
         ValueTypeBase::Fund(fund) => format!("{fund:?}"),
         ValueTypeBase::Enum(identity) => identity.name.clone(),
         ValueTypeBase::Real => "REAL".to_string(),
-        ValueTypeBase::Named(name) => name.clone(),
+        ValueTypeBase::Named(identity) => identity.name.clone(),
         ValueTypeBase::Callable(callable) => callable_type_summary(callable),
         ValueTypeBase::Error => "<error>".to_string(),
     };
@@ -2684,7 +2684,7 @@ impl<'a> IrBuilder<'a> {
             element_type,
             self.model.target_layout,
             &self.model.fields,
-            &self.model.field_lookup,
+            &self.model.record_fields_by_owner,
         )?;
         if leaves.is_empty() {
             return None;
@@ -2867,7 +2867,11 @@ impl<'a> IrBuilder<'a> {
                         .unwrap_or(0);
                     size.max(offset.saturating_add(width))
                 });
-                RecordType::new(symbol.name.clone(), record_fields, size)
+                let mut record = RecordType::new(symbol.name.clone(), record_fields, size);
+                record.identity = super::AggregateIdentity::resolved(
+                    symbol.id, symbol.qualified_name.clone(), symbol.canonical_qualified_key.clone(),
+                );
+                record
             })
     }
 
@@ -2876,12 +2880,10 @@ impl<'a> IrBuilder<'a> {
             .value_width_bytes_for_layout(self.model.target_layout)
             .map(u32::from)
             .or_else(|| {
-                value.as_record_name().and_then(|name| {
+                value.as_record_identity().and_then(|identity| {
                     self.model
                         .layout
-                        .records
-                        .iter()
-                        .find(|record| record.name.eq_ignore_ascii_case(name))
+                        .record_for_owner(identity.symbol?)
                         .map(|record| record.size)
                 })
             })
@@ -4486,26 +4488,14 @@ impl<'a> IrBuilder<'a> {
         )
     }
 
-    fn field_descriptor_by_name(
-        &self,
-        owner_name: &str,
-        field_name: &str,
-    ) -> Option<&super::SemanticField> {
-        let id = self
-            .model
-            .field_lookup
-            .get(&normalize_name(owner_name))?
-            .get(&normalize_name(field_name))?;
-        self.model.fields.get(id.0)
-    }
-
     fn field_descriptor(
         &self,
         base: &ValueType,
         field_name: &str,
     ) -> Option<&super::SemanticField> {
-        let owner_name = base.as_record_identity()?.name;
-        self.field_descriptor_by_name(owner_name, field_name)
+        let owner = base.as_record_identity()?.symbol?;
+        let id = self.model.record_fields_by_owner.get(&owner)?.get(&normalize_name(field_name))?;
+        self.model.fields.get(id.0)
     }
 
     fn symbol_ref(&self, scope: ScopeId, name: &str, span: Span) -> Option<SemSymbolRef> {
@@ -4847,7 +4837,9 @@ impl<'a> IrBuilder<'a> {
             } else if symbol.ty.as_ref().is_some_and(ValueType::is_real) {
                 ValueTypeBase::Real
             } else {
-                ValueTypeBase::Named(symbol.qualified_name)
+                ValueTypeBase::Named(super::AggregateIdentity::resolved(
+                    symbol.id, symbol.qualified_name, symbol.canonical_qualified_key,
+                ))
             };
         } else if name.components.len() == 1
             || name.to_string().eq_ignore_ascii_case("SYS.LONGINT")
@@ -4881,7 +4873,7 @@ impl From<&crate::ast::TypeRef> for ValueType {
             crate::ast::TypeBase::Named(name) if name.eq_ignore_ascii_case("STRING") => {
                 ValueTypeBase::Fund(FundType::Char)
             }
-            crate::ast::TypeBase::Named(name) => ValueTypeBase::Named(name.to_string()),
+            crate::ast::TypeBase::Named(name) => ValueTypeBase::Named(super::AggregateIdentity::unresolved(name.to_string())),
             crate::ast::TypeBase::Callable(callable) => {
                 ValueTypeBase::Callable(Box::new(CallableType::from_routine_kind(
                     callable.kind.clone(),
@@ -4957,7 +4949,7 @@ fn type_ref_from_value(value: &ValueType) -> crate::ast::TypeRef {
             ValueTypeBase::Fund(fund) => crate::ast::TypeBase::Fund(*fund),
             ValueTypeBase::Enum(identity) => crate::ast::TypeBase::Named(QualifiedName::new(identity.name.split('.').map(str::to_string).collect::<Vec<_>>())),
             ValueTypeBase::Real => crate::ast::TypeBase::NativeReal,
-            ValueTypeBase::Named(name) => crate::ast::TypeBase::Named(name.as_str().into()),
+            ValueTypeBase::Named(identity) => crate::ast::TypeBase::Named(identity.name.as_str().into()),
             ValueTypeBase::Callable(callable) => {
                 crate::ast::TypeBase::Callable(Box::new(crate::ast::CallableTypeRef {
                     kind: callable.kind.clone(),
