@@ -4,6 +4,10 @@ Status: base implementation complete (slices 0–7). Guards and guarded wildcard
 remain a separate follow-on. This plan incorporates the language review in
 [ENUM and CASE design](ENUM_AND_CASE_DESIGN.md).
 
+The subsequent [ML-style algebraic data type plan](ALGEBRAIC_DATA_TYPES_IMPLEMENTATION_PLAN.md)
+proposes tagged variants, aggregate values/results, generic types, payload patterns
+and the guard follow-on. Those features remain planned, not part of this delivery.
+
 Inspected baseline: `5d4d164` (`Route arithmetic faults through Atari Error`).
 Oscar64 porting remains
 suspended; this work neither resumes it nor depends on deferred volatile work.

@@ -13,6 +13,9 @@ pub mod ir;
 pub mod layout;
 pub(crate) mod materialize;
 mod array_places;
+mod algebraic;
+#[doc(hidden)]
+pub use algebraic::AlgebraicTypeCapabilities;
 mod case;
 pub use case::CaseRange;
 mod declarations;
@@ -441,6 +444,9 @@ pub struct SemanticOptions {
     pub comparison_values: bool,
     /// Modern-profile fixed-length arrays stored inline inside records.
     pub embedded_record_arrays: bool,
+    /// Staged aggregate extensions. Not exposed as command-line switches.
+    #[doc(hidden)]
+    pub algebraic_types: AlgebraicTypeCapabilities,
     pub target: TargetId,
 }
 
@@ -454,6 +460,7 @@ impl SemanticOptions {
             lexical_blocks: true,
             comparison_values: true,
             embedded_record_arrays: true,
+            algebraic_types: AlgebraicTypeCapabilities::DISABLED,
             target: TargetId::Atari6502,
         }
     }
