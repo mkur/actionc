@@ -2095,6 +2095,9 @@ impl<'a> Parser<'a> {
     }
 
     fn is_named_var_decl_start_at(&self, pos: usize) -> bool {
+        if self.is_func_decl_start_at(pos) {
+            return false;
+        }
         let Some(TokenKind::Ident(name)) = self.tokens.get(pos).map(|token| &token.kind) else {
             return false;
         };

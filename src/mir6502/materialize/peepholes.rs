@@ -4072,6 +4072,12 @@ fn staged_word_to_fixed_pointer_pair_shape_at(
     let scratch_lo = store_a_direct_byte(ops.get(index + 1)?)?;
     let source_hi = load_a_direct_byte(ops.get(index + 2)?)?;
     let scratch_hi = store_a_direct_byte(ops.get(index + 3)?)?;
+    // The structural rewrite proves deadness only for compiler byte homes.
+    // A local/global/parameter store is observable source storage, even when
+    // its next use merely places the pointer in the indirect scratch pair.
+    if !mem_is_private_scratch(&scratch_lo) || !mem_is_private_scratch(&scratch_hi) {
+        return None;
+    }
     if source_hi != offset_mem(&source_lo, 1)
         || !pure_direct_load_mem(&source_lo)
         || !pure_direct_load_mem(&source_hi)

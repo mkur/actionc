@@ -37,6 +37,10 @@ available when deliberately overriding the source placement.
 `real-basics.act` is the complete introductory program from the
 [native REAL tutorial](../docs/tutorials/REAL.md).
 
+`variant-tree.act` demonstrates recursive variant data in a checked fixed arena
+with an EMPTY sentinel and iterative insertion/traversal. Both Atari backends
+and runtimes are covered. See the [variant tutorial](../docs/tutorials/VARIANTS.md).
+
 `graphics/fedora.act` translates an Atari BASIC 3D sine-surface plot whose
 rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 `MATH.Sin` native REAL procedures.

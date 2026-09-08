@@ -318,6 +318,15 @@ pub(super) fn resolve_storage_initializer_targets(
     }
 }
 
+/// Value returned by the Atari ABI, distinct from a pointer's element size.
+pub(super) fn result_type_size(ty: &TypeRef) -> Option<u16> {
+    if ty.pointer {
+        Some(2)
+    } else {
+        type_size(ty)
+    }
+}
+
 pub(super) fn type_size(ty: &TypeRef) -> Option<u16> {
     match &ty.base {
         TypeBase::Fund(FundType::Byte | FundType::Char) => Some(1),

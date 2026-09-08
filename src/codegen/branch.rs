@@ -1122,7 +1122,7 @@ impl Generator {
             expr.kind,
             ExprKind::Call { .. }
                 | ExprKind::Unary {
-                    op: UnaryOp::Neg,
+                    op: UnaryOp::Neg | UnaryOp::AddressOf,
                     ..
                 }
                 | ExprKind::Binary {

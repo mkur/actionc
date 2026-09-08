@@ -1,8 +1,9 @@
 # ML-style algebraic data types: implementation plan
 
 Status: accepted; implementation in progress on `main`, 2026-09-08.
-Inspected baseline: `ceecea1`. Public algebraic-type capabilities remain disabled
-until their end-to-end acceptance gates below pass.
+Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
+are enabled after their end-to-end acceptance gates; aggregate calls, generics,
+nested patterns and guards remain future slices. See implementation progress.
 
 ## 1. Objective and boundaries
 
@@ -60,7 +61,8 @@ generic types, pattern matching or aggregate function returns already work.
 
 ## 3. Accepted source contract
 
-All examples in this document describe future syntax.
+Examples describe the complete accepted contract, including future slices.
+See implementation progress for the currently supported subset.
 
 ### 3.1 Definitions and constructors
 
@@ -699,3 +701,34 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   snapshots and capture/fault feature coverage; existing snapshots are unchanged.
 - Aggregate calls/results, generic types, nested patterns and guards remain
   independently gated. Slice 4 adds recursive-data examples and execution.
+
+### Slice 4 — Recursive data and fixed-arena execution (complete)
+
+- Self/mutually recursive variants use the existing finite nominal type graph
+  and data-pointer barriers. Atari/native layout canaries verify pointer widths,
+  alignment, field identities and array placement; inline cycles stay errors.
+- Added `samples/variant-tree.act`: an eight-node binary-search tree with a
+  constructed EMPTY sentinel, checked fixed-arena allocation and iterative
+  insertion/traversal. It prints 1, 2, 3, 5, 6, 7, 8, 9; a ninth distinct insert
+  is rejected without changing the tree. Both Atari backends/runtimes are in
+  the sample build matrix and the independent guarded-memory execution oracle.
+- Execution coverage also includes shared subtrees, mutation through captured
+  pointers, mutually recursive objects, explicit NIL and non-page-aligned pools.
+  The tutorial documents value versus pointer sharing and remaining limitations.
+  There is no allocator, implicit dereference, or new routine activation model.
+- Named pointer-returning functions now parse distinctly from typed callable
+  declarations. Classic uses returned pointer width, not pointee extent, for
+  both direct and typed indirect results, and stages address-of comparisons
+  through the existing comparison path.
+- A focused pointer-result oracle exposed an existing MIR6502 forwarding bug:
+  fixed-pointer placement dropped stores into user pointer variables while its
+  deadness proof only covered compiler byte homes. Restricting the existing
+  rewrite to private scratch restores the source stores; a regression checks
+  both lanes for local/global/parameter/absolute/fixed-zero-page backing.
+- Verification: all 2,888 compiler tests and 153 locked VM tests pass, including
+  the sample build matrix and raw/optimized execution on both Atari runtimes.
+  NIR snapshots, 39 NIR fixtures, 167 MIR6502 fixtures and all-target cargo check
+  pass. Existing snapshots are unchanged; AES XEX and assembly remain
+  byte-for-byte identical to baseline (4,211 XEX bytes).
+- Native runtime validation still requires target Error adapters;
+  layout/construction canaries do not claim native execution.

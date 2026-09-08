@@ -1,0 +1,118 @@
+; Modern Action!: a binary search tree in a bounded arena.
+; No heap, recursive procedures, implicit allocation, or implicit dereference.
+; Compile with --mode optimized or --mode mir6502, either Atari runtime.
+
+CONST CAPACITY=8
+CONST CARD NIL=0
+TYPE Tree=VARIANT [
+  EMPTY
+  NODE [INT value Tree POINTER left,right]
+]
+TYPE TreeArena=[BYTE before Tree ARRAY nodes(CAPACITY) BYTE after]
+TYPE Link=[Tree POINTER node]
+
+Tree empty
+TreeArena arena
+Tree POINTER root
+Link ARRAY pending(CAPACITY)
+INT ARRAY sorted(CAPACITY)
+INT ARRAY inputs=[5 2 8 1 3 7 9 6]
+BYTE used,count,overflow
+
+Tree POINTER FUNC Allocate(INT value)
+  Tree POINTER fresh
+  IF used=CAPACITY THEN RETURN(NIL) FI
+  fresh=@arena.nodes(used)
+  used==+1
+  fresh^=Tree.NODE(value,@empty,@empty)
+RETURN(fresh)
+
+BYTE FUNC Insert(INT item)
+  Tree POINTER cursor,fresh
+  IF root=@empty THEN
+    fresh=Allocate(item)
+    IF fresh=NIL THEN RETURN(0) FI
+    root=fresh
+    RETURN(1)
+  FI
+  cursor=root
+  DO
+    CASE cursor^ OF
+    WHEN Tree.EMPTY THEN
+      RETURN(0)
+    WHEN Tree.NODE(value,left,right) THEN
+      IF item=value THEN RETURN(1) FI
+      IF item<value THEN
+        IF left<>@empty THEN
+          cursor=left
+        ELSE
+          fresh=Allocate(item)
+          IF fresh=NIL THEN RETURN(0) FI
+          cursor^=Tree.NODE(value,fresh,right)
+          RETURN(1)
+        FI
+      ELSE
+        IF right<>@empty THEN
+          cursor=right
+        ELSE
+          fresh=Allocate(item)
+          IF fresh=NIL THEN RETURN(0) FI
+          cursor^=Tree.NODE(value,left,fresh)
+          RETURN(1)
+        FI
+      FI
+    ESAC
+  OD
+RETURN(0)
+
+PROC Traverse()
+  Tree POINTER cursor
+  BYTE depth
+  depth=0 count=0 cursor=root
+  DO
+    WHILE cursor<>@empty DO
+      IF depth=CAPACITY THEN overflow=1 RETURN FI
+      pending(depth).node=cursor
+      depth==+1
+      CASE cursor^ OF
+      WHEN Tree.NODE(_,left,_) THEN
+        cursor=left
+      ELSE
+        overflow=1 RETURN
+      ESAC
+    OD
+    IF depth=0 THEN EXIT FI
+    depth==-1
+    cursor=pending(depth).node
+    CASE cursor^ OF
+    WHEN Tree.NODE(value,_,right) THEN
+      IF count=CAPACITY THEN overflow=1 RETURN FI
+      sorted(count)=value
+      count==+1
+      cursor=right
+    ELSE
+      overflow=1 RETURN
+    ESAC
+  OD
+RETURN
+
+PROC BuildDemoTree()
+  BYTE i
+  empty=Tree.EMPTY
+  root=@empty
+  used=0 count=0 overflow=0
+  arena.before=41 arena.after=42
+  FOR i=0 TO CAPACITY-1 DO
+    IF Insert(inputs(i))=0 THEN overflow=1 FI
+  OD
+  ; Full arena: rejection must leave the existing tree unchanged.
+  IF Insert(10)<>0 THEN overflow=1 FI
+  Traverse()
+RETURN
+
+PROC Main()
+  BYTE i
+  BuildDemoTree()
+  FOR i=0 TO count-1 DO PrintIE(sorted(i)) OD
+  IF overflow<>0 THEN PrintE("Tree capacity/traversal error") FI
+RETURN

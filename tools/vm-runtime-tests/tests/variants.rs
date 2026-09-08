@@ -139,13 +139,17 @@ fn invalid_tags_fault_before_any_arm_copy_or_else_and_never_return() {
 
 #[test]
 fn validity_checks_active_nested_values_but_ignores_inactive_payloads() {
-    let prefix="TYPE Inner=VARIANT [NONE VALUE [CARD number]]\nTYPE Outer=VARIANT [EMPTY DATA [Inner value]]\nOuter current\nBYTE POINTER raw\nBYTE ARRAY output=$600\nPROC Main()\n";
-    let mut expected=vec![0xCC;0x500];
-    expected[0]=41;
-    let invalid=format!("{prefix}current=Outer.DATA(Inner.VALUE(7)) raw=BYTE POINTER(@current) raw(1)=0\noutput(0)=41\nLET saved=current\noutput(0)=42\nDO OD\nRETURN");
-    check_with_fault(&invalid,&expected,true);
-    let inactive=format!("{prefix}current=Outer.EMPTY raw=BYTE POINTER(@current) raw(1)=255\nLET saved=current\nCASE saved OF\nWHEN Outer.EMPTY THEN\noutput(0)=41\nELSE\noutput(0)=42\nESAC\nDO OD\nRETURN");
-    check(&inactive,&expected);
+    let prefix = "TYPE Inner=VARIANT [NONE VALUE [CARD number]]\nTYPE Outer=VARIANT [EMPTY DATA [Inner value]]\nOuter current\nBYTE POINTER raw\nBYTE ARRAY output=$600\nPROC Main()\n";
+    let mut expected = vec![0xCC; 0x500];
+    expected[0] = 41;
+    let invalid = format!(
+        "{prefix}current=Outer.DATA(Inner.VALUE(7)) raw=BYTE POINTER(@current) raw(1)=0\noutput(0)=41\nLET saved=current\noutput(0)=42\nDO OD\nRETURN"
+    );
+    check_with_fault(&invalid, &expected, true);
+    let inactive = format!(
+        "{prefix}current=Outer.EMPTY raw=BYTE POINTER(@current) raw(1)=255\nLET saved=current\nCASE saved OF\nWHEN Outer.EMPTY THEN\noutput(0)=41\nELSE\noutput(0)=42\nESAC\nDO OD\nRETURN"
+    );
+    check(&inactive, &expected);
 }
 
 #[test]

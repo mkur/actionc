@@ -1446,7 +1446,7 @@ fn callable_pointer_return_slot(kind: &RoutineKind) -> Option<StorageSlot> {
         RoutineKind::Proc => None,
         RoutineKind::Func { return_type } => {
             let ty = return_type.as_ref();
-            type_size(&ty).map(|size| {
+            result_type_size(&ty).map(|size| {
                 StorageSlot::zero_page(runtime_zp::ARGS.address(), size).signed(type_is_signed(&ty))
             })
         }

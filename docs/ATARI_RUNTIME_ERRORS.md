@@ -5,6 +5,13 @@ mechanism in every actionc compile profile. They do not create a separate
 fatal-screen runtime. The target-independent fault remains `DivisionByZero`;
 its numeric enum value is not an Atari error code.
 
+Modern variant-value validation uses the same mechanism for `InvalidVariant`:
+tag zero or an out-of-domain tag faults before the value or a matching arm is
+exposed, including ELSE. Active inline nested variants are checked; pointers
+and inactive alternatives are not traversed. This is actionc's new use of the
+existing invalid-argument Error 100 convention, not historical cartridge ADT
+behavior.
+
 ## Verified legacy contract
 
 The preserved archive
@@ -37,6 +44,8 @@ a missing string quote.
 All compiler-owned signed, unsigned, narrow, and shared-divmod helpers prepare
 A=100, X=0, Y=100 before calling Error. Supplying both A and Y supports
 A-based custom handlers while satisfying the actual cartridge reporter.
+Classic and MIR6502 invalid-variant paths reuse the same call convention and
+non-return guard.
 
 - Cartridge builds call the existing `$04CB` entry. The default handler prints
   `Error: 100` and enters the Action! monitor; existing dispatch behavior stays
@@ -75,3 +84,8 @@ arithmetic scratch. A proven nonzero divisor needs no NIR fault barrier.
   prior fixed-local store even without an address-taking expression.
 - Shared helper tests verify all ten signatures' Error relocation and defensive
   non-return guard, alongside existing nonzero arithmetic/scratch oracles.
+- `tools/vm-runtime-tests/tests/variants.rs` checks invalid tags, active nested
+  validation, prior-state observation and returning handlers on both Atari
+  backends, both runtimes, and raw/optimized NIR paths. NIR represents a variant
+  fault as an opaque terminal call with unknown memory effects; its verifier
+  rejects results, arguments, fallthrough or weakened effects.

@@ -380,6 +380,15 @@ fn sample_catalog() -> Vec<SampleSpec> {
             ],
         ),
         executable(
+            "samples/variant-tree.act",
+            vec![
+                release(Optimized, ActionCart),
+                release(Optimized, Standalone),
+                experimental(ActionCart),
+                experimental(Standalone),
+            ],
+        ),
+        executable(
             "samples/lexical-blocks.act",
             vec![release(Optimized, ActionCart)],
         ),

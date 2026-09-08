@@ -15980,6 +15980,51 @@ fn analyzed_pointer_placement_bypasses_dead_private_word_home() {
     );
 }
 
+#[test]
+fn analyzed_pointer_placement_preserves_source_storage_in_either_lane() {
+    let private = MirMem::Spill { id: MirSpillId(30), offset: 0 };
+    for visible in [
+        MirMem::Local { id: LocalId(0), offset: 0 },
+        MirMem::Param { id: ParamId(0), offset: 0 },
+        MirMem::Global { id: SymbolId(0), offset: 0 },
+        MirMem::Absolute(0x0600),
+        MirMem::FixedZeroPage(MirFixedZpSlot(0xA0)),
+    ] {
+        for (low, high) in [
+            (visible.clone(), offset_mem(&visible, 1)),
+            (visible.clone(), private.clone()),
+            (private.clone(), visible.clone()),
+        ] {
+            let source = MirMem::FixedZeroPage(MirFixedZpSlot(0xE0));
+            let original = vec![
+                word_chain_load(source.clone()),
+                word_chain_store(low.clone()),
+                word_chain_load(offset_mem(&source, 1)),
+                word_chain_store(high.clone()),
+                word_chain_load(low.clone()),
+                word_chain_store(MirMem::FixedZeroPage(MirFixedZpSlot(0xAC))),
+                word_chain_load(high.clone()),
+                word_chain_store(MirMem::FixedZeroPage(MirFixedZpSlot(0xAD))),
+            ];
+            let mut routine = ssa_lite_edge_test_routine(vec![MirBlock {
+                id: MirBlockId(0),
+                label: "entry".to_string(),
+                params: Vec::new(),
+                ops: original.clone(),
+                terminator: MirTerminator::Return,
+            }]);
+            let layout = MaterializeLayout::new(&empty_test_program(), 0x3000);
+            let result = MirPostHomeRewriteDriver::default()
+                .run_fixed_point(&mut routine, |routine, context| {
+                    peepholes::discover_rhs_and_adjacent_reloads(routine, context, &layout)
+                })
+                .unwrap();
+            assert!(!result.applied_by_stat.contains_key("direct-fixed-pointer-placement"));
+            assert_eq!(routine.blocks[0].ops, original, "{low:?}/{high:?}");
+        }
+    }
+}
+
 fn word_chain_load(mem: MirMem) -> MirOp {
     MirOp::Load {
         dst: MirDef::Reg(MirReg::A),
