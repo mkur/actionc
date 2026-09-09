@@ -87,6 +87,10 @@ crowding the active reference set.
   six-byte Atari packed-decimal type and its first-party libraries.
 - [Variants and pattern matching](tutorials/VARIANTS.md) - constructors, immutable
   snapshots, generic records/variants, nested patterns, guards and fixed arenas.
+- [Untagged unions](tutorials/UNIONS.md) - overlapping typed storage, snapshots,
+  generics, volatile access and the backend support matrix.
+- [Union code-quality baseline](Action_2027/UNIONS_CODEGEN_AUDIT.md) - direct
+  views versus explicit aliases, with aggregate copy costs accounted separately.
 - [ADT code-quality baseline](ADT_CODEGEN_BASELINE.md) - executable comparison
   with handwritten tagged records, measured costs and existing optimization coverage.
 - [ACTIONC_ANNOTATIONS.md](ACTIONC_ANNOTATIONS.md) - supported `;@actionc`

@@ -95,6 +95,14 @@ FUNC/FUNC POINTER results, pointers, and record/array initializers. Both modern
 backends use the existing BYTE representation and ABI. All byte values are
 defined, including unnamed values. See [BYTE enums](SYNTAX_EXTENSIONS.md#byte-enums).
 
+Modern classic and MIR6502 also support nominal untagged unions in both Atari
+runtimes: overlapping typed members, generic definitions, immutable snapshots,
+aggregate calls, RAM aliases and object-level VOLATILE. Actual LONGINT/LONGCARD
+operations require MIR6502, including writes through record/union fields. Byte/
+word views and opaque copies do not require wide scalar operations. Compatibility
+rejects union definitions. Native targets have layout/access/ABI canaries, not
+native runtime acceptance. See [untagged unions](tutorials/UNIONS.md).
+
 Legacy accepts many old Action! idioms that depend on implicit address-taking or
 loose routine-address handling. Modern prefers the explicit extension forms for
 those cases.

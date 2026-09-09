@@ -477,7 +477,7 @@ impl SemanticOptions {
                 indirect_aggregate_calls: true,
                 generic_types: true,
                 case_guards: true,
-                ..AlgebraicTypeCapabilities::DISABLED
+                unions: true,
             },
             target: TargetId::Atari6502,
         }

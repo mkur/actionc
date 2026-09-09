@@ -398,6 +398,15 @@ fn sample_catalog() -> Vec<SampleSpec> {
             ],
         ),
         executable(
+            "samples/union-views.act",
+            vec![
+                release(Optimized, ActionCart),
+                release(Optimized, Standalone),
+                experimental(ActionCart),
+                experimental(Standalone),
+            ],
+        ),
+        executable(
             "samples/algebraic-types.act",
             vec![
                 release(Optimized, ActionCart),

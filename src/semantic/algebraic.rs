@@ -10,7 +10,7 @@ pub struct AlgebraicTypeCapabilities {
     pub indirect_aggregate_calls: bool,
     pub generic_types: bool,
     pub case_guards: bool,
-    /// Union layout acceptance is internal until all value consumers pass.
+    /// Untagged union layouts and value consumers have passed acceptance.
     pub unions: bool,
 }
 
@@ -43,7 +43,7 @@ mod tests {
             assert_eq!(SemanticOptions::default().with_target(target).algebraic_types,
                 AlgebraicTypeCapabilities::DISABLED);
             assert_eq!(SemanticOptions::modern().with_target(target).algebraic_types,
-                AlgebraicTypeCapabilities { aggregate_values: true, variants: true, aggregate_calls: true, indirect_aggregate_calls: true, generic_types: true, case_guards: true, unions: false });
+                AlgebraicTypeCapabilities { aggregate_values: true, variants: true, aggregate_calls: true, indirect_aggregate_calls: true, generic_types: true, case_guards: true, unions: true });
         }
     }
 

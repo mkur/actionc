@@ -1,5 +1,4 @@
-//! Untagged overlapping layouts. Public value support remains gated until
-//! field effects, copies, calls and low-level storage pass their acceptance.
+//! Untagged overlapping layouts, using the shared aggregate value machinery.
 use super::*;
 
 impl Analyzer {
@@ -12,7 +11,7 @@ impl Analyzer {
     ) {
         if !self.options.algebraic_types.unions {
             self.diagnostics
-                .push(Diagnostic::new(span, "UNION support is not enabled yet"));
+                .push(Diagnostic::new(span, "UNION support is not enabled in this profile"));
             return;
         }
         if fields.iter().all(|field| field.entries.is_empty()) {

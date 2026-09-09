@@ -1257,6 +1257,18 @@ clears decimal mode and stops. Native construction/layout lowering is supported;
 native fault calls explicitly require an Error adapter and are diagnosed until
 that target runtime contract exists.
 
+## Untagged aggregate views
+
+SemIR resolves union members to nominal types, canonical overlapping offsets and
+the target aggregate extent. NIR uses the existing typed field places, loads,
+selected-width stores and overlap-safe `CopyBytes`; there is no union opcode or
+runtime helper. Different member identities do not prove disjoint storage.
+Writing one view neither clears bytes outside that view nor validates another
+view. Full-value captures and copies include the entire union extent, including
+padding. A union payload does not remove its enclosing variant's tag checks.
+MIR consumes these ordinary storage facts without recovering source types or
+member names from SemIR.
+
 ## Concrete generic instances
 
 The semantic resolver interns a generic TYPE definition ID plus canonical

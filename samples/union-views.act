@@ -1,0 +1,22 @@
+; Modern untagged storage views and an immutable whole-value snapshot.
+; Prints 4728, 18, 165 and 0 on separate lines on Atari.
+TYPE BytePair=[BYTE low,high]
+TYPE WordView=UNION [
+ CARD word
+ INT signedWord
+ BYTE ARRAY bytes(3)
+ BytePair parts
+]
+WordView original
+
+PROC Main()
+ original.bytes(2)=$A5
+ original.word=$1234
+ original.bytes(0)=$78
+ LET saved=original
+ original.word=0
+ PrintCE(saved.word)
+ PrintBE(saved.parts.high)
+ PrintBE(saved.bytes(2))
+ PrintCE(original.word)
+RETURN

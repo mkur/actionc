@@ -38,9 +38,11 @@ runtime assignment before reading them. An invalid tag, including an active
 nested variant's tag, invokes Error(100) on Atari before any arm or value copy
 is exposed. Even ELSE does not catch invalid storage.
 
-Scalars, records, variants and data pointers can be payloads. Record payloads
-may contain embedded fixed arrays. Inline values copy by value; pointers share
-their pointees. Recursive definitions must cross a pointer boundary:
+Scalars, records, unions, variants and data pointers can be payloads. Record
+payloads may contain embedded fixed arrays. A [union](UNIONS.md) payload is a raw
+value without its own tag or constructor patterns; the enclosing variant remains
+checked. Inline values copy by value; pointers share their pointees. Recursive
+definitions must cross a pointer boundary:
 
 ```action
 TYPE Tree=VARIANT [
@@ -73,7 +75,7 @@ activation is unchanged: recursive data does not enable recursive/reentrant
 procedures. Existing backend limits also apply, including classic's
 LONGINT/LONGCARD restrictions.
 
-Record and variant parameters and function results are supported on direct and
+Record, union and variant parameters and function results are supported on direct and
 typed indirect compiler-defined calls in the modern profile. Parameters are independent mutable
 copies; use an explicit POINTER parameter to modify the caller's object. Function
 results compose with LET, assignment, constructor arguments, RETURN and CASE.

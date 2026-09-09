@@ -611,22 +611,21 @@ receives no pattern strings or backend-specific aggregate ABI. Ordered typed
 arm refinements dominate extraction; guarded binding declarations/initialization
 remain visible to storage, link, effect and feature visitors.
 
-Generic record/variant instances are interned by defining SymbolId and canonical
+Generic record/union/variant instances are interned by defining SymbolId and canonical
 concrete ValueTypes, not printed names. Recursive placeholders retain finite
 identities across pointer cycles. Inline layout cycles and structurally expanding
 specializations are rejected; explicit depth/work/instance limits diagnose
 pathological input. No generic routine inference, runtime dictionaries, implicit
 allocation or recursive Atari activation model is introduced.
 
-## Untagged union delivery gate
+## Untagged unions
 
 Semantic type observations include destination-only places, including nested
 fields, indexes and pointer dereferences. Backend capability checks must not
 miss an unsupported scalar store just because no expression reads that type.
 Observations are identified by source site and class, not incidental vector order.
 
-UNION syntax and nominal layout are staged behind an internal capability; all
-public profiles still reject union definitions. This is not executable support.
+UNION definitions are supported in modern profiles; compatibility rejects them.
 Canonical aggregate layouts distinguish Record, Union and Variant explicitly.
 Member FieldIds retain ownership but do not imply disjoint storage: every direct
 union member has offset zero, while nested record fields remain sequential.
@@ -636,10 +635,22 @@ The initial union representation excludes inline VARIANT, REAL and callable
 pointers, including through records/arrays; ordinary data pointers are traversal
 barriers. Positional/string initializers for inline union-containing storage are
 rejected before the scalar-leaf initializer walk can visit overlapping members.
-Generic union definitions remain separately diagnosed during this first slice.
+Generic union instances use the same finite cache and post-substitution checks.
+There is no active member, tag validation, implicit clear on member writes or
+numeric conversion between views. Enum members admit all byte representations.
+Whole-value copies include the complete padded extent and are overlap-safe;
+LET and pattern binders capture immutable snapshots. Pointer copies share
+pointees. Exact nominal direct/indirect call boundaries reuse the aggregate ABI.
+Union values are not scalar arithmetic operands, truth values or CASE selectors.
+RAM absolute/alias bindings and object-level VOLATILE preserve existing storage
+semantics. Volatile whole copies access the complete extent, without atomicity or
+hardware-register safety guarantees. Existing qualifier restrictions remain.
 No union-specific executable NIR operation or AST-only layout recovery is added.
-See the [union plan](Action_2027/UNIONS_IMPLEMENTATION_PLAN.md) for value/effect,
-volatile, call-boundary and backend acceptance still required before enablement.
+Actual wide scalar operations require MIR6502 on Atari; native canaries cover
+layout/access/ABI planning, not native runtime execution. Enclosing a union in a
+variant preserves outer-tag validation and native Error-adapter restrictions.
+See the [union tutorial](tutorials/UNIONS.md) and
+[acceptance plan](Action_2027/UNIONS_IMPLEMENTATION_PLAN.md).
 
 ## Current Implementation Gaps
 

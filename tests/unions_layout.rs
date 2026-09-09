@@ -1,5 +1,4 @@
-//! Slice 1 tests deliberately opt into an internal layout capability. Public
-//! profiles stay closed until access, effects and value-boundary acceptance.
+//! Public modern layout acceptance and explicit compatibility/capability gates.
 use actionc::ast::{Decl, Item, TypeDefinition};
 use actionc::includes::{ModuleLoadOptions, load_compilation_from_provider};
 use actionc::semantic::{self, AggregateKind, SemanticModel, SemanticOptions};
@@ -15,9 +14,7 @@ const TARGETS: [TargetId; 4] = [
 ];
 
 fn options(target: TargetId) -> SemanticOptions {
-    let mut options = SemanticOptions::modern().with_target(target);
-    options.algebraic_types.unions = true;
-    options
+    SemanticOptions::modern().with_target(target)
 }
 
 fn analyze(source: &str, target: TargetId) -> SemanticModel {
@@ -63,9 +60,17 @@ fn union_syntax_reuses_record_members_without_reserving_the_name() {
 }
 
 #[test]
-fn union_declarations_remain_closed_in_all_public_profiles() {
+fn union_declarations_reject_compatibility_and_explicitly_disabled_capabilities() {
     for target in TARGETS {
-        for profile in [SemanticOptions::default(), SemanticOptions::modern()] {
+        let mut disabled = SemanticOptions::modern();
+        disabled.algebraic_types.unions = false;
+        assert!(
+            SemanticOptions::modern()
+                .with_target(target)
+                .algebraic_types
+                .unions
+        );
+        for profile in [SemanticOptions::default(), disabled] {
             assert!(!profile.algebraic_types.unions);
             for source in [
                 "TYPE View=UNION [CARD word] PROC Main() RETURN",

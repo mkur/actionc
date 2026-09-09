@@ -1,8 +1,9 @@
 # Untagged unions: implementation plan
 
-Status: accepted; implementation started on `main`, 2026-09-09.
+Status: all seven slices implemented and verified on `main`, 2026-09-09.
 Inspected baseline: `2994212`, after the algebraic-data-types delivery.
-Public UNION support remains disabled until the acceptance matrix below passes.
+Public modern UNION support is enabled after the acceptance matrix below passed.
+Compatibility continues to reject UNION definitions.
 
 ## 1. Objective and boundaries
 
@@ -219,8 +220,8 @@ tests green. Explain any fixture contract changes and update only relevant count
 ## 6. Progress
 
 - Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
-- Slices 1–6 are complete; slice 7 remains pending. No public UNION support
-  is claimed yet.
+- Slices 1–7 are complete; slice 6 is committed as `7707cbb`. Final public-profile
+  acceptance passes with ordinary modern UNION support enabled.
 
 ### Slice 1 — Syntax, identity and canonical layout (complete)
 
@@ -346,5 +347,30 @@ tests green. Explain any fixture contract changes and update only relevant count
   its literal by source span instead of selecting the first matching type.
 - All 2,474 library tests pass after that assertion correction; other compiler
   integration tests, focused union tests and the 44/167 IR sweeps pass. The full
-  pinned VM run is in progress and final public acceptance is recorded in slice 7.
+  pinned VM run passes all 189 tests; final public acceptance is recorded in slice 7.
   No IR fixture contract or union-specific optimizer was introduced.
+
+### Slice 7 — Documentation, costs and public enablement (complete)
+
+- Enabled UNION in the ordinary modern profile; compatibility and explicitly
+  disabled capabilities retain early semantic diagnostics. Public compiler and
+  inspection-CLI tests cover both runtimes/backends, imported generic identities,
+  callbacks and actual-wide-operation rejection in classic. Narrow views and
+  opaque copies of wide-containing storage remain supported there.
+- Published the [union tutorial](../tutorials/UNIONS.md), a runnable
+  `samples/union-views.act`, profile/syntax/reference updates and the shared NIR
+  storage contract. The sample is in the release build matrix and has an
+  independent VM output oracle. Existing executable access checks now include
+  public `compile_file` lanes as well as raw/optimized NIR lanes.
+- The [cost audit](UNIONS_CODEGEN_AUDIT.md) compares direct union views with
+  absolute scalar aliases and 33-byte union snapshots/copies with equivalent
+  records, on classic/MIR6502 and both runtimes. Union/control image sizes and
+  measured cycles match exactly. Direct accesses add no checks, clears or helper;
+  the larger MIR copy cost is shared aggregate behavior, not union overhead.
+- All 2,959 compiler tests pass, including the public source/inspection checks
+  and sample build matrix. NIR snapshots, the 44-file NIR and 167-file MIR6502
+  sweeps, and `cargo check --all-targets` pass. All 191 pinned VM tests pass,
+  including public union lanes, the documented sample and cost audit. The sample
+  also builds through the normal classic/standalone and MIR6502/cart CLI paths.
+  No existing IR fixtures were changed. Native checks remain lowering/ABI
+  canaries, not a claim of native execution or completed native Error adapters.

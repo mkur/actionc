@@ -180,8 +180,8 @@ are not supported.
 
 ## Variants and Generic Types
 
-Modern classic and MIR6502 support tagged nominal variants, including record and
-variant payloads, immutable value snapshots, value parameters/results, nested
+Modern classic and MIR6502 support tagged nominal variants, including record,
+union and variant payloads, immutable value snapshots, value parameters/results, nested
 constructor/literal patterns and ordered guards. Both Atari runtimes are supported.
 
 ```action
@@ -202,6 +202,26 @@ See the [variant tutorial](tutorials/VARIANTS.md) for complete examples, immutab
 binding restrictions, coverage rules, generic limits and the backend matrix.
 Compatibility rejects these extensions. Native targets have verified type/layout
 and ABI planning, but executable variants still require native Error adapters.
+
+## Untagged Unions
+
+Modern source may define `TYPE WordView=UNION [CARD word BYTE low]`.
+Members share offset zero; grouped entries overlap too. Use a nested record for
+sequential fields. Size is the maximum member extent rounded to target alignment.
+There is no tag, active-member check or implicit clear on a member write.
+
+Whole copies include padding and are overlap-safe. LET snapshots and aggregate
+call boundaries follow ordinary value semantics. Generic definitions such as
+`TYPE Overlay<T,U>=UNION [T first U second]` retain nominal instance identity.
+Records, fixed arrays, enums, data pointers and nested unions are supported;
+inline VARIANT, REAL and callable pointers are rejected transitively.
+Positional/string initialization of union-containing storage is rejected.
+Existing RAM bindings/aliases and object-level VOLATILE remain available.
+
+Scalar arithmetic uses the selected member's ordinary type and width; whole
+unions cannot be used as numbers, truth values or CASE selectors. Compatibility
+rejects UNION definitions. See [the tutorial](tutorials/UNIONS.md) for byte order,
+pointer sharing, initialization, backend limits and the runnable sample.
 
 ## Fixed-Length Arrays Inside Records
 

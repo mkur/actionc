@@ -48,6 +48,11 @@ embedded arrays, and TreeOf nodes in a fixed arena. It prints 7, 1000, and 12.
 payload, OptionalByte, generic Option/Result, nested patterns and ordered guards.
 Both Atari backends/runtimes are covered; it prints 65, 0, 9, 10, 7, and 5.
 
+`union-views.act` demonstrates overlapping word/byte views, preserved trailing
+bytes and immutable LET snapshots. Both modern Atari backends/runtimes are
+covered; it prints 4728, 18, 165 and 0. See the
+[union tutorial](../docs/tutorials/UNIONS.md).
+
 `graphics/fedora.act` translates an Atari BASIC 3D sine-surface plot whose
 rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 `MATH.Sin` native REAL procedures.
