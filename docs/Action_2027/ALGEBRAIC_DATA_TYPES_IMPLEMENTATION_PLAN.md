@@ -3,8 +3,8 @@
 Status: accepted; implementation in progress on `main`, 2026-09-09.
 Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
 are enabled after their end-to-end acceptance gates; direct and typed indirect
-aggregate calls and generic types are implemented, while nested patterns and
-guards remain future slices. See implementation progress.
+aggregate calls, generic types and nested patterns are implemented; guards are
+the next slice. See implementation progress.
 
 ## 1. Objective and boundaries
 
@@ -811,3 +811,30 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   tests); all four generic VM cases pass together. NIR snapshots, the 42-source
   NIR sweep and the 167-source MIR sweep pass. Existing snapshots are unchanged;
   new generic snapshots contain only existing concrete NIR forms.
+
+### Slice 8 — Nested patterns and usefulness (complete)
+
+- Nested by-value constructors and integer/enum literal subpatterns compose with
+  explicit generic applications. Bindings remain immutable arm-local snapshots;
+  `_` discards payloads, and pointer dereference remains explicit source code.
+- A bounded memoized constructor/product matrix checks usefulness and complete
+  coverage, including collective shadowing and useful overlapping fallbacks.
+  Missing coverage reports a witness. Scalar domains conservatively require a
+  binder/wildcard; enum literals retain exact nominal checks and open byte values.
+  Pattern syntax depth is 64; coverage depth/work limits are 128/262,144.
+- Canonical constructor/field paths survive until SemIR checks membership,
+  ownership, exact types and extents. Ordered typed arm refinements lower through
+  existing comparisons and CFG; each tag/test dominates dependent projections.
+  Flat-pattern and scalar CASE snapshots are unchanged.
+- Corrected shared record-type recognition for concrete type applications written
+  directly in monomorphic payload fields, exposed by the nested generic VM case.
+- New coverage includes a 512-subset independent product oracle, missing witnesses,
+  collective shadowing, scalar/enum diagnostics, bounded analysis, target-neutral
+  NIR verification and classic/MIR raw/optimized execution in both Atari runtimes.
+  VM tests check selector effects, captured mutation, nested/shadowed aggregate
+  bindings, active malformed tags before ELSE and ignored inactive payload bytes.
+- Acceptance: all 2,920 tests in the full compiler run pass, plus the added
+  independent coverage oracle and four-target refinement test (2,922 current
+  tests). All 169 pinned VM tests pass; the final three-case nested-pattern run
+  also covers corrupt inactive payload bytes. NIR snapshots, 43 NIR fixtures and
+  167 MIR6502 fixtures pass. Existing snapshots remain unchanged.

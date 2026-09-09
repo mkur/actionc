@@ -21,7 +21,7 @@ impl IrBuilder<'_> {
             self.model.variants.matches[&super::super::ExpressionSite::new(scope, span)].clone();
         let owner = facts
             .iter()
-            .find_map(|arm| arm.constructor.map(|c| c.owner))
+            .find_map(|arm| match &arm.pattern { super::super::patterns::Pattern::Constructor(c, _) => Some(c.owner), _ => None })
             .expect("validated WHEN constructor");
         let variant = self.model.variants.types[&owner].clone();
         let ty = ValueType::aggregate(variant.identity.clone());
@@ -43,16 +43,15 @@ impl IrBuilder<'_> {
             };
             let mut declarations = Vec::new();
             let mut body = Vec::new();
-            for (id, field) in facts.bindings {
-                let constructor = variant
-                    .constructors
-                    .iter()
-                    .find(|c| Some(c.id) == facts.constructor)
-                    .expect("payload projection requires a constructor arm");
-                assert!(
-                    constructor.fields.contains(&field),
-                    "projection must belong to the guarded alternative"
-                );
+            let mut tests = Vec::new();
+            self.pattern_tests(&captured.place, &facts.pattern, true, &mut tests);
+            for (id, path) in facts.bindings {
+                let mut source = captured.place.clone();
+                for (constructor, field) in path {
+                    let variant = &self.model.variants.types[&constructor.owner];
+                    assert!(variant.constructors[usize::from(constructor.tag) - 1].fields.contains(&field), "projection must belong to the guarded alternative");
+                    source = self.canonical_field_place(&source, field);
+                }
                 let symbol = self.symbol_ref_by_id(id, self.model.symbols.symbols[id.0].span);
                 let ty = self.sem_type_from_symbol(&symbol);
                 let destination = SemLValue {
@@ -63,7 +62,6 @@ impl IrBuilder<'_> {
                     storage: None,
                     span: symbol.span,
                 };
-                let source = self.canonical_field_place(&captured.place, field);
                 assert_eq!(
                     source.ty, destination.ty,
                     "payload binding retains nominal type"
@@ -93,7 +91,8 @@ impl IrBuilder<'_> {
                     .flat_map(|stmt| self.lower_stmt(facts.scope, stmt)),
             );
             lowered_arms.push(SemCaseArm {
-                labels: facts.constructor.map(|id| {
+                tests,
+                labels: match facts.pattern { super::super::patterns::Pattern::Constructor(id, _) => Some(id), _ => None }.map(|id| {
                     vec![super::super::CaseRange {
                         low: u64::from(id.tag),
                         high: u64::from(id.tag),
@@ -112,6 +111,7 @@ impl IrBuilder<'_> {
         }
         if !lowered_arms.iter().any(|arm| arm.labels.is_none()) {
             lowered_arms.push(SemCaseArm {
+                tests: Vec::new(),
                 labels: None,
                 body: vec![SemStmt::Fault {
                     kind: crate::runtime_fault::RuntimeFault::InvalidVariant,
@@ -129,6 +129,42 @@ impl IrBuilder<'_> {
             span,
         });
         output
+    }
+
+    fn pattern_tests(&self, place: &SemLValue, pattern: &super::super::patterns::Pattern, outer: bool, tests: &mut Vec<SemCondition>) {
+        use super::super::patterns::Pattern;
+        match pattern {
+            Pattern::Wild => {},
+            Pattern::Literal(bits) => tests.push(Self::pattern_equal(place, *bits)),
+            Pattern::Constructor(id, fields) => {
+                assert_eq!(place.ty.as_aggregate_identity().and_then(|id| id.symbol), Some(id.owner));
+                let variant = &self.model.variants.types[&id.owner];
+                if !outer {
+                    tests.push(Self::pattern_equal(&self.canonical_field_place(place, variant.tag_field), u64::from(id.tag)));
+                }
+                let constructor = &variant.constructors[usize::from(id.tag) - 1];
+                assert_eq!(fields.len(), constructor.fields.len());
+                for (pattern, field) in fields.iter().zip(&constructor.fields) {
+                    let source = self.canonical_field_place(place, *field);
+                    self.pattern_tests(&source, pattern, false, tests);
+                }
+            }
+        }
+    }
+
+    fn pattern_equal(place: &SemLValue, bits: u64) -> SemCondition {
+        let mut literal = Self::integer_expr(place.ty.representation_scalar().expect("typed scalar pattern"), bits, place.span);
+        literal.ty = place.ty.clone();
+        SemCondition {
+            expr: SemExpr {
+                kind: SemExprKind::Binary {
+                    op: BinaryOp::Eq, left: Box::new(Self::value_expr(place)), right: Box::new(literal),
+                },
+                ty: ValueType::fund(FundType::Byte), class: SemExprClass::Condition,
+                eval_order: None, span: place.span,
+            },
+            kind: SemConditionKind::Compare, span: place.span,
+        }
     }
 
     pub(super) fn aggregate_requires_validation(&self, ty: &ValueType) -> bool {
@@ -472,6 +508,7 @@ impl IrBuilder<'_> {
                 // Canonical tags form a closed interval. Scalar/pointer payloads
                 // need one bounds check, not a deep 255-way dispatch tree.
                 arms.push(SemCaseArm {
+                    tests: Vec::new(),
                     labels: Some(vec![super::super::CaseRange {
                         low: 1,
                         high: variant.constructors.len() as u64,
@@ -489,6 +526,7 @@ impl IrBuilder<'_> {
                     body.extend(self.validate_aggregate_value(scope, &field));
                 }
                 arms.push(SemCaseArm {
+                    tests: Vec::new(),
                     labels: Some(vec![super::super::CaseRange {
                         low: u64::from(constructor.id.tag),
                         high: u64::from(constructor.id.tag),
@@ -499,6 +537,7 @@ impl IrBuilder<'_> {
                 });
             }
             arms.push(SemCaseArm {
+                tests: Vec::new(),
                 labels: None,
                 body: vec![SemStmt::Fault {
                     kind: crate::runtime_fault::RuntimeFault::InvalidVariant,

@@ -566,6 +566,9 @@ pub struct SemIfBranch {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemCaseArm {
+    /// Ordered short-circuit refinements; each projection is dominated by all
+    /// earlier tests and the arm's tag dispatch. No source patterns survive.
+    pub tests: Vec<SemCondition>,
     pub labels: Option<Vec<super::CaseRange>>,
     pub body: Vec<SemStmt>,
     pub span: Span,
@@ -637,7 +640,7 @@ fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts 
             always_returns: false, may_exit_loop: false, contains_loop: false, max_loop_depth: loop_depth },
         SemStmt::Case { arms, .. } => super::case::case_flow_facts(
             arms.iter().map(|arm| statement_list_flow_facts_at_depth(&arm.body, loop_depth)),
-            arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
+            arms.iter().any(|arm| arm.labels.is_none() && arm.tests.is_empty()), loop_depth,
         ),
         SemStmt::LexicalBlock { body, .. } => statement_list_flow_facts_at_depth(body, loop_depth),
         SemStmt::Return { .. } => StmtFlowFacts {
@@ -1132,7 +1135,10 @@ fn collect_external_stmt_references(
         match statement {
             SemStmt::Case { selector, arms, .. } => {
                 collect_external_expr_references(selector, external, referenced);
-                for arm in arms { collect_external_stmt_references(&arm.body, external, referenced); }
+                for arm in arms {
+                    for test in &arm.tests { collect_external_expr_references(&test.expr, external, referenced); }
+                    collect_external_stmt_references(&arm.body, external, referenced);
+                }
             }
             SemStmt::LexicalBlock {
                 declarations, body, ..
@@ -1573,7 +1579,10 @@ impl SemIrFormatter {
                             Some(labels) => format!("when {:?}", labels),
                             None => "else".to_string(),
                         });
-                        this.indented(|this| this.stmt_list(&arm.body));
+                        this.indented(|this| {
+                            for test in &arm.tests { this.line(format!("test {}", condition_summary(test))); }
+                            this.stmt_list(&arm.body);
+                        });
                     }
                 });
             }
@@ -3189,6 +3198,7 @@ impl<'a> IrBuilder<'a> {
                 vec![SemStmt::Case {
                     selector: self.lower_expr(scope, selector),
                     arms: arms.iter().zip(labels).map(|(arm, labels)| SemCaseArm {
+                        tests: Vec::new(),
                         labels,
                         body: arm.body.iter().flat_map(|stmt| self.lower_stmt(scope, stmt)).collect(),
                         span: arm.span,

@@ -136,6 +136,18 @@ impl Parser<'_> {
     }
 
     fn parse_case_labels(&mut self, tokens: &[Token]) -> Vec<CaseLabel> {
+        let mut nesting = 0usize;
+        for token in tokens {
+            match token.kind {
+                TokenKind::LParen => nesting += 1,
+                TokenKind::RParen => nesting = nesting.saturating_sub(1),
+                _ => {},
+            }
+            if nesting > 64 {
+                self.diagnostics.push(Diagnostic::new(token.span, "CASE pattern nesting exceeds 64 levels"));
+                return Vec::new();
+            }
+        }
         let mut labels = Vec::new();
         let mut start = 0;
         let mut depth = 0usize;

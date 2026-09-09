@@ -75,6 +75,10 @@ impl SemIrAstLowerer<'_> {
                     Some(previous) => case_binary(BinaryOp::Or, previous, compare, span),
                 });
             }
+            for test in &arm.tests {
+                let test = self.condition(test).expect("typed pattern test");
+                condition = Some(case_binary(BinaryOp::And, condition.expect("tag condition"), test, span));
+            }
             branches.push(IfBranch {
                 condition: condition.expect("validated nonempty CASE labels"),
                 body: self.stmt_list(&arm.body),

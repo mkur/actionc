@@ -1268,6 +1268,17 @@ contracts. NIR and MIR never interpret type applications or substitute source
 names. Different concrete instances remain nominally distinct even when their
 target sizes match. Reusing an instance does not duplicate its layout facts.
 
+## Ordered pattern refinements
+
+SemIR resolves nested patterns to nominal constructor/field identities and checks
+projection ownership, alternative membership, types and extents before erasing
+them. CASE arms retain ordered typed condition refinements: tag dispatch dominates
+the first refinement, each successful refinement dominates the next, and all
+refinements dominate payload binding initialization. NIR lowers these to ordinary
+typed comparisons and CFG edges. No constructor names or pattern syntax reach
+MIR. The selector's validated capture remains stable across arm effects; scalar
+CASE intervals and existing flat-pattern snapshots keep their previous shapes.
+
 ## Red Lines
 
 Do not consider NIR complete while any of these are true:

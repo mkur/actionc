@@ -1,0 +1,17 @@
+TYPE Inner=VARIANT [NONE VALUE [INT number]]
+TYPE Outer=VARIANT [EMPTY WRAP [Inner value]]
+Outer current
+BYTE output
+PROC Main()
+ current=Outer.WRAP(Inner.VALUE(-1))
+ CASE current OF
+ WHEN Outer.WRAP(Inner.VALUE(-1)) THEN
+   output=7
+ WHEN Outer.WRAP(Inner.VALUE(n)) THEN
+   output=BYTE(n)
+ WHEN Outer.WRAP(_) THEN
+   output=2
+ WHEN Outer.EMPTY THEN
+   output=0
+ ESAC
+RETURN

@@ -1854,7 +1854,7 @@ fn routine_native_real_node_count(routine: &SemRoutine) -> usize {
 fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
     match stmt {
         SemStmt::Case { selector, arms, .. } => expr_uses_native_real(selector)
-            || arms.iter().any(|arm| arm.body.iter().any(stmt_uses_native_real)),
+            || arms.iter().any(|arm| arm.tests.iter().any(|test| expr_uses_native_real(&test.expr)) || arm.body.iter().any(stmt_uses_native_real)),
         SemStmt::LexicalBlock {
             declarations, body, ..
         } => {
@@ -1960,6 +1960,7 @@ fn lvalue_uses_native_real(value: &SemLValue) -> bool {
 fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
     match stmt {
         SemStmt::Case { selector, arms, .. } => expr_node_count(selector)
+            + arms.iter().flat_map(|arm| &arm.tests).map(|test| expr_node_count(&test.expr)).sum::<usize>()
             + arms.iter().flat_map(|arm| &arm.body).map(stmt_expr_node_count).sum::<usize>(),
         SemStmt::LexicalBlock {
             declarations, body, ..

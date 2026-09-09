@@ -176,8 +176,8 @@ fn variant_value_and_pattern_rejections_are_semantic() {
             "immutable",
         ),
         (
-            "CASE current OF\nWHEN Event.KEY(1) THEN\nresult=1\nELSE\nresult=2\nESAC",
-            "flat",
+            "CASE current OF\nWHEN Event.KEY(1+1) THEN\nresult=1\nELSE\nresult=2\nESAC",
+            "literal",
         ),
         (
             "CASE current OF\nWHEN Event.KEY(code) THEN\nresult=code\nWHEN Event.KEY(_) THEN\nresult=2\nELSE\nresult=3\nESAC",

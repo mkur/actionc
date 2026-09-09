@@ -111,7 +111,7 @@ impl Analyzer {
         );
     }
 
-    fn case_constant(
+    pub(super) fn case_constant(
         &mut self,
         scope: ScopeId,
         expr: &Expr,

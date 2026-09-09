@@ -22,6 +22,7 @@ mod declarations;
 mod enums;
 pub use enums::{EnumFacts, EnumIdentity, EnumMemberValue, EnumType, EnumValue};
 mod variants;
+mod patterns;
 pub use variants::{VariantConstructorId, VariantConstructor, VariantType, VariantFacts};
 mod generics;
 pub use generics::{GenericTypeFacts, GenericTypeInstance};
@@ -4421,6 +4422,9 @@ impl Analyzer {
     }
 
     fn type_ref_is_record(&self, scope: ScopeId, ty: &TypeRef) -> bool {
+        if self.value_type_from_type_ref(scope, ty).is_record() {
+            return true;
+        }
         let TypeBase::Named(name) = &ty.base else {
             return false;
         };

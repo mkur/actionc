@@ -36,9 +36,9 @@ pub struct VariantFacts {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct VariantArm {
-    pub constructor: Option<VariantConstructorId>,
+    pub pattern: super::patterns::Pattern,
     pub scope: ScopeId,
-    pub bindings: Vec<(SymbolId, FieldId)>,
+    pub bindings: Vec<(SymbolId, Vec<(VariantConstructorId, FieldId)>)>,
 }
 
 impl Analyzer {
@@ -92,15 +92,13 @@ impl Analyzer {
         span: Span,
         context: ControlContext<'_>,
     ) {
-        let variant = self.variant_for_type(ty).expect("variant selector").clone();
-        let mut covered = HashSet::new();
+        use super::patterns::{Coverage, Pattern};
+        let initial_errors = self.diagnostics.len();
         let mut normalized = Vec::new();
-        let mut has_else = false;
         for arm in arms {
             let child = self.symbols.add_scope(ScopeKind::LexicalBlock, Some(scope));
             self.active_lexical_path.push(arm.syntax_id.0);
             let mut bindings = Vec::new();
-            let mut constructor_id = None;
             if let Some(routine) = self.active_routine_symbol {
                 self.lexical_blocks.push(SemanticLexicalBlock {
                     syntax_id: arm.syntax_id,
@@ -118,93 +116,177 @@ impl Analyzer {
                     "variant CASE is only allowed inside routines",
                 ));
             }
-            if let Some(labels) = &arm.labels {
+            let pattern = if let Some(labels) = &arm.labels {
                 if labels.len() != 1 || labels[0].high.is_some() {
                     self.diagnostics.push(Diagnostic::new(
                         arm.span,
-                        "variant WHEN requires one flat constructor pattern",
+                        "variant WHEN requires one constructor pattern",
                     ));
+                    Pattern::Wild
                 } else {
-                    let expression = &labels[0].low;
-                    let (head, args) = match &expression.kind {
-                        ExprKind::Call { callee, args } => (callee.as_ref(), Some(args.as_slice())),
-                        _ => (expression, None),
-                    };
-                    let constructor = self
-                        .variant_constructor_head(scope, head)
-                        .filter(|(owner, _)| Some(*owner) == variant.identity.symbol)
-                        .and_then(|(_, name)| {
-                            variant
-                                .constructors
-                                .iter()
-                                .find(|c| c.name.eq_ignore_ascii_case(&name))
-                        });
-                    if let Some(constructor) = constructor {
-                        constructor_id = Some(constructor.id);
-                        if !covered.insert(constructor.id.tag) {
-                            self.diagnostics.push(Diagnostic::new(
-                                arm.span,
-                                "duplicate variant constructor pattern",
-                            ));
-                        }
-                        if args.unwrap_or(&[]).len() != constructor.fields.len()
-                            || (constructor.fields.is_empty() && args.is_some())
-                        {
-                            self.diagnostics.push(Diagnostic::new(
-                                arm.span,
-                                "variant pattern payload arity mismatch",
-                            ));
-                        }
-                        for (arg, field) in args.unwrap_or(&[]).iter().zip(&constructor.fields) {
-                            let ExprKind::Name(name) = &arg.kind else {
-                                self.diagnostics.push(Diagnostic::new(
-                                    arg.span,
-                                    "flat variant payload patterns require a binding name or _",
-                                ));
-                                continue;
-                            };
-                            if name == "_" {
-                                continue;
-                            }
-                            let field_type = self.fields[field.0].ty.clone();
-                            if let Some(symbol) = self.declare(
-                                child,
-                                name.clone(),
-                                SymbolClass::Var,
-                                Some(field_type),
-                                arg.span,
-                            ) {
-                                self.symbols.symbols[symbol.0].is_immutable = true;
-                                bindings.push((symbol, *field));
-                            }
-                        }
-                    } else {
-                        self.diagnostics.push(Diagnostic::new(
-                            arm.span,
-                            "variant pattern must name a constructor of the exact selector type",
-                        ));
-                    }
+                    self.analyze_variant_pattern(
+                        scope,
+                        child,
+                        &labels[0].low,
+                        ty,
+                        &mut Vec::new(),
+                        &mut bindings,
+                        0,
+                    )
                 }
             } else {
-                has_else = true;
-            }
+                Pattern::Wild
+            };
             self.analyze_statements(child, &arm.body, context);
             self.active_lexical_path.pop();
             normalized.push(VariantArm {
-                constructor: constructor_id,
+                pattern,
                 scope: child,
                 bindings,
             });
         }
-        if !has_else && covered.len() != variant.constructors.len() {
-            self.diagnostics.push(Diagnostic::new(
-                span,
-                "non-exhaustive variant CASE; cover every constructor or add ELSE",
-            ));
+        // Only typed patterns reach coverage; error recovery wildcards must not
+        // establish exhaustiveness or produce misleading reachability reports.
+        if self.diagnostics.len() == initial_errors {
+            let mut coverage = Coverage::new(&self.variants.types, &self.fields);
+            let mut previous = Vec::new();
+            for (arm, facts) in arms.iter().zip(&normalized) {
+                match coverage.useful(&previous, &facts.pattern, ty) {
+                    Ok(None) => self.diagnostics.push(Diagnostic::new(
+                        arm.span,
+                        "duplicate or fully shadowed variant pattern",
+                    )),
+                    Ok(Some(_)) => {}
+                    Err(message) => {
+                        self.diagnostics.push(Diagnostic::new(span, message));
+                        break;
+                    }
+                }
+                previous.push(facts.pattern.clone());
+            }
+            if self.diagnostics.len() == initial_errors {
+                match coverage.useful(&previous, &Pattern::Wild, ty) {
+                    Ok(Some(witness)) => self.diagnostics.push(Diagnostic::new(span,
+                        format!("non-exhaustive variant CASE; missing {}; add a covering pattern or ELSE", coverage.display(&witness)))),
+                    Ok(None) => {},
+                    Err(message) => self.diagnostics.push(Diagnostic::new(span, message)),
+                }
+            }
         }
         self.variants
             .matches
             .insert(ExpressionSite::new(scope, span), normalized);
+    }
+
+    fn analyze_variant_pattern(
+        &mut self,
+        scope: ScopeId,
+        child: ScopeId,
+        expression: &Expr,
+        ty: &ValueType,
+        path: &mut Vec<(VariantConstructorId, FieldId)>,
+        bindings: &mut Vec<(SymbolId, Vec<(VariantConstructorId, FieldId)>)>,
+        depth: usize,
+    ) -> super::patterns::Pattern {
+        use super::patterns::{MAX_PATTERN_DEPTH, Pattern};
+        if depth > MAX_PATTERN_DEPTH {
+            self.diagnostics.push(Diagnostic::new(
+                expression.span,
+                "pattern nesting exceeds 64 levels",
+            ));
+            return Pattern::Wild;
+        }
+        if depth != 0 {
+            if let ExprKind::Name(name) = &expression.kind {
+                if name != "_" {
+                    if let Some(symbol) = self.declare(
+                        child,
+                        name.clone(),
+                        SymbolClass::Var,
+                        Some(ty.clone()),
+                        expression.span,
+                    ) {
+                        self.symbols.symbols[symbol.0].is_immutable = true;
+                        bindings.push((symbol, path.clone()));
+                    }
+                }
+                return Pattern::Wild;
+            }
+        }
+        let (head, args) = match &expression.kind {
+            ExprKind::Call { callee, args } => (callee.as_ref(), Some(args.as_slice())),
+            _ => (expression, None),
+        };
+        if let Some(variant) = self.variant_for_type(ty).cloned() {
+            let constructor = self
+                .variant_constructor_head(scope, head)
+                .filter(|(owner, _)| Some(*owner) == variant.identity.symbol)
+                .and_then(|(_, name)| {
+                    variant
+                        .constructors
+                        .iter()
+                        .find(|c| c.name.eq_ignore_ascii_case(&name))
+                        .cloned()
+                });
+            let Some(constructor) = constructor else {
+                self.diagnostics.push(Diagnostic::new(
+                    expression.span,
+                    "variant pattern must name a constructor of the exact selector type",
+                ));
+                return Pattern::Wild;
+            };
+            if args.unwrap_or(&[]).len() != constructor.fields.len()
+                || (constructor.fields.is_empty() && args.is_some())
+            {
+                self.diagnostics.push(Diagnostic::new(
+                    expression.span,
+                    "variant pattern payload arity mismatch",
+                ));
+            }
+            let mut fields = Vec::new();
+            for (arg, field) in args.unwrap_or(&[]).iter().zip(&constructor.fields) {
+                path.push((constructor.id, *field));
+                let field_ty = self.fields[field.0].ty.clone();
+                fields.push(self.analyze_variant_pattern(
+                    scope,
+                    child,
+                    arg,
+                    &field_ty,
+                    path,
+                    bindings,
+                    depth + 1,
+                ));
+                path.pop();
+            }
+            return Pattern::Constructor(constructor.id, fields);
+        }
+        // This is a literal grammar, not a constant-expression evaluator for
+        // arbitrary source computations. Bare names are always fresh binders.
+        fn literal(expr: &Expr) -> bool {
+            match &expr.kind {
+                ExprKind::Number(_) | ExprKind::Char(_) | ExprKind::Field { .. } => true,
+                ExprKind::Unary {
+                    op: UnaryOp::Neg | UnaryOp::Plus,
+                    expr,
+                } => matches!(expr.kind, ExprKind::Number(_)),
+                _ => false,
+            }
+        }
+        if depth != 0 && !ty.is_pointer() && literal(expression) {
+            if let Some(scalar) = ty.representation_scalar() {
+                if let Some(value) = self.case_constant(scope, expression, ty, scalar) {
+                    let mask = scalar_mask_for_layout(
+                        scalar,
+                        TargetLayout::for_target(self.options.target),
+                    );
+                    return Pattern::Literal(value as u64 & mask);
+                }
+                return Pattern::Wild;
+            }
+        }
+        self.diagnostics.push(Diagnostic::new(expression.span,
+            "payload pattern requires a binder, _, integer/enum literal or by-value variant constructor; pointers are not implicitly dereferenced"));
+        Pattern::Wild
     }
 
     pub(super) fn define_variant(
@@ -345,11 +427,17 @@ impl Analyzer {
             .get(&ty.as_aggregate_identity()?.symbol?)
     }
 
-    pub(super) fn variant_type_for_expr(&mut self, scope: ScopeId, expr: &Expr) -> Option<SymbolId> {
+    pub(super) fn variant_type_for_expr(
+        &mut self,
+        scope: ScopeId,
+        expr: &Expr,
+    ) -> Option<SymbolId> {
         if let ExprKind::TypeRef(ty) = &expr.kind {
             self.validate_type_ref(scope, ty, expr.span);
             let value = self.value_type_from_type_ref(scope, ty);
-            return self.variant_for_type(&value).and_then(|v| v.identity.symbol);
+            return self
+                .variant_for_type(&value)
+                .and_then(|v| v.identity.symbol);
         }
         let name = enums::expression_name(expr)?;
         let SemanticNameResolution::Symbol(id) =

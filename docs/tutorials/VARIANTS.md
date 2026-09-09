@@ -102,7 +102,7 @@ RETURN(Option<BYTE>.SOME(n))
 ```
 
 Applications work in declarations, parameters/results, callable signatures,
-LET annotations, payload types, layout queries, constructors and flat patterns.
+LET annotations, payload types, layout queries, constructors and patterns.
 `Option<BYTE>` and `Option<CHAR>` are different nominal types even when their
 layouts match. Import aliases of the same definition share instances. Names
 inside a generic definition resolve in that definition's scope.
@@ -124,8 +124,41 @@ are diagnosed. Limits are 64 nested type applications, 64 active instantiations,
 and 1,024 distinct concrete instances per compilation. Reusing an instance does
 not consume another slot.
 
+## Nested patterns
+
+Constructor patterns can inspect inline nested variants and integer/enum literals:
+
+```action
+CASE wrapped OF
+WHEN Result<Option<BYTE>,CARD>.OK(Option<BYTE>.SOME(0)) THEN
+  PrintE("Zero")
+WHEN Result<Option<BYTE>,CARD>.OK(Option<BYTE>.SOME(n)) THEN
+  PrintBE(n)
+WHEN Result<Option<BYTE>,CARD>.OK(Option<BYTE>.NONE) THEN
+  PrintE("Absent")
+WHEN Result<Option<BYTE>,CARD>.ERROR(code) THEN
+  PrintCE(code)
+ESAC
+```
+
+Arms run in source order. A later, more general pattern can cover values missed
+by earlier specific ones. Fully shadowed patterns are errors; missing coverage
+reports an example pattern. Literal subpatterns use the existing integer range
+and exact enum-type checks. Use a binder or `_` to cover the remaining scalar
+domain, including unnamed enum byte values; listing literals alone does not
+prove complete scalar coverage. Payload ranges and computed expressions are
+not patterns. Repeated binding names in one pattern are errors, not equality tests.
+
+The selector is captured and validated before matching. Payload extraction is
+dominated by the matching outer and inner constructor checks. Aggregate binders
+are independent immutable snapshots; sibling/nested arms have distinct bindings.
+Pointer patterns never implicitly dereference: bind the pointer and use a separate
+`CASE pointer^ OF`. Pattern syntax is limited to 64 levels. Coverage analysis has
+a 128-level recursion and 262,144-work-unit budget; exceeding either reports a
+diagnostic instead of claiming completeness.
+
 Not yet supported: generic routines or omitted/inferred type arguments,
-nested patterns, guards, direct ARRAY payload declarations, volatile variants,
+guards, direct ARRAY payload declarations, volatile variants,
 absolute/alias-backed variant declarations or raw/static variant initializers.
 Use a record payload to contain an inline array. Typed pointers into explicitly
 managed memory are available, but validation does not make arbitrary pointers

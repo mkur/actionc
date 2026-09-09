@@ -43,6 +43,11 @@ impl NirBuilder {
                 }
             }
             self.start_block(body);
+            for test in &arm.tests {
+                let matched = self.next_block_label();
+                self.terminate_condition(test, &matched, &next_arm);
+                self.start_block(matched);
+            }
             self.stmt_list(&arm.body);
             self.finish_open_goto(&after);
             self.start_block(next_arm);
