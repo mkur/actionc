@@ -208,6 +208,11 @@ fn maybe_byte_example_reports_cost_to_printbe_without_running_printing() {
                 vm.step_cpu().unwrap();
             }
             assert_eq!(vm.cpu().registers().a, 42);
+            eprintln!(
+                "maybe-byte,{mode:?},{runtime:?},xex_bytes={},cycles_to_PrintBE={}",
+                compiled.object_bytes().len(),
+                vm.cpu().cycles() - start
+            );
             if mode == CompileMode::Mir6502 {
                 assert!(
                     vm.cpu().cycles() - start <= 23,
@@ -216,17 +221,12 @@ fn maybe_byte_example_reports_cost_to_printbe_without_running_printing() {
                 assert!(
                     compiled.object_bytes().len()
                         <= if runtime == Runtime::ActionCart {
-                            44
+                            45
                         } else {
-                            280
+                            281
                         }
                 );
             }
-            eprintln!(
-                "maybe-byte,{mode:?},{runtime:?},xex_bytes={},cycles_to_PrintBE={}",
-                compiled.object_bytes().len(),
-                vm.cpu().cycles() - start
-            );
         }
     }
 }

@@ -1,6 +1,6 @@
 # Known constructor tags through verified NIR
 
-Status: slices 0–1 implemented; CFG and copy propagation pending.
+Status: slices 0–2 implemented; copy propagation and final acceptance pending.
 Baseline: `42d4f94`, inspected and measured on 2026-09-09.
 
 ## Objective
@@ -69,6 +69,12 @@ bytes and 23 cycles to PrintBE. Classic remains 148 / 418 bytes and 163 cycles.
 The optimized fixture intentionally loses the tag load, both comparisons and
 the unreachable NONE/fault arms. Its payload load crosses a block boundary and
 remains for the CFG slice. Raw lowering and construction stores are unchanged.
+
+CFG propagation (slice 2) also removes the payload load. The measured result
+is 45 cartridge / 281 standalone XEX bytes and 23 cycles. Immediate payload
+materialization adds one image byte relative to slice 1; both images remain
+well below the original baseline. This target lowering tradeoff does not
+change the NIR byte proof or justify a MIR peephole in this series.
 
 ## Ownership and bounded scope
 

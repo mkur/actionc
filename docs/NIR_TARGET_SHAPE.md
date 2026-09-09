@@ -1255,7 +1255,8 @@ Initial safe NIR passes:
 Private aggregate captures also admit exact U8 subregion constants. A verified,
 nonvolatile executable byte store establishes a fact at an ordinary local ID
 and byte offset; overlapping writes invalidate it using their complete width.
-Same-block loads may use that typed constant. Bounds, backing, identity domain
+Loads may use that typed constant when every reachable incoming CFG path
+agrees. Entry has no byte facts, and backedges cannot bootstrap initialization. Bounds, backing, identity domain
 and address-use proofs come from the aggregate region analysis. The capture
 marker and static initializers establish no value facts. Globals, aliases and
 exposed homes are excluded. Calls (including pure calls), machine/REAL effects,

@@ -12,9 +12,8 @@ bb0:
 bb3:
   goto bb4
 bb4:
-  %t3:Byte = load Main::block0::item.+1
-  store Main::block0::block2::value = %t3
-  call PrintBE(%t3) signature=s2485539418 convention=target-public effects=reads:unknown writes:unknown external opaque
+  store Main::block0::block2::value = 42
+  call PrintBE(42) signature=s2485539418 convention=target-public effects=reads:unknown writes:unknown external opaque
   goto bb1
 bb1:
   return

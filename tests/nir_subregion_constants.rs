@@ -452,3 +452,233 @@ fn loads_without_executable_initialization_remain_unknown() {
         assert_eq!(field_loads(&nir::optimize_program(&p).unwrap()), 1);
     }
 }
+
+fn edge(target: u32) -> NirEdge {
+    NirEdge {
+        target: BlockId(target),
+        args: vec![],
+    }
+}
+fn block(id: u32, ops: Vec<NirOp>, terminator: NirTerminator) -> NirBlock {
+    NirBlock {
+        id: BlockId(id),
+        label: format!("probe{id}"),
+        params: vec![],
+        ops,
+        terminator,
+    }
+}
+fn condition_type() -> NirType {
+    NirType {
+        kind: NirTypeKind::Bool,
+        summary: "condition".into(),
+        width: Some(ByteSize::ONE),
+        pointer: false,
+    }
+}
+fn flag_load(p: &NirProgram) -> Vec<NirOp> {
+    let flag = p.globals.iter().find(|g| g.name == "flag").unwrap();
+    vec![
+        NirOp::Load {
+            dest: TempId(89),
+            ty: byte_type(),
+            place: NirPlace {
+                kind: NirPlaceKind::Global {
+                    id: flag.id,
+                    name: flag.name.clone(),
+                },
+                ty: Some(byte_type()),
+            },
+        },
+        NirOp::Compare {
+            dest: TempId(90),
+            ty: condition_type(),
+            operand_ty: byte_type(),
+            op: NirCompareOp::Ne,
+            left: NirValue::Temp {
+                id: TempId(89),
+                ty: byte_type(),
+            },
+            right: NirValue::ConstU8(0),
+        },
+    ]
+}
+fn branch(left: u32, right: u32) -> NirTerminator {
+    NirTerminator::Branch {
+        condition: NirValue::Temp {
+            id: TempId(90),
+            ty: condition_type(),
+        },
+        then_edge: edge(left),
+        else_edge: edge(right),
+    }
+}
+fn set_blocks(p: &mut NirProgram, blocks: Vec<NirBlock>) {
+    p.routines
+        .iter_mut()
+        .find(|r| r.name == "Main")
+        .unwrap()
+        .blocks = blocks;
+    rebuild_temps(p);
+}
+
+#[test]
+fn cfg_joins_require_the_same_initialized_byte_on_every_path() {
+    for target in TARGETS {
+        for (right, remaining) in [(Some(7), 0), (Some(8), 1), (None, 1)] {
+            let mut p = probe(target);
+            let local = capture(&p);
+            let blocks = vec![
+                block(1000, flag_load(&p), branch(1001, 1002)),
+                block(
+                    1001,
+                    vec![store(&local, 3, 7)],
+                    NirTerminator::Goto(edge(1003)),
+                ),
+                block(
+                    1002,
+                    right.map(|v| vec![store(&local, 3, v)]).unwrap_or_default(),
+                    NirTerminator::Goto(edge(1003)),
+                ),
+                block(
+                    1003,
+                    observe(&p, &local, 3, 100),
+                    NirTerminator::Return(None),
+                ),
+            ];
+            set_blocks(&mut p, blocks);
+            let opt = nir::optimize_program(&p).unwrap();
+            assert_eq!(field_loads(&opt), remaining, "{target:?} {right:?}");
+            assert_eq!(opt, nir::optimize_program(&opt).unwrap());
+        }
+    }
+}
+
+#[test]
+fn loop_backedges_never_bootstrap_entry_or_zero_trip_initialization() {
+    for target in TARGETS {
+        for (initial, carried, remaining) in [(None, 7, 1), (Some(7), 7, 0), (Some(7), 8, 1)] {
+            let mut p = probe(target);
+            let local = capture(&p);
+            let blocks = vec![
+                block(
+                    1000,
+                    initial
+                        .map(|v| vec![store(&local, 3, v)])
+                        .unwrap_or_default(),
+                    NirTerminator::Goto(edge(1001)),
+                ),
+                block(1001, flag_load(&p), branch(1002, 1003)),
+                block(
+                    1002,
+                    vec![store(&local, 3, carried)],
+                    NirTerminator::Goto(edge(1001)),
+                ),
+                block(
+                    1003,
+                    observe(&p, &local, 3, 100),
+                    NirTerminator::Return(None),
+                ),
+            ];
+            set_blocks(&mut p, blocks);
+            let opt = nir::optimize_program(&p).unwrap();
+            assert_eq!(
+                field_loads(&opt),
+                remaining,
+                "{target:?} {initial:?}/{carried}"
+            );
+            assert_eq!(opt, nir::optimize_program(&opt).unwrap());
+        }
+    }
+}
+
+#[test]
+fn captured_ssa_byte_survives_a_call_but_a_later_load_needs_a_new_proof() {
+    for target in TARGETS {
+        let mut p = probe(target);
+        let local = capture(&p);
+        let touch = p.routines.iter().find(|r| r.name == "Touch").unwrap();
+        let call = NirOp::Call {
+            callee: NirCallee::User {
+                id: touch.id,
+                name: touch.name.clone(),
+            },
+            args: vec![],
+            result: None,
+            aggregate_result: None,
+            signature: Some(touch.signature.clone()),
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::Unknown,
+                    writes: NirMemoryAccess::Unknown,
+                },
+                opaque: true,
+                may_call_external: true,
+            },
+        };
+        let first = observe(&p, &local, 3, 100);
+        let mut second = vec![call, first[1].clone()];
+        second.extend(observe(&p, &local, 3, 101));
+        let blocks = vec![
+            block(
+                1000,
+                vec![store(&local, 3, 7), first[0].clone()],
+                NirTerminator::Goto(edge(1001)),
+            ),
+            block(1001, second, NirTerminator::Return(None)),
+        ];
+        set_blocks(&mut p, blocks);
+        let opt = nir::optimize_program(&p).unwrap();
+        assert_eq!(field_loads(&opt), 1);
+        assert!(
+            main(&opt)
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(
+                    op,
+                    NirOp::Store {
+                        place: NirPlace {
+                            kind: NirPlaceKind::Global { .. },
+                            ..
+                        },
+                        src: NirValue::IntegerConst { bits: 7, .. },
+                        ..
+                    }
+                ))
+        );
+    }
+}
+
+#[test]
+fn byte_substitution_reaches_edge_arguments_and_block_parameters() {
+    let mut p = probe(TargetId::Atari6502);
+    let local = capture(&p);
+    let observation = observe(&p, &local, 3, 100);
+    let mut output = observe(&p, &local, 3, 101);
+    output.remove(0);
+    let mut dest = block(1001, output, NirTerminator::Return(None));
+    dest.params.push(NirBlockParam {
+        dest: TempId(101),
+        ty: byte_type(),
+    });
+    let blocks = vec![
+        block(
+            1000,
+            vec![store(&local, 3, 255), observation[0].clone()],
+            NirTerminator::Goto(NirEdge {
+                target: BlockId(1001),
+                args: vec![NirValue::Temp {
+                    id: TempId(100),
+                    ty: byte_type(),
+                }],
+            }),
+        ),
+        dest,
+    ];
+    set_blocks(&mut p, blocks);
+    let opt = nir::optimize_program(&p).unwrap();
+    assert_eq!(field_loads(&opt), 0);
+    assert!(main(&opt).blocks.iter().all(|b| b.params.is_empty()));
+    assert_eq!(opt, nir::optimize_program(&opt).unwrap());
+}

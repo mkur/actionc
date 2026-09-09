@@ -2,6 +2,10 @@
 //! constructor, field name, validity assumption, or static initializer is used.
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::analysis::{
+    cfg::NirCfg,
+    dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
+};
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -169,6 +173,42 @@ fn transfer(effect: &Effect, facts: &mut Facts) -> Option<(TempId, NirValue)> {
     None
 }
 
+/// None is unreachable/unprocessed; Some(empty) is reachable but unknown.
+/// A backedge cannot invent initialization on the entry path.
+struct ByteProblem<'a> {
+    entry: Option<BlockId>,
+    effects: &'a BTreeMap<BlockId, Vec<Effect>>,
+}
+
+impl NirDataflowProblem for ByteProblem<'_> {
+    type State = Option<Facts>;
+    fn direction(&self) -> NirDataflowDirection {
+        NirDataflowDirection::Forward
+    }
+    fn bottom(&self) -> Self::State {
+        None
+    }
+    fn boundary(&self, block: BlockId) -> Option<Self::State> {
+        (Some(block) == self.entry).then(|| Some(Facts::new()))
+    }
+    fn join(&self, into: &mut Self::State, other: &Self::State) {
+        let Some(other) = other else {
+            return;
+        };
+        match into {
+            Some(into) => into.retain(|cell, value| other.get(cell) == Some(value)),
+            None => *into = Some(other.clone()),
+        }
+    }
+    fn transfer(&self, block: BlockId, state: &Self::State) -> Self::State {
+        let mut facts = state.clone()?;
+        for effect in &self.effects[&block] {
+            transfer(effect, &mut facts);
+        }
+        Some(facts)
+    }
+}
+
 pub(super) fn propagate_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     // Region analysis verifies the input and borrows this exact generation.
     let analyses = analyze_aggregate_regions(program)?;
@@ -179,20 +219,47 @@ pub(super) fn propagate_program(program: &NirProgram) -> Result<NirProgram, Vec<
         if eligible.is_empty() {
             continue;
         }
+        let cfg = NirCfg::from_routine(routine);
+        let effects: BTreeMap<_, Vec<_>> = routine
+            .blocks
+            .iter()
+            .map(|block| {
+                (
+                    block.id,
+                    block
+                        .ops
+                        .iter()
+                        .enumerate()
+                        .map(|(op_index, op)| {
+                            classify(
+                                op,
+                                NirAggregatePoint {
+                                    block: block.id,
+                                    op_index,
+                                },
+                                regions,
+                                &eligible,
+                            )
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+        let result = solve_dataflow(
+            &cfg,
+            &ByteProblem {
+                entry: cfg.entry(),
+                effects: &effects,
+            },
+        );
         let mut replacements = BTreeMap::new();
         for block in &routine.blocks {
-            let mut facts = Facts::new();
-            for (op_index, op) in block.ops.iter().enumerate() {
-                let effect = classify(
-                    op,
-                    NirAggregatePoint {
-                        block: block.id,
-                        op_index,
-                    },
-                    regions,
-                    &eligible,
-                );
-                if let Some((dest, value)) = transfer(&effect, &mut facts) {
+            let Some(mut facts) = result.in_state(block.id).and_then(Option::as_ref).cloned()
+            else {
+                continue;
+            };
+            for effect in &effects[&block.id] {
+                if let Some((dest, value)) = transfer(effect, &mut facts) {
                     replacements.insert(dest, value);
                 }
             }
