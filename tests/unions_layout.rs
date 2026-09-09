@@ -281,9 +281,9 @@ fn union_member_restrictions_follow_inline_records_arrays_and_instances() {
         TYPE View=UNION [Event POINTER eventPtr Box POINTER recordPtr REAL POINTER realValue CARD word]",
         TargetId::Atari6502,
     );
-    rejects(
+    analyze(
         "TYPE Overlay<T,U>=UNION [T first U second]",
-        "generic UNION definitions are not enabled",
+        TargetId::Atari6502,
     );
 }
 

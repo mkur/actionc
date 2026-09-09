@@ -6,6 +6,47 @@ use actionc::{
     target::TargetId,
 };
 
+#[test]
+fn qualified_routine_values_lower_as_addresses_not_aggregate_global_loads() {
+    use actionc::includes::{ModuleLoadOptions, load_compilation_from_provider};
+    use actionc::source::{InMemorySourceProvider, SourceOrigin};
+    let root = SourceOrigin::host("project/main.act");
+    let provider = InMemorySourceProvider::default()
+        .with_source(root.clone(), b"MODULE App USE Lib AS L L.Pair original L.Pair FUNC POINTER callback(L.Pair input) PROC Main() callback=L.Copy original=callback(original) RETURN ENDMODULE".to_vec())
+        .with_source(SourceOrigin::host("project/lib.act"), b"MODULE Lib PUBLIC TYPE Pair=[CARD value] PUBLIC Pair FUNC Copy(Pair input) RETURN(input) ENDMODULE".to_vec());
+    let loaded =
+        load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default()).unwrap();
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Motorola68000,
+        TargetId::Wdc65816Small,
+        TargetId::Wdc65816Native,
+    ] {
+        let model = semantic::analyze_compilation_with_options(
+            &loaded,
+            SemanticOptions::modern().with_target(target),
+        )
+        .unwrap();
+        let semir = semantic::ir::lower_compilation(&loaded, &model);
+        let raw = nir::lower_program(&semir);
+        nir::verify_program(&raw).unwrap();
+        for nir in [raw.clone(), nir::optimize_program(&raw).unwrap()] {
+            nir::verify_program(&nir).unwrap();
+            match target {
+                TargetId::Atari6502 => {
+                    actionc::mir6502::lower_program(&nir).unwrap();
+                }
+                TargetId::Motorola68000 => {
+                    actionc::mir68k::lower_program(&nir).unwrap();
+                }
+                _ => {
+                    actionc::mir65816::lower_program(&nir).unwrap();
+                }
+            }
+        }
+    }
+}
+
 fn options(target: TargetId) -> SemanticOptions {
     let mut options = SemanticOptions::modern().with_target(target);
     options.algebraic_types.indirect_aggregate_calls = true;

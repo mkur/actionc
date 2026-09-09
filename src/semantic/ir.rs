@@ -3893,8 +3893,7 @@ impl<'a> IrBuilder<'a> {
         }
 
         if expected.is_word_sized_value()
-            && let ExprKind::Name(name) = &expr.kind
-            && let Some(symbol) = self.symbol_ref(scope, name, expr.span)
+            && let Some(symbol) = self.direct_symbol_ref_for_expr(scope, expr)
             && matches!(symbol.class, SymbolClass::Proc | SymbolClass::Func)
         {
             return SemExpr {

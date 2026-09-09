@@ -98,9 +98,11 @@ impl Analyzer {
     }
 
     pub(super) fn register_generic_definition(&mut self, scope: ScopeId, declaration: &TypeDecl) {
-        if matches!(declaration.definition, TypeDefinition::Union(_)) {
+        if matches!(declaration.definition, TypeDefinition::Union(_))
+            && !self.options.algebraic_types.unions
+        {
             self.diagnostics.push(Diagnostic::new(declaration.span,
-                "generic UNION definitions are not enabled yet"));
+                "UNION definitions are not enabled in this profile"));
             return;
         }
         if !self.options.algebraic_types.generic_types {
@@ -128,7 +130,7 @@ impl Analyzer {
         if matches!(declaration.definition, TypeDefinition::Enum(_)) {
             self.diagnostics.push(Diagnostic::new(
                 declaration.span,
-                "generic TYPE definitions must be records or variants",
+                "generic TYPE definitions must be records, unions or variants",
             ));
         }
         self.generics.definitions.insert(

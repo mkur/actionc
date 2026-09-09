@@ -219,7 +219,7 @@ tests green. Explain any fixture contract changes and update only relevant count
 ## 6. Progress
 
 - Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
-- Slices 1–4 are complete; slices 5–7 remain pending. No public UNION support
+- Slices 1–5 are complete; slices 6–7 remain pending. No public UNION support
   is claimed yet.
 
 ### Slice 1 — Syntax, identity and canonical layout (complete)
@@ -263,8 +263,8 @@ tests green. Explain any fixture contract changes and update only relevant count
   byte/word views, trailing-byte preservation, pointers, calls, machine writes,
   branch joins, high-offset arrays and exactly-once index/RHS evaluation.
 - Acceptance: all 2,940 compiler tests and NIR snapshots pass; NIR 44/44 and
-  MIR6502 167/167 sweeps pass. The full pinned VM suite is running as the combined
-  slices 2–5 regression gate; focused executable tests pass. Public enablement
+  MIR6502 167/167 sweeps pass. The full pinned VM result is recorded under the
+  combined slice-5 gate below; focused executable tests pass. Public enablement
   remains reserved for slices 6–7. Existing fixture contracts are unchanged.
 
 ### Slice 3 — Aggregate composition and snapshots (complete)
@@ -281,7 +281,7 @@ tests green. Explain any fixture contract changes and update only relevant count
   1/2/3/4, 31/32/33 and 255/256/257, with guarded page-crossing storage.
 - All focused tests pass. These exercise the slice-2 implementation already
   passing the full compiler suite/sweeps; no production compiler change or fixture
-  update is needed. The combined full pinned VM gate remains in progress.
+  update is needed. The combined full pinned VM result is recorded below.
 
 ### Slice 4 — Initialization and low-level storage (complete)
 
@@ -300,4 +300,29 @@ tests green. Explain any fixture contract changes and update only relevant count
   introduce a new raw-address alignment policy.
 - Focused compiler and VM tests pass, as do the access, indirect-call and CASE-
   guard harness regressions (13 VM tests). No production compiler or fixture
-  change was necessary. The combined full pinned VM gate remains in progress.
+  change was necessary. The combined full pinned VM result is recorded below.
+
+### Slice 5 — Generics, modules and variant composition (complete)
+
+- Enabled internal generic union definitions through the same union capability
+  gate. Concrete instances use the existing nominal cache and overlapping layout
+  resolver. Member eligibility is checked after substitution; REAL/callable/
+  variant restrictions follow inline records, arrays and generic instances while
+  data pointers remain traversal barriers. Public profiles remain closed.
+- Five compiler tests cover cached identity, target layout, exact signatures,
+  mutually recursive pointers, rejected inline/expanding recursion, the existing
+  depth/instance budgets, imported aliases and immutable variant binders. Three
+  six-lane VM tests cover module-only generic definitions and callbacks, guarded
+  union-payload snapshots, and retained outer-variant Error(100) validation.
+- Module callback tests exposed a shared SemIR bug: qualified routine values
+  missed the existing bare-name address conversion and became aggregate scalar
+  loads. Generalized that path to use the existing canonical direct-symbol
+  resolver, with a non-union record regression on all four targets. No generic-
+  union-specific lowering, new IR operation or backend workaround was added.
+- All 2,952 compiler tests pass, including NIR snapshots, the new union tests
+  and the qualified ordinary-record callback regression. NIR 44/44, MIR6502
+  167/167 and all-target cargo check pass. All 187 pinned VM tests pass, including
+  the twelve new six-lane union tests. No existing fixtures were changed.
+- This completes slices 2–5, not public enablement. Slices 6–7 retain their
+  explicit backend-limit/representation acceptance, documentation, cost baselines
+  and release-gate work. Native canaries do not claim native runtime execution.
