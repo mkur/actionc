@@ -108,6 +108,8 @@ crowding the active reference set.
     with backend/runtime acceptance gates; guard follow-on delivered by the ADT plan.
 - [Algebraic data types](Action_2027/ALGEBRAIC_DATA_TYPES_IMPLEMENTATION_PLAN.md)
   - sliced delivery of aggregate values/calls, variants, generics and matching.
+- [Untagged unions](Action_2027/UNIONS_IMPLEMENTATION_PLAN.md) - accepted plan for
+  overlapping typed storage views; public support remains gated during delivery.
 - [resident_library.md](resident_library.md) - resident library notes.
 
 ## Architecture And Status
