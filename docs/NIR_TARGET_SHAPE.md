@@ -1262,6 +1262,13 @@ marker and static initializers establish no value facts. Globals, aliases and
 exposed homes are excluded. Calls (including pure calls), machine/REAL effects,
 potentially faulting arithmetic, volatile access and unknown/absolute memory
 access clear these memory facts. Already captured SSA constants remain valid.
+Exact nonvolatile disjoint copies and exact self-copies transfer known source
+bytes from their input state, after invalidating the destination range. Partial
+overlap declines propagation but still invalidates overwritten cells. Snapshots
+keep their own facts after source mutation. The copy operation remains unless
+aggregate forwarding independently proves it redundant. Candidate closure is
+limited to 4,096 cells and 65,536 copy probes per routine; exhaustion leaves that
+routine unchanged by the byte pass. Aggregate extents are never enumerated.
 This is a NIR byte proof, independent of source constructors or field names.
 
 Promotion does not make a target allocation decision. NIR removes direct

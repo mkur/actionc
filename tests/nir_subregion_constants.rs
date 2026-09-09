@@ -682,3 +682,171 @@ fn byte_substitution_reaches_edge_arguments_and_block_parameters() {
     assert!(main(&opt).blocks.iter().all(|b| b.params.is_empty()));
     assert_eq!(opt, nir::optimize_program(&opt).unwrap());
 }
+
+fn copy(destination: NirPlace, source: NirPlace, size: u32) -> NirOp {
+    NirOp::CopyBytes {
+        destination,
+        source,
+        size: ByteSize::new(size),
+        source_volatile: false,
+        destination_volatile: false,
+    }
+}
+fn add_capture(p: &mut NirProgram) -> NirLocal {
+    let mut local = capture(p);
+    let r = p.routines.iter_mut().find(|r| r.name == "Main").unwrap();
+    local.id = LocalId(r.locals.iter().map(|l| l.id.0).max().unwrap_or(0) + 1);
+    local.name = format!("snapshot{}", local.id.0);
+    r.locals.push(local.clone());
+    local
+}
+
+#[test]
+fn retained_copy_chains_keep_independent_byte_facts_after_source_mutation() {
+    for target in TARGETS {
+        let mut p = probe(target);
+        let source = capture(&p);
+        let middle = add_capture(&mut p);
+        let saved = add_capture(&mut p);
+        let mut ops = vec![
+            store(&source, 3, 7),
+            copy(field(&middle, 0), field(&source, 0), 8),
+            store(&source, 3, 8),
+            copy(field(&saved, 0), field(&middle, 0), 8),
+            store(&middle, 3, 9),
+        ];
+        ops.extend(observe(&p, &saved, 3, 100));
+        // Unknown neighboring payload keeps both snapshots materially live.
+        ops.extend(observe(&p, &saved, 4, 101));
+        set_ops(&mut p, ops);
+        let opt = nir::optimize_program(&p).unwrap();
+        assert_eq!(field_loads(&opt), 1);
+        assert_eq!(
+            main(&opt)
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .filter(|op| matches!(op, NirOp::CopyBytes { .. }))
+                .count(),
+            2
+        );
+        assert!(
+            main(&opt)
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(
+                    op,
+                    NirOp::Store {
+                        place: NirPlace {
+                            kind: NirPlaceKind::Global { .. },
+                            ..
+                        },
+                        src: NirValue::IntegerConst { bits: 7, .. },
+                        ..
+                    }
+                ))
+        );
+        assert_eq!(opt, nir::optimize_program(&opt).unwrap());
+    }
+}
+
+#[test]
+fn copies_use_pre_copy_state_and_decline_partial_overlap() {
+    for target in TARGETS {
+        for (from, to, size, remaining) in [(1, 1, 2, 0), (0, 1, 2, 1), (1, 0, 2, 1), (5, 1, 1, 0)]
+        {
+            let mut p = probe(target);
+            let local = capture(&p);
+            let mut ops = vec![
+                store(&local, 1, 7),
+                store(&local, 5, 9),
+                copy(field(&local, to), field(&local, from), size),
+            ];
+            ops.extend(observe(&p, &local, 1, 100));
+            set_ops(&mut p, ops);
+            let opt = nir::optimize_program(&p).unwrap();
+            assert_eq!(
+                field_loads(&opt),
+                remaining,
+                "{target:?} {from}->{to} size {size}"
+            );
+            assert!(
+                main(&opt)
+                    .blocks
+                    .iter()
+                    .flat_map(|b| &b.ops)
+                    .any(|op| matches!(op, NirOp::CopyBytes { .. }))
+            );
+        }
+    }
+}
+
+#[test]
+fn unknown_copy_sources_and_volatile_copies_kill_known_destination_bytes() {
+    for kind in 0..3 {
+        let mut p = probe(TargetId::Atari6502);
+        let local = capture(&p);
+        let mut transfer = copy(field(&local, 3), field(&local, 4), 1);
+        if let NirOp::CopyBytes {
+            source,
+            source_volatile,
+            destination_volatile,
+            ..
+        } = &mut transfer
+        {
+            match kind {
+                0 => source.kind = NirPlaceKind::Absolute(AddressValue::data(0x900)),
+                1 => *source_volatile = true,
+                _ => *destination_volatile = true,
+            }
+        }
+        let mut ops = vec![store(&local, 3, 7), transfer];
+        ops.extend(observe(&p, &local, 3, 100));
+        set_ops(&mut p, ops);
+        assert_eq!(field_loads(&nir::optimize_program(&p).unwrap()), 1);
+    }
+}
+
+#[test]
+fn large_copy_extents_track_queried_cells_without_enumerating_payload_bytes() {
+    let mut p = lower(
+        "TYPE Value=[BYTE ARRAY bytes(30000)] Value source BYTE out PROC Main() LET saved=source RETURN",
+        TargetId::Atari6502,
+    );
+    let first = capture(&p);
+    let saved = add_capture(&mut p);
+    let mut ops = vec![
+        store(&first, 29999, 255),
+        copy(field(&saved, 0), field(&first, 0), 30000),
+        store(&first, 29999, 1),
+    ];
+    ops.extend(observe(&p, &saved, 29999, 100));
+    set_ops(&mut p, ops);
+    let opt = nir::optimize_program(&p).unwrap();
+    assert_eq!(field_loads(&opt), 0);
+}
+
+#[test]
+fn fresh_nested_constructor_checks_need_each_nested_byte_proof() {
+    for target in TARGETS {
+        let source = "TYPE Inner=VARIANT [OFF ON [BYTE n]] TYPE Outer=VARIANT [NONE SOME [Inner child]] BYTE out PROC Main() LET saved=Outer.SOME(Inner.ON(42))\nCASE saved OF\nWHEN Outer.SOME(Inner.ON(n)) THEN\nout=n\nELSE\nout=0\nESAC\nRETURN";
+        let p = lower(source, target);
+        let opt = nir::optimize_program(&p).unwrap();
+        assert_eq!(field_loads(&opt), 0, "{target:?}");
+        assert!(
+            !main(&opt)
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(
+                    op,
+                    NirOp::Call {
+                        callee: NirCallee::Fault(_),
+                        ..
+                    }
+                ))
+        );
+        assert_eq!(opt, nir::optimize_program(&opt).unwrap());
+    }
+}

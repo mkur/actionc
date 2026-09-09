@@ -32,6 +32,11 @@ type Facts = BTreeMap<Cell, u8>;
 enum Effect {
     Preserve,
     Barrier,
+    Copy {
+        source: NirMemoryRegion,
+        destination: NirMemoryRegion,
+        mappings: Vec<(Cell, Cell)>,
+    },
     Load {
         dest: TempId,
         cell: Option<Cell>,
@@ -127,9 +132,10 @@ fn classify(
                 regions.region(source, *size, at),
                 regions.region(destination, *size, at),
             ) {
-                (Ok(_), Ok(destination)) => Effect::Store {
-                    region: destination.memory,
-                    value: None,
+                (Ok(source), Ok(destination)) => Effect::Copy {
+                    source: source.memory,
+                    destination: destination.memory,
+                    mappings: Vec::new(),
                 },
                 _ => Effect::Barrier,
             }
@@ -154,6 +160,19 @@ fn classify(
 fn transfer(effect: &Effect, facts: &mut Facts) -> Option<(TempId, NirValue)> {
     match effect {
         Effect::Barrier => facts.clear(),
+        Effect::Copy {
+            destination,
+            mappings,
+            ..
+        } => {
+            // Snapshot the input before invalidation, including exact self-copy.
+            let copied: Vec<_> = mappings
+                .iter()
+                .filter_map(|(source, dest)| facts.get(source).map(|value| (*dest, *value)))
+                .collect();
+            facts.retain(|cell, _| !cell.memory().overlaps(destination));
+            facts.extend(copied);
+        }
         Effect::Store { region, value } => {
             facts.retain(|cell, _| !cell.memory().overlaps(region));
             if let Some((cell, value)) = value {
@@ -171,6 +190,105 @@ fn transfer(effect: &Effect, facts: &mut Facts) -> Option<(TempId, NirValue)> {
         Effect::Preserve | Effect::Load { cell: None, .. } => {}
     }
     None
+}
+
+// The universe is derived from actual byte accesses, extended only by exact
+// copy mappings. Large aggregate extents are never enumerated byte by byte.
+const MAX_CELLS: usize = 4096;
+const MAX_COPY_PROBES: usize = 65_536;
+
+fn mapped_cell(
+    cell: Cell,
+    source: &NirMemoryRegion,
+    destination: &NirMemoryRegion,
+    eligible: &BTreeSet<LocalId>,
+) -> Option<Cell> {
+    let NirMemoryRegionKind::Storage(NirStorageId::Local(local)) = destination.kind else {
+        return None;
+    };
+    if !eligible.contains(&local) || !cell.memory().overlaps(source) {
+        return None;
+    }
+    let relative = cell.offset.get().checked_sub(source.offset.get())?;
+    Some(Cell {
+        local,
+        offset: ByteOffset::new(destination.offset.get().checked_add(relative)?),
+    })
+}
+
+fn prepare_copies(
+    effects: &mut BTreeMap<BlockId, Vec<Effect>>,
+    eligible: &BTreeSet<LocalId>,
+) -> bool {
+    let mut cells = BTreeSet::new();
+    let mut copies = Vec::new();
+    for effect in effects.values().flatten() {
+        match effect {
+            Effect::Load {
+                cell: Some(cell), ..
+            }
+            | Effect::Store {
+                value: Some((cell, _)),
+                ..
+            } => {
+                cells.insert(*cell);
+            }
+            Effect::Copy {
+                source,
+                destination,
+                ..
+            } if source == destination || !source.overlaps(destination) => {
+                copies.push((source.clone(), destination.clone()));
+            }
+            _ => {}
+        }
+    }
+    if cells.len() > MAX_CELLS {
+        return false;
+    }
+    let mut pending: Vec<_> = cells.iter().copied().collect();
+    let mut probes = 0;
+    while let Some(cell) = pending.pop() {
+        for (source, destination) in &copies {
+            for (from, to) in [(source, destination), (destination, source)] {
+                probes += 1;
+                if probes > MAX_COPY_PROBES {
+                    return false;
+                }
+                if let Some(mapped) = mapped_cell(cell, from, to, eligible) {
+                    if cells.insert(mapped) {
+                        if cells.len() > MAX_CELLS {
+                            return false;
+                        }
+                        pending.push(mapped);
+                    }
+                }
+            }
+        }
+    }
+    for effect in effects.values_mut().flatten() {
+        if let Effect::Copy {
+            source,
+            destination,
+            mappings,
+        } = effect
+        {
+            if source == destination || !source.overlaps(destination) {
+                for cell in &cells {
+                    // Count construction too, so many copies cannot bypass
+                    // the census budget after the closure has converged.
+                    probes += 1;
+                    if probes > MAX_COPY_PROBES {
+                        return false;
+                    }
+                    if let Some(mapped) = mapped_cell(*cell, source, destination, eligible) {
+                        mappings.push((*cell, mapped));
+                    }
+                }
+            }
+        }
+    }
+    true
 }
 
 /// None is unreachable/unprocessed; Some(empty) is reachable but unknown.
@@ -220,7 +338,7 @@ pub(super) fn propagate_program(program: &NirProgram) -> Result<NirProgram, Vec<
             continue;
         }
         let cfg = NirCfg::from_routine(routine);
-        let effects: BTreeMap<_, Vec<_>> = routine
+        let mut effects: BTreeMap<_, Vec<_>> = routine
             .blocks
             .iter()
             .map(|block| {
@@ -245,6 +363,11 @@ pub(super) fn propagate_program(program: &NirProgram) -> Result<NirProgram, Vec<
                 )
             })
             .collect();
+        // Exhaustion is a conservative no-op for this routine, never a
+        // source diagnostic or a partially applied transformation.
+        if !prepare_copies(&mut effects, &eligible) {
+            continue;
+        }
         let result = solve_dataflow(
             &cfg,
             &ByteProblem {
@@ -302,4 +425,46 @@ pub(super) fn stabilize_program(program: &NirProgram) -> Result<NirProgram, Vec<
         optimized = super::optimizer::optimize_program(&next)?;
     }
     Ok(optimized)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn census_budget_exhaustion_declines_the_entire_routine() {
+        let eligible = BTreeSet::from([LocalId(0), LocalId(1)]);
+        let source = Cell {
+            local: LocalId(0),
+            offset: ByteOffset::ZERO,
+        };
+        let destination = Cell {
+            local: LocalId(1),
+            offset: ByteOffset::ZERO,
+        };
+        let mut too_many_cells = BTreeMap::from([(
+            BlockId(0),
+            (0..=MAX_CELLS)
+                .map(|i| Effect::Load {
+                    dest: TempId(i as u32),
+                    cell: Some(Cell {
+                        offset: ByteOffset::new(i as u32),
+                        ..source
+                    }),
+                })
+                .collect(),
+        )]);
+        assert!(!prepare_copies(&mut too_many_cells, &eligible));
+        let mut repeated = vec![Effect::Store {
+            region: source.memory(),
+            value: Some((source, 42)),
+        }];
+        repeated.extend((0..11_000).map(|_| Effect::Copy {
+            source: source.memory(),
+            destination: destination.memory(),
+            mappings: vec![],
+        }));
+        let mut too_many_probes = BTreeMap::from([(BlockId(0), repeated)]);
+        assert!(!prepare_copies(&mut too_many_probes, &eligible));
+    }
 }

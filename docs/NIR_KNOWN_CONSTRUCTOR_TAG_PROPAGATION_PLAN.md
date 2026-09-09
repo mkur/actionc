@@ -1,6 +1,6 @@
 # Known constructor tags through verified NIR
 
-Status: slices 0–2 implemented; copy propagation and final acceptance pending.
+Status: slices 0–3 implemented; final acceptance pending.
 Baseline: `42d4f94`, inspected and measured on 2026-09-09.
 
 ## Objective
