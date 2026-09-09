@@ -1,6 +1,6 @@
 #[path = "support/variant_values.rs"]
 mod support;
-use support::{check, check_with_fault};
+use support::{check, check_with_error_code, check_with_fault};
 
 #[test]
 fn guarded_nested_patterns_capture_bindings_before_guard_calls_and_keep_selector_values() {
@@ -136,7 +136,7 @@ RETURN
     let mut expected = vec![0xCC; 0x500];
     expected[0] = 41;
     expected[1] = 0;
-    check_with_fault(source, &expected, true);
+    check_with_error_code(source, &expected, Some(101));
     let invalid = r#"
 TYPE V=VARIANT [KEY [BYTE code]]
 V current

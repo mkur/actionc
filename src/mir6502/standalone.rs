@@ -1982,6 +1982,103 @@ mod tests {
     use crate::runtime_bindings::{BindingTarget, parse_bindings};
     use crate::source::Span;
 
+    #[test]
+    fn runtime_rebasing_preserves_absolute_machine_routine_targets() {
+        fn lower(source: &str) -> MirProgram {
+            let origin = crate::source::SourceOrigin::embedded(
+                "runtime/internal/probe.act",
+                "<runtime:PROBE.ACT>",
+            );
+            let provider = crate::source::InMemorySourceProvider::default().with_source(
+                origin.clone(),
+                format!("MODULE ACTION.RUNTIME.PROBE\n{source}\nENDMODULE"),
+            );
+            let loaded = crate::includes::load_compilation_from_provider(
+                origin,
+                &provider,
+                &crate::includes::ModuleLoadOptions::default(),
+            )
+            .unwrap();
+            let model = crate::semantic::analyze_compilation(&loaded).unwrap();
+            let semir = crate::semantic::ir::lower_compilation(&loaded, &model);
+            lower_runtime_semir(&semir, "relocation-probe.act").unwrap()
+        }
+        for body in [
+            "ASM\njsr Entry\njsr Helper\nENDASM",
+            "[$20 @Entry $20 @Helper]",
+        ] {
+            let runtime = lower(&format!(
+                "PROC Entry=$04CB(BYTE code,x,y)\nPROC Helper()\nRETURN\nPROC Wrapper()\n{body}\nRETURN"
+            ));
+            let id = |name| {
+                runtime
+                    .routines
+                    .iter()
+                    .find(|routine| {
+                        runtime_routine_name(&routine.name, "ACTION_RUNTIME_PROBE")
+                            .eq_ignore_ascii_case(name)
+                    })
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "missing {name}: {:?}",
+                            runtime.routines.iter().map(|r| &r.name).collect::<Vec<_>>()
+                        )
+                    })
+                    .id
+            };
+            let helper = id("Helper");
+            let wrapper = id("Wrapper");
+            // Fixed entries need no emitted body or rebased routine ID.
+            let selected = RuntimeSelection {
+                routines: BTreeSet::from([helper, wrapper]),
+                globals: BTreeSet::new(),
+                statics: BTreeSet::new(),
+            };
+            let mut application = lower("PROC First()\nRETURN\nPROC Main()\nRETURN");
+            let rebased = append_runtime_selection(
+                &mut application,
+                &runtime,
+                &selected,
+                "ACTION.RUNTIME.PROBE",
+                "ACTION_RUNTIME_PROBE",
+            )
+            .unwrap();
+            assert_ne!(rebased[&helper], helper);
+            let targets = application
+                .machine_blocks
+                .iter()
+                .flat_map(|machine| &machine.items)
+                .filter_map(|item| match item {
+                    MirMachineItem::Relocation { target, .. } => Some(target.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                targets,
+                [
+                    MirInlineAsmTarget::Absolute(0x04CB),
+                    MirInlineAsmTarget::Routine(rebased[&helper])
+                ]
+            );
+
+            let application = super::super::materialize_program_with_origin(
+                application,
+                &super::super::Mir6502Config::default(),
+                0x3000,
+            )
+            .unwrap();
+            let mut emitter = crate::codegen::tracked_emitter::TrackedEmitter::with_origin(0x3000);
+            super::super::emit::emit_program(&application, 0x3000, &mut emitter).unwrap();
+            let emission = emitter.finish_with_relocations().unwrap();
+            assert!(
+                emission
+                    .bytes
+                    .windows(3)
+                    .any(|bytes| bytes == [0x20, 0xCB, 0x04])
+            );
+        }
+    }
+
     fn resident_routine_id(program: &MirProgram, expected: &str) -> RoutineId {
         let matches = program
             .routines

@@ -1405,8 +1405,21 @@ fn observable_effects(ops: &[MirOp]) -> ObservableEffects {
         let effects = classify_op(op);
         out.home_reads.extend(effects.homes.reads);
         out.home_writes.extend(effects.homes.writes);
-        out.memory_reads
-            .extend(effects.memory.direct_reads.iter().flat_map(range_byte_keys));
+        if let MirOp::Call { target, args, .. } = op {
+            // The classifier records a per-operation may-read footprint.
+            // A call can read the same byte through several operands, so that
+            // footprint alone loses the multiplicity of folded producer loads.
+            // Preserve each operand read in the transaction's effect multiset.
+            if let crate::mir6502::ir::MirCallTarget::Indirect { target, .. } = target {
+                append_value_read_keys(target, &mut out.memory_reads);
+            }
+            for arg in args {
+                append_value_read_keys(&arg.value, &mut out.memory_reads);
+            }
+        } else {
+            out.memory_reads
+                .extend(effects.memory.direct_reads.iter().flat_map(range_byte_keys));
+        }
         out.memory_writes.extend(
             effects
                 .memory
@@ -1450,6 +1463,25 @@ fn range_byte_keys(range: &MirMemoryRange) -> Vec<String> {
     (0..range.bytes)
         .map(|offset| memory_byte_key(&range.base, offset))
         .collect()
+}
+
+fn append_value_read_keys(value: &crate::mir6502::ir::MirValue, reads: &mut Vec<String>) {
+    use crate::mir6502::ir::MirValue;
+    match value {
+        MirValue::PointerCell(mem) => reads.push(memory_byte_key(mem, 0)),
+        MirValue::Word { lo, hi } => {
+            append_value_read_keys(lo, reads);
+            append_value_read_keys(hi, reads);
+        }
+        MirValue::Def(_)
+        | MirValue::ConstU8(_)
+        | MirValue::ConstU16(_)
+        | MirValue::StaticAddr(_)
+        | MirValue::GlobalAddr(_)
+        | MirValue::RoutineAddr(_)
+        | MirValue::RoutineAddrByte { .. }
+        | MirValue::StorageAddrByte { .. } => {}
+    }
 }
 
 fn memory_byte_key(mem: &MirMem, delta: u16) -> String {
@@ -1503,6 +1535,123 @@ mod tests {
     use crate::mir6502::rewrite::plan::{
         MirChangeSet, MirEffectDelta, MirPostHomeRewritePlan, MirRemovedDefinition,
     };
+
+    #[test]
+    fn call_producer_effects_preserve_repeated_operand_read_counts() {
+        use crate::mir6502::ir::{MirArgHome, MirCallAbi, MirCallArg, MirCallTarget, MirReg};
+        for width in [MirWidth::Byte, MirWidth::Word] {
+            let source = MirMem::Absolute(0x0600);
+            let homes = match width {
+                MirWidth::Byte => vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)],
+                MirWidth::Word => vec![
+                    MirArgHome::RegisterPair {
+                        lo: MirReg::A,
+                        hi: MirReg::X,
+                    },
+                    MirArgHome::BytePair {
+                        lo: Box::new(MirArgHome::Reg(MirReg::Y)),
+                        hi: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA3))),
+                    },
+                ],
+            };
+            let args = (0..2)
+                .map(|index| MirCallArg {
+                    value: MirValue::Def(MirDef::VTemp(MirTempId(index))),
+                    width,
+                    home: homes[index as usize].clone(),
+                })
+                .collect();
+            let mut original = (0..2)
+                .map(|index| MirOp::Load {
+                    dst: MirDef::VTemp(MirTempId(index)),
+                    src: MirAddr::Direct(source.clone()),
+                    width,
+                })
+                .collect::<Vec<_>>();
+            original.push(MirOp::Call {
+                target: MirCallTarget::Runtime {
+                    name: "Entry".into(),
+                    address: Some(0x04CB),
+                },
+                abi: MirCallAbi {
+                    params: homes,
+                    result: None,
+                    clobbers: Default::default(),
+                    preserves: Default::default(),
+                },
+                args,
+                result: None,
+                effects: MirEffects::default(),
+            });
+            let candidate =
+                crate::mir6502::materialize::analyzed_call_arg_producer_candidate(&original, 0)
+                    .expect("two independent loads into call arguments");
+            let replacement = vec![candidate.replacement];
+            assert!(effect_delta_is_valid(
+                &original,
+                &replacement,
+                MirEffectDelta::Unchanged
+            ));
+
+            if width == MirWidth::Word {
+                let mut indirect_original = original.clone();
+                let MirOp::Call {
+                    target, args, abi, ..
+                } = indirect_original.last_mut().unwrap()
+                else {
+                    unreachable!()
+                };
+                *target = MirCallTarget::Indirect {
+                    target: args.remove(1).value,
+                    width,
+                };
+                abi.params.pop();
+                let indirect = crate::mir6502::materialize::analyzed_call_arg_producer_candidate(
+                    &indirect_original,
+                    0,
+                )
+                .expect("indirect target and argument share a source");
+                assert!(effect_delta_is_valid(
+                    &indirect_original,
+                    &[indirect.replacement],
+                    MirEffectDelta::Unchanged
+                ));
+            }
+
+            let mut missing_read = replacement.clone();
+            let MirOp::Call { args, .. } = &mut missing_read[0] else {
+                unreachable!()
+            };
+            args[0].value = MirValue::ConstU8(0);
+            assert!(!effect_delta_is_valid(
+                &original,
+                &missing_read,
+                MirEffectDelta::Unchanged
+            ));
+
+            let mut extra_read = replacement.clone();
+            let MirOp::Call { args, .. } = &mut extra_read[0] else {
+                unreachable!()
+            };
+            args.push(args[0].clone());
+            assert!(!effect_delta_is_valid(
+                &original,
+                &extra_read,
+                MirEffectDelta::Unchanged
+            ));
+
+            let mut changed_effects = replacement;
+            let MirOp::Call { effects, .. } = &mut changed_effects[0] else {
+                unreachable!()
+            };
+            effects.memory_writes = crate::mir6502::ir::MirMemoryEffect::Unknown;
+            assert!(!effect_delta_is_valid(
+                &original,
+                &changed_effects,
+                MirEffectDelta::Unchanged
+            ));
+        }
+    }
 
     fn pointer_word(mem: &MirMem) -> MirValue {
         let hi = match mem {

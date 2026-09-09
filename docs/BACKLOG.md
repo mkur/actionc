@@ -104,20 +104,24 @@ Agreed follow-up, separate from the runtime error-code split:
 
 ### MIR error-wrapper integration probes
 
-Two issues were observed while prototyping the dedicated runtime error codes;
-neither is needed by the final machine-only Error adapters:
+Both recorded issues are repaired:
 
-- In the resident `CartLongError(BYTE code)` prototype, an `ASM OPAQUE`
-  block loading/pushing `code`, followed by the Action call
-  `CartLongErrorEntry(code,0,code)`, failed materialization with
-  `call-arg-producer: replacement effects do not match the declared delta`.
-  Minimize the call-argument rewrite/effect case before changing its proof.
-- An inline `JSR CartLongErrorEntry` referring to the resident declaration
-  `PROC CartLongErrorEntry=$04CB(BYTE code,x,y)` linked to an emitted empty
-  parameter-capture stub rather than `$04CB`, falling through into the next
-  routine. Audit absolute-procedure relocations during resident linking.
-  The final Atari adapter explicitly calls `$04CB`; standalone retains its
-  symbolic relocation to the linked SYSLIB Error body.
+- `ASM OPAQUE` followed by `CartLongErrorEntry(code,0,code)` now materializes.
+  Transaction validation counts every call-operand memory read, including
+  repeated byte/word sources and indirect targets. Per-operation alias
+  footprints remain deduplicated; the unchanged-effect check still rejects
+  missing/extra reads and changed call effects.
+- Symbolic inline-assembly calls to fixed-address procedures now use NIR's
+  routine placement facts during MIR lowering. They retain their absolute
+  addresses through resident selection/rebasing; relocatable routines retain
+  stable IDs. Full addresses, low/high bytes and addends remain correct when
+  the load origin changes.
+
+Coverage includes `tests/inline_asm.rs`, MIR rewrite/standalone unit tests and
+`tools/vm-runtime-tests/tests/runtime_error_wrappers.rs`. The VM probes check
+the Error ABI and terminal return guard in classic/raw/optimized MIR with both
+runtimes. The production machine-only Error adapters retain their existing
+implementation.
 
 ### Arithmetic acceptance
 

@@ -653,6 +653,15 @@ the plan. `MirEffectDelta` records observable machine state present at the
 window exit in only one sequence. `MirChangeSet` describes invalidated fact
 classes.
 
+For `Unchanged` call-producer folding, transaction validation retains memory
+read multiplicity across call arguments and indirect targets, including each
+lane of a word. A per-operation may-read footprint cannot supply this count:
+separate loads of one byte become separate operands of one call, even though
+its alias footprint contains the byte only once. The transaction compares
+every operand read while retaining the existing structured call, memory, home,
+register and flag effects. Missing or added reads remain mismatches; this does
+not authorize read coalescing or movement across calls and machine blocks.
+
 Pre-home selection may additionally declare `SelectedResultRegister(reg)` when
 it makes an abstract operation's eventual result register explicit and routes
 an in-window consumer through that register. Validation permits differences

@@ -81,6 +81,83 @@ fn semir(source: &str) -> semantic::ir::SemProgram {
     semantic::ir::lower_program(&program, &model)
 }
 
+#[test]
+fn inline_asm_calls_absolute_routine_address() {
+    for body in [
+        "ASM\njsr Entry\nlda #<Entry\nldx #>Entry\njsr Entry+53\nlda #<Entry+53\nldx #>Entry+53\nENDASM",
+        "[$20 @Entry $A9 <Entry $A2 >Entry $20 @Entry+53 $A9 <Entry+53 $A2 >Entry+53]",
+    ] {
+        let source = format!("PROC Entry=$04CB(BYTE code,x,y)\nPROC Main()\n{body}\nRETURN");
+        let semir = semir(&source);
+        let raw = nir::lower_program(&semir);
+        let optimized = nir::optimize_program(&raw).unwrap();
+        for origin in [0x3000, 0x5000] {
+            for (backend, output) in [
+                (
+                    "classic",
+                    generate_semir_profile_with_origin(&semir, origin, CodegenProfile::Modern)
+                        .unwrap(),
+                ),
+                (
+                    "raw MIR6502",
+                    mir6502::generate_output(&raw, origin).unwrap(),
+                ),
+                (
+                    "optimized MIR6502",
+                    mir6502::generate_output_with_config(
+                        &optimized,
+                        origin,
+                        &mir6502::Mir6502Config::optimized(),
+                    )
+                    .unwrap(),
+                ),
+            ] {
+                let expected = [
+                    0x20, 0xCB, 0x04, 0xA9, 0xCB, 0xA2, 0x04, 0x20, 0x00, 0x05, 0xA9, 0x00, 0xA2,
+                    0x05,
+                ];
+                let offset = output.bytes.windows(expected.len()).position(|bytes| bytes == expected)
+                    .unwrap_or_else(|| panic!("{backend} at ${origin:04X} must retain fixed addresses and addends: {:02X?}", output.bytes));
+                assert!(
+                    output
+                        .relocations
+                        .iter()
+                        .all(|relocation| !(offset..offset + expected.len())
+                            .contains(&usize::from(relocation.value_offset))),
+                    "fixed addresses must not acquire output-relative relocation metadata"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn inline_asm_opaque_parameter_read_before_repeated_call_arguments() {
+    let source = r#"
+PROC Entry=$04CB(BYTE code,x,y)
+PROC Wrapper(BYTE code)
+ASM OPAQUE
+    lda code
+    pha
+ENDASM
+Entry(code,0,code)
+ASM OPAQUE
+    pla
+    sta $0600
+ENDASM
+RETURN
+PROC Main()
+Wrapper(105)
+RETURN
+"#;
+    let raw = nir::lower_program(&semir(source));
+    let optimized = nir::optimize_program(&raw).unwrap();
+    for program in [&raw, &optimized] {
+        mir6502::generate_output(program, 0x3000)
+            .expect("materialize captured arguments after an opaque parameter read");
+    }
+}
+
 fn inline_payload(
     op: &nir::NirOp,
 ) -> Option<(&[u8], &[nir::NirForeignRelocation], &nir::NirMachineEffects)> {

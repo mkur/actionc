@@ -297,6 +297,14 @@ rather than descriptor cells, and leaves forward routine targets as normal
 label fixups. A relocation reference makes a local or parameter home
 address-observable, so ABI/home-elision passes must preserve that home.
 
+Foreign-code routine relocations use the NIR routine ID and its placement fact.
+MIR lowering resolves an absolute routine placement to an absolute machine
+target for both inline assembly and structured machine blocks. Relocatable
+routine targets retain IDs for rebasing and final label fixups. A fixed entry
+must never resolve to an emitted parameter-capture stub or acquire an
+output-relative relocation; full addresses, byte selectors and addends obey
+the same rule. MIR needs no SemIR lookup to distinguish these targets.
+
 Block order is a layout hint, not semantic identity. MIR passes may preserve or
 adjust order for readability and branch locality. Emission remains responsible
 for final label binding, branch patching, and long-branch repair or diagnostics.

@@ -1964,13 +1964,20 @@ fn lower_ops(
                         items,
                         local_absolute_addresses,
                         routine_system_addresses,
+                        routine_system_addresses_by_id,
                         machine_numeric_defines,
                         diagnostics,
                     )
                     .map(|items| (items, lower_machine_effects(effects))),
                     NirForeignCodePayload::Bytes { .. } => {
-                        lower_inline_asm(routine, block, code, diagnostics)
-                            .map(|items| (items, lower_inline_asm_effects(code, effects)))
+                        lower_inline_asm(
+                            routine,
+                            block,
+                            code,
+                            routine_system_addresses_by_id,
+                            diagnostics,
+                        )
+                        .map(|items| (items, lower_inline_asm_effects(code, effects)))
                     }
                 }) else {
                     continue;
@@ -3353,6 +3360,7 @@ fn lower_machine_items(
     items: &[NirMachineItem],
     local_absolute_addresses: &BTreeMap<String, u16>,
     routine_system_addresses: &BTreeMap<&str, u16>,
+    routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
     machine_numeric_defines: &BTreeMap<String, u16>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<Vec<MirMachineItem>> {
@@ -3445,7 +3453,7 @@ fn lower_machine_items(
                 };
                 lowered.push(MirMachineItem::Relocation {
                     kind,
-                    target: lower_inline_asm_target(*target),
+                    target: lower_inline_asm_target(*target, routine_system_addresses_by_id),
                     addend: *addend,
                     requires_zero_page: *required_address_bits == Some(8),
                     span: *span,
@@ -3460,6 +3468,7 @@ fn lower_inline_asm(
     routine: &str,
     block: &str,
     code: &NirForeignCode,
+    routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<Vec<MirMachineItem>> {
     let NirForeignCodePayload::Bytes { bytes, relocations } = &code.payload else {
@@ -3477,7 +3486,7 @@ fn lower_inline_asm(
                 .copied()
                 .map(MirMachineItem::Byte),
         );
-        let target = lower_inline_asm_target(relocation.target);
+        let target = lower_inline_asm_target(relocation.target, routine_system_addresses_by_id);
         let Some(kind) = lower_foreign_relocation_encoding(relocation.encoding) else {
             diagnostics.push(MirDiagnostic::block(
                 routine,
@@ -3526,7 +3535,10 @@ fn lower_foreign_relocation_encoding(
     }
 }
 
-fn lower_inline_asm_target(target: NirForeignCodeTarget) -> MirInlineAsmTarget {
+fn lower_inline_asm_target(
+    target: NirForeignCodeTarget,
+    routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
+) -> MirInlineAsmTarget {
     match target {
         NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Local(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 })
@@ -3537,7 +3549,11 @@ fn lower_inline_asm_target(target: NirForeignCodeTarget) -> MirInlineAsmTarget {
         NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Global(id)) => {
             MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 })
         }
-        NirForeignCodeTarget::Routine(id) => MirInlineAsmTarget::Routine(RoutineId(id.0)),
+        NirForeignCodeTarget::Routine(id) => routine_system_addresses_by_id
+            .get(&id)
+            .copied()
+            .map(MirInlineAsmTarget::Absolute)
+            .unwrap_or(MirInlineAsmTarget::Routine(RoutineId(id.0))),
         NirForeignCodeTarget::Absolute(address) => {
             MirInlineAsmTarget::Absolute(nir_address_u16(address))
         }
