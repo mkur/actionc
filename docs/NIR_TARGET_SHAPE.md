@@ -84,6 +84,30 @@ Physical NIR is verified again. Signature IDs retain logical nominal identity;
 they are not recomputed from the erased physical pointer signature. MIR consumes
 only this verified physical view, with no SemIR lookup or source reconstruction.
 
+### Bounded aggregate storage proofs
+
+`analyze_aggregate_regions` verifies its input and borrows an immutable program.
+Its per-routine queries reuse storage identity, activation, CFG, dominance and
+use/def facts. Exact ranges require ordinary non-aliased storage, checked byte
+offsets and complete in-bounds extents. Direct fields, dominating SSA `AddrOf`
+origins and constant indexed offsets are supported; mutable pointer cells,
+unknown addresses, dynamic indexes and unresolved/absolute aliases are not
+disjointness proofs. Union views compare byte ranges, not field names.
+
+Address-use classification distinguishes bounded internal memory consumers from
+stored/returned/observed addresses and unsupported flows. Storage analysis retains
+`address_in_data` separately so initializer/relocation exposure cannot be mistaken
+for an internal executable address. This does not weaken scalar promotion or
+establish private invocation lifetime for routine-static Atari objects.
+
+The same-block unchanged-range query examines operations in a half-open interval
+and rejects overlapping/unknown writes, calls, machine/REAL/unsupported effects,
+volatile boundaries and potentially faulting arithmetic. It does not prove
+initialization, deadness, safe publication, nominal value substitutability or
+permission to eliminate a copy. Cross-block lifetime analysis and forwarding are
+not enabled. Recreate the analysis after any program rewrite; executable NIR,
+the optimizer pipeline and the complete-capture ABI verifier are unchanged.
+
 ## Position In The Compiler
 
 The intended pipeline is:

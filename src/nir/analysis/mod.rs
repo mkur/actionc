@@ -1,3 +1,4 @@
+pub(super) mod aggregate_regions;
 pub(super) mod cfg;
 pub(super) mod dataflow;
 pub(super) mod dominance;

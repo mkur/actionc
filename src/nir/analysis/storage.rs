@@ -104,6 +104,9 @@ pub struct NirStorageFacts {
     pub direct_loads: usize,
     pub direct_stores: usize,
     pub address_taken: bool,
+    /// An initializer/relocation exposes this object's address independently
+    /// of executable AddrOf uses. Kept separate for bounded address-use proofs.
+    pub address_in_data: bool,
     pub address_required: bool,
     pub possible_read_before_definition: bool,
     pub value_needed_at_exit: bool,
@@ -368,6 +371,7 @@ fn analyze_routine_storage(
     for id in data_address_taken {
         if let Some(facts) = homes.get_mut(id) {
             facts.address_taken = true;
+            facts.address_in_data = true;
             facts.address_required = true;
         }
     }
@@ -669,6 +673,7 @@ fn new_facts(
         direct_loads: 0,
         direct_stores: 0,
         address_taken: false,
+        address_in_data: false,
         address_required: false,
         possible_read_before_definition: false,
         value_needed_at_exit: false,

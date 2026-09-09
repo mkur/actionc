@@ -34,6 +34,12 @@ crowding the active reference set.
   guardrails for the target-independence migration.
 - [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -
   active plan for storage-to-value promotion and routine-wide NIR quality.
+- [PRIVATE_AGGREGATE_FORWARDING_IMPLEMENTATION_PLAN.md](PRIVATE_AGGREGATE_FORWARDING_IMPLEMENTATION_PLAN.md)
+  - shared plan for eliminating private record, union and variant staging while
+  preserving value snapshots, effects and aggregate ABI boundaries.
+- [PRIVATE_AGGREGATE_FORWARDING_BASELINE.md](PRIVATE_AGGREGATE_FORWARDING_BASELINE.md)
+  - shared NIR/VM corpus, logical versus ABI-expanded copy counts and initial
+  read-only aggregate storage proofs.
 - [COMPILER_API_IMPLEMENTATION_NOTE.md](COMPILER_API_IMPLEMENTATION_NOTE.md) -
   plan for a reusable, side-effect-free file compilation API shared by
   `actionc` and `actionc-run`.

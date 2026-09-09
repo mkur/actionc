@@ -19,6 +19,11 @@ use crate::semantic::ir::SemProgram;
 pub use crate::target::{
     AddressSpaceId, AddressValue, ByteOffset, ByteSize, RoutineActivationModel,
 };
+pub use analysis::aggregate_regions::{
+    NirAggregateAddressUse, NirAggregatePoint, NirAggregateProofFailure,
+    NirAggregateRegionAnalysis, NirExactStorageRegion, NirRegionRelation,
+    NirRoutineAggregateRegions, analyze_aggregate_regions,
+};
 pub use analysis::storage::{
     NirProgramStorageAnalysis, NirPromotionBlocker, NirRoutineStorageAnalysis,
     NirStorageBackingClass, NirStorageFacts, NirStorageIdentityDomain, analyze_program_storage,
