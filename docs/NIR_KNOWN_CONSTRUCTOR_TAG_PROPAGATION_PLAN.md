@@ -1,6 +1,6 @@
 # Known constructor tags through verified NIR
 
-Status: proposed; implementation has not started.
+Status: slice 0 implemented; transformation slices pending.
 Baseline: `42d4f94`, inspected and measured on 2026-09-09.
 
 ## Objective
