@@ -613,7 +613,14 @@ fn rename_block(
     }
 
     rewrite_terminator_values(&mut routine.blocks[block_index].terminator, &replacements);
-    if context.value_needed_at_exit && is_observable_exit(&routine.blocks[block_index].terminator) {
+    let terminal_fault = matches!(
+        rewritten.last(),
+        Some(NirOp::Call { callee: NirCallee::Fault(_), .. })
+    );
+    if context.value_needed_at_exit
+        && !terminal_fault
+        && is_observable_exit(&routine.blocks[block_index].terminator)
+    {
         let Some(value) = current.clone() else {
             return false;
         };
@@ -908,6 +915,12 @@ fn call_access(
     private_invocation: bool,
     routine_id: RoutineId,
 ) -> (bool, bool) {
+    if matches!(callee, NirCallee::Fault(_)) {
+        // Error handlers can observe static homes, so synchronize before the
+        // failure. Fault adapters never return: there is no post-call value to
+        // reload, nor an observable normal exit to synchronize afterwards.
+        return (!private_invocation, false);
+    }
     if private_invocation {
         // Unknown call effects cannot reach an address that never escaped the
         // caller's activation. Retain explicit regions as a conservative
@@ -1644,6 +1657,38 @@ mod tests {
 
         let promoted = promote_program(&program).expect("retain word relay");
         assert_eq!(promoted, program);
+    }
+
+    #[test]
+    fn promoted_homes_sync_before_a_fault_and_never_reload_or_store_after_it() {
+        let mut ops = vec![store(41)];
+        ops.extend((0..MIN_HOT_HOME_LOADS as u32).map(load));
+        ops.push(NirOp::Call {
+            callee: NirCallee::Fault(crate::runtime_fault::RuntimeFault::InvalidVariant),
+            args: Vec::new(),
+            result: None,
+            aggregate_result: None,
+            signature: None,
+            effects: NirCallEffects {
+                memory: NirMemoryEffects {
+                    reads: NirMemoryAccess::Unknown,
+                    writes: NirMemoryAccess::Unknown,
+                },
+                may_call_external: true,
+                opaque: true,
+            },
+        });
+        let input = program(vec![block(0, ops, NirTerminator::Exit)]);
+        let classic = promote_program(&input).expect("terminal fault remains verifier-clean");
+        assert!(matches!(
+            classic.routines[0].blocks[0].ops.as_slice(),
+            [NirOp::Store { .. }, NirOp::Call { callee: NirCallee::Fault(_), .. }]
+        ));
+        let native = promote_program(&native(input)).expect("private automatic fault home");
+        assert!(matches!(
+            native.routines[0].blocks[0].ops.as_slice(),
+            [NirOp::Call { callee: NirCallee::Fault(_), .. }]
+        ));
     }
 
     #[test]
