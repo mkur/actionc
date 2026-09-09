@@ -1,9 +1,9 @@
 # Private aggregate storage forwarding
 
 Created: 2026-09-09.
-Status: slices 1–4 implemented: proof foundation, fresh initialization,
-bounded snapshot forwarding and cross-CFG/subobject reuse. Aggregate ABI
-forwarding and final cost acceptance remain slices 5–6.
+Status: slices 1–5 implemented: proof foundation, fresh initialization,
+bounded snapshot forwarding, cross-CFG/subobject reuse and whole-capture ABI
+forwarding. Final cost acceptance/documentation remains slice 6.
 
 First increment: verified read-only byte-range/address-use/unchanged-interval
 queries and the shared 12-case NIR/VM baseline are implemented. See
@@ -299,6 +299,15 @@ return captures or callee entry copies are removable.
 Acceptance: physical copy counts improve, not just logical NIR formatting.
 
 Suggested commit: `nir: eliminate redundant aggregate call captures`.
+
+Implemented: proven whole private captures can replace argument staging at
+defined direct callees and capture-to-capture return staging. Argument images
+must be available immediately before the call; the shared ABI still copies
+them into independent mutable parameter homes. Calls remain barriers for later
+reads. A separately proven single-use native call result can be produced in
+the fresh final whole home. Indirect/external entries, subobject ABI buffers,
+Atari result staging and true hidden-result-slot forwarding remain conservative.
+See [slice 5 ownership boundaries](PRIVATE_AGGREGATE_CALL_FORWARDING.md).
 
 ## Slice 6: cost acceptance and documentation
 
