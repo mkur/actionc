@@ -1350,6 +1350,7 @@ fn codegen_routine_signature_from_ast(
 
 fn type_ref_trace_name(ty: &TypeRef) -> String {
     let mut text = match &ty.base {
+        TypeBase::Applied { .. } => "<unresolved generic type>".into(),
         TypeBase::Fund(fund) => fund_type_trace_name(*fund).to_string(),
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),

@@ -75,6 +75,8 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     optimized_atari_case!("aggregate_calls"),
     lowered_atari_case!("aggregate_indirect"),
     optimized_atari_case!("aggregate_indirect"),
+    lowered_atari_case!("generic_types"),
+    optimized_atari_case!("generic_types"),
     lowered_atari_case!("bare_do"),
     lowered_atari_case!("calls_returns"),
     lowered_atari_case!("case_dispatch"),

@@ -265,6 +265,7 @@ pub struct DeclEntry {
 pub struct TypeDecl {
     pub visibility: Visibility,
     pub name: String,
+    pub parameters: Vec<String>,
     pub definition: TypeDefinition,
     pub span: Span,
 }
@@ -325,6 +326,7 @@ pub enum TypeBase {
     /// identifier spelling.
     NativeReal,
     Named(QualifiedName),
+    Applied { definition: QualifiedName, arguments: Vec<TypeRef> },
     Callable(Box<CallableTypeRef>),
 }
 

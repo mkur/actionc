@@ -139,7 +139,13 @@ impl Parser<'_> {
         let mut labels = Vec::new();
         let mut start = 0;
         let mut depth = 0usize;
+        let mut generic_end = 0usize;
         for index in 0..=tokens.len() {
+            if index < generic_end { continue; }
+            if let Some(end) = super::generics::generic_head_end(tokens, index) {
+                generic_end = end;
+                continue;
+            }
             if index < tokens.len() {
                 match tokens[index].kind {
                     TokenKind::LParen | TokenKind::LBracket => depth += 1,

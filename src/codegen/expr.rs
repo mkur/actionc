@@ -347,7 +347,7 @@ impl Generator {
             ExprKind::Cast { ty, .. } => match &ty.base {
                 TypeBase::Fund(fund) => Some(ScalarType::from_fund(*fund)),
                 TypeBase::Callable(_) => Some(ScalarType::Card),
-                TypeBase::NativeReal | TypeBase::Named(_) => None,
+TypeBase::NativeReal | TypeBase::Named(_) | TypeBase::Applied { .. } => None,
             },
             ExprKind::Missing
             | ExprKind::Raw
@@ -806,6 +806,6 @@ pub(super) fn cast_type_size(ty: &TypeRef) -> Option<u16> {
         TypeBase::Fund(FundType::LongInt | FundType::LongCard) => Some(4),
         TypeBase::NativeReal => Some(6),
         TypeBase::Callable(_) => Some(2),
-        TypeBase::Named(_) => None,
+        TypeBase::Named(_) | TypeBase::Applied { .. } => None,
     }
 }

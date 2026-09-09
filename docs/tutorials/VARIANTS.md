@@ -87,7 +87,44 @@ effects; callbacks must have exactly matching nominal parameter/result types.
 Raw numeric addresses cannot acquire an aggregate ABI. Static initialization
 accepts a matching, already-declared routine address (`[@Make]`) or `[NIL]`.
 
-Not yet supported: generic types,
+## Generic records and variants
+
+Use explicit concrete type arguments; LET can infer the resulting value type:
+
+```action
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+TYPE Result<T,E>=VARIANT [OK [T value] ERROR [E error]]
+TYPE Buffer<T>=[T ARRAY values(3)]
+TYPE TreeOf<T>=VARIANT [EMPTY NODE [T value TreeOf<T> POINTER left,right]]
+
+Option<BYTE> FUNC Make(BYTE n)
+RETURN(Option<BYTE>.SOME(n))
+```
+
+Applications work in declarations, parameters/results, callable signatures,
+LET annotations, payload types, layout queries, constructors and flat patterns.
+`Option<BYTE>` and `Option<CHAR>` are different nominal types even when their
+layouts match. Import aliases of the same definition share instances. Names
+inside a generic definition resolve in that definition's scope.
+There are no runtime type dictionaries, allocations, or generic routine inference.
+
+See [generic-types.act](../../samples/generic-types.act) for executable
+Option/Result composition and a three-node `TreeOf<INT>` arena. It builds with
+either Atari backend/runtime and prints 7, 1000, and 12.
+
+Type arguments are complete value types, including pointers and typed callable
+pointers (callable payloads remain unsupported in variants). ARRAY/STRING
+storage and routine names are not type arguments. A POINTER-qualified parameter
+cannot itself be instantiated with a pointer; nested data-pointer types are not
+currently represented by the source type system.
+
+Regular self/mutual recursion through pointers is finite and supported. Inline
+layout cycles and recursive specialization that increases argument structure
+are diagnosed. Limits are 64 nested type applications, 64 active instantiations,
+and 1,024 distinct concrete instances per compilation. Reusing an instance does
+not consume another slot.
+
+Not yet supported: generic routines or omitted/inferred type arguments,
 nested patterns, guards, direct ARRAY payload declarations, volatile variants,
 absolute/alias-backed variant declarations or raw/static variant initializers.
 Use a record payload to contain an inline array. Typed pointers into explicitly

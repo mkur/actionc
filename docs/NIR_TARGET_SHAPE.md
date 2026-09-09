@@ -1257,6 +1257,17 @@ clears decimal mode and stops. Native construction/layout lowering is supported;
 native fault calls explicitly require an Error adapter and are diagnosed until
 that target runtime contract exists.
 
+## Concrete generic instances
+
+The semantic resolver interns a generic TYPE definition ID plus canonical
+concrete argument types before lowering. Regular recursive pointer instances
+share finite nominal identities; unresolved parameters and expanding instance
+graphs are rejected there. SemIR receives concrete field/layout declarations
+and lowers their values, calls and validity checks through the existing aggregate
+contracts. NIR and MIR never interpret type applications or substitute source
+names. Different concrete instances remain nominally distinct even when their
+target sizes match. Reusing an instance does not duplicate its layout facts.
+
 ## Red Lines
 
 Do not consider NIR complete while any of these are true:

@@ -430,6 +430,7 @@ impl SemIrAstLowerer<'_> {
             SemDeclarationStorage::Type { fields, .. } => {
                 return Some(Decl::Type(TypeDecl {
                     visibility: Visibility::Private,
+                    parameters: Vec::new(),
                     name: self.symbol_name(&decl.symbol),
                     definition: TypeDefinition::Record(self.record_fields(fields)),
                     span: decl.span,
@@ -2178,6 +2179,7 @@ fn type_ref_text(ty: &TypeRef) -> String {
         TypeBase::NativeReal => "REAL".to_string(),
         TypeBase::Named(name) => name.to_string(),
         TypeBase::Callable(callable) => routine_kind_text(&callable.kind),
+        TypeBase::Applied { .. } => "<unresolved generic type>".into(),
     };
     if ty.pointer {
         format!("{base} POINTER")
@@ -2234,6 +2236,8 @@ mod array_execution_tests;
 mod aggregate_call_tests;
 #[cfg(test)]
 mod aggregate_indirect_tests;
+#[cfg(test)]
+mod generic_type_tests;
 #[cfg(test)]
 mod array_aggregate_tests;
 #[cfg(test)]

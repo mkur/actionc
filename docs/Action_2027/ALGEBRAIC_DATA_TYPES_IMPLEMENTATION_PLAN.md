@@ -1,10 +1,10 @@
 # ML-style algebraic data types: implementation plan
 
-Status: accepted; implementation in progress on `main`, 2026-09-08.
+Status: accepted; implementation in progress on `main`, 2026-09-09.
 Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
 are enabled after their end-to-end acceptance gates; direct and typed indirect
-aggregate calls are implemented, while generics,
-nested patterns and guards remain future slices. See implementation progress.
+aggregate calls and generic types are implemented, while nested patterns and
+guards remain future slices. See implementation progress.
 
 ## 1. Objective and boundaries
 
@@ -782,3 +782,32 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
 - Added direct/optimized indirect-call snapshots; existing snapshots are unchanged.
 - Acceptance: all 2,903 compiler tests and 162 pinned VM tests pass. NIR
   snapshots, the 41-source NIR sweep and 167-source MIR sweep pass.
+
+### Slice 7 — Generic records and variants (complete)
+
+- TYPE parameters/applications are AST forms, including nested applications,
+  qualified constructor heads, flat patterns, LET annotations, routine/callback
+  signatures, payloads and layout queries. The parser splits `>=` only in its
+  type-context view; ordinary comparison tokenization/semantics are unchanged.
+- One insertion-ordered, bounded cache interns definition SymbolId plus canonical
+  concrete ValueTypes. Instances and substitutions use finite nominal IDs;
+  readable generated names are metadata, never cache keys. Recursive placeholders
+  are published before fields resolve; completed instances reuse canonical layout
+  facts. Definition scopes and import identities survive specialization.
+- SemIR receives concrete canonical declarations and reuses the existing variant,
+  aggregate call, copy, validation and callback paths. No generic syntax, runtime
+  dictionaries, generic routines or new target representation enters NIR/MIR.
+- Template type names/arity are checked even when unused. Reject missing/wrong
+  arguments, incompatible nominal instances, inline cycles and structurally
+  growing recursive specialization. Limits: syntax depth 64, active instance
+  depth 64, 1,024 distinct instances; stable reuse does not consume more slots.
+- Added `samples/generic-types.act` (prints 7, 1000, 12), compiler/VM oracles for
+  Option/Result composition, typed callbacks, pointer arguments/results, generic
+  inline arrays and recursive fixed storage. Native tests cover concrete pointer
+  layouts; executable native variant faults still need their Error adapters.
+- Acceptance: the full compiler suite passes (2,915 tests), plus the subsequently
+  added caller-defined record-payload regression (2,916 current tests). The full
+  pinned VM suite passes (165 tests), plus the sample-output oracle (166 current
+  tests); all four generic VM cases pass together. NIR snapshots, the 42-source
+  NIR sweep and the 167-source MIR sweep pass. Existing snapshots are unchanged;
+  new generic snapshots contain only existing concrete NIR forms.

@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 mod case;
 mod enums;
 mod let_binding;
+mod generics;
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Vec<Diagnostic>> {
     let mut parser = Parser::new(tokens);
@@ -38,7 +39,7 @@ pub fn parse_machine_items(tokens: &[Token]) -> Result<Vec<MachineItem>, Vec<Dia
 }
 
 struct Parser<'a> {
-    tokens: &'a [Token],
+    tokens: std::borrow::Cow<'a, [Token]>,
     pos: usize,
     diagnostics: Vec<Diagnostic>,
     known_non_type_defines: HashSet<String>,
@@ -47,13 +48,14 @@ struct Parser<'a> {
     next_lexical_block_syntax_id: u32,
     lexical_block_depth: usize,
     case_depth: usize,
+    type_application_depth: usize,
     origin: Option<OrgDirective>,
 }
 
 impl<'a> Parser<'a> {
     fn new(tokens: &'a [Token]) -> Self {
         Self {
-            tokens,
+            tokens: std::borrow::Cow::Borrowed(tokens),
             pos: 0,
             diagnostics: Vec::new(),
             known_non_type_defines: HashSet::new(),
@@ -62,6 +64,7 @@ impl<'a> Parser<'a> {
             next_lexical_block_syntax_id: 0,
             lexical_block_depth: 0,
             case_depth: 0,
+            type_application_depth: 0,
             origin: None,
         }
     }
@@ -635,6 +638,7 @@ impl<'a> Parser<'a> {
         let name = self
             .expect_ident()
             .unwrap_or_else(|| "<missing type name>".to_string());
+        let parameters = self.parse_type_parameters();
         self.expect(TokenKind::Assign);
         let is_enum = self.is_contextual_at(self.pos, "ENUM");
         let is_variant = self.is_contextual_at(self.pos, "VARIANT");
@@ -671,6 +675,7 @@ impl<'a> Parser<'a> {
         TypeDecl {
             visibility: Visibility::Private,
             name,
+            parameters,
             definition,
             span: Span::new(start, self.previous_end()),
         }
@@ -996,7 +1001,7 @@ impl<'a> Parser<'a> {
     }
 
     fn comma_continues_named_pointer_decl(&self, ty: &TypeRef) -> bool {
-        matches!(ty.base, TypeBase::Named(_))
+        matches!(ty.base, TypeBase::Named(_) | TypeBase::Applied { .. })
             && ty.pointer
             && matches!(
                 self.tokens.get(self.pos + 1).map(|token| &token.kind),
@@ -1005,7 +1010,7 @@ impl<'a> Parser<'a> {
     }
 
     fn comma_continues_named_value_decl(&self, ty: &TypeRef) -> bool {
-        matches!(ty.base, TypeBase::Named(_))
+        matches!(ty.base, TypeBase::Named(_) | TypeBase::Applied { .. })
             && !ty.pointer
             && matches!(
                 self.tokens.get(self.pos + 1).map(|token| &token.kind),
@@ -1604,7 +1609,7 @@ impl<'a> Parser<'a> {
             TypeBase::Fund(fund)
         } else if let Some(name) = self.expect_ident_if_present() {
             let name = self.parse_qualified_name_tail(name, &mut Vec::new());
-            TypeBase::Named(name)
+            self.parse_type_application(name)
         } else {
             self.diagnostics
                 .push(Diagnostic::new(self.peek().span, "expected type"));
@@ -1632,7 +1637,8 @@ impl<'a> Parser<'a> {
         let base = if let Some(fund) = self.parse_fund_type() {
             TypeBase::Fund(fund)
         } else if let Some(name) = self.expect_ident_if_present() {
-            TypeBase::Named(self.parse_qualified_name_tail(name, &mut Vec::new()))
+            let name = self.parse_qualified_name_tail(name, &mut Vec::new());
+            self.parse_type_application(name)
         } else {
             self.diagnostics.push(Diagnostic::new(
                 self.peek().span,
@@ -1702,6 +1708,8 @@ impl<'a> Parser<'a> {
             {
                 break;
             }
+
+            if self.collect_generic_head(&mut tokens) { end = tokens.last().unwrap().span.end; continue; }
 
             let token = self.bump();
             end = token.span.end;
@@ -1776,6 +1784,8 @@ impl<'a> Parser<'a> {
                 break;
             }
 
+            if self.collect_generic_head(&mut tokens) { end = tokens.last().unwrap().span.end; continue; }
+
             let token = self.bump();
             end = token.span.end;
             match token.kind {
@@ -1843,6 +1853,8 @@ impl<'a> Parser<'a> {
                 break;
             }
 
+            if self.collect_generic_head(&mut tokens) { continue; }
+
             let token = self.bump().clone();
             match token.kind {
                 TokenKind::LParen => paren_depth += 1,
@@ -1881,6 +1893,8 @@ impl<'a> Parser<'a> {
             if paren_depth == 0 && bracket_depth == 0 && self.is_statement_boundary() {
                 break;
             }
+
+            if self.collect_generic_head(&mut tokens) { continue; }
 
             let token = self.bump().clone();
             match token.kind {
@@ -2114,6 +2128,10 @@ impl<'a> Parser<'a> {
         ) {
             next += 2;
         }
+        if matches!(self.tokens.get(next).map(|token| &token.kind), Some(TokenKind::Lt)) {
+            let Some(end) = generics::application_end(&self.tokens, next) else { return false; };
+            next = end;
+        }
         matches!(
             self.tokens.get(next).map(|token| &token.kind),
             Some(TokenKind::Ident(_)) | Some(TokenKind::Keyword(Keyword::Array | Keyword::Pointer))
@@ -2169,6 +2187,9 @@ impl<'a> Parser<'a> {
             Some(TokenKind::Ident(_))
         ) {
             end += 2;
+        }
+        if matches!(self.tokens.get(end).map(|token| &token.kind), Some(TokenKind::Lt)) {
+            end = generics::application_end(&self.tokens, end)?;
         }
         if matches!(
             self.tokens.get(end).map(|token| &token.kind),
@@ -2472,15 +2493,15 @@ impl<'a> Parser<'a> {
         self.peek().kind == kind
     }
 
-    fn bump(&mut self) -> &'a Token {
-        let token = self.peek();
+    fn bump(&mut self) -> Token {
+        let token = self.peek().clone();
         if !self.at_eof() {
             self.pos += 1;
         }
         token
     }
 
-    fn peek(&self) -> &'a Token {
+    fn peek(&self) -> &Token {
         &self.tokens[self.pos]
     }
 
@@ -2984,7 +3005,21 @@ impl<'a> ExprParser<'a> {
             TokenKind::Number(number) => ExprKind::Number(number.clone()),
             TokenKind::String(value) => ExprKind::String(value.clone()),
             TokenKind::Char(value) => ExprKind::Char(*value),
-            TokenKind::Ident(name) => ExprKind::Name(name.clone()),
+            TokenKind::Ident(name) => {
+                if generics::generic_head_end(self.tokens, start).is_some() {
+                    let mut type_tokens = self.tokens[start..].to_vec();
+                    let last = type_tokens.last().unwrap();
+                    if !matches!(last.kind, TokenKind::Eof) {
+                        type_tokens.push(Token { kind: TokenKind::Eof,
+                            span: Span::new(last.span.end, last.span.end), line: last.line });
+                    }
+                    let mut parser = Parser::new(&type_tokens);
+                    let ty = parser.parse_result_type_ref()?;
+                    if !parser.diagnostics.is_empty() { return None; }
+                    self.pos = start + parser.pos;
+                    ExprKind::TypeRef(ty)
+                } else { ExprKind::Name(name.clone()) }
+            },
             TokenKind::Keyword(keyword) if fundamental_type_from_keyword(*keyword).is_some() => {
                 let fund = fundamental_type_from_keyword(*keyword)?;
                 let pointer = self.eat(TokenKind::Keyword(Keyword::Pointer));

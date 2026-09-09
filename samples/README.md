@@ -41,6 +41,9 @@ available when deliberately overriding the source placement.
 with an EMPTY sentinel and iterative insertion/traversal. Both Atari backends
 and runtimes are covered. See the [variant tutorial](../docs/tutorials/VARIANTS.md).
 
+`generic-types.act` demonstrates generic Option/Result values, typed callbacks,
+embedded arrays, and TreeOf nodes in a fixed arena. It prints 7, 1000, and 12.
+
 `graphics/fedora.act` translates an Atari BASIC 3D sine-surface plot whose
 rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 `MATH.Sin` native REAL procedures.

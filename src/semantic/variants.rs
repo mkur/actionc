@@ -345,7 +345,12 @@ impl Analyzer {
             .get(&ty.as_aggregate_identity()?.symbol?)
     }
 
-    pub(super) fn variant_type_for_expr(&self, scope: ScopeId, expr: &Expr) -> Option<SymbolId> {
+    pub(super) fn variant_type_for_expr(&mut self, scope: ScopeId, expr: &Expr) -> Option<SymbolId> {
+        if let ExprKind::TypeRef(ty) = &expr.kind {
+            self.validate_type_ref(scope, ty, expr.span);
+            let value = self.value_type_from_type_ref(scope, ty);
+            return self.variant_for_type(&value).and_then(|v| v.identity.symbol);
+        }
         let name = enums::expression_name(expr)?;
         let SemanticNameResolution::Symbol(id) =
             resolve_semantic_name(&self.symbols, &self.modules, scope, &name)
@@ -358,7 +363,7 @@ impl Analyzer {
     }
 
     pub(super) fn variant_constructor_head(
-        &self,
+        &mut self,
         scope: ScopeId,
         expr: &Expr,
     ) -> Option<(SymbolId, String)> {

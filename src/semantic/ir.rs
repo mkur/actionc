@@ -2028,6 +2028,7 @@ fn routine_kind_summary(kind: &RoutineKind) -> String {
 
 fn type_ref_summary(ty: &crate::ast::TypeRef) -> String {
     let base = match &ty.base {
+        crate::ast::TypeBase::Applied { .. } => "<unresolved generic type>".into(),
         crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
         crate::ast::TypeBase::NativeReal => "REAL".to_string(),
         crate::ast::TypeBase::Named(name) => name.to_string(),
@@ -2289,6 +2290,7 @@ impl<'a> IrBuilder<'a> {
             root_module: None,
             entry_routine,
         };
+        self.attach_generic_instances(&mut lowered);
         if matches!(program.source_kind, crate::ast::SourceUnitKind::Legacy) {
             self.attach_legacy_sys_interface(&mut lowered);
             retain_referenced_external_interface_items(&mut lowered);
@@ -2382,6 +2384,7 @@ impl<'a> IrBuilder<'a> {
             root_module: Some(compilation.root),
             entry_routine,
         };
+        self.attach_generic_instances(&mut program);
         if !compilation
             .root_module()
             .declared_path
@@ -2441,8 +2444,42 @@ impl<'a> IrBuilder<'a> {
             root_module: None,
             entry_routine,
         };
+        self.attach_generic_instances(&mut program);
         retain_referenced_external_interface_items(&mut program);
         program
+    }
+
+    fn attach_generic_instances(&self, program: &mut SemProgram) {
+        for instance in self.model.generics.instances.iter().rev() {
+            let layout = self.model.layout.record_for_owner(instance.owner).expect("complete concrete generic layout");
+            let symbol = self.symbol_ref_by_id(instance.owner, layout.span);
+            let fields = layout.fields.iter().map(|field| {
+                let storage = match &field.storage {
+                    super::RecordFieldStorage::Value => SemDeclarationStorage::Scalar,
+                    super::RecordFieldStorage::InlineArray { array_type, .. } => SemDeclarationStorage::Array {
+                        array_type: array_type.clone(),
+                        length: array_type.length.map(|length| SemExpr {
+                            kind: SemExprKind::Literal(SemLiteral::Constant(ConstValue { ty: ScalarType::Size, bits: u64::from(length) })),
+                            ty: ValueType::scalar(ScalarType::Size), class: SemExprClass::Value, eval_order: None, span: field.span,
+                        }),
+                        fixed_address: None, action_storage: VarStorage::Array, origin: SemArrayOrigin::RecordField,
+                    },
+                };
+                SemRecordField {
+                    id: Some(field.id), name: field.name.clone(),
+                    ty: SemType { value: field.ty.clone(), width: self.value_storage_width(&field.ty), alignment: Some(field.alignment) },
+                    storage, owner: Some(instance.owner), symbol: None, offset: Some(field.offset), span: field.span,
+                }
+            }).collect();
+            let declaration = SemItem::Declaration(SemDeclaration {
+                ty: self.sem_type_from_symbol(&symbol),
+                storage: SemDeclarationStorage::Type { record_type: layout.record_type.clone(), fields },
+                initializer: None, static_initializer: None, span: layout.span, group_span: layout.span,
+                symbol: symbol.clone(),
+            });
+            let module = program.modules.iter().position(|module| module.id == symbol.defining_module).unwrap_or(0);
+            program.modules[module].items.insert(0, declaration);
+        }
     }
 
     fn lower_named_module(&mut self, id: ModuleId, program: &Program) -> SemModule {
@@ -2644,6 +2681,7 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn lower_type_decl(&mut self, scope: ScopeId, decl: &TypeDecl) -> Vec<SemDeclaration> {
+        if !decl.parameters.is_empty() { return Vec::new(); }
         if let TypeDefinition::Variant(_) = &decl.definition {
             let symbol = self.symbol_ref(scope, &decl.name, decl.span).expect("validated variant symbol");
             let layout = self.model.layout.record_for_owner(symbol.id).expect("complete variant layout");
@@ -4917,6 +4955,21 @@ impl<'a> IrBuilder<'a> {
     }
 
     fn resolved_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
+        if let TypeBase::Applied { definition, arguments } = &ty.base {
+            let Some(definition) = self.qualified_symbol_ref(scope, definition, Span::new(0, 0)) else { return ValueType::error(); };
+            let arguments: Vec<_> = arguments.iter().map(|ty| self.resolved_type_ref(scope, ty)).collect();
+            let Some(owner) = self.model.generics.instance(definition.id, &arguments) else { return ValueType::error(); };
+            let mut value = ValueType::aggregate(self.model.symbols.symbols[owner.0].aggregate_identity(owner));
+            value.pointer = ty.pointer;
+            return value;
+        }
+        if let TypeBase::Named(name) = &ty.base
+            && let Some(symbol) = self.qualified_symbol_ref(scope, name, Span::new(0, 0))
+            && let Some(value) = self.model.generics.bindings.get(&symbol.id) {
+            let mut value = value.clone();
+            value.pointer |= ty.pointer;
+            return value;
+        }
         if let TypeBase::Callable(callable) = &ty.base {
             let result = match &callable.kind {
                 RoutineKind::Func { return_type } => Some(self.resolved_type_ref(scope, return_type)),
@@ -4976,6 +5029,7 @@ impl From<&VarDecl> for ValueType {
 impl From<&crate::ast::TypeRef> for ValueType {
     fn from(value: &crate::ast::TypeRef) -> Self {
         let base = match &value.base {
+            crate::ast::TypeBase::Applied { .. } => ValueTypeBase::Error,
             crate::ast::TypeBase::Fund(fund) => ValueTypeBase::Fund(*fund),
             crate::ast::TypeBase::NativeReal => ValueTypeBase::Real,
             crate::ast::TypeBase::Named(name) if name.eq_ignore_ascii_case("STRING") => {

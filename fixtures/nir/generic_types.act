@@ -1,0 +1,19 @@
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+TYPE Buffer<T>=[T ARRAY values(3)]
+Buffer<CARD> data
+Option<BYTE> current
+BYTE output
+
+Option<BYTE> FUNC Make(BYTE n)
+RETURN(Option<BYTE>.SOME(n))
+
+PROC Main()
+  current=Make(7)
+  data.values(2)=1000
+  CASE current OF
+  WHEN Option<BYTE>.NONE THEN
+    output=0
+  WHEN Option<BYTE>.SOME(n) THEN
+    output=n
+  ESAC
+RETURN

@@ -509,6 +509,7 @@ fn callable_kind_summary(kind: &RoutineKind) -> String {
 
 fn ast_type_ref_summary(ty: &crate::ast::TypeRef) -> String {
     let base = match &ty.base {
+        crate::ast::TypeBase::Applied { .. } => "<unresolved generic type>".into(),
         crate::ast::TypeBase::Fund(fund) => format!("{fund:?}"),
         crate::ast::TypeBase::NativeReal => "REAL".to_string(),
         crate::ast::TypeBase::Named(name) => name.to_string(),

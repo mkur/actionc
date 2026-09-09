@@ -23,6 +23,8 @@ mod enums;
 pub use enums::{EnumFacts, EnumIdentity, EnumMemberValue, EnumType, EnumValue};
 mod variants;
 pub use variants::{VariantConstructorId, VariantConstructor, VariantType, VariantFacts};
+mod generics;
+pub use generics::{GenericTypeFacts, GenericTypeInstance};
 mod initializers;
 mod let_binding;
 mod static_addresses;
@@ -48,6 +50,7 @@ pub use types::{
 pub struct SemanticModel {
     pub enums: EnumFacts,
     pub variants: VariantFacts,
+    pub generics: GenericTypeFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
@@ -470,6 +473,7 @@ impl SemanticOptions {
                 variants: true,
                 aggregate_calls: true,
                 indirect_aggregate_calls: true,
+                generic_types: true,
                 ..AlgebraicTypeCapabilities::DISABLED
             },
             target: TargetId::Atari6502,
@@ -593,6 +597,7 @@ impl Analyzer {
         Ok(SemanticModel {
             enums: self.enums,
             variants: self.variants,
+            generics: self.generics,
             resolved_casts: self.resolved_casts,
             for_step_constants: self.for_step_constants,
             case_labels: self.case_labels,
@@ -623,6 +628,7 @@ impl Analyzer {
 struct Analyzer {
     enums: EnumFacts,
     variants: VariantFacts,
+    generics: GenericTypeFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
     case_labels: HashMap<ExpressionSite, case::CaseLabels>,
@@ -706,6 +712,7 @@ impl Analyzer {
             options,
             enums: EnumFacts::default(),
             variants: VariantFacts::default(),
+            generics: GenericTypeFacts::default(),
             resolved_casts: HashMap::new(),
             for_step_constants: HashMap::new(),
             case_labels: HashMap::new(),
@@ -2361,11 +2368,14 @@ impl Analyzer {
                 kind: subject::SemExprKind::Literal(subject::SemLiteral::Char(*value)),
                 span: expr.span,
             }),
-            ExprKind::TypeRef(ty) => subject::SemSubject::TypeRef(subject::SemTypeRef {
-                ty: self.value_type_from_type_ref(scope, ty),
-                kind: subject::SemTypeRefKind::Inline(ty.clone()),
-                span: expr.span,
-            }),
+            ExprKind::TypeRef(ty) => {
+                self.validate_type_ref(scope, ty, expr.span);
+                subject::SemSubject::TypeRef(subject::SemTypeRef {
+                    ty: self.value_type_from_type_ref(scope, ty),
+                    kind: subject::SemTypeRefKind::Inline(ty.clone()),
+                    span: expr.span,
+                })
+            },
             ExprKind::Name(name) => self.classify_name_subject(scope, name, expr.span),
             ExprKind::Cast { ty, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
@@ -3936,6 +3946,13 @@ impl Analyzer {
     }
 
     fn analyze_decl(&mut self, scope: ScopeId, decl: &Decl, is_param: bool) {
+        if let Decl::Type(declaration) = decl && !declaration.parameters.is_empty() {
+            if !self.options.algebraic_types.generic_types {
+                self.diagnostics.push(Diagnostic::new(declaration.span, "generic TYPE definitions require the modern generic-types capability"));
+            }
+            if let Some(id) = self.symbols.lookup_exact(scope, &declaration.name) { self.validate_generic_template(id); }
+            return;
+        }
         if self.analyze_predeclared_aggregate_type(scope, decl) { return; }
         match decl {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
@@ -4155,6 +4172,10 @@ impl Analyzer {
         let Some(symbol_id) = self.symbols.lookup_exact(scope, &routine.name) else {
             return;
         };
+        for param in &routine.params { self.prepare_type_applications(scope, &param.ty, param.span); }
+        if let RoutineKind::Func { return_type } = &routine.kind {
+            self.prepare_type_applications(scope, return_type, routine.span);
+        }
         let signature = self.resolved_routine_signature(scope, routine);
         if self.options.algebraic_types.aggregate_calls
             && signature.params.iter().chain(signature.return_type.iter()).any(ValueType::is_record)
@@ -4196,6 +4217,7 @@ impl Analyzer {
                 // inline storage. Do not manufacture scalar-width array fields.
                 continue;
             }
+            self.prepare_type_applications(scope, &field.ty, field.span);
             if let TypeBase::Named(name) = &field.ty.base
                 && let SemanticNameResolution::Symbol(id) = resolve_semantic_name(&self.symbols, &self.modules, scope, name)
                 && !self.ensure_named_enum_type(id, field.span)
@@ -4929,6 +4951,10 @@ impl Analyzer {
     }
 
     fn validate_type_ref(&mut self, scope: ScopeId, ty: &TypeRef, span: Span) {
+        if let TypeBase::Applied { definition, arguments } = &ty.base {
+            self.instantiate_generic(scope, definition, arguments, span);
+            return;
+        }
         if let TypeBase::Callable(callable) = &ty.base {
             if let RoutineKind::Func { return_type } = &callable.kind {
                 self.resolve_routine_result(scope, return_type, span);
@@ -4952,6 +4978,16 @@ impl Analyzer {
 
         match resolve_semantic_name(&self.symbols, &self.modules, scope, name) {
             SemanticNameResolution::Symbol(symbol_id) => {
+                if self.generics.definitions.contains_key(&symbol_id) {
+                    self.diagnostics.push(Diagnostic::new(span, format!("generic TYPE `{name}` requires explicit type arguments")));
+                    return;
+                }
+                if let Some(bound) = self.generics.bindings.get(&symbol_id) {
+                    if ty.pointer && bound.pointer {
+                        self.diagnostics.push(Diagnostic::new(span, "a POINTER-qualified type parameter cannot itself be a pointer"));
+                    }
+                    return;
+                }
                 self.ensure_named_enum_type(symbol_id, span);
                 let symbol = &self.symbols.symbols[symbol_id.0];
                 if !matches!(
@@ -4985,6 +5021,18 @@ impl Analyzer {
     }
 
     fn value_type_from_type_ref(&self, scope: ScopeId, ty: &TypeRef) -> ValueType {
+        if let TypeBase::Applied { definition, arguments } = &ty.base {
+            let mut value = self.generic_application_type(scope, definition, arguments);
+            value.pointer = ty.pointer;
+            return value;
+        }
+        if let TypeBase::Named(name) = &ty.base
+            && let SemanticNameResolution::Symbol(id) = resolve_semantic_name(&self.symbols, &self.modules, scope, name)
+            && let Some(bound) = self.generics.bindings.get(&id) {
+            let mut bound = bound.clone();
+            bound.pointer |= ty.pointer;
+            return bound;
+        }
         if let TypeBase::Callable(callable) = &ty.base {
             let params = callable.params.iter().map(|param| {
                 let ty = self.value_type_from_type_ref(scope, &param.ty);
@@ -5443,6 +5491,7 @@ impl ValueType {
 
     fn from_type_ref(ty: &TypeRef) -> Self {
         let base = match &ty.base {
+            TypeBase::Applied { .. } => ValueTypeBase::Error,
             TypeBase::Fund(fund) => ValueTypeBase::Fund(*fund),
             TypeBase::NativeReal => ValueTypeBase::Real,
             TypeBase::Named(name) if is_string_type_name(name) => {

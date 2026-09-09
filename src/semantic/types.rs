@@ -174,7 +174,7 @@ impl CallableType {
         params: impl IntoIterator<Item = ValueType>,
         return_type: Option<ValueType>,
     ) -> Self {
-        let kind = if let Some(result) = return_type.as_ref().filter(|ty| ty.as_enum().is_some() || ty.is_record()) {
+        let kind = if let Some(result) = return_type.as_ref().filter(|ty| ty.as_enum().is_some() || ty.as_aggregate_identity().is_some()) {
             RoutineKind::Func { return_type: result.routine_result_type().unwrap() }
         } else { kind };
         Self {

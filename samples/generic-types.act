@@ -1,0 +1,54 @@
+; Modern generic values: Option, Result, an inline array, and a fixed tree arena.
+; Both Atari backends and runtimes. Expected output: 7, 1000, 12.
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+TYPE Result<T,E>=VARIANT [OK [T value] ERROR [E error]]
+TYPE Buffer<T>=[T ARRAY values(3)]
+TYPE TreeOf<T>=VARIANT [EMPTY NODE [T value TreeOf<T> POINTER left,right]]
+
+Buffer<CARD> data
+TreeOf<INT> empty
+TreeOf<INT> ARRAY arena(3)
+Option<BYTE> FUNC POINTER callback(BYTE n)
+
+Option<BYTE> FUNC Make(BYTE n) RETURN(Option<BYTE>.SOME(n))
+Result<Option<BYTE>,CARD> FUNC Wrap(Option<BYTE> input)
+RETURN(Result<Option<BYTE>,CARD>.OK(input))
+
+PROC Main()
+  callback=Make
+  LET message=Wrap(callback(7))
+  CASE message OF
+  WHEN Result<Option<BYTE>,CARD>.OK(value) THEN
+    CASE value OF
+    WHEN Option<BYTE>.NONE THEN
+      PrintBE(0)
+    WHEN Option<BYTE>.SOME(n) THEN
+      PrintBE(n)
+    ESAC
+  WHEN Result<Option<BYTE>,CARD>.ERROR(error) THEN
+    PrintCE(error)
+  ESAC
+  data.values(2)=1000
+  PrintCE(data.values(2))
+
+  empty=TreeOf<INT>.EMPTY
+  arena(0)=TreeOf<INT>.NODE(-3,@empty,@empty)
+  arena(1)=TreeOf<INT>.NODE(15,@empty,@empty)
+  arena(2)=TreeOf<INT>.NODE(0,@arena(0),@arena(1))
+  CASE arena(2) OF
+  WHEN TreeOf<INT>.NODE(_,left,right) THEN
+    CASE left^ OF
+    WHEN TreeOf<INT>.NODE(a,_,_) THEN
+      CASE right^ OF
+      WHEN TreeOf<INT>.NODE(b,_,_) THEN
+        PrintIE(a+b)
+      ELSE
+        PrintE("Missing right child")
+      ESAC
+    ELSE
+      PrintE("Missing left child")
+    ESAC
+  ELSE
+    PrintE("Missing root")
+  ESAC
+RETURN

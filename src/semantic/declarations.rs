@@ -52,6 +52,12 @@ impl Analyzer {
     ) {
         if !self.options.algebraic_types.aggregate_values { return; }
         for declaration in declarations {
+            if let Decl::Type(decl) = declaration && !decl.parameters.is_empty() {
+                if self.declare(scope, decl.name.clone(), SymbolClass::Type, None, decl.span).is_some() {
+                    self.register_generic_definition(scope, decl);
+                }
+                continue;
+            }
             let (name, class, span, kind) = match declaration {
                 Decl::Type(decl) => {
                     let kind = match &decl.definition {
@@ -85,6 +91,7 @@ impl Analyzer {
             _ => return false,
         };
         let Some(id) = self.symbols.lookup_exact(scope, name) else { return false; };
+        if self.generics.definitions.contains_key(&id) { return true; }
         if !self.named_layout_declarations.nodes.contains_key(&id) { return false; }
         self.resolve_named_layout_declaration(id, span);
         true
@@ -98,6 +105,10 @@ impl Analyzer {
             for item in &region.items {
                 match item {
                     Item::Declaration(Decl::Type(decl)) => {
+                        if !decl.parameters.is_empty() {
+                            self.register_generic_definition(scope, decl);
+                            continue;
+                        }
                         if let TypeDefinition::Variant(alternatives) = &decl.definition {
                             if let Some(id) = self.register_named_layout_declaration(scope, &decl.name,
                                 LayoutDeclarationKind::Variant { alternatives: alternatives.clone(), span: decl.span }) {
@@ -159,6 +170,10 @@ impl Analyzer {
 
         // Preserve the old root traversal and field-ID order where no new
         // dependency is needed. Each node is evaluated at most once.
+        let mut templates: Vec<_> = self.generics.definitions.iter()
+            .filter_map(|(id, definition)| (definition.scope == scope).then_some(*id)).collect();
+        templates.sort();
+        for id in templates { self.validate_generic_template(id); }
         for id in records.into_iter().chain(constants) {
             self.resolve_named_layout_declaration(id, self.symbols.symbols[id.0].span);
         }
@@ -189,6 +204,21 @@ impl Analyzer {
             },
         );
         Some(id)
+    }
+
+    pub(super) fn register_generic_layout(&mut self, scope: ScopeId, name: &str, definition: &TypeDefinition, span: Span) {
+        let kind = match definition {
+            TypeDefinition::Record(fields) => LayoutDeclarationKind::Record { name: name.into(), fields: fields.clone() },
+            TypeDefinition::Variant(alternatives) => LayoutDeclarationKind::Variant { alternatives: alternatives.clone(), span },
+            TypeDefinition::Enum(_) => return,
+        };
+        self.register_named_layout_declaration(scope, name, kind);
+    }
+
+    pub(super) fn finish_generic_layout(&mut self, owner: SymbolId) {
+        // Completed instance fields live in the canonical facts/cache. Keep
+        // only active instance nodes in the module-local dependency scheduler.
+        self.named_layout_declarations.nodes.remove(&owner);
     }
 
     pub(super) fn ensure_named_constant(&mut self, id: SymbolId, span: Span) -> bool {

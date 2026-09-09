@@ -338,6 +338,7 @@ pub(super) fn type_size(ty: &TypeRef) -> Option<u16> {
         TypeBase::Named(name) if is_string_type_name(name) => Some(1),
         TypeBase::Named(_) => None,
         TypeBase::Callable(_) => Some(2),
+        TypeBase::Applied { .. } => None,
     }
 }
 
