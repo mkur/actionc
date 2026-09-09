@@ -711,28 +711,9 @@ impl Generator {
             // index that may itself reuse scratch or call an effectful routine.
             return false;
         }
-        if size > 2 {
-            let temp = if addr == runtime_zp::ADDR {
-                runtime_zp::ARRAY_ADDR
-            } else {
-                runtime_zp::ADDR
-            };
-            if !self.emit_index_expr_to_temp(index, temp)
-                || !self.emit_pointer_slot_to_addr(pointer, addr)
-            {
-                return false;
-            }
-            for _ in 0..size {
-                self.emit_clc();
-                self.emit_lda_zero_page(addr);
-                self.emit_adc_zero_page(temp);
-                self.emit_sta_zero_page(addr);
-                self.emit_lda_zero_page(addr.offset(1));
-                self.emit_adc_zero_page(temp.offset(1));
-                self.emit_sta_zero_page(addr.offset(1));
-            }
-            return true;
-        }
+        // Wider strides use the shared captured-base/constant-scale fallback.
+        // Evaluating an arbitrary index here before loading the pointer would
+        // reload a base changed by an index call, and repeat size additions.
         if size != 1 && size != 2 {
             return false;
         }

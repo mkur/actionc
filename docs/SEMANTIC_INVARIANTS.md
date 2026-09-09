@@ -575,8 +575,15 @@ Modern `TYPE Name=VARIANT [EMPTY VALUE [BYTE value]]` declarations define
 nominal alternatives. Qualified constructors are runtime values: nullary
 constructors omit parentheses; payload arguments are positional and captured
 once, left to right. Assignment captures its destination address first, stages
-the complete RHS, then replaces the whole destination. Payload/tag fields are
-not source lvalues. Ordinary records, embedded arrays and typed pointers reuse
+constructor/call results as needed, then replaces the whole destination. Checked
+value-to-value assignment captures both addresses, rejects partial overlap unless
+canonical object facts prove identity/disjointness, validates the source in place
+and transfers once. Exact self-assignment validates but need not copy. Whole-value
+transfers containing inline variants require identical or disjoint complete
+ranges; nested containment and same-object pointer aliases remain valid. Unknown
+range checks use target ADDRESS arithmetic and the existing InvalidVariant fault,
+not a global no-alias assumption. Payload/tag fields are not source lvalues.
+Ordinary records, embedded arrays and typed pointers reuse
 their existing layouts and aggregate-copy semantics.
 
 Tags are BYTE on every target: 1..255 in declaration order; zero is invalid.
@@ -593,6 +600,8 @@ storage. Immutable captures initialize at execution, not activation entry.
 Direct volatile, absolute/alias and static-initializer variant declarations are
 rejected. Typed pointers can address low-level memory; copying or matching such
 a value still validates its tag, but does not establish pointer lifetime/safety.
+See [the variant storage contract](VARIANT_STORAGE_CONTRACT.md) for overlap
+enforcement, ordering and the distinction from plain record/union copies.
 
 CASE patterns resolve constructor IDs, canonical field paths and immutable
 arm-local symbol IDs. Nested by-value constructor and scalar literal patterns

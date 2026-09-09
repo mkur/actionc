@@ -669,6 +669,50 @@ impl IrBuilder<'_> {
             value: Self::address_expr(&destination),
             span,
         }];
+        // A checked value-to-value assignment has no user effects after its
+        // two addresses have been captured. Validate the source in place,
+        // then transfer once: a second whole-value snapshot is unnecessary.
+        // Keep the general RecordCopy contract overlap-safe for other users.
+        if self.aggregate_requires_validation(&destination.ty)
+            && !self.is_aggregate_call_source(scope, value)
+            && !self.model.variants.expressions.contains_key(
+                &super::super::ExpressionSite::new(scope, value.span))
+        {
+            let source = self.lower_lvalue(scope, value);
+            let direct_objects = Self::direct_aggregate_object(&destination)
+                .zip(Self::direct_aggregate_object(&source));
+            let self_copy = direct_objects.is_some_and(|(destination, source)| destination == source);
+            let source_pointer = self.private_value_place(
+                scope, ValueType::pointer_to(source.ty.clone()), value.span);
+            result.push(SemStmt::Assign {
+                target: source_pointer.clone(), value: Self::address_expr(&source),
+                span: value.span,
+            });
+            let source = SemLValue {
+                kind: SemLValueKind::Deref {
+                    pointer: Box::new(Self::value_expr(&source_pointer)),
+                },
+                ..source
+            };
+            if direct_objects.is_none() {
+                result.extend(self.reject_partial_aggregate_overlap(
+                    &pointer, &source_pointer,
+                    self.value_storage_width(&destination.ty).expect("complete checked value"),
+                    span,
+                ));
+            }
+            result.extend(self.validate_aggregate_value(scope, &source));
+            // Even a self-copy must validate an unconstructed/corrupt source.
+            if self_copy { return result; }
+            let destination = SemLValue {
+                kind: SemLValueKind::Deref {
+                    pointer: Box::new(Self::value_expr(&pointer)),
+                },
+                ..destination
+            };
+            result.push(self.copy_value(destination, source, span));
+            return result;
+        }
         let captured = self.capture_aggregate_value(scope, &destination.ty, value);
         result.extend(captured.preparation);
         let destination = SemLValue {
@@ -679,6 +723,65 @@ impl IrBuilder<'_> {
         };
         result.push(self.copy_value(destination, captured.place, span));
         result
+    }
+
+    // Direct nominal objects and their inline fields cannot partially overlap.
+    // Pointer/index places deliberately do not inherit this proof. Variant-
+    // containing declarations cannot use absolute/alias backing or unions.
+    fn direct_aggregate_object(place: &SemLValue) -> Option<(SymbolId, u32)> {
+        match &place.kind {
+            SemLValueKind::Symbol(symbol) if symbol.ty.as_ref().is_some_and(|ty| ty.is_record()) => Some((symbol.id, 0)),
+            SemLValueKind::Field { base, field } => {
+                let (id, offset) = Self::direct_aggregate_object(base)?;
+                Some((id, offset.checked_add(field.offset?)?))
+            }
+            _ => None,
+        }
+    }
+
+    fn reject_partial_aggregate_overlap(
+        &self, destination: &SemLValue, source: &SemLValue, size: u32, span: Span,
+    ) -> Vec<SemStmt> {
+        if size <= 1 { return Vec::new(); }
+        let address = |place: &SemLValue| SemExpr {
+            kind: SemExprKind::Cast {
+                ty: ValueType::scalar(ScalarType::Address),
+                expr: Box::new(Self::value_expr(place)),
+            },
+            ty: ValueType::scalar(ScalarType::Address), class: SemExprClass::Value,
+            eval_order: None, span,
+        };
+        let binary = |op, left: SemExpr, right: SemExpr, condition: bool| SemExpr {
+            kind: SemExprKind::Binary { op, left: Box::new(left), right: Box::new(right) },
+            ty: if condition { byte_type() } else { ValueType::scalar(ScalarType::Address) },
+            class: if condition { SemExprClass::Condition } else { SemExprClass::Value },
+            eval_order: None, span,
+        };
+        let condition = |expr| SemCondition { expr, kind: SemConditionKind::Compare, span };
+        // Subtract the smaller address from the larger: no end-address
+        // addition or unsigned wraparound can misclassify adjacent ranges.
+        let close = |high, low| SemStmt::If {
+            branches: vec![SemIfBranch {
+                condition: condition(binary(BinaryOp::Lt,
+                    binary(BinaryOp::Sub, high, low, false),
+                    Self::integer_expr(ScalarType::Address, u64::from(size), span), true)),
+                body: vec![SemStmt::Fault {
+                    kind: crate::runtime_fault::RuntimeFault::InvalidVariant, span,
+                }],
+            }], else_body: Vec::new(), span,
+        };
+        vec![SemStmt::If {
+            branches: vec![
+                SemIfBranch {
+                    condition: condition(binary(BinaryOp::Lt, address(destination), address(source), true)),
+                    body: vec![close(address(source), address(destination))],
+                },
+                SemIfBranch {
+                    condition: condition(binary(BinaryOp::Gt, address(destination), address(source), true)),
+                    body: vec![close(address(destination), address(source))],
+                },
+            ], else_body: Vec::new(), span,
+        }]
     }
 
     pub(super) fn is_aggregate_call_source(&self, scope: ScopeId, expr: &Expr) -> bool {

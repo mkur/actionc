@@ -12,6 +12,13 @@ and inactive alternatives are not traversed. This is actionc's new use of the
 existing invalid-argument Error 100 convention, not historical cartridge ADT
 behavior.
 
+Checked variant-containing assignments also use InvalidVariant/Error(100) when
+source and destination partially overlap. Identical ranges are allowed, as are
+disjoint ranges; uncertain pointer ranges are checked before copying. Source
+address-expression effects precede the check, but a failing transfer writes no
+destination bytes. This is not general pointer/lifetime validation; see the
+[variant storage contract](VARIANT_STORAGE_CONTRACT.md).
+
 ## Verified legacy contract
 
 The preserved archive
@@ -85,7 +92,7 @@ arithmetic scratch. A proven nonzero divisor needs no NIR fault barrier.
 - Shared helper tests verify all ten signatures' Error relocation and defensive
   non-return guard, alongside existing nonzero arithmetic/scratch oracles.
 - `tools/vm-runtime-tests/tests/variants.rs` checks invalid tags, active nested
-  validation, prior-state observation and returning handlers on both Atari
+  validation, partial-overlap rejection, prior-state observation and returning handlers on both Atari
   backends, both runtimes, and raw/optimized NIR paths. NIR represents a variant
   fault as an opaque terminal call with unknown memory effects; its verifier
   rejects results, arguments, fallthrough or weakened effects.

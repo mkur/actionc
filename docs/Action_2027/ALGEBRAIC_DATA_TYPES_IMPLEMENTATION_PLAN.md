@@ -1,6 +1,10 @@
 # ML-style algebraic data types: implementation plan
 
 Status: complete on `main`, 2026-09-09, within the backend scope below.
+Follow-up contract revision: [variant storage and checked transfers](../VARIANT_STORAGE_CONTRACT.md)
+supersedes this plan's historical partial-overlap assignment acceptance. Exact
+aliasing, nested subobjects and effect-sensitive snapshots remain supported.
+
 Inspected baseline: `ceecea1`. Modern aggregate snapshots, nominal variants,
 direct/typed indirect aggregate calls, generic types, nested patterns and guards
 have passed their end-to-end Atari acceptance gates. Documentation, executable

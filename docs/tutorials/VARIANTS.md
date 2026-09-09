@@ -207,6 +207,16 @@ Use a record payload to contain an inline array. Typed pointers into explicitly
 managed memory are available, but validation does not make arbitrary pointers
 safe.
 
+## Storage and copies
+
+Independent variant objects must not partially overlap. Typed whole-value copies
+(also of records with inline variants) require identical or disjoint ranges;
+self-assignment, adjacent arena slots and nested variant subobjects remain valid.
+Unknown pointer-copy ranges are checked before writing and partial overlap invokes
+Error(100) on Atari. This does not provide general raw-pointer safety. Plain record
+and UNION copies keep their overlap-safe behavior. See the
+[variant storage contract](../VARIANT_STORAGE_CONTRACT.md).
+
 ## Complete examples and support matrix
 
 [`algebraic-types.act`](../../samples/algebraic-types.act) combines Event,

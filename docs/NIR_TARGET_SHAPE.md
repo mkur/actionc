@@ -1265,6 +1265,16 @@ clears decimal mode and stops. Native construction/layout lowering is supported;
 native fault calls explicitly require an Error adapter and are diagnosed until
 that target runtime contract exists.
 
+## Checked aggregate transfers
+
+Checked variant-containing value assignments receive ordered ADDRESS comparisons
+and an InvalidVariant fault for partial overlap when SemIR cannot establish
+identical/disjoint extents. Source validation dominates the single transfer;
+known self-copies retain validation but omit the transfer. CASE/call captures
+remain distinct. `CopyBytes` itself stays overlap-safe: this source restriction
+does not weaken the general NIR operation or mark variant pointers no-alias.
+See [the storage contract](VARIANT_STORAGE_CONTRACT.md).
+
 ## Untagged aggregate views
 
 SemIR resolves union members to nominal types, canonical overlapping offsets and

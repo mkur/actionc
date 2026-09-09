@@ -111,6 +111,7 @@ RETURN
 #[test]
 fn invalid_tags_fault_before_any_arm_copy_or_else_and_never_return() {
     for (setup, consumer) in [
+        ("", "current=current"),
         (
             "",
             "CASE current OF\nWHEN Event.NONE THEN\noutput(1)=1\nELSE\noutput(1)=2\nESAC",
@@ -186,7 +187,7 @@ RETURN
 }
 
 #[test]
-fn variant_copies_stage_both_overlap_directions_and_capture_destination_first() {
+fn variant_copies_allow_disjoint_and_identical_objects_and_capture_destination_first() {
     let source = r#"
 TYPE Item=VARIANT [NONE VALUE [CARD number BYTE code]]
 Item POINTER first,second
@@ -199,23 +200,137 @@ BYTE FUNC ChangeDestination()
 RETURN(7)
 PROC Main()
   calls=0
-  first=$681 second=$682
+  first=$681 second=$691
   first(Pick())=Item.VALUE($1234,ChangeDestination())
   first=$681
   second^=first^
   first^=second^
-  second^=first^
+  first=second
+  first^=second^
   done=$A5
   DO OD
 RETURN
 "#;
     let mut expected = vec![0xCC; 0x500];
     expected[0x81..0x85].copy_from_slice(&[2, 0x34, 0x12, 7]);
-    expected.copy_within(0x81..0x85, 0x82);
-    expected.copy_within(0x82..0x86, 0x81);
-    expected.copy_within(0x81..0x85, 0x82);
+    expected[0x91..0x95].copy_from_slice(&[2, 0x34, 0x12, 7]);
     expected[0x3E] = 1;
     expected[0x3F] = 0xA5;
+    check(source, &expected);
+}
+
+#[test]
+fn partial_variant_overlap_faults_before_writing_in_either_direction() {
+    for size in [2usize, 4, 33, 257] {
+        for backwards in [false, true] {
+            let low = 0x780;
+            let high = low + size - 1;
+            let (src, dst) = if backwards { (high, low) } else { (low, high) };
+            let source = format!(r#"
+TYPE Payload=[BYTE ARRAY bytes({})]
+TYPE Value=VARIANT [NONE DATA [Payload payload]]
+Value POINTER src,dst
+BYTE ARRAY output=$600
+PROC Main()
+  src=${src:X} dst=${dst:X}
+  src^=Value.NONE
+  output(0)=41
+  dst^=src^
+  output(0)=42
+  DO OD
+RETURN
+"#, size - 1);
+            let mut expected = vec![0xCC; 0x500];
+            expected[0] = 41;
+            expected[src - 0x600..src - 0x600 + size].fill(0);
+            expected[src - 0x600] = 1;
+            check_with_fault(&source, &expected, true);
+        }
+    }
+}
+
+#[test]
+fn variant_copy_range_boundaries_allow_identity_and_adjacency_not_partial_overlap() {
+    for delta in -5i32..=5 {
+        let src = 0x700usize;
+        let dst = (src as i32 + delta) as usize;
+        let fault = delta != 0 && delta.abs() < 4;
+        let source = format!(r#"
+TYPE Item=VARIANT [NONE VALUE [CARD number BYTE code]]
+Item POINTER src,dst
+BYTE ARRAY output=$600
+PROC Main()
+  src=${src:X} dst=${dst:X}
+  src^=Item.VALUE($1234,7)
+  output(0)=41
+  dst^=src^
+  output(0)=42
+  DO OD
+RETURN
+"#);
+        let mut expected = vec![0xCC; 0x500];
+        expected[0] = if fault { 41 } else { 42 };
+        expected[src - 0x600..src - 0x600 + 4].copy_from_slice(&[2, 0x34, 0x12, 7]);
+        if !fault {
+            expected[dst - 0x600..dst - 0x600 + 4].copy_from_slice(&[2, 0x34, 0x12, 7]);
+        }
+        check_with_fault(&source, &expected, fault);
+    }
+}
+
+#[test]
+fn checked_record_copy_validates_every_inline_variant_before_any_destination_write() {
+    let source = r#"
+TYPE Inner=VARIANT [NONE VALUE [CARD number]]
+TYPE Packet=[BYTE before Inner first,second BYTE after]
+Packet POINTER src,dst
+BYTE POINTER raw
+BYTE ARRAY output=$600
+PROC Main()
+  src=$700 dst=$780
+  src.before=11 src.first=Inner.VALUE(7) src.second=Inner.NONE src.after=22
+  raw=BYTE POINTER(src) raw(4)=255
+  output(0)=41
+  dst^=src^
+  output(0)=42
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[0] = 41;
+    expected[0x100..0x108].copy_from_slice(&[11, 2, 7, 0, 255, 0, 0, 22]);
+    check_with_fault(source, &expected, true);
+}
+
+#[test]
+fn single_transfer_captures_destination_and_source_before_index_call_mutations() {
+    let source = r#"
+TYPE Item=VARIANT [NONE VALUE [CARD number BYTE code]]
+Item POINTER src,dst,other
+BYTE ARRAY output=$600
+BYTE calls=$63E,done=$63F
+BYTE FUNC DestinationIndex()
+  calls==+1 output(0)=calls
+RETURN(0)
+BYTE FUNC SourceIndex()
+  calls==+1 output(1)=calls
+  dst=$760 src=$740
+RETURN(0)
+PROC Main()
+  calls=0 src=$700 dst=$720 other=$740
+  src^=Item.VALUE($1234,7) other^=Item.VALUE($5678,8)
+  dst(DestinationIndex())=src(SourceIndex())
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[..2].copy_from_slice(&[1, 2]);
+    expected[0x3E] = 2;
+    expected[0x3F] = 0xA5;
+    expected[0x100..0x104].copy_from_slice(&[2, 0x34, 0x12, 7]);
+    expected[0x120..0x124].copy_from_slice(&[2, 0x34, 0x12, 7]);
+    expected[0x140..0x144].copy_from_slice(&[2, 0x78, 0x56, 8]);
     check(source, &expected);
 }
 
