@@ -512,3 +512,28 @@ RETURN
         assert!((slot.address..slot.address + slot.size).all(|a| vm.bus().ram().read(a) == 0xCC));
     });
 }
+
+#[test]
+fn maybe_byte_code_and_image_costs_are_reported_separately() {
+    let semir = lower(include_str!("../../../tests/support/fresh_maybe_byte.act"));
+    each_output(&semir, |output, lane| {
+        let main = output
+            .map
+            .routine_ranges
+            .iter()
+            .find(|r| r.name == "Main")
+            .unwrap();
+        eprintln!(
+            "maybe-byte,{lane},main_code_bytes={},image_payload_bytes={},xex_bytes={}",
+            main.end - main.start,
+            output.bytes.len(),
+            codegen::format_load_file(output).len()
+        );
+        if lane.starts_with("optimized") {
+            assert!(
+                main.end - main.start <= 21,
+                "{lane}: constructor/dispatch code regression"
+            );
+        }
+    });
+}

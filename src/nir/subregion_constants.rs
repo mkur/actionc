@@ -405,28 +405,6 @@ pub(super) fn propagate_program(program: &NirProgram) -> Result<NirProgram, Vec<
     Ok(optimized)
 }
 
-/// Every successful round removes at least one load; ordinary value cleanup
-/// cannot introduce loads. The budget therefore permits a complete fixed point
-/// without repeating scalar promotion or ABI work.
-pub(super) fn stabilize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
-    let load_count = program
-        .routines
-        .iter()
-        .flat_map(|r| &r.blocks)
-        .flat_map(|b| &b.ops)
-        .filter(|op| matches!(op, NirOp::Load { .. }))
-        .count();
-    let mut optimized = program.clone();
-    for _ in 0..=load_count {
-        let next = propagate_program(&optimized)?;
-        if next == optimized {
-            break;
-        }
-        optimized = super::optimizer::optimize_program(&next)?;
-    }
-    Ok(optimized)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

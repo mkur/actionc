@@ -1,6 +1,6 @@
 # Known constructor tags through verified NIR
 
-Status: slices 0–3 implemented; final acceptance pending.
+Status: complete; all five slices implemented and validated.
 Baseline: `42d4f94`, inspected and measured on 2026-09-09.
 
 ## Objective
@@ -10,7 +10,7 @@ selector's tag. Implement this as bounded constant propagation for exact U8
 subregions of private aggregate storage. Constructor names, tag field names,
 source syntax and variant validity are not optimizer inputs.
 
-For `LET item=MaybeByte.SOME(42)`, current optimized NIR still contains:
+For `LET item=MaybeByte.SOME(42)`, baseline optimized NIR contains:
 
 ```text
 store item.+1 = 42
@@ -30,7 +30,7 @@ them dead. This work does not promise complete aggregate home elimination.
 An unknown tag retains ordinary dispatch and validation. A known invalid byte
 must select the existing fault path, not be treated as a valid constructor.
 
-## Current foundations and measured gap
+## Baseline foundations and measured gap
 
 | Component | Reuse and limitation |
 | --- | --- |
@@ -49,7 +49,7 @@ Reproduced `tests/support/fresh_maybe_byte.act` at origin `$3000`:
 | Modern classic | 148 | 418 | 163 |
 | Optimized MIR6502 | 80 | 363 | 34 |
 
-These are current measurements, not projected post-change costs. Execution
+These are baseline measurements, not projected post-change costs. Execution
 stops at PrintBE entry with A=42; printing itself is excluded. The existing
 construction-only measurement is separate: 10 bytes / 12 cycles.
 
@@ -314,6 +314,52 @@ summaries, tag-range/set analysis, edge-derived memory assumptions, wider scalar
 packing/unpacking, dynamic pointer analysis, constructor producer coalescing,
 hidden-result-slot forwarding and broader dead aggregate store/home removal.
 
-The first implementation commit should deliver slice 0. The first transforming
-commit should deliver slice 1 and its measured MaybeByte improvement before
-adding CFG or copy generalization.
+## Delivered slices and acceptance evidence
+
+- `90abcbd`: read-only proof tests and raw/optimized baseline fixture.
+- `b509a0d`: same-block byte forwarding and first measured Atari improvement.
+- `702aeb8`: CFG intersection, loop initialization and captured SSA values.
+- `e2e6730`: exact copies, independent snapshots and bounded candidate closure.
+- Slice 4 adds public optimizer idempotence over the fixture corpus, structural
+  invalid-tag/escape/alias/relocation controls and six dedicated VM regressions.
+
+The scalar-cleanup regression exposed the anticipated scheduling dependency:
+a scalar load could become a constant store into a capture after the byte pass.
+The final schedule groups aggregate forwarding, byte/scalar propagation, home
+cleanup and value/CFG cleanup before and after one scalar-promotion run. Its
+round budget is the input operation/block/local count plus one. Programs with
+no aggregate captures keep the previous scalar schedule. No ABI expansion or
+whole-pipeline fixed point was added.
+
+The minimal optimized Main retains two constructor stores and one binder store,
+has zero loads, comparisons, conditional branches or copies, and calls PrintBE
+once with 42. Its unreferenced string static remains; complete aggregate home
+and static-data elimination are outside this work. Only the new optimized
+fixture changed intentionally; existing snapshots and raw lowering are stable.
+
+Final code and image measurements at `$3000`:
+
+| Path | Main code bytes | Cartridge payload / XEX bytes | Standalone payload / XEX bytes |
+| --- | ---: | ---: | ---: |
+| Modern classic | 132 | 136 / 148 | 406 / 418 |
+| Raw NIR + MIR6502 | 50 | 80 / 92 | 363 / 375 |
+| Optimized NIR + MIR6502 (either MIR configuration) | 21 | 33 / 45 | 269 / 281 |
+
+The VM tests separately pin 21 Main code bytes, 45/281 XEX bytes and 23 cycles
+to PrintBE. The existing 10-byte / 12-cycle construction-only test still passes.
+
+Scheduling cost check: five runs of the already-built debug NIR sweep over
+`fixtures/nir` had median wall times 0.237 s before the final scheduling change
+and 0.294 s after it (about 57 ms / 24%). Compilation was excluded. These small
+local-corpus timings describe the correctness-driven cleanup cost, not release
+compiler throughput. The no-capture fast path avoids repeating unrelated scalar
+work. Public idempotence passes over every registered lowered NIR fixture,
+including the four target layouts.
+
+Final validation passed: 3,039 compiler tests (22 pre-existing ignored), all 236
+pinned VM tests (67 library tests and 169 integration tests across 51 binaries),
+NIR snapshots and inventory, all 45 NIR and 167 MIR6502 sweep cases,
+`cargo check --all-targets`, and `git diff --check`. The full VM suite ran through
+its normal Cargo command with no omitted binaries. Four-target NIR checks and
+public optimizer idempotence pass; native runtime execution remains outside
+this Atari VM acceptance gate.

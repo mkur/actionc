@@ -6,7 +6,7 @@ Each constructor arm already compares the tag against a valid constructor ID.
 A final compiler-generated unmatched arm faults with InvalidVariantTag. There is
 no separate preliminary validity-range CASE.
 
-For the minimal MaybeByte example, optimized MIR is conceptually:
+When the captured tag is unknown, the normalized dispatch is conceptually:
 
 ```text
 item.value = 42
@@ -21,12 +21,24 @@ else:
     halt
 ```
 
-This is validation fused with dispatch, not removal of invalid-value behavior
-or a proof that every typed value is valid. Tag zero and out-of-range tags still
-fault. Known-constructor propagation and complete CASE folding are separate
-future optimizations, covered by the
-[verified NIR propagation plan](NIR_KNOWN_CONSTRUCTOR_TAG_PROPAGATION_PLAN.md).
-No new NIR/MIR operation or ABI assumption is introduced.
+Unknown, zero and out-of-range tags retain the final fault behavior. Verified
+NIR can now replace a tag load when executable stores prove its exact U8 byte
+in private aggregate capture storage. For `LET item=MaybeByte.SOME(42)`, the
+optimized computation keeps the construction stores and calls `PrintBE(42)`;
+the unreachable NONE and invalid-tag arms disappear.
+
+This proof uses stable storage IDs and byte offsets, independently of constructor
+names. Equal incoming facts survive CFG joins, and exact nonvolatile copies
+transfer facts to independent snapshots. Calls, opaque effects, volatile access
+and unresolved memory clear memory facts. A selector already captured in SSA
+keeps its value across a later guard call. Each nested tag needs its own proof;
+a known outer tag supplies no assumption about the payload's validity.
+
+The [implementation plan and measurements](NIR_KNOWN_CONSTRUCTOR_TAG_PROPAGATION_PLAN.md)
+record the bounded scope and regression matrix. No new executable NIR/MIR form
+or ABI assumption is introduced. MIR6502 reaches PrintBE in 23 cycles with
+45-byte cartridge / 281-byte standalone images, versus 34 cycles and 80/363
+bytes before propagation; printing is excluded.
 
 ## Ordering and safety
 
@@ -52,14 +64,14 @@ No new NIR/MIR operation or ABI assumption is introduced.
   change unconstructed storage, overlap rules, failure-before-publication or
   terminal Error handling.
 
-The optimization happens in shared semantic lowering, so both classic and
-MIR6502 benefit. NIR consumes ordinary comparisons, branches, captures and the
+Validation/dispatch fusion happens in shared semantic lowering, so both
+classic and MIR6502 benefit. Byte-constant propagation runs only in verified NIR. NIR consumes ordinary comparisons, branches, captures and the
 existing nonreturning fault. Existing lifetime forwarding may remove the CASE
 snapshot when its source is stable; that is an independent proof.
 
 ## Measurements and coverage
 
-Compared with `1016b9e`, at origin $3000 for
+Historical validation/dispatch fusion, compared with `1016b9e`, at origin $3000 for
 `tests/support/fresh_maybe_byte.act`:
 
 | Backend | Cartridge XEX bytes | Standalone XEX bytes | Cycles to PrintBE |
@@ -68,10 +80,10 @@ Compared with `1016b9e`, at origin $3000 for
 | Optimized MIR6502 | 94 → 80 | 377 → 363 | 46 → 34 |
 
 Printing itself is not executed. The direct construction region remains
-10 bytes / 12 cycles. The MIR cost assertions now require no more than 34 cycles
-and 80/363 image bytes. Prior aggregate-forwarding CSVs remain historical; this
-note does not replace their measurements or attribute their savings to this
-change.
+10 bytes / 12 cycles. Subsequent verified-NIR byte propagation lowers the MIR
+row to 45/281 image bytes and 23 cycles, with 21 bytes of Main code; current cost
+assertions pin those limits. Classic retains the table's final measurements.
+Prior aggregate-forwarding CSVs remain historical.
 
 `tests/variant_case_validation.rs` checks all four target layouts, single
 dispatch/no preliminary range comparisons, final faults, constrained wildcard
@@ -82,13 +94,23 @@ Error handler across classic/raw/optimized NIR lanes and both Atari runtimes.
 Existing maximum-tag, guard mutation, nested-pattern and snapshot tests remain
 part of regression coverage.
 
-The raw and optimized `variant_match`, `generic_types` and `case_guards` NIR
-snapshots intentionally change: preliminary validation is removed and
+The validation-fusion change updated raw and optimized `variant_match`,
+`generic_types` and `case_guards` snapshots: preliminary validation is removed and
 wildcards/ELSE are gated before a final fault. This is an executable lowering
 improvement, not a printer-only update. Nested-pattern snapshots are unchanged.
 
+`tests/nir_subregion_constants.rs` covers exact byte identity, joins, loops,
+copies, overlap, escaped addresses, data relocations, aliasing, effect barriers,
+known-invalid bytes and unknown nested tags. The dedicated
+`tools/vm-runtime-tests/tests/known_constructor_tags.rs` covers fresh/nested
+constructors, mutating guards, repeated initialization, volatile bus order and
+terminal faults. The new `known_constructor_tags.optimized.nir` fixture
+intentionally folds tag dispatch; existing lowering snapshots remain stable.
+Four-target checks establish NIR/layout correctness. Atari VM execution does
+not imply native runtime Error-adapter support.
+
 ```sh
-cargo test --test variant_case_validation
+cargo test --test variant_case_validation --test nir_subregion_constants
 cargo test nir_fixtures_match_snapshots
 cargo run --bin actionc-nir-sweep -- fixtures/nir
 cargo run --bin actionc-mir6502-sweep -- fixtures/mir6502
@@ -97,10 +119,3 @@ cargo check --all-targets
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --locked
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --locked --test aggregate_fresh_initialization -- --nocapture
 ```
-
-Verification passed: 3,006 compiler tests (22 existing ignored), all 220 pinned
-VM tests (67 library and 153 integration tests across all 47 binaries), NIR
-snapshots, all 44 NIR and 167 MIR6502 sweep cases, and all-target checking.
-Integration binaries ran in four parallel batches with none omitted. The final
-focused compiler/fixture rerun and tightened nine-test fresh-initialization VM
-cost suite also pass. `git diff --check` is clean.

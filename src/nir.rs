@@ -72,10 +72,54 @@ pub fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {
 
 pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     let optimized = optimizer::optimize_program(program)?;
-    let optimized = aggregate_forwarding::forward_program(&optimized)?;
-    let optimized = subregion_constants::stabilize_program(&optimized)?;
-    let optimized = storage_optimizer::propagate_program(&optimized)?;
+    // Programs without aggregate captures retain the existing scalar schedule.
+    // The dependent fixed point is only needed for the new byte proofs.
+    if !optimized.routines.iter().any(|routine| {
+        routine
+            .locals
+            .iter()
+            .any(|local| local.purpose == NirLocalPurpose::AggregateCapture)
+    }) {
+        let optimized = aggregate_forwarding::forward_program(&optimized)?;
+        let optimized = storage_optimizer::propagate_program(&optimized)?;
+        let optimized = promotion::promote_program(&optimized)?;
+        let optimized = home_elision::elide_program(&optimized)?;
+        return optimizer::optimize_program(&optimized);
+    }
+    let optimized = optimize_storage_values(&optimized)?;
+    // Scalar promotion is a representation change and runs exactly once.
     let optimized = promotion::promote_program(&optimized)?;
-    let optimized = home_elision::elide_program(&optimized)?;
-    optimizer::optimize_program(&optimized)
+    optimize_storage_values(&optimized)
+}
+
+/// Stabilize only dependent memory/value/CFG cleanup. A byte replacement can
+/// expose a scalar constant or redundant snapshot, and either can expose another
+/// byte proof. Home removal can also discharge an obsolete address-use blocker.
+fn optimize_storage_values(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
+    let budget = program
+        .routines
+        .iter()
+        .map(|routine| {
+            routine.locals.len()
+                + routine
+                    .blocks
+                    .iter()
+                    .map(|block| block.ops.len() + 1)
+                    .sum::<usize>()
+        })
+        .sum::<usize>();
+    let mut optimized = program.clone();
+    for _ in 0..=budget {
+        let next = aggregate_forwarding::forward_program(&optimized)?;
+        let next = subregion_constants::propagate_program(&next)?;
+        let next = storage_optimizer::propagate_program(&next)?;
+        let next = home_elision::elide_program(&next)?;
+        let next = optimizer::optimize_program(&next)?;
+        if next == optimized {
+            return Ok(next);
+        }
+        optimized = next;
+    }
+    // Every component preserves verification; budget exhaustion is conservative.
+    Ok(optimized)
 }

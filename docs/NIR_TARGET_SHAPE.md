@@ -1270,6 +1270,12 @@ aggregate forwarding independently proves it redundant. Candidate closure is
 limited to 4,096 cells and 65,536 copy probes per routine; exhaustion leaves that
 routine unchanged by the byte pass. Aggregate extents are never enumerated.
 This is a NIR byte proof, independent of source constructors or field names.
+Programs with captures stabilize aggregate forwarding, byte and scalar storage
+propagation, dead-home cleanup and value/CFG cleanup together. The round budget
+is the initial operation, block and local count plus one. This dependent group
+runs before and after scalar promotion; promotion itself runs once. Programs
+without captures retain the previous scalar schedule. Each group component
+verifies its boundary, and all analyses are rebuilt after rewrites.
 
 Promotion does not make a target allocation decision. NIR removes direct
 source-home traffic and represents merged values with block parameters and edge

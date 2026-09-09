@@ -850,3 +850,278 @@ fn fresh_nested_constructor_checks_need_each_nested_byte_proof() {
         assert_eq!(opt, nir::optimize_program(&opt).unwrap());
     }
 }
+
+#[test]
+fn scalar_cleanup_exposes_byte_stores_in_the_same_public_optimizer_invocation() {
+    for target in TARGETS {
+        let mut p = probe(target);
+        let capture = capture(&p);
+        let mut scalar = capture.clone();
+        scalar.id = LocalId(100);
+        scalar.name = "scalar_seed".into();
+        scalar.purpose = NirLocalPurpose::Storage;
+        scalar.storage = NirStorageClass::Scalar;
+        scalar.ty = byte_type();
+        scalar.layout.size = ByteSize::ONE;
+        scalar.layout.alignment = ByteSize::ONE;
+        p.routines
+            .iter_mut()
+            .find(|r| r.name == "Main")
+            .unwrap()
+            .locals
+            .push(scalar.clone());
+        let scalar_place = NirPlace {
+            kind: NirPlaceKind::Local {
+                id: scalar.id,
+                name: scalar.name,
+            },
+            ty: Some(byte_type()),
+        };
+        let mut ops = vec![
+            NirOp::Store {
+                place: scalar_place.clone(),
+                src: NirValue::ConstU8(7),
+                ty: byte_type(),
+            },
+            NirOp::Load {
+                dest: TempId(99),
+                place: scalar_place,
+                ty: byte_type(),
+            },
+            NirOp::Store {
+                place: field(&capture, 3),
+                src: NirValue::Temp {
+                    id: TempId(99),
+                    ty: byte_type(),
+                },
+                ty: byte_type(),
+            },
+        ];
+        ops.extend(observe(&p, &capture, 3, 100));
+        set_ops(&mut p, ops);
+        let opt = nir::optimize_program(&p).unwrap();
+        assert_eq!(opt, nir::optimize_program(&opt).unwrap(), "{target:?}");
+        assert_eq!(field_loads(&opt), 0);
+    }
+}
+
+#[test]
+fn exact_internal_addresses_work_but_escaped_addresses_block_fresh_facts() {
+    for target in TARGETS {
+        for escaped in [false, true] {
+            let mut p = probe(target);
+            let local = capture(&p);
+            let pointer = p.globals.iter().find(|g| g.name == "ptr").unwrap();
+            let pointer_ty = pointer.ty.clone().unwrap();
+            let address = NirValue::Temp {
+                id: TempId(99),
+                ty: pointer_ty.clone(),
+            };
+            let mut ops = vec![NirOp::AddrOf {
+                dest: TempId(99),
+                ty: pointer_ty.clone(),
+                place: field(&local, 3),
+            }];
+            if escaped {
+                ops.push(NirOp::Store {
+                    place: NirPlace {
+                        kind: NirPlaceKind::Global {
+                            id: pointer.id,
+                            name: pointer.name.clone(),
+                        },
+                        ty: Some(pointer_ty.clone()),
+                    },
+                    src: address.clone(),
+                    ty: pointer_ty,
+                });
+            }
+            ops.push(NirOp::Store {
+                place: NirPlace {
+                    kind: NirPlaceKind::Deref { addr: address },
+                    ty: Some(byte_type()),
+                },
+                src: NirValue::ConstU8(7),
+                ty: byte_type(),
+            });
+            ops.extend(observe(&p, &local, 3, 100));
+            set_ops(&mut p, ops);
+            let analysis = analyze_aggregate_regions(&p).unwrap();
+            assert_eq!(
+                analysis
+                    .routine(main(&p).id)
+                    .unwrap()
+                    .address_use(NirStorageId::Local(local.id)),
+                if escaped {
+                    NirAggregateAddressUse::ExposedOrUnknown
+                } else {
+                    NirAggregateAddressUse::InternalOnly
+                }
+            );
+            assert_eq!(
+                field_loads(&nir::optimize_program(&p).unwrap()),
+                usize::from(escaped)
+            );
+        }
+    }
+}
+
+#[test]
+fn live_aliases_and_data_relocations_disqualify_capture_roots() {
+    for data in [false, true] {
+        let mut p = probe(TargetId::Atari6502);
+        let local = capture(&p);
+        let mut holder = add_capture(&mut p);
+        holder.purpose = NirLocalPurpose::Storage;
+        let mut ops = vec![store(&local, 3, 7)];
+        if data {
+            let ptr_ty = p
+                .globals
+                .iter()
+                .find(|g| g.name == "ptr")
+                .unwrap()
+                .ty
+                .clone()
+                .unwrap();
+            holder.ty = ptr_ty;
+            holder.storage = NirStorageClass::Scalar;
+            holder.layout.size = ByteSize::new(2);
+            holder.init = Some(NirStorageInit::Bytes {
+                image: NirDataImage {
+                    bytes: vec![0, 0],
+                    fragments: vec![NirDataFragment::Address {
+                        offset: ByteOffset::ZERO,
+                        encoding: NirDataAddressEncoding::Pointer {
+                            address_space: actionc::target::TargetLayout::DATA_ADDRESS_SPACE,
+                            width: ByteSize::new(2),
+                        },
+                        target: NirDataAddressTarget::Storage(NirStorageId::Local(local.id)),
+                        addend: 0,
+                        span: actionc::source::Span { start: 0, end: 0 },
+                    }],
+                },
+                zero_fill: ByteSize::ZERO,
+                mutable: false,
+                section: ".data".into(),
+            });
+        } else {
+            holder.backing = NirLocalBacking::Alias {
+                target: local.id,
+                target_name: local.name.clone(),
+                offset: ByteOffset::ZERO,
+            };
+            ops.extend(observe(&p, &holder, 4, 101));
+        }
+        let r = p.routines.iter_mut().find(|r| r.name == "Main").unwrap();
+        let holder_id = holder.id;
+        *r.locals.iter_mut().find(|l| l.id == holder_id).unwrap() = holder;
+        ops.extend(observe(&p, &local, 3, 100));
+        set_ops(&mut p, ops);
+        let analysis = analyze_aggregate_regions(&p).unwrap();
+        assert_eq!(
+            analysis
+                .routine(main(&p).id)
+                .unwrap()
+                .address_use(NirStorageId::Local(local.id)),
+            NirAggregateAddressUse::ExposedOrUnknown
+        );
+        assert!(field_loads(&nir::optimize_program(&p).unwrap()) >= 1);
+    }
+}
+
+#[test]
+fn real_and_machine_effects_invalidate_preceding_byte_stores() {
+    for machine in [false, true] {
+        let mut p = lower(
+            "TYPE Value=[BYTE x,y] Value source REAL scratch BYTE out PROC Main() LET saved=source scratch=1.0 [$EA] RETURN",
+            TargetId::Atari6502,
+        );
+        let local = capture(&p);
+        let effect = main(&p)
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .find(|op| {
+                if machine {
+                    matches!(op, NirOp::ForeignCode { .. })
+                } else {
+                    matches!(op, NirOp::Real(_))
+                }
+            })
+            .unwrap()
+            .clone();
+        let mut ops = vec![store(&local, 0, 7), effect];
+        ops.extend(observe(&p, &local, 0, 100));
+        set_ops(&mut p, ops);
+        assert_eq!(field_loads(&nir::optimize_program(&p).unwrap()), 1);
+    }
+}
+
+#[test]
+fn known_invalid_bytes_choose_faults_and_outer_tags_do_not_prove_nested_validity() {
+    let source = "TYPE Inner=VARIANT [OFF ON [BYTE n]] TYPE Outer=VARIANT [NONE SOME [Inner child]] BYTE out PROC Main() LET saved=Outer.SOME(Inner.ON(42))\nCASE saved OF\nWHEN Outer.SOME(Inner.ON(n)) THEN\nout=n\nELSE\nout=0\nESAC\nRETURN";
+    for (offset, value) in [(0, Some(0)), (0, Some(255)), (1, Some(0)), (1, None)] {
+        let mut p = lower(source, TargetId::Atari6502);
+        let analysis = analyze_aggregate_regions(&p).unwrap();
+        let r = main(&p);
+        let regions = analysis.routine(r.id).unwrap();
+        let location = r
+            .blocks
+            .iter()
+            .enumerate()
+            .find_map(|(b, block)| {
+                block.ops.iter().enumerate().find_map(|(i, op)| {
+                    if let NirOp::Store { place, .. } = op {
+                        if regions
+                            .region(
+                                place,
+                                ByteSize::ONE,
+                                NirAggregatePoint {
+                                    block: block.id,
+                                    op_index: i,
+                                },
+                            )
+                            .is_ok_and(|r| r.memory.offset.get() == offset)
+                        {
+                            return Some((b, i));
+                        }
+                    }
+                    None
+                })
+            })
+            .unwrap();
+        drop(analysis);
+        let r = p.routines.iter_mut().find(|r| r.name == "Main").unwrap();
+        if let Some(value) = value {
+            if let NirOp::Store { src, .. } = &mut r.blocks[location.0].ops[location.1] {
+                *src = NirValue::ConstU8(value);
+            }
+        } else {
+            r.blocks[location.0].ops.remove(location.1);
+        }
+        rebuild_temps(&mut p);
+        let opt = nir::optimize_program(&p).unwrap();
+        let ops: Vec<_> = main(&opt).blocks.iter().flat_map(|b| &b.ops).collect();
+        assert!(ops.iter().any(|op| matches!(
+            op,
+            NirOp::Call {
+                callee: NirCallee::Fault(_),
+                ..
+            }
+        )));
+        if value.is_some() {
+            assert!(!ops.iter().any(|op| matches!(
+                op,
+                NirOp::Store {
+                    place: NirPlace {
+                        kind: NirPlaceKind::Global { .. },
+                        ..
+                    },
+                    ..
+                }
+            )));
+        } else {
+            assert!(field_loads(&opt) > 0);
+        }
+        assert_eq!(opt, nir::optimize_program(&opt).unwrap());
+    }
+}

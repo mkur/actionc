@@ -156,3 +156,15 @@ fn optimizer_preserves_calls_volatility_aliases_real_and_foreign_code() {
     );
     assert_eq!(foreign_count(&machine_optimized), 2);
 }
+
+
+#[test]
+fn public_optimizer_is_idempotent_for_the_nir_fixture_corpus() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for case in NIR_FIXTURE_CASES.iter().filter(|case| case.stage == NirFixtureStage::Lowered) {
+        let first = nir::optimize_program(&lower_case(root, *case)).unwrap();
+        let second = nir::optimize_program(&first).unwrap();
+        assert_eq!(nir::format_program(&first), nir::format_program(&second), "{}", case.name);
+        assert_eq!(first, second, "{}: non-printing facts", case.name);
+    }
+}
