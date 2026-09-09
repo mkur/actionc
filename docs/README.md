@@ -85,6 +85,10 @@ crowding the active reference set.
   and running modular programs.
 - [Native REAL tutorial](tutorials/REAL.md) - task-oriented guide to using the
   six-byte Atari packed-decimal type and its first-party libraries.
+- [Variants and pattern matching](tutorials/VARIANTS.md) - constructors, immutable
+  snapshots, generic records/variants, nested patterns, guards and fixed arenas.
+- [ADT code-quality baseline](ADT_CODEGEN_BASELINE.md) - executable comparison
+  with handwritten tagged records, measured costs and existing optimization coverage.
 - [ACTIONC_ANNOTATIONS.md](ACTIONC_ANNOTATIONS.md) - supported `;@actionc`
   annotations.
 - [ACTION_SYMBOL_TABLE.md](ACTION_SYMBOL_TABLE.md) - Action! symbol table notes.
@@ -97,11 +101,13 @@ crowding the active reference set.
 - [RUNTIME_HELPER_EFFECTS.md](RUNTIME_HELPER_EFFECTS.md) - known runtime helper
   effects.
 - [SYNTAX_EXTENSIONS.md](SYNTAX_EXTENSIONS.md) - supported syntax extensions.
-- [ENUM and CASE design](Action_2027/ENUM_AND_CASE_DESIGN.md) - proposed modern
-  BYTE enum types and non-fallthrough dispatch; not yet implemented.
+- [ENUM and CASE design](Action_2027/ENUM_AND_CASE_DESIGN.md) - implemented modern
+  BYTE enum types and non-fallthrough dispatch with ordered guards.
 - [ENUM and CASE implementation plan](Action_2027/ENUM_AND_CASE_IMPLEMENTATION_PLAN.md)
   - sliced delivery of TYPE-based enums, enum function results, and CASE/ESAC,
-    with separate guard follow-on and backend/runtime acceptance gates.
+    with backend/runtime acceptance gates; guard follow-on delivered by the ADT plan.
+- [Algebraic data types](Action_2027/ALGEBRAIC_DATA_TYPES_IMPLEMENTATION_PLAN.md)
+  - sliced delivery of aggregate values/calls, variants, generics and matching.
 - [resident_library.md](resident_library.md) - resident library notes.
 
 ## Architecture And Status

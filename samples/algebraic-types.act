@@ -1,0 +1,70 @@
+; Nominal variants, ordinary record payloads, nested patterns and guards.
+; Prints 65, 0, 9, 10, 7 and 5 on separate lines.
+TYPE Position=[INT x,y]
+TYPE Event=VARIANT [NONE KEY [BYTE code] MOVE [Position location]]
+TYPE OptionalByte=VARIANT [ABSENT PRESENT [BYTE value]]
+TYPE ReadResult=VARIANT [END VALUE [Event value] FAILED [BYTE code]]
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+TYPE Result<T,E>=VARIANT [OK [T value] ERROR [E error]]
+
+Event ARRAY queue(3)
+Position location
+BYTE cursor
+
+ReadResult FUNC ReadNext()
+ IF cursor<3 THEN
+   BEGIN
+     LET value=queue(cursor)
+     cursor==+1
+     RETURN(ReadResult.VALUE(value))
+   END
+ FI
+ IF cursor=3 THEN
+   cursor==+1
+   RETURN(ReadResult.FAILED(10))
+ FI
+RETURN(ReadResult.END)
+
+OptionalByte FUNC PositiveByte(BYTE value)
+ IF value<>0 THEN RETURN(OptionalByte.PRESENT(value)) FI
+RETURN(OptionalByte.ABSENT)
+
+PROC Main()
+ cursor=0
+ location.x=12 location.y=-3
+ queue(0)=Event.KEY(65)
+ queue(1)=Event.KEY(13)
+ queue(2)=Event.MOVE(location)
+ DO
+   CASE ReadNext() OF
+   WHEN ReadResult.VALUE(Event.KEY(code)) IF code>=32 THEN
+     PrintBE(code)
+   WHEN ReadResult.VALUE(Event.KEY(_)) THEN
+     PrintBE(0)
+   WHEN ReadResult.VALUE(Event.MOVE(point)) THEN
+     PrintIE(point.x+point.y)
+   WHEN ReadResult.VALUE(Event.NONE) THEN
+     PrintBE(1)
+   WHEN ReadResult.FAILED(code) THEN
+     PrintBE(code)
+   WHEN ReadResult.END THEN
+     EXIT
+   ESAC
+ OD
+ LET optional=PositiveByte(7)
+ CASE optional OF
+ WHEN OptionalByte.PRESENT(value) THEN
+   PrintBE(value)
+ WHEN OptionalByte.ABSENT THEN
+   PrintBE(0)
+ ESAC
+ LET nested=Result<Option<BYTE>,BYTE>.OK(Option<BYTE>.SOME(5))
+ CASE nested OF
+ WHEN Result<Option<BYTE>,BYTE>.OK(Option<BYTE>.SOME(value)) THEN
+   PrintBE(value)
+ WHEN Result<Option<BYTE>,BYTE>.OK(Option<BYTE>.NONE) THEN
+   PrintBE(0)
+ WHEN Result<Option<BYTE>,BYTE>.ERROR(code) THEN
+   PrintBE(code)
+ ESAC
+RETURN

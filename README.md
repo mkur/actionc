@@ -207,6 +207,7 @@ cargo install --path . --bin actionc-emit
 - [Running programs with actionc-run](docs/ACTIONC_RUN.md)
 - [Modules tutorial](docs/tutorials/MODULES.md)
 - [Native REAL tutorial](docs/tutorials/REAL.md)
+- [Variants, generic types and pattern matching](docs/tutorials/VARIANTS.md)
 - [Documentation index](docs/README.md)
 - [Code-generation profiles](docs/CODEGEN_PROFILES.md)
 - [Syntax extensions](docs/SYNTAX_EXTENSIONS.md)

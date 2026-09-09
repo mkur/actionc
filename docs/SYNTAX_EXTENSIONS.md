@@ -17,6 +17,7 @@ some ambiguous routine-address cases.
 - [Comparison Values](#comparison-values)
 - [BYTE Enums](#byte-enums)
 - [CASE Statements](#case-statements)
+- [Variants and Generic Types](#variants-and-generic-types)
 - [Fixed-Length Arrays Inside Records](#fixed-length-arrays-inside-records)
 - [Volatile Storage](#volatile-storage)
 - [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
@@ -167,7 +168,40 @@ declarations. A FUNC still needs a return path when no arm matches.
 The CASE/OF header, each WHEN/THEN header, ELSE, and ESAC each occupy their own
 physical source line. CASE, OF, WHEN, and ESAC remain contextual identifiers,
 so calls such as `Case()` and `When()` remain legal. ENDCASE is not an alias.
-Compatibility rejects CASE. Guards and wildcard arms are not supported yet.
+Compatibility rejects CASE. Modern guards use `WHEN label IF condition THEN`:
+match first, evaluate the guard once, and continue to the next arm if false.
+The selector remains captured even if a guard changes its original storage.
+Later arms may repeat earlier guarded labels, including an unguarded fallback.
+Overlaps between unguarded arms and duplicate labels within one header remain
+errors. A guarded interval may overlap earlier unguarded labels if some values
+remain reachable. Guards do not establish exhaustiveness.
+`WHEN _ IF condition THEN` is a guarded catch-all; bare WHEN _ and guarded ELSE
+are not supported.
+
+## Variants and Generic Types
+
+Modern classic and MIR6502 support tagged nominal variants, including record and
+variant payloads, immutable value snapshots, value parameters/results, nested
+constructor/literal patterns and ordered guards. Both Atari runtimes are supported.
+
+```action
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+TYPE Buffer<T>=[T ARRAY values(8)]
+TYPE TreeOf<T>=VARIANT [EMPTY NODE [T value TreeOf<T> POINTER left,right]]
+```
+
+Use explicit applications such as `Option<BYTE>` and qualified constructors such
+as `Option<BYTE>.SOME(7)`. Nullary constructors omit parentheses. Each instance
+is nominal; equal layouts do not make types compatible. Recursive data requires
+explicit pointers and storage management; there is no hidden allocation or GC.
+Variant tag zero is invalid, and a value read validates active inline variants
+before exposing payloads. Malformed tags invoke Error(100) on Atari, including
+before ELSE. Tags, padding and native layouts are not a portable serialization ABI.
+
+See the [variant tutorial](tutorials/VARIANTS.md) for complete examples, immutable
+binding restrictions, coverage rules, generic limits and the backend matrix.
+Compatibility rejects these extensions. Native targets have verified type/layout
+and ABI planning, but executable variants still require native Error adapters.
 
 ## Fixed-Length Arrays Inside Records
 
@@ -317,16 +351,20 @@ not reread the hardware. Unused bindings do not discard initializer effects.
 Supported values are scalar integers, enums, native REAL, typed data pointers,
 and typed callable pointers. Use `@Routine` to form a callable value. Array
 values require an explicit pointer annotation or cast; LET does not own an
-array or record. Enum identity and callable signatures remain checked. Runtime
+array. Complete supported records and variants can be immutable snapshots,
+including inline arrays; their storage cannot be exposed through addresses or
+aliases. Explicit pointer fields retain mutable pointees. Enum identity, nominal
+aggregate types and callable signatures remain checked. Runtime
 LET values cannot be CONST expressions, CASE labels, static initializers, or
 array bounds, even when initialized with literals. Unevaluated layout queries
 such as `SIZEOF(binding)` remain compile-time values.
 
 Classic and MIR6502 support LET with cartridge-linked or standalone runtime,
 within their existing type/ABI limits: Atari LONGINT/LONGCARD need MIR6502,
-classic indirect calls support zero arguments, and native REAL uses the Atari
-OS floating-point package. LET does not add stack locals or reentrancy to Atari
-routine storage. Native 68k/65816 have lowering/ABI checks, not execution claims.
+typed indirect calls retain their declared argument signatures, and native REAL
+uses the Atari OS floating-point package. LET does not add stack locals or
+reentrancy to Atari routine storage. Native 68k/65816 have lowering/ABI checks,
+not execution claims.
 Global bindings, `LET MUT`, deferred initialization, destructuring, and
 expression-form `LET ... IN` are not supported. LET is contextual: ordinary
 identifiers such as `Let()` and `let=1` remain valid. The legacy profile rejects

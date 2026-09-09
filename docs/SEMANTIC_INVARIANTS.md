@@ -360,10 +360,11 @@ initializers keep existing zero-fill semantics, including unnamed zero values.
 Type metadata survives selective linking but does not allocate storage.
 
 Function and callable signatures carry a resolved `ValueType` result, including
-nominal enum identity. Source result syntax is fundamental-or-qualified-name;
-records are not valid named results. Signature IDs use canonical enum identity,
-not alias spelling or byte width. Only the backend adapter erases an enum result
-to the existing BYTE ABI.
+nominal enum/aggregate identity and concrete generic applications. Signature IDs
+use canonical identities, not alias spelling or byte width. Only the backend
+adapter erases enum results to the existing BYTE ABI. Modern aggregate arguments
+are independent mutable copies; aggregate results use caller-owned storage and
+a separately lowered physical ABI, on direct and exactly typed indirect calls.
 
 Returning A equal to a result slot does not prove that the callee's N/Z flags
 describe A. Classic call facts keep this distinction. MIR rewrite-time callee
@@ -563,11 +564,12 @@ second.
 The compatible path should model Action! semantics, including restrictions such
 as source-order visibility.
 
-Modern profile may eventually add extensions, but they should be explicit and
-reported as modern behavior. They should not silently change the default meaning
-of Action! source.
+Modern extensions are explicit capabilities, including LET, variants, generic
+types and guarded matching. Runtime selection does not choose language semantics:
+modern generated code can link cartridge or standalone services. Running the
+original cartridge compiler is distinct from selecting the cartridge runtime.
 
-## Monomorphic variant values
+## Variant values and concrete generic types
 
 Modern `TYPE Name=VARIANT [EMPTY VALUE [BYTE value]]` declarations define
 nominal alternatives. Qualified constructors are runtime values: nullary
@@ -586,17 +588,35 @@ Direct volatile, absolute/alias and static-initializer variant declarations are
 rejected. Typed pointers can address low-level memory; copying or matching such
 a value still validates its tag, but does not establish pointer lifetime/safety.
 
-Flat CASE patterns resolve constructor IDs, canonical field IDs and immutable
-arm-local symbol IDs. Bindings or `_` discard each payload; nested patterns and
-guards remain gated. Every valid alternative must be covered or a final ELSE
-provided. Invalid tags fault before any arm, including ELSE. Exhaustive returning
-matches count toward function return coverage; pointer payloads are not followed.
+CASE patterns resolve constructor IDs, canonical field paths and immutable
+arm-local symbol IDs. Nested by-value constructor and scalar literal patterns
+compose; binders and `_` cover remaining payload domains. A bounded memoized
+constructor/product analysis rejects fully shadowed patterns and reports missing
+coverage witnesses. Scalar literal lists never establish complete payload-domain
+coverage by themselves. Invalid tags fault before any arm, including ELSE or a
+guarded catch-all. Exhaustive returning matches count toward function return
+coverage; pointer payloads are not followed.
+
+Guards execute exactly once after matching and initializing bindings. False
+continues to the next arm using the original captured value. Guarded arms do not
+establish coverage, even when the guard is constant true. Guard calls, volatile
+accesses and faults are not speculated into unmatched paths. ELSE stays the final
+unguarded fallback; a guarded `_` is distinct from ELSE. Scalar CASE preserves
+disjoint unconditional labels while allowing useful guarded overlaps.
 
 The shared SemIR builder captures and validates source values, checks projection
 owner, constructor membership, exact nominal type and canonical extent, and only
 then erases patterns into typed copies, field projections and dispatch. NIR
-receives no pattern strings or backend-specific aggregate ABI. Aggregate
-parameters/results, generics and guards retain separate closed gates.
+receives no pattern strings or backend-specific aggregate ABI. Ordered typed
+arm refinements dominate extraction; guarded binding declarations/initialization
+remain visible to storage, link, effect and feature visitors.
+
+Generic record/variant instances are interned by defining SymbolId and canonical
+concrete ValueTypes, not printed names. Recursive placeholders retain finite
+identities across pointer cycles. Inline layout cycles and structurally expanding
+specializations are rejected; explicit depth/work/instance limits diagnose
+pathological input. No generic routine inference, runtime dictionaries, implicit
+allocation or recursive Atari activation model is introduced.
 
 ## Current Implementation Gaps
 

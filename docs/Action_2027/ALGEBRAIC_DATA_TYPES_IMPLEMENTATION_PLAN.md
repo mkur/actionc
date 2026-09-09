@@ -1,11 +1,11 @@
 # ML-style algebraic data types: implementation plan
 
-Status: accepted; implementation in progress on `main`, 2026-09-09.
-Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
-are enabled after their end-to-end acceptance gates; direct and typed indirect
-aggregate calls, generic types, nested patterns and guards are implemented.
-The documentation/examples and code-quality gate are the final slice.
-See implementation progress.
+Status: complete on `main`, 2026-09-09, within the backend scope below.
+Inspected baseline: `ceecea1`. Modern aggregate snapshots, nominal variants,
+direct/typed indirect aggregate calls, generic types, nested patterns and guards
+have passed their end-to-end Atari acceptance gates. Documentation, executable
+examples and the measured code-quality baseline are published. Native execution
+still requires Error adapters; see implementation progress and the support matrix.
 
 ## 1. Objective and boundaries
 
@@ -63,8 +63,8 @@ generic types, pattern matching or aggregate function returns already work.
 
 ## 3. Accepted source contract
 
-Examples describe the complete accepted contract, including future slices.
-See implementation progress for the currently supported subset.
+Examples describe the accepted contract delivered by the slices below.
+See implementation progress for verification and remaining backend limitations.
 
 ### 3.1 Definitions and constructors
 
@@ -863,3 +863,33 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   snapshots, 44 NIR fixtures and 167 MIR6502 fixtures pass; existing snapshots
   remain unchanged. The four new guard VM cases pass on both backends/runtimes,
   including raw and optimized NIR execution.
+
+### Slice 10 — Documentation, examples and code-quality gate (complete)
+
+- Published the complete syntax/support matrix, constructor/tag/layout rules,
+  invalid-value behavior, aggregate snapshots and call ABI restrictions. Updated
+  syntax and semantic references to remove obsolete closed-capability claims.
+- Added `samples/algebraic-types.act`, combining Event, OptionalByte, ReadResult,
+  record products, value-returning functions, nested patterns/guards and generic
+  Option/Result. It prints 65, 0, 9, 10, 7, 5. Existing fixed-arena and generic
+  tree examples supply explicit-pointer recursion without allocation or new
+  Atari activation semantics. The new sample is in the public build matrix and
+  independent guarded-memory oracle for classic/MIR, raw/optimized NIR and both
+  Atari runtimes.
+- Added a reproducible complete-program cost audit: three ADT/manual pairs,
+  24 generated images and 288 bounded executions with independent memory
+  oracles. The [baseline](../ADT_CODEGEN_BASELINE.md) and checked-in CSV report
+  XEX bytes, CPU cycles, logical capture storage, tag checks and copies, with
+  explicit startup/ABI/counting limitations.
+- Existing optimization removes repeated captured-tag tests and scalar binder
+  stores. Aggregate zeroing and copies remain costly: the MIR guard-snapshot
+  example takes 1,070 cycles versus 170 handwritten. Follow-up work should
+  generalize shared aggregate initialization/transfer and proof-based forwarding,
+  not add constructor-specific optimization or remove checks across effects.
+  This slice adds no optimizer or production compiler changes.
+- Acceptance: all 2,928 compiler tests and 175 pinned VM tests pass, including
+  the sample output oracle and all 288 cost-audit executions. NIR snapshots,
+  44 NIR fixtures, 167 MIR6502 fixtures and all-target cargo check pass. Existing
+  snapshots and the fixture-only corpus count are unchanged by this slice.
+  Native Error adapters remain an explicit execution limitation; the accepted
+  native scope is layout/ABI/frame canaries, not executable variant support.

@@ -1,4 +1,4 @@
-# Variant values and fixed-arena trees
+# Variants, generic types and pattern matching
 
 Modern Action! supports nominal sum types with inline payloads:
 
@@ -198,3 +198,40 @@ absolute/alias-backed variant declarations or raw/static variant initializers.
 Use a record payload to contain an inline array. Typed pointers into explicitly
 managed memory are available, but validation does not make arbitrary pointers
 safe.
+
+## Complete examples and support matrix
+
+[`algebraic-types.act`](../../samples/algebraic-types.act) combines Event,
+ReadResult and OptionalByte with an ordinary record payload, value-returning
+functions, nested patterns, guards and generic Option/Result. It prints
+`65`, `0`, `9`, `10`, `7`, `5` on separate lines. The fixed-arena tree and generic
+array/tree examples linked above cover explicit storage and pointer sharing.
+
+```sh
+cargo run --bin actionc -- --mode mir6502 --runtime standalone \
+  --output algebraic-types.xex samples/algebraic-types.act
+```
+
+| Compilation mode | ADT support |
+| --- | --- |
+| Modern classic (`--mode optimized`), cart or standalone | Construct, copy, LET, direct/typed-indirect value calls, generics, nested patterns and guards; existing classic type limits apply |
+| Modern MIR6502, cart or standalone | Same common subset, also supported LONGINT/LONGCARD payload operations |
+| Native 68k / 65816 | Typed SemIR/NIR, layout and ABI/frame canaries; executable variants remain blocked on native Error adapters |
+| Compatibility / original cartridge compiler | New ADT syntax is not supported; selecting the cartridge **runtime** is a separate choice |
+
+Aggregate LET and pattern storage cannot be assigned, addressed, aliased,
+converted to raw addresses or referenced from machine code. Passing their values
+to ordinary by-value routines is legal. Explicit pointer values share mutable
+pointees. Caller-owned results and callee-private value parameters do not add
+recursive/reentrant Atari routine activation. Unknown foreign aggregate ABIs
+remain errors rather than guessed signatures.
+
+Tags are assigned in declaration order, inactive bytes are zeroed by construction,
+and copies preserve the full extent. Reordering alternatives or changing target
+layout can change raw bytes; there is no tag cast, stable serialization format or
+ABI guarantee for foreign aggregate calls. Zero-filled storage is not a value.
+
+See the [code-quality baseline](../ADT_CODEGEN_BASELINE.md) for measured image
+size, CPU cycles, capture storage, checks and copies. There is currently meaningful
+aggregate initialization/copy overhead; pattern matching is not advertised as
+universally zero-cost.
