@@ -38,6 +38,12 @@ runtime assignment before reading them. An invalid tag, including an active
 nested variant's tag, invokes Error(100) on Atari before any arm or value copy
 is exposed. Even ELSE does not catch invalid storage.
 
+Construction evaluates payloads once, left to right, zeros only unused storage
+and alignment gaps, then writes the tag last in its private temporary. It does
+not clear active payload bytes before overwriting them. For example, a two-byte
+`SOME [BYTE value]` alternative needs just payload and tag writes, with no
+clearing loop. Aggregate payload copies preserve their complete byte image.
+
 Scalars, records, unions, variants and data pointers can be payloads. Record
 payloads may contain embedded fixed arrays. A [union](UNIONS.md) payload is a raw
 value without its own tag or constructor patterns; the enclosing variant remains

@@ -1245,6 +1245,14 @@ and forbids a continuation after it.
 Variant construction and matching erase in shared SemIR lowering after nominal
 constructor/projection checks. NIR uses ordinary typed capture locals,
 overlap-safe CopyBytes, canonical field offsets, ordered stores and CFG.
+Constructor lowering writes/copies active fields once in argument order, zeros
+only byte ranges outside both the tag and complete active-field extents,
+then stores the tag last before publishing the private capture. Copied field
+padding is part of the field's byte image, not a gap to clear. Empty complements
+produce no zeroing operations or scratch locals; singleton gaps use a store,
+and larger gaps retain an ordinary SIZE-indexed loop over that exact range.
+This reuses the typed aggregate/loop boundary rather than adding variant-aware
+NIR or target-specific constructor passes.
 Contiguous valid tags without inline nested variants use one existing CASE
 interval. Active inline nested values are validated recursively; pointers are
 never followed. A semantic zero image without a source initializer is still an

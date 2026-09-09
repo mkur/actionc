@@ -581,6 +581,12 @@ their existing layouts and aggregate-copy semantics.
 
 Tags are BYTE on every target: 1..255 in declaration order; zero is invalid.
 Construction zeros padding/inactive payload bytes and writes the tag last.
+The private constructor capture is filled in argument order, then only gaps
+outside the tag and complete active field extents are zeroed. Fully covered
+constructors perform no clearing. Copied aggregate fields retain their entire
+byte image, including internal padding and union storage; they are not cleared
+again. The completed capture is published through the existing whole-value copy,
+so argument effects and failures cannot expose a partially built destination.
 Variant-containing declarations have an explicit zero image: load time for
 Atari routine-static/global storage, activation entry for native automatic
 storage. Immutable captures initialize at execution, not activation entry.

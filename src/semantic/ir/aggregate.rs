@@ -357,17 +357,17 @@ impl IrBuilder<'_> {
     fn counted_block(
         &mut self,
         scope: ScopeId,
-        length: u32,
+        range: std::ops::Range<u32>,
         span: Span,
         body: impl FnOnce(&mut Self, SemExpr) -> Vec<SemStmt>,
     ) -> SemStmt {
-        assert!(length > 0);
+        assert!(range.start < range.end);
         let counter = self.private_value_place(scope, ValueType::scalar(ScalarType::Size), span);
         let body = body(self, Self::value_expr(&counter));
         SemStmt::For {
             target: counter,
-            start: Self::integer_expr(ScalarType::Size, 0, span),
-            end: Self::integer_expr(ScalarType::Size, u64::from(length - 1), span),
+            start: Self::integer_expr(ScalarType::Size, u64::from(range.start), span),
+            end: Self::integer_expr(ScalarType::Size, u64::from(range.end - 1), span),
             step: None,
             step_control: SemForStep::Up(1),
             body,
@@ -375,14 +375,15 @@ impl IrBuilder<'_> {
         }
     }
 
-    fn element_loop(
+    fn element_range(
         &mut self,
         scope: ScopeId,
         place: &SemLValue,
         element: &ValueType,
-        length: u32,
+        range: std::ops::Range<u32>,
         body: impl FnOnce(&mut Self, SemLValue) -> Vec<SemStmt>,
     ) -> Vec<SemStmt> {
+        assert!(range.start < range.end);
         let pointer =
             self.private_value_place(scope, ValueType::pointer_to(element.clone()), place.span);
         let value = SemExpr {
@@ -400,18 +401,77 @@ impl IrBuilder<'_> {
             value,
             span: place.span,
         };
-        let iteration = self.counted_block(scope, length, place.span, |this, index| {
+        if range.end - range.start == 1 {
+            let index = Self::integer_expr(ScalarType::Size, u64::from(range.start), place.span);
+            let projected = self.indexed_place(&pointer, element, index);
+            let mut result = vec![initialize];
+            result.extend(body(self, projected));
+            return result;
+        }
+        let iteration = self.counted_block(scope, range, place.span, |this, index| {
             let projected = this.indexed_place(&pointer, element, index);
             body(this, projected)
         });
         vec![initialize, iteration]
     }
 
-    fn zero_aggregate(&mut self, scope: ScopeId, place: &SemLValue) -> Vec<SemStmt> {
+    fn constructor_zero_ranges(
+        &self,
+        place: &SemLValue,
+        tag: FieldId,
+        fields: &[FieldId],
+    ) -> Vec<std::ops::Range<u32>> {
         let size = self
             .value_storage_width(&place.ty)
-            .expect("complete aggregate zeroing");
-        self.element_loop(scope, place, &byte_type(), size, |_this, target| {
+            .expect("complete constructor layout");
+        let owner = place
+            .ty
+            .as_aggregate_identity()
+            .and_then(|id| id.symbol)
+            .expect("constructor owner");
+        // Active aggregate fields are copied in full, including their own
+        // padding. Only gaps outside those copies belong to this constructor.
+        let mut written: Vec<_> = std::iter::once(&tag)
+            .chain(fields)
+            .map(|id| {
+                let field = &self.model.fields[id.0];
+                assert_eq!(field.owner, owner);
+                let end = field
+                    .offset
+                    .checked_add(field.size)
+                    .expect("checked field extent");
+                assert!(end <= size);
+                field.offset..end
+            })
+            .collect();
+        written.sort_by_key(|range| range.start);
+        let mut cursor = 0;
+        let mut gaps = Vec::new();
+        for range in written {
+            assert!(
+                cursor <= range.start,
+                "active constructor fields must not overlap"
+            );
+            if cursor < range.start {
+                gaps.push(cursor..range.start);
+            }
+            cursor = range.end;
+        }
+        if cursor < size {
+            gaps.push(cursor..size);
+        }
+        gaps
+    }
+
+    fn zero_byte_range(
+        &mut self,
+        scope: ScopeId,
+        place: &SemLValue,
+        range: std::ops::Range<u32>,
+    ) -> Vec<SemStmt> {
+        // Keep large unused regions compact using the existing typed loop.
+        // A singleton gap needs only one store, without a loop/counter.
+        self.element_range(scope, place, &byte_type(), range, |_this, target| {
             vec![SemStmt::Assign {
                 target,
                 value: Self::integer_expr(ScalarType::Byte, 0, place.span),
@@ -452,7 +512,7 @@ impl IrBuilder<'_> {
                 _ => &[],
             };
             assert_eq!(args.len(), constructor.fields.len());
-            preparation.extend(self.zero_aggregate(scope, &capture));
+            let zero_ranges = self.constructor_zero_ranges(&capture, tag_field, &constructor.fields);
             for (arg, field) in args.iter().zip(&constructor.fields) {
                 let destination = self.canonical_field_place(&capture, *field);
                 if destination.ty.is_record() {
@@ -469,7 +529,13 @@ impl IrBuilder<'_> {
                     });
                 }
             }
-            // The tag becomes valid only after every active field has a value.
+            // The capture is private until complete. Do not pre-clear bytes
+            // that payload evaluation/copies overwrite; preserve argument order
+            // and zero only this alternative's alignment gaps and unused tail.
+            for range in zero_ranges {
+                preparation.extend(self.zero_byte_range(scope, &capture, range));
+            }
+            // Commit the tag after every payload and padding byte is defined.
             preparation.push(SemStmt::Assign {
                 target: self.canonical_field_place(&capture, tag_field),
                 value: Self::integer_expr(ScalarType::Byte, u64::from(id.tag), expr.span),
@@ -574,11 +640,11 @@ impl IrBuilder<'_> {
             let projected = self.canonical_field_place(place, field.id);
             if let super::super::RecordFieldStorage::InlineArray { array_type, .. } = field.storage
             {
-                result.extend(self.element_loop(
+                result.extend(self.element_range(
                     scope,
                     &projected,
                     &array_type.element,
-                    array_type.length.unwrap(),
+                    0..array_type.length.unwrap(),
                     |this, element| this.validate_aggregate_value(scope, &element),
                 ));
             } else {
