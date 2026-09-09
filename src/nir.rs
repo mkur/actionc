@@ -10,6 +10,7 @@ mod printer;
 mod promotion;
 mod stats;
 mod storage_optimizer;
+mod subregion_constants;
 mod verifier;
 
 #[cfg(test)]
@@ -72,6 +73,7 @@ pub fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {
 pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     let optimized = optimizer::optimize_program(program)?;
     let optimized = aggregate_forwarding::forward_program(&optimized)?;
+    let optimized = subregion_constants::stabilize_program(&optimized)?;
     let optimized = storage_optimizer::propagate_program(&optimized)?;
     let optimized = promotion::promote_program(&optimized)?;
     let optimized = home_elision::elide_program(&optimized)?;

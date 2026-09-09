@@ -1,6 +1,6 @@
 # Known constructor tags through verified NIR
 
-Status: slice 0 implemented; transformation slices pending.
+Status: slices 0–1 implemented; CFG and copy propagation pending.
 Baseline: `42d4f94`, inspected and measured on 2026-09-09.
 
 ## Objective
@@ -63,6 +63,12 @@ cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --locked \
   --test aggregate_fresh_initialization \
   maybe_byte_example_reports_cost_to_printbe_without_running_printing -- --nocapture
 ```
+
+Same-block forwarding (slice 1) measures 44 cartridge / 280 standalone XEX
+bytes and 23 cycles to PrintBE. Classic remains 148 / 418 bytes and 163 cycles.
+The optimized fixture intentionally loses the tag load, both comparisons and
+the unreachable NONE/fault arms. Its payload load crosses a block boundary and
+remains for the CFG slice. Raw lowering and construction stores are unchanged.
 
 ## Ownership and bounded scope
 

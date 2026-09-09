@@ -969,7 +969,7 @@ fn signed_integer_value(bits: u64, width: u8) -> i64 {
     ((bits << shift) as i64) >> shift
 }
 
-fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
+pub(super) fn rewrite_op_values(op: &mut NirOp, constants: &BTreeMap<TempId, NirValue>) {
     match op {
         NirOp::Store { place, src, .. } | NirOp::VolatileStore { place, src, .. } => {
             rewrite_place_values(place, constants);
@@ -1058,7 +1058,7 @@ fn rewrite_real_op_values(op: &mut NirRealOp, constants: &BTreeMap<TempId, NirVa
     }
 }
 
-fn rewrite_terminator_values(
+pub(super) fn rewrite_terminator_values(
     terminator: &mut NirTerminator,
     constants: &BTreeMap<TempId, NirValue>,
 ) {

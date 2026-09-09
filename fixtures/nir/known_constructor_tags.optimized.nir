@@ -8,23 +8,14 @@ routine r0 Main signature=s2726028260 convention=target-public activation=classi
 bb0:
   store Main::block0::item.+1 = 42
   store Main::block0::item.+0 = 2
-  %t0:Byte = load Main::block0::item.+0
-  %t1:condition = cmp %t0 Eq 1 operand_ty=Byte
-  branch %t1 ? bb2 : bb3
-bb2:
-  call PrintE(&__nir_str_Main_0) signature=s2726584377 convention=target-public effects=reads:unknown writes:unknown external opaque
-  goto bb1
+  goto bb3
 bb3:
-  %t2:condition = cmp %t0 Eq 2 operand_ty=Byte
-  branch %t2 ? bb4 : bb5
+  goto bb4
 bb4:
   %t3:Byte = load Main::block0::item.+1
   store Main::block0::block2::value = %t3
   call PrintBE(%t3) signature=s2485539418 convention=target-public effects=reads:unknown writes:unknown external opaque
   goto bb1
-bb5:
-  call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
-  exit
 bb1:
   return
 
