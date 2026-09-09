@@ -618,6 +618,24 @@ specializations are rejected; explicit depth/work/instance limits diagnose
 pathological input. No generic routine inference, runtime dictionaries, implicit
 allocation or recursive Atari activation model is introduced.
 
+## Untagged union delivery gate
+
+UNION syntax and nominal layout are staged behind an internal capability; all
+public profiles still reject union definitions. This is not executable support.
+Canonical aggregate layouts distinguish Record, Union and Variant explicitly.
+Member FieldIds retain ownership but do not imply disjoint storage: every direct
+union member has offset zero, while nested record fields remain sequential.
+Extent/alignment and layout queries use the shared target layout machinery.
+
+The initial union representation excludes inline VARIANT, REAL and callable
+pointers, including through records/arrays; ordinary data pointers are traversal
+barriers. Positional/string initializers for inline union-containing storage are
+rejected before the scalar-leaf initializer walk can visit overlapping members.
+Generic union definitions remain separately diagnosed during this first slice.
+No union-specific executable NIR operation or AST-only layout recovery is added.
+See the [union plan](Action_2027/UNIONS_IMPLEMENTATION_PLAN.md) for value/effect,
+volatile, call-boundary and backend acceptance still required before enablement.
+
 ## Current Implementation Gaps
 
 Known gaps between these invariants and the current implementation:

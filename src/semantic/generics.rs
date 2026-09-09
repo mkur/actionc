@@ -98,6 +98,11 @@ impl Analyzer {
     }
 
     pub(super) fn register_generic_definition(&mut self, scope: ScopeId, declaration: &TypeDecl) {
+        if matches!(declaration.definition, TypeDefinition::Union(_)) {
+            self.diagnostics.push(Diagnostic::new(declaration.span,
+                "generic UNION definitions are not enabled yet"));
+            return;
+        }
         if !self.options.algebraic_types.generic_types {
             self.diagnostics.push(Diagnostic::new(
                 declaration.span,
@@ -152,7 +157,7 @@ impl Analyzer {
             .map(|n| normalize_name(n))
             .collect();
         let fields: Vec<_> = match &template.declaration.definition {
-            TypeDefinition::Record(fields) => fields.iter().collect(),
+            TypeDefinition::Record(fields) | TypeDefinition::Union(fields) => fields.iter().collect(),
             TypeDefinition::Variant(alternatives) => {
                 alternatives.iter().flat_map(|a| &a.fields).collect()
             }

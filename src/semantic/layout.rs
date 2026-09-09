@@ -22,10 +22,27 @@ pub struct RecordLayoutId(pub usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArrayLayoutId(pub usize);
 
+/// Source aggregate semantics, retained until initialization/validation has
+/// been normalized. Coincident offsets alone do not identify a union.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AggregateKind {
+    #[default]
+    Record,
+    Union,
+    Variant,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum FieldPlacement {
+    Sequential,
+    Overlapping,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticRecordLayout {
     pub id: RecordLayoutId,
     pub owner: SymbolId,
+    pub kind: AggregateKind,
     pub name: String,
     pub record_type: RecordType,
     pub fields: Vec<SemanticRecordFieldLayout>,
@@ -77,10 +94,11 @@ impl SemanticLayoutFacts {
         array_symbols: &HashSet<SymbolId>,
         array_lengths: &HashMap<SymbolId, u32>,
         fields: &[SemanticField],
+        kinds: &HashMap<SymbolId, AggregateKind>,
         target_layout: TargetLayout,
     ) -> Self {
         let mut facts = Self::default();
-        facts.collect_records(symbols, fields);
+        facts.collect_records(symbols, fields, kinds);
         facts.collect_arrays(symbols, array_symbols, array_lengths, target_layout);
         facts
     }
@@ -119,6 +137,7 @@ impl SemanticLayoutFacts {
         &mut self,
         symbols: &SymbolTable,
         fields: &[SemanticField],
+        kinds: &HashMap<SymbolId, AggregateKind>,
     ) {
         let mut fields_by_owner: HashMap<SymbolId, Vec<&SemanticField>> = HashMap::new();
         for field in fields {
@@ -165,6 +184,7 @@ impl SemanticLayoutFacts {
             self.records.push(SemanticRecordLayout {
                 id,
                 owner,
+                kind: kinds.get(&owner).copied().unwrap_or_default(),
                 name: record_name,
                 record_type,
                 fields: owner_fields

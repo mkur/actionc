@@ -273,6 +273,7 @@ pub struct TypeDecl {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeDefinition {
     Record(Vec<VarDecl>),
+    Union(Vec<VarDecl>),
     Enum(Vec<EnumMember>),
     Variant(Vec<VariantAlternative>),
 }

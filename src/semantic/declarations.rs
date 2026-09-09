@@ -22,6 +22,7 @@ struct LayoutDeclaration {
 enum LayoutDeclarationKind {
     Enum { members: Vec<EnumMember>, span: Span },
     Variant { alternatives: Vec<crate::ast::VariantAlternative>, span: Span },
+    Union { fields: Vec<VarDecl>, span: Span },
     Record {
         name: String,
         fields: Vec<VarDecl>,
@@ -63,6 +64,9 @@ impl Analyzer {
                     let kind = match &decl.definition {
                         TypeDefinition::Record(fields) => LayoutDeclarationKind::Record {
                             name: decl.name.clone(), fields: fields.clone(),
+                        },
+                        TypeDefinition::Union(fields) => LayoutDeclarationKind::Union {
+                            fields: fields.clone(), span: decl.span,
                         },
                         TypeDefinition::Enum(members) => LayoutDeclarationKind::Enum {
                             members: members.clone(), span: decl.span,
@@ -112,6 +116,13 @@ impl Analyzer {
                         if let TypeDefinition::Variant(alternatives) = &decl.definition {
                             if let Some(id) = self.register_named_layout_declaration(scope, &decl.name,
                                 LayoutDeclarationKind::Variant { alternatives: alternatives.clone(), span: decl.span }) {
+                                records.push(id);
+                            }
+                            continue;
+                        }
+                        if let TypeDefinition::Union(fields) = &decl.definition {
+                            if let Some(id) = self.register_named_layout_declaration(scope, &decl.name,
+                                LayoutDeclarationKind::Union { fields: fields.clone(), span: decl.span }) {
                                 records.push(id);
                             }
                             continue;
@@ -209,6 +220,7 @@ impl Analyzer {
     pub(super) fn register_generic_layout(&mut self, scope: ScopeId, name: &str, definition: &TypeDefinition, span: Span) {
         let kind = match definition {
             TypeDefinition::Record(fields) => LayoutDeclarationKind::Record { name: name.into(), fields: fields.clone() },
+            TypeDefinition::Union(fields) => LayoutDeclarationKind::Union { fields: fields.clone(), span },
             TypeDefinition::Variant(alternatives) => LayoutDeclarationKind::Variant { alternatives: alternatives.clone(), span },
             TypeDefinition::Enum(_) => return,
         };
@@ -309,6 +321,7 @@ impl Analyzer {
         match kind {
             LayoutDeclarationKind::Enum { members, span } => self.define_enum(scope, id, &members, span),
             LayoutDeclarationKind::Variant { alternatives, span } => self.define_variant(scope, id, &alternatives, span),
+            LayoutDeclarationKind::Union { fields, span } => self.define_union(scope, id, &fields, span),
             LayoutDeclarationKind::Record { name, fields } => {
                 self.validate_predeclared_record_type(scope, &name, &fields);
             }

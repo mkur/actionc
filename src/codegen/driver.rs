@@ -316,9 +316,9 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
 fn ast_static_initializer_facts(
     program: &Program,
 ) -> Result<ClassicStaticInitializerFacts, Vec<Diagnostic>> {
-    if let Some(span) = unprojected_enum_span(program) {
+    if let Some(span) = unprojected_type_span(program) {
         return Err(vec![Diagnostic::new(span,
-            "ENUM requires semantic lowering; use the compiler entry point or SemIR code generation")]);
+            "this type construct requires semantic lowering; use the compiler entry point or SemIR code generation")]);
     }
     let record_layouts = collect_record_layouts(program);
     if !program.modules.iter().any(|module| {
@@ -423,14 +423,14 @@ fn var_decl_has_aggregate_initializer(decl: &VarDecl, record_layouts: &RecordLay
 
 // This legacy entry point has no semantic type facts. Never guess an enum's
 // layout or a named FUNC result from unresolved AST spelling.
-fn unprojected_enum_span(program: &Program) -> Option<Span> {
+fn unprojected_type_span(program: &Program) -> Option<Span> {
     fn named_result(kind: &RoutineKind) -> bool {
         matches!(kind, RoutineKind::Func { return_type } if matches!(return_type.base, TypeBase::Named(_)))
     }
     fn declaration(decl: &Decl) -> Option<Span> {
         match decl {
             Decl::Type(decl) => match &decl.definition {
-                TypeDefinition::Enum(_) | TypeDefinition::Variant(_) => Some(decl.span),
+                TypeDefinition::Enum(_) | TypeDefinition::Variant(_) | TypeDefinition::Union(_) => Some(decl.span),
                 TypeDefinition::Record(fields) => fields.iter().find_map(variable),
             },
             Decl::Record(decl) => decl.fields.iter().find_map(variable),

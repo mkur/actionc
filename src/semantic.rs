@@ -22,6 +22,7 @@ mod declarations;
 mod enums;
 pub use enums::{EnumFacts, EnumIdentity, EnumMemberValue, EnumType, EnumValue};
 mod variants;
+mod unions;
 mod patterns;
 pub use variants::{VariantConstructorId, VariantConstructor, VariantType, VariantFacts};
 mod generics;
@@ -39,7 +40,7 @@ mod embedded_record_arrays_tests;
 mod compound_tests;
 
 pub use layout::{
-    ArrayLayoutId, RecordLayoutId, SemanticArrayLayout, SemanticArrayOrigin, SemanticLayoutFacts,
+    AggregateKind, ArrayLayoutId, RecordLayoutId, SemanticArrayLayout, SemanticArrayOrigin, SemanticLayoutFacts,
     SemanticRecordFieldLayout, SemanticRecordLayout,
 };
 pub use types::{
@@ -547,6 +548,7 @@ impl Analyzer {
             &self.array_symbols,
             &self.array_lengths,
             &self.fields,
+            &self.aggregate_kinds,
             TargetLayout::for_target(self.options.target),
         );
         let target_layout = TargetLayout::for_target(self.options.target);
@@ -630,6 +632,7 @@ impl Analyzer {
 struct Analyzer {
     enums: EnumFacts,
     variants: VariantFacts,
+    aggregate_kinds: HashMap<SymbolId, AggregateKind>,
     generics: GenericTypeFacts,
     resolved_casts: HashMap<ExpressionSite, ValueType>,
     for_step_constants: HashMap<ExpressionSite, ConstValue>,
@@ -714,6 +717,7 @@ impl Analyzer {
             options,
             enums: EnumFacts::default(),
             variants: VariantFacts::default(),
+            aggregate_kinds: HashMap::new(),
             generics: GenericTypeFacts::default(),
             resolved_casts: HashMap::new(),
             for_step_constants: HashMap::new(),
@@ -3960,6 +3964,12 @@ impl Analyzer {
             Decl::Var(var) => self.analyze_var_decl(scope, var, is_param),
             Decl::Const(constants) => self.analyze_const_decl(scope, constants),
             Decl::Type(type_decl) => {
+                if let TypeDefinition::Union(fields) = &type_decl.definition {
+                    if let Some(owner) = self.declare(scope, type_decl.name.clone(), SymbolClass::Type, None, type_decl.span) {
+                        self.define_union(scope, owner, fields, type_decl.span);
+                    }
+                    return;
+                }
                 if let TypeDefinition::Variant(alternatives) = &type_decl.definition {
                     if let Some(owner) = self.declare(scope, type_decl.name.clone(), SymbolClass::Type, None, type_decl.span) {
                         self.define_variant(scope, owner, alternatives, type_decl.span);
@@ -4202,12 +4212,49 @@ impl Analyzer {
         }
     }
 
+    /// Walk inline value types once per nominal aggregate, never through data
+    /// pointers. Shared by representation restrictions and variant validation.
+    fn any_inline_type(&self, ty: &ValueType, predicate: impl Fn(&ValueType) -> bool) -> bool {
+        fn visit(
+            this: &Analyzer,
+            ty: &ValueType,
+            predicate: &impl Fn(&ValueType) -> bool,
+            seen: &mut HashSet<SymbolId>,
+        ) -> bool {
+            if ty.is_pointer() { return false; }
+            if predicate(ty) { return true; }
+            let Some(owner) = ty.as_aggregate_identity().and_then(|id| id.symbol) else { return false; };
+            if !seen.insert(owner) { return false; }
+            this.record_fields_by_owner.get(&owner).is_some_and(|fields| {
+                fields.values().any(|id| {
+                    let field = &this.fields[id.0];
+                    let ty = match &field.storage {
+                        RecordFieldStorage::Value => &field.ty,
+                        RecordFieldStorage::InlineArray { array_type, .. } => &array_type.element,
+                    };
+                    visit(this, ty, predicate, seen)
+                })
+            })
+        }
+        visit(self, ty, &predicate, &mut HashSet::new())
+    }
+
     fn remember_record_fields(
         &mut self,
         scope: ScopeId,
         owner: SymbolId,
         _name: &str,
         fields: &[VarDecl],
+    ) {
+        self.remember_aggregate_fields(scope, owner, fields, layout::FieldPlacement::Sequential);
+    }
+
+    fn remember_aggregate_fields(
+        &mut self,
+        scope: ScopeId,
+        owner: SymbolId,
+        fields: &[VarDecl],
+        placement: layout::FieldPlacement,
     ) {
         let mut field_ids = HashMap::new();
         let mut offset = 0u32;
@@ -4264,7 +4311,8 @@ impl Analyzer {
                 } else {
                     (RecordFieldStorage::Value, element_size)
                 };
-                let Some((field_offset, end)) = align_u32(offset, alignment)
+                let start = if placement == layout::FieldPlacement::Overlapping { 0 } else { offset };
+                let Some((field_offset, end)) = align_u32(start, alignment)
                     .and_then(|start| start.checked_add(size).filter(|end| *end <= max_extent).map(|end| (start, end)))
                 else {
                     self.diagnostics.push(Diagnostic::new(
@@ -4286,7 +4334,7 @@ impl Analyzer {
                     span: entry.span,
                 });
                 field_ids.insert(normalize_name(&entry.name), id);
-                offset = end;
+                offset = offset.max(end);
             }
         }
         if align_u32(offset, record_alignment).filter(|end| *end <= max_extent).is_none() {
@@ -4669,6 +4717,13 @@ impl Analyzer {
         let Some(initializer) = &entry.initializer else {
             return;
         };
+        if matches!(initializer.kind, ExprKind::InitializerList(_) | ExprKind::String(_))
+            && self.contains_union(&element_type)
+        {
+            self.diagnostics.push(Diagnostic::new(initializer.span,
+                "union-containing storage cannot use positional or string initializers; assign a member at runtime"));
+            return;
+        }
         if decl.storage == VarStorage::Plain && !decl.ty.pointer
             && let Some(name) = storage_alias_source_name(initializer)
             && let Some(id) = self.lookup_symbol(scope, name)

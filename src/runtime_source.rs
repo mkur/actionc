@@ -607,7 +607,7 @@ fn collect_decl_names(decl: &Decl, output: &mut BTreeSet<String>) {
         }
         Decl::Type(decl) => {
             output.insert(decl.name.clone());
-            if let TypeDefinition::Record(fields) = &decl.definition {
+            if let TypeDefinition::Record(fields) | TypeDefinition::Union(fields) = &decl.definition {
                 for field in fields { collect_var_names(field, output); }
             }
         }

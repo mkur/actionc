@@ -713,7 +713,7 @@ fn rewrite_decl_names(decl: &mut Decl, replacements: &BTreeMap<String, String>) 
         }
         Decl::Type(decl) => {
             match &mut decl.definition {
-                TypeDefinition::Record(fields) => for field in fields { rewrite_var_names(field, replacements); },
+                TypeDefinition::Record(fields) | TypeDefinition::Union(fields) => for field in fields { rewrite_var_names(field, replacements); },
                 TypeDefinition::Variant(alternatives) => for alternative in alternatives {
                     for field in &mut alternative.fields { rewrite_var_names(field, replacements); }
                 },
@@ -934,7 +934,7 @@ fn collect_decl_names(decl: &Decl, candidates: &BTreeSet<String>, output: &mut B
         }
         Decl::Type(decl) => {
             match &decl.definition {
-                TypeDefinition::Record(fields) => for field in fields { collect_var_names(field, candidates, output); },
+                TypeDefinition::Record(fields) | TypeDefinition::Union(fields) => for field in fields { collect_var_names(field, candidates, output); },
                 TypeDefinition::Variant(alternatives) => for alternative in alternatives {
                     for field in &alternative.fields { collect_var_names(field, candidates, output); }
                 },

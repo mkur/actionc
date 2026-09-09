@@ -2761,8 +2761,8 @@ impl<'a> IrBuilder<'a> {
                 initializer: None, static_initializer: None, span: decl.span, group_span: decl.span,
             }];
         }
-        let TypeDefinition::Record(fields) = &decl.definition else {
-            unreachable!("ENUM definitions are rejected before SemIR until their capability is enabled")
+        let (TypeDefinition::Record(fields) | TypeDefinition::Union(fields)) = &decl.definition else {
+            unreachable!("enum and variant definitions have distinct lowering above")
         };
         self.symbol_ref(scope, &decl.name, decl.span)
             .map(|symbol| {

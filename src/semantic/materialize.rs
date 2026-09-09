@@ -87,7 +87,7 @@ impl Materializer<'_> {
             Decl::Var(declaration) => self.var_declaration(scope, declaration),
             Decl::Type(declaration) => {
                 match &mut declaration.definition {
-                    TypeDefinition::Record(fields) => for field in fields {
+                    TypeDefinition::Record(fields) | TypeDefinition::Union(fields) => for field in fields {
                         self.var_declaration(scope, field);
                     },
                     TypeDefinition::Variant(alternatives) => for alternative in alternatives {

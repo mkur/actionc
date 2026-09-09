@@ -642,6 +642,8 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Assign);
         let is_enum = self.is_contextual_at(self.pos, "ENUM");
         let is_variant = self.is_contextual_at(self.pos, "VARIANT");
+        let is_union = self.is_contextual_at(self.pos, "UNION");
+        if is_union { self.bump(); }
         if is_variant { self.bump(); }
         if is_enum {
             self.bump();
@@ -667,6 +669,8 @@ impl<'a> Parser<'a> {
                 alternatives.push(VariantAlternative { name, fields, span: Span::new(start, self.previous_end()) });
             }
             TypeDefinition::Variant(alternatives)
+        } else if is_union {
+            TypeDefinition::Union(self.parse_field_decls_until(TokenKind::RBracket))
         } else {
             TypeDefinition::Record(self.parse_field_decls_until(TokenKind::RBracket))
         };

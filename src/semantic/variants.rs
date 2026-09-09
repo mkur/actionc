@@ -49,35 +49,8 @@ pub(super) struct VariantArm {
 
 impl Analyzer {
     pub(super) fn contains_variant(&self, ty: &ValueType) -> bool {
-        fn visit(this: &Analyzer, ty: &ValueType, seen: &mut HashSet<SymbolId>) -> bool {
-            if ty.is_pointer() {
-                return false;
-            }
-            let Some(owner) = ty.as_aggregate_identity().and_then(|id| id.symbol) else {
-                return false;
-            };
-            if this.variants.types.contains_key(&owner) {
-                return true;
-            }
-            if !seen.insert(owner) {
-                return false;
-            }
-            this.record_fields_by_owner
-                .get(&owner)
-                .is_some_and(|fields| {
-                    fields.values().any(|id| {
-                        let field = &this.fields[id.0];
-                        let ty = match &field.storage {
-                            RecordFieldStorage::Value => &field.ty,
-                            RecordFieldStorage::InlineArray { array_type, .. } => {
-                                &array_type.element
-                            }
-                        };
-                        visit(this, ty, seen)
-                    })
-                })
-        }
-        visit(self, ty, &mut HashSet::new())
+        self.any_inline_type(ty, |ty| ty.as_aggregate_identity()
+            .and_then(|id| id.symbol).is_some_and(|id| self.variants.types.contains_key(&id)))
     }
 
     pub(super) fn validate_variant_storage(&mut self, ty: &ValueType, decl: &VarDecl) {
@@ -330,6 +303,7 @@ impl Analyzer {
             return;
         }
         let identity = self.symbols.symbols[owner.0].aggregate_identity(owner);
+        self.aggregate_kinds.insert(owner, AggregateKind::Variant);
         self.symbols.symbols[owner.0].ty = Some(ValueType::aggregate(identity.clone()));
         let mut constructors = Vec::new();
         let mut names = HashSet::new();

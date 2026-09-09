@@ -218,5 +218,27 @@ tests green. Explain any fixture contract changes and update only relevant count
 
 ## 6. Progress
 
-- Plan saved at baseline `2994212`; implementation begins with gated slice 1.
+- Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
 - Slices 2–7 remain pending. No public UNION support is claimed yet.
+
+### Slice 1 — Syntax, identity and canonical layout (complete)
+
+- Added contextual UNION definitions, canonical nominal identities and explicit
+  aggregate layout kind. Shared field placement now supports sequential records
+  and overlapping union members; variant payload layout is unchanged.
+- Reused target widths/alignment, layout queries, pointer recursion barriers and
+  module identity. Internal declaration/layout canaries lower through ordinary
+  SemIR/NIR forms on all four target layouts; raw AST codegen rejects union syntax.
+- Added transitive member eligibility and initializer guards now, before any
+  consumer could traverse overlapping representations. This brings forward the
+  safety rejection from slice 4, not its absolute/volatile execution acceptance.
+  Generic unions and all public union capability gates remain closed.
+- Ten focused tests cover parsing/contextual names, gates, layout/queries,
+  grouped members, recursion/identity, invalid declarations, transitive member
+  and initializer restrictions, module aliases and AST-only rejection.
+- Acceptance: all 2,938 compiler tests pass, including the ten new layout/gate
+  tests and existing NIR snapshots. The 44-source NIR sweep, 167-source MIR6502
+  sweep and all-target cargo check pass. All 14 focused pinned VM regressions
+  for variants, nested patterns and CASE guards pass after the shared inline-type
+  walk refactor. The full VM suite/public enablement remain later-slice gates.
+  No existing fixture, count or public capability changed in this slice.
