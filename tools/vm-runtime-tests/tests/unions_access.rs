@@ -1,17 +1,6 @@
-#[path = "support/variant_values.rs"]
+#[path = "support/unions.rs"]
 mod support;
-
-fn check(source: &str, expected: &[u8]) {
-    let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
-    let mut options = actionc::semantic::SemanticOptions::modern();
-    options.algebraic_types.unions = true;
-    let model = actionc::semantic::analyze_with_options(&ast, options).unwrap();
-    support::check_semir(
-        &actionc::semantic::ir::lower_program(&ast, &model),
-        expected,
-        false,
-    );
-}
+use support::check;
 
 #[test]
 fn overlapping_typed_views_preserve_bits_and_selected_extents() {

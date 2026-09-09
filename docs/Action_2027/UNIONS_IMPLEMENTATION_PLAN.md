@@ -219,7 +219,7 @@ tests green. Explain any fixture contract changes and update only relevant count
 ## 6. Progress
 
 - Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
-- Slices 1–2 are complete; slices 3–7 remain pending. No public UNION support
+- Slices 1–3 are complete; slices 4–7 remain pending. No public UNION support
   is claimed yet.
 
 ### Slice 1 — Syntax, identity and canonical layout (complete)
@@ -266,3 +266,19 @@ tests green. Explain any fixture contract changes and update only relevant count
   MIR6502 167/167 sweeps pass. The full pinned VM suite is running as the combined
   slices 2–5 regression gate; focused executable tests pass. Public enablement
   remains reserved for slices 6–7. Existing fixture contracts are unchanged.
+
+### Slice 3 — Aggregate composition and snapshots (complete)
+
+- Reused aggregate copies, LET captures and direct/typed-indirect argument/result
+  lowering without backend special cases. Three compiler tests cover immutable
+  subobject/address restrictions, exact nominal callable signatures, full capture
+  extents (including native tail padding), native private frames and unchanged
+  Atari routine-static parameter lifetime.
+- Three six-lane VM tests cover nested records/unions/arrays, copied pointer
+  values with shared pointees, mutation after capture, private parameters, live
+  results, ignored results, forwarding, and destination/callee/argument ordering.
+  A host memmove oracle covers self-copy and both overlap directions for extents
+  1/2/3/4, 31/32/33 and 255/256/257, with guarded page-crossing storage.
+- All focused tests pass. These exercise the slice-2 implementation already
+  passing the full compiler suite/sweeps; no production compiler change or fixture
+  update is needed. The combined full pinned VM gate remains in progress.
