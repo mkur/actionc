@@ -24,7 +24,9 @@ else:
 This is validation fused with dispatch, not removal of invalid-value behavior
 or a proof that every typed value is valid. Tag zero and out-of-range tags still
 fault. Known-constructor propagation and complete CASE folding are separate
-future optimizations. No new NIR/MIR operation or ABI assumption is introduced.
+future optimizations, covered by the
+[verified NIR propagation plan](NIR_KNOWN_CONSTRUCTOR_TAG_PROPAGATION_PLAN.md).
+No new NIR/MIR operation or ABI assumption is introduced.
 
 ## Ordering and safety
 

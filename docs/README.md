@@ -34,6 +34,9 @@ crowding the active reference set.
   guardrails for the target-independence migration.
 - [NIR_QUALITY_IMPLEMENTATION_PLAN.md](NIR_QUALITY_IMPLEMENTATION_PLAN.md) -
   active plan for storage-to-value promotion and routine-wide NIR quality.
+- [NIR_KNOWN_CONSTRUCTOR_TAG_PROPAGATION_PLAN.md](NIR_KNOWN_CONSTRUCTOR_TAG_PROPAGATION_PLAN.md)
+  - proposed bounded U8 subregion propagation to fold known-constructor CASE
+    dispatch through verified NIR, with CFG, snapshot and effect safety gates.
 - [PRIVATE_AGGREGATE_FORWARDING_IMPLEMENTATION_PLAN.md](PRIVATE_AGGREGATE_FORWARDING_IMPLEMENTATION_PLAN.md)
   - shared plan for eliminating private record, union and variant staging while
   preserving value snapshots, effects and aggregate ABI boundaries.
