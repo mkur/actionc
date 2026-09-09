@@ -5,6 +5,16 @@ use actionc_vm::{
 };
 
 fn execute(image: &[u8], runtime: Runtime, fault: bool) -> Vec<u8> {
+    execute_watched(image, runtime, fault, &[], &|_| {})
+}
+
+fn execute_watched(
+    image: &[u8],
+    runtime: Runtime,
+    fault: bool,
+    watch: &[u16],
+    observe: &impl Fn(&[actionc_vm::BusEvent]),
+) -> Vec<u8> {
     let mut vm = CompilerVm::default();
     vm.load_image_bytes(
         ImageKind::Rom,
@@ -64,6 +74,10 @@ fn execute(image: &[u8], runtime: Runtime, fault: bool) -> Vec<u8> {
             .unwrap(),
         Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, 0x0B80),
     }
+    for address in watch {
+        vm.bus_mut().add_watchpoint(*address);
+    }
+    vm.bus_mut().clear_events();
     let result = VmRunner::new(vm).run(RunRequest {
         max_steps: 300_000,
         history_len: 16,
@@ -98,6 +112,7 @@ fn execute(image: &[u8], runtime: Runtime, fault: bool) -> Vec<u8> {
             (0xB0, 0xFE)
         );
     }
+    observe(result.vm.bus().events());
     (0x600..=0xAFF).map(|a| result.memory().read(a)).collect()
 }
 
@@ -178,6 +193,17 @@ pub fn check_with_fault(source: &str, expected: &[u8], fault: bool) {
 /// Exercise staged semantic capabilities without opening a public source gate.
 #[allow(dead_code)]
 pub fn check_semir(semir: &actionc::semantic::ir::SemProgram, expected: &[u8], fault: bool) {
+    check_semir_watched(semir, expected, fault, &[], |_, _| {});
+}
+
+#[allow(dead_code)]
+pub fn check_semir_watched(
+    semir: &actionc::semantic::ir::SemProgram,
+    expected: &[u8],
+    fault: bool,
+    watch: &[u16],
+    observe: impl Fn(&str, &[actionc_vm::BusEvent]),
+) {
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         let output = actionc::codegen::generate_semir_profile_at_origin_with_runtime(
             semir,
@@ -186,8 +212,15 @@ pub fn check_semir(semir: &actionc::semantic::ir::SemProgram, expected: &[u8], f
             runtime,
         )
         .unwrap();
+        let path = format!("classic/{runtime:?}");
         compare(
-            execute(&actionc::codegen::format_load_file(&output), runtime, fault),
+            execute_watched(
+                &actionc::codegen::format_load_file(&output),
+                runtime,
+                fault,
+                watch,
+                &|events| observe(&path, events),
+            ),
             expected,
             &format!("classic/{runtime:?}"),
         );
@@ -207,8 +240,15 @@ pub fn check_semir(semir: &actionc::semantic::ir::SemProgram, expected: &[u8], f
                 runtime,
             )
             .unwrap();
+            let path = format!("MIR/{runtime:?}/optimized={optimized}");
             compare(
-                execute(&actionc::codegen::format_load_file(&output), runtime, fault),
+                execute_watched(
+                    &actionc::codegen::format_load_file(&output),
+                    runtime,
+                    fault,
+                    watch,
+                    &|events| observe(&path, events),
+                ),
                 expected,
                 &format!("MIR/{runtime:?}/optimized={optimized}"),
             );

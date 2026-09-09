@@ -219,7 +219,7 @@ tests green. Explain any fixture contract changes and update only relevant count
 ## 6. Progress
 
 - Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
-- Slices 1–3 are complete; slices 4–7 remain pending. No public UNION support
+- Slices 1–4 are complete; slices 5–7 remain pending. No public UNION support
   is claimed yet.
 
 ### Slice 1 — Syntax, identity and canonical layout (complete)
@@ -282,3 +282,22 @@ tests green. Explain any fixture contract changes and update only relevant count
 - All focused tests pass. These exercise the slice-2 implementation already
   passing the full compiler suite/sweeps; no production compiler change or fixture
   update is needed. The combined full pinned VM gate remains in progress.
+
+### Slice 4 — Initialization and low-level storage (complete)
+
+- The transitive initializer guard introduced in slice 1 already rejects list/
+  string initialization through nested records, arrays and generic wrappers, at
+  module and local scope. RAM absolute addresses, ordinary storage aliases and
+  static subobject-address relocations remain distinct from initialization.
+- Extended the shared VM harness with watched bus events. Three six-lane tests
+  prove volatile alias propagation, selected byte/word widths, retained repeated
+  reads, skipped conditional reads, read-before-write compound order (no dummy
+  writes), immutable full-width snapshots and complete volatile copies. Multi-byte
+  access is not atomic; classic and MIR may use different byte access orders.
+- Three compiler tests preserve qualifier rejections, target layout/alignment
+  facts, and 1/2/4-byte volatile operations plus CopyBytes flags before/after NIR
+  optimization. Absolute bindings retain existing semantics; this slice does not
+  introduce a new raw-address alignment policy.
+- Focused compiler and VM tests pass, as do the access, indirect-call and CASE-
+  guard harness regressions (13 VM tests). No production compiler or fixture
+  change was necessary. The combined full pinned VM gate remains in progress.
