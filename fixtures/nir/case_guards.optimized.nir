@@ -38,48 +38,50 @@ bb1:
   copy_bytes *%t1 = __actionc_value_4 size=2
   copy_bytes __actionc_value_5 = current size=2
   %t2:Byte = load __actionc_value_5.+0
-  %t3:condition = cmp %t2 Ge 1 operand_ty=Byte
-  branch %t3 ? bb5 : bb4
-bb5:
-  %t4:condition = cmp %t2 Le 2 operand_ty=Byte
-  branch %t4 ? bb3 : bb4
+  %t3:condition = cmp %t2 Eq 2 operand_ty=Byte
+  branch %t3 ? bb3 : bb7
 bb3:
+  %t4:Byte = load __actionc_value_5.+1
+  store Main::block0::code = %t4
+  %t5:Byte = call Reject() signature=s1079941742 convention=target-public
+  %t6:condition = cmp %t5 Ne 0 operand_ty=Byte
+  branch %t6 ? bb5 : bb6
+bb5:
+  store output = 255
   goto bb2
-bb4:
+bb6:
+  %t8:Byte = load __actionc_value_5.+1
+  store Main::block1::code = %t8
+  %t10:condition = cmp %t8 Gt 3 operand_ty=Byte
+  branch %t10 ? bb8 : bb7
+bb8:
+  %t11:Byte = load Main::block1::code
+  store output = %t11
+  goto bb2
+bb7:
+  %t12:condition = cmp %t2 Ge 1 operand_ty=Byte
+  branch %t12 ? bb11 : bb10
+bb11:
+  %t13:condition = cmp %t2 Le 2 operand_ty=Byte
+  branch %t13 ? bb9 : bb10
+bb9:
+  %t14:Byte = load calls
+  %t15:condition = cmp %t14 Eq 2 operand_ty=Byte
+  branch %t15 ? bb12 : bb10
+bb12:
+  store output = 2
+  goto bb2
+bb10:
+  %t16:condition = cmp %t2 Ge 1 operand_ty=Byte
+  branch %t16 ? bb15 : bb14
+bb15:
+  %t17:condition = cmp %t2 Le 2 operand_ty=Byte
+  branch %t17 ? bb13 : bb14
+bb13:
+  store output = 0
+  goto bb2
+bb14:
   call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
   exit
 bb2:
-  %t5:Byte = load __actionc_value_5.+0
-  %t6:condition = cmp %t5 Eq 2 operand_ty=Byte
-  branch %t6 ? bb7 : bb11
-bb7:
-  %t7:Byte = load __actionc_value_5.+1
-  %t8:Byte = call Reject() signature=s1079941742 convention=target-public
-  %t9:condition = cmp %t8 Ne 0 operand_ty=Byte
-  branch %t9 ? bb9 : bb10
-bb9:
-  store output = 255
-  goto bb6
-bb10:
-  %t11:Byte = load __actionc_value_5.+1
-  store Main::block1::code = %t11
-  %t13:condition = cmp %t11 Gt 3 operand_ty=Byte
-  branch %t13 ? bb12 : bb11
-bb12:
-  %t14:Byte = load Main::block1::code
-  store output = %t14
-  goto bb6
-bb11:
-  goto bb13
-bb13:
-  %t15:Byte = load calls
-  %t16:condition = cmp %t15 Eq 2 operand_ty=Byte
-  branch %t16 ? bb15 : bb14
-bb15:
-  store output = 2
-  goto bb6
-bb14:
-  store output = 0
-  goto bb6
-bb6:
   return

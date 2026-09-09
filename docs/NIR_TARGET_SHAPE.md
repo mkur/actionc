@@ -1302,8 +1302,13 @@ produce no zeroing operations or scratch locals; singleton gaps use a store,
 and larger gaps retain an ordinary SIZE-indexed loop over that exact range.
 This reuses the typed aggregate/loop boundary rather than adding variant-aware
 NIR or target-specific constructor passes.
-Contiguous valid tags without inline nested variants use one existing CASE
-interval. Active inline nested values are validated recursively; pointers are
+Standalone validation of contiguous valid tags without inline nested variants
+uses one existing CASE interval. For matching those values, shared SemIR folds
+validation into constructor dispatch and a final unmatched InvalidVariantTag arm.
+Source ELSE/wildcard arms receive a valid-tag interval before their bindings,
+guards or bodies, so invalid values cannot enter user code. No separate
+preliminary validation CASE is needed. Active inline nested values retain early
+recursive validation before matching; pointers are
 never followed. A semantic zero image without a source initializer is still an
 executable native activation initializer, including one-/two-byte aggregates.
 
@@ -1323,7 +1328,7 @@ Checked variant-containing value assignments receive ordered ADDRESS comparisons
 and an InvalidVariantOverlap fault for partial overlap when SemIR cannot establish
 identical/disjoint extents. Source validation dominates the single transfer;
 known self-copies retain validation but omit the transfer. CASE/call captures
-remain distinct. `CopyBytes` itself stays overlap-safe: this source restriction
+retain their value-snapshot semantics. `CopyBytes` itself stays overlap-safe: this source restriction
 does not weaken the general NIR operation or mark variant pointers no-alias.
 See [the storage contract](VARIANT_STORAGE_CONTRACT.md).
 

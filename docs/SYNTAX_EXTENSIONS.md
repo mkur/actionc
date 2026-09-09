@@ -199,6 +199,11 @@ explicit pointers and storage management; there is no hidden allocation or GC.
 Variant tag zero is invalid, and a value read validates active inline variants
 before exposing payloads. Malformed tags invoke Error(105) on Atari, including
 before ELSE. Tags, padding and native layouts are not a portable serialization ABI.
+For CASE over variants without inline nested variants, constructor dispatch
+performs that validation: invalid tags reach the final unmatched fault path.
+ELSE and wildcard guards accept only valid tags. Nested values retain early
+validation before any pattern test, payload binding or user guard. See
+[CASE validation lowering](VARIANT_CASE_VALIDATION.md).
 
 See the [variant tutorial](tutorials/VARIANTS.md) for complete examples, immutable
 binding restrictions, coverage rules, generic limits and the backend matrix.

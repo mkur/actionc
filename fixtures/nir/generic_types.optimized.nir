@@ -41,32 +41,20 @@ bb2:
   %t6:Card* = addr data.+0
   store %t6[2;2] = $3E8
   %t7:Byte = load current.+0
-  %t8:condition = cmp %t7 Ge 1 operand_ty=Byte
-  branch %t8 ? bb9 : bb8
-bb9:
-  %t9:condition = cmp %t7 Le 2 operand_ty=Byte
-  branch %t9 ? bb7 : bb8
+  %t8:condition = cmp %t7 Eq 1 operand_ty=Byte
+  branch %t8 ? bb7 : bb8
 bb7:
+  store output = 0
   goto bb6
 bb8:
+  %t9:condition = cmp %t7 Eq 2 operand_ty=Byte
+  branch %t9 ? bb9 : bb10
+bb9:
+  %t10:Byte = load current.+1
+  store output = %t10
+  goto bb6
+bb10:
   call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
   exit
 bb6:
-  %t10:Byte = load current.+0
-  %t11:condition = cmp %t10 Eq 1 operand_ty=Byte
-  branch %t11 ? bb11 : bb12
-bb11:
-  store output = 0
-  goto bb10
-bb12:
-  %t12:condition = cmp %t10 Eq 2 operand_ty=Byte
-  branch %t12 ? bb13 : bb14
-bb13:
-  %t13:Byte = load current.+1
-  store output = %t13
-  goto bb10
-bb14:
-  call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
-  exit
-bb10:
   return

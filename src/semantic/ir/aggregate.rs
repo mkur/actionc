@@ -9,6 +9,14 @@ struct AggregateValue {
     preparation: Vec<SemStmt>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AggregateValidation {
+    BeforeUse,
+    /// Only CASE over a type without inline variant payloads may validate by
+    /// matching valid outer tags and faulting on its final unmatched path.
+    CaseDispatch,
+}
+
 impl IrBuilder<'_> {
     pub(super) fn lower_variant_case(
         &mut self,
@@ -21,7 +29,18 @@ impl IrBuilder<'_> {
             self.model.variants.matches[&super::super::ExpressionSite::new(scope, span)].clone();
         let variant = self.model.variants.types[&facts.owner].clone();
         let ty = ValueType::aggregate(variant.identity.clone());
-        let captured = self.capture_aggregate_value(scope, &ty, selector);
+        let dispatch_validates = !variant.constructors.iter().any(|constructor| {
+            constructor.fields.iter().any(|field| {
+                self.aggregate_requires_validation(&self.model.fields[field.0].ty)
+            })
+        });
+        let validation = if dispatch_validates {
+            AggregateValidation::CaseDispatch
+        } else {
+            AggregateValidation::BeforeUse
+        };
+        let captured =
+            self.capture_aggregate_value_with_validation(scope, &ty, selector, validation);
         let mut lowered_arms = Vec::new();
         for (arm, facts) in arms.iter().zip(facts.arms) {
             let block = self
@@ -96,10 +115,20 @@ impl IrBuilder<'_> {
             lowered_arms.push(SemCaseArm {
                 guard,
                 tests,
-                labels: match facts.pattern { super::super::patterns::Pattern::Constructor(id, _) => Some(id), _ => None }.map(|id| {
+                labels: match facts.pattern {
+                    super::super::patterns::Pattern::Constructor(id, _) => {
+                        Some((u64::from(id.tag), u64::from(id.tag)))
+                    }
+                    // ELSE and guarded wildcards cover only constructed values.
+                    // Invalid tags must reach the fault without evaluating a
+                    // wildcard guard, binding a payload or entering user code.
+                    _ if dispatch_validates => Some((1, variant.constructors.len() as u64)),
+                    _ => None,
+                }
+                .map(|(low, high)| {
                     vec![super::super::CaseRange {
-                        low: u64::from(id.tag),
-                        high: u64::from(id.tag),
+                        low,
+                        high,
                         span: arm.span,
                     }]
                 }),
@@ -486,8 +515,28 @@ impl IrBuilder<'_> {
         expected: &ValueType,
         expr: &Expr,
     ) -> AggregateValue {
+        self.capture_aggregate_value_with_validation(
+            scope,
+            expected,
+            expr,
+            AggregateValidation::BeforeUse,
+        )
+    }
+
+    fn capture_aggregate_value_with_validation(
+        &mut self,
+        scope: ScopeId,
+        expected: &ValueType,
+        expr: &Expr,
+        validation: AggregateValidation,
+    ) -> AggregateValue {
         let capture = self.private_value_place(scope, expected.clone(), expr.span);
-        let preparation = self.initialize_aggregate_value(scope, capture.clone(), expr);
+        let preparation = self.initialize_aggregate_value_with_validation(
+            scope,
+            capture.clone(),
+            expr,
+            validation,
+        );
         AggregateValue {
             place: capture,
             preparation,
@@ -501,6 +550,21 @@ impl IrBuilder<'_> {
         scope: ScopeId,
         capture: SemLValue,
         expr: &Expr,
+    ) -> Vec<SemStmt> {
+        self.initialize_aggregate_value_with_validation(
+            scope,
+            capture,
+            expr,
+            AggregateValidation::BeforeUse,
+        )
+    }
+
+    fn initialize_aggregate_value_with_validation(
+        &mut self,
+        scope: ScopeId,
+        capture: SemLValue,
+        expr: &Expr,
+        validation: AggregateValidation,
     ) -> Vec<SemStmt> {
         let expected = &capture.ty;
         // A later call/fault must not expose an earlier partially initialized
@@ -574,11 +638,15 @@ impl IrBuilder<'_> {
             assert_eq!(call.return_type.as_ref(), Some(expected));
             call.aggregate_result = Some(capture.clone());
             preparation.push(SemStmt::Call { call, span: expr.span });
-            preparation.extend(self.validate_aggregate_value(scope, &capture));
+            if validation == AggregateValidation::BeforeUse {
+                preparation.extend(self.validate_aggregate_value(scope, &capture));
+            }
         } else {
             let source = self.lower_lvalue(scope, expr);
             preparation.push(self.copy_value(capture.clone(), source, expr.span));
-            preparation.extend(self.validate_aggregate_value(scope, &capture));
+            if validation == AggregateValidation::BeforeUse {
+                preparation.extend(self.validate_aggregate_value(scope, &capture));
+            }
         }
         preparation
     }
