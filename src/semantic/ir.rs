@@ -2308,10 +2308,14 @@ struct IrBuilder<'a> {
     numeric_defines: HashMap<SymbolId, NumberLiteral>,
     next_private_symbol: usize,
     aggregate_locals: Vec<SemDeclaration>,
+    // Positive backing facts from declarations already lowered. Absence is
+    // unknown, never evidence that a source cannot alias private storage.
+    ordinary_value_symbols: HashSet<SymbolId>,
     routine_result: Option<ValueType>,
 }
 
 mod aggregate;
+mod fresh;
 
 impl<'a> IrBuilder<'a> {
     fn new(model: &'a SemanticModel) -> Self {
@@ -2321,6 +2325,7 @@ impl<'a> IrBuilder<'a> {
             numeric_defines: HashMap::new(),
             next_private_symbol: model.symbols.symbols.len(),
             aggregate_locals: Vec::new(),
+            ordinary_value_symbols: HashSet::new(),
             routine_result: None,
         }
     }
@@ -2722,6 +2727,12 @@ impl<'a> IrBuilder<'a> {
                             SemDeclarationStorage::Array { array_type, .. } if array_type.length.is_some())))
                         .then_some(SemStaticInitializer { initialized_extent: 0, writes: Vec::new() })
                 });
+                if matches!(storage, SemDeclarationStorage::Scalar)
+                    && !symbol.is_volatile
+                    && (initializer.is_none() || static_initializer.is_some())
+                {
+                    self.ordinary_value_symbols.insert(symbol.id);
+                }
                 Some(SemDeclaration {
                     ty,
                     symbol,
@@ -3149,17 +3160,15 @@ impl<'a> IrBuilder<'a> {
                 // This is compiler-owned initialization, not source assignment.
                 access: PlaceAccess::Assignable, is_volatile: false, storage: None, span: *span,
             };
-            let initialization = if self.aggregate_requires_validation(&ty.value)
-                || (ty.value.is_record() && self.is_aggregate_call_source(scope, value)) {
-                self.lower_checked_aggregate_assignment(scope, target, value, *span)
-            } else if ty.value.is_record() {
-                vec![self.lower_aggregate_copy(scope, target, value, *span)]
+            let initialization = if ty.value.is_record() {
+                self.lower_fresh_aggregate_initialization(scope, target, value, *span)
             } else {
                 vec![SemStmt::Assign {
                     value: self.lower_scalar_value_for_expected_type(scope, &ty.value, value),
                     target, span: *span,
                 }]
             };
+            self.ordinary_value_symbols.insert(symbol.id);
             let declaration = SemDeclaration {
                 symbol, ty, storage: SemDeclarationStorage::Scalar,
                 initializer: None, static_initializer: None, span: *span, group_span: *span,

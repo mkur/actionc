@@ -1,11 +1,19 @@
 # Private aggregate storage forwarding
 
 Created: 2026-09-09.
-Status: slice 1 proof foundation implemented; no forwarding enabled yet.
+Status: slice 1 proof foundation and bounded slice 2 fresh initialization
+implemented; general NIR copy forwarding is not enabled.
 
 First increment: verified read-only byte-range/address-use/unchanged-interval
 queries and the shared 12-case NIR/VM baseline are implemented. See
 [baseline and remaining work](PRIVATE_AGGREGATE_FORWARDING_BASELINE.md).
+
+Slice 2 now distinguishes fresh LET initialization from replacement, shares
+destination-aware constructor preparation, and removes eligible nested staging.
+Whole native call results can use the binding; routine-static calls and unsafe
+constructors retain staging. See [implementation, limits and measurements](PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md).
+The broader slice 1 lifetime/initialization proofs remain prerequisites for
+slice 3 rewrites, not claims made by the existing read-only region queries.
 
 ## Objective and baseline
 
@@ -17,12 +25,11 @@ not a new representation or language feature.
 Cover both **fresh initialization**, where shared semantic lowering can avoid
 creating staging storage in the first place, and **subsequent copy forwarding**,
 where NIR must prove that already-created storage/copies are redundant. Fresh
-initialization is the next code-generation slice; it does not depend on completing
-general aggregate lifetime analysis or teaching NIR to follow mutable pointer
-relays.
+initialization is implemented in slice 2 without depending on complete general
+aggregate lifetime analysis or teaching NIR to follow mutable pointer relays.
 
-The earlier variant-storage-contract work is a separate, currently uncommitted
-change. Do not mix its checked-assignment/overlap changes into this series or
+The earlier variant-storage-contract work is committed separately as `09477b2`.
+Do not mix its checked-assignment/overlap changes into this series or
 infer general no-alias guarantees from the variant-only contract. Measurements
 must identify whether they include that working-tree baseline.
 
@@ -201,6 +208,17 @@ before general NIR copy coalescing. Broader storage-dependent proofs remain in
 NIR and are extended only as subsequent rewrites need them.
 
 Suggested commit: `language: initialize fresh private aggregates in place`.
+
+Implemented boundary: call/fault-free constructors over literals, integer
+expressions and known ordinary sources; direct ordinary snapshots (validation
+before publication); whole fresh call-result buffers under native automatic
+activation. Constructor fields inherit freshness only when the entire producer
+passes the bounded proof. Nested call results remain whole captures. No purity
+is inferred from the default effects of user calls, and Atari calls are not
+redirected without a separate nonreentry proof. Alias/absolute/volatile and
+pointer/index sources retain their previous lowering. See the linked slice 2
+note for tests, exact costs and the terminal-fault promotion correction surfaced
+by the large-payload test.
 
 ## Slice 3: bounded whole-aggregate forwarding
 

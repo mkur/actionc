@@ -44,6 +44,18 @@ or imply that Atari static activation is reentrant. Pointer-valued subobjects
 are loaded explicitly before selecting pointee fields, so nested/indexed pointer
 cells need no target-specific source reconstruction.
 
+Fresh aggregate initialization is selected in shared SemIR lowering, before
+NIR optimization: eligible constructors write payload/gaps/tag into the fresh
+binding or an inline field of its private enclosing capture. Ordinary snapshots
+still copy the full image, with checked sources validated before publication.
+Whole native automatic bindings may be aggregate call-result homes; Atari
+routine-static calls keep staging without a nonreentry proof. The complete-home
+ABI verifier is unchanged: a nested field is not a legal call-result capture.
+Replacement assignments and CASE snapshots retain their existing boundaries.
+See [fresh initialization](PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md) for the
+bounded effect/backing proof and measurements. No new executable NIR form or
+general aggregate copy-forwarding pass is introduced by this lowering change.
+
 Aggregate references carry the defining semantic `SymbolId` through SemIR into
 `NirTypeKind::Record.definition`, including through pointers and callable facts.
 The reference is finite: it never contains the record's recursively expanded

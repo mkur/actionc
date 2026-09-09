@@ -277,7 +277,7 @@ impl IrBuilder<'_> {
         }
     }
 
-    fn copy_value(&self, destination: SemLValue, source: SemLValue, span: Span) -> SemStmt {
+    pub(super) fn copy_value(&self, destination: SemLValue, source: SemLValue, span: Span) -> SemStmt {
         assert_eq!(
             destination.ty, source.ty,
             "aggregate transfer retains nominal identity"
@@ -487,6 +487,25 @@ impl IrBuilder<'_> {
         expr: &Expr,
     ) -> AggregateValue {
         let capture = self.private_value_place(scope, expected.clone(), expr.span);
+        let preparation = self.initialize_aggregate_value(scope, capture.clone(), expr);
+        AggregateValue {
+            place: capture,
+            preparation,
+        }
+    }
+
+    /// The caller owns this fresh, private destination until preparation is
+    /// complete. Replacement assignments still prepare in a separate capture.
+    pub(super) fn initialize_aggregate_value(
+        &mut self,
+        scope: ScopeId,
+        capture: SemLValue,
+        expr: &Expr,
+    ) -> Vec<SemStmt> {
+        let expected = &capture.ty;
+        // A later call/fault must not expose an earlier partially initialized
+        // subobject. Prove the entire constructor interval, not just one field.
+        let direct_fields = self.inert_fresh_initializer(scope, expr);
         let mut preparation = Vec::new();
         if let Some(id) = self
             .model
@@ -516,9 +535,18 @@ impl IrBuilder<'_> {
             for (arg, field) in args.iter().zip(&constructor.fields) {
                 let destination = self.canonical_field_place(&capture, *field);
                 if destination.ty.is_record() {
-                    let value = self.capture_aggregate_value(scope, &destination.ty, arg);
-                    preparation.extend(value.preparation);
-                    preparation.push(self.copy_value(destination, value.place, arg.span));
+                    if direct_fields {
+                        // Inert nested constructors and complete ordinary
+                        // record/union images need no intermediate home. Calls
+                        // never reach this path: ABI results remain whole homes.
+                        preparation.extend(self.initialize_aggregate_value(
+                            scope, destination, arg,
+                        ));
+                    } else {
+                        let value = self.capture_aggregate_value(scope, &destination.ty, arg);
+                        preparation.extend(value.preparation);
+                        preparation.push(self.copy_value(destination, value.place, arg.span));
+                    }
                 } else {
                     let value =
                         self.lower_scalar_value_for_expected_type(scope, &destination.ty, arg);
@@ -552,13 +580,10 @@ impl IrBuilder<'_> {
             preparation.push(self.copy_value(capture.clone(), source, expr.span));
             preparation.extend(self.validate_aggregate_value(scope, &capture));
         }
-        AggregateValue {
-            place: capture,
-            preparation,
-        }
+        preparation
     }
 
-    fn validate_aggregate_value(&mut self, scope: ScopeId, place: &SemLValue) -> Vec<SemStmt> {
+    pub(super) fn validate_aggregate_value(&mut self, scope: ScopeId, place: &SemLValue) -> Vec<SemStmt> {
         if !self.aggregate_requires_validation(&place.ty) {
             return Vec::new();
         }

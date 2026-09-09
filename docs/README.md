@@ -40,6 +40,9 @@ crowding the active reference set.
 - [PRIVATE_AGGREGATE_FORWARDING_BASELINE.md](PRIVATE_AGGREGATE_FORWARDING_BASELINE.md)
   - shared NIR/VM corpus, logical versus ABI-expanded copy counts and initial
   read-only aggregate storage proofs.
+- [PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md](PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md)
+  - slice 2 direct fresh initialization, conservative fallbacks, regression
+  coverage and before/after code-size and VM-cycle measurements.
 - [COMPILER_API_IMPLEMENTATION_NOTE.md](COMPILER_API_IMPLEMENTATION_NOTE.md) -
   plan for a reusable, side-effect-free file compilation API shared by
   `actionc` and `actionc-run`.
