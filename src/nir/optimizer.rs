@@ -1308,7 +1308,11 @@ fn is_pure_temp_op(op: &NirOp) -> bool {
     }
     matches!(
         op,
-        NirOp::Unary { .. }
+        // AddrOf computes a value from already evaluated address/index inputs;
+        // it does not read the addressed bytes. Input calls/volatile loads are
+        // separate operations and are not removed with the unused address.
+        NirOp::AddrOf { .. }
+            | NirOp::Unary { .. }
             | NirOp::Cast { .. }
             | NirOp::PointerOffset { .. }
             | NirOp::Binary { .. }
@@ -1355,7 +1359,7 @@ fn op_def(op: &NirOp) -> Option<(TempId, &NirType)> {
     }
 }
 
-fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
+pub(super) fn collect_temps(blocks: &[NirBlock]) -> Vec<NirTemp> {
     let mut temps = Vec::new();
     for block in blocks {
         temps.extend(block.params.iter().map(|param| NirTemp {

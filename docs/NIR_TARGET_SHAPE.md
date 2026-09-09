@@ -116,9 +116,22 @@ The same-block unchanged-range query examines operations in a half-open interval
 and rejects overlapping/unknown writes, calls, machine/REAL/unsupported effects,
 volatile boundaries and potentially faulting arithmetic. It does not prove
 initialization, deadness, safe publication, nominal value substitutability or
-permission to eliminate a copy. Cross-block lifetime analysis and forwarding are
-not enabled. Recreate the analysis after any program rewrite; executable NIR,
-the optimizer pipeline and the complete-capture ABI verifier are unchanged.
+permission to eliminate a copy. Recreate the analysis after any program rewrite.
+
+The bounded aggregate-forwarding pass combines those queries with a complete
+same-block snapshot-use check. One complete initializing copy must precede all
+uses of a private capture; its backing and captured image must remain unchanged
+through the last replaced read. Nominal definition IDs and complete extents must
+match. Direct fields and bounded internal `AddrOf` consumers can read the source
+instead; observable identity, ABI operands and cross-block uses retain storage.
+This is read forwarding, not producer redirection or early publication.
+
+Home elision separately removes unreferenced private captures, accounting for
+executable places, aggregate call/return values, explicit effects, aliases,
+foreign relocations, data-image exposure and opaque machine visibility. Existing
+dead-temp cleanup handles unused address computations. Scalar eligibility,
+executable NIR forms and the complete-capture ABI verifier are unchanged.
+Cross-block lifetime/CASE reuse remains a later slice.
 
 ## Position In The Compiler
 

@@ -1,8 +1,9 @@
 # Private aggregate storage forwarding
 
 Created: 2026-09-09.
-Status: slice 1 proof foundation and bounded slice 2 fresh initialization
-implemented; general NIR copy forwarding is not enabled.
+Status: slice 1 proof foundation, bounded slice 2 fresh initialization and
+slice 3 same-block snapshot read forwarding implemented. Cross-block CASE
+reuse and aggregate ABI forwarding remain slices 4–5.
 
 First increment: verified read-only byte-range/address-use/unchanged-interval
 queries and the shared 12-case NIR/VM baseline are implemented. See
@@ -12,8 +13,9 @@ Slice 2 now distinguishes fresh LET initialization from replacement, shares
 destination-aware constructor preparation, and removes eligible nested staging.
 Whole native call results can use the binding; routine-static calls and unsafe
 constructors retain staging. See [implementation, limits and measurements](PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md).
-The broader slice 1 lifetime/initialization proofs remain prerequisites for
-slice 3 rewrites, not claims made by the existing read-only region queries.
+Slice 3 adds the bounded single-initialization/use-lifetime proof needed for
+same-block rewrites, not general CFG initialization analysis. See
+[proof boundary and measurements](PRIVATE_AGGREGATE_BOUNDED_FORWARDING.md).
 
 ## Objective and baseline
 
@@ -203,9 +205,9 @@ initialization, source syntax or required CASE validation in this slice.
   deliver the direct-initialization shape to both; native checks retain existing
   layout/ABI and missing-Error-adapter capability expectations.
 
-The next deliverable is this fresh-initialization slice, independently useful
-before general NIR copy coalescing. Broader storage-dependent proofs remain in
-NIR and are extended only as subsequent rewrites need them.
+Fresh initialization is independently useful before NIR copy coalescing.
+Broader storage-dependent proofs remain in NIR and are extended only as
+subsequent rewrites need them.
 
 Suggested commit: `language: initialize fresh private aggregates in place`.
 
@@ -240,6 +242,15 @@ Acceptance: eligible chains lose copies and allocated homes; mutation, partial
 overlap, effects and nominal-mismatch counterexamples retain correct snapshots.
 
 Suggested commit: `nir: forward bounded private aggregate copies`.
+
+Implemented boundary: complete same-nominal-type snapshots with all consumers
+after their one initializing copy in the same block. Direct reads, exact fields,
+constant indexed internal addresses and disjoint copy consumers are supported.
+Read forwarding never redirects producers or changes the time of observable
+writes. Calls/faults/unknown writes before the last read reject reuse; calls
+after it do not. Whole ABI captures and cross-block CASE snapshots remain.
+Producer redirection not already covered by slice 2 needs a distinct publication
+proof; it is not implicitly authorized by this read-forwarding pass.
 
 ## Slice 4: control-flow and subobject forwarding
 

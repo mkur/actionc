@@ -1,4 +1,5 @@
 mod analysis;
+mod aggregate_forwarding;
 mod classifier;
 mod facts;
 mod home_elision;
@@ -70,6 +71,7 @@ pub fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {
 
 pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     let optimized = optimizer::optimize_program(program)?;
+    let optimized = aggregate_forwarding::forward_program(&optimized)?;
     let optimized = storage_optimizer::propagate_program(&optimized)?;
     let optimized = promotion::promote_program(&optimized)?;
     let optimized = home_elision::elide_program(&optimized)?;

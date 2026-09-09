@@ -43,6 +43,9 @@ crowding the active reference set.
 - [PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md](PRIVATE_AGGREGATE_FRESH_INITIALIZATION.md)
   - slice 2 direct fresh initialization, conservative fallbacks, regression
   coverage and before/after code-size and VM-cycle measurements.
+- [PRIVATE_AGGREGATE_BOUNDED_FORWARDING.md](PRIVATE_AGGREGATE_BOUNDED_FORWARDING.md)
+  - slice 3 same-block snapshot proofs, complete reference accounting, retained
+  mutation/ABI boundaries and four-target NIR/Atari VM measurements.
 - [COMPILER_API_IMPLEMENTATION_NOTE.md](COMPILER_API_IMPLEMENTATION_NOTE.md) -
   plan for a reusable, side-effect-free file compilation API shared by
   `actionc` and `actionc-run`.

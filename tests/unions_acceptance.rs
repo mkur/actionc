@@ -40,8 +40,13 @@ fn native_union_pointer_views_preserve_width_endianness_and_byte_displacements()
             LET saved=original result=saved.bytes(1) RETURN"
         );
         let raw = lower(&source, target);
-        for nir in [raw.clone(), nir::optimize_program(&raw).unwrap()] {
+        for (optimized, nir) in [(false, raw.clone()), (true, nir::optimize_program(&raw).unwrap())] {
             nir::verify_program(&nir).unwrap();
+            // The source remains unchanged through saved's only read. Raw MIR
+            // exercises overlap-safe full-image transfer; optimized NIR now
+            // removes that copy AND its otherwise unused capture home.
+            assert_eq!(nir.routines.iter().flat_map(|routine| &routine.locals)
+                .any(|local| local.purpose == nir::NirLocalPurpose::AggregateCapture), !optimized);
             if target == TargetId::Motorola68000 {
                 use actionc::mir68k::*;
                 let mir = lower_program(&nir).unwrap();
@@ -59,9 +64,9 @@ fn native_union_pointer_views_preserve_width_endianness_and_byte_displacements()
                     .collect();
                 assert!(ops.iter().any(|op|matches!(op,Mir68kOp::Store{address,width,..} if width.get()==pointer_width && address.displacement.get()==0)));
                 assert!(ops.iter().any(|op|matches!(op,Mir68kOp::Store{address,width,..} if width.get()==1 && address.displacement.get()==1)));
-                assert!(ops.iter().any(
+                assert_eq!(ops.iter().any(
                     |op| matches!(op,Mir68kOp::Copy{bytes,overlap_safe:true,..} if bytes.get()==4)
-                ));
+                ), !optimized);
             } else {
                 use actionc::mir65816::*;
                 let mir = lower_program(&nir).unwrap();
@@ -79,9 +84,9 @@ fn native_union_pointer_views_preserve_width_endianness_and_byte_displacements()
                     .collect();
                 assert!(ops.iter().any(|op|matches!(op,Mir65816Op::Store{address,width,..} if width.get()==pointer_width && address.displacement.get()==0)));
                 assert!(ops.iter().any(|op|matches!(op,Mir65816Op::Store{address,width,..} if width.get()==1 && address.displacement.get()==1)));
-                assert!(ops.iter().any(
+                assert_eq!(ops.iter().any(
                     |op| matches!(op,Mir65816Op::Copy{bytes,overlap_safe:true,..} if bytes.get()==4)
-                ));
+                ), !optimized);
             }
         }
     }

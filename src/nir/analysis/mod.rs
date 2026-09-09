@@ -5,4 +5,5 @@ pub(super) mod dominance;
 pub(super) mod liveness;
 pub(super) mod predicates;
 pub(super) mod storage;
+pub(super) mod storage_references;
 pub(super) mod use_def;

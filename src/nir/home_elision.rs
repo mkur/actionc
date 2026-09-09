@@ -4,6 +4,7 @@ use super::analysis::{
     cfg::NirCfg,
     dataflow::{NirDataflowDirection, NirDataflowProblem, solve_dataflow},
     storage::{NirPromotionBlocker, NirRoutineStorageAnalysis, NirStorageBackingClass},
+    storage_references::routine_references,
 };
 use super::facts::{BlockId, NirStorageId, RoutineId, direct_storage_id, root_storage_id};
 use super::ir::*;
@@ -87,7 +88,7 @@ fn eliminate_dead_stores(routine: &mut NirRoutine, analysis: &NirRoutineStorageA
 }
 
 fn eliminate_unused_local_homes(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysis) {
-    let removable = analysis
+    let mut removable = analysis
         .homes
         .values()
         .filter(|facts| matches!(facts.id, NirStorageId::Local(_)))
@@ -100,6 +101,26 @@ fn eliminate_unused_local_homes(routine: &mut NirRoutine, analysis: &NirRoutineS
         .filter(|facts| facts.blockers == BTreeSet::from([NirPromotionBlocker::NoDirectAccess]))
         .map(|facts| facts.id)
         .collect::<BTreeSet<_>>();
+
+    // Aggregate homes are not scalar-promotion candidates. Only discard a
+    // private capture once ALL executable/ABI/effect/alias references are gone;
+    // data relocations and opaque machine visibility are independent blockers.
+    let referenced = routine_references(routine);
+    for local in &routine.locals {
+        let id = NirStorageId::Local(local.id);
+        if local.purpose == NirLocalPurpose::AggregateCapture
+            && local.backing == NirLocalBacking::Ordinary
+            && local.init.is_none()
+            && !referenced.contains(&id)
+            && analysis.homes.get(&id).is_some_and(|facts| {
+                !facts.address_in_data
+                    && !facts.machine_visible
+                    && !facts.blockers.contains(&NirPromotionBlocker::AliasedStorage)
+            })
+        {
+            removable.insert(id);
+        }
+    }
 
     routine
         .locals
