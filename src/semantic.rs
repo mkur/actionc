@@ -840,9 +840,8 @@ impl Analyzer {
             if !routine.is_external || routine.visibility != Visibility::Public {
                 continue;
             }
-            // Native REAL is a modern extension, while the compatibility
-            // prelude must keep REAL available as an ordinary user name.
-            // These SYS members therefore remain qualified-only and are
+            // Modern numeric extensions must not reserve new routine names
+            // in the compatibility prelude. These members are qualified-only,
             // installed through MODULE SYS rather than the legacy prelude.
             if is_qualified_only_sys_extension(&routine.name) {
                 continue;
@@ -5542,6 +5541,10 @@ fn is_qualified_only_sys_extension(name: &str) -> bool {
     matches!(
         name.to_ascii_uppercase().as_str(),
         "STRR" | "VALR" | "PRINTR" | "PRINTRE" | "PRINTRD" | "PRINTRDE" | "INPUTR" | "INPUTRD"
+        | "STRLC" | "STRLI" | "VALLC" | "VALLI"
+        | "PRINTLC" | "PRINTLCE" | "PRINTLCD" | "PRINTLCDE"
+        | "PRINTLI" | "PRINTLIE" | "PRINTLID" | "PRINTLIDE"
+        | "INPUTLC" | "INPUTLCD" | "INPUTLI" | "INPUTLID"
     )
 }
 

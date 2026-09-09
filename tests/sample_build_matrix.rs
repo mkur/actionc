@@ -26,7 +26,10 @@ struct BuildCase {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum SampleRole {
-    Executable { builds: Vec<BuildCase> },
+    Executable {
+        builds: Vec<BuildCase>,
+        mir6502_only_reason: Option<&'static str>,
+    },
     Dependency { used_by: &'static [&'static str] },
     SourceOnly { reason: &'static str },
 }
@@ -113,7 +116,23 @@ fn experimental_with_module_path(runtime: Runtime, module_path: &'static str) ->
 fn executable(path: &'static str, builds: Vec<BuildCase>) -> SampleSpec {
     SampleSpec {
         path,
-        role: SampleRole::Executable { builds },
+        role: SampleRole::Executable {
+            builds,
+            mir6502_only_reason: None,
+        },
+    }
+}
+
+fn mir6502_executable(path: &'static str, reason: &'static str) -> SampleSpec {
+    SampleSpec {
+        path,
+        role: SampleRole::Executable {
+            builds: vec![
+                experimental(Runtime::ActionCart),
+                experimental(Runtime::Standalone),
+            ],
+            mir6502_only_reason: Some(reason),
+        },
     }
 }
 
@@ -136,6 +155,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
     use Runtime::{ActionCart, Standalone};
 
     vec![
+        mir6502_executable(
+            "samples/long-integers/long-integers.act",
+            "LONGINT/LONGCARD execution is supported only by the MIR6502 backend on Atari",
+        ),
         executable(
             "samples/enum-case.act",
             vec![release(Optimized, ActionCart), release(Optimized, Standalone), experimental(ActionCart), experimental(Standalone)],
@@ -681,17 +704,35 @@ fn sample_catalog_roles_are_complete_and_consistent() {
 
     for spec in &catalog {
         match &spec.role {
-            SampleRole::Executable { builds } => {
+            SampleRole::Executable {
+                builds,
+                mir6502_only_reason,
+            } => {
                 assert!(
                     !builds.is_empty(),
                     "executable sample has no declared build: {}",
                     spec.path
                 );
-                assert!(
-                    builds.iter().any(|build| build.tier == BuildTier::Release),
-                    "executable sample has no release-tier build: {}",
-                    spec.path
-                );
+                if let Some(reason) = mir6502_only_reason {
+                    assert!(
+                        reason.trim().len() >= 20 && !reason.to_ascii_lowercase().contains("todo"),
+                        "MIR6502-only sample needs a meaningful explanation: {}",
+                        spec.path
+                    );
+                    assert!(
+                        builds
+                            .iter()
+                            .all(|build| build.tier == BuildTier::Experimental),
+                        "MIR6502-only sample advertises a classic build: {}",
+                        spec.path
+                    );
+                } else {
+                    assert!(
+                        builds.iter().any(|build| build.tier == BuildTier::Release),
+                        "executable sample has no release-tier build: {}",
+                        spec.path
+                    );
+                }
                 let mut distinct = BTreeSet::new();
                 for build in builds {
                     match build.tier {
@@ -760,7 +801,7 @@ fn sample_catalog_roles_are_complete_and_consistent() {
                             );
                         }
                     }
-                    if build.tier == BuildTier::Experimental {
+                    if build.tier == BuildTier::Experimental && mir6502_only_reason.is_none() {
                         assert!(
                             builds.iter().any(|release| {
                                 release.tier == BuildTier::Release
@@ -830,7 +871,7 @@ fn run_build_matrix(tier: BuildTier) {
     let mut failures = Vec::new();
 
     for spec in sample_catalog() {
-        let SampleRole::Executable { builds } = spec.role else {
+        let SampleRole::Executable { builds, .. } = spec.role else {
             continue;
         };
         for build in builds.iter().filter(|build| build.tier == tier) {

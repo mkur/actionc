@@ -61,13 +61,15 @@ infer LONGINT when representable, otherwise LONGCARD; wide hex uses LONGCARD.
 
 Arithmetic wraps at its selected width. Division truncates toward zero;
 remainder has the dividend's sign. MIN/-1 wraps to MIN. Runtime division or
-remainder by zero invokes Error(100), and does not resume the failed operation.
+remainder by zero invokes Error(101), and does not resume the failed operation.
 LSH/RSH are logical shifts; counts at least the operand width produce zero.
 
 Wide types work in variables, initializers, arrays, embedded record arrays,
 pointer elements, parameters, FUNC results and typed FUNC POINTER signatures.
-Existing library routines keep their declared BYTE/CARD/INT interfaces; this
-does not add 32-bit formatted I/O or widen cartridge runtime entry points.
+Existing library routines keep their declared BYTE/CARD/INT interfaces.
+Qualified `SYS.PrintLC`/`SYS.PrintLI` families and the corresponding string
+conversion/input routines provide [32-bit decimal I/O](LONG_INTEGER_IO.md)
+without widening cartridge runtime entry points or `PrintF` arguments.
 Direct conversions between REAL and 32-bit integers remain unsupported.
 Wide CASE uses 32-bit comparisons; BYTE/INT/CARD/enum CASE retains its own width.
 Constant-step FOR loops retain direction and stop before wrapping past the
@@ -195,7 +197,7 @@ as `Option<BYTE>.SOME(7)`. Nullary constructors omit parentheses. Each instance
 is nominal; equal layouts do not make types compatible. Recursive data requires
 explicit pointers and storage management; there is no hidden allocation or GC.
 Variant tag zero is invalid, and a value read validates active inline variants
-before exposing payloads. Malformed tags invoke Error(100) on Atari, including
+before exposing payloads. Malformed tags invoke Error(105) on Atari, including
 before ELSE. Tags, padding and native layouts are not a portable serialization ABI.
 
 See the [variant tutorial](tutorials/VARIANTS.md) for complete examples, immutable

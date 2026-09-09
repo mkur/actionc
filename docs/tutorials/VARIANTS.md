@@ -35,7 +35,7 @@ an arm allows ordinary local declarations and LET.
 The representation uses a BYTE tag (1..255) and an overlapping inline payload.
 Zero means unconstructed, not the first alternative. Construct values with
 runtime assignment before reading them. An invalid tag, including an active
-nested variant's tag, invokes Error(100) on Atari before any arm or value copy
+nested variant's tag, invokes Error(105) on Atari before any arm or value copy
 is exposed. Even ELSE does not catch invalid storage.
 
 Construction evaluates payloads once, left to right, zeros only unused storage
@@ -213,7 +213,7 @@ Independent variant objects must not partially overlap. Typed whole-value copies
 (also of records with inline variants) require identical or disjoint ranges;
 self-assignment, adjacent arena slots and nested variant subobjects remain valid.
 Unknown pointer-copy ranges are checked before writing and partial overlap invokes
-Error(100) on Atari. This does not provide general raw-pointer safety. Plain record
+Error(106) on Atari. This does not provide general raw-pointer safety. Plain record
 and UNION copies keep their overlap-safe behavior. See the
 [variant storage contract](../VARIANT_STORAGE_CONTRACT.md).
 

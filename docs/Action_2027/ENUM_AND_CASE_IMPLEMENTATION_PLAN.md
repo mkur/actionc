@@ -218,7 +218,7 @@ full 2,779-test compiler suite, snapshots, and all 35 NIR sweep fixtures pass.
 The VM tests execute all 256 byte inputs with signed/unsigned word boundaries,
 pointer selectors, canaries, and selector-call counts in all four combinations.
 CHAR ranges pass the internal executor matrix. Volatile NIR has exactly one
-selector read before and after optimization. Selected faults reach Error(100)
+selector read before and after optimization. Selected arithmetic faults reach Error(101)
 without continuation; unselected calls/stores/faults have no effects. Fault tests
 install an explicit returning Error observer; other cart execution uses real ROMs.
 

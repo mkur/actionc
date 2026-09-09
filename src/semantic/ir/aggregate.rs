@@ -119,7 +119,7 @@ impl IrBuilder<'_> {
                 tests: Vec::new(),
                 labels: None,
                 body: vec![SemStmt::Fault {
-                    kind: crate::runtime_fault::RuntimeFault::InvalidVariant,
+                    kind: crate::runtime_fault::RuntimeFault::InvalidVariantTag,
                     span,
                 }],
                 span,
@@ -639,7 +639,7 @@ impl IrBuilder<'_> {
                 tests: Vec::new(),
                 labels: None,
                 body: vec![SemStmt::Fault {
-                    kind: crate::runtime_fault::RuntimeFault::InvalidVariant,
+                    kind: crate::runtime_fault::RuntimeFault::InvalidVariantTag,
                     span: place.span,
                 }],
                 span: place.span,
@@ -791,7 +791,7 @@ impl IrBuilder<'_> {
                     binary(BinaryOp::Sub, high, low, false),
                     Self::integer_expr(ScalarType::Address, u64::from(size), span), true)),
                 body: vec![SemStmt::Fault {
-                    kind: crate::runtime_fault::RuntimeFault::InvalidVariant, span,
+                    kind: crate::runtime_fault::RuntimeFault::InvalidVariantOverlap, span,
                 }],
             }], else_body: Vec::new(), span,
         };

@@ -116,7 +116,7 @@ fn execute(image: &[u8], runtime: Runtime, a: u32, b: u32, fault: bool) -> Vec<u
             (0x720..=0x723)
                 .map(|a| outcome.memory().read(a))
                 .collect::<Vec<_>>(),
-            [100, 0, 100, 1]
+            [101, 0, 101, 1]
         );
         assert_eq!(outcome.report.registers.status & 8, 0);
         let pc = outcome.report.registers.pc;

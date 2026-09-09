@@ -5,6 +5,9 @@ small programs, not benchmark-loop extrapolations or a claim of zero-cost ADTs.
 The implementation and host oracles are in
 [`adt_codegen_audit.rs`](../tools/vm-runtime-tests/tests/adt_codegen_audit.rs).
 The checked-in [CSV](ADT_CODEGEN_BASELINE.csv) contains all 24 configurations.
+The historical generic Error(100) mentioned below has since been split: current
+tag-validation probes use Error(105,0,105). This note/CSV remains a dated baseline,
+not a claim that the current binaries have identical sizes.
 
 ## Method and gate
 

@@ -41,6 +41,47 @@ impl Drop for TestDir {
     }
 }
 
+#[test]
+fn unused_wide_sys_interfaces_do_not_require_mir6502() {
+    let temp = TestDir::new();
+    let source = temp.source("sys-narrow.act", "MODULE TEST USE SYS PROC Main() SYS.PrintCE(42) RETURN ENDMODULE");
+    for mode in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            compile_file(&source, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+        }
+    }
+}
+
+#[test]
+fn classic_diagnoses_used_wide_sys_abis_even_with_narrow_arguments() {
+    let temp = TestDir::new();
+    for call in ["SYS.PrintLC(1)", "SYS.StrLI(1,text)", "value=SYS.ValLC(text)"] {
+        let source = temp.source("sys-wide.act", &format!(
+            "MODULE TEST USE SYS STRING text(12) CARD value PROC Main() {call} RETURN ENDMODULE"
+        ));
+        for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let error = compile_file(&source, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap_err();
+                assert!(error.to_string().contains("requires the MIR6502 backend"), "{error}");
+            }
+        }
+        let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+            .args(["--profile", "modern", "--backend", "classic", "--emit-code"])
+            .arg(&source).output().unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("requires the MIR6502 backend"));
+    }
+}
+
+#[test]
+fn long_io_names_do_not_change_the_compatibility_prelude() {
+    let temp = TestDir::new();
+    let source = temp.source("user-long-name.act", "CARD FUNC ValLC(CARD n) RETURN(n) PROC PrintLC(CARD n) PrintCE(n) RETURN PROC Main() CARD value value=ValLC(42) PrintLC(value) RETURN");
+    for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+        compile_file(&source, &CompileOptions::for_mode(mode)).unwrap();
+    }
+}
+
 fn hardware_source(temp: &TestDir) -> PathBuf {
     temp.source(
         "hardware.act",
@@ -668,7 +709,7 @@ fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
             })
             .collect::<Vec<_>>();
 
-        assert_eq!(public_routines.len(), 79, "complete SYS API");
+        assert_eq!(public_routines.len(), 95, "complete SYS API");
         for (symbol_id, symbol) in public_routines {
             if matches!(
                 symbol.name.to_ascii_uppercase().as_str(),
@@ -680,6 +721,10 @@ fn implicit_sys_public_routines_share_the_compatibility_symbol_ids() {
                     | "PRINTRDE"
                     | "INPUTR"
                     | "INPUTRD"
+                    | "STRLC" | "STRLI" | "VALLC" | "VALLI"
+                    | "PRINTLC" | "PRINTLCE" | "PRINTLCD" | "PRINTLCDE"
+                    | "PRINTLI" | "PRINTLIE" | "PRINTLID" | "PRINTLIDE"
+                    | "INPUTLC" | "INPUTLCD" | "INPUTLI" | "INPUTLID"
             ) {
                 assert!(
                     model

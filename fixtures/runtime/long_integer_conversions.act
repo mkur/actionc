@@ -1,0 +1,38 @@
+; Exercise both 32-bit decimal directions, including exact-size destinations.
+MODULE LONG_CONVERSIONS
+USE SYS
+BYTE ARRAY zero(11)=$0601,maximum(11)=$0611
+BYTE ARRAY minimum(12)=$0621,signedMaximum(12)=$0631
+BYTE ARRAY minusOne(12)=$0641,positive(12)=$0651
+LONGCARD ARRAY unsignedValues(5)=$0670
+LONGINT ARRAY signedValues(5)=$0690
+BYTE ARRAY longText(256)=$0800
+LONGCARD longResult=$06B0
+BYTE done=$06FF
+
+PROC Main()
+  CARD i
+  SYS.StrLC(0,zero)
+  SYS.StrLC($FFFFFFFF,maximum)
+  SYS.StrLI(-2147483648,minimum)
+  SYS.StrLI(2147483647,signedMaximum)
+  SYS.StrLI(-1,minusOne)
+  SYS.StrLI(70000,positive)
+  unsignedValues(0)=SYS.ValLC(zero)
+  unsignedValues(1)=SYS.ValLC(maximum)
+  unsignedValues(2)=SYS.ValLC("  +42  ")
+  unsignedValues(3)=SYS.ValLC("65536")
+  unsignedValues(4)=SYS.ValLC("00001")
+  signedValues(0)=SYS.ValLI(minimum)
+  signedValues(1)=SYS.ValLI(signedMaximum)
+  signedValues(2)=SYS.ValLI(minusOne)
+  signedValues(3)=SYS.ValLI(" -0 ")
+  signedValues(4)=SYS.ValLI(positive)
+  longText(0)=255
+  FOR i=1 TO 254 DO longText(i)=48 OD
+  longText(255)=49
+  longResult=SYS.ValLC(longText)
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE

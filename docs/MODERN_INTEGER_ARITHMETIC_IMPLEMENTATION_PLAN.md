@@ -78,11 +78,11 @@ ordering; a helper optimization cannot duplicate a call or hardware read.
 - Dynamic-zero rule: a deterministic, non-returning arithmetic
   fault, with no normal result and no following source effects executed.
   The target-independent kind is `ArithmeticFault::DivisionByZero`. On Atari
-  6502, the helper calls existing Error with A=100, X=0, Y=100 (cartridge `$04CB`
-  or linked standalone SYSLIB Error). Code 100 reuses the cartridge library's
-  invalid Sound argument convention; the original division has no zero check
+  6502, the helper calls existing Error with A=101, X=0, Y=101 (cartridge `$04CB`
+  or linked standalone SYSLIB Error). Code 101 is actionc's dedicated extension,
+  replacing the initial generic-100 fallback; original division has no zero check
   or dedicated error code. If Error returns, the helper clears decimal mode,
-  restores A/Y=100, sets carry, and enters a `BCS` self-loop. No normal return
+  restores A/Y=101, sets carry, and enters a `BCS` self-loop. No normal return
   or following source effect occurs. This is not exception unwinding or
   recovery. Each native emitter must define its delivery before executable
   support is enabled. See [Atari runtime errors](ATARI_RUNTIME_ERRORS.md).

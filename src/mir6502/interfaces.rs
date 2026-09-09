@@ -280,14 +280,22 @@ fn referenced_external_routines(
         for block in &routine.blocks {
             for op in &block.ops {
                 match op {
-                    MirOp::Call {
-                        target: MirCallTarget::Routine(id),
-                        ..
-                    } => record(*id),
-                    MirOp::Move {
-                        src: MirValue::RoutineAddr(id),
-                        ..
-                    } => record(*id),
+                    MirOp::Call { target, args, .. } => {
+                        match target {
+                            MirCallTarget::Routine(id) => record(*id),
+                            MirCallTarget::Indirect { target, .. } => record_value_references(target, &mut record),
+                            _ => {}
+                        }
+                        for arg in args { record_value_references(&arg.value, &mut record); }
+                    }
+                    MirOp::Move { src, .. } | MirOp::Store { src, .. }
+                    | MirOp::StoreIndirect { src, .. } | MirOp::Unary { src, .. }
+                    | MirOp::Extend { src, .. } | MirOp::Truncate { src, .. }
+                    | MirOp::MaterializeAddress { value: src, .. } => record_value_references(src, &mut record),
+                    MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+                        record_value_references(left, &mut record);
+                        record_value_references(right, &mut record);
+                    }
                     _ => {}
                 }
             }
@@ -305,6 +313,17 @@ fn referenced_external_routines(
         }
     }
     referenced
+}
+
+fn record_value_references(value: &MirValue, record: &mut impl FnMut(RoutineId)) {
+    match value {
+        MirValue::RoutineAddr(id) | MirValue::RoutineAddrByte { id, .. } => record(*id),
+        MirValue::Word { lo, hi } => {
+            record_value_references(lo, record);
+            record_value_references(hi, record);
+        }
+        _ => {}
+    }
 }
 
 fn record_global_init_references(init: &MirGlobalInit, record: &mut impl FnMut(RoutineId)) {
@@ -364,7 +383,11 @@ fn rewrite_external_references(
         for block in &mut routine.blocks {
             for op in &mut block.ops {
                 match op {
-                    MirOp::Call { target, .. } => {
+                    MirOp::Call { target, args, .. } => {
+                        for arg in args { rewrite_value(&mut arg.value, resolved); }
+                        if let MirCallTarget::Indirect { target, .. } = target {
+                            rewrite_value(target, resolved);
+                        }
                         let MirCallTarget::Routine(id) = target else {
                             continue;
                         };
@@ -381,16 +404,13 @@ fn rewrite_external_references(
                             };
                         }
                     }
-                    MirOp::Move { src, .. } => {
-                        let MirValue::RoutineAddr(id) = src else {
-                            continue;
-                        };
-                        if let Some(binding) = resolved.get(id) {
-                            *src = match binding {
-                                ResolvedTarget::Absolute(address) => MirValue::ConstU16(*address),
-                                ResolvedTarget::Routine(id) => MirValue::RoutineAddr(*id),
-                            };
-                        }
+                    MirOp::Move { src, .. } | MirOp::Store { src, .. }
+                    | MirOp::StoreIndirect { src, .. } | MirOp::Unary { src, .. }
+                    | MirOp::Extend { src, .. } | MirOp::Truncate { src, .. }
+                    | MirOp::MaterializeAddress { value: src, .. } => rewrite_value(src, resolved),
+                    MirOp::Binary { left, right, .. } | MirOp::Compare { left, right, .. } => {
+                        rewrite_value(left, resolved);
+                        rewrite_value(right, resolved);
                     }
                     _ => {}
                 }
@@ -411,6 +431,33 @@ fn rewrite_external_references(
         }
     }
     Ok(())
+}
+
+fn rewrite_value(value: &mut MirValue, resolved: &BTreeMap<RoutineId, ResolvedTarget>) {
+    match value {
+        MirValue::RoutineAddr(id) => {
+            if let Some(binding) = resolved.get(id) {
+                *value = match binding {
+                    ResolvedTarget::Absolute(address) => MirValue::ConstU16(*address),
+                    ResolvedTarget::Routine(id) => MirValue::RoutineAddr(*id),
+                };
+            }
+        }
+        MirValue::RoutineAddrByte { id, byte } => {
+            if let Some(binding) = resolved.get(id) {
+                *value = match binding {
+                    ResolvedTarget::Absolute(address) => MirValue::ConstU8(
+                        (address >> (8 * u32::from(*byte))) as u8),
+                    ResolvedTarget::Routine(id) => MirValue::RoutineAddrByte { id: *id, byte: *byte },
+                };
+            }
+        }
+        MirValue::Word { lo, hi } => {
+            rewrite_value(lo, resolved);
+            rewrite_value(hi, resolved);
+        }
+        _ => {}
+    }
 }
 
 fn external_display_name(name: &str) -> String {
@@ -554,8 +601,8 @@ mod tests {
     fn embedded_sys_bindings_are_unique_and_runtime_specific() {
         let cart = parse_bindings(Runtime::ActionCart).expect("cart bindings");
         let standalone = parse_bindings(Runtime::Standalone).expect("standalone bindings");
-        assert_eq!(cart.len(), 79);
-        assert_eq!(standalone.len(), 79);
+        assert_eq!(cart.len(), 95);
+        assert_eq!(standalone.len(), 95);
         assert_eq!(cart["SYS.ZERO"], BindingTarget::Absolute(0xA78A));
         assert_eq!(
             standalone["SYS.ZERO"],

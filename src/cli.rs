@@ -684,7 +684,7 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        if let Some(diagnostic) = crate::compiler::validation::classic_wide_integer_diagnostic(&model) {
+        if let Some(diagnostic) = crate::compiler::validation::classic_wide_integer_diagnostic(&model, &semir) {
             print_diagnostics_with_source(vec![diagnostic], &loaded.source,
                 Some(&loaded.source_map), diagnostic_byte_ranges);
             process::exit(1);

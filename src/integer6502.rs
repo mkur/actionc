@@ -1,12 +1,10 @@
 //! Compiler-owned integer helpers, shared by classic and MIR6502 linking.
 //! Independently implemented; no dependency on cartridge arithmetic bodies.
 use crate::asm6502::{InlineAsmMode, InlineAsmRelocationKind, InlineAsmRelocationTarget, assemble};
+use crate::runtime_fault::RuntimeFault;
 
 pub(crate) mod wide;
 
-/// Existing library convention for an invalid runtime argument (LIB.MSC Sound).
-/// The cartridge's SysErr prints Y, not A. This is not a historical div/0 code.
-pub(crate) const INVALID_ARGUMENT_ERROR: u8 = 100;
 pub(crate) const CARTRIDGE_ERROR: u16 = 0x04CB;
 
 pub(crate) struct IntegerHelperBody {
@@ -27,14 +25,15 @@ impl IntegerHelperBody {
     }
 }
 
-pub(crate) fn fault_body() -> IntegerHelperBody {
-    assemble_body(&fault_source())
+pub(crate) fn fault_body(fault: RuntimeFault) -> IntegerHelperBody {
+    assemble_body(&fault_source(fault))
 }
 
-fn fault_source() -> String {
+fn fault_source(fault: RuntimeFault) -> String {
+    let code = crate::atari_runtime_error::code(fault);
     format!(
-        "LDY #{INVALID_ARGUMENT_ERROR}\nTYA\nLDX #0\nJSR Error\n\
-             CLD\nLDY #{INVALID_ARGUMENT_ERROR}\nTYA\nSEC\nfault: BCS fault\n"
+        "LDY #{code}\nTYA\nLDX #0\nJSR Error\n\
+             CLD\nLDY #{code}\nTYA\nSEC\nfault: BCS fault\n"
     )
 }
 
@@ -61,7 +60,7 @@ fn assemble_body(source: &str) -> IntegerHelperBody {
 
 /// A:X dividend; $84:$85 divisor; A:X selected result. Clobbers A/X/Y/P,
 /// $82..$87 and (signed only) $C2..$C3 on returning paths, with balanced stack.
-/// Zero calls Error(100,0,100); if the handler returns, halt instead of resuming.
+/// Zero calls Error(101,0,101); if the handler returns, halt instead of resuming.
 /// Error may have arbitrary memory/OS effects on the non-returning path.
 pub(crate) fn division_body(signed: bool, remainder: bool) -> IntegerHelperBody {
     division_body_with_results(signed, remainder, false)
@@ -73,7 +72,7 @@ pub(crate) fn divmod_body(signed: bool) -> IntegerHelperBody {
 
 fn division_body_with_results(signed: bool, remainder: bool, both: bool) -> IntegerHelperBody {
     let mut source = String::from("CLD\nSTA $82\nSTX $83\nLDA $84\nORA $85\nBNE nonzero\n");
-    source.push_str(&fault_source());
+    source.push_str(&fault_source(RuntimeFault::DivisionByZero));
     source.push_str("nonzero:\n");
     if signed {
         source.push_str("STX $C2\nTXA\nEOR $85\nSTA $C3\nTXA\nBPL positive_left\n");
@@ -128,7 +127,7 @@ pub(crate) fn narrow_division_body(word_dividend: bool, remainder: bool) -> Inte
         "STX $84\n"
     });
     source.push_str("LDA $84\nBNE nonzero\n");
-    source.push_str(&fault_source());
+    source.push_str(&fault_source(RuntimeFault::DivisionByZero));
     source.push_str("nonzero: LDA #0\nSTA $86\n");
     source.push_str(if word_dividend {
         "LDX #16\n"
@@ -155,6 +154,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn fault_bodies_use_the_specific_code_in_both_call_and_nonreturn_guard() {
+        for fault in RuntimeFault::ALL {
+            let code = crate::atari_runtime_error::code(fault);
+            let body = fault_body(fault);
+            assert_eq!(
+                &body.bytes[..body.error_operand],
+                &[0xA0, code, 0x98, 0xA2, 0, 0x20],
+                "{fault:?}: A/Y=code and X=0",
+            );
+            assert_eq!(
+                &body.bytes[body.error_operand + 2..],
+                &[0xD8, 0xA0, code, 0x98, 0x38, 0xB0, 0xFE],
+                "{fault:?}: restore code, clear decimal mode and stop",
+            );
+        }
+    }
+
+    #[test]
     fn helper_bodies_only_relocate_the_error_call() {
         let mut bodies = Vec::new();
         for signed in [false, true] {
@@ -168,11 +185,11 @@ mod tests {
         for body in bodies {
             assert_eq!(
                 &body.bytes[body.error_operand - 6..body.error_operand],
-                &[0xA0, 100, 0x98, 0xA2, 0, 0x20]
-            ); // LDY #100; TYA; LDX #0; JSR
+                &[0xA0, 101, 0x98, 0xA2, 0, 0x20]
+            ); // LDY #101; TYA; LDX #0; JSR
             assert_eq!(
                 &body.bytes[body.error_operand + 2..body.error_operand + 9],
-                &[0xD8, 0xA0, 100, 0x98, 0x38, 0xB0, 0xFE]
+                &[0xD8, 0xA0, 101, 0x98, 0x38, 0xB0, 0xFE]
             ); // defensive non-return guard
         }
     }

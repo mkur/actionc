@@ -1,0 +1,21 @@
+; Default and explicit device output; byte/word output remains unchanged.
+MODULE LONG_OUTPUT
+USE SYS
+BYTE done=$06FF
+
+PROC Main()
+  SYS.PrintLC(0) SYS.Put(124) SYS.PrintLCE($FFFFFFFF)
+  SYS.PrintLI(-2147483648) SYS.Put(124) SYS.PrintLIE(2147483647)
+  SYS.PrintCE(LONGCARD(70000))
+  SYS.PrintIE(LONGINT(-70000))
+  SYS.Open(2,"D:LONGS.TXT",8,0)
+  SYS.PrintLCD(2,65536) SYS.PutD(2,124) SYS.PrintLCDE(2,2971215073)
+  SYS.PrintLID(2,-70000) SYS.PutD(2,124) SYS.PrintLIDE(2,-1)
+  DEVICE=2
+  SYS.PrintLCE(42) SYS.PrintLIE(-42)
+  DEVICE=0
+  SYS.Close(2)
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE

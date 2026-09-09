@@ -63,6 +63,13 @@ qualified hardware modules, while `sys-memory-qualified.act` and
 `sys-memory-open.act` show the two `SYS` forms. The `project` directory
 is a complete multi-file example with a public project-module procedure.
 
+## 32-bit integer I/O
+
+For 32-bit integer conversion and I/O, the qualified `SYS.PrintLC`/`SYS.PrintLI`
+families, `StrLC`/`StrLI`, `ValLC`/`ValLI`, and `InputLC`/`InputLI` support
+LONGCARD/LONGINT on MIR6502 with both runtimes. See
+[32-bit SYS I/O](../LONG_INTEGER_IO.md) for signatures and checked parsing rules.
+
 ## Native REAL library
 
 For a guided introduction to the type, operators, conversions, storage, and

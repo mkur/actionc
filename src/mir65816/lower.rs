@@ -92,7 +92,7 @@ pub(super) fn lower_program(
         if let Some(block) = routine.blocks.iter().find(|block| block.ops.iter().any(|op|
             matches!(op, NirOp::Call { callee: NirCallee::Fault(_), .. }))) {
             diagnostics.push(diagnostic(Some(&routine.name), Some(&block.label),
-                "invalid-variant runtime fault requires a native target Error adapter"));
+                "runtime fault requires a native target Error adapter"));
             continue;
         }
         if matches!(
@@ -783,7 +783,7 @@ fn lower_op(
         } => {
             if matches!(callee, NirCallee::Fault(_)) {
                 diagnostics.push(diagnostic(Some(routine), Some(block),
-                    "invalid-variant runtime fault requires a native target Error adapter"));
+                    "runtime fault requires a native target Error adapter"));
                 return None;
             }
             let Some(signature) = signature.as_ref() else {

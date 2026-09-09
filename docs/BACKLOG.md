@@ -79,7 +79,7 @@ Standalone SYSLIB `Error` currently jumps through DOSVEC without printing a
 message. See the [runtime error audit](ATARI_RUNTIME_ERRORS.md).
 
 - Enhance the existing standalone `Error` implementation to open GR.0, print
-  `Error: <code>` (for example, `Error: 100` for division by zero), and terminate
+  `Error: <code>` (for example, `Error: 101` for division by zero), and terminate
   through DOSVEC. Do not introduce a separate fatal-error API.
 - Preserve the cartridge-compatible A/X/Y interface, reporting the code from Y;
   leave the cartridge `$04CB` binding unchanged.
@@ -88,7 +88,38 @@ message. See the [runtime error audit](ATARI_RUNTIME_ERRORS.md).
 - Add VM coverage for visible output from a graphics screen, DOS handoff, and
   the absence of post-fault source effects in classic and MIR6502 builds.
 
+## Debug-only Aggregate Overlap Guards
+
+Agreed follow-up, separate from the runtime error-code split:
+
+- Retain the variant-containing assignment non-overlap contract, exact aliases
+  and ordinary record/union copy semantics.
+- Diagnose provable violations at compile time; make uncertain partial-overlap
+  guards debug/checked-build instrumentation rather than unconditional code.
+- Keep check policy independent of language profile, backend and optimization.
+- Do not implicitly change tag validation, division-by-zero or checked parsing.
+  Error 106 remains the diagnostic for a detected forbidden overlap.
+
 ## Modern Integer Arithmetic
+
+### MIR error-wrapper integration probes
+
+Two issues were observed while prototyping the dedicated runtime error codes;
+neither is needed by the final machine-only Error adapters:
+
+- In the resident `CartLongError(BYTE code)` prototype, an `ASM OPAQUE`
+  block loading/pushing `code`, followed by the Action call
+  `CartLongErrorEntry(code,0,code)`, failed materialization with
+  `call-arg-producer: replacement effects do not match the declared delta`.
+  Minimize the call-argument rewrite/effect case before changing its proof.
+- An inline `JSR CartLongErrorEntry` referring to the resident declaration
+  `PROC CartLongErrorEntry=$04CB(BYTE code,x,y)` linked to an emitted empty
+  parameter-capture stub rather than `$04CB`, falling through into the next
+  routine. Audit absolute-procedure relocations during resident linking.
+  The final Atari adapter explicitly calls `$04CB`; standalone retains its
+  symbolic relocation to the linked SYSLIB Error body.
+
+### Arithmetic acceptance
 
 The [legacy division/remainder audit](bugs/LEGACY_INTEGER_ARITHMETIC_AUDIT.md)
 is complete. It found unsigned folding of signed expressions, signed runtime

@@ -314,7 +314,8 @@ tests green. Explain any fixture contract changes and update only relevant count
   mutually recursive pointers, rejected inline/expanding recursion, the existing
   depth/instance budgets, imported aliases and immutable variant binders. Three
   six-lane VM tests cover module-only generic definitions and callbacks, guarded
-  union-payload snapshots, and retained outer-variant Error(100) validation.
+  union-payload snapshots, and retained outer-variant validation (now Error(105);
+  see [runtime error codes](../ATARI_RUNTIME_ERRORS.md)).
 - Module callback tests exposed a shared SemIR bug: qualified routine values
   missed the existing bare-name address conversion and became aggregate scalar
   loads. Generalized that path to use the existing canonical direct-symbol

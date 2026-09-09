@@ -1,0 +1,117 @@
+MODULE ; SYSLONGC.ACT
+
+; Cartridge I/O uses ROM entries; conversion is shared with SYSLONG.
+; Do not pull standalone SYSIO/SYSLIB into cartridge-linked long I/O.
+PROC CartLongPrint=$A47F(STRING value)
+PROC CartLongPrintD=$A486(BYTE channel STRING value)
+PROC CartLongPutE=$A4CC()
+PROC CartLongPutDE=$A4DA(BYTE channel)
+PROC CartLongInputMD=$A499(BYTE channel STRING destination BYTE maximum)
+
+; Machine-only entry receives the BYTE code directly in A.
+PROC CartLongError(BYTE code)
+  ASM
+    PHA
+    TAY
+    LDX #0
+    JSR $04CB
+    CLD
+    PLA
+    LDX #0
+    TAY
+    SEC
+  stopped: BCS stopped
+  ENDASM
+RETURN
+
+LONGCARD FUNC CartValLC(STRING source)
+  LONGCARD value
+  BYTE error
+
+  error=SysParseLong(source,0,@value)
+  IF error<>0 THEN CartLongError(error) FI
+RETURN(LONGCARD(value))
+
+PROC CartPrintLC(LONGCARD value)
+  STRING text(12)
+
+  SysStrLC(value,text)
+  CartLongPrint(text)
+RETURN
+
+PROC CartPrintLCE(LONGCARD value)
+  CartPrintLC(value)
+  CartLongPutE()
+RETURN
+
+PROC CartPrintLCD(BYTE channel LONGCARD value)
+  STRING text(12)
+
+  SysStrLC(value,text)
+  CartLongPrintD(channel,text)
+RETURN
+
+PROC CartPrintLCDE(BYTE channel LONGCARD value)
+  CartPrintLCD(channel,value)
+  CartLongPutDE(channel)
+RETURN
+
+LONGCARD FUNC CartInputLCD(BYTE channel)
+  STRING text(256)
+
+  ; InputMD includes EOL in its byte count, then subtracts it from the length.
+  ; Require that EOL was actually read: a truncated record is not a number.
+  text(1)=0
+  CartLongInputMD(channel,text,255)
+  IF text(CARD(text(0))+1)<>155 THEN CartLongError(104) FI
+RETURN(CartValLC(text))
+
+LONGCARD FUNC CartInputLC()
+RETURN(CartInputLCD(DEVICE))
+
+LONGINT FUNC CartValLI(STRING source)
+  LONGCARD value
+  BYTE error
+
+  error=SysParseLong(source,1,@value)
+  IF error<>0 THEN CartLongError(error) FI
+RETURN(LONGINT(value))
+
+PROC CartPrintLI(LONGINT value)
+  STRING text(12)
+
+  SysStrLI(value,text)
+  CartLongPrint(text)
+RETURN
+
+PROC CartPrintLIE(LONGINT value)
+  CartPrintLI(value)
+  CartLongPutE()
+RETURN
+
+PROC CartPrintLID(BYTE channel LONGINT value)
+  STRING text(12)
+
+  SysStrLI(value,text)
+  CartLongPrintD(channel,text)
+RETURN
+
+PROC CartPrintLIDE(BYTE channel LONGINT value)
+  CartPrintLID(channel,value)
+  CartLongPutDE(channel)
+RETURN
+
+LONGINT FUNC CartInputLID(BYTE channel)
+  STRING text(256)
+
+  ; InputMD includes EOL in its byte count, then subtracts it from the length.
+  ; Require that EOL was actually read: a truncated record is not a number.
+  text(1)=0
+  CartLongInputMD(channel,text,255)
+  IF text(CARD(text(0))+1)<>155 THEN CartLongError(104) FI
+RETURN(CartValLI(text))
+
+LONGINT FUNC CartInputLI()
+RETURN(CartInputLID(DEVICE))
+
+MODULE

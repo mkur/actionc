@@ -153,8 +153,8 @@ fn case_only_selected_arms_execute_calls_stores_and_faults() {
                 if matches!(input, 1 | 2) {
                     assert_eq!(
                         [bytes[1], bytes[2], bytes[255], bytes[256]],
-                        [71, 0, 0xCC, 100],
-                        "{mode:?}/{runtime:?}/{input}: expected non-returning Error(100), not a watchdog-only failure"
+                        [71, 0, 0xCC, 101],
+                        "{mode:?}/{runtime:?}/{input}: expected non-returning Error(101), not a watchdog-only failure"
                     );
                 } else {
                     assert_eq!(

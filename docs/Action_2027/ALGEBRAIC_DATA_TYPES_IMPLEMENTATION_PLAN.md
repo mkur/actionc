@@ -4,6 +4,8 @@ Status: complete on `main`, 2026-09-09, within the backend scope below.
 Follow-up contract revision: [variant storage and checked transfers](../VARIANT_STORAGE_CONTRACT.md)
 supersedes this plan's historical partial-overlap assignment acceptance. Exact
 aliasing, nested subobjects and effect-sensitive snapshots remain supported.
+The [runtime error-code contract](../ATARI_RUNTIME_ERRORS.md) also supersedes
+the historical Error(100) mapping below: invalid tags use 105, partial overlap 106.
 
 Inspected baseline: `ceecea1`. Modern aggregate snapshots, nominal variants,
 direct/typed indirect aggregate calls, generic types, nested patterns and guards

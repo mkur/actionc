@@ -116,7 +116,7 @@ fn aggregate_forwarding_corpus_is_verified_and_analysis_only_on_every_target() {
                         // execution coverage or an error suppressed by analysis.
                         assert_eq!(shape, "variant");
                         assert!(!errors.is_empty());
-                        assert!(errors.iter().all(|e| e == "invalid-variant runtime fault requires a native target Error adapter"), "{errors:?}");
+                        assert!(errors.iter().all(|e| e == "runtime fault requires a native target Error adapter"), "{errors:?}");
                     }
                 }
                 assert_eq!(

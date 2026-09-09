@@ -471,7 +471,7 @@ fn compile_classic(
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
-    if let Some(diagnostic) = validation::classic_wide_integer_diagnostic(model) {
+    if let Some(diagnostic) = validation::classic_wide_integer_diagnostic(model, semir) {
         return Err(CompileError::from_source_diagnostics(
             CompilerPhase::Codegen,
             vec![diagnostic],

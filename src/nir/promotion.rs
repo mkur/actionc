@@ -1664,7 +1664,7 @@ mod tests {
         let mut ops = vec![store(41)];
         ops.extend((0..MIN_HOT_HOME_LOADS as u32).map(load));
         ops.push(NirOp::Call {
-            callee: NirCallee::Fault(crate::runtime_fault::RuntimeFault::InvalidVariant),
+            callee: NirCallee::Fault(crate::runtime_fault::RuntimeFault::InvalidVariantTag),
             args: Vec::new(),
             result: None,
             aggregate_result: None,

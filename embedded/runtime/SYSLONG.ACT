@@ -1,0 +1,202 @@
+MODULE ; SYSLONG.ACT
+
+; Compiler-owned 32-bit decimal conversion and standalone I/O.
+; Strings use Action!'s length byte. StrLC needs 11 bytes; StrLI needs 12.
+PROC SysStrLC(LONGCARD value STRING destination)
+  BYTE ARRAY digits(10)
+  BYTE count,index
+
+  count=0
+  DO
+    digits(count)=BYTE(value MOD 10)+48
+    count==+1
+    value=value/10
+    IF value=0 THEN EXIT FI
+  OD
+  destination(0)=count
+  index=1
+  WHILE count>0 DO
+    count==-1
+    destination(index)=digits(count)
+    index==+1
+  OD
+RETURN
+
+PROC SysStrLI(LONGINT value STRING destination)
+  BYTE index
+  LONGCARD magnitude
+
+  magnitude=LONGCARD(value)
+  IF value<0 THEN magnitude=LONGCARD(0)-magnitude FI
+  SysStrLC(magnitude,destination)
+  IF value<0 THEN
+    index=destination(0)
+    WHILE index>0 DO
+      destination(index+1)=destination(index)
+      index==-1
+    OD
+    destination(1)=45
+    destination(0)==+1
+  FI
+RETURN
+
+; Strict decimal parsing: surrounding ASCII spaces and an optional sign.
+; Unsigned input rejects minus. Check before multiply/add, never after wrapping.
+; No output store on failure. CARD cursors handle all 255 string characters.
+; Status: 0=success, 102=invalid number, 103=number out of range.
+; Validate all characters even after overflow: malformed text reports 102.
+BYTE FUNC SysParseLong(STRING source BYTE signedInput LONGCARD POINTER destination)
+  CARD first,last
+  BYTE character,digit,negative,finalDigit,error
+  LONGCARD value,cutoff
+
+  first=1 last=source(0)
+  WHILE first<=last DO
+    IF source(first)<>32 THEN EXIT FI
+    first==+1
+  OD
+  WHILE first<=last DO
+    IF source(last)<>32 THEN EXIT FI
+    last==-1
+  OD
+  IF first>last THEN RETURN(102) FI
+  negative=0
+  character=source(first)
+  IF character=45 THEN
+    IF signedInput=0 THEN RETURN(102) FI
+    negative=1 first==+1
+  ELSEIF character=43 THEN
+    first==+1
+  FI
+  IF first>last THEN RETURN(102) FI
+  cutoff=429496729 finalDigit=5
+  IF signedInput<>0 THEN
+    cutoff=214748364 finalDigit=7+negative
+  FI
+  value=0 error=0
+  WHILE first<=last DO
+    character=source(first)
+    IF character<48 OR character>57 THEN RETURN(102) FI
+    digit=character-48
+    IF error=0 THEN
+      IF value>cutoff OR (value=cutoff AND digit>finalDigit) THEN
+        error=103
+      ELSE
+        value=value*10+digit
+      FI
+    FI
+    first==+1
+  OD
+  IF error<>0 THEN RETURN(error) FI
+  IF negative<>0 THEN value=LONGCARD(0)-value FI
+  destination^=value
+RETURN(0)
+
+; Preserve the precise code across a returning handler, even if it changes RAM.
+; Machine-only entry: the BYTE argument is already in A, without a prologue.
+PROC SysLongError(BYTE code)
+  ASM
+    PHA
+    TAY
+    LDX #0
+    JSR Error
+    CLD
+    PLA
+    LDX #0
+    TAY
+    SEC
+  stopped: BCS stopped
+  ENDASM
+RETURN
+
+LONGCARD FUNC SysValLC(STRING source)
+  LONGCARD value
+  BYTE error
+
+  error=SysParseLong(source,0,@value)
+  IF error<>0 THEN SysLongError(error) FI
+RETURN(LONGCARD(value))
+
+PROC SysPrintLC(LONGCARD value)
+  STRING text(12)
+
+  SysStrLC(value,text)
+  Print(text)
+RETURN
+
+PROC SysPrintLCE(LONGCARD value)
+  SysPrintLC(value)
+  PutE()
+RETURN
+
+PROC SysPrintLCD(BYTE channel LONGCARD value)
+  STRING text(12)
+
+  SysStrLC(value,text)
+  PrintD(channel,text)
+RETURN
+
+PROC SysPrintLCDE(BYTE channel LONGCARD value)
+  SysPrintLCD(channel,value)
+  PutDE(channel)
+RETURN
+
+LONGCARD FUNC SysInputLCD(BYTE channel)
+  STRING text(256)
+
+  ; InputMD includes EOL in its byte count, then subtracts it from the length.
+  ; Require that EOL was actually read: a truncated record is not a number.
+  text(1)=0
+  InputMD(channel,text,255)
+  IF text(CARD(text(0))+1)<>155 THEN SysLongError(104) FI
+RETURN(SysValLC(text))
+
+LONGCARD FUNC SysInputLC()
+RETURN(SysInputLCD(DEVICE))
+
+LONGINT FUNC SysValLI(STRING source)
+  LONGCARD value
+  BYTE error
+
+  error=SysParseLong(source,1,@value)
+  IF error<>0 THEN SysLongError(error) FI
+RETURN(LONGINT(value))
+
+PROC SysPrintLI(LONGINT value)
+  STRING text(12)
+
+  SysStrLI(value,text)
+  Print(text)
+RETURN
+
+PROC SysPrintLIE(LONGINT value)
+  SysPrintLI(value)
+  PutE()
+RETURN
+
+PROC SysPrintLID(BYTE channel LONGINT value)
+  STRING text(12)
+
+  SysStrLI(value,text)
+  PrintD(channel,text)
+RETURN
+
+PROC SysPrintLIDE(BYTE channel LONGINT value)
+  SysPrintLID(channel,value)
+  PutDE(channel)
+RETURN
+
+LONGINT FUNC SysInputLID(BYTE channel)
+  STRING text(256)
+
+  ; InputMD includes EOL in its byte count, then subtracts it from the length.
+  ; Require that EOL was actually read: a truncated record is not a number.
+  text(1)=0
+  InputMD(channel,text,255)
+  IF text(CARD(text(0))+1)<>155 THEN SysLongError(104) FI
+RETURN(SysValLI(text))
+
+LONGINT FUNC SysInputLI()
+RETURN(SysInputLID(DEVICE))
+
+MODULE

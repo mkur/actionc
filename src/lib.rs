@@ -5,6 +5,7 @@ pub(crate) mod integer6502;
 pub mod asm6502;
 pub mod ast;
 pub mod atari_real;
+pub mod atari_runtime_error;
 pub mod backend;
 pub mod build_info;
 pub mod cli;

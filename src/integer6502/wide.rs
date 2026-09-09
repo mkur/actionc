@@ -78,7 +78,7 @@ pub(crate) fn shift_body(left: bool) -> Vec<u8> {
 
 pub(crate) fn division(signed: bool, remainder: bool) -> IntegerHelperBody {
     let mut source = String::from("CLD\nLDA $C0\nORA $C1\nORA $C2\nORA $C3\nBNE nonzero\n");
-    source.push_str(&fault_source());
+    source.push_str(&fault_source(RuntimeFault::DivisionByZero));
     source.push_str("nonzero:\n");
     if signed {
         source.push_str("LDA $85\nSTA $86\nEOR $C3\nSTA $87\nLDA $85\nBPL positive_left\n");
@@ -138,11 +138,11 @@ mod tests {
                 let body = division(signed, remainder);
                 assert_eq!(
                     &body.bytes[body.error_operand - 6..body.error_operand],
-                    &[0xA0, 100, 0x98, 0xA2, 0, 0x20]
+                    &[0xA0, 101, 0x98, 0xA2, 0, 0x20]
                 );
                 assert_eq!(
                     &body.bytes[body.error_operand + 2..body.error_operand + 9],
-                    &[0xD8, 0xA0, 100, 0x98, 0x38, 0xB0, 0xFE]
+                    &[0xD8, 0xA0, 101, 0x98, 0x38, 0xB0, 0xFE]
                 );
             }
         }

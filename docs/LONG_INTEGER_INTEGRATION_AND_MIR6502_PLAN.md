@@ -82,7 +82,7 @@ Existing snapshot changes must be explained; no blanket snapshot acceptance.
 - Slice 4: wide shifts, multiplication, signed/unsigned division and remainder
   use compiler-owned kernels through the existing structured helper contracts.
   Runtime tests cover boundary grids, compositions, mixed operands, compound
-  assignments, wrap-before-widen multiplication, and Error(100) with a returning
+  assignments, wrap-before-widen multiplication, and Error(101) with a returning
   handler. Baseline and optimized MIR discover mandatory legalization helpers
   independently of optional helper-selection rewrites.
 - Slice 5: complete. Wide CASE preserves all
@@ -121,7 +121,7 @@ $C0..$C7, A/X/Y/flags clobbers and balanced returning stack effects. They link
 only when used, on either runtime. Division additionally declares the existing
 Error handler's conservative memory/OS effects. Signed division truncates
 toward zero, remainder follows the dividend sign, and MIN/-1 wraps; a runtime
-zero divisor reports Error(100) and cannot resume the failed operation. Shifts
+zero divisor reports Error(101) and cannot resume the failed operation. Shifts
 are logical and produce zero for counts at least 32, without truncating a wide
 count to its low byte. No cartridge arithmetic implementation is used for wide
 operators, and no width-changing optimization is required for correctness.

@@ -17,7 +17,11 @@ pub(super) fn ensure_helper_decl(program: &mut MirProgram, helper: MirRuntimeHel
     {
         return;
     }
-    program.runtime_helpers.push(MirRuntimeHelperDecl {
+    program.runtime_helpers.push(deferred_helper_decl(helper));
+}
+
+pub(in crate::mir6502) fn deferred_helper_decl(helper: MirRuntimeHelper) -> MirRuntimeHelperDecl {
+    MirRuntimeHelperDecl {
         // Helper discovery records a logical requirement.  The selected
         // runtime owns the later physical binding.
         target: MirRuntimeHelperTarget::Deferred,
@@ -25,7 +29,7 @@ pub(super) fn ensure_helper_decl(program: &mut MirProgram, helper: MirRuntimeHel
         helper,
         abi: helper_abi_for(helper),
         additional_results: helper_additional_results(helper),
-    });
+    }
 }
 
 pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
@@ -51,7 +55,7 @@ pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
 /// a register-pair input and a separately homed zero-page word input.
 pub(in crate::mir6502) fn helper_abi_for(helper: MirRuntimeHelper) -> MirCallAbi {
     let mut abi = helper_abi();
-    if helper == MirRuntimeHelper::InvalidVariant {
+    if matches!(helper, MirRuntimeHelper::Fault(_)) {
         abi.params.clear();
         abi.result = None;
         return abi;
@@ -133,7 +137,7 @@ pub(in crate::mir6502) fn helper_additional_results(
 pub(in crate::mir6502) fn helper_args(helper: &MirRuntimeHelper) -> Vec<MirArgHome> {
     let mut args = vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)];
     match helper {
-        MirRuntimeHelper::InvalidVariant => return Vec::new(),
+        MirRuntimeHelper::Fault(_) => return Vec::new(),
         MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
         | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => {
             return (0x82..=0x85).chain(0xC0..=0xC3)
@@ -179,7 +183,7 @@ pub(in crate::mir6502) fn helper_effects(helper: &MirRuntimeHelper) -> MirEffect
 /// handler's observable effects on a non-returning path.
 pub(in crate::mir6502) fn helper_return_effects(helper: &MirRuntimeHelper) -> MirEffects {
     let (memory_reads, memory_writes) = match helper {
-        MirRuntimeHelper::InvalidVariant => (MirMemoryEffect::Unknown, MirMemoryEffect::Unknown),
+        MirRuntimeHelper::Fault(_) => (MirMemoryEffect::Unknown, MirMemoryEffect::Unknown),
         MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
         | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => (
             zero_page_effect(&[(0x82, 4), (0xC0, 4)]),
@@ -690,7 +694,7 @@ pub(super) fn materialize_runtime_helper_binary(
             );
         }
         MirRuntimeHelper::SArgs => {}
-        MirRuntimeHelper::InvalidVariant => unreachable!("fault has no binary operands"),
+        MirRuntimeHelper::Fault(_) => unreachable!("fault has no binary operands"),
         MirRuntimeHelper::Mul32 | MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32
         | MirRuntimeHelper::UDiv32 | MirRuntimeHelper::UMod32 | MirRuntimeHelper::Lsh32 | MirRuntimeHelper::Rsh32 => {
             unreachable!("wide helper operands are legalized as word lanes")

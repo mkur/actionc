@@ -864,26 +864,31 @@ pub(super) fn append_runtime_helper_requirements(
             .iter()
             .filter(|declaration| declaration.helper == helper)
             .collect::<Vec<_>>();
-        let [implementation] = declarations.as_slice() else {
-            return Err(diagnostic(format!(
+        let implementation = match declarations.as_slice() {
+            // Lowering can introduce logical compiler-helper calls without
+            // an explicit source SET binding (wide arithmetic, faults, etc.).
+            [] => super::materialize::deferred_helper_decl(helper),
+            [declaration] => (*declaration).clone(),
+            _ => return Err(diagnostic(format!(
                 "embedded runtime has {} declarations for helper `{}`",
                 declarations.len(),
                 super::runtime::helper_name(helper)
-            )));
+            ))),
         };
         if let Some(existing) = program
             .runtime_helpers
             .iter()
             .find(|declaration| declaration.helper == helper)
         {
-            if existing.abi != implementation.abi || existing.effects != implementation.effects {
+            if existing.abi != implementation.abi || existing.effects != implementation.effects
+                || existing.additional_results != implementation.additional_results {
                 return Err(diagnostic(format!(
                     "runtime helper contract mismatch for `{}`",
                     super::runtime::helper_name(helper)
                 )));
             }
         } else {
-            let mut declaration = (*implementation).clone();
+            let mut declaration = implementation;
             declaration.target = MirRuntimeHelperTarget::Deferred;
             program.runtime_helpers.push(declaration);
         }

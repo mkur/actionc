@@ -1,0 +1,76 @@
+; 32-bit integers on Atari: MIR6502, standalone or Action! cartridge runtime.
+; Build: actionc samples/long-integers/long-integers.act --mode mir6502 --runtime standalone
+; LONGCARD is unsigned; LONGINT is signed. INT/CARD arithmetic stays 16-bit
+; unless an operand is wide. Arithmetic wraps at the selected width.
+
+MODULE LONG_INTEGERS
+
+USE SYS
+
+; SYS.PrintLCE/PrintLIE print unsigned/signed 32-bit decimal plus newline.
+; PrintC/PrintI keep their 16-bit interfaces; use the LC/LI families for longs.
+
+; Exact for n=0..12. 13! exceeds LONGCARD's range.
+LONGCARD FUNC Factorial(BYTE n)
+  LONGCARD product
+  BYTE i
+
+  product=1
+  FOR i=2 TO n DO
+    product=product*i ; the LONGCARD operand selects 32-bit multiplication
+  OD
+RETURN(product)
+
+; F(0)=0, F(1)=1. Exact for n=0..47; F(48) would overflow LONGCARD.
+LONGCARD FUNC Fibonacci(BYTE n)
+  LONGCARD previous,current,next
+  BYTE i
+
+  IF n=0 THEN RETURN(0) FI
+  previous=0
+  current=1
+  FOR i=2 TO n DO
+    next=previous+current
+    previous=current
+    current=next
+  OD
+RETURN(current)
+
+PROC Main()
+  LONGINT signedValue
+  CARD a,b
+  LONGCARD narrow,wide
+
+  PrintE("LONGCARD / LONGINT (32-bit)")
+  PutE()
+  PrintE("LONGCARD: unsigned")
+  Print("0! = ")      SYS.PrintLCE(Factorial(0))
+  Print("12! = ")     SYS.PrintLCE(Factorial(12))
+  Print("F(0) = ")    SYS.PrintLCE(Fibonacci(0))
+  Print("F(47) = ")   SYS.PrintLCE(Fibonacci(47))
+  Print("maximum = ") SYS.PrintLCE($FFFFFFFF)
+  PutE()
+
+  PrintE("LONGINT: signed")
+  ; F(46) fits in LONGINT; F(47) needs LONGCARD.
+  signedValue=-LONGINT(Fibonacci(46))
+  Print("-F(46) = ") SYS.PrintLIE(signedValue)
+  signedValue=-2147483648
+  Print("minimum = ") SYS.PrintLIE(signedValue)
+  signedValue=2147483647
+  Print("maximum = ") SYS.PrintLIE(signedValue)
+  signedValue=-70000
+  ; Division truncates towards zero; remainder has the dividend's sign.
+  Print("-70000 / 3 = ")   SYS.PrintLIE(signedValue/3)
+  Print("-70000 MOD 3 = ") SYS.PrintLIE(signedValue MOD 3)
+  PutE()
+
+  PrintE("Widen before arithmetic:")
+  a=$FFFF b=1
+  narrow=a+b          ; wraps to zero BEFORE assignment to LONGCARD
+  wide=LONGCARD(a)+b  ; widen an operand, not just the destination
+  Print("CARD $FFFF+1 = ")          SYS.PrintLCE(narrow)
+  Print("LONGCARD($FFFF)+1 = ")     SYS.PrintLCE(wide)
+RETURN
+
+ENDMODULE

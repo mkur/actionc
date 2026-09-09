@@ -37,6 +37,11 @@ available when deliberately overriding the source placement.
 `real-basics.act` is the complete introductory program from the
 [native REAL tutorial](../docs/tutorials/REAL.md).
 
+[`long-integers/`](long-integers/) demonstrates unsigned `LONGCARD` and signed
+`LONGINT` with factorial, Fibonacci, decimal printing, and explicit widening.
+Its README contains build instructions and expected output. Atari execution
+requires MIR6502; both standalone and cartridge-linked runtimes are covered.
+
 `variant-tree.act` demonstrates recursive variant data in a checked fixed arena
 with an EMPTY sentinel and iterative insertion/traversal. Both Atari backends
 and runtimes are covered. See the [variant tutorial](../docs/tutorials/VARIANTS.md).
@@ -81,7 +86,8 @@ Every Action-family source in this directory has an explicit role in
 - **Executable** sources have one or more known-good compiler, runtime, and
   module-path combinations. Release-tier cases cover the supported classic
   backend; advertised MIR6502 combinations are tracked separately as
-  experimental.
+  experimental. A MIR6502-only executable must document why no classic build
+  exists; it remains covered by the experimental build gate.
 - **Dependencies** name the executable samples which consume them.
 - **Source-only** files carry a concrete reason why they are retained without
   an executable build contract.

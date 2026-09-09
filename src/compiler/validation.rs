@@ -12,14 +12,41 @@ use crate::semantic::{
 
 /// Capability check shared by the compiler facade and the inspection CLI.
 /// Use semantic type identities, including casts without wide declarations.
-pub(crate) fn classic_wide_integer_diagnostic(model: &crate::semantic::SemanticModel) -> Option<Diagnostic> {
+pub(crate) fn classic_wide_integer_diagnostic(
+    model: &crate::semantic::SemanticModel,
+    semir: &SemProgram,
+) -> Option<Diagnostic> {
     let wide = |ty: &crate::semantic::ValueType| ty.as_scalar().is_some_and(|scalar|
         matches!(scalar, crate::semantic::ScalarType::LongInt | crate::semantic::ScalarType::LongCard));
-    let span = model.symbols.symbols.iter().find_map(|symbol| {
-        (symbol.class != SymbolClass::Type && symbol.ty.as_ref().is_some_and(&wide))
+    // Interface imports are not executable uses. Reuse SemIR's existing
+    // external-reference selection instead of rejecting every imported API.
+    let retained_external = semir.modules.iter().flat_map(|module| &module.items)
+        .filter_map(|item| match item {
+            SemItem::Routine(routine) if routine.is_external => Some(routine),
+            _ => None,
+        }).collect::<Vec<_>>();
+    let retained_ids = retained_external.iter().map(|routine| routine.symbol.id)
+        .collect::<HashSet<_>>();
+    let unused_external = model.routine_signatures_by_symbol.iter()
+        .filter(|(id, signature)| signature.source == crate::semantic::SemanticCallableSource::Runtime
+            && !retained_ids.contains(id))
+        .map(|(id, _)| *id).collect::<HashSet<_>>();
+    let unused_scopes = model.routine_scopes.iter()
+        .filter(|scope| scope.symbol.is_some_and(|id| unused_external.contains(&id)))
+        .map(|scope| scope.scope).collect::<HashSet<_>>();
+    let span = model.symbols.symbols.iter().enumerate().find_map(|(index, symbol)| {
+        (symbol.class != SymbolClass::Type
+            && !unused_external.contains(&crate::semantic::SymbolId(index))
+            && !unused_scopes.contains(&symbol.scope)
+            && symbol.ty.as_ref().is_some_and(&wide))
             .then_some(symbol.span)
     }).or_else(|| model.expression_observations.iter().find_map(|expr| {
         expr.ty.as_ref().is_some_and(&wide).then_some(expr.span)
+    })).or_else(|| retained_external.iter().find_map(|routine| {
+        // A narrow literal still needs a wide ABI in e.g. SYS.PrintLC(1).
+        (routine.signature.params.iter().any(&wide)
+            || routine.signature.return_type.as_ref().is_some_and(&wide))
+            .then_some(routine.symbol.span)
     }))?;
     Some(Diagnostic::new(span, "LONGINT/LONGCARD code generation requires the MIR6502 backend; classic supports only 8/16-bit integers"))
 }
@@ -33,7 +60,8 @@ fn classic_wide_guard_recognizes_union_views_before_emission() {
         let ast=crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
         let mut options=crate::semantic::SemanticOptions::modern(); options.algebraic_types.unions=true;
         let model=crate::semantic::analyze_with_options(&ast,options).unwrap();
-        let error=classic_wide_integer_diagnostic(&model).expect(body);
+        let semir = crate::semantic::ir::lower_program(&ast, &model);
+        let error=classic_wide_integer_diagnostic(&model, &semir).expect(body);
         assert!(error.message.contains("requires the MIR6502 backend"));
     }
     }
@@ -42,7 +70,8 @@ fn classic_wide_guard_recognizes_union_views_before_emission() {
     let ast=crate::parser::parse(&crate::lexer::tokenize("TYPE View=UNION [LONGCARD wide CARD word] View value PROC Main() value.word=1 RETURN").unwrap()).unwrap();
     let mut options=crate::semantic::SemanticOptions::modern(); options.algebraic_types.unions=true;
     let model=crate::semantic::analyze_with_options(&ast,options).unwrap();
-    assert!(classic_wide_integer_diagnostic(&model).is_none());
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    assert!(classic_wide_integer_diagnostic(&model, &semir).is_none());
 }
 
 pub(crate) fn standalone_resident_diagnostics(program: &SemProgram) -> Vec<Diagnostic> {

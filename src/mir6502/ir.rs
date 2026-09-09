@@ -1067,7 +1067,7 @@ pub enum MirResultHome {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MirRuntimeHelper {
-    InvalidVariant,
+    Fault(crate::runtime_fault::RuntimeFault),
     Mul32,
     Div32,
     Mod32,

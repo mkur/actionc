@@ -409,8 +409,8 @@ fn runtime_bindings(
                 crate::integer6502::CARTRIDGE_ERROR,
                 |routine| routine.address,
             )),
-            reason: if mir.runtime_helpers.iter().any(|decl| decl.helper == MirRuntimeHelper::InvalidVariant) {
-                "invalid runtime value (variant tag or arithmetic argument)"
+            reason: if mir.runtime_helpers.iter().any(|decl| matches!(decl.helper, MirRuntimeHelper::Fault(_))) {
+                "runtime fault (specific Error code identifies the reason)"
             } else { "integer division/remainder by zero" }.to_string(),
             origin: if standalone {
                 "<runtime:SYSLIB.ACT>"
@@ -468,7 +468,7 @@ fn runtime_selection_reason(helper: MirRuntimeHelper) -> &'static str {
         MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod => "shared quotient/remainder of captured operands",
         MirRuntimeHelper::Lsh => "word left shift requires a runtime helper",
         MirRuntimeHelper::Rsh => "word right shift requires a runtime helper",
-        MirRuntimeHelper::InvalidVariant => "invalid variant tag requires a nonreturning Error handler",
+        MirRuntimeHelper::Fault(_) => "runtime fault requires a nonreturning Error handler",
     }
 }
 

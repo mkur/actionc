@@ -1284,7 +1284,7 @@ MIR6502 or later.
 
 ## Nonreturning runtime faults
 
-`NirCallee::Fault(InvalidVariant)` is a compiler-owned nonreturning call, not a
+`NirCallee::Fault(RuntimeFault)` is a compiler-owned nonreturning call, not a
 user-callable routine or a missing callable signature. Verification requires
 no arguments, result or signature; unknown read/write effects, external/opaque
 effects; and placement as the final operation of an Exit block. Ordinary calls
@@ -1307,8 +1307,11 @@ interval. Active inline nested values are validated recursively; pointers are
 never followed. A semantic zero image without a source initializer is still an
 executable native activation initializer, including one-/two-byte aggregates.
 
-MIR6502 maps InvalidVariant to a private helper using the existing Error(100)
-convention: A=100, X=0, Y=100. Both Atari runtime linkers select the real Error
+MIR6502 retains the reason as `MirRuntimeHelper::Fault(RuntimeFault)`. The Atari
+adapter maps InvalidVariantTag to Error(105) and InvalidVariantOverlap to
+Error(106), with A/Y=code and X=0. The complete mapping is documented in
+[Atari runtime errors](ATARI_RUNTIME_ERRORS.md).
+Both Atari runtime linkers select the real Error
 entry independently of user routine names. If Error returns, a defensive guard
 clears decimal mode and stops. Native construction/layout lowering is supported;
 native fault calls explicitly require an Error adapter and are diagnosed until
@@ -1317,7 +1320,7 @@ that target runtime contract exists.
 ## Checked aggregate transfers
 
 Checked variant-containing value assignments receive ordered ADDRESS comparisons
-and an InvalidVariant fault for partial overlap when SemIR cannot establish
+and an InvalidVariantOverlap fault for partial overlap when SemIR cannot establish
 identical/disjoint extents. Source validation dominates the single transfer;
 known self-copies retain validation but omit the transfer. CASE/call captures
 remain distinct. `CopyBytes` itself stays overlap-safe: this source restriction

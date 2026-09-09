@@ -23,7 +23,7 @@ bb4:
 bb2:
   goto bb1
 bb3:
-  call fault::InvalidVariant() effects=reads:unknown writes:unknown external opaque
+  call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
   exit
 bb1:
   %t5:Byte = load current.+0
@@ -40,7 +40,7 @@ bb8:
   store result = %t8
   goto bb5
 bb9:
-  call fault::InvalidVariant() effects=reads:unknown writes:unknown external opaque
+  call fault::InvalidVariantTag() effects=reads:unknown writes:unknown external opaque
   exit
 bb5:
   return

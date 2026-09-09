@@ -101,10 +101,10 @@ impl Generator {
         }
         match stmt {
             Stmt::Define(define) => self.generate_define(define),
-            Stmt::RuntimeFault { kind: crate::runtime_fault::RuntimeFault::InvalidVariant, span } => {
+            Stmt::RuntimeFault { kind, span } => {
                 self.uses_runtime_fault = true;
                 self.record_current_unknown_effects();
-                let body = crate::integer6502::fault_body();
+                let body = crate::integer6502::fault_body(*kind);
                 for (offset, byte) in body.bytes.into_iter().enumerate() {
                     if offset == body.error_operand {
                         match &self.runtime_error_target {

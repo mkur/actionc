@@ -1069,6 +1069,83 @@ mod tests {
     }
 
     #[test]
+    fn long_integer_conversions_preserve_full_width_and_destination_guards() {
+        let mut expected = vec![0xCC; 0x100];
+        for (offset, text) in [
+            (1, "0"), (0x11, "4294967295"), (0x21, "-2147483648"),
+            (0x31, "2147483647"), (0x41, "-1"), (0x51, "70000"),
+        ] {
+            expected[offset] = text.len() as u8;
+            expected[offset + 1..offset + 1 + text.len()].copy_from_slice(text.as_bytes());
+        }
+        for (offset, values) in [
+            (0x70, [0u32, u32::MAX, 42, 65536, 1]),
+            (0x90, [i32::MIN as u32, i32::MAX as u32, u32::MAX, 0, 70000]),
+        ] {
+            for (index, value) in values.into_iter().enumerate() {
+                expected[offset + index * 4..offset + index * 4 + 4]
+                    .copy_from_slice(&value.to_le_bytes());
+            }
+        }
+        expected[0xB0..0xB4].copy_from_slice(&1u32.to_le_bytes());
+        expected[0xFF] = 0xA5;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let max_steps = 1_000_000;
+            let outcome = run_runtime_fixture_with_setup(
+                "long_integer_conversions.act", CompileMode::Mir6502, runtime, true, max_steps,
+                |vm| {
+                    for address in 0x600..=0x6FF { vm.bus_mut().ram_mut().write(address, 0xCC); }
+                },
+            );
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(
+                (0x600..=0x6FF).map(|address| outcome.memory().read(address)).collect::<Vec<_>>(),
+                expected, "{runtime:?}: {:?}", outcome.report
+            );
+        }
+    }
+
+    #[test]
+    fn long_integer_output_uses_console_and_explicit_devices_without_narrowing() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let max_steps = 500_000;
+            let outcome = run_runtime_fixture_with_setup(
+                "long_integer_output.act", CompileMode::Mir6502, runtime, true, max_steps,
+                |vm| { vm.bus_mut().add_host_output("LONGS.TXT"); },
+            );
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(outcome.memory().read(0x6FF), 0xA5, "{runtime:?}: {:?}", outcome.report);
+            assert_eq!(outcome.vm.bus().cio_channel0_output(),
+                b"0|4294967295\x9B-2147483648|2147483647\x9B4464\x9B-4464\x9B", "{runtime:?}");
+            assert_eq!(outcome.vm.bus().host_file_bytes("LONGS.TXT"),
+                Some(&b"65536|2971215073\x9B-70000|-1\x9B42\x9B-42\x9B"[..]), "{runtime:?}");
+        }
+    }
+
+    #[test]
+    fn long_integer_input_returns_wide_values_from_console_and_explicit_devices() {
+        let input = b"4294967295\x9B-2147483648\x9B +65536 \x9B2147483647\x9B42\x9B-42\x9B";
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let max_steps = 500_000;
+            let outcome = run_runtime_fixture_with_setup(
+                "long_integer_input.act", CompileMode::Mir6502, runtime, true, max_steps,
+                |vm| vm.bus_mut().queue_scripted_cio_input_bytes(input),
+            );
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(outcome.memory().read(0x6FF), 0xA5, "{runtime:?}: {:?}", outcome.report);
+            for (address, expected) in [(0x600, u32::MAX), (0x604, 65536), (0x608, 42),
+                (0x610, i32::MIN as u32), (0x614, i32::MAX as u32), (0x618, (-42i32) as u32)] {
+                assert_eq!(
+                    (address..address + 4).map(|a| outcome.memory().read(a)).collect::<Vec<_>>(),
+                    expected.to_le_bytes(), "{runtime:?} at ${address:04x}"
+                );
+            }
+            assert_eq!(outcome.vm.bus().cio_summary().reads, 6);
+            assert_eq!(outcome.vm.bus().cio_summary().bytes_read, input.len() as u64);
+        }
+    }
+
+    #[test]
     fn resident_numeric_strings_match_under_both_runtimes_and_backends() {
         let max_steps = 100_000;
         let expected: &[(u16, &[u8])] = &[

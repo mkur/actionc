@@ -58,7 +58,7 @@ fn source(case: &str, adt: bool) -> String {
     } else {
         "TYPE Event=[BYTE tag INT x,y] Event current\n"
     };
-    let validate_event = "IF saved.tag<1 OR saved.tag>3 THEN Error(100) DO OD FI\n";
+    let validate_event = "IF saved.tag<1 OR saved.tag>3 THEN Error(105,0,105) DO OD FI\n";
     let (types, routines, body): (&str, &str, String) = match (case, adt) {
         ("event_dispatch", true) => (
             event,
@@ -159,9 +159,9 @@ fn source(case: &str, adt: bool) -> String {
             "Packet FUNC Make(BYTE value,mode) Packet result IF mode THEN result.tag=1 result.inner_tag=2 result.value=value ELSE result.tag=2 result.inner_tag=value result.value=0 FI RETURN(result)\n",
             r#"
  LET saved=Make(seed,flag)
- IF saved.tag<1 OR saved.tag>2 THEN Error(100) DO OD FI
+ IF saved.tag<1 OR saved.tag>2 THEN Error(105,0,105) DO OD FI
  IF saved.tag=1 THEN
-   IF saved.inner_tag<1 OR saved.inner_tag>2 THEN Error(100) DO OD FI
+   IF saved.inner_tag<1 OR saved.inner_tag>2 THEN Error(105,0,105) DO OD FI
  FI
  CASE saved.tag OF
  WHEN 1 THEN

@@ -34,8 +34,9 @@ exact adjacency are allowed. Address comparisons/subtraction use the target's
 unsigned ADDRESS width, not Action!'s 16-bit CARD. Subtracting the smaller address
 from the larger avoids wrapping end-address calculations.
 
-A partial-overlap failure uses the existing nonreturning InvalidVariant fault:
-Error(100) on Atari, in classic/MIR6502 and both runtimes. The guard runs before
+A partial-overlap failure uses the nonreturning InvalidVariantOverlap fault:
+Error(106) on Atari, in classic/MIR6502 and both runtimes. Invalid active tags
+separately report InvalidVariantTag/Error(105). The guard runs before
 any destination copy. Active source tags are then validated in place, including
 all active inline nested values, before any destination write. If Error returns,
 the existing defensive stop remains. Native fault emission still requires a

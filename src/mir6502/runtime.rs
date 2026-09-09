@@ -61,8 +61,8 @@ pub(super) fn resolve_helpers(
     } else {
         None
     };
-    for helper in [
-        MirRuntimeHelper::InvalidVariant,
+    for helper in crate::runtime_fault::RuntimeFault::ALL.into_iter()
+        .map(MirRuntimeHelper::Fault).chain([
         MirRuntimeHelper::Div32,
         MirRuntimeHelper::Mod32,
         MirRuntimeHelper::UDiv32,
@@ -77,7 +77,7 @@ pub(super) fn resolve_helpers(
         MirRuntimeHelper::ModU16U8,
         MirRuntimeHelper::DivMod,
         MirRuntimeHelper::UDivMod,
-    ] {
+    ]) {
         if let Some(declaration) = program
             .runtime_helpers
             .iter()
@@ -89,8 +89,8 @@ pub(super) fn resolve_helpers(
                     "legacy division/remainder SET overrides cannot replace modern integer operators",
                 )]);
             }
-            let body = if helper == MirRuntimeHelper::InvalidVariant {
-                crate::integer6502::fault_body()
+            let body = if let MirRuntimeHelper::Fault(kind) = helper {
+                crate::integer6502::fault_body(kind)
             } else if helper.is_wide() {
                 crate::integer6502::wide::division(
                     matches!(helper, MirRuntimeHelper::Div32 | MirRuntimeHelper::Mod32),
@@ -154,7 +154,7 @@ pub(super) fn resolve_helpers(
 }
 
 pub(super) fn requires_error(helper: MirRuntimeHelper) -> bool {
-    helper == MirRuntimeHelper::InvalidVariant || is_division(helper)
+    matches!(helper, MirRuntimeHelper::Fault(_)) || is_division(helper)
 }
 
 pub(super) fn is_division(helper: MirRuntimeHelper) -> bool {
@@ -176,7 +176,7 @@ pub(super) fn is_division(helper: MirRuntimeHelper) -> bool {
 
 pub(super) const fn helper_name(helper: MirRuntimeHelper) -> &'static str {
     match helper {
-        MirRuntimeHelper::InvalidVariant => "InvalidVariant",
+        MirRuntimeHelper::Fault(kind) => kind.name(),
         MirRuntimeHelper::Mul32 => "Mult32",
         MirRuntimeHelper::Div32 => "DivI32",
         MirRuntimeHelper::Mod32 => "RemI32",
@@ -211,7 +211,7 @@ fn cartridge_address(helper: MirRuntimeHelper) -> u16 {
         | MirRuntimeHelper::MulByte | MirRuntimeHelper::Div | MirRuntimeHelper::Mod
         | MirRuntimeHelper::UDiv | MirRuntimeHelper::UMod
         | MirRuntimeHelper::DivU8 | MirRuntimeHelper::ModU8 | MirRuntimeHelper::DivU16U8 | MirRuntimeHelper::ModU16U8
-        | MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod | MirRuntimeHelper::InvalidVariant => {
+        | MirRuntimeHelper::DivMod | MirRuntimeHelper::UDivMod | MirRuntimeHelper::Fault(_) => {
             unreachable!("compiler-owned arithmetic is bound before cartridge resolution")
         }
         MirRuntimeHelper::Mul => runtime_helper::CARTRIDGE_MUL.address(),

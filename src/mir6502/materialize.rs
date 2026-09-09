@@ -186,7 +186,7 @@ use runtime::{
     ensure_helper_decl, helper_for_typed_binary, materialize_runtime_helper_binary,
     runtime_helper_result_width,
 };
-pub(super) use runtime::{helper_abi_for, helper_additional_results, helper_args, helper_effects};
+pub(super) use runtime::{deferred_helper_decl, helper_abi_for, helper_additional_results, helper_args, helper_effects};
 pub(super) use runtime::helper_return_effects;
 #[cfg(test)]
 use spills::op_may_clobber_reg;

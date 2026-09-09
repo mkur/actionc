@@ -2,6 +2,22 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 const EXECUTED: &[(&str, &str)] = &[
+    ("StrLC", "long_integer_conversions.act"),
+    ("ValLC", "long_integer_conversions.act"),
+    ("PrintLC", "long_integer_output.act"),
+    ("PrintLCE", "long_integer_output.act"),
+    ("PrintLCD", "long_integer_output.act"),
+    ("PrintLCDE", "long_integer_output.act"),
+    ("InputLC", "long_integer_input.act"),
+    ("InputLCD", "long_integer_input.act"),
+    ("StrLI", "long_integer_conversions.act"),
+    ("ValLI", "long_integer_conversions.act"),
+    ("PrintLI", "long_integer_output.act"),
+    ("PrintLIE", "long_integer_output.act"),
+    ("PrintLID", "long_integer_output.act"),
+    ("PrintLIDE", "long_integer_output.act"),
+    ("InputLI", "long_integer_input.act"),
+    ("InputLID", "long_integer_input.act"),
     ("Zero", "standalone_sys_memory.act"),
     ("SetBlock", "standalone_sys_blocks.act"),
     ("MoveBlock", "standalone_sys_blocks.act"),

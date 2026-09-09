@@ -1,6 +1,6 @@
 #[path = "support/variant_values.rs"]
 mod support;
-use support::{check, check_with_fault};
+use support::{check, check_with_fault, check_with_error_code};
 
 #[test]
 fn variant_construction_snapshot_match_and_argument_order() {
@@ -244,7 +244,7 @@ RETURN
             expected[0] = 41;
             expected[src - 0x600..src - 0x600 + size].fill(0);
             expected[src - 0x600] = 1;
-            check_with_fault(&source, &expected, true);
+            check_with_error_code(&source, &expected, Some(106));
         }
     }
 }
@@ -274,7 +274,7 @@ RETURN
         if !fault {
             expected[dst - 0x600..dst - 0x600 + 4].copy_from_slice(&[2, 0x34, 0x12, 7]);
         }
-        check_with_fault(&source, &expected, fault);
+        check_with_error_code(&source, &expected, fault.then_some(106));
     }
 }
 

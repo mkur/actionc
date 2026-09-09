@@ -14,6 +14,8 @@ const SYS_LINK_SOURCE_KEYS: &[&str] = &[
     "runtime:sysgr.act",
     "runtime:sysio.act",
     "runtime:syslib.act",
+    "runtime:syslong.act",
+    "runtime:syslongc.act",
     "runtime:sysmisc.act",
     "runtime:sysreal.act",
     "runtime:sysrealc.act",

@@ -1,0 +1,24 @@
+; Channel 0 and an explicit nonzero channel use the same checked parser.
+MODULE LONG_INPUT
+USE SYS
+LONGCARD ARRAY unsignedValues(3)=$0600
+LONGINT ARRAY signedValues(3)=$0610
+BYTE done=$06FF
+
+PROC Main()
+  SYS.Open(0,"Q:",4,0)
+  unsignedValues(0)=SYS.InputLC()
+  signedValues(0)=SYS.InputLI()
+  SYS.Close(0)
+  SYS.Open(1,"Q:",4,0)
+  unsignedValues(1)=SYS.InputLCD(1)
+  signedValues(1)=SYS.InputLID(1)
+  DEVICE=1
+  unsignedValues(2)=SYS.InputLC()
+  signedValues(2)=SYS.InputLI()
+  DEVICE=0
+  SYS.Close(1)
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE

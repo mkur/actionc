@@ -1822,8 +1822,8 @@ fn lower_ops(
                 aggregate_result,
             } => {
                 assert!(aggregate_result.is_none(), "aggregate ABI expansion precedes scalar MIR selection");
-                if let crate::nir::NirCallee::Fault(crate::runtime_fault::RuntimeFault::InvalidVariant) = callee {
-                    let helper = MirRuntimeHelper::InvalidVariant;
+                if let crate::nir::NirCallee::Fault(kind) = callee {
+                    let helper = MirRuntimeHelper::Fault(*kind);
                     lowered.push(MirOp::RuntimeHelper {
                         helper, args: Vec::new(), result: None, additional_results: Vec::new(),
                         effects: super::materialize::helper_effects(&helper),

@@ -110,14 +110,14 @@ fn run_with_observer(image: &[u8], runtime: Runtime, a: u16, b: u16, observe: bo
     });
     if result.memory().read(0x6FF) == 0xCC {
         assert_eq!(
-            result.report.registers.a, 100,
+            result.report.registers.a, 101,
             "noncompletion must be the arithmetic fault"
         );
         assert_eq!(
             (0x720..=0x723)
                 .map(|a| result.memory().read(a))
                 .collect::<Vec<_>>(),
-            [100, 0, 100, 1]
+            [101, 0, 101, 1]
         );
         assert_eq!(result.report.registers.status & 8, 0);
         let pc = result.report.registers.pc;
@@ -207,12 +207,12 @@ fn division_fault_uses_the_unmodified_cartridge_error_handler() {
             StopReason::PcReached { pc: 0xB889 },
             "{mode:?}: Error must enter the monitor"
         );
-        // The original SysErr formatted Y into numbuf: "100".
+        // The original SysErr formatted Y into numbuf: "101".
         assert_eq!(
             (0x550..0x554)
                 .map(|a| outcome.memory().read(a))
                 .collect::<Vec<_>>(),
-            [3, b'1', b'0', b'0'],
+            [3, b'1', b'0', b'1'],
             "{mode:?}"
         );
         assert_eq!(outcome.memory().read(0x6FF), 0xCC);

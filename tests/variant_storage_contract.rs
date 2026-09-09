@@ -112,6 +112,30 @@ fn ordinary_record_and_union_copies_keep_their_overlap_safe_ir_contract() {
 }
 
 #[test]
+fn pointer_assignments_distinguish_overlap_faults_from_invalid_tags() {
+    use actionc::runtime_fault::RuntimeFault;
+    for declaration in [
+        "Item POINTER first,second",
+        "TYPE Box=[BYTE marker Item value] Box POINTER first,second",
+    ] {
+        let raw = lower(
+            &format!("TYPE Item=VARIANT [NONE VALUE [CARD number]] {declaration} PROC Main() second^=first^ RETURN"),
+            TargetId::Atari6502,
+        );
+        for program in [raw.clone(), nir::optimize_program(&raw).unwrap()] {
+            let faults: std::collections::BTreeSet<_> = program.routines.iter()
+                .flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+                .filter_map(|op| match op {
+                    nir::NirOp::Call { callee: nir::NirCallee::Fault(kind), .. } => Some(*kind),
+                    _ => None,
+                }).collect();
+            assert_eq!(faults, [RuntimeFault::InvalidVariantTag,
+                RuntimeFault::InvalidVariantOverlap].into_iter().collect());
+        }
+    }
+}
+
+#[test]
 fn overlap_checks_use_target_address_width_and_do_not_add_end_addresses() {
     for target in [
         TargetId::Atari6502,

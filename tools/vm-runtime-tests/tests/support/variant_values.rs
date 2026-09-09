@@ -4,14 +4,14 @@ use actionc_vm::{
     CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, RunRequest, StopReason, VmRunner,
 };
 
-fn execute(image: &[u8], runtime: Runtime, fault: bool) -> Vec<u8> {
+fn execute(image: &[u8], runtime: Runtime, fault: Option<u8>) -> Vec<u8> {
     execute_watched(image, runtime, fault, &[], &|_| {})
 }
 
 fn execute_watched(
     image: &[u8],
     runtime: Runtime,
-    fault: bool,
+    fault: Option<u8>,
     watch: &[u16],
     observe: &impl Fn(&[actionc_vm::BusEvent]),
 ) -> Vec<u8> {
@@ -91,16 +91,16 @@ fn execute_watched(
     );
     assert_eq!(
         result.memory().read(0xB23),
-        u8::from(fault),
+        u8::from(fault.is_some()),
         "unexpected Error dispatch: {:?}",
         result.report
     );
-    if fault {
+    if let Some(code) = fault {
         assert_eq!(
             (0xB20..=0xB24)
                 .map(|a| result.memory().read(a))
                 .collect::<Vec<_>>(),
-            [100, 0, 100, 1, 41]
+            [code, 0, code, 1, 41]
         );
         assert_eq!(result.report.registers.status & 8, 0);
         let pc = result.report.registers.pc;
@@ -138,6 +138,11 @@ pub fn check(source: &str, expected: &[u8]) {
 
 #[allow(dead_code)]
 pub fn check_with_fault(source: &str, expected: &[u8], fault: bool) {
+    check_with_error_code(source, expected, fault.then_some(105));
+}
+
+#[allow(dead_code)]
+pub fn check_with_error_code(source: &str, expected: &[u8], fault: Option<u8>) {
     let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
     let mut options = actionc::semantic::SemanticOptions::modern();
     options.algebraic_types.variants = true;
@@ -217,7 +222,7 @@ pub fn check_semir_watched(
             execute_watched(
                 &actionc::codegen::format_load_file(&output),
                 runtime,
-                fault,
+                fault.then_some(105),
                 watch,
                 &|events| observe(&path, events),
             ),
@@ -266,7 +271,7 @@ fn check_mir_runtime(
             execute_watched(
                 &actionc::codegen::format_load_file(&output),
                 runtime,
-                fault,
+                fault.then_some(105),
                 watch,
                 &|events| observe(&path, events),
             ),
