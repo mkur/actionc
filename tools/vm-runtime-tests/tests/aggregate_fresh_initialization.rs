@@ -208,6 +208,20 @@ fn maybe_byte_example_reports_cost_to_printbe_without_running_printing() {
                 vm.step_cpu().unwrap();
             }
             assert_eq!(vm.cpu().registers().a, 42);
+            if mode == CompileMode::Mir6502 {
+                assert!(
+                    vm.cpu().cycles() - start <= 46,
+                    "CASE must not regain its snapshot"
+                );
+                assert!(
+                    compiled.object_bytes().len()
+                        <= if runtime == Runtime::ActionCart {
+                            94
+                        } else {
+                            377
+                        }
+                );
+            }
             eprintln!(
                 "maybe-byte,{mode:?},{runtime:?},xex_bytes={},cycles_to_PrintBE={}",
                 compiled.object_bytes().len(),

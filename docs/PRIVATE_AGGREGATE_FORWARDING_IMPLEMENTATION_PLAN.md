@@ -1,9 +1,11 @@
 # Private aggregate storage forwarding
 
 Created: 2026-09-09.
-Status: slices 1–5 implemented: proof foundation, fresh initialization,
-bounded snapshot forwarding, cross-CFG/subobject reuse and whole-capture ABI
-forwarding. Final cost acceptance/documentation remains slice 6.
+Status: slices 1–6 implemented: proof foundation, fresh initialization,
+bounded snapshot forwarding, cross-CFG/subobject reuse, whole-capture ABI
+forwarding and cost acceptance. The deliberately conservative boundaries and
+final measurements are recorded in
+[acceptance and remaining extensions](PRIVATE_AGGREGATE_FORWARDING_ACCEPTANCE.md).
 
 First increment: verified read-only byte-range/address-use/unchanged-interval
 queries and the shared 12-case NIR/VM baseline are implemented. See
@@ -324,6 +326,14 @@ Record wins/rejections and costs per stage. Commit each major slice separately
 when requested; keep unrelated storage-contract changes separate.
 
 Suggested commit: `tests: accept shared aggregate forwarding costs`.
+
+Implemented: the original twelve shape/case pairs remain unchanged and six
+additional ABI probes cover argument sharing and return staging. The shared
+corpus checks 144 raw/optimized four-target NIR rows and 432 Atari executions
+across classic/raw-MIR/optimized-MIR and both runtimes. Acceptance asserts real
+physical copy, emitted-size and cycle wins for the ABI probes, and preserves the
+minimal MaybeByte CASE win. Historical CSVs are not overwritten. Full checks,
+the safety coverage matrix and measured limits are in the acceptance note.
 
 ## Non-goals and delivery order
 

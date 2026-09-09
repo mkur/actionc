@@ -213,3 +213,76 @@ fn verifier_still_rejects_subobject_abi_arguments_after_forwarding() {
     assert!(verify_program(&raw).is_err());
     assert!(optimize_program(&raw).is_err());
 }
+
+#[test]
+fn intervening_calls_and_result_aliases_do_not_reuse_an_input_image() {
+    for target in TARGETS {
+        for aliases_result in [false, true] {
+            let later = if aliases_result { "0" } else { "Touch()" };
+            let mut raw = lower(
+                &format!(
+                    "TYPE Value=[BYTE first] Value original BYTE out \
+                Value FUNC Make() RETURN(original) BYTE FUNC Touch() RETURN(0) \
+                Value FUNC Update(Value input BYTE later) input.first=99 RETURN(input) \
+                PROC Main() LET saved=Make() LET result=Update(saved,{later}) out=result.first RETURN"
+                ),
+                target,
+            );
+            let main = raw.routines.last_mut().unwrap();
+            let capture = main
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .find_map(|op| match op {
+                    NirOp::Call {
+                        callee: NirCallee::User { name, .. },
+                        args,
+                        ..
+                    } if name == "Update" => {
+                        let NirValue::Aggregate { place } = &args[0] else {
+                            unreachable!()
+                        };
+                        direct_storage_id(place)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            if aliases_result {
+                // Legal whole-buffer NIR, but the proposed argument source
+                // is also the call's output. Keep independent input staging.
+                let source = main
+                    .blocks
+                    .iter()
+                    .flat_map(|b| &b.ops)
+                    .find_map(|op| match op {
+                        NirOp::CopyBytes {
+                            destination,
+                            source,
+                            ..
+                        } if direct_storage_id(destination) == Some(capture) => {
+                            Some(source.clone())
+                        }
+                        _ => None,
+                    })
+                    .unwrap();
+                for op in main.blocks.iter_mut().flat_map(|b| &mut b.ops) {
+                    if let NirOp::Call {
+                        callee: NirCallee::User { name, .. },
+                        aggregate_result,
+                        ..
+                    } = op
+                        && name == "Update"
+                    {
+                        *aggregate_result = Some(source.clone());
+                    }
+                }
+            }
+            verify_program(&raw).unwrap();
+            let opt = optimize(&raw);
+            assert!(opt.routines.last().unwrap().blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op,
+                NirOp::Call { callee: NirCallee::User { name, .. }, args, .. }
+                if name == "Update" && matches!(&args[0], NirValue::Aggregate { place } if direct_storage_id(place) == Some(capture)))),
+                "{target:?}/aliases_result={aliases_result}\n{}", format_program(&opt));
+        }
+    }
+}

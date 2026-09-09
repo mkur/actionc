@@ -19,7 +19,7 @@ fn aggregate_forwarding_corpus_is_verified_and_analysis_only_on_every_target() {
         TargetId::Wdc65816Native,
     ] {
         for shape in cases::SHAPES {
-            for case in cases::CASES {
+            for case in cases::CASES.into_iter().chain(cases::ABI_CASES) {
                 let source = cases::source(shape, case);
                 let ast =
                     actionc::parser::parse(&actionc::lexer::tokenize(&source).unwrap()).unwrap();

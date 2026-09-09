@@ -7,6 +7,9 @@ pub const CASES: [&str; 4] = [
     "snapshot_mutation",
     "ordered_arguments",
 ];
+// Added in slice 6; the original twelve shape/case pairs remain comparable
+// with the frozen slice 1–3 CSVs.
+pub const ABI_CASES: [&str; 2] = ["abi_arguments", "abi_return"];
 
 pub fn source(shape: &str, case: &str) -> String {
     let declaration = match shape {
@@ -15,13 +18,25 @@ pub fn source(shape: &str, case: &str) -> String {
         "variant" => "TYPE Value=VARIANT [NONE SOME [BYTE first,second,tail]]",
         _ => unreachable!(),
     };
-    let make = if shape == "variant" {
+    let make = if case == "abi_return" && shape == "variant" {
+        "Value FUNC Make(BYTE n) LET saved=Value.SOME(n,n+1,$A5) RETURN(saved)"
+    } else if case == "abi_return" {
+        "Value FUNC Make(BYTE n) Value made made.bytes(0)=n made.bytes(1)=n+1 made.bytes(2)=$A5 LET saved=made RETURN(saved)"
+    } else if shape == "variant" {
         "Value FUNC Make(BYTE n) RETURN(Value.SOME(n,n+1,$A5))"
     } else {
         "Value FUNC Make(BYTE n) Value made made.bytes(0)=n made.bytes(1)=n+1 made.bytes(2)=$A5 RETURN(made)"
     };
     let (helpers, body) = match case {
-        "fresh_call" => ("", "LET saved=Make(seed)"),
+        "fresh_call" | "abi_return" => ("", "LET saved=Make(seed)"),
+        "abi_arguments" if shape == "variant" => (
+            "Value FUNC Choose(Value left,right) left=Value.NONE RETURN(right)",
+            "LET first=Make(seed) LET saved=Choose(first,first)",
+        ),
+        "abi_arguments" => (
+            "Value FUNC Choose(Value left,right) left.bytes(0)=99 RETURN(right)",
+            "LET first=Make(seed) LET saved=Choose(first,first)",
+        ),
         "capture_chain" => ("", "original=Make(seed) LET first=original LET saved=first"),
         "snapshot_mutation" => (
             "",
