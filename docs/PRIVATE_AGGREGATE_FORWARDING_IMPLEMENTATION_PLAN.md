@@ -1,9 +1,9 @@
 # Private aggregate storage forwarding
 
 Created: 2026-09-09.
-Status: slice 1 proof foundation, bounded slice 2 fresh initialization and
-slice 3 same-block snapshot read forwarding implemented. Cross-block CASE
-reuse and aggregate ABI forwarding remain slices 4–5.
+Status: slices 1–4 implemented: proof foundation, fresh initialization,
+bounded snapshot forwarding and cross-CFG/subobject reuse. Aggregate ABI
+forwarding and final cost acceptance remain slices 5–6.
 
 First increment: verified read-only byte-range/address-use/unchanged-interval
 queries and the shared 12-case NIR/VM baseline are implemented. See
@@ -269,6 +269,15 @@ to `construct item -> validate/read item`: two fewer whole copies and two fewer
 aggregate homes. Complete CASE constant folding is not required.
 
 Suggested commit: `nir: reuse stable aggregate snapshots across control flow`.
+
+Implemented: shared forward must-availability intersects incoming paths and
+models initializing copies on loop entries. Each read/address consumer needs
+the captured image to remain available; effects on terminal paths without a
+later consumer do not block reuse. Fixed nested fields use exact byte extents,
+including overlapping union members. Unknown pointers, writes, calls before a
+later read and all complete aggregate ABI consumers retain staging. CASE tag
+validation/fault paths are unchanged. See
+[slice 4 contract and results](PRIVATE_AGGREGATE_CFG_FORWARDING.md).
 
 ## Slice 5: aggregate call boundaries
 

@@ -1,6 +1,7 @@
-//! Same-block snapshot read forwarding. This does not redirect producers or
+//! Path-proven snapshot read forwarding. This does not redirect producers or
 //! relax the whole-capture call/return ABI. Unknown proofs retain the snapshot.
 
+use super::analysis::aggregate_lifetime::AggregateLifetime;
 use super::analysis::storage_references::{op_references, terminator_references};
 use super::facts::root_storage_id;
 use super::*;
@@ -29,18 +30,20 @@ pub(super) fn forward_program(program: &NirProgram) -> Result<NirProgram, Vec<Ni
             });
         let Some(next) = next else { break };
         let routine = &mut forwarded.routines[next.routine];
-        for (index, op) in routine.blocks[next.block].ops.iter_mut().enumerate() {
-            if index == next.copy {
-                continue;
-            }
-            match op {
-                NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => {
-                    redirect_root(place, next.capture, &next.source);
+        for (block_index, block) in routine.blocks.iter_mut().enumerate() {
+            for (index, op) in block.ops.iter_mut().enumerate() {
+                if block_index == next.block && index == next.copy {
+                    continue;
                 }
-                NirOp::CopyBytes { source, .. } => {
-                    redirect_root(source, next.capture, &next.source);
+                match op {
+                    NirOp::Load { place, .. } | NirOp::AddrOf { place, .. } => {
+                        redirect_root(place, next.capture, &next.source);
+                    }
+                    NirOp::CopyBytes { source, .. } => {
+                        redirect_root(source, next.capture, &next.source);
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
         routine.blocks[next.block].ops.remove(next.copy);
@@ -74,7 +77,10 @@ fn find_forwarding(
                 continue;
             };
             let capture = NirStorageId::Local(id);
-            let Some(source_id) = direct_storage_id(source) else {
+            // Fixed direct roots/fields can be reused without reevaluating an
+            // address expression. Loaded pointers and dynamic subobjects need
+            // an additional address-lifetime proof and remain staged.
+            let Some(source_id) = root_storage_id(source) else {
                 continue;
             };
             if local.purpose != NirLocalPurpose::AggregateCapture
@@ -95,8 +101,7 @@ fn find_forwarding(
             let Some(source_facts) = facts.storage().homes.get(&source_id) else {
                 continue;
             };
-            if source_facts.width != Some(*size)
-                || source_facts.machine_visible
+            if source_facts.machine_visible
                 || facts.relation(destination, *size, source, *size, at)
                     != Ok(NirRegionRelation::Disjoint)
                 || !snapshot_uses_are_forwardable(routine, facts, destination, source, *size, at)
@@ -133,7 +138,8 @@ fn snapshot_uses_are_forwardable(
     initialized: NirAggregatePoint,
 ) -> bool {
     let capture = direct_storage_id(destination).unwrap();
-    let mut last_read = initialized;
+    let lifetime =
+        AggregateLifetime::analyze(routine, facts, destination, source, size, initialized);
     for block in &routine.blocks {
         // Aggregate values at call/return boundaries must remain complete
         // caller-owned captures, even when byte equality would be provable.
@@ -196,31 +202,13 @@ fn snapshot_uses_are_forwardable(
                 return false;
             }
             if read || address {
-                if at.block != initialized.block || at.op_index <= initialized.op_index {
+                if !lifetime.at(at) {
                     return false;
-                }
-                if read {
-                    last_read = at;
                 }
             }
         }
     }
-    if last_read == initialized {
-        return true;
-    }
-    let after_copy = NirAggregatePoint {
-        op_index: initialized.op_index + 1,
-        ..initialized
-    };
-    // The single complete initializing write precedes every consumer each time
-    // this block executes (including repeated loop entries). Neither image may
-    // change until the last redirected read. Calls after that read are irrelevant.
-    facts
-        .unchanged_between(source, size, after_copy, last_read)
-        .is_ok()
-        && facts
-            .unchanged_between(destination, size, after_copy, last_read)
-            .is_ok()
+    true
 }
 
 fn redirect_root(place: &mut NirPlace, capture: NirStorageId, source: &NirPlace) {

@@ -417,7 +417,7 @@ fn data_relocations_and_explicit_effect_references_keep_capture_storage() {
 }
 
 #[test]
-fn reads_before_initialization_and_case_reads_in_other_blocks_keep_captures() {
+fn reads_require_initialization_but_proven_cross_block_case_reads_share_storage() {
     let mut raw = lower(
         "TYPE Value=[BYTE first,second] Value original BYTE out PROC Main() LET saved=original out=saved.first RETURN",
         TargetId::Atari6502,
@@ -445,8 +445,8 @@ fn reads_before_initialization_and_case_reads_in_other_blocks_keep_captures() {
             .iter()
             .filter(|local| local.purpose == NirLocalPurpose::AggregateCapture)
             .count(),
-        2,
-        "cross-block CASE proof is slice 4, not implied by LET immutability"
+        1,
+        "cross-block CASE proof removes the snapshot, not the constructed item"
     );
 }
 
@@ -525,11 +525,22 @@ fn partial_overlap_copy_consumers_and_observed_capture_addresses_stay_staged() {
         // delete it and the copy/home proof can succeed. Retain its evaluated
         // inputs, if any; AddrOf itself does not dereference memory.
         let routine = raw.routines.last_mut().unwrap();
-        assert!(matches!(routine.blocks[0].ops.last(), Some(NirOp::Store { .. })));
+        assert!(matches!(
+            routine.blocks[0].ops.last(),
+            Some(NirOp::Store { .. })
+        ));
         routine.blocks[0].ops.pop();
         let optimized = optimize(&raw);
         assert!(!has_local(&optimized, "saved"));
-        assert!(!optimized.routines.last().unwrap().blocks.iter().flat_map(|block| &block.ops)
-            .any(|op| matches!(op, NirOp::AddrOf { .. })));
+        assert!(
+            !optimized
+                .routines
+                .last()
+                .unwrap()
+                .blocks
+                .iter()
+                .flat_map(|block| &block.ops)
+                .any(|op| matches!(op, NirOp::AddrOf { .. }))
+        );
     }
 }

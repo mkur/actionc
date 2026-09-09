@@ -82,7 +82,10 @@ fn aggregate_forwarding_corpus_is_verified_and_analysis_only_on_every_target() {
                         .map(|l| u64::from(l.layout.size.get()))
                         .sum();
                     assert_eq!(program, &before);
-                    assert!(copies > 0 && captures > 0);
+                    assert!(captures > 0, "whole ABI/producer homes remain allocated");
+                    if stage == "raw" {
+                        assert!(copies > 0);
+                    }
                     eprintln!(
                         "{target:?},{shape},{case},{stage},{copies},{bytes},{captures},{exact},{unknown}"
                     );

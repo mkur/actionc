@@ -4,10 +4,9 @@ global Outer: type RecordType { name: "Outer", fields: [RecordFieldType { id: So
 global current: Outer init bytes=[] zero_fill=4 section=global mutable=true
 global output: Byte
 
-routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_0, __actionc_value_1, __actionc_value_2, Main::block1::n]
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_0, __actionc_value_1, Main::block1::n]
   local __actionc_value_0: Outer* duration=routine-static size=2 align=1
   local __actionc_value_1: Outer duration=routine-static size=4 align=1 purpose=aggregate-capture
-  local __actionc_value_2: Outer duration=routine-static size=4 align=1 purpose=aggregate-capture
   local Main::block1::n: Int duration=routine-static size=2 align=1
 bb0:
   %t0:Outer* = addr current
@@ -17,8 +16,7 @@ bb0:
   store __actionc_value_1.+0 = 2
   %t3:Outer* = load __actionc_value_0
   copy_bytes *%t3 = __actionc_value_1 size=4
-  copy_bytes __actionc_value_2 = current size=4
-  %t4:Byte = load __actionc_value_2.+0
+  %t4:Byte = load current.+0
   %t5:condition = cmp %t4 Eq 1 operand_ty=Byte
   branch %t5 ? bb2 : bb3
 bb2:
@@ -27,7 +25,7 @@ bb3:
   %t6:condition = cmp %t4 Eq 2 operand_ty=Byte
   branch %t6 ? bb4 : bb5
 bb4:
-  %t7:Byte = load __actionc_value_2.+1.+0
+  %t7:Byte = load current.+1.+0
   %t8:condition = cmp %t7 Ge 1 operand_ty=Byte
   branch %t8 ? bb9 : bb8
 bb9:
@@ -44,26 +42,26 @@ bb5:
   call fault::InvalidVariant() effects=reads:unknown writes:unknown external opaque
   exit
 bb1:
-  %t10:Byte = load __actionc_value_2.+0
+  %t10:Byte = load current.+0
   %t11:condition = cmp %t10 Eq 2 operand_ty=Byte
   branch %t11 ? bb11 : bb19
 bb11:
-  %t12:Byte = load __actionc_value_2.+1.+0
+  %t12:Byte = load current.+1.+0
   %t13:condition = cmp %t12 Eq 2 operand_ty=Byte
   branch %t13 ? bb13 : bb15
 bb13:
-  %t14:Int = load __actionc_value_2.+1.+1
+  %t14:Int = load current.+1.+1
   %t15:condition = cmp %t14 Eq $FFFF operand_ty=Int
   branch %t15 ? bb14 : bb15
 bb14:
   store output = 7
   goto bb10
 bb15:
-  %t17:Byte = load __actionc_value_2.+1.+0
+  %t17:Byte = load current.+1.+0
   %t18:condition = cmp %t17 Eq 2 operand_ty=Byte
   branch %t18 ? bb17 : bb18
 bb17:
-  %t19:Int = load __actionc_value_2.+1.+1
+  %t19:Int = load current.+1.+1
   %t21:Byte = cast Int -> Byte %t19
   store output = %t21
   goto bb10
