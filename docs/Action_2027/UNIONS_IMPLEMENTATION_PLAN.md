@@ -219,7 +219,8 @@ tests green. Explain any fixture contract changes and update only relevant count
 ## 6. Progress
 
 - Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
-- Slices 2–7 remain pending. No public UNION support is claimed yet.
+- Slices 1–2 are complete; slices 3–7 remain pending. No public UNION support
+  is claimed yet.
 
 ### Slice 1 — Syntax, identity and canonical layout (complete)
 
@@ -242,3 +243,26 @@ tests green. Explain any fixture contract changes and update only relevant count
   for variants, nested patterns and CASE guards pass after the shared inline-type
   walk refactor. The full VM suite/public enablement remain later-slice gates.
   No existing fixture, count or public capability changed in this slice.
+
+### Slice 2 — Typed access and alias correctness (complete)
+
+- Ordinary typed field places already preserve union offsets, widths, signed
+  interpretation and selected-member writes. Added semantic rejection of legacy
+  aggregate-to-scalar arithmetic/casts, scalar assignment and truth conversion
+  for inline-union-containing values. Explicit typed addresses remain available.
+- Audited NIR storage facts and forwarding: aggregate homes remain addressable
+  and untrackable; field/indirect stores and CopyBytes invalidate cached scalar
+  memory. Structured effects intersect byte ranges, not FieldIds. No union pass
+  or new executable IR form was necessary.
+- Added a reusable classic SemIR entry with explicit runtime selection and an
+  internal-capability VM harness. It reuses the existing cartridge/standalone
+  linkers without exposing a public source capability or CLI switch.
+- Two compiler tests cover typed places and native lowering on all four targets,
+  plus rejected scalar/nominal operations. Three guarded-memory VM tests pass in
+  classic and raw/optimized MIR for both Atari runtimes: alternating signed/enum/
+  byte/word views, trailing-byte preservation, pointers, calls, machine writes,
+  branch joins, high-offset arrays and exactly-once index/RHS evaluation.
+- Acceptance: all 2,940 compiler tests and NIR snapshots pass; NIR 44/44 and
+  MIR6502 167/167 sweeps pass. The full pinned VM suite is running as the combined
+  slices 2–5 regression gate; focused executable tests pass. Public enablement
+  remains reserved for slices 6–7. Existing fixture contracts are unchanged.

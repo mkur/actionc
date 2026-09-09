@@ -147,6 +147,24 @@ pub fn generate_semir_profile_with_origin(
     Ok(output)
 }
 
+/// Generate classic code from validated SemIR at an exact origin, selecting the
+/// existing runtime linker without re-analyzing source or changing capabilities.
+pub fn generate_semir_profile_at_origin_with_runtime(
+    program: &crate::semantic::ir::SemProgram,
+    origin: u16,
+    profile: CodegenProfile,
+    runtime: crate::compiler::Runtime,
+) -> Result<CodegenOutput, Vec<Diagnostic>> {
+    match runtime {
+        crate::compiler::Runtime::ActionCart => {
+            generate_semir_profile_at_origin(program, origin, profile)
+        }
+        crate::compiler::Runtime::Standalone => {
+            super::standalone::generate_semir_standalone_profile_at_origin(program, origin, profile)
+        }
+    }
+}
+
 pub(crate) fn generate_semir_profile_at_origin(
     program: &crate::semantic::ir::SemProgram,
     origin: u16,

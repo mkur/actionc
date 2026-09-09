@@ -102,6 +102,7 @@ fn execute(image: &[u8], runtime: Runtime, fault: bool) -> Vec<u8> {
 }
 
 fn compare(actual: Vec<u8>, expected: &[u8], path: &str) {
+    assert_eq!(actual.len(), expected.len(), "{path}: oracle extent");
     let differences: Vec<_> = actual
         .iter()
         .zip(expected)
@@ -115,10 +116,12 @@ fn compare(actual: Vec<u8>, expected: &[u8], path: &str) {
     );
 }
 
+#[allow(dead_code)]
 pub fn check(source: &str, expected: &[u8]) {
     check_with_fault(source, expected, false);
 }
 
+#[allow(dead_code)]
 pub fn check_with_fault(source: &str, expected: &[u8], fault: bool) {
     let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
     let mut options = actionc::semantic::SemanticOptions::modern();
@@ -170,4 +173,45 @@ pub fn check_with_fault(source: &str, expected: &[u8], fault: bool) {
         }
     }
     std::fs::remove_file(path).unwrap();
+}
+
+/// Exercise staged semantic capabilities without opening a public source gate.
+#[allow(dead_code)]
+pub fn check_semir(semir: &actionc::semantic::ir::SemProgram, expected: &[u8], fault: bool) {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = actionc::codegen::generate_semir_profile_at_origin_with_runtime(
+            semir,
+            0x3000,
+            actionc::codegen::CodegenProfile::Modern,
+            runtime,
+        )
+        .unwrap();
+        compare(
+            execute(&actionc::codegen::format_load_file(&output), runtime, fault),
+            expected,
+            &format!("classic/{runtime:?}"),
+        );
+        let raw = actionc::nir::lower_program(semir);
+        actionc::nir::verify_program(&raw).unwrap();
+        for optimized in [false, true] {
+            let nir = if optimized {
+                actionc::nir::optimize_program(&raw).unwrap()
+            } else {
+                raw.clone()
+            };
+            actionc::nir::verify_program(&nir).unwrap();
+            let output = actionc::mir6502::generate_output_with_config_and_runtime(
+                &nir,
+                0x3000,
+                &actionc::mir6502::Mir6502Config::default(),
+                runtime,
+            )
+            .unwrap();
+            compare(
+                execute(&actionc::codegen::format_load_file(&output), runtime, fault),
+                expected,
+                &format!("MIR/{runtime:?}/optimized={optimized}"),
+            );
+        }
+    }
 }

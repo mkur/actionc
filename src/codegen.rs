@@ -330,7 +330,8 @@ pub(crate) use driver::generate_profile_with_origin_and_semir_facts;
 pub(crate) use driver::generate_semir_profile_at_origin;
 pub use driver::{
     generate, generate_compatible_with_origin, generate_profile_with_origin,
-    generate_semir_profile_with_origin, generate_with_origin,
+    generate_semir_profile_at_origin_with_runtime, generate_semir_profile_with_origin,
+    generate_with_origin,
 };
 
 mod semir;

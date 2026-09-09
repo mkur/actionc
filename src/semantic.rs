@@ -1846,6 +1846,9 @@ impl Analyzer {
     fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
         let diagnostic_count = self.diagnostics.len();
         let condition = self.expect_expr_in_context(scope, expr, expr.span, true);
+        if self.contains_union(&condition.ty) {
+            self.diagnostics.push(Diagnostic::new(expr.span, "union-containing values are not truth values; select a scalar member"));
+        }
         if self.contains_variant(&condition.ty) {
             self.diagnostics.push(Diagnostic::new(expr.span, "variant values are not truth values; use CASE"));
         }
@@ -2041,6 +2044,11 @@ impl Analyzer {
             if expected != actual {
                 self.diagnostics.push(Diagnostic::new(value.span, "aggregate callable assignment requires the exact nominal signature; raw addresses have no declared aggregate ABI"));
             }
+            return;
+        }
+        if self.contains_union(actual) && !expected.pointer {
+            self.diagnostics.push(Diagnostic::new(value.span,
+                "union-containing values require exact nominal aggregate assignment; select a member or take an explicit typed address"));
             return;
         }
         if self.contains_variant(actual) {

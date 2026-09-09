@@ -165,6 +165,11 @@ impl Analyzer {
     }
 
     pub(super) fn reject_aggregate_address_conversion(&mut self, expr: &subject::SemExpr) -> bool {
+        if self.contains_union(&expr.ty) {
+            self.diagnostics.push(Diagnostic::new(expr.span,
+                "union-containing values cannot be used as scalars or cast to addresses; select a member or take an explicit typed address"));
+            return true;
+        }
         if self.contains_variant(&expr.ty) {
             self.diagnostics.push(Diagnostic::new(expr.span,
                 "variant values cannot be used as scalars or cast to addresses; use CASE or an explicit typed pointer"));
