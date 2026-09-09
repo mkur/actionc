@@ -757,6 +757,7 @@ fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) 
                     rewrite_expr_names(&mut label.low, replacements);
                     if let Some(high) = &mut label.high { rewrite_expr_names(high, replacements); }
                 }
+                if let Some(guard) = &mut arm.guard { rewrite_expr_names(guard, replacements); }
                 rewrite_stmt_list_names(&mut arm.body, replacements);
             }
         }
@@ -981,6 +982,7 @@ fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut B
                     collect_expr_names(&label.low, candidates, output);
                     if let Some(high) = &label.high { collect_expr_names(high, candidates, output); }
                 }
+                if let Some(guard) = &arm.guard { collect_expr_names(guard, candidates, output); }
                 collect_stmt_list_names(&arm.body, candidates, output);
             }
         }

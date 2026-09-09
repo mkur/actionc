@@ -3,8 +3,9 @@
 Status: accepted; implementation in progress on `main`, 2026-09-09.
 Inspected baseline: `ceecea1`. Modern aggregate snapshots and monomorphic variants
 are enabled after their end-to-end acceptance gates; direct and typed indirect
-aggregate calls, generic types and nested patterns are implemented; guards are
-the next slice. See implementation progress.
+aggregate calls, generic types, nested patterns and guards are implemented.
+The documentation/examples and code-quality gate are the final slice.
+See implementation progress.
 
 ## 1. Objective and boundaries
 
@@ -838,3 +839,27 @@ Do not add implicit boxing, a new allocator, or speculative optimization.
   tests). All 169 pinned VM tests pass; the final three-case nested-pattern run
   also covers corrupt inactive payload bytes. NIR snapshots, 43 NIR fixtures and
   167 MIR6502 fixtures pass. Existing snapshots remain unchanged.
+
+### Slice 9 — Ordered CASE guards (complete)
+
+- Added `WHEN pattern IF condition THEN` for variants, integers and enums, plus
+  guarded `_` catch-alls. ELSE stays unguarded and final; bare WHEN _ stays an
+  error. Guards reuse ordinary condition typing and pattern-binding scopes.
+- Only unconditional patterns/intervals contribute coverage. Guarded fallbacks
+  may repeat prior guarded labels; collective unconditional coverage diagnoses
+  shadowed guards. Unguarded scalar overlaps and duplicates within one header
+  remain errors. Variant completeness never relies on a guarded arm.
+- SemIR retains ordered binding initialization and typed guards after pattern
+  refinements; false continues through the original selector capture. Updated
+  declaration, dependency, link, feature/effect and projection visitors. Native
+  scalar guard CFG canaries lower without new target dispatch machinery.
+- Extended classic's shared prepared-expression branch handling, allowing
+  aggregate bindings and calls to compose with short-circuit guard conditions.
+  No new guard-specific backend or optimizer pass was introduced.
+- Coverage includes scoped/immutable bindings, module-only guard calls, return
+  flow, interval coverage, guarded catch-alls, captured mutation, volatile reads,
+  counted/skipped calls, loop EXIT, mixed payload types and non-returning faults.
+- Acceptance: all 2,928 compiler tests and 173 pinned VM tests pass. NIR
+  snapshots, 44 NIR fixtures and 167 MIR6502 fixtures pass; existing snapshots
+  remain unchanged. The four new guard VM cases pass on both backends/runtimes,
+  including raw and optimized NIR execution.

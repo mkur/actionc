@@ -46,10 +46,11 @@ impl SemIrAstLowerer<'_> {
         let mut branches = Vec::new();
         let mut else_body = Vec::new();
         for arm in arms {
-            let Some(labels) = &arm.labels else {
+            if arm.labels.is_none() && arm.guard.is_none() && arm.tests.is_empty() {
                 else_body = self.stmt_list(&arm.body);
                 break;
-            };
+            }
+            let labels = arm.labels.as_deref().unwrap_or(&[]);
             let mut condition = None;
             for label in labels {
                 let literal = |bits| {
@@ -77,7 +78,29 @@ impl SemIrAstLowerer<'_> {
             }
             for test in &arm.tests {
                 let test = self.condition(test).expect("typed pattern test");
-                condition = Some(case_binary(BinaryOp::And, condition.expect("tag condition"), test, span));
+                condition = Some(match condition {
+                    Some(previous) => case_binary(BinaryOp::And, previous, test, span),
+                    None => test,
+                });
+            }
+            if let Some(guard) = &arm.guard {
+                let mut value = self
+                    .condition(&guard.condition)
+                    .expect("typed guard condition");
+                if let Some(bindings) = &guard.bindings {
+                    value = Expr {
+                        text: value.text.clone(),
+                        span: value.span,
+                        kind: ExprKind::Prepared {
+                            statements: self.stmt_list(&bindings.initialization),
+                            value: Box::new(value),
+                        },
+                    };
+                }
+                condition = Some(match condition {
+                    Some(previous) => case_binary(BinaryOp::And, previous, value, span),
+                    None => value,
+                });
             }
             branches.push(IfBranch {
                 condition: condition.expect("validated nonempty CASE labels"),

@@ -58,46 +58,77 @@ impl Analyzer {
         };
         let mut normalized = Vec::new();
         let mut previous: Vec<(i64, i64, Span)> = Vec::new();
+        let layout = TargetLayout::for_target(self.options.target);
         for arm in arms {
-            let labels = arm.labels.as_ref().map(|labels| {
-                labels
-                    .iter()
-                    .filter_map(|label| {
-                        if selector.ty.as_enum().is_some() && label.high.is_some() {
-                            self.diagnostics.push(Diagnostic::new(label.span, "enum CASE ranges are not supported; convert the selector to an integer explicitly"));
-                            return None;
-                        }
-                        let low = self.case_constant(scope, &label.low, &selector.ty, scalar)?;
-                        let high = match &label.high {
-                            Some(high) => self.case_constant(scope, high, &selector.ty, scalar)?,
-                            None => low,
-                        };
-                        if low > high {
-                            self.diagnostics
-                                .push(Diagnostic::new(label.span, "descending CASE range"));
-                            return None;
-                        }
-                        if let Some((_, _, earlier)) =
-                            previous.iter().find(|(a, b, _)| low <= *b && high >= *a)
-                        {
-                            self.diagnostics.push(Diagnostic::new(
-                                label.span,
-                                "duplicate or overlapping CASE label",
-                            ));
-                            self.diagnostics.push(Diagnostic::new(
-                                *earlier,
-                                "previous overlapping CASE label is here",
-                            ));
-                        }
-                        previous.push((low, high, label.span));
-                        Some(CaseRange {
-                            low: low as u64 & scalar_mask_for_layout(scalar, TargetLayout::for_target(self.options.target)),
-                            high: high as u64 & scalar_mask_for_layout(scalar, TargetLayout::for_target(self.options.target)),
-                            span: label.span,
-                        })
-                    })
-                    .collect()
+            self.validate_case_guard(scope, arm);
+            let wildcard = arm.labels.as_ref().is_some_and(|labels| {
+                labels.len() == 1
+                    && labels[0].high.is_none()
+                    && matches!(&labels[0].low.kind, ExprKind::Name(name) if name == "_")
             });
+            let mut current = Vec::new();
+            let labels = if wildcard {
+                if arm.guard.is_none() {
+                    self.diagnostics.push(Diagnostic::new(
+                        arm.span,
+                        "bare CASE wildcard requires a guard; use ELSE",
+                    ));
+                }
+                None
+            } else {
+                arm.labels.as_ref().map(|labels| labels.iter().filter_map(|label| {
+                    if selector.ty.as_enum().is_some() && label.high.is_some() {
+                        self.diagnostics.push(Diagnostic::new(label.span, "enum CASE ranges are not supported; convert the selector to an integer explicitly"));
+                        return None;
+                    }
+                    let low = self.case_constant(scope, &label.low, &selector.ty, scalar)?;
+                    let high = match &label.high {
+                        Some(high) => self.case_constant(scope, high, &selector.ty, scalar)?,
+                        None => low,
+                    };
+                    if low > high {
+                        self.diagnostics.push(Diagnostic::new(label.span, "descending CASE range"));
+                        return None;
+                    }
+                    // Preserve disjoint unguarded labels and reject duplicates
+                    // within one header, even when that header is guarded.
+                    let overlap = current.iter().chain(previous.iter().filter(|_| arm.guard.is_none()))
+                        .find(|(a, b, _)| low <= *b && high >= *a);
+                    if let Some((_, _, earlier)) = overlap {
+                        self.diagnostics.push(Diagnostic::new(label.span, "duplicate or overlapping CASE label"));
+                        self.diagnostics.push(Diagnostic::new(*earlier, "previous overlapping CASE label is here"));
+                    }
+                    current.push((low, high, label.span));
+                    Some(CaseRange {
+                        low: low as u64 & scalar_mask_for_layout(scalar, layout),
+                        high: high as u64 & scalar_mask_for_layout(scalar, layout), span: label.span,
+                    })
+                }).collect())
+            };
+            if arm.guard.is_some() {
+                let width = scalar_bits_for_layout(scalar, layout);
+                let domain = if scalar.is_signed() {
+                    (-(1i64 << (width - 1)), (1i64 << (width - 1)) - 1)
+                } else {
+                    (0, (1i64 << width) - 1)
+                };
+                let covered = if wildcard {
+                    interval_covered(domain.0, domain.1, &previous)
+                } else {
+                    !current.is_empty()
+                        && current
+                            .iter()
+                            .all(|(low, high, _)| interval_covered(*low, *high, &previous))
+                };
+                if covered {
+                    self.diagnostics.push(Diagnostic::new(
+                        arm.span,
+                        "guarded CASE arm is fully shadowed by earlier unconditional labels",
+                    ));
+                }
+            } else {
+                previous.extend(current);
+            }
             normalized.push(labels);
             self.analyze_statements(scope, &arm.body, context);
         }
@@ -109,6 +140,19 @@ impl Analyzer {
             },
             normalized,
         );
+    }
+
+    pub(super) fn validate_case_guard(&mut self, scope: ScopeId, arm: &CaseArm) {
+        if let Some(guard) = &arm.guard {
+            if !self.options.algebraic_types.case_guards {
+                self.diagnostics.push(Diagnostic::new(
+                    guard.span,
+                    "CASE guards require the modern profile and enabled guard capability",
+                ));
+            } else {
+                self.validate_condition(scope, guard);
+            }
+        }
     }
 
     pub(super) fn case_constant(
@@ -143,7 +187,9 @@ impl Analyzer {
         let width = scalar_bits_for_layout(scalar, layout);
         let (minimum, maximum) = if scalar.is_signed() {
             (-(1i64 << (width - 1)), (1i64 << (width - 1)) - 1)
-        } else { (0, (1i64 << width) - 1) };
+        } else {
+            (0, (1i64 << width) - 1)
+        };
         if !(minimum..=maximum).contains(&numeric) {
             self.diagnostics.push(Diagnostic::new(
                 expr.span,
@@ -153,4 +199,26 @@ impl Analyzer {
         }
         Some(numeric)
     }
+}
+
+fn interval_covered(low: i64, high: i64, previous: &[(i64, i64, Span)]) -> bool {
+    let mut intervals = previous
+        .iter()
+        .map(|(a, b, _)| (*a, *b))
+        .collect::<Vec<_>>();
+    intervals.sort_unstable();
+    let mut next = low;
+    for (a, b) in intervals {
+        if b < next {
+            continue;
+        }
+        if a > next {
+            return false;
+        }
+        if b >= high {
+            return true;
+        }
+        next = b + 1;
+    }
+    false
 }

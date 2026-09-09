@@ -1,0 +1,120 @@
+nir program
+global Event: type RecordType { name: "Event", fields: [RecordFieldType { id: Some(FieldId(1)), name: "__variant_tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(0)), name: "__variant_2_0", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 1 }], size: 2 } fields=2
+global current: Event init bytes=[] zero_fill=2 section=global mutable=true
+global output: Byte
+global calls: Byte
+
+routine r0 Reject signature=s1079941742 convention=target-public activation=classic-static entry=relocatable params=[-] locals=[__actionc_value_0, __actionc_value_1, __actionc_value_2, __actionc_value_3]
+  local __actionc_value_0: Event* duration=routine-static size=2 align=1
+  local __actionc_value_1: Event duration=routine-static size=2 align=1 purpose=aggregate-capture
+  local __actionc_value_2: Byte* duration=routine-static size=2 align=1
+  local __actionc_value_3: Size duration=routine-static size=2 align=1
+bb0:
+  %t0:Byte = load calls
+  %t1:Byte = %t0 Add 1
+  store calls = %t1
+  %t2:Event* = addr current
+  store __actionc_value_0 = %t2
+  %t3:Event* = addr __actionc_value_1
+  %t4:Byte* = cast Event* -> Byte* %t3
+  store __actionc_value_2 = %t4
+  store __actionc_value_3 = $0
+  goto bb1
+bb1:
+  %t5:Size = load __actionc_value_3
+  %t6:condition = cmp %t5 Le $1 operand_ty=Size
+  branch %t6 ? bb2 : bb3
+bb2:
+  %t7:Byte* = load __actionc_value_2
+  %t8:Size = load __actionc_value_3
+  store %t7[%t8;1] = 0
+  %t9:Size = load __actionc_value_3
+  %t10:Size = %t9 Add 1
+  store __actionc_value_3 = %t10
+  goto bb1
+bb3:
+  store __actionc_value_1.+0 = 1
+  %t11:Event* = load __actionc_value_0
+  copy_bytes *%t11 = __actionc_value_1 size=2
+  return 0
+
+routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[__actionc_value_4, __actionc_value_5, __actionc_value_6, __actionc_value_7, __actionc_value_8, Main::block0::code, Main::block1::code]
+  local __actionc_value_4: Event* duration=routine-static size=2 align=1
+  local __actionc_value_5: Event duration=routine-static size=2 align=1 purpose=aggregate-capture
+  local __actionc_value_6: Byte* duration=routine-static size=2 align=1
+  local __actionc_value_7: Size duration=routine-static size=2 align=1
+  local __actionc_value_8: Event duration=routine-static size=2 align=1 purpose=aggregate-capture
+  local Main::block0::code: Byte duration=routine-static size=1 align=1
+  local Main::block1::code: Byte duration=routine-static size=1 align=1
+bb4:
+  %t0:Event* = addr current
+  store __actionc_value_4 = %t0
+  %t1:Event* = addr __actionc_value_5
+  %t2:Byte* = cast Event* -> Byte* %t1
+  store __actionc_value_6 = %t2
+  store __actionc_value_7 = $0
+  goto bb5
+bb5:
+  %t3:Size = load __actionc_value_7
+  %t4:condition = cmp %t3 Le $1 operand_ty=Size
+  branch %t4 ? bb6 : bb7
+bb6:
+  %t5:Byte* = load __actionc_value_6
+  %t6:Size = load __actionc_value_7
+  store %t5[%t6;1] = 0
+  %t7:Size = load __actionc_value_7
+  %t8:Size = %t7 Add 1
+  store __actionc_value_7 = %t8
+  goto bb5
+bb7:
+  store __actionc_value_5.+1 = 7
+  store __actionc_value_5.+0 = 2
+  %t9:Event* = load __actionc_value_4
+  copy_bytes *%t9 = __actionc_value_5 size=2
+  copy_bytes __actionc_value_8 = current size=2
+  %t10:Byte = load __actionc_value_8.+0
+  %t11:condition = cmp %t10 Ge 1 operand_ty=Byte
+  branch %t11 ? bb11 : bb10
+bb11:
+  %t12:condition = cmp %t10 Le 2 operand_ty=Byte
+  branch %t12 ? bb9 : bb10
+bb9:
+  goto bb8
+bb10:
+  call fault::InvalidVariant() effects=reads:unknown writes:unknown external opaque
+  exit
+bb8:
+  %t13:Byte = load __actionc_value_8.+0
+  %t14:condition = cmp %t13 Eq 2 operand_ty=Byte
+  branch %t14 ? bb13 : bb17
+bb13:
+  %t15:Byte = load __actionc_value_8.+1
+  %t16:Byte = call Reject() signature=s1079941742 convention=target-public
+  %t17:condition = cmp %t16 Ne 0 operand_ty=Byte
+  branch %t17 ? bb15 : bb16
+bb15:
+  store output = 255
+  goto bb12
+bb16:
+  %t19:Byte = load __actionc_value_8.+1
+  store Main::block1::code = %t19
+  %t21:condition = cmp %t19 Gt 3 operand_ty=Byte
+  branch %t21 ? bb18 : bb17
+bb18:
+  %t22:Byte = load Main::block1::code
+  store output = %t22
+  goto bb12
+bb17:
+  goto bb19
+bb19:
+  %t23:Byte = load calls
+  %t24:condition = cmp %t23 Eq 2 operand_ty=Byte
+  branch %t24 ? bb21 : bb20
+bb21:
+  store output = 2
+  goto bb12
+bb20:
+  store output = 0
+  goto bb12
+bb12:
+  return

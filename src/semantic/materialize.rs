@@ -150,7 +150,11 @@ impl Materializer<'_> {
                         self.expr(scope, &mut label.low);
                         if let Some(high) = &mut label.high { self.expr(scope, high); }
                     }
-                    for statement in &mut arm.body { self.statement(scope, statement); }
+                    let child = self.model.lexical_blocks.iter()
+                        .find(|block| block.parent == scope && block.syntax_id == arm.syntax_id)
+                        .map_or(scope, |block| block.scope);
+                    if let Some(guard) = &mut arm.guard { self.expr(child, guard); }
+                    for statement in &mut arm.body { self.statement(child, statement); }
                 }
             }
             Stmt::LexicalBlock {

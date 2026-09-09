@@ -1594,7 +1594,13 @@ fn visit_lexical_declarations<'a>(
     for statement in statements {
         match statement {
             SemStmt::Case { arms, .. } => {
-                for arm in arms { visit_lexical_declarations(&arm.body, visitor); }
+                for arm in arms {
+                    if let Some(bindings) = arm.bindings() {
+                        for declaration in &bindings.declarations { visitor(bindings.scope.ordinal, declaration); }
+                    }
+                    visit_lexical_declarations(arm.preparation(), visitor);
+                    visit_lexical_declarations(&arm.body, visitor);
+                }
             }
             SemStmt::LexicalBlock {
                 scope,
@@ -1739,7 +1745,7 @@ fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Spa
 fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u32, ValueType, Span)>) {
     match stmt {
         SemStmt::Case { arms, .. } => {
-            for arm in arms { for stmt in &arm.body { consider_record_copy_temp(stmt, largest); } }
+            for arm in arms { for stmt in arm.preparation().iter().chain(&arm.body) { consider_record_copy_temp(stmt, largest); } }
         }
         SemStmt::RecordCopy {
             destination,
@@ -1854,7 +1860,7 @@ fn routine_native_real_node_count(routine: &SemRoutine) -> usize {
 fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
     match stmt {
         SemStmt::Case { selector, arms, .. } => expr_uses_native_real(selector)
-            || arms.iter().any(|arm| arm.tests.iter().any(|test| expr_uses_native_real(&test.expr)) || arm.body.iter().any(stmt_uses_native_real)),
+            || arms.iter().any(|arm| arm.conditions().any(|test| expr_uses_native_real(&test.expr)) || arm.preparation().iter().chain(&arm.body).any(stmt_uses_native_real)),
         SemStmt::LexicalBlock {
             declarations, body, ..
         } => {
@@ -1960,8 +1966,8 @@ fn lvalue_uses_native_real(value: &SemLValue) -> bool {
 fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
     match stmt {
         SemStmt::Case { selector, arms, .. } => expr_node_count(selector)
-            + arms.iter().flat_map(|arm| &arm.tests).map(|test| expr_node_count(&test.expr)).sum::<usize>()
-            + arms.iter().flat_map(|arm| &arm.body).map(stmt_expr_node_count).sum::<usize>(),
+            + arms.iter().flat_map(|arm| arm.conditions()).map(|test| expr_node_count(&test.expr)).sum::<usize>()
+            + arms.iter().flat_map(|arm| arm.preparation().iter().chain(&arm.body)).map(stmt_expr_node_count).sum::<usize>(),
         SemStmt::LexicalBlock {
             declarations, body, ..
         } => {

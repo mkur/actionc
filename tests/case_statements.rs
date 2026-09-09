@@ -112,7 +112,7 @@ fn case_contextual_names_and_rejected_header_forms() {
     );
     for arm in [
         "WHEN _ THEN",
-        "WHEN 1 IF 1 THEN",
+        "WHEN 1 IF THEN",
         "WHEN 1 THEN value=2",
         "WHEN 1",
     ] {

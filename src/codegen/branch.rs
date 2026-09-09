@@ -273,6 +273,10 @@ impl Generator {
         label: &str,
         span: Span,
     ) -> bool {
+        if let ExprKind::Prepared { statements, value } = &condition.kind {
+            self.generate_stmt_list(statements);
+            return self.emit_branch_if_true(value, label, span);
+        }
         if let Some(emitted) = self.try_emit_native_real_branch_if_true(condition, label, span) {
             return emitted;
         }
@@ -315,6 +319,7 @@ impl Generator {
 
     pub(super) fn is_condition_shaped_expr(expr: &Expr) -> bool {
         match &expr.kind {
+            ExprKind::Prepared { value, .. } => Self::is_condition_shaped_expr(value),
             ExprKind::Binary { op, left, right } => {
                 matches!(
                     op,

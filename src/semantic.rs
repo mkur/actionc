@@ -475,6 +475,7 @@ impl SemanticOptions {
                 aggregate_calls: true,
                 indirect_aggregate_calls: true,
                 generic_types: true,
+                case_guards: true,
                 ..AlgebraicTypeCapabilities::DISABLED
             },
             target: TargetId::Atari6502,
@@ -10944,7 +10945,11 @@ mod tests {
         match stmt {
             ir::SemStmt::Case { selector, arms, .. } => {
                 assert_semir_value_expr_typed(selector);
-                for arm in arms { assert_semir_stmt_list_types(&arm.body); }
+                for arm in arms {
+                    for condition in arm.conditions() { assert_semir_condition_types(condition); }
+                    assert_semir_stmt_list_types(arm.preparation());
+                    assert_semir_stmt_list_types(&arm.body);
+                }
             }
             ir::SemStmt::LexicalBlock {
                 declarations, body, ..

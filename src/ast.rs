@@ -553,6 +553,7 @@ pub struct CaseArm {
     pub syntax_id: LexicalBlockSyntaxId,
     /// None is an explicit ELSE, not a missing default path.
     pub labels: Option<Vec<CaseLabel>>,
+    pub guard: Option<Expr>,
     pub body: Vec<Stmt>,
     pub span: Span,
 }

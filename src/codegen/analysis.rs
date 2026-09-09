@@ -129,7 +129,7 @@ fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
     match stmt {
         Stmt::Let { value, .. } => expr_tree_any(value, predicate),
         Stmt::Case { selector, arms, .. } => expr_tree_any(selector, predicate)
-            || arms.iter().any(|arm| stmt_list_exprs_any(&arm.body, predicate)
+            || arms.iter().any(|arm| arm.guard.as_ref().is_some_and(|guard| expr_tree_any(guard, predicate)) || stmt_list_exprs_any(&arm.body, predicate)
                 || arm.labels.iter().flatten().any(|label| expr_tree_any(&label.low, predicate)
                     || label.high.as_ref().is_some_and(|expr| expr_tree_any(expr, predicate)))),
         Stmt::LexicalBlock { body, .. } => stmt_list_exprs_any(body, predicate),

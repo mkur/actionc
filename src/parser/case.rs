@@ -56,6 +56,7 @@ impl Parser<'_> {
         let mut when_count = 0;
         while !self.at_eof() && !self.is_bare_contextual_at(self.pos, "ESAC") {
             let arm_start = self.peek().span.start;
+            let mut guard = None;
             let labels = if self.is_case_arm_start_at(self.pos) {
                 if saw_else {
                     self.diagnostics.push(Diagnostic::new(
@@ -74,7 +75,29 @@ impl Parser<'_> {
                     ));
                 }
                 let tokens = self.tokens[self.pos + 1..end - usize::from(has_then)].to_vec();
-                let labels = self.parse_case_labels(&tokens);
+                let mut depth = 0usize;
+                let guard_index = tokens.iter().position(|token| {
+                    match token.kind {
+                        TokenKind::LParen | TokenKind::LBracket => depth += 1,
+                        TokenKind::RParen | TokenKind::RBracket => depth = depth.saturating_sub(1),
+                        _ => {}
+                    }
+                    depth == 0 && matches!(token.kind, TokenKind::Keyword(Keyword::If))
+                });
+                if let Some(index) = guard_index {
+                    let expression = build_expr_from_tokens(tokens[index + 1..].to_vec());
+                    if matches!(expression.kind, ExprKind::Missing | ExprKind::Raw) {
+                        self.diagnostics.push(Diagnostic::new(
+                            expression.span,
+                            "expected CASE guard condition after IF",
+                        ));
+                    }
+                    guard = Some(expression);
+                }
+                let labels = self.parse_case_labels(
+                    &tokens[..guard_index.unwrap_or(tokens.len())],
+                    guard.is_some(),
+                );
                 self.pos = end;
                 Some(labels)
             } else if self.check_keyword(Keyword::Else) {
@@ -109,6 +132,7 @@ impl Parser<'_> {
             arms.push(CaseArm {
                 syntax_id,
                 labels,
+                guard,
                 body,
                 span: Span::new(arm_start, self.previous_end()),
             });
@@ -135,16 +159,19 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_case_labels(&mut self, tokens: &[Token]) -> Vec<CaseLabel> {
+    fn parse_case_labels(&mut self, tokens: &[Token], guarded: bool) -> Vec<CaseLabel> {
         let mut nesting = 0usize;
         for token in tokens {
             match token.kind {
                 TokenKind::LParen => nesting += 1,
                 TokenKind::RParen => nesting = nesting.saturating_sub(1),
-                _ => {},
+                _ => {}
             }
             if nesting > 64 {
-                self.diagnostics.push(Diagnostic::new(token.span, "CASE pattern nesting exceeds 64 levels"));
+                self.diagnostics.push(Diagnostic::new(
+                    token.span,
+                    "CASE pattern nesting exceeds 64 levels",
+                ));
                 return Vec::new();
             }
         }
@@ -153,7 +180,9 @@ impl Parser<'_> {
         let mut depth = 0usize;
         let mut generic_end = 0usize;
         for index in 0..=tokens.len() {
-            if index < generic_end { continue; }
+            if index < generic_end {
+                continue;
+            }
             if let Some(end) = super::generics::generic_head_end(tokens, index) {
                 generic_end = end;
                 continue;
@@ -176,16 +205,15 @@ impl Parser<'_> {
                         TokenKind::LParen | TokenKind::LBracket => depth += 1,
                         TokenKind::RParen | TokenKind::RBracket => depth = depth.saturating_sub(1),
                         TokenKind::Keyword(Keyword::To) if depth == 0 => range = Some(i),
-                        TokenKind::Keyword(Keyword::If) if depth == 0 => self.diagnostics.push(
-                            Diagnostic::new(token.span, "CASE guards are not supported yet"),
-                        ),
                         _ => {}
                     }
                 }
-                if matches!(part, [Token { kind: TokenKind::Ident(name), .. }] if name == "_") {
+                if matches!(part, [Token { kind: TokenKind::Ident(name), .. }] if name == "_")
+                    && !guarded
+                {
                     self.diagnostics.push(Diagnostic::new(
                         part[0].span,
-                        "CASE wildcards are not supported; use ELSE",
+                        "bare CASE wildcards are not supported; use ELSE or WHEN _ IF condition THEN",
                     ));
                 }
                 let low = build_expr_from_tokens(part[..range.unwrap_or(part.len())].to_vec());

@@ -1,0 +1,20 @@
+TYPE Event=VARIANT [NONE KEY [BYTE code]]
+Event current
+BYTE output,calls
+BYTE FUNC Reject()
+ calls==+1
+ current=Event.NONE
+RETURN(0)
+PROC Main()
+ current=Event.KEY(7)
+ CASE current OF
+ WHEN Event.KEY(code) IF Reject() THEN
+   output=255
+ WHEN Event.KEY(code) IF code>3 THEN
+   output=code
+ WHEN _ IF calls=2 THEN
+   output=2
+ ELSE
+   output=0
+ ESAC
+RETURN

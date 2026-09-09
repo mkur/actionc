@@ -1279,6 +1279,15 @@ typed comparisons and CFG edges. No constructor names or pattern syntax reach
 MIR. The selector's validated capture remains stable across arm effects; scalar
 CASE intervals and existing flat-pattern snapshots keep their previous shapes.
 
+An optional SemIR arm guard owns its arm-local binding declarations and ordered
+initialization, followed by a typed condition. They execute after tag/refinement
+success and before the body; false branches to the next arm. Dependency, storage,
+link, feature and effect visitors include both initialization and the condition.
+Unconditional ELSE is distinct from a guarded catch-all. NIR uses ordinary
+branches/calls/copies, without speculating guard work into unmatched paths.
+Classic projects binding initialization through its existing prepared-expression
+carrier, which also composes with short-circuit conditional branching.
+
 ## Red Lines
 
 Do not consider NIR complete while any of these are true:

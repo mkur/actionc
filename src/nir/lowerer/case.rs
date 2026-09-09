@@ -2,22 +2,22 @@ use super::*;
 use crate::semantic::ir::SemCaseArm;
 
 impl NirBuilder {
-    pub(super) fn case_statement(
-        &mut self,
-        selector: &SemExpr,
-        arms: &[SemCaseArm],
-    ) {
+    pub(super) fn case_statement(&mut self, selector: &SemExpr, arms: &[SemCaseArm]) {
         let value = self.nir_value(selector);
         let operand_ty = NirFacts::type_from_value(&selector.ty);
         let after = self.next_block_label();
         for arm in arms {
-            let Some(labels) = &arm.labels else {
+            if arm.labels.is_none() && arm.guard.is_none() && arm.tests.is_empty() {
                 self.stmt_list(&arm.body);
                 self.finish_open_goto(&after);
                 break;
-            };
+            }
             let body = self.next_block_label();
             let next_arm = self.next_block_label();
+            let labels = arm.labels.as_deref().unwrap_or(&[]);
+            if arm.labels.is_none() {
+                self.finish_open_goto(&body);
+            }
             for (index, label) in labels.iter().enumerate() {
                 let failed = if index + 1 == labels.len() {
                     next_arm.clone()
@@ -48,6 +48,14 @@ impl NirBuilder {
                 self.terminate_condition(test, &matched, &next_arm);
                 self.start_block(matched);
             }
+            if let Some(guard) = &arm.guard {
+                if let Some(bindings) = &guard.bindings {
+                    self.stmt_list(&bindings.initialization);
+                }
+                let accepted = self.next_block_label();
+                self.terminate_condition(&guard.condition, &accepted, &next_arm);
+                self.start_block(accepted);
+            }
             self.stmt_list(&arm.body);
             self.finish_open_goto(&after);
             self.start_block(next_arm);
@@ -71,7 +79,10 @@ impl NirBuilder {
             operand_ty: operand_ty.clone(),
             op,
             left,
-            right: NirValue::IntegerConst { bits, ty: operand_ty.kind.integer().expect("integer CASE selector") },
+            right: NirValue::IntegerConst {
+                bits,
+                ty: operand_ty.kind.integer().expect("integer CASE selector"),
+            },
         });
         NirValue::Temp { id: dest, ty }
     }

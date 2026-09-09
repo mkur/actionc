@@ -157,8 +157,43 @@ Pointer patterns never implicitly dereference: bind the pointer and use a separa
 a 128-level recursion and 262,144-work-unit budget; exceeding either reports a
 diagnostic instead of claiming completeness.
 
+## Ordered guards
+
+Add `IF condition` between a WHEN pattern and THEN:
+
+```action
+CASE current OF
+WHEN Event.KEY(code) IF code>=32 THEN
+  PrintBE(code)
+WHEN Event.KEY(code) THEN
+  PrintE("Control key")
+WHEN _ IF CanRecover() THEN
+  Recover()
+ELSE
+  PrintE("Other event")
+ESAC
+```
+
+Match first, initialize the immutable bindings, then evaluate the guard once.
+False continues to the next arm; it does not re-read the selector. Guards can
+call routines, read hardware or fault, but skipped guards have no effects.
+Changing the original value does not change the captured selector or bindings.
+The snapshot remains shallow across pointers, so pointed-to data can change.
+
+Guards do not contribute to exhaustiveness, even if written as constant true.
+Keep an unguarded covering pattern or ELSE. Earlier unguarded patterns can make
+a guarded arm unreachable, which is diagnosed. `WHEN _ IF condition THEN` is
+a guarded catch-all. Bare `WHEN _ THEN` and guards on ELSE are not supported.
+
+The same guard syntax works for integer and enum CASE. Repeating a label after
+a guarded arm is allowed; overlapping unguarded labels and duplicates within
+one header remain errors. A guarded interval may overlap earlier unguarded
+labels if some of its values remain reachable. Enum selectors still include
+unnamed byte values. CASE does not introduce a loop: EXIT still exits the
+enclosing loop, and RETURN exits the routine.
+
 Not yet supported: generic routines or omitted/inferred type arguments,
-guards, direct ARRAY payload declarations, volatile variants,
+direct ARRAY payload declarations, volatile variants,
 absolute/alias-backed variant declarations or raw/static variant initializers.
 Use a record payload to contain an inline array. Typed pointers into explicitly
 managed memory are available, but validation does not make arbitrary pointers

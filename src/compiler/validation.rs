@@ -79,7 +79,11 @@ fn collect_standalone_stmt_diagnostics(statement: &SemStmt, diagnostics: &mut Ve
     match statement {
         SemStmt::Case { selector, arms, .. } => {
             collect_standalone_expr_diagnostics(selector, diagnostics);
-            for arm in arms { collect_standalone_stmt_list_diagnostics(&arm.body, diagnostics); }
+            for arm in arms {
+                for condition in arm.conditions() { collect_standalone_expr_diagnostics(&condition.expr, diagnostics); }
+                collect_standalone_stmt_list_diagnostics(arm.preparation(), diagnostics);
+                collect_standalone_stmt_list_diagnostics(&arm.body, diagnostics);
+            }
         }
         SemStmt::LexicalBlock {
             declarations, body, ..

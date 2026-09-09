@@ -566,12 +566,44 @@ pub struct SemIfBranch {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemCaseArm {
+    pub guard: Option<SemCaseGuard>,
     /// Ordered short-circuit refinements; each projection is dominated by all
     /// earlier tests and the arm's tag dispatch. No source patterns survive.
     pub tests: Vec<SemCondition>,
     pub labels: Option<Vec<super::CaseRange>>,
     pub body: Vec<SemStmt>,
     pub span: Span,
+}
+
+impl SemCaseArm {
+    pub fn bindings(&self) -> Option<&SemCaseBindings> {
+        self.guard.as_ref().and_then(|guard| guard.bindings.as_ref())
+    }
+
+    pub fn preparation(&self) -> &[SemStmt] {
+        self.bindings().map_or(&[], |bindings| bindings.initialization.as_slice())
+    }
+
+    /// Dependency/feature visitors must include guard expressions too. Runtime
+    /// lowering keeps tests, binding initialization and guard in that order.
+    pub fn conditions(&self) -> impl Iterator<Item = &SemCondition> {
+        self.tests.iter().chain(self.guard.iter().map(|guard| &guard.condition))
+    }
+}
+
+/// Arm-local snapshots are initialized only after all pattern tests succeed,
+/// before the guard. The same lexical bindings remain visible in the arm body.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemCaseBindings {
+    pub scope: SemLexicalScopeRef,
+    pub declarations: Vec<SemDeclaration>,
+    pub initialization: Vec<SemStmt>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemCaseGuard {
+    pub bindings: Option<SemCaseBindings>,
+    pub condition: SemCondition,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -640,7 +672,7 @@ fn stmt_flow_facts_at_depth(stmt: &SemStmt, loop_depth: usize) -> StmtFlowFacts 
             always_returns: false, may_exit_loop: false, contains_loop: false, max_loop_depth: loop_depth },
         SemStmt::Case { arms, .. } => super::case::case_flow_facts(
             arms.iter().map(|arm| statement_list_flow_facts_at_depth(&arm.body, loop_depth)),
-            arms.iter().any(|arm| arm.labels.is_none() && arm.tests.is_empty()), loop_depth,
+            arms.iter().any(|arm| arm.labels.is_none() && arm.tests.is_empty() && arm.guard.is_none()), loop_depth,
         ),
         SemStmt::LexicalBlock { body, .. } => statement_list_flow_facts_at_depth(body, loop_depth),
         SemStmt::Return { .. } => StmtFlowFacts {
@@ -1137,6 +1169,13 @@ fn collect_external_stmt_references(
                 collect_external_expr_references(selector, external, referenced);
                 for arm in arms {
                     for test in &arm.tests { collect_external_expr_references(&test.expr, external, referenced); }
+                    if let Some(guard) = &arm.guard {
+                        if let Some(bindings) = &guard.bindings {
+                            for declaration in &bindings.declarations { collect_external_declaration_references(declaration, external, referenced); }
+                            collect_external_stmt_references(&bindings.initialization, external, referenced);
+                        }
+                        collect_external_expr_references(&guard.condition.expr, external, referenced);
+                    }
                     collect_external_stmt_references(&arm.body, external, referenced);
                 }
             }
@@ -1581,6 +1620,13 @@ impl SemIrFormatter {
                         });
                         this.indented(|this| {
                             for test in &arm.tests { this.line(format!("test {}", condition_summary(test))); }
+                            if let Some(guard) = &arm.guard {
+                                if let Some(bindings) = &guard.bindings {
+                                    this.line(format!("guard-bindings scope={} count={}", bindings.scope.scope.0, bindings.declarations.len()));
+                                    this.stmt_list(&bindings.initialization);
+                                }
+                                this.line(format!("guard {}", condition_summary(&guard.condition)));
+                            }
                             this.stmt_list(&arm.body);
                         });
                     }
@@ -3198,6 +3244,7 @@ impl<'a> IrBuilder<'a> {
                 vec![SemStmt::Case {
                     selector: self.lower_expr(scope, selector),
                     arms: arms.iter().zip(labels).map(|(arm, labels)| SemCaseArm {
+                        guard: arm.guard.as_ref().map(|guard| SemCaseGuard { bindings: None, condition: self.lower_condition(scope, guard) }),
                         tests: Vec::new(),
                         labels,
                         body: arm.body.iter().flat_map(|stmt| self.lower_stmt(scope, stmt)).collect(),

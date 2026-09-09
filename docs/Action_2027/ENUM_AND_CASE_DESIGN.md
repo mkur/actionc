@@ -6,7 +6,9 @@ The base language described here is implemented in the modern profile. See the
 explicitly deferred follow-ons. Native 65816/68k checks are lowering canaries,
 not executable runtime validation.
 
-Status: base ENUM and CASE implemented; guards and guarded wildcards deferred.
+Status: ENUM, CASE, guards and guarded wildcards implemented in modern profiles.
+The original base delivery is described below; the guard extension was delivered
+in slice 9 of the algebraic-data-types plan.
 
 The [implementation plan](ENUM_AND_CASE_IMPLEMENTATION_PLAN.md) defines the
 delivery slices and checks. Review decisions incorporated here include TYPE-based
@@ -52,8 +54,7 @@ PROC Main()
 RETURN
 ```
 
-The base syntax below is implemented; the separate guard extension remains
-deferred.
+The base syntax and the separate ordered guard extension below are implemented.
 
 ## 1. ENUM Contract
 
@@ -325,7 +326,7 @@ faults continue to apply. CASE does not introduce a new runtime error policy.
 
 ### Guard and wildcard extension boundary
 
-Keep source arms in order. A later guard extension can use:
+Keep source arms in order. The guard extension uses:
 
 ```action
 CASE mode OF
@@ -340,25 +341,27 @@ ELSE
 ESAC
 ```
 
-These guards are not part of the initial delivery. In that extension, match the
+These guards were delivered after the initial base implementation. Match the
 label first, evaluate its guard only on a match, and continue to subsequent arms
 when it is false. The selector remains captured once even if a guard changes
 the source variable. Preserve guard calls/effects and source-order priority.
 
-The initial unguarded language rejects overlapping labels. With guards, repeated
-values after guarded arms become useful; an earlier unconditional arm that fully
-covers a later arm makes the later arm unreachable. Generalize coverage checks
-at that time instead of embedding permanent global disjointness into dispatch.
-None of this permits duplicate enum member values.
+The unguarded language rejects overlapping labels. Repeated values after guarded
+arms are useful and permitted. Collectively covering a guarded arm with earlier
+unconditional labels makes it unreachable. A partly uncovered guarded interval
+is still useful; overlaps between unguarded scalar arms and duplicates within
+one header remain errors. Guards do not establish exhaustiveness, even constant
+true guards. None of this permits duplicate enum member values.
 
 ELSE is the unconditional, unique, final fallback. Represent it semantically as
 an unguarded catch-all arm, preserving explicit presence and source span. The
-future `WHEN _ IF condition THEN` is a guarded catch-all, not another spelling
+`WHEN _ IF condition THEN` is a guarded catch-all, not another spelling
 of ELSE. Bare `WHEN _ THEN` and guards on ELSE are not proposed aliases. Other
 identifier uses of `_` must not become globally reserved.
 
-Variant payload bindings and their arm-local scopes are later language work;
-ordinary scalar CASE arms still need BEGIN/END for local declarations.
+Variant payload bindings and their arm-local scopes are implemented separately
+by the algebraic-data-types plan. Ordinary scalar CASE arms still need BEGIN/END
+for local declarations.
 
 ## 3. Compiler Integration
 

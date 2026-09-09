@@ -481,7 +481,9 @@ fn collect_runtime_statement_globals(
 ) -> Result<(), Vec<Diagnostic>> {
     match statement {
         ir::SemStmt::Case { arms, .. } => {
-            for arm in arms { for statement in &arm.body {
+            for arm in arms {
+                if let Some(bindings) = arm.bindings() { for declaration in &bindings.declarations { insert_runtime_global_binding(declaration, expected, globals)?; } }
+                for statement in arm.preparation().iter().chain(&arm.body) {
                 collect_runtime_statement_globals(statement, expected, globals)?;
             } }
         }

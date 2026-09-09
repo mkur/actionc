@@ -199,7 +199,8 @@ impl Generator {
     fn stmt_has_direct_volatile_access(&self, stmt: &Stmt) -> bool {
         let reads_volatile = |expr: &Expr| self.expr_side_effect_facts(expr).reads_volatile;
         match stmt {
-            Stmt::Case { selector, .. } => reads_volatile(selector),
+            Stmt::Case { selector, arms, .. } => reads_volatile(selector)
+                || arms.iter().any(|arm| arm.guard.as_ref().is_some_and(reads_volatile)),
             Stmt::Let { value, .. } => reads_volatile(value),
             Stmt::LexicalBlock { body, .. } => body
                 .iter()

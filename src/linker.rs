@@ -429,7 +429,11 @@ impl SemGraphBuilder {
         match statement {
             SemStmt::Case { selector, arms, .. } => {
                 self.expression(owner, selector, LinkReason::StorageReference);
-                for arm in arms { for statement in &arm.body { self.statement(owner, statement); } }
+                for arm in arms {
+                    for condition in arm.conditions() { self.expression(owner, &condition.expr, LinkReason::StorageReference); }
+                    if let Some(bindings) = arm.bindings() { for declaration in &bindings.declarations { self.declaration(owner, declaration); } }
+                    for statement in arm.preparation().iter().chain(&arm.body) { self.statement(owner, statement); }
+                }
             }
             SemStmt::LexicalBlock {
                 declarations, body, ..

@@ -31,7 +31,13 @@ pub struct VariantType {
 pub struct VariantFacts {
     pub types: HashMap<SymbolId, VariantType>,
     pub(super) expressions: HashMap<ExpressionSite, VariantConstructorId>,
-    pub(super) matches: HashMap<ExpressionSite, Vec<VariantArm>>,
+    pub(super) matches: HashMap<ExpressionSite, VariantMatch>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct VariantMatch {
+    pub owner: SymbolId,
+    pub arms: Vec<VariantArm>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,6 +143,7 @@ impl Analyzer {
             } else {
                 Pattern::Wild
             };
+            self.validate_case_guard(child, arm);
             self.analyze_statements(child, &arm.body, context);
             self.active_lexical_path.pop();
             normalized.push(VariantArm {
@@ -162,7 +169,9 @@ impl Analyzer {
                         break;
                     }
                 }
-                previous.push(facts.pattern.clone());
+                if arm.guard.is_none() {
+                    previous.push(facts.pattern.clone());
+                }
             }
             if self.diagnostics.len() == initial_errors {
                 match coverage.useful(&previous, &Pattern::Wild, ty) {
@@ -173,9 +182,16 @@ impl Analyzer {
                 }
             }
         }
-        self.variants
-            .matches
-            .insert(ExpressionSite::new(scope, span), normalized);
+        self.variants.matches.insert(
+            ExpressionSite::new(scope, span),
+            VariantMatch {
+                owner: ty
+                    .as_aggregate_identity()
+                    .and_then(|id| id.symbol)
+                    .expect("variant owner"),
+                arms: normalized,
+            },
+        );
     }
 
     fn analyze_variant_pattern(
@@ -194,6 +210,9 @@ impl Analyzer {
                 expression.span,
                 "pattern nesting exceeds 64 levels",
             ));
+            return Pattern::Wild;
+        }
+        if depth == 0 && matches!(&expression.kind, ExprKind::Name(name) if name == "_") {
             return Pattern::Wild;
         }
         if depth != 0 {

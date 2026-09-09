@@ -591,7 +591,7 @@ impl Generator {
             Stmt::Let { value, .. } => self.collect_modern_hidden_expr(value),
             Stmt::Case { selector, arms, .. } => {
                 self.collect_modern_hidden_expr(selector);
-                for arm in arms { self.collect_modern_hidden_stmt_list(&arm.body); }
+                for arm in arms { if let Some(guard) = &arm.guard { self.collect_modern_hidden_expr(guard); } self.collect_modern_hidden_stmt_list(&arm.body); }
             }
             Stmt::LexicalBlock { body, .. } => self.collect_modern_hidden_stmt_list(body),
             Stmt::Assign { target, value, .. } => {
@@ -889,7 +889,7 @@ fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
     match stmt {
         Stmt::Let { value, .. } => expr_contains_string_literal(value),
         Stmt::Case { selector, arms, .. } => expr_contains_string_literal(selector)
-            || arms.iter().any(|arm| stmt_list_contains_string_literal(&arm.body)),
+            || arms.iter().any(|arm| arm.guard.as_ref().is_some_and(expr_contains_string_literal) || stmt_list_contains_string_literal(&arm.body)),
         Stmt::LexicalBlock { body, .. } => stmt_list_contains_string_literal(body),
         Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
             expr_contains_string_literal(target) || expr_contains_string_literal(value)

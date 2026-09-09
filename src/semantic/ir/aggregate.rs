@@ -19,15 +19,11 @@ impl IrBuilder<'_> {
     ) -> Vec<SemStmt> {
         let facts =
             self.model.variants.matches[&super::super::ExpressionSite::new(scope, span)].clone();
-        let owner = facts
-            .iter()
-            .find_map(|arm| match &arm.pattern { super::super::patterns::Pattern::Constructor(c, _) => Some(c.owner), _ => None })
-            .expect("validated WHEN constructor");
-        let variant = self.model.variants.types[&owner].clone();
+        let variant = self.model.variants.types[&facts.owner].clone();
         let ty = ValueType::aggregate(variant.identity.clone());
         let captured = self.capture_aggregate_value(scope, &ty, selector);
         let mut lowered_arms = Vec::new();
-        for (arm, facts) in arms.iter().zip(facts) {
+        for (arm, facts) in arms.iter().zip(facts.arms) {
             let block = self
                 .model
                 .lexical_blocks
@@ -85,12 +81,20 @@ impl IrBuilder<'_> {
                     group_span: arm.span,
                 });
             }
+            let guard = arm.guard.as_ref().map(|guard| SemCaseGuard {
+                bindings: Some(SemCaseBindings {
+                    scope: scope_ref.clone(), declarations: std::mem::take(&mut declarations),
+                    initialization: std::mem::take(&mut body),
+                }),
+                condition: self.lower_condition(facts.scope, guard),
+            });
             body.extend(
                 arm.body
                     .iter()
                     .flat_map(|stmt| self.lower_stmt(facts.scope, stmt)),
             );
             lowered_arms.push(SemCaseArm {
+                guard,
                 tests,
                 labels: match facts.pattern { super::super::patterns::Pattern::Constructor(id, _) => Some(id), _ => None }.map(|id| {
                     vec![super::super::CaseRange {
@@ -109,8 +113,9 @@ impl IrBuilder<'_> {
                 span: arm.span,
             });
         }
-        if !lowered_arms.iter().any(|arm| arm.labels.is_none()) {
+        if !lowered_arms.iter().any(|arm| arm.labels.is_none() && arm.guard.is_none()) {
             lowered_arms.push(SemCaseArm {
+                guard: None,
                 tests: Vec::new(),
                 labels: None,
                 body: vec![SemStmt::Fault {
@@ -508,6 +513,7 @@ impl IrBuilder<'_> {
                 // Canonical tags form a closed interval. Scalar/pointer payloads
                 // need one bounds check, not a deep 255-way dispatch tree.
                 arms.push(SemCaseArm {
+                    guard: None,
                     tests: Vec::new(),
                     labels: Some(vec![super::super::CaseRange {
                         low: 1,
@@ -526,6 +532,7 @@ impl IrBuilder<'_> {
                     body.extend(self.validate_aggregate_value(scope, &field));
                 }
                 arms.push(SemCaseArm {
+                    guard: None,
                     tests: Vec::new(),
                     labels: Some(vec![super::super::CaseRange {
                         low: u64::from(constructor.id.tag),
@@ -537,6 +544,7 @@ impl IrBuilder<'_> {
                 });
             }
             arms.push(SemCaseArm {
+                guard: None,
                 tests: Vec::new(),
                 labels: None,
                 body: vec![SemStmt::Fault {

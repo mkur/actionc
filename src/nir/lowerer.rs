@@ -1231,7 +1231,11 @@ fn collect_nested_declarations<'a>(
     for statement in statements {
         match statement {
             SemStmt::Case { arms, .. } => {
-                for arm in arms { collect_nested_declarations(&arm.body, declarations); }
+                for arm in arms {
+                    if let Some(bindings) = arm.bindings() { declarations.extend(&bindings.declarations); }
+                    collect_nested_declarations(arm.preparation(), declarations);
+                    collect_nested_declarations(&arm.body, declarations);
+                }
             }
             SemStmt::LexicalBlock {
                 declarations: nested,
@@ -4093,7 +4097,7 @@ fn collect_machine_define_ids_from_stmt(
 ) {
     match stmt {
         SemStmt::Case { arms, .. } => {
-            for arm in arms { collect_machine_define_ids_from_statements(&arm.body, ids); }
+            for arm in arms { collect_machine_define_ids_from_statements(arm.preparation(), ids); collect_machine_define_ids_from_statements(&arm.body, ids); }
         }
         SemStmt::LexicalBlock { body, .. } => {
             collect_machine_define_ids_from_statements(body, ids);
@@ -4151,7 +4155,7 @@ fn collect_machine_define_names_from_stmt(
 ) {
     match stmt {
         SemStmt::Case { arms, .. } => {
-            for arm in arms { collect_machine_define_names_from_statements(&arm.body, names); }
+            for arm in arms { collect_machine_define_names_from_statements(arm.preparation(), names); collect_machine_define_names_from_statements(&arm.body, names); }
         }
         SemStmt::LexicalBlock { body, .. } => {
             collect_machine_define_names_from_statements(body, names);
@@ -4189,7 +4193,7 @@ fn collect_machine_define_names_from_stmt(
 fn collect_machine_defines_from_stmt(stmt: &SemStmt, defines: &mut MachineDefines) {
     match stmt {
         SemStmt::Case { arms, .. } => {
-            for arm in arms { collect_machine_defines_from_statements(&arm.body, defines); }
+            for arm in arms { collect_machine_defines_from_statements(arm.preparation(), defines); collect_machine_defines_from_statements(&arm.body, defines); }
         }
         SemStmt::LexicalBlock { body, .. } => {
             collect_machine_defines_from_statements(body, defines);
