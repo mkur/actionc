@@ -620,6 +620,11 @@ allocation or recursive Atari activation model is introduced.
 
 ## Untagged union delivery gate
 
+Semantic type observations include destination-only places, including nested
+fields, indexes and pointer dereferences. Backend capability checks must not
+miss an unsupported scalar store just because no expression reads that type.
+Observations are identified by source site and class, not incidental vector order.
+
 UNION syntax and nominal layout are staged behind an internal capability; all
 public profiles still reject union definitions. This is not executable support.
 Canonical aggregate layouts distinguish Record, Union and Variant explicitly.

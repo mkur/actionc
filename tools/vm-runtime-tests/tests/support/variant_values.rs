@@ -224,34 +224,54 @@ pub fn check_semir_watched(
             expected,
             &format!("classic/{runtime:?}"),
         );
-        let raw = actionc::nir::lower_program(semir);
-        actionc::nir::verify_program(&raw).unwrap();
-        for optimized in [false, true] {
-            let nir = if optimized {
-                actionc::nir::optimize_program(&raw).unwrap()
-            } else {
-                raw.clone()
-            };
-            actionc::nir::verify_program(&nir).unwrap();
-            let output = actionc::mir6502::generate_output_with_config_and_runtime(
-                &nir,
-                0x3000,
-                &actionc::mir6502::Mir6502Config::default(),
+        check_mir_runtime(semir, expected, fault, runtime, watch, &observe);
+    }
+}
+
+/// MIR-only cases (for example LONGINT views) retain both runtimes and both
+/// optimization states without pretending that classic supports wide arithmetic.
+#[allow(dead_code)]
+pub fn check_mir_semir(semir: &actionc::semantic::ir::SemProgram, expected: &[u8]) {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        check_mir_runtime(semir, expected, false, runtime, &[], &|_, _| {});
+    }
+}
+
+fn check_mir_runtime(
+    semir: &actionc::semantic::ir::SemProgram,
+    expected: &[u8],
+    fault: bool,
+    runtime: Runtime,
+    watch: &[u16],
+    observe: &impl Fn(&str, &[actionc_vm::BusEvent]),
+) {
+    let raw = actionc::nir::lower_program(semir);
+    actionc::nir::verify_program(&raw).unwrap();
+    for optimized in [false, true] {
+        let nir = if optimized {
+            actionc::nir::optimize_program(&raw).unwrap()
+        } else {
+            raw.clone()
+        };
+        actionc::nir::verify_program(&nir).unwrap();
+        let output = actionc::mir6502::generate_output_with_config_and_runtime(
+            &nir,
+            0x3000,
+            &actionc::mir6502::Mir6502Config::default(),
+            runtime,
+        )
+        .unwrap();
+        let path = format!("MIR/{runtime:?}/optimized={optimized}");
+        compare(
+            execute_watched(
+                &actionc::codegen::format_load_file(&output),
                 runtime,
-            )
-            .unwrap();
-            let path = format!("MIR/{runtime:?}/optimized={optimized}");
-            compare(
-                execute_watched(
-                    &actionc::codegen::format_load_file(&output),
-                    runtime,
-                    fault,
-                    watch,
-                    &|events| observe(&path, events),
-                ),
-                expected,
-                &format!("MIR/{runtime:?}/optimized={optimized}"),
-            );
-        }
+                fault,
+                watch,
+                &|events| observe(&path, events),
+            ),
+            expected,
+            &format!("MIR/{runtime:?}/optimized={optimized}"),
+        );
     }
 }

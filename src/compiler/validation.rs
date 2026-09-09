@@ -24,6 +24,27 @@ pub(crate) fn classic_wide_integer_diagnostic(model: &crate::semantic::SemanticM
     Some(Diagnostic::new(span, "LONGINT/LONGCARD code generation requires the MIR6502 backend; classic supports only 8/16-bit integers"))
 }
 
+#[cfg(test)]
+#[test]
+fn classic_wide_guard_recognizes_union_views_before_emission() {
+    for definition in ["UNION [T wide CARD word]", "[T wide CARD word]"] {
+    for body in ["value.wide=1", "result=value.wide", "ptr.wide==+1", "result=LONGCARD(value.word)"] {
+        let source=format!("TYPE View<T>={definition} View<LONGCARD> value View<LONGCARD> POINTER ptr CARD result PROC Main() {body} RETURN");
+        let ast=crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
+        let mut options=crate::semantic::SemanticOptions::modern(); options.algebraic_types.unions=true;
+        let model=crate::semantic::analyze_with_options(&ast,options).unwrap();
+        let error=classic_wide_integer_diagnostic(&model).expect(body);
+        assert!(error.message.contains("requires the MIR6502 backend"));
+    }
+    }
+    // A declaration alone is not a wide operation: byte/word views and opaque
+    // copies need no 32-bit scalar lane in classic.
+    let ast=crate::parser::parse(&crate::lexer::tokenize("TYPE View=UNION [LONGCARD wide CARD word] View value PROC Main() value.word=1 RETURN").unwrap()).unwrap();
+    let mut options=crate::semantic::SemanticOptions::modern(); options.algebraic_types.unions=true;
+    let model=crate::semantic::analyze_with_options(&ast,options).unwrap();
+    assert!(classic_wide_integer_diagnostic(&model).is_none());
+}
+
 pub(crate) fn standalone_resident_diagnostics(program: &SemProgram) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for module in &program.modules {

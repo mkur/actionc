@@ -3313,7 +3313,13 @@ impl Analyzer {
 
     fn expect_place(&mut self, scope: ScopeId, expr: &Expr, span: Span) -> subject::SemPlace {
         match self.classify_subject(scope, expr) {
-            subject::SemSubject::Place(place) => place,
+            subject::SemSubject::Place(place) => {
+                // Destination-only uses still consume their resolved type.
+                // Capability checks must see field/index/pointer stores even
+                // when no expression ever reads that scalar representation.
+                self.record_sem_place_with_class(&place, ExprClass::LValue);
+                place
+            },
             subject::SemSubject::Callable(callable) => subject::SemPlace {
                 ty: ValueType::callable_pointer(callable.ty),
                 access: subject::PlaceAccess::RoutineTargetOnly,
@@ -8697,14 +8703,16 @@ mod tests {
 
     #[test]
     fn string_literal_expressions_have_char_pointer_type() {
-        let model = analyze_source("CHAR POINTER p PROC Main() p=\"HI\" RETURN");
+        let source = "CHAR POINTER p PROC Main() p=\"HI\" RETURN";
+        let model = analyze_source(source);
         let string_expr = model
             .expression_observations
             .iter()
-            .find(|expr| expr.span.start < expr.span.end && expr.ty == Some(string_literal_type()))
+            .find(|expr| source.get(expr.span.start..expr.span.end) == Some("\"HI\""))
             .expect("typed string literal expression");
 
         assert_eq!(string_expr.class, ExprClass::Value);
+        assert_eq!(string_expr.ty, Some(string_literal_type()));
     }
 
     #[test]

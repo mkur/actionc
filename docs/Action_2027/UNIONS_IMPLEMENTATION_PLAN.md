@@ -219,7 +219,7 @@ tests green. Explain any fixture contract changes and update only relevant count
 ## 6. Progress
 
 - Plan saved in `4e3ac9f` against baseline `2994212`; gated slice 1 is complete.
-- Slices 1–5 are complete; slices 6–7 remain pending. No public UNION support
+- Slices 1–6 are complete; slice 7 remains pending. No public UNION support
   is claimed yet.
 
 ### Slice 1 — Syntax, identity and canonical layout (complete)
@@ -326,3 +326,25 @@ tests green. Explain any fixture contract changes and update only relevant count
 - This completes slices 2–5, not public enablement. Slices 6–7 retain their
   explicit backend-limit/representation acceptance, documentation, cost baselines
   and release-gate work. Native canaries do not claim native runtime execution.
+
+### Slice 6 — Backend/runtime acceptance (complete)
+
+- Added wide MIR6502 execution tests in both runtimes, raw and optimized: signed
+  bit reinterpretation, selected-width writes, preserved trailing bytes, and
+  16-bit CARD overflow without widening merely because a LONGCARD view exists.
+  An exhaustive byte oracle verifies named and unnamed enum views in all six
+  classic/raw-MIR/optimized-MIR runtime lanes.
+- Native canaries verify 2/3/4-byte pointer representations, little/big-endian
+  static data, zero-offset overlapping stores, nested byte displacements and
+  overlap-safe copies. Native variant validation still diagnoses its missing
+  Error adapter; unions do not bypass that boundary.
+- A rejection test exposed destination-only wide writes missing from the shared
+  classic capability guard. Semantic analysis now records resolved destination
+  places with the existing observation mechanism. This covers records, unions,
+  indexes and pointer stores without a backend source walk. Byte/word views of
+  wide-containing storage remain allowed. One observation test now identifies
+  its literal by source span instead of selecting the first matching type.
+- All 2,474 library tests pass after that assertion correction; other compiler
+  integration tests, focused union tests and the 44/167 IR sweeps pass. The full
+  pinned VM run is in progress and final public acceptance is recorded in slice 7.
+  No IR fixture contract or union-specific optimizer was introduced.
