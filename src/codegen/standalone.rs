@@ -832,7 +832,7 @@ fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) 
             }
             rewrite_stmt_list_names(body, replacements);
         }
-        Stmt::Define(_) | Stmt::Exit { .. } | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
+        Stmt::UseVariant { .. } | Stmt::Define(_) | Stmt::Exit { .. } | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
     }
 }
 
@@ -1049,7 +1049,7 @@ fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut B
             }
             collect_stmt_list_names(body, candidates, output);
         }
-        Stmt::Define(_) | Stmt::Exit { .. } | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
+        Stmt::UseVariant { .. } | Stmt::Define(_) | Stmt::Exit { .. } | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
     }
 }
 

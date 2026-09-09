@@ -193,8 +193,14 @@ TYPE TreeOf<T>=VARIANT [EMPTY NODE [T value TreeOf<T> POINTER left,right]]
 ```
 
 Use explicit applications such as `Option<BYTE>` and qualified constructors such
-as `Option<BYTE>.SOME(7)`. Nullary constructors omit parentheses. Each instance
-is nominal; equal layouts do not make types compatible. Recursive data requires
+as `Option<BYTE>.SOME(7)`. For a named, non-generic variant, local
+`USE ALL FROM MaybeByte` makes `NONE` and `SOME(n)` available in expressions and
+CASE patterns from that statement to the end of its routine or BEGIN block.
+Nested scopes inherit the opening; conflicting visible names are errors, and
+qualified constructors remain available. Local USE does not open enums or modules
+and does not accept AS or explicit generic arguments. Nullary constructors omit
+parentheses. Each instance is nominal; equal layouts do not make types compatible.
+Recursive data requires
 explicit pointers and storage management; there is no hidden allocation or GC.
 Variant tag zero is invalid, and a value read validates active inline variants
 before exposing payloads. Malformed tags invoke Error(105) on Atari, including

@@ -242,7 +242,7 @@ impl Materializer<'_> {
             Stmt::InlineAsm { program, .. } => {
                 *program = materialize_inline_asm_constants(program, scope, self.model);
             }
-            Stmt::Define(_)
+            Stmt::UseVariant { .. } | Stmt::Define(_)
             | Stmt::Exit { .. }
             | Stmt::MachineBlock { .. }
             | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}

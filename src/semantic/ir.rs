@@ -3141,6 +3141,21 @@ impl<'a> IrBuilder<'a> {
     fn lower_binding_statements(&mut self, scope: ScopeId, statements: &[Stmt]) -> Vec<SemStmt> {
         let mut output = Vec::new();
         for (index, statement) in statements.iter().enumerate() {
+            if let Stmt::UseVariant { syntax_id, span, .. } = statement {
+                let block = self.model.lexical_blocks.iter()
+                    .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
+                    .expect("validated local USE scope");
+                let child = block.scope;
+                let scope_ref = SemLexicalScopeRef {
+                    syntax_id: *syntax_id, scope: child, parent: scope,
+                    depth: block.depth, ordinal: block.ordinal,
+                };
+                let body = self.lower_binding_statements(child, &statements[index + 1..]);
+                output.push(SemStmt::LexicalBlock {
+                    scope: scope_ref, declarations: Vec::new(), constants: Vec::new(), body, span: *span,
+                });
+                break;
+            }
             let Stmt::Let { syntax_id, name, value, span, .. } = statement else {
                 output.extend(self.lower_stmt(scope, statement));
                 continue;
@@ -3186,8 +3201,8 @@ impl<'a> IrBuilder<'a> {
     fn lower_stmt(&mut self, scope: ScopeId, stmt: &Stmt) -> Vec<SemStmt> {
         match stmt {
             Stmt::RuntimeFault { kind, span } => vec![SemStmt::Fault { kind: *kind, span: *span }],
-            Stmt::Let { span, .. } => vec![SemStmt::Unsupported {
-                span: *span, note: "LET requires semantic statement-list lowering".into(),
+            Stmt::Let { span, .. } | Stmt::UseVariant { span, .. } => vec![SemStmt::Unsupported {
+                span: *span, note: "lexical binding requires semantic statement-list lowering".into(),
             }],
             Stmt::LexicalBlock {
                 syntax_id,
@@ -4849,10 +4864,10 @@ impl<'a> IrBuilder<'a> {
         defines: &mut HashMap<SymbolId, NumberLiteral>,
     ) {
         for statement in statements {
-            if let Stmt::Let { syntax_id, .. } = statement {
+            if let Stmt::Let { syntax_id, .. } | Stmt::UseVariant { syntax_id, .. } = statement {
                 scope = self.model.lexical_blocks.iter()
                     .find(|block| block.parent == scope && block.syntax_id == *syntax_id)
-                    .expect("validated LET scope").scope;
+                    .expect("validated lexical binding scope").scope;
             } else {
                 self.collect_numeric_define_stmt(scope, statement, defines);
             }
@@ -4867,7 +4882,12 @@ impl<'a> IrBuilder<'a> {
     ) {
         match stmt {
             Stmt::Case { arms, .. } => {
-                for arm in arms { for stmt in &arm.body { self.collect_numeric_define_stmt(scope, stmt, defines); } }
+                for arm in arms {
+                    let arm_scope = self.model.lexical_blocks.iter()
+                        .find(|block| block.parent == scope && block.syntax_id == arm.syntax_id)
+                        .map_or(scope, |block| block.scope);
+                    self.collect_numeric_define_statements(arm_scope, &arm.body, defines);
+                }
             }
             Stmt::LexicalBlock {
                 syntax_id, body, ..
@@ -4901,7 +4921,7 @@ impl<'a> IrBuilder<'a> {
                     self.collect_numeric_define_stmt(scope, stmt, defines);
                 }
             }
-            Stmt::Let { .. }
+            Stmt::UseVariant { .. } | Stmt::Let { .. }
             | Stmt::Return(_)
             | Stmt::Exit { .. }
             | Stmt::Assign { .. }

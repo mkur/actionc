@@ -602,7 +602,7 @@ impl Generator {
                 self.collect_modern_hidden_expr(target);
                 self.collect_modern_hidden_expr(value);
             }
-            Stmt::Define(_) | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
+            Stmt::UseVariant { .. } | Stmt::Define(_) | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
             Stmt::Return(Some(expr)) => self.collect_modern_hidden_expr(expr),
             Stmt::Return(None)
             | Stmt::Exit { .. }
@@ -928,7 +928,7 @@ fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
                 || step.as_ref().is_some_and(expr_contains_string_literal)
                 || stmt_list_contains_string_literal(body)
         }
-        Stmt::Define(_)
+        Stmt::UseVariant { .. } | Stmt::Define(_)
         | Stmt::Return(None)
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }

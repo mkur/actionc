@@ -30,6 +30,8 @@ pub struct VariantType {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VariantFacts {
     pub types: HashMap<SymbolId, VariantType>,
+    /// Source-only lexical imports; executable SemIR uses constructor IDs.
+    pub(super) opened: HashMap<ScopeId, HashMap<String, VariantConstructorId>>,
     pub(super) expressions: HashMap<ExpressionSite, VariantConstructorId>,
     pub(super) matches: HashMap<ExpressionSite, VariantMatch>,
 }
@@ -48,6 +50,85 @@ pub(super) struct VariantArm {
 }
 
 impl Analyzer {
+    /// Ordinary declarations in a nearer lexical scope shadow an opening, just
+    /// as they shadow outer declarations. An opening itself never shadows.
+    pub(super) fn opened_variant_constructor(
+        &self,
+        mut scope: ScopeId,
+        name: &str,
+    ) -> Option<VariantConstructorId> {
+        if self.variants.opened.is_empty() {
+            return None;
+        }
+        let key = normalize_name(name);
+        loop {
+            if self.symbols.lookup_exact(scope, name).is_some() {
+                return None;
+            }
+            if let Some(constructor) = self.variants.opened.get(&scope)
+                .and_then(|names| names.get(&key))
+            {
+                return Some(*constructor);
+            }
+            scope = self.symbols.scopes[scope.0].parent?;
+        }
+    }
+
+    pub(super) fn open_variant_constructors(
+        &mut self,
+        parent: ScopeId,
+        syntax_id: LexicalBlockSyntaxId,
+        target: &QualifiedName,
+        span: Span,
+    ) -> Option<ScopeId> {
+        if !self.options.algebraic_types.variants || !self.options.lexical_blocks {
+            self.diagnostics.push(Diagnostic::new(span, "local USE ALL FROM requires modern variants"));
+            return None;
+        }
+        let Some(routine) = self.active_routine_symbol else {
+            self.diagnostics.push(Diagnostic::new(span, "local USE ALL FROM is only allowed inside routines"));
+            return None;
+        };
+        let resolution = resolve_semantic_name(&self.symbols, &self.modules, parent, target);
+        let variant = match resolution {
+            SemanticNameResolution::Symbol(owner) => self.variants.types.get(&owner).cloned(),
+            _ => None,
+        };
+        let Some(variant) = variant else {
+            self.diagnostics.push(Diagnostic::new(span,
+                format!("local USE ALL FROM requires a visible VARIANT type; `{target}` is not one")));
+            return None;
+        };
+        let mut opened = HashMap::new();
+        let initial_errors = self.diagnostics.len();
+        let module = module_for_scope(&self.symbols, parent);
+        for constructor in &variant.constructors {
+            let previous = self.opened_variant_constructor(parent, &constructor.name);
+            let alias = module
+                .and_then(|id| self.modules.get(id.0 as usize))
+                .and_then(|module| module.module_alias(&constructor.name));
+            if previous.is_some_and(|id| id != constructor.id)
+                || self.symbols.lookup(parent, &constructor.name).is_some()
+                || alias.is_some()
+            {
+                self.diagnostics.push(Diagnostic::new(span,
+                    format!("local USE ALL FROM collision: `{}` already denotes another visible name; use qualified constructors", constructor.name)));
+            }
+            opened.insert(normalize_name(&constructor.name), constructor.id);
+        }
+        if self.diagnostics.len() != initial_errors {
+            return None;
+        }
+        let scope = self.symbols.add_scope(ScopeKind::LexicalBlock, Some(parent));
+        self.variants.opened.insert(scope, opened);
+        self.active_lexical_path.push(syntax_id.0);
+        self.lexical_blocks.push(SemanticLexicalBlock {
+            syntax_id, scope, parent, routine, module: self.active_module,
+            depth: self.active_lexical_path.len(), ordinal: syntax_id.0, span,
+        });
+        Some(scope)
+    }
+
     pub(super) fn contains_variant(&self, ty: &ValueType) -> bool {
         self.any_inline_type(ty, |ty| ty.as_aggregate_identity()
             .and_then(|id| id.symbol).is_some_and(|id| self.variants.types.contains_key(&id)))
@@ -189,7 +270,9 @@ impl Analyzer {
             return Pattern::Wild;
         }
         if depth != 0 {
-            if let ExprKind::Name(name) = &expression.kind {
+            if let ExprKind::Name(name) = &expression.kind
+                && self.opened_variant_constructor(scope, name).is_none()
+            {
                 if name != "_" {
                     if let Some(symbol) = self.declare(
                         child,
@@ -448,10 +531,15 @@ impl Analyzer {
         scope: ScopeId,
         expr: &Expr,
     ) -> Option<(SymbolId, String)> {
-        let ExprKind::Field { base, field } = &expr.kind else {
-            return None;
-        };
-        Some((self.variant_type_for_expr(scope, base)?, field.clone()))
+        match &expr.kind {
+            ExprKind::Field { base, field } => {
+                Some((self.variant_type_for_expr(scope, base)?, field.clone()))
+            }
+            ExprKind::Name(name) => {
+                Some((self.opened_variant_constructor(scope, name)?.owner, name.clone()))
+            }
+            _ => None,
+        }
     }
 
     pub(super) fn variant_constructor_subject(

@@ -25,12 +25,53 @@ PROC Main()
 RETURN
 ```
 
-Constructors are qualified, positional and evaluated left to right. Nullary
+Constructors are positional and evaluated left to right. Nullary
 constructors omit parentheses. Replace an entire value to change its alternative;
 the tag and payload fields are not directly writable. Pattern bindings are
 immutable and arm-local. Use `_` to discard a payload; use ELSE for unmatched
 valid alternatives. Otherwise cover every alternative. A BEGIN/END block inside
 an arm allows ordinary local declarations and LET.
+
+Use `USE ALL FROM` inside a routine or `BEGIN` block to make a named variant's
+constructors available without repeating its type:
+
+```action
+TYPE MaybeByte=VARIANT [NONE SOME [BYTE value]]
+
+PROC Main()
+  BEGIN
+    USE ALL FROM MaybeByte
+    LET item=SOME(42)
+    CASE item OF
+    WHEN NONE THEN
+      PrintE("No value")
+    WHEN SOME(n) THEN
+      PrintBE(n)
+    ESAC
+  END
+RETURN
+```
+
+The opening applies from that statement to the end of the enclosing routine or
+`BEGIN` block, including nested scopes. Put local declarations before it. Inside
+an IF, loop or CASE arm, introduce an explicit BEGIN/END block for the opening,
+as for LET. Constructors are available in expressions and nested CASE patterns;
+for example, an opened `NONE` in `Box.WRAP(NONE)` is a constructor pattern, not a
+new payload binder. Use another name for a binder in that case.
+
+Names remain case-insensitive. An opening cannot replace a visible variable,
+constant, routine, type, module alias or a different opened constructor; such
+collisions are errors. Reopening the same constructor identity is harmless,
+including through different module aliases. Ordinary declarations in an inner
+scope and subsequent LET bindings retain their usual shadowing behavior.
+Qualified constructors such as `MaybeByte.SOME(n)` remain available.
+
+The target can be a local type or a public type reached through a module alias,
+such as `USE ALL FROM API.MaybeByte`. This local form opens named, non-generic
+VARIANT types only. It does not open enum members or modules, accept AS aliases,
+or take explicit generic arguments. Module-header USE imports keep their existing
+meaning. Both spellings resolve to the same constructor identity and generate
+the same runtime operations.
 
 The representation uses a BYTE tag (1..255) and an overlapping inline payload.
 Zero means unconstructed, not the first alternative. Construct values with

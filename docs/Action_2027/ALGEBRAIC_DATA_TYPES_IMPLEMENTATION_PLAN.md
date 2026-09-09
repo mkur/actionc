@@ -102,7 +102,16 @@ RETURN
 - A definition contains named alternatives, optionally followed by record-like
   payload fields in brackets. Whitespace separates alternatives; commas may
   separate alternatives as for ENUM. Duplicate alternative/field names are errors.
-- Constructors are qualified by their type. A payload-free constructor is a
+- Constructors are qualified by their type unless a local `USE ALL FROM Type`
+  opens a named, non-generic variant. Openings are source-order lexical bindings
+  inside routine/BEGIN statement lists; they do not escape that list or silently
+  replace another visible name. The same constructor identity may be reopened.
+  Nested scopes inherit openings, with ordinary inner declarations retaining
+  their normal shadowing rules. Expressions and nested patterns resolve opened
+  names to the same constructor IDs as qualified names; an opened nullary name
+  in a payload pattern is a constructor, not a fresh binder. SemIR owns this
+  resolution, and no executable USE operation crosses into NIR.
+  A payload-free constructor is a
   value (`Event.NONE`); a payload constructor takes positional arguments in
   flattened field declaration order (`MOVE(x,y)`). Named arguments and taking
   a constructor's function pointer are deferred.

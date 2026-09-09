@@ -1578,6 +1578,10 @@ impl Analyzer {
 
     fn analyze_stmt(&mut self, scope: ScopeId, stmt: &Stmt, context: ControlContext<'_>) {
         match stmt {
+            Stmt::UseVariant { span, .. } => self.diagnostics.push(Diagnostic::new(*span,
+                if !self.options.algebraic_types.variants { "local USE ALL FROM requires modern variants" }
+                else if self.active_routine_symbol.is_none() { "local USE ALL FROM is only allowed inside routines" }
+                else { "local USE ALL FROM in a control-flow body requires an explicit BEGIN/END block" })),
             Stmt::Let { span, .. } => self.diagnostics.push(Diagnostic::new(*span,
                 if !self.options.let_bindings { "LET requires the modern profile" }
                 else if self.active_routine_symbol.is_none() { "LET is only allowed inside routines" }
@@ -2389,7 +2393,13 @@ impl Analyzer {
                     span: expr.span,
                 })
             },
-            ExprKind::Name(name) => self.classify_name_subject(scope, name, expr.span),
+            ExprKind::Name(name) => {
+                if let Some(constructor) = self.opened_variant_constructor(scope, name) {
+                    self.variant_constructor_subject(scope, constructor.owner, name, None, expr.span)
+                } else {
+                    self.classify_name_subject(scope, name, expr.span)
+                }
+            }
             ExprKind::Cast { ty, expr: inner } => {
                 let inner = self.expect_expr(scope, inner, expr.span);
                 if self.reject_aggregate_address_conversion(&inner) {
@@ -5242,6 +5252,13 @@ impl Analyzer {
         ty: Option<ValueType>,
         span: Span,
     ) -> Option<SymbolId> {
+        if self.variants.opened.get(&scope)
+            .is_some_and(|names| names.contains_key(&normalize_name(&name)))
+        {
+            self.diagnostics.push(Diagnostic::new(span,
+                format!("declaration collision: `{name}` is a locally opened constructor")));
+            return None;
+        }
         let result = if let Some(module_id) = self.active_module {
             let module = &self.modules[module_id.0 as usize];
             let owner = self.active_routine.as_deref().unwrap_or("<module>");
@@ -6357,7 +6374,7 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize, exhaustive: &dyn Fn(Span) -> 
             }
         }
         Stmt::Let { .. }
-        | Stmt::Define(_)
+        | Stmt::UseVariant { .. } | Stmt::Define(_)
         | Stmt::Assign { .. }
         | Stmt::CompoundAssign { .. }
         | Stmt::Call { .. }

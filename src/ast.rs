@@ -465,6 +465,12 @@ pub struct LexicalBlockSyntaxId(pub u32);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
+    /// Opens variant constructors for the remaining lexical statement list.
+    UseVariant {
+        syntax_id: LexicalBlockSyntaxId,
+        target: QualifiedName,
+        span: Span,
+    },
     /// Compiler projection only; no source spelling introduces this statement.
     RuntimeFault { kind: crate::runtime_fault::RuntimeFault, span: Span },
     Let {

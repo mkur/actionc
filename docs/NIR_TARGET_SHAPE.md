@@ -24,6 +24,11 @@ preserving source arm order and a no-match continuation when ELSE is absent.
 There is no executable Enum, Switch, source label expression, or enum runtime
 helper. The existing verifier and optimizer operate on these ordinary forms.
 
+Local `USE ALL FROM` openings are resolved by SemIR to the same constructor IDs
+as qualified expressions/patterns. Their lexical scopes carry no executable
+operation, storage, effects or name lookup
+into NIR; constructor computation and validation retain the existing contract.
+
 Modern LET bindings enter NIR as ordinary typed local storage, initializer
 computation, stores and loads. SemIR resolves sequential scopes and enforces
 immutability before this boundary; there is no executable LET operation or

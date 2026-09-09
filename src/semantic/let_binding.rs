@@ -23,6 +23,12 @@ impl Analyzer {
     ) {
         let original_depth = self.active_lexical_path.len();
         for statement in statements {
+            if let Stmt::UseVariant { syntax_id, target, span } = statement {
+                if let Some(child) = self.open_variant_constructors(scope, *syntax_id, target, *span) {
+                    scope = child;
+                }
+                continue;
+            }
             let Stmt::Let {
                 syntax_id,
                 name,

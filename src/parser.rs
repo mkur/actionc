@@ -298,6 +298,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn is_local_use_start_at(&self, pos: usize) -> bool {
+        self.is_contextual_at(pos, "USE")
+            && self.is_contextual_at(pos + 1, "ALL")
+            && self.is_contextual_at(pos + 2, "FROM")
+    }
+
     fn parse_use(&mut self) -> UseDecl {
         let start = self.peek().span.start;
         self.eat_contextual("USE");
@@ -1055,7 +1061,22 @@ impl<'a> Parser<'a> {
 
     fn parse_statement(&mut self) -> Stmt {
         let start = self.peek().span.start;
-        if self.is_let_start_at(self.pos) {
+        if self.is_local_use_start_at(self.pos) {
+            let syntax_id = LexicalBlockSyntaxId(self.next_lexical_block_syntax_id);
+            self.next_lexical_block_syntax_id += 1;
+            let declaration = self.parse_use();
+            if self.check(TokenKind::Lt) {
+                self.diagnostics.push(Diagnostic::new(
+                    self.peek().span,
+                    "local USE ALL FROM does not support explicit generic arguments",
+                ));
+            }
+            Stmt::UseVariant {
+                syntax_id,
+                target: QualifiedName::new(declaration.path.components),
+                span: declaration.span,
+            }
+        } else if self.is_let_start_at(self.pos) {
             self.parse_let_statement()
         } else if self.is_case_start_at(self.pos) {
             self.parse_case_statement()
@@ -2014,7 +2035,7 @@ impl<'a> Parser<'a> {
     }
 
     fn is_var_decl_start_at(&self, pos: usize) -> bool {
-        if self.is_let_start_at(pos) {
+        if self.is_let_start_at(pos) || self.is_local_use_start_at(pos) {
             return false;
         }
         if self.is_case_start_at(pos) || self.is_case_arm_start_at(pos) {
@@ -2269,6 +2290,7 @@ impl<'a> Parser<'a> {
 
     fn is_statement_boundary(&self) -> bool {
         self.is_let_start_at(self.pos)
+            || self.is_local_use_start_at(self.pos)
             || self.is_routine_boundary()
             || self.check_keyword(Keyword::Include)
             || self.check_keyword(Keyword::Set)

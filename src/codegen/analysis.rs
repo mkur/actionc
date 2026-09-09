@@ -95,7 +95,7 @@ fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
             stmt_list_contains_machine_block(body)
         }
         Stmt::Let { .. }
-        | Stmt::Define(_)
+        | Stmt::UseVariant { .. } | Stmt::Define(_)
         | Stmt::Assign { .. }
         | Stmt::CompoundAssign { .. }
         | Stmt::Return(_)
@@ -174,7 +174,7 @@ fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
                     .is_some_and(|step| expr_tree_any(step, predicate))
                 || stmt_list_exprs_any(body, predicate)
         }
-        Stmt::Define(_)
+        Stmt::UseVariant { .. } | Stmt::Define(_)
         | Stmt::Return(None)
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }

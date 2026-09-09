@@ -227,7 +227,7 @@ impl Generator {
                     || step.as_ref().is_some_and(reads_volatile)
             }
             Stmt::Call { expr, .. } => reads_volatile(expr),
-            Stmt::Define(_)
+            Stmt::UseVariant { .. } | Stmt::Define(_)
             | Stmt::Exit { .. }
             | Stmt::MachineBlock { .. }
             | Stmt::InlineAsm { .. }
@@ -447,7 +447,7 @@ impl Generator {
         for stmt in body {
             match stmt {
                 Stmt::Case { .. } => return None,
-                Stmt::Define(_) => continue,
+                Stmt::UseVariant { .. } | Stmt::Define(_) => continue,
                 Stmt::LexicalBlock { body, .. } => {
                     if let Some(value) = self.next_y_constant_store_in_straight_line(body) {
                         return Some(value);
