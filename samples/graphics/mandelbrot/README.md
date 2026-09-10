@@ -42,8 +42,9 @@ cargo run --bin actionc -- --mode mir6502 --runtime standalone samples/graphics/
 ```
 
 `mbfixed.act` is the graphics entry point and `probe.act` is the printing entry
-point. `fractal/mandelbrot.act` is their shared library module; it has no Main
-procedure and should be imported by one of those programs.
+point. `fractal/mandelbrot.act` is their shared library module; it contains
+functions but no entry PROC and must be imported by one of those programs.
+The compiler rejects direct executable compilation of this library.
 
 The commands above build the current checkout. To refresh an installed
 `actionc` after updating the repository, run:
@@ -57,7 +58,7 @@ An older installed compiler can report `hexadecimal constant is too large`
 for `$04000000`. The current compiler accepts this 32-bit LONGCARD literal;
 refresh the installed compiler to enable that support.
 
-Load the generated Atari executable in an emulator or on an Atari XL/XE. The
+Load the generated `mbfixed.xex` in an emulator or on an Atari XL/XE. The
 sample draws progressively and leaves the completed image on screen. Both
 samples build in Compatibility, Optimized classic, and MIR6502 with either
 runtime. Their project-local module is discovered relative to the source file.
@@ -78,6 +79,12 @@ untouched pixels, and palette registers with an independent integer oracle.
 The pinned VM models CIO graphics calls; this checks the complete rendered
 pixel image, not ANTIC scanout or the OS's screen-memory layout. Numerical
 standalone runs need no ROMs; the printing and graphics tests load the OS.
+
+A manual full render also completed in Atari800 with XL hardware, the bundled
+AltirraOS ROM, and BASIC disabled, using the real OS graphics routines. All
+7,680 bytes of screen RAM matched the oracle-checked VM image, and the final
+row counter and palette matched. This supplements the automated CIO-model
+tests with a complete native OS render check.
 
 Set `ACTIONC_MANDELBROT_ARTIFACT_DIR` when running the VM target to retain the
 observed images as linear 160x192 two-bit `.bin` files (40 bytes per row,

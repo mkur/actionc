@@ -68,6 +68,56 @@ fn load_file_origin(bytes: &[u8]) -> u16 {
 }
 
 #[test]
+fn library_without_entry_is_rejected_without_creating_or_overwriting_output() {
+    let temp = TestDir::new();
+    let source = temp.path().join("library.act");
+    fs::write(
+        &source,
+        "MODULE LIB PUBLIC BYTE FUNC Value() RETURN(3) ENDMODULE",
+    )
+    .unwrap();
+    let object = temp.path().join("library.xex");
+    for mode in ["compatibility", "optimized", "mir6502"] {
+        for existing in [false, true] {
+            if existing {
+                fs::write(&object, b"previous executable").unwrap();
+            } else if object.exists() {
+                fs::remove_file(&object).unwrap();
+            }
+            let output = Command::new(env!("CARGO_BIN_EXE_actionc"))
+                .args(["--mode", mode, "--runtime", "standalone", "--output"])
+                .arg(&object)
+                .arg(&source)
+                .output()
+                .unwrap();
+            assert!(
+                !output.status.success(),
+                "{mode} accepted a library as an executable"
+            );
+            assert!(
+                String::from_utf8_lossy(&output.stderr)
+                    .contains("root source has no executable PROC")
+            );
+            if existing {
+                assert_eq!(fs::read(&object).unwrap(), b"previous executable");
+            } else {
+                assert!(!object.exists());
+            }
+        }
+    }
+    let inspected = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
+        .args(["--profile", "modern", "--backend", "mir6502", "--emit-nir"])
+        .arg(&source)
+        .output()
+        .unwrap();
+    assert!(
+        inspected.status.success(),
+        "library IR inspection failed: {}",
+        String::from_utf8_lossy(&inspected.stderr)
+    );
+}
+
+#[test]
 fn help_describes_the_existing_listing_options_as_mads_assembly() {
     for binary in [
         env!("CARGO_BIN_EXE_actionc"),

@@ -316,6 +316,14 @@ metadata carried through NIR and MIR6502. Runtime routines appended during
 selective linking therefore cannot become the executable entry merely because
 they are laid out after application code.
 
+Executable compilation requires this entry identity. If the root contains no
+code-emitting `PROC`, `compile_file`, `actionc`, and `actionc-run` reject it
+before producing an Atari load file; a `FUNC`, an external/address-bound
+procedure, or a procedure in an imported module cannot supply the root entry.
+Library modules remain valid inputs to semantic/IR inspection and valid `USE`
+dependencies. The compiler API enforces the executable requirement using the
+SemIR entry fact; NIR and MIR6502 can still represent libraries without entries.
+
 A future explicit `PROGRAM`, `ENTRY`, or module-initialization construct is a
 separate design. `USE`-clause order must never become implicit execution order.
 

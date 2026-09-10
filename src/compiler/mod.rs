@@ -329,6 +329,19 @@ pub(crate) fn compile_file_with_request_and_link_policy(
         )));
     }
 
+    if semir.entry_routine.is_none() {
+        return Err(CompileError::from_source_diagnostics(
+            CompilerPhase::Codegen,
+            vec![crate::diagnostic::Diagnostic::new(
+                crate::source::Span::new(0, 0),
+                "cannot build an Atari executable: root source has no executable PROC; library modules must be imported by a program",
+            )],
+            &loaded.source,
+            path,
+            Some(&loaded.source_map),
+        ));
+    }
+
     let output = match request.backend {
         Backend::Classic => compile_classic(
             program,

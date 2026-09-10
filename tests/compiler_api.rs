@@ -45,6 +45,42 @@ fn hello_world() -> PathBuf {
 }
 
 #[test]
+fn executable_compilation_requires_a_root_entry_proc_in_all_modes_and_runtimes() {
+    let temp = TestDir::new();
+    write_source(
+        &temp,
+        "helper.act",
+        "MODULE HELPER PUBLIC PROC Work() RETURN ENDMODULE",
+    );
+    for source in [
+        "BYTE data=[3]",
+        "BYTE FUNC Value() RETURN(3)",
+        "MODULE LIB PUBLIC BYTE FUNC Value() RETURN(3) ENDMODULE",
+        "MODULE LIB USE HELPER PUBLIC BYTE FUNC Value() RETURN(3) ENDMODULE",
+        "MODULE LIB PUBLIC PROC External=$2000() ENDMODULE",
+    ] {
+        let path = write_source(&temp, "library.act", source);
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let error = compile_file(&path, &CompileOptions::for_mode(mode).with_runtime(runtime))
+                    .expect_err("a library cannot supply an executable entry");
+                assert!(
+                    error.diagnostics().iter().any(|diagnostic| {
+                        diagnostic.phase == CompilerPhase::Codegen
+                            && diagnostic.message.contains("root source has no executable PROC")
+                    }),
+                    "{source}/{mode:?}/{runtime:?}: {error}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn constant_zero_divisors_are_semantic_errors_in_every_mode_and_runtime() {
     let temp = TestDir::new();
     for expression in ["1/0", "1 MOD 0", "(1/0)+1", "(1 MOD 0)+1", "1/BYTE(256)"] {
