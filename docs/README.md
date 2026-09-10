@@ -96,6 +96,10 @@ crowding the active reference set.
 
 ## Language And Runtime Reference
 
+- [Signed Q8.8 library implementation plan](SIGNED_Q8_8_LIBRARY_IMPLEMENTATION_PLAN.md)
+  - planned embedded fixed point library using INT storage and LONGINT
+  intermediates, with explicit arithmetic rules and tests across all six
+  compiler mode/runtime combinations.
 - [IF and CASE expressions](tutorials/IF_CASE_EXPRESSIONS.md) - choosing integer
   and enum values, exhaustive variant matching, exact arm types and evaluation order.
 - [Modules tutorial](tutorials/MODULES.md) - task-oriented guide to creating
