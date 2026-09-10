@@ -5348,6 +5348,32 @@ fn materialize_ops_impl(
                 }
             }
             MirOp::Unary {
+                op: MirUnaryOp::SignMask,
+                dst,
+                src,
+                width: MirWidth::Word,
+            } => {
+                if let Some((lo_dst, hi_dst)) = split_def(dst.clone()) {
+                    let (_, src_hi) =
+                        split_value_with_storage_widths(src, routine_id, layout, &temp_widths);
+                    out.push(MirOp::Unary {
+                        op: MirUnaryOp::SignMask,
+                        dst: lo_dst.clone(),
+                        src: src_hi,
+                        width: MirWidth::Byte,
+                    });
+                    out.push(MirOp::Move {
+                        dst: hi_dst,
+                        src: MirValue::Def(lo_dst),
+                        width: MirWidth::Byte,
+                    });
+                } else {
+                    out.push(MirOp::Unary {
+                        op: MirUnaryOp::SignMask, dst, src, width: MirWidth::Word,
+                    });
+                }
+            }
+            MirOp::Unary {
                 op: MirUnaryOp::Neg,
                 dst,
                 src,

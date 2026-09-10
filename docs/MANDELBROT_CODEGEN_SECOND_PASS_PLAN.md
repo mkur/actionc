@@ -47,3 +47,16 @@ cycles fell to 24,295,785 (9.61% below baseline); VBXE XEX grew to 4,277 bytes
 (+86). NIR snapshots, 49/49 sweep, full compiler suite, 17 wide-integer VM
 tests, both Q4.12 tests and five Q8.8 tests passed. The expanded direct helper
 regression passed 5,376 products with stack, scratch and decimal-mode checks.
+
+Slice 2 contract: verified 32-bit integer scalar homes use the same exact
+storage identity, read-before-definition, escape, call and liveness analysis
+as byte/word homes. This enables forwarding and dead private-store removal;
+initialized persistent homes and externally observable storage retain their
+existing barriers. Target sign-mask selection does not change NIR casts.
+
+Slice 2: direct sign masks and verified 32-bit storage forwarding reduce the
+kernel to 21,900,337 cycles (18.52% below baseline), with a 3,970-byte VBXE XEX.
+The square wrapper no longer stages through its dead local. NIR snapshots and
+49/49 sweep are unchanged; compiler checks, 18 wide-integer VM tests and seven
+fixed-point VM tests passed, including 3,072 widening executions across all
+sign bytes, three compiler modes and both runtimes.

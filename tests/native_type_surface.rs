@@ -773,3 +773,34 @@ fn check_mir65816_type_surface(program: &nir::NirProgram, target: TargetId) {
         }) || target == TargetId::Wdc65816Native
     );
 }
+
+#[test]
+fn wide_private_storage_forwards_values_but_preserves_persistent_state() {
+    let input = lower(
+        "LONGINT input=$6E0,result=$600\n\
+         LONGINT FUNC Square(LONGINT value) LONGINT wide wide=value wide=wide*wide RETURN(wide)\n\
+         LONGINT FUNC Counter() LONGINT count=[0] count==+1 RETURN(count)\n\
+         PROC Main() result=Square(input) result=Counter() RETURN",
+        TargetId::Atari6502,
+    );
+    let optimized = nir::optimize_program(&input).unwrap();
+    let square = optimized.routines.iter().find(|r| r.name == "Square").unwrap();
+    assert!(square.locals.iter().all(|local| local.name != "wide"));
+    assert!(!square.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, NirOp::Store { .. })));
+    let counter = optimized.routines.iter().find(|r| r.name == "Counter").unwrap();
+    assert!(counter.locals.iter().any(|local| local.name == "count"));
+    assert!(counter.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, NirOp::Store { .. })));
+}
+
+#[test]
+fn signed_word_widening_uses_a_target_sign_mask() {
+    use actionc::mir6502::{MirOp, MirUnaryOp, MirWidth};
+    let nir = lower("INT input=$6E0 LONGINT result=$600 PROC Main() result=LONGINT(input) RETURN", TargetId::Atari6502);
+    let mir = actionc::mir6502::lower_program(&nir).unwrap();
+    let ops: Vec<_> = mir.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops).collect();
+    assert!(ops.iter().any(|op| matches!(op, MirOp::Unary { op: MirUnaryOp::SignMask, width: MirWidth::Word, .. })));
+    assert!(!ops.iter().any(|op| matches!(op, MirOp::Compare { .. })));
+    for config in [actionc::mir6502::Mir6502Config::default(), actionc::mir6502::Mir6502Config::optimized()] {
+        actionc::mir6502::materialize_program(mir.clone(), &config).unwrap();
+    }
+}

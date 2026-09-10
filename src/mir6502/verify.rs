@@ -1413,7 +1413,8 @@ impl MirVerifier {
                 self.verify_def(routine, block, dst);
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
             }
-            MirOp::Unary { dst, src, .. } => {
+            MirOp::Unary { dst, src, width, .. } => {
+                self.verify_pre_emission_width(routine, block, *width);
                 self.verify_def(routine, block, dst);
                 self.verify_value(routine, block, src, static_ids, global_ids, routine_ids);
             }

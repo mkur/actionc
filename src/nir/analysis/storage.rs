@@ -737,6 +737,9 @@ fn duration_identity_domain(
 }
 
 fn supported_scalar_type(ty: &NirType) -> bool {
+    if ty.kind.integer().is_some_and(|integer| integer.bits == 32) {
+        return ty.width.map(ByteSize::get) == Some(4);
+    }
     matches!(
         ty.kind,
         NirTypeKind::Bool

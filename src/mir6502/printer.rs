@@ -878,6 +878,7 @@ fn unary_summary(op: MirUnaryOp) -> &'static str {
     match op {
         MirUnaryOp::Neg => "neg",
         MirUnaryOp::BitNot => "bitnot",
+        MirUnaryOp::SignMask => "signmask",
     }
 }
 

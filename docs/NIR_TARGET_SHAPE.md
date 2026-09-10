@@ -1476,3 +1476,10 @@ Do not consider NIR complete while any of these are true:
 - cross-block temp use is not verified;
 - branch conditions are not typed or explicitly tested;
 - verifier-clean IR can contain unknown/open boundaries.
+
+Verified ordinary 32-bit integer scalar homes participate in exact storage-value
+forwarding and dead-store/home elimination using the same stable storage IDs,
+escape, initialization, persistence and effect barriers as byte/word homes.
+Eligibility for these passes does not imply profitability for loop promotion.
+MIR owns sign-mask and carry-lane selection; NIR retains typed casts and integer
+arithmetic without machine flags.

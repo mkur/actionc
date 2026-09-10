@@ -386,6 +386,16 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             record_aggregate_copy_read(source, *size, &mut summary);
             record_aggregate_copy_write(destination, *size, &mut summary);
         }
+        MirOp::Unary {
+            op: crate::mir6502::ir::MirUnaryOp::SignMask, dst, src, width,
+        } => {
+            record_value(src, &mut summary);
+            record_def(dst, *width, &mut summary);
+            summary.machine.flag_writes = MirFlagSet::all();
+            summary.machine.definitely_overwrites_carry = true;
+            summary.machine.definitely_overwrites_overflow = true;
+            summary.removable_when_results_dead = true;
+        }
         MirOp::Move { dst, src, width }
         | MirOp::Unary {
             dst, src, width, ..
@@ -1844,6 +1854,20 @@ mod tests {
             clobbers: MirRegisterSet::default(),
             preserves: MirRegisterSet::default(),
         }
+    }
+
+    #[test]
+    fn sign_mask_defines_flags_without_consuming_incoming_carry() {
+        let effects = classify_op(&MirOp::Unary {
+            op: crate::mir6502::ir::MirUnaryOp::SignMask,
+            dst: MirDef::Reg(MirReg::A),
+            src: MirValue::Def(MirDef::Reg(MirReg::A)),
+            width: MirWidth::Byte,
+        });
+        assert_eq!(effects.machine.flag_writes, MirFlagSet::all());
+        assert!(effects.machine.definitely_overwrites_carry);
+        assert!(effects.machine.definitely_overwrites_overflow);
+        assert!(!effects.machine.uses_previous_carry);
     }
 
     #[test]

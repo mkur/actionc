@@ -718,3 +718,30 @@ fn narrow_absolute_loop_bounds_are_values_not_constant_addresses() {
         assert_eq!(bytes[0], 3);
     }
 }
+
+#[test]
+fn signed_widening_preserves_every_sign_byte_and_captured_call() {
+    let source = Source::new(
+        "INT input=$6E0 LONGINT result=$600,again=$604 BYTE calls=$608,done=$6FF\n\
+         INT FUNC Capture() calls==+1 RETURN(input)\n\
+         LONGINT FUNC Widen(INT value) LONGINT wide wide=LONGINT(value) RETURN(wide)\n\
+         PROC Main() calls=0 result=LONGINT(Capture()) again=Widen(input) done=$A5 DO OD RETURN",
+    );
+    for (mode, runtime) in modes_and_runtimes() {
+        let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+        for high in 0u32..=255 {
+            for low in [0, 255] {
+                let input = (high << 8) | low;
+                let actual = run(compiled.object_bytes(), runtime, input, 0);
+                let value = input as i16 as i32 as u32;
+                let mut expected = vec![0xCC; 256];
+                for (offset, value) in [(0, value), (4, value), (0xE0, input), (0xE4, 0)] {
+                    expected[offset..offset+4].copy_from_slice(&value.to_le_bytes());
+                }
+                expected[8] = 1;
+                expected[255] = 0xA5;
+                assert_eq!(actual, expected, "{mode:?}/{runtime:?}: {input:04X}");
+            }
+        }
+    }
+}

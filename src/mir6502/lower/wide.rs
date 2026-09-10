@@ -206,14 +206,14 @@ impl Builder<'_> {
             low = self.widen_byte(low, signed);
         }
         let high = if signed {
-            let sign = self.compare(MirCompareOp::Lt, low.clone(), MirValue::ConstU16(0), true);
-            let sign = self.widen_byte(sign, false);
-            self.binary(
-                MirBinaryOp::Sub,
-                MirValue::ConstU16(0),
-                sign,
-                MirWidth::Word,
-            )
+            let dst = self.temp();
+            self.ops.push(MirOp::Unary {
+                op: MirUnaryOp::SignMask,
+                dst: MirDef::VTemp(dst),
+                src: low.clone(),
+                width: MirWidth::Word,
+            });
+            temp_value(dst)
         } else {
             MirValue::ConstU16(0)
         };

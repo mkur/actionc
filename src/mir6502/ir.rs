@@ -859,6 +859,8 @@ pub enum MirFlag {
 pub enum MirUnaryOp {
     Neg,
     BitNot,
+    /// All bits set iff the input sign bit is set, otherwise zero.
+    SignMask,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1625,3 +1625,10 @@ Do not fully design these until a lowering slice needs them:
 
 Each deferred family should add MIR forms only when it represents a stable target
 choice that cannot remain in NIR and should not be rediscovered by emission.
+
+`Unary SignMask` is target-owned byte/word computation: it returns all ones
+when the captured input's sign bit is set and zero otherwise. Word
+materialization reads the high input byte once and duplicates its byte mask.
+The byte operation clobbers C/N/Z/V and runs under ordinary MIR's binary-mode
+arithmetic contract; it neither consumes incoming carry nor reads memory
+again to recover a sign. Pre-emission verification rejects word unary forms.

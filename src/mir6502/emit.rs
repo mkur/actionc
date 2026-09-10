@@ -2734,6 +2734,22 @@ fn emit_op(
             }
         }
         MirOp::Unary {
+            op: MirUnaryOp::SignMask,
+            dst: MirDef::Reg(MirReg::A),
+            src,
+            width: MirWidth::Byte,
+        } => {
+            if !emit_value_to_a(ctx, routine, block, src, emitter) {
+                unsupported(ctx, routine, block, "sign-mask source is not emit-ready");
+                return;
+            }
+            // Ordinary MIR arithmetic runs with decimal mode clear.
+            emitter.emit_asl_a();
+            emitter.emit_lda_imm(0);
+            emitter.emit_sbc_imm(0);
+            emitter.emit_eor_imm(0xFF);
+        }
+        MirOp::Unary {
             op: MirUnaryOp::Neg,
             dst: MirDef::Reg(MirReg::A),
             src,
