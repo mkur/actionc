@@ -199,6 +199,7 @@ impl Generator {
                 matches!(helper, RuntimeHelperSlot::Div | RuntimeHelperSlot::Mod),
                 matches!(helper, RuntimeHelperSlot::Mod | RuntimeHelperSlot::UMod),
             ).len() + 1) as u16).sum();
+        let helper_bytes = helper_bytes.wrapping_add(self.used_wide_helpers.iter().map(|helper| (helper.body().0.len() + 1) as u16).sum::<u16>());
         if self.layout.array_backings.is_empty() && helper_bytes == 0 {
             return current;
         }

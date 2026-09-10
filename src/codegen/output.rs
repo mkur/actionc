@@ -39,6 +39,22 @@ impl Generator {
             self.emitter.emit_u8(0x60);
         }
 
+        for helper in &self.used_wide_helpers {
+            self.emitter.bind_label(helper.label(), Span::new(0, 0)).map_err(|error| vec![error])?;
+            let (bytes, error_operand) = helper.body();
+            for (offset, byte) in bytes.into_iter().enumerate() {
+                if Some(offset) == error_operand {
+                    match &self.runtime_error_target {
+                        RuntimeHelperTarget::Absolute(address) => self.emitter.emit_u16_le(address.address()),
+                        RuntimeHelperTarget::Label(label) => self.emitter.emit_u16_label(label, Span::new(0, 0)),
+                    }
+                } else if !error_operand.is_some_and(|operand| offset == operand + 1) {
+                    self.emitter.emit_u8(byte);
+                }
+            }
+            self.emitter.emit_u8(0x60);
+        }
+
         let origin = self.emitter.origin;
         let run_address = self
             .program_entry_label
@@ -94,6 +110,12 @@ impl Generator {
                 kind: CodegenRuntimeBindingKind::CompilerHelper,
                 license: None,
             }));
+        runtime_bindings.extend(self.used_wide_helpers.iter().map(|helper| CodegenRuntimeBinding {
+            helper: format!("{helper:?}32"), implementation: helper.label(),
+            address: self.emitter.labels.get(&helper.label()).map(|offset| origin.wrapping_add(*offset as u16)),
+            reason: "32-bit integer legalization".into(), origin: "compiler-owned 6502 arithmetic".into(),
+            suppressed_default: None, kind: CodegenRuntimeBindingKind::CompilerHelper, license: None,
+        }));
         let mut classic_runtime_requirements: Vec<String> = self.used_default_runtime_helpers
             .iter()
             .map(|helper| {

@@ -405,6 +405,7 @@ mod state;
 use state::*;
 
 mod native_real;
+mod wide;
 mod native_state;
 mod record_copy;
 
@@ -756,6 +757,9 @@ impl Generator {
         }
         if let Some(emitted) = self.try_emit_native_real_expr_to_slot(expr, slot) {
             return emitted;
+        }
+        if self.expr_uses_wide_integer(expr) || slot.size == 4 {
+            return self.emit_wide_expr_to_slot(expr, slot);
         }
         self.emit_expr_to_slot_without_native_real(expr, slot)
     }
@@ -1150,6 +1154,7 @@ struct Generator {
     runtime_error_target: RuntimeHelperTarget,
     uses_runtime_fault: bool,
     used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
+    used_wide_helpers: BTreeSet<wide::WideHelper>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,
     local_callable_pointers: HashMap<String, CallablePointerInfo>,

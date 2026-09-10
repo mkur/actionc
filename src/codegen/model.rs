@@ -20,7 +20,7 @@ pub(super) enum InternalResultAbi {
     None,
     Value {
         public_slot: StorageSlot,
-        bytes: [Option<InternalResultByte>; 2],
+        bytes: [Option<InternalResultByte>; 4],
     },
 }
 
@@ -84,8 +84,8 @@ impl RoutineInternalAbi {
                 result: InternalResultAbi::None,
             };
         };
-        let mut bytes = [None, None];
-        for byte_index in 0..public_slot.size.min(2) {
+        let mut bytes = [None; 4];
+        for byte_index in 0..public_slot.size.min(4) {
             bytes[usize::from(byte_index)] = Some(InternalResultByte::PublicSlot(byte_index));
         }
         if facts.returns_a_equals_a0 && public_slot.size >= 1 {

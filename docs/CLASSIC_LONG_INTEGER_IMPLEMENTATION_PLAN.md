@@ -25,8 +25,8 @@ live values must survive nested calls and outgoing argument placement at $A3.
 
 ## Slices
 
-1. **Typed computation and storage.** Carry resolved wide expression facts
-   through the classic projection. Implement four-byte constants, loads,
+1. **Typed computation and storage.** Use resolved storage types, casts and
+   typed literals from the classic SemIR projection. Implement four-byte constants, loads,
    stores, integer conversions, unary/binary arithmetic and comparisons with
    conservative capture. Extend internal result-byte accounting. Keep the
    public capability guard until the complete surface passes execution tests.
@@ -57,3 +57,29 @@ Run focused classic execution tests in both profiles and runtimes, then root
 `cargo check --all-targets`. Run the focused and full locked VM suites from
 `tools/vm-runtime-tests`. Explain any changed IR snapshots; unchanged source
 fixtures must retain their observable behavior.
+
+## Classic legalization contract
+
+The existing SemIR projection and shared ScalarType arithmetic contract supply
+computation widths and signedness. Aggregate identity takes precedence over
+byte extent: a four-byte record or union is not a LONG scalar. Every completed
+integer subexpression is truncated to its own width and then extended according
+to its own signedness before an enclosing computation or store converts it.
+
+The classic wide evaluator uses $C4..$C7 for a captured value, $82..$85 and
+$C0..$C3 for binary operands, and the existing compiler-owned 32-bit kernels.
+Earlier operands are pushed before evaluating later operands. Direct and typed
+indirect calls pack complete argument values on the stack before writing the
+public ABI homes; four-byte results are captured before outgoing arguments can
+overwrite $A3. Assignment captures its effective destination address before
+RHS effects. Loads capture the complete source before overwriting result bytes.
+Helpers are linked once when used and report their Error dependency through
+the existing runtime linker. These rules apply in both classic profiles.
+
+## Progress
+
+Slice 1 is complete. Both classic profiles execute four-byte computation,
+conversion, storage and nested call results in both runtimes. The public guard
+remains until control-flow integration is complete. Validation: 3,073 compiler
+tests passed (22 existing ignored), 49 NIR fixtures passed, and 62 focused VM
+tests passed, including 592 host-fed classic LONG cases. No IR snapshots changed.

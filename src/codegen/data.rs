@@ -343,11 +343,11 @@ pub(super) fn type_size(ty: &TypeRef) -> Option<u16> {
 }
 
 pub(super) fn type_is_signed(ty: &TypeRef) -> bool {
-    !ty.pointer && matches!(ty.base, TypeBase::Fund(FundType::Int))
+    !ty.pointer && matches!(ty.base, TypeBase::Fund(FundType::Int | FundType::LongInt))
 }
 
 pub(super) fn slot_signed_for_type(ty: &TypeRef) -> bool {
-    matches!(ty.base, TypeBase::Fund(FundType::Int))
+    matches!(ty.base, TypeBase::Fund(FundType::Int | FundType::LongInt))
 }
 
 pub(super) fn constant_u16_with_defines(

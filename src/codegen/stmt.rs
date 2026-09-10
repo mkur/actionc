@@ -1120,6 +1120,12 @@ impl Generator {
             }
             return;
         }
+        if self.expr_uses_wide_integer(value) || self.expr_scalar_type(target).is_some_and(|ty| ty.width_bytes() == 4) {
+            if !self.emit_wide_assignment(target, value) {
+                self.diagnostics.push(Diagnostic::new(span, "classic integer assignment could not capture its operands"));
+            }
+            return;
+        }
         if self.emit_array_name_assignment(target, value) {
             return;
         }

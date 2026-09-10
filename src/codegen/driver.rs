@@ -279,6 +279,7 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
         runtime_error_target,
         uses_runtime_fault: false,
         used_default_runtime_helpers: BTreeSet::new(),
+        used_wide_helpers: BTreeSet::new(),
         routine_assignment_targets,
         local_symbols: HashMap::new(),
         local_callable_pointers: HashMap::new(),

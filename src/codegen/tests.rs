@@ -18403,6 +18403,7 @@ fn test_generator(profile: CodegenProfile) -> Generator {
             crate::integer6502::CARTRIDGE_ERROR,
         )),
         used_default_runtime_helpers: BTreeSet::new(),
+        used_wide_helpers: BTreeSet::new(),
         routine_assignment_targets: HashSet::new(),
         local_symbols: HashMap::new(),
         local_callable_pointers: HashMap::new(),

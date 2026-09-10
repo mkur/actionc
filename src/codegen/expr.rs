@@ -188,6 +188,7 @@ impl Generator {
 
     // Extracted from src/codegen.rs: expr_size
     pub(super) fn expr_size(&self, expr: &Expr) -> Option<u16> {
+        if self.expr_scalar_type(expr).is_some_and(|ty| ty.width_bytes() == 4) { return Some(4); }
         if let ExprKind::Prepared { value, .. } = &expr.kind { return self.expr_size(value); }
         if matches!(
             &expr.kind,
@@ -256,6 +257,8 @@ impl Generator {
                 if let Some(slot) = self.lookup_slot(name) {
                     if slot.array.is_some() || slot.pointee_size.is_some() {
                         Some(ScalarType::Card)
+                    } else if slot.record.is_some() {
+                        None
                     } else {
                         scalar_type_for_storage(slot.size, slot.signed)
                     }
@@ -273,14 +276,16 @@ impl Generator {
             }
             ExprKind::Index { base, .. } => {
                 let element = self.index_element(base)?;
-                scalar_type_for_storage(element.size, element.signed)
+                if element.record.is_some() { None } else { scalar_type_for_storage(element.size, element.signed) }
             }
             ExprKind::Field { base, field } => self
                 .record_field_metadata(base, field)
-                .and_then(|field| if field.pointee_size.is_some() { Some(ScalarType::Card) }
+                .and_then(|field| if field.pointee_size.is_some() || field.array.is_some() { Some(ScalarType::Card) }
+                    else if field.record.is_some() { None }
                     else { scalar_type_for_storage(field.size, field.signed) }),
             ExprKind::Call { callee, args } => {
                 if let Some(size) = self.array_call_slot_size(callee, args) {
+                    if self.index_element(callee).is_some_and(|element| element.record.is_some()) { return None; }
                     scalar_type_for_storage(
                         size,
                         self.array_call_signed(callee, args).unwrap_or(false),
@@ -297,7 +302,7 @@ impl Generator {
             ExprKind::Unary {
                 op: UnaryOp::Neg,
                 expr,
-            } => self.expr_scalar_type(expr).map(|_| ScalarType::Int),
+            } => self.expr_scalar_type(expr).map(|ty| if ty.width_bytes() == 4 { ScalarType::LongInt } else { ScalarType::Int }),
             ExprKind::Unary {
                 op: UnaryOp::AddressOf,
                 ..
@@ -305,10 +310,10 @@ impl Generator {
             ExprKind::Unary {
                 op: UnaryOp::Deref,
                 expr,
-            } => scalar_type_for_storage(
+            } => if self.expr_record_id(expr).is_some() { None } else { scalar_type_for_storage(
                 self.pointer_expr_pointee_size(expr)?,
                 self.pointer_expr_pointee_signed(expr),
-            ),
+            ) },
             ExprKind::Binary { op, left, right } => {
                 if matches!(
                     op,
@@ -359,7 +364,7 @@ TypeBase::NativeReal | TypeBase::Named(_) | TypeBase::Applied { .. } => None,
 
     // Extracted from src/codegen.rs: expr_signed
     pub(super) fn expr_signed(&self, expr: &Expr) -> bool {
-        self.expr_scalar_type(expr) == Some(ScalarType::Int)
+        matches!(self.expr_scalar_type(expr), Some(ScalarType::Int | ScalarType::LongInt))
     }
 
     // Extracted from src/codegen.rs: pointer_expr_pointee_size
@@ -791,6 +796,8 @@ fn scalar_type_for_storage(size: u16, signed: bool) -> Option<ScalarType> {
         (1, _) => Some(ScalarType::Byte),
         (2, true) => Some(ScalarType::Int),
         (2, false) => Some(ScalarType::Card),
+        (4, true) => Some(ScalarType::LongInt),
+        (4, false) => Some(ScalarType::LongCard),
         _ => None,
     }
 }

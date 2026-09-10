@@ -277,6 +277,9 @@ impl Generator {
             self.generate_stmt_list(statements);
             return self.emit_branch_if_true(value, label, span);
         }
+        if self.expr_uses_wide_integer(condition) {
+            return self.emit_wide_branch(condition, label, span);
+        }
         if let Some(emitted) = self.try_emit_native_real_branch_if_true(condition, label, span) {
             return emitted;
         }

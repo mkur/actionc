@@ -94,8 +94,8 @@ pub(super) fn debug_assert_call_arg_value_shape(
 
 pub(super) fn debug_assert_call_return_slot_shape(callee: &str, slot: StorageSlot) {
     debug_assert!(
-        matches!(slot.size, 1 | 2),
-        "function `{callee}` return slot must be byte- or word-sized"
+        matches!(slot.size, 1 | 2 | 4),
+        "function `{callee}` return slot must be an 8/16/32-bit scalar"
     );
     debug_assert_eq!(
         slot.space,
@@ -277,6 +277,11 @@ impl Generator {
         }
         debug_assert_call_abi_shape(name, &info, args.len());
         let supplied_params = &info.params[..args.len()];
+        if supplied_params.iter().any(|slot| slot.size == 4) || args.iter().any(|arg| self.expr_uses_wide_integer(arg)) {
+            if !self.emit_left_to_right_staged_call_arguments(args, supplied_params) { return false; }
+            self.emit_call_target(&info, span, tail_jump);
+            return true;
+        }
 
         if args.iter().any(expr_needs_call_staging) {
             let staged_args = StagedCallArgs::new(args, supplied_params);

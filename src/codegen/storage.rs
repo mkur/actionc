@@ -1160,9 +1160,9 @@ impl StorageSlot {
         }
     }
 
-    pub(super) fn zero_page(address: u8, size: u16) -> Self {
+    pub(super) const fn zero_page(address: u8, size: u16) -> Self {
         Self {
-            address: u16::from(address),
+            address: address as u16,
             size,
             output_relative: false,
             space: AddressSpace::ZeroPage,
