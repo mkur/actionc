@@ -41,6 +41,22 @@ Build the graphical Atari sample from the repository root:
 cargo run --bin actionc -- --mode mir6502 --runtime standalone samples/graphics/mandelbrot/mbfixed.act
 ```
 
+`mbfixed.act` is the graphics entry point and `probe.act` is the printing entry
+point. `fractal/mandelbrot.act` is their shared library module; it has no Main
+procedure and should be imported by one of those programs.
+
+The commands above build the current checkout. To refresh an installed
+`actionc` after updating the repository, run:
+
+```sh
+cargo install --path . --locked --force --bin actionc
+actionc --runtime standalone --mode mir6502 samples/graphics/mandelbrot/mbfixed.act
+```
+
+An older installed compiler can report `hexadecimal constant is too large`
+for `$04000000`. The current compiler accepts this 32-bit LONGCARD literal;
+refresh the installed compiler to enable that support.
+
 Load the generated Atari executable in an emulator or on an Atari XL/XE. The
 sample draws progressively and leaves the completed image on screen. Both
 samples build in Compatibility, Optimized classic, and MIR6502 with either
