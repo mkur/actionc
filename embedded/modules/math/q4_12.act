@@ -1,0 +1,70 @@
+; Signed Q4.12: INT raw / 4096, range -8 through 7.999755859375.
+; Results wrap to INT; discarded fractions truncate toward zero.
+MODULE MATH.Q4_12
+
+PUBLIC CONST INT One=4096,
+                 Half=2048,
+                 Epsilon=1,
+                 MinValue=INT($8000),
+                 MaxValue=32767
+
+; Convert an ordinary integer to raw Q4.12, wrapping outside -8..7.
+PUBLIC INT FUNC FromInt(INT value)
+  LONGINT wide
+  wide=LONGINT(value)
+  wide=wide*LONGINT(4096)
+RETURN(INT(wide))
+
+; Extract the ordinary integer part, truncating negative fractions toward zero.
+PUBLIC INT FUNC Trunc(INT value)
+  LONGINT wide
+  wide=LONGINT(value)
+  wide=wide/LONGINT(4096)
+RETURN(INT(wide))
+
+; Multiply two raw Q4.12 values; rescale the full signed product before wrapping.
+PUBLIC INT FUNC Mul(INT left,right)
+  LONGINT product,wideRight
+  product=LONGINT(left)
+  wideRight=LONGINT(right)
+  product=product*wideRight
+  product=product/LONGINT(4096)
+RETURN(INT(product))
+
+; Divide raw Q4.12 values. A zero divisor faults through ordinary Error(101).
+PUBLIC INT FUNC Div(INT left,right)
+  LONGINT numerator,denominator
+  numerator=LONGINT(left)
+  denominator=LONGINT(right)
+  numerator=numerator*LONGINT(4096)
+  numerator=numerator/denominator
+RETURN(INT(numerator))
+
+; Construct raw Q4.12 from an ordinary integer ratio, truncating toward zero.
+PUBLIC INT FUNC FromRatio(INT numerator,denominator)
+  INT result
+  result=Div(numerator,denominator)
+RETURN(result)
+
+; Floor rounding is explicit for algorithms that require arithmetic-shift semantics.
+PUBLIC INT FUNC MulFloor(INT left,right)
+  LONGINT product,wideRight,scaled
+  CARD remainderBits
+  product=LONGINT(left)
+  wideRight=LONGINT(right)
+  product=product*wideRight
+  scaled=product/LONGINT(4096)
+  IF product<0 THEN
+    remainderBits=CARD(product)&4095
+    IF remainderBits#0 THEN scaled==-1 FI
+  FI
+RETURN(INT(scaled))
+
+; Exact raw square, Q8.24: preserve all 32 bits, with no rescaling.
+PUBLIC LONGCARD FUNC SqrWide(INT value)
+  LONGINT wide
+  wide=LONGINT(value)
+  wide=wide*wide
+RETURN(LONGCARD(wide))
+
+ENDMODULE

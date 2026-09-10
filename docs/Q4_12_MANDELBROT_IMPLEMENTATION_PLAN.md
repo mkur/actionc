@@ -1,6 +1,7 @@
 # Signed Q4.12 and Oscar64 Mandelbrot
 
-Status: planned, 2026-09-10. Commit each tested implementation slice.
+Status: slice 1 complete; slices 2 and 3 pending, 2026-09-10.
+Commit each tested implementation slice.
 
 ## Contract
 
@@ -79,6 +80,16 @@ If a compiler repair is needed, keep it general, retain the exposing expression,
 and run required compiler/NIR checks before its separate commit. Existing IR
 snapshots should remain unchanged; catalog additions are fixture coverage
 updates, not IR contract changes. Report runtime/coverage limits precisely.
+
+## Progress
+
+Slice 1 is complete. The public compiler checks and corpus ledger pass; the
+two Q4.12 VM tests pass 3,774 executions (617 arithmetic pairs across six
+lanes plus 72 faults). The Q8.8 harness setup was shared without changing its
+oracles; all five existing tests and 3,810 executions still pass. The new
+library uses ordinary signed LONGINT operations, including explicit correction
+for floor rounding and complete four-byte square results. No compiler changes
+or IR snapshot changes were needed.
 
 ## Sources
 

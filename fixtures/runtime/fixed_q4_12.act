@@ -1,0 +1,31 @@
+; Host supplies signed raw inputs at $6E0/$6E2 and checks guarded output.
+MODULE FIXED_Q4_12_TEST
+USE MATH.Q4_12 AS Q
+
+INT input=$6E0,other=$6E2
+INT converted=$601,truncated=$603
+INT product=$605,quotient=$607,ratio=$609,floored=$60B
+INT ARRAY constants(5)=$611
+LONGCARD square=$6FD
+BYTE done=$6DF
+
+PROC Main()
+  converted=Q.FromInt(input)
+  truncated=Q.Trunc(input)
+  product=Q.Mul(input,other)
+  floored=Q.MulFloor(input,other)
+  square=Q.SqrWide(input)
+  ; Fault cases invoke the library without this guard in a separate fixture.
+  IF other#0 THEN
+    quotient=Q.Div(input,other)
+    ratio=Q.FromRatio(input,other)
+  FI
+  constants(0)=Q.One
+  constants(1)=Q.Half
+  constants(2)=Q.Epsilon
+  constants(3)=Q.MinValue
+  constants(4)=Q.MaxValue
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE

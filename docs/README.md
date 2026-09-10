@@ -99,6 +99,8 @@ crowding the active reference set.
 - [Signed Q8.8 fixed point](FIXED_POINT_Q8_8.md) - embedded library using INT
   storage and LONGINT intermediates, with explicit rounding, wrapping, and
   division faults across all six compiler mode/runtime combinations.
+- [Signed Q4.12 fixed point](FIXED_POINT_Q4_12.md) - a smaller range with
+  twelve fractional bits, explicit floor multiplication, and unscaled wide squares.
 - [IF and CASE expressions](tutorials/IF_CASE_EXPRESSIONS.md) - choosing integer
   and enum values, exhaustive variant matching, exact arm types and evaluation order.
 - [Modules tutorial](tutorials/MODULES.md) - task-oriented guide to creating
