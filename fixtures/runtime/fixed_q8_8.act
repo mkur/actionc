@@ -1,0 +1,21 @@
+; Host supplies signed raw inputs at $6E0/$6E2 and checks guarded output.
+MODULE FIXED_Q8_8_TEST
+USE MATH.Q8_8 AS Q
+
+INT input=$6E0
+INT converted=$601,truncated=$603
+INT ARRAY constants(5)=$611
+BYTE done=$6DF
+
+PROC Main()
+  converted=Q.FromInt(input)
+  truncated=Q.Trunc(input)
+  constants(0)=Q.One
+  constants(1)=Q.Half
+  constants(2)=Q.Epsilon
+  constants(3)=Q.MinValue
+  constants(4)=Q.MaxValue
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE

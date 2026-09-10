@@ -1,0 +1,25 @@
+; Signed Q8.8: INT raw / 256, range -128 through 127.99609375.
+; Results wrap to INT; discarded fractions truncate toward zero.
+MODULE MATH.Q8_8
+
+PUBLIC CONST INT One=256,
+                 Half=128,
+                 Epsilon=1,
+                 MinValue=INT($8000),
+                 MaxValue=32767
+
+; Convert an ordinary integer to raw Q8.8, wrapping outside -128..127.
+PUBLIC INT FUNC FromInt(INT value)
+  LONGINT wide
+  wide=LONGINT(value)
+  wide=wide*LONGINT(256)
+RETURN(INT(wide))
+
+; Extract the ordinary integer part, truncating negative fractions toward zero.
+PUBLIC INT FUNC Trunc(INT value)
+  LONGINT wide
+  wide=LONGINT(value)
+  wide=wide/LONGINT(256)
+RETURN(INT(wide))
+
+ENDMODULE

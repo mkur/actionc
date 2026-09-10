@@ -1,6 +1,6 @@
 # Signed Q8.8 library and tests
 
-Status: planned; implementation has not started. Created 2026-09-10.
+Status: slice 1 complete; slices 2 and 3 pending. Created 2026-09-10.
 
 ## Scope
 
@@ -236,8 +236,14 @@ compiler code, run the required root checks before committing that slice as
 well. Existing IR snapshots should remain unchanged for a library-only change;
 explain any compiler-regression fixture changes explicitly.
 
-Creating this plan is a documentation-only change and does not execute or
-claim any of the future library tests.
+## Progress
+
+Slice 1 is complete. The embedded module exports typed constants, FromInt,
+and Trunc without importing MATH or ATARI.REAL. Both public compiler tests
+pass, including 12 import/mode/runtime compilations. The VM conversion test
+passes 150 host-fed executions (25 signed inputs across six lanes), checking
+complete guarded output regions. Standalone runs load no ROMs. No compiler
+code or IR snapshots changed.
 
 ## Deferred
 
