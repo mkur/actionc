@@ -1,0 +1,23 @@
+; Oscar64 mbfixed.c numerical port; GPL-3.0-only.
+; Shared kernel/provenance: samples/graphics/mandelbrot/fractal/mandelbrot.act.
+MODULE OSCAR_MANDELBROT_TEST
+USE FRACTAL.MANDELBROT AS MB
+
+CARD px=$6E0
+BYTE py=$6E2
+INT rawX=$6E4,rawY=$6E6,cx=$601,cy=$603
+BYTE iterations=$605,repeated=$606,direct=$607,done=$6FF
+; VM supplies a NOP at this explicit completion endpoint.
+PROC TestStop=$0700()
+
+PROC Main()
+  cx=MB.XCoord(px)
+  cy=MB.YCoord(py)
+  iterations=MB.Iterate(cx,cy)
+  repeated=MB.Pixel(px,py)
+  direct=MB.Iterate(rawX,rawY)
+  done=$A5
+  TestStop()
+  DO OD
+RETURN
+ENDMODULE

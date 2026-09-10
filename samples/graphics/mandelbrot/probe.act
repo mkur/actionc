@@ -1,0 +1,14 @@
+; Quick numerical checks without drawing the complete image.
+MODULE MANDELBROT_PROBE
+USE FRACTAL.MANDELBROT AS MB
+
+PROC Main()
+  BYTE count
+  count=MB.Iterate(0,0)
+  Print("At c=0: ") PrintBE(count)
+  count=MB.Iterate(8192,0)
+  Print("At c=2: ") PrintBE(count)
+  count=MB.Pixel(139,10)
+  Print("Pixel (139,10): ") PrintBE(count)
+RETURN
+ENDMODULE

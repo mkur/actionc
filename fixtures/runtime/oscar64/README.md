@@ -1,10 +1,11 @@
 # Oscar64 behavioral test ports
 
-These twenty-four Action! fixtures adapt Oscar64 autotests into the existing
+These twenty-five Action! fixtures adapt Oscar64 autotests and a fractal sample into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
-[`oscar64_conformance.rs`](../../../tools/vm-runtime-tests/tests/oscar64_conformance.rs).
+[`oscar64_conformance.rs`](../../../tools/vm-runtime-tests/tests/oscar64_conformance.rs)
+and [`oscar64_mandelbrot.rs`](../../../tools/vm-runtime-tests/tests/oscar64_mandelbrot.rs).
 
 ## Provenance
 
@@ -16,6 +17,8 @@ Adapted on 2026-09-05, 2026-09-06 and 2026-09-10 from Oscar64 by drmortalwombat 
 - Original paths: `autotest/<fixture-stem>.c`, listed below, except
   `shiftbyteaddconst.cpp` and `rolrortest.cpp`. Both `rolrortest.act` and its
   `rolrortest_wide.act` companion adapt `rolrortest.cpp`.
+  The additional `mbfixed.act` adapts `samples/fractals/mbfixed.c`; its shared
+  source and provenance live in [the sample project](../../../samples/graphics/mandelbrot/README.md).
 - The source repository supplies GNU GPL version 3 in its `LICENSE`; the
   selected files have no additional per-file license notice. These adaptations
   retain GPL-3.0 attribution. The license text is in this repository's
@@ -29,6 +32,7 @@ translations or tests of C-only language behavior.
 
 | Source / Action! fixture | Original check retained | Additional coverage |
 | --- | --- | --- |
+| `mbfixed` (fractal sample) | 160x100 coordinate mapping, 32-iteration recurrence, wide radius check, floor-rounded cross product | Every axis position, 128 seeded pixels, rounding-sensitive pixels, direct radius-boundary inputs and repeated calls in all six lanes; independent integer oracle and probe output |
 | `byteindextest` | Fill 20 bytes with their indexes; byte sum is 190 | Fixed odd-base storage and a descriptor viewing the same backing; lengths 0, 1, 20, 127, 128, 255, 256, 257 |
 | `arrayindexintrangecheck` | Get/Put calls on ten INT elements; sum minus 45 is zero | Fixed odd-base words at indexes 0, 1, 127, 128, 255, 256, with runtime-supplied values |
 | `arrayoffsetindex` | Four stores through `p(x+3)` through `p(x+6)`; sum minus 10 is zero | Two runtime pointer bases, including `$50F1`, and starting arguments 4, 123, 124, 252 |
@@ -82,7 +86,7 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `rolrortest` (BYTE/CARD rotations) | 257 | 1,542 | All six mode/runtime combinations |
 | `rolrortest_wide` (LONGCARD rotations) | 76 | 456 | All six mode/runtime combinations |
 
-Overall: **16,438 VM cases in 32 active tests**: the previous 14,440 cases plus
+The conformance target covers **16,438 VM cases in 32 active tests**: the previous 14,440 cases plus
 1,542 BYTE/CARD and 456 LONGCARD rotation executions. Profile/backend rejection
 checks for member arrays, enums and selection expressions are
 not VM cases.
@@ -94,8 +98,24 @@ Stage 4 now distinguishes the modern comparison-value extension from cartridge
 syntax and repairs signed-subtract overflow in both classic profiles; see
 [the contract and repairs](../../../docs/bugs/COMPARISON_VALUE_MATERIALIZATION_GAPS.md).
 
+The separate `oscar64_mandelbrot` target adds 2,424 numerical executions (404
+pixel cases across six lanes, each also checking a direct raw-coordinate case)
+and six probe-output runs. Its two tests share the maintained kernel with the
+sample project. These counts are separate from the conformance table above.
+The integer model finds 180 viewport pixels where floor and truncation differ;
+the VM corpus includes explicit examples of that difference. No Oscar64 binary
+or floating-point Mandelbrot implementation is used as the oracle.
+
 ## Action! semantics and harness contract
 
+- `mbfixed` preserves separate square rescaling, pre-update escape checks,
+  signed floor multiplication, the original constant truncation, and the
+  32-iteration cap. Q4.12 SqrWide returns the complete Q8.24 LONGCARD square;
+  the radius threshold is 0x04000000. The fixture imports the shared kernel
+  with the sample project on its module path. A host-supplied NOP at $0700
+  provides an explicit execution endpoint after the completion marker, so a
+  watchdog expiration cannot count as success. Full-page guards cover inputs,
+  outputs, and gaps. Pure numerical standalone cases load no ROMs.
 - `rolrortest` and `rolrortest_wide` adapt the
   [pinned C++ source](https://github.com/drmortalwombat/oscar64/blob/8deb94c4d762bab3aa60c9565412691f01021bbb/autotest/rolrortest.cpp).
   They retain its shift-plus-add function bodies, right-rotation tables,
@@ -243,6 +263,12 @@ From the repository root:
 ```sh
 cd tools/vm-runtime-tests
 cargo test --locked --test oscar64_conformance
+```
+
+Run the fixed-point Mandelbrot port separately with:
+
+```sh
+cargo test --locked --test oscar64_mandelbrot
 ```
 
 Run just the MIR6502 word-vector regressions:

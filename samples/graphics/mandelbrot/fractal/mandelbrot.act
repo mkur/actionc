@@ -1,0 +1,46 @@
+; Adapted from Oscar64 samples/fractals/mbfixed.c by drmortalwombat and contributors.
+; Revision 8deb94c4d762bab3aa60c9565412691f01021bbb. SPDX-License-Identifier: GPL-3.0-only
+; See ../README.md for provenance and the fixed-point/display adaptations.
+MODULE FRACTAL.MANDELBROT
+USE MATH.Q8_8 AS Q8
+USE MATH.Q4_12 AS Q
+
+; Original viewport: px=0..159, py=0..99. Results are raw Q4.12.
+; These positive raw products have identical floor and truncation results.
+PUBLIC INT FUNC XCoord(CARD px)
+  INT scaled
+  scaled=Q8.Mul(INT(px),22937)
+RETURN(scaled-10240)
+
+PUBLIC INT FUNC YCoord(BYTE py)
+  INT scaled
+  scaled=Q8.Mul(INT(py),25165)
+RETURN(scaled-4915)
+
+; Check the radius before each update, exactly as in the original 32-step loop.
+PUBLIC BYTE FUNC Iterate(INT cx,cy)
+  INT x,y,nextX,cross
+  LONGCARD xSquare,ySquare,radius
+  BYTE i
+  x=0 y=0 i=0
+  WHILE i<32 DO
+    xSquare=Q.SqrWide(x)
+    ySquare=Q.SqrWide(y)
+    radius=xSquare+ySquare
+    IF radius>=$04000000 THEN RETURN(i) FI
+    nextX=INT(xSquare RSH 12)-INT(ySquare RSH 12)+cx
+    cross=Q.MulFloor(x,y)
+    y=INT(2)*cross+cy
+    x=nextX
+    i==+1
+  OD
+RETURN(32)
+
+PUBLIC BYTE FUNC Pixel(CARD px BYTE py)
+  INT cx,cy
+  BYTE count
+  cx=XCoord(px)
+  cy=YCoord(py)
+  count=Iterate(cx,cy)
+RETURN(count)
+ENDMODULE

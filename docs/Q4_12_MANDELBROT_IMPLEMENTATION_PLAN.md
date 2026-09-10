@@ -1,6 +1,6 @@
 # Signed Q4.12 and Oscar64 Mandelbrot
 
-Status: slice 1 complete; slices 2 and 3 pending, 2026-09-10.
+Status: slices 1 and 2 complete; slice 3 pending, 2026-09-10.
 Commit each tested implementation slice.
 
 ## Contract
@@ -90,6 +90,16 @@ oracles; all five existing tests and 3,810 executions still pass. The new
 library uses ordinary signed LONGINT operations, including explicit correction
 for floor rounding and complete four-byte square results. No compiler changes
 or IR snapshot changes were needed.
+
+Slice 2 is complete. The shared sample-project kernel preserves the original
+integer recurrence, coefficients, radius check, and explicit floor rounding.
+Its numerical test passes 2,424 VM executions (404 pixel cases per lane, also
+checking repeated calls and direct raw coordinates); the probe adds six
+documented-output runs. The corpus and sample-role catalogs pass. The host
+model counts 3,167 capped pixels, 151,649 updates, and 180 floor/truncation
+differences in the full viewport; these are integer-model facts, not claims
+of executing an Oscar64 binary. Pinned provenance and GPL attribution are
+recorded with the shared source and the fixture.
 
 ## Sources
 
