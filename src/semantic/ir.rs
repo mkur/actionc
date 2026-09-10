@@ -565,17 +565,17 @@ pub struct SemIfBranch {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SemCaseArm {
+pub struct SemCaseArm<B = Vec<SemStmt>> {
     pub guard: Option<SemCaseGuard>,
     /// Ordered short-circuit refinements; each projection is dominated by all
     /// earlier tests and the arm's tag dispatch. No source patterns survive.
     pub tests: Vec<SemCondition>,
     pub labels: Option<Vec<super::CaseRange>>,
-    pub body: Vec<SemStmt>,
+    pub body: B,
     pub span: Span,
 }
 
-impl SemCaseArm {
+impl<B> SemCaseArm<B> {
     pub fn bindings(&self) -> Option<&SemCaseBindings> {
         self.guard.as_ref().and_then(|guard| guard.bindings.as_ref())
     }
@@ -824,6 +824,7 @@ pub struct SemExpr {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemExprKind {
     IfValue(Box<SemIfValue>),
+    CaseValue(Box<SemCaseValue>),
     Missing,
     Raw(String),
     InitializerList(Vec<SemInitializerElement>),
@@ -865,6 +866,22 @@ impl SemIfValue {
             .iter()
             .flat_map(|(condition, value)| [&condition.expr, value])
             .chain([&self.otherwise])
+    }
+}
+
+/// Scalar dispatch uses the same checked arm headers as statement CASE. The
+/// body is one typed value and the final arm is an unconditional ELSE.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemCaseValue {
+    pub selector: SemExpr,
+    pub arms: Vec<SemCaseArm<SemExpr>>,
+}
+
+impl SemCaseValue {
+    pub fn expressions(&self) -> impl Iterator<Item = &SemExpr> {
+        std::iter::once(&self.selector).chain(self.arms.iter().flat_map(|arm| {
+            arm.conditions().map(|condition| &condition.expr).chain(std::iter::once(&arm.body))
+        }))
     }
 }
 
@@ -1315,6 +1332,11 @@ fn collect_external_expr_references(
 ) {
     match &expression.kind {
         SemExprKind::IfValue(selection) => {
+            for expr in selection.expressions() {
+                collect_external_expr_references(expr, external, referenced);
+            }
+        }
+        SemExprKind::CaseValue(selection) => {
             for expr in selection.expressions() {
                 collect_external_expr_references(expr, external, referenced);
             }
@@ -1841,6 +1863,20 @@ fn expr_summary(expr: &SemExpr) -> String {
             "if_value({})",
             selection.expressions().map(expr_summary).collect::<Vec<_>>().join(", ")
         ),
+        SemExprKind::CaseValue(selection) => format!(
+            "case_value({}, [{}])",
+            expr_summary(&selection.selector),
+            selection.arms.iter().map(|arm| {
+                let header = match &arm.labels {
+                    Some(labels) => format!("when {labels:?}"),
+                    None if arm.guard.is_some() => "when _".to_string(),
+                    None => "else".to_string(),
+                };
+                let guard = arm.guard.as_ref().map(|guard|
+                    format!(" guard {}", condition_summary(&guard.condition))).unwrap_or_default();
+                format!("{header}{guard} => {}", expr_summary(&arm.body))
+            }).collect::<Vec<_>>().join(", ")
+        ),
         SemExprKind::Missing => "<missing>".to_string(),
         SemExprKind::Raw(text) => format!("raw({text})"),
         SemExprKind::InitializerList(elements) => format!(
@@ -2342,6 +2378,7 @@ struct IrBuilder<'a> {
 
 mod aggregate;
 mod fresh;
+mod selection;
 
 impl<'a> IrBuilder<'a> {
     fn new(model: &'a SemanticModel) -> Self {
@@ -3288,18 +3325,11 @@ impl<'a> IrBuilder<'a> {
                 if self.model.variants.matches.contains_key(&super::ExpressionSite::new(scope, *span)) {
                     return self.lower_variant_case(scope, selector, arms, *span);
                 }
-                let labels = self.model.case_labels.get(&super::ExpressionSite {
-                    scope, start: span.start, end: span.end,
-                }).expect("validated CASE labels").clone();
                 vec![SemStmt::Case {
                     selector: self.lower_expr(scope, selector),
-                    arms: arms.iter().zip(labels).map(|(arm, labels)| SemCaseArm {
-                        guard: arm.guard.as_ref().map(|guard| SemCaseGuard { bindings: None, condition: self.lower_condition(scope, guard) }),
-                        tests: Vec::new(),
-                        labels,
-                        body: arm.body.iter().flat_map(|stmt| self.lower_stmt(scope, stmt)).collect(),
-                        span: arm.span,
-                    }).collect(),
+                    arms: self.lower_scalar_case_arms(scope, arms.iter(), *span, |builder, index| {
+                        arms[index].body.iter().flat_map(|stmt| builder.lower_stmt(scope, stmt)).collect()
+                    }),
                     span: *span,
                 }]
             }
@@ -3633,7 +3663,13 @@ impl<'a> IrBuilder<'a> {
                         otherwise: self.lower_expr(scope, otherwise),
                     }))
                 }
-                SelectionExpr::Case { .. } => unreachable!("CASE expressions are semantically gated"),
+                SelectionExpr::Case { selector, arms } => {
+                    SemExprKind::CaseValue(Box::new(SemCaseValue {
+                        selector: self.lower_expr(scope, selector),
+                        arms: self.lower_scalar_case_arms(scope, arms.iter().map(|arm| &arm.header), expr.span,
+                            |builder, index| builder.lower_expr(scope, &arms[index].value)),
+                    }))
+                }
             },
             ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
             ExprKind::Missing => SemExprKind::Missing,
@@ -3781,6 +3817,7 @@ impl<'a> IrBuilder<'a> {
     fn expr_type_from_kind(&self, kind: &SemExprKind) -> ValueType {
         match kind {
             SemExprKind::IfValue(selection) => selection.otherwise.ty.clone(),
+            SemExprKind::CaseValue(selection) => selection.arms.last().expect("CASE value has ELSE").body.ty.clone(),
             SemExprKind::Missing
             | SemExprKind::Raw(_)
             | SemExprKind::InitializerList(_)

@@ -312,6 +312,7 @@ impl Generator {
         preserved_index: Option<StorageSlot>,
     ) -> bool {
         match &expr.kind {
+            ExprKind::Prepared { .. } => true,
             ExprKind::Call { callee, args }
                 if self.array_call_slot_size(callee, args).is_some() =>
             {

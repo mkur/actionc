@@ -1,12 +1,41 @@
 use super::*;
 
 impl SemIrAstLowerer<'_> {
-    pub(super) fn if_value(
+    pub(super) fn case_value(
         &mut self,
-        selection: &SemIfValue,
+        selection: &SemCaseValue,
         ty: &ValueType,
         span: Span,
     ) -> Option<Expr> {
+        let target = self.selection_result_home(ty, span);
+        let statements = self.case_dispatch(
+            &selection.selector,
+            &selection.arms,
+            span,
+            |lowerer, value| {
+                lowerer
+                    .expr(value)
+                    .map(|value| {
+                        vec![Stmt::Assign {
+                            target: target.clone(),
+                            span: value.span,
+                            value,
+                        }]
+                    })
+                    .unwrap_or_default()
+            },
+        );
+        Some(Expr {
+            text: target.text.clone(),
+            span,
+            kind: ExprKind::Prepared {
+                statements,
+                value: Box::new(target),
+            },
+        })
+    }
+
+    fn selection_result_home(&mut self, ty: &ValueType, span: Span) -> Expr {
         // This is a classic-projection storage home, never a source SymbolId.
         let name = loop {
             let name = format!("__actionc_value_{}", self.next_case_capture);
@@ -36,6 +65,16 @@ impl SemIrAstLowerer<'_> {
             }],
             span,
         }));
+        target
+    }
+
+    pub(super) fn if_value(
+        &mut self,
+        selection: &SemIfValue,
+        ty: &ValueType,
+        span: Span,
+    ) -> Option<Expr> {
+        let target = self.selection_result_home(ty, span);
         let mut branches = Vec::new();
         for (condition, value) in &selection.branches {
             branches.push(IfBranch {

@@ -4,19 +4,32 @@ use crate::semantic::ir::SemCaseArm;
 impl NirBuilder {
     pub(super) fn case_statement(&mut self, selector: &SemExpr, arms: &[SemCaseArm]) {
         let value = self.nir_value(selector);
-        let operand_ty = NirFacts::type_from_value(&selector.ty);
         let after = self.next_block_label();
+        self.case_dispatch(value, &selector.ty, arms, &after, |builder, body| {
+            builder.stmt_list(body);
+            builder.finish_open_goto(&after);
+        });
+    }
+
+    pub(super) fn case_dispatch<B>(
+        &mut self,
+        value: NirValue,
+        selector_type: &ValueType,
+        arms: &[SemCaseArm<B>],
+        after: &str,
+        mut body: impl FnMut(&mut Self, &B),
+    ) {
+        let operand_ty = NirType::from_value_with_layout(selector_type, self.target_layout);
         for arm in arms {
             if arm.labels.is_none() && arm.guard.is_none() && arm.tests.is_empty() {
-                self.stmt_list(&arm.body);
-                self.finish_open_goto(&after);
+                body(self, &arm.body);
                 break;
             }
-            let body = self.next_block_label();
+            let selected = self.next_block_label();
             let next_arm = self.next_block_label();
             let labels = arm.labels.as_deref().unwrap_or(&[]);
             if arm.labels.is_none() {
-                self.finish_open_goto(&body);
+                self.finish_open_goto(&selected);
             }
             for (index, label) in labels.iter().enumerate() {
                 let failed = if index + 1 == labels.len() {
@@ -27,7 +40,7 @@ impl NirBuilder {
                 if label.low == label.high {
                     let condition =
                         self.case_compare(value.clone(), &operand_ty, NirCompareOp::Eq, label.low);
-                    self.terminate_branch(condition, &body, &failed);
+                    self.terminate_branch(condition, &selected, &failed);
                 } else {
                     let upper_test = self.next_block_label();
                     let condition =
@@ -36,13 +49,13 @@ impl NirBuilder {
                     self.start_block(upper_test);
                     let condition =
                         self.case_compare(value.clone(), &operand_ty, NirCompareOp::Le, label.high);
-                    self.terminate_branch(condition, &body, &failed);
+                    self.terminate_branch(condition, &selected, &failed);
                 }
                 if index + 1 < labels.len() {
                     self.start_block(failed);
                 }
             }
-            self.start_block(body);
+            self.start_block(selected);
             for test in &arm.tests {
                 let matched = self.next_block_label();
                 self.terminate_condition(test, &matched, &next_arm);
@@ -56,12 +69,11 @@ impl NirBuilder {
                 self.terminate_condition(&guard.condition, &accepted, &next_arm);
                 self.start_block(accepted);
             }
-            self.stmt_list(&arm.body);
-            self.finish_open_goto(&after);
+            body(self, &arm.body);
             self.start_block(next_arm);
         }
-        self.finish_open_goto(&after);
-        self.start_block(after);
+        self.finish_open_goto(after);
+        self.start_block(after.to_owned());
     }
 
     fn case_compare(

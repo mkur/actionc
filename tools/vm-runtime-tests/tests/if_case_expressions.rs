@@ -141,6 +141,309 @@ RETURN
 }
 
 #[test]
+fn case_values_capture_selectors_and_preserve_ordered_guards_and_surrounding_calls() {
+    let source = r#"
+BYTE ARRAY out=$600,trace=$680
+BYTE ARRAY fixed(4)=$620
+BYTE calls=$63E,done=$63F,input,zero
+BYTE FUNC Mark(BYTE n)
+  trace(calls)=n calls==+1
+RETURN(n)
+BYTE FUNC Read()
+  Mark(10)
+RETURN(input)
+BYTE FUNC Reject()
+  input=9 Mark(11)
+RETURN(0)
+BYTE FUNC Accept()
+  input=8 Mark(12)
+RETURN(1)
+BYTE FUNC Sum(BYTE a,b)
+RETURN(a+b)
+PROC Main()
+  calls=0 input=3 zero=0
+  out(0)=CASE Read() OF
+  WHEN 0 IF 1/zero THEN
+    Mark(99)
+  WHEN 3 IF Reject() THEN
+    Mark(99)
+  WHEN 2 TO 4 IF Accept() THEN
+    Mark(13)
+  ELSE
+    Mark(99)
+  ESAC
+  out(1)=input
+  out(2)=CASE Mark(7) OF
+  WHEN 7 IF Mark(0) THEN
+    Mark(99)
+  WHEN _ IF Mark(1) THEN
+    Mark(14)
+  ELSE
+    Mark(99)
+  ESAC
+  out(3)=Mark(30)+(CASE Mark(1) OF
+  WHEN 1 THEN
+    Mark(12)
+  ELSE
+    1/zero
+  ESAC)
+  out(4)=Sum(Mark(40),CASE Mark(0) OF
+  WHEN 1 THEN
+    1/zero
+  ELSE
+    Mark(2)
+  ESAC)
+  out(5)=IF input=8 THEN CASE Mark(5) OF
+  WHEN 5 THEN
+    CASE Mark(6) OF
+    WHEN 6 THEN
+      Mark(15)
+    ELSE
+      1/zero
+    ESAC
+  ELSE
+    1/zero
+  ESAC ELSE 1/zero FI
+  LET unused=CASE Mark(8) OF
+  WHEN 8 THEN
+    Mark(16)
+  ELSE
+    Mark(99)
+  ESAC
+  out(6)=IF input THEN Mark(17) ELSE Mark(99) FI
+  input=0
+  fixed(input)=CASE Mark(1) OF
+  WHEN 1 THEN
+    Mark(18)
+  ELSE
+    Mark(99)
+  ESAC
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let trace = [
+        10, 11, 12, 13, 7, 0, 1, 14, 30, 1, 12, 40, 0, 2, 5, 6, 15, 8, 16, 17, 1, 18,
+    ];
+    let mut expected = vec![0xCC; 0x500];
+    expected[..7].copy_from_slice(&[13, 8, 14, 42, 42, 15, 17]);
+    expected[0x20] = 18;
+    expected[0x80..0x80 + trace.len()].copy_from_slice(&trace);
+    expected[0x3E] = trace.len() as u8;
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn case_results_keep_value_operator_semantics_and_repeat_at_runtime_consumer_sites() {
+    let source = r#"
+BYTE ARRAY out=$600
+BYTE calls=$63E,done=$63F,i
+BYTE FUNC Mark(BYTE n)
+  calls==+1
+RETURN(n)
+BYTE FUNC Pick(BYTE n)
+RETURN(CASE n OF
+WHEN 0,2 THEN
+  10
+ELSE
+  20
+ESAC)
+PROC Main()
+  calls=0 out(0)=0
+  IF CASE Mark(1) OF
+  WHEN 1 THEN
+    (Mark(0)=1) AND (Mark(2)=2)
+  ELSE
+    1
+  ESAC THEN out(0)=99 FI
+  out(1)=CASE 1 OF
+  WHEN 1 IF (Mark(0)=1) AND (Mark(99)=99) THEN
+    99
+  ELSE
+    7
+  ESAC
+  i=0
+  WHILE CASE Mark(i) OF
+  WHEN 0 TO 2 THEN
+    1
+  ELSE
+    0
+  ESAC DO
+    out(2+i)=Pick(i)
+    i==+1
+  OD
+  out(CASE i OF
+  WHEN 3 THEN
+    5
+  ELSE
+    99
+  ESAC)=10
+  out(5)==+CASE i OF
+  WHEN 3 THEN
+    2
+  ELSE
+    99
+  ESAC
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[..6].copy_from_slice(&[0, 7, 10, 20, 10, 12]);
+    expected[0x3E] = 8;
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn case_values_preserve_enum_fallback_signed_ranges_and_outer_conversions() {
+    let source = r#"
+TYPE E=ENUM [FIRST=17 LAST=255]
+BYTE ARRAY out=$600
+BYTE done=$63F
+E state
+INT n
+PROC Main()
+  state=E.FIRST
+  state=CASE state OF
+  WHEN E.FIRST THEN
+    E.LAST
+  ELSE
+    E.FIRST
+  ESAC
+  out(0)=BYTE(state)
+  state=E(99)
+  LET BYTE narrowed=CASE state OF
+  WHEN E.FIRST, E.LAST THEN
+    CARD(5)
+  ELSE
+    CARD(258)
+  ESAC
+  out(1)=narrowed
+  n=-257
+  n=CASE n OF
+  WHEN -300 TO -256 THEN
+    -258
+  ELSE
+    INT(0)
+  ESAC
+  out(2)=BYTE(n)
+  out(3)=BYTE(n RSH 8)
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[..4].copy_from_slice(&[255, 2, 254, 254]);
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn case_values_read_volatile_selectors_once_even_after_mutating_guards() {
+    let program = semir(
+        r#"
+BYTE ARRAY out=$600
+VOLATILE BYTE input=$610,left=$611,right=$612
+BYTE done=$63F
+BYTE FUNC Reject()
+  input=9
+RETURN(0)
+PROC Main()
+  input=1
+  out(0)=CASE input OF
+  WHEN 1 IF Reject() THEN
+    right
+  WHEN 1 THEN
+    left
+  ELSE
+    right
+  ESAC
+  LET unused=CASE input OF
+  WHEN 1 THEN
+    left
+  ELSE
+    right
+  ESAC
+  done=$A5
+  DO OD
+RETURN
+"#,
+    );
+    let mut expected = vec![0xCC; 0x500];
+    expected[0x10] = 9;
+    expected[0x3F] = 0xA5;
+    support::check_semir_watched(
+        &program,
+        &expected,
+        false,
+        &[0x610, 0x611, 0x612],
+        |path, events| {
+            use actionc_vm::BusAccess::{Read, Write};
+            let observed: Vec<_> = events
+                .iter()
+                .map(|e| (e.access, e.address, e.value))
+                .collect();
+            assert_eq!(
+                observed,
+                [
+                    (Write, 0x610, 1),
+                    (Read, 0x610, 1),
+                    (Write, 0x610, 9),
+                    (Read, 0x611, 0xCC),
+                    (Read, 0x610, 9),
+                    (Read, 0x612, 0xCC)
+                ],
+                "{path}"
+            );
+        },
+    );
+}
+
+#[test]
+fn mir_case_values_preserve_wide_labels_ranges_and_joins() {
+    let program = semir(
+        r#"
+BYTE ARRAY out=$600
+BYTE done=$63F
+LONGCARD n
+LONGINT signed
+PROC Main()
+  n=4294967295
+  n=CASE n OF
+  WHEN LONGCARD(2147483648) TO LONGCARD(4294967295) THEN
+    LONGCARD(65537)
+  ELSE
+    LONGCARD(0)
+  ESAC
+  signed=-2147483648
+  signed=CASE signed OF
+  WHEN -2147483648 TO -65537 THEN
+    LONGINT(-65537)
+  ELSE
+    LONGINT(0)
+  ESAC
+  out(0)=BYTE(n)
+  out(1)=BYTE(n RSH 8)
+  out(2)=BYTE(n RSH 16)
+  out(3)=BYTE(n RSH 24)
+  out(4)=BYTE(signed)
+  out(5)=BYTE(signed RSH 8)
+  out(6)=BYTE(signed RSH 16)
+  out(7)=BYTE(signed RSH 24)
+  done=$A5
+  DO OD
+RETURN
+"#,
+    );
+    let mut expected = vec![0xCC; 0x500];
+    expected[..8].copy_from_slice(&[1, 0, 1, 0, 255, 255, 254, 255]);
+    expected[0x3F] = 0xA5;
+    support::check_mir_semir(&program, &expected);
+}
+
+#[test]
 fn if_values_preserve_enum_identity_signed_values_and_outer_narrowing() {
     let source = r#"
 TYPE E=ENUM [FIRST=17 LAST=255]

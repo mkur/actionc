@@ -1,0 +1,42 @@
+TYPE E=ENUM [LOW=17 HIGH=255]
+BYTE input,result,calls
+CARD word
+E choice
+BYTE FUNC Read(BYTE n)
+  calls==+1
+RETURN(n)
+BYTE FUNC Pick(BYTE flag)
+RETURN(CASE Read(flag) OF
+WHEN 0 IF Read(0) THEN
+  Read(99)
+WHEN 0, 2 TO 4 THEN
+  Read(7)
+ELSE
+  Read(9)
+ESAC)
+PROC Main()
+  result=Read(40)+(CASE Pick(input) OF
+  WHEN 7 THEN
+    IF input THEN Read(2) ELSE Read(3) FI
+  ELSE
+    Read(4)
+  ESAC)
+  word=CASE input OF
+  WHEN 1 THEN
+    CARD(result)
+  ELSE
+    CARD(511)
+  ESAC
+  choice=CASE E(input) OF
+  WHEN E.LOW THEN
+    E.HIGH
+  ELSE
+    E.LOW
+  ESAC
+  result=CASE 1 OF
+  WHEN 1 THEN
+    5
+  ELSE
+    Read(99)
+  ESAC
+RETURN

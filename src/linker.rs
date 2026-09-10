@@ -570,6 +570,11 @@ impl SemGraphBuilder {
                     self.expression(owner, expr, reason);
                 }
             }
+            SemExprKind::CaseValue(selection) => {
+                for expr in selection.expressions() {
+                    self.expression(owner, expr, reason);
+                }
+            }
             SemExprKind::InitializerList(elements) => {
                 for element in elements {
                     if let SemInitializerElementKind::Address { target, .. } = &element.kind {

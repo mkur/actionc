@@ -1,7 +1,7 @@
 # IF and CASE expressions
 
-Status: slices 0 and 1 implemented. Modern integer/enum IF expressions execute
-end to end; CASE expressions remain gated. Slices 2 through 4 are pending.
+Status: slices 0 through 2 implemented. Modern integer/enum IF and CASE values
+execute end to end. Variant CASE values remain gated; slices 3 and 4 are pending.
 Baseline: `3afeb08`, inspected on 2026-09-10.
 
 ## Objective
@@ -351,3 +351,35 @@ guard/LET/known-tag VM regressions passed. A 64-level nested IF condition also
 parsed and lowered successfully through the public CLI. The broader corpus
 inventory increases from 337 to 338 successful sources for the new fixture;
 its eight existing module-aware sweep exclusions are unchanged.
+
+Slice 2 enables scalar/enum CASE expressions with mandatory ELSE, independently
+matching integer/enum result types, existing label/range checks, and ordered
+guards. Statement and expression bodies share semantic header validation,
+resolved SemIR arms and both backend dispatch implementations. `CaseValue`
+carries `SemCaseArm<SemExpr>` bodies; scalar expressions introduce no binders or
+binding initialization. Each selected result supplies the same typed NIR join
+used by IF. Classic projection keeps selector capture and selected-arm
+preparation inside the expression.
+
+Execution tests exposed a classic destination-preservation gap around prepared
+expressions containing indexed writes. Preparation now conservatively triggers
+pointer/index and operand staging. This is a general bug fix covering IF and
+CASE, with regressions for indirect and fixed-array destinations. New raw and
+optimized `case_expressions` fixtures establish the value-dispatch contract;
+existing NIR snapshots remain unchanged. The broader corpus inventory grows
+from 338 to 339 successful sources.
+
+The focused checks cover required ELSE versus statement fallthrough, enum
+identity and unnamed enum fallback values, ranges and shadowed guards, static
+contexts, result/place legality, nested IF/CASE and runtime consumers, and joins
+across all four target layouts. VM oracles cover selector mutation by guards,
+selected-call and volatile-read order, skipped dynamic faults, eager result
+operators versus short-circuit guards, unused results, loops, array stores,
+signed ranges, narrowing and wide MIR labels/results.
+
+Slice-2 validation: 3,061 compiler tests passed with 22 pre-existing ignored;
+the dedicated snapshot command, all 47 NIR sweep fixtures, and
+`cargo check --all-targets` passed. Nine IF/CASE VM tests and 14 existing
+guard, nested-pattern, LET and known-tag VM regressions passed. The broader
+corpus check passes with 339 successful sources and its eight unchanged
+module-aware exclusions. Variant CASE values remain gated for slice 3.

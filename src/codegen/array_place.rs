@@ -95,6 +95,8 @@ impl Generator {
     // destination around such expressions using the existing staged fallback.
     pub(super) fn expr_address_needs_nested_scratch(expr: &Expr) -> bool {
         match &expr.kind {
+            // Expression-local control flow may prepare arbitrary addresses.
+            ExprKind::Prepared { .. } => true,
             ExprKind::Index { base, index } => {
                 !matches!(base.kind, ExprKind::Name(_))
                     || Self::expr_contains_indirect_lvalue(index)

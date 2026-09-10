@@ -1,0 +1,106 @@
+nir program
+global E: enum E members=2
+global input: Byte
+global result: Byte
+global calls: Byte
+global word: Card
+global choice: E
+
+routine r0 Read signature=s2631868676 convention=target-public activation=classic-static entry=relocatable params=[n] locals=[-]
+  param p0 n: Scalar Byte duration=routine-static size=1 align=1
+bb0:
+  %t0:Byte = load calls
+  %t1:Byte = %t0 Add 1
+  store calls = %t1
+  %t2:Byte = load n
+  return %t2
+
+routine r1 Pick signature=s2631868676 convention=target-public activation=classic-static entry=relocatable params=[flag] locals=[-]
+  param p0 flag: Scalar Byte duration=routine-static size=1 align=1
+bb1:
+  %t0:Byte = load flag
+  %t1:Byte = call Read(%t0) signature=s2631868676 convention=target-public
+  %t2:condition = cmp %t1 Eq 0 operand_ty=Byte
+  branch %t2 ? bb3 : bb4
+bb3:
+  %t3:Byte = call Read(0) signature=s2631868676 convention=target-public
+  %t4:condition = cmp %t3 Ne 0 operand_ty=Byte
+  branch %t4 ? bb5 : bb4
+bb5:
+  %t5:Byte = call Read(99) signature=s2631868676 convention=target-public
+  goto bb2(%t5)
+bb4:
+  %t6:condition = cmp %t1 Eq 0 operand_ty=Byte
+  branch %t6 ? bb6 : bb8
+bb8:
+  %t7:condition = cmp %t1 Ge 2 operand_ty=Byte
+  branch %t7 ? bb9 : bb7
+bb9:
+  %t8:condition = cmp %t1 Le 4 operand_ty=Byte
+  branch %t8 ? bb6 : bb7
+bb6:
+  %t9:Byte = call Read(7) signature=s2631868676 convention=target-public
+  goto bb2(%t9)
+bb7:
+  %t10:Byte = call Read(9) signature=s2631868676 convention=target-public
+  goto bb2(%t10)
+bb2(%t11:Byte):
+  return %t11
+
+routine r2 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb10:
+  %t0:Byte = call Read(40) signature=s2631868676 convention=target-public
+  %t1:Byte = load input
+  %t2:Byte = call Pick(%t1) signature=s2631868676 convention=target-public
+  %t3:condition = cmp %t2 Eq 7 operand_ty=Byte
+  branch %t3 ? bb12 : bb13
+bb12:
+  %t4:Byte = load input
+  %t5:condition = cmp %t4 Ne 0 operand_ty=Byte
+  branch %t5 ? bb15 : bb16
+bb15:
+  %t6:Byte = call Read(2) signature=s2631868676 convention=target-public
+  goto bb14(%t6)
+bb16:
+  %t7:Byte = call Read(3) signature=s2631868676 convention=target-public
+  goto bb14(%t7)
+bb14(%t8:Byte):
+  goto bb11(%t8)
+bb13:
+  %t9:Byte = call Read(4) signature=s2631868676 convention=target-public
+  goto bb11(%t9)
+bb11(%t10:Byte):
+  %t11:Byte = %t0 Add %t10
+  store result = %t11
+  %t12:Byte = load input
+  %t13:condition = cmp %t12 Eq 1 operand_ty=Byte
+  branch %t13 ? bb18 : bb19
+bb18:
+  %t14:Byte = load result
+  %t15:Card = cast Byte -> Card %t14
+  goto bb17(%t15)
+bb19:
+  %t16:Card = cast Int -> Card $1FF
+  goto bb17(%t16)
+bb17(%t17:Card):
+  store word = %t17
+  %t18:Byte = load input
+  %t19:E = cast Byte -> E %t18
+  %t20:condition = cmp %t19 Eq 17 operand_ty=E
+  branch %t20 ? bb21 : bb22
+bb21:
+  goto bb20(255)
+bb22:
+  goto bb20(17)
+bb20(%t21:E):
+  store choice = %t21
+  %t22:condition = cmp 1 Eq 1 operand_ty=Byte
+  branch %t22 ? bb24 : bb25
+bb24:
+  goto bb23(5)
+bb25:
+  %t23:Byte = call Read(99) signature=s2631868676 convention=target-public
+  goto bb23(%t23)
+bb23(%t24:Byte):
+  store result = %t24
+  return

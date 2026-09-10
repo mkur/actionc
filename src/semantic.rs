@@ -447,6 +447,8 @@ pub struct StmtFlowFacts {
 pub struct SemanticOptions {
     /// Modern integer/enum IF values, independent of CASE statement support.
     pub if_expressions: bool,
+    /// Modern integer/enum CASE values; variant selectors remain staged.
+    pub case_expressions: bool,
     pub let_bindings: bool,
     /// Modern-profile CASE statements; independent of enum support.
     pub case_statements: bool,
@@ -467,6 +469,7 @@ impl SemanticOptions {
     pub const fn modern() -> Self {
         Self {
             if_expressions: true,
+            case_expressions: true,
             let_bindings: true,
             case_statements: true,
             enum_types: true,
@@ -11231,6 +11234,11 @@ mod tests {
             }
             ir::SemExprKind::Unary { expr, .. } => assert_semir_value_expr_typed(expr),
             ir::SemExprKind::IfValue(selection) => {
+                for child in selection.expressions() {
+                    assert_semir_value_expr_typed(child);
+                }
+            }
+            ir::SemExprKind::CaseValue(selection) => {
                 for child in selection.expressions() {
                     assert_semir_value_expr_typed(child);
                 }

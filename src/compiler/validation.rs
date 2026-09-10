@@ -249,6 +249,11 @@ fn collect_standalone_expr_diagnostics(expr: &SemExpr, diagnostics: &mut Vec<Dia
                 collect_standalone_expr_diagnostics(expr, diagnostics);
             }
         }
+        SemExprKind::CaseValue(selection) => {
+            for expr in selection.expressions() {
+                collect_standalone_expr_diagnostics(expr, diagnostics);
+            }
+        }
         SemExprKind::InitializerList(elements) => {
             for element in elements {
                 if let crate::semantic::ir::SemInitializerElementKind::Address { target, .. } =

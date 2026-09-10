@@ -8,6 +8,18 @@ impl SemIrAstLowerer<'_> {
         arms: &[SemCaseArm],
         span: Span,
     ) -> Vec<Stmt> {
+        self.case_dispatch(selector, arms, span, |lowerer, body| {
+            lowerer.stmt_list(body)
+        })
+    }
+
+    pub(super) fn case_dispatch<B>(
+        &mut self,
+        selector: &SemExpr,
+        arms: &[SemCaseArm<B>],
+        span: Span,
+        mut body: impl FnMut(&mut Self, &B) -> Vec<Stmt>,
+    ) -> Vec<Stmt> {
         let Some(value) = self.expr(selector) else {
             return Vec::new();
         };
@@ -47,7 +59,7 @@ impl SemIrAstLowerer<'_> {
         let mut else_body = Vec::new();
         for arm in arms {
             if arm.labels.is_none() && arm.guard.is_none() && arm.tests.is_empty() {
-                else_body = self.stmt_list(&arm.body);
+                else_body = body(self, &arm.body);
                 break;
             }
             let labels = arm.labels.as_deref().unwrap_or(&[]);
@@ -104,7 +116,7 @@ impl SemIrAstLowerer<'_> {
             }
             branches.push(IfBranch {
                 condition: condition.expect("validated nonempty CASE labels"),
-                body: self.stmt_list(&arm.body),
+                body: body(self, &arm.body),
             });
         }
         vec![

@@ -286,10 +286,230 @@ fn selection_words_remain_contextual_and_values_are_gated() {
         );
     }
     let ast = program("PROC Main()\nLET v=CASE 1 OF\nWHEN 1 THEN\n2\nELSE\n3\nESAC\nRETURN");
+    let mut gated = SemanticOptions::modern();
+    gated.case_expressions = false;
+    for options in [SemanticOptions::default(), gated] {
+        assert!(
+            semantic::analyze_with_options(&ast, options)
+                .unwrap_err()
+                .iter()
+                .any(|e| e.message.contains("modern profile"))
+        );
+    }
+    let ast = program(
+        "TYPE V=VARIANT [NONE]\nV value\nPROC Main()\nLET v=CASE value OF\nWHEN V.NONE THEN\n2\nESAC\nRETURN",
+    );
     assert!(
         semantic::analyze_with_options(&ast, SemanticOptions::modern())
             .unwrap_err()
             .iter()
-            .any(|e| e.message.contains("CASE value expressions are not enabled"))
+            .any(|e| e
+                .message
+                .contains("variant CASE expressions are not enabled"))
     );
+}
+
+fn checked_case(source: &str, target: actionc::target::TargetId) -> semantic::ir::SemProgram {
+    let ast = program(source);
+    let model = semantic::analyze_with_options(&ast, SemanticOptions::modern().with_target(target))
+        .unwrap_or_else(|e| panic!("{source}: {e:?}"));
+    let semir = semantic::ir::lower_program(&ast, &model);
+    let nir = actionc::nir::lower_program(&semir);
+    actionc::nir::verify_program(&nir).unwrap_or_else(|e| panic!("{source}: {e:?}"));
+    actionc::nir::optimize_program(&nir).unwrap();
+    semir
+}
+
+#[test]
+fn case_values_require_else_and_preserve_statement_coverage_rules() {
+    for (declarations, selector, labels) in [
+        ("BYTE input", "input", "0 TO 255"),
+        ("TYPE E=ENUM [A B] E input", "input", "E.A, E.B"),
+    ] {
+        let source = format!(
+            "{declarations}\nPROC Main()\nLET v=CASE {selector} OF\nWHEN {labels} THEN\n1\nESAC\nRETURN"
+        );
+        rejected(&source, "CASE expressions require ELSE");
+        let statement = source
+            .replace("LET v=CASE", "CASE")
+            .replace("THEN\n1", "THEN\nRETURN");
+        checked_case(&statement, actionc::target::TargetId::Atari6502);
+    }
+    for (declarations, selector, arms, message) in [
+        (
+            "BYTE input",
+            "input",
+            "WHEN 1 TO 3 THEN\n1\nWHEN 3 THEN\n2",
+            "overlapping CASE label",
+        ),
+        (
+            "BYTE input",
+            "input",
+            "WHEN 3 TO 1 THEN\n1",
+            "descending CASE range",
+        ),
+        ("BYTE input", "input", "WHEN 256 THEN\n1", "out of range"),
+        (
+            "BYTE input",
+            "input",
+            "WHEN input THEN\n1",
+            "integer constant",
+        ),
+        (
+            "BYTE input",
+            "input",
+            "WHEN 1 THEN\n1\nWHEN 1 IF 1 THEN\n2",
+            "fully shadowed",
+        ),
+        (
+            "BYTE input",
+            "input",
+            "WHEN 1,1 IF 1 THEN\n1",
+            "overlapping CASE label",
+        ),
+        (
+            "TYPE E=ENUM [A B] E input",
+            "input",
+            "WHEN E.A TO E.B THEN\n1",
+            "enum CASE ranges",
+        ),
+        (
+            "TYPE E=ENUM [A] TYPE F=ENUM [A] E input",
+            "input",
+            "WHEN F.A THEN\n1",
+            "exact selector enum",
+        ),
+        (
+            "TYPE E=ENUM [A] E input",
+            "input",
+            "WHEN 0 THEN\n1",
+            "exact selector enum",
+        ),
+        (
+            "REAL input",
+            "input",
+            "WHEN 1 THEN\n1",
+            "selector must be an integer or enum",
+        ),
+        (
+            "BYTE input",
+            "@input",
+            "WHEN 1 THEN\n1",
+            "selector must be an integer or enum",
+        ),
+    ] {
+        rejected(
+            &format!(
+                "{declarations}\nPROC Main()\nLET v=CASE {selector} OF\n{arms}\nELSE\n0\nESAC\nRETURN"
+            ),
+            message,
+        );
+    }
+}
+
+#[test]
+fn case_values_keep_exact_result_types_and_runtime_rvalue_legality() {
+    let selection = |a: &str, b: &str| format!("CASE 1 OF\nWHEN 1 THEN\n{a}\nELSE\n{b}\nESAC");
+    for (declarations, a, b, message) in [
+        ("BYTE b CARD c", "b", "c", "same integer type"),
+        (
+            "TYPE E=ENUM [A] TYPE F=ENUM [A]",
+            "E.A",
+            "F.A",
+            "same integer type or enum identity",
+        ),
+        ("REAL r", "r", "r", "integer or enum value"),
+        ("BYTE b", "@b", "@b", "integer or enum value"),
+        ("TYPE R=[BYTE b] R r", "r", "r", "integer or enum value"),
+        (
+            "PROC Empty() RETURN",
+            "Empty()",
+            "Empty()",
+            "integer or enum value",
+        ),
+        ("", "1", "unknown", "unknown"),
+    ] {
+        rejected(
+            &format!(
+                "{declarations}\nPROC Main()\nLET v={}\nRETURN",
+                selection(a, b)
+            ),
+            message,
+        );
+    }
+    rejected(
+        &format!(
+            "BYTE b CARD c PROC Main()\nLET CARD v={}\nRETURN",
+            selection("b", "c")
+        ),
+        "same integer type",
+    );
+    rejected(
+        &format!(
+            "BYTE b PROC Main()\nLET p=@({})\nRETURN",
+            selection("b", "b")
+        ),
+        "address",
+    );
+    rejected(
+        &format!("BYTE b PROC Main()\n({})=2\nRETURN", selection("b", "b")),
+        "assign",
+    );
+    for declaration in ["CONST Value=", "BYTE value=", "BYTE ARRAY value("] {
+        let source = format!(
+            "PROC Main()\n{declaration}{}{}\nRETURN",
+            selection("1", "2"),
+            if declaration.ends_with('(') { ")" } else { "" }
+        );
+        assert!(
+            semantic::analyze_with_options(&program(&source), SemanticOptions::modern()).is_err(),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn case_values_compose_in_runtime_consumers_and_preserve_target_types() {
+    use actionc::target::TargetId;
+    let value = "CASE a OF\nWHEN 1, 3 TO 5 IF IF a THEN 1 ELSE 0 FI THEN\nIF a THEN 1 ELSE 2 FI\nWHEN _ IF 0 THEN\n3\nELSE\nCASE a OF\nWHEN 2 THEN\n2\nELSE\n0\nESAC\nESAC";
+    for expression in [
+        format!("LET v={value}"),
+        format!("x={value}"),
+        format!("x=1+({value})"),
+        format!("x==+{value}"),
+        format!("PrintBE({value})"),
+        format!("x=table({value})"),
+        format!("table({value})={value}"),
+        format!("IF {value} THEN x=1 FI"),
+        format!("WHILE {value} DO x=1 OD"),
+        format!("RETURN({value})"),
+        format!("FOR x={value} TO {value} DO x=1 OD"),
+    ] {
+        checked_case(
+            &format!("BYTE a,x BYTE ARRAY table(8) BYTE FUNC Main()\n{expression}\nRETURN(0)"),
+            TargetId::Atari6502,
+        );
+    }
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
+        for ty in [
+            "BYTE", "CHAR", "CARD", "INT", "LONGINT", "LONGCARD", "ADDRESS", "SIZE", "E",
+        ] {
+            let (label, result) = if ty == "E" {
+                ("E.A".to_owned(), "E.B".to_owned())
+            } else {
+                ("1".to_owned(), format!("{ty}(2)"))
+            };
+            checked_case(
+                &format!(
+                    "TYPE E=ENUM [A B]\n{ty} input,value\nPROC Main()\nvalue=CASE input OF\nWHEN {label} THEN\n{result}\nELSE\ninput\nESAC\nRETURN"
+                ),
+                target,
+            );
+        }
+    }
 }

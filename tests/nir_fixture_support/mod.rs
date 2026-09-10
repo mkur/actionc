@@ -98,6 +98,8 @@ pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
     lowered_atari_case!("conditions"),
     lowered_atari_case!("if_expressions"),
     optimized_atari_case!("if_expressions"),
+    lowered_atari_case!("case_expressions"),
+    optimized_atari_case!("case_expressions"),
     lowered_atari_case!("control_flow"),
     lowered_atari_case!("call_forms"),
     lowered_atari_case!("data_relocations"),

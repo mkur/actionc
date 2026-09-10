@@ -240,7 +240,10 @@ impl Generator {
     pub(super) fn expr_side_effect_facts(&self, expr: &Expr) -> ExpressionSideEffectFacts {
         match &expr.kind {
             ExprKind::Selection(_) => ExpressionSideEffectFacts::unknown_raw(),
-            ExprKind::Prepared { .. } => ExpressionSideEffectFacts::unknown_raw(),
+            // Preparation can contain calls and address computations; callers
+            // that preserve operands based on call effects must stage it too.
+            ExprKind::Prepared { .. } => ExpressionSideEffectFacts::unknown_raw()
+                .merge(ExpressionSideEffectFacts::routine_call()),
             ExprKind::Missing | ExprKind::Raw | ExprKind::InitializerList(_) => {
                 ExpressionSideEffectFacts::unknown_raw()
             }

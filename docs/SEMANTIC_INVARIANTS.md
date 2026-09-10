@@ -153,8 +153,21 @@ metadata and CONST evaluation reject evaluated selections; existing unevaluated
 layout queries still discard index computation. Classic projection owns a
 collision-free result home and expression-local `Prepared` control flow; NIR
 owns typed block parameters and edge arguments. Neither backend infers source
-types or hoists unselected-arm effects. CASE expressions remain gated until
-their checked dispatch and pattern lowering is implemented.
+types or hoists unselected-arm effects. Classic preparation is conservatively
+treated as capable of calls and scratch/index clobbers, so enclosing operands
+and prepared assignment destinations survive it.
+
+Modern integer/enum CASE expressions require an explicit ELSE even when labels
+cover the integer domain or every named enum member. They reuse statement CASE
+label/range, overlap, shadowing and guard checks, including exact enum label
+identity and the existing prohibition on enum ranges. All results follow IF's
+exact type and rvalue rules. Shared SemIR `CaseValue` uses `SemCaseArm<SemExpr>`
+for typed expression bodies and an unconditional final ELSE; scalar value arms
+introduce no binder scopes or binding preparation. Both backends share their
+statement dispatch implementation, snapshot the selector before guards, and
+evaluate only the first accepted result. Statement CASE retains optional ELSE.
+Variant CASE expressions remain explicitly unsupported until the pattern and
+coverage slice is implemented.
 
 CASE retains ordered arms and the distinction between no ELSE and an explicit
 empty ELSE. SemIR owns selector type, constant interval validation, overlap

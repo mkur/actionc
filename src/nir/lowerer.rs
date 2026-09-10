@@ -2739,6 +2739,7 @@ impl NirBuilder {
     fn value(&mut self, expr: &SemExpr) -> Option<NirValue> {
         match &expr.kind {
             SemExprKind::IfValue(selection) => Some(self.if_value(selection, &expr.ty)),
+            SemExprKind::CaseValue(selection) => Some(self.case_value(selection, &expr.ty)),
             SemExprKind::Binary { op, left, right }
                 if NirClassifier::is_nir_compare_op(*op)
                     && (is_real_value_type(&left.ty) || is_real_value_type(&right.ty)) =>
@@ -5694,6 +5695,7 @@ fn zero_value_for_type(ty: &ValueType) -> NirValue {
 fn expr_summary(expr: &SemExpr) -> String {
     match &expr.kind {
         SemExprKind::IfValue(_) => "if value".to_string(),
+        SemExprKind::CaseValue(_) => "case value".to_string(),
         SemExprKind::Missing => "<missing>".to_string(),
         SemExprKind::Raw(raw) => raw.clone(),
         SemExprKind::InitializerList(elements) => format!(

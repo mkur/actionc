@@ -34,7 +34,16 @@ Result arms use value semantics even when the selection is itself a condition.
 Only reached conditions and the selected result execute; surrounding operands
 remain captured across their effects. Optimization starts after verification
 and preserves calls and volatile reads even when the result is discarded.
-CASE value expressions remain semantically gated pending their dispatch slices.
+
+Integer/enum CASE values use the same normalized intervals and ordered guard
+dispatch as statements. Shared SemIR represents a `CaseValue` using
+`SemCaseArm<SemExpr>`; statement arms retain statement-list bodies. SemIR checks
+an explicit final ELSE and exact arm result types before NIR. The selector is
+evaluated once into a value retained across guard calls or writes; every normal
+selected arm supplies one typed join argument. Labels never execute, and NIR
+has no CASE-value operation or source type/coverage lookup. The same lowering
+helper serves statement and expression dispatch. Variant CASE expressions
+remain semantically gated for the pattern/coverage slice.
 
 Local `USE ALL FROM` openings are resolved by SemIR to the same constructor IDs
 as qualified expressions/patterns. Their lexical scopes carry no executable

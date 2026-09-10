@@ -49,18 +49,36 @@ impl Analyzer {
             self.analyze_variant_case(scope, &selector.ty, arms, span, context);
             return;
         }
-        let Some(scalar) = selector.ty.representation_scalar() else {
+        self.analyze_scalar_case(scope, &selector.ty, arms.iter(), span, |analyzer, index| {
+            analyzer.analyze_statements(scope, &arms[index].body, context);
+        });
+    }
+
+    /// The same checked intervals and guards serve statement and value bodies.
+    /// Analyze each body after its header, preserving source diagnostic order.
+    pub(super) fn analyze_scalar_case<'a>(
+        &mut self,
+        scope: ScopeId,
+        selector_type: &ValueType,
+        arms: impl Iterator<Item = &'a CaseArm>,
+        span: Span,
+        mut body: impl FnMut(&mut Self, usize),
+    ) -> Vec<subject::SemExpr> {
+        let Some(scalar) = selector_type.representation_scalar() else {
             self.diagnostics.push(Diagnostic::new(
                 span,
                 "CASE selector must be an integer or enum",
             ));
-            return;
+            return Vec::new();
         };
+        let mut guards = Vec::new();
         let mut normalized = Vec::new();
         let mut previous: Vec<(i64, i64, Span)> = Vec::new();
         let layout = TargetLayout::for_target(self.options.target);
-        for arm in arms {
-            self.validate_case_guard(scope, arm);
+        for (index, arm) in arms.enumerate() {
+            if let Some(guard) = self.validate_case_guard(scope, arm) {
+                guards.push(guard);
+            }
             let wildcard = arm.labels.as_ref().is_some_and(|labels| {
                 labels.len() == 1
                     && labels[0].high.is_none()
@@ -77,13 +95,13 @@ impl Analyzer {
                 None
             } else {
                 arm.labels.as_ref().map(|labels| labels.iter().filter_map(|label| {
-                    if selector.ty.as_enum().is_some() && label.high.is_some() {
+                    if selector_type.as_enum().is_some() && label.high.is_some() {
                         self.diagnostics.push(Diagnostic::new(label.span, "enum CASE ranges are not supported; convert the selector to an integer explicitly"));
                         return None;
                     }
-                    let low = self.case_constant(scope, &label.low, &selector.ty, scalar)?;
+                    let low = self.case_constant(scope, &label.low, selector_type, scalar)?;
                     let high = match &label.high {
-                        Some(high) => self.case_constant(scope, high, &selector.ty, scalar)?,
+                        Some(high) => self.case_constant(scope, high, selector_type, scalar)?,
                         None => low,
                     };
                     if low > high {
@@ -130,7 +148,7 @@ impl Analyzer {
                 previous.extend(current);
             }
             normalized.push(labels);
-            self.analyze_statements(scope, &arm.body, context);
+            body(self, index);
         }
         self.case_labels.insert(
             ExpressionSite {
@@ -140,9 +158,10 @@ impl Analyzer {
             },
             normalized,
         );
+        guards
     }
 
-    pub(super) fn validate_case_guard(&mut self, scope: ScopeId, arm: &CaseArm) {
+    pub(super) fn validate_case_guard(&mut self, scope: ScopeId, arm: &CaseArm) -> Option<subject::SemExpr> {
         if let Some(guard) = &arm.guard {
             if !self.options.algebraic_types.case_guards {
                 self.diagnostics.push(Diagnostic::new(
@@ -150,9 +169,10 @@ impl Analyzer {
                     "CASE guards require the modern profile and enabled guard capability",
                 ));
             } else {
-                self.validate_condition(scope, guard);
+                return Some(self.validate_condition(scope, guard));
             }
         }
+        None
     }
 
     pub(super) fn case_constant(
