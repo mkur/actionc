@@ -260,6 +260,7 @@ impl Materializer<'_> {
         }
 
         match &mut expr.kind {
+            ExprKind::Selection(selection) => { for child in selection.expressions_mut() { self.expr(scope, child); } }
             ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
             ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => self.expr(scope, expr),
             ExprKind::Binary { left, right, .. } => {

@@ -3598,6 +3598,7 @@ impl<'a> IrBuilder<'a> {
                     expr: Box::new(self.lower_expr(scope, &args[0])),
                 }
             }
+            ExprKind::Selection(_) => unreachable!("selection expressions are semantically gated"),
             ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
             ExprKind::Missing => SemExprKind::Missing,
             ExprKind::Raw => SemExprKind::Raw(expr.text.clone()),
@@ -4452,6 +4453,7 @@ impl<'a> IrBuilder<'a> {
 
     fn lvalue_expr_is_volatile(&self, scope: ScopeId, expr: &Expr) -> bool {
         match &expr.kind {
+            ExprKind::Selection(_) => false,
             ExprKind::Prepared { .. } => false,
             ExprKind::Name(name) => self
                 .model

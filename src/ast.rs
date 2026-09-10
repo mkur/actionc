@@ -637,6 +637,7 @@ pub struct Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExprKind {
+    Selection(Box<SelectionExpr>),
     /// Compiler-only classic projection: ordered runtime preparation belonging
     /// to this expression evaluation, never a source expression form.
     Prepared { statements: Vec<Stmt>, value: Box<Expr> },
@@ -677,6 +678,59 @@ pub enum ExprKind {
         base: Box<Expr>,
         field: String,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SelectionExpr {
+    If { branches: Vec<(Expr, Expr)>, otherwise: Expr },
+    Case { selector: Expr, arms: Vec<CaseValueArm> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CaseValueArm {
+    /// Shared pattern/guard syntax. Statement bodies are empty for value arms.
+    pub header: CaseArm,
+    pub value: Expr,
+}
+
+impl SelectionExpr {
+    pub fn expressions(&self) -> Vec<&Expr> {
+        match self {
+            Self::If { branches, otherwise } => branches.iter()
+                .flat_map(|(test, value)| [test, value]).chain([otherwise]).collect(),
+            Self::Case { selector, arms } => {
+                let mut values = vec![selector];
+                for arm in arms {
+                    for label in arm.header.labels.iter().flatten() {
+                        values.push(&label.low);
+                        values.extend(label.high.iter());
+                    }
+                    values.extend(arm.header.guard.iter());
+                    values.push(&arm.value);
+                }
+                values
+            }
+        }
+    }
+
+    pub fn expressions_mut(&mut self) -> Vec<&mut Expr> {
+        match self {
+            Self::If { branches, otherwise } => branches.iter_mut()
+                .flat_map(|(test, value)| [test, value]).chain([otherwise]).collect(),
+            Self::Case { selector, arms } => {
+                let mut values = vec![selector];
+                for arm in arms {
+                    for label in arm.header.labels.iter_mut().flatten() {
+                        values.push(&mut label.low);
+                        values.extend(label.high.iter_mut());
+                    }
+                    values.extend(arm.header.guard.iter_mut());
+                    values.push(&mut arm.value);
+                }
+                values
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

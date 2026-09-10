@@ -247,6 +247,7 @@ impl Generator {
 
     pub(super) fn expr_scalar_type(&self, expr: &Expr) -> Option<ScalarType> {
         match &expr.kind {
+            ExprKind::Selection(_) => None,
             ExprKind::Prepared { value, .. } => self.expr_scalar_type(value),
             ExprKind::CurrentLocation | ExprKind::String(_) => Some(ScalarType::Card),
             ExprKind::Number(number) => ScalarType::from_number_kind(number.kind),

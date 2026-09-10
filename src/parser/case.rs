@@ -42,7 +42,7 @@ impl Parser<'_> {
     pub(super) fn parse_case_statement(&mut self) -> Stmt {
         let start = self.peek().span.start;
         let end = self.physical_line_end(self.pos);
-        let selector = build_expr_from_tokens(self.tokens[self.pos + 1..end - 1].to_vec());
+        let selector = self.build_value_from_tokens(self.tokens[self.pos + 1..end - 1].to_vec());
         if matches!(selector.kind, ExprKind::Missing | ExprKind::Raw) {
             self.diagnostics.push(Diagnostic::new(
                 selector.span,
@@ -85,7 +85,7 @@ impl Parser<'_> {
                     depth == 0 && matches!(token.kind, TokenKind::Keyword(Keyword::If))
                 });
                 if let Some(index) = guard_index {
-                    let expression = build_expr_from_tokens(tokens[index + 1..].to_vec());
+                    let expression = self.build_value_from_tokens(tokens[index + 1..].to_vec());
                     if matches!(expression.kind, ExprKind::Missing | ExprKind::Raw) {
                         self.diagnostics.push(Diagnostic::new(
                             expression.span,
@@ -159,7 +159,7 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_case_labels(&mut self, tokens: &[Token], guarded: bool) -> Vec<CaseLabel> {
+    pub(super) fn parse_case_labels(&mut self, tokens: &[Token], guarded: bool) -> Vec<CaseLabel> {
         let mut nesting = 0usize;
         for token in tokens {
             match token.kind {
@@ -216,8 +216,8 @@ impl Parser<'_> {
                         "bare CASE wildcards are not supported; use ELSE or WHEN _ IF condition THEN",
                     ));
                 }
-                let low = build_expr_from_tokens(part[..range.unwrap_or(part.len())].to_vec());
-                let high = range.map(|i| build_expr_from_tokens(part[i + 1..].to_vec()));
+                let low = self.build_value_from_tokens(part[..range.unwrap_or(part.len())].to_vec());
+                let high = range.map(|i| self.build_value_from_tokens(part[i + 1..].to_vec()));
                 let span = Span::new(
                     low.span.start,
                     high.as_ref().map_or(low.span.end, |expr| expr.span.end),

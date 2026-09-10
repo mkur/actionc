@@ -2357,6 +2357,7 @@ impl Analyzer {
         condition: bool,
     ) -> subject::SemSubject {
         let subject = match &expr.kind {
+            ExprKind::Selection(_) => { self.diagnostics.push(Diagnostic::new(expr.span, "IF/CASE value expressions are not enabled")); self.subject_error(expr.span) }
             ExprKind::Prepared { .. } => { self.diagnostics.push(Diagnostic::new(expr.span, "compiler-only prepared expression is not source syntax")); self.subject_error(expr.span) }
             ExprKind::Missing => self.subject_error(expr.span),
             ExprKind::Raw => subject::SemSubject::Expr(subject::SemExpr {

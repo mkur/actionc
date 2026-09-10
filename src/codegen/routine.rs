@@ -656,6 +656,7 @@ impl Generator {
 
     fn collect_modern_hidden_expr(&mut self, expr: &Expr) {
         match &expr.kind {
+            ExprKind::Selection(selection) => { for expr in selection.expressions() { self.collect_modern_hidden_expr(expr); } }
             ExprKind::Prepared { statements, value } => { self.collect_modern_hidden_stmt_list(statements); self.collect_modern_hidden_expr(value); }
             ExprKind::String(text) => {
                 let key = StringLiteralKey::new(expr.span, text);
@@ -939,6 +940,7 @@ fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
 
 fn expr_contains_string_literal(expr: &Expr) -> bool {
     match &expr.kind {
+        ExprKind::Selection(selection) => selection.expressions().into_iter().any(expr_contains_string_literal),
         ExprKind::Prepared { statements, value } => stmt_list_contains_string_literal(statements) || expr_contains_string_literal(value),
         ExprKind::String(_) => true,
         ExprKind::Unary { expr, .. } => expr_contains_string_literal(expr),

@@ -188,6 +188,7 @@ fn expr_tree_any(expr: &Expr, predicate: &impl Fn(&Expr) -> bool) -> bool {
         return true;
     }
     match &expr.kind {
+        ExprKind::Selection(selection) => selection.expressions().into_iter().any(|expr| expr_tree_any(expr, predicate)),
         ExprKind::Prepared { statements, value } => stmt_list_exprs_any(statements, predicate) || expr_tree_any(value, predicate),
         ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => {
             expr_tree_any(expr, predicate)
@@ -216,6 +217,7 @@ fn expr_tree_any(expr: &Expr, predicate: &impl Fn(&Expr) -> bool) -> bool {
 
 fn expr_references_names(expr: &Expr, names: &HashSet<String>) -> bool {
     match &expr.kind {
+        ExprKind::Selection(selection) => selection.expressions().into_iter().any(|expr| expr_references_names(expr, names)),
         ExprKind::Prepared { statements, value } => stmt_list_exprs_any(statements, &|expr| matches!(&expr.kind, ExprKind::Name(name) if names.contains(&normalize_name(name)))) || expr_references_names(value, names),
         ExprKind::Name(name) => names.contains(&normalize_name(name)),
         ExprKind::Unary { expr, .. } | ExprKind::Cast { expr, .. } => {

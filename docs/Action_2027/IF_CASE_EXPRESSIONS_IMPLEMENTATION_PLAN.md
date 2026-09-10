@@ -1,6 +1,7 @@
 # IF and CASE expressions
 
-Status: proposed implementation plan; compiler implementation has not started.
+Status: implementation started. Slice 0 implements gated AST/parser support;
+slices 1 through 4 remain to be implemented.
 Baseline: `3afeb08`, inspected on 2026-09-10.
 
 ## Objective
@@ -303,3 +304,23 @@ Completion requires documented public syntax, explicit diagnostics for deferred
 forms, successful execution on the supported backend/runtime matrix, verified
 typed NIR joins with no new executable source semantics, and preservation of
 existing statement behavior and runtime fault ordering.
+
+## Implementation progress
+
+Slice 0 adds structured selection expressions and CASE value arms, balanced
+operand collection, ELSEIF and mixed nesting, parent-expression delimiters,
+shared lexical syntax IDs, and source diagnostics for malformed or over-nested
+forms. AST visitors include the new expression children. CASE statement syntax
+and ordinary contextual identifiers retain their existing behavior.
+
+Semantic analysis explicitly rejects IF/CASE value expressions in both profiles
+until their typed lowering is implemented. This slice changes no executable
+SemIR/NIR contract and introduces no successful expression runtime fixture.
+Five focused parser/gating tests cover nesting, scope identity, runtime consumer
+syntax, malformed input, the 64-level limit and identifier compatibility.
+Existing NIR snapshots remain unchanged.
+
+Slice-0 validation: 3,053 compiler tests passed with 22 pre-existing ignored;
+the dedicated NIR snapshot command, all 45 NIR sweep fixtures, and
+`cargo check --all-targets` passed. Runtime tests begin with slice 1, when the
+first expression form becomes executable.

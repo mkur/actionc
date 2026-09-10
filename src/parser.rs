@@ -8,6 +8,7 @@ mod case;
 mod enums;
 mod let_binding;
 mod generics;
+mod selection;
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Vec<Diagnostic>> {
     let mut parser = Parser::new(tokens);
@@ -609,7 +610,7 @@ impl<'a> Parser<'a> {
             expr_end = token.span.end;
             tokens.push(token.clone());
         }
-        let address = build_expr(tokens, Span::new(expr_start, expr_end));
+        let address = self.build_value_expr(tokens, Span::new(expr_start, expr_end));
         let directive = OrgDirective {
             address,
             span: Span::new(start, self.previous_end()),
@@ -1570,7 +1571,7 @@ impl<'a> Parser<'a> {
         if self.eat(TokenKind::Assign) {
             let value = self.collect_statement_expr();
             return Stmt::Assign {
-                target: build_expr_from_tokens(target_tokens),
+                target: self.build_value_from_tokens(target_tokens),
                 value,
                 span: Span::new(start, self.previous_end()),
             };
@@ -1583,18 +1584,19 @@ impl<'a> Parser<'a> {
                 .last()
                 .map(|token| token.span.end)
                 .unwrap_or(value_start);
-            let target = build_expr_from_tokens(target_tokens);
-            let value = build_compound_assignment_expr(
+            let target = self.build_value_from_tokens(target_tokens);
+            let mut value = build_compound_assignment_expr(
                 &target,
                 op,
                 value_tokens.clone(),
                 Span::new(target.span.start, value_end),
             );
+            self.number_value_scopes(&mut value);
             if simple_compound_assignment_value(&value, &target, op) {
                 return Stmt::CompoundAssign {
                     target,
                     op,
-                    value: build_expr(value_tokens, Span::new(value_start, value_end)),
+                    value: self.build_value_expr(value_tokens, Span::new(value_start, value_end)),
                     span: Span::new(start, self.previous_end()),
                 };
             }
@@ -1614,7 +1616,7 @@ impl<'a> Parser<'a> {
         }
 
         Stmt::Call {
-            expr: build_expr_from_tokens(target_tokens),
+            expr: self.build_value_from_tokens(target_tokens),
             span: Span::new(start, self.previous_end()),
         }
     }
@@ -1726,6 +1728,7 @@ impl<'a> Parser<'a> {
         let mut bracket_depth = 0usize;
 
         while !self.at_eof() {
+            if self.collect_selection_operand(&mut tokens) { end = tokens.last().unwrap().span.end; continue; }
             if paren_depth == 0
                 && bracket_depth == 0
                 && ((!tokens.is_empty() && self.check_stop(stop))
@@ -1749,7 +1752,7 @@ impl<'a> Parser<'a> {
             tokens.push(token.clone());
         }
 
-        build_expr(tokens, Span::new(start, end))
+        self.build_value_expr(tokens, Span::new(start, end))
     }
 
     fn collect_initializer_expr(&mut self, stop: Stop) -> Expr {
@@ -1793,6 +1796,7 @@ impl<'a> Parser<'a> {
         let mut bracket_depth = 0usize;
 
         while !self.at_eof() {
+            if self.collect_selection_operand(&mut tokens) { end = tokens.last().unwrap().span.end; continue; }
             if paren_depth == 0
                 && bracket_depth == 0
                 && ((!tokens.is_empty()
@@ -1823,7 +1827,7 @@ impl<'a> Parser<'a> {
             tokens.push(token.clone());
         }
 
-        build_expr(tokens, Span::new(start, end))
+        self.build_value_expr(tokens, Span::new(start, end))
     }
 
     fn check_scalar_initializer_stop(&self, stop: Stop, previous: &Token) -> bool {
@@ -1860,6 +1864,7 @@ impl<'a> Parser<'a> {
         let mut bracket_depth = 0usize;
 
         while !self.at_eof() {
+            if self.collect_selection_operand(&mut tokens) { continue; }
             if paren_depth == 0
                 && bracket_depth == 0
                 && (self.check(TokenKind::Assign)
@@ -1899,7 +1904,7 @@ impl<'a> Parser<'a> {
         let tokens = self.collect_statement_expr_tokens();
         let end = tokens.last().map(|token| token.span.end).unwrap_or(start);
 
-        build_expr(tokens, Span::new(start, end))
+        self.build_value_expr(tokens, Span::new(start, end))
     }
 
     fn collect_statement_expr_tokens(&mut self) -> Vec<Token> {
@@ -1908,6 +1913,7 @@ impl<'a> Parser<'a> {
         let mut bracket_depth = 0usize;
 
         while !self.at_eof() {
+            if self.collect_selection_operand(&mut tokens) { continue; }
             if paren_depth == 0
                 && bracket_depth == 0
                 && !tokens.is_empty()
@@ -2686,13 +2692,13 @@ impl Stop {
     }
 }
 
-fn build_expr(tokens: Vec<Token>, span: Span) -> Expr {
+fn build_expr_checked(tokens: Vec<Token>, span: Span) -> (Expr, Vec<Diagnostic>) {
     if tokens.is_empty() {
-        return Expr {
+        return (Expr {
             kind: ExprKind::Missing,
             text: String::new(),
             span,
-        };
+        }, Vec::new());
     }
 
     let text = tokens_text(&tokens);
@@ -2705,7 +2711,7 @@ fn build_expr(tokens: Vec<Token>, span: Span) -> Expr {
 
     let mut expr = Expr { kind, text, span };
     normalize_expr_spans(&mut expr, span);
-    expr
+    (expr, parser.diagnostics)
 }
 
 fn define_value_is_type_alias(value: &str) -> bool {
@@ -2779,14 +2785,6 @@ fn define_value_is_set_directive_macro(value: &str) -> bool {
 
 fn normalize_name(name: &str) -> String {
     name.to_ascii_uppercase()
-}
-
-fn build_expr_from_tokens(tokens: Vec<Token>) -> Expr {
-    let span = match (tokens.first(), tokens.last()) {
-        (Some(first), Some(last)) => Span::new(first.span.start, last.span.end),
-        _ => Span::new(0, 0),
-    };
-    build_expr(tokens, span)
 }
 
 fn build_compound_assignment_expr(
@@ -2984,11 +2982,13 @@ fn initializer_element(tokens: &[Token], kind: InitializerElementKind) -> Initia
 struct ExprParser<'a> {
     tokens: &'a [Token],
     pos: usize,
+    selection_depth: usize,
+    diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> ExprParser<'a> {
     fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, pos: 0 }
+        Self { tokens, pos: 0, selection_depth: 0, diagnostics: Vec::new() }
     }
 
     fn parse_expr(&mut self, min_prec: u8) -> Option<Expr> {
@@ -3025,6 +3025,9 @@ impl<'a> ExprParser<'a> {
     }
 
     fn parse_prefix(&mut self) -> Option<Expr> {
+        if selection::starts_selection(self.tokens, self.pos) {
+            return self.parse_selection();
+        }
         let start = self.pos;
         let token = self.bump()?;
         let kind = match &token.kind {
@@ -3258,6 +3261,9 @@ fn normalize_expr_spans(expr: &mut Expr, fallback: Span) {
     }
     let span = expr.span;
     match &mut expr.kind {
+        ExprKind::Selection(selection) => {
+            for child in selection.expressions_mut() { normalize_expr_spans(child, span); }
+        }
         ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
         ExprKind::Unary { expr, .. } => normalize_expr_spans(expr, span),
         ExprKind::Cast { expr, .. } => normalize_expr_spans(expr, span),
@@ -3338,7 +3344,8 @@ fn binary_op_text(op: BinaryOp) -> &'static str {
 fn token_can_end_expr(token: &Token) -> bool {
     matches!(
         token.kind,
-        TokenKind::Ident(_)
+        TokenKind::Keyword(Keyword::Fi)
+            | TokenKind::Ident(_)
             | TokenKind::Number(_)
             | TokenKind::String(_)
             | TokenKind::Char(_)

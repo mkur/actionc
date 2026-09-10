@@ -39,9 +39,11 @@ impl Parser<'_> {
                 // names, calls/casts and parenthesized comparisons. Its consumed
                 // prefix ends before the next member, independently of newlines.
                 let mut expression = ExprParser::new(&self.tokens[self.pos..]);
-                let value = expression.parse_expr(0);
+                let mut value = expression.parse_expr(0);
                 let consumed = expression.pos;
+                self.diagnostics.extend(expression.diagnostics);
                 self.pos += consumed;
+                if let Some(value) = &mut value { self.number_value_scopes(value); }
                 if value.is_none() {
                     self.diagnostics.push(Diagnostic::new(
                         self.peek().span,

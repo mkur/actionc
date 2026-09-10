@@ -838,6 +838,7 @@ fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) 
 
 fn rewrite_expr_names(expr: &mut Expr, replacements: &BTreeMap<String, String>) {
     match &mut expr.kind {
+        ExprKind::Selection(selection) => { for expr in selection.expressions_mut() { rewrite_expr_names(expr, replacements); } }
         ExprKind::Prepared { statements, value } => { rewrite_stmt_list_names(statements, replacements); rewrite_expr_names(value, replacements); }
         ExprKind::Name(name) => {
             if let Some(replacement) = replacements.get(name) {
@@ -1055,6 +1056,7 @@ fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut B
 
 fn collect_expr_names(expr: &Expr, candidates: &BTreeSet<String>, output: &mut BTreeSet<String>) {
     match &expr.kind {
+        ExprKind::Selection(selection) => { for expr in selection.expressions() { collect_expr_names(expr, candidates, output); } }
         ExprKind::Prepared { statements, value } => { collect_stmt_list_names(statements, candidates, output); collect_expr_names(value, candidates, output); }
         ExprKind::Name(name) => {
             if candidates.contains(name) {

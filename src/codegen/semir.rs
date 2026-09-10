@@ -2136,6 +2136,7 @@ fn is_var_declaration(decl: &SemDeclaration) -> bool {
 
 fn expr_text(kind: &ExprKind) -> String {
     match kind {
+        ExprKind::Selection(_) => unreachable!("source selection cannot reach classic projection"),
         ExprKind::Prepared { value, .. } => value.text.clone(),
         ExprKind::Missing => String::new(),
         ExprKind::Raw => String::new(),
