@@ -22,4 +22,28 @@ PUBLIC INT FUNC Trunc(INT value)
   wide=wide/LONGINT(256)
 RETURN(INT(wide))
 
+; Multiply two raw Q8.8 values; rescale the full signed product before wrapping.
+PUBLIC INT FUNC Mul(INT left,right)
+  LONGINT product,wideRight
+  product=LONGINT(left)
+  wideRight=LONGINT(right)
+  product=product*wideRight
+  product=product/LONGINT(256)
+RETURN(INT(product))
+
+; Divide raw Q8.8 values. A zero divisor faults through ordinary Error(101).
+PUBLIC INT FUNC Div(INT left,right)
+  LONGINT numerator,denominator
+  numerator=LONGINT(left)
+  denominator=LONGINT(right)
+  numerator=numerator*LONGINT(256)
+  numerator=numerator/denominator
+RETURN(INT(numerator))
+
+; Construct raw Q8.8 from an ordinary integer ratio, truncating toward zero.
+PUBLIC INT FUNC FromRatio(INT numerator,denominator)
+  INT result
+  result=Div(numerator,denominator)
+RETURN(result)
+
 ENDMODULE

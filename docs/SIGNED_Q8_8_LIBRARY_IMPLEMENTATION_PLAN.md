@@ -1,6 +1,6 @@
 # Signed Q8.8 library and tests
 
-Status: slice 1 complete; slices 2 and 3 pending. Created 2026-09-10.
+Status: slices 1 and 2 complete; slice 3 pending. Created 2026-09-10.
 
 ## Scope
 
@@ -244,6 +244,15 @@ pass, including 12 import/mode/runtime compilations. The VM conversion test
 passes 150 host-fed executions (25 signed inputs across six lanes), checking
 complete guarded output regions. Standalone runs load no ROMs. No compiler
 code or IR snapshots changed.
+
+Slice 2 is complete. Mul, Div, and FromRatio use existing signed LONGINT
+operations, rescale before narrowing, and share the ordinary division fault
+path. Both public compiler tests pass. The three VM tests pass 3,684 executions:
+150 conversion/constant cases, 3,462 arithmetic cases (441 boundary pairs,
+128 seeded pairs, and eight targeted pairs across six lanes), and 72 fault
+cases. Dynamic and literal zero denominators in both division APIs report
+Error(101) once, preserve caller stores/effects, and cannot resume even when
+the injected Error handler returns. No compiler changes were needed.
 
 ## Deferred
 

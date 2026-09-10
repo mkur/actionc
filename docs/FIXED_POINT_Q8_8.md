@@ -11,10 +11,6 @@ bits include the sign. Range is -128 through 127.99609375, with a step of
 
 ## Available API
 
-Slice 1 supplies constants and integer conversions. Multiplication, division,
-and ratio construction are planned in
-[slice 2](SIGNED_Q8_8_LIBRARY_IMPLEMENTATION_PLAN.md).
-
 | Member | Meaning |
 | --- | --- |
 | `Q.One` | Raw 256, representing 1 |
@@ -24,6 +20,22 @@ and ratio construction are planned in
 | `Q.MaxValue` | Raw 32767, representing 127.99609375 |
 | `Q.FromInt(INT value)` | Returns INT raw `value * 256`, wrapping to 16 bits |
 | `Q.Trunc(INT value)` | Returns the ordinary INT part, truncating toward zero |
+| `Q.FromRatio(INT numerator, denominator)` | Constructs raw Q8.8 from an ordinary integer ratio |
+| `Q.Mul(INT left, right)` | Multiplies raw Q8.8 values, then divides the full product by 256 |
+| `Q.Div(INT left, right)` | Divides raw Q8.8 values, first multiplying the numerator by 256 |
+
+All functions return INT. Mul, Div, and FromRatio truncate toward zero before
+wrapping to 16 bits. For example, Mul(384,512) is raw 768 (1.5 times 2 is 3),
+Mul(-1,1) is zero, and Div(-256,768) is raw -85. Mul(32767,512) wraps to raw -2;
+Div(-32768,-256) wraps to raw -32768. RSH is logical and cannot express this
+truncation rule for signed inputs.
+
+FromRatio(3,2) constructs raw 384, representing 1.5. FromRatio and Div perform
+the same raw calculation but describe different input interpretations. Their
+zero denominator, including 0/0, invokes the existing non-returning Error(101).
+The caller's result destination and subsequent effects are not executed.
+Passing a literal zero to these functions is legal source and faults when the
+call executes; direct invalid constant arithmetic retains its diagnostic.
 
 ```action
 MODULE EXAMPLE

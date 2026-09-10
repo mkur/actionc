@@ -25,11 +25,13 @@ impl Drop for Source {
 }
 
 #[test]
-fn fixed_q8_8_imports_and_conversions_compile_in_all_modes_and_runtimes() {
+fn fixed_q8_8_imports_and_all_functions_compile_in_all_modes_and_runtimes() {
     for (import, alias) in [("USE MATH.Q8_8", "Q8_8"), ("USE MATH.Q8_8 AS Q", "Q")] {
         let source = Source::new(&format!(
             "MODULE TEST {import}\nINT input=$6E0,result=$601\nPROC Main()\n\
              result={alias}.FromInt(input) result={alias}.Trunc(result)\n\
+             result={alias}.Mul(input,result) result={alias}.Div(input,result)\n\
+             result={alias}.FromRatio(input,result)\n\
              result={alias}.One result={alias}.Half result={alias}.Epsilon\n\
              result={alias}.MinValue result={alias}.MaxValue\nRETURN ENDMODULE"
         ));

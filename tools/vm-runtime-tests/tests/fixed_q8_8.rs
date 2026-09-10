@@ -3,7 +3,27 @@ use actionc_vm::{
     CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
     StopReason, VmRunner,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static NEXT: AtomicUsize = AtomicUsize::new(0);
+struct Source(PathBuf);
+impl Source {
+    fn new(text: &str) -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "actionc-q8-vm-{}-{}.act",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::write(&path, text).unwrap();
+        Self(path)
+    }
+}
+impl Drop for Source {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
 
 const BOUNDARIES: &[i16] = &[
     -32768, -32767, -1024, -513, -512, -257, -256, -129, -128, -1, 0, 1, 127, 128, 255, 256, 257,
@@ -62,6 +82,17 @@ fn check(
     b: i16,
     expected: impl FnOnce(&mut [u8]),
 ) {
+    execute(image, mode, runtime, (a, b), false, expected);
+}
+
+fn execute(
+    image: &[u8],
+    mode: CompileMode,
+    runtime: Runtime,
+    (a, b): (i16, i16),
+    fault: bool,
+    expected: impl FnOnce(&mut [u8]),
+) {
     let (mut vm, profile) = vm_for(runtime);
     let load = vm.load_atari_object_for_execution(profile, image).unwrap();
     assert!(
@@ -75,9 +106,33 @@ fn check(
     for (offset, &value) in page.iter().enumerate() {
         vm.bus_mut().ram_mut().write(0x600 + offset as u16, value);
     }
+    if fault {
+        // Capture Error's registers/count, set decimal mode, and deliberately
+        // return. The arithmetic helper must clear D and never resume its caller.
+        vm.bus_mut()
+            .ram_mut()
+            .map(
+                0x780,
+                &[
+                    0x8D, 0x20, 7, 0x8E, 0x21, 7, 0x8C, 0x22, 7, 0xEE, 0x23, 7, 0xF8, 0x60,
+                ],
+            )
+            .unwrap();
+        vm.bus_mut().ram_mut().write(0x723, 0);
+        match runtime {
+            Runtime::ActionCart => vm
+                .bus_mut()
+                .ram_mut()
+                .map(0x04CB, &[0x4C, 0x80, 7])
+                .unwrap(),
+            Runtime::Standalone => vm.bus_mut().ram_mut().write_word(0x000A, 0x0780),
+        }
+    }
     expected(&mut page);
-    page[0xDF] = 0xA5;
-    let max_steps = 25_000;
+    if !fault {
+        page[0xDF] = 0xA5;
+    }
+    let max_steps = 60_000;
     let outcome = VmRunner::new(vm).run(RunRequest {
         max_steps,
         history_len: 8,
@@ -97,6 +152,40 @@ fn check(
         "{mode:?}/{runtime:?} ({a},{b}): {:?}",
         outcome.report
     );
+    if fault {
+        assert_eq!(
+            (0x720..=0x723)
+                .map(|a| outcome.memory().read(a))
+                .collect::<Vec<_>>(),
+            [101, 0, 101, 1],
+            "{mode:?}/{runtime:?} Error register/count capture"
+        );
+        assert_eq!(
+            outcome.report.registers.status & 8,
+            0,
+            "decimal mode after returning Error"
+        );
+        let pc = outcome.report.registers.pc;
+        assert_eq!(
+            [outcome.memory().read(pc), outcome.memory().read(pc + 1)],
+            [0xB0, 0xFE],
+            "fault must stop at the non-returning guard"
+        );
+    }
+}
+
+fn numeric_expected(page: &mut [u8], a: i16, b: i16) {
+    let (a, b) = (i64::from(a), i64::from(b));
+    put(page, 1, a * 256);
+    put(page, 3, a / 256);
+    put(page, 5, a * b / 256);
+    if b != 0 {
+        put(page, 7, a * 256 / b);
+        put(page, 9, a * 256 / b);
+    }
+    for (index, raw) in [256, 128, 1, -32768, 32767].into_iter().enumerate() {
+        put(page, 0x11 + index * 2, raw);
+    }
 }
 
 #[test]
@@ -113,13 +202,78 @@ fn fixed_q8_8_conversions_and_constants_match_host_oracle() {
         .unwrap();
         for &value in &values {
             check(compiled.object_bytes(), mode, runtime, value, 0, |page| {
-                let a = i64::from(value);
-                put(page, 1, a * 256);
-                put(page, 3, a / 256);
-                for (index, raw) in [256, 128, 1, -32768, 32767].into_iter().enumerate() {
-                    put(page, 0x11 + index * 2, raw);
-                }
+                numeric_expected(page, value, 0);
             });
+        }
+    }
+}
+
+#[test]
+fn fixed_q8_8_binary_arithmetic_matches_host_oracle() {
+    let source =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/runtime/fixed_q8_8.act");
+    let mut pairs: Vec<_> = BOUNDARIES
+        .iter()
+        .flat_map(|&a| BOUNDARIES.iter().map(move |&b| (a, b)))
+        .collect();
+    // Deterministic full-width inputs: Numerical Recipes LCG, seed 0x51383821.
+    let mut seed = 0x51383821u32;
+    for _ in 0..128 {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        let a = (seed >> 16) as i16;
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        pairs.push((a, (seed >> 16) as i16));
+    }
+    pairs.extend([
+        (3, 2),
+        (1, 256),
+        (384, 512),
+        (-1, 1),
+        (-257, 128),
+        (32767, 512),
+        (-256, 768),
+        (-32768, -256),
+    ]);
+    assert_eq!(pairs.len(), 577);
+    for (mode, runtime) in lanes() {
+        let compiled = compile_file(
+            &source,
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
+        )
+        .unwrap();
+        for &(a, b) in &pairs {
+            check(compiled.object_bytes(), mode, runtime, a, b, |page| {
+                numeric_expected(page, a, b)
+            });
+        }
+    }
+}
+
+#[test]
+fn fixed_q8_8_zero_division_faults_without_stores_or_resuming() {
+    for function in ["Div", "FromRatio"] {
+        for divisor in ["b", "0"] {
+            let source = Source::new(&format!(
+                "MODULE FAULT USE MATH.Q8_8 AS Q\nINT a=$6E0,b=$6E2,result=$601 BYTE state=$620,done=$6DF\n\
+                 PROC Main() state=41 result=Q.{function}(a,{divisor}) state=42 done=$A5 RETURN ENDMODULE"
+            ));
+            for (mode, runtime) in lanes() {
+                let compiled = compile_file(
+                    &source.0,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap();
+                for a in [0, -32768, 256] {
+                    execute(
+                        compiled.object_bytes(),
+                        mode,
+                        runtime,
+                        (a, 0),
+                        true,
+                        |page| page[0x20] = 41,
+                    );
+                }
+            }
         }
     }
 }
