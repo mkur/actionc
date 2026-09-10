@@ -1298,8 +1298,22 @@ Initial safe NIR passes:
 - fixed-point sparse value propagation and CFG cleanup after representation
   changes expose new constants;
 - folding of block parameters whose executable incoming values are identical;
+- forwarding unconditional edges through empty scalar value-return blocks,
+  substituting the returned block parameter with its corresponding typed edge
+  argument; existing dominating scalar values can be returned directly too;
 - dominance-safe GVN for pure typed computations when reuse does not lengthen
   the canonical temporary's live range.
+
+Return forwarding introduces no computation or memory motion. The target block
+must have no operations; conditional edges, nonempty return blocks, void returns
+and aggregate storage returns are outside this cleanup. Calls, volatile and
+ordinary memory accesses, machine blocks and faulting operations remain at their
+original execution points. Fault exits never become value returns. Existing
+edge arity/type and dominance validation is required before substitution;
+newly unreachable blocks and temporary definitions are cleaned up in the
+verified optimizer fixed point. Target consumers decide return placement and
+inlining from the resulting CFG. See the
+[selection return measurements](Action_2027/IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.md#return-forwarding-follow-up).
 
 Private aggregate captures also admit exact U8 subregion constants. A verified,
 nonvolatile executable byte store establishes a fact at an ordinary local ID

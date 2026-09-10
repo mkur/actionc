@@ -1,9 +1,11 @@
 # IF/CASE statement and expression codegen audit
 
-Measured on 2026-09-10 against slice 3 (`e9c7176`) with the slice-4 integration
-tests. This slice changes tests and documentation, not compiler lowering or
-optimization. [Raw measurements](IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.csv) include
-both Atari runtimes and both modern backends.
+The original baseline below was measured on 2026-09-10 against slice 3
+(`e9c7176`) with the slice-4 integration tests, committed as `e6d42cc`.
+[Baseline measurements](IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.csv) include both Atari
+runtimes and both modern backends. The later
+[return-forwarding results](#return-forwarding-follow-up) record the focused
+NIR optimization and its size/speed tradeoff.
 
 ## Reproduce
 
@@ -90,3 +92,57 @@ patterns. The [Oscar64 port](../../fixtures/runtime/oscar64/README.md) adds
 1,344 independent mixed-width IF executions. These checks preserve the existing
 constant-only classic FOR-step restriction and Atari MIR requirement for wide
 integer execution.
+
+## Return-forwarding follow-up
+
+The [focused slice](SELECTION_RETURN_CODEGEN_PLAN.md) forwards unconditional
+edges through empty scalar return blocks in verified NIR. The returned block
+parameter is replaced by the incoming argument:
+
+```text
+before:                         after:
+arm:                            arm:
+  value = selected_computation    value = selected_computation
+  goto join(value)                return value
+join(result: T):
+  return result
+```
+
+No computation is copied or moved. Nonempty return blocks, conditional edges,
+void returns, aggregate returns and fault exits keep their existing behavior.
+Chained empty return blocks disappear through the existing fixed point. This
+is a general CFG transformation with no source IF/CASE recognition.
+
+Inspection of the emitted listing explains the baseline differences. Scalar
+CASE's shared return block required jumps from selected arms to the common
+return-slot store and RTS. Dynamic variant dispatch had the same shared tail.
+The small IF expression also retained a JSR in Main while its statement
+counterpart was inlined. Forwarding exposes the existing MIR leaf-inlining
+opportunity; the inliner and its cost policy are unchanged.
+
+[Follow-up measurements](SELECTION_RETURN_CODEGEN_AUDIT.csv), using the same
+384 executions, show these MIR6502 expression changes:
+
+| Case | ActionCart XEX bytes, before → after | Min cycles | Max cycles |
+| --- | ---: | ---: | ---: |
+| IF | 42 → 53 | 36 → 24 | 38 → 26 |
+| Scalar CASE | 59 → 59 | 42 → 39 | 53 → 50 |
+| Known SOME | 37 → 37 | 24 → 24 | 24 → 24 |
+| Dynamic variant | 209 → 209 | 129 → 126 | 156 → 155 |
+
+Both runtimes have the same cycle improvements. Standalone dynamic-variant
+size stays 227 bytes; its other sizes match ActionCart. All MIR expression
+rows now match their equivalent statement rows. The IF improvement saves 12
+cycles but adds 11 bytes to the complete object through inlining; this is an
+explicit speed/size tradeoff, not a claim of universal size improvement.
+Statement measurements and all classic measurements remain at baseline.
+Known-SOME still loses dispatch comparisons and fault calls, while dynamic
+variant validation remains terminal.
+
+Three optimized snapshots intentionally change: `if_expressions`,
+`case_expressions`, and `case_variant_dynamic`. Their selected arms return
+directly and obsolete value-return joins disappear. These are intentional
+optimized CFG changes; raw NIR, source typing and evaluation order are unchanged.
+Focused NIR tests cover exact widths on all four target layouts, parameter
+substitution through chained joins, conditional predecessors, nonempty returns,
+aggregate storage boundaries, malformed input rejection and fault exits.

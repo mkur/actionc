@@ -28,7 +28,7 @@ bb3:
   branch %t4 ? bb5 : bb6
 bb5:
   %t5:Byte = call Read(99) signature=s2631868676 convention=target-public
-  goto bb2(%t5)
+  return %t5
 bb8:
   %t7:condition = cmp %t1 Ge 2 operand_ty=Byte
   branch %t7 ? bb9 : bb7
@@ -37,12 +37,10 @@ bb9:
   branch %t8 ? bb6 : bb7
 bb6:
   %t9:Byte = call Read(7) signature=s2631868676 convention=target-public
-  goto bb2(%t9)
+  return %t9
 bb7:
   %t10:Byte = call Read(9) signature=s2631868676 convention=target-public
-  goto bb2(%t10)
-bb2(%t11:Byte):
-  return %t11
+  return %t10
 
 routine r2 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
 bb10:

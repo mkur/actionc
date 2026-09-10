@@ -23,19 +23,17 @@ bb1:
   branch %t1 ? bb3 : bb4
 bb3:
   %t2:Byte = call Read(7) signature=s2631868676 convention=target-public
-  goto bb2(%t2)
+  return %t2
 bb4:
   %t3:Byte = call Read(0) signature=s2631868676 convention=target-public
   %t4:condition = cmp %t3 Ne 0 operand_ty=Byte
   branch %t4 ? bb5 : bb6
 bb5:
   %t5:Byte = call Read(8) signature=s2631868676 convention=target-public
-  goto bb2(%t5)
+  return %t5
 bb6:
   %t6:Byte = call Read(9) signature=s2631868676 convention=target-public
-  goto bb2(%t6)
-bb2(%t7:Byte):
-  return %t7
+  return %t6
 
 routine r2 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[Main::block0::selected]
   local Main::block0::selected: Byte duration=routine-static size=1 align=1

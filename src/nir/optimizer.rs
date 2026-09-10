@@ -35,10 +35,52 @@ fn optimize_routine(routine: &mut NirRoutine, storage: &NirRoutineStorageAnalysi
         thread_predicate_branches(routine, storage);
         eliminate_dominated_pure_redundancy(routine);
         eliminate_dead_pure_temps(routine);
+        forward_value_returns(routine);
         routine.temps = collect_temps(&routine.blocks);
         if routine.blocks == before {
             break;
         }
+    }
+}
+
+/// Bypass an empty value-return block on unconditional edges. Substitute the
+/// returned block parameter with this edge's argument, preserving its exact
+/// type and leaving all computation/effects in the predecessor. Other scalar
+/// values already dominate the edge in verified NIR. Aggregate returns still
+/// denote storage and are deliberately outside this scalar CFG cleanup.
+fn forward_value_returns(routine: &mut NirRoutine) {
+    let returns = routine
+        .blocks
+        .iter()
+        .filter_map(|block| match &block.terminator {
+            NirTerminator::Return(Some(value))
+                if block.ops.is_empty() && !matches!(value, NirValue::Aggregate { .. }) =>
+            {
+                Some((block.id, (block.params.clone(), value.clone())))
+            }
+            _ => None,
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut changed = false;
+    for block in &mut routine.blocks {
+        let NirTerminator::Goto(edge) = &block.terminator else {
+            continue;
+        };
+        let Some((params, value)) = returns.get(&edge.target) else {
+            continue;
+        };
+        let value = match value {
+            NirValue::Temp { id, .. } => params
+                .iter()
+                .position(|param| param.dest == *id)
+                .map_or_else(|| value.clone(), |index| edge.args[index].clone()),
+            _ => value.clone(),
+        };
+        block.terminator = NirTerminator::Return(Some(value));
+        changed = true;
+    }
+    if changed {
+        remove_unreachable_blocks(routine);
     }
 }
 
