@@ -99,6 +99,13 @@ MIR6502 owns target strategy:
 - compare/test/branch fusion;
 - target-specific peepholes and local machine cleanup.
 
+Constant 32-bit logical shifts legalize into ordinary word projections, shifts
+and bitwise combinations. Counts of zero preserve the input; counts at least
+32 produce zero. Dynamic counts retain the compiler-owned wide shift helper.
+The inputs are captured NIR values, so projection does not repeat or remove
+observable source loads or calls. Existing materialization owns byte selection
+and removal of unused result lanes; NIR retains its typed 32-bit operation.
+
 Emission owns concrete bytes and output mechanics:
 
 - exact opcode selection and writing;

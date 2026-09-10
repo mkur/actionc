@@ -139,6 +139,40 @@ fn word(bytes: &[u8], offset: usize) -> u32 {
 }
 
 #[test]
+fn constant_wide_shifts_preserve_all_lanes_narrow_results_and_calls() {
+    for count in [0u32, 1, 4, 7, 8, 12, 15, 16, 17, 24, 31, 32, 33, 256, 65536, u32::MAX] {
+        let source = Source::new(&format!(
+            "LONGCARD a=$6E0,l=$600,r=$604\nLONGINT sa=$6E0,sl=$608,sr=$60C\n\
+             CARD narrow=$610 BYTE small=$612,touches=$613,done=$6FF\n\
+             LONGCARD FUNC ReadValue() touches==+1 RETURN(a)\n\
+             PROC Main() touches=0 l=ReadValue() l=l LSH ${count:X} r=ReadValue() r=r RSH ${count:X}\n\
+             sl=sa LSH ${count:X} sr=sa RSH ${count:X}\n\
+             narrow=CARD(a RSH ${count:X}) small=BYTE(a RSH ${count:X}) done=$A5 DO OD RETURN"
+        ));
+        for (mode, runtime) in modes_and_runtimes() {
+            let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+            if mode == CompileMode::Mir6502 {
+                assert!(!compiled.source_listing().contains("::LShift32"));
+                assert!(!compiled.source_listing().contains("::RShift32"));
+            }
+            for a in [0u32, 1, 0x80, 0x100, 0xFFFF, 0x10000, 0x12345678, 0x7FFFFFFF, 0x80000000, 0xFEDCBA98, u32::MAX] {
+                let actual = run(compiled.object_bytes(), runtime, a, 0);
+                let (left, right) = (a.checked_shl(count).unwrap_or(0), a.checked_shr(count).unwrap_or(0));
+                let mut expected = vec![0xCC; 256];
+                for (offset, value) in [(0, left), (4, right), (8, left), (12, right), (0xE0, a), (0xE4, 0)] {
+                    expected[offset..offset+4].copy_from_slice(&value.to_le_bytes());
+                }
+                expected[16..18].copy_from_slice(&(right as u16).to_le_bytes());
+                expected[18] = right as u8;
+                expected[19] = 2;
+                expected[255] = 0xA5;
+                assert_eq!(actual, expected, "{mode:?}/{runtime:?} input={a:08X}, count={count}");
+            }
+        }
+    }
+}
+
+#[test]
 fn wide_zero_divisors_fault_before_stores_and_do_not_resume() {
     for ty in ["LONGINT", "LONGCARD"] {
         for operation in ["/", "MOD"] {

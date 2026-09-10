@@ -164,6 +164,18 @@ fn wide_helpers_are_mandatory_legalization_in_baseline_and_optimized_mir() {
 }
 
 #[test]
+fn constant_wide_shifts_legalize_without_wide_helpers_in_both_mir_configs() {
+    let nir = lower("LONGCARD a=$6E0,l=$600,r=$604 CARD n=$608 PROC Main() l=a LSH 12 r=a RSH 12 n=CARD(a RSH 12) RETURN", TargetId::Atari6502);
+    let nir = nir::optimize_program(&nir).unwrap();
+    for config in [actionc::mir6502::Mir6502Config::default(), actionc::mir6502::Mir6502Config::optimized()] {
+        let mir = actionc::mir6502::lower_program(&nir).unwrap();
+        let materialized = actionc::mir6502::materialize_program(mir, &config).unwrap();
+        assert!(!materialized.runtime_helpers.iter().any(|decl| matches!(decl.helper,
+            actionc::mir6502::MirRuntimeHelper::Lsh32 | actionc::mir6502::MirRuntimeHelper::Rsh32)));
+    }
+}
+
+#[test]
 fn wide_for_guards_keep_the_induction_width_and_do_not_fold_absolute_bounds() {
     for target in [TargetId::Atari6502,TargetId::Motorola68000,TargetId::Wdc65816Small,TargetId::Wdc65816Native] {
         let nir=lower("LONGCARD index,limit=$6E0 BYTE result PROC Main() FOR index=2 TO limit STEP -1 DO result==+1 OD RETURN",target);

@@ -28,6 +28,11 @@ preserves [Q8.8's](FIXED_POINT_Q8_8.md) truncation rule while supporting
 algorithms such as Oscar64's Mandelbrot recurrence that require floor rounding.
 Action RSH is logical; use MulFloor for this signed calculation.
 
+MulFloor extracts bits 12..27 of the full product. After narrowing to INT this
+is identical to floor division by 4096 followed by wrapping: logical and
+arithmetic shifts differ only in discarded high bits. Ordinary Mul and Trunc
+retain truncation toward zero.
+
 SqrWide returns a Q8.24 raw number: SqrWide(4096)=16777216, representing 1,
 and SqrWide(-32768)=1073741824, representing 64. Keep this result wide for
 radius tests; shifting it right by 12 converts its scale to Q4.12, with a

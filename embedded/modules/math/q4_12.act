@@ -48,17 +48,13 @@ RETURN(result)
 
 ; Floor rounding is explicit for algorithms that require arithmetic-shift semantics.
 PUBLIC INT FUNC MulFloor(INT left,right)
-  LONGINT product,wideRight,scaled
-  CARD remainderBits
+  LONGINT product,wideRight
   product=LONGINT(left)
   wideRight=LONGINT(right)
   product=product*wideRight
-  scaled=product/LONGINT(4096)
-  IF product<0 THEN
-    remainderBits=CARD(product)&4095
-    IF remainderBits#0 THEN scaled==-1 FI
-  FI
-RETURN(INT(scaled))
+  ; Bits 12..27 are exactly the wrapped, floor-rounded INT result. Logical
+  ; and arithmetic right shifts differ only in bits discarded by this cast.
+RETURN(INT(LONGCARD(product) RSH 12))
 
 ; Exact raw square, Q8.24: preserve all 32 bits, with no rescaling.
 PUBLIC LONGCARD FUNC SqrWide(INT value)

@@ -267,6 +267,73 @@ impl Builder<'_> {
         [low, high]
     }
 
+    fn constant_shift(
+        &mut self,
+        op: MirBinaryOp,
+        [low, high]: [MirValue; 2],
+        count: u32,
+    ) -> [MirValue; 2] {
+        let zero = MirValue::ConstU16(0);
+        if count >= 32 {
+            return [zero.clone(), zero];
+        }
+        if count == 0 {
+            return [low, high];
+        }
+        if count >= 16 {
+            let value = if op == MirBinaryOp::Lsh { low } else { high };
+            let shifted = if count == 16 {
+                value
+            } else {
+                self.binary(
+                    op,
+                    value,
+                    MirValue::ConstU16((count - 16) as u16),
+                    MirWidth::Word,
+                )
+            };
+            return if op == MirBinaryOp::Lsh {
+                [zero, shifted]
+            } else {
+                [shifted, zero]
+            };
+        }
+        let shifted_low = self.binary(
+            op,
+            low.clone(),
+            MirValue::ConstU16(count as u16),
+            MirWidth::Word,
+        );
+        let shifted_high = self.binary(
+            op,
+            high.clone(),
+            MirValue::ConstU16(count as u16),
+            MirWidth::Word,
+        );
+        let opposite = if op == MirBinaryOp::Lsh {
+            MirBinaryOp::Rsh
+        } else {
+            MirBinaryOp::Lsh
+        };
+        let crossing = self.binary(
+            opposite,
+            if op == MirBinaryOp::Lsh { low } else { high },
+            MirValue::ConstU16((16 - count) as u16),
+            MirWidth::Word,
+        );
+        if op == MirBinaryOp::Lsh {
+            [
+                shifted_low,
+                self.binary(MirBinaryOp::Or, shifted_high, crossing, MirWidth::Word),
+            ]
+        } else {
+            [
+                self.binary(MirBinaryOp::Or, shifted_low, crossing, MirWidth::Word),
+                shifted_high,
+            ]
+        }
+    }
+
     fn compare_pair(
         &mut self,
         op: MirCompareOp,
@@ -437,8 +504,25 @@ impl Builder<'_> {
                             left,
                             right,
                         ),
-                        NirBinaryOp::Lsh => self.helper(MirRuntimeHelper::Lsh32, left, right),
-                        NirBinaryOp::Rsh => self.helper(MirRuntimeHelper::Rsh32, left, right),
+                        NirBinaryOp::Lsh | NirBinaryOp::Rsh => {
+                            if let [MirValue::ConstU16(lo), MirValue::ConstU16(hi)] = right {
+                                self.constant_shift(
+                                    mir_binary_op(*op),
+                                    left,
+                                    u32::from(lo) | (u32::from(hi) << 16),
+                                )
+                            } else {
+                                self.helper(
+                                    if *op == NirBinaryOp::Lsh {
+                                        MirRuntimeHelper::Lsh32
+                                    } else {
+                                        MirRuntimeHelper::Rsh32
+                                    },
+                                    left,
+                                    right,
+                                )
+                            }
+                        }
                     };
                     self.move_pair(*dest, pair);
                 }
