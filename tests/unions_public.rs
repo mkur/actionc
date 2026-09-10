@@ -48,7 +48,7 @@ fn union_sample_is_modern_only_in_both_public_backends_and_runtimes() {
 }
 
 #[test]
-fn public_classic_rejects_wide_field_writes_but_accepts_narrow_views() {
+fn public_classic_supports_wide_field_writes_and_narrow_views() {
     let work = Work::new();
     for declaration in [
         "TYPE View=UNION [LONGCARD wide CARD word]",
@@ -60,19 +60,10 @@ fn public_classic_rejects_wide_field_writes_but_accepts_narrow_views() {
                 &format!("{declaration} View value PROC Main() {body} RETURN"),
             );
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-                let errors = compile_file(
+                compile_file(
                     &path,
                     &CompileOptions::for_mode(CompileMode::Optimized).with_runtime(runtime),
-                )
-                .unwrap_err();
-                assert!(
-                    errors
-                        .diagnostics()
-                        .iter()
-                        .any(|d| d.phase == CompilerPhase::Codegen
-                            && d.message.contains("requires the MIR6502 backend")),
-                    "{errors}"
-                );
+                ).unwrap();
                 compile_file(
                     &path,
                     &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
@@ -101,7 +92,7 @@ fn public_module_only_union_types_and_callbacks_compile_through_the_facade() {
 }
 
 #[test]
-fn inspection_cli_preserves_union_profile_and_classic_width_diagnostics() {
+fn inspection_cli_preserves_union_profile_and_supports_classic_wide_values() {
     let work = Work::new();
     let path = work.write(
         "view.act",
@@ -109,7 +100,7 @@ fn inspection_cli_preserves_union_profile_and_classic_width_diagnostics() {
     );
     for (profile, backend, success) in [
         ("legacy", "classic", false),
-        ("modern", "classic", false),
+        ("modern", "classic", true),
         ("modern", "mir6502", true),
     ] {
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
@@ -125,11 +116,7 @@ fn inspection_cli_preserves_union_profile_and_classic_width_diagnostics() {
         );
         if !success {
             assert!(
-                String::from_utf8_lossy(&output.stderr).contains(if profile == "legacy" {
-                    "UNION"
-                } else {
-                    "requires the MIR6502 backend"
-                })
+                String::from_utf8_lossy(&output.stderr).contains("UNION")
             );
         }
     }

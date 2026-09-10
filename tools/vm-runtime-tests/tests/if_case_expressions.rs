@@ -111,7 +111,7 @@ RETURN
 }
 
 #[test]
-fn mir_nested_selections_preserve_full_width_boundaries_across_calls() {
+fn nested_selections_preserve_full_width_boundaries_across_calls() {
     let program = semir(
         r#"
 BYTE ARRAY out=$600
@@ -144,7 +144,7 @@ RETURN
     let mut expected = vec![0xCC; 0x500];
     expected[..16].copy_from_slice(&[255, 255, 255, 127, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 128]);
     expected[0x3F] = 0xA5;
-    support::check_mir_semir(&program, &expected);
+    support::check_semir(&program, &expected, false);
 }
 
 #[test]
@@ -256,7 +256,7 @@ RETURN
 }
 
 #[test]
-fn mir_if_value_joins_preserve_wide_signed_and_unsigned_results() {
+fn if_value_joins_preserve_wide_signed_and_unsigned_results() {
     let program = semir(
         r#"
 BYTE ARRAY out=$600
@@ -283,7 +283,7 @@ RETURN
     let mut expected = vec![0xCC; 0x500];
     expected[..8].copy_from_slice(&[255, 255, 254, 255, 1, 0, 1, 0]);
     expected[0x3F] = 0xA5;
-    support::check_mir_semir(&program, &expected);
+    support::check_semir(&program, &expected, false);
 }
 
 #[test]
@@ -548,7 +548,7 @@ RETURN
 }
 
 #[test]
-fn mir_case_values_preserve_wide_labels_ranges_and_joins() {
+fn case_values_preserve_wide_labels_ranges_and_joins() {
     let program = semir(
         r#"
 BYTE ARRAY out=$600
@@ -586,7 +586,7 @@ RETURN
     let mut expected = vec![0xCC; 0x500];
     expected[..8].copy_from_slice(&[1, 0, 1, 0, 255, 255, 254, 255]);
     expected[0x3F] = 0xA5;
-    support::check_mir_semir(&program, &expected);
+    support::check_semir(&program, &expected, false);
 }
 
 #[test]
@@ -991,7 +991,7 @@ RETURN
 }
 
 #[test]
-fn mir_variant_case_values_join_wide_payloads_and_keep_selected_faults_terminal() {
+fn variant_case_values_join_wide_payloads_and_keep_selected_faults_terminal() {
     let program = semir(
         r#"
 TYPE Option<T>=VARIANT [NONE SOME [T value]]
@@ -1024,10 +1024,56 @@ RETURN
     let mut expected = vec![0xCC; 0x500];
     expected[..8].copy_from_slice(&[255, 255, 254, 255, 1, 0, 1, 0]);
     expected[0x3F] = 0xA5;
-    support::check_mir_semir(&program, &expected);
+    support::check_semir(&program, &expected, false);
 
     let source = "TYPE V=VARIANT [NONE SOME [BYTE value]] BYTE ARRAY out=$600 BYTE zero\nPROC Main()\nzero=0 out(0)=41\nout(1)=CASE V.SOME(7) OF\nWHEN V.SOME(n) THEN\nn/zero\nWHEN V.NONE THEN\n0\nESAC\nout(0)=42\nDO OD\nRETURN";
     let mut expected = vec![0xCC; 0x500];
     expected[0] = 41;
     support::check_with_error_code(source, &expected, Some(101));
+}
+
+#[test]
+fn wide_case_captures_each_volatile_byte_once_before_mutating_guard() {
+    let program = semir(r#"
+VOLATILE LONGCARD input=$610,selected=$620,unused=$630
+LONGCARD result=$600
+BYTE done=$63F
+BYTE FUNC Reject()
+ input=$20001
+RETURN(0)
+PROC Main()
+ input=$10001
+ result=CASE input OF
+ WHEN $10001 IF Reject() THEN
+  unused
+ WHEN $10001 THEN
+  selected
+ ELSE
+  unused
+ ESAC
+ done=$A5 DO OD
+RETURN
+"#);
+    let mut expected = vec![0xCC; 0x500];
+    expected[0x10..0x14].copy_from_slice(&0x20001u32.to_le_bytes());
+    expected[0x3F]=0xA5;
+    let watch: Vec<_> = (0x610..=0x613).chain(0x620..=0x623).chain(0x630..=0x633).collect();
+    support::check_semir_watched(&program, &expected, false, &watch, |path, events| {
+        use actionc_vm::BusAccess::{Read, Write};
+        // Backends may choose their byte order, but each complete access occurs
+        // once, and the guard cannot make the selector be read a second time.
+        let groups = [(Write, 0x610, 0x10001u32), (Read, 0x610, 0x10001),
+            (Write, 0x610, 0x20001), (Read, 0x620, 0xCCCCCCCC)];
+        assert_eq!(events.len(), 16, "{path}: {events:?}");
+        for (group, (access, base, bits)) in events.chunks_exact(4).zip(groups) {
+            let mut actual: Vec<_> = group.iter().map(|event| {
+                assert_eq!(event.access, access, "{path}");
+                (event.address, event.value)
+            }).collect();
+            actual.sort_unstable();
+            let expected: Vec<_> = bits.to_le_bytes().into_iter().enumerate()
+                .map(|(offset, value)| (base + offset as u16, value)).collect();
+            assert_eq!(actual, expected, "{path}");
+        }
+    });
 }

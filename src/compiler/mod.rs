@@ -471,13 +471,7 @@ fn compile_classic(
     path: &Path,
     source_map: &crate::includes::SourceMap,
 ) -> Result<CodegenOutput, CompileError> {
-    if let Some(diagnostic) = validation::classic_wide_integer_diagnostic(model, semir) {
-        return Err(CompileError::from_source_diagnostics(
-            CompilerPhase::Codegen,
-            vec![diagnostic],
-            source, path, Some(source_map),
-        ));
-    }
+    let uses_wide_integers = validation::classic_requires_wide_integer_projection(model, semir);
     if request.runtime == Runtime::Standalone {
         let origin = request
             .origin
@@ -503,7 +497,8 @@ fn compile_classic(
             if request.profile == CodegenProfile::Compat
                 && !named
                 && !uses_native_real
-                && !uses_lexical_blocks =>
+                && !uses_lexical_blocks
+                && !uses_wide_integers =>
         {
             let materialized = materialize_constants(program, model);
             generate_profile_with_origin_and_semir_facts(

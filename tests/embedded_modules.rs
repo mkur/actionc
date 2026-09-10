@@ -53,7 +53,7 @@ fn unused_wide_sys_interfaces_do_not_require_mir6502() {
 }
 
 #[test]
-fn classic_diagnoses_used_wide_sys_abis_even_with_narrow_arguments() {
+fn classic_supports_used_wide_sys_abis_even_with_narrow_arguments() {
     let temp = TestDir::new();
     for call in ["SYS.PrintLC(1)", "SYS.StrLI(1,text)", "value=SYS.ValLC(text)"] {
         let source = temp.source("sys-wide.act", &format!(
@@ -61,15 +61,13 @@ fn classic_diagnoses_used_wide_sys_abis_even_with_narrow_arguments() {
         ));
         for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-                let error = compile_file(&source, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap_err();
-                assert!(error.to_string().contains("requires the MIR6502 backend"), "{error}");
+                compile_file(&source, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
             }
         }
         let output = Command::new(env!("CARGO_BIN_EXE_actionc-emit"))
             .args(["--profile", "modern", "--backend", "classic", "--emit-code"])
             .arg(&source).output().unwrap();
-        assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("requires the MIR6502 backend"));
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     }
 }
 

@@ -69,7 +69,6 @@ impl Generator {
             );
         }
         self.emit_native_real_literal_pool();
-        self.emit_array_backing_storage();
     }
 
     pub(super) fn emit_compatible_global_decl(&mut self, decl: &VarDecl) {

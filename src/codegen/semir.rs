@@ -512,7 +512,8 @@ impl SemIrAstLowerer<'_> {
     }
 
     fn project_static_initializer(&mut self, declaration: &SemDeclaration) {
-        if !declaration.ty.value.is_record() && !declaration.ty.value.is_pointer() {
+        if !declaration.ty.value.is_record() && !declaration.ty.value.is_pointer()
+            && !declaration.ty.value.as_scalar().is_some_and(|ty| ty.width_bytes() == 4) {
             return;
         }
         let Some(plan) = &declaration.static_initializer else {
@@ -549,10 +550,9 @@ impl SemIrAstLowerer<'_> {
                         self.invalid_static_initializer_projection(declaration, write);
                         return;
                     };
-                    initializers.push(StorageInit::Byte(value as u8));
-                    if write.width == 2 {
-                        initializers.push(StorageInit::Byte((value >> 8) as u8));
-                    } else if write.width != 1 {
+                    if matches!(write.width, 1 | 2 | 4) {
+                        initializers.extend((0..write.width).map(|byte| StorageInit::Byte((value >> (byte * 8)) as u8)));
+                    } else {
                         self.invalid_static_initializer_projection(declaration, write);
                         return;
                     }
@@ -877,7 +877,7 @@ impl SemIrAstLowerer<'_> {
                 target: self.lvalue(target)?,
                 start: self.expr(start)?,
                 end: self.expr(end)?,
-                step: self.for_step(step.as_ref(), *step_control, *span),
+                step: self.for_step(step.as_ref(), *step_control, target.ty.as_scalar().is_some_and(|ty| ty.width_bytes() == 4), *span),
                 body: self.stmt_list(body),
                 span: *span,
             }),
@@ -892,10 +892,13 @@ impl SemIrAstLowerer<'_> {
         &mut self,
         step: Option<&SemExpr>,
         control: SemForStep,
+        wide: bool,
         span: Span,
     ) -> Option<Expr> {
-        let SemForStep::Down(amount) = control else {
-            return step.and_then(|step| self.expr(step));
+        let (down, amount) = match control {
+            SemForStep::Down(amount) => (true, amount),
+            SemForStep::Up(amount) if wide => (false, amount),
+            _ => return step.and_then(|step| self.expr(step)),
         };
         let text = amount.to_string();
         let magnitude = Expr {
@@ -903,14 +906,17 @@ impl SemIrAstLowerer<'_> {
                 text: text.clone(),
                 kind: if amount <= u64::from(u8::MAX) {
                     crate::lexer::NumberKind::Byte
-                } else {
+                } else if amount <= u64::from(u16::MAX) {
                     crate::lexer::NumberKind::Card
+                } else {
+                    crate::lexer::NumberKind::LongCard
                 },
-                value: Some(u64::from(amount)),
+                value: Some(amount),
             }),
             text: text.clone(),
             span,
         };
+        if !down { return Some(magnitude); }
         Some(Expr {
             kind: ExprKind::Unary {
                 op: UnaryOp::Neg,
@@ -1980,7 +1986,7 @@ fn lvalue_expr_node_count(value: &SemLValue) -> usize {
     }
 }
 
-fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Option<u16> {
+fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -> Option<u64> {
     let SemStaticInitializerValue::Literal { value, negative } = value else {
         return None;
     };
@@ -1991,9 +1997,9 @@ fn classic_static_initializer_literal_value(value: &SemStaticInitializerValue) -
         SemInitializerLiteral::False | SemInitializerLiteral::Nil => 0,
     };
     Some(if *negative {
-        0u16.wrapping_sub(value as u16)
+        0u64.wrapping_sub(value)
     } else {
-        value as u16
+        value
     })
 }
 

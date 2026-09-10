@@ -40,10 +40,10 @@ impl WideHelper {
 
 impl Generator {
     pub(super) fn expr_uses_wide_integer(&self, expr: &Expr) -> bool {
-        if self
-            .expr_scalar_type(expr)
-            .is_some_and(|ty| ty.width_bytes() == 4)
-        {
+        let Some(ty) = self.expr_scalar_type(expr) else {
+            return false;
+        };
+        if ty.width_bytes() == 4 {
             return true;
         }
         match &expr.kind {
@@ -360,6 +360,157 @@ impl Generator {
             self.emit_sta_slot_byte(destination, byte);
         }
         true
+    }
+
+    pub(super) fn emit_wide_compound_assignment(
+        &mut self,
+        target: &Expr,
+        op: BinaryOp,
+        value: &Expr,
+        span: Span,
+    ) -> bool {
+        let Some(target_ty) = self.expr_scalar_type(target) else {
+            return false;
+        };
+        let Some(operation_ty) = self
+            .compound_operations
+            .operation(self.current_record_copy_scope.as_deref(), span)
+            .and_then(|operation| operation.result_type.as_scalar())
+        else {
+            return false;
+        };
+        let Some(slot) = self.lvalue_slot(target) else {
+            return false;
+        };
+        let pointer = runtime_zp::ARRAY_ADDR;
+        if !self.emit_slot_address(slot, pointer) {
+            return false;
+        }
+        self.emit_lda_zero_page_value_only(pointer.offset(1));
+        self.emitter.emit_pha();
+        self.emit_lda_zero_page_value_only(pointer);
+        self.emitter.emit_pha();
+        if !self.emit_integer_value(value) {
+            return false;
+        }
+        if !matches!(op, BinaryOp::Lsh | BinaryOp::Rsh) {
+            self.normalize_integer_result(operation_ty);
+        }
+        for byte in 0..4 {
+            self.emit_lda_slot_byte(RESULT, byte);
+            self.emit_sta_slot_byte(RIGHT, byte);
+        }
+        self.emit_pla();
+        self.emit_sta_zero_page(pointer);
+        self.emit_pla();
+        self.emit_sta_zero_page(pointer.offset(1));
+        self.emit_lda_zero_page_value_only(pointer.offset(1));
+        self.emitter.emit_pha();
+        self.emit_lda_zero_page_value_only(pointer);
+        self.emitter.emit_pha();
+        // Capture the address before RHS effects, but read its value afterwards.
+        let destination = StorageSlot::indirect_indexed_y(pointer, slot.size)
+            .signed(slot.signed)
+            .volatile(slot.is_volatile);
+        self.capture_integer_slot(destination);
+        self.normalize_integer_result(target_ty);
+        self.normalize_integer_result(operation_ty);
+        for byte in 0..4 {
+            self.emit_lda_slot_byte(RESULT, byte);
+            self.emit_sta_slot_byte(LEFT, byte);
+        }
+        if !self.emit_integer_binary(op, operation_ty, span) {
+            return false;
+        }
+        self.normalize_integer_result(operation_ty);
+        self.emit_pla();
+        self.emit_sta_zero_page(pointer);
+        self.emit_pla();
+        self.emit_sta_zero_page(pointer.offset(1));
+        for byte in 0..slot.size {
+            self.emit_lda_slot_byte(RESULT, byte);
+            self.emit_sta_slot_byte(destination, byte);
+        }
+        true
+    }
+
+    pub(super) fn generate_wide_for(
+        &mut self,
+        target: &Expr,
+        start: &Expr,
+        end: &Expr,
+        step: Option<&Expr>,
+        body: &[Stmt],
+        span: Span,
+    ) {
+        // SemIR projects its resolved direction and magnitude into these literals.
+        let (down, magnitude) = match step.map(|step| &step.kind) {
+            None => (false, Some(1)),
+            Some(ExprKind::Number(number)) => (false, number.value),
+            Some(ExprKind::Unary {
+                op: UnaryOp::Neg,
+                expr,
+            }) => (
+                true,
+                if let ExprKind::Number(number) = &expr.kind {
+                    number.value
+                } else {
+                    None
+                },
+            ),
+            _ => (false, None),
+        };
+        let Some(amount) = magnitude.filter(|amount| (1..=u32::MAX as u64).contains(amount)) else {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "codegen only supports constant non-zero FOR steps",
+            ));
+            return;
+        };
+        let ty = self.expr_scalar_type(target).unwrap();
+        let signed = ty.signedness() == crate::semantic::ScalarSignedness::Signed;
+        let constant = |bits| Expr {
+            kind: ExprKind::Number(crate::semantic::ConstValue { ty, bits }.number_literal()),
+            text: String::new(),
+            span,
+        };
+        self.generate_assignment(target, start, span);
+        let test = self.next_label("long-for:test");
+        let done = self.next_label("long-for:done");
+        self.bind_codegen_label(test.clone(), span);
+        let limit = if down { BinaryOp::Ge } else { BinaryOp::Le };
+        if !self.emit_branch_if_false_compare(limit, target, end, &done, span) {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                "codegen could not compare LONG FOR bounds",
+            ));
+            return;
+        }
+        self.exit_labels.push(done.clone());
+        self.generate_stmt_list(body);
+        self.exit_labels.pop();
+        let maximum = if signed { 0x7FFF_FFFFu64 } else { 0xFFFF_FFFF };
+        let minimum = if signed { 0x8000_0000u64 } else { 0 };
+        if amount <= if signed { 0x8000_0000 } else { maximum } {
+            let (op, bits) = if down {
+                (BinaryOp::Lt, minimum.wrapping_add(amount) & 0xFFFF_FFFF)
+            } else {
+                (BinaryOp::Gt, maximum.wrapping_sub(amount) & 0xFFFF_FFFF)
+            };
+            self.emit_branch_if_true_compare(op, target, &constant(bits), &done, span);
+        }
+        let incremented = Expr {
+            kind: ExprKind::Binary {
+                op: if down { BinaryOp::Sub } else { BinaryOp::Add },
+                left: Box::new(target.clone()),
+                right: Box::new(constant(amount)),
+            },
+            text: String::new(),
+            span,
+        };
+        self.generate_assignment(target, &incremented, span);
+        self.emit_jmp_label(test, span);
+        self.bind_codegen_label(done, span);
     }
 
     pub(super) fn emit_wide_branch(&mut self, expr: &Expr, label: &str, span: Span) -> bool {

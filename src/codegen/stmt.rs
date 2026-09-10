@@ -716,6 +716,10 @@ impl Generator {
         body: &[Stmt],
         span: Span,
     ) {
+        if self.expr_scalar_type(target).is_some_and(|ty| ty.width_bytes() == 4) {
+            self.generate_wide_for(target, start, end, step, body, span);
+            return;
+        }
         let Some(step) = step.map_or(Some(ForStep::Up(1)), constant_for_step) else {
             self.diagnostics.push(Diagnostic::new(
                 span,
@@ -1229,6 +1233,13 @@ impl Generator {
                     span,
                     "classic code generation could not materialize the resolved native REAL compound assignment",
                 ));
+            }
+            return;
+        }
+        if self.expr_uses_wide_integer(target) || self.expr_uses_wide_integer(value) {
+            if !self.emit_wide_compound_assignment(target, op, value, span) {
+                self.diagnostics.push(Diagnostic::new(span,
+                    "classic code generation could not materialize the wide compound assignment"));
             }
             return;
         }

@@ -25,6 +25,12 @@ impl Drop for Source {
     }
 }
 
+fn modes_and_runtimes() -> impl Iterator<Item = (CompileMode, Runtime)> {
+    [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502]
+        .into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone]
+            .into_iter().map(move |runtime| (mode, runtime)))
+}
+
 fn run(image: &[u8], runtime: Runtime, a: u32, b: u32) -> Vec<u8> {
     execute(image, runtime, a, b, false)
 }
@@ -139,10 +145,10 @@ fn wide_zero_divisors_fault_before_stores_and_do_not_resume() {
             let source = Source::new(&format!(
                 "{ty} a=$6E0,b=$6E4,result=$600 BYTE state=$604,done=$6FF\nPROC Main() state=41 result=a {operation} b state=42 done=$A5 RETURN"
             ));
-            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for (mode, runtime) in modes_and_runtimes() {
                 let compiled = compile_file(
                     &source.0,
-                    &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
                 )
                 .unwrap();
                 let bytes = execute(compiled.object_bytes(), runtime, 0x80000000, 0, true);
@@ -162,10 +168,13 @@ fn wide_storage_arithmetic_comparisons_and_casts_execute_in_both_runtimes() {
         0u32, 1, 0xFF, 0x100, 0xFFFF, 0x10000, 0x7FFFFFFF, 0x80000000, 0xFFFF0000, 0xFFFFFFFF,
         0x89ABCDEF,
     ];
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    // This fixture also uses modern source features (value comparisons,
+    // CASE, or inline record arrays). Compatibility's LONG path is covered
+    // independently by classic_long_integers and the common-source tests.
+    for (mode, runtime) in modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility) {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for a in values {
@@ -218,10 +227,10 @@ fn wide_nested_direct_and_typed_indirect_calls_preserve_all_result_bytes() {
     let source = Source::new(
         "LONGCARD a=$6E0,b=$6E4,result=$600\nBYTE count=$604,done=$6FF\nLONGCARD FUNC Echo(LONGCARD value) count==+1 RETURN(value)\nLONGCARD FUNC Combine(LONGCARD left,right BYTE bias) RETURN(left+right+LONGCARD(bias))\nLONGCARD FUNC POINTER callback(LONGCARD value)\nPROC Main() count=0 callback=@Echo result=Combine(callback(a),Echo(b),7) done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in modes_and_runtimes() {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for (a, b) in [
@@ -248,10 +257,10 @@ fn typed_byte_callbacks_are_calls_and_preserve_the_argument_in_a() {
     let source = Source::new(
         "CARD input=$6E0 BYTE result=$600,count=$601,done=$6FF\nBYTE FUNC Echo(BYTE value) count==+1 RETURN(value)\nBYTE FUNC POINTER callback(BYTE value)\nPROC Main() count=0 callback=@Echo result=callback(BYTE(input)) done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in modes_and_runtimes() {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for a in [0, 1, 7, 127, 128, 255] {
@@ -271,10 +280,13 @@ fn wide_destination_does_not_reassociate_narrow_arithmetic() {
     let source = Source::new(
         "CARD a=$6E0,b=$6E4 LONGCARD narrow=$600,wide=$604 BYTE smaller=$608,done=$6FF\nPROC Main() narrow=a+b wide=LONGCARD(a)+b smaller=(a+b)<LONGCARD($10000) done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    // This fixture also uses modern source features (value comparisons,
+    // CASE, or inline record arrays). Compatibility's LONG path is covered
+    // independently by classic_long_integers and the common-source tests.
+    for (mode, runtime) in modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility) {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for (a, b) in [(65535, 1), (32768, 32768), (50000, 50000), (0, 0)] {
@@ -294,10 +306,13 @@ fn wide_record_arrays_and_pointer_views_preserve_guards_and_capture_addresses() 
     let source = Source::new(
         "LONGCARD a=$6E0,b=$6E4,result=$600\nBYTE guards=$604,done=$6FF\nTYPE BufferType=[BYTE before LONGCARD ARRAY data(260) BYTE after]\nBufferType buffer\nLONGCARD POINTER ptr\nPROC Main() buffer.before=$12 buffer.after=$34 ptr=@buffer.data(0) ptr(129)=a buffer.data(259)=b result=ptr(129)+buffer.data(259) guards=buffer.before XOR buffer.after done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    // This fixture also uses modern source features (value comparisons,
+    // CASE, or inline record arrays). Compatibility's LONG path is covered
+    // independently by classic_long_integers and the common-source tests.
+    for (mode, runtime) in modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility) {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for (a, b) in [(0x12345678, 0x87654321), (0xFFFFFFFF, 1)] {
@@ -318,10 +333,10 @@ fn wide_multiply_divide_remainder_and_shifts_match_host_oracles() {
         0u32, 1, 2, 7, 8, 15, 16, 17, 31, 32, 33, 255, 256, 65535, 65536, 0x7FFFFFFF, 0x80000000,
         0x80000001, 0xFFFF0001, 0xFFFFFFFF, 0x89ABCDEF,
     ];
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in modes_and_runtimes() {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for a in values {
@@ -355,10 +370,10 @@ fn wide_composition_compound_assignments_and_mixed_operands_keep_typed_widths() 
     let source = Source::new(
         "LONGCARD a=$6E0,b=$6E4,result=$600,left=$604,right=$608,wide=$60C,narrow=$610 LONGINT signed=$614,sa=$6E0 INT small=$6E4 CARD na=$6E0,nb=$6E4 BYTE done=$6FF\nPROC Main() result=(a*b)+(b*a) result==XOR a left=a LSH LONGCARD(0) right=a RSH LONGCARD(0) wide=LONGCARD(na)*nb narrow=LONGCARD(CARD(na*nb)) signed=sa*small signed==+small done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in modes_and_runtimes() {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for (a, b) in [
@@ -394,10 +409,13 @@ fn wide_case_labels_preserve_high_bits_and_single_evaluation() {
     let source = Source::new(
         "LONGCARD input=$6E0 BYTE unsigned=$600,signed=$601,calls=$602,done=$6FF\nLONGCARD FUNC Capture() calls==+1 RETURN(input)\nPROC Main() calls=0\nCASE Capture() OF\nWHEN $10001 THEN\nunsigned=1\nWHEN $20001 THEN\nunsigned=2\nWHEN $FFFFFFF0 TO $FFFFFFFF THEN\nunsigned=3\nELSE\nunsigned=4\nESAC\nCASE LONGINT(input) OF\nWHEN -2147483648 TO -2147483646 THEN\nsigned=1\nWHEN -1 THEN\nsigned=2\nWHEN 65537 THEN\nsigned=3\nELSE\nsigned=4\nESAC\ndone=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    // This fixture also uses modern source features (value comparisons,
+    // CASE, or inline record arrays). Compatibility's LONG path is covered
+    // independently by classic_long_integers and the common-source tests.
+    for (mode, runtime) in modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility) {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for a in [
@@ -437,10 +455,10 @@ fn wide_for_loops_terminate_at_signed_and_unsigned_limits() {
     let source = Source::new(
         "LONGCARD index,start=$6E0,finish=$6E4 LONGINT signedIndex,ss=$6E0,se=$6E4 BYTE up=$600,down=$601,sup=$602,sdown=$603,done=$6FF\nPROC Main() up=0 down=0 sup=0 sdown=0\nFOR index=start TO finish DO up==+1 OD\nFOR index=finish TO start STEP -1 DO down==+1 OD\nFOR signedIndex=ss TO se DO sup==+1 OD\nFOR signedIndex=se TO ss STEP -1 DO sdown==+1 OD\ndone=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in modes_and_runtimes() {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for (a, b) in [
@@ -466,10 +484,13 @@ fn wide_initializers_dynamic_indexes_large_steps_and_overlapping_pointer_cells()
     let source = Source::new(
         "LONGCARD a=$6E0,result=$600,initial=[$12345678] LONGINT negative=[-70000] LONGCARD POINTER ptr=$640 TYPE Container=[BYTE before LONGCARD ARRAY data(260) BYTE after] Container buffer BYTE guards=$604,up=$605,down=$606,done=$6FF\nPROC Main() CARD offset LONGCARD i,local=[$87654321]\noffset=CARD(a) & 255 buffer.before=$12 buffer.after=$34 ptr=@buffer.data(0) ptr(offset)=a buffer.data(259)=initial result=buffer.data(offset)+buffer.data(259)+local+LONGCARD(negative) guards=buffer.before XOR buffer.after\nptr=$640 ptr(0)=a\nup=0 down=0 FOR i=0 TO $30000 STEP $10000 DO up==+1 OD FOR i=$30000 TO 0 STEP -LONGINT($10000) DO down==+1 OD done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    // This fixture also uses modern source features (value comparisons,
+    // CASE, or inline record arrays). Compatibility's LONG path is covered
+    // independently by classic_long_integers and the common-source tests.
+    for (mode, runtime) in modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility) {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         for a in [0u32, 0x12345681, 0x800000FF, 0xFFFF0001] {
@@ -492,37 +513,14 @@ fn wide_initializers_dynamic_indexes_large_steps_and_overlapping_pointer_cells()
 }
 
 #[test]
-fn classic_diagnoses_wide_types_instead_of_truncating() {
-    for text in [
-        "LONGCARD value PROC Main() value=$12345678 RETURN",
-        "CARD value PROC Main() value=CARD(LONGINT(70000)) RETURN",
-    ] {
-        let source = Source::new(text);
-        for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
-            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-                let error = compile_file(
-                    &source.0,
-                    &CompileOptions::for_mode(mode).with_runtime(runtime),
-                )
-                .unwrap_err();
-                assert!(
-                    format!("{error:?}").contains("requires the MIR6502 backend"),
-                    "{error:?}"
-                );
-            }
-        }
-    }
-}
-
-#[test]
 fn narrow_absolute_loop_bounds_are_values_not_constant_addresses() {
     let source = Source::new(
         "CARD index,limit=$6E4 BYTE count=$600,done=$6FF\nPROC Main() count=0 FOR index=$FFFD TO limit DO count==+1 OD done=$A5 RETURN",
     );
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in modes_and_runtimes() {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap();
         let bytes = run(compiled.object_bytes(), runtime, 0, 65535);

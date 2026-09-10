@@ -277,6 +277,13 @@ impl Generator {
             self.generate_stmt_list(statements);
             return self.emit_branch_if_true(value, label, span);
         }
+        if self.segment_storage
+            && let ExprKind::Binary { op, left, right } = &condition.kind
+            && matches!(op, BinaryOp::And | BinaryOp::Or)
+            && (Self::is_condition_shaped_expr(left) || Self::is_condition_shaped_expr(right))
+        {
+            return self.emit_branch_if_true_logical(*op, left, right, label, span);
+        }
         if self.expr_uses_wide_integer(condition) {
             return self.emit_wide_branch(condition, label, span);
         }
@@ -527,6 +534,12 @@ impl Generator {
         label: &str,
         span: Span,
     ) -> bool {
+        if self.expr_uses_wide_integer(left) || self.expr_uses_wide_integer(right) {
+            let condition = Expr { kind: ExprKind::Binary {
+                op, left: Box::new(left.clone()), right: Box::new(right.clone()),
+            }, text: String::new(), span };
+            return self.emit_wide_branch(&condition, label, span);
+        }
         let width = self
             .expr_size(left)
             .unwrap_or(1)

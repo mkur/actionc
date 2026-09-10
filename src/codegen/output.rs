@@ -55,6 +55,10 @@ impl Generator {
             self.emitter.emit_u8(0x60);
         }
 
+        // Uninitialized array homes follow every executable helper. Binding
+        // them before helper emission makes input buffers overwrite helper code.
+        if self.segment_storage { self.emit_array_backing_storage(); }
+
         let origin = self.emitter.origin;
         let run_address = self
             .program_entry_label

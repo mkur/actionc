@@ -684,11 +684,7 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        if let Some(diagnostic) = crate::compiler::validation::classic_wide_integer_diagnostic(&model, &semir) {
-            print_diagnostics_with_source(vec![diagnostic], &loaded.source,
-                Some(&loaded.source_map), diagnostic_byte_ranges);
-            process::exit(1);
-        }
+        let uses_wide_integers = crate::compiler::validation::classic_requires_wide_integer_projection(&model, &semir);
 
         if runtime == Runtime::Standalone {
             let standalone_origin = if origin_explicit {
@@ -750,7 +746,7 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        let result = if named || profile == CodegenProfile::Modern {
+        let result = if named || profile == CodegenProfile::Modern || uses_wide_integers {
             if origin_explicit {
                 generate_semir_profile_at_origin(&semir, origin, profile)
             } else {

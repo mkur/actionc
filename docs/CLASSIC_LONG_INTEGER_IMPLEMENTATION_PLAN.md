@@ -76,6 +76,17 @@ RHS effects. Loads capture the complete source before overwriting result bytes.
 Helpers are linked once when used and report their Error dependency through
 the existing runtime linker. These rules apply in both classic profiles.
 
+
+Wide FOR direction and magnitude come from SemIR's resolved step control.
+Classic emits four-byte limit comparisons and wrap guards at signed/unsigned
+boundaries. Compounds capture the destination before RHS effects and read the
+old value afterwards, applying the SemIR computation type before store
+conversion. Condition-shaped AND/OR branches preserve guarded CASE evaluation.
+Wide scalar and aggregate initializer writes use the typed static image;
+array backing storage is bound after all arithmetic helper bodies, so buffers
+cannot overlap executable code.
+
+
 ## Progress
 
 Slice 1 is complete. Both classic profiles execute four-byte computation,
@@ -83,3 +94,11 @@ conversion, storage and nested call results in both runtimes. The public guard
 remains until control-flow integration is complete. Validation: 3,073 compiler
 tests passed (22 existing ignored), 49 NIR fixtures passed, and 62 focused VM
 tests passed, including 592 host-fed classic LONG cases. No IR snapshots changed.
+
+Slice 2 is complete. The compiler facade and inspection CLI enable classic LONG
+execution through the typed projection. Calls, compounds, signed/unsigned FOR
+limits and steps, IF/CASE values, variant payloads, initializer images and
+volatile captures preserve full width. The array/helper overlap found by the
+cartridge input oracle is fixed. The refreshed compiler suite passes all 3,073
+tests (22 existing ignored), all 49 NIR fixtures pass, and all-targets checking
+passes. Focused wide execution and I/O oracles pass; no IR snapshots changed.

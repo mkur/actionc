@@ -10,12 +10,12 @@ use crate::semantic::{
     },
 };
 
-/// Capability check shared by the compiler facade and the inspection CLI.
+/// Select the typed classic projection whenever execution needs wide integers.
 /// Use semantic type identities, including casts without wide declarations.
-pub(crate) fn classic_wide_integer_diagnostic(
+pub(crate) fn classic_requires_wide_integer_projection(
     model: &crate::semantic::SemanticModel,
     semir: &SemProgram,
-) -> Option<Diagnostic> {
+) -> bool {
     let wide = |ty: &crate::semantic::ValueType| ty.as_scalar().is_some_and(|scalar|
         matches!(scalar, crate::semantic::ScalarType::LongInt | crate::semantic::ScalarType::LongCard));
     // Interface imports are not executable uses. Reuse SemIR's existing
@@ -34,7 +34,7 @@ pub(crate) fn classic_wide_integer_diagnostic(
     let unused_scopes = model.routine_scopes.iter()
         .filter(|scope| scope.symbol.is_some_and(|id| unused_external.contains(&id)))
         .map(|scope| scope.scope).collect::<HashSet<_>>();
-    let span = model.symbols.symbols.iter().enumerate().find_map(|(index, symbol)| {
+    model.symbols.symbols.iter().enumerate().find_map(|(index, symbol)| {
         (symbol.class != SymbolClass::Type
             && !unused_external.contains(&crate::semantic::SymbolId(index))
             && !unused_scopes.contains(&symbol.scope)
@@ -47,13 +47,12 @@ pub(crate) fn classic_wide_integer_diagnostic(
         (routine.signature.params.iter().any(&wide)
             || routine.signature.return_type.as_ref().is_some_and(&wide))
             .then_some(routine.symbol.span)
-    }))?;
-    Some(Diagnostic::new(span, "LONGINT/LONGCARD code generation requires the MIR6502 backend; classic supports only 8/16-bit integers"))
+    })).is_some()
 }
 
 #[cfg(test)]
 #[test]
-fn classic_wide_guard_recognizes_union_views_before_emission() {
+fn classic_wide_projection_recognizes_union_views() {
     for definition in ["UNION [T wide CARD word]", "[T wide CARD word]"] {
     for body in ["value.wide=1", "result=value.wide", "ptr.wide==+1", "result=LONGCARD(value.word)"] {
         let source=format!("TYPE View<T>={definition} View<LONGCARD> value View<LONGCARD> POINTER ptr CARD result PROC Main() {body} RETURN");
@@ -61,8 +60,7 @@ fn classic_wide_guard_recognizes_union_views_before_emission() {
         let mut options=crate::semantic::SemanticOptions::modern(); options.algebraic_types.unions=true;
         let model=crate::semantic::analyze_with_options(&ast,options).unwrap();
         let semir = crate::semantic::ir::lower_program(&ast, &model);
-        let error=classic_wide_integer_diagnostic(&model, &semir).expect(body);
-        assert!(error.message.contains("requires the MIR6502 backend"));
+        assert!(classic_requires_wide_integer_projection(&model, &semir), "{body}");
     }
     }
     // A declaration alone is not a wide operation: byte/word views and opaque
@@ -71,7 +69,7 @@ fn classic_wide_guard_recognizes_union_views_before_emission() {
     let mut options=crate::semantic::SemanticOptions::modern(); options.algebraic_types.unions=true;
     let model=crate::semantic::analyze_with_options(&ast,options).unwrap();
     let semir = crate::semantic::ir::lower_program(&ast, &model);
-    assert!(classic_wide_integer_diagnostic(&model, &semir).is_none());
+    assert!(!classic_requires_wide_integer_projection(&model, &semir));
 }
 
 pub(crate) fn standalone_resident_diagnostics(program: &SemProgram) -> Vec<Diagnostic> {

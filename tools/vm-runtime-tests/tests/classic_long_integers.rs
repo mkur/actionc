@@ -208,3 +208,112 @@ RETURN
         },
     );
 }
+
+#[test]
+fn classic_long_compounds_capture_places_and_read_after_rhs_effects() {
+    check(
+        r#"
+LONGCARD a=$6E0,b=$6E4
+LONGCARD ARRAY data(2)=$601
+LONGCARD captured=$609
+LONGCARD POINTER ptr
+CARD narrow=$641
+BYTE calls=$645,done=$6FF
+LONGCARD FUNC Change()
+ calls==+1 ptr=$620 data(0)=a narrow=7
+RETURN(b)
+PROC Main()
+ calls=0 ptr=@data data(0)=0 narrow=0
+ ptr(0)==+Change()
+ captured=data(0)
+ narrow==+Change()
+ done=$A5 DO OD
+RETURN
+"#,
+        &[
+            (0xFFFF0001, 0x12345678),
+            (0xFFFFFFFF, 1),
+            (0x80000000, 0x80000000),
+        ],
+        |a, b, page| {
+            // The second Change deliberately resets data(0) after the first compound.
+            word(page, 1, a);
+            word(page, 9, a.wrapping_add(b));
+            page[0x41..0x43].copy_from_slice(&(7u16.wrapping_add(b as u16)).to_le_bytes());
+            page[0x45] = 2;
+        },
+    );
+}
+
+#[test]
+fn classic_long_case_guards_and_indirect_targets_preserve_call_order() {
+    check(
+        r#"
+LONGCARD a=$6E0,b=$6E4,result=$601,selected=$605
+LONGCARD FUNC POINTER callback(LONGCARD n)
+BYTE guards=$609,done=$6FF
+LONGCARD FUNC First(LONGCARD n)
+RETURN(n+$10000)
+LONGCARD FUNC Second(LONGCARD n)
+RETURN(n+$20000)
+LONGCARD FUNC Switch()
+ callback=@Second
+RETURN(a)
+BYTE FUNC Guard()
+ guards==+1
+RETURN(1)
+PROC Main()
+ callback=@First guards=0 result=callback(Switch())
+ selected=CASE b OF
+ WHEN $10001 IF Guard() THEN
+ a
+ WHEN $20001 IF Guard() THEN
+ a+1
+ ELSE
+ LONGCARD(7)
+ ESAC
+ done=$A5 DO OD
+RETURN
+"#,
+        &[
+            (0x12345678, 0x10001),
+            (0xFFFFFFFF, 0x20001),
+            (0x80000001, 1),
+        ],
+        |a, b, page| {
+            word(page, 1, a.wrapping_add(0x10000));
+            word(
+                page,
+                5,
+                match b {
+                    0x10001 => a,
+                    0x20001 => a.wrapping_add(1),
+                    _ => 7,
+                },
+            );
+            page[9] = u8::from(matches!(b, 0x10001 | 0x20001));
+        },
+    );
+}
+
+#[test]
+fn classic_long_for_preserves_unsigned_high_bit_step_direction() {
+    check(
+        r#"
+LONGCARD i
+LONGINT j
+BYTE up=$601,down=$602,signedUp=$603,done=$6FF
+PROC Main()
+ up=0 down=0 signedUp=0
+ FOR i=0 TO $FFFFFFFF STEP $80000000 DO up==+1 OD
+ FOR i=$FFFFFFFF TO 0 STEP -LONGINT($40000000) DO down==+1 OD
+ FOR j=LONGINT($80000000) TO 0 STEP $80000000 DO signedUp==+1 OD
+ done=$A5 DO OD
+RETURN
+"#,
+        &[(0, 0)],
+        |_, _, page| {
+            page[1..4].copy_from_slice(&[2, 4, 2]);
+        },
+    );
+}
