@@ -302,6 +302,11 @@ fn linked_mult32_preserves_scratch_stack_and_decimal_contract() {
         seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
         pairs.push((a, seed));
         pairs.push((a as i16 as i32 as u32, seed as i16 as i32 as u32));
+        // Width-specialized helper paths must retain a fully general left
+        // operand, including carries from each of its upper bytes.
+        pairs.push((a, seed & 0xFF));
+        pairs.push((a, seed & 0xFFFF));
+        pairs.push((a, seed & 0xFFFFFF));
     }
     for (a, b) in pairs {
         vm.bus_mut().ram_mut().map(0, &[0xCC; 256]).unwrap();

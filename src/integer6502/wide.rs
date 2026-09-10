@@ -58,11 +58,27 @@ pub(crate) fn multiply() -> Vec<u8> {
     source.push_str(&negate(0x82));
     source.push_str(&negate(0xC0));
     source.push_str(
-        "width: LDX #32\nLDA $C3\nBNE loop\n\
-         LDX #24\nLDA $C2\nBNE loop\nLDX #16\nLDA $C1\nBNE loop\nLDX #8\nloop:\n",
+        "width: LDA $C3\nBNE wide32\nLDA $C2\nBNE wide24\n\
+         LDA $C1\nBEQ byte\nLDX #16\n",
     );
-    source.push_str(&shift(0xC0, false));
-    source.push_str("BCC next\nCLC\n");
+    source.push_str(&multiply_loop("word", 2));
+    source.push_str("RTS\nbyte: LDX #8\n");
+    source.push_str(&multiply_loop("byte", 1));
+    source.push_str("RTS\nwide24: LDX #24\nBNE wide_loop\nwide32: LDX #32\n");
+    source.push_str(&multiply_loop("wide", 4));
+    pure_body(&source)
+}
+
+fn multiply_loop(label: &str, multiplier_bytes: u8) -> String {
+    // The width dispatch proves all omitted multiplier bytes are zero. Begin
+    // with LSR so the top retained byte receives a zero, then rotate down.
+    // Multiplicand and result remain four bytes, including for narrow paths.
+    let top = 0xC0 + multiplier_bytes - 1;
+    let mut source = format!("{label}_loop: LSR ${top:02X}\n");
+    for byte in (0xC0..top).rev() {
+        source.push_str(&format!("ROR ${byte:02X}\n"));
+    }
+    source.push_str(&format!("BCC {label}_next\nCLC\n"));
     for i in 0..4 {
         source.push_str(&format!(
             "LDA ${:02X}\nADC ${:02X}\nSTA ${:02X}\n",
@@ -71,10 +87,10 @@ pub(crate) fn multiply() -> Vec<u8> {
             0xC4 + i
         ));
     }
-    source.push_str("next:\n");
+    source.push_str(&format!("{label}_next:\n"));
     source.push_str(&shift(0x82, true));
-    source.push_str("DEX\nBNE loop\n");
-    pure_body(&source)
+    source.push_str(&format!("DEX\nBNE {label}_loop\n"));
+    source
 }
 
 pub(crate) fn shift_body(left: bool) -> Vec<u8> {

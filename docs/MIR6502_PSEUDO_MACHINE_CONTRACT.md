@@ -115,6 +115,12 @@ not a change to NIR multiplication semantics. Inputs remain at $82..$85/$C0..$C3
 result at $C4..$C7, scratch/clobbers remain $82..$87/$C0..$C7 and A/X/Y/P;
 decimal mode is cleared and the stack is balanced on every return path.
 
+For byte/word multiplier magnitudes, Mult32 uses separate loops that shift only
+the retained multiplier bytes. Width dispatch proves the omitted bytes zero;
+the top retained byte uses LSR to introduce zero carry. The multiplicand and
+result always remain four bytes, so narrow paths preserve arbitrary 32-bit
+left operands. The 24/32-round fallback retains the full multiplier shift.
+
 Wide comparisons against constants at the start or end of a low-lane range
 use only the high lane: `x < K` / `x >= K` when K's low lane is zero, and
 `x <= K` / `x > K` when it is all ones. Constant left operands reverse the
