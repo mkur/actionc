@@ -176,6 +176,116 @@ fn write_word(bytes: &mut [u8], offset: usize, value: u16) {
 }
 
 #[test]
+fn oscar64_rotate_byte_and_word_preserve_every_cycle_value() {
+    let mut words = vec![
+        0u16, 0xFFFF, 0x1234, 0x4321, 0x5555, 0xAAAA, 0x00FF, 0x0101, 0xFF00, 0x7FFF, 0x8001,
+    ];
+    for bit in 0..16 {
+        words.extend([1u16 << bit, !(1u16 << bit)]);
+    }
+    words.sort_unstable();
+    words.dedup();
+    assert_eq!(words.len(), 42);
+
+    let inputs = std::iter::once((0x12u8, 0x1234u16))
+        .chain((0..=255u8).map(|byte| (byte, words[usize::from(byte) % words.len()])));
+    let cases: Vec<_> = inputs
+        .map(|(byte, word)| {
+            let mut case = Case::new(format!("byte={byte:02X},word={word:04X}"));
+            case.setup.push((0x06E0, vec![byte]));
+            case.input(0x06E3, word);
+            let mut expected = vec![POISON; 0x100];
+            write_word(&mut expected, 0, 0);
+            // Check each direction independently, rather than only their inverse.
+            for count in 0..=8 {
+                expected[0x11 + count] = byte.rotate_right(count as u32);
+                expected[0x21 + count] = byte.rotate_left(count as u32);
+            }
+            for count in 0..=16 {
+                write_word(
+                    &mut expected,
+                    0x31 + 2 * count,
+                    word.rotate_right(count as u32),
+                );
+                write_word(
+                    &mut expected,
+                    0x61 + 2 * count,
+                    word.rotate_left(count as u32),
+                );
+            }
+            expected[0xA1] = byte;
+            expected[0xA3] = byte.rotate_left(1);
+            write_word(&mut expected, 0xA5, word);
+            write_word(&mut expected, 0xA9, word.rotate_left(1));
+            expected[0xE0] = byte;
+            write_word(&mut expected, 0xE3, word);
+            expected[0xFF] = 0xA5;
+            case.expected.push((0x0600, expected));
+            case
+        })
+        .collect();
+    assert_eq!(cases.len(), 257);
+    run_cases("rolrortest", 12_000, &cases);
+}
+
+#[test]
+fn oscar64_rotate_long_word_preserves_every_cycle_value() {
+    for &mode in CLASSIC_MODES {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let error = compile_file(
+                repository_root().join("fixtures/runtime/oscar64/rolrortest_wide.act"),
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .expect_err("LONGCARD requires MIR6502");
+            assert!(
+                error
+                    .diagnostics()
+                    .iter()
+                    .any(|d| d.message.contains("requires the MIR6502 backend")),
+                "{error}"
+            );
+        }
+    }
+    let mut inputs = vec![
+        0u32, 0xFFFFFFFF, 0x12345678, 0x87654321, 0x55555555, 0xAAAAAAAA, 0x0000FFFF, 0x00010001,
+        0x00FFFFFF, 0x01000001, 0xFFFF0000, 0x7FFFFFFF, 0x80000001,
+    ];
+    for bit in 0..32 {
+        inputs.extend([1u32 << bit, !(1u32 << bit)]);
+    }
+    inputs.sort_unstable();
+    inputs.dedup();
+    assert_eq!(inputs.len(), 76);
+    let cases: Vec<_> = inputs
+        .into_iter()
+        .map(|value| {
+            let mut case = Case::new(format!("long word={value:08X}"));
+            case.setup.push((0x06E1, value.to_le_bytes().to_vec()));
+            let mut expected = vec![POISON; 0x100];
+            write_word(&mut expected, 0, 0);
+            expected[0x11..0x15].copy_from_slice(&value.to_le_bytes());
+            expected[0x17..0x1B].copy_from_slice(&value.rotate_left(1).to_le_bytes());
+            expected[0xE1..0xE5].copy_from_slice(&value.to_le_bytes());
+            expected[0xFF] = 0xA5;
+            case.expected.push((0x0600, expected));
+            let mut tables = vec![POISON; 0x200];
+            case.setup.push((0x5000, tables.clone()));
+            for count in 0..=32 {
+                let right = 1 + 4 * count;
+                let left = 0x103 + 4 * count;
+                tables[right..right + 4]
+                    .copy_from_slice(&value.rotate_right(count as u32).to_le_bytes());
+                tables[left..left + 4]
+                    .copy_from_slice(&value.rotate_left(count as u32).to_le_bytes());
+            }
+            case.expected.push((0x5000, tables));
+            case
+        })
+        .collect();
+    run_cases_in_modes("rolrortest_wide", 100_000, &cases, MIR_MODE);
+}
+
+#[test]
 fn oscar64_enum_switch_statement_and_expression_preserve_default_dispatch() {
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         let error = compile_file(

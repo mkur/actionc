@@ -1,0 +1,45 @@
+; Adapted from Oscar64 autotest/rolrortest.cpp (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+; LONGCARD companion requires MIR6502; the host includes the original $12345678.
+
+CARD failures=$0600
+LONGCARD round32=$0611,after32=$0617,input32=$06E1
+LONGCARD ARRAY right32(33)=$5001,left32(33)=$5103
+BYTE signature=$06FF
+
+LONGCARD FUNC RollRight32(LONGCARD a)
+  LONGCARD tmp
+  tmp=a&LONGCARD(1)
+RETURN((a RSH 1)+(tmp LSH 31))
+
+LONGCARD FUNC RollLeft32(LONGCARD a)
+  LONGCARD tmp
+  tmp=(a RSH 31)&LONGCARD(1)
+RETURN((a LSH 1)+tmp)
+
+PROC Main()
+  BYTE i
+  LONGCARD val
+  signature=0
+  failures=0
+  val=input32
+  right32(0)=val
+  round32=RollLeft32(RollRight32(val))
+  IF round32#val THEN failures==+1 FI
+  i=0
+  WHILE i<32 DO
+    right32(i+1)=RollRight32(right32(i))
+    i==+1
+  OD
+  i=0
+  WHILE i<=32 DO
+    left32(i)=val
+    IF right32(32-i)#val THEN failures==+1 FI
+    val=RollLeft32(val)
+    i==+1
+  OD
+  after32=val
+  signature=$A5
+  DO OD
+RETURN

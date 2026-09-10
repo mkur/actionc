@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These twenty-two Action! fixtures adapt Oscar64 autotests into the existing
+These twenty-four Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -14,7 +14,8 @@ Adapted on 2026-09-05, 2026-09-06 and 2026-09-10 from Oscar64 by drmortalwombat 
 - Inspected fork: <https://github.com/mkur/oscar64>.
 - Source revision: `8deb94c4d762bab3aa60c9565412691f01021bbb`.
 - Original paths: `autotest/<fixture-stem>.c`, listed below, except
-  `shiftbyteaddconst.cpp`.
+  `shiftbyteaddconst.cpp` and `rolrortest.cpp`. Both `rolrortest.act` and its
+  `rolrortest_wide.act` companion adapt `rolrortest.cpp`.
 - The source repository supplies GNU GPL version 3 in its `LICENSE`; the
   selected files have no additional per-file license notice. These adaptations
   retain GPL-3.0 attribution. The license text is in this repository's
@@ -49,10 +50,13 @@ translations or tests of C-only language behavior.
 | `divmodtest` | Quotient/remainder identities with byte divisors 1..255 and wrapping CARD power-of-three divisors | Every original outer-loop value supplied by the host; exact quotient and remainder checked independently, full CARD high-bit range, guarded odd-base row table |
 | `mixedwidthternary` | Player health 17, maximum 17, severity 0 produces damage 3 and health 14; empty inventory stays NONE | Modern IF values with explicit CARD arms and outer BYTE narrowing; 336 health/maximum/severity inputs, repeated damage and consumption, companion clamping amounts through 65535, complete-page guards |
 | `enumswitch` | E1/E2/E3 return 10/20/30 and E4 takes the default 100; four-call sum minus 160 is zero | Statement and expression CASE with INT results; all 256 enum representations, repeated calls with `255-tag`, unchanged input and complete-page guards |
+| `rolrortest` (8/16-bit portions of `.cpp` source) | Original `$12`/`$1234` seeds, inverse rotations and full-cycle right tables checked against left rotations | Every BYTE input, 42 representative CARD inputs; each left/right table entry checked independently, odd-base word tables, unchanged inputs and complete-page guards |
+| `rolrortest_wide` (32-bit companion) | Original `$12345678` seed, inverse rotation and full 32-bit rotation cycle | MIR6502 LONGCARD; 76 seeds including every single-set/single-clear bit, alternating patterns and byte boundaries; independent left/right tables with odd bases and guards |
 
 Cartridge-compatible sources run in all three modes; modern comparison-value
 companions, `structmembertest`, `mixedwidthternary` and `enumswitch` run in
-Optimized and MIR6502. All use both ActionCart and Standalone runtime linking.
+Optimized and MIR6502. `rolrortest_wide` uses MIR6502; both classic modes reject
+LONGCARD. All use both ActionCart and Standalone runtime linking.
 The first eight ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
 copy/increment regressions remain active with their original loops and
 independent expected values.
@@ -76,11 +80,13 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `divmodtest` | 1,190 | 7,140 | All six mode/runtime combinations |
 | `mixedwidthternary` (expression integration port) | 336 | 1,344 | Both modern backends/runtimes; Compatibility rejection checked separately |
 | `enumswitch` (CASE integration port) | 256 | 1,024 | Both modern backends/runtimes; Compatibility rejection checked separately |
+| `rolrortest` (BYTE/CARD rotations) | 257 | 1,542 | All six mode/runtime combinations |
+| `rolrortest_wide` (LONGCARD rotations) | 76 | 152 | MIR6502 with both runtimes; both classic modes' rejection checked separately |
 
-Overall: **14,440 VM cases in 30 active tests**: the previous 12,072 cases plus
-1,344 mixed-width IF executions and 1,024 enum CASE executions. Compatibility
-rejection checks for member arrays, enums and selection expressions are not
-VM cases.
+Overall: **16,134 VM cases in 32 active tests**: the previous 14,440 cases plus
+1,542 BYTE/CARD and 152 LONGCARD rotation executions. Profile/backend rejection
+checks for member arrays, enums, selection expressions and wide integers are
+not VM cases.
 No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
@@ -91,6 +97,24 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
 
 ## Action! semantics and harness contract
 
+- `rolrortest` and `rolrortest_wide` adapt the
+  [pinned C++ source](https://github.com/drmortalwombat/oscar64/blob/8deb94c4d762bab3aa60c9565412691f01021bbb/autotest/rolrortest.cpp).
+  They retain its shift-plus-add function bodies, right-rotation tables,
+  left-after-right checks and inclusive reverse-table comparisons. BYTE, CARD
+  and LONGCARD supply the original unsigned 8/16/32-bit widths; logical right
+  shifts and wrapping left shifts require no C promotion rules. Assertion
+  failures increment an observable counter that must remain zero. The host
+  also checks every left/right table entry using Rust's `rotate_left` and
+  `rotate_right`, plus the final value after width+1 left rotations, so matching
+  errors in the two directions cannot hide behind an inverse-only check.
+  The narrow port has one original seed pair and 256 byte cases cycling through
+  42 word seeds. The wide companion has 76 distinct seeds, including the
+  original and every single-set/single-clear bit. Word coverage is sampled;
+  only the byte input domain is exhaustive. Odd-base tables, unchanged inputs
+  and poisoned gaps detect storage damage. The source's `__noinline` attribute
+  is omitted; these tests check behavior without constraining instruction
+  selection. The 32-bit portion uses LONGCARD directly in MIR6502, with separate
+  rejection checks in both classic modes.
 - `enumswitch` adapts the
   [pinned C source](https://github.com/drmortalwombat/oscar64/blob/8deb94c4d762bab3aa60c9565412691f01021bbb/autotest/enumswitch.c)
   as statement and expression CASE functions. Each retains the original

@@ -1,0 +1,74 @@
+; Adapted from Oscar64 autotest/rolrortest.cpp (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+; BYTE/CARD portion: shift-plus-add rotations with explicit unsigned widths.
+; The host includes the original $12/$1234 seeds and checks every table entry.
+
+CARD failures=$0600
+BYTE ARRAY right8(9)=$0611,left8(9)=$0621
+CARD ARRAY right16(17)=$0631,left16(17)=$0661
+BYTE round8=$06A1,after8=$06A3
+CARD round16=$06A5,after16=$06A9
+BYTE input8=$06E0
+CARD input16=$06E3
+BYTE signature=$06FF
+
+BYTE FUNC RollRight8(BYTE a)
+  BYTE tmp
+  tmp=a&1
+RETURN((a RSH 1)+(tmp LSH 7))
+
+CARD FUNC RollRight16(CARD a)
+  CARD tmp
+  tmp=a&1
+RETURN((a RSH 1)+(tmp LSH 15))
+
+BYTE FUNC RollLeft8(BYTE a)
+  BYTE tmp
+  tmp=(a RSH 7)&1
+RETURN((a LSH 1)+tmp)
+
+CARD FUNC RollLeft16(CARD a)
+  CARD tmp
+  tmp=(a RSH 15)&1
+RETURN((a LSH 1)+tmp)
+
+PROC Main()
+  BYTE i,c
+  CARD val
+  signature=0
+  failures=0
+  c=input8 val=input16
+  right8(0)=c right16(0)=val
+  round8=RollLeft8(RollRight8(c))
+  round16=RollLeft16(RollRight16(val))
+  IF round8#c THEN failures==+1 FI
+  IF round16#val THEN failures==+1 FI
+  i=0
+  WHILE i<16 DO
+    right16(i+1)=RollRight16(right16(i))
+    i==+1
+  OD
+  i=0
+  WHILE i<8 DO
+    right8(i+1)=RollRight8(right8(i))
+    i==+1
+  OD
+  i=0
+  WHILE i<=16 DO
+    left16(i)=val
+    IF right16(16-i)#val THEN failures==+1 FI
+    val=RollLeft16(val)
+    i==+1
+  OD
+  i=0
+  WHILE i<=8 DO
+    left8(i)=c
+    IF right8(8-i)#c THEN failures==+1 FI
+    c=RollLeft8(c)
+    i==+1
+  OD
+  after8=c after16=val
+  signature=$A5
+  DO OD
+RETURN
