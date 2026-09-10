@@ -230,22 +230,6 @@ fn oscar64_rotate_byte_and_word_preserve_every_cycle_value() {
 
 #[test]
 fn oscar64_rotate_long_word_preserves_every_cycle_value() {
-    for &mode in CLASSIC_MODES {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-            let error = compile_file(
-                repository_root().join("fixtures/runtime/oscar64/rolrortest_wide.act"),
-                &CompileOptions::for_mode(mode).with_runtime(runtime),
-            )
-            .expect_err("LONGCARD requires MIR6502");
-            assert!(
-                error
-                    .diagnostics()
-                    .iter()
-                    .any(|d| d.message.contains("requires the MIR6502 backend")),
-                "{error}"
-            );
-        }
-    }
     let mut inputs = vec![
         0u32, 0xFFFFFFFF, 0x12345678, 0x87654321, 0x55555555, 0xAAAAAAAA, 0x0000FFFF, 0x00010001,
         0x00FFFFFF, 0x01000001, 0xFFFF0000, 0x7FFFFFFF, 0x80000001,
@@ -282,7 +266,7 @@ fn oscar64_rotate_long_word_preserves_every_cycle_value() {
             case
         })
         .collect();
-    run_cases_in_modes("rolrortest_wide", 100_000, &cases, MIR_MODE);
+    run_cases_in_modes("rolrortest_wide", 100_000, &cases, ALL_MODES);
 }
 
 #[test]

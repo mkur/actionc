@@ -289,8 +289,8 @@ cargo run --bin actionc -- --mode mir6502 --runtime standalone \
 
 | Compilation mode | ADT support |
 | --- | --- |
-| Modern classic (`--mode optimized`), cart or standalone | Construct, copy, LET, direct/typed-indirect value calls, generics, nested patterns and guards; existing classic type limits apply |
-| Modern MIR6502, cart or standalone | Same common subset, also supported LONGINT/LONGCARD payload operations |
+| Modern classic (`--mode optimized`), cart or standalone | Construct, copy, LET, direct/typed-indirect value calls, generics, nested patterns and guards, including LONGINT/LONGCARD payload operations |
+| Modern MIR6502, cart or standalone | Same common subset, including LONGINT/LONGCARD payload operations |
 | Native 68k / 65816 | Typed SemIR/NIR, layout and ABI/frame canaries; executable variants remain blocked on native Error adapters |
 | Compatibility / original cartridge compiler | New ADT syntax is not supported; selecting the cartridge **runtime** is a separate choice |
 

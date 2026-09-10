@@ -1,7 +1,7 @@
 ; Adapted from Oscar64 autotest/rolrortest.cpp (drmortalwombat and contributors).
 ; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
 ; GPL-3.0; see README.md for provenance and semantic adaptations.
-; LONGCARD companion requires MIR6502; the host includes the original $12345678.
+; LONGCARD companion runs in all modes; the host includes the original $12345678.
 
 CARD failures=$0600
 LONGCARD round32=$0611,after32=$0617,input32=$06E1

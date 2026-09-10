@@ -1,8 +1,9 @@
 # 32-bit SYS conversion and I/O
 
 Use `USE SYS` and qualified names for the `LONGCARD` (`LC`, unsigned) and
-`LONGINT` (`LI`, signed) families. On Atari these routines require
-`--mode mir6502`, with either `--runtime cart` or `--runtime standalone`.
+`LONGINT` (`LI`, signed) families. On Atari these routines support Compatibility,
+Optimized classic and MIR6502, with either `--runtime cart` or
+`--runtime standalone`.
 
 | Operation | LONGCARD | LONGINT |
 | --- | --- | --- |
@@ -88,8 +89,8 @@ integer parameter still narrows to its low bits; select an LC/LI routine to
 retain all 32 bits.
 
 The LC/LI names are not added to the implicit compatibility prelude. Importing
-SYS without using a wide routine remains valid on classic; actually using a
-wide interface requires MIR6502, even when its argument is a small literal.
+SYS selects only the routines used. Both classic profiles and MIR6502 preserve
+the wide ABI, including when the argument is a small literal.
 
 Conversion code lives in the compiler-owned `SYSLONG.ACT` runtime unit.
 Standalone wrappers use the existing standalone string I/O; cartridge wrappers

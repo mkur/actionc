@@ -14,7 +14,7 @@ impl Drop for Source {
     }
 }
 
-fn probe(runtime: Runtime, signed: bool, input: bool, callback: bool) -> Vec<u8> {
+fn probe(mode: CompileMode, runtime: Runtime, signed: bool, input: bool, callback: bool) -> Vec<u8> {
     let ty = if signed { "LONGINT" } else { "LONGCARD" };
     let suffix = if signed { "LI" } else { "LC" };
     let (declaration, preparation, call) = if input {
@@ -46,7 +46,7 @@ fn probe(runtime: Runtime, signed: bool, input: bool, callback: bool) -> Vec<u8>
     )).unwrap();
     compile_file(
         &source.0,
-        &CompileOptions::for_mode(CompileMode::Mir6502)
+        &CompileOptions::for_mode(mode)
             .with_runtime(runtime)
             .with_origin(0x3000),
     )
@@ -172,9 +172,9 @@ fn check(image: &[u8], runtime: Runtime, text: &[u8], input: bool, expected: Res
 
 #[test]
 fn checked_decimal_parsers_cover_limits_syntax_and_returning_error_handlers() {
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
         for signed in [false, true] {
-            let image = probe(runtime, signed, false, false);
+            let image = probe(mode, runtime, signed, false, false);
             for (text, expected) in [
                 ("0", 0),
                 ("+0", 0),
@@ -230,9 +230,9 @@ fn checked_decimal_parsers_cover_limits_syntax_and_returning_error_handlers() {
 
 #[test]
 fn input_rejects_invalid_and_truncated_records_without_returning() {
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
         for signed in [false, true] {
-            let image = probe(runtime, signed, true, false);
+            let image = probe(mode, runtime, signed, true, false);
             for text in [b"\x9B".as_slice(), b"12x\x9B", b"4294967296x\x9B"] {
                 check(&image, runtime, text, true, Err(102));
             }
@@ -249,9 +249,9 @@ fn input_rejects_invalid_and_truncated_records_without_returning() {
 
 #[test]
 fn parser_function_pointers_keep_the_wide_result_abi() {
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
         for signed in [false, true] {
-            let image = probe(runtime, signed, false, true);
+            let image = probe(mode, runtime, signed, false, true);
             let (text, expected) = if signed {
                 ("-2147483648", i32::MIN as u32)
             } else {

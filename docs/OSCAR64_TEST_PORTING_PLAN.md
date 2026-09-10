@@ -2,7 +2,7 @@
 
 Status: stages 1 through 5 and the deferred division/remainder batch complete,
 2026-09-06. With the focused IF/CASE and rotation ports on 2026-09-10, current
-coverage is 16,134 Oscar64 VM cases in 32 active tests; see the
+coverage is 16,438 Oscar64 VM cases in 32 active tests; see the
 [fixture coverage table](../fixtures/runtime/oscar64/README.md).
 Stage 5 adds 198 all-mode record-copy executions and 120 modern embedded-member
 executions: 4,698 Oscar64 VM cases in 26 active tests. Compatibility rejection
@@ -23,13 +23,13 @@ unnamed values. Expression arms explicitly return INT. Compatibility rejection
 is checked separately.
 
 The `rolrortest.cpp` port adds 1,542 BYTE/CARD executions in all modes and
-152 LONGCARD executions in MIR6502, using both runtimes. Its two fixtures retain
+456 LONGCARD executions in all modes, using both runtimes. Its two fixtures retain
 the original seeds, shift-plus-add bodies, inverse checks and complete rotation
 cycles. Independent host rotation oracles check every table entry for all
 256 byte inputs, 42 sampled word inputs and 76 sampled long-word inputs,
 including walking-bit patterns. The original byte/word seed pair is an extra
-host case. Both classic modes reject the LONGCARD companion explicitly; those
-checks are not VM executions.
+host case. Classic LONG support adds 304 executions to the original MIR-only
+rotation matrix without changing its fixture computations or host oracles.
 
 Final stage-5 validation: 2,746 root tests pass (22 pre-existing ignored),
 104 isolated VM tests pass (none ignored), NIR snapshots are unchanged and all

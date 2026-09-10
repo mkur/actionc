@@ -7,11 +7,11 @@ signed `LONGINT` with factorial, Fibonacci, signed division/remainder, the full
 16-bit arguments. See the [32-bit SYS I/O reference](../../docs/LONG_INTEGER_IO.md)
 for printing, string conversion, and input routines.
 
-Atari execution requires MIR6502; both standalone and cartridge-linked runtimes
-are covered. Build from the repository root:
+Compatibility, Optimized classic and MIR6502 execute the sample with both
+standalone and cartridge-linked runtimes. Build from the repository root:
 
 ```sh
-actionc samples/long-integers/long-integers.act --mode mir6502 --runtime standalone \
+actionc samples/long-integers/long-integers.act --mode optimized --runtime standalone \
   --output build/long-integers.xex
 ```
 

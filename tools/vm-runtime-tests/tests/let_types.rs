@@ -216,8 +216,8 @@ fn let_real_enum_record_pointer_and_typed_callback_execute_in_all_modes() {
 
 #[test]
 fn let_wide_operations_preserve_narrow_intermediates_and_shadowed_results() {
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-        let bytes = execute(&compile(WIDE, CompileMode::Mir6502, runtime), runtime);
+    for (mode, runtime) in [CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
+        let bytes = execute(&compile(WIDE, mode, runtime), runtime);
         let words = bytes[..28]
             .chunks_exact(4)
             .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
@@ -235,13 +235,7 @@ fn let_wide_operations_preserve_narrow_intermediates_and_shadowed_results() {
             ]
         );
         assert_eq!(bytes[63], 0xA5);
-        let source = Source::new(WIDE);
-        let error = compile_file(
-            &source.0,
-            &CompileOptions::for_mode(CompileMode::Optimized).with_runtime(runtime),
-        )
-        .unwrap_err();
-        assert!(format!("{error}").contains("requires the MIR6502 backend"));
+
     }
 }
 

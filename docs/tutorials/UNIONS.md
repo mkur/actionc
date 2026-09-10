@@ -110,14 +110,14 @@ volatile pointer declarations and member qualifiers remain in force.
 
 | Target/backend | Union support |
 | --- | --- |
-| Atari modern classic, either runtime | Byte/word operations, complete aggregate copies and calls |
-| Atari modern MIR6502, either runtime | Also LONGINT/LONGCARD member operations |
+| Atari modern classic, either runtime | BYTE/CARD/INT/LONGINT/LONGCARD operations, complete aggregate copies and calls |
+| Atari modern MIR6502, either runtime | Same member operations, aggregate copies and calls |
 | 65816 small/native and 68k | Verified layout, pointer representation, access and aggregate ABI/frame lowering canaries; no native execution claim |
 | Compatibility | Rejected during semantic analysis |
 
-Classic diagnoses actual LONGINT/LONGCARD operations, including destination-only
-field writes, before emission. Opaque copies and byte/word views do not require
-wide scalar arithmetic. Native variant validation still needs a native Error
+Classic and MIR6502 preserve all four bytes of LONGINT/LONGCARD members,
+including field writes and compound assignments. Opaque copies retain the
+complete aggregate extent. Native variant validation still needs a native Error
 adapter; enclosing a union does not remove that requirement.
 
 The [cost audit](../Action_2027/UNIONS_CODEGEN_AUDIT.md) measures identical code

@@ -1,5 +1,5 @@
-; 32-bit integers on Atari: MIR6502, standalone or Action! cartridge runtime.
-; Build: actionc samples/long-integers/long-integers.act --mode mir6502 --runtime standalone
+; 32-bit integers on Atari: classic or MIR6502, standalone or cartridge runtime.
+; Build: actionc samples/long-integers/long-integers.act --mode optimized --runtime standalone
 ; LONGCARD is unsigned; LONGINT is signed. INT/CARD arithmetic stays 16-bit
 ; unless an operand is wide. Arithmetic wraps at the selected width.
 
@@ -44,10 +44,10 @@ PROC Main()
   PrintE("LONGCARD / LONGINT (32-bit)")
   PutE()
   PrintE("LONGCARD: unsigned")
-  Print("0! = ")      SYS.PrintLCE(Factorial(0))
-  Print("12! = ")     SYS.PrintLCE(Factorial(12))
-  Print("F(0) = ")    SYS.PrintLCE(Fibonacci(0))
-  Print("F(47) = ")   SYS.PrintLCE(Fibonacci(47))
+  Print("0! = ")      wide=Factorial(0) SYS.PrintLCE(wide)
+  Print("12! = ")     wide=Factorial(12) SYS.PrintLCE(wide)
+  Print("F(0) = ")    wide=Fibonacci(0) SYS.PrintLCE(wide)
+  Print("F(47) = ")   wide=Fibonacci(47) SYS.PrintLCE(wide)
   Print("maximum = ") SYS.PrintLCE($FFFFFFFF)
   PutE()
 

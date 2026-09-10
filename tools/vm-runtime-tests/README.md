@@ -55,7 +55,7 @@ cargo test --locked --test oscar64_conformance
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
 and focused IF/CASE and rotation ports bring the total to 32 active tests and
-16,134 VM cases, including the 512 repaired Compatibility nested-call cases and 120 repaired
+16,438 VM cases, including the 512 repaired Compatibility nested-call cases and 120 repaired
 classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
 and 264 numeric comparison-value cases across modern classic and MIR6502.
 Compatibility's semantic rejection of the extension is checked separately.
@@ -73,10 +73,11 @@ BYTE enum representation, including default dispatch for unnamed values.
 Both forms retain the original four-call sum check and have independent result
 oracles; Compatibility rejection is checked separately from the VM count.
 The rotation ports add 1,542 BYTE/CARD cases across all modes and runtimes and
-152 LONGCARD cases with MIR6502 and both runtimes. They retain the original
+456 LONGCARD cases across all modes and both runtimes. They retain the original
 seeds and inverse/cycle checks, with independent expected values for every
-left/right table entry, walking-bit patterns, odd bases and guards. Both
-classic modes' LONGCARD rejection is checked separately.
+left/right table entry, walking-bit patterns, odd bases and guards. Classic
+LONG coverage also includes typed arithmetic, calls, captures, loops, selections,
+volatile byte traces, decimal I/O and the maintained sample.
 `cargo test --locked --test comparison_values`
 also runs 24 modern consumer cases checking widths, calls, eager composition,
 indexed destinations and captured pointers.

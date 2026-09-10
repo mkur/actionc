@@ -67,7 +67,7 @@ is a complete multi-file example with a public project-module procedure.
 
 For 32-bit integer conversion and I/O, the qualified `SYS.PrintLC`/`SYS.PrintLI`
 families, `StrLC`/`StrLI`, `ValLC`/`ValLI`, and `InputLC`/`InputLI` support
-LONGCARD/LONGINT on MIR6502 with both runtimes. See
+LONGCARD/LONGINT on both classic profiles and MIR6502 with both runtimes. See
 [32-bit SYS I/O](../LONG_INTEGER_IO.md) for signatures and checked parsing rules.
 
 ## Native REAL library

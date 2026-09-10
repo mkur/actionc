@@ -1,6 +1,6 @@
 # LONGINT/LONGCARD in the classic backend
 
-Status: implementation started, 2026-09-10.
+Status: all three slices complete, 2026-09-10.
 
 ## Contract
 
@@ -76,7 +76,6 @@ RHS effects. Loads capture the complete source before overwriting result bytes.
 Helpers are linked once when used and report their Error dependency through
 the existing runtime linker. These rules apply in both classic profiles.
 
-
 Wide FOR direction and magnitude come from SemIR's resolved step control.
 Classic emits four-byte limit comparisons and wrap guards at signed/unsigned
 boundaries. Compounds capture the destination before RHS effects and read the
@@ -86,12 +85,11 @@ Wide scalar and aggregate initializer writes use the typed static image;
 array backing storage is bound after all arithmetic helper bodies, so buffers
 cannot overlap executable code.
 
-
 ## Progress
 
 Slice 1 is complete. Both classic profiles execute four-byte computation,
-conversion, storage and nested call results in both runtimes. The public guard
-remains until control-flow integration is complete. Validation: 3,073 compiler
+conversion, storage and nested call results in both runtimes. This slice retained
+the public guard until control-flow integration. Validation: 3,073 compiler
 tests passed (22 existing ignored), 49 NIR fixtures passed, and 62 focused VM
 tests passed, including 592 host-fed classic LONG cases. No IR snapshots changed.
 
@@ -102,3 +100,20 @@ volatile captures preserve full width. The array/helper overlap found by the
 cartridge input oracle is fixed. The refreshed compiler suite passes all 3,073
 tests (22 existing ignored), all 49 NIR fixtures pass, and all-targets checking
 passes. Focused wide execution and I/O oracles pass; no IR snapshots changed.
+
+
+Slice 3 is complete. Existing independent oracles now cover classic LONG
+arithmetic, calls, loop limits, modern selections and union views, decimal
+conversion and console/device I/O. The sample builds and prints its documented
+output in all six mode/runtime combinations; four nested printer arguments
+are staged explicitly to respect Compatibility's existing source restrictions.
+The Oscar64 LONGCARD rotation fixture retains its computations and oracles;
+only its capability comment changed. Its 76 host inputs now run 456 times,
+bringing total Oscar64 coverage to 16,438 VM cases in 32 active tests.
+
+Final acceptance: 3,073 compiler tests passed (22 existing ignored), 268 locked
+VM tests passed (none ignored), all 49 dedicated NIR fixtures passed, and
+`cargo check --all-targets` passed. The expanded console/device I/O and union
+matrices also passed their focused reruns. NIR snapshots are unchanged; the
+broad NIR corpus continues to verify. Modern-only syntax and classic's
+constant-STEP/source-expression restrictions retain their existing diagnostics.

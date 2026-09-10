@@ -81,7 +81,7 @@ runtimes, with MIR-only paths for wide integers and dynamic FOR steps:
 | IF/CASE guards and results | Source-ordered calls, skipped results/faults, condition short-circuiting versus eager result operators |
 | Loop starts, ends, steps and tests | Start once, end on each FOR test, dynamic STEP per iteration in MIR, WHILE/UNTIL repeated selection effects |
 | Unused values and volatile input | Required reads/calls remain, with observed bus access order |
-| Signed and width boundaries | BYTE/CARD/INT conversions, full LONGCARD/LONGINT MIR joins and call preservation |
+| Signed and width boundaries | BYTE/CARD/INT conversions, full LONGCARD/LONGINT joins and call preservation in classic and MIR |
 | Variant safety and snapshots | Mutating guards, nested payload validity and terminal invalid-tag faults even when Error returns |
 | Published sample | Captured printed values are exactly 17, 3, 42, 0, 1 |
 
@@ -90,8 +90,8 @@ Module alias/local-USE identity is also checked in
 aggregate function result selected with opened and differently qualified
 patterns. The [Oscar64 port](../../fixtures/runtime/oscar64/README.md) adds
 1,344 independent mixed-width IF executions. These checks preserve the existing
-constant-only classic FOR-step restriction and Atari MIR requirement for wide
-integer execution.
+constant-only classic FOR-step restriction. Wide integer execution now also
+runs on classic; see the [classic LONG plan](../CLASSIC_LONG_INTEGER_IMPLEMENTATION_PLAN.md).
 
 ## Return-forwarding follow-up
 

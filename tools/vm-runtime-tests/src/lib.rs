@@ -1089,10 +1089,10 @@ mod tests {
         }
         expected[0xB0..0xB4].copy_from_slice(&1u32.to_le_bytes());
         expected[0xFF] = 0xA5;
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
             let max_steps = 1_000_000;
             let outcome = run_runtime_fixture_with_setup(
-                "long_integer_conversions.act", CompileMode::Mir6502, runtime, true, max_steps,
+                "long_integer_conversions.act", mode, runtime, true, max_steps,
                 |vm| {
                     for address in 0x600..=0x6FF { vm.bus_mut().ram_mut().write(address, 0xCC); }
                 },
@@ -1107,10 +1107,10 @@ mod tests {
 
     #[test]
     fn long_integer_output_uses_console_and_explicit_devices_without_narrowing() {
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
             let max_steps = 500_000;
             let outcome = run_runtime_fixture_with_setup(
-                "long_integer_output.act", CompileMode::Mir6502, runtime, true, max_steps,
+                "long_integer_output.act", mode, runtime, true, max_steps,
                 |vm| { vm.bus_mut().add_host_output("LONGS.TXT"); },
             );
             assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
@@ -1125,10 +1125,10 @@ mod tests {
     #[test]
     fn long_integer_input_returns_wide_values_from_console_and_explicit_devices() {
         let input = b"4294967295\x9B-2147483648\x9B +65536 \x9B2147483647\x9B42\x9B-42\x9B";
-        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
             let max_steps = 500_000;
             let outcome = run_runtime_fixture_with_setup(
-                "long_integer_input.act", CompileMode::Mir6502, runtime, true, max_steps,
+                "long_integer_input.act", mode, runtime, true, max_steps,
                 |vm| vm.bus_mut().queue_scripted_cio_input_bytes(input),
             );
             assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });

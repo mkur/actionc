@@ -34,9 +34,9 @@ some ambiguous routine-address cases.
 ## 32-bit Integers
 
 `LONGINT` is signed 32-bit (-2147483648..2147483647); `LONGCARD` is unsigned
-32-bit (0..4294967295). The MIR6502 backend generates executable Atari code for
-both, with cartridge-linked or standalone runtime. Classic diagnoses these
-types instead of truncating them. Native 68k/65816 support remains typed
+32-bit (0..4294967295). Classic (Compatibility and Optimized) and MIR6502
+generate executable Atari code for both, with cartridge-linked or standalone
+runtime. Native 68k/65816 support remains typed
 lowering/ABI validation, not executable backend support.
 
 `INT` and `CARD` stay 16-bit on every target. A wide operand or cast before an
@@ -393,9 +393,8 @@ array bounds, even when initialized with literals. Unevaluated layout queries
 such as `SIZEOF(binding)` remain compile-time values.
 
 Classic and MIR6502 support LET with cartridge-linked or standalone runtime,
-within their existing type/ABI limits: Atari LONGINT/LONGCARD need MIR6502,
-typed indirect calls retain their declared argument signatures, and native REAL
-uses the Atari OS floating-point package. LET does not add stack locals or
+including LONGINT/LONGCARD values. Typed indirect calls retain their declared
+argument signatures, and native REAL uses the Atari OS floating-point package. LET does not add stack locals or
 reentrancy to Atari routine storage. Native 68k/65816 have lowering/ABI checks,
 not execution claims.
 Global bindings, `LET MUT`, deferred initialization, destructuring, and

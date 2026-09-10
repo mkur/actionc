@@ -21,6 +21,14 @@ Supported combinations:
 profile is about compatibility-oriented classic code generation, while MIR6502
 is an experimental modern backend path.
 
+Both classic profiles and MIR6502 support signed `LONGINT` and unsigned
+`LONGCARD` computation, storage, calls and SYS I/O with either runtime. INT and
+CARD remain 16-bit; destination width does not widen intermediate arithmetic.
+Modern-only source constructs retain their profile requirements. Classic wide
+programs use the typed SemIR projection and compiler-owned 6502 helpers; they
+are not routed through MIR6502. See the
+[classic LONG contract](CLASSIC_LONG_INTEGER_IMPLEMENTATION_PLAN.md).
+
 ## Legacy Profile
 
 The legacy profile should stay close to the original Action! compiler.

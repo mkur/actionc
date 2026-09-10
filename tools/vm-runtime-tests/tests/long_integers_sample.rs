@@ -56,10 +56,10 @@ fn long_integers_sample_prints_documented_results_in_both_runtimes() {
         .map(|byte| if byte == b'\n' { 0x9B } else { byte })
         .collect();
 
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
         let compiled = compile_file(
             &source.0,
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap_or_else(|error| panic!("compile {runtime:?}: {error}"));
         let mut vm = CompilerVm::default();

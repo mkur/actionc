@@ -1,5 +1,11 @@
 # LONGINT/LONGCARD integration and MIR6502 implementation
 
+Classic support is now implemented separately in
+[the classic LONG plan](CLASSIC_LONG_INTEGER_IMPLEMENTATION_PLAN.md). The
+completed slices below describe the original MIR6502 rollout; their classic
+rejection notes and validation counts are historical.
+
+
 Status: complete (2026-09-07). Each major slice is a separately verified commit.
 
 ## Contract

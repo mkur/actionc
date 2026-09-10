@@ -4,7 +4,7 @@ mod unions;
 mod values;
 
 #[test]
-fn mir_wide_views_reinterpret_signed_bits_and_preserve_other_bytes() {
+fn wide_views_reinterpret_signed_bits_and_preserve_other_bytes() {
     let source = r#"
 TYPE View=UNION [LONGCARD wide LONGINT signedValue CARD word BYTE ARRAY bytes(5)]
 View value=$680
@@ -37,9 +37,10 @@ RETURN
     expected[..10].copy_from_slice(&[0xEF, 0xCD, 0xAB, 0x89, 1, 0, 0x35, 0xA5, 1, 1]);
     expected[10..14].copy_from_slice(&[0, 0, 0xAB, 0x7F]);
     expected[0x80..0x85].copy_from_slice(&[0, 0xFF, 0xFF, 0xFF, 0xA5]);
-    values::check_mir_semir(
+    values::check_semir(
         &actionc::semantic::ir::lower_program(&ast, &model),
         &expected,
+        false,
     );
 }
 

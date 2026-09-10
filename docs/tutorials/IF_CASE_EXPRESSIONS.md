@@ -113,8 +113,8 @@ literal conditions. Existing unevaluated layout queries do not execute them.
 
 | Path | Supported results |
 | --- | --- |
-| Modern classic, Atari cartridge or standalone | BYTE, CARD, INT, enums |
-| Modern MIR6502, Atari cartridge or standalone | Also LONGCARD and LONGINT |
+| Modern classic, Atari cartridge or standalone | BYTE, CARD, INT, LONGCARD, LONGINT, enums |
+| Modern MIR6502, Atari cartridge or standalone | Same integer and enum results |
 | Front end and verified NIR, all four target layouts | Integer/enum joins; native runtime fault support remains target-dependent |
 | Compatibility profile | Selection expressions rejected |
 

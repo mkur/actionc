@@ -123,19 +123,6 @@ fn executable(path: &'static str, builds: Vec<BuildCase>) -> SampleSpec {
     }
 }
 
-fn mir6502_executable(path: &'static str, reason: &'static str) -> SampleSpec {
-    SampleSpec {
-        path,
-        role: SampleRole::Executable {
-            builds: vec![
-                experimental(Runtime::ActionCart),
-                experimental(Runtime::Standalone),
-            ],
-            mir6502_only_reason: Some(reason),
-        },
-    }
-}
-
 fn dependency(path: &'static str, used_by: &'static [&'static str]) -> SampleSpec {
     SampleSpec {
         path,
@@ -155,9 +142,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
     use Runtime::{ActionCart, Standalone};
 
     vec![
-        mir6502_executable(
+        executable(
             "samples/long-integers/long-integers.act",
-            "LONGINT/LONGCARD execution is supported only by the MIR6502 backend on Atari",
+            vec![release(Compatibility, ActionCart), release(Compatibility, Standalone),
+                release(Optimized, ActionCart), release(Optimized, Standalone),
+                experimental(ActionCart), experimental(Standalone)],
         ),
         executable(
             "samples/enum-case.act",
