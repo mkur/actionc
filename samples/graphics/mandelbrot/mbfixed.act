@@ -1,0 +1,52 @@
+; Oscar64 samples/fractals/mbfixed.c, revision 8deb94c4d762bab3aa60c9565412691f01021bbb.
+; Original: drmortalwombat and contributors. SPDX-License-Identifier: GPL-3.0-only
+; Atari display adaptation; see README.md for the unchanged numerical contract.
+MODULE MANDELBROT_ATARI
+USE FRACTAL.MANDELBROT AS MB
+USE SYS
+USE ATARI.OS
+
+; Original upper/lower two-bit dither patterns for eight iteration bands.
+BYTE ARRAY colors(16)=[$FF $FF $EE $BB $AA $AA $88 $22
+                      $44 $11 $55 $55 $DD $77 $33 $CC]
+
+PROC DrawRow(BYTE py)
+  CARD px,top,bottom
+  INT cx,cy
+  BYTE count,band,shiftCount,upper,lower
+  cy=MB.YCoord(py)
+  ; Fit all 100 logical rows into Atari's 192 physical bitmap rows.
+  top=CARD(py)*192/CARD(100)
+  bottom=(CARD(py)+1)*192/CARD(100)-1
+  FOR px=0 TO 159 DO
+    cx=MB.XCoord(px)
+    count=MB.Iterate(cx,cy)
+    IF count<32 THEN
+      band=2*(count&7)
+      shiftCount=2*(3-(px&3))
+      upper=colors(band) RSH shiftCount
+      lower=colors(band+1) RSH shiftCount
+      SYS.COLOR=upper&3
+      SYS.Plot(px,BYTE(top))
+      IF bottom#top THEN
+        SYS.COLOR=lower&3
+        SYS.Plot(px,BYTE(bottom))
+      FI
+    FI
+  OD
+RETURN
+
+PROC Main()
+  BYTE py
+  SYS.Graphics(31) ; full-screen 160x192, four colors
+  SYS.SetColor(0,2,6)
+  SYS.SetColor(1,1,12)
+  SYS.SetColor(2,9,10)
+  SYS.SetColor(4,0,0)
+  FOR py=0 TO 99 DO
+    OS.ATRACT=0
+    DrawRow(py)
+  OD
+  DO OS.ATRACT=0 OD
+RETURN
+ENDMODULE

@@ -35,8 +35,46 @@ At c=2: 1
 Pixel (139,10): 2
 ```
 
-The graphical Atari front end is the next slice of the
-[implementation plan](../../../docs/Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md).
-The numerical fixture runs in all three modes with both runtimes; standalone
-numerical execution needs no ROMs. Run `cargo test --locked --test
-oscar64_mandelbrot` from tools/vm-runtime-tests. The printing probe needs the OS.
+Build the graphical Atari sample from the repository root:
+
+```sh
+cargo run --bin actionc -- --mode mir6502 --runtime standalone samples/graphics/mandelbrot/mbfixed.act
+```
+
+Load the generated Atari executable in an emulator or on an Atari XL/XE. The
+sample draws progressively and leaves the completed image on screen. Both
+samples build in Compatibility, Optimized classic, and MIR6502 with either
+runtime. Their project-local module is discovered relative to the source file.
+
+The display uses Graphics(31), a full-screen 160x192 four-color bitmap, with
+an Atari palette. It keeps the original eight pairs of C64 two-bit dither
+patterns. Logical row `py` fills physical rows in
+`[floor(py*192/100), floor((py+1)*192/100))`: 92 logical rows receive both
+pattern halves and eight receive only the upper half. All 160x100 numerical
+samples are preserved; this is an Atari display adaptation, not a byte-identical
+C64 screen. Pixels reaching the iteration cap remain black.
+
+Run `cargo test --locked --test oscar64_mandelbrot` from tools/vm-runtime-tests.
+Four tests cover 2,437 VM executions: 2,424 numerical cases, six probe-output
+runs, five rendered logical rows in each of six configurations, and a complete
+16,000-pixel render in standalone MIR6502. The tests compare plotted colors,
+untouched pixels, and palette registers with an independent integer oracle.
+The pinned VM models CIO graphics calls; this checks the complete rendered
+pixel image, not ANTIC scanout or the OS's screen-memory layout. Numerical
+standalone runs need no ROMs; the printing and graphics tests load the OS.
+
+Set `ACTIONC_MANDELBROT_ARTIFACT_DIR` when running the VM target to retain the
+observed images as linear 160x192 two-bit `.bin` files (40 bytes per row,
+leftmost pixel in bits 7..6), plus execution reports. These files pack the VM's
+observed pixels for comparison; they are not dumps of Atari screen RAM.
+
+The [implementation plan](../../../docs/Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md)
+records the arithmetic contract and acceptance checks. The initial port uses
+general LONGINT arithmetic and per-pixel Plot calls; speed optimization remains
+a separate follow-up.
+
+For reference, the instrumented full standalone MIR6502 render completes in
+524,360,385 VM steps / 1,904,712,001 modeled CPU cycles and produces a 3,197-byte
+load file. These measurements include the test completion call and the VM's
+CIO interception; they are observations, not Atari wall-clock timings or
+performance assertions.

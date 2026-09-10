@@ -39,5 +39,8 @@ changes a value by 1/4096.
 
 Run `cargo test --test fixed_q4_12` at the root and
 `cargo test --locked --test fixed_q4_12` from tools/vm-runtime-tests.
-The [implementation plan](Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md) describes
-the accompanying Mandelbrot port and final acceptance checks.
+The [Oscar64 Mandelbrot sample](../samples/graphics/mandelbrot/README.md)
+combines Q8.8 coordinates, Q4.12 MulFloor, and wide squares in a shared kernel
+with a numerical probe and Atari graphics display. See its README for build
+commands, provenance, and display adaptations, and the
+[implementation plan](Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md) for acceptance checks.

@@ -22,6 +22,20 @@ modern lanes. Numerical standalone runs load no ROMs. Host i64 oracles check
 complete guarded regions, including page-crossing INT stores; fault tests
 verify Error(101) and non-returning behavior even with a returning Error hook.
 
+The [signed Q4.12 library](../../docs/FIXED_POINT_Q4_12.md) is checked by
+`cargo test --locked --test fixed_q4_12`. Two tests cover 3,774 VM executions:
+617 arithmetic pairs across six configurations, plus 72 division faults.
+They check truncation, explicit floor rounding, wrapping, and exact LONGCARD
+squares stored across a page boundary, using the shared fixed point harness.
+
+The [Oscar64 Mandelbrot port](../../samples/graphics/mandelbrot/README.md) has
+a dedicated `cargo test --locked --test oscar64_mandelbrot` target. Four tests
+cover 2,437 executions: 2,424 numerical cases, six printing probes, six
+selected-row renders, and one full image in standalone MIR6502. The independent
+integer oracle preserves Oscar64's floor rounding and wide radius test. Graphics
+checks compare every modeled CIO pixel and palette values, including untouched
+regions; they do not emulate ANTIC scanout or verify OS screen-memory packing.
+
 The [LET code-generation audit](../../docs/Action_2027/LET_CODEGEN_AUDIT.md)
 compares a reused mutable local, distinct mutable locals, and sequential LET
 bindings. `cargo test --locked --test let_codegen_audit -- --nocapture` checks

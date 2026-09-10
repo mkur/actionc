@@ -143,6 +143,12 @@ fn sample_catalog() -> Vec<SampleSpec> {
 
     vec![
         executable(
+            "samples/graphics/mandelbrot/mbfixed.act",
+            vec![release(Compatibility, ActionCart), release(Compatibility, Standalone),
+                release(Optimized, ActionCart), release(Optimized, Standalone),
+                experimental(ActionCart), experimental(Standalone)],
+        ),
+        executable(
             "samples/graphics/mandelbrot/probe.act",
             vec![release(Compatibility, ActionCart), release(Compatibility, Standalone),
                 release(Optimized, ActionCart), release(Optimized, Standalone),
@@ -150,7 +156,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         dependency(
             "samples/graphics/mandelbrot/fractal/mandelbrot.act",
-            &["samples/graphics/mandelbrot/probe.act"],
+            &["samples/graphics/mandelbrot/probe.act", "samples/graphics/mandelbrot/mbfixed.act"],
         ),
         executable(
             "samples/fixed-point/q8_8.act",

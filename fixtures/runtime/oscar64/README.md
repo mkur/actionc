@@ -32,7 +32,7 @@ translations or tests of C-only language behavior.
 
 | Source / Action! fixture | Original check retained | Additional coverage |
 | --- | --- | --- |
-| `mbfixed` (fractal sample) | 160x100 coordinate mapping, 32-iteration recurrence, wide radius check, floor-rounded cross product | Every axis position, 128 seeded pixels, rounding-sensitive pixels, direct radius-boundary inputs and repeated calls in all six lanes; independent integer oracle and probe output |
+| `mbfixed` (fractal sample) | 160x100 coordinate mapping, 32-iteration recurrence, wide radius check, floor-rounded cross product | Every axis position, 128 seeded pixels, rounding-sensitive pixels, direct radius-boundary inputs and repeated calls in all six lanes; probe output, selected Atari rows in all lanes and full standalone MIR6502 image |
 | `byteindextest` | Fill 20 bytes with their indexes; byte sum is 190 | Fixed odd-base storage and a descriptor viewing the same backing; lengths 0, 1, 20, 127, 128, 255, 256, 257 |
 | `arrayindexintrangecheck` | Get/Put calls on ten INT elements; sum minus 45 is zero | Fixed odd-base words at indexes 0, 1, 127, 128, 255, 256, with runtime-supplied values |
 | `arrayoffsetindex` | Four stores through `p(x+3)` through `p(x+6)`; sum minus 10 is zero | Two runtime pointer bases, including `$50F1`, and starting arguments 4, 123, 124, 252 |
@@ -100,8 +100,12 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
 
 The separate `oscar64_mandelbrot` target adds 2,424 numerical executions (404
 pixel cases across six lanes, each also checking a direct raw-coordinate case)
-and six probe-output runs. Its two tests share the maintained kernel with the
-sample project. These counts are separate from the conformance table above.
+and six probe-output runs. Six selected-row renders and one full standalone
+MIR6502 image bring its total to 2,437 executions in four tests. All share the
+maintained kernel with the sample project. Graphics assertions check the VM's
+modeled CIO pixels and palette against an independent image oracle, not ANTIC
+scanout or OS screen-memory packing. These counts are separate from the
+conformance table above.
 The integer model finds 180 viewport pixels where floor and truncation differ;
 the VM corpus includes explicit examples of that difference. No Oscar64 binary
 or floating-point Mandelbrot implementation is used as the oracle.

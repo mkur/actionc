@@ -1,5 +1,5 @@
 ; Signed Q4.12: INT raw / 4096, range -8 through 7.999755859375.
-; Results wrap to INT; discarded fractions truncate toward zero.
+; INT results wrap; fractions truncate toward zero except explicit MulFloor.
 MODULE MATH.Q4_12
 
 PUBLIC CONST INT One=4096,

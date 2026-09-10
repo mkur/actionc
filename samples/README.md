@@ -77,6 +77,12 @@ rendered shape resembles a fedora. It uses the portable `MATH.Sqr` and
 GTIA mode 9 and leaves the completed image on screen. Its source is also
 accepted by the original Action! cartridge compiler.
 
+[`graphics/mandelbrot/`](graphics/mandelbrot/README.md) ports Oscar64's fixed
+point Mandelbrot sample using `MATH.Q4_12` and LONGINT intermediates. The
+shared numerical kernel drives a small printing probe and a 160x192 Atari
+graphics display. Both samples build in all three modes with either runtime;
+the README records the original rounding rules and Atari display adaptation.
+
 `graphics/unknown-pleasures/` contains data-driven renderings of the CP1919
 pulse plot: a stock Graphics 8 version with 300 independent horizontal samples
 and a VBXE SR320 version with quarter-scanline grayscale antialiasing.

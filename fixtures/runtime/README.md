@@ -13,14 +13,22 @@ also probes division faults and checks the sample output. Run
 `cargo test --locked --test fixed_q8_8` from `tools/vm-runtime-tests`.
 See the [Q8.8 API guide](../../docs/FIXED_POINT_Q8_8.md).
 
-The [Oscar64 behavioral ports](oscar64/README.md) add eight small compiler
-conformance fixtures with independent Rust oracles and explicit mode/runtime
+`fixed_q4_12.act` checks the corresponding signed Q4.12 API, explicit floor
+rounding, and complete LONGCARD squares, with 3,774 guarded arithmetic/fault
+executions in the `fixed_q4_12` VM target. See the
+[Q4.12 guide](../../docs/FIXED_POINT_Q4_12.md).
+
+The [Oscar64 behavioral ports](oscar64/README.md) add compiler conformance
+fixtures with independent Rust oracles and explicit mode/runtime
 coverage. Their README records provenance, Action! semantic adaptations, and
-the resolved compiler regressions. All 258 VM cases are active. Run the tests
+the resolved compiler regressions. All 16,438 conformance VM cases are active.
+The separate `oscar64_mandelbrot` target covers 2,437 numerical, probe, and
+Atari graphics executions using the shared sample-project kernel. Run the tests
 from `tools/vm-runtime-tests` with:
 
 ```sh
 cargo test --locked --test oscar64_conformance
+cargo test --locked --test oscar64_mandelbrot
 ```
 
 Run the initialized-array gate directly:

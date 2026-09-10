@@ -1,6 +1,6 @@
 # Signed Q4.12 and Oscar64 Mandelbrot
 
-Status: slices 1 and 2 complete; slice 3 pending, 2026-09-10.
+Status: all three slices complete and accepted, 2026-09-10.
 Commit each tested implementation slice.
 
 ## Contract
@@ -64,6 +64,11 @@ Expected arithmetic uses host i64 with explicit floor/truncation and signed
 guarded outputs and actual error delivery, not just checksums or watchdogs.
 Mandelbrot expectations must reproduce the pinned integer algorithm, including
 the separate square shifts, rather than using floating point as the oracle.
+The pinned VM records CIO graphics pixels rather than emulating ANTIC scanout
+or OS screen-memory packing. Compare all observed 160x192 pixels after packing
+them into a linear two-bit image; also check the palette, graphics channel
+parameters, untouched regions, and pixels outside the viewport. This validates
+the rendered pixel image through the existing graphics-call model.
 
 Run relevant root compilation tests and focused locked VM tests per slice.
 Before final acceptance run:
@@ -100,6 +105,24 @@ model counts 3,167 capped pixels, 151,649 updates, and 180 floor/truncation
 differences in the full viewport; these are integer-model facts, not claims
 of executing an Oscar64 binary. Pinned provenance and GPL attribution are
 recorded with the shared source and the fixture.
+
+Slice 3 implements the Atari Graphics(31) sample using the same kernel and
+the original dither patterns at the documented row intervals. Both samples
+build in every advertised mode/runtime configuration. The dedicated VM target
+passes four tests / 2,437 executions: the numerical and printing cases above,
+selected logical rows 0, 24, 50, 75, and 99 in all six lanes, and the complete
+160x100 numerical viewport rendered into 160x192 pixels in standalone MIR6502.
+Observed pixels, untouched regions, palette registers, and graphics channel
+parameters match the independent host oracle. The public CLI also builds the
+uninstrumented standalone MIR6502 sample (3,198-byte XEX). The sample README
+records the graphics-model boundary, artifact format, and measured test costs.
+
+Final acceptance passes: 3,077 root tests, with 22 existing ignored tests;
+279 locked VM tests, none ignored; the dedicated NIR snapshot check; all 49
+NIR sweep fixtures; and cargo check --all-targets. The full sample build
+catalog passes. The source-only runtime corpus retains 345 normal entries
+plus 12 expected named-module semantic rejections, covered through the public
+module-aware compilation path. NIR snapshots and compiler code are unchanged.
 
 ## Sources
 

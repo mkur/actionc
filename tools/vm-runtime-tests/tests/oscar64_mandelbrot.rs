@@ -251,3 +251,136 @@ fn oscar64_mandelbrot_probe_prints_documented_results() {
         );
     }
 }
+
+fn bitmap(rows: &[u8]) -> Vec<u8> {
+    // Decode the original C64 pattern pairs as independent per-pixel colors,
+    // then pack a linear two-bit image at the documented Atari row intervals.
+    let patterns = [
+        (0xFFu8, 0xFFu8),
+        (0xEE, 0xBB),
+        (0xAA, 0xAA),
+        (0x88, 0x22),
+        (0x44, 0x11),
+        (0x55, 0x55),
+        (0xDD, 0x77),
+        (0x33, 0xCC),
+    ];
+    let mut image = vec![0; 40 * 192];
+    for &py in rows {
+        let start = usize::from(py) * 192 / 100;
+        let end = (usize::from(py) + 1) * 192 / 100;
+        for px in 0..160 {
+            let (cx, cy) = coords(px, py);
+            let count = iterations(cx, cy, true);
+            if count < 32 {
+                let (upper, lower) = patterns[usize::from(count % 8)];
+                let shift = 6 - 2 * (px % 4);
+                for row in start..end {
+                    let pattern = if row == start { upper } else { lower };
+                    let color = (pattern >> shift) & 3;
+                    image[row * 40 + usize::from(px / 4)] |= color << shift;
+                }
+            }
+        }
+    }
+    image
+}
+
+fn render(mode: CompileMode, runtime: Runtime, full: bool) {
+    const SAMPLE: &str = include_str!("../../../samples/graphics/mandelbrot/mbfixed.act");
+    let mut text = SAMPLE.replace("PROC Main()", "PROC TestStop=$0700()\nPROC Main()");
+    assert_eq!(text.matches("  DO OS.ATRACT=0 OD").count(), 1);
+    text = text.replace("  DO OS.ATRACT=0 OD", "  TestStop() DO OD");
+    let rows: Vec<_> = if full {
+        (0..100).collect()
+    } else {
+        vec![0, 24, 50, 75, 99]
+    };
+    if !full {
+        assert_eq!(text.matches("    DrawRow(py)").count(), 1);
+        text = text.replace(
+            "    DrawRow(py)",
+            "    IF py=0 OR py=24 OR py=50 OR py=75 OR py=99 THEN DrawRow(py) FI",
+        );
+    }
+    let source = Source::new(&text);
+    let compiled = compile_file(
+        &source.0,
+        &CompileOptions::for_mode(mode)
+            .with_runtime(runtime)
+            .with_module_path(project()),
+    )
+    .unwrap();
+    let outcome = finish(
+        vm_for(compiled.object_bytes(), runtime, true),
+        if full { 2_000_000_000 } else { 500_000_000 },
+    );
+    // Channel 6: AUX1 selects read/write with no text window; AUX2 is mode 31.
+    assert_eq!(outcome.memory().read(0x3AA), 12);
+    assert_eq!(outcome.memory().read(0x3AB), 31);
+    assert_eq!(outcome.vm.bus().graphics_mode(), Some(12)); // VM records AUX1.
+    // The pinned VM models CIO S: pixels, not ANTIC screen-memory packing.
+    // Pack its observed colors independently for comparison with the oracle.
+    let mut actual = vec![0u8; 40 * 192];
+    for row in 0..=255u8 {
+        for column in 0..320u16 {
+            let color = outcome.vm.bus().graphics_pixel(column, row);
+            if row < 192 && column < 160 {
+                assert!(color < 4, "invalid color {color} at ({column},{row})");
+                actual[usize::from(row) * 40 + usize::from(column / 4)] |=
+                    color << (6 - 2 * (column % 4));
+            } else {
+                assert_eq!(color, 0, "pixel outside viewport ({column},{row})");
+            }
+        }
+    }
+    let expected = bitmap(&rows);
+    for (index, (&actual, &expected)) in actual.iter().zip(&expected).enumerate() {
+        assert_eq!(
+            actual,
+            expected,
+            "{mode:?}/{runtime:?} full={full}, row={}, byte={}: {:?}",
+            index / 40,
+            index % 40,
+            outcome.report
+        );
+    }
+    for (address, value) in [(0x2C4, 0x26), (0x2C5, 0x1C), (0x2C6, 0x9A), (0x2C8, 0)] {
+        assert_eq!(
+            outcome.memory().read(address),
+            value,
+            "palette {mode:?}/{runtime:?}"
+        );
+    }
+    println!(
+        "Mandelbrot {mode:?}/{runtime:?} full={full}: {} steps, {} cycles, {} object bytes",
+        outcome.report.completed_steps,
+        outcome.report.cycles,
+        compiled.object_bytes().len()
+    );
+    if let Ok(dir) = std::env::var("ACTIONC_MANDELBROT_ARTIFACT_DIR") {
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = format!(
+            "{mode:?}-{runtime:?}-{}",
+            if full { "full" } else { "rows" }
+        );
+        std::fs::write(Path::new(&dir).join(format!("{name}.bin")), actual).unwrap();
+        std::fs::write(
+            Path::new(&dir).join(format!("{name}.txt")),
+            format!("{:?}\n", outcome.report),
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn oscar64_mandelbrot_atari_rows_match_packed_bitmap_in_all_lanes() {
+    for (mode, runtime) in lanes() {
+        render(mode, runtime, false);
+    }
+}
+
+#[test]
+fn oscar64_mandelbrot_full_atari_image_matches_integer_oracle() {
+    render(CompileMode::Mir6502, Runtime::Standalone, true);
+}
