@@ -776,3 +776,53 @@ fn small_word_shifts_preserve_carries_overlap_and_calls() {
         }
     }
 }
+
+#[test]
+fn wide_carry_chains_preserve_high_only_results_negation_and_captures() {
+    let source = Source::new(
+        "LONGCARD a=$6E0,b=$6E4,sum=$600,difference=$604,inplace=$610\n\
+         CARD upper=$608,borrow=$60A,narrow=$60E LONGINT negative=$614\n\
+         BYTE top=$60C,calls=$60D,done=$6FF\n\
+         LONGCARD FUNC Left() calls==+1 RETURN(a)\n\
+         LONGCARD FUNC Right() calls==+1 RETURN(b)\n\
+         PROC Main() calls=0 sum=Left()+Right() difference=a-b\n\
+         upper=CARD((a+b) RSH 16) borrow=CARD((a-b) RSH 16) top=BYTE((a+b) RSH 24)\n\
+         narrow=CARD(a+b) inplace=a inplace==+b inplace==-a negative=-LONGINT(a)\n\
+         done=$A5 DO OD RETURN",
+    );
+    let boundaries = [0u32, 1, 0x7F, 0x80, 0xFF, 0x100, 0xFFFE, 0xFFFF, 0x10000, 0xFFFFFF, 0x7FFFFFFF, 0x80000000, u32::MAX];
+    let mut pairs: Vec<_> = boundaries.into_iter().flat_map(|a| boundaries.into_iter().map(move |b| (a,b))).collect();
+    let mut seed = 0x1937AB21u32;
+    for _ in 0..256 {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        let a = seed;
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        pairs.push((a, seed));
+    }
+    for (mode, runtime) in modes_and_runtimes() {
+        // Compatibility requires explicit staging for calls in arithmetic.
+        let staged = (mode == CompileMode::Compatibility).then(|| Source::new(
+            &std::fs::read_to_string(&source.0).unwrap().replace(
+                "sum=Left()+Right()", "sum=Left() difference=Right() sum=sum+difference",
+            ),
+        ));
+        let source = staged.as_ref().unwrap_or(&source);
+        let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+        for &(a, b) in &pairs {
+            let actual = run(compiled.object_bytes(), runtime, a, b);
+            let sum = a.wrapping_add(b);
+            let difference = a.wrapping_sub(b);
+            let mut expected = vec![0xCC; 256];
+            for (offset, value) in [(0, sum), (4, difference), (16, b), (20, a.wrapping_neg()), (0xE0, a), (0xE4, b)] {
+                expected[offset..offset+4].copy_from_slice(&value.to_le_bytes());
+            }
+            for (offset, value) in [(8, (sum >> 16) as u16), (10, (difference >> 16) as u16), (14, sum as u16)] {
+                expected[offset..offset+2].copy_from_slice(&value.to_le_bytes());
+            }
+            expected[12] = (sum >> 24) as u8;
+            expected[13] = 2;
+            expected[255] = 0xA5;
+            assert_eq!(actual, expected, "{mode:?}/{runtime:?}: {a:08X}, {b:08X}");
+        }
+    }
+}

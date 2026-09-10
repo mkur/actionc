@@ -1639,3 +1639,12 @@ capturing the crossing nibble before writing either destination lane. This
 selection requires captured operands, no incoming/outgoing carry contract and
 a splittable destination. Dynamic and larger general shifts retain helper
 selection; existing byte-aligned projections remain separate.
+
+Wide integer addition, subtraction and negation lower to four ordered byte
+operations over captured word lanes. The low byte explicitly clears carry for
+addition or sets it for subtraction. Each interior byte consumes and produces
+carry; the final byte consumes it and discards overflow beyond bit 31. No
+comparison or Boolean temporary transports carry between words. Captures must
+precede the chain, and optimizers must preserve lower-lane carry contributions
+even when only upper result lanes are used. NIR still expresses typed integer
+arithmetic; signed and unsigned operations share this modulo-2^32 strategy.

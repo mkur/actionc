@@ -816,3 +816,28 @@ fn nibble_word_shifts_inline_in_both_mir_configs() {
         }
     }
 }
+
+#[test]
+fn wide_add_sub_lower_to_four_explicit_carry_lanes() {
+    use actionc::mir6502::{MirBinaryOp, MirCarryIn, MirCarryOut, MirOp, MirWidth};
+    let nir = lower("LONGCARD a=$6E0,b=$6E4,sum=$600,difference=$604 PROC Main() sum=a+b difference=a-b RETURN", TargetId::Atari6502);
+    let mir = actionc::mir6502::lower_program(&nir).unwrap();
+    let ops: Vec<_> = mir.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops).collect();
+    assert!(!ops.iter().any(|op| matches!(op, MirOp::Compare { .. })));
+    for binary in [MirBinaryOp::Add, MirBinaryOp::Sub] {
+        let lanes: Vec<_> = ops.iter().filter_map(|op| match op {
+            MirOp::Binary { op, width, carry_in, carry_out, .. } if *op == binary => Some((*width, *carry_in, *carry_out)),
+            _ => None,
+        }).collect();
+        let initial = if binary == MirBinaryOp::Add { MirCarryIn::Clear } else { MirCarryIn::Set };
+        assert_eq!(lanes, [
+            (MirWidth::Byte, Some(initial), MirCarryOut::Produce),
+            (MirWidth::Byte, Some(MirCarryIn::FromPrevious), MirCarryOut::Produce),
+            (MirWidth::Byte, Some(MirCarryIn::FromPrevious), MirCarryOut::Produce),
+            (MirWidth::Byte, Some(MirCarryIn::FromPrevious), MirCarryOut::Ignore),
+        ]);
+    }
+    for config in [actionc::mir6502::Mir6502Config::default(), actionc::mir6502::Mir6502Config::optimized()] {
+        actionc::mir6502::materialize_program(mir.clone(), &config).unwrap();
+    }
+}

@@ -1,6 +1,6 @@
 # Mandelbrot code generation: second pass
 
-Status: implementation in progress. Commit each verified slice.
+Status: all four slices implemented, verified and committed separately.
 
 Baseline: revision 7bea08b, standalone MIR6502. The 640-pixel grid costs
 26,877,910 kernel cycles; full Atari and VBXE renders cost 1,464,315,551 and
@@ -67,3 +67,29 @@ shifts use the existing bounded carry expansion. Kernel cycles are 21,413,144
 VM tests passed, including 6,144 new small-shift executions; compiler tests,
 NIR snapshots and 49/49 sweep passed. KALSCOPE's quality assertion intentionally
 changes from one shift helper to zero; its existing size ceiling still passes.
+
+Slice 4: wide add/subtract and negation use four captured byte lanes with
+explicit carry/borrow dependencies, including discarded low results. The
+focused regression covers 2,550 executions across boundaries, random operands,
+call captures, compound assignments, negation and partial results. Compatibility
+cases stage calls explicitly to respect that profile's expression restrictions.
+
+## Final measurements
+
+| Measurement | Baseline | After four slices | Reduction |
+| --- | ---: | ---: | ---: |
+| 640-pixel kernel cycles | 26,877,910 | 20,769,965 | 22.72% |
+| Full Atari render cycles | 1,464,315,551 | 1,159,571,249 | 20.81% |
+| Full VBXE render cycles | 2,908,153,031 | 2,298,447,085 | 20.97% |
+| Atari standalone XEX bytes | 2,462 | 2,197 | 265 bytes |
+| VBXE standalone XEX bytes | 4,191 | 3,926 | 265 bytes |
+
+Measurements use the same viewport, palette and independent host oracle as
+the baseline. All eight Mandelbrot VM tests (5,352 executions), 20 wide-integer
+VM tests and seven fixed-point VM tests passed. All 17 saved bitmap/palette
+artifacts match the baseline byte-for-byte. Release emission reproduces the
+profiled executable. Multiplication remains 69.13% of sampled kernel cycles;
+coordinate caching remains outside these slices.
+
+Final compiler verification: 3,087 tests passed, with 22 existing ignored tests;
+NIR snapshots and the 49/49 fixture sweep passed without snapshot changes.

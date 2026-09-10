@@ -1,7 +1,7 @@
 //! Target-owned legalization of a 32-bit NIR integer into two ordinary words.
 //! No source typing or expression reassociation occurs here.
 use super::*;
-use crate::mir6502::ir::MirResultHome;
+use crate::mir6502::ir::{MirCarryIn, MirResultHome};
 
 #[derive(Default)]
 pub(super) struct WideValues {
@@ -299,31 +299,51 @@ impl Builder<'_> {
         Some(MirAddr::Deref { ptr, offset: 0 })
     }
 
+    fn word_bytes(&mut self, value: MirValue) -> [MirValue; 2] {
+        match value {
+            MirValue::ConstU8(value) => [MirValue::ConstU8(value), MirValue::ConstU8(0)],
+            MirValue::ConstU16(value) => [
+                MirValue::ConstU8(value as u8), MirValue::ConstU8((value >> 8) as u8),
+            ],
+            MirValue::Def(MirDef::VTemp(id)) => [0, 1].map(|byte|
+                MirValue::Def(MirDef::VTempByte { id, byte })),
+            value => {
+                // Capture any other word form before opening the carry chain.
+                let id = self.temp();
+                self.ops.push(MirOp::Move {
+                    dst: MirDef::VTemp(id), src: value, width: MirWidth::Word,
+                });
+                [0, 1].map(|byte| MirValue::Def(MirDef::VTempByte { id, byte }))
+            }
+        }
+    }
+
     fn add_sub(
         &mut self,
         op: MirBinaryOp,
         left: [MirValue; 2],
         right: [MirValue; 2],
     ) -> [MirValue; 2] {
-        let [a, ah] = left;
-        let [b, bh] = right;
-        let low = self.binary(op, a.clone(), b.clone(), MirWidth::Word);
-        // An explicit value transports carry/borrow between word operations;
-        // word optimizers do not need to preserve a hidden flags dependency.
-        let carry = self.compare(
-            MirCompareOp::Lt,
-            if op == MirBinaryOp::Add {
-                low.clone()
-            } else {
-                a.clone()
-            },
-            if op == MirBinaryOp::Add { a } else { b },
-            false,
-        );
-        let carry = self.widen_byte(carry, false);
-        let high = self.binary(op, ah, bh, MirWidth::Word);
-        let high = self.binary(op, high, carry, MirWidth::Word);
-        [low, high]
+        let left = left.map(|value| self.word_bytes(value));
+        let right = right.map(|value| self.word_bytes(value));
+        let result = [self.temp(), self.temp()];
+        // Reuse the explicit byte-lane carry contract. Every interior lane
+        // both consumes and produces carry; even a discarded low result must
+        // contribute its carry to the live high lanes.
+        for (index, (left, right)) in left.into_iter().flatten()
+            .zip(right.into_iter().flatten()).enumerate()
+        {
+            self.ops.push(MirOp::Binary {
+                op,
+                dst: MirDef::VTempByte { id: result[index / 2], byte: (index % 2) as u8 },
+                left, right, width: MirWidth::Byte,
+                carry_in: Some(if index == 0 {
+                    if op == MirBinaryOp::Add { MirCarryIn::Clear } else { MirCarryIn::Set }
+                } else { MirCarryIn::FromPrevious }),
+                carry_out: if index == 3 { MirCarryOut::Ignore } else { MirCarryOut::Produce },
+            });
+        }
+        result.map(temp_value)
     }
 
     fn constant_shift(
