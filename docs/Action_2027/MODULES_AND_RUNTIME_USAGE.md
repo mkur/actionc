@@ -70,6 +70,15 @@ families, `StrLC`/`StrLI`, `ValLC`/`ValLI`, and `InputLC`/`InputLI` support
 LONGCARD/LONGINT on both classic profiles and MIR6502 with both runtimes. See
 [32-bit SYS I/O](../LONG_INTEGER_IO.md) for signatures and checked parsing rules.
 
+## Signed Q8.8 library
+
+`USE MATH.Q8_8 AS Q` imports signed fixed point arithmetic using INT raw values
+scaled by 256. `Q.FromInt`, `Q.Trunc`, `Q.FromRatio`, `Q.Mul`, and `Q.Div` use
+existing LONGINT intermediates and work in all three modes with either runtime.
+The module loads independently of MATH's REAL facade and needs no ROMs for
+standalone numerical execution. See the [Q8.8 guide](../FIXED_POINT_Q8_8.md)
+for the constants, explicit rounding and wrapping rules, and sample.
+
 ## Native REAL library
 
 For a guided introduction to the type, operators, conversions, storage, and

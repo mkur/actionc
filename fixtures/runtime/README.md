@@ -6,6 +6,13 @@ the isolated `tools/vm-runtime-tests` crate. Compatibility scripts that also
 check a compiler selection retain that preflight, then select the matching
 library test.
 
+`fixed_q8_8.act` and `fixed_q8_8_composition.act` exercise the embedded
+`MATH.Q8_8` library with host-fed signed values, independent i64 oracles,
+guarded stores, call composition, and page crossings. The matching VM target
+also probes division faults and checks the sample output. Run
+`cargo test --locked --test fixed_q8_8` from `tools/vm-runtime-tests`.
+See the [Q8.8 API guide](../../docs/FIXED_POINT_Q8_8.md).
+
 The [Oscar64 behavioral ports](oscar64/README.md) add eight small compiler
 conformance fixtures with independent Rust oracles and explicit mode/runtime
 coverage. Their README records provenance, Action! semantic adaptations, and

@@ -1,6 +1,6 @@
 # Signed Q8.8 library and tests
 
-Status: slices 1 and 2 complete; slice 3 pending. Created 2026-09-10.
+Status: all three slices complete, 2026-09-10. Created 2026-09-10.
 
 ## Scope
 
@@ -253,6 +253,22 @@ path. Both public compiler tests pass. The three VM tests pass 3,684 executions:
 cases. Dynamic and literal zero denominators in both division APIs report
 Error(101) once, preserve caller stores/effects, and cannot resume even when
 the injected Error handler returns. No compiler changes were needed.
+
+Slice 3 is complete. Staged and modern nested calls preserve operand order
+and live results across library calls; odd and page-crossing array/pointer
+stores preserve neighboring bytes. The motion oracle checks raw operators,
+wrapping, and conversion after composition. The maintained sample builds in
+all six lanes and prints its documented results. Five Q8.8 VM tests pass
+3,810 executions, including 120 composition cases and six sample runs.
+
+Final acceptance: 3,075 compiler tests passed (22 existing ignored), all 273
+locked VM tests passed (none ignored), all 49 dedicated NIR fixtures passed,
+the NIR snapshot check passed, and `cargo check --all-targets` passed. Both
+sample-build tiers and the broad NIR corpus check pass. The source-only
+corpus's existing module-aware fixture ledger now includes the two Q8.8
+fixtures, whose module-aware public compilation and execution are tested
+separately. This is a fixture-catalog update, not an IR contract or printer
+change. No compiler implementation or IR snapshots changed.
 
 ## Deferred
 

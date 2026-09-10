@@ -60,6 +60,16 @@ scale explicit in variable names and conversions. Intermediates use LONGINT,
 and narrowing occurs after scaling. No native fixed point type, implicit
 scale conversion, saturation, or new interrupt/reentrancy guarantee is added.
 
+The [complete sample](../samples/fixed-point/q8_8.act) exercises all five
+functions and accumulates four steps of 1.5 to reach raw 1536 (6.0). Its
+[README](../samples/fixed-point/README.md) gives build commands and exact
+output. Integer printing in the sample requires the Atari OS; the arithmetic
+library itself does not.
+
 From the repository root run `cargo test --test fixed_q8_8`; from
 `tools/vm-runtime-tests` run `cargo test --locked --test fixed_q8_8` for the
 independent host-oracle execution tests.
+
+The [implementation plan](SIGNED_Q8_8_LIBRARY_IMPLEMENTATION_PLAN.md) records
+the scope and acceptance checks. Additional formats, native types, saturation,
+round-to-nearest, REAL conversion, and fixed point decimal I/O remain deferred.

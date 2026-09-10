@@ -12,6 +12,16 @@ the pinned `actionc-vm` revision:
 cargo test --locked --no-fail-fast
 ```
 
+The [signed Q8.8 library](../../docs/FIXED_POINT_Q8_8.md) is checked by
+`cargo test --locked --test fixed_q8_8`. Five tests cover 3,810 VM executions:
+150 conversion/constant cases, 3,462 boundary/random arithmetic cases, 72
+division-fault cases, 120 staged/nested composition cases, and six sample
+output runs. Common source runs in Compatibility, Optimized classic, and
+MIR6502 with both runtimes; nested expressions additionally exercise the four
+modern lanes. Numerical standalone runs load no ROMs. Host i64 oracles check
+complete guarded regions, including page-crossing INT stores; fault tests
+verify Error(101) and non-returning behavior even with a returning Error hook.
+
 The [LET code-generation audit](../../docs/Action_2027/LET_CODEGEN_AUDIT.md)
 compares a reused mutable local, distinct mutable locals, and sequential LET
 bindings. `cargo test --locked --test let_codegen_audit -- --nocapture` checks

@@ -37,6 +37,11 @@ available when deliberately overriding the source placement.
 `real-basics.act` is the complete introductory program from the
 [native REAL tutorial](../docs/tutorials/REAL.md).
 
+[`fixed-point/q8_8.act`](fixed-point/q8_8.act) demonstrates signed Q8.8
+construction, arithmetic, truncation, motion, and wrapping with `MATH.Q8_8`.
+The [sample README](fixed-point/README.md) has build commands and exact output;
+all three compiler modes and both runtimes are covered.
+
 [`long-integers/`](long-integers/) demonstrates unsigned `LONGCARD` and signed
 `LONGINT` with factorial, Fibonacci, decimal printing, and explicit widening.
 Its README contains build instructions and expected output. Atari execution

@@ -1,0 +1,33 @@
+; Build: actionc --mode optimized --runtime standalone samples/fixed-point/q8_8.act
+MODULE FIXED_POINT_SAMPLE
+USE MATH.Q8_8 AS Q
+
+PROC Main()
+  INT value,two,result,position,velocity
+  BYTE i
+
+  PrintE("Signed Q8.8 (raw / 256)")
+  value=Q.FromRatio(3,2)
+  Print("1.5 raw = ") PrintIE(value)
+  two=Q.FromInt(2)
+  result=Q.Mul(value,two)
+  Print("1.5 * 2 raw = ") PrintIE(result)
+  result=Q.FromRatio(-1,3)
+  Print("-1 / 3 raw = ") PrintIE(result)
+  value=-value
+  result=Q.Trunc(value)
+  Print("Trunc(-1.5) = ") PrintIE(result)
+
+  position=0
+  velocity=Q.FromRatio(3,2)
+  FOR i=1 TO 4 DO position==+velocity OD
+  Print("Four steps of 1.5 raw = ") PrintIE(position)
+  result=Q.Trunc(position)
+  Print("Whole position = ") PrintIE(result)
+  result=Q.Div(position,two)
+  Print("Half position raw = ") PrintIE(result)
+
+  result=Q.Mul(Q.MaxValue,two)
+  Print("MaxValue * 2 wrapped raw = ") PrintIE(result)
+RETURN
+ENDMODULE

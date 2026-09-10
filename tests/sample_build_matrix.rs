@@ -143,6 +143,14 @@ fn sample_catalog() -> Vec<SampleSpec> {
 
     vec![
         executable(
+            "samples/fixed-point/q8_8.act",
+            vec![
+                release(Compatibility, ActionCart), release(Compatibility, Standalone),
+                release(Optimized, ActionCart), release(Optimized, Standalone),
+                experimental(ActionCart), experimental(Standalone),
+            ],
+        ),
+        executable(
             "samples/long-integers/long-integers.act",
             vec![release(Compatibility, ActionCart), release(Compatibility, Standalone),
                 release(Optimized, ActionCart), release(Optimized, Standalone),
