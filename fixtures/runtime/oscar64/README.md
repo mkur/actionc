@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These twenty-one Action! fixtures adapt Oscar64 autotests into the existing
+These twenty-two Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -48,16 +48,17 @@ translations or tests of C-only language behavior.
 | `testsigned16div` | Runtime INT divided by each nonzero coefficient -16..15; actual literal expansion contrasted with the original runtime loop | 39 representative signed inputs, including inexact quotients; guarded odd-base literal/runtime tables and unchanged inputs |
 | `divmodtest` | Quotient/remainder identities with byte divisors 1..255 and wrapping CARD power-of-three divisors | Every original outer-loop value supplied by the host; exact quotient and remainder checked independently, full CARD high-bit range, guarded odd-base row table |
 | `mixedwidthternary` | Player health 17, maximum 17, severity 0 produces damage 3 and health 14; empty inventory stays NONE | Modern IF values with explicit CARD arms and outer BYTE narrowing; 336 health/maximum/severity inputs, repeated damage and consumption, companion clamping amounts through 65535, complete-page guards |
+| `enumswitch` | E1/E2/E3 return 10/20/30 and E4 takes the default 100; four-call sum minus 160 is zero | Statement and expression CASE with INT results; all 256 enum representations, repeated calls with `255-tag`, unchanged input and complete-page guards |
 
 Cartridge-compatible sources run in all three modes; modern comparison-value
-companions, `structmembertest` and `mixedwidthternary` run in Optimized and MIR6502. All use both ActionCart and Standalone
-runtime linking. The first eight
-ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
+companions, `structmembertest`, `mixedwidthternary` and `enumswitch` run in
+Optimized and MIR6502. All use both ActionCart and Standalone runtime linking.
+The first eight ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
 copy/increment regressions remain active with their original loops and
 independent expected values.
 
 The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
-1 through 5 ported. Their current results are:
+1 through 5 ported. Results, including the later focused ports, are:
 
 | Fixture | Host cases | VM cases | Result |
 | --- | ---: | ---: | --- |
@@ -74,10 +75,12 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `testsigned16div` | 39 | 234 | All six mode/runtime combinations |
 | `divmodtest` | 1,190 | 7,140 | All six mode/runtime combinations |
 | `mixedwidthternary` (expression integration port) | 336 | 1,344 | Both modern backends/runtimes; Compatibility rejection checked separately |
+| `enumswitch` (CASE integration port) | 256 | 1,024 | Both modern backends/runtimes; Compatibility rejection checked separately |
 
-Overall: **13,416 VM cases in 29 active tests**: the previous 12,072 cases plus
-1,344 mixed-width selection executions. Compatibility rejection checks for
-member arrays and selection expressions are not VM cases.
+Overall: **14,440 VM cases in 30 active tests**: the previous 12,072 cases plus
+1,344 mixed-width IF executions and 1,024 enum CASE executions. Compatibility
+rejection checks for member arrays, enums and selection expressions are not
+VM cases.
 No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
@@ -88,6 +91,18 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
 
 ## Action! semantics and harness contract
 
+- `enumswitch` adapts the
+  [pinned C source](https://github.com/drmortalwombat/oscar64/blob/8deb94c4d762bab3aa60c9565412691f01021bbb/autotest/enumswitch.c)
+  as statement and expression CASE functions. Each retains the original
+  E1/E2/E3/E4 calls and sum-minus-160 check. Action! enums have nominal identity
+  and BYTE storage; the host supplies all 256 representations via an explicit
+  `E(tag)` cast. E4 and the unnamed values 4..255 must take ELSE and return 100.
+  Expression arms explicitly produce INT, preserving the signed-word return
+  type without relying on implicit arm widening. Each VM invocation also calls
+  both functions with `255-tag`, checking repeated dispatch after a changed
+  argument. The host independently checks every result word, the unchanged
+  input and all remaining poisoned page bytes. This covers Action!'s enum
+  representation domain, without assuming C enum layout or promotion rules.
 - `mixedwidthternary` adapts the
   [pinned C source](https://github.com/drmortalwombat/oscar64/blob/8deb94c4d762bab3aa60c9565412691f01021bbb/autotest/mixedwidthternary.c)
   as the focused [IF/CASE integration port](../../../docs/Action_2027/IF_CASE_EXPRESSIONS_IMPLEMENTATION_PLAN.md).

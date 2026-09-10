@@ -1,0 +1,49 @@
+; Adapted from Oscar64 autotest/enumswitch.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+; Modern profile: nominal byte enums, statement and expression CASE dispatch.
+
+TYPE E=ENUM [E1 E2 E3 E4]
+INT originalStatement=$0600,originalExpression=$0602
+INT selectedStatement=$0604,selectedExpression=$0606
+INT repeatedStatement=$0608,repeatedExpression=$060A
+BYTE tag=$06F0
+BYTE signature=$06FF
+
+INT FUNC CheckStatement(E item)
+  CASE item OF
+  WHEN E.E1 THEN
+    RETURN(10)
+  WHEN E.E2 THEN
+    RETURN(20)
+  WHEN E.E3 THEN
+    RETURN(30)
+  ELSE
+    RETURN(100)
+  ESAC
+
+INT FUNC CheckExpression(E item)
+RETURN(CASE item OF
+  WHEN E.E1 THEN
+    INT(10)
+  WHEN E.E2 THEN
+    INT(20)
+  WHEN E.E3 THEN
+    INT(30)
+  ELSE
+    INT(100)
+  ESAC)
+
+PROC Main()
+  signature=0
+  originalStatement=CheckStatement(E.E1)+CheckStatement(E.E2)
+    +CheckStatement(E.E3)+CheckStatement(E.E4)-160
+  originalExpression=CheckExpression(E.E1)+CheckExpression(E.E2)
+    +CheckExpression(E.E3)+CheckExpression(E.E4)-160
+  selectedStatement=CheckStatement(E(tag))
+  selectedExpression=CheckExpression(E(tag))
+  repeatedStatement=CheckStatement(E(BYTE(255-tag)))
+  repeatedExpression=CheckExpression(E(BYTE(255-tag)))
+  signature=$A5
+  DO OD
+RETURN

@@ -45,8 +45,8 @@ array indexing, word-pointer transfers, loop bounds, comparisons, masks,
 shift/add/sub composition, signed multiplication, reverse-copy loops, nested
 calls, signed intervals, mixed INT/BYTE comparison values, record-array copies,
 inline record-member arrays, signed division, full-range unsigned div/mod,
-and mixed-width IF selection using independent host-side oracles. Run them
-separately with:
+mixed-width IF selection, and enum CASE dispatch using independent host-side
+oracles. Run them separately with:
 
 ```sh
 cargo test --locked --test oscar64_conformance
@@ -54,7 +54,7 @@ cargo test --locked --test oscar64_conformance
 
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
-and focused IF-expression port bring the total to 29 active tests and 13,416 VM
+and focused IF/CASE ports bring the total to 30 active tests and 14,440 VM
 cases, including the 512 repaired Compatibility nested-call cases and 120 repaired
 classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
 and 264 numeric comparison-value cases across modern classic and MIR6502.
@@ -67,7 +67,11 @@ counted as VM executions. No pointer-backed workaround replaces inline members.
 No Oscar64 tests are ignored. See the fixture README for the mode/case matrix
 and the additional 1,344 mixed-width IF cases, including explicit arm widening,
 outer narrowing, repeated calls, full-page guards and separate Compatibility
-rejection checks, as well as resolved compiler regressions.
+rejection checks, as well as resolved compiler regressions. The enum-switch
+port adds 1,024 VM cases covering statement and expression CASE over every
+BYTE enum representation, including default dispatch for unnamed values.
+Both forms retain the original four-call sum check and have independent result
+oracles; Compatibility rejection is checked separately from the VM count.
 `cargo test --locked --test comparison_values`
 also runs 24 modern consumer cases checking widths, calls, eager composition,
 indexed destinations and captured pointers.

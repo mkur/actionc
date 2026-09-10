@@ -176,6 +176,50 @@ fn write_word(bytes: &mut [u8], offset: usize, value: u16) {
 }
 
 #[test]
+fn oscar64_enum_switch_statement_and_expression_preserve_default_dispatch() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let error = compile_file(
+            repository_root().join("fixtures/runtime/oscar64/enumswitch.act"),
+            &CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(runtime),
+        )
+        .expect_err("enum CASE dispatch requires the modern profile");
+        assert!(
+            error.diagnostics().iter().any(|d| {
+                d.phase == CompilerPhase::Semantic
+                    && d.message.contains("ENUM requires the modern profile")
+            }),
+            "{error}"
+        );
+    }
+
+    let expected_result =
+        |tag: u8| -> u16 { [10, 20, 30].get(usize::from(tag)).copied().unwrap_or(100) };
+    let cases: Vec<_> = (0..=255u8)
+        .map(|tag| {
+            let mut case = Case::new(format!("tag={tag},repeated={}", 255 - tag));
+            case.setup.push((0x06F0, vec![tag]));
+            let mut expected = vec![POISON; 0x100];
+            // Both original four-call sums minus 160 must be zero.
+            write_word(&mut expected, 0, 0);
+            write_word(&mut expected, 2, 0);
+            // Each CASE form is checked against the host oracle independently.
+            for offset in [4, 6] {
+                write_word(&mut expected, offset, expected_result(tag));
+            }
+            for offset in [8, 10] {
+                write_word(&mut expected, offset, expected_result(255 - tag));
+            }
+            expected[0xF0] = tag;
+            expected[0xFF] = 0xA5;
+            case.expected.push((0x0600, expected));
+            case
+        })
+        .collect();
+    assert_eq!(cases.len(), 256);
+    run_cases_in_modes("enumswitch", 8_000, &cases, MODERN_MODES);
+}
+
+#[test]
 fn oscar64_mixed_width_ternary_preserves_clamping_and_outer_narrowing() {
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         let error = compile_file(
