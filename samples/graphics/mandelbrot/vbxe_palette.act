@@ -1,0 +1,43 @@
+; Direct RGB colors for the 32 escape counts; index zero is the black interior.
+MODULE VBXE_PALETTE
+USE ATARI.VBXE
+
+BYTE FUNC Blend(BYTE lo,hi,pos,span)
+  INT delta
+  delta=INT(hi)-INT(lo)
+  delta=delta*INT(pos)
+  delta=delta/INT(span)
+RETURN(BYTE(INT(lo)+delta))
+
+PUBLIC PROC Install()
+  BYTE count,pos,red,green,blue
+  VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
+  VBXE.Write(VBXE.REG_CSEL,0)
+  VBXE.Write(VBXE.REG_CR,0)
+  VBXE.Write(VBXE.REG_CG,0)
+  VBXE.Write(VBXE.REG_CB,0)
+  FOR count=0 TO 31 DO
+    pos=count&7
+    IF count<8 THEN
+      red=Blend(8,32,pos,8)
+      green=Blend(16,184,pos,8)
+      blue=Blend(64,232,pos,8)
+    ELSEIF count<16 THEN
+      red=Blend(32,240,pos,8)
+      green=Blend(184,224,pos,8)
+      blue=Blend(232,144,pos,8)
+    ELSEIF count<24 THEN
+      red=Blend(240,240,pos,8)
+      green=Blend(224,72,pos,8)
+      blue=Blend(144,16,pos,8)
+    ELSE
+      red=Blend(240,255,pos,7)
+      green=Blend(72,248,pos,7)
+      blue=Blend(16,232,pos,7)
+    FI
+    VBXE.Write(VBXE.REG_CR,red)
+    VBXE.Write(VBXE.REG_CG,green)
+    VBXE.Write(VBXE.REG_CB,blue)
+  OD
+RETURN
+ENDMODULE

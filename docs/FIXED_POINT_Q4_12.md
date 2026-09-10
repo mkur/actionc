@@ -41,6 +41,7 @@ Run `cargo test --test fixed_q4_12` at the root and
 `cargo test --locked --test fixed_q4_12` from tools/vm-runtime-tests.
 The [Oscar64 Mandelbrot sample](../samples/graphics/mandelbrot/README.md)
 combines Q4.12 MulFloor and wide squares in a shared kernel, with the original
-Q8.8 coordinate probe and a display that samples every physical pixel. See its README for build
-commands, provenance, and display adaptations, and the
+Q8.8 coordinate probe and displays that sample every physical pixel: 160x192
+on a standard Atari and 320x192 with direct VBXE palette colors. See its README
+for build commands, provenance, and display adaptations, and the
 [implementation plan](Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md) for acceptance checks.

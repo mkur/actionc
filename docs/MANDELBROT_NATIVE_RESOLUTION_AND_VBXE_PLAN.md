@@ -1,6 +1,7 @@
 # Native-resolution Atari and VBXE Mandelbrot
 
-Status: slice 1 complete; VBXE slice in progress. Commit each tested slice.
+Status: both display slices and the prerequisite compiler correction complete.
+Each tested slice is committed separately.
 
 ## Contract
 
@@ -81,3 +82,27 @@ Validation passes: the focused regression, NIR fixture snapshots, the NIR sweep
 (49/49), and the full compiler suite (3,080 passed, 22 existing ignored). The
 complete Mandelbrot VM target also passes all eight tests / 5,352 executions
 with the corrected compiler.
+
+## VBXE acceptance
+
+Slice 2 adds `mbfixed-vbxe.act` and its direct RGB palette, reusing the existing
+shared SR320 screen layer without changes. Standalone Optimized classic and
+MIR6502 builds pass the sample catalog and keep all segments outside the MEMAC
+window. The source-loading/NIR sample sweep also passes with the shared VBXE
+module path.
+
+Four selected-row VM renders cover rows 0, 15, 16, 95, 96 and 191 on both
+register pages in both backends. Six additional runs check missing and
+incompatible hardware, the diagnostic, and absence of hardware writes. The
+complete 320x192 MIR6502 render at `$D740` matches the independent oracle in
+all 61,440 pixels, all palette entries, XDL bytes, row padding and untouched
+local memory. It contains 12,064 capped pixels and 581,203 updates, completing
+in 1,998,698,514 VM steps / 7,263,913,365 cycles. These measurements are not
+performance assertions. All eight Mandelbrot tests / 5,352 executions pass.
+
+The installed compiler is refreshed. Rebuilt standalone MIR6502 executables
+are `mbfixed.xex` (2,827 bytes) and `mbfixed-vbxe.xex` (4,556 bytes). The standard
+XEX is byte-identical to the earlier Atari800-validated image. A preview made
+from the observed VBXE palette/index artifacts shows the complete fractal;
+the focused model checks banking and register traffic, not actual VBXE
+scanout. A VBXE emulator/hardware display run remains a manual follow-up.

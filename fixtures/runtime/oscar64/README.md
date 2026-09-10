@@ -102,11 +102,15 @@ The separate `oscar64_mandelbrot` target adds 2,424 numerical executions (404
 pixel cases across six lanes, each also checking a direct raw-coordinate case)
 and six probe-output runs. Another 2,904 cases verify dimension-aware display
 coordinates. Six selected-row renders and one full native-resolution 160x192
-standalone MIR6502 image bring its total to 5,341 executions in five tests. All share the
+standalone MIR6502 image are joined by eleven VBXE executions: four selected-row
+renders across both maintained backends and register pages, one complete
+320x192 image, and six missing/incompatible-hardware checks. This brings the
+total to 5,352 executions in eight tests. All share the
 maintained kernel with the sample project. Graphics assertions check the VM's
 modeled CIO pixels and palette against an independent image oracle, not ANTIC
 scanout or OS screen-memory packing. These counts are separate from the
-conformance table above.
+conformance table above. VBXE tests check palette and XDL writes, banked pixels,
+padding and untouched memory through a focused bus-event model, without scanout.
 The integer model finds 180 viewport pixels where floor and truncation differ;
 the VM corpus includes explicit examples of that difference. No Oscar64 binary
 or floating-point Mandelbrot implementation is used as the oracle.

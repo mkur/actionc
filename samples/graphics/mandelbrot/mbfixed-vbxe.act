@@ -1,0 +1,46 @@
+; Oscar64 Mandelbrot recurrence by drmortalwombat and contributors.
+; SPDX-License-Identifier: GPL-3.0-only
+; Native 320x192 VBXE SR320 pixels; see README.md for provenance and build commands.
+MODULE MANDELBROT_VBXE
+USE FRACTAL.MANDELBROT AS MB
+USE VBXE_PALETTE AS COLORS
+USE SHARED.SCREEN AS VIDEO
+USE ATARI.OS
+USE ATARI.GTIA
+USE SYS
+
+PROC DrawRow(BYTE py)
+  CARD px
+  INT cx,cy
+  BYTE count
+  BYTE POINTER row
+  cy=MB.ViewportY(CARD(py),192)
+  row=VIDEO.RowAddress(py)
+  FOR px=0 TO 319 DO
+    cx=MB.ViewportX(px,320)
+    count=MB.Iterate(cx,cy)
+    IF count=32 THEN
+      row(px)=0
+    ELSE
+      row(px)=count+1
+    FI
+  OD
+RETURN
+
+PROC Main()
+  BYTE py
+  SYS.Graphics(0)
+  IF VIDEO.Init()=0 THEN
+    SYS.PrintE("VBXE FX 1.2x is required.")
+    RETURN
+  FI
+  COLORS.Install()
+  GTIA.COLBAK=0
+  OS.COLOR4=0
+  FOR py=0 TO 191 DO
+    OS.ATRACT=0
+    DrawRow(py)
+  OD
+  DO OS.ATRACT=0 OD
+RETURN
+ENDMODULE

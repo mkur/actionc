@@ -22,8 +22,8 @@ The [Oscar64 behavioral ports](oscar64/README.md) add compiler conformance
 fixtures with independent Rust oracles and explicit mode/runtime
 coverage. Their README records provenance, Action! semantic adaptations, and
 the resolved compiler regressions. All 16,438 conformance VM cases are active.
-The separate `oscar64_mandelbrot` target covers 5,341 numerical, probe, and
-Atari graphics executions using the shared sample-project kernel. Run the tests
+The separate `oscar64_mandelbrot` target covers 5,352 numerical, probe, Atari
+graphics and VBXE executions using the shared sample-project kernel. Run the tests
 from `tools/vm-runtime-tests` with:
 
 ```sh

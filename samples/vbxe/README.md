@@ -10,6 +10,19 @@ These samples target a VBXE FX 1.2x core at either standard register page,
 - `raytracer/neon/` contains the neon-planet scene, palette, probe, and renderer;
 - `raytracer/fuji/` contains the extruded-Fuji scene, palette, probe, and renderer.
 
+The [Mandelbrot project](../graphics/mandelbrot/README.md) also provides a
+320x192 VBXE renderer using this shared framebuffer layer. It calculates each
+pixel with signed Q4.12 arithmetic and uses direct palette colors without
+dithering or scaling. Build it with either maintained backend (`mir6502` or
+`optimized`):
+
+```sh
+actionc --mode mir6502 --runtime standalone --module-path samples/vbxe \
+  samples/graphics/mandelbrot/mbfixed-vbxe.act
+```
+
+Load the resulting `mbfixed-vbxe.xex` with the VBXE device enabled.
+
 Build the spheres ray tracer as a standalone XEX:
 
 ```sh

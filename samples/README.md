@@ -79,9 +79,11 @@ accepted by the original Action! cartridge compiler.
 
 [`graphics/mandelbrot/`](graphics/mandelbrot/README.md) ports Oscar64's fixed
 point Mandelbrot sample using `MATH.Q4_12` and LONGINT intermediates. The
-shared numerical kernel drives a small printing probe and a 160x192 Atari
-graphics display. Both samples build in all three modes with either runtime;
-the README records the original rounding rules and Atari display adaptation.
+shared numerical kernel drives a printing probe, a 160x192 Atari display, and
+a 320x192 VBXE variant. Both displays calculate every pixel independently.
+The probe and standard display build in all three modes with either runtime;
+the VBXE variant uses standalone Optimized classic or MIR6502 and direct RGB
+palette colors. The project README records rounding rules and build commands.
 
 `graphics/unknown-pleasures/` contains data-driven renderings of the CP1919
 pulse plot: a stock Graphics 8 version with 300 independent horizontal samples

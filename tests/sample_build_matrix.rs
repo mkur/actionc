@@ -143,6 +143,19 @@ fn sample_catalog() -> Vec<SampleSpec> {
 
     vec![
         executable(
+            "samples/graphics/mandelbrot/mbfixed-vbxe.act",
+            vec![
+                release_with_module_path(Optimized, Standalone, "samples/vbxe")
+                    .avoiding(0xA000, 0xBFFF),
+                experimental_with_module_path(Standalone, "samples/vbxe")
+                    .avoiding(0xA000, 0xBFFF),
+            ],
+        ),
+        dependency(
+            "samples/graphics/mandelbrot/vbxe_palette.act",
+            &["samples/graphics/mandelbrot/mbfixed-vbxe.act"],
+        ),
+        executable(
             "samples/graphics/mandelbrot/mbfixed.act",
             vec![release(Compatibility, ActionCart), release(Compatibility, Standalone),
                 release(Optimized, ActionCart), release(Optimized, Standalone),
@@ -156,7 +169,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         dependency(
             "samples/graphics/mandelbrot/fractal/mandelbrot.act",
-            &["samples/graphics/mandelbrot/probe.act", "samples/graphics/mandelbrot/mbfixed.act"],
+            &[
+                "samples/graphics/mandelbrot/probe.act",
+                "samples/graphics/mandelbrot/mbfixed.act",
+                "samples/graphics/mandelbrot/mbfixed-vbxe.act",
+            ],
         ),
         executable(
             "samples/fixed-point/q8_8.act",
@@ -672,6 +689,7 @@ fn sample_catalog() -> Vec<SampleSpec> {
             "samples/vbxe/shared/screen.act",
             &[
                 "samples/vbxe/gradient.act",
+                "samples/graphics/mandelbrot/mbfixed-vbxe.act",
                 "samples/vbxe/raytracer/fuji/fuji_raytracer.act",
                 "samples/vbxe/raytracer/neon/neon_raytracer.act",
                 "samples/vbxe/raytracer/spheres/spheres_raytracer.act",

@@ -6,6 +6,8 @@ use actionc_vm::{
 };
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+#[path = "support/vbxe.rs"]
+mod vbxe;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 struct Source(PathBuf);
@@ -449,4 +451,253 @@ fn oscar64_mandelbrot_atari_rows_match_packed_bitmap_in_all_lanes() {
 #[test]
 fn oscar64_mandelbrot_full_atari_image_matches_integer_oracle() {
     render(CompileMode::Mir6502, Runtime::Standalone, true);
+}
+
+fn vbxe_source(full: bool) -> (Source, Vec<u8>) {
+    const SAMPLE: &str = include_str!("../../../samples/graphics/mandelbrot/mbfixed-vbxe.act");
+    let mut text = SAMPLE.replace("PROC Main()", "PROC TestStop=$0700()\nPROC Main()");
+    assert_eq!(text.matches("  DO OS.ATRACT=0 OD").count(), 1);
+    text = text.replace("  DO OS.ATRACT=0 OD", "  TestStop() DO OD");
+    // Missing hardware returns from Main before the final display hold.
+    assert_eq!(text.matches("    RETURN\n  FI").count(), 1);
+    text = text.replace("    RETURN\n  FI", "    TestStop() RETURN\n  FI");
+    let rows: Vec<_> = if full {
+        (0..192).collect()
+    } else {
+        vec![0, 15, 16, 95, 96, 191]
+    };
+    if !full {
+        assert_eq!(text.matches("    DrawRow(py)").count(), 1);
+        let condition = rows
+            .iter()
+            .map(|y| format!("py={y}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+        text = text.replace(
+            "    DrawRow(py)",
+            &format!("    IF {condition} THEN DrawRow(py) FI"),
+        );
+    }
+    (Source::new(&text), rows)
+}
+
+fn vbxe_compile(source: &Source, mode: CompileMode) -> actionc::compiler::CompiledProgram {
+    compile_file(
+        &source.0,
+        &CompileOptions::for_mode(mode)
+            .with_runtime(Runtime::Standalone)
+            .with_module_path(project())
+            .with_module_path(root().join("samples/vbxe")),
+    )
+    .unwrap()
+}
+
+fn vbxe_vm(
+    compiled: &actionc::compiler::CompiledProgram,
+    device: Option<(u16, u8)>,
+) -> (CompilerVm, vbxe::Vbxe) {
+    let mut vm = vm_for(compiled.object_bytes(), Runtime::Standalone, true);
+    // A MEMAC window must never cover executable code, static data, or helpers.
+    let mut parser = CompilerVm::default();
+    let loaded = parser
+        .load_atari_object_for_execution(
+            ExecutionProfile::StandaloneObject,
+            compiled.object_bytes(),
+        )
+        .unwrap();
+    assert!(
+        loaded
+            .segments
+            .iter()
+            .all(|s| s.end < 0xA000 || s.start > 0xBFFF)
+    );
+    let device = vbxe::Vbxe::new(&mut vm, device);
+    (vm, device)
+}
+
+fn vbxe_finish(vm: CompilerVm, device: &mut vbxe::Vbxe, budget: u64) -> RunOutcome {
+    let outcome = VmRunner::new(vm)
+        .run_with_hooks(
+            RunRequest {
+                max_steps: budget,
+                stop_after_pc: Some(0x700),
+                history_len: 8,
+            },
+            device,
+        )
+        .unwrap();
+    assert_eq!(
+        outcome.stop_reason(),
+        StopReason::PcReached { pc: 0x700 },
+        "{:?}",
+        outcome.report
+    );
+    device.flush(&outcome.vm);
+    outcome
+}
+
+fn vbxe_palette() -> Vec<[u8; 3]> {
+    // The shared screen first initializes the complete cold-steel palette.
+    // The fractal replaces entries 0..32 with black and four RGB gradient spans.
+    let steel = [
+        [0, 4, 10],
+        [16, 29, 42],
+        [78, 102, 117],
+        [178, 195, 204],
+        [255, 255, 255],
+    ];
+    let stops = [
+        [8, 16, 64],
+        [32, 184, 232],
+        [240, 224, 144],
+        [240, 72, 16],
+        [255, 248, 232],
+    ];
+    (0..256)
+        .map(|color| {
+            if color == 0 {
+                return [0, 0, 0];
+            }
+            let (points, segment, pos, span) = if color <= 32 {
+                let i = color - 1;
+                (&stops, i / 8, i % 8, if i < 24 { 8 } else { 7 })
+            } else {
+                (
+                    &steel,
+                    color / 64,
+                    color % 64,
+                    if color < 192 { 64 } else { 63 },
+                )
+            };
+            std::array::from_fn(|channel| {
+                let lo = points[segment][channel];
+                let hi = points[segment + 1][channel];
+                (lo + (hi - lo) * pos as i32 / span) as u8
+            })
+        })
+        .collect()
+}
+
+fn vbxe_render(mode: CompileMode, base: u16, full: bool) {
+    let (source, rows) = vbxe_source(full);
+    let compiled = vbxe_compile(&source, mode);
+    let (vm, mut device) = vbxe_vm(&compiled, Some((base, 0xA3)));
+    let outcome = vbxe_finish(
+        vm,
+        &mut device,
+        if full { 4_000_000_000 } else { 500_000_000 },
+    );
+    let mut expected = vec![0xCC; 0x80000];
+    expected[..16].copy_from_slice(&[
+        0x24, 0, 23, 0x62, 8, 191, 0, 0x40, 0, 0, 2, 0x11, 0xFF, 0x24, 0x80, 23,
+    ]);
+    expected[0x4000..0x1C000].fill(0); // Clear initializes all banks, including stride padding.
+    for &py in &rows {
+        for px in 0..320 {
+            let (cx, cy) = viewport_coords(px, py, 320);
+            let count = iterations(cx, cy, true);
+            expected[0x4000 + usize::from(py) * 512 + usize::from(px)] =
+                if count == 32 { 0 } else { count + 1 };
+        }
+    }
+    for (offset, (&actual, &expected)) in device.local.iter().zip(&expected).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "{mode:?} ${base:04X} full={full}, VBXE local ${offset:05X}"
+        );
+    }
+    assert_eq!(device.palettes[1].as_slice(), vbxe_palette());
+    for palette in [0, 2, 3] {
+        assert_eq!(device.palettes[palette], [[0xCC; 3]; 256]);
+    }
+    assert_eq!(device.registers[0], 5); // XDL enabled, zero palette index is opaque.
+    assert_eq!(&device.registers[1..4], &[0, 0, 0]);
+    assert_eq!(device.registers[0x1E], 0xA9);
+    assert_eq!(device.registers[0x1F], 0x9A); // Last of the twelve 8KB banks.
+    assert_eq!(
+        device.banks,
+        std::iter::once(0)
+            .chain((0..12).map(|i| 4 + 2 * i))
+            .collect()
+    );
+    assert_eq!(outcome.vm.bus().io().read(0xD301), Some(0xFF));
+    assert!(outcome.vm.bus().cio_channel0_output().is_empty());
+    println!(
+        "VBXE {mode:?} ${base:04X} full={full}: {} steps, {} cycles, {} object bytes",
+        outcome.report.completed_steps,
+        outcome.report.cycles,
+        compiled.object_bytes().len()
+    );
+    if let Ok(dir) = std::env::var("ACTIONC_MANDELBROT_ARTIFACT_DIR") {
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = format!(
+            "Vbxe-{mode:?}-{base:04X}-{}",
+            if full { "full" } else { "rows" }
+        );
+        let image: Vec<u8> = (0..192)
+            .flat_map(|y| {
+                device.local[0x4000 + y * 512..0x4000 + y * 512 + 320]
+                    .iter()
+                    .copied()
+            })
+            .collect();
+        std::fs::write(Path::new(&dir).join(format!("{name}.bin")), image).unwrap();
+        std::fs::write(
+            Path::new(&dir).join(format!("{name}.pal")),
+            device.palettes[1].as_flattened(),
+        )
+        .unwrap();
+        std::fs::write(
+            Path::new(&dir).join(format!("{name}.txt")),
+            format!("{:?}\n", outcome.report),
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn oscar64_mandelbrot_vbxe_rows_match_banked_pixels_and_palette_in_both_backends_and_pages() {
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        for base in [0xD640, 0xD740] {
+            vbxe_render(mode, base, false);
+        }
+    }
+}
+
+#[test]
+fn oscar64_mandelbrot_vbxe_full_image_matches_integer_oracle() {
+    vbxe_render(CompileMode::Mir6502, 0xD740, true);
+}
+
+#[test]
+fn oscar64_mandelbrot_vbxe_missing_or_incompatible_hardware_reports_without_writes() {
+    let (source, _) = vbxe_source(false);
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let compiled = vbxe_compile(&source, mode);
+        for hardware in [None, Some((0xD640, 0x30)), Some((0xD740, 0x10))] {
+            let (vm, mut device) = vbxe_vm(&compiled, hardware);
+            let outcome = vbxe_finish(vm, &mut device, 500_000);
+            assert_eq!(
+                outcome.vm.bus().cio_channel0_output(),
+                b"VBXE FX 1.2x is required.\x9B"
+            );
+            assert!(device.writes.is_empty());
+            assert!(device.banks.is_empty());
+            assert!(device.local.iter().all(|&b| b == 0xCC));
+            assert!(
+                device
+                    .palettes
+                    .iter()
+                    .flatten()
+                    .flatten()
+                    .all(|&b| b == 0xCC)
+            );
+            assert_eq!(outcome.vm.bus().io().read(0xD301), Some(0xFD));
+            assert!((0xA000..=0xBFFF).all(|a| outcome.memory().read(a) == 0x5A));
+            assert!(device.reads.contains(&0xD640));
+            if hardware.is_none_or(|(base, _)| base == 0xD740) {
+                assert!(device.reads.contains(&0xD740));
+            }
+        }
+    }
 }
