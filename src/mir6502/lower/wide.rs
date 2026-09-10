@@ -12,6 +12,24 @@ pub(super) fn wide_type(ty: &NirType) -> bool {
     ty.kind.integer().is_some_and(|integer| integer.bits == 32)
 }
 
+fn reversed_compare(op: MirCompareOp) -> MirCompareOp {
+    match op {
+        MirCompareOp::Lt => MirCompareOp::Gt,
+        MirCompareOp::Le => MirCompareOp::Ge,
+        MirCompareOp::Gt => MirCompareOp::Lt,
+        MirCompareOp::Ge => MirCompareOp::Le,
+        op => op,
+    }
+}
+
+fn ignores_low_lane(op: MirCompareOp, low: u16, mask: u16) -> bool {
+    match op {
+        MirCompareOp::Lt | MirCompareOp::Ge => low == 0,
+        MirCompareOp::Le | MirCompareOp::Gt => low == mask,
+        MirCompareOp::Eq | MirCompareOp::Ne => false,
+    }
+}
+
 impl WideValues {
     pub(super) fn new(routine: &NirRoutine, next: &mut u32, temps: &mut Vec<MirTemp>) -> Self {
         let high = routine
@@ -97,18 +115,59 @@ impl Builder<'_> {
 
     fn compare(
         &mut self,
-        op: MirCompareOp,
-        left: MirValue,
-        right: MirValue,
-        signed: bool,
+        mut op: MirCompareOp,
+        mut left: MirValue,
+        mut right: MirValue,
+        mut signed: bool,
     ) -> MirValue {
+        if matches!(left, MirValue::ConstU16(_)) && !matches!(right, MirValue::ConstU16(_)) {
+            std::mem::swap(&mut left, &mut right);
+            op = reversed_compare(op);
+        }
+        let width = if let MirValue::ConstU16(bits) = right
+            && ignores_low_lane(op, bits & 0xFF, 0xFF)
+        {
+            // Ordering is determined by the high byte for these thresholds;
+            // its sign bit is exactly the original word's sign bit.
+            let high = self.binary(
+                MirBinaryOp::Rsh,
+                left,
+                MirValue::ConstU16(8),
+                MirWidth::Word,
+            );
+            let byte = self.temp();
+            self.ops.push(MirOp::Truncate {
+                dst: MirDef::VTemp(byte),
+                src: high,
+                from_width: MirWidth::Word,
+                to_width: MirWidth::Byte,
+            });
+            left = temp_value(byte);
+            let mut high_bits = (bits >> 8) as u8;
+            if signed {
+                // Byte comparisons materialize as unsigned. Bias both sign
+                // bits to preserve signed order without a new emit form.
+                left = self.binary(
+                    MirBinaryOp::Xor,
+                    left,
+                    MirValue::ConstU8(0x80),
+                    MirWidth::Byte,
+                );
+                high_bits ^= 0x80;
+                signed = false;
+            }
+            right = MirValue::ConstU8(high_bits);
+            MirWidth::Byte
+        } else {
+            MirWidth::Word
+        };
         let dst = self.temp();
         self.ops.push(MirOp::Compare {
             dst: MirCondDest::Temp(dst),
             op,
             left,
             right,
-            width: MirWidth::Word,
+            width,
             signed,
         });
         temp_value(dst)
@@ -336,13 +395,27 @@ impl Builder<'_> {
 
     fn compare_pair(
         &mut self,
-        op: MirCompareOp,
-        left: [MirValue; 2],
-        right: [MirValue; 2],
+        mut op: MirCompareOp,
+        mut left: [MirValue; 2],
+        mut right: [MirValue; 2],
         signed: bool,
     ) -> MirValue {
+        let constant =
+            |pair: &[MirValue; 2]| pair.iter().all(|v| matches!(v, MirValue::ConstU16(_)));
+        if constant(&left) && !constant(&right) {
+            std::mem::swap(&mut left, &mut right);
+            op = reversed_compare(op);
+        }
         let [a, ah] = left;
         let [b, bh] = right;
+        if let MirValue::ConstU16(low) = b
+            && matches!(bh, MirValue::ConstU16(_))
+            && ignores_low_lane(op, low, u16::MAX)
+        {
+            // At the start/end of a low-word range, only high-word ordering
+            // matters. Keep signed ordering in the lane containing the sign.
+            return self.compare(op, ah, bh, signed);
+        }
         let low = self.compare(op, a, b, false);
         let eq = self.compare(MirCompareOp::Eq, ah.clone(), bh.clone(), false);
         match op {

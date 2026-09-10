@@ -115,6 +115,17 @@ not a change to NIR multiplication semantics. Inputs remain at $82..$85/$C0..$C3
 result at $C4..$C7, scratch/clobbers remain $82..$87/$C0..$C7 and A/X/Y/P;
 decimal mode is cleared and the stack is balanced on every return path.
 
+Wide comparisons against constants at the start or end of a low-lane range
+use only the high lane: `x < K` / `x >= K` when K's low lane is zero, and
+`x <= K` / `x > K` when it is all ones. Constant left operands reverse the
+predicate before applying the same rule. This applies recursively to words
+and bytes; equality and non-aligned bounds retain the necessary lower lanes.
+The significant lane retains signed ordering. For a signed byte comparison,
+XOR both sign bits with $80 and use the existing unsigned comparison form.
+These choices consume captured values; they do not remove or re-order NIR
+loads, volatile accesses or calls. In particular, a volatile wide input still
+reads all four bytes even when only its highest byte decides the comparison.
+
 Emission owns concrete bytes and output mechanics:
 
 - exact opcode selection and writing;

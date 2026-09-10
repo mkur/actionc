@@ -172,6 +172,82 @@ fn constant_wide_shifts_preserve_all_lanes_narrow_results_and_calls() {
     }
 }
 
+#[test]
+fn aligned_wide_comparisons_preserve_all_predicates_and_operand_orders() {
+    let operators = ["=", "<>", "<", "<=", ">", ">="];
+    for constant in [0u32, 0xFFFF, 0x10000, 0x1FFFF, 0x03FFFFFF, 0x04000000,
+        0x04010000, 0x0400FFFF, 0x7FFFFFFF, 0x80000000, 0x8000FFFF, 0xFFFF0000,
+        u32::MAX, 0x04000001, 0x03FFFFFE] {
+        let mut text = String::from("LONGCARD a=$6E0 LONGINT sa=$6E0 BYTE ARRAY flags(24)=$600 BYTE done=$6FF\n");
+        // Keep each routine small: this is a value matrix, not a large-CFG
+        // stress test. Every run still checks all 24 results and their guards.
+        for (index, op) in operators.into_iter().enumerate() {
+            text.push_str(&format!("PROC Check{index}()\n"));
+            for (signed, name) in ["a", "sa"].into_iter().enumerate() {
+                let literal = format!("{}(${constant:X})", if signed == 1 { "LONGINT" } else { "LONGCARD" });
+                for reversed in 0..2 {
+                    let (left, right) = if reversed == 0 { (name, literal.as_str()) } else { (literal.as_str(), name) };
+                    let slot = signed * 12 + reversed * 6 + index;
+                    text.push_str(&format!("IF {left} {op} {right} THEN flags({slot})=1 ELSE flags({slot})=0 FI\n"));
+                }
+            }
+            text.push_str("RETURN\n");
+        }
+        text.push_str("PROC Main() Check0() Check1() Check2() Check3() Check4() Check5() done=$A5 DO OD RETURN");
+        let source = Source::new(&text);
+        let mut values = vec![0, 1, 0xFFFF, 0x10000, 0x7FFFFFFF, 0x80000000, u32::MAX, constant];
+        for offset in [1u32, 255, 256, 65535, 65536] {
+            values.extend([constant.wrapping_sub(offset), constant.wrapping_add(offset)]);
+        }
+        values.sort_unstable();
+        values.dedup();
+        for (mode, runtime) in modes_and_runtimes() {
+            let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+            for &a in &values {
+                let actual = run(compiled.object_bytes(), runtime, a, 0);
+                let mut expected = vec![0xCC; 256];
+                for signed in 0..2 {
+                    let (a, b) = if signed == 1 { (a as i32 as i64, constant as i32 as i64) } else { (a as i64, constant as i64) };
+                    for reversed in 0..2 {
+                        let (a, b) = if reversed == 0 { (a, b) } else { (b, a) };
+                        for (index, result) in [a==b, a!=b, a<b, a<=b, a>b, a>=b].into_iter().enumerate() {
+                            expected[signed*12 + reversed*6 + index] = u8::from(result);
+                        }
+                    }
+                }
+                expected[0xE0..0xE4].copy_from_slice(&a.to_le_bytes());
+                expected[0xE4..0xE8].fill(0);
+                expected[255] = 0xA5;
+                assert_eq!(actual, expected, "{mode:?}/{runtime:?} {a:08X} compared with {constant:08X}");
+            }
+        }
+    }
+}
+
+#[test]
+fn aligned_wide_comparison_preserves_every_volatile_input_byte() {
+    use actionc_vm::{AddressRange, BusAccess};
+    let source = Source::new(
+        "VOLATILE LONGCARD input=$6E0 BYTE flag=$600,done=$6FF\n\
+         PROC Main() IF input >= $04000000 THEN flag=1 ELSE flag=0 FI done=$A5 DO OD RETURN",
+    );
+    let compiled = compile_file(&source.0,
+        &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone)).unwrap();
+    for value in [0x03FFFFFFu32, 0x04000000, 0x80000000] {
+        let mut vm = CompilerVm::default();
+        vm.load_atari_object_for_execution(ExecutionProfile::StandaloneObject, compiled.object_bytes()).unwrap();
+        vm.bus_mut().ram_mut().map(0x6E0, &value.to_le_bytes()).unwrap();
+        vm.bus_mut().add_watch_range(AddressRange { start: 0x6E0, end: 0x6E3 });
+        vm.bus_mut().clear_events();
+        let outcome = VmRunner::new(vm).run(RunRequest { max_steps: 25_000, history_len: 8, ..Default::default() });
+        assert_eq!(outcome.memory().read(0x6FF), 0xA5, "{:?}", outcome.report);
+        assert_eq!(outcome.memory().read(0x600), u8::from(value >= 0x04000000));
+        let reads: Vec<_> = outcome.vm.bus().events().iter().filter(|e| e.access == BusAccess::Read)
+            .map(|e| e.address).collect();
+        assert_eq!(reads, [0x6E0, 0x6E1, 0x6E2, 0x6E3]);
+    }
+}
+
 fn multiplication_edges() -> [u32; 16] {
     [0, 1, 255, 256, 32767, 32768, 65535, 65536, 0xFFFFFF, 0x1000000,
      0x7FFFFFFF, 0x80000000, 0xFF000000, 0xFFFF0000, 0xFFFF8000, 0xFFFFFFFF]

@@ -1,6 +1,6 @@
 # Mandelbrot arithmetic code generation
 
-Status: implementation in progress. Commit each tested slice.
+Status: complete. Implemented and committed in three tested slices.
 
 ## Contract and baseline
 
@@ -76,3 +76,49 @@ calls to the actual linked helper with boundary/random inputs, decimal mode
 set, balanced stack, and guards outside declared zero-page scratch.
 Root validation also passes: 3,081 tests, 22 existing ignored, NIR snapshots,
 all 49 sweep fixtures and the complete sample build catalog.
+
+Slice 3 lowers aligned comparisons to the significant word or byte, preserving
+signed ordering by biasing byte sign bits. The final 640-pixel kernel profile is
+26,877,910 cycles: 63.01% fewer cycles, or 2.70x the baseline throughput. The
+escape check now uses the highest radius byte with CMP #$04. Division remains
+in viewport coordinate mapping, but no longer in the iteration kernel.
+
+New comparison coverage exercises all six predicates in both operand orders,
+signed/unsigned thresholds and adjacent values: 1,464 mode/runtime executions,
+35,136 predicate results. A bus-event regression checks that all four volatile
+input bytes are read exactly once even when only the highest byte is used.
+
+## Final measurements
+
+Standalone MIR6502, identical full images and palette bytes:
+
+| Renderer | Baseline cycles | Final cycles | Speedup | XEX bytes before / after |
+| --- | ---: | ---: | ---: | ---: |
+| Atari 160x192 | 3,641,588,504 | 1,464,315,551 | 2.49x | 2,827 / 2,462 |
+| VBXE 320x192 | 7,263,913,365 | 2,908,153,031 | 2.50x | 4,556 / 4,191 |
+
+Cycle counts come from the full-image VM tests with their completion hook;
+XEX sizes are the ordinary samples without that hook. All 17 saved image and
+palette artifacts match the baseline byte for byte, including both complete
+images. Debug and release compilers emit identical ordinary sample XEX files.
+
+Reproduce full renders and save pixel/palette artifacts with:
+
+```sh
+cd tools/vm-runtime-tests
+ACTIONC_MANDELBROT_ARTIFACT_DIR=/tmp/actionc-mandelbrot-codegen-final \
+  cargo test --locked --test oscar64_mandelbrot -- --nocapture
+```
+
+The kernel profile samples 40 columns x 16 rows of the 320x192 viewport
+(px step 8, py step 12), verifies every result against an integer oracle, and
+counts 6,167 iteration updates. Every profiled listing byte is checked against
+the linked XEX. Mult32 remains the largest kernel cost (63.03%); X-coordinate
+recomputation now costs 249,626,112 cycles per VBXE frame and remains a separate
+renderer follow-up.
+
+Final acceptance passes: 3,082 root tests (22 existing ignored), NIR snapshots,
+all 49 sweep fixtures, the full sample build catalog, all 17 wide-integer VM
+tests, all Q8.8/Q4.12 VM tests, and all eight Mandelbrot tests (5,352 executions).
+No snapshots changed. The installed actionc and both root-directory XEX files
+were rebuilt; installed output matches the tested debug/release output exactly.

@@ -176,6 +176,30 @@ fn constant_wide_shifts_legalize_without_wide_helpers_in_both_mir_configs() {
 }
 
 #[test]
+fn aligned_wide_comparisons_use_the_significant_lane() {
+    use actionc::mir6502::{MirCompareOp, MirOp, MirValue, MirWidth};
+    for (ty, predicate, signed, width, bits, op) in [
+        ("LONGCARD", "value >= $04000000", false, MirWidth::Byte, 4, MirCompareOp::Ge),
+        ("LONGCARD", "$04000000 > value", false, MirWidth::Byte, 4, MirCompareOp::Lt),
+        ("LONGCARD", "value <= $03FFFFFF", false, MirWidth::Byte, 3, MirCompareOp::Le),
+        ("LONGCARD", "$03FFFFFF < value", false, MirWidth::Byte, 3, MirCompareOp::Gt),
+        ("LONGINT", "value < LONGINT($80000000)", false, MirWidth::Byte, 0, MirCompareOp::Lt),
+        ("LONGINT", "value > LONGINT($7FFFFFFF)", false, MirWidth::Byte, 255, MirCompareOp::Gt),
+        ("LONGCARD", "value >= $04010000", false, MirWidth::Word, 0x401, MirCompareOp::Ge),
+    ] {
+        let source = format!("{ty} value=$6E0 BYTE flag=$600 PROC Main() IF {predicate} THEN flag=1 ELSE flag=0 FI RETURN");
+        let nir = nir::optimize_program(&lower(&source, TargetId::Atari6502)).unwrap();
+        let mir = actionc::mir6502::lower_program(&nir).unwrap();
+        let comparisons: Vec<_> = mir.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter_map(|op| if let MirOp::Compare { op, right, width, signed, .. } = op {
+                Some((*op, right.clone(), *width, *signed))
+            } else { None }).collect();
+        let right = if width == MirWidth::Byte { MirValue::ConstU8(bits as u8) } else { MirValue::ConstU16(bits) };
+        assert_eq!(comparisons, [(op, right, width, signed)], "{source}");
+    }
+}
+
+#[test]
 fn wide_for_guards_keep_the_induction_width_and_do_not_fold_absolute_bounds() {
     for target in [TargetId::Atari6502,TargetId::Motorola68000,TargetId::Wdc65816Small,TargetId::Wdc65816Native] {
         let nir=lower("LONGCARD index,limit=$6E0 BYTE result PROC Main() FOR index=2 TO limit STEP -1 DO result==+1 OD RETURN",target);
