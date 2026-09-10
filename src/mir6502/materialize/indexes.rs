@@ -4035,7 +4035,7 @@ fn materialize_dynamic_index_address(
     });
 }
 
-fn index_value_is_byte_sized(value: &MirValue) -> bool {
+pub(super) fn index_value_is_byte_sized(value: &MirValue) -> bool {
     match value {
         MirValue::ConstU8(_)
         | MirValue::PointerCell(_)

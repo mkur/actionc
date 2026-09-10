@@ -15,6 +15,64 @@ fn lower(source: &str) -> MirProgram {
 }
 
 #[test]
+fn byte_store_consumers_preserve_word_indexes_and_page_carries() {
+    for (declaration, target) in [
+        ("BYTE POINTER destination=$0604", "destination"),
+        ("BYTE ARRAY buffer(1024)=$49F1", "buffer"),
+    ] {
+        for (expression, evaluate) in [
+            ("value", (|v: u8| v) as fn(u8) -> u8),
+            ("value+1", |v: u8| v.wrapping_add(1)),
+            ("value-1", |v: u8| v.wrapping_sub(1)),
+            ("value XOR $A5", |v: u8| v ^ 0xA5),
+        ] {
+            let source = format!(
+                "CARD index=$0600\nBYTE value=$0602\n{declaration}\n\
+                 PROC Main()\n{target}(index)={expression}\nRETURN"
+            );
+            let lowered = lower(&source);
+            for config in [Mir6502Config::default(), Mir6502Config::optimized()] {
+                let program =
+                    crate::mir6502::materialize_program(lowered.clone(), &config).unwrap();
+                let main = program.routines.iter().find(|r| r.name == "Main").unwrap();
+                let mut emitter = TrackedEmitter::with_origin(ORIGIN);
+                let summary =
+                    crate::mir6502::emit::emit_program(&program, ORIGIN, &mut emitter).unwrap();
+                let bytes = emitter.finish_with_relocations().unwrap().bytes;
+                let entry = summary
+                    .block_ranges
+                    .iter()
+                    .find(|(r, b, _)| *r == main.id && *b == main.blocks[0].id)
+                    .unwrap()
+                    .2
+                    .start
+                    + usize::from(ORIGIN);
+                for index in [0u16, 1, 127, 254, 255, 256, 319, 511, 769] {
+                    for value in [0u8, 1, 127, 128, 254, 255] {
+                        let mut memory = [0u8; 65536];
+                        memory[usize::from(ORIGIN)..usize::from(ORIGIN) + bytes.len()]
+                            .copy_from_slice(&bytes);
+                        memory[0x4800..0x5000].fill(0xCC);
+                        memory[0x600..0x602].copy_from_slice(&index.to_le_bytes());
+                        memory[0x602] = value;
+                        memory[0x604..0x606].copy_from_slice(&0x49F1u16.to_le_bytes());
+                        let mut expected = memory;
+                        expected[0x49F1 + usize::from(index)] = evaluate(value);
+                        super::leaf_test_cpu::run_memory(&mut memory, entry);
+                        assert_eq!(
+                            &memory[0x4800..0x5000],
+                            &expected[0x4800..0x5000],
+                            "{target}: {expression}, index={index}, value={value}"
+                        );
+                        assert_eq!(&memory[0x600..0x606], &expected[0x600..0x606]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn indexed_word_backings_preserve_destinations_and_guard_memory() {
     // 128 words is the last directly backed fixed array; 129 uses a descriptor.
     // The unaligned base also tests page carries and a word straddling a page.

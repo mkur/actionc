@@ -38,8 +38,9 @@ completion, full output regions, and hardware setup; watchdog expiry is failure.
 Rebuild the runnable XEX files and document the VBXE module path and emulator
 configuration. Update coverage counts and this plan after each slice passes.
 No compiler, IR, arithmetic-library, or original conformance-fixture changes
-are planned. If such a repair becomes necessary, run the required NIR and full
-compiler checks for that separate repair.
+were initially planned. The VBXE image oracle exposed the general MIR6502
+index-width defect below; commit that prerequisite repair separately and run
+the required NIR and full compiler checks.
 
 ## Progress
 
@@ -56,3 +57,27 @@ plus the final row counter and palette. The new viewport has 6,029 capped
 pixels and 290,471 updates. The full VM render completes in 1,002,779,718 steps;
 these are observations, not performance assertions. No compiler or arithmetic
 library changes were needed.
+
+## Prerequisite compiler correction
+
+The first VBXE selected-row render passed in Optimized classic but failed in
+MIR6502. A fused `destination(index)=value+1` byte store used Y alone even when
+`index` was a CARD. At index 256 it overwrote index zero. Element width does not
+prove index width. Byte-value and byte-arithmetic store selectors now require
+a known byte index for this compact path; word indexes use the existing full
+address calculation. NIR and the sample source contract remain unchanged.
+
+A focused final-code regression reproduces the pre-fix failure at index 256.
+It checks 864 combinations of pointer/array backing, value/add/sub/XOR stores,
+raw/optimized materialization, nine indexes through 769, and six byte values,
+including unaligned bases, byte overflow, page carries and guarded memory.
+The WARP.DEM materialized-MIR quality baseline intentionally changes from 26
+to 32 explicit indexed-address operations (11 to 15 with global-address bases).
+Unproven indexes now retain address preparation; the existing 6,730-byte output
+budget still passes. This is a code-generation correctness change, not a NIR
+fixture or printer change.
+
+Validation passes: the focused regression, NIR fixture snapshots, the NIR sweep
+(49/49), and the full compiler suite (3,080 passed, 22 existing ignored). The
+complete Mandelbrot VM target also passes all eight tests / 5,352 executions
+with the corrected compiler.

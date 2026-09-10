@@ -1,7 +1,8 @@
 use super::indexes::{
-    DelayedByteIndexPlan, indexed_addr_has_delayed_index, indexed_addr_parts,
-    materialize_indexed_address_for_consumer, materialize_indexed_byte_read_to_a,
-    materialize_indexed_write_from_value,
+    DelayedByteIndexPlan, index_value_is_byte_sized, indexed_addr_has_delayed_index,
+    indexed_addr_parts, materialize_indexed_address_for_consumer,
+    materialize_indexed_byte_read_to_a, materialize_indexed_write_from_value,
+    narrow_known_byte_index,
 };
 use super::word_sources::{
     WordConsumerSource, push_word_consumer_source_load, resolve_word_consumer_source,
@@ -4790,7 +4791,9 @@ fn materialize_byte_binary_store_consumer_for_addr(
                 });
                 return;
             }
-            if parts.elem_size == 1 && parts.offset == 0 {
+            let (parts, _) = narrow_known_byte_index(parts, temp_widths);
+            if parts.elem_size == 1 && parts.offset == 0 && index_value_is_byte_sized(&parts.index)
+            {
                 materialize_binary_store_byte_indexed(
                     parts.base,
                     parts.index,
@@ -4866,7 +4869,9 @@ fn materialize_byte_value_store_consumer_for_addr(
                 materialize_value_to_indirect(value, DEFAULT_POINTER_PAIR, parts.offset, out);
                 return;
             }
-            if parts.elem_size == 1 && parts.offset == 0 {
+            let (parts, _) = narrow_known_byte_index(parts, temp_widths);
+            if parts.elem_size == 1 && parts.offset == 0 && index_value_is_byte_sized(&parts.index)
+            {
                 materialize_byte_value_store_indexed(parts.base, parts.index, value, layout, out);
                 return;
             }

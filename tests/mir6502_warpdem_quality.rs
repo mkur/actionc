@@ -37,9 +37,11 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
         .expect("verify WARPDEM materialized MIR6502");
 
     let formatted = mir6502::format_program(&materialized);
+    // Byte-store fusion now requires proof that the index fits in Y. Other
+    // indexes retain explicit address materialization, including CARD lanes.
     assert_eq!(
         formatted.matches("materialize_indexed").count(),
-        26,
+        32,
         "{formatted}"
     );
     assert_eq!(
@@ -49,7 +51,7 @@ fn warpdem_exposes_the_expected_codegen_baseline() {
                 line.contains("materialize_indexed") && line.contains("<- global_addr")
             })
             .count(),
-        11,
+        15,
         "{formatted}"
     );
     assert!(

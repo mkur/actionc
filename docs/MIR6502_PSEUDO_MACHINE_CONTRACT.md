@@ -651,6 +651,10 @@ Rules:
   storage may select `AbsoluteIndexedX` or `AbsoluteIndexedY`. The storage ID
   remains authoritative until emission resolves its address. Pointer- and
   descriptor-backed arrays must retain an indirect address strategy.
+- Fused byte-value and byte-arithmetic stores may use Y alone for the index
+  only when MIR proves that index is byte-sized. A byte element size does not
+  prove a byte index: word indexes must contribute both lanes to the effective
+  address, including page carries, before the byte result is stored.
 - `Deref` lowering should materialize pointer values into an explicit address
   strategy, usually a zero-page pointer pair plus `Y` for indirect-indexed work.
 - `AdvanceAddress` accepts any nonzero byte scale representable by the MIR form.
