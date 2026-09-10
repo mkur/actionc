@@ -250,6 +250,18 @@ fn collect_standalone_expr_diagnostics(expr: &SemExpr, diagnostics: &mut Vec<Dia
             }
         }
         SemExprKind::CaseValue(selection) => {
+            for arm in &selection.arms {
+                if let Some(bindings) = arm.bindings() {
+                    for declaration in &bindings.declarations {
+                        if let Some(value) = &declaration.initializer {
+                            collect_standalone_expr_diagnostics(value, diagnostics);
+                        }
+                    }
+                }
+            }
+            for statements in selection.statement_lists() {
+                collect_standalone_stmt_list_diagnostics(statements, diagnostics);
+            }
             for expr in selection.expressions() {
                 collect_standalone_expr_diagnostics(expr, diagnostics);
             }

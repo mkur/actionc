@@ -161,13 +161,29 @@ Modern integer/enum CASE expressions require an explicit ELSE even when labels
 cover the integer domain or every named enum member. They reuse statement CASE
 label/range, overlap, shadowing and guard checks, including exact enum label
 identity and the existing prohibition on enum ranges. All results follow IF's
-exact type and rvalue rules. Shared SemIR `CaseValue` uses `SemCaseArm<SemExpr>`
-for typed expression bodies and an unconditional final ELSE; scalar value arms
+exact type and rvalue rules. Shared SemIR `CaseValue` uses `SemCaseArm<SemCaseResult>`
+with typed yielding bodies and an unconditional final ELSE; scalar value arms
 introduce no binder scopes or binding preparation. Both backends share their
 statement dispatch implementation, snapshot the selector before guards, and
 evaluate only the first accepted result. Statement CASE retains optional ELSE.
-Variant CASE expressions remain explicitly unsupported until the pattern and
-coverage slice is implemented.
+Variant CASE expressions share statement pattern resolution and coverage. They
+accept qualified/generic and locally opened constructors, nested patterns,
+immutable arm-local binders and ordered guards. Local openings retain their
+existing named, non-generic target restriction. Repeated classification of a
+value reuses its checked binder identities and lexical scopes. An exhaustive
+set of unguarded patterns needs no ELSE; guarded patterns do not establish
+coverage. All arms retain the exact integer/enum result rule, including arms
+excluded by known tags. A guard may contain a multiline CASE value; the complete
+guard ends with THEN at the end of its closing line.
+
+SemIR captures variant selectors once before dispatch. A `SemCaseResult` either
+yields after arm-local preparation or faults without yielding; there is no
+synthetic RETURN or unresolved source result home. Selector preparation, guard
+bindings and arm preparation are traversed for declarations, copies and
+dependencies even inside indexes, calls or nested values. Invalid outer and
+active nested tags terminate before exposing binders, guards, results or user
+ELSE, including when Error returns. An outer-tag proof never establishes nested
+validity. NIR uses ordinary typed join edges and existing terminal faults.
 
 CASE retains ordered arms and the distinction between no ELSE and an explicit
 empty ELSE. SemIR owns selector type, constant interval validation, overlap

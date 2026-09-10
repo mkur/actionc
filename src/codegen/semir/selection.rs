@@ -8,23 +8,29 @@ impl SemIrAstLowerer<'_> {
         span: Span,
     ) -> Option<Expr> {
         let target = self.selection_result_home(ty, span);
-        let statements = self.case_dispatch(
+        let mut statements = self.stmt_list(&selection.preparation);
+        statements.extend(self.case_dispatch(
             &selection.selector,
             &selection.arms,
             span,
-            |lowerer, value| {
-                lowerer
-                    .expr(value)
-                    .map(|value| {
-                        vec![Stmt::Assign {
+            |lowerer, result| match result {
+                SemCaseResult::Fault { kind, span } => lowerer.stmt_list(&[SemStmt::Fault {
+                    kind: *kind,
+                    span: *span,
+                }]),
+                SemCaseResult::Yield { preparation, value } => {
+                    let mut statements = lowerer.stmt_list(preparation);
+                    if let Some(value) = lowerer.expr(value) {
+                        statements.push(Stmt::Assign {
                             target: target.clone(),
                             span: value.span,
                             value,
-                        }]
-                    })
-                    .unwrap_or_default()
+                        });
+                    }
+                    statements
+                }
             },
-        );
+        ));
         Some(Expr {
             text: target.text.clone(),
             span,

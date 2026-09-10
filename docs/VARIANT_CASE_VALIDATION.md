@@ -6,6 +6,16 @@ Each constructor arm already compares the tag against a valid constructor ID.
 A final compiler-generated unmatched arm faults with InvalidVariantTag. There is
 no separate preliminary validity-range CASE.
 
+This contract also applies to CASE expressions with integer/enum results.
+Statements and values share the same pattern checker and resolved dispatch
+lowering. SemIR value arms carry ordered binder preparation and a typed yield,
+or a terminal fault. Required selector snapshots and deep validation remain
+inside the expression's evaluation boundary. Guards and selected results may
+mutate source storage without changing the captured selector or payloads.
+Invalid tags never supply an argument to the NIR value join and cannot be
+caught by an expression's user ELSE. All normal arms supply exactly one typed
+value; exhaustive unguarded patterns permit omission of source ELSE.
+
 When the captured tag is unknown, the normalized dispatch is conceptually:
 
 ```text
@@ -93,6 +103,15 @@ unexposed payloads, active nested invalidity, inactive payloads and a returning
 Error handler across classic/raw/optimized NIR lanes and both Atari runtimes.
 Existing maximum-tag, guard mutation, nested-pattern and snapshot tests remain
 part of regression coverage.
+
+`case_variant_value` and `case_variant_dynamic` raw/optimized NIR fixtures cover
+known-SOME folding and live expression dispatch with mutating guards and typed
+joins. They add expression-lowering contracts without changing existing
+statement snapshots. The compiler and VM `if_case_expressions` tests cover
+generic/nested patterns, opened constructors, arm-local snapshots, guard
+coverage, volatile reads, unused results, wide/enum yields and terminal faults
+from both invalid tags and selected computations. Expression preparation also
+participates in classic copy-scratch allocation and dependency retention.
 
 The validation-fusion change updated raw and optimized `variant_match`,
 `generic_types` and `case_guards` snapshots: preliminary validation is removed and

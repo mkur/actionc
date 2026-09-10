@@ -571,6 +571,14 @@ impl SemGraphBuilder {
                 }
             }
             SemExprKind::CaseValue(selection) => {
+                for arm in &selection.arms {
+                    if let Some(bindings) = arm.bindings() {
+                        for declaration in &bindings.declarations { self.declaration(owner, declaration); }
+                    }
+                }
+                for statements in selection.statement_lists() {
+                    for statement in statements { self.statement(owner, statement); }
+                }
                 for expr in selection.expressions() {
                     self.expression(owner, expr, reason);
                 }

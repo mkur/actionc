@@ -53,7 +53,10 @@ impl Parser<'_> {
     pub(super) fn build_value_from_tokens(&mut self, tokens: Vec<Token>) -> Expr {
         let span = match (tokens.first(), tokens.last()) {
             (Some(a), Some(b)) => Span::new(a.span.start, b.span.end),
-            _ => self.tokens.get(self.pos).map_or(Span::new(0, 0), |token| token.span),
+            _ => self
+                .tokens
+                .get(self.pos)
+                .map_or(Span::new(0, 0), |token| token.span),
         };
         self.build_value_expr(tokens, span)
     }
@@ -177,47 +180,18 @@ impl ExprParser<'_> {
                 self.selection_error("CASE arm headers must begin on their own line");
                 return None;
             }
-            let end = self.tokens[start..]
+            let mut end = self.tokens[start..]
                 .iter()
                 .position(|t| t.line != line || matches!(t.kind, TokenKind::Eof))
                 .map_or(self.tokens.len(), |n| start + n);
             let (labels, guard) = if self.contextual("WHEN") && !saw_else {
-                if !matches!(
-                    self.tokens.get(end.checked_sub(1)?).map(|t| &t.kind),
-                    Some(TokenKind::Keyword(Keyword::Then))
-                ) {
-                    self.selection_error("WHEN header must end with THEN on its own line");
+                let (header_end, labels, guard, diagnostics) =
+                    super::case::parse_case_header(self.tokens, start, self.selection_depth);
+                if !diagnostics.is_empty() {
+                    self.diagnostics.extend(diagnostics);
                     return None;
                 }
-                let header = &self.tokens[start + 1..end - 1];
-                let mut depth = 0usize;
-                let guard_at = header.iter().position(|t| {
-                    match t.kind {
-                        TokenKind::LParen | TokenKind::LBracket => depth += 1,
-                        TokenKind::RParen | TokenKind::RBracket => depth = depth.saturating_sub(1),
-                        _ => {}
-                    }
-                    depth == 0 && matches!(t.kind, TokenKind::Keyword(Keyword::If))
-                });
-                let mut parser = Parser::new(header);
-                let labels = parser.parse_case_labels(
-                    &header[..guard_at.unwrap_or(header.len())],
-                    guard_at.is_some(),
-                );
-                self.diagnostics.extend(parser.diagnostics);
-                let guard = if let Some(at) = guard_at {
-                    let mut parser = ExprParser::new(&header[at + 1..]);
-                    parser.selection_depth = self.selection_depth;
-                    let value = parser.parse_expr(0);
-                    let finished = parser.is_finished();
-                    self.diagnostics.extend(parser.diagnostics);
-                    if !finished {
-                        return None;
-                    }
-                    Some(value?)
-                } else {
-                    None
-                };
+                end = header_end;
                 (Some(labels), guard)
             } else if self.check(TokenKind::Keyword(Keyword::Else)) && !saw_else && !arms.is_empty()
             {

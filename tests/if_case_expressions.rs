@@ -299,14 +299,7 @@ fn selection_words_remain_contextual_and_values_are_gated() {
     let ast = program(
         "TYPE V=VARIANT [NONE]\nV value\nPROC Main()\nLET v=CASE value OF\nWHEN V.NONE THEN\n2\nESAC\nRETURN",
     );
-    assert!(
-        semantic::analyze_with_options(&ast, SemanticOptions::modern())
-            .unwrap_err()
-            .iter()
-            .any(|e| e
-                .message
-                .contains("variant CASE expressions are not enabled"))
-    );
+    semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
 }
 
 fn checked_case(source: &str, target: actionc::target::TargetId) -> semantic::ir::SemProgram {
@@ -512,4 +505,186 @@ fn case_values_compose_in_runtime_consumers_and_preserve_target_types() {
             );
         }
     }
+}
+
+#[test]
+fn variant_case_values_reuse_pattern_coverage_and_arm_local_immutable_binders() {
+    let prefix = "TYPE V=VARIANT [NONE SOME [BYTE value]] V input\nPROC Main()\n";
+    for (arms, message) in [
+        ("WHEN V.SOME(n) THEN\nn", "non-exhaustive variant CASE"),
+        (
+            "WHEN V.NONE THEN\n0\nWHEN V.SOME(n) IF 1 THEN\nn",
+            "non-exhaustive variant CASE",
+        ),
+        (
+            "WHEN V.SOME(n) THEN\nn\nWHEN V.SOME(m) THEN\nm\nELSE\n0",
+            "fully shadowed variant pattern",
+        ),
+        (
+            "WHEN V.SOME(n) THEN\nn\nWHEN V.NONE THEN\nn",
+            "undefined symbol",
+        ),
+        ("WHEN V.SOME(n) THEN\nBYTE(@n)\nELSE\n0", "address"),
+        ("WHEN V.SOME(n) THEN\nn\nELSE\nCARD(0)", "same integer type"),
+        ("WHEN V.SOME(n) THEN\nn\nELSE\nunknown", "undefined symbol"),
+        ("WHEN V.SOME(n,m) THEN\n0\nELSE\n0", "payload"),
+    ] {
+        rejected(
+            &format!("{prefix}LET value=CASE input OF\n{arms}\nESAC\nRETURN"),
+            message,
+        );
+    }
+    rejected(
+        &format!(
+            "{prefix}LET value=CASE input OF\nWHEN V.SOME(n) THEN\nn\nELSE\n0\nESAC\ninput=V.SOME(n)\nRETURN"
+        ),
+        "undefined symbol",
+    );
+    for result in ["input", "@input", "1.0"] {
+        rejected(
+            &format!(
+                "{prefix}LET value=CASE input OF\nWHEN V.NONE THEN\n{result}\nELSE\n{result}\nESAC\nRETURN"
+            ),
+            "integer or enum",
+        );
+    }
+    for declaration in ["CONST Value=", "BYTE value=", "BYTE ARRAY values("] {
+        let source = format!(
+            "{prefix}{declaration}CASE input OF\nWHEN V.NONE THEN\n0\nELSE\n0\nESAC{}\nRETURN",
+            if declaration.ends_with('(') { ")" } else { "" }
+        );
+        assert!(
+            semantic::analyze_with_options(&program(&source), SemanticOptions::modern()).is_err(),
+            "{source}"
+        );
+    }
+    let value = "CASE input OF\nWHEN V.SOME(n) THEN\nn\nWHEN V.NONE THEN\n0\nESAC";
+    for consumer in [format!("({value})=1"), format!("LET value=@({value})")] {
+        assert!(
+            semantic::analyze_with_options(
+                &program(&format!("{prefix}{consumer}\nRETURN")),
+                SemanticOptions::modern()
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn variant_case_binders_have_stable_scopes_in_nested_runtime_consumers() {
+    use actionc::target::TargetId;
+    let value = "CASE item OF\nWHEN SOME(n) IF CASE SOME(n) OF\nWHEN SOME(m) THEN\nm<8\nELSE\n0\nESAC THEN\nn+(CASE SOME(n) OF\nWHEN SOME(n) THEN\nn\nELSE\n0\nESAC)\nELSE\n0\nESAC";
+    for consumer in [
+        format!("LET result={value}"),
+        format!("x={value}"),
+        format!("x==+{value}"),
+        format!("PrintBE({value})"),
+        format!("x=table({value})"),
+        format!("table({value})={value}"),
+        format!("IF {value} THEN x=1 FI"),
+        format!("WHILE {value} DO x=1 OD"),
+        format!("DO x=1 UNTIL {value} OD"),
+        format!("FOR x={value} TO {value} STEP {value} DO x=1 OD"),
+        format!("RETURN({value})"),
+    ] {
+        let source = format!(
+            "TYPE V=VARIANT [NONE SOME [BYTE value]]\nV item\nBYTE x BYTE ARRAY table(16)\nBYTE FUNC Main()\nUSE ALL FROM V\n{consumer}\nRETURN(0)"
+        );
+        let ast = program(&source);
+        let model = semantic::analyze_with_options(&ast, SemanticOptions::modern())
+            .unwrap_or_else(|e| panic!("{source}: {e:?}"));
+        let scopes = model
+            .lexical_blocks
+            .iter()
+            .map(|block| block.scope)
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(scopes.len(), model.lexical_blocks.len());
+        let syntax_ids = model.lexical_blocks.iter().map(|block| block.syntax_id)
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(syntax_ids.len(), model.lexical_blocks.len());
+        let semir = checked_case(&source, TargetId::Atari6502);
+        for item in semir.modules.iter().flat_map(|module| &module.items) {
+            if let semantic::ir::SemItem::Routine(routine) = item {
+                let mut binders = Vec::new();
+                semantic::ir::visit_lexical_declarations(&routine.body, &mut |_, decl| {
+                    binders.push(decl.symbol.id)
+                });
+                let distinct = binders.iter().collect::<std::collections::HashSet<_>>();
+                assert_eq!(distinct.len(), binders.len(), "{source}");
+            }
+        }
+    }
+}
+
+#[test]
+fn variant_case_values_preserve_generic_nested_patterns_and_exact_target_results() {
+    use actionc::target::TargetId;
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
+        for ty in [
+            "BYTE", "CHAR", "CARD", "INT", "LONGINT", "LONGCARD", "ADDRESS", "SIZE", "E",
+        ] {
+            let result = if ty == "E" {
+                "E.A".to_string()
+            } else {
+                format!("{ty}(0)")
+            };
+            checked_case(
+                &format!(
+                    "TYPE E=ENUM [A B]\nTYPE Option<T>=VARIANT [NONE SOME [T value]]\nTYPE Outer=VARIANT [EMPTY WRAP [Option<{ty}> inner]]\nOuter item\n{ty} output\nPROC Main()\noutput=CASE item OF\nWHEN Outer.WRAP(Option<{ty}>.SOME(n)) THEN\nn\nWHEN Outer.WRAP(Option<{ty}>.NONE) THEN\n{result}\nWHEN Outer.EMPTY THEN\n{result}\nESAC\nRETURN"
+                ),
+                target,
+            );
+        }
+    }
+    rejected(
+        "TYPE E=ENUM [A] TYPE F=ENUM [A] TYPE V=VARIANT [A B] V item\nPROC Main()\nLET value=CASE item OF\nWHEN V.A THEN\nE.A\nWHEN V.B THEN\nF.A\nESAC\nRETURN",
+        "same integer type or enum identity",
+    );
+}
+
+#[test]
+fn selection_joins_materialize_comparison_values_and_guards_accept_nested_case() {
+    use actionc::target::TargetId;
+    for result in ["a<b", "r<s"] {
+        for selection in [
+            format!("IF a THEN {result} ELSE 0 FI"),
+            format!("CASE a OF\nWHEN 1 THEN\n{result}\nELSE\n0\nESAC"),
+            format!("CASE item OF\nWHEN V.SOME(n) THEN\n{result}\nELSE\n0\nESAC"),
+        ] {
+            checked_case(
+                &format!(
+                    "TYPE V=VARIANT [NONE SOME [BYTE value]] V item\nBYTE a,b,out REAL r,s\nPROC Main()\nout={selection}\nRETURN"
+                ),
+                TargetId::Atari6502,
+            );
+        }
+    }
+    let guard = "CASE V.SOME(n) OF\nWHEN V.SOME(m) THEN\nm<8\nELSE\n0\nESAC";
+    checked_case(
+        &format!(
+            "TYPE V=VARIANT [NONE SOME [BYTE value]] V item BYTE out\nPROC Main()\nCASE item OF\nWHEN V.SOME(n) IF {guard} THEN\nout=n\nELSE\nout=0\nESAC\nRETURN"
+        ),
+        TargetId::Atari6502,
+    );
+    let mut nested = "1".to_string();
+    for _ in 0..20 {
+        nested = format!("CASE V.SOME(1) OF\nWHEN V.SOME(n) IF {nested} THEN\nn\nELSE\n0\nESAC");
+    }
+    checked_case(
+        &format!(
+            "TYPE V=VARIANT [NONE SOME [BYTE value]]\nPROC Main()\nLET value={nested}\nRETURN"
+        ),
+        TargetId::Atari6502,
+    );
+    for _ in 20..65 {
+        nested = format!("CASE V.SOME(1) OF\nWHEN V.SOME(n) IF {nested} THEN\nn\nELSE\n0\nESAC");
+    }
+    let source = format!("PROC Main()\nLET value={nested}\nRETURN");
+    let errors = parse(&tokenize(&source).unwrap()).unwrap_err();
+    assert!(errors.iter().any(|e| e.message.contains("64 levels")));
 }

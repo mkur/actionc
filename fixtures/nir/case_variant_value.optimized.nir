@@ -1,0 +1,25 @@
+nir program
+global MaybeByte: type RecordType { name: "MaybeByte", fields: [RecordFieldType { id: Some(FieldId(1)), name: "__variant_tag", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 0 }, RecordFieldType { id: Some(FieldId(0)), name: "__variant_2_0", ty: ValueType { base: Fund(Byte), pointer: false }, storage: Value, offset: 1 }], size: 2 } fields=2
+
+routine r0 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[Main::block0::block1::item, Main::block0::block1::block2::value, Main::block0::block1::block4::n]
+  local Main::block0::block1::item: MaybeByte duration=routine-static size=2 align=1 purpose=aggregate-capture
+  local Main::block0::block1::block2::value: Byte duration=routine-static size=1 align=1
+  local Main::block0::block1::block4::n: Byte duration=routine-static size=1 align=1
+bb0:
+  store Main::block0::block1::item.+1 = 42
+  store Main::block0::block1::item.+0 = 2
+  goto bb3
+bb3:
+  goto bb4
+bb4:
+  store Main::block0::block1::block4::n = 42
+  goto bb1
+bb1:
+  store Main::block0::block1::block2::value = 42
+  call PrintBE(42) signature=s2485539418 convention=target-public effects=reads:unknown writes:unknown external opaque
+  return
+
+routine r1 SYS.PrintBE signature=s2485539418 convention=target-public activation=classic-static entry=external+relocatable params=[M_SYS_PRINTBE_VALUE_F3CE82E2] locals=[-]
+  param p0 M_SYS_PRINTBE_VALUE_F3CE82E2: Scalar Byte duration=routine-static size=1 align=1
+bb6:
+  fallthrough

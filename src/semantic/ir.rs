@@ -869,19 +869,60 @@ impl SemIfValue {
     }
 }
 
-/// Scalar dispatch uses the same checked arm headers as statement CASE. The
-/// body is one typed value and the final arm is an unconditional ELSE.
+/// Resolved dispatch shares statement CASE's tests, scopes and guard ordering.
+/// Capture/deep validation precedes dispatch; terminal faults never yield.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemCaseValue {
+    pub preparation: Vec<SemStmt>,
     pub selector: SemExpr,
-    pub arms: Vec<SemCaseArm<SemExpr>>,
+    pub arms: Vec<SemCaseArm<SemCaseResult>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SemCaseResult {
+    Yield {
+        preparation: Vec<SemStmt>,
+        value: SemExpr,
+    },
+    Fault {
+        kind: crate::runtime_fault::RuntimeFault,
+        span: Span,
+    },
+}
+
+impl SemCaseResult {
+    pub fn value(&self) -> Option<&SemExpr> {
+        match self {
+            Self::Yield { value, .. } => Some(value),
+            Self::Fault { .. } => None,
+        }
+    }
+
+    pub fn preparation(&self) -> &[SemStmt] {
+        match self {
+            Self::Yield { preparation, .. } => preparation,
+            Self::Fault { .. } => &[],
+        }
+    }
 }
 
 impl SemCaseValue {
     pub fn expressions(&self) -> impl Iterator<Item = &SemExpr> {
         std::iter::once(&self.selector).chain(self.arms.iter().flat_map(|arm| {
-            arm.conditions().map(|condition| &condition.expr).chain(std::iter::once(&arm.body))
+            arm.conditions()
+                .map(|condition| &condition.expr)
+                .chain(arm.body.value())
         }))
+    }
+
+    /// Statement lists nested directly in the expression, including binders.
+    /// Callers recursively visit these as well as `expressions()`.
+    pub fn statement_lists(&self) -> impl Iterator<Item = &[SemStmt]> {
+        std::iter::once(self.preparation.as_slice()).chain(
+            self.arms
+                .iter()
+                .flat_map(|arm| [arm.preparation(), arm.body.preparation()]),
+        )
     }
 }
 
@@ -1337,6 +1378,16 @@ fn collect_external_expr_references(
             }
         }
         SemExprKind::CaseValue(selection) => {
+            for arm in &selection.arms {
+                if let Some(bindings) = arm.bindings() {
+                    for declaration in &bindings.declarations {
+                        collect_external_declaration_references(declaration, external, referenced);
+                    }
+                }
+            }
+            for statements in selection.statement_lists() {
+                collect_external_stmt_references(statements, external, referenced);
+            }
             for expr in selection.expressions() {
                 collect_external_expr_references(expr, external, referenced);
             }
@@ -1857,6 +1908,23 @@ impl SemIrFormatter {
     }
 }
 
+fn preparation_summary(statements: &[SemStmt]) -> String {
+    if statements.is_empty() {
+        return String::new();
+    }
+    let mut formatter = SemIrFormatter::default();
+    formatter.stmt_list(statements);
+    format!(
+        "prepare [{}]; ",
+        formatter
+            .lines
+            .iter()
+            .map(|line| line.trim())
+            .collect::<Vec<_>>()
+            .join("; ")
+    )
+}
+
 fn expr_summary(expr: &SemExpr) -> String {
     let kind = match &expr.kind {
         SemExprKind::IfValue(selection) => format!(
@@ -1864,7 +1932,8 @@ fn expr_summary(expr: &SemExpr) -> String {
             selection.expressions().map(expr_summary).collect::<Vec<_>>().join(", ")
         ),
         SemExprKind::CaseValue(selection) => format!(
-            "case_value({}, [{}])",
+            "case_value({}{}, [{}])",
+            preparation_summary(&selection.preparation),
             expr_summary(&selection.selector),
             selection.arms.iter().map(|arm| {
                 let header = match &arm.labels {
@@ -1872,9 +1941,22 @@ fn expr_summary(expr: &SemExpr) -> String {
                     None if arm.guard.is_some() => "when _".to_string(),
                     None => "else".to_string(),
                 };
-                let guard = arm.guard.as_ref().map(|guard|
-                    format!(" guard {}", condition_summary(&guard.condition))).unwrap_or_default();
-                format!("{header}{guard} => {}", expr_summary(&arm.body))
+                let tests = if arm.tests.is_empty() { String::new() } else {
+                    format!(" tests [{}]", arm.tests.iter().map(condition_summary).collect::<Vec<_>>().join(", "))
+                };
+                let guard = arm.guard.as_ref().map(|guard| {
+                    let bindings = guard.bindings.as_ref().map(|bindings| format!(
+                        "bind block{} [{}]; {}", bindings.scope.ordinal,
+                        bindings.declarations.iter().map(|decl| symbol_display_name(&decl.symbol)).collect::<Vec<_>>().join(", "),
+                        preparation_summary(&bindings.initialization),
+                    )).unwrap_or_default();
+                    format!(" guard {bindings}{}", condition_summary(&guard.condition))
+                }).unwrap_or_default();
+                let result = match &arm.body {
+                    SemCaseResult::Yield { preparation, value } => format!("{}{}", preparation_summary(preparation), expr_summary(value)),
+                    SemCaseResult::Fault { kind, .. } => format!("fault {kind:?}"),
+                };
+                format!("{header}{tests}{guard} => {result}")
             }).collect::<Vec<_>>().join(", ")
         ),
         SemExprKind::Missing => "<missing>".to_string(),
@@ -2377,6 +2459,8 @@ struct IrBuilder<'a> {
 }
 
 mod aggregate;
+mod walk;
+pub use walk::{visit_lexical_declarations, visit_nested_statements};
 mod fresh;
 mod selection;
 
@@ -3664,11 +3748,7 @@ impl<'a> IrBuilder<'a> {
                     }))
                 }
                 SelectionExpr::Case { selector, arms } => {
-                    SemExprKind::CaseValue(Box::new(SemCaseValue {
-                        selector: self.lower_expr(scope, selector),
-                        arms: self.lower_scalar_case_arms(scope, arms.iter().map(|arm| &arm.header), expr.span,
-                            |builder, index| builder.lower_expr(scope, &arms[index].value)),
-                    }))
+                    SemExprKind::CaseValue(Box::new(self.lower_case_value(scope, selector, arms, expr.span)))
                 }
             },
             ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
@@ -3817,7 +3897,7 @@ impl<'a> IrBuilder<'a> {
     fn expr_type_from_kind(&self, kind: &SemExprKind) -> ValueType {
         match kind {
             SemExprKind::IfValue(selection) => selection.otherwise.ty.clone(),
-            SemExprKind::CaseValue(selection) => selection.arms.last().expect("CASE value has ELSE").body.ty.clone(),
+            SemExprKind::CaseValue(selection) => selection.arms.iter().find_map(|arm| arm.body.value()).expect("CASE has a yielding arm").ty.clone(),
             SemExprKind::Missing
             | SemExprKind::Raw(_)
             | SemExprKind::InitializerList(_)

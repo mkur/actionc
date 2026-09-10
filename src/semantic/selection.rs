@@ -67,16 +67,11 @@ impl Analyzer {
             return self.subject_error(span);
         }
         let selector = self.lower_expr(scope, selector);
-        if self.variant_for_type(&selector.ty).is_some() {
-            self.diagnostics.push(Diagnostic::new(
-                span,
-                "variant CASE expressions are not enabled yet",
-            ));
-            return self.subject_error(span);
-        }
-        if !arms
-            .iter()
-            .any(|arm| arm.header.labels.is_none() && arm.header.guard.is_none())
+        let variant = self.variant_for_type(&selector.ty).is_some();
+        if !variant
+            && !arms
+                .iter()
+                .any(|arm| arm.header.labels.is_none() && arm.header.guard.is_none())
         {
             self.diagnostics.push(Diagnostic::new(
                 span,
@@ -85,17 +80,31 @@ impl Analyzer {
         }
         let mut expressions = Vec::new();
         let mut result_type = None;
-        let guards = self.analyze_scalar_case(
-            scope,
-            &selector.ty,
-            arms.iter().map(|arm| &arm.header),
-            span,
-            |analyzer, index| {
-                let value = analyzer.lower_expr(scope, &arms[index].value);
-                analyzer.check_selection_result(&mut result_type, &value);
-                expressions.push(value);
-            },
-        );
+        let guards = if variant {
+            self.analyze_variant_case_arms(
+                scope,
+                &selector.ty,
+                arms.iter().map(|arm| &arm.header),
+                span,
+                |analyzer, index, child| {
+                    let value = analyzer.lower_expr(child, &arms[index].value);
+                    analyzer.check_selection_result(&mut result_type, &value);
+                    expressions.push(value);
+                },
+            )
+        } else {
+            self.analyze_scalar_case(
+                scope,
+                &selector.ty,
+                arms.iter().map(|arm| &arm.header),
+                span,
+                |analyzer, index| {
+                    let value = analyzer.lower_expr(scope, &arms[index].value);
+                    analyzer.check_selection_result(&mut result_type, &value);
+                    expressions.push(value);
+                },
+            )
+        };
         expressions.push(selector);
         expressions.extend(guards);
         subject::SemSubject::Expr(subject::SemExpr {

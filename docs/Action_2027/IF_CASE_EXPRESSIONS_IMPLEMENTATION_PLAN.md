@@ -1,7 +1,7 @@
 # IF and CASE expressions
 
-Status: slices 0 through 2 implemented. Modern integer/enum IF and CASE values
-execute end to end. Variant CASE values remain gated; slices 3 and 4 are pending.
+Status: slices 0 through 3 implemented. Modern integer/enum IF and CASE values,
+including variant CASE selectors, execute end to end. Slice 4 is pending.
 Baseline: `3afeb08`, inspected on 2026-09-10.
 
 ## Objective
@@ -44,6 +44,7 @@ not. Existing statement IF/CASE behavior remains compatible.
 - CASE expression: `CASE selector OF`, followed by existing WHEN headers,
   optional ELSE, and ESAC. Each arm contains exactly one result expression.
   Preserve the current multiline CASE header style: WHEN headers end with THEN;
+  a nested CASE guard can span lines, ending with THEN on its closing line.
   ELSE occupies its own line. The expression opening can follow `=`, `(`, or
   another expression introducer on the same line, as in the example above.
 - FI and ESAC close the expression itself. They may be followed by a surrounding
@@ -382,4 +383,38 @@ the dedicated snapshot command, all 47 NIR sweep fixtures, and
 `cargo check --all-targets` passed. Nine IF/CASE VM tests and 14 existing
 guard, nested-pattern, LET and known-tag VM regressions passed. The broader
 corpus check passes with 339 successful sources and its eight unchanged
-module-aware exclusions. Variant CASE values remain gated for slice 3.
+module-aware exclusions. At this point variant CASE values remained gated for slice 3.
+
+Slice 3 enables variant CASE selectors with integer/enum yields. Statements and
+expressions share checked patterns, usefulness/coverage, immutable binder scopes
+and resolved aggregate dispatch. Reclassifying a value reuses the same binder
+identities. `SemCaseValue` adds ordered selector preparation; its arm bodies are
+`SemCaseResult::Yield` with arm preparation or a terminal `Fault`. NIR keeps
+ordinary typed joins and faults; neither backend resolves source patterns.
+Storage/dependency visitors include expression-local preparation and binders,
+including classic aggregate-copy scratch allocation.
+
+Exhaustive unguarded matches omit ELSE. False mutating guards preserve captured
+selectors and payloads; invalid outer/active nested tags fault before user
+guards, yields or ELSE, even when Error returns. Generic/qualified patterns and
+existing named local constructor openings work in expressions. A shared header
+parser permits complete multiline CASE guards without duplicating nested
+parsing. New comparison-result regressions require Bool-to-BYTE materialization
+before typed IF/CASE joins. Runtime tests also exposed and fixed a stale classic
+Y-store hint after indexed addressing; consecutive nested constructors now
+retain their valid tags.
+
+The new raw/optimized `case_variant_value` and `case_variant_dynamic` fixtures
+establish expression dispatch and value-join contracts. The known-SOME example
+folds to `PrintBE(42)` with no comparisons or fault path; dynamic matching keeps
+its guards, typed joins and terminal invalid-tag arm. Existing snapshots are
+unchanged. The broader corpus inventory increases from 339 to 341 successful
+sources, retaining eight module-aware exclusions. Slice 4 remains the next
+integration, Oscar64 behavioral-port and publication step.
+
+Slice-3 validation: 3,066 compiler tests passed with 22 pre-existing ignored;
+the dedicated snapshot command, all 49 NIR sweep fixtures, and
+`cargo check --all-targets` passed. Seventeen IF/CASE VM tests and 19 existing
+guard, nested-pattern, LET, local-USE, known-tag and validation regressions passed
+across both Atari runtimes. The broader corpus check passes with 341 successful
+sources and its eight unchanged module-aware exclusions.

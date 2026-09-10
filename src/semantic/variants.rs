@@ -152,59 +152,87 @@ impl Analyzer {
         span: Span,
         context: ControlContext<'_>,
     ) {
+        self.analyze_variant_case_arms(scope, ty, arms.iter(), span, |analyzer, index, child| {
+            analyzer.analyze_statements(child, &arms[index].body, context);
+        });
+    }
+
+    /// Statements and values share pattern scopes, guarded usefulness and coverage.
+    pub(super) fn analyze_variant_case_arms<'a>(
+        &mut self,
+        scope: ScopeId,
+        ty: &ValueType,
+        arms: impl Iterator<Item = &'a CaseArm>,
+        span: Span,
+        mut body: impl FnMut(&mut Self, usize, ScopeId),
+    ) -> Vec<subject::SemExpr> {
         use super::patterns::{Coverage, Pattern};
+        let arms = arms.collect::<Vec<_>>();
         let initial_errors = self.diagnostics.len();
         let mut normalized = Vec::new();
-        for arm in arms {
-            let child = self.symbols.add_scope(ScopeKind::LexicalBlock, Some(scope));
+        let mut guards = Vec::new();
+        // A value can be classified more than once by its enclosing consumer.
+        // Keep the same checked binder identities and lexical scope on each visit.
+        let existing = self
+            .variants
+            .matches
+            .get(&ExpressionSite::new(scope, span))
+            .cloned();
+        for (index, arm) in arms.iter().enumerate() {
             self.active_lexical_path.push(arm.syntax_id.0);
-            let mut bindings = Vec::new();
-            if let Some(routine) = self.active_routine_symbol {
-                self.lexical_blocks.push(SemanticLexicalBlock {
-                    syntax_id: arm.syntax_id,
-                    scope: child,
-                    parent: scope,
-                    routine,
-                    module: self.active_module,
-                    depth: self.active_lexical_path.len(),
-                    ordinal: arm.syntax_id.0,
-                    span: arm.span,
-                });
+            let facts = if let Some(existing) = &existing {
+                existing.arms[index].clone()
             } else {
-                self.diagnostics.push(Diagnostic::new(
-                    span,
-                    "variant CASE is only allowed inside routines",
-                ));
-            }
-            let pattern = if let Some(labels) = &arm.labels {
-                if labels.len() != 1 || labels[0].high.is_some() {
-                    self.diagnostics.push(Diagnostic::new(
-                        arm.span,
-                        "variant WHEN requires one constructor pattern",
-                    ));
-                    Pattern::Wild
+                let child = self.symbols.add_scope(ScopeKind::LexicalBlock, Some(scope));
+                let mut bindings = Vec::new();
+                if let Some(routine) = self.active_routine_symbol {
+                    self.lexical_blocks.push(SemanticLexicalBlock {
+                        syntax_id: arm.syntax_id,
+                        scope: child,
+                        parent: scope,
+                        routine,
+                        module: self.active_module,
+                        depth: self.active_lexical_path.len(),
+                        ordinal: arm.syntax_id.0,
+                        span: arm.span,
+                    });
                 } else {
-                    self.analyze_variant_pattern(
-                        scope,
-                        child,
-                        &labels[0].low,
-                        ty,
-                        &mut Vec::new(),
-                        &mut bindings,
-                        0,
-                    )
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "variant CASE is only allowed inside routines",
+                    ));
                 }
-            } else {
-                Pattern::Wild
+                let pattern = if let Some(labels) = &arm.labels {
+                    if labels.len() != 1 || labels[0].high.is_some() {
+                        self.diagnostics.push(Diagnostic::new(
+                            arm.span,
+                            "variant WHEN requires one constructor pattern",
+                        ));
+                        Pattern::Wild
+                    } else {
+                        self.analyze_variant_pattern(
+                            scope,
+                            child,
+                            &labels[0].low,
+                            ty,
+                            &mut Vec::new(),
+                            &mut bindings,
+                            0,
+                        )
+                    }
+                } else {
+                    Pattern::Wild
+                };
+                VariantArm {
+                    pattern,
+                    scope: child,
+                    bindings,
+                }
             };
-            self.validate_case_guard(child, arm);
-            self.analyze_statements(child, &arm.body, context);
+            guards.extend(self.validate_case_guard(facts.scope, arm));
+            body(self, index, facts.scope);
             self.active_lexical_path.pop();
-            normalized.push(VariantArm {
-                pattern,
-                scope: child,
-                bindings,
-            });
+            normalized.push(facts);
         }
         // Only typed patterns reach coverage; error recovery wildcards must not
         // establish exhaustiveness or produce misleading reachability reports.
@@ -246,6 +274,7 @@ impl Analyzer {
                 arms: normalized,
             },
         );
+        guards
     }
 
     fn analyze_variant_pattern(

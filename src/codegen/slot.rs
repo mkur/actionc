@@ -339,6 +339,9 @@ impl Generator {
     }
 
     pub(super) fn ensure_y_imm(&mut self, value: u8) {
+        // Indexed addressing may change Y between constant stores. The old
+        // store hint must not override the processor's current register fact.
+        self.straight_line_store_y = None;
         if self.segment_storage && self.processor.y_immediate() == Some(value) {
             return;
         }

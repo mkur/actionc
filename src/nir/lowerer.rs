@@ -1229,48 +1229,7 @@ fn collect_nested_declarations<'a>(
     statements: &'a [SemStmt],
     declarations: &mut Vec<&'a SemDeclaration>,
 ) {
-    for statement in statements {
-        match statement {
-            SemStmt::Case { arms, .. } => {
-                for arm in arms {
-                    if let Some(bindings) = arm.bindings() { declarations.extend(&bindings.declarations); }
-                    collect_nested_declarations(arm.preparation(), declarations);
-                    collect_nested_declarations(&arm.body, declarations);
-                }
-            }
-            SemStmt::LexicalBlock {
-                declarations: nested,
-                body,
-                ..
-            } => {
-                declarations.extend(nested);
-                collect_nested_declarations(body, declarations);
-            }
-            SemStmt::If {
-                branches,
-                else_body,
-                ..
-            } => {
-                for branch in branches {
-                    collect_nested_declarations(&branch.body, declarations);
-                }
-                collect_nested_declarations(else_body, declarations);
-            }
-            SemStmt::While { body, .. }
-            | SemStmt::DoUntil { body, .. }
-            | SemStmt::For { body, .. } => collect_nested_declarations(body, declarations),
-            SemStmt::Define(_)
-            | SemStmt::Return { .. }
-            | SemStmt::Exit { .. }
-            | SemStmt::Assign { .. }
-            | SemStmt::RecordCopy { .. }
-            | SemStmt::CompoundAssign { .. }
-            | SemStmt::Call { .. }
-            | SemStmt::MachineBlock { .. }
-            | SemStmt::InlineAsm { .. }
-            | SemStmt::Unsupported { .. } | SemStmt::Fault { .. } => {}
-        }
-    }
+    crate::semantic::ir::visit_lexical_declarations(statements, &mut |_, declaration| declarations.push(declaration));
 }
 
 #[derive(Debug, Clone)]

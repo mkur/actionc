@@ -475,3 +475,413 @@ RETURN
     expected[0x3F] = 0xA5;
     support::check(source, &expected);
 }
+
+#[test]
+fn variant_case_values_capture_once_and_keep_binders_across_mutating_guards_and_results() {
+    let source = r#"
+TYPE MaybeByte=VARIANT [NONE SOME [BYTE value]]
+MaybeByte current
+BYTE ARRAY out=$600,trace=$680
+BYTE calls=$63E,done=$63F
+BYTE FUNC Mark(BYTE n)
+  trace(calls)=n calls==+1
+RETURN(n)
+MaybeByte FUNC Read()
+  Mark(10)
+RETURN(current)
+BYTE FUNC Reject(BYTE n)
+  Mark(n) current=MaybeByte.NONE
+RETURN(0)
+BYTE FUNC Change()
+  current=MaybeByte.SOME(99)
+RETURN(Mark(1))
+BYTE FUNC Sum(BYTE a,b)
+RETURN(a+b)
+PROC Main()
+  USE ALL FROM MaybeByte
+  calls=0
+  current=SOME(7)
+  out(0)=CASE Read() OF
+  WHEN SOME(n) IF Reject(n) THEN
+    Mark(255)
+  WHEN SOME(n) IF Change() THEN
+    Mark(n)
+  ELSE
+    Mark(254)
+  ESAC
+  out(1)=Sum(Mark(30),CASE current OF
+  WHEN SOME(n) THEN
+    Mark(12)
+  WHEN NONE THEN
+    Mark(253)
+  ESAC)
+  out(2)=CASE SOME(Mark(5)) OF
+  WHEN SOME(n) THEN
+    n+(CASE SOME(Mark(8)) OF
+    WHEN SOME(n) THEN
+      n
+    ELSE
+      0
+    ESAC)+n
+  ELSE
+    0
+  ESAC
+  out(3)=Mark(40)+(CASE current OF
+  WHEN SOME(n) THEN
+    Mark(2)
+  ELSE
+    0
+  ESAC)
+  LET unused=CASE current OF
+  WHEN SOME(n) THEN
+    Mark(16)
+  ELSE
+    Mark(255)
+  ESAC
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let trace = [10, 7, 1, 7, 30, 12, 5, 8, 40, 2, 16];
+    let mut expected = vec![0xCC; 0x500];
+    expected[..4].copy_from_slice(&[7, 42, 18, 42]);
+    expected[0x80..0x80 + trace.len()].copy_from_slice(&trace);
+    expected[0x3E] = trace.len() as u8;
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn nested_variant_case_values_preserve_aggregate_binders_and_open_generic_constructors() {
+    let source = r#"
+TYPE Payload=[BYTE value]
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+TYPE Outer=VARIANT [EMPTY PAIR [Option<Payload> first,second]]
+Outer current
+Payload original
+BYTE ARRAY out=$600
+BYTE done=$63F
+BYTE FUNC Change()
+  original.value=99 current=Outer.EMPTY
+RETURN(1)
+BYTE FUNC Pick()
+  USE ALL FROM Outer
+RETURN(CASE current OF
+WHEN PAIR(Option<Payload>.SOME(saved),Option<Payload>.NONE) IF Change() THEN
+  saved.value
+WHEN PAIR(first,second) THEN
+  CASE first OF
+  WHEN Option<Payload>.SOME(saved) THEN
+    saved.value
+  WHEN Option<Payload>.NONE THEN
+    CASE second OF
+    WHEN Option<Payload>.SOME(saved) THEN
+      saved.value+10
+    WHEN Option<Payload>.NONE THEN
+      30
+    ESAC
+  ESAC
+WHEN EMPTY THEN
+  40
+ESAC)
+PROC Main()
+  original.value=7
+  current=Outer.PAIR(Option<Payload>.SOME(original),Option<Payload>.NONE)
+  out(0)=Pick()
+  original.value=8
+  current=Outer.PAIR(Option<Payload>.NONE,Option<Payload>.SOME(original))
+  out(1)=Pick()
+  current=Outer.PAIR(Option<Payload>.NONE,Option<Payload>.NONE)
+  out(2)=Pick()
+  current=Outer.EMPTY
+  out(3)=Pick()
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[..4].copy_from_slice(&[7, 18, 30, 40]);
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn variant_case_values_repeat_in_loops_indexes_and_guards_with_value_context_results() {
+    let source = r#"
+TYPE V=VARIANT [NONE SOME [BYTE value]]
+V item
+BYTE ARRAY out=$600
+BYTE calls=$63E,done=$63F,i
+BYTE FUNC Mark(BYTE n)
+  calls==+1
+RETURN(n)
+PROC Main()
+  USE ALL FROM V
+  calls=0 out(0)=0 item=SOME(0)
+  IF CASE item OF
+  WHEN SOME(n) THEN
+    (Mark(n)=1) AND (Mark(2)=2)
+  ELSE
+    1
+  ESAC THEN out(0)=255 FI
+  out(1)=CASE item OF
+  WHEN SOME(n) IF (Mark(n)=1) AND (Mark(255)=255) THEN
+    255
+  WHEN _ IF CASE SOME(1) OF
+  WHEN SOME(n) THEN
+    n
+  ELSE
+    0
+  ESAC THEN
+    7
+  ELSE
+    255
+  ESAC
+  i=0
+  WHILE CASE SOME(i) OF
+  WHEN SOME(n) THEN
+    n<3
+  ELSE
+    0
+  ESAC DO
+    out(2+i)=i
+    i==+1
+  OD
+  out(CASE SOME(i) OF
+  WHEN SOME(n) THEN
+    n+2
+  ELSE
+    99
+  ESAC)=10
+  out(5)==+CASE SOME(2) OF
+  WHEN SOME(n) THEN
+    n
+  ELSE
+    99
+  ESAC
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[..6].copy_from_slice(&[0, 7, 0, 1, 2, 12]);
+    expected[0x3E] = 3;
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn invalid_variant_case_value_tags_fault_before_guards_results_and_user_else() {
+    for tag in [0, 3, 255] {
+        for arms in [
+            "WHEN V.SOME(n) IF Mark(n) THEN\nn\nWHEN _ IF Mark(1) THEN\nMark(2)\nELSE\nMark(3)",
+            "WHEN V.NONE THEN\nMark(1)\nWHEN V.SOME(n) THEN\nMark(n)",
+            "WHEN V.NONE THEN\nMark(1)\nELSE\nMark(3)",
+        ] {
+            let source = format!(
+                r#"
+TYPE V=VARIANT [NONE SOME [BYTE value]]
+V item
+BYTE POINTER bytes
+BYTE ARRAY out=$600
+BYTE calls=$63E
+BYTE FUNC Mark(BYTE n)
+  calls==+1
+RETURN(n)
+PROC Main()
+  calls=0 out(0)=41 item=V.SOME(7)
+  bytes=BYTE POINTER(@item) bytes(0)={tag}
+  out(1)=CASE item OF
+  {arms}
+  ESAC
+  out(0)=42
+  DO OD
+RETURN
+"#
+            );
+            let mut expected = vec![0xCC; 0x500];
+            expected[0] = 41;
+            expected[0x3E] = 0;
+            support::check_with_fault(&source, &expected, true);
+        }
+    }
+}
+
+#[test]
+fn nested_variant_case_values_validate_active_payloads_before_matching() {
+    for (outer_tag, inner_tag, fault) in
+        [(2, 0, true), (2, 3, true), (2, 1, false), (1, 255, false)]
+    {
+        let source = format!(
+            r#"
+TYPE Inner=VARIANT [NONE SOME [BYTE value]]
+TYPE Outer=VARIANT [EMPTY WRAP [Inner value]]
+Outer item
+BYTE POINTER bytes
+BYTE ARRAY out=$600
+BYTE calls=$63E
+BYTE FUNC Mark()
+  calls==+1
+RETURN(1)
+PROC Main()
+  calls=0 out(0)=41 item=Outer.WRAP(Inner.SOME(7))
+  bytes=BYTE POINTER(@item) bytes(0)={outer_tag} bytes(1)={inner_tag}
+  out(1)=CASE item OF
+  WHEN _ IF Mark() THEN
+    8
+  ELSE
+    9
+  ESAC
+  out(0)=42
+  DO OD
+RETURN
+"#
+        );
+        let mut expected = vec![0xCC; 0x500];
+        expected[0] = if fault { 41 } else { 42 };
+        expected[0x3E] = if fault { 0 } else { 1 };
+        if !fault {
+            expected[1] = 8;
+        }
+        support::check_with_fault(&source, &expected, fault);
+    }
+}
+
+#[test]
+fn variant_case_values_preserve_volatile_constructor_reads_and_discarded_results() {
+    let program = semir(
+        r#"
+TYPE V=VARIANT [NONE SOME [BYTE value]]
+VOLATILE BYTE input=$610,left=$611,right=$612
+BYTE ARRAY out=$600
+BYTE done=$63F
+BYTE FUNC Reject()
+  input=9
+RETURN(0)
+PROC Main()
+  input=7
+  out(0)=CASE V.SOME(input) OF
+  WHEN V.SOME(n) IF Reject() THEN
+    right
+  WHEN V.SOME(n) THEN
+    n+left
+  ELSE
+    right
+  ESAC
+  LET unused=CASE V.NONE OF
+  WHEN V.SOME(n) THEN
+    left
+  WHEN V.NONE THEN
+    right
+  ESAC
+  done=$A5
+  DO OD
+RETURN
+"#,
+    );
+    let mut expected = vec![0xCC; 0x500];
+    expected[0] = 0xD3;
+    expected[0x10] = 9;
+    expected[0x3F] = 0xA5;
+    support::check_semir_watched(
+        &program,
+        &expected,
+        false,
+        &[0x610, 0x611, 0x612],
+        |path, events| {
+            use actionc_vm::BusAccess::{Read, Write};
+            let observed = events
+                .iter()
+                .map(|e| (e.access, e.address, e.value))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                observed,
+                [
+                    (Write, 0x610, 7),
+                    (Read, 0x610, 7),
+                    (Write, 0x610, 9),
+                    (Read, 0x611, 0xCC),
+                    (Read, 0x612, 0xCC)
+                ],
+                "{path}"
+            );
+        },
+    );
+}
+
+#[test]
+fn variant_case_expression_copies_allocate_scratch_without_statement_copies() {
+    let source = r#"
+TYPE Payload=[BYTE value]
+TYPE V=VARIANT [NONE PAIR [Payload first,second]]
+TYPE E=ENUM [FIRST=17 LAST=255]
+Payload original
+BYTE ARRAY out=$600
+BYTE done=$63F
+E result
+PROC Main()
+  original.value=7
+  out(0)=CASE V.PAIR(original,original) OF
+  WHEN V.PAIR(first,second) THEN
+    first.value+second.value
+  ELSE
+    0
+  ESAC
+  result=CASE V.NONE OF
+  WHEN V.PAIR(first,second) THEN
+    E.FIRST
+  WHEN V.NONE THEN
+    E.LAST
+  ESAC
+  out(1)=BYTE(result)
+  done=$A5
+  DO OD
+RETURN
+"#;
+    let mut expected = vec![0xCC; 0x500];
+    expected[..2].copy_from_slice(&[14, 255]);
+    expected[0x3F] = 0xA5;
+    support::check(source, &expected);
+}
+
+#[test]
+fn mir_variant_case_values_join_wide_payloads_and_keep_selected_faults_terminal() {
+    let program = semir(
+        r#"
+TYPE Option<T>=VARIANT [NONE SOME [T value]]
+BYTE ARRAY out=$600
+BYTE done=$63F
+LONGINT signed
+LONGCARD unsigned
+PROC Main()
+  signed=CASE Option<LONGINT>.SOME(-65537) OF
+  WHEN Option<LONGINT>.SOME(n) THEN
+    n
+  WHEN Option<LONGINT>.NONE THEN
+    LONGINT(0)
+  ESAC
+  unsigned=CASE Option<LONGCARD>.SOME(65537) OF
+  WHEN Option<LONGCARD>.SOME(n) THEN
+    n
+  WHEN Option<LONGCARD>.NONE THEN
+    LONGCARD(0)
+  ESAC
+  out(0)=BYTE(signed) out(1)=BYTE(signed RSH 8)
+  out(2)=BYTE(signed RSH 16) out(3)=BYTE(signed RSH 24)
+  out(4)=BYTE(unsigned) out(5)=BYTE(unsigned RSH 8)
+  out(6)=BYTE(unsigned RSH 16) out(7)=BYTE(unsigned RSH 24)
+  done=$A5
+  DO OD
+RETURN
+"#,
+    );
+    let mut expected = vec![0xCC; 0x500];
+    expected[..8].copy_from_slice(&[255, 255, 254, 255, 1, 0, 1, 0]);
+    expected[0x3F] = 0xA5;
+    support::check_mir_semir(&program, &expected);
+
+    let source = "TYPE V=VARIANT [NONE SOME [BYTE value]] BYTE ARRAY out=$600 BYTE zero\nPROC Main()\nzero=0 out(0)=41\nout(1)=CASE V.SOME(7) OF\nWHEN V.SOME(n) THEN\nn/zero\nWHEN V.NONE THEN\n0\nESAC\nout(0)=42\nDO OD\nRETURN";
+    let mut expected = vec![0xCC; 0x500];
+    expected[0] = 41;
+    support::check_with_error_code(source, &expected, Some(101));
+}

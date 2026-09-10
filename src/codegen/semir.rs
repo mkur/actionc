@@ -1590,59 +1590,6 @@ fn collect_lexical_declarations(statements: &[SemStmt], output: &mut Vec<SemDecl
     });
 }
 
-fn visit_lexical_declarations<'a>(
-    statements: &'a [SemStmt],
-    visitor: &mut impl FnMut(u32, &'a SemDeclaration),
-) {
-    for statement in statements {
-        match statement {
-            SemStmt::Case { arms, .. } => {
-                for arm in arms {
-                    if let Some(bindings) = arm.bindings() {
-                        for declaration in &bindings.declarations { visitor(bindings.scope.ordinal, declaration); }
-                    }
-                    visit_lexical_declarations(arm.preparation(), visitor);
-                    visit_lexical_declarations(&arm.body, visitor);
-                }
-            }
-            SemStmt::LexicalBlock {
-                scope,
-                declarations,
-                body,
-                ..
-            } => {
-                for declaration in declarations {
-                    visitor(scope.ordinal, declaration);
-                }
-                visit_lexical_declarations(body, visitor);
-            }
-            SemStmt::If {
-                branches,
-                else_body,
-                ..
-            } => {
-                for branch in branches {
-                    visit_lexical_declarations(&branch.body, visitor);
-                }
-                visit_lexical_declarations(else_body, visitor);
-            }
-            SemStmt::While { body, .. }
-            | SemStmt::DoUntil { body, .. }
-            | SemStmt::For { body, .. } => visit_lexical_declarations(body, visitor),
-            SemStmt::Define(_)
-            | SemStmt::Return { .. }
-            | SemStmt::Exit { .. }
-            | SemStmt::Assign { .. }
-            | SemStmt::RecordCopy { .. }
-            | SemStmt::CompoundAssign { .. }
-            | SemStmt::Call { .. }
-            | SemStmt::MachineBlock { .. }
-            | SemStmt::InlineAsm { .. }
-            | SemStmt::Unsupported { .. } => {}
-            SemStmt::Fault { .. } => {}
-        }
-    }
-}
 
 fn insert_type_link_name(
     output: &mut BTreeMap<SymbolId, String>,
@@ -1746,56 +1693,13 @@ fn program_record_copy_temp_type(program: &SemProgram) -> Option<(ValueType, Spa
 }
 
 fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u32, ValueType, Span)>) {
-    match stmt {
-        SemStmt::Case { arms, .. } => {
-            for arm in arms { for stmt in arm.preparation().iter().chain(&arm.body) { consider_record_copy_temp(stmt, largest); } }
+    visit_nested_statements(std::slice::from_ref(stmt), &mut |stmt| {
+        if let SemStmt::RecordCopy { destination, size, span, .. } = stmt
+            && largest.as_ref().is_none_or(|(largest_size, _, _)| size > largest_size)
+        {
+            *largest = Some((*size, destination.ty.clone(), *span));
         }
-        SemStmt::RecordCopy {
-            destination,
-            size,
-            span,
-            ..
-        } => {
-            if largest
-                .as_ref()
-                .is_none_or(|(largest_size, _, _)| size > largest_size)
-            {
-                *largest = Some((*size, destination.ty.clone(), *span));
-            }
-        }
-        SemStmt::LexicalBlock { body, .. }
-        | SemStmt::While { body, .. }
-        | SemStmt::DoUntil { body, .. }
-        | SemStmt::For { body, .. } => {
-            for stmt in body {
-                consider_record_copy_temp(stmt, largest);
-            }
-        }
-        SemStmt::If {
-            branches,
-            else_body,
-            ..
-        } => {
-            for branch in branches {
-                for stmt in &branch.body {
-                    consider_record_copy_temp(stmt, largest);
-                }
-            }
-            for stmt in else_body {
-                consider_record_copy_temp(stmt, largest);
-            }
-        }
-        SemStmt::Define(_)
-        | SemStmt::Return { .. }
-        | SemStmt::Exit { .. }
-        | SemStmt::Assign { .. }
-        | SemStmt::CompoundAssign { .. }
-        | SemStmt::Call { .. }
-        | SemStmt::MachineBlock { .. }
-        | SemStmt::InlineAsm { .. }
-        | SemStmt::Unsupported { .. } => {}
-        SemStmt::Fault { .. } => {}
-    }
+    });
 }
 
 fn native_real_hidden_declarations(count: usize, span: Span) -> Vec<Decl> {
@@ -1933,7 +1837,8 @@ fn expr_uses_native_real(expr: &SemExpr) -> bool {
     expr.ty.is_real()
         || match &expr.kind {
             SemExprKind::IfValue(selection) => selection.expressions().any(expr_uses_native_real),
-            SemExprKind::CaseValue(selection) => selection.expressions().any(expr_uses_native_real),
+            SemExprKind::CaseValue(selection) => selection.expressions().any(expr_uses_native_real)
+                || selection.statement_lists().flatten().any(stmt_uses_native_real),
             SemExprKind::LValue(value) => lvalue_uses_native_real(value),
             SemExprKind::ArrayDecay(value) => lvalue_uses_native_real(&value.array),
             SemExprKind::AddressOf(value) => lvalue_uses_native_real(value),
@@ -2046,7 +1951,8 @@ fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
 fn expr_node_count(expr: &SemExpr) -> usize {
     1 + match &expr.kind {
         SemExprKind::IfValue(selection) => selection.expressions().map(expr_node_count).sum(),
-        SemExprKind::CaseValue(selection) => selection.expressions().map(expr_node_count).sum(),
+        SemExprKind::CaseValue(selection) => selection.expressions().map(expr_node_count).sum::<usize>()
+            + selection.statement_lists().flatten().map(stmt_expr_node_count).sum::<usize>(),
         SemExprKind::LValue(value) => lvalue_expr_node_count(value),
         SemExprKind::ArrayDecay(value) => lvalue_expr_node_count(&value.array),
         SemExprKind::AddressOf(value) => lvalue_expr_node_count(value),

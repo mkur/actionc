@@ -37,13 +37,27 @@ and preserves calls and volatile reads even when the result is discarded.
 
 Integer/enum CASE values use the same normalized intervals and ordered guard
 dispatch as statements. Shared SemIR represents a `CaseValue` using
-`SemCaseArm<SemExpr>`; statement arms retain statement-list bodies. SemIR checks
+`SemCaseArm<SemCaseResult>`; statement arms retain statement-list bodies. SemIR checks
 an explicit final ELSE and exact arm result types before NIR. The selector is
 evaluated once into a value retained across guard calls or writes; every normal
 selected arm supplies one typed join argument. Labels never execute, and NIR
 has no CASE-value operation or source type/coverage lookup. The same lowering
-helper serves statement and expression dispatch. Variant CASE expressions
-remain semantically gated for the pattern/coverage slice.
+helper serves statement and expression dispatch.
+
+Variant CASE values share statement pattern resolution, coverage, binder scopes
+and aggregate capture. `SemCaseValue.preparation` owns the ordered selector
+snapshot and any early deep validation. Each `SemCaseResult` either yields a
+typed expression after arm-local preparation or terminates with a structured
+fault. Guard binders initialize only after their pattern tests succeed; other
+binders initialize only on the selected arm. All declaration, storage and
+dependency walks include these expression-local preparations. NIR sees only
+resolved storage, byte-offset tests and ordinary dispatch; no constructor name,
+pattern or source scope becomes executable. Exhaustive source matches need no
+ELSE, but invalid tags retain terminal fault paths with no edge to the result
+join. Flat matching may fuse outer validation into dispatch; inline nested
+variants remain deeply validated before tests, binders, guards or user ELSE.
+Comparison results are converted from NIR Bool to the source BYTE representation
+before joining, preserving the verifier's exact edge-type contract.
 
 Local `USE ALL FROM` openings are resolved by SemIR to the same constructor IDs
 as qualified expressions/patterns. Their lexical scopes carry no executable

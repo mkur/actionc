@@ -11239,6 +11239,9 @@ mod tests {
                 }
             }
             ir::SemExprKind::CaseValue(selection) => {
+                for statements in selection.statement_lists() {
+                    assert_semir_stmt_list_types(statements);
+                }
                 for child in selection.expressions() {
                     assert_semir_value_expr_typed(child);
                 }

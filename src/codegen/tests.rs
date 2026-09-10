@@ -16,6 +16,22 @@ mod record_array_decay;
 mod arithmetic;
 
 #[test]
+fn indexed_addressing_invalidates_previous_constant_store_y_hint() {
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        let mut generator = test_generator(profile);
+        generator.emit_store_constant(StorageSlot::absolute(0x600, 1), 1);
+        generator.ensure_y_imm(0);
+        generator.emit_store_constant(StorageSlot::absolute(0x601, 1), 1);
+        generator.emitter.emit_rts();
+        let bytes = generator.emitter.finish().unwrap();
+        let mut memory = [0u8; 65536];
+        memory[0x3000..0x3000 + bytes.len()].copy_from_slice(&bytes);
+        indexed_test_cpu::run_memory(&mut memory, 0x3000);
+        assert_eq!(&memory[0x600..0x602], &[1, 1]);
+    }
+}
+
+#[test]
 fn prepared_indexed_word_load_handles_pointer_overlap_and_preserves_xy() {
     for pointer in [runtime_zp::ARRAY_ADDR, runtime_zp::ADDR] {
         for displacement in [-2i16, -1, 0, 1, 2] {

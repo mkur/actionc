@@ -1,0 +1,13 @@
+TYPE MaybeByte=VARIANT [NONE SOME [BYTE value]]
+
+PROC Main()
+  USE ALL FROM MaybeByte
+  LET item=SOME(42)
+  LET value=CASE item OF
+  WHEN NONE THEN
+    0
+  WHEN SOME(n) THEN
+    n
+  ESAC
+  PrintBE(value)
+RETURN

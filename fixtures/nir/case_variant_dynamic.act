@@ -1,0 +1,29 @@
+TYPE MaybeByte=VARIANT [NONE SOME [BYTE value]]
+MaybeByte current
+VOLATILE BYTE input=$600
+BYTE output=$610
+
+BYTE FUNC Reject()
+  current=MaybeByte.NONE
+RETURN(0)
+
+BYTE FUNC Pick()
+  USE ALL FROM MaybeByte
+RETURN(CASE current OF
+WHEN SOME(n) IF Reject() THEN
+  99
+WHEN SOME(n) THEN
+  IF n<8 THEN CASE SOME(n) OF
+  WHEN SOME(m) THEN
+    m+1
+  ELSE
+    0
+  ESAC ELSE n FI
+WHEN NONE THEN
+  0
+ESAC)
+
+PROC Main()
+  current=MaybeByte.SOME(input)
+  output=Pick()
+RETURN

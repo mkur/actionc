@@ -25,14 +25,51 @@ impl IrBuilder<'_> {
         arms: &[CaseArm],
         span: Span,
     ) -> Vec<SemStmt> {
+        let (mut preparation, selector, arms) = self.lower_variant_dispatch(
+            scope,
+            selector,
+            arms.iter(),
+            span,
+            |builder, index, mut bindings| {
+                bindings.initialization.extend(
+                    arms[index]
+                        .body
+                        .iter()
+                        .flat_map(|stmt| builder.lower_stmt(bindings.scope.scope, stmt)),
+                );
+                vec![bindings.into_block(arms[index].span)]
+            },
+            vec![SemStmt::Fault {
+                kind: crate::runtime_fault::RuntimeFault::InvalidVariantTag,
+                span,
+            }],
+        );
+        preparation.push(SemStmt::Case {
+            selector,
+            arms,
+            span,
+        });
+        preparation
+    }
+
+    pub(super) fn lower_variant_dispatch<'a, B>(
+        &mut self,
+        scope: ScopeId,
+        selector: &Expr,
+        arms: impl Iterator<Item = &'a CaseArm>,
+        span: Span,
+        mut body: impl FnMut(&mut Self, usize, SemCaseBindings) -> B,
+        fault: B,
+    ) -> (Vec<SemStmt>, SemExpr, Vec<SemCaseArm<B>>) {
         let facts =
             self.model.variants.matches[&super::super::ExpressionSite::new(scope, span)].clone();
         let variant = self.model.variants.types[&facts.owner].clone();
         let ty = ValueType::aggregate(variant.identity.clone());
         let dispatch_validates = !variant.constructors.iter().any(|constructor| {
-            constructor.fields.iter().any(|field| {
-                self.aggregate_requires_validation(&self.model.fields[field.0].ty)
-            })
+            constructor
+                .fields
+                .iter()
+                .any(|field| self.aggregate_requires_validation(&self.model.fields[field.0].ty))
         });
         let validation = if dispatch_validates {
             AggregateValidation::CaseDispatch
@@ -42,7 +79,7 @@ impl IrBuilder<'_> {
         let captured =
             self.capture_aggregate_value_with_validation(scope, &ty, selector, validation);
         let mut lowered_arms = Vec::new();
-        for (arm, facts) in arms.iter().zip(facts.arms) {
+        for (index, (arm, facts)) in arms.zip(facts.arms).enumerate() {
             let block = self
                 .model
                 .lexical_blocks
@@ -57,14 +94,19 @@ impl IrBuilder<'_> {
                 ordinal: block.ordinal,
             };
             let mut declarations = Vec::new();
-            let mut body = Vec::new();
+            let mut initialization = Vec::new();
             let mut tests = Vec::new();
             self.pattern_tests(&captured.place, &facts.pattern, true, &mut tests);
             for (id, path) in facts.bindings {
                 let mut source = captured.place.clone();
                 for (constructor, field) in path {
                     let variant = &self.model.variants.types[&constructor.owner];
-                    assert!(variant.constructors[usize::from(constructor.tag) - 1].fields.contains(&field), "projection must belong to the guarded alternative");
+                    assert!(
+                        variant.constructors[usize::from(constructor.tag) - 1]
+                            .fields
+                            .contains(&field),
+                        "projection must belong to the guarded alternative"
+                    );
                     source = self.canonical_field_place(&source, field);
                 }
                 let symbol = self.symbol_ref_by_id(id, self.model.symbols.symbols[id.0].span);
@@ -82,9 +124,9 @@ impl IrBuilder<'_> {
                     "payload binding retains nominal type"
                 );
                 if destination.ty.is_record() {
-                    body.push(self.copy_value(destination, source, symbol.span));
+                    initialization.push(self.copy_value(destination, source, symbol.span));
                 } else {
-                    body.push(SemStmt::Assign {
+                    initialization.push(SemStmt::Assign {
                         target: destination,
                         value: Self::value_expr(&source),
                         span: symbol.span,
@@ -102,16 +144,12 @@ impl IrBuilder<'_> {
             }
             let guard = arm.guard.as_ref().map(|guard| SemCaseGuard {
                 bindings: Some(SemCaseBindings {
-                    scope: scope_ref.clone(), declarations: std::mem::take(&mut declarations),
-                    initialization: std::mem::take(&mut body),
+                    scope: scope_ref.clone(),
+                    declarations: std::mem::take(&mut declarations),
+                    initialization: std::mem::take(&mut initialization),
                 }),
                 condition: self.lower_condition(facts.scope, guard),
             });
-            body.extend(
-                arm.body
-                    .iter()
-                    .flat_map(|stmt| self.lower_stmt(facts.scope, stmt)),
-            );
             lowered_arms.push(SemCaseArm {
                 guard,
                 tests,
@@ -132,37 +170,35 @@ impl IrBuilder<'_> {
                         span: arm.span,
                     }]
                 }),
-                body: vec![SemStmt::LexicalBlock {
-                    scope: scope_ref,
-                    declarations,
-                    constants: Vec::new(),
-                    body,
-                    span: arm.span,
-                }],
+                body: body(
+                    self,
+                    index,
+                    SemCaseBindings {
+                        scope: scope_ref,
+                        declarations,
+                        initialization,
+                    },
+                ),
                 span: arm.span,
             });
         }
-        if !lowered_arms.iter().any(|arm| arm.labels.is_none() && arm.guard.is_none()) {
+        if !lowered_arms
+            .iter()
+            .any(|arm| arm.labels.is_none() && arm.guard.is_none())
+        {
             lowered_arms.push(SemCaseArm {
                 guard: None,
                 tests: Vec::new(),
                 labels: None,
-                body: vec![SemStmt::Fault {
-                    kind: crate::runtime_fault::RuntimeFault::InvalidVariantTag,
-                    span,
-                }],
+                body: fault,
                 span,
             });
         }
-        let mut output = captured.preparation;
-        output.push(SemStmt::Case {
-            selector: Self::value_expr(
-                &self.canonical_field_place(&captured.place, variant.tag_field),
-            ),
-            arms: lowered_arms,
-            span,
-        });
-        output
+        (
+            captured.preparation,
+            Self::value_expr(&self.canonical_field_place(&captured.place, variant.tag_field)),
+            lowered_arms,
+        )
     }
 
     fn pattern_tests(&self, place: &SemLValue, pattern: &super::super::patterns::Pattern, outer: bool, tests: &mut Vec<SemCondition>) {
