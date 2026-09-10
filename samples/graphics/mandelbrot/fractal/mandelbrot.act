@@ -17,6 +17,25 @@ PUBLIC INT FUNC YCoord(BYTE py)
   scaled=Q8.Mul(INT(py),25165)
 RETURN(scaled-4915)
 
+; Display coordinates: sample each physical pixel across the raw Q4.12 bounds.
+; Use nonzero dimensions and pixel indexes below their respective dimension.
+; Widen before multiplication; even a full CARD index fits the LONGINT product.
+PUBLIC INT FUNC ViewportX(CARD px,width)
+  LONGINT scaled,extent
+  scaled=LONGINT(px)
+  scaled=scaled*LONGINT(14336)
+  extent=LONGINT(width)
+  scaled=scaled/extent
+RETURN(INT(scaled)-10240)
+
+PUBLIC INT FUNC ViewportY(CARD py,height)
+  LONGINT scaled,extent
+  scaled=LONGINT(py)
+  scaled=scaled*LONGINT(9830)
+  extent=LONGINT(height)
+  scaled=scaled/extent
+RETURN(INT(scaled)-4915)
+
 ; Check the radius before each update, exactly as in the original 32-step loop.
 PUBLIC BYTE FUNC Iterate(INT cx,cy)
   INT x,y,nextX,cross

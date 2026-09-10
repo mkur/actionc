@@ -254,7 +254,7 @@ fn oscar64_mandelbrot_probe_prints_documented_results() {
 
 fn bitmap(rows: &[u8]) -> Vec<u8> {
     // Decode the original C64 pattern pairs as independent per-pixel colors,
-    // then pack a linear two-bit image at the documented Atari row intervals.
+    // with a continuous physical-row phase and independently sampled pixels.
     let patterns = [
         (0xFFu8, 0xFFu8),
         (0xEE, 0xBB),
@@ -267,23 +267,84 @@ fn bitmap(rows: &[u8]) -> Vec<u8> {
     ];
     let mut image = vec![0; 40 * 192];
     for &py in rows {
-        let start = usize::from(py) * 192 / 100;
-        let end = (usize::from(py) + 1) * 192 / 100;
         for px in 0..160 {
-            let (cx, cy) = coords(px, py);
+            let (cx, cy) = viewport_coords(px, py, 160);
             let count = iterations(cx, cy, true);
             if count < 32 {
                 let (upper, lower) = patterns[usize::from(count % 8)];
                 let shift = 6 - 2 * (px % 4);
-                for row in start..end {
-                    let pattern = if row == start { upper } else { lower };
-                    let color = (pattern >> shift) & 3;
-                    image[row * 40 + usize::from(px / 4)] |= color << shift;
-                }
+                let pattern = if py % 2 == 0 { upper } else { lower };
+                let color = (pattern >> shift) & 3;
+                image[usize::from(py) * 40 + usize::from(px / 4)] |= color << shift;
             }
         }
     }
     image
+}
+
+fn viewport_coords(px: u16, py: u8, width: i64) -> (i64, i64) {
+    (
+        i64::from(px) * (7 * 4096 / 2) / width - 5 * 4096 / 2,
+        i64::from(py) * (2 * (6 * 4096 / 5)) / 192 - 6 * 4096 / 5,
+    )
+}
+
+#[test]
+fn oscar64_mandelbrot_viewport_coordinates_match_wide_integer_mapping() {
+    let source = Source::new(
+        "MODULE VIEWPORT_TEST USE FRACTAL.MANDELBROT AS MB\n\
+         INT cx=$601,cy=$603 CARD px=$6E0,py=$6E2,width=$6E4,height=$6E6 BYTE done=$6FF\n\
+         PROC TestStop=$0700()\n\
+         PROC Main() cx=MB.ViewportX(px,width) cy=MB.ViewportY(py,height)\n\
+         done=$A5 TestStop() DO OD RETURN ENDMODULE",
+    );
+    let mut cases: Vec<_> = [160u16, 320]
+        .into_iter()
+        .flat_map(|width| (0..width).map(move |px| (px, px % 192, width, 192u16)))
+        .collect();
+    cases.extend([
+        (0, 0, 1, 1),
+        (1, 1, 2, 2),
+        (65534, 65534, 65535, 65535),
+        (32767, 32767, 32768, 32768),
+    ]);
+    assert_eq!(cases.len(), 484);
+    for (mode, runtime) in lanes() {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(mode)
+                .with_runtime(runtime)
+                .with_module_path(project()),
+        )
+        .unwrap();
+        for &(px, py, width, height) in &cases {
+            let mut page = vec![0xCC; 256];
+            for (offset, value) in [(0xE0, px), (0xE2, py), (0xE4, width), (0xE6, height)] {
+                put(&mut page, offset, i64::from(value));
+            }
+            let mut vm = vm_for(compiled.object_bytes(), runtime, false);
+            for (offset, &byte) in page.iter().enumerate() {
+                vm.bus_mut().ram_mut().write(0x600 + offset as u16, byte);
+            }
+            put(
+                &mut page,
+                1,
+                i64::from(px) * 14336 / i64::from(width) - 10240,
+            );
+            put(
+                &mut page,
+                3,
+                i64::from(py) * 9830 / i64::from(height) - 4915,
+            );
+            page[255] = 0xA5;
+            let outcome = finish(vm, 100_000);
+            let actual: Vec<_> = (0x600..=0x6FF).map(|a| outcome.memory().read(a)).collect();
+            assert_eq!(
+                actual, page,
+                "{mode:?}/{runtime:?} ({px},{py}) in {width}x{height}"
+            );
+        }
+    }
 }
 
 fn render(mode: CompileMode, runtime: Runtime, full: bool) {
@@ -292,15 +353,20 @@ fn render(mode: CompileMode, runtime: Runtime, full: bool) {
     assert_eq!(text.matches("  DO OS.ATRACT=0 OD").count(), 1);
     text = text.replace("  DO OS.ATRACT=0 OD", "  TestStop() DO OD");
     let rows: Vec<_> = if full {
-        (0..100).collect()
+        (0..192).collect()
     } else {
-        vec![0, 24, 50, 75, 99]
+        vec![0, 1, 23, 24, 48, 49, 95, 96, 167, 168, 190, 191]
     };
     if !full {
         assert_eq!(text.matches("    DrawRow(py)").count(), 1);
+        let condition = rows
+            .iter()
+            .map(|y| format!("py={y}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
         text = text.replace(
             "    DrawRow(py)",
-            "    IF py=0 OR py=24 OR py=50 OR py=75 OR py=99 THEN DrawRow(py) FI",
+            &format!("    IF {condition} THEN DrawRow(py) FI"),
         );
     }
     let source = Source::new(&text);

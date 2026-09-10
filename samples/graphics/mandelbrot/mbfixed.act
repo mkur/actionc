@@ -1,6 +1,6 @@
 ; Oscar64 samples/fractals/mbfixed.c, revision 8deb94c4d762bab3aa60c9565412691f01021bbb.
 ; Original: drmortalwombat and contributors. SPDX-License-Identifier: GPL-3.0-only
-; Atari display adaptation; see README.md for the unchanged numerical contract.
+; Native 160x192 sampling; see README.md for the original and display viewports.
 MODULE MANDELBROT_ATARI
 USE FRACTAL.MANDELBROT AS MB
 USE SYS
@@ -11,27 +11,20 @@ BYTE ARRAY colors(16)=[$FF $FF $EE $BB $AA $AA $88 $22
                       $44 $11 $55 $55 $DD $77 $33 $CC]
 
 PROC DrawRow(BYTE py)
-  CARD px,top,bottom
+  CARD px
   INT cx,cy
-  BYTE count,band,shiftCount,upper,lower
-  cy=MB.YCoord(py)
-  ; Fit all 100 logical rows into Atari's 192 physical bitmap rows.
-  top=CARD(py)*192/CARD(100)
-  bottom=(CARD(py)+1)*192/CARD(100)-1
+  BYTE count,band,shiftCount,pattern
+  cy=MB.ViewportY(CARD(py),192)
   FOR px=0 TO 159 DO
-    cx=MB.XCoord(px)
+    cx=MB.ViewportX(px,160)
     count=MB.Iterate(cx,cy)
     IF count<32 THEN
-      band=2*(count&7)
+      ; Dither phase follows physical rows, independently of the iteration band.
+      band=2*(count&7)+(py&1)
       shiftCount=2*(3-(px&3))
-      upper=colors(band) RSH shiftCount
-      lower=colors(band+1) RSH shiftCount
-      SYS.COLOR=upper&3
-      SYS.Plot(px,BYTE(top))
-      IF bottom#top THEN
-        SYS.COLOR=lower&3
-        SYS.Plot(px,BYTE(bottom))
-      FI
+      pattern=colors(band) RSH shiftCount
+      SYS.COLOR=pattern&3
+      SYS.Plot(px,py)
     FI
   OD
 RETURN
@@ -43,7 +36,7 @@ PROC Main()
   SYS.SetColor(1,1,12)
   SYS.SetColor(2,9,10)
   SYS.SetColor(4,0,0)
-  FOR py=0 TO 99 DO
+  FOR py=0 TO 191 DO
     OS.ATRACT=0
     DrawRow(py)
   OD

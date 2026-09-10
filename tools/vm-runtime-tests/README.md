@@ -29,9 +29,10 @@ They check truncation, explicit floor rounding, wrapping, and exact LONGCARD
 squares stored across a page boundary, using the shared fixed point harness.
 
 The [Oscar64 Mandelbrot port](../../samples/graphics/mandelbrot/README.md) has
-a dedicated `cargo test --locked --test oscar64_mandelbrot` target. Four tests
-cover 2,437 executions: 2,424 numerical cases, six printing probes, six
-selected-row renders, and one full image in standalone MIR6502. The independent
+a dedicated `cargo test --locked --test oscar64_mandelbrot` target. Five tests
+cover 5,341 executions: 2,424 original numerical cases, 2,904 display-coordinate
+cases, six printing probes, six selected-row renders, and one native-resolution
+160x192 image in standalone MIR6502. The independent
 integer oracle preserves Oscar64's floor rounding and wide radius test. Graphics
 checks compare every modeled CIO pixel and palette values, including untouched
 regions; they do not emulate ANTIC scanout or verify OS screen-memory packing.

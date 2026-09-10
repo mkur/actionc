@@ -63,18 +63,36 @@ sample draws progressively and leaves the completed image on screen. Both
 samples build in Compatibility, Optimized classic, and MIR6502 with either
 runtime. Their project-local module is discovered relative to the source file.
 
-The display uses Graphics(31), a full-screen 160x192 four-color bitmap, with
-an Atari palette. It keeps the original eight pairs of C64 two-bit dither
-patterns. Logical row `py` fills physical rows in
-`[floor(py*192/100), floor((py+1)*192/100))`: 92 logical rows receive both
-pattern halves and eight receive only the upper half. All 160x100 numerical
-samples are preserved; this is an Atari display adaptation, not a byte-identical
-C64 screen. Pixels reaching the iteration cap remain black.
+The display uses Graphics(31), a full-screen 160x192 four-color bitmap. Every
+one of its 30,720 pixels is calculated independently; there is no row replication
+or image resampling. The original eight pairs of C64 two-bit dither patterns
+use physical row parity, so their alternation remains continuous. Pixels
+reaching the iteration cap remain black.
+
+The shared `ViewportX(px,width)` and `ViewportY(py,height)` functions map display
+pixels directly into raw Q4.12 coordinates:
+
+```text
+cx = floor(px * 14336 / width) - 10240
+cy = floor(py * 9830 / height) - 4915
+```
+
+Use nonzero dimensions with pixel indexes below the corresponding dimension.
+Products widen to LONGINT before multiplication. This spans the representable
+bounds -2.5 through 1 horizontally and approximately -1.2 through 1.2 vertically,
+excluding the right/bottom edge. The display mapping avoids the original
+coefficient pre-rounding. `XCoord`, `YCoord`, and `Pixel` retain the original
+160x100 Oscar64 sampling contract for the numerical probe and conformance tests.
+
+The earlier display compressed 100 logical rows into 192 screen rows. Eight
+single-height rows interrupted its dither pairs and produced horizontal seams;
+direct physical-pixel sampling replaces that adaptation.
 
 Run `cargo test --locked --test oscar64_mandelbrot` from tools/vm-runtime-tests.
-Four tests cover 2,437 VM executions: 2,424 numerical cases, six probe-output
-runs, five rendered logical rows in each of six configurations, and a complete
-16,000-pixel render in standalone MIR6502. The tests compare plotted colors,
+Five tests cover 5,341 VM executions: 2,424 original numerical cases, 2,904
+dimension-aware coordinate cases, six probe-output runs, twelve selected rows
+in each of six configurations, and a complete 30,720-pixel render in standalone
+MIR6502. The tests compare plotted colors,
 untouched pixels, and palette registers with an independent integer oracle.
 The pinned VM models CIO graphics calls; this checks the complete rendered
 pixel image, not ANTIC scanout or the OS's screen-memory layout. Numerical
@@ -91,13 +109,9 @@ observed images as linear 160x192 two-bit `.bin` files (40 bytes per row,
 leftmost pixel in bits 7..6), plus execution reports. These files pack the VM's
 observed pixels for comparison; they are not dumps of Atari screen RAM.
 
-The [implementation plan](../../../docs/Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md)
-records the arithmetic contract and acceptance checks. The initial port uses
+The [original implementation plan](../../../docs/Q4_12_MANDELBROT_IMPLEMENTATION_PLAN.md)
+records the arithmetic contract, and the
+[display plan](../../../docs/MANDELBROT_NATIVE_RESOLUTION_AND_VBXE_PLAN.md)
+covers direct sampling and VBXE. The port uses
 general LONGINT arithmetic and per-pixel Plot calls; speed optimization remains
 a separate follow-up.
-
-For reference, the instrumented full standalone MIR6502 render completes in
-524,360,385 VM steps / 1,904,712,001 modeled CPU cycles and produces a 3,197-byte
-load file. These measurements include the test completion call and the VM's
-CIO interception; they are observations, not Atari wall-clock timings or
-performance assertions.

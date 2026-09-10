@@ -100,8 +100,9 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
 
 The separate `oscar64_mandelbrot` target adds 2,424 numerical executions (404
 pixel cases across six lanes, each also checking a direct raw-coordinate case)
-and six probe-output runs. Six selected-row renders and one full standalone
-MIR6502 image bring its total to 2,437 executions in four tests. All share the
+and six probe-output runs. Another 2,904 cases verify dimension-aware display
+coordinates. Six selected-row renders and one full native-resolution 160x192
+standalone MIR6502 image bring its total to 5,341 executions in five tests. All share the
 maintained kernel with the sample project. Graphics assertions check the VM's
 modeled CIO pixels and palette against an independent image oracle, not ANTIC
 scanout or OS screen-memory packing. These counts are separate from the

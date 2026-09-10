@@ -3,6 +3,10 @@
 Status: all three slices complete and accepted, 2026-09-10.
 Commit each tested implementation slice.
 
+The original display adaptation below is superseded by the
+[native-resolution and VBXE follow-up](MANDELBROT_NATIVE_RESOLUTION_AND_VBXE_PLAN.md).
+The original numerical conformance contract remains unchanged.
+
 ## Contract
 
 Add `MATH.Q4_12` as ordinary embedded Action source, using signed INT raw
