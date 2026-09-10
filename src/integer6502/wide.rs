@@ -47,8 +47,20 @@ fn pure_body(source: &str) -> Vec<u8> {
 }
 
 pub(crate) fn multiply() -> Vec<u8> {
-    let mut source =
-        String::from("CLD\nLDA #0\nSTA $C4\nSTA $C5\nSTA $C6\nSTA $C7\nLDX #32\nloop:\n");
+    let mut source = String::from(
+        "CLD\nLDA #0\nSTA $C4\nSTA $C5\nSTA $C6\nSTA $C7\n\
+         LDA $C0\nORA $C1\nORA $C2\nORA $C3\nBNE nonzero\nRTS\n\
+         nonzero: LDA $C3\nBPL width\n",
+    );
+    // (-a) * (-b) == a * b modulo 2^32, including unsigned inputs and MIN.
+    // Normalize a negative multiplier so sign-extended narrow values need
+    // only their magnitude's rounds. All inputs already reside in scratch.
+    source.push_str(&negate(0x82));
+    source.push_str(&negate(0xC0));
+    source.push_str(
+        "width: LDX #32\nLDA $C3\nBNE loop\n\
+         LDX #24\nLDA $C2\nBNE loop\nLDX #16\nLDA $C1\nBNE loop\nLDX #8\nloop:\n",
+    );
     source.push_str(&shift(0xC0, false));
     source.push_str("BCC next\nCLC\n");
     for i in 0..4 {

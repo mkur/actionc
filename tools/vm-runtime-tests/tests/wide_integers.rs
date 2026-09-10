@@ -172,6 +172,82 @@ fn constant_wide_shifts_preserve_all_lanes_narrow_results_and_calls() {
     }
 }
 
+fn multiplication_edges() -> [u32; 16] {
+    [0, 1, 255, 256, 32767, 32768, 65535, 65536, 0xFFFFFF, 0x1000000,
+     0x7FFFFFFF, 0x80000000, 0xFF000000, 0xFFFF0000, 0xFFFF8000, 0xFFFFFFFF]
+}
+
+#[test]
+fn wide_multiplication_preserves_products_across_operand_widths() {
+    let source = Source::new(
+        "LONGCARD a=$6E0,b=$6E4,product=$600 LONGINT sa=$6E0,sb=$6E4,signedProduct=$604\n\
+         BYTE done=$6FF PROC Main() product=a*b signedProduct=sa*sb done=$A5 DO OD RETURN",
+    );
+    for (mode, runtime) in modes_and_runtimes() {
+        let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+        for a in multiplication_edges() {
+            for b in multiplication_edges() {
+                let actual = run(compiled.object_bytes(), runtime, a, b);
+                let mut expected = vec![0xCC; 256];
+                for (offset, value) in [(0, a.wrapping_mul(b)), (4, a.wrapping_mul(b)), (0xE0, a), (0xE4, b)] {
+                    expected[offset..offset+4].copy_from_slice(&value.to_le_bytes());
+                }
+                expected[255] = 0xA5;
+                assert_eq!(actual, expected, "{mode:?}/{runtime:?} {a:08X} * {b:08X}");
+            }
+        }
+    }
+}
+
+#[test]
+fn linked_mult32_preserves_scratch_stack_and_decimal_contract() {
+    let source = Source::new(
+        "LONGCARD a=$6E0,b=$6E4,result=$600 PROC Main() result=a*b RETURN",
+    );
+    let compiled = compile_file(&source.0,
+        &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone)).unwrap();
+    // Invoke the actual linked helper directly so caller setup cannot mask a
+    // decimal-mode or scratch-clobber violation. Do not duplicate its assembly.
+    let listing = compiled.source_listing();
+    let header = listing.lines().find(|line|
+        line.starts_with("; ===== PROC ACTION.RUNTIME.ACTIONC::Mult32 ")).unwrap();
+    let address = header.split_whitespace().nth(4).unwrap().split("..").next().unwrap();
+    let target = u16::from_str_radix(address.trim_start_matches('$'), 16).unwrap();
+    let mut vm = CompilerVm::default();
+    let load = vm.load_atari_object_for_execution(ExecutionProfile::StandaloneObject, compiled.object_bytes()).unwrap();
+    assert!(load.segments.iter().all(|s| s.end < 0x700 || s.start > 0x703));
+    vm.bus_mut().ram_mut().map(0x700, &[0xF8, 0x20, target as u8, (target >> 8) as u8]).unwrap(); // SED; JSR
+    let mut pairs: Vec<_> = multiplication_edges().into_iter().flat_map(|a|
+        multiplication_edges().into_iter().map(move |b| (a, b))).collect();
+    let mut seed = 412u32;
+    for _ in 0..1024 {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        let a = seed;
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        pairs.push((a, seed));
+        pairs.push((a as i16 as i32 as u32, seed as i16 as i32 as u32));
+    }
+    for (a, b) in pairs {
+        vm.bus_mut().ram_mut().map(0, &[0xCC; 256]).unwrap();
+        vm.bus_mut().ram_mut().map(0x82, &a.to_le_bytes()).unwrap();
+        vm.bus_mut().ram_mut().map(0xC0, &b.to_le_bytes()).unwrap();
+        vm.set_pc(0x700);
+        let sp = vm.cpu().registers().sp;
+        for _ in 0..4000 {
+            if vm.cpu().registers().pc == 0x704 { break; }
+            vm.step_cpu().unwrap();
+        }
+        assert_eq!(vm.cpu().registers().pc, 0x704, "helper did not return: {a:08X} * {b:08X}");
+        let bytes = std::array::from_fn(|i| vm.bus().ram().read(0xC4 + i as u16));
+        assert_eq!(u32::from_le_bytes(bytes), a.wrapping_mul(b), "{a:08X} * {b:08X}");
+        assert_eq!(vm.cpu().registers().sp, sp);
+        assert_eq!(vm.cpu().registers().status & 8, 0);
+        for address in (0..0x82).chain(0x88..0xC0).chain(0xC8..0x100) {
+            assert_eq!(vm.bus().ram().read(address), 0xCC, "scratch at ${address:02X}");
+        }
+    }
+}
+
 #[test]
 fn wide_zero_divisors_fault_before_stores_and_do_not_resume() {
     for ty in ["LONGINT", "LONGCARD"] {

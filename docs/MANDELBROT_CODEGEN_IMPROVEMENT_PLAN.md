@@ -63,3 +63,16 @@ Mandelbrot tests excluding the two full renders passed (5,350 VM executions).
 The new constant-shift matrix covers 1,056 executions across all modes/runtimes,
 including full/narrow results, overshifts and preserved input calls. No snapshot
 contract changed. Full images are checked again after the remaining slices.
+
+Slice 2's shared multiplication kernel reduces the same sampled kernel to
+27,641,703 cycles (61.96% below the original baseline). The helper grows by 83
+bytes; the standalone VBXE XEX is 4,317 bytes, still 239 bytes below baseline.
+Width checks can add overhead for full-width multipliers, so this is a measured
+Mandelbrot improvement rather than a universal speed claim.
+
+The 15 wide-integer VM tests and all Q8.8/Q4.12 VM tests pass. New coverage checks
+1,536 mode/runtime combinations of multiplication boundaries and 2,304 direct
+calls to the actual linked helper with boundary/random inputs, decimal mode
+set, balanced stack, and guards outside declared zero-page scratch.
+Root validation also passes: 3,081 tests, 22 existing ignored, NIR snapshots,
+all 49 sweep fixtures and the complete sample build catalog.

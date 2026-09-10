@@ -106,6 +106,15 @@ The inputs are captured NIR values, so projection does not repeat or remove
 observable source loads or calls. Existing materialization owns byte selection
 and removal of unused result lanes; NIR retains its typed 32-bit operation.
 
+The compiler-owned `Mult32` kernel is shared with the classic backend. It
+selects 8, 16, 24 or 32 shift/add rounds from the captured multiplier's magnitude,
+with an immediate zero result for a zero multiplier. Negating both operands
+when the multiplier's top bit is set preserves the product modulo 2^32 for
+all signed and unsigned inputs, including MIN. This is runtime helper strategy,
+not a change to NIR multiplication semantics. Inputs remain at $82..$85/$C0..$C3,
+result at $C4..$C7, scratch/clobbers remain $82..$87/$C0..$C7 and A/X/Y/P;
+decimal mode is cleared and the stack is balanced on every return path.
+
 Emission owns concrete bytes and output mechanics:
 
 - exact opcode selection and writing;
