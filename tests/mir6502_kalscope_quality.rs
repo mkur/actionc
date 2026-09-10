@@ -62,7 +62,8 @@ fn kalscope_exposes_the_expected_codegen_baseline() {
     );
     assert!(!formatted.contains("spill sp78"), "{formatted}");
     assert!(!formatted.contains("spill sp86"), "{formatted}");
-    assert_eq!(formatted.matches("helper rsh").count(), 1, "{formatted}");
+    // Its remaining small constant shift is now inline.
+    assert_eq!(formatted.matches("helper rsh").count(), 0, "{formatted}");
     assert!(
         !formatted.contains("a =.b #8\n  store.b fixed_zp $84, a"),
         "{formatted}"

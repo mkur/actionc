@@ -267,7 +267,9 @@ const POINTER_INDEX_SCRATCH_HI: u8 = 0xAF;
 const INDIRECT_CALL_TARGET_LO: u8 = 0xE4;
 const INDIRECT_CALL_TARGET_HI: u8 = 0xE5;
 const DEST_POINTER_SCRATCH_LO: u8 = 0xAA;
-const MAX_INLINE_WORD_CONSTANT_SHIFT: u16 = 2;
+// Keep the unrolled carry chain bounded: four bits covers nibble alignment
+// without expanding general constant shifts into long instruction sequences.
+const MAX_INLINE_WORD_CONSTANT_SHIFT: u16 = 4;
 
 const DEFAULT_POINTER_PAIR: MirAddressConsumer =
     MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
@@ -2073,6 +2075,37 @@ fn lower_small_constant_word_shifts(
 
             let (mut source_lo, mut source_hi) =
                 split_value_with_storage_widths(left, routine_id, layout, &temp_widths);
+            if count == 4 {
+                // Nibble alignment needs three independent byte shifts and an OR.
+                // Capture the crossing nibble before either destination lane is
+                // written, including when source and destination overlap.
+                let (dst_lo, dst_hi) = split_def(dst.clone()).expect("validated word destination");
+                let (cross_src, retained_src, plain_dst, merged_dst, reverse) =
+                    if shift_op == MirBinaryOp::Lsh {
+                        (source_lo.clone(), source_hi, dst_lo, dst_hi, MirBinaryOp::Rsh)
+                    } else {
+                        (source_hi.clone(), source_lo, dst_hi, dst_lo, MirBinaryOp::Lsh)
+                    };
+                let cross = MirDef::VTemp(fresh.fresh(temps));
+                let retained = MirDef::VTemp(fresh.fresh(temps));
+                for (op, dst, left) in [
+                    (reverse, cross.clone(), cross_src.clone()),
+                    (shift_op, retained.clone(), retained_src),
+                    (shift_op, plain_dst, cross_src),
+                ] {
+                    out.push(MirOp::Binary {
+                        op, dst, left, right: MirValue::ConstU8(4),
+                        width: MirWidth::Byte, carry_in: None, carry_out: MirCarryOut::Ignore,
+                    });
+                }
+                out.push(MirOp::Binary {
+                    op: MirBinaryOp::Or, dst: merged_dst,
+                    left: MirValue::Def(retained), right: MirValue::Def(cross),
+                    width: MirWidth::Byte, carry_in: None, carry_out: MirCarryOut::Ignore,
+                });
+                lowered += 1;
+                continue;
+            }
             for step in 0..count {
                 let stage_dst = if step + 1 == count {
                     dst.clone()

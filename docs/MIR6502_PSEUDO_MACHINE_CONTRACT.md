@@ -1632,3 +1632,10 @@ materialization reads the high input byte once and duplicates its byte mask.
 The byte operation clobbers C/N/Z/V and runs under ordinary MIR's binary-mode
 arithmetic contract; it neither consumes incoming carry nor reads memory
 again to recover a sign. Pre-emission verification rejects word unary forms.
+
+Small constant word shifts inline through count four. Counts one through three
+use bounded byte carry chains; count four uses three byte shifts and an OR,
+capturing the crossing nibble before writing either destination lane. This
+selection requires captured operands, no incoming/outgoing carry contract and
+a splittable destination. Dynamic and larger general shifts retain helper
+selection; existing byte-aligned projections remain separate.

@@ -804,3 +804,15 @@ fn signed_word_widening_uses_a_target_sign_mask() {
         actionc::mir6502::materialize_program(mir.clone(), &config).unwrap();
     }
 }
+
+#[test]
+fn nibble_word_shifts_inline_in_both_mir_configs() {
+    use actionc::mir6502::{Mir6502Config, MirRuntimeHelper};
+    for count in [3, 4] {
+        let nir = lower(&format!("CARD input=$6E0,left=$600,right=$602 PROC Main() left=input LSH {count} right=input RSH {count} RETURN"), TargetId::Atari6502);
+        for config in [Mir6502Config::default(), Mir6502Config::optimized()] {
+            let mir = actionc::mir6502::materialize_program(actionc::mir6502::lower_program(&nir).unwrap(), &config).unwrap();
+            assert!(!mir.runtime_helpers.iter().any(|decl| matches!(decl.helper, MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh)));
+        }
+    }
+}

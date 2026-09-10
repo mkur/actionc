@@ -745,3 +745,34 @@ fn signed_widening_preserves_every_sign_byte_and_captured_call() {
         }
     }
 }
+
+#[test]
+fn small_word_shifts_preserve_carries_overlap_and_calls() {
+    for count in [3u32, 4] {
+        let source = Source::new(&format!(
+            "CARD input=$6E0,left=$600,right=$602,overlap=$604\n\
+             BYTE calls=$606,done=$6FF\n\
+             CARD FUNC Capture() calls==+1 RETURN(input)\n\
+             PROC Main() calls=0 left=Capture() LSH {count} right=Capture() RSH {count}\n\
+             overlap=input overlap==LSH {count} done=$A5 DO OD RETURN"
+        ));
+        for (mode, runtime) in modes_and_runtimes() {
+            let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+            for high in 0u32..=255 {
+                for low in [0, 255] {
+                    let input = (high << 8) | low;
+                    let actual = run(compiled.object_bytes(), runtime, input, 0);
+                    let mut expected = vec![0xCC; 256];
+                    for (offset, value) in [(0, (input << count) as u16), (2, (input >> count) as u16), (4, (input << count) as u16)] {
+                        expected[offset..offset+2].copy_from_slice(&value.to_le_bytes());
+                    }
+                    expected[6] = 2;
+                    expected[0xE0..0xE4].copy_from_slice(&input.to_le_bytes());
+                    expected[0xE4..0xE8].fill(0);
+                    expected[255] = 0xA5;
+                    assert_eq!(actual, expected, "{mode:?}/{runtime:?}: {input:04X}, count={count}");
+                }
+            }
+        }
+    }
+}

@@ -1235,7 +1235,7 @@ fn small_constant_word_shifts_lower_to_bounded_carry_chains() {
         shift(
             MirBinaryOp::Rsh,
             5,
-            MirValue::ConstU8(3),
+            MirValue::ConstU8(5),
             MirValue::Def(source.clone()),
         ),
         shift(
@@ -1349,7 +1349,7 @@ fn small_constant_word_shifts_lower_to_bounded_carry_chains() {
         MirOp::Binary {
             op: MirBinaryOp::Rsh,
             dst: MirDef::VTemp(MirTempId(5)),
-            right: MirValue::ConstU8(3),
+            right: MirValue::ConstU8(5),
             width: MirWidth::Word,
             ..
         }

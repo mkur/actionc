@@ -60,3 +60,10 @@ The square wrapper no longer stages through its dead local. NIR snapshots and
 49/49 sweep are unchanged; compiler checks, 18 wide-integer VM tests and seven
 fixed-point VM tests passed, including 3,072 widening executions across all
 sign bytes, three compiler modes and both runtimes.
+
+Slice 3: nibble shifts use three independent byte shifts plus OR; three-bit
+shifts use the existing bounded carry expansion. Kernel cycles are 21,413,144
+(20.33% below baseline), and VBXE XEX size is 4,014 bytes. All 19 wide-integer
+VM tests passed, including 6,144 new small-shift executions; compiler tests,
+NIR snapshots and 49/49 sweep passed. KALSCOPE's quality assertion intentionally
+changes from one shift helper to zero; its existing size ceiling still passes.
