@@ -3,6 +3,50 @@
 This file tracks cross-cutting compiler work that does not naturally belong to a
 single backend or survey note.
 
+## LONG Codegen Audit and Measured Optimization
+
+Status: backlogged at user request; implementation has not started.
+
+Follow up on the completed
+[classic LONG support](CLASSIC_LONG_INTEGER_IMPLEMENTATION_PLAN.md).
+
+- Measure emitted bytes and execution cycles for rotations, arithmetic,
+  comparisons and calls across Compatibility, Optimized classic and MIR6502,
+  with both cartridge and standalone runtimes.
+- Use the existing LONG and Oscar64 rotation oracles as correctness baselines.
+  Record reproducible measurements before choosing an optimization slice.
+- First candidates in Optimized classic are constant shifts, increments and
+  redundant four-byte copies. Implement general codegen improvements with
+  before/after size and cycle results.
+- Preserve typed intermediate widths, signedness, call order, volatile access
+  counts, captured addresses and terminal faults. Retain the existing source
+  expressions and independent expected results in regression coverage.
+
+## Broader IF/CASE Expression Result Types
+
+Status: backlogged at user request; implementation has not started.
+
+The completed [IF/CASE expression implementation](Action_2027/IF_CASE_EXPRESSIONS_IMPLEMENTATION_PLAN.md)
+supports integer and enum results. Arms already accept arithmetic, calls, casts
+and nested selections; the remaining restriction is the result type.
+
+- Extend result support in small slices: pointers first, including declared
+  callable signatures; REAL; then records, unions and variants.
+- Support selecting and returning a constructed variant value, for example:
+
+  ```action
+  LET value=IF ready THEN MaybeByte.SOME(n) ELSE MaybeByte.NONE FI
+  ```
+
+- Define compatible arm types and conversions in SemIR, preserving nominal
+  aggregate identity, pointer/callable facts and existing aggregate value-copy
+  rules. Carry the required facts through verified NIR.
+- Preserve evaluation of only the selected arm, destination and argument
+  capture, nested calls, volatile accesses and aggregate validation/fault order.
+- Cover modern classic and MIR6502 with both runtimes. Keep explicit
+  unsupported diagnostics for result types until their slice is complete;
+  statement blocks that yield a value remain separate work.
+
 ## Oscar64 Conformance Regressions
 
 The [first eight test ports](../fixtures/runtime/oscar64/README.md#compiler-regressions)
