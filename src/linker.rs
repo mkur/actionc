@@ -565,6 +565,11 @@ impl SemGraphBuilder {
 
     fn expression(&mut self, owner: SemLinkNode, expression: &SemExpr, reason: LinkReason) {
         match &expression.kind {
+            SemExprKind::IfValue(selection) => {
+                for expr in selection.expressions() {
+                    self.expression(owner, expr, reason);
+                }
+            }
             SemExprKind::InitializerList(elements) => {
                 for element in elements {
                     if let SemInitializerElementKind::Address { target, .. } = &element.kind {

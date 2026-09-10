@@ -1125,7 +1125,7 @@ impl Generator {
         }
         matches!(
             expr.kind,
-            ExprKind::Call { .. }
+            ExprKind::Prepared { .. } | ExprKind::Call { .. }
                 | ExprKind::Unary {
                     op: UnaryOp::Neg | UnaryOp::AddressOf,
                     ..

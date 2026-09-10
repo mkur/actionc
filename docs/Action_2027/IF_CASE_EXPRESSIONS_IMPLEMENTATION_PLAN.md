@@ -1,7 +1,7 @@
 # IF and CASE expressions
 
-Status: implementation started. Slice 0 implements gated AST/parser support;
-slices 1 through 4 remain to be implemented.
+Status: slices 0 and 1 implemented. Modern integer/enum IF expressions execute
+end to end; CASE expressions remain gated. Slices 2 through 4 are pending.
 Baseline: `3afeb08`, inspected on 2026-09-10.
 
 ## Objective
@@ -313,9 +313,9 @@ shared lexical syntax IDs, and source diagnostics for malformed or over-nested
 forms. AST visitors include the new expression children. CASE statement syntax
 and ordinary contextual identifiers retain their existing behavior.
 
-Semantic analysis explicitly rejects IF/CASE value expressions in both profiles
-until their typed lowering is implemented. This slice changes no executable
-SemIR/NIR contract and introduces no successful expression runtime fixture.
+At slice 0, semantic analysis explicitly rejected IF/CASE value expressions in
+both profiles until their typed lowering was implemented. That slice changed no
+executable SemIR/NIR contract and introduced no successful expression runtime fixture.
 Five focused parser/gating tests cover nesting, scope identity, runtime consumer
 syntax, malformed input, the 64-level limit and identifier compatibility.
 Existing NIR snapshots remain unchanged.
@@ -324,3 +324,30 @@ Slice-0 validation: 3,053 compiler tests passed with 22 pre-existing ignored;
 the dedicated NIR snapshot command, all 45 NIR sweep fixtures, and
 `cargo check --all-targets` passed. Runtime tests begin with slice 1, when the
 first expression form becomes executable.
+
+Slice 1 enables integer/enum IF expressions in the modern profile. Semantics
+checks every arm independently, rejects mismatched/deferred result types and
+static evaluation, and retains rvalue legality. Conditions are checked once per
+expression so nested IF tests do not multiply semantic work. Shared SemIR adds
+resolved `IfValue`; NIR uses existing typed join parameters/edge arguments;
+classic projection uses expression-local preparation and a private result home.
+Classic comparison materialization includes prepared operands, including FOR
+bounds. The new raw/optimized `if_expressions` snapshots establish this lowering
+contract without changing existing fixture expectations.
+
+Focused coverage includes all integer types across four target layouts, enum
+identity, conversion placement, dead-arm diagnostics, static contexts, layout
+queries, nesting, and runtime consumer syntax. VM oracles cover both Atari
+runtimes, classic and raw/optimized MIR, selected calls, skipped division faults,
+operand/argument preservation, eager result operators, short-circuit tests,
+loops, indexed/compound assignments, signed/wide values, narrowing, and observed
+volatile read order even when a result is unused. Wide execution retains the
+existing MIR-only Atari restriction.
+
+Slice-1 validation: 3,058 compiler tests passed with 22 pre-existing ignored;
+the dedicated NIR snapshot command, all 46 NIR sweep fixtures, and
+`cargo check --all-targets` passed. Four expression VM tests and 11 existing
+guard/LET/known-tag VM regressions passed. A 64-level nested IF condition also
+parsed and lowered successfully through the public CLI. The broader corpus
+inventory increases from 337 to 338 successful sources for the new fixture;
+its eight existing module-aware sweep exclusions are unchanged.

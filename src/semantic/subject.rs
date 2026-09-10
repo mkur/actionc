@@ -23,6 +23,28 @@ pub struct SemExpr {
 }
 
 impl SemExpr {
+    /// Layout queries have already become literals; only evaluated selections
+    /// prohibit use as static storage metadata.
+    pub(super) fn contains_runtime_selection(&self) -> bool {
+        match &self.kind {
+            SemExprKind::Selection { .. } => true,
+            SemExprKind::Load(place) | SemExprKind::AddressOf(place) => place.any_place(&|place| match &place.kind {
+                SemPlaceKind::Index { index, .. } => index.contains_runtime_selection(),
+                SemPlaceKind::Deref(value) => value.contains_runtime_selection(),
+                _ => false,
+            }),
+            SemExprKind::Cast { expr, .. } | SemExprKind::Unary { expr, .. } => expr.contains_runtime_selection(),
+            SemExprKind::Binary { left, right, .. } => left.contains_runtime_selection() || right.contains_runtime_selection(),
+            SemExprKind::Call { callee, args } => {
+                matches!(&callee.kind, SemCallableKind::FunctionValue(value) if value.contains_runtime_selection())
+                    || args.iter().any(Self::contains_runtime_selection)
+            }
+            SemExprKind::VariantConstructor { args, .. } => args.iter().any(Self::contains_runtime_selection),
+            SemExprKind::Literal(_) | SemExprKind::CurrentLocation | SemExprKind::AddressOfSymbol(_)
+            | SemExprKind::Raw(_) | SemExprKind::Error => false,
+        }
+    }
+
     /// Visit evaluated places, including bases/indexes and indirect callees.
     /// Unevaluated layout queries have already become literals at this point.
     pub(super) fn any_place(&self, predicate: &impl Fn(&SemPlace) -> bool) -> bool {
@@ -35,6 +57,7 @@ impl SemExpr {
                     || args.iter().any(|value| value.any_place(predicate))
             }
             SemExprKind::VariantConstructor { args, .. } => args.iter().any(|value| value.any_place(predicate)),
+            SemExprKind::Selection { expressions } => expressions.iter().any(|value| value.any_place(predicate)),
             SemExprKind::Literal(_) | SemExprKind::CurrentLocation | SemExprKind::AddressOfSymbol(_)
             | SemExprKind::Raw(_) | SemExprKind::Error => false,
         }
@@ -43,6 +66,7 @@ impl SemExpr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemExprKind {
+    Selection { expressions: Vec<SemExpr> },
     VariantConstructor { constructor: super::VariantConstructorId, args: Vec<SemExpr> },
     Literal(SemLiteral),
     CurrentLocation,

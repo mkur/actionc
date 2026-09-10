@@ -138,6 +138,24 @@ error.
 
 ## Typed Nodes
 
+Modern IF expressions require ELSE and independently infer each arm's type.
+All arms must have the same canonical integer type or nominal enum identity;
+an enclosing conversion does not reconcile mismatched arms. Every arm is
+checked before optimization, including statically unselected arms. REAL,
+pointer, aggregate and value-less results are rejected. A selection is an
+rvalue, so assignment/address-taking cannot expose either arm's storage.
+
+Shared SemIR carries `IfValue` with resolved conditions and typed result
+expressions. Conditions retain condition semantics; result arms always use
+value semantics, including eager bitwise operators. ELSEIF tests run only after
+earlier tests fail, and only the selected result is evaluated. Static storage
+metadata and CONST evaluation reject evaluated selections; existing unevaluated
+layout queries still discard index computation. Classic projection owns a
+collision-free result home and expression-local `Prepared` control flow; NIR
+owns typed block parameters and edge arguments. Neither backend infers source
+types or hoists unselected-arm effects. CASE expressions remain gated until
+their checked dispatch and pattern lowering is implemented.
+
 CASE retains ordered arms and the distinction between no ELSE and an explicit
 empty ELSE. SemIR owns selector type, constant interval validation, overlap
 diagnostics, and return/EXIT flow. Labels never execute. NIR captures the selector

@@ -8,7 +8,7 @@ use crate::asm6502::{
 use crate::ast::{
     ActioncAnnotation, AddressByteSelector, BinaryOp, ConstDecl, Decl, DefineDecl, Expr, ExprKind,
     FundType, IncludeDirective, InitializerElement, InitializerElementKind, InitializerLiteral,
-    Item, LexicalBlockSyntaxId, MachineAddressAtom, MachineAddressExpr, MachineItem, Module,
+    Item, LexicalBlockSyntaxId, MachineAddressAtom, MachineAddressExpr, MachineItem, Module, SelectionExpr,
     OrgDirective, Program, QualifiedName, RecordDecl, Routine, RoutineKind, SetDirective, Stmt,
     TypeBase, TypeDecl, TypeDefinition, TypeRef, UnaryOp, VarDecl, VarStorage,
 };
@@ -823,6 +823,7 @@ pub struct SemExpr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SemExprKind {
+    IfValue(Box<SemIfValue>),
     Missing,
     Raw(String),
     InitializerList(Vec<SemInitializerElement>),
@@ -849,6 +850,22 @@ pub enum SemExprKind {
         right: Box<SemExpr>,
     },
     Call(SemCall),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemIfValue {
+    /// Ordered tests and value-context results, checked to have one exact type.
+    pub branches: Vec<(SemCondition, SemExpr)>,
+    pub otherwise: SemExpr,
+}
+
+impl SemIfValue {
+    pub fn expressions(&self) -> impl Iterator<Item = &SemExpr> {
+        self.branches
+            .iter()
+            .flat_map(|(condition, value)| [&condition.expr, value])
+            .chain([&self.otherwise])
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1297,6 +1314,11 @@ fn collect_external_expr_references(
     referenced: &mut HashSet<SymbolId>,
 ) {
     match &expression.kind {
+        SemExprKind::IfValue(selection) => {
+            for expr in selection.expressions() {
+                collect_external_expr_references(expr, external, referenced);
+            }
+        }
         SemExprKind::InitializerList(elements) => {
             for element in elements {
                 if let SemInitializerElementKind::Address { target, .. } = &element.kind {
@@ -1815,6 +1837,10 @@ impl SemIrFormatter {
 
 fn expr_summary(expr: &SemExpr) -> String {
     let kind = match &expr.kind {
+        SemExprKind::IfValue(selection) => format!(
+            "if_value({})",
+            selection.expressions().map(expr_summary).collect::<Vec<_>>().join(", ")
+        ),
         SemExprKind::Missing => "<missing>".to_string(),
         SemExprKind::Raw(text) => format!("raw({text})"),
         SemExprKind::InitializerList(elements) => format!(
@@ -3598,7 +3624,17 @@ impl<'a> IrBuilder<'a> {
                     expr: Box::new(self.lower_expr(scope, &args[0])),
                 }
             }
-            ExprKind::Selection(_) => unreachable!("selection expressions are semantically gated"),
+            ExprKind::Selection(selection) => match selection.as_ref() {
+                SelectionExpr::If { branches, otherwise } => {
+                    SemExprKind::IfValue(Box::new(SemIfValue {
+                        branches: branches.iter().map(|(condition, value)| {
+                            (self.lower_condition(scope, condition), self.lower_expr(scope, value))
+                        }).collect(),
+                        otherwise: self.lower_expr(scope, otherwise),
+                    }))
+                }
+                SelectionExpr::Case { .. } => unreachable!("CASE expressions are semantically gated"),
+            },
             ExprKind::Prepared { .. } => unreachable!("prepared expressions are created only by classic projection"),
             ExprKind::Missing => SemExprKind::Missing,
             ExprKind::Raw => SemExprKind::Raw(expr.text.clone()),
@@ -3744,6 +3780,7 @@ impl<'a> IrBuilder<'a> {
 
     fn expr_type_from_kind(&self, kind: &SemExprKind) -> ValueType {
         match kind {
+            SemExprKind::IfValue(selection) => selection.otherwise.ty.clone(),
             SemExprKind::Missing
             | SemExprKind::Raw(_)
             | SemExprKind::InitializerList(_)

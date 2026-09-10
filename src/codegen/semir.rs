@@ -8,6 +8,7 @@ use crate::source::{Span, source_char_byte};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 mod case;
+mod selection;
 mod aggregate_calls;
 #[cfg(test)]
 mod case_tests;
@@ -963,6 +964,7 @@ impl SemIrAstLowerer<'_> {
 
     fn expr_inner(&mut self, expr: &SemExpr) -> Option<Expr> {
         let kind = match &expr.kind {
+            SemExprKind::IfValue(selection) => return self.if_value(selection, &expr.ty, expr.span),
             SemExprKind::Missing => ExprKind::Missing,
             SemExprKind::Raw(text) => {
                 return Some(Expr {
@@ -1929,6 +1931,7 @@ fn stmt_uses_native_real(stmt: &SemStmt) -> bool {
 fn expr_uses_native_real(expr: &SemExpr) -> bool {
     expr.ty.is_real()
         || match &expr.kind {
+            SemExprKind::IfValue(selection) => selection.expressions().any(expr_uses_native_real),
             SemExprKind::LValue(value) => lvalue_uses_native_real(value),
             SemExprKind::ArrayDecay(value) => lvalue_uses_native_real(&value.array),
             SemExprKind::AddressOf(value) => lvalue_uses_native_real(value),
@@ -2040,6 +2043,7 @@ fn stmt_expr_node_count(stmt: &SemStmt) -> usize {
 
 fn expr_node_count(expr: &SemExpr) -> usize {
     1 + match &expr.kind {
+        SemExprKind::IfValue(selection) => selection.expressions().map(expr_node_count).sum(),
         SemExprKind::LValue(value) => lvalue_expr_node_count(value),
         SemExprKind::ArrayDecay(value) => lvalue_expr_node_count(&value.array),
         SemExprKind::AddressOf(value) => lvalue_expr_node_count(value),

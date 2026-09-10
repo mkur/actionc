@@ -29,6 +29,7 @@ mod generics;
 pub use generics::{GenericTypeFacts, GenericTypeInstance};
 mod initializers;
 mod let_binding;
+mod selection;
 mod static_addresses;
 pub mod subject;
 pub mod types;
@@ -444,6 +445,8 @@ pub struct StmtFlowFacts {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SemanticOptions {
+    /// Modern integer/enum IF values, independent of CASE statement support.
+    pub if_expressions: bool,
     pub let_bindings: bool,
     /// Modern-profile CASE statements; independent of enum support.
     pub case_statements: bool,
@@ -463,6 +466,7 @@ pub struct SemanticOptions {
 impl SemanticOptions {
     pub const fn modern() -> Self {
         Self {
+            if_expressions: true,
             let_bindings: true,
             case_statements: true,
             enum_types: true,
@@ -1846,7 +1850,7 @@ impl Analyzer {
         }
     }
 
-    fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) {
+    fn validate_condition(&mut self, scope: ScopeId, expr: &Expr) -> subject::SemExpr {
         let diagnostic_count = self.diagnostics.len();
         let condition = self.expect_expr_in_context(scope, expr, expr.span, true);
         if self.contains_union(&condition.ty) {
@@ -1859,8 +1863,9 @@ impl Analyzer {
             self.diagnostics.push(Diagnostic::new(expr.span, "enum values are not truth values; compare explicitly"));
         }
         if self.diagnostics.len() == diagnostic_count {
-            self.lower_expr_in_context(scope, expr, true);
+            self.record_sem_expr(&condition);
         }
+        condition
     }
 
     fn validate_static_real_integer_cast(
@@ -2357,7 +2362,7 @@ impl Analyzer {
         condition: bool,
     ) -> subject::SemSubject {
         let subject = match &expr.kind {
-            ExprKind::Selection(_) => { self.diagnostics.push(Diagnostic::new(expr.span, "IF/CASE value expressions are not enabled")); self.subject_error(expr.span) }
+            ExprKind::Selection(selection) => self.classify_selection(scope, selection, expr.span),
             ExprKind::Prepared { .. } => { self.diagnostics.push(Diagnostic::new(expr.span, "compiler-only prepared expression is not source syntax")); self.subject_error(expr.span) }
             ExprKind::Missing => self.subject_error(expr.span),
             ExprKind::Raw => subject::SemSubject::Expr(subject::SemExpr {
@@ -3598,7 +3603,7 @@ impl Analyzer {
 
     fn record_sem_expr(&mut self, expr: &subject::SemExpr) {
         match &expr.kind {
-            subject::SemExprKind::VariantConstructor { args, .. } => {
+            subject::SemExprKind::Selection { expressions: args } | subject::SemExprKind::VariantConstructor { args, .. } => {
                 for arg in args { self.record_sem_expr(arg); }
             }
             subject::SemExprKind::Load(place) => {
@@ -4650,7 +4655,7 @@ impl Analyzer {
             return;
         };
         let expression = self.lower_expr(scope, size);
-        if self.reject_static_binding_value(&expression) { return; }
+        if self.reject_static_binding_value(&expression) || self.reject_static_selection(&expression) { return; }
         if expression.ty.as_enum().is_some() {
             self.diagnostics.push(Diagnostic::new(size.span, "array size requires an integer, not an enum; use an explicit conversion"));
             return;
@@ -5000,7 +5005,7 @@ impl Analyzer {
                 // a divide-by-zero fixed address into ordinary storage.
                 let value =
                     self.lower_expr_for_expected_type(scope, initializer, Some(&element_type));
-                if self.reject_static_binding_value(&value) { return; }
+                if self.reject_static_binding_value(&value) || self.reject_static_selection(&value) { return; }
                 if value.ty.as_enum().is_some() && self.array_decay_pointer_type(scope, initializer).is_none() {
                     self.diagnostics.push(Diagnostic::new(initializer.span,
                         "a storage address requires an integer; use [Enum.Member] for an initial enum value"));
@@ -5908,7 +5913,7 @@ fn evaluate_exact_fixed_address_expr(
         subject::SemExprKind::Load(_)
         | subject::SemExprKind::AddressOf(_)
         | subject::SemExprKind::AddressOfSymbol(_) => Err(FixedArrayAddressError::Relocatable),
-        subject::SemExprKind::Call { .. } | subject::SemExprKind::VariantConstructor { .. } => Err(FixedArrayAddressError::RuntimeDependent),
+        subject::SemExprKind::Selection { .. } | subject::SemExprKind::Call { .. } | subject::SemExprKind::VariantConstructor { .. } => Err(FixedArrayAddressError::RuntimeDependent),
         subject::SemExprKind::Literal(subject::SemLiteral::Real { .. })
         | subject::SemExprKind::Literal(subject::SemLiteral::String(_))
         | subject::SemExprKind::CurrentLocation
@@ -6053,6 +6058,7 @@ fn evaluate_const_expr_for_layout(expr: &subject::SemExpr, layout: TargetLayout)
         | subject::SemExprKind::AddressOf(_)
         | subject::SemExprKind::AddressOfSymbol(_)
         | subject::SemExprKind::VariantConstructor { .. }
+        | subject::SemExprKind::Selection { .. }
         | subject::SemExprKind::Call { .. } => {
             return Err("CONST expression depends on a runtime value".to_string());
         }
@@ -11224,6 +11230,11 @@ mod tests {
                 assert_semir_value_expr_typed(inner);
             }
             ir::SemExprKind::Unary { expr, .. } => assert_semir_value_expr_typed(expr),
+            ir::SemExprKind::IfValue(selection) => {
+                for child in selection.expressions() {
+                    assert_semir_value_expr_typed(child);
+                }
+            }
             ir::SemExprKind::Binary { left, right, .. } => {
                 assert_semir_value_expr_typed(left);
                 assert_semir_value_expr_typed(right);

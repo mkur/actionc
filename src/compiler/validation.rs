@@ -244,6 +244,11 @@ fn collect_standalone_call_diagnostics(call: &SemCall, diagnostics: &mut Vec<Dia
 
 fn collect_standalone_expr_diagnostics(expr: &SemExpr, diagnostics: &mut Vec<Diagnostic>) {
     match &expr.kind {
+        SemExprKind::IfValue(selection) => {
+            for expr in selection.expressions() {
+                collect_standalone_expr_diagnostics(expr, diagnostics);
+            }
+        }
         SemExprKind::InitializerList(elements) => {
             for element in elements {
                 if let crate::semantic::ir::SemInitializerElementKind::Address { target, .. } =

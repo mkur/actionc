@@ -1,0 +1,17 @@
+TYPE E=ENUM [FIRST=17 LAST=255]
+BYTE input,result,calls
+CARD word
+E choice
+BYTE FUNC Read(BYTE n)
+  calls==+1
+RETURN(n)
+BYTE FUNC Pick(BYTE flag)
+RETURN(IF flag THEN Read(7) ELSEIF Read(0) THEN Read(8) ELSE Read(9) FI)
+PROC Main()
+  result=Pick(input)
+  result=Read(40)+(IF input THEN Read(2) ELSE Read(3) FI)
+  LET selected=IF input THEN IF result THEN 1 ELSE 2 FI ELSE 3 FI
+  word=IF input THEN CARD(selected) ELSE CARD(result) FI
+  choice=IF input THEN E.FIRST ELSE E.LAST FI
+  result=IF 1 THEN 5 ELSE Read(99) FI
+RETURN

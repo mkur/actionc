@@ -9,6 +9,124 @@ fn program(source: &str) -> Program {
     parse(&tokenize(source).unwrap()).unwrap_or_else(|errors| panic!("{source}: {errors:?}"))
 }
 
+fn rejected(source: &str, message: &str) {
+    let errors =
+        semantic::analyze_with_options(&program(source), SemanticOptions::modern()).unwrap_err();
+    assert!(
+        errors.iter().any(|e| e.message.contains(message)),
+        "{source}: {errors:?}"
+    );
+}
+
+#[test]
+fn if_values_require_independently_matching_integer_or_enum_arms() {
+    for (declarations, value) in [
+        ("BYTE b CARD c", "IF 1 THEN b ELSE c FI"),
+        ("BYTE b CARD c", "CARD(IF 1 THEN b ELSE c FI)"),
+        ("BYTE b CHAR c", "IF 1 THEN b ELSE c FI"),
+        (
+            "TYPE E=ENUM [A] TYPE F=ENUM [A]",
+            "IF 1 THEN E.A ELSE F.A FI",
+        ),
+        ("TYPE E=ENUM [A]", "IF 1 THEN E.A ELSE 0 FI"),
+    ] {
+        rejected(
+            &format!("{declarations}\nPROC Main()\nLET v={value}\nRETURN"),
+            "selection arms must have the same",
+        );
+    }
+    rejected(
+        "BYTE b CARD c PROC Main()\nLET CARD v=IF 1 THEN b ELSE c FI\nRETURN",
+        "selection arms must have the same",
+    );
+    for (declarations, value) in [
+        ("REAL r", "r"),
+        ("BYTE b", "@b"),
+        ("TYPE R=[BYTE b] R r", "r"),
+        ("TYPE V=VARIANT [NONE]", "V.NONE"),
+        ("PROC Empty() RETURN", "Empty()"),
+    ] {
+        rejected(
+            &format!(
+                "{declarations}\nPROC Main()\nLET v=IF 1 THEN {value} ELSE {value} FI\nRETURN"
+            ),
+            "selection result must be an integer or enum",
+        );
+    }
+    rejected(
+        "PROC Main()\nLET v=IF 1 THEN 2 ELSE unknown FI\nRETURN",
+        "unknown",
+    );
+    rejected(
+        "BYTE b PROC Main()\nLET p=@(IF 1 THEN b ELSE b FI)\nRETURN",
+        "address",
+    );
+    rejected(
+        "BYTE b PROC Main()\n(IF 1 THEN b ELSE b FI)=2\nRETURN",
+        "assign",
+    );
+}
+
+#[test]
+fn if_values_are_runtime_expressions_even_with_literal_conditions() {
+    for source in [
+        "CONST V=IF 1 THEN 2 ELSE 3 FI PROC Main() RETURN",
+        "BYTE v=IF 1 THEN 2 ELSE 3 FI PROC Main() RETURN",
+        "BYTE ARRAY v(IF 1 THEN 2 ELSE 3 FI) PROC Main() RETURN",
+        "PROC Main() CONST V=IF 1 THEN 2 ELSE 3 FI RETURN",
+        "PROC Main() BYTE v=IF 1 THEN 2 ELSE 3 FI RETURN",
+        "PROC Main() BYTE ARRAY v(IF 1 THEN 2 ELSE 3 FI) RETURN",
+        "PROC Main() BYTE v=1+(IF 1 THEN 2 ELSE 3 FI) RETURN",
+        "PROC Main() BYTE ARRAY v(4)=(IF 1 THEN $600 ELSE $700 FI) RETURN",
+        "PROC Main()\nCASE 2 OF\nWHEN (IF 1 THEN 2 ELSE 3 FI) THEN\nRETURN\nESAC\nRETURN",
+    ] {
+        assert!(
+            semantic::analyze_with_options(&program(source), SemanticOptions::modern()).is_err(),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn nested_if_conditions_are_checked_once_per_expression() {
+    let value = format!("{}1{}", "IF ".repeat(20), " THEN 1 ELSE 0 FI".repeat(20));
+    let ast = program(&format!("PROC Main()\nLET v={value}\nRETURN"));
+    semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
+}
+
+#[test]
+fn layout_queries_do_not_evaluate_if_values_inside_place_indexes() {
+    let ast = program(
+        "BYTE ARRAY table(8)\nBYTE FUNC Read() RETURN(7)\nPROC Main()\nCONST Width=SIZEOF(table(IF 1 THEN Read() ELSE 2 FI))\nBYTE value=Width\nRETURN",
+    );
+    let model = semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::lower_program(&semantic::ir::lower_program(&ast, &model));
+    actionc::nir::verify_program(&nir).unwrap();
+    let text = actionc::nir::format_program(&nir);
+    assert!(!text.contains("call "), "{text}");
+}
+
+#[test]
+fn if_value_joins_preserve_types_on_every_target_layout() {
+    use actionc::target::TargetId;
+    let ast = program(
+        "TYPE E=ENUM [A B] BYTE flag,b CHAR ch CARD c INT i LONGINT si LONGCARD ui ADDRESS a SIZE s E state\nPROC Main()\nb=IF flag THEN b ELSE 0 FI\nch=IF flag THEN ch ELSE CHAR(1) FI\nc=IF flag THEN CARD(b) ELSE c FI\ni=IF flag THEN i ELSE -1 FI\nsi=IF flag THEN si ELSE LONGINT(-1) FI\nui=IF flag THEN ui ELSE LONGCARD(1) FI\na=IF flag THEN a ELSE ADDRESS(1) FI\ns=IF flag THEN s ELSE SIZE(1) FI\nstate=IF flag THEN E.A ELSE E.B FI\nRETURN",
+    );
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
+        let model =
+            semantic::analyze_with_options(&ast, SemanticOptions::modern().with_target(target))
+                .unwrap();
+        let nir = actionc::nir::lower_program(&semantic::ir::lower_program(&ast, &model));
+        actionc::nir::verify_program(&nir).unwrap();
+        actionc::nir::optimize_program(&nir).unwrap();
+    }
+}
+
 #[test]
 fn parses_nested_if_values_and_preserves_the_following_statement() {
     let ast = program(
@@ -117,13 +235,12 @@ fn expression_consumers_collect_whole_selection_operands() {
         let ast = program(&format!(
             "BYTE a,x BYTE ARRAY table(4) BYTE FUNC Main()\n{source}\nRETURN(0)"
         ));
-        let errors = semantic::analyze_with_options(&ast, SemanticOptions::modern()).unwrap_err();
-        assert!(
-            errors
-                .iter()
-                .any(|e| e.message.contains("value expressions are not enabled")),
-            "{source}: {errors:?}"
-        );
+        let model = semantic::analyze_with_options(&ast, SemanticOptions::modern())
+            .unwrap_or_else(|errors| panic!("{source}: {errors:?}"));
+        let semir = semantic::ir::lower_program(&ast, &model);
+        let nir = actionc::nir::lower_program(&semir);
+        actionc::nir::verify_program(&nir).unwrap();
+        actionc::nir::optimize_program(&nir).unwrap();
     }
 }
 
@@ -158,12 +275,21 @@ fn selection_words_remain_contextual_and_values_are_gated() {
         "BYTE case,when,of,esac PROC Case() RETURN PROC Main() case=1 when=2 of=3 esac=4 Case() RETURN",
     );
     let ast = program("BYTE v PROC Main() v=IF 1 THEN 2 ELSE 3 FI RETURN");
-    for options in [SemanticOptions::default(), SemanticOptions::modern()] {
+    let mut gated = SemanticOptions::modern();
+    gated.if_expressions = false;
+    for options in [SemanticOptions::default(), gated] {
         assert!(
             semantic::analyze_with_options(&ast, options)
                 .unwrap_err()
                 .iter()
-                .any(|e| e.message.contains("not enabled"))
+                .any(|e| e.message.contains("modern profile"))
         );
     }
+    let ast = program("PROC Main()\nLET v=CASE 1 OF\nWHEN 1 THEN\n2\nELSE\n3\nESAC\nRETURN");
+    assert!(
+        semantic::analyze_with_options(&ast, SemanticOptions::modern())
+            .unwrap_err()
+            .iter()
+            .any(|e| e.message.contains("CASE value expressions are not enabled"))
+    );
 }

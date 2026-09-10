@@ -24,6 +24,18 @@ preserving source arm order and a no-match continuation when ELSE is absent.
 There is no executable Enum, Switch, source label expression, or enum runtime
 helper. The existing verifier and optimizer operate on these ordinary forms.
 
+Modern integer/enum IF expressions enter NIR as ordinary condition branches,
+selected-arm computation and a typed block parameter at the value join. Each
+normal incoming edge supplies exactly one value of the result representation
+type. Existing verification checks edge arity/types and dominance; no new
+executable selection operation or source-name result home is introduced. SemIR
+owns the mandatory ELSE, exact canonical arm types and nominal enum identity.
+Result arms use value semantics even when the selection is itself a condition.
+Only reached conditions and the selected result execute; surrounding operands
+remain captured across their effects. Optimization starts after verification
+and preserves calls and volatile reads even when the result is discarded.
+CASE value expressions remain semantically gated pending their dispatch slices.
+
 Local `USE ALL FROM` openings are resolved by SemIR to the same constructor IDs
 as qualified expressions/patterns. Their lexical scopes carry no executable
 operation, storage, effects or name lookup
