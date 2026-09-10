@@ -20,6 +20,15 @@ and both runtimes. Set `ACTIONC_LET_AUDIT_DIR` to an existing empty directory to
 retain sources, IR, listings, objects and CSV measurements. Performance numbers
 are reports, not golden assertions; functional results use independent oracles.
 
+The [IF/CASE codegen audit](../../docs/Action_2027/IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.md)
+compares statement and expression forms, including known-SOME and dynamic
+variant selectors. `cargo test --locked --test if_case_codegen -- --nocapture`
+checks 384 executions and reports XEX bytes and cycles. It also asserts that
+verified optimization removes known-tag dispatch while preserving dynamic
+validation. `cargo test --locked --test if_case_expressions` covers 20 tests
+for consumers, effects, exact-width joins, invalid tags and the published sample
+across the supported classic/raw-MIR/optimized-MIR runtime matrix.
+
 The accompanying optimizer regressions can be run with:
 
 ```sh
@@ -35,8 +44,9 @@ The [Oscar64 behavioral ports](../../fixtures/runtime/oscar64/README.md) cover
 array indexing, word-pointer transfers, loop bounds, comparisons, masks,
 shift/add/sub composition, signed multiplication, reverse-copy loops, nested
 calls, signed intervals, mixed INT/BYTE comparison values, record-array copies,
-inline record-member arrays, signed division, and full-range unsigned div/mod
-using independent host-side oracles. Run them separately with:
+inline record-member arrays, signed division, full-range unsigned div/mod,
+and mixed-width IF selection using independent host-side oracles. Run them
+separately with:
 
 ```sh
 cargo test --locked --test oscar64_conformance
@@ -44,8 +54,8 @@ cargo test --locked --test oscar64_conformance
 
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
-now brings the total to 28 active tests and 12,072 VM cases,
-including the 512 repaired Compatibility nested-call cases and 120 repaired
+and focused IF-expression port bring the total to 29 active tests and 13,416 VM
+cases, including the 512 repaired Compatibility nested-call cases and 120 repaired
 classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
 and 264 numeric comparison-value cases across modern classic and MIR6502.
 Compatibility's semantic rejection of the extension is checked separately.
@@ -55,7 +65,10 @@ The second port adds 120 modern inline-member/vector cases, preserving the
 original record layouts. Its two Compatibility rejection checks are not
 counted as VM executions. No pointer-backed workaround replaces inline members.
 No Oscar64 tests are ignored. See the fixture README for the mode/case matrix
-and resolved compiler regressions. `cargo test --locked --test comparison_values`
+and the additional 1,344 mixed-width IF cases, including explicit arm widening,
+outer narrowing, repeated calls, full-page guards and separate Compatibility
+rejection checks, as well as resolved compiler regressions.
+`cargo test --locked --test comparison_values`
 also runs 24 modern consumer cases checking widths, calls, eager composition,
 indexed destinations and captured pointers.
 `cargo test --locked --test compound_assignments` adds 30 public-language VM

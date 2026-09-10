@@ -59,6 +59,15 @@ variants remain deeply validated before tests, binders, guards or user ELSE.
 Comparison results are converted from NIR Bool to the source BYTE representation
 before joining, preserving the verifier's exact edge-type contract.
 
+Joining a selection does not relax ordering barriers or add alias facts.
+Captured destinations, earlier operands and argument values remain live across
+guard/result calls. Unused joins may disappear only while preserving required
+effects. Known constructor tags may remove dispatch and terminal validation
+only under the existing storage/validity proofs; unknown tags retain validation.
+MIR6502 chooses edge copies and register placement from verified NIR alone.
+See the [measured statement/value comparison](Action_2027/IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.md)
+for the current cost of these ordinary joins.
+
 Local `USE ALL FROM` openings are resolved by SemIR to the same constructor IDs
 as qualified expressions/patterns. Their lexical scopes carry no executable
 operation, storage, effects or name lookup

@@ -176,6 +176,67 @@ fn write_word(bytes: &mut [u8], offset: usize, value: u16) {
 }
 
 #[test]
+fn oscar64_mixed_width_ternary_preserves_clamping_and_outer_narrowing() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let error = compile_file(
+            repository_root().join("fixtures/runtime/oscar64/mixedwidthternary.act"),
+            &CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(runtime),
+        )
+        .expect_err("selection expressions require the modern profile");
+        assert!(
+            error
+                .diagnostics()
+                .iter()
+                .any(|d| d.phase == CompilerPhase::Semantic
+                    && d.message
+                        .contains("IF expressions require the modern profile")),
+            "{error}"
+        );
+    }
+    let mut cases = Vec::new();
+    for health in [0u8, 1, 2, 3, 4, 16, 17, 18, 50, 51, 127, 128, 254, 255] {
+        for maximum in [0u8, 4, 5, 17, 127, 128, 254, 255] {
+            for severity in [0u8, 1, 255] {
+                let amount = [0, 1, 255, 256, 257, 32767, 32768, 65535][cases.len() % 8];
+                let ware = (cases.len() % 2) as u8;
+                let intended = u16::from(maximum) / 5 * if severity == 0 { 1 } else { 2 };
+                let damage = u16::from(health).min(intended) as u8;
+                let remaining = health - damage;
+                let repeated = u16::from(remaining).min(intended) as u8;
+                let final_health = remaining - repeated;
+                let mut case = Case::new(format!(
+                    "health={health},max={maximum},severity={severity},amount={amount}"
+                ));
+                case.setup
+                    .push((0x06E0, vec![health, maximum, severity, ware]));
+                case.input(0x06E4, amount);
+                let mut expected = vec![POISON; 0x100];
+                expected[..10].copy_from_slice(&[
+                    3,
+                    14,
+                    0,
+                    damage,
+                    remaining,
+                    repeated,
+                    final_health,
+                    ware,
+                    0,
+                    u16::from(health).min(amount) as u8,
+                ]);
+                expected[0x10..0x16].copy_from_slice(&[14, 17, final_health, maximum, 0, 0]);
+                expected[0xE0..0xE4].copy_from_slice(&[health, maximum, severity, ware]);
+                write_word(&mut expected, 0xE4, amount);
+                expected[0xFF] = 0xA5;
+                case.expected.push((0x0600, expected));
+                cases.push(case);
+            }
+        }
+    }
+    assert_eq!(cases.len(), 336);
+    run_cases_in_modes("mixedwidthternary", 8_000, &cases, MODERN_MODES);
+}
+
+#[test]
 fn oscar64_signed_division_literal_and_runtime_coefficients() {
     let mut inputs: Vec<i16> = (-1024..=1024).step_by(64).collect();
     inputs.extend([-1023, -513, -1, 1, 513, 1023]);

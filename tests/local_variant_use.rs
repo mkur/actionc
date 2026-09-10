@@ -263,6 +263,10 @@ fn module_aliases_preserve_visibility_and_constructor_identity() {
             "USE ALL FROM A.Event\nUSE ALL FROM B.Event\nLET saved=SOME(7)\nCASE saved OF\nWHEN B.Event.SOME(n) THEN\nPrintBE(n)\nELSE\nPrintBE(0)\nESAC",
             None,
         ),
+        (
+            "USE ALL FROM A.Event\nUSE ALL FROM B.Event\nLET saved=A.Make(IF 1 THEN 7 ELSE 0 FI)\nLET value=CASE saved OF\nWHEN B.Event.SOME(n) IF n>0 THEN\nIF n=7 THEN n ELSE 0 FI\nWHEN SOME(_) THEN\n0\nWHEN NONE THEN\n0\nESAC\nPrintBE(value)",
+            None,
+        ),
         ("USE ALL FROM A.Hidden", Some("visible VARIANT type")),
         ("USE ALL FROM A.Missing", Some("visible VARIANT type")),
         ("USE ALL FROM A", Some("visible VARIANT type")),
@@ -273,7 +277,7 @@ fn module_aliases_preserve_visibility_and_constructor_identity() {
             .with_source(root.clone(), format!(
                 "MODULE App USE Lib AS A USE Lib AS B\nPROC Main()\n{body}\nRETURN ENDMODULE"
             ).into_bytes())
-            .with_source(SourceOrigin::host("project/lib.act"), b"MODULE Lib PUBLIC TYPE Event=VARIANT [NONE SOME [BYTE value]] TYPE Hidden=VARIANT [SECRET] PUBLIC TYPE AliasCollision=VARIANT [A] ENDMODULE".to_vec());
+            .with_source(SourceOrigin::host("project/lib.act"), b"MODULE Lib PUBLIC TYPE Event=VARIANT [NONE SOME [BYTE value]] TYPE Hidden=VARIANT [SECRET] PUBLIC TYPE AliasCollision=VARIANT [A] PUBLIC Event FUNC Make(BYTE n) RETURN(Event.SOME(n)) ENDMODULE".to_vec());
         let loaded =
             load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default()).unwrap();
         let result = semantic::analyze_compilation_with_options(&loaded, SemanticOptions::modern());

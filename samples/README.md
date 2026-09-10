@@ -49,6 +49,12 @@ and runtimes are covered. See the [variant tutorial](../docs/tutorials/VARIANTS.
 `generic-types.act` demonstrates generic Option/Result values, typed callbacks,
 embedded arrays, and TreeOf nodes in a fixed arena. It prints 7, 1000, and 12.
 
+`if-case-expressions.act` chooses integer and enum values with IF and CASE,
+including exhaustive MaybeByte matching with locally opened constructors.
+Both modern Atari backends/runtimes are covered; it prints 17, 3, 42, 0, and 1.
+See the [expression tutorial](../docs/tutorials/IF_CASE_EXPRESSIONS.md) for build
+commands, explicit arm conversions and evaluation rules.
+
 `algebraic-types.act` combines Event and ReadResult variants, an ordinary record
 payload, OptionalByte, generic Option/Result, nested patterns and ordered guards.
 Both Atari backends/runtimes are covered; it prints 65, 0, 9, 10, 7, and 5.

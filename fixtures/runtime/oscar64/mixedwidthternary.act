@@ -1,0 +1,59 @@
+; Adapted from Oscar64 autotest/mixedwidthternary.c (drmortalwombat and contributors).
+; Source revision: 8deb94c4d762bab3aa60c9565412691f01021bbb
+; GPL-3.0; see README.md for provenance and semantic adaptations.
+; Modern profile: widen both selection arms to CARD, then narrow the result.
+
+TYPE WareItem=ENUM [NONE FOOD]
+TYPE Player=[BYTE health,maxHealth]
+BYTE originalDamage=$0600,originalRemaining=$0601,originalConsumed=$0602
+BYTE damage=$0603,remaining=$0604,repeatedDamage=$0605,repeatedRemaining=$0606
+BYTE consumed=$0607,consumedAgain=$0608,clamped=$0609
+Player original=$0610,subject=$0612
+WareItem ARRAY originalInventory(1)=$0614,inventory(1)=$0615
+BYTE health=$06E0,maximum=$06E1,severity=$06E2,ware=$06E3
+CARD intended=$06E4
+BYTE signature=$06FF
+
+CARD FUNC CalculateExtraDamage(BYTE level CARD startDamage)
+RETURN(IF level=0 THEN CARD(0) ELSE startDamage FI)
+
+BYTE FUNC DamagePlayer(Player POINTER player BYTE level)
+  CARD intendedDamage
+  intendedDamage=CARD(player.maxHealth)/CARD(5)
+  intendedDamage==+CalculateExtraDamage(level,intendedDamage)
+  LET BYTE healthDamage=IF CARD(player.health)<intendedDamage
+    THEN CARD(player.health) ELSE intendedDamage FI
+  player.health==-healthDamage
+RETURN(healthDamage)
+
+WareItem FUNC ConsumeProvision(WareItem ARRAY items)
+  IF items(0)=WareItem.FOOD THEN
+    items(0)=WareItem.NONE
+    RETURN(WareItem.FOOD)
+  FI
+RETURN(WareItem.NONE)
+
+; A companion covers intended amounts above BYTE's range, which the original
+; maxHealth/5 calculation cannot reach. The final narrowing follows selection.
+BYTE FUNC Clamp(BYTE available CARD amount)
+RETURN(BYTE(IF CARD(available)<amount THEN CARD(available) ELSE amount FI))
+
+PROC Main()
+  signature=0
+  original.health=17 original.maxHealth=17
+  originalInventory(0)=WareItem.NONE
+  originalConsumed=BYTE(ConsumeProvision(originalInventory))
+  originalDamage=DamagePlayer(original,0)
+  originalRemaining=original.health
+  subject.health=health subject.maxHealth=maximum
+  inventory(0)=WareItem(ware)
+  consumed=BYTE(ConsumeProvision(inventory))
+  consumedAgain=BYTE(ConsumeProvision(inventory))
+  damage=DamagePlayer(subject,severity)
+  remaining=subject.health
+  repeatedDamage=DamagePlayer(subject,severity)
+  repeatedRemaining=subject.health
+  clamped=Clamp(health,intended)
+  signature=$A5
+  DO OD
+RETURN

@@ -1,11 +1,18 @@
 # Oscar64 behavioral ports: second batch
 
 Status: stages 1 through 5 and the deferred division/remainder batch complete,
-2026-09-06. Current arithmetic rollout coverage: 12,072 Oscar64 VM cases in 28
-active tests; see the [fixture coverage table](../fixtures/runtime/oscar64/README.md).
+2026-09-06. With the focused IF-expression port on 2026-09-10, current coverage is
+13,416 Oscar64 VM cases in 29 active tests; see the
+[fixture coverage table](../fixtures/runtime/oscar64/README.md).
 Stage 5 adds 198 all-mode record-copy executions and 120 modern embedded-member
 executions: 4,698 Oscar64 VM cases in 26 active tests. Compatibility rejection
 of embedded members is checked separately, not counted as execution coverage.
+
+The later `mixedwidthternary.c` port belongs to
+[IF/CASE expression slice 4](Action_2027/IF_CASE_EXPRESSIONS_IMPLEMENTATION_PLAN.md).
+It adds 1,344 VM cases with explicit per-arm CARD conversion and outer BYTE
+narrowing, preserving the original 3-damage/14-health result and adding dynamic
+boundary inputs. It does not resume the separately deferred volatile batch.
 
 Final stage-5 validation: 2,746 root tests pass (22 pre-existing ignored),
 104 isolated VM tests pass (none ignored), NIR snapshots are unchanged and all

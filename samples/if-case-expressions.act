@@ -1,0 +1,34 @@
+; Modern classic or MIR6502, cart or standalone.
+; Prints 17, 3, 42, 0, 1 on separate lines.
+TYPE MaybeByte=VARIANT [NONE SOME [BYTE value]]
+TYPE State=ENUM [IDLE READY]
+
+BYTE FUNC ValueOrZero(MaybeByte item)
+  USE ALL FROM MaybeByte
+RETURN(CASE item OF
+WHEN SOME(n) THEN
+  n
+WHEN NONE THEN
+  0
+ESAC)
+
+PROC Main()
+  USE ALL FROM MaybeByte
+  LET BYTE health=17
+  LET CARD damage=300
+  LET applied=IF CARD(health)<damage THEN CARD(health) ELSE damage FI
+  PrintCE(applied)
+  LET amount=CASE health OF
+  WHEN 0 THEN
+    0
+  WHEN 1 TO 16 THEN
+    1
+  ELSE
+    IF health<32 THEN 3 ELSE 4 FI
+  ESAC
+  PrintBE(amount)
+  PrintBE(ValueOrZero(SOME(42)))
+  PrintBE(ValueOrZero(NONE))
+  LET state=IF amount THEN State.READY ELSE State.IDLE FI
+  PrintBE(BYTE(state))
+RETURN

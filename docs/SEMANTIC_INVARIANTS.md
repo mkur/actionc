@@ -185,6 +185,15 @@ active nested tags terminate before exposing binders, guards, results or user
 ELSE, including when Error returns. An outer-tag proof never establishes nested
 validity. NIR uses ordinary typed join edges and existing terminal faults.
 
+Selection preparation remains inside its enclosing runtime consumer. Indexed
+destinations are captured before the RHS; surrounding arguments survive calls
+in selectors, guards and yields. Loop tests repeat their selection effects;
+discarding a result does not discard observable evaluation. These rules also
+apply when a yielded scalar becomes a constructor payload. Target restrictions
+such as classic constant-only FOR steps remain backend capabilities. The
+[language guide](tutorials/IF_CASE_EXPRESSIONS.md) specifies the public syntax,
+type and coverage rules.
+
 CASE retains ordered arms and the distinction between no ELSE and an explicit
 empty ELSE. SemIR owns selector type, constant interval validation, overlap
 diagnostics, and return/EXIT flow. Labels never execute. NIR captures the selector

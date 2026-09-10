@@ -2,6 +2,152 @@
 mod support;
 
 #[test]
+fn if_case_sample_print_values_match_the_documented_results() {
+    let sample = include_str!("../../../samples/if-case-expressions.act");
+    let source = sample
+        .replace("TYPE State=ENUM [IDLE READY]", "TYPE State=ENUM [IDLE READY]\nCARD ARRAY observed(5)=$600\nBYTE captures=$60A\nPROC Capture(CARD value) observed(captures)=value captures==+1 RETURN")
+        .replace("PROC Main()", "PROC Main()\n captures=0")
+        .replace("PrintBE(", "Capture(")
+        .replace("PrintCE(", "Capture(");
+    let end = source.rfind("RETURN").unwrap();
+    let source = format!("{}DO OD\nRETURN\n", &source[..end]);
+    let mut expected = vec![0xCC; 0x500];
+    expected[..11].copy_from_slice(&[17, 0, 3, 0, 42, 0, 0, 0, 1, 0, 5]);
+    support::check(&source, &expected);
+}
+
+#[test]
+fn selections_preserve_destination_capture_constructor_arguments_and_loop_effects() {
+    let source = r#"
+TYPE Pair=VARIANT [NONE BOTH [BYTE left,right]]
+BYTE ARRAY out=$600,trace=$680
+BYTE calls=$63E,done=$63F,slot=$703,i
+BYTE POINTER destination
+BYTE FUNC Mark(BYTE n)
+  trace(calls)=n calls==+1
+RETURN(n)
+BYTE FUNC Move(BYTE n)
+  destination=$800 slot=20
+RETURN(Mark(n))
+BYTE FUNC Sum(BYTE a,b)
+RETURN(a+b)
+BYTE FUNC Select(BYTE flag)
+RETURN(IF flag THEN Mark(30) ELSE CASE Mark(2) OF
+WHEN 2 THEN
+  Mark(31)
+ELSE
+  Mark(255)
+ESAC FI)
+PROC Main()
+  USE ALL FROM Pair
+  calls=0 destination=$700
+  destination(Mark(3))=IF Mark(1) THEN Move(7) ELSE Mark(255) FI
+  out(0)=slot
+  destination=$700
+  destination(Mark(3))==+CASE Mark(2) OF
+  WHEN 2 THEN
+    Move(5)
+  ELSE
+    Mark(255)
+  ESAC
+  out(1)=slot
+  LET item=BOTH(IF Mark(0) THEN Mark(255) ELSE Mark(11) FI,CASE Mark(1) OF
+  WHEN 1 IF Mark(1) THEN
+    Mark(12)
+  ELSE
+    Mark(255)
+  ESAC)
+  out(2)=CASE item OF
+  WHEN BOTH(a,b) THEN
+    a+b
+  WHEN NONE THEN
+    0
+  ESAC
+  out(3)=Sum(Mark(40),Select(0))
+  out(4)=Select(1)
+  FOR i=IF Mark(1) THEN Mark(0) ELSE Mark(255) FI TO CASE Mark(2) OF
+  WHEN 2 THEN
+    2
+  ELSE
+    0
+  ESAC STEP IF Mark(1) THEN 1 ELSE 2 FI DO
+    out(5+i)=i
+  OD
+  i=0
+  DO
+    i==+1
+  UNTIL CASE BOTH(i,0) OF
+  WHEN BOTH(n,_) THEN
+    Mark(n)=2
+  ELSE
+    1
+  ESAC OD
+  out(8)=i
+  done=$A5
+  DO OD
+RETURN
+"#;
+    // Classic FOR currently requires a constant STEP. Keep the same effectful
+    // start/end expressions there, and exercise repeated STEP selection in MIR.
+    let trace = [
+        3, 1, 7, 3, 2, 5, 0, 11, 1, 1, 12, 40, 2, 31, 30, 1, 0, 2, 2, 2, 2, 1, 2,
+    ];
+    let mut expected = vec![0xCC; 0x500];
+    expected[..9].copy_from_slice(&[7, 25, 23, 71, 30, 0, 1, 2, 2]);
+    expected[0x103] = 25;
+    expected[0x80..0x80 + trace.len()].copy_from_slice(&trace);
+    expected[0x3E] = trace.len() as u8;
+    expected[0x3F] = 0xA5;
+    support::check(
+        &source.replace("STEP IF Mark(1) THEN 1 ELSE 2 FI", "STEP 1"),
+        &expected,
+    );
+    let trace = [
+        3, 1, 7, 3, 2, 5, 0, 11, 1, 1, 12, 40, 2, 31, 30, 1, 0, 2, 1, 2, 1, 2, 1, 2, 1, 2,
+    ];
+    expected[0x80..0x80 + trace.len()].copy_from_slice(&trace);
+    expected[0x3E] = trace.len() as u8;
+    support::check_mir_semir(&semir(source), &expected);
+}
+
+#[test]
+fn mir_nested_selections_preserve_full_width_boundaries_across_calls() {
+    let program = semir(
+        r#"
+BYTE ARRAY out=$600
+BYTE i,done=$63F
+LONGCARD value
+LONGINT signed
+LONGCARD FUNC First()
+RETURN($FFFFFFFF)
+LONGCARD FUNC Add(LONGCARD a,b)
+RETURN(a+b)
+PROC Main()
+  FOR i=0 TO 1 DO
+    signed=IF i THEN LONGINT(-2147483648) ELSE LONGINT(2147483647) FI
+    value=Add(First(),CASE i OF
+    WHEN 0 THEN
+      LONGCARD(1)
+    ELSE
+      IF i THEN LONGCARD($80000001) ELSE LONGCARD(0) FI
+    ESAC)
+    out(i*8)=BYTE(signed) out(i*8+1)=BYTE(signed RSH 8)
+    out(i*8+2)=BYTE(signed RSH 16) out(i*8+3)=BYTE(signed RSH 24)
+    out(i*8+4)=BYTE(value) out(i*8+5)=BYTE(value RSH 8)
+    out(i*8+6)=BYTE(value RSH 16) out(i*8+7)=BYTE(value RSH 24)
+  OD
+  done=$A5
+  DO OD
+RETURN
+"#,
+    );
+    let mut expected = vec![0xCC; 0x500];
+    expected[..16].copy_from_slice(&[255, 255, 255, 127, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 128]);
+    expected[0x3F] = 0xA5;
+    support::check_mir_semir(&program, &expected);
+}
+
+#[test]
 fn if_values_execute_only_selected_results_and_preserve_surrounding_values() {
     let source = r#"
 BYTE ARRAY out=$600

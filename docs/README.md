@@ -96,6 +96,8 @@ crowding the active reference set.
 
 ## Language And Runtime Reference
 
+- [IF and CASE expressions](tutorials/IF_CASE_EXPRESSIONS.md) - choosing integer
+  and enum values, exhaustive variant matching, exact arm types and evaluation order.
 - [Modules tutorial](tutorials/MODULES.md) - task-oriented guide to creating
   and running modular programs.
 - [Native REAL tutorial](tutorials/REAL.md) - task-oriented guide to using the

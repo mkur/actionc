@@ -1,7 +1,9 @@
 # IF and CASE expressions
 
-Status: slices 0 through 3 implemented. Modern integer/enum IF and CASE values,
-including variant CASE selectors, execute end to end. Slice 4 is pending.
+Status: slices 0 through 4 complete and validated on 2026-09-10.
+Modern integer/enum IF and CASE values, including variant CASE selectors,
+execute end to end. See the [language guide](../tutorials/IF_CASE_EXPRESSIONS.md)
+and [codegen audit](IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.md).
 Baseline: `3afeb08`, inspected on 2026-09-10.
 
 ## Objective
@@ -292,14 +294,19 @@ cargo test nir_fixtures_match_snapshots
 cargo run --bin actionc-nir-sweep -- fixtures/nir
 cargo test
 cargo check --all-targets
-cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --locked \
-  --test if_case_expressions
 ```
 
-The named VM test is proposed and must be added by slice 1. Include existing
-variant, guard, LET, local-USE, known-tag and arithmetic tests when affected;
-run the full locked VM suite for final acceptance. Update fixture inventories
-and sample catalogs when adding entries.
+Run VM checks from `tools/vm-runtime-tests` so Cargo reads its configuration:
+
+```sh
+cargo test --locked --test if_case_expressions
+cargo test --locked --test if_case_codegen -- --nocapture
+cargo test --locked --no-fail-fast
+```
+
+Include existing variant, guard, LET, local-USE, known-tag and arithmetic tests
+when affected; the full locked VM suite is required for final acceptance.
+Update fixture inventories and sample catalogs when adding entries.
 
 Completion requires documented public syntax, explicit diagnostics for deferred
 forms, successful execution on the supported backend/runtime matrix, verified
@@ -409,8 +416,8 @@ establish expression dispatch and value-join contracts. The known-SOME example
 folds to `PrintBE(42)` with no comparisons or fault path; dynamic matching keeps
 its guards, typed joins and terminal invalid-tag arm. Existing snapshots are
 unchanged. The broader corpus inventory increases from 339 to 341 successful
-sources, retaining eight module-aware exclusions. Slice 4 remains the next
-integration, Oscar64 behavioral-port and publication step.
+sources, retaining eight module-aware exclusions. At that point slice 4 remained
+the integration, Oscar64 behavioral-port and publication step.
 
 Slice-3 validation: 3,066 compiler tests passed with 22 pre-existing ignored;
 the dedicated snapshot command, all 49 NIR sweep fixtures, and
@@ -418,3 +425,39 @@ the dedicated snapshot command, all 49 NIR sweep fixtures, and
 guard, nested-pattern, LET, local-USE, known-tag and validation regressions passed
 across both Atari runtimes. The broader corpus check passes with 341 successful
 sources and its eight unchanged module-aware exclusions.
+
+Slice 4 completes the combined consumer/effect matrix, including captured
+pointer/index destinations across mutating RHS calls, constructor arguments,
+nested returns, repeated FOR bound/step and UNTIL tests, and full-width signed
+MIR results across calls. The classic backend's existing constant-only FOR-step
+restriction is retained and documented; runtime STEP selections are checked
+through raw and optimized MIR. Module aliases and local openings preserve
+constructor identity when selecting an imported aggregate function result.
+
+The pinned Oscar64 `mixedwidthternary.c` port retains the original 3-damage,
+14-health result and adds 336 host inputs, repeated damage/consumption and
+high-word clamping. Explicit CARD arms precede outer BYTE narrowing. Its 1,344
+VM executions bring Oscar64 coverage to 13,416 cases in 29 active tests;
+Compatibility rejection is checked separately. The separately deferred volatile
+port batch remains deferred. The broader corpus grows from 341 to 342 successful
+sources, retaining the same eight module-aware exclusions.
+
+The reproducible [codegen audit](IF_CASE_EXPRESSIONS_CODEGEN_AUDIT.md) compares
+four statement/expression pairs in 384 VM executions. Known-SOME folds dispatch
+comparisons and fault paths, with identical MIR bytes/cycles for both forms.
+Dynamic variants retain validation. Other measured expression overhead is
+recorded; no optimizer special cases or lowering changes were needed. Existing
+raw and optimized NIR snapshots remain unchanged.
+
+The [public guide](../tutorials/IF_CASE_EXPRESSIONS.md) publishes syntax, exact
+arm typing, coverage, effects and support limits. The executable
+[`if-case-expressions.act`](../../samples/if-case-expressions.act) sample prints
+17, 3, 42, 0, 1, with catalog builds and a VM value oracle. Semantic and NIR
+boundary documents state consumer ordering and retained validation guarantees.
+
+Slice-4 validation: all 3,066 compiler tests pass with 22 pre-existing ignored;
+all 260 tests in the full locked VM suite pass with none ignored. This includes
+20 IF/CASE integration tests, the 384-execution codegen audit and all 29 Oscar64
+tests. The dedicated snapshot command, all 49 NIR sweep fixtures, the broader
+342-source corpus with its eight expected exclusions, the sample build matrix
+and `cargo check --all-targets` pass. No existing NIR snapshot changes.

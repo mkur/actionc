@@ -1,6 +1,6 @@
 # Oscar64 behavioral test ports
 
-These twenty Action! fixtures adapt Oscar64 autotests into the existing
+These twenty-one Action! fixtures adapt Oscar64 autotests into the existing
 [isolated VM harness](../../../tools/vm-runtime-tests/README.md). They test
 observable results, not a preferred instruction sequence or agreement between
 backends. Expected results are calculated independently in
@@ -8,7 +8,7 @@ backends. Expected results are calculated independently in
 
 ## Provenance
 
-Adapted on 2026-09-05 and 2026-09-06 from Oscar64 by drmortalwombat and contributors:
+Adapted on 2026-09-05, 2026-09-06 and 2026-09-10 from Oscar64 by drmortalwombat and contributors:
 
 - Upstream: <https://github.com/drmortalwombat/oscar64>.
 - Inspected fork: <https://github.com/mkur/oscar64>.
@@ -47,9 +47,10 @@ translations or tests of C-only language behavior.
 | `structmembertest` | The original record with inline `INT x(100),y(100)` and 100 three-INT vectors; pointer-based field-copy loops | Modern-only; additional inline arrays of 257 INTs and seven-byte tagged vectors; runtime lengths 0, 1, 2, 100, 127, 128, 129, 255, 256, 257 at three base layouts; all fields, source members, unused elements and guards |
 | `testsigned16div` | Runtime INT divided by each nonzero coefficient -16..15; actual literal expansion contrasted with the original runtime loop | 39 representative signed inputs, including inexact quotients; guarded odd-base literal/runtime tables and unchanged inputs |
 | `divmodtest` | Quotient/remainder identities with byte divisors 1..255 and wrapping CARD power-of-three divisors | Every original outer-loop value supplied by the host; exact quotient and remainder checked independently, full CARD high-bit range, guarded odd-base row table |
+| `mixedwidthternary` | Player health 17, maximum 17, severity 0 produces damage 3 and health 14; empty inventory stays NONE | Modern IF values with explicit CARD arms and outer BYTE narrowing; 336 health/maximum/severity inputs, repeated damage and consumption, companion clamping amounts through 65535, complete-page guards |
 
 Cartridge-compatible sources run in all three modes; modern comparison-value
-companions and `structmembertest` run in Optimized and MIR6502. All use both ActionCart and Standalone
+companions, `structmembertest` and `mixedwidthternary` run in Optimized and MIR6502. All use both ActionCart and Standalone
 runtime linking. The first eight
 ports retain **258 VM cases in fourteen passing tests**. Both MIR6502
 copy/increment regressions remain active with their original loops and
@@ -72,10 +73,11 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `structmembertest` | 30 | 120 | Both modern backends/runtimes; Compatibility rejection checked separately |
 | `testsigned16div` | 39 | 234 | All six mode/runtime combinations |
 | `divmodtest` | 1,190 | 7,140 | All six mode/runtime combinations |
+| `mixedwidthternary` (expression integration port) | 336 | 1,344 | Both modern backends/runtimes; Compatibility rejection checked separately |
 
-Overall: **12,072 VM cases in 28 active tests**: the previous 4,698 cases plus
-7,374 division/remainder executions. The two member-fixture Compatibility
-rejection checks are not VM cases.
+Overall: **13,416 VM cases in 29 active tests**: the previous 12,072 cases plus
+1,344 mixed-width selection executions. Compatibility rejection checks for
+member arrays and selection expressions are not VM cases.
 No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
@@ -86,6 +88,20 @@ syntax and repairs signed-subtract overflow in both classic profiles; see
 
 ## Action! semantics and harness contract
 
+- `mixedwidthternary` adapts the
+  [pinned C source](https://github.com/drmortalwombat/oscar64/blob/8deb94c4d762bab3aa60c9565412691f01021bbb/autotest/mixedwidthternary.c)
+  as the focused [IF/CASE integration port](../../../docs/Action_2027/IF_CASE_EXPRESSIONS_IMPLEMENTATION_PLAN.md).
+  It preserves the original 3-damage/14-health check on every invocation.
+  Each IF arm is explicitly CARD before an enclosing BYTE annotation or cast
+  narrows the result; no C ternary promotion is assumed. The host crosses 14
+  health values with eight maximum-health values and three severities. It
+  cycles eight companion amounts through 65535 and both valid inventory enum
+  values, checking repeated damage and consumption plus complete-page guards.
+  The original damage formula reaches at most 102; the companion exercises
+  high-word clamping independently. The original null-inventory diagnostic
+  branch is outside its valid-input main case and is omitted: the port supplies
+  valid one-element arrays. This isolated port does not resume the deferred
+  volatile batch.
 - Arithmetic ports use the [modern integer contract](../../../docs/MODERN_INTEGER_ARITHMETIC_IMPLEMENTATION_PLAN.md)
   in every profile/runtime. `testsigned16div` retains all 31 nonzero literal
   divisors explicitly; its 39 host inputs are a sample, not the original

@@ -66,6 +66,22 @@ including through different module aliases. Ordinary declarations in an inner
 scope and subsequent LET bindings retain their usual shadowing behavior.
 Qualified constructors such as `MaybeByte.SOME(n)` remain available.
 
+CASE can also choose an integer or enum value:
+
+```action
+LET value=CASE item OF
+WHEN NONE THEN
+  0
+WHEN SOME(n) THEN
+  n
+ESAC
+```
+
+This assumes the MaybeByte opening above. Exhaustive unguarded patterns need
+no ELSE; all result arms must have the same type. See
+[IF and CASE expressions](IF_CASE_EXPRESSIONS.md) for nesting, guards and
+explicit conversions. Aggregate results remain outside this expression slice.
+
 The target can be a local type or a public type reached through a module alias,
 such as `USE ALL FROM API.MaybeByte`. This local form opens named, non-generic
 VARIANT types only. It does not open enum members or modules, accept AS aliases,
