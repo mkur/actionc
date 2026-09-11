@@ -3561,6 +3561,7 @@ mod tests {
             offset: 0,
         };
         let mut routine = MirRoutine {
+            inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
             name: "countdown".to_string(),
             abi: crate::mir6502::ir::MirRoutineAbi::Action,
@@ -3688,6 +3689,7 @@ mod tests {
             width: MirWidth::Byte,
         });
         MirRoutine {
+            inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
             name: "byte_underflow_countdown".to_string(),
             abi: crate::mir6502::ir::MirRoutineAbi::Action,
@@ -4009,6 +4011,7 @@ mod tests {
             block(5, Vec::new(), MirTerminator::Return),
         ]);
         MirRoutine {
+            inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
             name: "bottom_countdown".to_string(),
             abi: crate::mir6502::ir::MirRoutineAbi::Action,
@@ -4490,6 +4493,7 @@ mod tests {
     fn ascending_head_tested_loop(initial: u8, exclusive_bound: u8) -> MirRoutine {
         let counter = MirMem::Absolute(0x0080);
         MirRoutine {
+            inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
             name: "ascending_counted_loop".to_string(),
             abi: crate::mir6502::ir::MirRoutineAbi::Action,
@@ -5026,6 +5030,7 @@ mod tests {
             },
         ]);
         MirRoutine {
+            inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
             name: "full_range_ascending_loop".to_string(),
             abi: crate::mir6502::ir::MirRoutineAbi::Action,

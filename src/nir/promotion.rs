@@ -1292,6 +1292,7 @@ mod tests {
 
     fn program(blocks: Vec<NirBlock>) -> NirProgram {
         let mut routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1730,6 +1731,7 @@ mod tests {
             place: word_place.clone(),
         };
         let mut routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

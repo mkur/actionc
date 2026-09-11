@@ -186,6 +186,7 @@ fn txa_direct_store_routine(
     }];
     blocks.extend(successor_blocks);
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "txa_direct_store".to_string(),
         abi: MirRoutineAbi::Action,
@@ -367,6 +368,7 @@ fn known_call_result_reuse_program(
         width: MirWidth::Byte,
     };
     let caller = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "caller".to_string(),
         abi: MirRoutineAbi::Action,
@@ -443,6 +445,7 @@ fn known_call_result_reuse_program(
         });
     }
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "callee".to_string(),
         abi: MirRoutineAbi::Action,
@@ -580,6 +583,7 @@ fn direct_word_to_indirect_copy_test_program(x_live: bool) -> MirProgram {
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "Copy".to_string(),
             abi: MirRoutineAbi::Action,
@@ -711,6 +715,7 @@ fn indirect_direct_transform_store_test_program(value_source: MirMem) -> MirProg
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "late_indirect_value".to_string(),
             abi: MirRoutineAbi::Action,
@@ -914,6 +919,7 @@ fn word_rsh8_high_projection_test_routine(terminator: MirTerminator) -> MirRouti
         }
     }
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "word_high".to_string(),
         abi: MirRoutineAbi::Action,
@@ -1061,6 +1067,7 @@ fn constant_word_shift_projections_lower_before_helper_selection() {
         ),
     ];
     let mut routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "word_shift_projections".to_string(),
         abi: MirRoutineAbi::Action,
@@ -1252,6 +1259,7 @@ fn small_constant_word_shifts_lower_to_bounded_carry_chains() {
         ),
     ];
     let mut routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "small_word_shifts".to_string(),
         abi: MirRoutineAbi::Action,
@@ -1476,6 +1484,7 @@ fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) 
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "helper_indexed_store".to_string(),
             abi: MirRoutineAbi::Action,
@@ -1665,6 +1674,7 @@ fn indirect_word_load_fold_keeps_lane_live_in_successor() {
 #[test]
 fn collapse_empty_jump_blocks_redirects_predecessors() {
     let mut routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
         abi: MirRoutineAbi::Action,
@@ -1730,6 +1740,7 @@ fn collapse_empty_jump_blocks_redirects_predecessors() {
 #[test]
 fn collapse_empty_jump_blocks_keeps_self_loop_targets() {
     let mut routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
         abi: MirRoutineAbi::Action,
@@ -2509,6 +2520,7 @@ fn paired_word_arithmetic_compare_proof_rejects_live_fixed_scratch() {
         },
     ]);
     let routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "paired_word_arithmetic_live_scratch".to_string(),
         abi: MirRoutineAbi::Action,
@@ -2915,6 +2927,7 @@ fn direct_word_equality_proof_keeps_operand_live_in_successor() {
         width: MirWidth::Word,
     });
     let routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "direct_word_equality_live_successor".to_string(),
         abi: MirRoutineAbi::Action,
@@ -2948,6 +2961,7 @@ fn direct_word_compare_proof_keeps_condition_live_in_successor() {
         width: MirWidth::Byte,
     });
     let routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "direct_word_condition_live_successor".to_string(),
         abi: MirRoutineAbi::Action,
@@ -3605,6 +3619,7 @@ fn addressed_byte_compare_routine(value_live_after: bool) -> MirRoutine {
         });
     }
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "addressed_compare".to_string(),
         abi: MirRoutineAbi::Action,
@@ -3687,6 +3702,7 @@ fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> 
         });
     }
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "dual_compare".to_string(),
         abi: MirRoutineAbi::Action,
@@ -3923,6 +3939,7 @@ fn dual_indexed_compare_routine(
     });
 
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: format!("dual_indexed_{width:?}_compare"),
         abi: MirRoutineAbi::Action,
@@ -4641,6 +4658,7 @@ fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
 fn compare_operand_prebranch_fold_enables_compact_signed_word_branch() {
     let mut program = empty_test_program();
     program.routines.push(MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
         abi: MirRoutineAbi::Action,
@@ -9129,6 +9147,7 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
     let source = DEFAULT_POINTER_PAIR;
     let destination = DEST_POINTER_PAIR;
     let routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "scaled-y-interleaved-store".to_string(),
         abi: MirRoutineAbi::Action,
@@ -9188,6 +9207,7 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
 #[test]
 fn scaled_y_word_store_rewrite_selects_staged_sources() {
     let routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "scaled-y-staged-store".to_string(),
         abi: MirRoutineAbi::Action,
@@ -10155,6 +10175,7 @@ fn direct_indexed_binary_program(source: MirMem) -> MirProgram {
             init: None,
         }],
         routines: vec![MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "Accumulate".to_string(),
             abi: MirRoutineAbi::Action,
@@ -11293,6 +11314,7 @@ fn stored_call_result_alias_proof_rejects_a_successor_use() {
         },
     ];
     let routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "stored_result_live_successor".to_string(),
         abi: MirRoutineAbi::Action,
@@ -13272,6 +13294,7 @@ fn dead_spill_store_keeps_value_read_before_store_on_next_iteration() {
         offset: 0,
     };
     let mut routine = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "loop_carried_spill".to_string(),
         abi: MirRoutineAbi::Action,
@@ -13491,6 +13514,7 @@ fn cross_block_spill_coloring_routine(
         vec![read(first), write(second, 2)]
     };
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "spill_colors".to_string(),
         abi: MirRoutineAbi::Action,
@@ -14834,6 +14858,7 @@ fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
         },
     ]);
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "callee".to_string(),
         abi: MirRoutineAbi::Action,
@@ -19766,6 +19791,7 @@ fn hot_induction_address_routine(with_barrier: bool) -> MirRoutine {
         });
     }
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "hot_index".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21467,6 +21493,7 @@ fn pre_home_fixed_point_is_idempotent_after_convergence() {
 
 fn ssa_lite_edge_test_routine(blocks: Vec<MirBlock>) -> MirRoutine {
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21482,6 +21509,7 @@ fn empty_test_program() -> MirProgram {
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "Main".to_string(),
             abi: MirRoutineAbi::Action,
@@ -21567,6 +21595,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
     }];
     program.routines.extend([
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(1),
             name: "Target".to_string(),
             abi: MirRoutineAbi::Action,
@@ -21582,6 +21611,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
             effects: MirEffects::default(),
         },
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(2),
             name: "Table".to_string(),
             abi: MirRoutineAbi::Action,
@@ -21695,6 +21725,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Caller".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21722,6 +21753,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21815,6 +21847,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Caller".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21842,6 +21875,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21874,6 +21908,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         *target = MirCallTarget::Routine(RoutineId(0));
     }
     let observer = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(2),
         name: "Observer".to_string(),
         abi: MirRoutineAbi::Action,
@@ -21968,6 +22003,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "CarrierCaller".to_string(),
         abi: MirRoutineAbi::Action,
@@ -22013,6 +22049,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "CarrierCallee".to_string(),
         abi: MirRoutineAbi::Action,
@@ -22039,6 +22076,7 @@ fn leaf_word_param_result_routine() -> MirRoutine {
     };
     let result = |offset| MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 + offset as u8));
     MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "LeafWord".to_string(),
         abi: MirRoutineAbi::Action,
@@ -22368,6 +22406,7 @@ fn known_callee_word_result_placement_keeps_absolute_store_order() {
         terminator: MirTerminator::Return,
     }]);
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
         abi: MirRoutineAbi::Action,
@@ -22441,6 +22480,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(0),
         name: "Caller".to_string(),
         abi: MirRoutineAbi::Action,
@@ -22471,6 +22511,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
         abi: MirRoutineAbi::Action,

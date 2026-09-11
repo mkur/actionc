@@ -287,6 +287,7 @@ mod tests {
             ops.push(extra_use);
         }
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "Product".into(),
             abi: MirRoutineAbi::Action,

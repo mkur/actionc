@@ -1894,6 +1894,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>, temps: u32) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "HomeCensus".to_string(),
             abi: MirRoutineAbi::Action,

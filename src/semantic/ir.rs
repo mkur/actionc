@@ -340,6 +340,7 @@ impl SemLValue {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemRoutine {
+    pub inline: crate::routine_options::InlineHint,
     pub symbol: SemSymbolRef,
     pub is_external: bool,
     pub signature: SemRoutineSignature,
@@ -1628,6 +1629,9 @@ impl SemIrFormatter {
             symbol_summary(&routine.symbol)
         ));
         self.indented(|this| {
+            if routine.inline.requested() {
+                this.line("inline prefer");
+            }
             this.line(format!(
                 "callable {}",
                 callable_type_summary(&routine.callable_type)
@@ -3211,6 +3215,7 @@ impl<'a> IrBuilder<'a> {
 
         debug_assert!(self.aggregate_locals.is_empty());
         let mut lowered = SemRoutine {
+            inline: routine.inline,
             is_external: routine.is_external,
             callable_type: signature.callable_type(),
             activation: self.model.target_layout.routine_activation.into(),

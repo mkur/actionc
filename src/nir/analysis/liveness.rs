@@ -184,6 +184,7 @@ mod tests {
 
     fn routine(blocks: Vec<NirBlock>) -> NirRoutine {
         NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

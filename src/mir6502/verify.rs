@@ -358,6 +358,12 @@ impl MirVerifier {
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
         self.verify_frame_inits(routine);
+        if routine.inline.requested() && routine.abi == MirRoutineAbi::ExternalInterface {
+            self.diagnostics.push(MirDiagnostic::routine(
+                &routine.name,
+                "external routine cannot request inlining",
+            ));
+        }
         self.verify_private_home_definitions(routine);
         let mut block_ids = BTreeSet::new();
         for block in &routine.blocks {
@@ -4474,6 +4480,7 @@ mod tests {
 
     fn routine(id: RoutineId, name: &str, blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id,
             name: name.to_string(),
             abi: MirRoutineAbi::Action,

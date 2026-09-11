@@ -1548,6 +1548,12 @@ impl Analyzer {
         module: Option<ModuleId>,
         routine: &Routine,
     ) {
+        if routine.inline.requested() && routine.is_external {
+            self.diagnostics.push(Diagnostic::new(
+                routine.inline.span.unwrap_or(routine.span),
+                "INLINE cannot qualify an EXTERNAL declaration",
+            ));
+        }
         let previous_module = self.active_module;
         let previous_routine = self.active_routine.replace(routine.name.clone());
         let previous_routine_symbol = self.active_routine_symbol;

@@ -15,6 +15,15 @@ representable internally. The verifier rejects those variants from executable
 NIR, and `fixtures/nir` is the optimizer-facing snapshot contract. There is no
 separate TAC module or TAC fixture contract.
 
+Routine `inline` metadata carries a typed `Auto` / `Prefer` optimization
+preference keyed by the routine's stable ID. AST and SemIR own declaration
+validation and preserve the diagnostic source span through imports and classic
+projections. NIR preserves the preference through optimization; it is neither
+an executable operation nor part of the callable type, effects or ABI. The NIR
+verifier rejects requests on external declarations. MIR6502 receives these facts
+directly from verified NIR and owns eligibility, growth limits and cost decisions.
+Printers show non-default metadata as `inline prefer`; default output is unchanged.
+
 Modern enum values enter executable NIR as U8 loads/stores, literals, casts,
 parameters, and results. Nominal identities and member names remain semantic or
 debug metadata; equal machine widths never authorize a source enum conversion.

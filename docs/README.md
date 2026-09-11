@@ -65,6 +65,9 @@ crowding the active reference set.
     origin definition.
 - [MIR6502_PSEUDO_MACHINE_CONTRACT.md](MIR6502_PSEUDO_MACHINE_CONTRACT.md) -
   MIR6502 contract and verifier shape.
+- [INLINE routine implementation plan](INLINE_IMPLEMENTATION_PLAN.md) -
+  declaration modifier, typed preference propagation, wider scalar
+  inlining and Q4.12 wrapper rollout in six slices.
 - [MIR6502_REWRITE_WORKFLOW_PLAN.md](MIR6502_REWRITE_WORKFLOW_PLAN.md) -
   implementation plan for routine-aware analyses and transactional MIR6502
   rewrites.

@@ -339,6 +339,7 @@ pub enum VarStorage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Routine {
+    pub inline: crate::routine_options::InlineHint,
     pub visibility: Visibility,
     /// A signature-only callable whose implementation is selected by the
     /// compiler's runtime binding stage.

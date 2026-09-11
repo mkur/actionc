@@ -492,6 +492,7 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![NirRoutine {
+                inline: Default::default(),
                 id: crate::nir::RoutineId(0),
                 signature: crate::nir::NirCallableSignature::default(),
                 convention: crate::nir::NirCallConvention::TargetPublic,

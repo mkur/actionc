@@ -140,6 +140,7 @@ mod tests {
     #[test]
     fn routine_widths_retain_typed_block_parameters() {
         let routine = MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "Loop".to_string(),
             abi: MirRoutineAbi::Action,

@@ -24,6 +24,7 @@ pub mod mir68k;
 pub mod nir;
 pub mod parser;
 pub mod resident;
+pub mod routine_options;
 pub mod runner;
 pub mod runtime;
 pub mod runtime_fault;

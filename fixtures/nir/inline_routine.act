@@ -1,0 +1,6 @@
+BYTE input,output
+INLINE BYTE FUNC Mix(BYTE left,right)
+RETURN((left LSH 1) XOR right)
+PROC Main()
+output=Mix(input,3)
+RETURN

@@ -1195,6 +1195,7 @@ mod tests {
             offset: ByteOffset::ZERO,
         };
         let routine = NirRoutine {
+            inline: Default::default(),
             id: RoutineId(7),
             signature: crate::nir::NirCallableSignature::default(),
             convention: NirCallConvention::TargetPublic,
@@ -1263,6 +1264,7 @@ mod tests {
             span: crate::source::Span::new(0, 0),
         };
         let routine = NirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: NirCallConvention::TargetPublic,
@@ -1365,6 +1367,7 @@ mod tests {
         let mut array = local(5, "array");
         array.storage = NirStorageClass::Array;
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1513,6 +1516,7 @@ mod tests {
     #[test]
     fn definite_assignment_intersects_diamond_predecessors() {
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1571,6 +1575,7 @@ mod tests {
     #[test]
     fn opaque_machine_blocks_make_storage_visible() {
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1624,6 +1629,7 @@ mod tests {
     #[test]
     fn structured_call_regions_mark_only_overlapping_storage() {
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

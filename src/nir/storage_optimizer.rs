@@ -749,6 +749,7 @@ mod tests {
 
     fn program(locals: Vec<NirLocal>, blocks: Vec<NirBlock>) -> NirProgram {
         let mut routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

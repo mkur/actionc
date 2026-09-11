@@ -434,6 +434,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>, temp_count: u32) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: crate::mir6502::ir::RoutineId(0),
             name: "Merge".to_string(),
             abi: MirRoutineAbi::Action,

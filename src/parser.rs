@@ -179,11 +179,35 @@ impl<'a> Parser<'a> {
             } else {
                 Visibility::Private
             };
+            let mut inline = self.parse_inline_modifier();
             let external_span = if self.eat_contextual("EXTERNAL") {
                 Some(self.tokens[self.pos - 1].span)
             } else {
                 None
             };
+            if self.is_inline_declaration_start_at(self.pos) {
+                let after_external = self.parse_inline_modifier();
+                if inline.requested() {
+                    self.diagnostics.push(Diagnostic::new(
+                        after_external.span.unwrap(),
+                        "duplicate INLINE modifier",
+                    ));
+                }
+                inline = after_external;
+            }
+            if let Some(span) = inline.span {
+                if external_span.is_some() {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "INLINE cannot qualify an EXTERNAL declaration",
+                    ));
+                } else if !self.check_keyword(Keyword::Proc) && !self.is_func_decl_start() {
+                    self.diagnostics.push(Diagnostic::new(
+                        span,
+                        "INLINE must precede PROC or a typed FUNC declaration",
+                    ));
+                }
+            }
             if let Some(span) = external_span
                 && public_span.is_none()
             {
@@ -241,6 +265,7 @@ impl<'a> Parser<'a> {
                 let annotations = std::mem::take(&mut pending_annotations);
                 let mut routine = self.parse_routine(annotations, external_span.is_some());
                 routine.visibility = visibility;
+                routine.inline = inline;
                 items.push(Item::Routine(routine));
             } else if self.is_statement_start() {
                 pending_annotations.clear();
@@ -497,6 +522,19 @@ impl<'a> Parser<'a> {
             } else if self.is_const_decl_start() {
                 pending_annotations.clear();
                 items.push(Item::Declaration(Decl::Const(self.parse_const_decl())));
+            } else if self.is_inline_declaration_start_at(self.pos) {
+                let inline = self.parse_inline_modifier();
+                if self.check_keyword(Keyword::Proc) || self.is_func_decl_start() {
+                    let annotations = std::mem::take(&mut pending_annotations);
+                    let mut routine = self.parse_routine(annotations, false);
+                    routine.inline = inline;
+                    items.push(Item::Routine(routine));
+                } else {
+                    self.diagnostics.push(Diagnostic::new(
+                        inline.span.unwrap(),
+                        "INLINE must precede PROC or a typed FUNC declaration",
+                    ));
+                }
             } else if self.is_var_decl_start() {
                 pending_annotations.clear();
                 items.push(Item::Declaration(Decl::Var(self.parse_var_decl())));
@@ -820,6 +858,7 @@ impl<'a> Parser<'a> {
                 ));
             }
             return Routine {
+                inline: Default::default(),
                 visibility: Visibility::Private,
                 is_external: true,
                 kind,
@@ -850,6 +889,7 @@ impl<'a> Parser<'a> {
         body.extend(self.parse_statement_list_until(&[]));
 
         Routine {
+            inline: Default::default(),
             visibility: Visibility::Private,
             is_external: false,
             kind,
@@ -935,7 +975,10 @@ impl<'a> Parser<'a> {
     ) -> Vec<DeclEntry> {
         let mut entries = Vec::new();
 
-        while !self.at_eof() && !self.check_decl_entry_stop(stop) {
+        while !self.at_eof()
+            && (!self.check_decl_entry_stop(stop)
+                || (entries.is_empty() && self.is_contextual_at(self.pos, "INLINE")))
+        {
             if !entries.is_empty()
                 && self.check(TokenKind::Comma)
                 && self.next_token_starts_decl()
@@ -949,7 +992,7 @@ impl<'a> Parser<'a> {
             if !continued {
                 break;
             }
-            if self.check_decl_entry_stop(stop) {
+            if self.check_decl_entry_stop(stop) && !self.is_contextual_at(self.pos, "INLINE") {
                 break;
             }
 
@@ -2249,8 +2292,41 @@ impl<'a> Parser<'a> {
             .is_some_and(|value| define_value_is_set_directive_macro(value))
     }
 
+    fn is_inline_declaration_start_at(&self, pos: usize) -> bool {
+        self.is_contextual_at(pos, "INLINE")
+            && (self.is_contextual_at(pos + 1, "INLINE")
+                || self.is_contextual_at(pos + 1, "EXTERNAL")
+                || self.is_contextual_at(pos + 1, "PUBLIC")
+                || self.is_var_decl_start_at(pos + 1)
+                || self.is_const_decl_start_at(pos + 1)
+                || self.is_func_decl_start_at(pos + 1)
+                || matches!(
+                    self.tokens.get(pos + 1).map(|t| &t.kind),
+                    Some(TokenKind::Keyword(
+                        Keyword::Proc | Keyword::Type | Keyword::Record | Keyword::Define
+                    ))
+                ))
+    }
+
+    fn parse_inline_modifier(&mut self) -> crate::routine_options::InlineHint {
+        let mut hint = crate::routine_options::InlineHint::default();
+        while self.is_inline_declaration_start_at(self.pos) {
+            let span = self.bump().span;
+            if hint.requested() {
+                self.diagnostics.push(Diagnostic::new(span, "duplicate INLINE modifier"));
+            } else {
+                hint = crate::routine_options::InlineHint {
+                    preference: crate::routine_options::InlinePreference::Prefer,
+                    span: Some(span),
+                };
+            }
+        }
+        hint
+    }
+
     fn is_routine_boundary(&self) -> bool {
         self.check_keyword(Keyword::Module)
+            || self.is_inline_declaration_start_at(self.pos)
             || (self.in_named_module
                 && (self.is_contextual_at(self.pos, "ENDMODULE")
                     || self.is_public_top_level_start()))
@@ -2264,7 +2340,9 @@ impl<'a> Parser<'a> {
             return false;
         }
         let mut next = self.pos + 1;
-        if self.is_contextual_at(next, "EXTERNAL") {
+        while self.is_contextual_at(next, "EXTERNAL")
+            || self.is_contextual_at(next, "INLINE")
+        {
             next += 1;
         }
         matches!(
@@ -2419,6 +2497,7 @@ impl<'a> Parser<'a> {
 
     fn is_top_level_start(&self) -> bool {
         matches!(self.peek().kind, TokenKind::ActioncAnnotation(_))
+            || self.is_inline_declaration_start_at(self.pos)
             || (self.in_named_module
                 && (self.is_contextual_at(self.pos, "ENDMODULE")
                     || self.is_contextual_at(self.pos, "USE")

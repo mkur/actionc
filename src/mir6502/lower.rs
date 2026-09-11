@@ -736,6 +736,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                 .count();
 
             MirRoutine {
+                inline: routine.inline,
                 id: RoutineId(routine.id.0),
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
@@ -4492,6 +4493,7 @@ mod tests {
             globals: Vec::new(),
             statics: Vec::new(),
             routines: vec![nir::NirRoutine {
+                inline: Default::default(),
                 id: crate::nir::RoutineId(0),
                 signature: crate::nir::NirCallableSignature::default(),
                 convention: crate::nir::NirCallConvention::TargetPublic,

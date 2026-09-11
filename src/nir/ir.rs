@@ -576,6 +576,7 @@ pub struct NirTempDef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirRoutine {
+    pub inline: crate::routine_options::InlineHint,
     pub id: RoutineId,
     pub signature: NirCallableSignature,
     pub convention: NirCallConvention,

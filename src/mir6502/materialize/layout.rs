@@ -578,6 +578,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
                 abi: MirRoutineAbi::Action,

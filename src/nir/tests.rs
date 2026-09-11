@@ -939,6 +939,7 @@ fn formats_labeled_blocks() {
         }],
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1611,6 +1612,7 @@ fn verifier_accepts_valid_targets() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1756,6 +1758,7 @@ fn verifier_rejects_open_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -2739,6 +2742,7 @@ fn verifier_rejects_executable_error_type() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -2797,6 +2801,7 @@ fn verifier_rejects_missing_branch_target() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -2838,6 +2843,7 @@ fn verifier_rejects_non_bool_branch_condition() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -2894,6 +2900,7 @@ fn verifier_rejects_duplicate_block_labels() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -2940,6 +2947,7 @@ fn verifier_rejects_duplicate_block_ids() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -2986,6 +2994,7 @@ fn verifier_rejects_store_with_untyped_place() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3030,6 +3039,7 @@ fn verifier_accepts_literal_that_fits_narrow_store() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3065,6 +3075,7 @@ fn verifier_accepts_defined_temp_use() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3109,6 +3120,7 @@ fn verifier_accepts_store_with_defined_temp_use() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3153,6 +3165,7 @@ fn verifier_rejects_store_width_mismatch() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3194,6 +3207,7 @@ fn verifier_rejects_undefined_temp_use() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3235,6 +3249,7 @@ fn verifier_accepts_temp_use_from_dominating_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3285,6 +3300,7 @@ fn verifier_rejects_temp_use_from_non_dominating_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3352,6 +3368,7 @@ fn verifier_rejects_missing_static_addr() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3393,6 +3410,7 @@ fn verifier_rejects_duplicate_temp_definition() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3445,6 +3463,7 @@ fn optimizer_removes_unreachable_blocks() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3493,6 +3512,7 @@ fn optimizer_folds_constants_and_simplifies_branches() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3596,6 +3616,7 @@ fn optimizer_eliminates_dead_pure_temps_but_keeps_loads() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3696,6 +3717,7 @@ fn optimizer_keeps_pure_temp_used_in_successor_block() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -3770,6 +3792,7 @@ fn optimizer_eliminates_dead_pure_temp_chain_across_blocks_to_fixed_point() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4100,6 +4123,7 @@ fn optimizer_aliases_algebraic_identity_temps() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4204,6 +4228,7 @@ fn optimizer_aliases_word_all_ones_identity() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4258,6 +4283,7 @@ fn optimizer_cancels_local_constant_offsets() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4320,6 +4346,7 @@ fn optimizer_canonicalizes_local_constant_offset_chains() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4396,6 +4423,7 @@ fn optimizer_keeps_non_identity_subtraction_and_pointer_arithmetic() {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4517,6 +4545,7 @@ fn memory_effect_program(region: NirMemoryRegion) -> NirProgram {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4637,6 +4666,7 @@ fn typed_block_argument_program() -> NirProgram {
             section: "data".to_string(),
         }],
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -4725,6 +4755,7 @@ fn optimizer_program(temps: Vec<NirTemp>, blocks: Vec<NirBlock>) -> NirProgram {
         globals: Vec::new(),
         statics: Vec::new(),
         routines: vec![NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

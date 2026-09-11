@@ -511,6 +511,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "definitions".to_string(),
             abi: MirRoutineAbi::Action,

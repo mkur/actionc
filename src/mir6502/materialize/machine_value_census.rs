@@ -300,6 +300,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                inline: Default::default(),
                 id: RoutineId(0),
                 name: "ReloadX".to_string(),
                 abi: MirRoutineAbi::Action,
@@ -437,6 +438,7 @@ mod tests {
                 init: None,
             }],
             routines: vec![MirRoutine {
+                inline: Default::default(),
                 id: RoutineId(0),
                 name: "ReloadY".to_string(),
                 abi: MirRoutineAbi::Action,
@@ -487,6 +489,7 @@ mod tests {
                 init: None,
             }],
             routines: vec![MirRoutine {
+                inline: Default::default(),
                 id: RoutineId(0),
                 name: "IndexedCompare".to_string(),
                 abi: MirRoutineAbi::Action,

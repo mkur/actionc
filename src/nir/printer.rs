@@ -113,6 +113,9 @@ impl NirPrinter {
             params,
             locals
         ));
+        if routine.inline.requested() {
+            self.line("  inline prefer");
+        }
         for param in &routine.params {
             self.line(format!(
                 "  param p{} {}: {:?} {} duration={} size={} align={}",

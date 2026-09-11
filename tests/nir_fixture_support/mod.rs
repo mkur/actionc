@@ -69,6 +69,8 @@ macro_rules! optimized_atari_case {
 }
 
 pub const NIR_FIXTURE_CASES: &[NirFixtureCase] = &[
+    lowered_atari_case!("inline_routine"),
+    optimized_atari_case!("inline_routine"),
     lowered_atari_case!("activation_storage"),
     lowered_atari_case!("aggregate_static_initializer"),
     lowered_atari_case!("aggregate_calls"),

@@ -67,6 +67,9 @@ pub(super) fn format_program(program: &MirProgram) -> String {
     for routine in &program.routines {
         let _ = writeln!(out);
         let _ = writeln!(out, "routine r{} {}", routine.id.0, routine.name);
+        if routine.inline.requested() {
+            let _ = writeln!(out, "  inline prefer");
+        }
         for local in &routine.frame.locals {
             if let Some(init) = &local.init {
                 let _ = writeln!(out, "  local l{}{}", local.id.0, storage_init_summary(init));

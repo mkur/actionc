@@ -627,6 +627,7 @@ impl SemIrAstLowerer<'_> {
         locals.append(&mut self.case_captures);
         self.native_real_scope = previous_native_real_scope;
         Some(Routine {
+            inline: routine.inline,
             visibility: Visibility::Private,
             is_external: routine.is_external,
             kind: self.projected_callable_kind(&routine.callable_type),

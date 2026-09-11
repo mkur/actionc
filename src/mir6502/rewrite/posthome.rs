@@ -387,6 +387,7 @@ mod tests {
 
     fn routine(ops: Vec<MirOp>, terminator: MirTerminator) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "posthome".to_string(),
             abi: MirRoutineAbi::Action,

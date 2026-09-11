@@ -50,6 +50,11 @@ unassigned virtual temps. It is ready to feed tracked emission helpers.
 
 ### Costed scalar leaf inlining
 
+MIR routines preserve verified NIR's typed `Auto` / `Prefer` inline metadata.
+The span is diagnostic metadata; no source text or SemIR lookup participates in
+selection. A preference changes neither the ABI nor storage/effect guarantees,
+and may be declined. External-interface routines cannot carry `Prefer`.
+
 The optimized configuration may expand private byte-only, acyclic leaf routines
 in pre-materialization MIR, before parameter prologues or home allocation.
 Eligibility is a whole-program typed-ID census: every direct call must supply

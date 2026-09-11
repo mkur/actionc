@@ -349,6 +349,12 @@ impl NirVerifier {
     }
 
     fn routine(&mut self, routine: &NirRoutine) {
+        if routine.inline.requested() && routine.entry.external {
+            self.diagnostics.push(NirDiagnostic::routine(
+                &routine.name,
+                "external routine cannot request inlining",
+            ));
+        }
         let expected_activation = match self.target_layout.routine_activation {
             crate::target::RoutineActivationModel::ClassicStatic => {
                 NirActivationModel::ClassicStatic

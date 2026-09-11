@@ -1479,6 +1479,7 @@ mod value_fact_tests {
     fn folded_branch_condition_marks_only_the_selected_edge_executable() {
         let condition = condition_type();
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1561,6 +1562,7 @@ mod value_fact_tests {
             pointer: false,
         };
         let mut routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -1664,6 +1666,7 @@ mod value_fact_tests {
             ty: None,
         };
         let mut routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

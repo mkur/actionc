@@ -1825,6 +1825,7 @@ mod tests {
 
     fn routine(op: MirOp) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "driver".to_string(),
             abi: MirRoutineAbi::Action,

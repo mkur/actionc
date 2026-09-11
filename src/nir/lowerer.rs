@@ -427,8 +427,10 @@ impl NirLowerer {
                         builder.stmt_list(&routine.body);
                         self.next_label = builder.next_label;
                         builder.finish_open_with(NirTerminator::Fallthrough);
-                        let (routine, routine_statics, routine_bindings, next_static) =
+                        let inline = routine.inline;
+                        let (mut routine, routine_statics, routine_bindings, next_static) =
                             builder.finish();
+                        routine.inline = inline;
                         self.next_static = next_static;
                         statics.extend(routine_statics);
                         for binding in routine_bindings {
@@ -1352,6 +1354,7 @@ impl NirBuilder {
     fn finish(self) -> (NirRoutine, Vec<NirStaticData>, Vec<NirRuntimeBinding>, u32) {
         (
             NirRoutine {
+                inline: Default::default(),
                 id: self.routine_id,
                 convention: self.signature.convention,
                 signature: self.signature,

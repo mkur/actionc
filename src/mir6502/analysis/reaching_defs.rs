@@ -302,6 +302,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "reaching".to_string(),
             abi: MirRoutineAbi::Action,

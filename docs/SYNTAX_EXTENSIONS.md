@@ -25,11 +25,33 @@ some ambiguous routine-address cases.
 - [Explicit Address Values](#explicit-address-values)
 - [Plain CARD Values Are Not Typed Pointers](#plain-card-values-are-not-typed-pointers)
 - [Function Pointers](#function-pointers)
+- [INLINE Routines](#inline-routines)
 - [Machine Block Label Bytes](#machine-block-label-bytes)
 - [Relocatable Static Initializers](#relocatable-static-initializers)
 - [MADS-Style Inline Assembler](#mads-style-inline-assembler)
 - [Explicit Lexical Blocks](#explicit-lexical-blocks)
 - [Compatibility Policy](#compatibility-policy)
+
+## INLINE Routines
+
+`INLINE` requests inlining of a source routine:
+
+```action
+INLINE BYTE FUNC Mix(BYTE left,right)
+RETURN((left LSH 1) XOR right)
+```
+
+Named modules also accept `PUBLIC INLINE PROC` and `PUBLIC INLINE <type> FUNC`.
+The modifier is case-insensitive and contextual: variables, routines and
+qualified members named `INLINE` remain legal outside modifier position.
+Duplicate modifiers, non-routine declarations and `INLINE EXTERNAL` are errors.
+
+All compiler modes accept the preference. It changes no callable identity, ABI,
+evaluation order, persistent parameter/local storage or public return slots.
+Classic modes retain ordinary calls. MIR6502 owns optimization decisions;
+retaining a call is always permitted when legality or cost cannot be proved.
+Automatic inlining does not require an annotation. See the
+[implementation plan](INLINE_IMPLEMENTATION_PLAN.md) for rollout status.
 
 ## 32-bit Integers
 

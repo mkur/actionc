@@ -239,6 +239,7 @@ pub enum MirRuntimeHelperTarget {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirRoutine {
+    pub inline: crate::routine_options::InlineHint,
     pub id: RoutineId,
     pub name: String,
     pub abi: MirRoutineAbi,

@@ -391,6 +391,7 @@ mod tests {
     #[test]
     fn indexes_definitions_and_distinct_operand_positions() {
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -509,6 +510,7 @@ mod tests {
             ty: Some(byte_type()),
         };
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,
@@ -601,6 +603,7 @@ mod tests {
     #[test]
     fn indexes_edge_arguments_as_uses_and_block_parameters_as_entry_definitions() {
         let routine = NirRoutine {
+            inline: Default::default(),
             id: crate::nir::RoutineId(0),
             signature: crate::nir::NirCallableSignature::default(),
             convention: crate::nir::NirCallConvention::TargetPublic,

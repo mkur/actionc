@@ -491,6 +491,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            inline: Default::default(),
             id: RoutineId(0),
             name: "MachineLiveness".to_string(),
             abi: MirRoutineAbi::Action,
@@ -557,6 +558,7 @@ mod tests {
             MirTerminator::Return,
         )]);
         let callee = MirRoutine {
+            inline: Default::default(),
             id: RoutineId(1),
             name: "PreservesY".to_string(),
             abi: MirRoutineAbi::Action,

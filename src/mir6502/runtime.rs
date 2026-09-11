@@ -276,6 +276,7 @@ fn bind_generated_helper(
         items,
     });
     program.routines.push(MirRoutine {
+        inline: Default::default(),
         id: routine_id,
         name: format!("ACTION.RUNTIME.ACTIONC::{}", helper_name(helper)),
         abi: MirRoutineAbi::ActionObservable,

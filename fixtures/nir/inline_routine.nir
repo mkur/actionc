@@ -1,0 +1,21 @@
+nir program
+global input: Byte
+global output: Byte
+
+routine r0 Mix signature=s3945017018 convention=target-public activation=classic-static entry=relocatable params=[left, right] locals=[-]
+  inline prefer
+  param p0 left: Scalar Byte duration=routine-static size=1 align=1
+  param p1 right: Scalar Byte duration=routine-static size=1 align=1
+bb0:
+  %t0:Byte = load left
+  %t1:Byte = %t0 Lsh 1
+  %t2:Byte = load right
+  %t3:Byte = %t1 Xor %t2
+  return %t3
+
+routine r1 Main signature=s2726028260 convention=target-public activation=classic-static entry=program+relocatable params=[-] locals=[-]
+bb1:
+  %t0:Byte = load input
+  %t1:Byte = call Mix(%t0, 3) signature=s3945017018 convention=target-public
+  store output = %t1
+  return

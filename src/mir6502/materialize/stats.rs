@@ -174,6 +174,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    inline: Default::default(),
                     id: RoutineId(0),
                     name: "Cold".to_string(),
                     abi: MirRoutineAbi::Action,
@@ -183,6 +184,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    inline: Default::default(),
                     id: RoutineId(1),
                     name: "Hot".to_string(),
                     abi: MirRoutineAbi::Action,
