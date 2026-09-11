@@ -50,6 +50,9 @@ All compiler modes accept the preference. It changes no callable identity, ABI,
 evaluation order, persistent parameter/local storage or public return slots.
 Classic modes retain ordinary calls. MIR6502 owns optimization decisions;
 retaining a call is always permitted when legality or cost cannot be proved.
+Modern MIR6502 prioritizes requested candidates and allows bounded additional
+growth. `ACTIONC_MIR6502_PEEPHOLES=sites` explains applied and declined requests
+through the existing optimization report; ordinary builds remain quiet.
 Automatic inlining does not require an annotation. See the
 [implementation plan](INLINE_IMPLEMENTATION_PLAN.md) for rollout status.
 

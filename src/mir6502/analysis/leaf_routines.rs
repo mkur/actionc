@@ -12,6 +12,8 @@ use crate::nir::ParamId;
 
 const MAX_LEAF_BLOCKS: usize = 4;
 const MAX_LEAF_OPS: usize = 12;
+const MAX_REQUESTED_BLOCKS: usize = 8;
+const MAX_REQUESTED_OPS: usize = 128;
 
 #[derive(Debug, Clone)]
 pub(in crate::mir6502) struct LeafRoutine {
@@ -27,6 +29,7 @@ pub(in crate::mir6502) struct LeafCensus {
 }
 
 pub(in crate::mir6502) fn analyze(program: &MirProgram) -> LeafCensus {
+    let recursive = recursive_routines(program);
     let mut escaped = BTreeSet::new();
     for data in &program.statics {
         visit_data_image_routines(&data.image, &mut escaped);
@@ -121,6 +124,9 @@ pub(in crate::mir6502) fn analyze(program: &MirProgram) -> LeafCensus {
             continue;
         }
         let candidate = (|| {
+            if recursive.contains(&routine.id) {
+                return Err("recursion");
+            }
             if escaped.contains(&routine.id) || unresolved_machine_reference {
                 return Err("escape");
             }
@@ -145,6 +151,45 @@ pub(in crate::mir6502) fn analyze(program: &MirProgram) -> LeafCensus {
     census
 }
 
+fn recursive_routines(program: &MirProgram) -> BTreeSet<RoutineId> {
+    let edges: BTreeMap<_, BTreeSet<_>> = program
+        .routines
+        .iter()
+        .map(|routine| {
+            let calls = routine
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .filter_map(|op| match op {
+                    MirOp::Call {
+                        target: MirCallTarget::Routine(id),
+                        ..
+                    } => Some(*id),
+                    _ => None,
+                })
+                .collect();
+            (routine.id, calls)
+        })
+        .collect();
+    edges
+        .keys()
+        .copied()
+        .filter(|start| {
+            let mut seen = BTreeSet::new();
+            let mut pending: Vec<_> = edges[start].iter().copied().collect();
+            while let Some(id) = pending.pop() {
+                if id == *start {
+                    return true;
+                }
+                if seen.insert(id) {
+                    pending.extend(edges.get(&id).into_iter().flatten().copied());
+                }
+            }
+            false
+        })
+        .collect()
+}
+
 pub(in crate::mir6502) fn byte_value(value: &MirValue) -> bool {
     matches!(
         value,
@@ -167,9 +212,14 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
     if routine.abi != MirRoutineAbi::Action {
         return Err("observable-entry");
     }
+    let (max_blocks, max_ops) = if routine.inline.requested() {
+        (MAX_REQUESTED_BLOCKS, MAX_REQUESTED_OPS)
+    } else {
+        (MAX_LEAF_BLOCKS, MAX_LEAF_OPS)
+    };
     if routine.blocks.is_empty()
-        || routine.blocks.len() > MAX_LEAF_BLOCKS
-        || routine.blocks.iter().map(|b| b.ops.len()).sum::<usize>() > MAX_LEAF_OPS
+        || routine.blocks.len() > max_blocks
+        || routine.blocks.iter().map(|b| b.ops.len()).sum::<usize>() > max_ops
     {
         return Err("body-size");
     }

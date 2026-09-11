@@ -333,14 +333,14 @@ pub(super) fn saving(
         }
         let saved = old
             .iter()
-            .map(|(exit, bounds)| bounds.min.checked_sub(new[exit].max))
-            .collect::<Option<Vec<_>>>()?
-            .into_iter()
+            .map(|(exit, bounds)| i64::from(bounds.min) - i64::from(new[exit].max))
             .min()?;
-        if saved < count * MIN_CYCLES_PER_SITE {
-            return None;
+        if saved < i64::from(count * MIN_CYCLES_PER_SITE) {
+            // Known paths that fail the saving threshold differ from unknown
+            // cost/control, so requested-inline reports can explain the fallback.
+            return Some(0);
         }
-        total += saved;
+        total += saved as u32;
     }
     Some(total)
 }

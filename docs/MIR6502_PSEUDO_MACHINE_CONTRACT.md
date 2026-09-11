@@ -62,6 +62,21 @@ all arguments, and address escapes, observable entries, parameter writes,
 non-parameter memory reads, helpers and machine state disqualify the leaf.
 The initial limits are two byte parameters, four blocks and twelve operations.
 
+`Prefer` candidates retain the same legality checks but admit up to eight
+acyclic blocks and 128 operations. Requested candidates sort before automatic
+candidates, with deterministic routine-ID ties. Each policy has 16 trial groups
+and eight sites per group. Requested growth limits are 128 bytes/site,
+512/caller and 1024/program; automatic limits remain 32/128/256 bytes.
+Both policies charge accepted growth cumulatively against a combined
+1280-byte program ceiling. Retained callee bodies receive no deletion credit.
+Recursive call-graph components are rejected before eligibility classification.
+
+Existing optimization reports count requested/applied/declined outcomes.
+Site reports include caller, source callee, stable block/site, preference,
+outcome and available group byte/cycle estimates. They distinguish recursion,
+observable storage/entry, unsupported shape, budget exhaustion, uncertain cost
+and known non-improvement. Speculative materialization never emits reports.
+
 Actuals cross the new call boundary through explicit entry block arguments,
 evaluated at the original call point. Parameter loads use those captured temps;
 fresh clone IDs cannot overlap either routine's original IDs. Every public

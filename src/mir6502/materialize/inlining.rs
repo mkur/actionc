@@ -17,18 +17,84 @@ const MAX_SITES_PER_GROUP: usize = 8;
 const MAX_BYTES_PER_SITE: usize = 32;
 const MAX_BYTES_PER_CALLER: usize = 128;
 const MAX_BYTES_PER_PROGRAM: usize = 256;
+const MAX_COMBINED_BYTES: usize = 1280;
+
+#[derive(Clone, Copy)]
+struct GrowthBudget {
+    site: usize,
+    caller: usize,
+    program: usize,
+}
+
+fn growth_budget(requested: bool) -> GrowthBudget {
+    if requested {
+        GrowthBudget {
+            site: 128,
+            caller: 512,
+            program: 1024,
+        }
+    } else {
+        GrowthBudget {
+            site: MAX_BYTES_PER_SITE,
+            caller: MAX_BYTES_PER_CALLER,
+            program: MAX_BYTES_PER_PROGRAM,
+        }
+    }
+}
 
 fn within_growth_budget(
+    budget: GrowthBudget,
     sites: usize,
     charged: usize,
     caller: usize,
     program: usize,
+    combined: usize,
     net: usize,
 ) -> bool {
-    charged <= MAX_BYTES_PER_SITE * sites
-        && caller.saturating_add(charged) <= MAX_BYTES_PER_CALLER
-        && program.saturating_add(charged) <= MAX_BYTES_PER_PROGRAM
-        && net <= MAX_BYTES_PER_PROGRAM
+    charged <= budget.site * sites
+        && caller.saturating_add(charged) <= budget.caller
+        && program.saturating_add(charged) <= budget.program
+        && combined.saturating_add(charged) <= MAX_COMBINED_BYTES
+        && net <= MAX_COMBINED_BYTES
+}
+
+fn report_decision(
+    stats: &mut MirPeepholeStats,
+    program: &MirProgram,
+    caller: RoutineId,
+    callee: RoutineId,
+    outcome: &str,
+    bytes: Option<usize>,
+    cycles: Option<u32>,
+) {
+    let source = program.routines.iter().find(|r| r.id == callee).unwrap();
+    let requested = source.inline.requested();
+    let caller = program.routines.iter().find(|r| r.id == caller).unwrap();
+    for block in &caller.blocks {
+        for (index, op) in block.ops.iter().enumerate() {
+            if !matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == callee)
+            {
+                continue;
+            }
+            if requested {
+                stats.record(
+                    caller.id,
+                    if outcome == "applied" {
+                        "inline-request-applied"
+                    } else {
+                        "inline-request-declined"
+                    },
+                );
+            }
+            stats.record_site(caller.id, "leaf-inline", format!(
+                "callee={} r{} site=b{}:{} preference={} outcome={} group-bytes={} group-cycles-saved={}",
+                source.name, callee.0, block.id.0, index,
+                if requested { "prefer" } else { "auto" }, outcome,
+                bytes.map_or_else(|| "unknown".to_string(), |n| n.to_string()),
+                cycles.map_or_else(|| "unknown".to_string(), |n| n.to_string()),
+            ));
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -249,8 +315,42 @@ pub(in crate::mir6502) fn materialize(
     runtime: Runtime,
 ) -> Result<MirProgram, Vec<MirDiagnostic>> {
     let mut stats = MirPeepholeStats::default();
-    for (id, reason) in census.rejected {
-        stats.record_dynamic(id, format!("leaf-inline-blocked-{reason}"));
+    for routine in program.routines.iter().filter(|r| r.inline.requested()) {
+        stats.record(routine.id, "inline-requested-routine");
+        let callers: Vec<_> = program
+            .routines
+            .iter()
+            .filter(|caller| {
+                caller.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+                    matches!(op,
+                MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == routine.id)
+                })
+            })
+            .collect();
+        if callers.is_empty() {
+            stats.record(routine.id, "inline-request-declined");
+            stats.record_site(
+                routine.id,
+                "leaf-inline",
+                "preference=prefer outcome=declined-no-call-sites",
+            );
+        }
+        if let Some(reason) = census.rejected.get(&routine.id) {
+            for caller in callers {
+                report_decision(
+                    &mut stats,
+                    &program,
+                    caller.id,
+                    routine.id,
+                    &format!("declined-{reason}"),
+                    None,
+                    None,
+                );
+            }
+        }
+    }
+    for (id, reason) in &census.rejected {
+        stats.record_dynamic(*id, format!("leaf-inline-blocked-{reason}"));
     }
     let mut current = program;
     let mut groups = current
@@ -277,6 +377,7 @@ pub(in crate::mir6502) fn materialize(
     // Cheap ranking only: actual target costs below decide acceptance.
     groups.sort_by_key(|(caller, callee, count)| {
         (
+            !census.leaves[callee].routine.inline.requested(),
             std::cmp::Reverse(count * (12 + 4 * census.leaves[callee].params.len())),
             *caller,
             *callee,
@@ -288,7 +389,7 @@ pub(in crate::mir6502) fn materialize(
             current, config, origin, runtime, true,
         );
     }
-    let mut trials = 0;
+    let mut trials = [0; 2];
     let mut baseline = crate::mir6502::materialize_resolved_program(
         current.clone(),
         config,
@@ -298,21 +399,41 @@ pub(in crate::mir6502) fn materialize(
     )?;
     let mut baseline_image = Image::build(&baseline, origin);
     let initial_bytes = baseline_image.as_ref().map_or(0, |i| i.bytes.len());
-    let mut caller_growth = BTreeMap::<RoutineId, usize>::new();
-    let mut program_growth = 0;
+    let mut caller_growth = BTreeMap::<(RoutineId, bool), usize>::new();
+    let mut program_growth = [0; 2];
     for (caller_id, callee_id, count) in groups {
+        let requested = census.leaves[&callee_id].routine.inline.requested();
+        let policy = usize::from(requested);
         stats.record_many(caller_id, "leaf-inline-candidate", count);
         let caller_index = current
             .routines
             .iter()
             .position(|r| r.id == caller_id)
             .unwrap();
-        if count > MAX_SITES_PER_GROUP || trials >= MAX_TRIALS {
+        if count > MAX_SITES_PER_GROUP || trials[policy] >= MAX_TRIALS {
             stats.record_many(caller_id, "leaf-inline-blocked-budget", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-budget",
+                None,
+                None,
+            );
             continue;
         }
         if !caller_supported(&current.routines[caller_index]) {
             stats.record_many(caller_id, "leaf-inline-blocked-caller", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-caller-machine-state",
+                None,
+                None,
+            );
             continue;
         }
         let mut candidate = current.clone();
@@ -321,7 +442,7 @@ pub(in crate::mir6502) fn materialize(
             &census.leaves[&callee_id],
         )?;
         crate::mir6502::verify_program(&candidate, MirPhase::PreMaterialization)?;
-        trials += 1;
+        trials[policy] += 1;
         stats.record(caller_id, "leaf-inline-trials");
         let trial = crate::mir6502::materialize_resolved_program(
             candidate.clone(),
@@ -335,10 +456,28 @@ pub(in crate::mir6502) fn materialize(
             .and_then(|p| Image::build(&p, origin).map(|image| (p, image)))
         else {
             stats.record_many(caller_id, "leaf-inline-blocked-unknown", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-materialization-uncertain",
+                None,
+                None,
+            );
             continue;
         };
         let Some(before) = &baseline_image else {
             stats.record_many(caller_id, "leaf-inline-blocked-unknown", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-baseline-uncertain",
+                None,
+                None,
+            );
             continue;
         };
         // All bodies and storage remain in the emitted image: no speculative
@@ -349,13 +488,27 @@ pub(in crate::mir6502) fn materialize(
             .saturating_sub(before.routine_bytes(caller_id));
         let charged = growth.max(code_growth);
         if !within_growth_budget(
+            growth_budget(requested),
             expansion.sites,
             charged,
-            caller_growth.get(&caller_id).copied().unwrap_or(0),
-            program_growth,
+            caller_growth
+                .get(&(caller_id, requested))
+                .copied()
+                .unwrap_or(0),
+            program_growth[policy],
+            program_growth.iter().sum(),
             image.bytes.len().saturating_sub(initial_bytes),
         ) {
             stats.record_many(caller_id, "leaf-inline-blocked-budget", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-growth-budget",
+                Some(charged),
+                None,
+            );
             continue;
         }
         if baseline
@@ -365,6 +518,15 @@ pub(in crate::mir6502) fn materialize(
             .ne(trial.routines.iter().filter(|r| r.id != caller_id))
         {
             stats.record_many(caller_id, "leaf-inline-blocked-surrounding-code", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-surrounding-code",
+                Some(charged),
+                None,
+            );
             continue;
         }
         let old_caller = baseline
@@ -383,8 +545,39 @@ pub(in crate::mir6502) fn materialize(
             &expansion.sites_by_block,
         ) else {
             stats.record_many(caller_id, "leaf-inline-blocked-cost", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-cost-uncertain",
+                Some(charged),
+                None,
+            );
             continue;
         };
+        if cycles == 0 {
+            stats.record_many(caller_id, "leaf-inline-blocked-non-improvement", count);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-non-improvement",
+                Some(charged),
+                Some(0),
+            );
+            continue;
+        }
+        report_decision(
+            &mut stats,
+            &current,
+            caller_id,
+            callee_id,
+            "applied",
+            Some(charged),
+            Some(cycles),
+        );
         stats.record_many(caller_id, "leaf-inline-applied", expansion.sites);
         stats.record_many(caller_id, "leaf-inline-growth-bytes", charged);
         stats.record_many(
@@ -392,8 +585,8 @@ pub(in crate::mir6502) fn materialize(
             "leaf-inline-estimated-cycles-saved",
             cycles as usize,
         );
-        *caller_growth.entry(caller_id).or_default() += charged;
-        program_growth += charged;
+        *caller_growth.entry((caller_id, requested)).or_default() += charged;
+        program_growth[policy] += charged;
         current = candidate;
         baseline = trial;
         baseline_image = Some(image);
@@ -633,12 +826,70 @@ mod tests {
 
     #[test]
     fn growth_budgets_are_cumulative_and_inclusive() {
-        assert!(within_growth_budget(1, 32, 96, 224, 256));
-        assert!(!within_growth_budget(1, 33, 0, 0, 33));
-        assert!(!within_growth_budget(2, 33, 96, 96, 129));
-        assert!(!within_growth_budget(2, 33, 0, 224, 257));
-        assert!(!within_growth_budget(2, 33, 0, 224, 0));
-        assert!(!within_growth_budget(1, 0, 0, 0, 257));
+        let auto = growth_budget(false);
+        let prefer = growth_budget(true);
+        assert!(within_growth_budget(auto, 1, 32, 96, 224, 224, 256));
+        assert!(!within_growth_budget(auto, 1, 33, 0, 0, 0, 33));
+        assert!(!within_growth_budget(auto, 2, 33, 96, 96, 96, 129));
+        assert!(!within_growth_budget(auto, 2, 33, 0, 224, 224, 257));
+        assert!(!within_growth_budget(auto, 2, 33, 0, 224, 224, 0));
+        assert!(within_growth_budget(prefer, 1, 128, 384, 896, 1152, 1280));
+        assert!(!within_growth_budget(prefer, 1, 129, 0, 0, 0, 129));
+        assert!(!within_growth_budget(prefer, 1, 128, 385, 0, 0, 128));
+        assert!(!within_growth_budget(prefer, 1, 128, 0, 897, 897, 1025));
+        assert!(!within_growth_budget(prefer, 1, 128, 0, 0, 1153, 1280));
+        assert!(!within_growth_budget(prefer, 1, 0, 0, 0, 0, 1281));
+    }
+
+    #[test]
+    fn preference_selects_a_larger_byte_leaf_without_changing_automatic_limits() {
+        let mut expr = "value".to_string();
+        for n in 1..=8 {
+            expr = format!("(({expr} LSH 1) XOR {n})");
+        }
+        let source = format!(
+            "BYTE input=$600,output=$601 INLINE BYTE FUNC Map(BYTE value) RETURN({expr}) PROC Main() output=Map(input) RETURN"
+        );
+        let (ordinary, _) = compile_image(&source.replace("INLINE ", ""), true);
+        assert_eq!(calls_to(&ordinary, RoutineId(0)), 1);
+        let (control, old) = compile_image(&source, false);
+        let (selected, new) = compile_image(&source, true);
+        assert_eq!(calls_to(&control, RoutineId(0)), 1);
+        assert_eq!(calls_to(&selected, RoutineId(0)), 0);
+        for input in 0..=255 {
+            let run = |image: &Image| {
+                super::super::leaf_test_cpu::run(
+                    &image.bytes,
+                    0x2000,
+                    image
+                        .blocks
+                        .iter()
+                        .find(|(r, _, _)| *r == RoutineId(1))
+                        .unwrap()
+                        .2
+                        .start,
+                    input,
+                )
+            };
+            assert_eq!(run(&old), run(&new));
+        }
+    }
+
+    #[test]
+    fn requested_recursion_storage_and_omitted_arguments_remain_ineligible() {
+        for source in [
+            "BYTE input,output INLINE BYTE FUNC Map(BYTE value) IF value THEN RETURN(Map(value-1)) FI RETURN(0) PROC Main() output=Map(input) RETURN",
+            "BYTE input,output INLINE BYTE FUNC Map(BYTE value) value==+1 RETURN(value) PROC Main() output=Map(input) RETURN",
+            "BYTE input,output INLINE BYTE FUNC Map(BYTE value) RETURN(value XOR 1) PROC Main() output=Map(input) output=Map() RETURN",
+        ] {
+            let census = analyze(&lower(source));
+            assert!(census.leaves.is_empty(), "{census:?}");
+            if source.contains("Map(value-1)") {
+                assert_eq!(census.rejected[&RoutineId(0)], "recursion");
+            }
+        }
+        let (tail, _) = compile_image("INLINE PROC Ping() RETURN PROC Main() Ping() RETURN", true);
+        assert_eq!(calls_to(&tail, RoutineId(0)), 1);
     }
 
     #[test]

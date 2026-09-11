@@ -1,0 +1,17 @@
+BYTE input=$600,output=$601
+INLINE BYTE FUNC Map(BYTE value)
+RETURN((value LSH 1) XOR 3)
+INLINE BYTE FUNC Count(BYTE value)
+value==+1
+RETURN(value)
+INLINE BYTE FUNC Recur(BYTE value)
+IF value THEN RETURN(Recur(value-1)) FI
+RETURN(0)
+INLINE PROC Ping()
+RETURN
+PROC Main()
+output=Map(input)
+output=Count(output)
+output=Recur(output)
+Ping()
+RETURN

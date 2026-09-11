@@ -3,7 +3,10 @@
 Status: in progress, 2026-09-11. Slice 1 implements contextual declaration
 syntax and typed preference propagation through AST, SemIR, NIR and MIR6502.
 The new lowered/optimized NIR fixtures add the `inline prefer` metadata contract;
-existing fixture output is unchanged. Slices 2–6 remain pending.
+existing fixture output is unchanged. Slice 2 implements requested BYTE-leaf
+priority, separate cumulative budgets and applied/declined site reports.
+Focused execution tests confirm the larger body gate changes selection while
+recursion, storage and non-improvement retain calls. Slices 3–6 remain pending.
 
 ## Objective
 
