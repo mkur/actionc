@@ -10,7 +10,11 @@ recursion, storage and non-improvement retain calls. Slice 3 implements explicit
 LONG call result lanes, integer scalar signature facts and typed word/LONG
 expansion. Focused expansion tests are separate from profitability tests: a legal
 expansion may retain its call, particularly when SArgs prologue costing is unknown.
-Slices 4–6 remain pending.
+Slice 4 extends the existing NIR promotion cost gate for bounded requested
+routines. Shared storage proofs still exclude initialized, persistent,
+addressed, aliased and volatile homes. The new `inline_scratch` snapshots
+document an intentional promotion change, with the unannotated corpus unchanged.
+Slices 5–6 remain pending.
 
 ## Objective
 

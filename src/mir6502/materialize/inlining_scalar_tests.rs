@@ -248,3 +248,48 @@ fn pointer_parameters_do_not_gain_integer_inline_eligibility() {
         "non-scalar-signature"
     );
 }
+
+#[test]
+fn promoted_branch_scratch_and_wide_relays_execute_without_private_frames() {
+    let source = "INT input=$600 LONGINT output=$610 INLINE LONGINT FUNC Map(INT value) LONGINT scratch,relay IF value<0 THEN scratch=LONGINT(value)-1 ELSE scratch=LONGINT(value)+1 FI relay=scratch RETURN(relay) PROC Main() output=Map(input) RETURN";
+    assert!(lower(source).routines[0].frame.locals.is_empty());
+    let (_, old) = compile_scalar_image(source, false);
+    let (_, new) = expand_scalar_control(source);
+    for input in [i16::MIN, -1, 0, 1, i16::MAX] {
+        let actual = execute_scalar(&new, RoutineId(1), &input.to_le_bytes());
+        assert_eq!(
+            actual,
+            execute_scalar(&old, RoutineId(1), &input.to_le_bytes())
+        );
+        assert_eq!(
+            i32::from_le_bytes(actual.0),
+            i32::from(input) + if input < 0 { -1 } else { 1 }
+        );
+    }
+}
+
+#[test]
+fn retained_persistent_counters_and_omitted_arguments_execute_with_static_storage() {
+    for (body, calls, expected) in [
+        (
+            "BYTE counter=[0] counter==+1 RETURN(counter)",
+            "output=Map(input) output=Map(input)",
+            2,
+        ),
+        ("RETURN(value XOR $55)", "output=Map(input) output=Map()", 7),
+    ] {
+        let source = format!(
+            "BYTE input=$600,output=$610 INLINE BYTE FUNC Map(BYTE value) {body} PROC Main() {calls} RETURN"
+        );
+        let (selected, new) = compile_scalar_image(&source, true);
+        let (_, old) = compile_scalar_image(&source, false);
+        assert_eq!(calls_to(&selected, RoutineId(0)), 2);
+        // Omitted arguments retain the existing Action ABI capture behavior,
+        // including register values left by the preceding call.
+        assert_eq!(
+            execute_scalar(&new, RoutineId(1), &[7]),
+            execute_scalar(&old, RoutineId(1), &[7])
+        );
+        assert_eq!(execute_scalar(&new, RoutineId(1), &[7]).0[0], expected);
+    }
+}

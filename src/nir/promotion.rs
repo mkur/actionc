@@ -48,6 +48,14 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
     }
     let induction_address_homes = induction_address_homes(routine, &cfg);
     let bounded_relay_homes = bounded_relay_homes(routine, &cfg, analysis);
+    // Requested expansion benefits from removing private scalar scratch even
+    // below the automatic hot/relay cost gates. Storage legality still comes
+    // entirely from the shared analysis, including current-invocation definite
+    // assignment, initializers, aliases, volatility and escaping addresses.
+    let requested_scratch = routine.inline.requested()
+        && routine.params.len() <= 2
+        && routine.blocks.len() <= 8
+        && routine.blocks.iter().map(|b| b.ops.len()).sum::<usize>() <= 128;
 
     let mut next_temp = routine
         .temps
@@ -61,7 +69,7 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         .values()
         .filter(|facts| facts.is_promotable())
         .filter(|facts| matches!(facts.id, NirStorageId::Local(_)))
-        .filter(|facts| facts.store_blocks.len() <= MAX_HOT_HOME_STORE_BLOCKS)
+        .filter(|facts| requested_scratch || facts.store_blocks.len() <= MAX_HOT_HOME_STORE_BLOCKS)
         .filter(|facts| {
             let width = facts.direct_access_ty.as_ref().and_then(|ty| ty.width);
             (width == Some(ByteSize::ONE) && facts.direct_loads >= MIN_HOT_HOME_LOADS)
@@ -69,6 +77,11 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
                     && facts.direct_loads >= MIN_INDUCTION_ADDRESS_LOADS
                     && induction_address_homes.contains(&facts.id)
                 || bounded_relay_homes.contains(&facts.id)
+                || (requested_scratch
+                    && !facts.calls_may_read && !facts.calls_may_write
+                    && !facts.value_needed_at_exit
+                    && facts.direct_access_ty.as_ref().and_then(|ty| ty.kind.integer())
+                        .is_some_and(|integer| matches!(integer.bits, 8 | 16 | 32)))
         })
         .cloned()
         .collect::<Vec<_>>();

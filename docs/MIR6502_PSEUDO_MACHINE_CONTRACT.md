@@ -81,8 +81,11 @@ Requested routines also admit integer word and LONG computation. The optional
 `scalar_signature` records integer parameter/result lane groups from verified
 NIR; pointers, aggregates, variadics and machine-owned entries have no integer
 signature and are ineligible. A LONG parameter is one logical parameter with
-two word lanes at byte offsets 0 and 2. Scalar scratch and retained helpers are
-subject to the subsequent slices in `INLINE_IMPLEMENTATION_PLAN.md`.
+two word lanes at byte offsets 0 and 2. NIR's existing scalar promotion removes
+proven private scratch in bounded requested routines. MIR eligibility continues
+to reject any residual local frame; it never clones persistent storage into a
+per-call activation. Retained helpers are subject to the subsequent slice in
+`INLINE_IMPLEMENTATION_PLAN.md`.
 
 Ordinary calls carry `additional_results` with logical destinations, widths and
 homes, and the ABI declares additional lanes independently of live uses.

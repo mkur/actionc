@@ -156,3 +156,66 @@ fn annotated_routines_compile_across_modes_and_runtimes() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+fn optimized_inline_nir(source: &str) -> nir::NirProgram {
+    let ast = parser::parse(&lexer::tokenize(source).unwrap()).unwrap();
+    let model = semantic::analyze(&ast).unwrap();
+    let raw = nir::lower_program(&semantic::ir::lower_program(&ast, &model));
+    nir::verify_program(&raw).unwrap();
+    nir::optimize_program(&raw).unwrap()
+}
+
+#[test]
+fn requested_private_scratch_uses_existing_definite_assignment_promotion() {
+    for (ty, body) in [
+        (
+            "BYTE",
+            "BYTE scratch IF value THEN scratch=1 ELSE scratch=2 FI RETURN(scratch)",
+        ),
+        (
+            "INT",
+            "INT scratch IF value THEN scratch=INT(value) ELSE scratch=-1 FI RETURN(scratch)",
+        ),
+        (
+            "LONGINT",
+            "LONGINT scratch IF value THEN scratch=LONGINT(value) ELSE scratch=LONGINT(-1) FI RETURN(scratch)",
+        ),
+        (
+            "LONGINT",
+            "LONGINT first,second first=LONGINT(value) second=first+1 RETURN(second)",
+        ),
+    ] {
+        let source = format!(
+            "BYTE input {ty} output INLINE {ty} FUNC Map(BYTE value) {body} PROC Main() output=Map(input) RETURN"
+        );
+        let program = optimized_inline_nir(&source);
+        assert!(
+            program.routines[0].locals.is_empty(),
+            "{}",
+            nir::format_program(&program)
+        );
+        mir6502::lower_program(&program).unwrap();
+    }
+}
+
+#[test]
+fn inline_hint_does_not_promote_persistent_initialized_addressed_or_volatile_homes() {
+    for body in [
+        "BYTE scratch scratch==+1 RETURN(scratch)",
+        "BYTE scratch=[7] scratch==+1 RETURN(scratch)",
+        "BYTE scratch IF value THEN scratch=value FI RETURN(scratch)",
+        "VOLATILE BYTE scratch scratch=value RETURN(scratch)",
+        "BYTE scratch=$700 scratch=value RETURN(scratch)",
+        "BYTE scratch BYTE POINTER p p=@scratch p^=value RETURN(scratch)",
+    ] {
+        let source = format!(
+            "BYTE input,output INLINE BYTE FUNC Map(BYTE value) {body} PROC Main() output=Map(input) RETURN"
+        );
+        let program = optimized_inline_nir(&source);
+        assert!(
+            !program.routines[0].locals.is_empty(),
+            "{source}\n{}",
+            nir::format_program(&program)
+        );
+    }
+}

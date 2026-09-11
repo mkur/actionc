@@ -1,0 +1,13 @@
+BYTE input
+LONGINT output
+INLINE LONGINT FUNC Select(BYTE value)
+  LONGINT scratch
+  IF value THEN
+    scratch=LONGINT(value)
+  ELSE
+    scratch=LONGINT(-1)
+  FI
+RETURN(scratch)
+PROC Main()
+output=Select(input)
+RETURN

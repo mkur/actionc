@@ -24,6 +24,17 @@ verifier rejects requests on external declarations. MIR6502 receives these facts
 directly from verified NIR and owns eligibility, growth limits and cost decisions.
 Printers show non-default metadata as `inline prefer`; default output is unchanged.
 
+For requested routines with at most two parameters, eight blocks and 128 NIR
+operations, existing scalar promotion may admit private 8/16/32-bit scratch
+below its automatic hot/relay profitability thresholds. The shared storage
+analysis must still prove every read has a definition in the current invocation.
+Initializers, persistent read-before-definition, addresses/aliases, volatility,
+aggregate storage and observable call access remain blockers. Promotion uses the
+existing typed SSA/block-parameter rewrite and verifier; the preference supplies
+no new alias or lifetime facts. The `inline_scratch` fixture intentionally changes
+from routine-static scratch loads/stores to values and a typed join after
+optimization. Retained helpers are a subsequent MIR decision.
+
 Modern enum values enter executable NIR as U8 loads/stores, literals, casts,
 parameters, and results. Nominal identities and member names remain semantic or
 debug metadata; equal machine widths never authorize a source enum conversion.
