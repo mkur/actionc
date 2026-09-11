@@ -100,6 +100,7 @@ fn report_decision(
 #[derive(Debug)]
 struct Expansion {
     sites: usize,
+    helper_inputs_proven: bool,
     sites_by_block: BTreeMap<MirBlockId, usize>,
     /// Every cloned block and continuation belongs to an original caller
     /// block. Used to compare full materialized regions, including new spills.
@@ -202,6 +203,7 @@ fn expand_group(
         .checked_add(1)
         .ok_or_else(|| id_error(caller))?;
     let mut sites = 0;
+    let mut helper_inputs_proven = true;
     let mut sites_by_block = BTreeMap::new();
     loop {
         let site = caller.blocks.iter().enumerate().find_map(|(bi, b)| {
@@ -333,10 +335,12 @@ fn expand_group(
             let MirTerminator::Jump(edge) = &body.terminator else {
                 unreachable!()
             };
+            let retained_helpers = body.ops.iter().any(|op| matches!(op, MirOp::RuntimeHelper { .. }));
             let mut result_ids = BTreeMap::new();
             for (result, arg) in results.iter().zip(&edge.args) {
                 if let (MirDef::VTemp(dest), MirValue::Def(MirDef::VTemp(source))) =
                     (&result.dst, &arg.value)
+                    && !retained_helpers
                     && !input_temps.contains(dest)
                     && temps.values().any(|id| id == source)
                     && !result_ids.contains_key(source)
@@ -363,17 +367,25 @@ fn expand_group(
                     .into_iter()
                     .zip(edge.args)
                     .filter_map(|(result, arg)| {
-                        (arg.value != MirValue::Def(result.dst.clone())).then_some(MirOp::Move {
-                            dst: result.dst,
-                            src: arg.value,
-                            width: result.width,
-                        })
+                        if retained_helpers {
+                            let MirResultHome::ReturnSlot { offset } = result.home else { unreachable!() };
+                            Some(MirOp::Load {
+                                dst: result.dst,
+                                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 + offset as u8))),
+                                width: result.width,
+                            })
+                        } else {
+                            (arg.value != MirValue::Def(result.dst.clone())).then_some(MirOp::Move {
+                                dst: result.dst, src: arg.value, width: result.width,
+                            })
+                        }
                     }),
             );
             fold_inline_copies(
                 &mut ops,
                 &temps.values().chain(&captures).copied().collect(),
             );
+            helper_inputs_proven &= super::inlining_helpers::inputs_correspond(leaf, &args, &ops);
             caller.blocks[block_index]
                 .ops
                 .splice(op_index..op_index + 1, ops);
@@ -440,6 +452,7 @@ fn expand_group(
     }
     Ok(Expansion {
         sites,
+        helper_inputs_proven,
         origins,
         sites_by_block,
     })
@@ -579,6 +592,11 @@ pub(in crate::mir6502) fn materialize(
             &mut candidate.routines[caller_index],
             &census.leaves[&callee_id],
         )?;
+        if !expansion.helper_inputs_proven {
+            report_decision(&mut stats, &current, caller_id, callee_id,
+                "declined-helper-input-correspondence", None, None);
+            continue;
+        }
         crate::mir6502::verify_program(&candidate, MirPhase::PreMaterialization)?;
         trials[policy] += 1;
         stats.record(caller_id, "leaf-inline-trials");

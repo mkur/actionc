@@ -34,6 +34,7 @@ mod indexes;
 mod indexed_backing_tests;
 pub(super) mod inlining;
 mod inlining_cost;
+mod inlining_helpers;
 #[cfg(test)]
 mod leaf_test_cpu;
 mod layout;

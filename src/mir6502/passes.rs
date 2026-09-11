@@ -10,7 +10,7 @@ pub struct Mir6502Config {
     /// retains its own trip-count and growth limits; this is intentionally
     /// enabled only by the optimized configuration.
     pub enable_small_loop_unrolling: bool,
-    /// Inline private byte leaves only after materialization proves bounded
+    /// Inline eligible scalar routines only after materialization proves bounded
     /// growth and a conservative cycle saving in the expanded caller.
     pub enable_small_leaf_inlining: bool,
     pub peephole_report: MirPeepholeReportMode,

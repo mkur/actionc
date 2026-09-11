@@ -1,7 +1,10 @@
 # Costed Small Leaf-Routine Inliner
 
 Status: implemented, 2026-09-05. See the rollout details below for the
-conservative subset and validation results.
+conservative automatic subset and validation results. The requested scalar
+and retained-helper extension is specified in
+[INLINE declarations](INLINE_IMPLEMENTATION_PLAN.md) and the
+[MIR contract](MIR6502_PSEUDO_MACHINE_CONTRACT.md#costed-scalar-leaf-inlining).
 
 Baseline: `e091990` (`nir: promote bounded scalar relays for indexed consumers`).
 The standalone Atari AES benchmark at this baseline is 4039 XEX bytes and

@@ -67,3 +67,53 @@ fn complete_long_calls_preserve_both_results_across_repeated_calls_in_both_runti
         }
     }
 }
+
+#[test]
+fn retained_wide_helpers_preserve_results_order_and_nonreturning_faults() {
+    use actionc::compiler::CompileMode;
+    for (expression, kind) in [
+        ("LONGINT(left)*LONGINT(right)", 0),
+        ("LONGINT(left)/LONGINT(right)", 1),
+        ("LONGINT(left) MOD LONGINT(right)", 2),
+        (
+            "(LONGINT(left)*LONGINT(right))+(LONGINT(right)*LONGINT(left+1))",
+            3,
+        ),
+    ] {
+        let source = format!(
+            "INT a=$6E0,b=$6E2 LONGINT output=$600 BYTE done=$6DF INLINE LONGINT FUNC Map(INT left,right) RETURN({expression}) PROC Main() output=Map(a,b) done=$A5 RETURN"
+        );
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for inline in [false, true] {
+                let image = compile(&source, inline, runtime);
+                for a in [i16::MIN, -4097, -1, 0, 1, 4095, i16::MAX] {
+                    for b in [i16::MIN, -4095, -1, 0, 1, 4096, i16::MAX] {
+                        let fault = (kind == 1 || kind == 2) && b == 0;
+                        support::execute(
+                            &image,
+                            CompileMode::Mir6502,
+                            runtime,
+                            (a, b),
+                            fault,
+                            |page| {
+                                if fault {
+                                    return;
+                                }
+                                let (left, right) = (i32::from(a), i32::from(b));
+                                let value = match kind {
+                                    0 => left.wrapping_mul(right),
+                                    1 => left.wrapping_div(right),
+                                    2 => left.wrapping_rem(right),
+                                    _ => left.wrapping_mul(right).wrapping_add(
+                                        right.wrapping_mul(i32::from(a.wrapping_add(1))),
+                                    ),
+                                };
+                                page[..4].copy_from_slice(&value.to_le_bytes());
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

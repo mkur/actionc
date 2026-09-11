@@ -293,3 +293,155 @@ fn retained_persistent_counters_and_omitted_arguments_execute_with_static_storag
         assert_eq!(execute_scalar(&new, RoutineId(1), &[7]).0[0], expected);
     }
 }
+
+#[test]
+fn costed_requested_wrappers_keep_equivalent_arithmetic_helpers() {
+    let mut applied = 0;
+    for (ty, expression) in [
+        ("INT", "INT(LONGCARD(LONGINT(left)*LONGINT(right)) RSH 12)"),
+        ("LONGINT", "LONGINT(left)*LONGINT(right)"),
+        ("LONGINT", "LONGINT(left)/LONGINT(right)"),
+        ("LONGINT", "LONGINT(left) MOD LONGINT(right)"),
+    ] {
+        let source = format!(
+            "INT input=$600,other=$602 {ty} output=$610 INLINE {ty} FUNC Map(INT left,right) RETURN({expression}) PROC Main() output=Map(input,other) RETURN"
+        );
+        let (before, old) = compile_scalar_image(&source, false);
+        let (after, selected) = compile_scalar_image(&source, true);
+        assert_eq!(calls_to(&before, RoutineId(0)), 1);
+        applied += usize::from(calls_to(&after, RoutineId(0)) == 0);
+        for left in [i16::MIN, -16385, -4097, -1, 0, 1, 4095, 16384, i16::MAX] {
+            for right in [i16::MIN, -4095, -1, 1, 4096, i16::MAX] {
+                let input: Vec<_> = left
+                    .to_le_bytes()
+                    .into_iter()
+                    .chain(right.to_le_bytes())
+                    .collect();
+                assert_eq!(
+                    execute_scalar(&selected, RoutineId(1), &input),
+                    execute_scalar(&old, RoutineId(1), &input),
+                    "{expression}: {left},{right}"
+                );
+            }
+        }
+    }
+    assert!(
+        applied > 0,
+        "at least one costed helper wrapper must expand"
+    );
+}
+
+#[test]
+fn helper_input_witness_rejects_same_target_with_different_values_or_order() {
+    let source = "INT input=$600,other=$602 LONGINT output=$610 INLINE LONGINT FUNC Map(INT left,right) RETURN((LONGINT(left)*LONGINT(right))+(LONGINT(right)*LONGINT(left+1))) PROC Main() output=Map(input,other) RETURN";
+    let mut program = lower(source);
+    let census = analyze(&program);
+    let leaf = &census.leaves[&RoutineId(0)];
+    let call = program.routines[1].blocks[0]
+        .ops
+        .iter()
+        .find(|op| matches!(op, MirOp::Call { .. }))
+        .unwrap()
+        .clone();
+    let MirOp::Call { args, .. } = call else {
+        unreachable!()
+    };
+    let expansion = expand_group(&mut program.routines[1], leaf).unwrap();
+    assert!(expansion.helper_inputs_proven);
+    let ops = &program.routines[1].blocks[0].ops;
+    // Extract the expansion between the original caller loads and output store.
+    let ops = &ops[2..ops.len() - 2];
+    assert!(super::super::inlining_helpers::inputs_correspond(
+        leaf, &args, ops
+    ));
+    let mut wrong = ops.to_vec();
+    let stores: Vec<_> = wrong
+        .iter()
+        .enumerate()
+        .filter_map(|(i, op)| {
+            matches!(
+                op,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0x82))),
+                    ..
+                }
+            )
+            .then_some(i)
+        })
+        .collect();
+    if let MirOp::Store { src, .. } = &mut wrong[stores[0]] {
+        *src = MirValue::ConstU16(7);
+    }
+    assert!(!super::super::inlining_helpers::inputs_correspond(
+        leaf, &args, &wrong
+    ));
+    let mut wrong = ops.to_vec();
+    for offset in 0..4 {
+        wrong.swap(stores[0] + offset, stores[1] + offset);
+    }
+    assert!(!super::super::inlining_helpers::inputs_correspond(
+        leaf, &args, &wrong
+    ));
+}
+
+#[test]
+fn cloned_multiple_helpers_keep_results_live_and_reject_incomplete_protocols() {
+    let source = "INT input=$600,other=$602 LONGINT output=$610 INLINE LONGINT FUNC Map(INT left,right) RETURN((LONGINT(left)*LONGINT(right))+(LONGINT(right)*LONGINT(left+1))) PROC Main() output=Map(input,other) RETURN";
+    let (_, before) = compile_scalar_image(source, false);
+    let (_, after) = expand_scalar_control(source);
+    for left in [i16::MIN, -4097, -1, 0, 1, 4095, i16::MAX] {
+        for right in [i16::MIN, -1, 1, i16::MAX] {
+            let input: Vec<_> = left
+                .to_le_bytes()
+                .into_iter()
+                .chain(right.to_le_bytes())
+                .collect();
+            let actual = execute_scalar(&after, RoutineId(1), &input);
+            assert_eq!(actual, execute_scalar(&before, RoutineId(1), &input));
+            assert_eq!(
+                i32::from_le_bytes(actual.0),
+                i32::from(left)
+                    .wrapping_mul(i32::from(right))
+                    .wrapping_add(i32::from(right).wrapping_mul(i32::from(left.wrapping_add(1))))
+            );
+        }
+    }
+    for mutation in 0..5 {
+        let mut program = lower(source);
+        let ops = &mut program.routines[0].blocks[0].ops;
+        let index = ops
+            .iter()
+            .position(|op| matches!(op, MirOp::RuntimeHelper { .. }))
+            .unwrap();
+        match mutation {
+            0 => {
+                if let MirOp::RuntimeHelper { effects, .. } = &mut ops[index] {
+                    effects.opaque = true;
+                }
+            }
+            1 => {
+                if let MirOp::RuntimeHelper { args, .. } = &mut ops[index] {
+                    args.pop();
+                }
+            }
+            2 => {
+                if let MirOp::RuntimeHelper {
+                    additional_results, ..
+                } = &mut ops[index]
+                {
+                    additional_results.clear();
+                }
+            }
+            3 => {
+                ops.swap(index - 1, index - 2);
+            }
+            _ => {
+                ops.remove(index + 2);
+            }
+        }
+        assert!(
+            !analyze(&program).leaves.contains_key(&RoutineId(0)),
+            "mutation={mutation}"
+        );
+    }
+}

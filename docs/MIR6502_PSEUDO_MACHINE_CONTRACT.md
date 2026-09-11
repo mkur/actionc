@@ -84,8 +84,7 @@ signature and are ineligible. A LONG parameter is one logical parameter with
 two word lanes at byte offsets 0 and 2. NIR's existing scalar promotion removes
 proven private scratch in bounded requested routines. MIR eligibility continues
 to reject any residual local frame; it never clones persistent storage into a
-per-call activation. Retained helpers are subject to the subsequent slice in
-`INLINE_IMPLEMENTATION_PLAN.md`.
+per-call activation. Retained helpers obey the additional protocol below.
 
 Ordinary calls carry `additional_results` with logical destinations, widths and
 homes, and the ABI declares additional lanes independently of live uses.
@@ -121,6 +120,28 @@ trial-count and conservative cycle-saving limits are described in
 `MIR6502_SMALL_LEAF_INLINER_PLAN.md`. The default configuration remains off;
 `optimized()` enables this cost-gated pass. Materialized CLI dumps honor the
 same profile choice as executable generation.
+
+Requested straight-line wrappers may retain the closed `Mul32`, `Div32`,
+`Mod32`, `UDiv32`, `UMod32`, `Lsh32` and `Rsh32` helper set. Admission requires
+four complete word input stores at `$82/$84/$C0/$C2`, the canonical helper ABI
+and effects, and both result loads at `$C4/$C6`. No other workspace accesses,
+ordinary nested calls, OS calls or opaque machine blocks qualify. Division's
+nonreturning Error effects remain part of the helper; they are not relaxed to
+normal-return effects. Constant scalar shifts through 15 are supported for
+requested wrappers.
+
+Expansion checks helper input correspondence with an interned symbolic byte
+DAG after capture substitution and copy folding. Unknown expressions or changed
+inputs, ABI/effects, result lanes or helper order reject the trial. Canonical
+public return stores remain executable; straight-line helper wrappers bind
+caller results by reading those completed public homes.
+
+Final-code path summaries carry ordered helper events. Only equivalent work
+cancels, with retained bodies charged to image growth. Helper relocation is
+checked against the compiler-owned kernel bytes and fault target. A bounded
+control graph tracks emitted X counters and zero flags to bound page-crossing
+penalties across loop iterations; unproved cycles/control retain the call.
+No data-dependent helper is assigned a zero or fixed execution cost.
 
 ## Purpose
 

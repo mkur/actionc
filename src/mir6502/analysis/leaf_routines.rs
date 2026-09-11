@@ -255,6 +255,36 @@ pub(in crate::mir6502) fn return_values(block: &MirBlock) -> Vec<(MirWidth, &Mir
     lanes
 }
 
+/// Only the typed, complete wide-helper protocol may access private workspace.
+/// Every input is overwritten at this call and every result captured before any
+/// subsequent helper. Fault effects remain canonical, including OS/error paths.
+fn arithmetic_helper_ops(block: &MirBlock) -> Option<BTreeSet<usize>> {
+    use crate::mir6502::materialize::{helper_args, helper_additional_results, helper_effects};
+    let mut covered = BTreeSet::new();
+    for (index, op) in block.ops.iter().enumerate() {
+        let MirOp::RuntimeHelper { helper, args, result, additional_results, effects } = op else { continue; };
+        if !helper.is_wide() || *args != helper_args(helper)
+            || *additional_results != helper_additional_results(*helper)
+            || *result != Some(MirResultHome::FixedZeroPage(MirFixedZpSlot(0xC4)))
+            || *effects != helper_effects(helper) || index < 4 { return None; }
+        for (j, address) in [0x82, 0x84, 0xC0, 0xC2].into_iter().enumerate() {
+            if !matches!(&block.ops[index - 4 + j], MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+                src, width: MirWidth::Word,
+            } if *slot == address && scalar_value(src, MirWidth::Word)) { return None; }
+        }
+        for (j, address) in [0xC4, 0xC6].into_iter().enumerate() {
+            if !matches!(block.ops.get(index + 1 + j), Some(MirOp::Load {
+                dst: MirDef::VTemp(_),
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(slot))),
+                width: MirWidth::Word,
+            }) if *slot == address) { return None; }
+        }
+        covered.extend(index - 4..=index + 2);
+    }
+    Some(covered)
+}
+
 fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
     if routine.abi != MirRoutineAbi::Action {
         return Err("observable-entry");
@@ -321,6 +351,11 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
     if cfg.reachable().len() != routine.blocks.len() || !routine.blocks[0].params.is_empty() {
         return Err("cfg");
     }
+    let has_helpers = routine.blocks.iter().flat_map(|b| &b.ops)
+        .any(|op| matches!(op, MirOp::RuntimeHelper { .. }));
+    if has_helpers && (!requested || routine.blocks.len() != 1) {
+        return Err("helper-control");
+    }
     let value = |v: &MirValue, w| {
         if requested {
             scalar_value(v, w)
@@ -358,8 +393,10 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
                 return Err("mixed-returns");
             }
         }
+        let helper_ops = arithmetic_helper_ops(block).ok_or("helper-protocol")?;
         let return_start = block.ops.len() - returns.len();
         for (index, op) in block.ops.iter().enumerate() {
+            if helper_ops.contains(&index) { continue; }
             let supported = match op {
                 MirOp::Load {
                     dst,
@@ -419,7 +456,7 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
                                 ) || (requested
                                     && matches!(
                                         right,
-                                        MirValue::ConstU8(8) | MirValue::ConstU16(8)
+                                        MirValue::ConstU8(8..=15) | MirValue::ConstU16(8..=15)
                                     ))
                             }
                             _ => false,
@@ -529,7 +566,9 @@ fn call_matches(op: &MirOp, leaf: &LeafRoutine) -> bool {
                 && matches!(r.dst, MirDef::VTemp(_))
         })
         && !effects.opaque
-        && !effects.may_call_os
+        && (!effects.may_call_os || leaf.routine.blocks.iter().flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::RuntimeHelper { helper, .. }
+                if crate::mir6502::runtime::requires_error(*helper))))
         && effects.stack_depth_delta.is_none_or(|delta| delta == 0)
         && effects.reads == MirRegisterSet::default()
         && abi.preserves == MirRegisterSet::default()

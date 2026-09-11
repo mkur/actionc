@@ -14,7 +14,14 @@ Slice 4 extends the existing NIR promotion cost gate for bounded requested
 routines. Shared storage proofs still exclude initialized, persistent,
 addressed, aliased and volatile homes. The new `inline_scratch` snapshots
 document an intentional promotion change, with the unannotated corpus unchanged.
-Slices 5–6 remain pending.
+Slice 5 admits complete compiler-owned wide-helper protocols in straight-line
+requested wrappers. A bounded symbolic byte-DAG checks captured helper inputs,
+ABI/effects and event order. Emitted path summaries cancel equivalent helper
+work and bound relocation penalties through actual LDX/DEX loop counters.
+Generic multiplication, division and remainder wrappers pass costed selection;
+non-improving or over-budget multiply/shift sites still retain their calls.
+Fault and multi-helper execution coverage passes in both runtimes. Slice 6
+remains pending.
 
 ## Objective
 
