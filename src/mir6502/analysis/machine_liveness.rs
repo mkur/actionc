@@ -491,6 +491,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "MachineLiveness".to_string(),
@@ -525,8 +526,10 @@ mod tests {
     #[test]
     fn known_callee_preservation_keeps_index_values_live_across_calls() {
         let call = MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet {
@@ -558,6 +561,7 @@ mod tests {
             MirTerminator::Return,
         )]);
         let callee = MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(1),
             name: "PreservesY".to_string(),
@@ -688,8 +692,10 @@ mod tests {
     #[test]
     fn incomplete_call_clobbers_are_may_defs_not_unconditional_uses() {
         let call = || MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),

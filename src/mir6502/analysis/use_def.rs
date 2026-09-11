@@ -253,6 +253,7 @@ mod tests {
 
     fn routine() -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "uses".to_string(),

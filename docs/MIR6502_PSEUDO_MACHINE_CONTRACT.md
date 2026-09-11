@@ -77,13 +77,37 @@ outcome and available group byte/cycle estimates. They distinguish recursion,
 observable storage/entry, unsupported shape, budget exhaustion, uncertain cost
 and known non-improvement. Speculative materialization never emits reports.
 
+Requested routines also admit integer word and LONG computation. The optional
+`scalar_signature` records integer parameter/result lane groups from verified
+NIR; pointers, aggregates, variadics and machine-owned entries have no integer
+signature and are ineligible. A LONG parameter is one logical parameter with
+two word lanes at byte offsets 0 and 2. Scalar scratch and retained helpers are
+subject to the subsequent slices in `INLINE_IMPLEMENTATION_PLAN.md`.
+
+Ordinary calls carry `additional_results` with logical destinations, widths and
+homes, and the ABI declares additional lanes independently of live uses.
+User LONG calls define their low and high word at one operation; lowering no
+longer pairs a call with a neighboring `$A2` load. The verifier checks complete
+logical argument groups, target scalar result declarations, canonical
+non-overlapping LONG homes at `$A0`/`$A2`, unique result definitions and exact lane
+widths. An unused lane may lack a logical binding but retains its ABI declaration.
+Materialization places every bound lane and clears the logical call bindings
+before emission. Physical result-slot loads after this boundary are target
+placement, not a way to infer call ownership.
+
 Actuals cross the new call boundary through explicit entry block arguments,
 evaluated at the original call point. Parameter loads use those captured temps;
-fresh clone IDs cannot overlap either routine's original IDs. Every public
-`$A0` return store remains, including discarded results. Return edges supply a
-continuation parameter for the original result temp. Existing block-argument
+fresh clone IDs cannot overlap either routine's original IDs. Every declared
+public return-slot store remains, including discarded results. Return edges supply
+continuation parameters for the original result temps. Existing block-argument
 lowering owns the copies; the inliner adds no private parameter cells and
 performs no source-level arithmetic specialization.
+
+Requested straight-line bodies can share the caller block. Only proven immutable
+fresh temp copies are substituted; result definitions can reuse the original
+call destinations when they do not overlap actual inputs. Other bodies retain
+explicit block parameters and return continuations. Profitability can still
+decline a legal expansion, including parameter-prologue costs it cannot bound.
 
 Selection is transactional: the normal backend materializes and emits baseline
 and trial programs in memory at the same origin/runtime. Final instruction

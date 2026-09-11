@@ -276,6 +276,7 @@ fn bind_generated_helper(
         items,
     });
     program.routines.push(MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: routine_id,
         name: format!("ACTION.RUNTIME.ACTIONC::{}", helper_name(helper)),

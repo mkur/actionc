@@ -287,6 +287,7 @@ mod tests {
             ops.push(extra_use);
         }
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "Product".into(),

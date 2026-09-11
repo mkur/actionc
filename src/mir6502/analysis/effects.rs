@@ -784,6 +784,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             abi,
             args,
             result,
+            additional_results,
             effects,
             ..
         } => {
@@ -791,7 +792,7 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
             for arg in args {
                 record_value_as(&arg.value, MirTempUseKind::CallArgument, &mut summary);
             }
-            if let Some(result) = result {
+            for result in result.iter().chain(additional_results) {
                 record_def(&result.dst, result.width, &mut summary);
             }
             apply_structured_effects(effects, false, &mut summary);
@@ -1849,6 +1850,7 @@ mod tests {
 
     fn call_abi() -> MirCallAbi {
         MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet::default(),
@@ -2025,6 +2027,7 @@ mod tests {
             (
                 MirOpKind::Call,
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Indirect {
                         target: temp_value(1),
                         width: MirWidth::Word,
@@ -2509,6 +2512,7 @@ mod tests {
     #[test]
     fn calls_and_machine_blocks_remain_conservative() {
         let call = classify_op(&MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: call_abi(),
             args: Vec::new(),

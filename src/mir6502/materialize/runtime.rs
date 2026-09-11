@@ -34,6 +34,7 @@ pub(in crate::mir6502) fn deferred_helper_decl(helper: MirRuntimeHelper) -> MirR
 
 pub(in crate::mir6502) fn helper_abi() -> MirCallAbi {
     MirCallAbi {
+        additional_results: Vec::new(),
         params: vec![
             MirArgHome::StackFrame { base: 0, offset: 0 },
             MirArgHome::StackFrame { base: 0, offset: 2 },

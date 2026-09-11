@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::abi::{action_arg_home, action_arg_width_bytes};
 use super::analysis::cfg::MirCfg;
@@ -26,6 +26,7 @@ pub(super) fn verify_program(
         routine_ids: BTreeSet::new(),
         local_ids: BTreeSet::new(),
         param_ids: BTreeSet::new(),
+        scalar_signatures: BTreeMap::new(),
     };
     verifier.verify_program(program);
     if verifier.diagnostics.is_empty() {
@@ -42,6 +43,7 @@ struct MirVerifier {
     routine_ids: BTreeSet<RoutineId>,
     local_ids: BTreeSet<(RoutineId, LocalId)>,
     param_ids: BTreeSet<(RoutineId, ParamId)>,
+    scalar_signatures: BTreeMap<RoutineId, super::ir::MirScalarSignature>,
 }
 
 impl MirVerifier {
@@ -74,6 +76,8 @@ impl MirVerifier {
             .collect::<BTreeSet<_>>();
         self.global_ids = global_ids.clone();
         self.routine_ids = program.routines.iter().map(|routine| routine.id).collect();
+        self.scalar_signatures = program.routines.iter().filter_map(|r|
+            r.scalar_signature.clone().map(|signature| (r.id, signature))).collect();
         self.local_ids = program
             .routines
             .iter()
@@ -358,6 +362,16 @@ impl MirVerifier {
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
         self.verify_frame_inits(routine);
+        if let Some(signature) = &routine.scalar_signature {
+            let scalar = |lanes: &[MirWidth]| matches!(lanes,
+                [MirWidth::Byte] | [MirWidth::Word] | [MirWidth::Word, MirWidth::Word]);
+            if signature.params.iter().any(|p| !scalar(p))
+                || (!signature.result.is_empty() && !scalar(&signature.result))
+            {
+                self.diagnostics.push(MirDiagnostic::routine(&routine.name,
+                    "scalar signature requires complete byte, word or LONG lane groups"));
+            }
+        }
         if routine.inline.requested() && routine.abi == MirRoutineAbi::ExternalInterface {
             self.diagnostics.push(MirDiagnostic::routine(
                 &routine.name,
@@ -1715,12 +1729,37 @@ impl MirVerifier {
                 }
             }
             MirOp::Call {
+                additional_results,
                 target,
                 abi,
                 args,
                 result,
                 effects,
             } => {
+                if self.phase == MirPhase::PreMaterialization
+                    && let super::ir::MirCallTarget::Routine(id) = target
+                    && let Some(signature) = self.scalar_signatures.get(id)
+                {
+                    let widths: Vec<_> = signature.params.iter().flatten().copied().collect();
+                    let complete_prefix = args.is_empty() || signature.params.iter()
+                        .scan(0, |n, p| { *n += p.len(); Some(*n) }).any(|n| n == args.len());
+                    if !complete_prefix || args.iter().map(|a| a.width)
+                        .ne(widths.iter().take(args.len()).copied())
+                    {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                            "call arguments must supply complete logical scalar parameter lanes"));
+                    }
+                    let expected: Vec<_> = signature.result.iter().enumerate().skip(1)
+                        .map(|(i, &width)| super::ir::MirHelperResult {
+                            home: super::ir::MirResultHome::ReturnSlot { offset: i as u16 * 2 }, width,
+                        }).collect();
+                    if abi.additional_results != expected
+                        || result.as_ref().is_some_and(|r| signature.result.first() != Some(&r.width))
+                    {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                            "call result ABI must describe every scalar result lane of its target"));
+                    }
+                }
                 match target {
                     super::ir::MirCallTarget::Routine(id) if !routine_ids.contains(id) => {
                         self.diagnostics.push(MirDiagnostic::block(
@@ -1752,8 +1791,10 @@ impl MirVerifier {
                     let expected_effects = service.effects();
                     if !args.is_empty()
                         || result.is_some()
+                        || !additional_results.is_empty()
                         || !abi.params.is_empty()
                         || abi.result.is_some()
+                        || !abi.additional_results.is_empty()
                     {
                         self.diagnostics.push(MirDiagnostic::block(
                             &routine.name,
@@ -1814,7 +1855,7 @@ impl MirVerifier {
                         self.verify_def(routine, block, &result.dst);
                         self.verify_pre_emission_width(routine, block, result.width);
                     }
-                    (None, None) => {}
+                    (None, _) => {}
                     _ => {
                         self.diagnostics.push(MirDiagnostic::block(
                             &routine.name,
@@ -1822,6 +1863,50 @@ impl MirVerifier {
                             "call result home does not match ABI",
                         ));
                     }
+                }
+                // The only additional public scalar lane is the high word of
+                // a LONG result. Validate its ABI independently of live uses.
+                let wide_abi = abi.additional_results.as_slice() == [super::ir::MirHelperResult {
+                    home: super::ir::MirResultHome::ReturnSlot { offset: 2 },
+                    width: super::ir::MirWidth::Word,
+                }];
+                if !abi.additional_results.is_empty()
+                    && (!wide_abi
+                        || abi.result != Some(super::ir::MirResultHome::ReturnSlot { offset: 0 })
+                        || result.as_ref().is_some_and(|r| r.width != super::ir::MirWidth::Word
+                            || !matches!(r.dst, MirDef::VTemp(_))))
+                {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "additional call result ABI requires non-overlapping LONG word lanes at return offsets 0 and 2"));
+                }
+                let mut destinations = Vec::new();
+                if let Some(result) = result { destinations.push(&result.dst); }
+                let mut homes = Vec::new();
+                for lane in additional_results {
+                    self.verify_def(routine, block, &lane.dst);
+                    self.verify_pre_emission_width(routine, block, lane.width);
+                    if !abi.additional_results.iter().any(|declared|
+                        declared.home == lane.home && declared.width == lane.width)
+                    {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                            "additional call result does not match a declared ABI lane"));
+                    }
+                    if destinations.contains(&&lane.dst) || homes.contains(&&lane.home) {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                            "call result lanes must have unique destinations and ABI homes"));
+                    }
+                    if !matches!(lane.dst, super::ir::MirDef::VTemp(_)) {
+                        self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                            "additional call result must define a complete logical temp"));
+                    }
+                    destinations.push(&lane.dst);
+                    homes.push(&lane.home);
+                }
+                if !matches!(self.phase, MirPhase::PreMaterialization)
+                    && (!abi.additional_results.is_empty() || !additional_results.is_empty())
+                {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "materialized calls must have placed all additional result lanes"));
                 }
             }
             MirOp::MaterializeAddress { consumer, value } => {
@@ -4093,8 +4178,10 @@ mod tests {
         let shadow = MirArgHome::FixedZeroPage(MirFixedZpSlot(0xa0));
         let primary = MirArgHome::Reg(MirReg::A);
         let call = MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![shadow.clone(), primary.clone()],
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -4480,6 +4567,7 @@ mod tests {
 
     fn routine(id: RoutineId, name: &str, blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id,
             name: name.to_string(),

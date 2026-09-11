@@ -3028,6 +3028,7 @@ fn rewrite_mir_copy_prop_const_op(
             )
         }
         MirOp::Call {
+            additional_results,
             target,
             abi,
             args,
@@ -3048,6 +3049,7 @@ fn rewrite_mir_copy_prop_const_op(
                 .collect();
             (
                 MirOp::Call {
+                    additional_results,
                     target,
                     abi,
                     args,

@@ -706,13 +706,14 @@ fn op_summary(op: &MirOp) -> String {
             source_offset,
         ),
         MirOp::Call {
+            additional_results,
             target,
             abi,
             args,
             result,
             effects,
         } => format!(
-            "call {} args=[{}] result={} clobbers={} preserves={} effects={}",
+            "call {} args=[{}] result={}{} clobbers={} preserves={} effects={}",
             call_target_summary(target),
             args.iter()
                 .map(call_arg_summary)
@@ -722,6 +723,15 @@ fn op_summary(op: &MirOp) -> String {
                 .as_ref()
                 .map(call_result_summary)
                 .unwrap_or_else(|| "-".to_string()),
+            if abi.additional_results.is_empty() && additional_results.is_empty() {
+                String::new()
+            } else {
+                format!(" additional=[{}] additional-abi=[{}]",
+                    additional_results.iter().map(call_result_summary).collect::<Vec<_>>().join(", "),
+                    abi.additional_results.iter().map(|r|
+                        format!("{}:{}", result_home_summary(&r.home), width_suffix(r.width)))
+                        .collect::<Vec<_>>().join(", "))
+            },
             register_set_summary(&abi.clobbers),
             register_set_summary(&abi.preserves),
             effects_summary(effects)

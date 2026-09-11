@@ -6,7 +6,11 @@ The new lowered/optimized NIR fixtures add the `inline prefer` metadata contract
 existing fixture output is unchanged. Slice 2 implements requested BYTE-leaf
 priority, separate cumulative budgets and applied/declined site reports.
 Focused execution tests confirm the larger body gate changes selection while
-recursion, storage and non-improvement retain calls. Slices 3–6 remain pending.
+recursion, storage and non-improvement retain calls. Slice 3 implements explicit
+LONG call result lanes, integer scalar signature facts and typed word/LONG
+expansion. Focused expansion tests are separate from profitability tests: a legal
+expansion may retain its call, particularly when SArgs prologue costing is unknown.
+Slices 4–6 remain pending.
 
 ## Objective
 

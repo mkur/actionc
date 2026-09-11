@@ -2557,6 +2557,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "pilot".to_string(),
@@ -3172,8 +3173,10 @@ mod tests {
                     width: MirWidth::Byte,
                 },
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
                         result: None,
                         clobbers: MirRegisterSet::default(),
@@ -3263,6 +3266,7 @@ mod tests {
     fn return_slot_call_arg_forward_uses_routine_deadness() {
         fn call_abi(result: Option<MirResultHome>, params: Vec<MirArgHome>) -> MirCallAbi {
             MirCallAbi {
+                additional_results: Vec::new(),
                 params,
                 result,
                 clobbers: MirRegisterSet::default(),
@@ -3273,6 +3277,7 @@ mod tests {
         fn call_ops() -> Vec<MirOp> {
             vec![
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: call_abi(Some(MirResultHome::ReturnSlot { offset: 0 }), Vec::new()),
                     args: Vec::new(),
@@ -3284,6 +3289,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(2)),
                     abi: call_abi(None, vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)]),
                     args: vec![MirCallArg {
@@ -3352,8 +3358,10 @@ mod tests {
             let result = MirDef::VTemp(MirTempId(10));
             vec![
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: Vec::new(),
                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                         clobbers: MirRegisterSet::default(),
@@ -3461,8 +3469,10 @@ mod tests {
                     width: MirWidth::Byte,
                 },
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                         clobbers: MirRegisterSet::default(),
@@ -3586,8 +3596,10 @@ mod tests {
                     carry_out: crate::mir6502::ir::MirCarryOut::Ignore,
                 },
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: vec![MirArgHome::Reg(crate::mir6502::ir::MirReg::A)],
                         result: None,
                         clobbers: MirRegisterSet::default(),

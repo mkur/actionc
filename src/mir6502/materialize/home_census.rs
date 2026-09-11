@@ -1292,6 +1292,19 @@ fn record_op_defs(
     op_index: usize,
     facts: &mut BTreeMap<TempLane, LaneFacts>,
 ) {
+    if let MirOp::Call { result, additional_results, .. } = op {
+        for result in result.iter().chain(additional_results) {
+            for lane in def_lanes(&result.dst, result.width) {
+                facts.entry(lane).or_default().defs.push(DefSite {
+                    block,
+                    op: op_index,
+                    natural_reg: result_home_reg(&result.home, lane.byte),
+                    coupled: !additional_results.is_empty(),
+                });
+            }
+        }
+        return;
+    }
     let (def, width) = match op {
         MirOp::LoadImm { dst, width, .. }
         | MirOp::Load { dst, width, .. }
@@ -1302,10 +1315,6 @@ fn record_op_defs(
         MirOp::Extend { dst, to_width, .. } => (Some(dst), Some(*to_width)),
         MirOp::Truncate { dst, to_width, .. } => (Some(dst), Some(*to_width)),
         MirOp::LoadIndirect { dst, .. } => (Some(dst), Some(MirWidth::Byte)),
-        MirOp::Call {
-            result: Some(result),
-            ..
-        } => (Some(&result.dst), Some(result.width)),
         _ => (None, None),
     };
     if let (Some(def), Some(width)) = (def, width) {
@@ -1894,6 +1903,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>, temps: u32) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "HomeCensus".to_string(),
@@ -2333,11 +2343,13 @@ mod tests {
                         width: MirWidth::Byte,
                     },
                     MirOp::Call {
+                        additional_results: Vec::new(),
                         target: MirCallTarget::Builtin {
                             name: "consume_a".to_string(),
                             address: Some(0x5000),
                         },
                         abi: crate::mir6502::ir::MirCallAbi {
+                            additional_results: Vec::new(),
                             params: vec![MirArgHome::Reg(MirReg::A)],
                             result: None,
                             clobbers: Default::default(),
@@ -2692,11 +2704,13 @@ mod tests {
                         width: MirWidth::Byte,
                     },
                     MirOp::Call {
+                        additional_results: Vec::new(),
                         target: MirCallTarget::Builtin {
                             name: "noop".to_string(),
                             address: Some(0x4000),
                         },
                         abi: crate::mir6502::ir::MirCallAbi {
+                            additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,
                             clobbers: Default::default(),

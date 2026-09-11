@@ -800,6 +800,7 @@ mod tests {
 
     fn routine() -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "context".to_string(),
@@ -922,6 +923,7 @@ mod tests {
             lo: MirFixedZpSlot(0xAC),
         });
         let routine = MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "posthome-context".to_string(),

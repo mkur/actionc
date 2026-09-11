@@ -240,6 +240,9 @@ pub enum MirRuntimeHelperTarget {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirRoutine {
     pub inline: crate::routine_options::InlineHint,
+    /// Integer-only logical scalar signature from verified NIR. Pointer,
+    /// aggregate, variadic and compiler-owned machine entries have no such facts.
+    pub scalar_signature: Option<MirScalarSignature>,
     pub id: RoutineId,
     pub name: String,
     pub abi: MirRoutineAbi,
@@ -247,6 +250,13 @@ pub struct MirRoutine {
     pub temps: Vec<MirTemp>,
     pub blocks: Vec<MirBlock>,
     pub effects: MirEffects,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MirScalarSignature {
+    /// One entry per logical source parameter, including both LONG word lanes.
+    pub params: Vec<Vec<MirWidth>>,
+    pub result: Vec<MirWidth>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -629,6 +639,9 @@ pub enum MirOp {
         abi: MirCallAbi,
         args: Vec<MirCallArg>,
         result: Option<MirCallResult>,
+        /// Further logical result lanes, defined by this call, never by a
+        /// neighboring public-return-slot load in pre-materialization MIR.
+        additional_results: Vec<MirCallResult>,
         effects: MirEffects,
     },
     RuntimeHelper {
@@ -1020,6 +1033,8 @@ impl MirAtariFppService {
 pub struct MirCallAbi {
     pub params: Vec<MirArgHome>,
     pub result: Option<MirResultHome>,
+    /// Declared additional ABI lanes, even when their logical values are unused.
+    pub additional_results: Vec<MirHelperResult>,
     pub clobbers: MirRegisterSet,
     pub preserves: MirRegisterSet,
 }

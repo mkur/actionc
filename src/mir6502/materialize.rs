@@ -4359,6 +4359,7 @@ fn materialize_remaining_pointer_cell_ops(ops: Vec<MirOp>) -> Vec<MirOp> {
                 );
             }
             MirOp::Call {
+                additional_results,
                 target,
                 abi,
                 args,
@@ -4380,6 +4381,7 @@ fn materialize_remaining_pointer_cell_ops(ops: Vec<MirOp>) -> Vec<MirOp> {
                     materialized_args.push(arg);
                 }
                 out.push(MirOp::Call {
+                    additional_results,
                     target,
                     abi,
                     args: materialized_args,
@@ -5500,12 +5502,13 @@ fn materialize_ops_impl(
                 }
             }
             MirOp::Call {
+                additional_results,
                 target,
                 abi,
                 args,
                 result,
                 effects,
-            } => materialize_call(target, abi, args, result, effects, layout, &mut out),
+            } => materialize_call(target, abi, args, result, additional_results, effects, layout, &mut out),
             MirOp::Binary {
                 op,
                 dst,
@@ -5798,12 +5801,14 @@ fn normalize_synthetic_byte_storage_high_ops(
                 signed,
             }),
             MirOp::Call {
+                additional_results,
                 target,
                 args,
                 result,
                 abi,
                 effects,
             } => out.push(MirOp::Call {
+                additional_results,
                 target,
                 args: args
                     .into_iter()

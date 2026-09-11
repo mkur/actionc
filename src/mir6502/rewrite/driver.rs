@@ -1569,11 +1569,13 @@ mod tests {
                 })
                 .collect::<Vec<_>>();
             original.push(MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Runtime {
                     name: "Entry".into(),
                     address: Some(0x04CB),
                 },
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: homes,
                     result: None,
                     clobbers: Default::default(),
@@ -1825,6 +1827,7 @@ mod tests {
 
     fn routine(op: MirOp) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "driver".to_string(),

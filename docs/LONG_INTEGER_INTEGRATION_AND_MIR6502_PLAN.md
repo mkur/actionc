@@ -121,6 +121,15 @@ Four-byte results occupy $A0..$A3. Caller-side result capture must precede any
 overlapping outgoing argument write, particularly at $A3. Private arithmetic
 helpers have their own independently described input/result signatures.
 
+Before materialization, a user LONG call defines both word temps in one `Call`:
+the high word is an explicit additional result with its declared ABI home.
+The caller must not infer that result from an adjacent `$A2` load. Integer
+scalar signature facts retained on MIR routines let verification reject missing
+result lanes, partial logical argument groups, overlapping homes and duplicate
+destinations. Unused result bindings may be absent while ABI declarations and
+callee return-slot writes remain. Materialization owns the eventual physical
+loads/stores for all live lanes.
+
 The initial wide arithmetic helpers consume four word lanes at $82/$84/$C0/$C2
 and return low/high words at $C4/$C6. They declare private scratch $82..$87 and
 $C0..$C7, A/X/Y/flags clobbers and balanced returning stack effects. They link

@@ -366,6 +366,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "ParamAvailability".to_string(),
@@ -472,8 +473,10 @@ mod tests {
     #[test]
     fn structured_global_writes_preserve_param_facts_but_param_writes_kill() {
         let call = |memory_writes| MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet {
@@ -559,8 +562,10 @@ mod tests {
             vec![
                 capture(0, 0, MirReg::A),
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: Vec::new(),
                         result: None,
                         clobbers,

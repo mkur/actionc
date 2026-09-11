@@ -503,6 +503,7 @@ pub(in crate::mir6502) fn signed_word_zero_compare_candidate(
     index: usize,
 ) -> Option<SignedWordZeroCompareCandidate> {
     if let Some(MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -550,6 +551,7 @@ pub(in crate::mir6502) fn signed_word_zero_compare_candidate(
             source_lo,
             source_hi,
             prefix_ops: vec![MirOp::Call {
+                additional_results: additional_results.clone(),
                 target: target.clone(),
                 abi: abi.clone(),
                 args: args.clone(),

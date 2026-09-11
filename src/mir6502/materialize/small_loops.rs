@@ -1016,6 +1016,7 @@ fn remap_op_temp(op: &mut MirOp, old: MirTempId, new: MirTempId) {
             target,
             args,
             result,
+            additional_results,
             ..
         } => {
             if let crate::mir6502::ir::MirCallTarget::Indirect { target, .. } = target {
@@ -1024,7 +1025,7 @@ fn remap_op_temp(op: &mut MirOp, old: MirTempId, new: MirTempId) {
             for arg in args {
                 remap_value_temp(&mut arg.value, old, new);
             }
-            if let Some(result) = result {
+            for result in result.iter_mut().chain(additional_results) {
                 remap_def_temp(&mut result.dst, old, new);
             }
         }

@@ -1627,6 +1627,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -1677,6 +1678,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -1790,6 +1792,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -1933,6 +1936,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -2070,6 +2074,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -2173,6 +2178,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "FreeLike".to_string(),
@@ -2475,6 +2481,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -2576,6 +2583,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -2652,6 +2660,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -2721,6 +2730,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Take".to_string(),
@@ -2737,6 +2747,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -2774,8 +2785,10 @@ mod tests {
                                     width: MirWidth::Byte,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
                                         clobbers: MirRegisterSet::default(),
@@ -2819,6 +2832,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -2924,6 +2938,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3056,6 +3071,7 @@ mod tests {
             statics: Vec::new(),
             globals,
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -3200,6 +3216,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3375,6 +3392,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3460,6 +3478,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3530,6 +3549,7 @@ mod tests {
                 statics: Vec::new(),
                 globals: Vec::new(),
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3592,6 +3612,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3651,6 +3672,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Noop".to_string(),
@@ -3667,6 +3689,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -3688,8 +3711,10 @@ mod tests {
                                     carry_out: MirCarryOut::Ignore,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
                                         clobbers: MirRegisterSet::default(),
@@ -3753,6 +3778,7 @@ mod tests {
                     })
                     .collect(),
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3905,6 +3931,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -3972,6 +3999,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -4070,6 +4098,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -4176,6 +4205,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -4269,6 +4299,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Main".to_string(),
@@ -4289,8 +4320,10 @@ mod tests {
                                     width: MirWidth::Word,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(1)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
                                         clobbers: MirRegisterSet::default(),
@@ -4314,6 +4347,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Noop".to_string(),
@@ -4372,6 +4406,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -4458,6 +4493,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Main".to_string(),
@@ -4488,8 +4524,10 @@ mod tests {
                                     width: MirWidth::Byte,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(1)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: vec![
                                             MirArgHome::Reg(MirReg::A),
                                             MirArgHome::Reg(MirReg::X),
@@ -4519,6 +4557,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Sink".to_string(),
@@ -4576,6 +4615,7 @@ mod tests {
                 ],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Callee".to_string(),
@@ -4592,6 +4632,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -4612,8 +4653,10 @@ mod tests {
                                     width: MirWidth::Byte,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
                                         clobbers: MirRegisterSet::default(),
@@ -4674,6 +4717,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -4740,6 +4784,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -4823,6 +4868,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Callee".to_string(),
@@ -4839,6 +4885,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -4851,8 +4898,10 @@ mod tests {
                             params: Vec::new(),
                             ops: vec![
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                                         clobbers: MirRegisterSet::default(),
@@ -4915,6 +4964,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Callee".to_string(),
@@ -4931,6 +4981,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -4943,8 +4994,10 @@ mod tests {
                             params: Vec::new(),
                             ops: vec![
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                                         clobbers: MirRegisterSet::default(),
@@ -5025,6 +5078,7 @@ mod tests {
                 ],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Take".to_string(),
@@ -5041,6 +5095,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -5078,8 +5133,10 @@ mod tests {
                                     width: MirWidth::Byte,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: vec![
                                             MirArgHome::RegisterPair {
                                                 lo: MirReg::A,
@@ -5183,6 +5240,7 @@ mod tests {
                 ],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Take".to_string(),
@@ -5199,6 +5257,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -5261,8 +5320,10 @@ mod tests {
                                     carry_out: MirCarryOut::Ignore,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: vec![
                                             MirArgHome::RegisterPair {
                                                 lo: MirReg::A,
@@ -5331,6 +5392,7 @@ mod tests {
                 }],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Noop".to_string(),
@@ -5347,6 +5409,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Take".to_string(),
@@ -5363,6 +5426,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(2),
                         name: "Main".to_string(),
@@ -5383,8 +5447,10 @@ mod tests {
                                     width: MirWidth::Word,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: Vec::new(),
                                         result: None,
                                         clobbers: MirRegisterSet::default(),
@@ -5395,8 +5461,10 @@ mod tests {
                                     effects: MirEffects::default(),
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(1)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: vec![MirArgHome::RegisterPair {
                                             lo: MirReg::A,
                                             hi: MirReg::X,
@@ -5476,6 +5544,7 @@ mod tests {
                 ],
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Take".to_string(),
@@ -5492,6 +5561,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -5512,8 +5582,10 @@ mod tests {
                                     width: MirWidth::Byte,
                                 },
                                 MirOp::Call {
+                                    additional_results: Vec::new(),
                                     target: MirCallTarget::Routine(RoutineId(0)),
                                     abi: MirCallAbi {
+                                        additional_results: Vec::new(),
                                         params: vec![MirArgHome::Reg(MirReg::A)],
                                         result: None,
                                         clobbers: MirRegisterSet::default(),
@@ -5573,6 +5645,7 @@ mod tests {
                 globals: Vec::new(),
                 routines: vec![
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(0),
                         name: "Take".to_string(),
@@ -5589,6 +5662,7 @@ mod tests {
                         effects: MirEffects::default(),
                     },
                     MirRoutine {
+                        scalar_signature: None,
                         inline: Default::default(),
                         id: RoutineId(1),
                         name: "Main".to_string(),
@@ -5600,8 +5674,10 @@ mod tests {
                             label: "bb0".to_string(),
                             params: Vec::new(),
                             ops: vec![MirOp::Call {
+                                additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
+                                    additional_results: Vec::new(),
                                     params: vec![MirArgHome::RegisterPair {
                                         lo: MirReg::A,
                                         hi: MirReg::X,
@@ -5673,6 +5749,7 @@ mod tests {
                     },
                 ],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -5753,6 +5830,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -5851,6 +5929,7 @@ mod tests {
                     init: None,
                 }],
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -5981,6 +6060,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6027,6 +6107,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6065,6 +6146,7 @@ mod tests {
                 helper: MirRuntimeHelper::Mul,
                 target: MirRuntimeHelperTarget::Deferred,
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -6101,6 +6183,7 @@ mod tests {
                 init: None,
             }],
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6165,6 +6248,7 @@ mod tests {
                 init: None,
             }],
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6222,6 +6306,7 @@ mod tests {
             }],
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6260,6 +6345,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6305,6 +6391,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6363,6 +6450,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6417,6 +6505,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6496,6 +6585,7 @@ mod tests {
                 statics: Vec::new(),
                 globals: Vec::new(),
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -6578,6 +6668,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6645,6 +6736,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6723,6 +6815,7 @@ mod tests {
                 },
             ],
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6793,6 +6886,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6865,6 +6959,7 @@ mod tests {
                 }),
             }],
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6920,6 +7015,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -6970,6 +7066,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7021,6 +7118,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7076,6 +7174,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7122,6 +7221,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7183,6 +7283,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7254,6 +7355,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Touch".to_string(),
@@ -7270,6 +7372,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(1),
                     name: "Main".to_string(),
@@ -7281,8 +7384,10 @@ mod tests {
                         label: "bb0".to_string(),
                         params: Vec::new(),
                         ops: vec![MirOp::Call {
+                            additional_results: Vec::new(),
                             target: MirCallTarget::Routine(RoutineId(0)),
                             abi: MirCallAbi {
+                                additional_results: Vec::new(),
                                 params: Vec::new(),
                                 result: None,
                                 clobbers: MirRegisterSet::default(),
@@ -7313,6 +7418,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7357,6 +7463,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Callee".to_string(),
@@ -7373,6 +7480,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(1),
                     name: "Main".to_string(),
@@ -7385,8 +7493,10 @@ mod tests {
                         params: Vec::new(),
                         ops: vec![
                             MirOp::Call {
+                                additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
+                                    additional_results: Vec::new(),
                                     params: Vec::new(),
                                     result: None,
                                     clobbers: MirRegisterSet::default(),
@@ -7424,6 +7534,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Callee".to_string(),
@@ -7440,6 +7551,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(1),
                     name: "Main".to_string(),
@@ -7452,8 +7564,10 @@ mod tests {
                             label: "call".to_string(),
                             params: Vec::new(),
                             ops: vec![MirOp::Call {
+                                additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(0)),
                                 abi: MirCallAbi {
+                                    additional_results: Vec::new(),
                                     params: Vec::new(),
                                     result: None,
                                     clobbers: MirRegisterSet::default(),
@@ -7492,6 +7606,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7539,6 +7654,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7579,6 +7695,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7621,6 +7738,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7632,11 +7750,13 @@ mod tests {
                     label: "bb0".to_string(),
                     params: Vec::new(),
                     ops: vec![MirOp::Call {
+                        additional_results: Vec::new(),
                         target: MirCallTarget::Builtin {
                             name: "Put".to_string(),
                             address: Some(0xE456),
                         },
                         abi: MirCallAbi {
+                            additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,
                             clobbers: MirRegisterSet::default(),
@@ -7679,6 +7799,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7690,11 +7811,13 @@ mod tests {
                     label: "bb0".to_string(),
                     params: Vec::new(),
                     ops: vec![MirOp::Call {
+                        additional_results: Vec::new(),
                         target: MirCallTarget::Builtin {
                             name: "NotAThing".to_string(),
                             address: None,
                         },
                         abi: MirCallAbi {
+                            additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,
                             clobbers: MirRegisterSet::default(),
@@ -7727,6 +7850,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7779,6 +7903,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Target".to_string(),
@@ -7795,6 +7920,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(1),
                     name: "Main".to_string(),
@@ -7855,6 +7981,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7898,6 +8025,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7934,6 +8062,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -7984,6 +8113,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8066,6 +8196,7 @@ mod tests {
                 statics: Vec::new(),
                 globals: Vec::new(),
                 routines: vec![MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -8100,6 +8231,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8157,6 +8289,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8214,6 +8347,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8286,6 +8420,7 @@ mod tests {
                 init: None,
             }],
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8418,6 +8553,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8458,6 +8594,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8505,6 +8642,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8544,6 +8682,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -8580,6 +8719,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9030,6 +9170,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9095,6 +9236,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9174,6 +9316,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9287,6 +9430,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9384,6 +9528,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9464,6 +9609,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9576,6 +9722,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9674,6 +9821,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9748,6 +9896,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9834,6 +9983,7 @@ mod tests {
             statics: Vec::new(),
             globals: Vec::new(),
             routines: vec![MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "Main".to_string(),
@@ -9893,6 +10043,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Main".to_string(),
@@ -9919,8 +10070,10 @@ mod tests {
                                 width: MirWidth::Byte,
                             },
                             MirOp::Call {
+                                additional_results: Vec::new(),
                                 target: MirCallTarget::Routine(RoutineId(1)),
                                 abi: MirCallAbi {
+                                    additional_results: Vec::new(),
                                     params: Vec::new(),
                                     result: None,
                                     clobbers: MirRegisterSet {
@@ -9952,6 +10105,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(1),
                     name: "Callee".to_string(),

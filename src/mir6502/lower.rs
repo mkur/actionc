@@ -737,6 +737,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
 
             MirRoutine {
                 inline: routine.inline,
+                scalar_signature: scalar_signature(&routine.signature),
                 id: RoutineId(routine.id.0),
                 name: routine.name.clone(),
                 abi: if routine_has_external_interface(routine) {
@@ -984,6 +985,20 @@ fn routine_has_observable_action_entry(routine: &nir::NirRoutine) -> bool {
 
 fn routine_is_program_entry(routine: &nir::NirRoutine) -> bool {
     routine.entry.program
+}
+
+fn scalar_signature(signature: &nir::NirCallableSignature) -> Option<super::ir::MirScalarSignature> {
+    if signature.variadic.is_some() { return None; }
+    let lanes = |ty: &nir::NirType| match ty.kind.integer()?.bits {
+        8 => Some(vec![MirWidth::Byte]),
+        16 => Some(vec![MirWidth::Word]),
+        32 => Some(vec![MirWidth::Word, MirWidth::Word]),
+        _ => None,
+    };
+    Some(super::ir::MirScalarSignature {
+        params: signature.params.iter().map(lanes).collect::<Option<_>>()?,
+        result: match &signature.result { Some(ty) => lanes(ty)?, None => Vec::new() },
+    })
 }
 
 fn routine_has_external_interface(routine: &nir::NirRoutine) -> bool {
@@ -1946,16 +1961,19 @@ fn lower_ops(
                     continue;
                 };
                 lowered.push(MirOp::Call {
+                    additional_results: result.as_ref()
+                        .filter(|result| wide::wide_type(&result.ty))
+                        .map(|result| super::ir::MirCallResult {
+                            dst: wide_values.defs(result.dest)[1].clone(),
+                            home: super::ir::MirResultHome::ReturnSlot { offset: 2 },
+                            width: MirWidth::Word,
+                        }).into_iter().collect(),
                     target: plan.target,
                     abi: plan.abi,
                     args: plan.args,
                     result: plan.result,
                     effects: plan.effects,
                 });
-                if let Some(result) = result.as_ref().filter(|result| wide::wide_type(&result.ty)) {
-                    lowered.push(MirOp::Load { dst: wide_values.defs(result.dest)[1].clone(),
-                        src: MirAddr::Direct(return_slot_mem(2)), width: MirWidth::Word });
-                }
             }
             NirOpKind::ForeignCode { code, effects } => {
                 let Some((items, effects)) = (match &code.payload {
@@ -3331,8 +3349,10 @@ fn atari_fpp_call(service: MirAtariFppService) -> MirOp {
     let effects = service.effects();
     let clobbers = effects.clobbers;
     MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::AtariFpp(service),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers,

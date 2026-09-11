@@ -5,7 +5,7 @@ use super::inlining_cost::{Image, saving};
 use super::small_loops::remap_block_temps;
 use super::stats::{MirPeepholeStats, maybe_report_peepholes};
 use crate::mir6502::analysis::leaf_routines::{
-    LeafCensus, LeafRoutine, caller_supported, return_store,
+    LeafCensus, LeafRoutine, caller_supported, return_values,
 };
 use crate::mir6502::diagnostics::MirDiagnostic;
 use crate::mir6502::ir::*;
@@ -119,6 +119,62 @@ fn fresh(next: &mut u32, routine: &MirRoutine) -> Result<u32, Vec<MirDiagnostic>
     Ok(result)
 }
 
+fn fold_inline_copies(ops: &mut Vec<MirOp>, fresh: &std::collections::BTreeSet<MirTempId>) {
+    use crate::mir6502::analysis::effects::classify_op;
+    let mut definitions = BTreeMap::<MirTempId, std::collections::BTreeSet<usize>>::new();
+    for (index, op) in ops.iter().enumerate() {
+        for access in classify_op(op).logical.temp_defs {
+            definitions.entry(access.temp()).or_default().insert(index);
+        }
+    }
+    let mut remove = std::collections::BTreeSet::new();
+    for index in 0..ops.len() {
+        let MirOp::Move {
+            dst: MirDef::VTemp(temp),
+            src,
+            width,
+        } = &ops[index]
+        else {
+            continue;
+        };
+        if !fresh.contains(temp) || definitions[temp].len() != 1 {
+            continue;
+        }
+        if classify_op(&ops[index])
+            .logical
+            .temp_uses
+            .iter()
+            .any(|access| {
+                definitions
+                    .get(&access.temp())
+                    .is_some_and(|sites| sites.last().is_some_and(|last| *last >= index))
+            })
+        {
+            continue;
+        }
+        let (temp, replacement) = (
+            *temp,
+            match (src, width) {
+                (MirValue::Def(MirDef::VTemp(id)), MirWidth::Word) => MirValue::Word {
+                    lo: Box::new(MirValue::Def(MirDef::VTempByte { id: *id, byte: 0 })),
+                    hi: Box::new(MirValue::Def(MirDef::VTempByte { id: *id, byte: 1 })),
+                },
+                _ => src.clone(),
+            },
+        );
+        for op in &mut ops[index + 1..] {
+            super::temps::replace_op_temp_values(op, temp, &replacement);
+        }
+        remove.insert(index);
+    }
+    let mut index = 0;
+    ops.retain(|_| {
+        let keep = !remove.contains(&index);
+        index += 1;
+        keep
+    });
+}
+
 fn expand_group(
     caller: &mut MirRoutine,
     leaf: &LeafRoutine,
@@ -157,10 +213,16 @@ fn expand_group(
         let Some((block_index, op_index)) = site else {
             break;
         };
-        let MirOp::Call { args, result, .. } = caller.blocks[block_index].ops[op_index].clone()
+        let MirOp::Call {
+            args,
+            result,
+            additional_results,
+            ..
+        } = caller.blocks[block_index].ops[op_index].clone()
         else {
             unreachable!()
         };
+        let results: Vec<_> = result.into_iter().chain(additional_results).collect();
         let parent = origins[&caller.blocks[block_index].id];
         *sites_by_block.entry(parent).or_default() += 1;
         let continuation_id = MirBlockId(fresh(&mut next_block, caller)?);
@@ -192,43 +254,50 @@ fn expand_group(
             if original.id == leaf.routine.blocks[0].id {
                 block
                     .params
-                    .extend(captures.iter().map(|dest| MirBlockParam {
-                        dest: *dest,
-                        width: MirWidth::Byte,
-                    }));
+                    .extend(
+                        captures
+                            .iter()
+                            .zip(&leaf.params)
+                            .map(|(dest, param)| MirBlockParam {
+                                dest: *dest,
+                                width: param.width,
+                            }),
+                    );
             }
             for op in &mut block.ops {
                 if let MirOp::Load {
                     dst,
-                    src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
-                    width: MirWidth::Byte,
+                    src: MirAddr::Direct(MirMem::Param { id, offset }),
+                    width,
                 } = op
                 {
                     let index = leaf
                         .params
                         .iter()
-                        .position(|p| p == id)
+                        .position(|p| p.id == *id && p.offset == *offset && p.width == *width)
                         .expect("classified leaf parameter");
                     *op = MirOp::Move {
                         dst: dst.clone(),
                         src: MirValue::Def(MirDef::VTemp(captures[index])),
-                        width: MirWidth::Byte,
+                        width: *width,
                     };
                 }
             }
+            let returns: Vec<_> = return_values(&block)
+                .into_iter()
+                .map(|(width, value)| (width, value.clone()))
+                .collect();
             match &mut block.terminator {
                 MirTerminator::Return => {
                     let mut edge = MirEdge::plain(continuation_id);
-                    if result.is_some() {
-                        let value = block
-                            .ops
-                            .last()
-                            .and_then(return_store)
-                            .expect("classified value return")
-                            .clone();
+                    for result in &results {
+                        let MirResultHome::ReturnSlot { offset } = result.home else {
+                            unreachable!("classified call result home")
+                        };
+                        let (width, value) = &returns[offset as usize / 2];
                         edge.args.push(MirEdgeArg {
-                            value,
-                            width: MirWidth::Byte,
+                            value: value.clone(),
+                            width: *width,
                         });
                     }
                     block.terminator = MirTerminator::Jump(edge);
@@ -247,6 +316,76 @@ fn expand_group(
             origins.insert(block.id, parent);
             cloned.push(block);
         }
+        if leaf.routine.inline.requested() && cloned.len() == 1 {
+            // A straight-line body needs no CFG boundary. Fresh capture and
+            // clone IDs make these copies simultaneous without scratch homes;
+            // ordinary local copy propagation can then remove redundant moves.
+            let mut body = cloned.pop().unwrap();
+            let input_temps: std::collections::BTreeSet<_> =
+                crate::mir6502::analysis::effects::classify_op(
+                    &caller.blocks[block_index].ops[op_index],
+                )
+                .logical
+                .temp_uses
+                .iter()
+                .map(|a| a.temp())
+                .collect();
+            let MirTerminator::Jump(edge) = &body.terminator else {
+                unreachable!()
+            };
+            let mut result_ids = BTreeMap::new();
+            for (result, arg) in results.iter().zip(&edge.args) {
+                if let (MirDef::VTemp(dest), MirValue::Def(MirDef::VTemp(source))) =
+                    (&result.dst, &arg.value)
+                    && !input_temps.contains(dest)
+                    && temps.values().any(|id| id == source)
+                    && !result_ids.contains_key(source)
+                {
+                    result_ids.insert(*source, *dest);
+                }
+            }
+            remap_block_temps(&mut body, &result_ids);
+            let mut ops: Vec<_> = captures
+                .iter()
+                .zip(&args)
+                .map(|(temp, arg)| MirOp::Move {
+                    dst: MirDef::VTemp(*temp),
+                    src: arg.value.clone(),
+                    width: arg.width,
+                })
+                .collect();
+            ops.extend(body.ops);
+            let MirTerminator::Jump(edge) = body.terminator else {
+                unreachable!()
+            };
+            ops.extend(
+                results
+                    .into_iter()
+                    .zip(edge.args)
+                    .filter_map(|(result, arg)| {
+                        (arg.value != MirValue::Def(result.dst.clone())).then_some(MirOp::Move {
+                            dst: result.dst,
+                            src: arg.value,
+                            width: result.width,
+                        })
+                    }),
+            );
+            fold_inline_copies(
+                &mut ops,
+                &temps.values().chain(&captures).copied().collect(),
+            );
+            caller.blocks[block_index]
+                .ops
+                .splice(op_index..op_index + 1, ops);
+            caller
+                .temps
+                .extend(temps.values().map(|id| MirTemp { id: *id }));
+            caller
+                .temps
+                .extend(captures.into_iter().map(|id| MirTemp { id }));
+            sites += 1;
+            continue;
+        }
         let block = &mut caller.blocks[block_index];
         let suffix = block.ops.split_off(op_index + 1);
         block.ops.pop();
@@ -258,12 +397,13 @@ fn expand_group(
                     .iter()
                     .map(|a| MirEdgeArg {
                         value: a.value.clone(),
-                        width: MirWidth::Byte,
+                        width: a.width,
                     })
                     .collect(),
             }),
         );
-        let params = result
+        let params = results
+            .into_iter()
             .map(|result| {
                 let MirDef::VTemp(dest) = result.dst else {
                     unreachable!("classified call result")
@@ -273,7 +413,6 @@ fn expand_group(
                     width: result.width,
                 }
             })
-            .into_iter()
             .collect();
         cloned.push(MirBlock {
             id: continuation_id,
@@ -294,10 +433,9 @@ fn expand_group(
             .extend(captures.into_iter().map(|id| MirTemp { id }));
         sites += 1;
     }
-    if leaf.returns_value {
-        let slot = MirFixedZpSlot(crate::codegen::runtime_zp::ARGS.address());
+    for slot in &leaf.routine.frame.fixed_zero_page {
         if !caller.frame.fixed_zero_page.contains(&slot) {
-            caller.frame.fixed_zero_page.push(slot);
+            caller.frame.fixed_zero_page.push(*slot);
         }
     }
     Ok(Expansion {
@@ -598,7 +736,9 @@ pub(in crate::mir6502) fn materialize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mir6502::analysis::leaf_routines::analyze;
+    use crate::mir6502::analysis::leaf_routines::{analyze, return_store};
+
+    include!("inlining_scalar_tests.rs");
 
     fn lower(source: &str) -> MirProgram {
         let tokens = crate::lexer::tokenize(source).unwrap();

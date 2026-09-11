@@ -512,6 +512,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "HomeLiveness".to_string(),

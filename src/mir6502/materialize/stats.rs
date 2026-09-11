@@ -174,6 +174,7 @@ mod tests {
             globals: Vec::new(),
             routines: vec![
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(0),
                     name: "Cold".to_string(),
@@ -184,6 +185,7 @@ mod tests {
                     effects: MirEffects::default(),
                 },
                 MirRoutine {
+                    scalar_signature: None,
                     inline: Default::default(),
                     id: RoutineId(1),
                     name: "Hot".to_string(),

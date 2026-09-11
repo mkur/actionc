@@ -18,7 +18,9 @@ pub(super) fn op_def(op: &MirOp) -> Option<&MirDef> {
         | MirOp::Unary { dst, .. }
         | MirOp::Binary { dst, .. }
         | MirOp::LoadIndirect { dst, .. } => Some(dst),
-        MirOp::Call { result, .. } => result.as_ref().map(|result| &result.dst),
+        MirOp::Call { result, additional_results, .. } => {
+            additional_results.is_empty().then(|| result.as_ref().map(|r| &r.dst)).flatten()
+        },
         MirOp::Store { .. }
         | MirOp::CopyBytes { .. }
         | MirOp::UpdateMem { .. }

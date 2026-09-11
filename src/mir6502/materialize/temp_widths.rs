@@ -36,9 +36,14 @@ pub(super) fn collect_temp_widths(ops: &[MirOp]) -> BTreeMap<MirTempId, MirWidth
             MirOp::Extend { dst, to_width, .. } => note_temp_width(&mut widths, dst, *to_width),
             MirOp::Truncate { dst, to_width, .. } => note_temp_width(&mut widths, dst, *to_width),
             MirOp::Call {
-                result: Some(result),
+                result,
+                additional_results,
                 ..
-            } => note_temp_width(&mut widths, &result.dst, result.width),
+            } => {
+                for result in result.iter().chain(additional_results) {
+                    note_temp_width(&mut widths, &result.dst, result.width);
+                }
+            }
             MirOp::Compare {
                 dst: MirCondDest::Temp(id),
                 ..
@@ -73,7 +78,6 @@ pub(super) fn collect_temp_widths(ops: &[MirOp]) -> BTreeMap<MirTempId, MirWidth
             | MirOp::Barrier { .. }
             | MirOp::MachineBlock { .. }
             | MirOp::LeaAddr { .. }
-            | MirOp::Call { result: None, .. }
             | MirOp::Compare { .. }
             | MirOp::CompareDirectIndexedBytes { .. }
             | MirOp::CompareIndirectBytes { .. }
@@ -140,6 +144,7 @@ mod tests {
     #[test]
     fn routine_widths_retain_typed_block_parameters() {
         let routine = MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "Loop".to_string(),

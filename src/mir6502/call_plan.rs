@@ -85,9 +85,10 @@ pub(super) fn plan_call(
         .iter()
         .map(|arg| arg.home.clone())
         .collect::<Vec<_>>();
-    let result_home = result
-        .as_ref()
-        .map(|_| MirResultHome::ReturnSlot { offset: 0 });
+    let wide_result = signature.result.as_ref().is_some_and(|ty|
+        ty.kind.integer().is_some_and(|integer| integer.bits == 32));
+    let result_home = (result.is_some() || wide_result)
+        .then_some(MirResultHome::ReturnSlot { offset: 0 });
     let result = result.map(|(dst, width)| MirCallResult {
         dst,
         width,
@@ -99,6 +100,12 @@ pub(super) fn plan_call(
         mir_call_effects(effects)
     };
     let abi = MirCallAbi {
+        additional_results: if wide_result {
+            vec![super::ir::MirHelperResult {
+                home: MirResultHome::ReturnSlot { offset: 2 },
+                width: MirWidth::Word,
+            }]
+        } else { Vec::new() },
         params: homes,
         result: result_home,
         clobbers: effects.clobbers,

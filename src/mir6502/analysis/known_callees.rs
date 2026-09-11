@@ -1721,6 +1721,7 @@ mod tests {
 
     fn routine(id: u32, ops: Vec<MirOp>, terminator: MirTerminator) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(id),
             name: format!("r{id}"),
@@ -1819,8 +1820,10 @@ mod tests {
         let caller = routine(
             0,
             vec![MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(callee.id),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet {
@@ -2255,8 +2258,10 @@ mod tests {
         let caller = routine(
             0,
             vec![MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(callee.id),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet {

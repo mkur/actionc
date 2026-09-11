@@ -385,6 +385,7 @@ mod tests {
         let mut shape = None;
         for size in [33, 257, 4096, 65535] {
             let mut routine = MirRoutine {
+                scalar_signature: None,
                 inline: Default::default(),
                 id: RoutineId(0),
                 name: "copy".into(),

@@ -18,8 +18,15 @@ const MAX_REQUESTED_OPS: usize = 128;
 #[derive(Debug, Clone)]
 pub(in crate::mir6502) struct LeafRoutine {
     pub routine: MirRoutine,
-    pub params: Vec<ParamId>,
-    pub returns_value: bool,
+    pub params: Vec<LeafParam>,
+    pub return_widths: Vec<MirWidth>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(in crate::mir6502) struct LeafParam {
+    pub id: ParamId,
+    pub offset: u16,
+    pub width: MirWidth,
 }
 
 #[derive(Debug, Default)]
@@ -131,10 +138,9 @@ pub(in crate::mir6502) fn analyze(program: &MirProgram) -> LeafCensus {
                 return Err("escape");
             }
             let leaf = classify_leaf(routine)?;
-            if calls[&routine.id]
-                .iter()
-                .any(|(op, byte_args)| !byte_args || !call_matches(op, &leaf))
-            {
+            if calls[&routine.id].iter().any(|(op, byte_args)| {
+                (!routine.inline.requested() && !byte_args) || !call_matches(op, &leaf)
+            }) {
                 return Err("arguments-or-abi");
             }
             Ok(leaf)
@@ -197,6 +203,7 @@ pub(in crate::mir6502) fn byte_value(value: &MirValue) -> bool {
     ) || matches!(value, MirValue::ConstU16(value) if *value <= 255)
 }
 
+#[cfg(test)]
 pub(in crate::mir6502) fn return_store(op: &MirOp) -> Option<&MirValue> {
     match op {
         MirOp::Store {
@@ -208,11 +215,56 @@ pub(in crate::mir6502) fn return_store(op: &MirOp) -> Option<&MirValue> {
     }
 }
 
+fn scalar_value(value: &MirValue, width: MirWidth) -> bool {
+    match value {
+        MirValue::ConstU8(_) | MirValue::Def(MirDef::VTemp(_)) => true,
+        MirValue::ConstU16(n) => width == MirWidth::Word || *n <= 255,
+        MirValue::Def(MirDef::VTempByte { byte: 0..=1, .. }) => width == MirWidth::Byte,
+        MirValue::Word { lo, hi } => {
+            width == MirWidth::Word
+                && scalar_value(lo, MirWidth::Byte)
+                && scalar_value(hi, MirWidth::Byte)
+        }
+        _ => false,
+    }
+}
+
+pub(in crate::mir6502) fn return_values(block: &MirBlock) -> Vec<(MirWidth, &MirValue)> {
+    if block.terminator != MirTerminator::Return {
+        return Vec::new();
+    }
+    let mut lanes: Vec<_> = block
+        .ops
+        .iter()
+        .rev()
+        .take_while(|op| {
+            matches!(
+                op,
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 | 0xA2))),
+                    ..
+                }
+            )
+        })
+        .filter_map(|op| match op {
+            MirOp::Store { src, width, .. } => Some((*width, src)),
+            _ => None,
+        })
+        .collect();
+    lanes.reverse();
+    lanes
+}
+
 fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
     if routine.abi != MirRoutineAbi::Action {
         return Err("observable-entry");
     }
-    let (max_blocks, max_ops) = if routine.inline.requested() {
+    let signature = routine
+        .scalar_signature
+        .as_ref()
+        .ok_or("non-scalar-signature")?;
+    let requested = routine.inline.requested();
+    let (max_blocks, max_ops) = if requested {
         (MAX_REQUESTED_BLOCKS, MAX_REQUESTED_OPS)
     } else {
         (MAX_LEAF_BLOCKS, MAX_LEAF_OPS)
@@ -232,24 +284,29 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
     {
         return Err("storage");
     }
-    let params = frame
-        .params
-        .iter()
-        .map(|p| match p.base {
-            MirStorageBase::Param(id)
-                if p.storage == MirStorageClass::Scalar
-                    && p.scalar_width == Some(MirWidth::Byte)
-                    && p.storage_size == 1
-                    && p.offset == 0
-                    && p.init.is_none() =>
-            {
-                Ok(id)
-            }
-            _ => Err("parameter-storage"),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut params = Vec::new();
+    for slot in &frame.params {
+        let MirStorageBase::Param(id) = slot.base else {
+            return Err("parameter-storage");
+        };
+        if slot.storage != MirStorageClass::Scalar || slot.offset != 0 || slot.init.is_some() {
+            return Err("parameter-storage");
+        }
+        let widths: &[MirWidth] = match (slot.scalar_width, slot.storage_size) {
+            (Some(MirWidth::Byte), 1) => &[MirWidth::Byte],
+            (Some(MirWidth::Word), 2) if requested => &[MirWidth::Word],
+            (None, 4) if requested => &[MirWidth::Word, MirWidth::Word],
+            _ => return Err("parameter-storage"),
+        };
+        for (index, &width) in widths.iter().enumerate() {
+            params.push(LeafParam {
+                id,
+                offset: index as u16 * 2,
+                width,
+            });
+        }
+    }
     let cfg = MirCfg::from_routine(routine).map_err(|_| "cfg")?;
-    // Acyclicity is checked by topological removal, independent of layout order.
     let mut remaining = cfg.reachable().clone();
     while !remaining.is_empty() {
         let Some(id) = remaining
@@ -264,55 +321,107 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
     if cfg.reachable().len() != routine.blocks.len() || !routine.blocks[0].params.is_empty() {
         return Err("cfg");
     }
+    let value = |v: &MirValue, w| {
+        if requested {
+            scalar_value(v, w)
+        } else {
+            w == MirWidth::Byte && byte_value(v)
+        }
+    };
+    let def = |d: &MirDef, w| {
+        matches!(d, MirDef::VTemp(_))
+            || (requested
+                && w == MirWidth::Byte
+                && matches!(d, MirDef::VTempByte { byte: 0..=1, .. }))
+    };
     let mut result_kind = None;
     for block in &routine.blocks {
-        if block.params.iter().any(|p| p.width != MirWidth::Byte) {
+        if !requested && block.params.iter().any(|p| p.width != MirWidth::Byte) {
             return Err("width");
         }
+        let returns = return_values(block);
+        let widths: Vec<_> = returns.iter().map(|(w, _)| *w).collect();
+        if block.terminator == MirTerminator::Return {
+            if !matches!(widths.as_slice(), [] | [MirWidth::Byte])
+                && !(requested
+                    && matches!(
+                        widths.as_slice(),
+                        [MirWidth::Word] | [MirWidth::Word, MirWidth::Word]
+                    ))
+            {
+                return Err("return-lanes");
+            }
+            if result_kind
+                .replace(widths.clone())
+                .is_some_and(|old| old != widths)
+            {
+                return Err("mixed-returns");
+            }
+        }
+        let return_start = block.ops.len() - returns.len();
         for (index, op) in block.ops.iter().enumerate() {
             let supported = match op {
                 MirOp::Load {
-                    dst: MirDef::VTemp(_),
-                    src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
-                    width: MirWidth::Byte,
-                } => params.contains(id),
-                MirOp::LoadImm {
-                    dst: MirDef::VTemp(_),
-                    value,
-                    width: MirWidth::Byte,
-                } => *value <= 255,
-                MirOp::Move {
-                    dst: MirDef::VTemp(_),
-                    src,
-                    width: MirWidth::Byte,
+                    dst,
+                    src: MirAddr::Direct(MirMem::Param { id, offset }),
+                    width,
+                } => {
+                    def(dst, *width)
+                        && params
+                            .iter()
+                            .any(|p| p.id == *id && p.offset == *offset && p.width == *width)
                 }
+                MirOp::LoadImm {
+                    dst,
+                    value: n,
+                    width,
+                } => def(dst, *width) && value(&MirValue::ConstU16(*n), *width),
+                MirOp::Move { dst, src, width }
                 | MirOp::Unary {
-                    dst: MirDef::VTemp(_),
+                    dst, src, width, ..
+                } => def(dst, *width) && value(src, *width),
+                MirOp::Extend {
+                    dst,
                     src,
-                    width: MirWidth::Byte,
+                    from_width,
+                    to_width,
                     ..
-                } => byte_value(src),
+                }
+                | MirOp::Truncate {
+                    dst,
+                    src,
+                    from_width,
+                    to_width,
+                } => requested && def(dst, *to_width) && value(src, *from_width),
                 MirOp::Binary {
-                    dst: MirDef::VTemp(_),
+                    dst,
                     op,
                     left,
                     right,
-                    width: MirWidth::Byte,
-                    carry_in: None,
-                    carry_out: MirCarryOut::Ignore,
+                    width,
+                    carry_in,
+                    carry_out,
                 } => {
-                    byte_value(left)
-                        && byte_value(right)
+                    def(dst, *width)
+                        && value(left, *width)
+                        && value(right, *width)
+                        && (requested || (carry_in.is_none() && *carry_out == MirCarryOut::Ignore))
                         && match op {
                             MirBinaryOp::Add
                             | MirBinaryOp::Sub
                             | MirBinaryOp::And
                             | MirBinaryOp::Or
                             | MirBinaryOp::Xor => true,
-                            MirBinaryOp::Lsh | MirBinaryOp::Rsh => matches!(
-                                right,
-                                MirValue::ConstU8(0..=7) | MirValue::ConstU16(0..=7)
-                            ),
+                            MirBinaryOp::Lsh | MirBinaryOp::Rsh => {
+                                matches!(
+                                    right,
+                                    MirValue::ConstU8(0..=7) | MirValue::ConstU16(0..=7)
+                                ) || (requested
+                                    && matches!(
+                                        right,
+                                        MirValue::ConstU8(8) | MirValue::ConstU16(8)
+                                    ))
+                            }
                             _ => false,
                         }
                 }
@@ -320,51 +429,50 @@ fn classify_leaf(routine: &MirRoutine) -> Result<LeafRoutine, &'static str> {
                     dst: MirCondDest::Temp(_),
                     left,
                     right,
-                    width: MirWidth::Byte,
+                    width,
                     ..
-                } => byte_value(left) && byte_value(right),
-                _ => {
-                    index + 1 == block.ops.len()
-                        && block.terminator == MirTerminator::Return
-                        && return_store(op).is_some()
+                } => value(left, *width) && value(right, *width),
+                MirOp::Store {
+                    dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                    src,
+                    width,
+                } if index >= return_start && block.terminator == MirTerminator::Return => {
+                    let lane = index - return_start;
+                    slot.0 == 0xA0 + lane as u8 * 2 && value(src, *width)
                 }
+                _ => false,
             };
             if !supported {
                 return Err("operation-or-effects");
             }
         }
+        let edge = |e: &MirEdge| e.args.iter().all(|a| value(&a.value, a.width));
         match &block.terminator {
-            MirTerminator::Return => {
-                let returns = block.ops.last().and_then(return_store).is_some();
-                if result_kind
-                    .replace(returns)
-                    .is_some_and(|old| old != returns)
-                {
-                    return Err("mixed-returns");
-                }
-            }
-            MirTerminator::Jump(edge)
-                if edge
-                    .args
-                    .iter()
-                    .all(|a| a.width == MirWidth::Byte && byte_value(&a.value)) => {}
+            MirTerminator::Return => {}
+            MirTerminator::Jump(e) if edge(e) => {}
             MirTerminator::Branch {
-                cond: MirCond::BoolValue(value),
+                cond: MirCond::BoolValue(v),
                 then_edge,
                 else_edge,
-            } if byte_value(value)
-                && then_edge
-                    .args
-                    .iter()
-                    .chain(&else_edge.args)
-                    .all(|a| a.width == MirWidth::Byte && byte_value(&a.value)) => {}
+            } if value(v, MirWidth::Byte) && edge(then_edge) && edge(else_edge) => {}
             _ => return Err("control"),
         }
+    }
+    let return_widths = result_kind.ok_or("no-return")?;
+    if return_widths != signature.result
+        || signature
+            .params
+            .iter()
+            .flatten()
+            .copied()
+            .ne(params.iter().map(|p| p.width))
+    {
+        return Err("signature");
     }
     Ok(LeafRoutine {
         routine: routine.clone(),
         params,
-        returns_value: result_kind.ok_or("no-return")?,
+        return_widths,
     })
 }
 
@@ -372,6 +480,7 @@ fn call_matches(op: &MirOp, leaf: &LeafRoutine) -> bool {
     let MirOp::Call {
         args,
         result,
+        additional_results,
         abi,
         effects,
         ..
@@ -379,23 +488,45 @@ fn call_matches(op: &MirOp, leaf: &LeafRoutine) -> bool {
     else {
         return false;
     };
-    args.len() == leaf.params.len()
+    let mut offset = 0;
+    let arguments = args.len() == leaf.params.len()
         && args.len() == abi.params.len()
-        && args.iter().enumerate().all(|(i, a)| {
-            a.width == MirWidth::Byte
-                && byte_value(&a.value)
-                && a.home == MirArgHome::Reg(if i == 0 { MirReg::A } else { MirReg::X })
-                && abi.params.get(i) == Some(&a.home)
+        && args
+            .iter()
+            .zip(&leaf.params)
+            .enumerate()
+            .all(|(i, (a, p))| {
+                let home = crate::mir6502::abi::action_arg_home(offset, p.width);
+                offset += crate::mir6502::abi::action_arg_width_bytes(p.width);
+                a.width == p.width
+                    && scalar_value(&a.value, a.width)
+                    && a.home == home
+                    && abi.params.get(i) == Some(&home)
+            });
+    let expected_additional: Vec<_> = leaf
+        .return_widths
+        .iter()
+        .enumerate()
+        .skip(1)
+        .map(|(i, &width)| MirHelperResult {
+            home: MirResultHome::ReturnSlot {
+                offset: i as u16 * 2,
+            },
+            width,
         })
-        && abi.result
-            == leaf
-                .returns_value
-                .then_some(MirResultHome::ReturnSlot { offset: 0 })
-        && result.as_ref().is_none_or(|r| {
-            leaf.returns_value
-                && r.width == MirWidth::Byte
+        .collect();
+    arguments
+        && abi.additional_results == expected_additional
+        && (abi.result
+            == (!leaf.return_widths.is_empty()).then_some(MirResultHome::ReturnSlot { offset: 0 })
+            || (abi.result.is_none() && result.is_none() && additional_results.is_empty()))
+        && result.iter().chain(additional_results).all(|r| {
+            let MirResultHome::ReturnSlot { offset } = r.home else {
+                return false;
+            };
+            offset % 2 == 0
+                && leaf.return_widths.get(offset as usize / 2) == Some(&r.width)
                 && matches!(r.dst, MirDef::VTemp(_))
-                && r.home == MirResultHome::ReturnSlot { offset: 0 }
         })
         && !effects.opaque
         && !effects.may_call_os
@@ -423,7 +554,14 @@ pub(in crate::mir6502) fn caller_supported(routine: &MirRoutine) -> bool {
             && block.ops.iter().all(|op| {
                 !matches!(op, MirOp::MachineBlock { .. } | MirOp::Barrier { .. })
                     && classify_op(op).machine.register_reads == MirRegisterSet::default()
-                    && !classify_op(op).machine.flag_reads.any()
+                    && (!classify_op(op).machine.flag_reads.any()
+                        || matches!(
+                            op,
+                            MirOp::Binary {
+                                carry_in: Some(MirCarryIn::FromPrevious),
+                                ..
+                            }
+                        ))
             })
     })
 }

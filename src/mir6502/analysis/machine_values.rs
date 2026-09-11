@@ -1173,6 +1173,7 @@ mod tests {
 
     fn routine(blocks: Vec<MirBlock>) -> MirRoutine {
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "MachineValues".to_string(),
@@ -1213,8 +1214,10 @@ mod tests {
 
     fn call(routine: u32) -> MirOp {
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(routine)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -1508,8 +1511,10 @@ mod tests {
                     width: MirWidth::Byte,
                 },
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: Vec::new(),
                         result: None,
                         clobbers: MirRegisterSet::default(),
@@ -1904,8 +1909,10 @@ mod tests {
                     load_a(spill(1)),
                     store_a(MirMem::FixedZeroPage(pointer_slot)),
                     MirOp::Call {
+                        additional_results: Vec::new(),
                         target: MirCallTarget::Routine(RoutineId(1)),
                         abi: MirCallAbi {
+                            additional_results: Vec::new(),
                             params: Vec::new(),
                             result: None,
                             clobbers: MirRegisterSet::default(),

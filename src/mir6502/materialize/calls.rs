@@ -240,6 +240,7 @@ struct CallArgExprPlan {
     abi: MirCallAbi,
     args: Vec<PlannedCallArg>,
     result: Option<super::super::ir::MirCallResult>,
+    additional_results: Vec<super::super::ir::MirCallResult>,
     effects: MirEffects,
 }
 
@@ -325,6 +326,7 @@ pub(in crate::mir6502) fn return_slot_call_arg_forward_candidate(
     index: usize,
 ) -> Option<ReturnSlotCallArgForwardCandidate> {
     let MirOp::Call {
+        additional_results: first_additional_results,
         target: first_target,
         abi: first_abi,
         args: first_args,
@@ -339,6 +341,7 @@ pub(in crate::mir6502) fn return_slot_call_arg_forward_candidate(
     };
     let temp = split_def_as_temp(&result.dst)?;
     let MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -393,6 +396,7 @@ pub(in crate::mir6502) fn return_slot_call_arg_forward_candidate(
         blocked_home_overlap: false,
         replacement: [
             MirOp::Call {
+                additional_results: first_additional_results.clone(),
                 target: first_target.clone(),
                 abi: first_abi.clone(),
                 args: first_args.clone(),
@@ -400,6 +404,7 @@ pub(in crate::mir6502) fn return_slot_call_arg_forward_candidate(
                 effects: first_effects.clone(),
             },
             MirOp::Call {
+                additional_results: additional_results.clone(),
                 target: rewritten_target,
                 abi: abi.clone(),
                 args: rewritten_args,
@@ -515,6 +520,7 @@ fn collect_call_arg_expr_plan(
     }
 
     let MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -666,6 +672,7 @@ fn collect_call_arg_expr_plan(
         abi: abi.clone(),
         args: planned_args,
         result: result.clone(),
+        additional_results: additional_results.clone(),
         effects: effects.clone(),
     })
 }
@@ -1369,8 +1376,10 @@ fn materialize_call_arg_expr_plan(
         .flat_map(materialized_planned_call_args)
         .collect::<Vec<_>>();
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: plan
                 .args
                 .iter()
@@ -1384,7 +1393,7 @@ fn materialize_call_arg_expr_plan(
         result: None,
         effects: plan.effects.clone(),
     });
-    if let Some(result) = &plan.result {
+    for result in plan.result.iter().chain(&plan.additional_results) {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
     }
 }
@@ -1522,8 +1531,10 @@ fn materialize_paired_word_shift_call(
         })
         .collect::<Vec<_>>();
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
             clobbers: plan.abi.clobbers,
@@ -1533,7 +1544,7 @@ fn materialize_paired_word_shift_call(
         result: None,
         effects: plan.effects.clone(),
     });
-    if let Some(result) = &plan.result {
+    for result in plan.result.iter().chain(&plan.additional_results) {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
     }
 }
@@ -1609,8 +1620,10 @@ fn materialize_direct_indexed_byte_fixed_action_call(
         .map(materialized_fixed_action_home_arg)
         .collect::<Vec<_>>();
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: byte_homes,
             result: None,
             clobbers: plan.abi.clobbers,
@@ -1620,7 +1633,7 @@ fn materialize_direct_indexed_byte_fixed_action_call(
         result: None,
         effects: plan.effects.clone(),
     });
-    if let Some(result) = &plan.result {
+    for result in plan.result.iter().chain(&plan.additional_results) {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
     }
 }
@@ -2018,8 +2031,10 @@ fn materialize_direct_indexed_word_action_call(
         }
     }
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: plan
                 .args
                 .iter()
@@ -2038,7 +2053,7 @@ fn materialize_direct_indexed_word_action_call(
         result: None,
         effects: plan.effects.clone(),
     });
-    if let Some(result) = &plan.result {
+    for result in plan.result.iter().chain(&plan.additional_results) {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
     }
 }
@@ -2148,8 +2163,10 @@ fn materialize_direct_two_word_arithmetic_action_call(
         },
     ];
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
             clobbers: plan.abi.clobbers,
@@ -2159,7 +2176,7 @@ fn materialize_direct_two_word_arithmetic_action_call(
         result: None,
         effects: plan.effects.clone(),
     });
-    if let Some(result) = &plan.result {
+    for result in plan.result.iter().chain(&plan.additional_results) {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
     }
 }
@@ -2381,8 +2398,10 @@ fn materialize_staged_action_call_arg_expr_plan(
         })
         .collect();
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: byte_homes,
             result: None,
             clobbers: plan.abi.clobbers,
@@ -2392,7 +2411,7 @@ fn materialize_staged_action_call_arg_expr_plan(
         result: None,
         effects: plan.effects.clone(),
     });
-    if let Some(result) = &plan.result {
+    for result in plan.result.iter().chain(&plan.additional_results) {
         materialize_call_result(result.dst.clone(), result.width, result.home.clone(), out);
     }
 }
@@ -3279,6 +3298,7 @@ pub(in crate::mir6502) fn call_arg_producer_rewrite_candidate(
     }
 
     let MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -3323,6 +3343,7 @@ pub(in crate::mir6502) fn call_arg_producer_rewrite_candidate(
         consumed: cursor + 1 - index,
         temps: producers.iter().map(|(temp, _, _)| *temp).collect(),
         replacement: MirOp::Call {
+            additional_results: additional_results.clone(),
             target: rewritten_target,
             abi: abi.clone(),
             args: rewritten_args,
@@ -3515,6 +3536,7 @@ fn param_call_target_plan(
     context: &PreHomeRewriteContext<'_, '_>,
 ) -> Option<MirRewritePlan> {
     let MirOp::Call {
+        additional_results,
         target: MirCallTarget::Indirect { target, width },
         abi,
         args,
@@ -3537,6 +3559,7 @@ fn param_call_target_plan(
         block,
         range: index..index + 1,
         replacement: vec![MirOp::Call {
+            additional_results: additional_results.clone(),
             target: MirCallTarget::Indirect {
                 target: rewritten,
                 width: *width,
@@ -3654,6 +3677,7 @@ pub(super) fn materialize_call(
     abi: MirCallAbi,
     args: Vec<MirCallArg>,
     result: Option<super::super::ir::MirCallResult>,
+    additional_results: Vec<super::super::ir::MirCallResult>,
     effects: MirEffects,
     layout: &MaterializeLayout,
     out: &mut Vec<MirOp>,
@@ -3775,8 +3799,10 @@ pub(super) fn materialize_call(
         .map(materialized_call_arg_summary)
         .collect::<Vec<_>>();
     out.push(MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: byte_homes,
             result: None,
             clobbers: abi.clobbers,
@@ -3786,7 +3812,7 @@ pub(super) fn materialize_call(
         result: None,
         effects,
     });
-    if let Some(result) = result {
+    for result in result.into_iter().chain(additional_results) {
         materialize_call_result(result.dst, result.width, result.home, out);
     }
 }
@@ -3982,6 +4008,7 @@ pub(in crate::mir6502) fn call_result_store_rewrite_candidate(
     index: usize,
 ) -> Option<CallResultStoreRewriteCandidate> {
     let MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -4019,6 +4046,7 @@ pub(in crate::mir6502) fn call_result_store_rewrite_candidate(
         return_slot,
         replacement: [
             MirOp::Call {
+                additional_results: additional_results.clone(),
                 target: target.clone(),
                 abi: abi.clone(),
                 args: args.clone(),
@@ -4057,6 +4085,7 @@ pub(in crate::mir6502) fn loaded_arg_call_result_store_rewrite_candidate(
     };
     let arg_temp = split_def_as_temp(load_dst)?;
     let MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -4107,6 +4136,7 @@ pub(in crate::mir6502) fn loaded_arg_call_result_store_rewrite_candidate(
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: additional_results.clone(),
                 target: target.clone(),
                 abi: abi.clone(),
                 args: rewritten_args,
@@ -4134,6 +4164,7 @@ pub(super) fn try_fuse_call_result_store_consumer(
     out: &mut Vec<MirOp>,
 ) -> usize {
     let Some(MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -4183,6 +4214,7 @@ pub(super) fn try_fuse_call_result_store_consumer(
                 abi.clone(),
                 args.clone(),
                 None,
+                additional_results.clone(),
                 effects.clone(),
                 layout,
                 out,
@@ -4205,6 +4237,7 @@ pub(super) fn try_fuse_call_result_store_consumer(
         abi.clone(),
         args.clone(),
         None,
+        additional_results.clone(),
         effects.clone(),
         layout,
         out,
@@ -4245,6 +4278,7 @@ pub(super) fn try_fuse_loaded_arg_call_result_store_consumer(
         return 0;
     };
     let Some(MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -4319,6 +4353,7 @@ pub(super) fn try_fuse_loaded_arg_call_result_store_consumer(
         abi.clone(),
         rewritten_args,
         None,
+        additional_results.clone(),
         effects.clone(),
         layout,
         out,
@@ -4345,6 +4380,7 @@ pub(super) fn try_materialize_forwarded_call_result_store(
     out: &mut Vec<MirOp>,
 ) -> usize {
     let Some(MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -4385,6 +4421,7 @@ pub(super) fn try_materialize_forwarded_call_result_store(
                 abi.clone(),
                 args.clone(),
                 None,
+                additional_results.clone(),
                 effects.clone(),
                 layout,
                 out,
@@ -4401,6 +4438,7 @@ pub(super) fn try_materialize_forwarded_call_result_store(
         abi.clone(),
         args.clone(),
         None,
+        additional_results.clone(),
         effects.clone(),
         layout,
         out,
@@ -4437,6 +4475,7 @@ pub(super) fn try_materialize_loaded_arg_forwarded_call_result_store(
         return 0;
     };
     let Some(MirOp::Call {
+        additional_results,
         target,
         abi,
         args,
@@ -4500,6 +4539,7 @@ pub(super) fn try_materialize_loaded_arg_forwarded_call_result_store(
         abi.clone(),
         args.clone(),
         None,
+        additional_results.clone(),
         effects.clone(),
         layout,
         out,

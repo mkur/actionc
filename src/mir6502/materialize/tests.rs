@@ -186,6 +186,7 @@ fn txa_direct_store_routine(
     }];
     blocks.extend(successor_blocks);
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "txa_direct_store".to_string(),
@@ -341,8 +342,10 @@ fn known_call_result_reuse_program(
     unknown_crossed_call: bool,
 ) -> MirProgram {
     let call = |target| MirOp::Call {
+        additional_results: Vec::new(),
         target,
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: Some(MirResultHome::ReturnSlot { offset: 0 }),
             clobbers: MirRegisterSet {
@@ -368,6 +371,7 @@ fn known_call_result_reuse_program(
         width: MirWidth::Byte,
     };
     let caller = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "caller".to_string(),
@@ -445,6 +449,7 @@ fn known_call_result_reuse_program(
         });
     }
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "callee".to_string(),
@@ -583,6 +588,7 @@ fn direct_word_to_indirect_copy_test_program(x_live: bool) -> MirProgram {
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "Copy".to_string(),
@@ -715,6 +721,7 @@ fn indirect_direct_transform_store_test_program(value_source: MirMem) -> MirProg
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "late_indirect_value".to_string(),
@@ -919,6 +926,7 @@ fn word_rsh8_high_projection_test_routine(terminator: MirTerminator) -> MirRouti
         }
     }
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "word_high".to_string(),
@@ -1067,6 +1075,7 @@ fn constant_word_shift_projections_lower_before_helper_selection() {
         ),
     ];
     let mut routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "word_shift_projections".to_string(),
@@ -1259,6 +1268,7 @@ fn small_constant_word_shifts_lower_to_bounded_carry_chains() {
         ),
     ];
     let mut routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "small_word_shifts".to_string(),
@@ -1484,6 +1494,7 @@ fn helper_indexed_store_test_program(helper: MirRuntimeHelper, consumer_lo: u8) 
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "helper_indexed_store".to_string(),
@@ -1674,6 +1685,7 @@ fn indirect_word_load_fold_keeps_lane_live_in_successor() {
 #[test]
 fn collapse_empty_jump_blocks_redirects_predecessors() {
     let mut routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
@@ -1740,6 +1752,7 @@ fn collapse_empty_jump_blocks_redirects_predecessors() {
 #[test]
 fn collapse_empty_jump_blocks_keeps_self_loop_targets() {
     let mut routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
@@ -2520,6 +2533,7 @@ fn paired_word_arithmetic_compare_proof_rejects_live_fixed_scratch() {
         },
     ]);
     let routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "paired_word_arithmetic_live_scratch".to_string(),
@@ -2927,6 +2941,7 @@ fn direct_word_equality_proof_keeps_operand_live_in_successor() {
         width: MirWidth::Word,
     });
     let routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "direct_word_equality_live_successor".to_string(),
@@ -2961,6 +2976,7 @@ fn direct_word_compare_proof_keeps_condition_live_in_successor() {
         width: MirWidth::Byte,
     });
     let routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "direct_word_condition_live_successor".to_string(),
@@ -3619,6 +3635,7 @@ fn addressed_byte_compare_routine(value_live_after: bool) -> MirRoutine {
         });
     }
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "addressed_compare".to_string(),
@@ -3702,6 +3719,7 @@ fn dual_indirect_compare_routine(op: MirCompareOp, pointer_live_after: bool) -> 
         });
     }
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "dual_compare".to_string(),
@@ -3939,6 +3957,7 @@ fn dual_indexed_compare_routine(
     });
 
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: format!("dual_indexed_{width:?}_compare"),
@@ -4347,8 +4366,10 @@ fn signed_return_word_zero_ops(op: MirCompareOp, zero_on_left: bool) -> Vec<MirO
     };
     vec![
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                 clobbers: MirRegisterSet::default(),
@@ -4658,6 +4679,7 @@ fn signed_word_lt_branch_uses_compact_overflow_path_for_direct_values() {
 fn compare_operand_prebranch_fold_enables_compact_signed_word_branch() {
     let mut program = empty_test_program();
     program.routines.push(MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
@@ -5657,8 +5679,10 @@ fn binary_temp_consumer_observability_counts_call_arg_and_later_use() {
             carry_out: MirCarryOut::Ignore,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -9147,6 +9171,7 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
     let source = DEFAULT_POINTER_PAIR;
     let destination = DEST_POINTER_PAIR;
     let routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "scaled-y-interleaved-store".to_string(),
@@ -9207,6 +9232,7 @@ fn scaled_y_word_read_rewrite_rejects_interleaved_indirect_y_store() {
 #[test]
 fn scaled_y_word_store_rewrite_selects_staged_sources() {
     let routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "scaled-y-staged-store".to_string(),
@@ -10175,6 +10201,7 @@ fn direct_indexed_binary_program(source: MirMem) -> MirProgram {
             init: None,
         }],
         routines: vec![MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "Accumulate".to_string(),
@@ -11103,8 +11130,10 @@ fn ssa_lite_scanner_kills_facts_on_calls_regardless_of_abi_clobbers() {
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -11129,8 +11158,10 @@ fn ssa_lite_scanner_kills_facts_on_calls_regardless_of_abi_clobbers() {
 #[test]
 fn calls_are_conservative_register_and_flag_barriers_for_peepholes() {
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet::default(),
@@ -11160,11 +11191,13 @@ fn call_producer_fold_rewrites_indirect_targets() {
             width: MirWidth::Word,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Indirect {
                 target: MirValue::Def(MirDef::VTemp(MirTempId(0))),
                 width: MirWidth::Word,
             },
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -11205,8 +11238,10 @@ fn stored_word_call_result_alias_ops(intervening: Vec<MirOp>) -> Vec<MirOp> {
     };
     let mut ops = vec![
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                 clobbers: MirRegisterSet::default(),
@@ -11314,6 +11349,7 @@ fn stored_call_result_alias_proof_rejects_a_successor_use() {
         },
     ];
     let routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "stored_result_live_successor".to_string(),
@@ -11357,11 +11393,13 @@ fn call_result_store_prepares_computed_target_address_before_call() {
         MirBlockId(0),
         vec![
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Builtin {
                     name: "KnownByte".to_string(),
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                     clobbers: MirRegisterSet::default(),
@@ -11444,8 +11482,10 @@ fn call_result_store_does_not_preserve_target_across_routine_call() {
         MirBlockId(0),
         vec![
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                     clobbers: MirRegisterSet::default(),
@@ -11558,11 +11598,13 @@ fn call_result_store_prepares_target_before_loaded_call_arg() {
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Builtin {
                     name: "KnownByte".to_string(),
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                     clobbers: MirRegisterSet::default(),
@@ -11726,11 +11768,13 @@ fn call_result_store_rematerializes_delayed_byte_index_producers() {
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Builtin {
                     name: "KnownByte".to_string(),
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                     clobbers: MirRegisterSet::default(),
@@ -11841,11 +11885,13 @@ fn loaded_arg_call_result_store_rematerializes_simple_delayed_dest_index() {
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Builtin {
                     name: "KnownByte".to_string(),
                     address: Some(0x4000),
                 },
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                     clobbers: MirRegisterSet::default(),
@@ -12861,8 +12907,10 @@ fn call_result_store_keeps_existing_path_when_call_may_clobber_prepared_address(
         MirBlockId(0),
         vec![
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                     clobbers: MirRegisterSet::default(),
@@ -12966,6 +13014,7 @@ fn param_forwarding_rewrites_indirect_call_targets() {
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Indirect {
                 target: MirValue::Word {
                     lo: Box::new(MirValue::PointerCell(param_lo)),
@@ -12974,6 +13023,7 @@ fn param_forwarding_rewrites_indirect_call_targets() {
                 width: MirWidth::Word,
             },
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -13294,6 +13344,7 @@ fn dead_spill_store_keeps_value_read_before_store_on_next_iteration() {
         offset: 0,
     };
     let mut routine = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "loop_carried_spill".to_string(),
@@ -13514,6 +13565,7 @@ fn cross_block_spill_coloring_routine(
         vec![read(first), write(second, 2)]
     };
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "spill_colors".to_string(),
@@ -14806,8 +14858,10 @@ fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
             params: Vec::new(),
             ops: vec![
                 MirOp::Call {
+                    additional_results: Vec::new(),
                     target: MirCallTarget::Routine(RoutineId(1)),
                     abi: MirCallAbi {
+                        additional_results: Vec::new(),
                         params: Vec::new(),
                         result: None,
                         clobbers: MirRegisterSet {
@@ -14858,6 +14912,7 @@ fn exact_known_callee_zn_provenance_folds_a_zero_compare() {
         },
     ]);
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "callee".to_string(),
@@ -15245,8 +15300,10 @@ fn ssa_lite_keeps_x_reload_for_call_argument_staging() {
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -15360,8 +15417,10 @@ fn ssa_lite_keeps_accumulator_reload_after_calls() {
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -15483,8 +15542,10 @@ fn ssa_lite_reports_reload_retained_at_call_boundary() {
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: Vec::new(),
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -16577,8 +16638,10 @@ fn analyzed_call_result_placement_moves_accumulator_to_y_before_ax_arguments() {
         offset: 1,
     };
     let first_call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet::default(),
@@ -16589,8 +16652,10 @@ fn analyzed_call_result_placement_moves_accumulator_to_y_before_ax_arguments() {
         effects: MirEffects::default(),
     };
     let second_call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(2)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: vec![
                 MirArgHome::Reg(MirReg::A),
                 MirArgHome::Reg(MirReg::X),
@@ -18829,8 +18894,10 @@ fn mir_copy_prop_keeps_captured_register_move_across_call_barrier() {
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -19791,6 +19858,7 @@ fn hot_induction_address_routine(with_barrier: bool) -> MirRoutine {
         });
     }
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "hot_index".to_string(),
@@ -20397,8 +20465,10 @@ fn mir_copy_prop_forwards_const_temp_into_byte_call_arg() {
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -20457,8 +20527,10 @@ fn mir_copy_prop_forwards_direct_mem_temp_into_byte_call_arg_and_removes_home() 
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -20531,8 +20603,10 @@ fn mir_copy_prop_keeps_captured_call_arg_after_source_memory_changes() {
                 width: MirWidth::Byte,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: vec![MirArgHome::Reg(MirReg::A)],
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -20804,8 +20878,10 @@ fn pre_materialization_rematerializes_private_load_after_safe_known_call() {
                 width: MirWidth::Word,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -20864,8 +20940,10 @@ fn pre_materialization_rematerializes_private_load_after_audited_fpp_call() {
     let source_temp = MirTempId(0);
     let effects = MirAtariFppService::Multiply.effects();
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::AtariFpp(MirAtariFppService::Multiply),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: effects.clobbers,
@@ -20946,8 +21024,10 @@ fn pre_materialization_keeps_private_load_before_unknown_call_write() {
                 width: MirWidth::Word,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -20990,8 +21070,10 @@ fn return_slot_word_result_forwards_to_repeated_next_call_args() {
     let temp = MirTempId(0);
     let value = MirValue::Def(MirDef::VTemp(temp));
     let first = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: Some(MirResultHome::ReturnSlot { offset: 0 }),
             clobbers: MirRegisterSet::default(),
@@ -21006,8 +21088,10 @@ fn return_slot_word_result_forwards_to_repeated_next_call_args() {
         effects: MirEffects::default(),
     };
     let second = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(2)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: vec![
                 MirArgHome::BytePair {
                     lo: Box::new(MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0))),
@@ -21064,8 +21148,10 @@ fn return_slot_word_result_forwards_to_repeated_next_call_args() {
 fn return_slot_result_forward_blocks_overlapping_different_arg_home() {
     let temp = MirTempId(0);
     let first = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: Some(MirResultHome::ReturnSlot { offset: 0 }),
             clobbers: MirRegisterSet::default(),
@@ -21080,8 +21166,10 @@ fn return_slot_result_forward_blocks_overlapping_different_arg_home() {
         effects: MirEffects::default(),
     };
     let second = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(2)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: vec![
                 MirArgHome::FixedZeroPage(MirFixedZpSlot(0xA0)),
                 MirArgHome::RegisterPair {
@@ -21288,8 +21376,10 @@ fn unique_word_load_address_forward_stops_at_call_barrier() {
                 width: MirWidth::Word,
             },
             MirOp::Call {
+                additional_results: Vec::new(),
                 target: MirCallTarget::Routine(RoutineId(1)),
                 abi: MirCallAbi {
+                    additional_results: Vec::new(),
                     params: Vec::new(),
                     result: None,
                     clobbers: MirRegisterSet::default(),
@@ -21493,6 +21583,7 @@ fn pre_home_fixed_point_is_idempotent_after_convergence() {
 
 fn ssa_lite_edge_test_routine(blocks: Vec<MirBlock>) -> MirRoutine {
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Main".to_string(),
@@ -21509,6 +21600,7 @@ fn empty_test_program() -> MirProgram {
         statics: Vec::new(),
         globals: Vec::new(),
         routines: vec![MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(0),
             name: "Main".to_string(),
@@ -21595,6 +21687,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
     }];
     program.routines.extend([
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(1),
             name: "Target".to_string(),
@@ -21611,6 +21704,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
             effects: MirEffects::default(),
         },
         MirRoutine {
+            scalar_signature: None,
             inline: Default::default(),
             id: RoutineId(2),
             name: "Table".to_string(),
@@ -21707,8 +21801,10 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
 fn known_callee_exit_accumulator_elides_return_slot_reload() {
     let return_slot = MirMem::FixedZeroPage(MirFixedZpSlot(0xA0));
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet {
@@ -21725,6 +21821,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Caller".to_string(),
@@ -21753,6 +21850,7 @@ fn known_callee_exit_accumulator_elides_return_slot_reload() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
@@ -21829,8 +21927,10 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         width: MirWidth::Byte,
     };
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet {
@@ -21847,6 +21947,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Caller".to_string(),
@@ -21875,6 +21976,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
@@ -21908,6 +22010,7 @@ fn known_callee_word_result_placement_stores_proven_high_lane_first() {
         *target = MirCallTarget::Routine(RoutineId(0));
     }
     let observer = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(2),
         name: "Observer".to_string(),
@@ -21985,8 +22088,10 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         offset: 0,
     };
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet {
@@ -22003,6 +22108,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "CarrierCaller".to_string(),
@@ -22049,6 +22155,7 @@ fn known_callee_index_param_carrier_program(callee_ops: Vec<MirOp>) -> MirProgra
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "CarrierCallee".to_string(),
@@ -22076,6 +22183,7 @@ fn leaf_word_param_result_routine() -> MirRoutine {
     };
     let result = |offset| MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 + offset as u8));
     MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "LeafWord".to_string(),
@@ -22182,8 +22290,10 @@ fn leaf_word_param_coalesces_with_public_result_home() {
 #[test]
 fn leaf_word_param_coalescing_rejects_calls_and_address_taken_params() {
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet::default(),
@@ -22369,8 +22479,10 @@ fn known_callee_word_result_placement_keeps_absolute_store_order() {
         width: MirWidth::Byte,
     };
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet {
@@ -22406,6 +22518,7 @@ fn known_callee_word_result_placement_keeps_absolute_store_order() {
         terminator: MirTerminator::Return,
     }]);
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
@@ -22462,8 +22575,10 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         width: MirWidth::Byte,
     };
     let call = MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: Vec::new(),
             result: None,
             clobbers: MirRegisterSet {
@@ -22480,6 +22595,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         effects: MirEffects::default(),
     };
     let caller = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(0),
         name: "Caller".to_string(),
@@ -22511,6 +22627,7 @@ fn known_callee_preserves_staged_pointer_bytes_it_cannot_write() {
         effects: MirEffects::default(),
     };
     let callee = MirRoutine {
+        scalar_signature: None,
         inline: Default::default(),
         id: RoutineId(1),
         name: "Callee".to_string(),
@@ -22724,8 +22841,10 @@ fn two_word_action_binary_call_ops(
         (plain_temp, arithmetic_temp)
     };
     ops.push(MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: vec![
                 MirArgHome::RegisterPair {
                     lo: MirReg::A,
@@ -22937,8 +23056,10 @@ fn indexed_byte_fixed_action_call_ops(indexed_args: usize) -> Vec<MirOp> {
         }
     }));
     ops.push(MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(1)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params: args.iter().map(|arg| arg.home.clone()).collect(),
             result: None,
             clobbers: MirRegisterSet::default(),
@@ -23161,8 +23282,10 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             to_width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(7)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)],
                 result: Some(MirResultHome::ReturnSlot { offset: 0 }),
                 clobbers: MirRegisterSet::default(),
@@ -23208,8 +23331,10 @@ fn call_arg_expr_materializes_low_byte_word_add_args() {
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(6)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![
                     MirArgHome::Reg(MirReg::A),
                     MirArgHome::Reg(MirReg::X),
@@ -23330,8 +23455,10 @@ fn call_arg_expr_schedules_pure_linear_x_before_a_without_homes() {
             MirValue::Def(MirDef::VTemp(MirTempId(6))),
         ),
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![MirArgHome::Reg(MirReg::A), MirArgHome::Reg(MirReg::X)],
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -23411,8 +23538,10 @@ fn byte_binary_call_arg_ops(right: MirMem) -> Vec<MirOp> {
             carry_out: MirCarryOut::Ignore,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(1)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![MirArgHome::Reg(MirReg::A)],
                 result: None,
                 clobbers: MirRegisterSet::default(),
@@ -23633,8 +23762,10 @@ fn pointer_byte_offset_mixed_call_ops(interleave_second_arg: bool) -> Vec<MirOp>
             width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(7)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![
                     MirArgHome::RegisterPair {
                         lo: MirReg::A,
@@ -23815,8 +23946,10 @@ fn call_arg_expr_preserves_byte_mul_high_byte_for_word_arg() {
             carry_out: MirCarryOut::Ignore,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Routine(RoutineId(0)),
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![MirArgHome::RegisterPair {
                     lo: MirReg::A,
                     hi: MirReg::X,
@@ -24305,8 +24438,10 @@ fn indexed_word_ax_call_ops(include_y_arg: bool) -> Vec<MirOp> {
         });
     }
     ops.push(MirOp::Call {
+        additional_results: Vec::new(),
         target: MirCallTarget::Routine(RoutineId(7)),
         abi: MirCallAbi {
+            additional_results: Vec::new(),
             params,
             result: None,
             clobbers: MirRegisterSet::default(),
@@ -24477,11 +24612,13 @@ fn paired_word_shift_call_ops(second_source: MirMem) -> Vec<MirOp> {
             to_width: MirWidth::Byte,
         },
         MirOp::Call {
+            additional_results: Vec::new(),
             target: MirCallTarget::Builtin {
                 name: "Point".to_string(),
                 address: Some(0xA000),
             },
             abi: MirCallAbi {
+                additional_results: Vec::new(),
                 params: vec![
                     MirArgHome::RegisterPair {
                         lo: MirReg::A,
