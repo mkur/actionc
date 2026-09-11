@@ -12,6 +12,7 @@ pub(super) struct Image {
     pub blocks: Vec<(RoutineId, MirBlockId, std::ops::Range<usize>)>,
     entries: BTreeMap<usize, RoutineId>,
     helpers: BTreeMap<RoutineId, MirRuntimeHelperDecl>,
+    nested_arithmetic: BTreeMap<RoutineId, BTreeSet<RoutineId>>,
     origin: u16,
 }
 
@@ -29,7 +30,56 @@ impl Image {
                 .find(|(r, b, _)| *r == routine.id && *b == first.id)?;
             entries.insert(range.start, routine.id);
         }
+        let helpers: BTreeMap<_, _> = program
+            .runtime_helpers
+            .iter()
+            .filter_map(|decl| match decl.target {
+                MirRuntimeHelperTarget::Routine(id) => Some((decl.helper, id)),
+                _ => None,
+            })
+            .collect();
+        let edges: BTreeMap<_, BTreeSet<_>> = program
+            .routines
+            .iter()
+            .map(|routine| {
+                let targets = routine
+                    .blocks
+                    .iter()
+                    .flat_map(|b| &b.ops)
+                    .filter_map(|op| match op {
+                        MirOp::RuntimeHelper { helper, .. } => helpers.get(helper).copied(),
+                        MirOp::Call {
+                            target: MirCallTarget::Routine(id),
+                            ..
+                        } => Some(*id),
+                        _ => None,
+                    })
+                    .collect();
+                (routine.id, targets)
+            })
+            .collect();
+        let arithmetic: BTreeSet<_> = helpers
+            .iter()
+            .filter(|(helper, _)| helper.is_wide())
+            .map(|(_, id)| *id)
+            .collect();
+        let mut nested_arithmetic: BTreeMap<_, BTreeSet<_>> = edges
+            .iter()
+            .map(|(id, targets)| (*id, targets.intersection(&arithmetic).copied().collect()))
+            .collect();
+        loop {
+            let previous = nested_arithmetic.clone();
+            for (id, targets) in &mut nested_arithmetic {
+                for called in &edges[id] {
+                    targets.extend(previous.get(called).into_iter().flatten());
+                }
+            }
+            if nested_arithmetic == previous {
+                break;
+            }
+        }
         Some(Self {
+            nested_arithmetic,
             bytes,
             blocks: summary.block_ranges,
             entries,
@@ -352,7 +402,7 @@ fn relative_layout_penalty(
     if remaining.values().any(|n| *n != 0) {
         return None;
     }
-    Some(best.get(&(0, None, None))?.max(&0).to_owned() as u32)
+    Some((*best.get(&(0, None, None))?).max(0) as u32)
 }
 
 /// Pair only the exact compiler-owned wide kernel, ABI and fault target.
@@ -362,6 +412,17 @@ fn helper_relocation_penalty(before: &Image, after: &Image, calls: &[RoutineId])
     let mut penalty = 0u32;
     for id in calls {
         let Some(decl) = before.helpers.get(id).filter(|d| d.helper.is_wide()) else {
+            // An unchanged opaque callee may itself reach data-dependent wide
+            // helpers. Without a bounded invocation count, cancel it only when
+            // none of those retained kernels can become slower after moving.
+            if before.nested_arithmetic.get(id) != after.nested_arithmetic.get(id) {
+                return None;
+            }
+            for helper in before.nested_arithmetic.get(id).into_iter().flatten() {
+                if helper_relocation_penalty(before, after, &[*helper])? != 0 {
+                    return None;
+                }
+            }
             continue;
         };
         if after.helpers.get(id) != Some(decl) {
@@ -424,6 +485,122 @@ fn helper_relocation_penalty(before: &Image, after: &Image, calls: &[RoutineId])
         )?)?;
     }
     Some(penalty)
+}
+
+/// Renumbered block-local virtual ZP bytes do not change an unchanged region's
+/// computation. Require no incoming/outgoing value, address escape or indirect
+/// access for every renamed byte; all other operations and control stay exact.
+fn equivalent_private_block(old: &MirRoutine, new: &MirRoutine, id: MirBlockId) -> bool {
+    use crate::mir6502::analysis::{
+        cfg::MirCfg, effects::MirHomeByte, home_liveness::MirHomeLiveness,
+    };
+    fn normalized(routine: &MirRoutine, id: MirBlockId) -> Option<MirBlock> {
+        let cfg = MirCfg::from_routine(routine).ok()?;
+        let live = MirHomeLiveness::analyze(routine, &cfg);
+        let facts = live.block_by_id(id)?;
+        let mut block = routine.blocks.iter().find(|b| b.id == id)?.clone();
+        let mut slots = BTreeMap::new();
+        for op in &block.ops {
+            super::spills::visit_op_mems(op, &mut |mem| {
+                if let MirMem::ZeroPage(slot) = mem {
+                    let next = MirZpSlot(slots.len() as u32);
+                    slots.entry(*slot).or_insert(next);
+                }
+            });
+        }
+        for &slot in slots.keys() {
+            if facts.live_in.iter().chain(facts.live_out.iter()).any(|home|
+                matches!(home, MirHomeByte::VirtualZeroPage { slot: live, .. } if live == slot)) {
+                return None;
+            }
+        }
+        fn mem(mem: &mut MirMem, slots: &BTreeMap<MirZpSlot, MirZpSlot>) {
+            if let MirMem::ZeroPage(slot) = mem {
+                *slot = slots[slot];
+            }
+        }
+        fn value(v: &mut MirValue, slots: &BTreeMap<MirZpSlot, MirZpSlot>) -> Option<()> {
+            match v {
+                MirValue::PointerCell(m) => mem(m, slots),
+                MirValue::Word { lo, hi } => {
+                    value(lo, slots)?;
+                    value(hi, slots)?;
+                }
+                MirValue::StorageAddrByte {
+                    mem: MirMem::ZeroPage(_),
+                    ..
+                } => return None,
+                _ => {}
+            }
+            Some(())
+        }
+        for op in &mut block.ops {
+            match op {
+                MirOp::Load {
+                    src: MirAddr::Direct(m),
+                    width: MirWidth::Byte,
+                    ..
+                } => mem(m, &slots),
+                MirOp::Store {
+                    dst: MirAddr::Direct(m),
+                    src,
+                    width: MirWidth::Byte,
+                } => {
+                    value(src, &slots)?;
+                    mem(m, &slots);
+                }
+                MirOp::Move {
+                    src,
+                    width: MirWidth::Byte,
+                    ..
+                }
+                | MirOp::Unary {
+                    src,
+                    width: MirWidth::Byte,
+                    ..
+                } => value(src, &slots)?,
+                MirOp::Binary {
+                    left,
+                    right,
+                    width: MirWidth::Byte,
+                    ..
+                }
+                | MirOp::Compare {
+                    left,
+                    right,
+                    width: MirWidth::Byte,
+                    ..
+                } => {
+                    value(left, &slots)?;
+                    value(right, &slots)?;
+                }
+                _ => {
+                    let mut unsupported = false;
+                    super::spills::visit_op_mems(op, &mut |m| {
+                        unsupported |= matches!(m, MirMem::ZeroPage(_))
+                    });
+                    if unsupported {
+                        return None;
+                    }
+                }
+            }
+        }
+        if crate::mir6502::analysis::effects::classify_terminator(&block.terminator)
+            .homes
+            .reads
+            .iter()
+            .any(|home| matches!(home, MirHomeByte::VirtualZeroPage { .. }))
+        {
+            return None;
+        }
+        Some(block)
+    }
+    let old_block = old.blocks.iter().find(|b| b.id == id);
+    let new_block = new.blocks.iter().find(|b| b.id == id);
+    old_block == new_block
+        || normalized(old, id)
+            .zip(normalized(new, id))
+            .is_some_and(|(a, b)| a == b)
 }
 
 /// Prove every expanded region's worst path beats the old region's best
@@ -493,14 +670,10 @@ pub(super) fn saving(
                 let allowed = image
                     .blocks
                     .iter()
-                    .filter(|(r, b, _)| {
-                        *r == old_caller.id
-                            && if original {
-                                b == id
-                            } else {
-                                origins.get(b) == Some(id)
-                            }
-                    })
+                    // Materialization can introduce compare/continuation
+                    // blocks. Walk them until the next original boundary;
+                    // their generated IDs need no guessed source identity.
+                    .filter(|(r, _, _)| *r == old_caller.id)
                     .map(|(_, _, range)| range.clone())
                     .collect();
                 let mut walker = Walk {
@@ -523,8 +696,18 @@ pub(super) fn saving(
         // Identical unaffected MIR regions can retain identical path estimates.
         if count == 0
             && old == new
-            && old_caller.blocks.iter().find(|b| b.id == *id)
-                == new_caller.blocks.iter().find(|b| b.id == *id)
+            && equivalent_private_block(old_caller, new_caller, *id)
+            && old_caller
+                .blocks
+                .iter()
+                .filter(|b| !origins.contains_key(&b.id))
+                .eq(new_caller
+                    .blocks
+                    .iter()
+                    .filter(|b| !origins.contains_key(&b.id)))
+            && old
+                .keys()
+                .all(|exit| helper_relocation_penalty(before, after, &exit.calls) == Some(0))
         {
             continue;
         }
@@ -562,6 +745,7 @@ mod tests {
             blocks: vec![],
             entries,
             helpers: BTreeMap::new(),
+            nested_arithmetic: BTreeMap::new(),
             origin,
         };
         Walk {
@@ -622,6 +806,56 @@ mod tests {
                 calls: vec![]
             }],
             Bounds { min: 22, max: 24 }
+        );
+    }
+
+    #[test]
+    fn only_private_block_local_zero_page_renaming_preserves_correspondence() {
+        let ast =
+            crate::parser::parse(&crate::lexer::tokenize("PROC Main() RETURN").unwrap()).unwrap();
+        let sem =
+            crate::semantic::ir::lower_program(&ast, &crate::semantic::analyze(&ast).unwrap());
+        let nir = crate::nir::lower_program(&sem);
+        let mut old = crate::mir6502::lower_program(&nir)
+            .unwrap()
+            .routines
+            .remove(0);
+        let id = old.blocks[0].id;
+        old.blocks[0].ops = vec![
+            MirOp::LoadImm {
+                dst: MirDef::Reg(MirReg::A),
+                value: 7,
+                width: MirWidth::Byte,
+            },
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(4))),
+                src: MirValue::Def(MirDef::Reg(MirReg::A)),
+                width: MirWidth::Byte,
+            },
+            MirOp::Load {
+                dst: MirDef::Reg(MirReg::A),
+                src: MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(4))),
+                width: MirWidth::Byte,
+            },
+        ];
+        let mut new = old.clone();
+        if let MirOp::Store { dst, .. } = &mut new.blocks[0].ops[1] {
+            *dst = MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(2)));
+        }
+        if let MirOp::Load { src, .. } = &mut new.blocks[0].ops[2] {
+            *src = MirAddr::Direct(MirMem::ZeroPage(MirZpSlot(2)));
+        }
+        assert!(equivalent_private_block(&old, &new, id));
+        if let MirOp::LoadImm { value, .. } = &mut new.blocks[0].ops[0] {
+            *value = 8;
+        }
+        assert!(!equivalent_private_block(&old, &new, id));
+        old.blocks[0].ops.remove(1);
+        new.blocks[0].ops.remove(1);
+        new.blocks[0].ops[0] = old.blocks[0].ops[0].clone();
+        assert!(
+            !equivalent_private_block(&old, &new, id),
+            "live incoming homes cannot be renamed"
         );
     }
 

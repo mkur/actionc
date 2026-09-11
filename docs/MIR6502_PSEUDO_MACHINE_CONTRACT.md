@@ -64,8 +64,9 @@ The initial limits are two byte parameters, four blocks and twelve operations.
 
 `Prefer` candidates retain the same legality checks but admit up to eight
 acyclic blocks and 128 operations. Requested candidates sort before automatic
-candidates, with deterministic routine-ID ties. Each policy has 16 trial groups
-and eight sites per group. Requested growth limits are 128 bytes/site,
+candidates, with deterministic routine-ID ties. Each policy has 16 trials
+(including requested helper placement alternatives) and eight sites per group.
+Requested growth limits are 192 bytes/site,
 512/caller and 1024/program; automatic limits remain 32/128/256 bytes.
 Both policies charge accepted growth cumulatively against a combined
 1280-byte program ceiling. Retained callee bodies receive no deletion credit.
@@ -141,7 +142,21 @@ cancels, with retained bodies charged to image growth. Helper relocation is
 checked against the compiler-owned kernel bytes and fault target. A bounded
 control graph tracks emitted X counters and zero flags to bound page-crossing
 penalties across loop iterations; unproved cycles/control retain the call.
-No data-dependent helper is assigned a zero or fixed execution cost.
+No data-dependent helper is assigned a zero or fixed execution cost. Opaque
+callees that transitively reach a wide helper can cancel only if its relocation
+has no positive timing penalty; an unknown invocation count is not guessed.
+
+Generated comparison/continuation blocks are included until the next original
+caller boundary. An unchanged region may retain its path estimates after
+bijective renumbering of block-local virtual zero-page bytes, only when those
+bytes have no incoming/outgoing value or exposed address and control remains
+identical. Helper relocation is still checked for unchanged regions.
+
+A requested trial may move a retained compiler-owned wide helper to an existing
+routine boundary after its caller. Alternatives consume the same trial budget;
+normal emission, growth limits and path costs must all pass. Helper instructions,
+ABI, effects and typed routine references are unchanged. This is MIR6502 layout
+strategy; emission supplies final addresses and interprets no source modifier.
 
 ## Purpose
 

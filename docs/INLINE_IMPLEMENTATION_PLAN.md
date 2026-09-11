@@ -1,6 +1,6 @@
 # INLINE routine declarations
 
-Status: in progress, 2026-09-11. Slice 1 implements contextual declaration
+Status: implemented and validated, 2026-09-11. Slice 1 implements contextual declaration
 syntax and typed preference propagation through AST, SemIR, NIR and MIR6502.
 The new lowered/optimized NIR fixtures add the `inline prefer` metadata contract;
 existing fixture output is unchanged. Slice 2 implements requested BYTE-leaf
@@ -21,7 +21,11 @@ work and bound relocation penalties through actual LDX/DEX loop counters.
 Generic multiplication, division and remainder wrappers pass costed selection;
 non-improving or over-budget multiply/shift sites still retain their calls.
 Fault and multi-helper execution coverage passes in both runtimes. Slice 6
-remains pending.
+annotates only MulFloor/SqrWide. Both standalone Mandelbrot displays expand
+all three recurrence calls, with original bodies retained. Required root checks,
+both IR sweeps, the full VM suite, exhaustive arithmetic and matched full-frame
+controls pass. Measurements and supported fallback behavior are recorded in
+[the rollout audit](INLINE_Q4_12_VALIDATION.md).
 
 ## Objective
 
@@ -168,8 +172,10 @@ Activate `Prefer` for the existing byte-leaf subset. Separate the preference
 from eligibility; never use it to bypass an escape, effects or verifier check.
 Prioritize requested candidates deterministically before automatic candidates.
 
-Start with explicit requested growth ceilings of 128 bytes/site, 512/caller and
-1024/program, with at most 16 requested trials and eight sites/group. Keep
+Requested growth ceilings are 192 bytes/site, 512/caller and 1024/program,
+with at most 16 requested trials (including helper placement alternatives) and
+eight sites/group. The initial 128-byte site ceiling excluded a measured
+148-byte expansion that saves cycles; the rollout raises only this ceiling. Keep
 automatic candidates on their existing ceilings and trial budget; charge all
 accepted growth cumulatively against a combined 1280-byte program ceiling.
 Validate these constants against emitted results before rollout. They are

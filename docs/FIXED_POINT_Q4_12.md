@@ -42,6 +42,14 @@ FromInt(8) wraps to MinValue, Mul(6144,8192)=12288 (1.5 times 2 is 3), and
 Trunc(-6144)=-1. A whole unscaled integer 1 is not raw One: adding raw 1
 changes a value by 1/4096.
 
+MulFloor and SqrWide carry `PUBLIC INLINE` preferences. Their formulas,
+rounding, persistent parameter behavior and public ABI are unchanged. Modern
+MIR6502 may expand supported calls after a bounded code-size and cycle check;
+other modes keep ordinary calls. A request can be declined, including in the
+cartridge layout. The standalone Atari and VBXE Mandelbrot recurrence expands
+both squares and the floor product. See the
+[matched-build validation](INLINE_Q4_12_VALIDATION.md) for costs and limits.
+
 Run `cargo test --test fixed_q4_12` at the root and
 `cargo test --locked --test fixed_q4_12` from tools/vm-runtime-tests.
 The [Oscar64 Mandelbrot sample](../samples/graphics/mandelbrot/README.md)

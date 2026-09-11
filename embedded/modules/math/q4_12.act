@@ -47,7 +47,7 @@ PUBLIC INT FUNC FromRatio(INT numerator,denominator)
 RETURN(result)
 
 ; Floor rounding is explicit for algorithms that require arithmetic-shift semantics.
-PUBLIC INT FUNC MulFloor(INT left,right)
+PUBLIC INLINE INT FUNC MulFloor(INT left,right)
   LONGINT product,wideRight
   product=LONGINT(left)
   wideRight=LONGINT(right)
@@ -57,7 +57,7 @@ PUBLIC INT FUNC MulFloor(INT left,right)
 RETURN(INT(LONGCARD(product) RSH 12))
 
 ; Exact raw square, Q8.24: preserve all 32 bits, with no rescaling.
-PUBLIC LONGCARD FUNC SqrWide(INT value)
+PUBLIC INLINE LONGCARD FUNC SqrWide(INT value)
   LONGINT wide
   wide=LONGINT(value)
   wide=wide*wide

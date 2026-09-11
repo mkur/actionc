@@ -53,8 +53,16 @@ retaining a call is always permitted when legality or cost cannot be proved.
 Modern MIR6502 prioritizes requested candidates and allows bounded additional
 growth. `ACTIONC_MIR6502_PEEPHOLES=sites` explains applied and declined requests
 through the existing optimization report; ordinary builds remain quiet.
-Automatic inlining does not require an annotation. See the
-[implementation plan](INLINE_IMPLEMENTATION_PLAN.md) for rollout status.
+Automatic inlining does not require an annotation.
+
+Requested candidates support at most two logical integer parameters (BYTE,
+CHAR, INT, CARD, LONGINT or LONGCARD), eight acyclic blocks and 128 MIR
+operations. Private scalar scratch must be proven safe to promote. Straight-line
+wrappers can retain compiler-owned wide arithmetic helpers. Pointer/aggregate
+parameters, recursion and ordinary nested calls remain unsupported. Expansion
+must also fit code-growth and trial budgets. See the
+[implementation plan](INLINE_IMPLEMENTATION_PLAN.md) and
+[Q4.12 validation](INLINE_Q4_12_VALIDATION.md) for the current limits and results.
 
 ## 32-bit Integers
 

@@ -29,7 +29,7 @@ struct GrowthBudget {
 fn growth_budget(requested: bool) -> GrowthBudget {
     if requested {
         GrowthBudget {
-            site: 128,
+            site: 192,
             caller: 512,
             program: 1024,
         }
@@ -335,7 +335,10 @@ fn expand_group(
             let MirTerminator::Jump(edge) = &body.terminator else {
                 unreachable!()
             };
-            let retained_helpers = body.ops.iter().any(|op| matches!(op, MirOp::RuntimeHelper { .. }));
+            let retained_helpers = body
+                .ops
+                .iter()
+                .any(|op| matches!(op, MirOp::RuntimeHelper { .. }));
             let mut result_ids = BTreeMap::new();
             for (result, arg) in results.iter().zip(&edge.args) {
                 if let (MirDef::VTemp(dest), MirValue::Def(MirDef::VTemp(source))) =
@@ -368,16 +371,24 @@ fn expand_group(
                     .zip(edge.args)
                     .filter_map(|(result, arg)| {
                         if retained_helpers {
-                            let MirResultHome::ReturnSlot { offset } = result.home else { unreachable!() };
+                            let MirResultHome::ReturnSlot { offset } = result.home else {
+                                unreachable!()
+                            };
                             Some(MirOp::Load {
                                 dst: result.dst,
-                                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xA0 + offset as u8))),
+                                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(
+                                    0xA0 + offset as u8,
+                                ))),
                                 width: result.width,
                             })
                         } else {
-                            (arg.value != MirValue::Def(result.dst.clone())).then_some(MirOp::Move {
-                                dst: result.dst, src: arg.value, width: result.width,
-                            })
+                            (arg.value != MirValue::Def(result.dst.clone())).then_some(
+                                MirOp::Move {
+                                    dst: result.dst,
+                                    src: arg.value,
+                                    width: result.width,
+                                },
+                            )
                         }
                     }),
             );
@@ -504,6 +515,7 @@ pub(in crate::mir6502) fn materialize(
         stats.record_dynamic(*id, format!("leaf-inline-blocked-{reason}"));
     }
     let mut current = program;
+    let mut helper_placements = Vec::new();
     let mut groups = current
         .routines
         .iter()
@@ -593,8 +605,15 @@ pub(in crate::mir6502) fn materialize(
             &census.leaves[&callee_id],
         )?;
         if !expansion.helper_inputs_proven {
-            report_decision(&mut stats, &current, caller_id, callee_id,
-                "declined-helper-input-correspondence", None, None);
+            report_decision(
+                &mut stats,
+                &current,
+                caller_id,
+                callee_id,
+                "declined-helper-input-correspondence",
+                None,
+                None,
+            );
             continue;
         }
         crate::mir6502::verify_program(&candidate, MirPhase::PreMaterialization)?;
@@ -607,8 +626,12 @@ pub(in crate::mir6502) fn materialize(
             runtime,
             false,
         );
-        let Some((trial, image)) = trial
+        let Some((mut trial, mut image)) = trial
             .ok()
+            .map(|mut program| {
+                apply_helper_placements(&mut program, &helper_placements);
+                program
+            })
             .and_then(|p| Image::build(&p, origin).map(|image| (p, image)))
         else {
             stats.record_many(caller_id, "leaf-inline-blocked-unknown", count);
@@ -642,7 +665,7 @@ pub(in crate::mir6502) fn materialize(
         let code_growth = image
             .routine_bytes(caller_id)
             .saturating_sub(before.routine_bytes(caller_id));
-        let charged = growth.max(code_growth);
+        let mut charged = growth.max(code_growth);
         if !within_growth_budget(
             growth_budget(requested),
             expansion.sites,
@@ -667,11 +690,12 @@ pub(in crate::mir6502) fn materialize(
             );
             continue;
         }
-        if baseline
-            .routines
-            .iter()
-            .filter(|r| r.id != caller_id)
-            .ne(trial.routines.iter().filter(|r| r.id != caller_id))
+        if baseline.routines.len() != trial.routines.len()
+            || baseline
+                .routines
+                .iter()
+                .filter(|r| r.id != caller_id)
+                .any(|old| trial.routines.iter().find(|r| r.id == old.id) != Some(old))
         {
             stats.record_many(caller_id, "leaf-inline-blocked-surrounding-code", count);
             report_decision(
@@ -690,16 +714,108 @@ pub(in crate::mir6502) fn materialize(
             .iter()
             .find(|r| r.id == caller_id)
             .unwrap();
-        let new_caller = trial.routines.iter().find(|r| r.id == caller_id).unwrap();
-        let Some(cycles) = saving(
-            before,
-            &image,
-            old_caller,
-            new_caller,
-            callee_id,
-            &expansion.origins,
-            &expansion.sites_by_block,
-        ) else {
+        let estimate = |trial: &MirProgram, image: &Image| {
+            saving(
+                before,
+                image,
+                old_caller,
+                trial.routines.iter().find(|r| r.id == caller_id).unwrap(),
+                callee_id,
+                &expansion.origins,
+                &expansion.sites_by_block,
+            )
+        };
+        let mut cycles = estimate(&trial, &image);
+        if requested && cycles.is_none_or(|n| n == 0) {
+            // Moving a retained kernel changes branch page penalties even if
+            // its instructions are identical. Try bounded placements at existing
+            // routine boundaries after this caller. All references remain IDs;
+            // final emission and the same cost proof decide each alternative.
+            let helpers: std::collections::BTreeSet<_> = census.leaves[&callee_id]
+                .routine
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .filter_map(|op| match op {
+                    MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+                    _ => None,
+                })
+                .collect();
+            let helper_ids: Vec<_> = trial
+                .runtime_helpers
+                .iter()
+                .filter_map(|decl| match decl.target {
+                    MirRuntimeHelperTarget::Routine(id)
+                        if helpers.contains(&decl.helper) && decl.helper.is_wide() =>
+                    {
+                        Some(id)
+                    }
+                    _ => None,
+                })
+                .collect();
+            let anchors: Vec<_> = trial
+                .routines
+                .iter()
+                .skip_while(|r| r.id != caller_id)
+                .skip(1)
+                .map(|r| r.id)
+                .collect();
+            'placements: for helper in helper_ids {
+                for &anchor in &anchors {
+                    if trials[policy] >= MAX_TRIALS {
+                        break 'placements;
+                    }
+                    if helper == anchor {
+                        continue;
+                    }
+                    let mut alternative = trial.clone();
+                    apply_helper_placements(&mut alternative, &[(helper, anchor)]);
+                    if alternative == trial {
+                        continue;
+                    }
+                    trials[policy] += 1;
+                    stats.record(caller_id, "leaf-inline-layout-trials");
+                    let Some(alternative_image) = Image::build(&alternative, origin) else {
+                        continue;
+                    };
+                    let alternative_charge = alternative_image
+                        .bytes
+                        .len()
+                        .saturating_sub(before.bytes.len())
+                        .max(
+                            alternative_image
+                                .routine_bytes(caller_id)
+                                .saturating_sub(before.routine_bytes(caller_id)),
+                        );
+                    if !within_growth_budget(
+                        growth_budget(requested),
+                        expansion.sites,
+                        alternative_charge,
+                        caller_growth
+                            .get(&(caller_id, requested))
+                            .copied()
+                            .unwrap_or(0),
+                        program_growth[policy],
+                        program_growth.iter().sum(),
+                        alternative_image.bytes.len().saturating_sub(initial_bytes),
+                    ) {
+                        continue;
+                    }
+                    if let Some(saving) =
+                        estimate(&alternative, &alternative_image).filter(|n| *n > 0)
+                    {
+                        trial = alternative;
+                        image = alternative_image;
+                        charged = alternative_charge;
+                        cycles = Some(saving);
+                        helper_placements.push((helper, anchor));
+                        stats.record(caller_id, "leaf-inline-helper-placement");
+                        break 'placements;
+                    }
+                }
+            }
+        }
+        let Some(cycles) = cycles else {
             stats.record_many(caller_id, "leaf-inline-blocked-cost", count);
             report_decision(
                 &mut stats,
@@ -748,7 +864,26 @@ pub(in crate::mir6502) fn materialize(
         baseline_image = Some(image);
     }
     maybe_report_peepholes(&current, &stats, config);
-    crate::mir6502::materialize_resolved_program(current, config, origin, runtime, true)
+    let mut result =
+        crate::mir6502::materialize_resolved_program(current, config, origin, runtime, true)?;
+    apply_helper_placements(&mut result, &helper_placements);
+    crate::mir6502::verify_program(&result, MirPhase::PreEmission)?;
+    Ok(result)
+}
+
+fn apply_helper_placements(program: &mut MirProgram, placements: &[(RoutineId, RoutineId)]) {
+    for &(helper, anchor) in placements {
+        let Some(index) = program.routines.iter().position(|r| r.id == helper) else {
+            continue;
+        };
+        let routine = program.routines.remove(index);
+        let index = program
+            .routines
+            .iter()
+            .position(|r| r.id == anchor)
+            .expect("retained layout anchor");
+        program.routines.insert(index, routine);
+    }
 }
 
 #[cfg(test)]
@@ -757,6 +892,7 @@ mod tests {
     use crate::mir6502::analysis::leaf_routines::{analyze, return_store};
 
     include!("inlining_scalar_tests.rs");
+    include!("inlining_q4_tests.rs");
 
     fn lower(source: &str) -> MirProgram {
         let tokens = crate::lexer::tokenize(source).unwrap();
@@ -992,7 +1128,8 @@ mod tests {
         assert!(!within_growth_budget(auto, 2, 33, 0, 224, 224, 257));
         assert!(!within_growth_budget(auto, 2, 33, 0, 224, 224, 0));
         assert!(within_growth_budget(prefer, 1, 128, 384, 896, 1152, 1280));
-        assert!(!within_growth_budget(prefer, 1, 129, 0, 0, 0, 129));
+        assert!(within_growth_budget(prefer, 1, 192, 0, 0, 0, 192));
+        assert!(!within_growth_budget(prefer, 1, 193, 0, 0, 0, 193));
         assert!(!within_growth_budget(prefer, 1, 128, 385, 0, 0, 128));
         assert!(!within_growth_budget(prefer, 1, 128, 0, 897, 897, 1025));
         assert!(!within_growth_budget(prefer, 1, 128, 0, 0, 1153, 1280));
