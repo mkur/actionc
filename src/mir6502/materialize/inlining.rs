@@ -753,13 +753,7 @@ pub(in crate::mir6502) fn materialize(
                     _ => None,
                 })
                 .collect();
-            let anchors: Vec<_> = trial
-                .routines
-                .iter()
-                .skip_while(|r| r.id != caller_id)
-                .skip(1)
-                .map(|r| r.id)
-                .collect();
+            let anchors = helper_placement_anchors(&trial, caller_id);
             'placements: for helper in helper_ids {
                 for &anchor in &anchors {
                     if trials[policy] >= MAX_TRIALS {
@@ -871,6 +865,20 @@ pub(in crate::mir6502) fn materialize(
     Ok(result)
 }
 
+fn helper_placement_anchors(program: &MirProgram, caller: RoutineId) -> Vec<RoutineId> {
+    // Opaque machine routines can fall through or branch with literal offsets
+    // into their neighbors. A routine ID boundary alone does not make their
+    // layout movable. Keep placement trials in the wholly structured prefix,
+    // before any machine block; never split or enter the opaque runtime tail.
+    program.routines.iter()
+        .take_while(|r| !r.blocks.iter().flat_map(|b| &b.ops)
+            .any(|op| matches!(op, MirOp::MachineBlock { .. })))
+        .skip_while(|r| r.id != caller)
+        .skip(1)
+        .map(|r| r.id)
+        .collect()
+}
+
 fn apply_helper_placements(program: &mut MirProgram, placements: &[(RoutineId, RoutineId)]) {
     for &(helper, anchor) in placements {
         let Some(index) = program.routines.iter().position(|r| r.id == helper) else {
@@ -904,6 +912,17 @@ mod tests {
     }
 
     const SOURCE: &str = "BYTE input,output BYTE FUNC Map(BYTE value) IF (value AND $80)#0 THEN RETURN((value LSH 1) XOR $1B) FI RETURN(value LSH 1) PROC Main() output=Map(input) RETURN";
+
+    #[test]
+    fn helper_placement_cannot_split_raw_branch_or_fallthrough_routines() {
+        let program = lower("PROC Caller() RETURN PROC Next() RETURN \
+            PROC RawBranch=*() [$D0 $02] PROC RawTail=*() [$EA $EA $60] \
+            PROC Later() RETURN PROC Main() RETURN");
+        let id = |name| program.routines.iter().find(|r| r.name == name).unwrap().id;
+        assert_eq!(helper_placement_anchors(&program, id("Caller")), [id("Next")]);
+        assert!(helper_placement_anchors(&program, id("RawBranch")).is_empty());
+        assert!(helper_placement_anchors(&program, id("Later")).is_empty());
+    }
 
     #[test]
     fn costed_pipeline_accepts_small_leaf_and_keeps_original_body() {

@@ -55,7 +55,8 @@ storage identities and control stay exact.
 
 Retained helper relocation can change branch page penalties. Bounded placement
 trials can move a compiler-owned wide helper to an existing routine boundary
-after the caller, preserving its instructions, ABI, effects and ID references.
+after the caller within the wholly structured prefix, before the first
+machine-block routine, preserving its instructions, ABI, effects and ID references.
 Each alternative must pass the normal emitted-cost and growth checks. Opaque
 callees that reach wide helpers cannot hide a positive relocation penalty.
 The measured standalone build uses two placement trials and one accepted

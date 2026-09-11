@@ -72,6 +72,12 @@ Both policies charge accepted growth cumulatively against a combined
 1280-byte program ceiling. Retained callee bodies receive no deletion credit.
 Recursive call-graph components are rejected before eligibility classification.
 
+Helper placement alternatives are confined to the wholly structured routine
+prefix, ending before the first machine-block routine. Opaque machine code can
+fall through or use literal relative branches across routine boundaries;
+routine IDs alone do not permit inserting a helper between those entries.
+Uncertain placement retains ordinary calls instead of splitting that layout.
+
 Existing optimization reports count requested/applied/declined outcomes.
 Site reports include caller, source callee, stable block/site, preference,
 outcome and available group byte/cycle estimates. They distinguish recursion,
@@ -153,7 +159,8 @@ bytes have no incoming/outgoing value or exposed address and control remains
 identical. Helper relocation is still checked for unchanged regions.
 
 A requested trial may move a retained compiler-owned wide helper to an existing
-routine boundary after its caller. Alternatives consume the same trial budget;
+routine boundary after its caller within the structured prefix described above.
+Alternatives consume the same trial budget;
 normal emission, growth limits and path costs must all pass. Helper instructions,
 ABI, effects and typed routine references are unchanged. This is MIR6502 layout
 strategy; emission supplies final addresses and interprets no source modifier.
@@ -198,11 +205,21 @@ not a change to NIR multiplication semantics. Inputs remain at $82..$85/$C0..$C3
 result at $C4..$C7, scratch/clobbers remain $82..$87/$C0..$C7 and A/X/Y/P;
 decimal mode is cleared and the stack is balanced on every return path.
 
-For byte/word multiplier magnitudes, Mult32 uses separate loops that shift only
-the retained multiplier bytes. Width dispatch proves the omitted bytes zero;
-the top retained byte uses LSR to introduce zero carry. The multiplicand and
-result always remain four bytes, so narrow paths preserve arbitrary 32-bit
-left operands. The 24/32-round fallback retains the full multiplier shift.
+For byte/word multiplier magnitudes, Mult32 also checks the captured left
+operand's upper word. If it is zero or $FFFF, a 16x8 or 16x16 kernel rotates
+the partial product right, keeps its high byte in A, and adds only the two
+low multiplicand bytes on each set multiplier bit. An upper word of $FFFF
+requires subtracting the unchanged multiplier from the product's upper word:
+`(low16(a) - 65536) * b = low16(a) * b - (b << 16)` modulo 2^32.
+The check admits signed values down to -65536 as well as unsigned words;
+all four result bytes remain significant. This is a general runtime value
+check, independent of source types, names, fixed-point scaling or inlining.
+
+Other left operands retain the four-byte shift/add loops. For a byte/word
+multiplier these shift only its retained bytes: width dispatch proves omitted
+bytes zero, and LSR on the top retained byte introduces zero carry. The
+24/32-round fallback retains the full multiplier shift. No table, additional
+scratch, external dependency, source load or new helper ABI is introduced.
 
 Wide comparisons against constants at the start or end of a low-lane range
 use only the high lane: `x < K` / `x >= K` when K's low lane is zero, and

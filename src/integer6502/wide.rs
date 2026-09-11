@@ -58,15 +58,61 @@ pub(crate) fn multiply() -> Vec<u8> {
     source.push_str(&negate(0x82));
     source.push_str(&negate(0xC0));
     source.push_str(
-        "width: LDA $C3\nBNE wide32\nLDA $C2\nBNE wide24\n\
-         LDA $C1\nBEQ byte\nLDX #16\n",
+        "width: LDA $C3\nBNE wide32\nLDA $C2\nBEQ narrow_check\n\
+         LDX #24\nBNE wide_loop\nwide32: LDX #32\n",
     );
+    source.push_str(&multiply_loop("wide", 4));
+    source.push_str(
+        "RTS\nnarrow_check: LDA $84\nORA $85\nBEQ narrow\n\
+         LDA $84\nAND $85\nCMP #$FF\nBNE general_narrow\n\
+         narrow: LDA $C0\nSTA $C4\nLDA $C1\nBEQ narrow_byte\nSTA $C5\n",
+    );
+    // For a zero-extended word, the 16x16 product is the complete result.
+    // For an upper word of $FFFF, a = low16(a) - 65536 modulo 2^32:
+    // subtract b from the product's upper word after multiplying low16(a).
+    // This also admits -65536, and works after the paired negation above.
+    source.push_str(&multiply_word_loop("narrow_word", 2));
+    source.push_str("CLC\nBCC narrow_sign\nnarrow_byte:\n");
+    source.push_str(&multiply_word_loop("narrow_byte", 1));
+    source.push_str(
+        "narrow_sign: LDA $85\nBPL narrow_done\n\
+         SEC\nLDA $C6\nSBC $C0\nSTA $C6\nLDA $C7\nSBC $C1\nSTA $C7\n\
+         narrow_done: RTS\ngeneral_narrow: LDA $C1\nBEQ byte\nLDX #16\n",
+    );
+    // Arbitrary 32-bit left operands still need every multiplicand/result lane.
     source.push_str(&multiply_loop("word", 2));
     source.push_str("RTS\nbyte: LDX #8\n");
     source.push_str(&multiply_loop("byte", 1));
-    source.push_str("RTS\nwide24: LDX #24\nBNE wide_loop\nwide32: LDX #32\n");
-    source.push_str(&multiply_loop("wide", 4));
     pure_body(&source)
+}
+
+fn multiply_word_loop(label: &str, multiplier_bytes: u8) -> String {
+    // Rotate the partial product right instead of shifting a four-byte
+    // multiplicand left. Its high byte stays in A; each set multiplier bit
+    // adds just two bytes. C4.. holds the multiplier initially and the result
+    // finally. C0/C1 remain intact for the signed high-word correction.
+    // Seed carry with the first multiplier bit. Each rotate consumes the
+    // addition's seventeenth bit and leaves the next multiplier bit in carry;
+    // DEX/BNE preserve it, including when the addition was skipped.
+    let partial_low = 0xC4 + multiplier_bytes;
+    let mut source = format!("LDX #{}\nLDA #0\n", multiplier_bytes * 8);
+    source.push_str(&format!("LSR ${:02X}\n", partial_low - 1));
+    for byte in (0xC4..partial_low - 1).rev() {
+        source.push_str(&format!("ROR ${byte:02X}\n"));
+    }
+    source.push_str(&format!(
+        "{label}_loop: BCC {label}_rotate\nTAY\nCLC\n\
+         LDA ${partial_low:02X}\nADC $82\nSTA ${partial_low:02X}\nTYA\nADC $83\n\
+         {label}_rotate: ROR A\n",
+    ));
+    for byte in (0xC4..=partial_low).rev() {
+        source.push_str(&format!("ROR ${byte:02X}\n"));
+    }
+    source.push_str(&format!(
+        "DEX\nBNE {label}_loop\nSTA ${:02X}\n",
+        partial_low + 1
+    ));
+    source
 }
 
 fn multiply_loop(label: &str, multiplier_bytes: u8) -> String {

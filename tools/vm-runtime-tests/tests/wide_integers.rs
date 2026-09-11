@@ -248,9 +248,10 @@ fn aligned_wide_comparison_preserves_every_volatile_input_byte() {
     }
 }
 
-fn multiplication_edges() -> [u32; 16] {
+fn multiplication_edges() -> [u32; 22] {
     [0, 1, 255, 256, 32767, 32768, 65535, 65536, 0xFFFFFF, 0x1000000,
-     0x7FFFFFFF, 0x80000000, 0xFF000000, 0xFFFF0000, 0xFFFF8000, 0xFFFFFFFF]
+     0x7FFFFFFF, 0x80000000, 0xFF000000, 0xFFFF0000, 0xFFFF8000, 0xFFFFFFFF,
+     0x00010001, 0x00FF0001, 0xFF00FFFF, 0xFFFEFFFF, 0xFFFF0001, 0xFFFFFF00]
 }
 
 #[test]
@@ -275,8 +276,7 @@ fn wide_multiplication_preserves_products_across_operand_widths() {
     }
 }
 
-#[test]
-fn linked_mult32_preserves_scratch_stack_and_decimal_contract() {
+fn linked_multiply_probe() -> CompilerVm {
     let source = Source::new(
         "LONGCARD a=$6E0,b=$6E4,result=$600 PROC Main() result=a*b RETURN",
     );
@@ -293,6 +293,34 @@ fn linked_mult32_preserves_scratch_stack_and_decimal_contract() {
     let load = vm.load_atari_object_for_execution(ExecutionProfile::StandaloneObject, compiled.object_bytes()).unwrap();
     assert!(load.segments.iter().all(|s| s.end < 0x700 || s.start > 0x703));
     vm.bus_mut().ram_mut().map(0x700, &[0xF8, 0x20, target as u8, (target >> 8) as u8]).unwrap(); // SED; JSR
+    vm
+}
+
+fn probe_product(vm: &mut CompilerVm, a: u32, b: u32) -> u64 {
+    vm.bus_mut().ram_mut().map(0, &[0xCC; 256]).unwrap();
+    vm.bus_mut().ram_mut().map(0x82, &a.to_le_bytes()).unwrap();
+    vm.bus_mut().ram_mut().map(0xC0, &b.to_le_bytes()).unwrap();
+    vm.set_pc(0x700);
+    let sp = vm.cpu().registers().sp;
+    let cycles = vm.cpu().cycles();
+    for _ in 0..4000 {
+        if vm.cpu().registers().pc == 0x704 { break; }
+        vm.step_cpu().unwrap();
+    }
+    assert_eq!(vm.cpu().registers().pc, 0x704, "helper did not return: {a:08X} * {b:08X}");
+    let bytes = std::array::from_fn(|i| vm.bus().ram().read(0xC4 + i as u16));
+    assert_eq!(u32::from_le_bytes(bytes), a.wrapping_mul(b), "{a:08X} * {b:08X}");
+    assert_eq!(vm.cpu().registers().sp, sp);
+    assert_eq!(vm.cpu().registers().status & 8, 0);
+    for address in (0..0x82).chain(0x88..0xC0).chain(0xC8..0x100) {
+        assert_eq!(vm.bus().ram().read(address), 0xCC, "scratch at ${address:02X}");
+    }
+    vm.cpu().cycles() - cycles
+}
+
+#[test]
+fn linked_mult32_preserves_scratch_stack_and_decimal_contract() {
+    let mut vm = linked_multiply_probe();
     let mut pairs: Vec<_> = multiplication_edges().into_iter().flat_map(|a|
         multiplication_edges().into_iter().map(move |b| (a, b))).collect();
     let mut seed = 412u32;
@@ -309,24 +337,40 @@ fn linked_mult32_preserves_scratch_stack_and_decimal_contract() {
         pairs.push((a, seed & 0xFFFFFF));
     }
     for (a, b) in pairs {
-        vm.bus_mut().ram_mut().map(0, &[0xCC; 256]).unwrap();
-        vm.bus_mut().ram_mut().map(0x82, &a.to_le_bytes()).unwrap();
-        vm.bus_mut().ram_mut().map(0xC0, &b.to_le_bytes()).unwrap();
-        vm.set_pc(0x700);
-        let sp = vm.cpu().registers().sp;
-        for _ in 0..4000 {
-            if vm.cpu().registers().pc == 0x704 { break; }
-            vm.step_cpu().unwrap();
-        }
-        assert_eq!(vm.cpu().registers().pc, 0x704, "helper did not return: {a:08X} * {b:08X}");
-        let bytes = std::array::from_fn(|i| vm.bus().ram().read(0xC4 + i as u16));
-        assert_eq!(u32::from_le_bytes(bytes), a.wrapping_mul(b), "{a:08X} * {b:08X}");
-        assert_eq!(vm.cpu().registers().sp, sp);
-        assert_eq!(vm.cpu().registers().status & 8, 0);
-        for address in (0..0x82).chain(0x88..0xC0).chain(0xC8..0x100) {
-            assert_eq!(vm.bus().ram().read(address), 0xCC, "scratch at ${address:02X}");
+        probe_product(&mut vm, a, b);
+    }
+}
+
+#[test]
+fn linked_mult32_narrow_products_match_exhaustive_word_sweeps() {
+    let mut vm = linked_multiply_probe();
+    let mut maximum = [0; 3];
+    // All byte pairs, and every 16-bit pattern as an unsigned and signed
+    // operand. Dense and pseudorandom partners exercise carry chains; these
+    // sweeps are not a claim to exhaust all 2^32 word-pair combinations.
+    for a in 0..=255 {
+        for b in 0..=255 {
+            maximum[0] = maximum[0].max(probe_product(&mut vm, a, b));
         }
     }
+    let mut seed = 0x16_32_6502u32;
+    for a in 0..=65535 {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        let b = seed >> 16;
+        for b in [a, b, 65535] {
+            maximum[1] = maximum[1].max(probe_product(&mut vm, a, b));
+            maximum[2] = maximum[2].max(probe_product(
+                &mut vm, a as i16 as i32 as u32, b as i16 as i32 as u32,
+            ));
+        }
+    }
+    eprintln!("Mult32 maximum cycles including SED/JSR/RTS: byte={}, word={}, signed={}",
+        maximum[0], maximum[1], maximum[2]);
+    // Allow branch page crossings while requiring the rotating narrow path
+    // to improve on the former four-byte shift/add loop.
+    assert!(maximum[0] <= 450, "byte cycles: {}", maximum[0]);
+    assert!(maximum[1] <= 850, "word cycles: {}", maximum[1]);
+    assert!(maximum[2] <= 950, "signed cycles: {}", maximum[2]);
 }
 
 #[test]
