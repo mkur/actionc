@@ -1,0 +1,8 @@
+# Exact palette colors exported from build/palette-previews/palettes.json.
+# One row per palette: name, then RGB hex colors for indices 0 through 32.
+Current 000000 081040 0b2555 0e3a6a 114f7f 146494 1779a9 1a8ebe 1da3d3 20b8e8 3abddd 54c2d2 6ec7c7 88ccbc a2d1b1 bcd6a6 d6db9b f0e090 f0cd80 f0ba70 f0a760 f09450 f08140 f06e30 f05b20 f04810 f2612e f47a4d f6936c f8ac8b fac5aa fcdec9 fff8e8
+Ember 000000 200817 320b1a 450e1d 571120 6a1524 7d1827 8f1b2a a21e2d b52231 bc2930 c4302e cc372c d43e2a dc4528 e44c26 ec5324 f45b22 f56727 f6742c f88032 f98d37 fa9a3c fca642 fdb347 ffc04d ffc75d ffce6d ffd57d ffdd8e ffe49e ffebae fff3bf
+Ultraviolet 000000 160f35 1f1245 281655 311965 3a1d75 432185 4c2495 5528a5 5e2cb6 6b2db9 782fbc 8630bf 9332c2 a033c5 ae35c8 bb36cb c938ce cf41cb d64bc7 dd55c4 e45fc0 ea69bc f173b9 f87db5 ff87b1 ff96b7 ffa5bd ffb5c3 ffc4c9 ffd4cf ffe3d5 fff3dc
+Glacier 000000 051e34 072940 09354d 0b405a 0d4c67 0f5774 116381 136e8e 167a9b 1982a2 1d8ba9 2194b0 259db8 29a5bf 2daec6 31b7cd 35c0d5 42c5d8 50cbdb 5dd1de 6bd7e2 79dce5 86e2e8 94e8eb a2eeef adf0f1 b9f2f3 c4f5f5 d0f7f8 dbfafa e7fcfc f3ffff
+Copper 000000 21130c 2d180f 3a1e13 472416 542a1a 602f1d 6d3521 7a3b24 874128 90492b 99512f a25932 ab6136 b46939 bd713d c67940 cf8244 d3894b d79153 db995b e0a163 e4a96a e8b172 ecb97a f1c182 f3c78c f5ce97 f7d5a2 f9dbad fbe2b8 fde9c3 fff0ce
+Aurora 000000 071f28 082a31 09363a 0b4143 0c4d4d 0d5956 0f645f 107068 127c72 198575 218e79 28977c 30a080 38a984 3fb287 47bb8b 4fc48f 5dc88d 6ccc8a 7bd088 8ad485 98d883 a7dc80 b6e07e c5e57b cde786 d5e992 ddeb9e e6edaa eeefb6 f6f1c2 fff4ce

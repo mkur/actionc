@@ -1,6 +1,42 @@
 ; Direct RGB colors for the 32 escape counts; index zero is the black interior.
 MODULE VBXE_PALETTE
 USE ATARI.VBXE
+USE SYS
+
+PUBLIC CONST BYTE CURRENT=0,
+                  EMBER=1,
+                  ULTRAVIOLET=2,
+                  GLACIER=3,
+                  COPPER=4,
+                  AURORA=5,
+                  PALETTE_COUNT=6
+CONST BYTE STOPS_PER_PALETTE=5,
+           STOP_COUNT=PALETTE_COUNT*STOPS_PER_PALETTE
+
+; Five RGB stops per palette from the palette previews. Each row follows
+; the public palette IDs above: Current, Ember, Ultraviolet, Glacier,
+; Copper, Aurora. Channels use matching rows in all three arrays.
+BYTE ARRAY redStops(STOP_COUNT)=[
+    8  32 240 240 255
+   32 181 244 255 255
+   22  94 201 255 255
+    5  22  53 162 243
+   33 135 207 241 255
+    7  18  79 197 255]
+BYTE ARRAY greenStops(STOP_COUNT)=[
+   16 184 224  72 248
+    8  34  91 192 243
+   15  44  56 135 243
+   30 122 192 238 255
+   19  65 130 193 240
+   31 124 196 229 244]
+BYTE ARRAY blueStops(STOP_COUNT)=[
+   64 232 144  16 232
+   23  49  34  77 191
+   53 182 206 177 220
+   52 155 213 239 255
+   12  40  68 130 206
+   40 114 143 123 206]
 
 BYTE FUNC Blend(BYTE lo,hi,pos,span)
   INT delta
@@ -9,35 +45,42 @@ BYTE FUNC Blend(BYTE lo,hi,pos,span)
   delta=delta/INT(span)
 RETURN(BYTE(INT(lo)+delta))
 
-PUBLIC PROC Install()
-  BYTE count,pos,red,green,blue
+PUBLIC PROC Install(BYTE palette)
+  BYTE segment,pos,span,stop,next,base,red,green,blue
+  BYTE loRed,hiRed,loGreen,hiGreen,loBlue,hiBlue
+  IF palette>=PALETTE_COUNT THEN palette=0 FI
+  base=palette*STOPS_PER_PALETTE
   VBXE.Write(VBXE.REG_PSEL,VBXE.PALETTE_1)
   VBXE.Write(VBXE.REG_CSEL,0)
   VBXE.Write(VBXE.REG_CR,0)
   VBXE.Write(VBXE.REG_CG,0)
   VBXE.Write(VBXE.REG_CB,0)
-  FOR count=0 TO 31 DO
-    pos=count&7
-    IF count<8 THEN
-      red=Blend(8,32,pos,8)
-      green=Blend(16,184,pos,8)
-      blue=Blend(64,232,pos,8)
-    ELSEIF count<16 THEN
-      red=Blend(32,240,pos,8)
-      green=Blend(184,224,pos,8)
-      blue=Blend(232,144,pos,8)
-    ELSEIF count<24 THEN
-      red=Blend(240,240,pos,8)
-      green=Blend(224,72,pos,8)
-      blue=Blend(144,16,pos,8)
-    ELSE
-      red=Blend(240,255,pos,7)
-      green=Blend(72,248,pos,7)
-      blue=Blend(16,232,pos,7)
-    FI
-    VBXE.Write(VBXE.REG_CR,red)
-    VBXE.Write(VBXE.REG_CG,green)
-    VBXE.Write(VBXE.REG_CB,blue)
+  FOR segment=0 TO 3 DO
+    stop=base+segment
+    next=stop+1
+    loRed=redStops(stop)
+    hiRed=redStops(next)
+    loGreen=greenStops(stop)
+    hiGreen=greenStops(next)
+    loBlue=blueStops(stop)
+    hiBlue=blueStops(next)
+    span=8
+    IF segment=3 THEN span=7 FI
+    FOR pos=0 TO 7 DO
+      red=Blend(loRed,hiRed,pos,span)
+      green=Blend(loGreen,hiGreen,pos,span)
+      blue=Blend(loBlue,hiBlue,pos,span)
+      VBXE.Write(VBXE.REG_CR,red)
+      VBXE.Write(VBXE.REG_CG,green)
+      VBXE.Write(VBXE.REG_CB,blue)
+    OD
   OD
+RETURN
+
+PUBLIC PROC InstallRandom()
+  BYTE palette
+  ; SYS.Rand scales a POKEY random byte to 0..PALETTE_COUNT-1.
+  palette=SYS.Rand(PALETTE_COUNT)
+  Install(palette)
 RETURN
 ENDMODULE

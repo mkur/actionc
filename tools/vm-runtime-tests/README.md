@@ -29,16 +29,18 @@ They check truncation, explicit floor rounding, wrapping, and exact LONGCARD
 squares stored across a page boundary, using the shared fixed point harness.
 
 The [Oscar64 Mandelbrot port](../../samples/graphics/mandelbrot/README.md) has
-a dedicated `cargo test --locked --test oscar64_mandelbrot` target. Eight tests
-cover 5,352 executions: 2,424 original numerical cases, 2,904 display-coordinate
+a dedicated `cargo test --locked --test oscar64_mandelbrot` target. Nine tests
+cover 5,376 executions: 2,424 original numerical cases, 2,904 display-coordinate
 cases, six printing probes, six selected-row renders, and one native-resolution
 160x192 image in standalone MIR6502. The independent
 integer oracle preserves Oscar64's floor rounding and wide radius test. Graphics
 checks compare every modeled CIO pixel and palette values, including untouched
 regions; they do not emulate ANTIC scanout or verify OS screen-memory packing.
-Another eleven executions cover VBXE: four selected-row renders in Optimized
-classic/MIR6502 on both register pages, one complete 320x192 MIR6502 image, and
-six missing/incompatible-hardware runs. A focused bus-event model checks
+Another thirty-five executions cover VBXE: four selected-row renders in Optimized
+classic/MIR6502 on both register pages, one complete 320x192 MIR6502 image,
+six missing/incompatible-hardware runs, and twenty-four startup checks of all
+six random palettes against their saved preview colors, including both ends
+of each random selection range in both backends. A focused bus-event model checks
 revision reads, palette writes, XDL bytes, MEMAC banking, all framebuffer pixels
 and padding, plus untouched local memory. It does not emulate VBXE scanout.
 

@@ -34,7 +34,7 @@ PROC Main()
     SYS.PrintE("VBXE FX 1.2x is required.")
     RETURN
   FI
-  COLORS.Install()
+  COLORS.InstallRandom()
   GTIA.COLBAK=0
   OS.COLOR4=0
   FOR py=0 TO 191 DO

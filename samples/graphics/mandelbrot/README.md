@@ -104,9 +104,24 @@ if the expansion is absent or its core is incompatible.
 
 The SR320 display calculates all 61,440 pixels at 320x192 independently using
 the same viewport and Q4.12 recurrence. Each pixel stores its escape count plus
-one as a direct palette index; capped pixels use black index zero. The palette
-defines 32 escape-count colors, progressing from dark blue through cyan, cream
-and orange to pale cream. There is no dithering, row replication or resampling.
+one as a direct palette index; capped pixels use black index zero. At startup,
+`SYS.Rand` selects one of the six preview palettes using POKEY's random byte:
+
+| Palette | Colors |
+| --- | --- |
+| Current | Blue, cyan, cream, orange |
+| Ember | Crimson, orange, pale gold |
+| Ultraviolet | Indigo, violet, pink, ivory |
+| Glacier | Deep blue, cyan, ice white |
+| Copper | Dark bronze, copper, cream |
+| Aurora | Teal, emerald, lime, warm white |
+
+Each palette defines 32 escape-count colors and stays fixed for the run.
+Restart the program for another random selection; consecutive selections can
+repeat. The five RGB stops per palette are stored in `vbxe_palette.act` and
+match the palette previews. To force a palette, replace `COLORS.InstallRandom()`
+with, for example, `COLORS.Install(COLORS.EMBER)` in `mbfixed-vbxe.act`.
+There is no dithering, row replication or resampling.
 Both renderers draw progressively and leave the completed image on screen;
 the general LONGINT arithmetic makes a full render slow on a 6502.
 
@@ -119,10 +134,10 @@ including 192 padding bytes per row; the XDL lives at local address zero.
 ## Validation
 
 Run `cargo test --locked --test oscar64_mandelbrot` from tools/vm-runtime-tests.
-Eight tests cover 5,352 VM executions: 2,424 original numerical cases, 2,904
+Nine tests cover 5,376 VM executions: 2,424 original numerical cases, 2,904
 dimension-aware coordinate cases, six probe-output runs, twelve selected rows
 in each of six configurations, and a complete 30,720-pixel render in standalone
-MIR6502, plus eleven VBXE executions. The Atari tests compare plotted colors,
+MIR6502, plus thirty-five VBXE executions. The Atari tests compare plotted colors,
 untouched pixels, and palette registers with an independent integer oracle.
 The pinned VM models CIO graphics calls; this checks the complete rendered
 pixel image, not ANTIC scanout or the OS's screen-memory layout. Numerical
@@ -130,8 +145,12 @@ standalone runs need no ROMs; the printing and graphics tests load the OS.
 
 The VBXE checks cover six selected rows across bank boundaries in both
 maintained backends and on both register pages, one complete 320x192 MIR6502
-image, and six missing/incompatible-hardware runs. A bus-event model checks
-actual register accesses, palette autoincrement, MEMAC banking, XDL bytes,
+image, six missing/incompatible-hardware runs, and twenty-four startup runs
+covering both endpoints of each random palette selection range in both
+backends. Palette bytes are checked against the saved preview colors in
+`fixtures/runtime/oscar64/mbfixed-vbxe-palettes.txt`; image tests supply a fixed
+random byte to retain reproducible Current-palette artifacts. A bus-event model
+checks actual register accesses, palette autoincrement, MEMAC banking, XDL bytes,
 every framebuffer byte, row padding, and untouched local memory. It models the
 8KB MEMAC window used here, not VBXE scanout, blitting or interrupts. An actual
 VBXE emulator/hardware display run remains a separate manual check.

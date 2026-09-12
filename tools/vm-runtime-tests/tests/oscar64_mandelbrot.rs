@@ -536,7 +536,7 @@ fn vbxe_finish(vm: CompilerVm, device: &mut vbxe::Vbxe, budget: u64) -> RunOutco
     outcome
 }
 
-fn vbxe_palette() -> Vec<[u8; 3]> {
+fn vbxe_palette(palette: usize) -> Vec<[u8; 3]> {
     // The shared screen first initializes the complete cold-steel palette.
     // The fractal replaces entries 0..32 with black and four RGB gradient spans.
     let steel = [
@@ -546,32 +546,33 @@ fn vbxe_palette() -> Vec<[u8; 3]> {
         [178, 195, 204],
         [255, 255, 255],
     ];
-    let stops = [
-        [8, 16, 64],
-        [32, 184, 232],
-        [240, 224, 144],
-        [240, 72, 16],
-        [255, 248, 232],
-    ];
+    // Preserve the approved preview's exact bytes independently of the
+    // Action tables and interpolation code; no ignored build files are needed.
+    let previews = include_str!("../../../fixtures/runtime/oscar64/mbfixed-vbxe-palettes.txt")
+        .lines()
+        .filter(|line| !line.starts_with('#'))
+        .collect::<Vec<_>>();
+    assert_eq!(previews.len(), 6);
+    let colors = previews[palette]
+        .split_whitespace()
+        .skip(1) // Human-readable palette name.
+        .map(|hex| {
+            let rgb = u32::from_str_radix(hex, 16).unwrap();
+            [(rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8]
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(colors.len(), 33);
     (0..256)
         .map(|color| {
-            if color == 0 {
-                return [0, 0, 0];
+            if color <= 32 {
+                return colors[color];
             }
-            let (points, segment, pos, span) = if color <= 32 {
-                let i = color - 1;
-                (&stops, i / 8, i % 8, if i < 24 { 8 } else { 7 })
-            } else {
-                (
-                    &steel,
-                    color / 64,
-                    color % 64,
-                    if color < 192 { 64 } else { 63 },
-                )
-            };
+            let segment = color / 64;
+            let pos = color % 64;
+            let span = if color < 192 { 64 } else { 63 };
             std::array::from_fn(|channel| {
-                let lo = points[segment][channel];
-                let hi = points[segment + 1][channel];
+                let lo = steel[segment][channel];
+                let hi = steel[segment + 1][channel];
                 (lo + (hi - lo) * pos as i32 / span) as u8
             })
         })
@@ -581,7 +582,8 @@ fn vbxe_palette() -> Vec<[u8; 3]> {
 fn vbxe_render(mode: CompileMode, base: u16, full: bool) {
     let (source, rows) = vbxe_source(full);
     let compiled = vbxe_compile(&source, mode);
-    let (vm, mut device) = vbxe_vm(&compiled, Some((base, 0xA3)));
+    let (mut vm, mut device) = vbxe_vm(&compiled, Some((base, 0xA3)));
+    vm.bus_mut().write(0xD20A, 0); // Select Current for stable full-image artifacts.
     let outcome = vbxe_finish(
         vm,
         &mut device,
@@ -606,7 +608,7 @@ fn vbxe_render(mode: CompileMode, base: u16, full: bool) {
             "{mode:?} ${base:04X} full={full}, VBXE local ${offset:05X}"
         );
     }
-    assert_eq!(device.palettes[1].as_slice(), vbxe_palette());
+    assert_eq!(device.palettes[1].as_slice(), vbxe_palette(0));
     for palette in [0, 2, 3] {
         assert_eq!(device.palettes[palette], [[0xCC; 3]; 256]);
     }
@@ -652,6 +654,54 @@ fn vbxe_render(mode: CompileMode, base: u16, full: bool) {
             format!("{:?}\n", outcome.report),
         )
         .unwrap();
+    }
+}
+
+#[test]
+fn oscar64_mandelbrot_vbxe_startup_selects_all_preview_palettes() {
+    let (source, _) = vbxe_source(false);
+    let text = std::fs::read_to_string(&source.0).unwrap();
+    assert_eq!(text.matches("  COLORS.InstallRandom()").count(), 1);
+    // Execute the real startup, stopping before the expensive pixel rendering.
+    let source = Source::new(&text.replace(
+        "  COLORS.InstallRandom()",
+        "  COLORS.InstallRandom()\n  TestStop()",
+    ));
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        let compiled = vbxe_compile(&source, mode);
+        // Exercise both ends of every SYS.Rand(6) bucket, including 0 and 255.
+        for (random, palette) in [
+            (0, 0),
+            (42, 0),
+            (43, 1),
+            (85, 1),
+            (86, 2),
+            (127, 2),
+            (128, 3),
+            (170, 3),
+            (171, 4),
+            (213, 4),
+            (214, 5),
+            (255, 5),
+        ] {
+            let base = if random % 2 == 0 { 0xD640 } else { 0xD740 };
+            let (mut vm, mut device) = vbxe_vm(&compiled, Some((base, 0xA3)));
+            vm.bus_mut().write(0xD20A, random);
+            vm.bus_mut().add_watch_range(actionc_vm::AddressRange {
+                start: 0xD20A,
+                end: 0xD20A,
+            });
+            vbxe_finish(vm, &mut device, 5_000_000);
+            assert!(device.reads.contains(&0xD20A), "startup must sample POKEY");
+            assert_eq!(
+                device.palettes[1].as_slice(),
+                vbxe_palette(palette),
+                "{mode:?}, random byte {random}, palette {palette}",
+            );
+            for untouched in [0, 2, 3] {
+                assert_eq!(device.palettes[untouched], [[0xCC; 3]; 256]);
+            }
+        }
     }
 }
 
