@@ -1,6 +1,6 @@
 # Unknown Pleasures
 
-Start with [unknown-pleasures.act](unknown-pleasures.act) for a small
+Start with [PLEASURE.ACT](PLEASURE.ACT) for a small
 example that the original Action! 3.6 cartridge compiler accepts. It draws in
 full-screen Graphics 8 on an Atari XL/XE: 320 by 192 pixels, white on black.
 Press a key after the picture finishes to return to text mode.
@@ -8,7 +8,7 @@ Press a key after the picture finishes to return to text mode.
 With the original Action! cartridge, compile directly from disk so the large
 data table stays out of the editor buffer.
 
-[unknown-pleasure-vbxe.act](unknown-pleasure-vbxe.act) is the second renderer,
+[unknown-pleasures-vbxe.act](unknown-pleasures-vbxe.act) is the second renderer,
 using VBXE SR320 with quarter-scanline grayscale antialiasing.
 
 ## Source overview
@@ -52,7 +52,7 @@ From the repository root:
 
 ```sh
 cargo run --bin actionc -- --mode compatibility --runtime standalone --origin '$2C00' \
-  samples/graphics/unknown-pleasures/unknown-pleasures.act
+  samples/graphics/unknown-pleasures/PLEASURE.ACT
 ```
 
 Use `--runtime cart` when running with the Action! cartridge attached. Both
@@ -62,7 +62,7 @@ runtimes are also supported with `--mode optimized` and `--mode mir6502`.
 
 There are two runtime tables: [UPDATA.ACT](UPDATA.ACT) holds 50 evenly spaced
 traces with 300 integer heights each, while
-[unknown-pleasure-vbxe-data.inc](unknown-pleasure-vbxe-data.inc) holds all 80
+[unknown-pleasures-vbxe-data.inc](unknown-pleasures-vbxe-data.inc) holds all 80
 traces at quarter-scanline precision. The VBXE renderer selects its 50 traces
 at runtime; the beginner table selects them during generation to save 9,000 bytes.
 

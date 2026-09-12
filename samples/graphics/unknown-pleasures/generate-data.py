@@ -112,7 +112,7 @@ def main() -> None:
     project = Path(__file__).resolve().parent
     for name, contents in [
         ("UPDATA.ACT", render_table(selected, vbxe=False)),
-        ("unknown-pleasure-vbxe-data.inc", render_table(vbxe, vbxe=True)),
+        ("unknown-pleasures-vbxe-data.inc", render_table(vbxe, vbxe=True)),
     ]:
         path = project / name
         if args.check:

@@ -7,7 +7,7 @@ use actionc_vm::{
 use std::path::{Path, PathBuf};
 
 const SAMPLE: &str =
-    include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasures.act");
+    include_str!("../../../samples/graphics/unknown-pleasures/PLEASURE.ACT");
 const DATA: &str = include_str!("../../../samples/graphics/unknown-pleasures/UPDATA.ACT");
 const CHECKPOINT: u16 = 0x0700;
 
@@ -168,7 +168,7 @@ fn beginner_unknown_pleasures_matches_original_cartridge_in_all_backends_and_run
     assert_eq!(fingerprint, 0xc62f8d8249054461, "integer pulse data changed");
 
     let full =
-        include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasure-vbxe-data.inc");
+        include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasures-vbxe-data.inc");
     let vbxe: Vec<u8> = full
         .split_once("=[")
         .unwrap()

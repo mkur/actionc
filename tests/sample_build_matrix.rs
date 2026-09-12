@@ -409,11 +409,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
             ],
         ),
         dependency(
-            "samples/graphics/unknown-pleasures/unknown-pleasure-vbxe-data.inc",
-            &["samples/graphics/unknown-pleasures/unknown-pleasure-vbxe.act"],
+            "samples/graphics/unknown-pleasures/unknown-pleasures-vbxe-data.inc",
+            &["samples/graphics/unknown-pleasures/unknown-pleasures-vbxe.act"],
         ),
         executable(
-            "samples/graphics/unknown-pleasures/unknown-pleasure-vbxe.act",
+            "samples/graphics/unknown-pleasures/unknown-pleasures-vbxe.act",
             vec![
                 release(Optimized, Standalone).avoiding(0xA000, 0xBFFF),
                 experimental(Standalone).avoiding(0xA000, 0xBFFF),
@@ -421,10 +421,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
         ),
         dependency(
             "samples/graphics/unknown-pleasures/UPDATA.ACT",
-            &["samples/graphics/unknown-pleasures/unknown-pleasures.act"],
+            &["samples/graphics/unknown-pleasures/PLEASURE.ACT"],
         ),
         executable(
-            "samples/graphics/unknown-pleasures/unknown-pleasures.act",
+            "samples/graphics/unknown-pleasures/PLEASURE.ACT",
             vec![
                 release(Compatibility, ActionCart)
                     .at_origin(0x2C00)

@@ -87,7 +87,7 @@ palette colors. The project README records rounding rules and build commands.
 
 [`graphics/unknown-pleasures/`](graphics/unknown-pleasures/README.md) contains
 data-driven renderings of the CP1919 pulse plot. Start with
-`unknown-pleasures.act`, a small 320x192 example accepted by the original
+`PLEASURE.ACT`, a small 320x192 example accepted by the original
 Action! cartridge compiler at `$2C00`, with all 300 samples in each of 50 traces.
 Actionc can build it with either the cartridge runtime or a standalone runtime.
 The VBXE version uses SR320 with quarter-scanline grayscale antialiasing.

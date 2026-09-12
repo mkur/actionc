@@ -67,7 +67,7 @@ CARD currentSample,
 STRING missing(0)="VBXE FX 1.2x is required."
 STRING keyText(0)="Press any key to continue."
 
-INCLUDE "unknown-pleasure-vbxe-data.inc"
+INCLUDE "unknown-pleasures-vbxe-data.inc"
 
 
 PROC MapLocal(BYTE bank)
