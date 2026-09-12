@@ -91,6 +91,24 @@ as executable semantics.
 - Do not add special cases for individual sample programs; add general compiler
   behavior with focused regression coverage.
 
+## Cross-platform test fixtures
+
+- Treat checked-out text from `include_str!` and `read_to_string` as potentially
+  CRLF, even when local files use LF. Windows CI has repeatedly exposed this in
+  README output extraction and multiline Action! source instrumentation.
+- Normalize text with `.replace("\r\n", "\n")` before newline-sensitive
+  `split_once`, `matches`, `replace`, or expected-output conversion to ATASCII.
+  Prefer `.lines()` when only individual lines matter. Reuse existing snapshot
+  normalization helpers where applicable.
+- Normalize only host text whose newline convention is irrelevant to the test.
+  Preserve exact bytes for binaries, ATASCII fixtures, and tests specifically
+  checking line-ending behavior; do not use broad whitespace trimming to hide
+  output differences.
+- When adding or changing newline-sensitive fixture handling, verify both LF
+  and CRLF inputs through the actual parsing or instrumentation path. For
+  embedded fixtures, use an isolated CRLF checkout and rebuild the affected
+  tests if needed. A passing run with local LF files alone is insufficient.
+
 ## Required checks
 
 After changing NIR, semantic lowering, verifier, printer, or related code,

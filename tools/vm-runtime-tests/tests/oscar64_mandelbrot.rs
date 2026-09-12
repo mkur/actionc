@@ -227,7 +227,9 @@ fn oscar64_mandelbrot_probe_prints_documented_results() {
     let text = PROBE.replace("PROC Main()", "PROC TestStop=$0700()\nPROC Main()");
     let end = text.rfind("RETURN").unwrap();
     let source = Source::new(&format!("{} TestStop()\n{}", &text[..end], &text[end..]));
-    let expected: Vec<_> = README
+    // Normalize checkout line endings before parsing and converting to ATASCII.
+    let readme = README.replace("\r\n", "\n");
+    let expected: Vec<_> = readme
         .split_once("```text\n")
         .unwrap()
         .1
@@ -455,7 +457,10 @@ fn oscar64_mandelbrot_full_atari_image_matches_integer_oracle() {
 
 fn vbxe_source(full: bool) -> (Source, Vec<u8>) {
     const SAMPLE: &str = include_str!("../../../samples/graphics/mandelbrot/mbfixed-vbxe.act");
-    let mut text = SAMPLE.replace("PROC Main()", "PROC TestStop=$0700()\nPROC Main()");
+    // Multiline instrumentation must also match Windows CRLF checkouts.
+    let mut text = SAMPLE
+        .replace("\r\n", "\n")
+        .replace("PROC Main()", "PROC TestStop=$0700()\nPROC Main()");
     assert_eq!(text.matches("  DO OS.ATRACT=0 OD").count(), 1);
     text = text.replace("  DO OS.ATRACT=0 OD", "  TestStop() DO OD");
     // Missing hardware returns from Main before the final display hold.
