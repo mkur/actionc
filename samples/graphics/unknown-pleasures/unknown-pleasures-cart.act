@@ -1,0 +1,73 @@
+; A small Unknown Pleasures drawing for the Action! cartridge.
+; UPDATA.ACT contains 50 rows of 300 pulse measurements.
+; Each stored height has 4 added to it, to avoid negative numbers.
+
+; Compile at $2C00; see README.md for the cartridge and actionc commands.
+
+BYTE CH=$02FC,ATRACT=$004D
+BYTE ARRAY horizon(320)
+
+INCLUDE "UPDATA.ACT"
+
+; Join two heights with a vertical line at column x.
+; horizon(x) is the highest point already drawn at this column.
+; Draw only above it, so nearer pulses hide the ones behind them.
+PROC DrawColumn(CARD x BYTE first,last)
+  BYTE top,bottom,y,limit
+
+  limit=horizon(x)
+  top=first
+  bottom=last
+  IF top>bottom THEN
+    top=last
+    bottom=first
+  FI
+
+  FOR y=top TO bottom DO
+    IF y<limit THEN Plot(x,y) FI
+  OD
+  IF top<limit THEN horizon(x)=top FI
+RETURN
+
+PROC DrawPulses()
+  BYTE trace,baseline,y,previous
+  CARD index,x
+
+  index=0
+  baseline=181
+  FOR trace=0 TO 49 DO
+    ATRACT=0
+    previous=baseline
+    FOR x=10 TO 309 DO
+      ; A larger pulse height moves the point up the screen.
+      y=baseline+4-pulseData(index)
+      DrawColumn(x,previous,y)
+      previous=y
+      index==+1
+    OD
+    ; The next pulse is three screen rows farther back.
+    baseline==-3
+  OD
+RETURN
+
+PROC Main()
+  CARD x
+
+  ; Full-screen Graphics 8: 320 by 192 pixels, two colors.
+  Graphics(24)
+  SetColor(1,0,14)
+  SetColor(2,0,0)
+  color=1
+
+  ; Initially nothing hides any part of a pulse.
+  FOR x=0 TO 319 DO horizon(x)=192 OD
+  DrawPulses()
+
+  ; Wait for a new key, then return to the cartridge monitor.
+  CH=$FF
+  DO
+    ATRACT=0
+  UNTIL CH#$FF
+  OD
+  Graphics(0)
+RETURN

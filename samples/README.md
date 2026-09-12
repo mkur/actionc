@@ -85,9 +85,14 @@ The probe and standard display build in all three modes with either runtime;
 the VBXE variant uses standalone Optimized classic or MIR6502 and direct RGB
 palette colors. The project README records rounding rules and build commands.
 
-`graphics/unknown-pleasures/` contains data-driven renderings of the CP1919
-pulse plot: a stock Graphics 8 version with 300 independent horizontal samples
-and a VBXE SR320 version with quarter-scanline grayscale antialiasing.
+[`graphics/unknown-pleasures/`](graphics/unknown-pleasures/README.md) contains
+data-driven renderings of the CP1919 pulse plot. Start with
+`unknown-pleasures-cart.act`, a small 320x192 example accepted by the original
+Action! cartridge compiler at `$2C00`, with all 300 samples in each of 50 traces.
+Its `bin/` directory includes a standalone XEX and a disk with both runtime
+variants; load `STANDALN.COM` when running without the Action! cartridge.
+The advanced versions use direct Graphics 8 bitmap writes, or VBXE SR320 with
+quarter-scanline grayscale antialiasing.
 
 [`benchmarks/`](benchmarks/README.md) contains the Action! port of the Atari
 Mad Pascal benchmark suite, including complete, compatibility, and

@@ -17,6 +17,7 @@ struct BuildCase {
     tier: BuildTier,
     mode: CompileMode,
     runtime: Runtime,
+    origin: Option<u16>,
     project_root: Option<&'static str>,
     module_paths: Vec<&'static str>,
     required_segment_start: Option<u16>,
@@ -45,6 +46,7 @@ fn release(mode: CompileMode, runtime: Runtime) -> BuildCase {
         tier: BuildTier::Release,
         mode,
         runtime,
+        origin: None,
         project_root: None,
         module_paths: Vec::new(),
         required_segment_start: None,
@@ -61,6 +63,12 @@ fn experimental(runtime: Runtime) -> BuildCase {
 }
 
 impl BuildCase {
+    fn at_origin(mut self, address: u16) -> Self {
+        self.origin = Some(address);
+        self.required_segment_start = Some(address);
+        self
+    }
+
     fn requiring_segment_start(mut self, address: u16) -> Self {
         self.required_segment_start = Some(address);
         self
@@ -418,6 +426,33 @@ fn sample_catalog() -> Vec<SampleSpec> {
         executable(
             "samples/graphics/unknown-pleasures/unknown-pleasures.act",
             vec![release(Optimized, Standalone), experimental(Standalone)],
+        ),
+        dependency(
+            "samples/graphics/unknown-pleasures/UPDATA.ACT",
+            &["samples/graphics/unknown-pleasures/unknown-pleasures-cart.act"],
+        ),
+        executable(
+            "samples/graphics/unknown-pleasures/unknown-pleasures-cart.act",
+            vec![
+                release(Compatibility, ActionCart)
+                    .at_origin(0x2C00)
+                    .fitting_in(0x2C00, 0x6FFF),
+                release(Compatibility, Standalone)
+                    .at_origin(0x2C00)
+                    .fitting_in(0x2C00, 0x6FFF),
+                release(Optimized, ActionCart)
+                    .at_origin(0x2C00)
+                    .fitting_in(0x2C00, 0x6FFF),
+                release(Optimized, Standalone)
+                    .at_origin(0x2C00)
+                    .fitting_in(0x2C00, 0x6FFF),
+                experimental(ActionCart)
+                    .at_origin(0x2C00)
+                    .fitting_in(0x2C00, 0x6FFF),
+                experimental(Standalone)
+                    .at_origin(0x2C00)
+                    .fitting_in(0x2C00, 0x6FFF),
+            ],
         ),
         executable(
             "samples/hello-world.act",
@@ -912,6 +947,9 @@ fn run_build_matrix(tier: BuildTier) {
         for build in builds.iter().filter(|build| build.tier == tier) {
             let description = build_description(spec.path, build);
             let mut options = CompileOptions::for_mode(build.mode).with_runtime(build.runtime);
+            if let Some(origin) = build.origin {
+                options = options.with_origin(origin);
+            }
             if let Some(project_root) = build.project_root {
                 options = options.with_project_root(root.join(project_root));
             }

@@ -22,6 +22,13 @@ modern lanes. Numerical standalone runs load no ROMs. Host i64 oracles check
 complete guarded regions, including page-crossing INT stores; fault tests
 verify Error(101) and non-returning behavior even with a returning Error hook.
 
+The [beginner Unknown Pleasures sample](../../samples/graphics/unknown-pleasures/README.md)
+is checked by `cargo test --locked --test unknown_pleasures_cart`. The test
+compiles it with the original Action! 3.6 cartridge ROM and compares its complete
+320x192 picture with all six actionc mode/runtime combinations at `$2C00`. It
+also checks all 300 samples of the same 50 traces used by the advanced renderer,
+screen bounds, load ranges, palette, and keypress exit to text mode.
+
 The [signed Q4.12 library](../../docs/FIXED_POINT_Q4_12.md) is checked by
 `cargo test --locked --test fixed_q4_12`. Two tests cover 3,774 VM executions:
 617 arithmetic pairs across six configurations, plus 72 division faults.
