@@ -3,6 +3,7 @@
 use crate::mir6502::analysis::cfg::{MirCfg, MirCfgError};
 use crate::mir6502::analysis::dominance::MirDominance;
 use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
+use crate::mir6502::analysis::machine_liveness::MirMachineLiveness;
 use crate::mir6502::analysis::param_availability::MirParamRegisterAvailability;
 use crate::mir6502::analysis::reaching_defs::MirReachingDefinitions;
 use crate::mir6502::analysis::sites::{MirRoutineGeneration, MirRoutineSnapshot};
@@ -13,7 +14,9 @@ use crate::mir6502::ir::MirRoutine;
 /// Immutable, generation-scoped fact bundle for pre-home rewrites.
 #[derive(Debug)]
 pub(in crate::mir6502) struct PreHomeAnalysisSnapshot<'a> {
+    source: &'a MirRoutine,
     routine: MirRoutineSnapshot<'a>,
+    machine_liveness: std::cell::OnceCell<MirMachineLiveness>,
     use_def: MirTempUseDefIndex,
     reaching_definitions: MirReachingDefinitions,
     temp_liveness: MirTempLiveness,
@@ -30,6 +33,8 @@ impl<'a> PreHomeAnalysisSnapshot<'a> {
         let routine_snapshot = MirRoutineSnapshot::new(routine, generation)?;
         let cfg = routine_snapshot.cfg();
         Ok(Self {
+            source: routine,
+            machine_liveness: std::cell::OnceCell::new(),
             use_def: MirTempUseDefIndex::from_routine(routine),
             reaching_definitions: MirReachingDefinitions::analyze(routine, cfg),
             temp_liveness: MirTempLiveness::analyze(routine, cfg),
@@ -50,6 +55,11 @@ impl<'a> PreHomeAnalysisSnapshot<'a> {
 
     pub(in crate::mir6502) fn use_def(&self) -> &MirTempUseDefIndex {
         &self.use_def
+    }
+
+    pub(in crate::mir6502) fn machine_liveness(&self) -> &MirMachineLiveness {
+        self.machine_liveness
+            .get_or_init(|| MirMachineLiveness::analyze(self.source, self.cfg()))
     }
 
     pub(in crate::mir6502) fn reaching_definitions(&self) -> &MirReachingDefinitions {

@@ -1,0 +1,11 @@
+LONGCARD input=$6E0
+BYTE result=$600
+
+PROC Main()
+IF input >= LONGCARD($04000000) THEN
+  result=17
+ELSE
+  result=29
+FI
+DO OD
+RETURN

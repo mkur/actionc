@@ -1,10 +1,17 @@
 # INLINE Q4.12 validation
 
-The standalone MIR6502 Mandelbrot recurrence expands its two `SqrWide` calls
-and one `MulFloor` call. Both original Q4.12 bodies remain emitted. Only these
+At the 2026-09-11 rollout, the standalone MIR6502 Mandelbrot recurrence expanded
+its two `SqrWide` calls and one `MulFloor` call. Both original Q4.12 bodies
+remained emitted. Only these
 two library functions carry `PUBLIC INLINE`; their arithmetic and ABI are
 unchanged. Selection uses typed computation, effects and emitted costs, with
 no module-name, routine-name or sample-constant predicates.
+
+These are the rollout measurements. The subsequent
+[comparison-branch optimization](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md#delivered-validation-and-measurements)
+changes layout and can cause the single `MulFloor` request to decline under
+the unchanged cost proof; both square sites still expand in the tested
+standalone layouts. `INLINE` remains a preference.
 
 ## Matched measurements
 

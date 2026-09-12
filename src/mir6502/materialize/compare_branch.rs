@@ -34,6 +34,55 @@ use crate::mir6502::passes::Mir6502Config;
 use crate::mir6502::rewrite::context::{MirProof, PostHomeRewriteContext};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub(in crate::mir6502) struct CompareBranchCopyCandidate {
+    pub start: usize,
+    pub replacement: MirOp,
+    /// Definition order: comparison result, then each copy destination.
+    pub chain: Vec<MirTempId>,
+}
+
+/// Recognize only a contiguous private BYTE-copy suffix. Legality comes from
+/// the routine-wide definition/use proofs in the rewrite pilot.
+pub(in crate::mir6502) fn compare_branch_copy_candidate(
+    block: &MirBlock,
+) -> Option<CompareBranchCopyCandidate> {
+    let (mut source, _, _) = branch_bool_temp(block)?;
+    let mut chain = vec![source];
+    for (index, op) in block.ops.iter().enumerate().rev() {
+        match op {
+            MirOp::Move {
+                dst: MirDef::VTemp(dst),
+                src: MirValue::Def(MirDef::VTemp(src)),
+                width: MirWidth::Byte,
+            } if *dst == source && !chain.contains(src) => {
+                source = *src;
+                chain.push(source);
+            }
+            MirOp::Compare {
+                dst: MirCondDest::Temp(dst),
+                ..
+            } if *dst == source
+                && chain.len() > 1
+                && short_circuit_compare_for_branch(op).is_some() =>
+            {
+                let mut replacement = op.clone();
+                let MirOp::Compare { dst, .. } = &mut replacement else {
+                    unreachable!()
+                };
+                *dst = MirCondDest::Temp(chain[0]);
+                chain.reverse();
+                return Some(CompareBranchCopyCandidate {
+                    start: index,
+                    replacement,
+                    chain,
+                });
+            }
+            _ => return None,
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::mir6502) struct ByteAddWordCompareCandidate {
     pub consumed: usize,

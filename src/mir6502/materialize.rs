@@ -117,8 +117,8 @@ use compare_branch::{
     word_arithmetic_compare_candidate,
 };
 pub(in crate::mir6502) use compare_branch::{
-    addressed_byte_compare_candidate, direct_indexed_byte_compare_candidate,
-    dual_indirect_compare_candidate,
+    addressed_byte_compare_candidate, compare_branch_copy_candidate,
+    direct_indexed_byte_compare_candidate, dual_indirect_compare_candidate,
 };
 #[cfg(test)]
 use compare_branch::{
@@ -2564,6 +2564,7 @@ fn run_prehome_canonicalization_group(
     peephole_stats: &mut MirPeepholeStats,
 ) -> Result<(), Vec<MirDiagnostic>> {
     if config.enable_peepholes {
+        run_analyzed_compare_branch_copies(routine, peephole_stats)?;
         let loops = dynamic_loops::select_dynamic_word_index_loops(routine);
         peephole_stats.record_many(routine.id, "dynamic-word-loop-candidate", loops.candidates);
         peephole_stats.record_many(routine.id, "dynamic-word-loop-rotated", loops.selected);
@@ -3456,6 +3457,39 @@ fn run_analyzed_scaled_y_word_stores(
                 format!("post-home scaled-Y word-store selection failed: {error:?}"),
             )]
         })?;
+    record_prehome_rewrite_result(routine.id, result, peephole_stats);
+    Ok(())
+}
+
+fn run_analyzed_compare_branch_copies(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) -> Result<(), Vec<MirDiagnostic>> {
+    if !routine
+        .blocks
+        .iter()
+        .any(|block| compare_branch_copy_candidate(block).is_some())
+    {
+        return Ok(());
+    }
+    let mut observations = BTreeSet::new();
+    let result = MirPreHomeRewriteDriver::default()
+        .run_fixed_point(routine, |routine, context| {
+            super::rewrite::pilots::discover_compare_branch_copies(
+                routine,
+                context,
+                &mut observations,
+            )
+        })
+        .map_err(|error| {
+            vec![MirDiagnostic::routine(
+                &routine.name,
+                format!("comparison-copy rewrite failed: {error:?}"),
+            )]
+        })?;
+    for (_, stat) in observations {
+        peephole_stats.record_many(routine.id, stat, 1);
+    }
     record_prehome_rewrite_result(routine.id, result, peephole_stats);
     Ok(())
 }

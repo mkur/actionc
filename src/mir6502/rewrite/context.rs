@@ -40,6 +40,8 @@ pub(in crate::mir6502) enum MirProofBlocker {
     ReachingDefinitions(MirReachingDefinitionError),
     RequirementDoesNotUseLane(MirTempLane),
     NoReachingDefinition(MirTempLane),
+    NonUniqueTempDefinition(MirTempId),
+    UnexpectedTempUse(MirUseSite),
     MultipleReachingDefinitions {
         lane: MirTempLane,
         count: usize,
@@ -114,6 +116,8 @@ impl MirProofBlocker {
             Self::ReachingDefinitions(_) => "reaching-definitions",
             Self::RequirementDoesNotUseLane(_) => "requirement-does-not-use-lane",
             Self::NoReachingDefinition(_) => "no-reaching-definition",
+            Self::NonUniqueTempDefinition(_) => "non-unique-temp-definition",
+            Self::UnexpectedTempUse(_) => "unexpected-temp-use",
             Self::MultipleReachingDefinitions { .. } => "multiple-reaching-definitions",
             Self::DefinitionDoesNotDominateUse { .. } => "definition-does-not-dominate-use",
             Self::DefinitionUnavailable { .. } => "definition-unavailable",
@@ -249,6 +253,65 @@ impl<'snapshot, 'routine> PreHomeRewriteContext<'snapshot, 'routine> {
             }),
             Err(error) => MirProof::Blocked(MirProofBlocker::ReachingDefinitions(error)),
         }
+    }
+
+    /// A private BYTE has one definition and exactly one use in the routine.
+    /// Check all lanes, including full-temp and edge uses, before proving the
+    /// precise reaching definition. Conservatively reject reused temp IDs.
+    pub(in crate::mir6502) fn exclusive_byte_temp_flow(
+        &self,
+        temp: MirTempId,
+        definition_site: MirSite,
+        use_site: MirSite,
+    ) -> MirProof<MirDefSite> {
+        let lane = MirTempLane { temp, byte: 0 };
+        let expected = MirDefSite {
+            site: definition_site,
+            lane,
+        };
+        let definitions: Vec<_> = self
+            .snapshot
+            .use_def()
+            .definitions_of_temp(temp)
+            .copied()
+            .collect();
+        if definitions != [expected] {
+            return MirProof::Blocked(MirProofBlocker::NonUniqueTempDefinition(temp));
+        }
+        let uses = self.snapshot.use_def().uses_of_temp(temp);
+        let [usage] = uses else {
+            return MirProof::Blocked(match uses.first() {
+                Some(usage) => MirProofBlocker::UnexpectedTempUse(*usage),
+                None => MirProofBlocker::DefinitionUnavailable {
+                    definition: expected,
+                    point: use_site,
+                },
+            });
+        };
+        if usage.site != use_site {
+            return MirProof::Blocked(MirProofBlocker::UnexpectedTempUse(*usage));
+        }
+        self.unique_reaching_definition(*usage, lane)
+    }
+
+    /// A branch selector may replace a numeric Boolean's A/flags with the
+    /// comparison's machine state. Require that state dead on all successors.
+    pub(in crate::mir6502) fn branch_machine_state_dead(&self, block: MirBlockId) -> MirProof<()> {
+        let point = MirSite::Terminator { block };
+        let live = match self.snapshot.machine_liveness().live_after(point) {
+            Ok(live) => live,
+            Err(error) => return MirProof::Blocked(MirProofBlocker::MachineLiveness(error)),
+        };
+        for reg in [MirReg::A, MirReg::X, MirReg::Y] {
+            if live.register_live(reg) {
+                return MirProof::Blocked(MirProofBlocker::RegisterLive { reg, point });
+            }
+        }
+        let flags = MirFlagSet::all();
+        if live.flags_live(flags) {
+            return MirProof::Blocked(MirProofBlocker::FlagsLive { flags, point });
+        }
+        MirProof::Proven(())
     }
 
     pub(in crate::mir6502) fn value_available_at(

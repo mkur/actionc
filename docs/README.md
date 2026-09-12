@@ -74,6 +74,9 @@ crowding the active reference set.
 - [MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md](MIR6502_GENERAL_CODEGEN_OPTIMIZATION_PLAN.md)
   - active general plan for counted loops, register facts, and direct value
   consumers.
+- [MIR6502_COMPARE_BRANCH_FUSION_PLAN.md](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md)
+  - implemented comparison-result copy elimination before branch selection, with
+  shared use proofs, numeric-result fallbacks, and measured Mandelbrot validation.
 - [MIR6502_COUNTED_LOOP_LATCH_RELAXATION_PLAN.md](MIR6502_COUNTED_LOOP_LATCH_RELAXATION_PLAN.md)
   - proposed follow-on for first-entry machine-state reconstruction and
   trip-count-aware latch profitability.

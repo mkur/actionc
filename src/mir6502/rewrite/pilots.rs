@@ -12,6 +12,91 @@ use crate::mir6502::rewrite::plan::{
     MirChangeSet, MirEffectDelta, MirRemovedDefinition, MirRewritePlan,
 };
 
+pub(in crate::mir6502) fn discover_compare_branch_copies(
+    routine: &MirRoutine,
+    context: &PreHomeRewriteContext<'_, '_>,
+    observations: &mut BTreeSet<(crate::mir6502::ir::MirBlockId, &'static str)>,
+) -> Vec<MirRewritePlan> {
+    use crate::mir6502::ir::MirTerminator;
+    let mut plans = Vec::new();
+    for block in &routine.blocks {
+        let Some(candidate) = crate::mir6502::materialize::compare_branch_copy_candidate(block)
+        else {
+            continue;
+        };
+        observations.insert((block.id, "compare-branch-copy-candidate"));
+        let MirTerminator::Branch {
+            then_edge,
+            else_edge,
+            ..
+        } = &block.terminator
+        else {
+            unreachable!()
+        };
+        if !then_edge.args.is_empty() || !else_edge.args.is_empty() {
+            observations.insert((block.id, "compare-branch-copy-blocked-edge-args"));
+            continue;
+        }
+        let flow_proven = candidate.chain.iter().enumerate().all(|(offset, temp)| {
+            let definition = MirSite::Op {
+                block: block.id,
+                op_index: candidate.start + offset,
+            };
+            let usage = if offset + 1 == candidate.chain.len() {
+                MirSite::Terminator { block: block.id }
+            } else {
+                MirSite::Op {
+                    block: block.id,
+                    op_index: candidate.start + offset + 1,
+                }
+            };
+            context
+                .exclusive_byte_temp_flow(*temp, definition, usage)
+                .is_proven()
+        });
+        if !flow_proven {
+            observations.insert((block.id, "compare-branch-copy-blocked-use"));
+            continue;
+        }
+        if !context.branch_machine_state_dead(block.id).is_proven() {
+            observations.insert((block.id, "compare-branch-copy-blocked-machine-state"));
+            continue;
+        }
+        let replacement = vec![candidate.replacement];
+        let Some(definitions) = prove_removed_window_definitions(
+            block.id,
+            &block.ops,
+            candidate.start,
+            block.ops.len(),
+            &replacement,
+            context,
+        ) else {
+            observations.insert((block.id, "compare-branch-copy-blocked-definition"));
+            continue;
+        };
+        plans.push(MirRewritePlan {
+            generation: context.generation(),
+            block: block.id,
+            range: candidate.start..block.ops.len(),
+            replacement,
+            removed_defs: definitions
+                .into_iter()
+                .map(|definition| MirRemovedDefinition { definition })
+                .collect(),
+            exit_effect_delta: MirEffectDelta::Unchanged,
+            change_set: MirChangeSet::prehome_operation_change(),
+            stat: "compare-branch-copy-selected",
+            observations: vec![("compare-branch-copy-elided", candidate.chain.len() - 1)],
+            family_priority: 20,
+            // Branch layout owns the actual emitted saving; removing virtual
+            // copies alone does not promise a particular byte/cycle count.
+            estimated_byte_saving: 0,
+            estimated_cycle_saving: 0,
+        });
+    }
+    plans
+}
+
 pub(in crate::mir6502) fn discover_prehome_pilots(
     routine: &MirRoutine,
     context: &PreHomeRewriteContext<'_, '_>,

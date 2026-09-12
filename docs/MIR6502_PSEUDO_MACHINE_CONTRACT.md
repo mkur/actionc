@@ -232,6 +232,26 @@ These choices consume captured values; they do not remove or re-order NIR
 loads, volatile accesses or calls. In particular, a volatile wide input still
 reads all four bytes even when only its highest byte decides the comparison.
 
+Before comparison branch/value expansion, MIR6502 can collapse a contiguous
+suffix of a comparison and private BYTE-temp copies into a comparison defining
+the final branch condition directly. The analyzed operation rewrite preserves
+the comparison's operands, predicate, width, signedness, and evaluation point.
+Shared use/definition and reaching-definition facts must prove that every temp
+in the chain has a single BYTE definition and precisely its expected use; reused
+IDs, other lane/value uses, and uses on successors or backedges block selection.
+The final result must be used only by this branch. Both outgoing edges must
+have no arguments, and shared machine liveness must prove A/X/Y and arithmetic
+flags dead on the successors. Machine liveness is computed lazily within the
+same immutable pre-home snapshot.
+
+Existing unsigned-byte and signed/unsigned-word branch selectors then consume
+the comparison. Numeric results still materialize canonical BYTE 0/1 whenever
+the proof fails or another consumer needs the value. The rewrite neither
+crosses effects nor follows memory aliases, casts, Boolean expressions, or
+cross-block copies. It uses the normal transaction/invalidation workflow and
+is disabled with `enable_peepholes`; no NIR or emitter operation is added.
+See [the implementation and validation](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md).
+
 Emission owns concrete bytes and output mechanics:
 
 - exact opcode selection and writing;

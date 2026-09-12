@@ -75,7 +75,7 @@ fn q4_inline_matched_artifacts() {
 }
 
 #[test]
-fn q4_mandelbrot_standalone_recurrence_expands_with_retained_bodies() {
+fn q4_mandelbrot_recurrence_inlines_squares_with_retained_bodies() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     for sample in ["mbfixed.act", "mbfixed-vbxe.act"] {
         let (nir, _) = q4_program(&root.join("samples/graphics/mandelbrot").join(sample));
@@ -113,15 +113,17 @@ fn q4_mandelbrot_standalone_recurrence_expands_with_retained_bodies() {
                 3
             );
             for id in wanted {
-                if runtime == Runtime::Standalone {
+                if runtime == Runtime::Standalone && calls_to(&before, id) == 2 {
                     assert_eq!(
                         calls_to(&after, id),
                         0,
                         "{sample}/{runtime:?}: retained {id:?}"
                     );
                 } else {
-                    // The cartridge's shorter linked image can lack a helper
-                    // placement that proves a saving. The request may decline.
+                    // INLINE remains costed. Direct comparison branches change
+                    // layout: the single MulFloor site can now decline even in
+                    // standalone output. Both square sites must still expand;
+                    // cartridge layouts may also retain their requested calls.
                     assert!(calls_to(&after, id) <= calls_to(&before, id));
                 }
                 assert_eq!(

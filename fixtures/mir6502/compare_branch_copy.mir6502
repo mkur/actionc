@@ -1,0 +1,23 @@
+mir6502 program
+global g0 input: LongCard absolute $06E0 size=4
+global g1 result: byte absolute $0600
+
+routine r0 Main
+b0 bb0:
+  v0 =.w load global g0+0
+  v3 =.w load global g0+2
+  v4 =.w v3 rsh #$0008 carry_in=- carry_out=ignore
+  v5 =.b truncate v4 from.w
+  v6 = cmp.b v5 ge #$04
+  v2 =.b v6
+  branch bool v2 ? b1 : b2
+b1 bb2:
+  store.b global g1+0, #$11
+  jump b3
+b2 bb3:
+  store.b global g1+0, #$1D
+  jump b3
+b3 bb1:
+  jump b4
+b4 bb4:
+  jump b4

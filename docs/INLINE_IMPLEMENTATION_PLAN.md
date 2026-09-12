@@ -27,6 +27,11 @@ both IR sweeps, the full VM suite, exhaustive arithmetic and matched full-frame
 controls pass. Measurements and supported fallback behavior are recorded in
 [the rollout audit](INLINE_Q4_12_VALIDATION.md).
 
+Subsequent [comparison-branch selection](MIR6502_COMPARE_BRANCH_FUSION_PLAN.md)
+changes emitted layout and permits a costed fallback for the single `MulFloor`
+site. The three-site acceptance measurements below describe the original
+rollout; both square sites remain required by the current standalone regression.
+
 ## Objective
 
 Add an explicit routine declaration modifier that requests inlining, and extend

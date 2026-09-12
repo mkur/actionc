@@ -248,6 +248,87 @@ fn aligned_wide_comparison_preserves_every_volatile_input_byte() {
     }
 }
 
+#[test]
+fn wide_comparison_shared_numeric_and_branch_results_remain_canonical() {
+    let source = Source::new(
+        "LONGCARD input=$6E0 BYTE saved=$600,selected=$601,passed=$602,adjusted=$603,calls=$604,done=$6FF\n\
+         BYTE FUNC Remember(BYTE value) calls==+1 RETURN(value)\n\
+         PROC Main()\n\
+         LET predicate=input >= LONGCARD($04000000)\n\
+         calls=0 saved=predicate\n\
+         IF predicate THEN selected=17 ELSE selected=29 FI\n\
+         passed=Remember(predicate) adjusted=predicate+7 done=$A5 DO OD RETURN",
+    );
+    for (mode, runtime) in
+        modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility)
+    {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
+        )
+        .unwrap();
+        for input in [
+            0u32,
+            0x03FFFFFF,
+            0x04000000,
+            0x04000001,
+            0x80000000,
+            u32::MAX,
+        ] {
+            let actual = run(compiled.object_bytes(), runtime, input, 0);
+            let predicate = u8::from(input >= 0x04000000);
+            let mut expected = vec![0xCC; 256];
+            expected[..5].copy_from_slice(&[
+                predicate,
+                if predicate == 1 { 17 } else { 29 },
+                predicate,
+                predicate + 7,
+                1,
+            ]);
+            expected[0xE0..0xE4].copy_from_slice(&input.to_le_bytes());
+            expected[0xE4..0xE8].fill(0);
+            expected[255] = 0xA5;
+            assert_eq!(actual, expected, "{mode:?}/{runtime:?} input={input:08X}");
+        }
+    }
+}
+
+#[test]
+fn wide_comparison_branch_keeps_call_order_and_distant_targets() {
+    let mut text = String::from(
+        "LONGCARD input=$6E0 BYTE order=$600,result=$601,distant=$602,done=$6FF BYTE ARRAY writes(192)=$800\n\
+         LONGCARD FUNC Left() order=order*3+1 RETURN(input)\n\
+         LONGCARD FUNC Right() order=order*3+2 RETURN(LONGCARD($04000000))\n\
+         PROC Main() order=0\nIF Left() >= Right() THEN result=17 ELSE result=29 FI\n\
+         IF input >= LONGCARD($04000000) THEN\n",
+    );
+    // Keep observable writes in one arm so branch-distance handling is tested
+    // after selecting the direct significant-byte predicate.
+    for index in 0..192 {
+        text.push_str(&format!("writes({index})={index}\n"));
+    }
+    text.push_str("distant=41 ELSE distant=53 FI done=$A5 DO OD RETURN");
+    let source = Source::new(&text);
+    for runtime in [Runtime::Standalone, Runtime::ActionCart] {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+        )
+        .unwrap();
+        for input in [0x03FFFFFFu32, 0x04000000, u32::MAX] {
+            let actual = run(compiled.object_bytes(), runtime, input, 0);
+            let mut expected = vec![0xCC; 256];
+            expected[0] = 5; // Left, then Right, exactly once, in base 3.
+            expected[1] = if input >= 0x04000000 { 17 } else { 29 };
+            expected[2] = if input >= 0x04000000 { 41 } else { 53 };
+            expected[0xE0..0xE4].copy_from_slice(&input.to_le_bytes());
+            expected[0xE4..0xE8].fill(0);
+            expected[255] = 0xA5;
+            assert_eq!(actual, expected, "{runtime:?} input={input:08X}");
+        }
+    }
+}
+
 fn multiplication_edges() -> [u32; 22] {
     [0, 1, 255, 256, 32767, 32768, 65535, 65536, 0xFFFFFF, 0x1000000,
      0x7FFFFFFF, 0x80000000, 0xFF000000, 0xFFFF0000, 0xFFFF8000, 0xFFFFFFFF,
