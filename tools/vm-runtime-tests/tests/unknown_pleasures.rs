@@ -7,7 +7,7 @@ use actionc_vm::{
 use std::path::{Path, PathBuf};
 
 const SAMPLE: &str =
-    include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasures-cart.act");
+    include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasures.act");
 const DATA: &str = include_str!("../../../samples/graphics/unknown-pleasures/UPDATA.ACT");
 const CHECKPOINT: u16 = 0x0700;
 
@@ -159,9 +159,17 @@ fn beginner_unknown_pleasures_matches_original_cartridge_in_all_backends_and_run
         .split_whitespace()
         .map(|v| v.parse().unwrap())
         .collect();
+    assert_eq!(heights.len(), 15000);
+    // FNV-1a of all 15,000 integer heights, verified against the pinned CSV.
+    // This preserves the exact image without keeping a second integer table.
+    let fingerprint = heights.iter().fold(0xcbf29ce484222325u64, |hash, &height| {
+        (hash ^ u64::from(height)).wrapping_mul(0x100000001b3)
+    });
+    assert_eq!(fingerprint, 0xc62f8d8249054461, "integer pulse data changed");
+
     let full =
-        include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasures-data.inc");
-    let original: Vec<u8> = full
+        include_str!("../../../samples/graphics/unknown-pleasures/unknown-pleasure-vbxe-data.inc");
+    let vbxe: Vec<u8> = full
         .split_once("=[")
         .unwrap()
         .1
@@ -170,16 +178,16 @@ fn beginner_unknown_pleasures_matches_original_cartridge_in_all_backends_and_run
         .split_whitespace()
         .map(|v| u8::from_str_radix(v.trim_start_matches('$'), 16).unwrap())
         .collect();
-    // ceil(n * 80 / 50) is the full renderer's evenly spaced trace selection.
-    let retained: Vec<u8> = (0usize..50)
-        .flat_map(|n| {
-            let trace = (n * 80).div_ceil(50);
-            original[trace * 300..(trace + 1) * 300].iter().copied()
-        })
-        .collect();
-    assert_eq!(heights, retained);
-    assert_eq!(heights.len(), 15000);
+    assert_eq!(vbxe.len(), 80 * 300);
     for (i, &height) in heights.iter().enumerate() {
+        // The two tables round the CSV independently. Corresponding samples
+        // differ by at most half a pixel after scaling to quarter pixels.
+        let trace = ((i / 300) * 80).div_ceil(50);
+        let quarter_height = vbxe[trace * 300 + i % 300];
+        assert!(
+            (i16::from(height) * 4 - i16::from(quarter_height)).abs() <= 2,
+            "Graphics 8 and VBXE samples disagree at index {i}"
+        );
         let row = 181 - (i / 300) as i32 * 3 + 4 - i32::from(height);
         assert!(
             (0..192).contains(&row),

@@ -420,19 +420,11 @@ fn sample_catalog() -> Vec<SampleSpec> {
             ],
         ),
         dependency(
-            "samples/graphics/unknown-pleasures/unknown-pleasures-data.inc",
+            "samples/graphics/unknown-pleasures/UPDATA.ACT",
             &["samples/graphics/unknown-pleasures/unknown-pleasures.act"],
         ),
         executable(
             "samples/graphics/unknown-pleasures/unknown-pleasures.act",
-            vec![release(Optimized, Standalone), experimental(Standalone)],
-        ),
-        dependency(
-            "samples/graphics/unknown-pleasures/UPDATA.ACT",
-            &["samples/graphics/unknown-pleasures/unknown-pleasures-cart.act"],
-        ),
-        executable(
-            "samples/graphics/unknown-pleasures/unknown-pleasures-cart.act",
             vec![
                 release(Compatibility, ActionCart)
                     .at_origin(0x2C00)
