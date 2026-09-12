@@ -140,14 +140,15 @@ fn word(bytes: &[u8], offset: usize) -> u32 {
 
 #[test]
 fn constant_wide_shifts_preserve_all_lanes_narrow_results_and_calls() {
-    for count in [0u32, 1, 4, 7, 8, 12, 15, 16, 17, 24, 31, 32, 33, 256, 65536, u32::MAX] {
+    for count in (0u32..=33).chain([256, 65536, u32::MAX]) {
         let source = Source::new(&format!(
             "LONGCARD a=$6E0,l=$600,r=$604\nLONGINT sa=$6E0,sl=$608,sr=$60C\n\
-             CARD narrow=$610 BYTE small=$612,touches=$613,done=$6FF\n\
+             CARD narrow=$610,leftNarrow=$614 BYTE small=$612,touches=$613,leftSmall=$616,done=$6FF\n\
              LONGCARD FUNC ReadValue() touches==+1 RETURN(a)\n\
              PROC Main() touches=0 l=ReadValue() l=l LSH ${count:X} r=ReadValue() r=r RSH ${count:X}\n\
              sl=sa LSH ${count:X} sr=sa RSH ${count:X}\n\
-             narrow=CARD(a RSH ${count:X}) small=BYTE(a RSH ${count:X}) done=$A5 DO OD RETURN"
+             narrow=CARD(a RSH ${count:X}) small=BYTE(a RSH ${count:X})\n\
+             leftNarrow=CARD(a LSH ${count:X}) leftSmall=BYTE(a LSH ${count:X}) done=$A5 DO OD RETURN"
         ));
         for (mode, runtime) in modes_and_runtimes() {
             let compiled = compile_file(&source.0, &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
@@ -165,9 +166,138 @@ fn constant_wide_shifts_preserve_all_lanes_narrow_results_and_calls() {
                 expected[16..18].copy_from_slice(&(right as u16).to_le_bytes());
                 expected[18] = right as u8;
                 expected[19] = 2;
+                expected[20..22].copy_from_slice(&(left as u16).to_le_bytes());
+                expected[22] = left as u8;
                 expected[255] = 0xA5;
                 assert_eq!(actual, expected, "{mode:?}/{runtime:?} input={a:08X}, count={count}");
             }
+        }
+    }
+}
+
+#[test]
+fn aligned_wide_shifts_preserve_shared_values_across_calls_and_overlapping_stores() {
+    let source = Source::new(
+        "LONGCARD input=$6E0,full=$600,shared=$604,overlap=$608\n\
+         CARD narrow=$60C,returned=$60E,alias=$609 BYTE small=$610,order=$611,done=$6FF\n\
+         LONGCARD FUNC Capture() order=order*3+1 RETURN(input)\n\
+         PROC Change() order=order*3+2 input=$11223344 RETURN\n\
+         CARD FUNC Select(LONGCARD value) RETURN(CARD(value RSH 12))\n\
+         PROC Main() order=0\n\
+         LET captured=Capture() LET shifted=captured RSH 12\n\
+         Change() full=shifted returned=Select(captured)\n\
+         IF BYTE(captured)&1 THEN narrow=CARD(shifted) ELSE narrow=CARD(shifted)+1 FI\n\
+         small=BYTE(shifted) shared=captured LSH 4\n\
+         overlap=captured overlap==RSH 12 alias=CARD(overlap LSH 4)\n\
+         done=$A5 DO OD RETURN",
+    );
+    let mut values = vec![
+        0,
+        1,
+        0xFFF,
+        0x1000,
+        0xFFFF,
+        0x10000,
+        0x12345678,
+        0x7FFFFFFF,
+        0x80000000,
+        0xFEDCBA98,
+        u32::MAX,
+    ];
+    let mut seed = 0x89ABCDEFu32;
+    for _ in 0..128 {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        values.push(seed);
+    }
+    for (mode, runtime) in
+        modes_and_runtimes().filter(|(mode, _)| *mode != CompileMode::Compatibility)
+    {
+        let compiled = compile_file(
+            &source.0,
+            &CompileOptions::for_mode(mode).with_runtime(runtime),
+        )
+        .unwrap();
+        for &input in &values {
+            let actual = run(compiled.object_bytes(), runtime, input, 0);
+            let shifted = input >> 12;
+            let mut expected = vec![0xCC; 256];
+            expected[0..4].copy_from_slice(&shifted.to_le_bytes());
+            expected[4..8].copy_from_slice(&(input << 4).to_le_bytes());
+            expected[8..12].copy_from_slice(&shifted.to_le_bytes());
+            expected[9..11].copy_from_slice(&((shifted << 4) as u16).to_le_bytes());
+            let narrow = (shifted as u16).wrapping_add(u16::from(input & 1 == 0));
+            expected[12..14].copy_from_slice(&narrow.to_le_bytes());
+            expected[14..16].copy_from_slice(&(shifted as u16).to_le_bytes());
+            expected[16] = shifted as u8;
+            expected[17] = 5; // Capture, then Change, exactly once, in base 3.
+            expected[0xE0..0xE4].copy_from_slice(&0x11223344u32.to_le_bytes());
+            expected[0xE4..0xE8].fill(0);
+            expected[255] = 0xA5;
+            assert_eq!(actual, expected, "{mode:?}/{runtime:?} input={input:08X}");
+        }
+    }
+}
+
+#[test]
+fn aligned_wide_shifts_preserve_all_volatile_reads_and_write_order() {
+    use actionc_vm::{AddressRange, BusAccess};
+    for count in [4, 8, 12, 16, 20, 24, 28, 32] {
+        for operator in ["LSH", "RSH"] {
+            let source = Source::new(&format!(
+                "VOLATILE LONGCARD input=$6E0 VOLATILE BYTE alias=$6E1 BYTE done=$6FF\n\
+                 PROC Main() alias=BYTE(input {operator} {count}) done=$A5 DO OD RETURN"
+            ));
+            let compiled = compile_file(
+                &source.0,
+                &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+            )
+            .unwrap();
+            let input = 0xFEDCBA98u32;
+            let expected = if operator == "LSH" {
+                input.checked_shl(count).unwrap_or(0)
+            } else {
+                input.checked_shr(count).unwrap_or(0)
+            } as u8;
+            let mut vm = CompilerVm::default();
+            vm.load_atari_object_for_execution(
+                ExecutionProfile::StandaloneObject,
+                compiled.object_bytes(),
+            )
+            .unwrap();
+            vm.bus_mut()
+                .ram_mut()
+                .map(0x6E0, &input.to_le_bytes())
+                .unwrap();
+            vm.bus_mut().add_watch_range(AddressRange {
+                start: 0x6E0,
+                end: 0x6E3,
+            });
+            vm.bus_mut().clear_events();
+            let outcome = VmRunner::new(vm).run(RunRequest {
+                max_steps: 25_000,
+                history_len: 8,
+                ..Default::default()
+            });
+            assert_eq!(outcome.memory().read(0x6FF), 0xA5, "{:?}", outcome.report);
+            assert_eq!(outcome.memory().read(0x6E1), expected);
+            let accesses: Vec<_> = outcome
+                .vm
+                .bus()
+                .events()
+                .iter()
+                .map(|e| (e.access, e.address))
+                .collect();
+            assert_eq!(
+                accesses,
+                [
+                    (BusAccess::Read, 0x6E0),
+                    (BusAccess::Read, 0x6E1),
+                    (BusAccess::Read, 0x6E2),
+                    (BusAccess::Read, 0x6E3),
+                    (BusAccess::Write, 0x6E1),
+                ],
+                "{operator} {count}"
+            );
         }
     }
 }

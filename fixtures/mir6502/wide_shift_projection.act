@@ -1,0 +1,9 @@
+LONGCARD input=$6E0
+CARD middle=$600
+BYTE upper=$602
+
+PROC Main()
+middle=CARD(input RSH 12)
+upper=BYTE(input RSH 24)
+DO OD
+RETURN

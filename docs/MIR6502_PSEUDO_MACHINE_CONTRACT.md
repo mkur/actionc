@@ -196,6 +196,24 @@ The inputs are captured NIR values, so projection does not repeat or remove
 observable source loads or calls. Existing materialization owns byte selection
 and removal of unused result lanes; NIR retains its typed 32-bit operation.
 
+For constant shifts on byte or nibble boundaries (4, 8, 12, 16, 20, 24, or 28
+bits), MIR6502 lowering projects captured input bytes directly. Byte-aligned
+results use byte references and zero constants; nibble-aligned results combine
+at most two independent byte shifts per output byte. Assemble the resulting
+halves with the existing structured `MirValue::Word` form, avoiding full-word
+staging and OR operations on known zero lanes. Compute each crossing nibble
+before the main nibble so ordinary materialization can retain the latter in A
+through the OR. No explicit physical-register dependency is introduced in raw
+MIR. Other counts retain the existing word-shift strategies.
+
+This is target legalization, also valid with peepholes disabled. It preserves
+both full result words; ordinary use/liveness analysis owns removal of unused
+bytes for narrow consumers. All explicit input loads and calls still occur
+once in source order, including bytes that truncation or overshifting makes
+irrelevant. Shared results, aliasing stores, and values live across calls keep
+their normal storage and effect proofs. Signed inputs retain logical RSH
+semantics. See [wide-shift validation](MIR6502_WIDE_SHIFT_COPY_REDUCTION.md).
+
 The compiler-owned `Mult32` kernel is shared with the classic backend. It
 selects 8, 16, 24 or 32 shift/add rounds from the captured multiplier's magnitude,
 with an immediate zero result for a zero multiplier. Negating both operands

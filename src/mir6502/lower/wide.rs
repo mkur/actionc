@@ -3,6 +3,10 @@
 use super::*;
 use crate::mir6502::ir::{MirCarryIn, MirResultHome};
 
+#[cfg(test)]
+#[path = "wide_tests.rs"]
+mod tests;
+
 #[derive(Default)]
 pub(super) struct WideValues {
     high: BTreeMap<TempId, MirTempId>,
@@ -359,6 +363,11 @@ impl Builder<'_> {
         if count == 0 {
             return [low, high];
         }
+        // Byte/nibble boundaries avoid word staging. Other counts retain
+        // word carry chains and helper selection with their existing costs.
+        if count % 4 == 0 {
+            return self.aligned_byte_shift(op, [low, high], count);
+        }
         if count >= 16 {
             let value = if op == MirBinaryOp::Lsh { low } else { high };
             let shifted = if count == 16 {
@@ -411,6 +420,68 @@ impl Builder<'_> {
                 shifted_high,
             ]
         }
+    }
+
+    /// Byte and nibble boundaries need only independent byte projections.
+    /// Keep the halves as structured words so discarded result bytes need
+    /// neither a zero-filled word temporary nor a redundant OR with zero.
+    fn aligned_byte_shift(
+        &mut self,
+        op: MirBinaryOp,
+        pair: [MirValue; 2],
+        count: u32,
+    ) -> [MirValue; 2] {
+        let [low, high] = pair.map(|value| self.word_bytes(value));
+        let bytes = [
+            low[0].clone(),
+            low[1].clone(),
+            high[0].clone(),
+            high[1].clone(),
+        ];
+        let left = op == MirBinaryOp::Lsh;
+        let whole = (count / 8) as i32;
+        let remaining = (count % 8) as u8;
+        let opposite = if left {
+            MirBinaryOp::Rsh
+        } else {
+            MirBinaryOp::Lsh
+        };
+        let mut result = Vec::with_capacity(4);
+        for byte in 0..4i32 {
+            let source = if left { byte - whole } else { byte + whole };
+            let adjacent = if left { source - 1 } else { source + 1 };
+            let mut pieces = Vec::with_capacity(2);
+            // Compute the crossing piece first. The main piece can then stay
+            // in A for the OR when ordinary temp-consumer selection runs.
+            for (index, direction, bits) in
+                [(adjacent, opposite, 8 - remaining), (source, op, remaining)]
+            {
+                if !(0..4).contains(&index) || bits == 8 {
+                    continue;
+                }
+                let value = bytes[index as usize].clone();
+                pieces.push(if bits == 0 {
+                    value
+                } else {
+                    self.binary(direction, value, MirValue::ConstU8(bits), MirWidth::Byte)
+                });
+            }
+            result.push(match pieces.as_slice() {
+                [] => MirValue::ConstU8(0),
+                [value] => value.clone(),
+                [crossing, main] => self.binary(
+                    MirBinaryOp::Or,
+                    main.clone(),
+                    crossing.clone(),
+                    MirWidth::Byte,
+                ),
+                _ => unreachable!(),
+            });
+        }
+        std::array::from_fn(|half| MirValue::Word {
+            lo: Box::new(result[half * 2].clone()),
+            hi: Box::new(result[half * 2 + 1].clone()),
+        })
     }
 
     fn compare_pair(

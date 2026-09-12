@@ -1,0 +1,29 @@
+mir6502 program
+global g0 input: LongCard absolute $06E0 size=4
+global g1 middle: word absolute $0600
+global g2 upper: byte absolute $0602
+
+routine r0 Main
+b0 bb0:
+  v0 =.w load global g0+0
+  v8 =.w load global g0+2
+  v12 =.b v8.b0 lsh #$04 carry_in=- carry_out=ignore
+  v13 =.b v0.b1 rsh #$04 carry_in=- carry_out=ignore
+  v14 =.b v13 or v12 carry_in=- carry_out=ignore
+  v15 =.b v8.b1 lsh #$04 carry_in=- carry_out=ignore
+  v16 =.b v8.b0 rsh #$04 carry_in=- carry_out=ignore
+  v17 =.b v16 or v15 carry_in=- carry_out=ignore
+  v18 =.b v8.b1 rsh #$04 carry_in=- carry_out=ignore
+  v2 =.w word(v14, v17)
+  v9 =.w word(v18, #$00)
+  v3 =.w v2
+  store.w global g1+0, v3
+  v4 =.w load global g0+0
+  v10 =.w load global g0+2
+  v6 =.w word(v10.b1, #$00)
+  v11 =.w word(#$00, #$00)
+  v7 =.b truncate v6 from.w
+  store.b global g2+0, v7
+  jump b1
+b1 bb1:
+  jump b1
