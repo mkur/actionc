@@ -120,7 +120,9 @@ fn fixed_q8_8_composition_preserves_calls_and_guarded_stores() {
     const STAGED: &str = "  leftValue=Left()\n  rightValue=Right()\n  table(0)=Q.Mul(leftValue,rightValue)\n  leftValue=Left()\n  halfValue=Q.Mul(leftValue,Q.Half)\n  rightValue=Right()\n  destination(1)=Q.Div(halfValue,rightValue)";
     const NESTED: &str =
         "  table(0)=Q.Mul(Left(),Right())\n  destination(1)=Q.Div(Q.Mul(Left(),Q.Half),Right())";
-    assert_eq!(SOURCE.matches(STAGED).count(), 1);
+    // Git checkouts may use CRLF; match the staged code independently of that.
+    let source_text = SOURCE.replace("\r\n", "\n");
+    assert_eq!(source_text.matches(STAGED).count(), 1);
     let inputs = [
         (384, 512),
         (-384, 768),
@@ -137,9 +139,9 @@ fn fixed_q8_8_composition_preserves_calls_and_guarded_stores() {
     ];
     for nested in [false, true] {
         let text = if nested {
-            SOURCE.replace(STAGED, NESTED)
+            source_text.replace(STAGED, NESTED)
         } else {
-            SOURCE.to_string()
+            source_text.clone()
         };
         let source = Source::new(&text);
         for (mode, runtime) in
@@ -182,7 +184,9 @@ fn fixed_q8_8_composition_preserves_calls_and_guarded_stores() {
 fn fixed_q8_8_sample_prints_documented_results() {
     const SAMPLE: &str = include_str!("../../../samples/fixed-point/q8_8.act");
     const README: &str = include_str!("../../../samples/fixed-point/README.md");
-    let expected: Vec<_> = README
+    // Normalize checkout line endings before parsing and converting to ATASCII.
+    let readme = README.replace("\r\n", "\n");
+    let expected: Vec<_> = readme
         .split_once("```text\n")
         .unwrap()
         .1
