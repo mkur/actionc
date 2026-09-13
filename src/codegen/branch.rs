@@ -215,12 +215,13 @@ impl Generator {
         let true_straight_line_store_y = self.straight_line_store_y;
         self.emit_jmp_label(label, span);
         self.maybe_record_branch_inversion_candidate(branch_start, &true_label, label, span);
-        if let Some(y) = false_y_hint {
-            self.label_store_y_hints.insert(label.to_string(), y);
-        }
-        if let Some(y) = true_y_hint {
-            self.label_store_y_hints.insert(true_label.clone(), y);
-        }
+        self.record_label_store_y_hint(label, false_y_hint);
+        // A comparison may already have a taken-edge proof (for example Y=1
+        // after the high byte of an indirect word comparison). Only supply the
+        // fallthrough-derived fallback when no taken-edge fact was recorded.
+        self.label_store_y_hints
+            .entry(true_label.clone())
+            .or_insert(true_y_hint);
         self.bind_codegen_label_preserving_state(
             true_label,
             span,
@@ -260,6 +261,7 @@ impl Generator {
                 if !self.emit_branch_if_false(right, label, span) {
                     return false;
                 }
+                self.record_label_store_y_hint(&true_label, self.processor.y_immediate());
                 self.bind_codegen_label(true_label, span);
                 true
             }
@@ -364,6 +366,7 @@ impl Generator {
                 if !self.emit_branch_if_true(right, label, span) {
                     return false;
                 }
+                self.record_label_store_y_hint(&false_label, self.processor.y_immediate());
                 self.bind_codegen_label(false_label, span);
                 true
             }
@@ -371,7 +374,13 @@ impl Generator {
                 if !self.emit_branch_if_true(left, label, span) {
                     return false;
                 }
-                self.emit_branch_if_true(right, label, span)
+                if !self.emit_branch_if_true(right, label, span) {
+                    return false;
+                }
+                // Either operand can branch here; the final fallthrough's Y
+                // value does not describe both taken edges.
+                self.record_label_store_y_hint(label, None);
+                true
             }
             _ => false,
         }
@@ -1787,7 +1796,7 @@ impl Generator {
             }
         }
         if self.straight_line_store_y == Some(1) {
-            self.label_store_y_hints.insert(label.to_string(), 1);
+            self.record_label_store_y_hint(label, Some(1));
         }
         self.emit_compare_branch_label(opcode::BEQ_REL, CompareBranchFlags::Equality, label, span);
         true
@@ -1839,7 +1848,7 @@ impl Generator {
 
     pub(super) fn preserve_y_one_for_branch_target(&mut self, label: &str) {
         if self.straight_line_store_y == Some(1) {
-            self.label_store_y_hints.insert(label.to_string(), 1);
+            self.record_label_store_y_hint(label, Some(1));
         }
     }
 
@@ -2024,7 +2033,7 @@ impl Generator {
         }
         self.bind_codegen_label(done_label, span);
         if branch_opcode == opcode::BEQ_REL && left_slot.space == AddressSpace::IndirectIndexedY {
-            self.label_store_y_hints.insert(label.to_string(), 1);
+            self.record_label_store_y_hint(label, Some(1));
         }
         self.emit_compare_branch_label(branch_opcode, CompareBranchFlags::Equality, label, span);
         true

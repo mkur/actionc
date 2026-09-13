@@ -1,0 +1,20 @@
+; RHS address preparation must preserve the accumulator's left operand.
+; Indirect BYTE/CARD arrays; the second CARD input crosses a page boundary.
+BYTE ARRAY bytes=$07F9
+CARD ARRAY words=$07FD
+BYTE bor=$0601,band=$0602,bxor=$0603,condition=$0604
+CARD wor=$0605,wand=$0607,wxor=$0609
+BYTE signature=$06FF
+
+PROC Main()
+  bor=bytes(0) OR bytes(2)
+  band=bytes(0) AND bytes(2)
+  bxor=bytes(0) XOR bytes(2)
+  condition=0
+  IF bytes(0) OR bytes(2) THEN condition=1 FI
+  wor=words(0) OR words(1)
+  wand=words(0) AND words(1)
+  wxor=words(0) XOR words(1)
+  signature=$A5
+  DO OD
+RETURN

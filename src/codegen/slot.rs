@@ -172,7 +172,7 @@ impl Generator {
             AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => unreachable!(),
         }
         if let Some(y) = self.processor.y_immediate() {
-            self.label_store_y_hints.insert(done_label.clone(), y);
+            self.record_label_store_y_hint(&done_label, Some(y));
         }
         self.bind_codegen_label(done_label, Span::new(0, 0));
         self.straight_line_store_y = self.processor.y_immediate();

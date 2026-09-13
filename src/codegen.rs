@@ -663,9 +663,23 @@ impl Generator {
         });
     }
 
+    pub(super) fn record_label_store_y_hint(&mut self, label: &str, hint: Option<u8>) {
+        // A shared condition target can be reached before or after another
+        // operand changes Y. Unknown/conflicting incoming values must remain
+        // unknown even if a later predecessor supplies a known value.
+        self.label_store_y_hints
+            .entry(label.to_owned())
+            .and_modify(|previous| {
+                if *previous != hint {
+                    *previous = None;
+                }
+            })
+            .or_insert(hint);
+    }
+
     pub(super) fn bind_codegen_label(&mut self, label: String, span: Span) {
         self.try_invert_branch_to_label(&label);
-        let y_hint = self.label_store_y_hints.remove(&label);
+        let y_hint = self.label_store_y_hints.remove(&label).flatten();
         self.processor.invalidate_accumulator();
         self.processor.invalidate_index_x();
         self.processor.invalidate_all_zp();
@@ -688,10 +702,10 @@ impl Generator {
         self.try_invert_branch_to_label(&label);
         let y_hint = self.label_store_y_hints.remove(&label);
         if let Some(y) = y_hint {
-            processor.set_y_hint(Some(y));
+            processor.set_y_hint(y);
         }
         self.processor = processor;
-        self.straight_line_store_y = y_hint.or(straight_line_store_y);
+        self.straight_line_store_y = y_hint.unwrap_or(straight_line_store_y);
         self.last_label_position = Some(self.emitter.position());
         if let Err(diagnostic) = self.emitter.bind_label(label, span) {
             self.diagnostics.push(diagnostic);
@@ -1169,7 +1183,7 @@ struct Generator {
     processor: ProcessorState,
     straight_line_store_y: Option<u8>,
     y_constant_store_lookahead: Option<u8>,
-    label_store_y_hints: HashMap<String, u8>,
+    label_store_y_hints: HashMap<String, Option<u8>>,
     label_byte_values: HashMap<String, ValueFact>,
     last_label_position: Option<usize>,
     compatible_cursor: Option<u16>,

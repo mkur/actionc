@@ -247,7 +247,7 @@ impl Generator {
             .wrapping_add(self.emitter.position() as u16)
             .wrapping_add(3);
         if let Some(y) = self.straight_line_store_y.or(self.processor.y_immediate()) {
-            self.label_store_y_hints.insert(after_label.clone(), y);
+            self.record_label_store_y_hint(&after_label, Some(y));
         }
         self.emit_jmp_label(after_label.clone(), span);
         let start = self.current_absolute_address();

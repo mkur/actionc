@@ -31,6 +31,11 @@ cargo test --locked --test oscar64_conformance
 cargo test --locked --test oscar64_mandelbrot
 ```
 
+The [TACLeBench Statemate port](tacle/README.md) adds 628 VM executions of
+nested CASE state machines, timer arithmetic, and array flags. Every controller
+state byte is checked against vectors generated from the pinned C reference.
+Run `cargo test --locked --test statemate` from `tools/vm-runtime-tests`.
+
 Run the initialized-array gate directly:
 
 ```sh

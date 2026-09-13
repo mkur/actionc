@@ -448,7 +448,17 @@ impl Generator {
             self.emit_bitwise_immediate(op, Immediate::new(value), byte_index);
             return true;
         }
-        let Some(slot) = self.lvalue_slot(expr) else {
+        // Preparing an indexed/indirect RHS can use A to compute its address.
+        // A still contains the left operand of AND/OR/XOR at this point.
+        let preserve_left = self.direct_scalar_slot(expr).is_none();
+        if preserve_left {
+            self.emitter.emit_pha();
+        }
+        let slot = self.lvalue_slot(expr);
+        if preserve_left {
+            self.emit_pla();
+        }
+        let Some(slot) = slot else {
             return false;
         };
         if byte_index >= slot.size {

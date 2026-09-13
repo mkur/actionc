@@ -5,6 +5,14 @@ This isolated harness runs generated Action! objects through the reusable
 revision and is deliberately absent from the root `actionc` manifest, so normal
 compiler builds do not resolve or compile the VM.
 
+The [TACLeBench Statemate port](../../fixtures/runtime/tacle/README.md) is checked
+by `cargo test --locked --test statemate`: 157 C-reference vectors across both
+modern backends and both runtimes (628 executions), covering every switch arm,
+complete controller state, timer boundaries, and memory guards. The companion
+`indirect_bitwise` target checks 1,536 byte/word bitwise executions across all
+three modes and both runtimes. Both targets consume local fixtures without
+network access or a host C compiler.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 
