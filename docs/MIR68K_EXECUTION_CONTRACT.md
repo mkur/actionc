@@ -35,3 +35,16 @@ executable acceptance must separately reject reachable unsupported forms.
 This contract does not make every successfully lowered canary executable.
 The supported instruction/runtime subset and its acceptance gates are described
 in [the implementation plan](MIR68K_MINIMAL_EXECUTION_PLAN.md).
+
+Physical instructions use typed widths, registers, addressing modes, machine
+block IDs and symbolic addresses. The encoder rejects illegal operands and
+emits original MC68000 forms only. Conditional branches use an inverse short
+branch over an absolute-long JMP, so their size is fixed without relaxation.
+
+The linker allocates code and data at a full-width even origin, resolves stable
+IDs and checked addends, and emits initialized segments plus zero-fill regions.
+All linked extents fit the 24-bit bus. Executable bytes include four bytes of
+prefetch padding. Image verification rejects overlapping regions and an entry
+outside code. Image symbols carry absolute or frame-relative locations; array
+metadata distinguishes the descriptor from backing and records width, stride
+and count. The compiler has no emulator dependency.

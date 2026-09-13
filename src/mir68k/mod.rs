@@ -4,7 +4,10 @@
 //! not share an instruction or register model with either 6502-family backend.
 
 mod data;
+pub mod encode;
+pub mod image;
 mod lower;
+pub mod machine;
 pub mod verify;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
