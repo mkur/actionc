@@ -116,7 +116,7 @@ impl CompileError {
         )
     }
 
-    fn from_ir_diagnostics(
+    pub(super) fn from_ir_diagnostics(
         phase: CompilerPhase,
         diagnostics: impl IntoIterator<Item = (Option<String>, Option<String>, String)>,
     ) -> Self {

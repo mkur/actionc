@@ -8,6 +8,7 @@ pub mod encode;
 pub mod image;
 mod lower;
 pub mod machine;
+pub mod materialize;
 pub mod verify;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
@@ -281,6 +282,7 @@ pub enum Mir68kOp {
     Cast {
         dest: TempId,
         from: ByteSize,
+        from_signed: bool,
         to: ByteSize,
         kind: NirCastKind,
         value: Mir68kValue,

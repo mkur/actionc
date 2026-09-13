@@ -1,10 +1,10 @@
 # Minimal MIR68K Execution Plan
 
-Status: implementation in progress. Slices 0–2 provide the pinned r68k harness,
-the [MIR execution contract](MIR68K_EXECUTION_CONTRACT.md), typed instruction
-encoding and checked image linking. Linked physical programs execute at two
-origins. Source-to-image materialization is next; cross-platform qualification
-will run in CI when slice 6 lands.
+Status: implementation in progress. Slices 0–3 are implemented. The first
+source-to-execution gate passes: an ordinary LONGINT global receives 42 in raw
+and optimized modes, at two origins, from LF and CRLF files. Scalar arithmetic,
+control flow, calls and benchmark acceptance remain in slices 4–6. Cross-platform
+qualification will run in CI when slice 6 lands.
 
 ## Objective and completion gate
 

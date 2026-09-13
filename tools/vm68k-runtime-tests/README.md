@@ -22,3 +22,15 @@ cycle counts are diagnostic, not a claim of exception timing accuracy.
 references to the [Motorola programmer's manual](https://www.nxp.com/docs/en/reference-manual/M68000PRM.pdf).
 Its tests cover transfers, byte order, condition flags, branches, nested stack
 frames, exceptions, guards, timeout and isolation between parallel instances.
+
+Compile and run a source file with:
+
+```sh
+cargo run --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- program.act --origin 0x10000 --budget 1000000
+```
+
+Use `--no-opt` to execute raw verified NIR lowering. The runner prints supported
+scalar globals by compiler-emitted symbol, with signed decimal and hexadecimal
+values. `actionc::compiler::native::compile_file` accepts full-width origins,
+module search paths and a project root; it returns a native image and physical
+instruction listing without a 6502 runtime or Atari output wrapper.

@@ -48,3 +48,11 @@ prefetch padding. Image verification rejects overlapping regions and an entry
 outside code. Image symbols carry absolute or frame-relative locations; array
 metadata distinguishes the descriptor from backing and records width, stride
 and count. The compiler has no emulator dependency.
+
+The native compiler API uses the existing source/module loader, semantic
+analysis, reachable SemIR selection and NIR verifier/optimizer. Source-level
+startup and origin constraints are diagnosed before the verified backend
+boundary. Materialization rejects missing/parameterized program entries and
+reachable unresolved fallthrough or terminal exits. A6-relative temporary homes
+are separate from automatic objects and the preallocated outgoing area; frame
+sizes outside original MC68000 displacement limits are rejected.

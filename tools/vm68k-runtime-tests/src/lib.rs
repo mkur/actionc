@@ -305,3 +305,64 @@ impl Machine {
         }
     }
 }
+
+impl Machine {
+    pub fn from_image(image: &actionc::mir68k::image::NativeImage) -> Result<Self, String> {
+        image.verify()?;
+        let mut memory = Memory::default();
+        for segment in &image.segments {
+            memory.map(
+                segment.address,
+                &segment.bytes,
+                segment.writable,
+                segment.executable,
+            )?;
+        }
+        for zero in &image.zero_fill {
+            memory.map(
+                zero.address,
+                &vec![0; zero.size as usize],
+                zero.writable,
+                false,
+            )?;
+        }
+        Self::new(memory, image.entry)
+    }
+
+    pub fn read_scalar(&self, symbol: &actionc::mir68k::image::Symbol) -> Result<u32, String> {
+        let width = symbol
+            .ty
+            .as_ref()
+            .and_then(|t| t.width)
+            .ok_or("symbol has no scalar type")?
+            .get() as usize;
+        if symbol.array.is_some() || !matches!(width, 1 | 2 | 4) {
+            return Err("symbol is not a supported scalar".into());
+        }
+        Ok(self
+            .cpu
+            .mem
+            .bytes(symbol.address()?, width)?
+            .iter()
+            .fold(0, |n, b| (n << 8) | u32::from(*b)))
+    }
+
+    pub fn write_scalar(
+        &mut self,
+        symbol: &actionc::mir68k::image::Symbol,
+        value: u32,
+    ) -> Result<(), String> {
+        let width = symbol
+            .ty
+            .as_ref()
+            .and_then(|t| t.width)
+            .ok_or("symbol has no scalar type")?
+            .get() as usize;
+        if symbol.array.is_some() || !matches!(width, 1 | 2 | 4) {
+            return Err("symbol is not a supported scalar".into());
+        }
+        self.cpu
+            .mem
+            .write(symbol.address()?, &value.to_be_bytes()[4 - width..])
+    }
+}

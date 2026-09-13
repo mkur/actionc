@@ -1,5 +1,6 @@
 pub(crate) mod artifacts;
 mod diagnostics;
+pub mod native;
 pub(crate) mod validation;
 
 use std::fmt;

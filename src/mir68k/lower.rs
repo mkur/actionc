@@ -559,6 +559,7 @@ fn lower_op(
         } => Some(Mir68kOp::Cast {
             dest: *dest,
             from: width(from),
+            from_signed: from.kind.integer().is_some_and(|i| i.signed),
             to: width(to),
             kind: *kind,
             value: lower_value(src, data_width, code_width),
