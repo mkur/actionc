@@ -2,6 +2,10 @@
 
 The separate [SHA-0 port](sha/README.md) exercises 32-bit arithmetic, rotations,
 wide arrays, and block padding against a fixed-width C reference.
+The [Dijkstra port](dijkstra/README.md) adds graph searches, self-referencing
+record pointers, queue exhaustion, and complete node/queue state comparisons.
+The [Huffman decoder port](huff_dec/README.md) adds variable-length bit streams,
+record tables, and iterative tree construction/traversal against C state vectors.
 
 `statemate.act` ports the experimental car-window controller from TACLeBench.
 It retains all **16 nested switches as CASE statements**, with 34 explicit arms

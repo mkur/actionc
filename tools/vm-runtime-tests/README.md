@@ -20,6 +20,20 @@ rotations, wide indexed arrays, padding boundaries, counter carry/wrap, and
 memory guards. Both LF and CRLF sources and vectors use the actual compiler/VM
 path. The target consumes committed vectors without a C compiler or network.
 
+The [TACLeBench Dijkstra port](../../fixtures/runtime/tacle/dijkstra/README.md)
+is checked by `cargo test --locked --test dijkstra`: 33 C-reference cases across
+both modern backends and both runtimes (132 executions). It retains the original
+100-node graph and 1,000-entry linked queue, compares complete node/queue state,
+and checks pointer outputs, queue exhaustion, memory guards, and LF/CRLF inputs.
+The original 20-search benchmark reproduces checksum 25.
+
+The [TACLeBench Huffman decoder port](../../fixtures/runtime/tacle/huff_dec/README.md)
+is checked by `cargo test --locked --test huff_dec`: 185 C-reference cases across
+both modern backends and both runtimes (740 executions). It checks bit-reader
+state, complete output/code/tree buffers, both header formats, code lengths up
+to 256 bits, a 513-node tree, guards, and LF/CRLF source and vectors. The original
+419-byte stream produces the original 600-byte text.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 

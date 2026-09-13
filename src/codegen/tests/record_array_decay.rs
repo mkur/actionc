@@ -2,6 +2,85 @@ use super::*;
 use crate::compiler::{CompileMode, CompileOptions, compile_file};
 
 #[test]
+fn indirect_word_equality_preserves_accumulator_across_address_preparation() {
+    let conditions = [
+        "item.value=$0101",
+        "item.value#$0101",
+        "$0101=item.value",
+        "$0101#item.value",
+        "item.value=other.value",
+        "item.value#other.value",
+        "other.value=item.value",
+        "other.value#item.value",
+        "item.value=0",
+        "item.value#0",
+    ];
+    let mut source = String::from(
+        "TYPE Entry=[CARD value]\nEntry POINTER item,other\n\
+         CARD first=$0620,second=$0622\nBYTE ARRAY output(10)=$0600\n\
+         PROC Main()\nitem=first other=second\n",
+    );
+    for (i, condition) in conditions.iter().enumerate() {
+        source.push_str(&format!(
+            "output({i})=0 IF {condition} THEN output({i})=1 FI\n"
+        ));
+    }
+    source.push_str("RETURN\n");
+    let ast = parse(&tokenize(&source).unwrap()).unwrap();
+    let model = analyze(&ast).unwrap();
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let output = match runtime {
+                Runtime::ActionCart => generate_semir_profile_at_origin(&semir, 0x3000, profile),
+                Runtime::Standalone => {
+                    generate_semir_standalone_profile_at_origin(&semir, 0x3000, profile)
+                }
+            }
+            .unwrap();
+            for base in [0x5001usize, 0x50FF] {
+                for left in [0u16, 1, 0x100, 0x101, 0x1FF, 0xFF01, 0xFFFF] {
+                    for right in [left, left ^ 1, left ^ 0x100] {
+                        let mut memory = [0u8; 65536];
+                        let origin = usize::from(output.origin);
+                        memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
+                        memory[0x600..0x630].fill(0xCC);
+                        memory[0x4F00..0x5300].fill(0xA5);
+                        memory[0x620..0x622].copy_from_slice(&(base as u16).to_le_bytes());
+                        memory[0x622..0x624]
+                            .copy_from_slice(&((base + 0x100) as u16).to_le_bytes());
+                        memory[base..base + 2].copy_from_slice(&left.to_le_bytes());
+                        memory[base + 0x100..base + 0x102].copy_from_slice(&right.to_le_bytes());
+                        let before = memory;
+                        indexed_test_cpu::run_memory(&mut memory, usize::from(output.run_address));
+                        let expected = [
+                            left == 0x101,
+                            left != 0x101,
+                            left == 0x101,
+                            left != 0x101,
+                            left == right,
+                            left != right,
+                            right == left,
+                            right != left,
+                            left == 0,
+                            left != 0,
+                        ]
+                        .map(u8::from);
+                        assert_eq!(
+                            &memory[0x600..0x60A],
+                            &expected,
+                            "{profile:?}/{runtime:?}/${base:04X}/{left:04X}/{right:04X}"
+                        );
+                        assert_eq!(&memory[0x60A..0x630], &before[0x60A..0x630]);
+                        assert_eq!(&memory[0x4F00..0x5300], &before[0x4F00..0x5300]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn computed_record_field_comparisons_capture_operands_once() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/classic_record_field_comparisons.act");

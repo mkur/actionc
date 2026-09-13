@@ -41,6 +41,16 @@ The [TACLeBench SHA-0 port](tacle/sha/README.md) adds 620 VM executions of
 The C reference supplies every digest, counter, block, and schedule word.
 Run `cargo test --locked --test sha` from `tools/vm-runtime-tests`.
 
+The [TACLeBench Dijkstra port](tacle/dijkstra/README.md) adds 132 VM executions
+of the original 100-node graph workload and focused linked-queue cases. The C
+reference supplies complete node records, queue records, and pointer values.
+Run `cargo test --locked --test dijkstra` from `tools/vm-runtime-tests`.
+
+The [TACLeBench Huffman decoder port](tacle/huff_dec/README.md) adds 740 VM
+executions of bit readers and complete decodes, including 256-bit codes. The C
+reference supplies every output byte, code record, tree node, and pointer.
+Run `cargo test --locked --test huff_dec` from `tools/vm-runtime-tests`.
+
 Run the initialized-array gate directly:
 
 ```sh

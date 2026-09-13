@@ -256,8 +256,20 @@ fn apply_op(state: &mut MirParamAvailabilityState, op: &MirOp) {
     // Keeping that fact here would let a pre-home rewrite substitute stale A
     // after the temp definition has been expanded.
     let materializes_temp_through_a = !effects.logical.temp_defs.is_empty();
+    // A store of a constant or memory/temp value also loads A when expanded,
+    // even though the abstract Store has no register destination. Only a byte
+    // store directly from a physical register preserves the incoming A value.
+    let materializes_store_through_a = matches!(op, MirOp::Store { .. })
+        && !matches!(
+            op,
+            MirOp::Store {
+                src: MirValue::Def(crate::mir6502::ir::MirDef::Reg(_)),
+                width: MirWidth::Byte,
+                ..
+            }
+        );
     state.available.homes.retain(|home, reg| {
-        !(materializes_temp_through_a && *reg == MirReg::A)
+        !((materializes_temp_through_a || materializes_store_through_a) && *reg == MirReg::A)
             && !register_invalidated(&effects, *reg)
             && !param_home_may_be_written(&effects, *home)
     });
@@ -420,6 +432,38 @@ mod tests {
             ),
             Ok(None)
         );
+    }
+
+    #[test]
+    fn materialized_stores_invalidate_a_before_later_parameter_consumers() {
+        for (src, width) in [
+            (MirValue::ConstU8(0), MirWidth::Byte),
+            (MirValue::ConstU16(0x1234), MirWidth::Word),
+            (MirValue::PointerCell(param(1, 0)), MirWidth::Byte),
+        ] {
+            let routine = routine(vec![block(
+                0,
+                vec![
+                    capture(0, 0, MirReg::A),
+                    capture(0, 1, MirReg::X),
+                    MirOp::Store {
+                        dst: MirAddr::Direct(MirMem::Absolute(0x600)),
+                        src,
+                        width,
+                    },
+                ],
+                MirTerminator::Return,
+            )]);
+            let availability = analyze(&routine);
+            let site = MirSite::Terminator {
+                block: MirBlockId(0),
+            };
+            assert_eq!(availability.register_at(home(0, 0), site), Ok(None));
+            assert_eq!(
+                availability.register_at(home(0, 1), site),
+                Ok(Some(MirReg::X))
+            );
+        }
     }
 
     #[test]

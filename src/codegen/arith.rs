@@ -578,7 +578,17 @@ impl Generator {
             return true;
         }
 
-        let Some(slot) = self.lvalue_slot(expr) else {
+        // Word equality carries the low-byte XOR result in A. Computing the
+        // high-byte lvalue address must not replace it with a pointer byte.
+        let preserve_left = self.direct_scalar_slot(expr).is_none();
+        if preserve_left {
+            self.emitter.emit_pha();
+        }
+        let slot = self.lvalue_slot(expr);
+        if preserve_left {
+            self.emit_pla();
+        }
+        let Some(slot) = slot else {
             return false;
         };
         if byte_index >= slot.size {
@@ -606,10 +616,16 @@ impl Generator {
             return true;
         }
 
-        let Some(slot) = self
-            .reusable_prepared_lvalue_slot(expr)
-            .or_else(|| self.lvalue_slot(expr))
-        else {
+        let prepared = self.reusable_prepared_lvalue_slot(expr);
+        let preserve_left = prepared.is_none() && self.direct_scalar_slot(expr).is_none();
+        if preserve_left {
+            self.emitter.emit_pha();
+        }
+        let slot = prepared.or_else(|| self.lvalue_slot(expr));
+        if preserve_left {
+            self.emit_pla();
+        }
+        let Some(slot) = slot else {
             return false;
         };
         if byte_index >= slot.size {
