@@ -68,3 +68,25 @@ Temporary homes are four-byte reservations with each value stored at its
 actual width at the start of its home. Edge transfers stage all sources in a
 separate frame area before writing destinations. Conditional edges use separate
 machine blocks, so only the chosen edge's parallel transfer executes.
+
+Native calls use an outgoing area at the bottom of the caller's A6 frame.
+Arguments and indirect targets are captured before this area is written. After
+JSR and LINK, incoming arguments begin at A6+8. Slots are even-sized; a BYTE
+occupies the first byte of its slot. Mutated or address-taken parameters are
+copied to invocation-local homes. Scalars return in D0 and pointers in A0.
+Only D0/D1/A0/A1 are scratch; D2–D7/A2–A5 are untouched and A6/A7 are restored.
+Final frame reservations are checked for overlap and signed-16 displacement
+limits, including incoming arguments and fixed-size copy staging.
+
+Memory addressing preserves full-width indexes. Constant stride scaling uses
+32-bit shifts/adds, including non-power-of-two record strides. Known aligned
+word/long accesses use native instructions; unknown or odd alignment uses
+big-endian byte accesses. Volatile reads and writes do not duplicate or widen
+observable byte accesses. Fixed-size copies stage the complete source before
+writing the destination, preserving overlapping value semantics. Automatic
+array descriptors, backing, and initialization remain invocation-local.
+
+Qualified symbol names are attached as display metadata by the compiler API;
+no machine decision depends on source/linker spelling. Parameters and automatic
+objects have frame-relative symbol locations, including the actual source
+parameter names. Routine symbols report their emitted code extents.

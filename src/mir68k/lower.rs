@@ -164,6 +164,11 @@ fn lower_routine(
             .iter()
             .map(|p| (p.id, p.ty.clone()))
             .collect(),
+        param_names: routine
+            .params
+            .iter()
+            .map(|p| (p.id, p.name.clone()))
+            .collect(),
         temps: routine.temps.iter().map(|t| (t.id, t.ty.clone())).collect(),
         locals: routine
             .locals
@@ -431,7 +436,7 @@ fn call_plan(
     })
 }
 
-fn verify_routine_plan(routine: &Mir68kRoutine) -> Result<(), String> {
+pub(super) fn verify_routine_plan(routine: &Mir68kRoutine) -> Result<(), String> {
     if routine.frame.extent.get() % 2 != 0 {
         return Err("68k frame extent is not even".to_string());
     }
@@ -450,7 +455,9 @@ fn verify_routine_plan(routine: &Mir68kRoutine) -> Result<(), String> {
                 object.id.0
             ));
         }
-        if object.frame_offset.unsigned_abs() % object.alignment.get() != 0 {
+        if !object.alignment.get().is_power_of_two()
+            || object.frame_offset.unsigned_abs() % object.alignment.get() != 0
+        {
             return Err(format!(
                 "68k frame object {} does not satisfy alignment {}",
                 object.id.0, object.alignment
@@ -473,6 +480,19 @@ fn verify_routine_plan(routine: &Mir68kRoutine) -> Result<(), String> {
             if let Mir68kOp::Call { plan, .. } = op {
                 if plan.net_stack_delta != 0 {
                     return Err("68k call plan leaves an unbalanced stack".to_string());
+                }
+                for argument in &plan.arguments {
+                    let Mir68kAbiHome::StackArgument { offset, size } = argument else {
+                        return Err("68k arguments require stack homes".into());
+                    };
+                    if offset.get() & 1 != 0
+                        || offset
+                            .get()
+                            .checked_add(size.get())
+                            .is_none_or(|end| end > plan.outgoing_bytes.get())
+                    {
+                        return Err("68k argument home is outside the outgoing area".into());
+                    }
                 }
                 if plan.outgoing_bytes > routine.frame.outgoing.size {
                     return Err("68k call exceeds the routine outgoing area".to_string());

@@ -93,6 +93,21 @@ pub fn compile_file(
     }
     let semir = crate::linker::select_semir(&semir, crate::linker::SemLinkPolicy::EntryReachable)
         .map_err(codegen_error)?;
+    // This is display metadata only. The backend receives verified NIR and
+    // resolves code/storage exclusively by IDs; it never consults SemIR.
+    let display_names: std::collections::BTreeMap<_, _> = semir
+        .modules
+        .iter()
+        .flat_map(|m| &m.items)
+        .filter_map(|item| {
+            let symbol = match item {
+                semantic::ir::SemItem::Declaration(d) => &d.symbol,
+                semantic::ir::SemItem::Routine(r) => &r.symbol,
+                _ => return None,
+            };
+            Some((symbol.name.clone(), symbol.qualified_name.clone()))
+        })
+        .collect();
     let nir = nir::lower_program(&semir);
     let nir = if options.optimize {
         nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?
@@ -110,7 +125,19 @@ pub fn compile_file(
         ),
     })?;
     let machine = mir68k::materialize::materialize(&mir).map_err(codegen_error)?;
-    let image = mir68k::image::link(&mir, &machine, options.origin).map_err(codegen_error)?;
+    let mut image = mir68k::image::link(&mir, &machine, options.origin).map_err(codegen_error)?;
+    for symbol in &mut image.symbols {
+        let (base, suffix) = if let Some((base, local)) = symbol.name.split_once("::") {
+            (base, format!("::{local}"))
+        } else if let Some(base) = symbol.name.strip_suffix(".__backing") {
+            (base, ".__backing".into())
+        } else {
+            (symbol.name.as_str(), String::new())
+        };
+        if let Some(display) = display_names.get(base) {
+            symbol.name = format!("{display}{suffix}");
+        }
+    }
     Ok(NativeCompiledProgram { image, machine })
 }
 

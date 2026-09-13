@@ -97,6 +97,7 @@ pub struct Mir68kRoutine {
     pub signature: crate::nir::NirCallableSignature,
     pub result_home: Option<Mir68kAbiHome>,
     pub params: Vec<(ParamId, crate::nir::NirType)>,
+    pub param_names: Vec<(ParamId, String)>,
     pub temps: Vec<(TempId, crate::nir::NirType)>,
     /// Debug/type metadata for symbol reports; frame IDs determine placement.
     pub locals: Vec<(crate::nir::LocalId, String, crate::nir::NirType)>,

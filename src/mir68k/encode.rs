@@ -7,6 +7,15 @@ pub fn encode(
 ) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
+        Instruction::AddAddress {
+            source,
+            destination,
+        } => {
+            check_register(destination)?;
+            let (ea, ext) = effective_address(source, Width::Long, resolve)?;
+            words.push(0xd1c0 | (destination as u16) << 9 | ea);
+            words.extend(ext);
+        }
         Instruction::Alu {
             operation,
             width,

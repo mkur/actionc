@@ -109,6 +109,9 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
         }
     }
     for routine in &program.routines {
+        if let Err(error) = super::lower::verify_routine_plan(routine) {
+            report(Some(&routine.name), error);
+        }
         let blocks: BTreeMap<_, _> = routine.blocks.iter().map(|b| (b.id, b)).collect();
         let temps: BTreeMap<_, _> = routine.temps.iter().map(|(id, ty)| (*id, ty)).collect();
         let params: BTreeMap<_, _> = routine.params.iter().map(|(id, ty)| (*id, ty)).collect();

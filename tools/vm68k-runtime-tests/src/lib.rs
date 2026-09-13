@@ -26,6 +26,7 @@ pub struct Memory {
     bytes: Vec<u8>,
     permissions: Vec<u8>,
     violation: RefCell<Option<MemoryViolation>>,
+    trace: RefCell<Option<(std::ops::Range<u32>, Vec<(u32, bool)>)>>,
 }
 
 impl Default for Memory {
@@ -35,11 +36,31 @@ impl Default for Memory {
             bytes: vec![0xcd; MEMORY_SIZE],
             permissions: vec![0; MEMORY_SIZE],
             violation: RefCell::new(None),
+            trace: RefCell::new(None),
         }
     }
 }
 
 impl Memory {
+    /// Opt-in byte bus observations for volatile-access regression tests.
+    pub fn trace_range(&self, range: std::ops::Range<u32>) {
+        *self.trace.borrow_mut() = Some((range, Vec::new()));
+    }
+    pub fn take_trace(&self) -> Vec<(u32, bool)> {
+        self.trace
+            .borrow_mut()
+            .take()
+            .map(|(_, events)| events)
+            .unwrap_or_default()
+    }
+    fn record_access(&self, address: u32, write: bool) {
+        if let Some((range, events)) = self.trace.borrow_mut().as_mut() {
+            if range.contains(&address) {
+                events.push((address, write));
+            }
+        }
+    }
+
     pub fn map(
         &mut self,
         address: u32,
@@ -124,6 +145,7 @@ impl AddressBus for Memory {
     }
     fn read_byte(&self, space: AddressSpace, address: u32) -> u32 {
         let address = address & ADDRBUS_MASK;
+        self.record_access(address, false);
         if self.allowed(address, false, space.fc() & 2 != 0) {
             self.bytes[address as usize] as u32
         } else {
@@ -138,6 +160,7 @@ impl AddressBus for Memory {
     }
     fn write_byte(&mut self, _: AddressSpace, address: u32, value: u32) {
         let address = address & ADDRBUS_MASK;
+        self.record_access(address, true);
         if self.allowed(address, true, false) {
             self.bytes[address as usize] = value as u8;
         }
@@ -336,7 +359,16 @@ impl Machine {
             .and_then(|t| t.width)
             .ok_or("symbol has no scalar type")?
             .get() as usize;
-        if symbol.array.is_some() || !matches!(width, 1 | 2 | 4) {
+        if symbol.array.is_some()
+            || !matches!(width, 1 | 2 | 4)
+            || !matches!(
+                symbol.ty.as_ref().unwrap().kind,
+                actionc::nir::NirTypeKind::Integer(_)
+                    | actionc::nir::NirTypeKind::Bool
+                    | actionc::nir::NirTypeKind::Pointer { .. }
+                    | actionc::nir::NirTypeKind::Callable { .. }
+            )
+        {
             return Err("symbol is not a supported scalar".into());
         }
         Ok(self
@@ -358,7 +390,16 @@ impl Machine {
             .and_then(|t| t.width)
             .ok_or("symbol has no scalar type")?
             .get() as usize;
-        if symbol.array.is_some() || !matches!(width, 1 | 2 | 4) {
+        if symbol.array.is_some()
+            || !matches!(width, 1 | 2 | 4)
+            || !matches!(
+                symbol.ty.as_ref().unwrap().kind,
+                actionc::nir::NirTypeKind::Integer(_)
+                    | actionc::nir::NirTypeKind::Bool
+                    | actionc::nir::NirTypeKind::Pointer { .. }
+                    | actionc::nir::NirTypeKind::Callable { .. }
+            )
+        {
             return Err("symbol is not a supported scalar".into());
         }
         self.cpu

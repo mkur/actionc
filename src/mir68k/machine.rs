@@ -103,6 +103,10 @@ pub enum ShiftCount {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    AddAddress {
+        source: Ea,
+        destination: u8,
+    },
     Alu {
         operation: Alu,
         width: Width,

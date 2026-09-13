@@ -1,10 +1,10 @@
 # Minimal MIR68K Execution Plan
 
-Status: implementation in progress. Slices 0–4 are implemented. Source-to-image
-execution, integer arithmetic/casts/shifts/comparisons, loops, CASE and parallel
-CFG edge copies pass focused r68k tests. Calls, full memory access and benchmark
-acceptance remain in slices 5–6. Cross-platform qualification will run in CI
-when slice 6 lands.
+Status: implementation in progress. Slices 0–5 are implemented, including a
+separate NIR hardening fix for explicit integer return widths. Native calls,
+recursion, signed-shift library calls, local arrays, full-width indexes, odd
+accesses and overlapping copies pass r68k tests. Benchmark acceptance, runner
+image dumps and the cross-platform CI step remain in slice 6.
 
 ## Objective and completion gate
 

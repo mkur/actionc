@@ -114,6 +114,10 @@ struct Builder<'a> {
     current: MachineBlockId,
     next: u32,
     edge_slots: Vec<i16>,
+    index_slot: i16,
+    callee_slot: i16,
+    call_slots: Vec<i16>,
+    copy_slot: i16,
 }
 
 impl<'a> Builder<'a> {
@@ -143,6 +147,33 @@ impl<'a> Builder<'a> {
             cursor = cursor.checked_add(4).ok_or("edge copy area overflow")?;
             edge_slots.push(displacement(-i64::from(cursor))?);
         }
+        let index_slot = reserve(&mut cursor, 4)?;
+        let callee_slot = reserve(&mut cursor, 4)?;
+        let argument_count = routine
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .filter_map(|op| match op {
+                Mir68kOp::Call { args, .. } => Some(args.len()),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        let mut call_slots = Vec::new();
+        for _ in 0..argument_count {
+            call_slots.push(reserve(&mut cursor, 4)?);
+        }
+        let copy_bytes = routine
+            .blocks
+            .iter()
+            .flat_map(|b| &b.ops)
+            .filter_map(|op| match op {
+                Mir68kOp::Copy { bytes, .. } => Some(bytes.get()),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        let copy_slot = reserve(&mut cursor, copy_bytes)?;
         frame.spill_bytes = ByteSize::new(cursor - start);
         cursor = cursor
             .checked_add(frame.outgoing.size.get())
@@ -150,6 +181,60 @@ impl<'a> Builder<'a> {
         displacement(-(cursor as i64))?;
         frame.extent = ByteSize::new(cursor);
         frame.outgoing.frame_offset = -(cursor as i32);
+        let mut ranges: Vec<(i64, i64)> = frame
+            .objects
+            .iter()
+            .filter(|o| !o.size.is_zero())
+            .map(|o| {
+                (
+                    i64::from(o.frame_offset),
+                    i64::from(o.frame_offset) + i64::from(o.size.get()),
+                )
+            })
+            .collect();
+        ranges.extend(
+            temps
+                .values()
+                .map(|offset| (i64::from(*offset), i64::from(*offset) + 4)),
+        );
+        ranges.extend(
+            edge_slots
+                .iter()
+                .chain(&call_slots)
+                .chain([&index_slot, &callee_slot])
+                .map(|offset| (i64::from(*offset), i64::from(*offset) + 4)),
+        );
+        if copy_bytes != 0 {
+            ranges.push((
+                i64::from(copy_slot),
+                i64::from(copy_slot) + i64::from(copy_bytes),
+            ));
+        }
+        if !frame.outgoing.size.is_zero() {
+            ranges.push((
+                -i64::from(cursor),
+                -i64::from(cursor) + i64::from(frame.outgoing.size.get()),
+            ));
+        }
+        ranges.sort_unstable();
+        if ranges
+            .iter()
+            .any(|(start, end)| *start < -i64::from(cursor) || *end > 0)
+            || ranges.windows(2).any(|r| r[0].1 > r[1].0)
+        {
+            return Err("overlapping or out-of-frame native homes".into());
+        }
+        for parameter in &frame.parameters {
+            let Mir68kAbiHome::StackArgument { offset, size } = parameter.incoming else {
+                return Err("native parameter needs a stack argument home".into());
+            };
+            displacement(8 + i64::from(offset.get()))?;
+            if 8 + u64::from(offset.get()) + u64::from(size.get()) > 32768 {
+                return Err(
+                    "native incoming argument exceeds signed-16 displacement limits".into(),
+                );
+            }
+        }
         let mut labels = BTreeMap::new();
         for block in &routine.blocks {
             labels.insert(block.id, MachineBlockId(*next));
@@ -165,6 +250,10 @@ impl<'a> Builder<'a> {
             current: MachineBlockId(0),
             next: *next,
             edge_slots,
+            index_slot,
+            callee_slot,
+            call_slots,
+            copy_slot,
         })
     }
     fn emit(&mut self, op: Instruction) {
@@ -182,8 +271,22 @@ impl<'a> Builder<'a> {
             register: 6,
             displacement: displacement(-i64::from(self.frame.extent.get()))?,
         });
-        if !self.routine.prologue.parameter_copies.is_empty() {
-            return Err("parameter frame copies are not implemented yet".into());
+        for copy in &self.routine.prologue.parameter_copies {
+            let Mir68kAbiHome::StackArgument { offset, size } = copy.source else {
+                return Err("parameter copy requires a stack argument".into());
+            };
+            let destination = self
+                .frame
+                .objects
+                .iter()
+                .find(|o| o.id == copy.destination)
+                .ok_or("missing copied parameter home")?
+                .frame_offset;
+            self.mov(
+                Width::from_bytes(size.get())?,
+                Ea::Displacement(6, displacement(8 + i64::from(offset.get()))?),
+                Ea::Displacement(6, displacement(i64::from(destination))?),
+            );
         }
         Ok(())
     }
@@ -221,7 +324,7 @@ impl<'a> Builder<'a> {
             Mir68kValue::RoutineAddress(id, _) => {
                 Ea::ImmediateAddress(Address::new(Target::Routine(*id)))
             }
-            Mir68kValue::Param(_) => return Err("parameter values are not implemented yet".into()),
+            Mir68kValue::Param(id) => self.parameter(*id)?,
         };
         if width != Width::Long {
             self.mov(Width::Long, Ea::Immediate(0), Ea::D(register));
@@ -229,40 +332,140 @@ impl<'a> Builder<'a> {
         self.mov(width, source, Ea::D(register));
         Ok(())
     }
-    fn address(&mut self, address: &Mir68kAddress) -> Result<Ea> {
-        if address.index.is_some() {
-            return Err("indexed addresses are not implemented yet".into());
-        }
-        let offset = i64::from(address.displacement.get());
-        let ea = match address.base {
-            Mir68kAddressBase::Static(NirStorageId::Global(id)) => Ea::Absolute(Address {
-                target: Target::Data(Mir68kDataId::Global(id)),
-                addend: offset,
-            }),
-            Mir68kAddressBase::Static(NirStorageId::Local(id)) => Ea::Absolute(Address {
-                target: Target::Data(Mir68kDataId::Local(self.routine.id, id)),
-                addend: offset,
-            }),
+    fn parameter(&self, id: ParamId) -> Result<Ea> {
+        let parameter = self
+            .frame
+            .parameters
+            .iter()
+            .find(|p| p.param == id)
+            .ok_or("parameter has no home")?;
+        let offset = if let Some(id) = parameter.frame_object {
+            i64::from(
+                self.frame
+                    .objects
+                    .iter()
+                    .find(|o| o.id == id)
+                    .ok_or("missing parameter frame object")?
+                    .frame_offset,
+            )
+        } else {
+            let Mir68kAbiHome::StackArgument { offset, .. } = parameter.incoming else {
+                return Err("parameter is not stack passed".into());
+            };
+            8 + i64::from(offset.get())
+        };
+        Ok(Ea::Displacement(6, displacement(offset)?))
+    }
+    /// Compute into An, using only D1 and the private index staging slot.
+    /// D0 may hold a store value; the other address scratch may hold copy source.
+    fn address(&mut self, address: &Mir68kAddress, register: u8) -> Result<()> {
+        let base = match &address.base {
+            Mir68kAddressBase::Static(NirStorageId::Global(id))
+            | Mir68kAddressBase::External(Mir68kExternalAddress::Global(id)) => {
+                Ea::Absolute(Address::new(Target::Data(Mir68kDataId::Global(*id))))
+            }
+            Mir68kAddressBase::Static(NirStorageId::Local(id)) => Ea::Absolute(Address::new(
+                Target::Data(Mir68kDataId::Local(self.routine.id, *id)),
+            )),
             Mir68kAddressBase::AutomaticFrame(id) => {
                 let object = self
                     .frame
                     .objects
                     .iter()
-                    .find(|o| o.id == id)
+                    .find(|o| o.id == *id)
                     .ok_or("missing automatic object")?;
-                Ea::Displacement(6, displacement(i64::from(object.frame_offset) + offset)?)
+                Ea::Displacement(6, displacement(i64::from(object.frame_offset))?)
             }
+            Mir68kAddressBase::Parameter(id) => self.parameter(*id)?,
             Mir68kAddressBase::External(Mir68kExternalAddress::Absolute(a)) => {
-                Ea::Absolute(Address {
-                    target: Target::Absolute(
-                        u32::try_from(a.value).map_err(|_| "absolute address exceeds 32 bits")?,
-                    ),
-                    addend: offset,
-                })
+                Ea::Absolute(Address::absolute(
+                    u32::try_from(a.value).map_err(|_| "absolute address exceeds 32 bits")?,
+                ))
             }
-            _ => return Err("address form is not implemented yet".into()),
+            Mir68kAddressBase::Indirect(value) => {
+                self.value(value, 1)?;
+                self.mov(Width::Long, Ea::D(1), Ea::A(register));
+                Ea::Indirect(register)
+            }
+            _ => return Err("invalid address base".into()),
         };
-        Ok(ea)
+        if base != Ea::Indirect(register) {
+            self.emit(Instruction::Lea {
+                source: base,
+                destination: register,
+            });
+        }
+        if address.displacement.get() != 0 {
+            self.emit(Instruction::AddAddress {
+                source: Ea::Immediate(address.displacement.get()),
+                destination: register,
+            });
+        }
+        if let Some(index) = &address.index {
+            self.value(&index.value, 1)?;
+            self.mov(Width::Long, Ea::D(1), Ea::Displacement(6, self.index_slot));
+            // Full-width constant scaling, including non-power-of-two record
+            // strides. Original 68000 indexed modes cannot do this scaling.
+            for bit in 0..32 {
+                if index.stride.get() & (1u32 << bit) == 0 {
+                    continue;
+                }
+                self.mov(Width::Long, Ea::Displacement(6, self.index_slot), Ea::D(1));
+                self.shift_immediate(1, true, bit);
+                self.emit(Instruction::AddAddress {
+                    source: Ea::D(1),
+                    destination: register,
+                });
+            }
+        }
+        Ok(())
+    }
+    fn shift_immediate(&mut self, register: u8, left: bool, mut count: u32) {
+        while count != 0 {
+            let step = count.min(8);
+            self.emit(Instruction::LogicalShift {
+                width: Width::Long,
+                left,
+                count: ShiftCount::Immediate(step as u8),
+                register,
+            });
+            count -= step;
+        }
+    }
+    fn read_memory(&mut self, address: &Mir68kAddress, width: ByteSize) -> Result<()> {
+        self.address(address, 0)?;
+        if naturally_aligned(address, width) {
+            self.mov(Width::from_bytes(width.get())?, Ea::Indirect(0), Ea::D(0));
+        } else {
+            self.mov(Width::Long, Ea::Immediate(0), Ea::D(0));
+            self.mov(Width::Long, Ea::Immediate(0), Ea::D(1));
+            for byte in 0..width.get() {
+                if byte != 0 {
+                    self.shift_immediate(0, true, 8);
+                }
+                self.mov(Width::Byte, Ea::Displacement(0, byte as i16), Ea::D(1));
+                self.emit(Instruction::Alu {
+                    operation: Alu::Or,
+                    width: Width::Long,
+                    source: 1,
+                    destination: 0,
+                });
+            }
+        }
+        Ok(())
+    }
+    fn write_memory(&mut self, address: &Mir68kAddress, width: ByteSize) -> Result<()> {
+        self.address(address, 0)?;
+        if naturally_aligned(address, width) {
+            self.mov(Width::from_bytes(width.get())?, Ea::D(0), Ea::Indirect(0));
+        } else {
+            for byte in 0..width.get() {
+                self.mov(Width::Long, Ea::D(0), Ea::D(1));
+                self.shift_immediate(1, false, 8 * (width.get() - byte - 1));
+                self.mov(Width::Byte, Ea::D(1), Ea::Displacement(0, byte as i16));
+            }
+        }
+        Ok(())
     }
     fn op(&mut self, op: &Mir68kOp) -> Result<()> {
         match op {
@@ -272,10 +475,8 @@ impl<'a> Builder<'a> {
                 width,
                 ..
             } => {
-                aligned(address, *width)?;
                 self.value(value, 0)?;
-                let destination = self.address(address)?;
-                self.mov(Width::from_bytes(width.get())?, Ea::D(0), destination);
+                self.write_memory(address, *width)?;
             }
             Mir68kOp::Load {
                 dest,
@@ -283,9 +484,7 @@ impl<'a> Builder<'a> {
                 address,
                 ..
             } => {
-                aligned(address, *width)?;
-                let source = self.address(address)?;
-                self.mov(Width::from_bytes(width.get())?, source, Ea::D(0));
+                self.read_memory(address, *width)?;
                 self.save(*dest, *width)?;
             }
             Mir68kOp::AddressOf {
@@ -293,11 +492,7 @@ impl<'a> Builder<'a> {
                 width,
                 address,
             } => {
-                let source = self.address(address)?;
-                self.emit(Instruction::Lea {
-                    source,
-                    destination: 0,
-                });
+                self.address(address, 0)?;
                 self.mov(Width::Long, Ea::A(0), Ea::D(0));
                 self.save(*dest, *width)?;
             }
@@ -455,10 +650,94 @@ impl<'a> Builder<'a> {
                 });
                 self.save(*dest, *width)?;
             }
-            _ => {
-                return Err(format!(
-                    "native instruction selection does not yet support {op:?}"
-                ));
+            Mir68kOp::Copy {
+                destination,
+                source,
+                bytes,
+                ..
+            } => {
+                self.address(source, 0)?;
+                self.address(destination, 1)?;
+                for byte in 0..bytes.get() {
+                    self.mov(
+                        Width::Byte,
+                        Ea::Displacement(0, displacement(i64::from(byte))?),
+                        Ea::Displacement(
+                            6,
+                            displacement(i64::from(self.copy_slot) + i64::from(byte))?,
+                        ),
+                    );
+                }
+                for byte in 0..bytes.get() {
+                    self.mov(
+                        Width::Byte,
+                        Ea::Displacement(
+                            6,
+                            displacement(i64::from(self.copy_slot) + i64::from(byte))?,
+                        ),
+                        Ea::Displacement(1, displacement(i64::from(byte))?),
+                    );
+                }
+            }
+            Mir68kOp::Call {
+                target,
+                args,
+                result,
+                plan,
+                ..
+            } => {
+                match target {
+                    Mir68kCallTarget::Direct(_) | Mir68kCallTarget::Indirect(_, _) => {}
+                    _ => {
+                        return Err(
+                            "native external/runtime calls require an explicit adapter".into()
+                        );
+                    }
+                }
+                for (index, arg) in args.iter().enumerate() {
+                    self.value(arg, 0)?;
+                    self.mov(
+                        Width::Long,
+                        Ea::D(0),
+                        Ea::Displacement(6, self.call_slots[index]),
+                    );
+                }
+                if let Mir68kCallTarget::Indirect(value, _) = target {
+                    self.value(value, 0)?;
+                    self.mov(Width::Long, Ea::D(0), Ea::Displacement(6, self.callee_slot));
+                }
+                for (index, home) in plan.arguments.iter().enumerate() {
+                    let Mir68kAbiHome::StackArgument { offset, size } = home else {
+                        return Err("native call arguments require stack homes".into());
+                    };
+                    self.mov(
+                        Width::Long,
+                        Ea::Displacement(6, self.call_slots[index]),
+                        Ea::D(0),
+                    );
+                    // BYTE occupies the first byte of its even-sized slot.
+                    self.mov(
+                        Width::from_bytes(size.get())?,
+                        Ea::D(0),
+                        Ea::Displacement(7, displacement(i64::from(offset.get()))?),
+                    );
+                }
+                match target {
+                    Mir68kCallTarget::Direct(id) => self.emit(Instruction::Jsr(Ea::Absolute(
+                        Address::new(Target::Routine(*id)),
+                    ))),
+                    Mir68kCallTarget::Indirect(_, _) => {
+                        self.mov(Width::Long, Ea::Displacement(6, self.callee_slot), Ea::A(0));
+                        self.emit(Instruction::Jsr(Ea::Indirect(0)));
+                    }
+                    _ => unreachable!(),
+                }
+                if let Some((dest, width)) = result {
+                    if matches!(plan.result, Some(Mir68kAbiHome::AddressRegister(0))) {
+                        self.mov(Width::Long, Ea::A(0), Ea::D(0));
+                    }
+                    self.save(*dest, *width)?;
+                }
             }
         }
         Ok(())
@@ -541,15 +820,22 @@ fn displacement(value: i64) -> Result<i16> {
     i16::try_from(value)
         .map_err(|_| "native frame exceeds original MC68000 signed-16 displacement limits".into())
 }
-fn aligned(address: &Mir68kAddress, width: ByteSize) -> Result<()> {
-    if width.get() > 1
-        && (address.base_alignment.is_none_or(|a| a.get() < 2)
-            || address.displacement.get() & 1 != 0)
-    {
-        Err("unaligned memory access is not implemented yet".into())
-    } else {
-        Ok(())
-    }
+fn naturally_aligned(address: &Mir68kAddress, width: ByteSize) -> bool {
+    width.get() == 1
+        || address.base_alignment.is_some_and(|a| a.get() >= 2)
+            && address.displacement.get() & 1 == 0
+            && address
+                .index
+                .as_ref()
+                .is_none_or(|i| i.stride.get() & 1 == 0)
+}
+fn reserve(cursor: &mut u32, size: u32) -> Result<i16> {
+    *cursor = cursor
+        .checked_add(size)
+        .and_then(|n| n.checked_add(1))
+        .ok_or("frame reservation overflow")?
+        & !1;
+    displacement(-i64::from(*cursor))
 }
 
 fn compare_condition(operation: NirCompareOp, signed: bool) -> Condition {

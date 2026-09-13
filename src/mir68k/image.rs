@@ -22,6 +22,10 @@ pub struct ZeroFill {
 pub enum SymbolId {
     Data(Mir68kDataId),
     Routine(RoutineId),
+    Parameter {
+        routine: RoutineId,
+        param: ParamId,
+    },
     Automatic {
         routine: RoutineId,
         object: Mir68kFrameObjectId,
@@ -297,22 +301,70 @@ pub fn link(
             name: item.name.clone(),
             location: SymbolLocation::Absolute(address),
             size: item.size.get(),
-            alignment: item.alignment.get(),
+            alignment: if address & 1 == 0 {
+                item.alignment.get()
+            } else {
+                1
+            },
             ty: item.ty.clone(),
             array,
         });
     }
     for r in &mir.routines {
+        let routine_end = routines
+            .values()
+            .copied()
+            .filter(|a| *a > routines[&r.id])
+            .min()
+            .unwrap_or(code_end - 4);
         image.symbols.push(Symbol {
             id: SymbolId::Routine(r.id),
             name: r.name.clone(),
             location: SymbolLocation::Absolute(routines[&r.id]),
-            size: 0,
+            size: routine_end - routines[&r.id],
             alignment: 2,
             ty: None,
             array: None,
         });
         let physical = machine.routines.iter().find(|p| p.id == r.id).unwrap();
+        for parameter in physical
+            .frame
+            .parameters
+            .iter()
+            .filter(|p| p.frame_object.is_none())
+        {
+            let Mir68kAbiHome::StackArgument { offset, size } = parameter.incoming else {
+                return Err("parameter symbol lacks stack home".into());
+            };
+            let name = r
+                .param_names
+                .iter()
+                .find(|(p, _)| *p == parameter.param)
+                .map(|(_, n)| n)
+                .ok_or("parameter has no display name")?;
+            image.symbols.push(Symbol {
+                id: SymbolId::Parameter {
+                    routine: r.id,
+                    param: parameter.param,
+                },
+                name: format!("{}::{name}", r.name),
+                location: SymbolLocation::Frame {
+                    routine: r.id,
+                    offset: i32::try_from(offset.get())
+                        .ok()
+                        .and_then(|o| o.checked_add(8))
+                        .ok_or("parameter location overflow")?,
+                },
+                size: size.get(),
+                alignment: size.get().min(2),
+                ty: r
+                    .params
+                    .iter()
+                    .find(|(p, _)| *p == parameter.param)
+                    .map(|(_, ty)| ty.clone()),
+                array: None,
+            });
+        }
         for object in &physical.frame.objects {
             let (name, ty) = match object.owner {
                 Mir68kFrameObjectOwner::Local(id) => r
@@ -322,7 +374,11 @@ pub fn link(
                     .map(|(_, name, ty)| (name.clone(), Some(ty.clone())))
                     .ok_or("frame object has no local metadata")?,
                 Mir68kFrameObjectOwner::Param(id) => (
-                    format!("param{}", id.0),
+                    r.param_names
+                        .iter()
+                        .find(|(p, _)| *p == id)
+                        .map(|(_, name)| name.clone())
+                        .ok_or("parameter has no display name")?,
                     r.params
                         .iter()
                         .find(|(p, _)| *p == id)
@@ -330,9 +386,15 @@ pub fn link(
                 ),
             };
             image.symbols.push(Symbol {
-                id: SymbolId::Automatic {
-                    routine: r.id,
-                    object: object.id,
+                id: match object.owner {
+                    Mir68kFrameObjectOwner::Param(param) => SymbolId::Parameter {
+                        routine: r.id,
+                        param,
+                    },
+                    Mir68kFrameObjectOwner::Local(_) => SymbolId::Automatic {
+                        routine: r.id,
+                        object: object.id,
+                    },
                 },
                 name: format!("{}::{name}", r.name),
                 location: SymbolLocation::Frame {
