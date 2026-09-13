@@ -76,6 +76,13 @@ RHS effects. Loads capture the complete source before overwriting result bytes.
 Helpers are linked once when used and report their Error dependency through
 the existing runtime linker. These rules apply in both classic profiles.
 
+Memory-fact invalidation follows the addressed byte for direct storage. A write
+through a BYTE, INT or LONGINT view invalidates cached values and register/flag
+dependencies through every overlapping view, including views with different
+slot bases or signedness. Unresolved output-relative offsets remain distinct
+from absolute addresses. In particular, reusing $C4..$C7 through a narrower
+slot must not retain a previous wide value's zero-extension facts.
+
 Wide FOR direction and magnitude come from SemIR's resolved step control.
 Classic emits four-byte limit comparisons and wrap guards at signed/unsigned
 boundaries. Compounds capture the destination before RHS effects and read the

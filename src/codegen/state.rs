@@ -97,6 +97,27 @@ pub(super) struct MemoryByte {
     pub(super) byte_index: u16,
 }
 
+// A store invalidates every view of the same direct byte, regardless of the
+// slot's width, signedness or record metadata. Keep relocated output offsets
+// separate from absolute addresses until emission resolves them.
+fn same_memory_byte(left: MemoryByte, right: MemoryByte) -> bool {
+    let address = |byte: MemoryByte| match byte.slot.space {
+        AddressSpace::ZeroPage => Some((
+            byte.slot.output_relative,
+            u16::from(byte.slot.zero_page_byte(byte.byte_index).address()),
+        )),
+        AddressSpace::Absolute => Some((
+            byte.slot.output_relative,
+            byte.slot.byte_address(byte.byte_index),
+        )),
+        AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY => None,
+    };
+    match (address(left), address(right)) {
+        (Some(left), Some(right)) => left == right,
+        _ => left == right,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct MemoryContentFact {
     pub(super) byte: MemoryByte,
@@ -154,7 +175,7 @@ pub(super) fn apply_logic_fact_op(op: LogicFactOp, left: u8, right: u8) -> u8 {
 }
 
 pub(super) fn value_atom_references_memory_byte(value: ValueAtomFact, byte: MemoryByte) -> bool {
-    matches!(value, ValueAtomFact::SlotByte { slot, byte_index } if byte == MemoryByte { slot, byte_index })
+    matches!(value, ValueAtomFact::SlotByte { slot, byte_index } if same_memory_byte(byte, MemoryByte { slot, byte_index }))
 }
 
 pub(super) fn value_atom_references_register(value: ValueAtomFact, register: RegisterName) -> bool {
@@ -179,7 +200,9 @@ pub(super) fn byte_compare_references_register(
 
 pub(super) fn value_fact_references_memory_byte(value: ValueFact, byte: MemoryByte) -> bool {
     match value {
-        ValueFact::SlotByte { slot, byte_index } => byte == MemoryByte { slot, byte_index },
+        ValueFact::SlotByte { slot, byte_index } => {
+            same_memory_byte(byte, MemoryByte { slot, byte_index })
+        }
         ValueFact::Logic { left, right, .. } => {
             value_atom_references_memory_byte(left, byte)
                 || value_atom_references_memory_byte(right, byte)
@@ -402,7 +425,7 @@ impl TrackedMemory {
     pub(super) fn value(&self, byte: MemoryByte) -> Option<ValueFact> {
         self.values
             .iter()
-            .find(|fact| fact.byte == byte)
+            .find(|fact| same_memory_byte(fact.byte, byte))
             .map(|fact| fact.value)
     }
 
@@ -416,7 +439,8 @@ impl TrackedMemory {
 
     pub(super) fn invalidate(&mut self, byte: MemoryByte) {
         self.values.retain(|fact| {
-            fact.byte != byte && !value_fact_references_memory_byte(fact.value, byte)
+            !same_memory_byte(fact.byte, byte)
+                && !value_fact_references_memory_byte(fact.value, byte)
         });
     }
 
@@ -810,7 +834,10 @@ impl ProcessorState {
         // or X can change while the template remains identical. Apply the
         // same restriction as slot_byte_value_fact to cached store aliases.
         if slot.is_volatile
-            || matches!(slot.space, AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY)
+            || matches!(
+                slot.space,
+                AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
+            )
         {
             return None;
         }
@@ -1226,5 +1253,75 @@ pub(super) fn value_fact_survives_known_call(value: ValueFact, effects: RoutineE
                 })
         }
         ValueFact::Unknown | ValueFact::Register(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod byte_alias_tests {
+    use super::*;
+
+    #[test]
+    fn stores_invalidate_overlapping_integer_views_and_dependents() {
+        let wide = StorageSlot::zero_page(0xC4, 4);
+        let narrow = wide.with_size(2).signed(true);
+        let alias = StorageSlot::zero_page(0xD0, 1);
+        let neighbor = StorageSlot::zero_page(0xC8, 1);
+        let mut state = ProcessorState::default();
+        let value = ValueFact::SlotByte {
+            slot: wide,
+            byte_index: 1,
+        };
+        state.set_memory_byte(wide, 1, ValueFact::Immediate(0));
+        state.set_memory_byte(alias, 0, value);
+        state.set_memory_byte(neighbor, 0, ValueFact::Immediate(99));
+        state.set_a_fact(value);
+        state.set_memory_byte(narrow, 1, ValueFact::Immediate(7));
+        assert_eq!(
+            state.memory.value(MemoryByte {
+                slot: wide,
+                byte_index: 1
+            }),
+            Some(ValueFact::Immediate(7))
+        );
+        assert_eq!(
+            state.memory.value(MemoryByte {
+                slot: alias,
+                byte_index: 0
+            }),
+            None
+        );
+        assert_eq!(state.a, RegisterValue::Unknown);
+        assert_eq!(
+            state.memory.value(MemoryByte {
+                slot: neighbor,
+                byte_index: 0
+            }),
+            Some(ValueFact::Immediate(99))
+        );
+    }
+
+    #[test]
+    fn direct_aliases_use_byte_addresses_and_preserve_relocation_identity() {
+        let mut absolute = StorageSlot::zero_page(0xC5, 1);
+        absolute.space = AddressSpace::Absolute;
+        let byte = MemoryByte {
+            slot: StorageSlot::zero_page(0xC4, 4),
+            byte_index: 1,
+        };
+        assert!(same_memory_byte(
+            byte,
+            MemoryByte {
+                slot: absolute,
+                byte_index: 0
+            }
+        ));
+        absolute.output_relative = true;
+        assert!(!same_memory_byte(
+            byte,
+            MemoryByte {
+                slot: absolute,
+                byte_index: 0
+            }
+        ));
     }
 }

@@ -1,0 +1,235 @@
+; TACLeBench adpcm_dec, adapted to Action! in 2026.
+; Derived from the SNU-RT Benchmark Suite by Sung-Soo Lim,
+; originally C Algorithms for Real-Time DSP by P. M. Embree.
+; May be used, modified and redistributed freely with SNU-RT acknowledgement.
+; See README.md for provenance and preserved upstream quirks.
+MODULE ADPCM_DEC
+USE MATH.INTEGER AS BITS
+
+; All signal arithmetic and coefficients have the reference's 32-bit width.
+LONGINT ARRAY h(24)=[
+  12 -44 -44 212 48 -624 128 1448
+  -840 -3220 3804 15504 15504 3804 -3220 -840
+  1448 128 -624 48 212 -44 -44 12]
+LONGINT ARRAY qq4_code4_table(16)=[
+  0 -20456 -12896 -8968 -6288 -4240 -2584 -1200
+  20456 12896 8968 6288 4240 2584 1200 0]
+LONGINT ARRAY qq6_code6_table(64)=[
+  -136 -136 -136 -136 -24808 -21904 -19008 -16704
+  -14984 -13512 -12280 -11192 -10232 -9360 -8576 -7856
+  -7192 -6576 -6000 -5456 -4944 -4464 -4008 -3576
+  -3168 -2776 -2400 -2032 -1688 -1360 -1040 -728
+  24808 21904 19008 16704 14984 13512 12280 11192
+  10232 9360 8576 7856 7192 6576 6000 5456
+  4944 4464 4008 3576 3168 2776 2400 2032
+  1688 1360 1040 728 432 136 -432 -136]
+LONGINT ARRAY wl_code_table(16)=[
+  -60 3042 1198 538 334 172 58 -30
+  3042 1198 538 334 172 58 -30 -60]
+LONGINT ARRAY ilb_table(32)=[
+  2048 2093 2139 2186 2233 2282 2332 2383
+  2435 2489 2543 2599 2656 2714 2774 2834
+  2896 2960 3025 3091 3158 3228 3298 3371
+  3444 3520 3597 3676 3756 3838 3922 4008]
+LONGINT ARRAY qq2_code2_table(4)=[
+  -7408 -1616 7408 1616]
+LONGINT ARRAY wh_code_table(4)=[
+  798 -214 798 -214]
+
+LONGINT ARRAY accumc(11),accumd(11)
+LONGINT ARRAY dec_del_bpl(6),dec_del_dltx(6)
+LONGINT ARRAY dec_del_bph(6),dec_del_dhx(6)
+LONGINT xout1,xout2,xs,xd,il=[0],ilr,ih,rl,dl,rh
+LONGINT dec_deth,dec_detl,dec_dlt
+LONGINT dec_plt,dec_plt1,dec_plt2,dec_szl,dec_spl,dec_sl
+LONGINT dec_rlt1,dec_rlt2,dec_rlt,dec_al1,dec_al2
+LONGINT dec_nbl,dec_dh,dec_nbh,dec_szh
+LONGINT dec_rh1,dec_rh2,dec_ah1,dec_ah2
+LONGINT dec_ph,dec_sph,dec_sh,dec_ph1,dec_ph2
+BYTE ARRAY compressed(3)=[0 253 32]
+LONGINT ARRAY samples(4)
+LONGINT checksum
+INT result
+
+; Zero-section predictor: six coefficient/difference products.
+LONGINT FUNC Filtez(LONGINT ARRAY bpl,dlt)
+  BYTE i
+  LONGINT zl
+  zl=bpl(0)*dlt(0)
+  FOR i=1 TO 5 DO zl==+bpl(i)*dlt(i) OD
+RETURN(BITS.AsrLI(zl,14))
+
+; Two-pole predictor.
+LONGINT FUNC Filtep(LONGINT rlt1,al1,rlt2,al2)
+  LONGINT pl,pl2
+  pl=2*rlt1
+  pl=al1*pl
+  pl2=2*rlt2
+  pl==+al2*pl2
+RETURN(BITS.AsrLI(pl,15))
+
+LONGINT FUNC Logscl(LONGINT code,nbl)
+  LONGINT wd
+  wd=BITS.AsrLI(nbl*127,7)
+  nbl=wd+wl_code_table(BYTE(code RSH 2))
+  IF nbl<0 THEN nbl=0 FI
+  IF nbl>18432 THEN nbl=18432 FI
+RETURN(nbl)
+
+LONGINT FUNC Scalel(LONGINT nbl BYTE shiftConstant)
+  LONGINT wd1,wd2,wd3
+  wd1=BITS.AsrLI(nbl,6) & 31
+  wd2=BITS.AsrLI(nbl,11)
+  wd3=BITS.AsrLI(ilb_table(BYTE(wd1)),BYTE(shiftConstant+1-wd2))
+RETURN(wd3 LSH 3)
+
+PROC Upzero(LONGINT dlt LONGINT ARRAY dlti,bli)
+  BYTE i
+  LONGINT wd2,wd3
+  IF dlt=0 THEN
+    FOR i=0 TO 5 DO bli(i)=BITS.AsrLI(255*bli(i),8) OD
+  ELSE
+    FOR i=0 TO 5 DO
+      IF dlt*dlti(i)>=0 THEN wd2=128 ELSE wd2=-128 FI
+      wd3=BITS.AsrLI(255*bli(i),8)
+      bli(i)=wd2+wd3
+    OD
+  FI
+  ; Preserve the upstream omission: dlti(2) is never assigned here.
+  dlti(5)=dlti(4)
+  dlti(4)=dlti(3)
+  dlti(3)=dlti(2)
+  dlti(1)=dlti(0)
+  dlti(0)=dlt
+RETURN
+
+LONGINT FUNC Uppol2(LONGINT al1,al2,plt,plt1,plt2)
+  LONGINT wd2,wd4,apl2
+  wd2=4*al1
+  IF plt*plt1>=0 THEN wd2=-wd2 FI
+  wd2=BITS.AsrLI(wd2,7)
+  IF plt*plt2>=0 THEN wd4=wd2+128 ELSE wd4=wd2-128 FI
+  apl2=wd4+BITS.AsrLI(127*al2,7)
+  IF apl2>12288 THEN apl2=12288 FI
+  IF apl2< -12288 THEN apl2=-12288 FI
+RETURN(apl2)
+
+LONGINT FUNC Uppol1(LONGINT al1,apl2,plt,plt1)
+  LONGINT wd2,wd3,apl1
+  wd2=BITS.AsrLI(al1*255,8)
+  IF plt*plt1>=0 THEN apl1=wd2+192 ELSE apl1=wd2-192 FI
+  wd3=15360-apl2
+  IF apl1>wd3 THEN apl1=wd3 FI
+  IF apl1< -wd3 THEN apl1=-wd3 FI
+RETURN(apl1)
+
+LONGINT FUNC Logsch(LONGINT code,nbh)
+  LONGINT wd
+  wd=BITS.AsrLI(nbh*127,7)
+  nbh=wd+wh_code_table(BYTE(code))
+  IF nbh<0 THEN nbh=0 FI
+  IF nbh>22528 THEN nbh=22528 FI
+RETURN(nbh)
+
+; One 8-bit codeword produces two signed samples in xout1 and xout2.
+PROC Decode(BYTE input)
+  BYTE i
+  LONGINT xa1,xa2
+  ilr=input & $3F
+  ih=input RSH 6
+
+  ; Lower sub-band: prediction, inverse quantization, adaptation and delays.
+  dec_szl=Filtez(dec_del_bpl,dec_del_dltx)
+  dec_spl=Filtep(dec_rlt1,dec_al1,dec_rlt2,dec_al2)
+  dec_sl=dec_spl+dec_szl
+  dec_dlt=BITS.AsrLI(dec_detl*qq4_code4_table(BYTE(ilr RSH 2)),15)
+  ; Upstream uses the encoder's il (zero), not the received ilr.
+  dl=BITS.AsrLI(dec_detl*qq6_code6_table(BYTE(il)),15)
+  rl=dl+dec_sl
+  dec_nbl=Logscl(ilr,dec_nbl)
+  dec_detl=Scalel(dec_nbl,8)
+  dec_plt=dec_dlt+dec_szl
+  Upzero(dec_dlt,dec_del_dltx,dec_del_bpl)
+  dec_al2=Uppol2(dec_al1,dec_al2,dec_plt,dec_plt1,dec_plt2)
+  dec_al1=Uppol1(dec_al1,dec_al2,dec_plt,dec_plt1)
+  dec_rlt=dec_sl+dec_dlt
+  dec_rlt2=dec_rlt1
+  dec_rlt1=dec_rlt
+  dec_plt2=dec_plt1
+  dec_plt1=dec_plt
+
+  ; Higher sub-band follows the same predictor and adaptation stages.
+  dec_szh=Filtez(dec_del_bph,dec_del_dhx)
+  dec_sph=Filtep(dec_rh1,dec_ah1,dec_rh2,dec_ah2)
+  dec_sh=dec_sph+dec_szh
+  dec_dh=BITS.AsrLI(dec_deth*qq2_code2_table(BYTE(ih)),15)
+  dec_nbh=Logsch(ih,dec_nbh)
+  dec_deth=Scalel(dec_nbh,10)
+  dec_ph=dec_dh+dec_szh
+  Upzero(dec_dh,dec_del_dhx,dec_del_bph)
+  dec_ah2=Uppol2(dec_ah1,dec_ah2,dec_ph,dec_ph1,dec_ph2)
+  dec_ah1=Uppol1(dec_ah1,dec_ah2,dec_ph,dec_ph1)
+  rh=dec_sh+dec_dh
+  dec_rh2=dec_rh1
+  dec_rh1=rh
+  dec_ph2=dec_ph1
+  dec_ph1=dec_ph
+
+  ; Receive quadrature mirror filter. Flat indexing replaces C pointer walks.
+  xd=rl-rh
+  xs=rl+rh
+  xa1=xd*h(0)
+  xa2=xs*h(1)
+  FOR i=0 TO 9 DO
+    xa1==+accumc(i)*h(2*i+2)
+    xa2==+accumd(i)*h(2*i+3)
+  OD
+  xa1==+accumc(10)*h(22)
+  xa2==+accumd(10)*h(23)
+  xout1=BITS.AsrLI(xa1,14)
+  xout2=BITS.AsrLI(xa2,14)
+  ; Descending destinations keep the old delay values until copied.
+  FOR i=0 TO 9 DO
+    accumc(10-i)=accumc(9-i)
+    accumd(10-i)=accumd(9-i)
+  OD
+  accumc(0)=xd
+  accumd(0)=xs
+RETURN
+
+PROC Reset()
+  BYTE i
+  dec_detl=32 dec_deth=8
+  dec_nbl=0 dec_al1=0 dec_al2=0 dec_plt1=0 dec_plt2=0
+  dec_rlt1=0 dec_rlt2=0
+  dec_nbh=0 dec_ah1=0 dec_ah2=0 dec_ph1=0 dec_ph2=0
+  dec_rh1=0 dec_rh2=0
+  FOR i=0 TO 5 DO
+    dec_del_dltx(i)=0 dec_del_dhx(i)=0
+    dec_del_bpl(i)=0 dec_del_bph(i)=0
+  OD
+  FOR i=0 TO 10 DO accumc(i)=0 accumd(i)=0 OD
+RETURN
+
+PROC Run()
+  BYTE i
+  FOR i=0 TO 1 DO
+    Decode(compressed(i))
+    samples(2*i)=xout1
+    samples(2*i+1)=xout2
+  OD
+RETURN
+
+INT FUNC CheckResult()
+  BYTE i
+  checksum=0
+  FOR i=0 TO 3 DO checksum==+samples(i) OD
+  IF checksum=-2 THEN RETURN(0) FI
+RETURN(1)
+
+PROC Main()
+  Reset()
+  Run()
+  result=CheckResult()
+RETURN
+ENDMODULE

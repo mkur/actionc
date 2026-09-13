@@ -69,6 +69,20 @@ LONGINT are compared against floor division for dynamic and constant counts,
 covering the BYTE range 0–255. All three modes and both runtimes cover
 nested calls, argument side effects, guards, and actual LF/CRLF module loading.
 
+The [TACLeBench ADPCM decoder port](../../fixtures/runtime/tacle/adpcm_dec/README.md)
+is checked by `cargo test --locked --test adpcm_dec`: 15 C-reference streams
+across both modern backends and both runtimes (60 VM executions). It checks all
+83 mutable state values after each reset and decoded codeword, covering every
+input byte, continuous streams, resets, guards, and LF/CRLF inputs. It uses
+`MATH.INTEGER.AsrLI` and keeps all benchmark storage compiler-allocated.
+
+The [TACLeBench ADPCM encoder port](../../fixtures/runtime/tacle/adpcm_enc/README.md)
+is checked by `cargo test --locked --test adpcm_enc`: 15 C-reference cases across
+both modern backends and both runtimes (60 VM executions). It checks 92 state
+values after initialization, resets, and each encoded pair or quantizer call.
+Coverage includes the original checksum 385, all signed quantizer bins, 64-bit
+filter sums, full-width inputs, memory guards, and LF/CRLF loading.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 

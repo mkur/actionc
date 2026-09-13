@@ -1,0 +1,286 @@
+; TACLeBench adpcm_enc, adapted to Action! in 2026.
+; Derived from the SNU-RT Benchmark Suite by Sung-Soo Lim,
+; originally C Algorithms for Real-Time DSP by P. M. Embree.
+; May be used, modified and redistributed freely with SNU-RT acknowledgement.
+; See README.md for arithmetic widths and preserved upstream quirks.
+MODULE ADPCM_ENC
+USE MATH.INTEGER AS BITS
+
+TYPE Wide=[LONGCARD lo,hi]
+
+LONGINT ARRAY h(24)=[
+  12 -44 -44 212 48 -624 128 1448
+  -840 -3220 3804 15504 15504 3804 -3220 -840
+  1448 128 -624 48 212 -44 -44 12]
+LONGINT ARRAY qq4_code4_table(16)=[
+  0 -20456 -12896 -8968 -6288 -4240 -2584 -1200
+  20456 12896 8968 6288 4240 2584 1200 0]
+LONGINT ARRAY wl_code_table(16)=[
+  -60 3042 1198 538 334 172 58 -30
+  3042 1198 538 334 172 58 -30 -60]
+LONGINT ARRAY ilb_table(32)=[
+  2048 2093 2139 2186 2233 2282 2332 2383
+  2435 2489 2543 2599 2656 2714 2774 2834
+  2896 2960 3025 3091 3158 3228 3298 3371
+  3444 3520 3597 3676 3756 3838 3922 4008]
+LONGINT ARRAY decis_levl(30)=[
+  280 576 880 1200 1520 1864 2208 2584
+  2960 3376 3784 4240 4696 5200 5712 6288
+  6864 7520 8184 8968 9752 10712 11664 12896
+  14120 15840 17560 20456 23352 32767]
+LONGINT ARRAY quant26bt_pos(31)=[
+  61 60 59 58 57 56 55 54
+  53 52 51 50 49 48 47 46
+  45 44 43 42 41 40 39 38
+  37 36 35 34 33 32 32]
+LONGINT ARRAY quant26bt_neg(31)=[
+  63 62 31 30 29 28 27 26
+  25 24 23 22 21 20 19 18
+  17 16 15 14 13 12 11 10
+  9 8 7 6 5 4 4]
+LONGINT ARRAY qq2_code2_table(4)=[
+  -7408 -1616 7408 1616]
+LONGINT ARRAY wh_code_table(4)=[
+  798 -214 798 -214]
+
+LONGINT ARRAY tqmf(24),delay_bpl(6),delay_dltx(6),delay_bph(6),delay_dhx(6)
+LONGINT xl,xh,il,szl,spl,sl,el,nbl,al1,al2,plt,plt1,plt2
+LONGINT dlt,rlt,rlt1,rlt2,detl,deth,sh,eh,dh,ih,nbh,szh,sph,ph,yh
+LONGINT ah1,ah2,ph1,ph2,rh1,rh2
+LONGINT ARRAY test_data(6),compressed(3)
+LONGINT checksum
+INT result
+
+; Add an exact signed 32-by-16 product to a two-word accumulator.
+; Split the sample into an unsigned low half and a signed high half.
+; Each half-product fits LONGINT, including its minimum input values.
+PROC Mac(Wide POINTER acc LONGINT value INT coefficient)
+  LONGINT p0,p1
+  LONGCARD lo,hi,old
+  p0=LONGINT(CARD(value))*LONGINT(coefficient)
+  p1=BITS.AsrLI(value,16)*LONGINT(coefficient)
+  lo=LONGCARD(p1) LSH 16
+  hi=LONGCARD(BITS.AsrLI(p1,16))
+  old=lo
+  lo==+LONGCARD(p0)
+  IF p0<0 THEN hi==-1 FI
+  IF lo<old THEN hi==+1 FI
+  old=acc.lo
+  acc.lo==+lo
+  acc.hi==+hi
+  IF acc.lo<old THEN acc.hi==+1 FI
+RETURN
+
+; Low 32 bits of an arithmetic 64-bit shift. Used only with 14 or 15 bits;
+; sign extension above these result bits is discarded by the C int conversion.
+LONGINT FUNC Scaled(Wide POINTER acc BYTE bits)
+RETURN(LONGINT((acc.lo RSH bits) % (acc.hi LSH (32-bits))))
+
+; Exact sign of a 64-bit product, including zero, without a multiply.
+BYTE FUNC SameSign(LONGINT a,b)
+  IF a=0 OR b=0 THEN RETURN(1) FI
+RETURN((a<0)=(b<0))
+
+LONGINT FUNC Abs32(LONGINT n)
+  IF n>=0 THEN RETURN(n) FI
+RETURN(-n)
+
+; Preserve the benchmark's wrapping integer sine approximation.
+LONGINT FUNC Sin32(LONGINT rad)
+  LONGINT diff,app,inc
+  inc=1
+  WHILE rad>6282 DO rad==-6282 OD
+  WHILE rad< -6282 DO rad==+6282 OD
+  diff=rad app=diff
+  diff=(diff*(-(rad*rad)))/((2*inc)*(2*inc+1))
+  app==+diff inc==+1
+  WHILE Abs32(diff)>=1 DO
+    diff=(diff*(-(rad*rad)))/((2*inc)*(2*inc+1))
+    app==+diff inc==+1
+  OD
+RETURN(app)
+
+LONGINT FUNC Cos32(LONGINT rad)
+RETURN(Sin32(1570-rad))
+
+LONGINT FUNC Filtez(LONGINT ARRAY bpl,dlt)
+  BYTE i
+  Wide acc
+  acc.lo=0 acc.hi=0
+  FOR i=0 TO 5 DO Mac(@acc,dlt(i),INT(bpl(i))) OD
+RETURN(Scaled(@acc,14))
+
+LONGINT FUNC Filtep(LONGINT rlt1,al1,rlt2,al2)
+  Wide acc
+  acc.lo=0 acc.hi=0
+  ; C computes 2*rlt in int before widening into its 64-bit accumulator.
+  Mac(@acc,2*rlt1,INT(al1))
+  Mac(@acc,2*rlt2,INT(al2))
+RETURN(Scaled(@acc,15))
+
+LONGINT FUNC Quantl(LONGINT el,detl)
+  BYTE mil
+  LONGINT wd,decis
+  wd=Abs32(el)
+  mil=0
+  WHILE mil<30 DO
+    ; detl is bounded by Scalel; this product fits signed 32 bits.
+    decis=BITS.AsrLI(decis_levl(mil)*detl,15)
+    IF wd<=decis THEN EXIT FI
+    mil==+1
+  OD
+  IF el>=0 THEN RETURN(quant26bt_pos(mil)) FI
+RETURN(quant26bt_neg(mil))
+
+LONGINT FUNC Logscl(LONGINT code,nbl)
+  LONGINT wd
+  wd=BITS.AsrLI(nbl*127,7)
+  nbl=wd+wl_code_table(BYTE(code RSH 2))
+  IF nbl<0 THEN nbl=0 FI
+  IF nbl>18432 THEN nbl=18432 FI
+RETURN(nbl)
+
+LONGINT FUNC Scalel(LONGINT nbl BYTE shiftConstant)
+  LONGINT wd1,wd2,wd3
+  wd1=BITS.AsrLI(nbl,6) & 31
+  wd2=BITS.AsrLI(nbl,11)
+  wd3=BITS.AsrLI(ilb_table(BYTE(wd1)),BYTE(shiftConstant+1-wd2))
+RETURN(wd3 LSH 3)
+
+PROC Upzero(LONGINT dlt LONGINT ARRAY dlti,bli)
+  BYTE i
+  LONGINT wd2,wd3
+  IF dlt=0 THEN
+    FOR i=0 TO 5 DO bli(i)=BITS.AsrLI(255*bli(i),8) OD
+  ELSE
+    FOR i=0 TO 5 DO
+      IF SameSign(dlt,dlti(i))#0 THEN wd2=128 ELSE wd2=-128 FI
+      wd3=BITS.AsrLI(255*bli(i),8)
+      bli(i)=wd2+wd3
+    OD
+  FI
+  ; Preserve the upstream omission: dlti(2) is never assigned here.
+  dlti(5)=dlti(4)
+  dlti(4)=dlti(3)
+  dlti(3)=dlti(2)
+  dlti(1)=dlti(0)
+  dlti(0)=dlt
+RETURN
+
+LONGINT FUNC Uppol2(LONGINT al1,al2,plt,plt1,plt2)
+  LONGINT wd2,wd4,apl2
+  wd2=4*al1
+  IF SameSign(plt,plt1)#0 THEN wd2=-wd2 FI
+  wd2=BITS.AsrLI(wd2,7)
+  IF SameSign(plt,plt2)#0 THEN wd4=wd2+128 ELSE wd4=wd2-128 FI
+  apl2=wd4+BITS.AsrLI(127*al2,7)
+  IF apl2>12288 THEN apl2=12288 FI
+  IF apl2< -12288 THEN apl2=-12288 FI
+RETURN(apl2)
+
+LONGINT FUNC Uppol1(LONGINT al1,apl2,plt,plt1)
+  LONGINT wd2,wd3,apl1
+  wd2=BITS.AsrLI(al1*255,8)
+  IF SameSign(plt,plt1)#0 THEN apl1=wd2+192 ELSE apl1=wd2-192 FI
+  wd3=15360-apl2
+  IF apl1>wd3 THEN apl1=wd3 FI
+  IF apl1< -wd3 THEN apl1=-wd3 FI
+RETURN(apl1)
+
+LONGINT FUNC Logsch(LONGINT code,nbh)
+  LONGINT wd
+  wd=BITS.AsrLI(nbh*127,7)
+  nbh=wd+wh_code_table(BYTE(code))
+  IF nbh<0 THEN nbh=0 FI
+  IF nbh>22528 THEN nbh=22528 FI
+RETURN(nbh)
+
+; One pair of signed samples returns one 8-bit codeword.
+BYTE FUNC Encode(LONGINT xin1,xin2)
+  BYTE i
+  LONGINT decis
+  Wide xa,xb,total
+  xa.lo=0 xa.hi=0 xb.lo=0 xb.hi=0
+  FOR i=0 TO 11 DO
+    Mac(@xa,tqmf(2*i),INT(h(2*i)))
+    Mac(@xb,tqmf(2*i+1),INT(h(2*i+1)))
+  OD
+  ; Calculate this pair from the old filter history, then insert the input.
+  FOR i=0 TO 21 DO tqmf(23-i)=tqmf(21-i) OD
+  tqmf(1)=xin1 tqmf(0)=xin2
+  total.lo=xa.lo+xb.lo total.hi=xa.hi+xb.hi
+  IF total.lo<xa.lo THEN total.hi==+1 FI
+  xl=Scaled(@total,15)
+  total.lo=xa.lo-xb.lo total.hi=xa.hi-xb.hi
+  IF xa.lo<xb.lo THEN total.hi==-1 FI
+  xh=Scaled(@total,15)
+
+  ; Lower sub-band prediction, quantization and adaptation.
+  szl=Filtez(delay_bpl,delay_dltx)
+  spl=Filtep(rlt1,al1,rlt2,al2)
+  sl=szl+spl el=xl-sl
+  il=Quantl(el,detl)
+  dlt=BITS.AsrLI(detl*qq4_code4_table(BYTE(il RSH 2)),15)
+  nbl=Logscl(il,nbl)
+  detl=Scalel(nbl,8)
+  plt=dlt+szl
+  Upzero(dlt,delay_dltx,delay_bpl)
+  al2=Uppol2(al1,al2,plt,plt1,plt2)
+  al1=Uppol1(al1,al2,plt,plt1)
+  rlt=sl+dlt
+  rlt2=rlt1 rlt1=rlt plt2=plt1 plt1=plt
+
+  ; Higher sub-band has a four-level quantizer.
+  szh=Filtez(delay_bph,delay_dhx)
+  sph=Filtep(rh1,ah1,rh2,ah2)
+  sh=sph+szh eh=xh-sh
+  IF eh>=0 THEN ih=3 ELSE ih=1 FI
+  decis=BITS.AsrLI(564*deth,12)
+  IF Abs32(eh)>decis THEN ih==-1 FI
+  dh=BITS.AsrLI(deth*qq2_code2_table(BYTE(ih)),15)
+  nbh=Logsch(ih,nbh)
+  deth=Scalel(nbh,10)
+  ph=dh+szh
+  Upzero(dh,delay_dhx,delay_bph)
+  ah2=Uppol2(ah1,ah2,ph,ph1,ph2)
+  ah1=Uppol1(ah1,ah2,ph,ph1)
+  yh=sh+dh
+  rh2=rh1 rh1=yh ph2=ph1 ph1=ph
+RETURN(BYTE(il % (ih LSH 6)))
+
+PROC Reset()
+  BYTE i
+  detl=32 deth=8
+  nbl=0 al1=0 al2=0 plt1=0 plt2=0 rlt1=0 rlt2=0
+  nbh=0 ah1=0 ah2=0 ph1=0 ph2=0 rh1=0 rh2=0
+  FOR i=0 TO 5 DO
+    delay_dltx(i)=0 delay_dhx(i)=0 delay_bpl(i)=0 delay_bph(i)=0
+  OD
+  ; Upstream clears only 23 elements: tqmf(23) survives a warm reset.
+  FOR i=0 TO 22 DO tqmf(i)=0 OD
+RETURN
+
+PROC Init()
+  BYTE i
+  Reset()
+  FOR i=0 TO 2 DO test_data(i)=10*Cos32(LONGINT(2000)*3141*i) OD
+RETURN
+
+PROC Run()
+  BYTE i
+  FOR i=0 TO 1 DO
+    compressed(i)=Encode(test_data(2*i),test_data(2*i+1))
+  OD
+RETURN
+
+INT FUNC CheckResult()
+  checksum=compressed(0)+compressed(1)
+  IF checksum=385 THEN RETURN(0) FI
+RETURN(1)
+
+PROC Main()
+  Init()
+  Run()
+  result=CheckResult()
+RETURN
+ENDMODULE

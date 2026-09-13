@@ -14,6 +14,10 @@ The [matrix1 port](matrix1/README.md) adds multiply-accumulate loops, typed poin
 traversal, rectangular matrices, and explicit wrapping arithmetic at each width.
 The [jfdctint port](jfdctint/README.md) adds an integer JPEG forward DCT, signed
 rounding, long arithmetic sequences and complete row/column-pass comparisons.
+The [ADPCM decoder port](adpcm_dec/README.md) adds adaptive predictors, signed
+shifts, coefficient clamping and complete state checks after every codeword.
+The [ADPCM encoder port](adpcm_enc/README.md) adds quantizer searches, exact
+64-bit filter accumulation using two-word records, and the integer initializer.
 
 `statemate.act` ports the experimental car-window controller from TACLeBench.
 It retains all **16 nested switches as CASE statements**, with 34 explicit arms

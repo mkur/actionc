@@ -317,3 +317,45 @@ RETURN
         },
     );
 }
+
+#[test]
+fn classic_long_nested_calls_extend_narrow_values_after_scratch_reuse() {
+    let source = r#"
+LONGCARD a=$6E0,b=$6E4
+LONGINT literal=$601,dynamic=$605
+BYTE calls=$609,done=$6FF
+LONGINT FUNC Echo(LONGINT value)
+ calls==+1
+RETURN(value)
+PROC Main()
+ calls=0
+ literal=10*Echo(LONGINT(2000)*3141*BYTE(a))
+ dynamic=10*Echo(LONGINT(INT(b))*3141*BYTE(a))
+ done=$A5 DO OD
+RETURN
+"#;
+    check(
+        source,
+        &[(1, 2000), (2, 32767), (255, 0xFFFF8000), (128, 0xFFFFF830)],
+        |a, b, page| {
+            let index = i32::from(a as u8);
+            word(
+                page,
+                1,
+                2000i32
+                    .wrapping_mul(3141)
+                    .wrapping_mul(index)
+                    .wrapping_mul(10) as u32,
+            );
+            word(
+                page,
+                5,
+                (b as i16 as i32)
+                    .wrapping_mul(3141)
+                    .wrapping_mul(index)
+                    .wrapping_mul(10) as u32,
+            );
+            page[9] = 2;
+        },
+    );
+}
