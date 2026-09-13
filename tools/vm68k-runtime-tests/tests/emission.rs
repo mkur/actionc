@@ -112,6 +112,34 @@ fn typed_encoding_and_linking_execute_at_two_origins() {
 }
 
 #[test]
+fn symbol_array_access_follows_the_current_descriptor() {
+    let (mir, machine) = program();
+    let image = image::link(&mir, &machine, 0x10000).unwrap();
+    let mut vm = Machine::from_image(&image).unwrap();
+    let table = image.symbol("table").unwrap();
+    assert_eq!(vm.read_array(table).unwrap(), [1, 2, 0]);
+    let replacement = 0x30000u32;
+    vm.cpu.mem.map(replacement, &[0; 12], true, false).unwrap();
+    vm.cpu
+        .mem
+        .write(table.address().unwrap(), &replacement.to_be_bytes())
+        .unwrap();
+    vm.write_array(table, &[0x12345678, 0x80000000, 9]).unwrap();
+    assert_eq!(vm.read_array(table).unwrap(), [0x12345678, 0x80000000, 9]);
+    assert_eq!(
+        vm.cpu.mem.bytes(replacement, 4).unwrap(),
+        [0x12, 0x34, 0x56, 0x78]
+    );
+    assert_eq!(
+        vm.cpu
+            .mem
+            .bytes(table.array.as_ref().unwrap().backing_address.unwrap(), 12)
+            .unwrap(),
+        [0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0]
+    );
+}
+
+#[test]
 fn aliases_share_storage_and_selected_byte_relocations_keep_significance() {
     let (mut mir, machine) = program();
     let result = mir.data.iter().find(|d| d.name == "result").unwrap();

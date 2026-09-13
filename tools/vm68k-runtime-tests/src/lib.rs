@@ -1,5 +1,7 @@
 //! Bounded, isolated MC68000 test machine. Guest instructions are executed by
 //! pinned r68k, never by a compiler-IR interpreter.
+pub mod artifacts;
+
 use r68k::cpu::{Callbacks, ConfiguredCore, Core, Cycles, Exception, ProcessingState};
 use r68k::interrupts::AutoInterruptController;
 use r68k::ram::{ADDRBUS_MASK, AddressBus, AddressSpace};
@@ -360,6 +362,7 @@ impl Machine {
             .ok_or("symbol has no scalar type")?
             .get() as usize;
         if symbol.array.is_some()
+            || symbol.size != width as u32
             || !matches!(width, 1 | 2 | 4)
             || !matches!(
                 symbol.ty.as_ref().unwrap().kind,
@@ -391,6 +394,7 @@ impl Machine {
             .ok_or("symbol has no scalar type")?
             .get() as usize;
         if symbol.array.is_some()
+            || symbol.size != width as u32
             || !matches!(width, 1 | 2 | 4)
             || !matches!(
                 symbol.ty.as_ref().unwrap().kind,
@@ -405,5 +409,66 @@ impl Machine {
         self.cpu
             .mem
             .write(symbol.address()?, &value.to_be_bytes()[4 - width..])
+    }
+}
+
+impl Machine {
+    fn array_layout(
+        &self,
+        symbol: &actionc::mir68k::image::Symbol,
+    ) -> Result<(u32, u32, u32, u32), String> {
+        let array = symbol.array.as_ref().ok_or("symbol is not an array")?;
+        let count = array.count.ok_or("array has no known element count")?;
+        if !matches!(array.element_width, 1 | 2 | 4) || array.stride < array.element_width {
+            return Err("unsupported array element layout".into());
+        }
+        // The emitted backing address describes initial storage. A mutable
+        // descriptor may have been rebound since the image was loaded.
+        let base = if array.descriptor {
+            u32::from_be_bytes(
+                self.cpu
+                    .mem
+                    .bytes(symbol.address()?, 4)?
+                    .try_into()
+                    .unwrap(),
+            )
+        } else {
+            array.backing_address.unwrap_or(symbol.address()?)
+        };
+        base.checked_add(
+            count
+                .checked_mul(array.stride)
+                .ok_or("array extent overflow")?,
+        )
+        .ok_or("array address overflow")?;
+        Ok((base, count, array.stride, array.element_width))
+    }
+    pub fn read_array(&self, symbol: &actionc::mir68k::image::Symbol) -> Result<Vec<u32>, String> {
+        let (base, count, stride, width) = self.array_layout(symbol)?;
+        (0..count)
+            .map(|i| {
+                self.cpu
+                    .mem
+                    .bytes(base + i * stride, width as usize)
+                    .map(|b| b.iter().fold(0, |n, b| (n << 8) | u32::from(*b)))
+            })
+            .collect()
+    }
+    pub fn write_array(
+        &mut self,
+        symbol: &actionc::mir68k::image::Symbol,
+        values: &[u32],
+    ) -> Result<(), String> {
+        let (base, count, stride, width) = self.array_layout(symbol)?;
+        if values.len() != count as usize {
+            return Err("array input length does not match symbol count".into());
+        }
+        for (index, value) in values.iter().enumerate() {
+            self.cpu.mem.write(
+                base + index as u32 * stride,
+                &value.to_be_bytes()[4 - width as usize..],
+            )?;
+        }
+        Ok(())
     }
 }

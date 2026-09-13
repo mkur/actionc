@@ -34,3 +34,29 @@ scalar globals by compiler-emitted symbol, with signed decimal and hexadecimal
 values. `actionc::compiler::native::compile_file` accepts full-width origins,
 module search paths and a project root; it returns a native image and physical
 instruction listing without a 6502 runtime or Atari output wrapper.
+
+The initial native subset covers integer arithmetic and casts, logical shifts,
+comparisons, IF/CASE/loops, direct and typed indirect calls, recursive automatic
+frames, pointers, one-dimensional arrays, record fields and overlapping copies.
+The ordinary `MATH.INTEGER.AsrI`/`AsrLI` library also executes on MC68000.
+Multiply/divide/remainder helpers, REAL operations, OS/runtime adapters, foreign
+machine code and executable top-level statements are not yet supported.
+This is a bare CPU development path; Amiga startup/object formats and the
+public `actionc` output CLI remain follow-up work.
+
+The acceptance benchmark is the shared TACLeBench insertion-sort algorithm:
+209 independent C-reference cases, compiled once per optimization configuration
+and executed in 418 fresh VMs. Its state is addressed by compiler symbols and
+serialized in target byte order. No benchmark address belongs to a 6502 map.
+CI runs this workspace on Linux, Windows and macOS; local validation alone does
+not establish the status of those remote jobs.
+
+Use `--dump build/probe` to write a version-1 JSON manifest, exact `.segmentN.bin`
+files, and a `.machine.txt` physical instruction listing. The manifest records
+the target, entry, initialized/zero-fill regions, stable symbol identities,
+absolute/frame locations, scalar types and array layout. Dumps describe the
+compiled image before execution. For example, from the repository root:
+
+```sh
+cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- fixtures/runtime/tacle/insertsort/insertsort.act --dump build/insertsort
+```

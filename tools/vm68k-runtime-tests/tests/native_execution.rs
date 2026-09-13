@@ -55,3 +55,36 @@ fn invalid_entries_and_unsupported_programs_produce_no_image() {
         }
     }
 }
+
+#[test]
+fn unsupported_native_runtime_and_arithmetic_features_are_diagnosed() {
+    for (source, expected) in [
+        (
+            "LONGINT a,b,result PROC Entry() result=a/b RETURN",
+            "native",
+        ),
+        (
+            "LONGINT a,b,result PROC Entry() result=a MOD b RETURN",
+            "native",
+        ),
+        ("REAL a,b PROC Entry() a=a+b RETURN", "REAL"),
+        ("PROC Entry() PrintE() RETURN", "adapter"),
+        ("ORG $3000\nPROC Entry() RETURN", "origin"),
+    ] {
+        let source = common::Source::new(source);
+        for optimize in [false, true] {
+            let error = compile_file(
+                &source.0,
+                &NativeCompileOptions {
+                    optimize,
+                    ..Default::default()
+                },
+            )
+            .unwrap_err();
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected}: {error:#?}"
+            );
+        }
+    }
+}

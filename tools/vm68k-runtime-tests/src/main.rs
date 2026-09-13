@@ -10,13 +10,19 @@ fn main() {
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let path = args.next().ok_or(
-        "usage: actionc-vm68k-tests SOURCE [--origin ADDRESS] [--no-opt] [--budget INSTRUCTIONS]",
+        "usage: actionc-vm68k-tests SOURCE [--origin ADDRESS] [--no-opt] [--budget INSTRUCTIONS] [--dump PREFIX]",
     )?;
     let mut options = NativeCompileOptions::default();
     let mut budget = 1_000_000;
+    let mut dump = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
+            "--dump" => {
+                dump = Some(std::path::PathBuf::from(
+                    args.next().ok_or("--dump requires a path prefix")?,
+                ))
+            }
             "--origin" => {
                 let value = args.next().ok_or("--origin requires an address")?;
                 options.origin = if let Some(hex) = value.strip_prefix("0x") {
@@ -37,6 +43,10 @@ fn run() -> Result<(), String> {
         }
     }
     let compiled = compile_file(path, &options).map_err(|e| format!("{e:#?}"))?;
+    if let Some(prefix) = dump {
+        let manifest = actionc_vm68k_tests::artifacts::dump(&compiled, &prefix)?;
+        println!("Image manifest: {}", manifest.display());
+    }
     let mut vm = Machine::from_image(&compiled.image)?;
     let result = vm.run(budget);
     if !matches!(result.outcome, actionc_vm68k_tests::Outcome::Completed) {

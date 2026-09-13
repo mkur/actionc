@@ -47,5 +47,9 @@ jobs:
         working-directory: tools/vm-runtime-tests
         run: cargo test --locked
 
+      - name: Test MC68000 runtime contracts
+        working-directory: tools/vm68k-runtime-tests
+        run: cargo test --locked
+
       - name: Test nightly tooling
         run: python -m unittest discover -s tools/tests -p "test_*.py"

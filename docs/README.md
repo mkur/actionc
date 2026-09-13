@@ -30,8 +30,8 @@ crowding the active reference set.
 - [MIR68K_EXECUTION_CONTRACT.md](MIR68K_EXECUTION_CONTRACT.md)
   - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
 - [MIR68K_MINIMAL_EXECUTION_PLAN.md](MIR68K_MINIMAL_EXECUTION_PLAN.md)
-  - sliced implementation path from the MIR68K canary to emitted MC68000 code, an r68k
-  execution harness, symbol-based test access and insertion sort acceptance.
+  - completed minimal path from verified NIR to MC68000 code, an r68k
+  execution harness, symbol-based test access and insertion-sort acceptance.
 - [NATIVE_TYPE_SURFACE_IMPLEMENTATION_PLAN.md](NATIVE_TYPE_SURFACE_IMPLEMENTATION_PLAN.md)
   - completed sliced implementation of 32-bit integers, general function
   results, typed callable pointers, and target-sized address and size values.

@@ -3,7 +3,8 @@ use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE};
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/insertsort/insertsort.act");
+const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/insertsort/kernel.inc");
+const DRIVER: &str = include_str!("../fixtures/insertsort_driver.act");
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/insertsort/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
 const HOST_BYTES: usize = 0x0400;
@@ -123,8 +124,9 @@ fn check_insertsort(mode: CompileMode, runtime: Runtime) {
             lf
         }
     };
-    let path = temporary.0.join("insertsort.act");
-    std::fs::write(&path, text(SOURCE)).unwrap();
+    std::fs::write(temporary.0.join("kernel.inc"), text(SOURCE)).unwrap();
+    let path = temporary.0.join("driver.act");
+    std::fs::write(&path, text(DRIVER)).unwrap();
     let compiled = compile_file(
         &path,
         &CompileOptions::for_mode(mode)

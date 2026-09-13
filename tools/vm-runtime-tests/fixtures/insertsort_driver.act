@@ -1,0 +1,15 @@
+; 6502 VM transport and fixed host memory, separate from the algorithm.
+BYTE command=$0600,result=$0601,done=$06FF
+LONGINT itersI=$0701,minI=$0705,maxI=$0709
+LONGINT itersA=$070D,minA=$0711,maxA=$0715
+LONGCARD ARRAY values(11)=$07FF,input(11)=$08FF
+
+INCLUDE "kernel.inc"
+
+PROC Main()
+  IF command=0 THEN Init()
+  ELSE Initialize(input) FI
+  Sort()
+  result=CheckResult()
+  done=$A5
+RETURN

@@ -17,6 +17,12 @@ pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
     let mut machine = MachineProgram::default();
     let mut next = 0;
     for routine in &program.routines {
+        if routine.entry.external {
+            return Err(format!(
+                "{}: external native routine entry requires an adapter",
+                routine.name
+            ));
+        }
         if !matches!(
             routine.entry.placement,
             crate::nir::NirRoutinePlacement::Relocatable

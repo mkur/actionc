@@ -1,10 +1,23 @@
 # Minimal MIR68K Execution Plan
 
-Status: implementation in progress. Slices 0–5 are implemented, including a
-separate NIR hardening fix for explicit integer return widths. Native calls,
-recursion, signed-shift library calls, local arrays, full-width indexes, odd
-accesses and overlapping copies pass r68k tests. Benchmark acceptance, runner
-image dumps and the cross-platform CI step remain in slice 6.
+Status: slices 0–6 are implemented and locally validated, with a separate NIR
+hardening fix for explicit integer return widths. The native API, r68k runner,
+symbol-based access, image dumps and insertion-sort acceptance are available.
+Linux/Windows/macOS CI is configured; remote results remain pending.
+
+Validation includes the complete native suite, all 209 insertion-sort vectors
+in both native optimization modes (418 executions), and the affected four-mode
+6502 suite (836 executions). The unchanged vector generator check passes.
+NIR snapshots, the 51-fixture NIR sweep and the broad compiler suite were run
+for the integer-return contract change. Two MIR6502 snapshots intentionally
+changed to reflect explicit word returns and pass after updating. The only
+remaining local root-suite failure is an unrelated untracked sample,
+`samples/vbxe/shared/lines.act`, which cannot load `SHARED.SCREEN`.
+
+See the [execution contract](MIR68K_EXECUTION_CONTRACT.md) and
+[runner instructions](../tools/vm68k-runtime-tests/README.md) for the current
+supported subset and usage. The baseline and delivery slices below record the
+original implementation plan.
 
 ## Objective and completion gate
 
@@ -24,7 +37,7 @@ interprets NIR or implements Action! arithmetic on the host for the guest.
 
 ## Inspected baseline
 
-| Area | Available now | Work needed for execution |
+| Area | Available before implementation | Work needed for execution |
 | --- | --- | --- |
 | [Verified backend handoff](../src/backend.rs) | Target/layout checks and verified NIR input | Retain this boundary through materialization and emission |
 | [MIR68K representation](../src/mir68k/mod.rs) | Scalar operations, addresses, calls, frames and relocations | Complete executable facts, physical instructions and verification |
@@ -34,7 +47,7 @@ interprets NIR or implements Action! arithmetic on the host for the guest.
 | [Compiler API](../src/compiler/mod.rs) | Module loading, semantic analysis and linking | Native image API; existing output and origins are Atari/u16-specific |
 | VM tests | 6502 harness and C-reference benchmark vectors | Separate r68k adapter and target-aware result serialization |
 
-Several current canary omissions must be addressed before calling its output
+Several baseline canary omissions had to be addressed before calling its output
 executable:
 
 - `Compare` retains a width but loses operand signedness. `Binary.signed`
@@ -51,8 +64,9 @@ executable:
 - `spill_bytes` is zero; the current frame check does not prove that future
   temp/spill storage, outgoing arguments and saved registers are disjoint.
 
-These are planned fixes, not failures observed in generated 68K code: there is
-no executable 68K backend yet. Existing canary success remains a lowering claim.
+These were contract gaps identified before an executable 68K backend existed.
+The old canary's success established lowering only; execution now has separate
+materialization, image verification and VM acceptance coverage.
 
 ## Scope and implementation choices
 
@@ -369,7 +383,7 @@ cargo run --bin actionc-nir-sweep -- fixtures/nir
 cargo test
 ```
 
-The planned native suite command, once the crate exists, is:
+The native suite command is:
 
 ```sh
 cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml

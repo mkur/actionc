@@ -1,14 +1,19 @@
 # TACLeBench insertion sort
 
-`insertsort.act` ports Sung-Soo Lim's insertion sort from the **SNU-RT Benchmark
+`kernel.inc` ports Sung-Soo Lim's insertion sort from the **SNU-RT Benchmark
 Suite for Worst Case Timing Analysis**, as collected by TACLeBench. It retains
 the original ten unsigned values, preceding sentinel, adjacent swaps, and all
 six iteration statistics. The nested loops are iterative and need no new
 language constructs.
 
-This is a host-driven compiler fixture. Both modern backends (`--mode optimized`
-and `--mode mir6502`) run with cartridge and standalone runtimes. The VM tests
-compile at `$3000`, above the host buffers.
+This is a host-driven compiler fixture with one shared algorithm in
+`kernel.inc`. `insertsort.act` supplies ordinary globals and a portable entry;
+the MC68000 harness finds those objects through compiler-emitted symbols.
+The 6502 driver lives in
+[`tools/vm-runtime-tests/fixtures/insertsort_driver.act`](../../../../tools/vm-runtime-tests/fixtures/insertsort_driver.act)
+and supplies the original fixed host buffers and completion marker. Both
+6502 backends (`--mode optimized` and `--mode mir6502`) still run with cartridge
+and standalone runtimes at `$3000`.
 
 ## Provenance
 
@@ -44,14 +49,15 @@ at index two. The inner loop moves each smaller value left by swapping adjacent
 elements until the prefix is sorted. The sentinel makes an extra index-bound
 condition unnecessary. Host inputs must satisfy this precondition.
 
-`Main` adds only the host command, result byte, and completion marker. Command
+`Main` adds the host command and result byte; the 6502 adapter also adds its
+completion marker. The MC68000 harness detects return through its trampoline. Command
 zero runs the original initialization and workload. Command one copies the
 host input before sorting and uses host-supplied statistics; Sort resets the
 current counters while retaining and updating the recorded minima/maxima.
 
-## Host memory contract
+## 6502 host memory contract
 
-All 32-bit values are little-endian.
+The fixed addresses belong to the 6502 adapter. Its 32-bit values are little-endian.
 
 | Address | Meaning |
 | --- | --- |
@@ -69,8 +75,9 @@ swaps. Both arrays begin at page offset `$FF`, exercising accesses across pages.
 
 ## Coverage and checks
 
-`vectors.txt` contains **209 C-reference cases**, run in all four backend/runtime
-combinations (**836 VM executions**):
+`vectors.txt` contains **209 C-reference cases**, run in all four 6502
+backend/runtime combinations (**836 VM executions**) and in raw/optimized
+MC68000 modes (**418 additional VM executions**):
 
 - The original initialization/workload, ascending and descending arrays,
   duplicates, all equal values, and first/last misplaced elements.
@@ -94,6 +101,18 @@ the actual compiler, vector parser, and VM execution paths.
 ```sh
 cd tools/vm-runtime-tests
 cargo test --locked --test insertsort
+```
+
+The MC68000 runs decode the reference's little-endian fields into numbers,
+then store them in target byte order. They compare all array elements, statistics,
+checksum, unchanged input and command, and require balanced stack/register
+return with protected code and unmapped guards. No benchmark object uses a
+fixed address. The raw configuration compiles LF files and the optimized one
+compiles CRLF files, including the shared include.
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test insertsort
+cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- fixtures/runtime/tacle/insertsort/insertsort.act
 ```
 
 ## Regenerating vectors
