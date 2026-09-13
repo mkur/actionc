@@ -1,0 +1,57 @@
+; TACLeBench insertion sort by Sung-Soo Lim, from the SNU-RT Benchmark Suite.
+; Action! adaptation, 2026. See README.md and insertsort.c for provenance.
+; Ten unsigned values, preceded by a sentinel no greater than any value.
+
+BYTE command=$0600,result=$0601,done=$06FF
+LONGINT itersI=$0701,minI=$0705,maxI=$0709
+LONGINT itersA=$070D,minA=$0711,maxA=$0715
+LONGCARD ARRAY values(11)=$07FF,input(11)=$08FF
+
+PROC Initialize(LONGCARD ARRAY source)
+  VOLATILE INT i
+  FOR i=0 TO 10 DO values(i)=source(i) OD
+RETURN
+
+PROC Init()
+  LONGCARD ARRAY original=[0 11 10 9 8 7 6 5 4 3 2]
+  itersI=0 minI=100000 maxI=0
+  itersA=0 minA=100000 maxA=0
+  Initialize(original)
+RETURN
+
+BYTE FUNC CheckResult()
+  INT i
+  LONGCARD sum
+  sum=0
+  FOR i=0 TO 10 DO sum==+values(i) OD
+RETURN(sum#65)
+
+PROC Sort()
+  INT i,j
+  LONGCARD temp
+  i=2 itersI=0
+  WHILE i<=10 DO
+    itersI==+1
+    j=i itersA=0
+    WHILE values(j)<values(j-1) DO
+      itersA==+1
+      temp=values(j)
+      values(j)=values(j-1)
+      values(j-1)=temp
+      j==-1
+    OD
+    IF itersA<minA THEN minA=itersA FI
+    IF itersA>maxA THEN maxA=itersA FI
+    i==+1
+  OD
+  IF itersI<minI THEN minI=itersI FI
+  IF itersI>maxI THEN maxI=itersI FI
+RETURN
+
+PROC Main()
+  IF command=0 THEN Init()
+  ELSE Initialize(input) FI
+  Sort()
+  result=CheckResult()
+  done=$A5
+RETURN

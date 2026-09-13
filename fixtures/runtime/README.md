@@ -51,6 +51,16 @@ executions of bit readers and complete decodes, including 256-bit codes. The C
 reference supplies every output byte, code record, tree node, and pointer.
 Run `cargo test --locked --test huff_dec` from `tools/vm-runtime-tests`.
 
+The [TACLeBench insertion-sort port](tacle/insertsort/README.md) adds 836 VM
+executions of sentinel-based sorting on unsigned 32-bit arrays. The C reference
+supplies every sorted element, all six iteration statistics, and the checksum
+result. Run `cargo test --locked --test insertsort` from `tools/vm-runtime-tests`.
+
+The [TACLeBench binary-search port](tacle/binarysearch/README.md) adds 4,612 VM
+executions across BYTE, INT, CARD, and LONGINT record/search variants. The C
+reference supplies lookup results, the initialized table, and generator state.
+Run `cargo test --locked --test binarysearch` from `tools/vm-runtime-tests`.
+
 Run the initialized-array gate directly:
 
 ```sh

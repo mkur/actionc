@@ -34,6 +34,21 @@ state, complete output/code/tree buffers, both header formats, code lengths up
 to 256 bits, a 513-node tree, guards, and LF/CRLF source and vectors. The original
 419-byte stream produces the original 600-byte text.
 
+The [TACLeBench insertion-sort port](../../fixtures/runtime/tacle/insertsort/README.md)
+is checked by `cargo test --locked --test insertsort`: 209 C-reference cases across
+both modern backends and both runtimes (836 executions). It checks complete
+unsigned 32-bit arrays, all six signed iteration statistics, checksum wrap,
+duplicates, permutations, high-bit values, nonzero sentinels, page crossings,
+memory guards, and LF/CRLF source and vectors.
+
+The [TACLeBench binary-search port](../../fixtures/runtime/tacle/binarysearch/README.md)
+is checked by `cargo test --locked --test binarysearch`: 1,153 C-reference cases
+across both modern backends and both runtimes (4,612 executions). The harness
+derives BYTE, INT, and CARD record/search variants from the maintained LONGINT
+source. It checks every table position, all 256 BYTE query values, duplicates,
+signed and unsigned boundaries, widening returns, initialization, unchanged
+tables, memory guards, and LF/CRLF instrumentation and compilation.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 
