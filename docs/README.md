@@ -27,8 +27,10 @@ crowding the active reference set.
 - [NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md)
   - completed follow-on for reentrant native calls and invocation-scoped local
   storage while preserving the classic Atari routine ABI.
+- [MIR68K_EXECUTION_CONTRACT.md](MIR68K_EXECUTION_CONTRACT.md)
+  - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
 - [MIR68K_MINIMAL_EXECUTION_PLAN.md](MIR68K_MINIMAL_EXECUTION_PLAN.md)
-  - proposed path from the MIR68K canary to emitted MC68000 code, an r68k
+  - sliced implementation path from the MIR68K canary to emitted MC68000 code, an r68k
   execution harness, symbol-based test access and insertion sort acceptance.
 - [NATIVE_TYPE_SURFACE_IMPLEMENTATION_PLAN.md](NATIVE_TYPE_SURFACE_IMPLEMENTATION_PLAN.md)
   - completed sliced implementation of 32-bit integers, general function

@@ -1,9 +1,11 @@
-//! Portable NIR-to-MIR canary for the Motorola 68000.
+//! Target-owned MIR for the original Motorola 68000.
 //!
 //! The canary owns 68k access strategy and big-endian data projection. It does
 //! not share an instruction or register model with either 6502-family backend.
 
+mod data;
 mod lower;
+pub mod verify;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
 use crate::nir::{
@@ -15,6 +17,8 @@ use crate::target::{AddressSpaceId, AddressValue, ByteOffset, ByteSize, Endian, 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kProgram {
+    pub target_layout: crate::target::TargetLayout,
+    pub entry: Option<RoutineId>,
     pub endian: Endian,
     pub architectural_address_bits: u8,
     pub data_pointer_width: ByteSize,
@@ -26,15 +30,42 @@ pub struct Mir68kProgram {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kData {
+    pub id: Mir68kDataId,
+    pub placement: Mir68kDataPlacement,
+    pub size: ByteSize,
+    pub zero_fill: ByteSize,
+    pub mutable: bool,
+    pub ty: Option<crate::nir::NirType>,
+    pub array: Option<crate::nir::NirArrayGlobalFact>,
     pub name: String,
     pub bytes: Vec<u8>,
     pub alignment: ByteSize,
     pub relocations: Vec<Mir68kRelocation>,
 }
 
+/// Backing storage and descriptor cells have distinct stable identities.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Mir68kDataId {
+    Global(SymbolId),
+    Static(SymbolId),
+    ArrayBacking(SymbolId),
+    Local(RoutineId, crate::nir::LocalId),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir68kDataPlacement {
+    Allocate,
+    Absolute(AddressValue),
+    Alias {
+        target: Mir68kDataId,
+        offset: ByteOffset,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kRelocation {
     pub offset: ByteOffset,
+    pub byte_index: Option<u8>,
     pub width: ByteSize,
     pub address_space: AddressSpaceId,
     pub target: Mir68kRelocationTarget,
@@ -44,7 +75,8 @@ pub struct Mir68kRelocation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir68kRelocationTarget {
     Data(NirStorageId),
-    Code(u32),
+    Code(RoutineId),
+    ArrayBacking(SymbolId),
     Absolute(AddressValue),
     ImageEnd,
 }
@@ -57,6 +89,13 @@ pub struct Mir68kRuntimeBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kRoutine {
+    pub entry: crate::nir::NirRoutineEntry,
+    pub signature: crate::nir::NirCallableSignature,
+    pub result_home: Option<Mir68kAbiHome>,
+    pub params: Vec<(ParamId, crate::nir::NirType)>,
+    pub temps: Vec<(TempId, crate::nir::NirType)>,
+    /// Debug/type metadata for symbol reports; frame IDs determine placement.
+    pub locals: Vec<(crate::nir::LocalId, String, crate::nir::NirType)>,
     pub id: RoutineId,
     pub name: String,
     pub convention: NirCallConvention,
@@ -196,6 +235,7 @@ pub struct Mir68kCallPlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir68kBlock {
     pub id: BlockId,
+    pub params: Vec<(TempId, crate::nir::NirType)>,
     pub ops: Vec<Mir68kOp>,
     pub terminator: Mir68kTerminator,
 }
@@ -226,6 +266,8 @@ pub enum Mir68kOp {
         source: Mir68kAddress,
         bytes: ByteSize,
         overlap_safe: bool,
+        destination_volatile: bool,
+        source_volatile: bool,
     },
     Unary {
         dest: TempId,
@@ -258,6 +300,7 @@ pub enum Mir68kOp {
     Compare {
         dest: TempId,
         width: ByteSize,
+        signed: bool,
         operation: NirCompareOp,
         left: Mir68kValue,
         right: Mir68kValue,
@@ -332,25 +375,31 @@ pub enum Mir68kValue {
     Temp(TempId, ByteSize),
     Param(ParamId),
     GlobalAddress(SymbolId, ByteSize),
-    RoutineAddress(u32, ByteSize),
+    RoutineAddress(RoutineId, ByteSize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir68kCallTarget {
-    Direct(u32),
+    Direct(RoutineId),
     Builtin(String),
     Runtime(RuntimeSymbolId),
     Indirect(Mir68kValue, ByteSize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir68kEdge {
+    pub target: BlockId,
+    pub args: Vec<Mir68kValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir68kTerminator {
     Fallthrough,
-    Goto(BlockId),
+    Goto(Mir68kEdge),
     Branch {
         condition: Mir68kValue,
-        then_block: BlockId,
-        else_block: BlockId,
+        then_edge: Mir68kEdge,
+        else_edge: Mir68kEdge,
     },
     Return {
         value: Option<Mir68kValue>,
@@ -397,7 +446,7 @@ pub fn lower_verified(
 fn relocation_target(target: NirDataAddressTarget) -> Mir68kRelocationTarget {
     match target {
         NirDataAddressTarget::Storage(storage) => Mir68kRelocationTarget::Data(storage),
-        NirDataAddressTarget::Routine(routine) => Mir68kRelocationTarget::Code(routine.0),
+        NirDataAddressTarget::Routine(routine) => Mir68kRelocationTarget::Code(routine),
         NirDataAddressTarget::Absolute(address) => Mir68kRelocationTarget::Absolute(address),
     }
 }

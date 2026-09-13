@@ -1,8 +1,7 @@
 use super::*;
 use crate::backend::VerifiedNir;
 use crate::nir::{
-    NirCallee, NirDataAddressEncoding, NirDataFragment, NirDataImage, NirGlobalBacking,
-    NirGlobalInit, NirLinkValue, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram,
+    NirCallee, NirGlobalBacking, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram,
     NirRoutine, NirRoutineStorageAnalysis, NirStorageClass, NirStorageDuration, NirStorageId,
     NirTerminator, NirType, NirTypeKind, NirValue,
 };
@@ -11,8 +10,18 @@ use crate::target::{AbiId, ByteOffset, ByteSize, Endian, TargetId};
 pub(super) fn lower_program(
     input: VerifiedNir<'_>,
 ) -> Result<Mir68kProgram, Vec<Mir68kDiagnostic>> {
-    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| errors.into_iter()
-        .map(|error| diagnostic(error.routine.as_deref(), error.block.as_deref(), &error.message)).collect::<Vec<_>>())?;
+    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| {
+        errors
+            .into_iter()
+            .map(|error| {
+                diagnostic(
+                    error.routine.as_deref(),
+                    error.block.as_deref(),
+                    &error.message,
+                )
+            })
+            .collect::<Vec<_>>()
+    })?;
     let program = expanded.as_ref();
     let layout = input.target_layout();
     if layout.abi != AbiId::Motorola68kNative {
@@ -22,72 +31,27 @@ pub(super) fn lower_program(
     debug_assert_eq!(layout.endian, Endian::Big);
 
     let mut diagnostics = Vec::new();
-    let mut data = Vec::new();
-    for global in &program.globals {
-        match &global.init {
-            Some(NirGlobalInit::Bytes { image, .. }) => data.push(lower_data_image(
-                global.name.clone(),
-                image,
-                ByteSize::ONE,
-                layout.endian,
-            )),
-            Some(NirGlobalInit::Descriptor { backing, .. }) => data.push(lower_data_image(
-                format!("{}.__backing", global.name),
-                &backing.image,
-                ByteSize::ONE,
-                layout.endian,
-            )),
-            Some(NirGlobalInit::RoutineAddress {
-                routine,
-                descriptor_size,
-                ..
-            }) => data.push(Mir68kData {
-                name: global.name.clone(),
-                bytes: vec![0; descriptor_size.as_usize().unwrap_or(0)],
-                alignment: layout.code_pointer.alignment_bytes,
-                relocations: vec![Mir68kRelocation {
-                    offset: ByteOffset::ZERO,
-                    width: layout.code_pointer.size_bytes,
-                    address_space: layout.code_pointer.address_space,
-                    target: Mir68kRelocationTarget::Code(routine.0),
-                    addend: 0,
-                }],
-            }),
-            Some(NirGlobalInit::LinkValue {
-                value: NirLinkValue::ImageEndAddress,
-                width,
-                ..
-            }) => data.push(Mir68kData {
-                name: global.name.clone(),
-                bytes: vec![0; width.as_usize().unwrap_or(0)],
-                alignment: layout.data_pointer.alignment_bytes,
-                relocations: vec![Mir68kRelocation {
-                    offset: ByteOffset::ZERO,
-                    width: *width,
-                    address_space: layout.data_pointer.address_space,
-                    target: Mir68kRelocationTarget::ImageEnd,
-                    addend: 0,
-                }],
-            }),
-            Some(NirGlobalInit::ZeroFill { .. }) | None => {}
-        }
-    }
-    for static_data in &program.statics {
-        data.push(lower_data_image(
-            static_data.name.clone(),
-            &static_data.image,
-            static_data.alignment,
-            layout.endian,
-        ));
-    }
+    let data = super::data::lower(program, &mut diagnostics);
 
     let storage = crate::nir::analyze_program_storage(program);
     let mut routines = Vec::with_capacity(program.routines.len());
     for (routine, storage) in program.routines.iter().zip(&storage.routines) {
-        if let Some(block) = routine.blocks.iter().find(|block| block.ops.iter().any(|op|
-            matches!(op, NirOp::Call { callee: NirCallee::Fault(_), .. }))) {
-            diagnostics.push(diagnostic(Some(&routine.name), Some(&block.label),
-                "runtime fault requires a native target Error adapter"));
+        if let Some(block) = routine.blocks.iter().find(|block| {
+            block.ops.iter().any(|op| {
+                matches!(
+                    op,
+                    NirOp::Call {
+                        callee: NirCallee::Fault(_),
+                        ..
+                    }
+                )
+            })
+        }) {
+            diagnostics.push(diagnostic(
+                Some(&routine.name),
+                Some(&block.label),
+                "runtime fault requires a native target Error adapter",
+            ));
             continue;
         }
         if matches!(
@@ -109,7 +73,13 @@ pub(super) fn lower_program(
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
-    Ok(Mir68kProgram {
+    let lowered = Mir68kProgram {
+        target_layout: *layout,
+        entry: program
+            .routines
+            .iter()
+            .find(|r| r.entry.program)
+            .map(|r| r.id),
         endian: layout.endian,
         architectural_address_bits: layout.address_bits,
         data_pointer_width: layout.data_pointer.size_bytes,
@@ -124,7 +94,9 @@ pub(super) fn lower_program(
             })
             .collect(),
         routines,
-    })
+    };
+    super::verify::verify_contract(&lowered)?;
+    Ok(lowered)
 }
 
 fn lower_routine(
@@ -139,6 +111,11 @@ fn lower_routine(
         .iter()
         .map(|block| Mir68kBlock {
             id: block.id,
+            params: block
+                .params
+                .iter()
+                .map(|p| (p.dest, p.ty.clone()))
+                .collect(),
             ops: block
                 .ops
                 .iter()
@@ -179,6 +156,20 @@ fn lower_routine(
         restored_registers: Vec::new(),
     };
     let lowered = Mir68kRoutine {
+        entry: routine.entry,
+        signature: routine.signature.clone(),
+        result_home: routine.signature.result.as_ref().map(result_home),
+        params: routine
+            .params
+            .iter()
+            .map(|p| (p.id, p.ty.clone()))
+            .collect(),
+        temps: routine.temps.iter().map(|t| (t.id, t.ty.clone())).collect(),
+        locals: routine
+            .locals
+            .iter()
+            .map(|l| (l.id, l.name.clone(), l.ty.clone()))
+            .collect(),
         id: routine.id,
         name: routine.name.clone(),
         convention: routine.convention,
@@ -500,62 +491,6 @@ fn verify_routine_plan(routine: &Mir68kRoutine) -> Result<(), String> {
     Ok(())
 }
 
-fn lower_data_image(
-    name: String,
-    image: &NirDataImage,
-    alignment: ByteSize,
-    endian: Endian,
-) -> Mir68kData {
-    let bytes = image
-        .project_constants(endian)
-        .expect("verified data image projects to bytes");
-    let relocations = image
-        .fragments
-        .iter()
-        .filter_map(|fragment| {
-            let NirDataFragment::Address {
-                offset,
-                encoding,
-                target,
-                addend,
-                ..
-            } = fragment
-            else {
-                return None;
-            };
-            let (width, address_space) = match encoding {
-                NirDataAddressEncoding::Pointer {
-                    width,
-                    address_space,
-                } => (*width, *address_space),
-                NirDataAddressEncoding::TargetByte { .. } => (ByteSize::ONE, target_space(*target)),
-            };
-            Some(Mir68kRelocation {
-                offset: *offset,
-                width,
-                address_space,
-                target: relocation_target(*target),
-                addend: *addend,
-            })
-        })
-        .collect();
-    Mir68kData {
-        name,
-        bytes,
-        alignment,
-        relocations,
-    }
-}
-
-fn target_space(target: NirDataAddressTarget) -> crate::target::AddressSpaceId {
-    match target {
-        NirDataAddressTarget::Routine(_) => crate::target::TargetLayout::CODE_ADDRESS_SPACE,
-        NirDataAddressTarget::Storage(_) | NirDataAddressTarget::Absolute(_) => {
-            crate::target::TargetLayout::DATA_ADDRESS_SPACE
-        }
-    }
-}
-
 fn lower_op(
     op: &NirOp,
     program: &NirProgram,
@@ -599,12 +534,15 @@ fn lower_op(
             destination,
             source,
             size,
-            ..
+            destination_volatile,
+            source_volatile,
         } => Some(Mir68kOp::Copy {
             destination: lower_place(destination, data_width, code_width, program, routine, frame),
             source: lower_place(source, data_width, code_width, program, routine, frame),
             bytes: *size,
             overlap_safe: true,
+            destination_volatile: *destination_volatile,
+            source_volatile: *source_volatile,
         }),
         NirOp::Unary { dest, ty, op, src } => Some(Mir68kOp::Unary {
             dest: *dest,
@@ -647,7 +585,7 @@ fn lower_op(
         } => Some(Mir68kOp::Binary {
             dest: *dest,
             width: width(ty),
-            signed: matches!(ty.kind, crate::nir::NirTypeKind::I16),
+            signed: ty.kind.integer().is_some_and(|i| i.signed),
             operation: *op,
             left: lower_value(left, data_width, code_width),
             right: lower_value(right, data_width, code_width),
@@ -662,6 +600,7 @@ fn lower_op(
         } => Some(Mir68kOp::Compare {
             dest: *dest,
             width: width(operand_ty),
+            signed: operand_ty.kind.integer().is_some_and(|i| i.signed),
             operation: *op,
             left: lower_value(left, data_width, code_width),
             right: lower_value(right, data_width, code_width),
@@ -674,8 +613,11 @@ fn lower_op(
             ..
         } => {
             if matches!(callee, NirCallee::Fault(_)) {
-                diagnostics.push(diagnostic(Some(&routine.name), Some(block),
-                    "runtime fault requires a native target Error adapter"));
+                diagnostics.push(diagnostic(
+                    Some(&routine.name),
+                    Some(block),
+                    "runtime fault requires a native target Error adapter",
+                ));
                 return None;
             }
             let Some(signature) = signature.as_ref() else {
@@ -893,7 +835,7 @@ fn absolute(address: AddressValue) -> Mir68kAddress {
     }
 }
 
-fn type_alignment(ty: &NirType, layout: &crate::target::TargetLayout) -> ByteSize {
+pub(super) fn type_alignment(ty: &NirType, layout: &crate::target::TargetLayout) -> ByteSize {
     match &ty.kind {
         crate::nir::NirTypeKind::Integer(integer) => {
             ByteSize::new(integer.storage_width().get().min(2))
@@ -927,7 +869,9 @@ fn with_displacement(mut address: Mir68kAddress, offset: ByteOffset) -> Mir68kAd
 
 fn lower_value(value: &NirValue, data_width: ByteSize, code_width: ByteSize) -> Mir68kValue {
     match value {
-        NirValue::Aggregate { .. } => unreachable!("aggregate ABI expansion precedes scalar MIR selection"),
+        NirValue::Aggregate { .. } => {
+            unreachable!("aggregate ABI expansion precedes scalar MIR selection")
+        }
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
             Mir68kValue::U8(*bits as u8)
         }
@@ -949,7 +893,7 @@ fn lower_value(value: &NirValue, data_width: ByteSize, code_width: ByteSize) -> 
         NirValue::Param(id) => Mir68kValue::Param(*id),
         NirValue::GlobalAddr(id) => Mir68kValue::GlobalAddress(*id, data_width),
         NirValue::RoutineAddr { id, ty, .. } => {
-            Mir68kValue::RoutineAddress(id.0, ty.width.unwrap_or(code_width))
+            Mir68kValue::RoutineAddress(*id, ty.width.unwrap_or(code_width))
         }
     }
 }
@@ -961,7 +905,7 @@ fn lower_callee(
 ) -> Mir68kCallTarget {
     match callee {
         NirCallee::Fault(_) => unreachable!("fault diagnosed before native call planning"),
-        NirCallee::User { id, .. } => Mir68kCallTarget::Direct(id.0),
+        NirCallee::User { id, .. } => Mir68kCallTarget::Direct(*id),
         NirCallee::Builtin(name) => Mir68kCallTarget::Builtin(name.clone()),
         NirCallee::Runtime { symbol, .. } => Mir68kCallTarget::Runtime(*symbol),
         NirCallee::Indirect { target, ty } => Mir68kCallTarget::Indirect(
@@ -990,15 +934,17 @@ fn lower_terminator(
             Mir68kTerminator::Exit
         }
         NirTerminator::Fallthrough => Mir68kTerminator::Fallthrough,
-        NirTerminator::Goto(edge) => Mir68kTerminator::Goto(edge.target),
+        NirTerminator::Goto(edge) => {
+            Mir68kTerminator::Goto(lower_edge(edge, data_width, code_width))
+        }
         NirTerminator::Branch {
             condition,
             then_edge,
             else_edge,
         } => Mir68kTerminator::Branch {
             condition: lower_value(condition, data_width, code_width),
-            then_block: then_edge.target,
-            else_block: else_edge.target,
+            then_edge: lower_edge(then_edge, data_width, code_width),
+            else_edge: lower_edge(else_edge, data_width, code_width),
         },
         NirTerminator::Return(value) => Mir68kTerminator::Return {
             value: value
@@ -1157,6 +1103,60 @@ RETURN
     }
 
     #[test]
+    fn selected_address_bytes_and_volatile_copy_effects_are_retained() {
+        let mut nir = lower_source();
+        add_address_relocation_probe(&mut nir);
+        let probe = nir.statics.last_mut().unwrap();
+        let NirDataFragment::Address { encoding, .. } = &mut probe.image.fragments[0] else {
+            panic!()
+        };
+        *encoding = NirDataAddressEncoding::TargetByte {
+            target: TargetId::Motorola68000,
+            byte_index: 2,
+        };
+        let copy = nir
+            .routines
+            .iter_mut()
+            .flat_map(|r| &mut r.blocks)
+            .flat_map(|b| &mut b.ops)
+            .find(|op| matches!(op, NirOp::CopyBytes { .. }))
+            .unwrap();
+        let NirOp::CopyBytes {
+            destination_volatile,
+            source_volatile,
+            ..
+        } = copy
+        else {
+            panic!()
+        };
+        *destination_volatile = true;
+        *source_volatile = true;
+        let mir = super::super::lower_program(&nir).unwrap();
+        let relocation = &mir
+            .data
+            .iter()
+            .find(|d| d.name == "relocation_probe")
+            .unwrap()
+            .relocations[0];
+        assert_eq!(relocation.byte_index, Some(2));
+        assert_eq!(relocation.width, ByteSize::ONE);
+        assert!(
+            mir.routines
+                .iter()
+                .flat_map(|r| &r.blocks)
+                .flat_map(|b| &b.ops)
+                .any(|op| matches!(
+                    op,
+                    Mir68kOp::Copy {
+                        destination_volatile: true,
+                        source_volatile: true,
+                        ..
+                    }
+                ))
+        );
+    }
+
+    #[test]
     fn canary_lowers_big_endian_data_32_bit_addresses_and_odd_packed_words() {
         let mut nir = lower_source();
         force_one_packed_odd_word(&mut nir);
@@ -1287,5 +1287,31 @@ RETURN
                     )
                 })
         );
+    }
+}
+
+fn lower_edge(
+    edge: &crate::nir::NirEdge,
+    data_width: ByteSize,
+    code_width: ByteSize,
+) -> Mir68kEdge {
+    Mir68kEdge {
+        target: edge.target,
+        args: edge
+            .args
+            .iter()
+            .map(|v| lower_value(v, data_width, code_width))
+            .collect(),
+    }
+}
+
+fn result_home(ty: &NirType) -> Mir68kAbiHome {
+    if matches!(
+        ty.kind,
+        NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. }
+    ) {
+        Mir68kAbiHome::AddressRegister(0)
+    } else {
+        Mir68kAbiHome::DataRegister(0)
     }
 }

@@ -1020,7 +1020,7 @@ fn mir68k_plans_reentrant_frames_and_balanced_stack_calls() {
                     ..
                 },
                 ..
-            } if *id == recur.id.0
+            } if *id == recur.id
         )
     }));
     assert!(
@@ -1445,7 +1445,7 @@ fn native_acceptance_corpus_proves_recursive_activation_contracts() {
                                         ..
                                     },
                                     ..
-                                } if *id == routine.id.0
+                                } if *id == routine.id
                             )
                         })
                 );

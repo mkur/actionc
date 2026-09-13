@@ -1,8 +1,9 @@
 # Minimal MIR68K Execution Plan
 
-Status: implementation in progress. Slice 0 provides the pinned r68k harness
-and independent instruction qualification tests. Native emission is not yet
-implemented; cross-platform qualification will run in CI when slice 6 lands.
+Status: implementation in progress. Slices 0–1 provide the pinned r68k harness
+and the [MIR execution contract](MIR68K_EXECUTION_CONTRACT.md). Native emission
+is not yet implemented; cross-platform qualification will run in CI when
+slice 6 lands.
 
 ## Objective and completion gate
 
