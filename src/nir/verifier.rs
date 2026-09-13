@@ -916,6 +916,18 @@ impl NirVerifier {
                         }
                     } else {
                         self.value_type(routine, block, value, "return value");
+                        if let Some(expected) = routine.signature.result.as_ref().filter(|ty| ty.kind.integer().is_some()) {
+                            let width = match value {
+                                NirValue::IntegerConst { ty, .. } => Some(ty.storage_width()),
+                                NirValue::Temp { ty, .. } => ty.width,
+                                NirValue::Param(id) => routine.params.iter().find(|p| p.id == *id).and_then(|p| p.ty.width),
+                                _ => None,
+                            };
+                            if width != expected.width {
+                                self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                                    "integer return requires an explicit conversion to the routine result width"));
+                            }
+                        }
                         if routine.signature.result.as_ref().is_some_and(|ty| matches!(ty.kind, NirTypeKind::Record { .. })) {
                             self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
                                 "aggregate return requires a captured value"));

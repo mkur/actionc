@@ -3,8 +3,7 @@ global g0 result: word storage global+0
 
 routine r0 Zero
 b0 bb0:
-  store.b fixed_zp $A0, #$00
-  store.b fixed_zp $A1, #$00
+  store.w fixed_zp $A0, #$0000
   return
 
 routine r1 Main

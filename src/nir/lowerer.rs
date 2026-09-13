@@ -1931,7 +1931,19 @@ impl NirBuilder {
             SemStmt::LexicalBlock { body, .. } => self.stmt_list(body),
             SemStmt::Define(_) => {}
             SemStmt::Return { value, .. } => {
-                let value = value.as_ref().map(|value| self.nir_value(value));
+                let value = value.as_ref().map(|value| {
+                    let lowered = self.nir_value(value);
+                    let Some(mut result) = self.signature.result.clone().filter(|ty| ty.kind.integer().is_some()) else { return lowered; };
+                    result.apply_target_layout(self.target_layout);
+                    let width = match &lowered {
+                        NirValue::IntegerConst { ty, .. } => Some(ty.storage_width()),
+                        NirValue::Temp { ty, .. } => ty.width,
+                        _ => None,
+                    };
+                    if width.is_some() && width != result.width {
+                        self.convert_integer_operation_input(lowered, &result)
+                    } else { lowered }
+                });
                 self.terminate(NirTerminator::Return(value));
             }
             SemStmt::Exit { .. } => {

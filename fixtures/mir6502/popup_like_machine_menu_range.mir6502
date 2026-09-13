@@ -173,8 +173,7 @@ b4 bb30:
   store.w param p0+0, v9
   jump b1
 b5 bb29:
-  store.b fixed_zp $A0, #$00
-  store.b fixed_zp $A1, #$00
+  store.w fixed_zp $A0, #$0000
   return
 
 routine r7 PopLike

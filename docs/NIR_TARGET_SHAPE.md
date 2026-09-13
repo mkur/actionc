@@ -967,6 +967,10 @@ Rules:
 - Every parameterized block has at least one predecessor contribution.
 - Branch conditions must be `Bool` values, or a future explicitly documented test
   terminator must be added.
+- Integer return values have the routine result width. Lowering converts
+  constants with their signedness and inserts explicit casts for computed
+  values before `Return`; the verifier rejects implicit return-width changes.
+  Backends must not guess extension or truncation from their return ABI.
 - There is no `Open` terminator in verifier-clean NIR.
 - Fallthrough should either be made explicit as `Return(None)` where appropriate
   or represented by a documented terminator with clear MIR6502 behavior.
