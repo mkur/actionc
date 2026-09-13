@@ -33,6 +33,7 @@ pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
                 continue;
             }
             builder.instructions.clear();
+            builder.current = builder.labels[&block.id];
             if block.id == routine.blocks[0].id {
                 builder.prologue()?;
             }
@@ -44,11 +45,13 @@ pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
             builder
                 .terminator(&block.terminator)
                 .map_err(|e| format!("{} / {:?}: {e}", routine.name, block.id))?;
+            machine.blocks.append(&mut builder.blocks);
             machine.blocks.push(MachineBlock {
-                id: builder.labels[&block.id],
+                id: builder.current,
                 instructions: std::mem::take(&mut builder.instructions),
             });
         }
+        next = builder.next;
         machine.routines.push(MachineRoutine {
             id: routine.id,
             entry: builder.labels[&routine.blocks[0].id],
@@ -107,6 +110,10 @@ struct Builder<'a> {
     temps: BTreeMap<TempId, i16>,
     labels: BTreeMap<BlockId, MachineBlockId>,
     instructions: Vec<Instruction>,
+    blocks: Vec<MachineBlock>,
+    current: MachineBlockId,
+    next: u32,
+    edge_slots: Vec<i16>,
 }
 
 impl<'a> Builder<'a> {
@@ -124,6 +131,17 @@ impl<'a> Builder<'a> {
             Width::from_bytes(ty.width.ok_or("temporary has no width")?.get())?;
             cursor = cursor.checked_add(4).ok_or("temporary area overflow")?;
             temps.insert(*id, displacement(-(cursor as i64))?);
+        }
+        let edge_count = routine
+            .blocks
+            .iter()
+            .map(|b| b.params.len())
+            .max()
+            .unwrap_or(0);
+        let mut edge_slots = Vec::new();
+        for _ in 0..edge_count {
+            cursor = cursor.checked_add(4).ok_or("edge copy area overflow")?;
+            edge_slots.push(displacement(-i64::from(cursor))?);
         }
         frame.spill_bytes = ByteSize::new(cursor - start);
         cursor = cursor
@@ -143,6 +161,10 @@ impl<'a> Builder<'a> {
             temps,
             labels,
             instructions: Vec::new(),
+            blocks: Vec::new(),
+            current: MachineBlockId(0),
+            next: *next,
+            edge_slots,
         })
     }
     fn emit(&mut self, op: Instruction) {
@@ -287,12 +309,151 @@ impl<'a> Builder<'a> {
                 value,
                 ..
             } => {
-                // Until signed extension lands, reject widening a signed value.
-                if to > from && *from_signed {
-                    return Err("signed widening is not implemented yet".into());
-                }
                 self.value(value, 0)?;
+                if to > from && *from_signed {
+                    if from.get() == 1 {
+                        self.emit(Instruction::Extend {
+                            to: Width::Word,
+                            register: 0,
+                        });
+                    }
+                    if to.get() == 4 {
+                        self.emit(Instruction::Extend {
+                            to: Width::Long,
+                            register: 0,
+                        });
+                    }
+                }
                 self.save(*dest, *to)?;
+            }
+            Mir68kOp::Unary {
+                dest,
+                width,
+                operation,
+                value,
+            } => {
+                self.value(value, 0)?;
+                if *operation == NirUnaryOp::Neg {
+                    self.emit(Instruction::Negate {
+                        width: Width::from_bytes(width.get())?,
+                        register: 0,
+                    });
+                }
+                self.save(*dest, *width)?;
+            }
+            Mir68kOp::Binary {
+                dest,
+                width,
+                operation,
+                left,
+                right,
+                ..
+            } => {
+                self.value(left, 0)?;
+                self.value(right, 1)?;
+                let machine_width = Width::from_bytes(width.get())?;
+                match operation {
+                    NirBinaryOp::Lsh | NirBinaryOp::Rsh => {
+                        self.emit(Instruction::LogicalShift {
+                            width: machine_width,
+                            left: *operation == NirBinaryOp::Lsh,
+                            count: ShiftCount::Register(1),
+                            register: 0,
+                        });
+                        // MC68000 masks the count modulo 64. Mask that provisional
+                        // result to zero when the full Action count >= bit width.
+                        self.emit(Instruction::CompareImmediate {
+                            width: Width::Long,
+                            value: width.get() * 8,
+                            destination: 1,
+                        });
+                        self.emit(Instruction::SetCondition {
+                            condition: Condition::CarrySet,
+                            register: 1,
+                        });
+                        self.emit(Instruction::Extend {
+                            to: Width::Word,
+                            register: 1,
+                        });
+                        self.emit(Instruction::Extend {
+                            to: Width::Long,
+                            register: 1,
+                        });
+                        self.emit(Instruction::Alu {
+                            operation: Alu::And,
+                            width: Width::Long,
+                            source: 1,
+                            destination: 0,
+                        });
+                    }
+                    operation => {
+                        let operation = match operation {
+                            NirBinaryOp::Add => Alu::Add,
+                            NirBinaryOp::Sub => Alu::Sub,
+                            NirBinaryOp::And => Alu::And,
+                            NirBinaryOp::Or => Alu::Or,
+                            NirBinaryOp::Xor => Alu::Xor,
+                            _ => {
+                                return Err(format!(
+                                    "native {operation:?} requires a helper not supported by this emitter"
+                                ));
+                            }
+                        };
+                        self.emit(Instruction::Alu {
+                            operation,
+                            width: machine_width,
+                            source: 1,
+                            destination: 0,
+                        });
+                    }
+                }
+                self.save(*dest, *width)?;
+            }
+            Mir68kOp::Compare {
+                dest,
+                width,
+                signed,
+                operation,
+                left,
+                right,
+            } => {
+                self.value(left, 0)?;
+                self.value(right, 1)?;
+                self.emit(Instruction::Alu {
+                    operation: Alu::Compare,
+                    width: Width::from_bytes(width.get())?,
+                    source: 1,
+                    destination: 0,
+                });
+                self.emit(Instruction::SetCondition {
+                    condition: compare_condition(*operation, *signed),
+                    register: 0,
+                });
+                self.mov(Width::Long, Ea::Immediate(1), Ea::D(1));
+                self.emit(Instruction::Alu {
+                    operation: Alu::And,
+                    width: Width::Long,
+                    source: 1,
+                    destination: 0,
+                });
+                self.save(*dest, ByteSize::ONE)?;
+            }
+            Mir68kOp::PointerOffset {
+                dest,
+                width,
+                base,
+                offset,
+                subtract,
+            } => {
+                self.value(base, 0)?;
+                self.value(offset, 1)?;
+                self.emit(Instruction::Alu {
+                    operation: if *subtract { Alu::Sub } else { Alu::Add },
+                    width: Width::Long,
+                    source: 1,
+                    destination: 0,
+                });
+                self.save(*dest, *width)?;
             }
             _ => {
                 return Err(format!(
@@ -302,6 +463,38 @@ impl<'a> Builder<'a> {
         }
         Ok(())
     }
+    fn edge(&mut self, edge: &Mir68kEdge) -> Result<()> {
+        // Stage every source before writing any destination. This also handles
+        // cyclic transfers on a loop backedge without overwriting a live source.
+        for (index, value) in edge.args.iter().enumerate() {
+            self.value(value, 0)?;
+            self.mov(
+                Width::Long,
+                Ea::D(0),
+                Ea::Displacement(6, self.edge_slots[index]),
+            );
+        }
+        let params = &self
+            .routine
+            .blocks
+            .iter()
+            .find(|b| b.id == edge.target)
+            .ok_or("missing edge target")?
+            .params;
+        for (index, (dest, ty)) in params.iter().enumerate() {
+            self.mov(
+                Width::Long,
+                Ea::Displacement(6, self.edge_slots[index]),
+                Ea::D(0),
+            );
+            self.save(*dest, ty.width.ok_or("block parameter has no width")?)?;
+        }
+        self.emit(Instruction::Jump(Ea::Absolute(Address::new(
+            Target::Block(self.labels[&edge.target]),
+        ))));
+        Ok(())
+    }
+
     fn terminator(&mut self, term: &Mir68kTerminator) -> Result<()> {
         match term {
             Mir68kTerminator::Return { value, .. } => {
@@ -317,7 +510,28 @@ impl<'a> Builder<'a> {
                 self.emit(Instruction::Unlink(6));
                 self.emit(Instruction::Rts);
             }
-            _ => return Err("control-flow materialization is not implemented yet".into()),
+            Mir68kTerminator::Goto(edge) => self.edge(edge)?,
+            Mir68kTerminator::Branch {
+                condition,
+                then_edge,
+                else_edge,
+            } => {
+                self.value(condition, 0)?;
+                let alternate = MachineBlockId(self.next);
+                self.next = self.next.checked_add(1).ok_or("too many machine blocks")?;
+                self.emit(Instruction::Branch {
+                    condition: Condition::Equal,
+                    target: Address::new(Target::Block(alternate)),
+                });
+                self.edge(then_edge)?;
+                self.blocks.push(MachineBlock {
+                    id: self.current,
+                    instructions: std::mem::take(&mut self.instructions),
+                });
+                self.current = alternate;
+                self.edge(else_edge)?;
+            }
+            _ => return Err("unresolved native terminator".into()),
         }
         Ok(())
     }
@@ -335,5 +549,20 @@ fn aligned(address: &Mir68kAddress, width: ByteSize) -> Result<()> {
         Err("unaligned memory access is not implemented yet".into())
     } else {
         Ok(())
+    }
+}
+
+fn compare_condition(operation: NirCompareOp, signed: bool) -> Condition {
+    match (operation, signed) {
+        (NirCompareOp::Eq, _) => Condition::Equal,
+        (NirCompareOp::Ne, _) => Condition::NotEqual,
+        (NirCompareOp::Lt, true) => Condition::Less,
+        (NirCompareOp::Le, true) => Condition::LessOrEqual,
+        (NirCompareOp::Gt, true) => Condition::Greater,
+        (NirCompareOp::Ge, true) => Condition::GreaterOrEqual,
+        (NirCompareOp::Lt, false) => Condition::CarrySet,
+        (NirCompareOp::Le, false) => Condition::LowOrSame,
+        (NirCompareOp::Gt, false) => Condition::High,
+        (NirCompareOp::Ge, false) => Condition::CarryClear,
     }
 }

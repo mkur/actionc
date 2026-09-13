@@ -1,10 +1,10 @@
 # Minimal MIR68K Execution Plan
 
-Status: implementation in progress. Slices 0–3 are implemented. The first
-source-to-execution gate passes: an ordinary LONGINT global receives 42 in raw
-and optimized modes, at two origins, from LF and CRLF files. Scalar arithmetic,
-control flow, calls and benchmark acceptance remain in slices 4–6. Cross-platform
-qualification will run in CI when slice 6 lands.
+Status: implementation in progress. Slices 0–4 are implemented. Source-to-image
+execution, integer arithmetic/casts/shifts/comparisons, loops, CASE and parallel
+CFG edge copies pass focused r68k tests. Calls, full memory access and benchmark
+acceptance remain in slices 5–6. Cross-platform qualification will run in CI
+when slice 6 lands.
 
 ## Objective and completion gate
 

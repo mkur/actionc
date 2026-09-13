@@ -86,8 +86,52 @@ impl Condition {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Alu {
+    Add,
+    Sub,
+    And,
+    Or,
+    Xor,
+    Compare,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShiftCount {
+    Immediate(u8),
+    Register(u8),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    Alu {
+        operation: Alu,
+        width: Width,
+        source: u8,
+        destination: u8,
+    },
+    CompareImmediate {
+        width: Width,
+        value: u32,
+        destination: u8,
+    },
+    Negate {
+        width: Width,
+        register: u8,
+    },
+    Extend {
+        to: Width,
+        register: u8,
+    },
+    SetCondition {
+        condition: Condition,
+        register: u8,
+    },
+    LogicalShift {
+        width: Width,
+        left: bool,
+        count: ShiftCount,
+        register: u8,
+    },
     Move {
         width: Width,
         source: Ea,

@@ -7,6 +7,81 @@ pub fn encode(
 ) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
+        Instruction::Alu {
+            operation,
+            width,
+            source,
+            destination,
+        } => {
+            check_register(source)?;
+            check_register(destination)?;
+            let (opcode, reg, ea) = match operation {
+                Alu::Add => (0xd000, destination, source),
+                Alu::Sub => (0x9000, destination, source),
+                Alu::And => (0xc000, destination, source),
+                Alu::Or => (0x8000, destination, source),
+                Alu::Xor => (0xb100, source, destination),
+                Alu::Compare => (0xb000, destination, source),
+            };
+            words.push(opcode | (reg as u16) << 9 | size_bits(width) << 6 | ea as u16);
+        }
+        Instruction::CompareImmediate {
+            width,
+            value,
+            destination,
+        } => {
+            check_register(destination)?;
+            words.push(0x0c00 | size_bits(width) << 6 | destination as u16);
+            if width == Width::Long {
+                long(&mut words, value);
+            } else {
+                words.push(value as u16 & if width == Width::Byte { 0xff } else { 0xffff });
+            }
+        }
+        Instruction::Negate { width, register } => {
+            check_register(register)?;
+            words.push(0x4400 | size_bits(width) << 6 | register as u16);
+        }
+        Instruction::Extend { to, register } => {
+            check_register(register)?;
+            let op = match to {
+                Width::Word => 0x4880,
+                Width::Long => 0x48c0,
+                Width::Byte => return Err("EXT requires word or long destination".into()),
+            };
+            words.push(op | register as u16);
+        }
+        Instruction::SetCondition {
+            condition,
+            register,
+        } => {
+            check_register(register)?;
+            words.push(0x50c0 | (condition as u16) << 8 | register as u16);
+        }
+        Instruction::LogicalShift {
+            width,
+            left,
+            count,
+            register,
+        } => {
+            check_register(register)?;
+            let (count, dynamic) = match count {
+                ShiftCount::Register(r) => {
+                    check_register(r)?;
+                    (r, 0x20)
+                }
+                ShiftCount::Immediate(n) if (1..=8).contains(&n) => (n & 7, 0),
+                _ => return Err("immediate logical shift count must be 1..8".into()),
+            };
+            words.push(
+                0xe008
+                    | (count as u16) << 9
+                    | if left { 0x100 } else { 0 }
+                    | size_bits(width) << 6
+                    | dynamic
+                    | register as u16,
+            );
+        }
         Instruction::Move {
             width,
             source,
@@ -225,5 +300,13 @@ mod tests {
         ] {
             assert!(size(&instruction).is_err());
         }
+    }
+}
+
+fn size_bits(width: Width) -> u16 {
+    match width {
+        Width::Byte => 0,
+        Width::Word => 1,
+        Width::Long => 2,
     }
 }

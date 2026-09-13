@@ -56,3 +56,15 @@ boundary. Materialization rejects missing/parameterized program entries and
 reachable unresolved fallthrough or terminal exits. A6-relative temporary homes
 are separate from automatic objects and the preallocated outgoing area; frame
 sizes outside original MC68000 displacement limits are rejected.
+
+Integer materialization supports 8/16/32-bit add, subtract, negation, bitwise
+operations, logical shifts, casts and signed/unsigned comparisons. Narrow loads
+clear unused register bits, signed widening uses explicit EXT instructions, and
+comparison results are normalized to 0/1. Dynamic shifts mask the provisional
+MC68000 result to zero when the full source count reaches the operand width;
+CPU modulo-64 count decoding cannot change Action! semantics.
+
+Temporary homes are four-byte reservations with each value stored at its
+actual width at the start of its home. Edge transfers stage all sources in a
+separate frame area before writing destinations. Conditional edges use separate
+machine blocks, so only the chosen edge's parallel transfer executes.
