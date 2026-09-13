@@ -96,6 +96,9 @@ Arithmetic wraps at its selected width. Division truncates toward zero;
 remainder has the dividend's sign. MIN/-1 wraps to MIN. Runtime division or
 remainder by zero invokes Error(101), and does not resume the failed operation.
 LSH/RSH are logical shifts; counts at least the operand width produce zero.
+For sign-extending right shifts, `MATH.INTEGER.AsrI` and `AsrLI` accept INT and
+LONGINT values with BYTE counts. Oversized counts produce the sign fill;
+see [signed integer shifts](INTEGER_SHIFTS.md).
 
 Wide types work in variables, initializers, arrays, embedded record arrays,
 pointer elements, parameters, FUNC results and typed FUNC POINTER signatures.

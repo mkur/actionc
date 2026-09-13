@@ -70,6 +70,15 @@ families, `StrLC`/`StrLI`, `ValLC`/`ValLI`, and `InputLC`/`InputLI` support
 LONGCARD/LONGINT on both classic profiles and MIR6502 with both runtimes. See
 [32-bit SYS I/O](../LONG_INTEGER_IO.md) for signatures and checked parsing rules.
 
+## Signed integer shifts
+
+`USE MATH.INTEGER AS BITS` provides `BITS.AsrI(INT value BYTE count)` and
+`BITS.AsrLI(LONGINT value BYTE count)`. They perform arithmetic right shifts
+with sign extension, including sign fill for oversized counts. The library
+uses ordinary Action! and loads independently of MATH's REAL facade. See
+[signed integer shifts](../INTEGER_SHIFTS.md) for the rounding contract and
+mode/runtime support.
+
 ## Signed fixed point libraries
 
 `USE MATH.Q8_8 AS Q` imports signed fixed point arithmetic using INT raw values

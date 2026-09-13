@@ -111,8 +111,24 @@ as executable semantics.
 
 ## Required checks
 
-After changing NIR, semantic lowering, verifier, printer, or related code,
-run the relevant checks before submitting the change:
+Choose checks from the changed code and its consumers. Do not run every test
+suite by default as the repository grows.
+
+- For library, benchmark, sample, or test-only changes with no compiler changes,
+  run the affected integration and VM test targets, covering the relevant modes
+  and runtimes. Run the affected generator's check command when generated fixtures
+  change. A full `cargo test` or repository-wide NIR sweep is not required.
+- For documentation-only changes, check the edited content and links; run code
+  checks only when executable examples or their documented behavior change.
+- Broaden testing when compiler behavior, shared runtime code, or shared test/build
+  infrastructure changes, when a failure suggests wider impact, or when the user
+  requests it. Keep full CI coverage; these rules scope local validation.
+- Batch related cases and focus large test matrices on distinct behaviors and
+  boundaries. Do not repeat passing suites unless further changes or unresolved
+  failures justify it. Report which checks ran and their scope.
+
+After changing compiler NIR, semantic lowering, verifier, printer, or code that
+affects those contracts, run these checks before submitting the change:
 
 ```sh
 cargo test nir_fixtures_match_snapshots

@@ -1,0 +1,23 @@
+; Portable signed integer operations; independent of MATH's REAL facade.
+MODULE MATH.INTEGER
+
+; Arithmetic right shift. Oversized counts produce the sign fill, not zero
+; for negative values. BYTE counts cover 0 through 255.
+PUBLIC INLINE INT FUNC AsrI(INT value BYTE count)
+  IF count>=16 THEN
+    IF value<0 THEN RETURN(-1) FI
+    RETURN(0)
+  FI
+  ; -1-value is the nonnegative complement, even for INT's minimum value.
+  IF value<0 THEN RETURN(-1-((-1-value) RSH count)) FI
+RETURN(value RSH count)
+
+PUBLIC INLINE LONGINT FUNC AsrLI(LONGINT value BYTE count)
+  IF count>=32 THEN
+    IF value<0 THEN RETURN(-1) FI
+    RETURN(0)
+  FI
+  IF value<0 THEN RETURN(-1-((-1-value) RSH count)) FI
+RETURN(value RSH count)
+
+ENDMODULE

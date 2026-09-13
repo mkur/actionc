@@ -63,6 +63,12 @@ coefficients after each pass and checks signed descaling at rounding and wrappin
 boundaries. The benchmark's storage remains compiler-allocated; the adapter adds
 host buffers, memory guards, and LF/CRLF instrumentation and compilation.
 
+The [signed integer shift library](../../docs/INTEGER_SHIFTS.md) is checked by
+`cargo test --locked --test integer_shifts`. Arithmetic right shifts of INT and
+LONGINT are compared against floor division for dynamic and constant counts,
+covering the BYTE range 0–255. All three modes and both runtimes cover
+nested calls, argument side effects, guards, and actual LF/CRLF module loading.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 
