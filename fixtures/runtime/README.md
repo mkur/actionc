@@ -61,6 +61,11 @@ executions across BYTE, INT, CARD, and LONGINT record/search variants. The C
 reference supplies lookup results, the initialized table, and generator state.
 Run `cargo test --locked --test binarysearch` from `tools/vm-runtime-tests`.
 
+The [TACLeBench matrix1 port](tacle/matrix1/README.md) adds 1,008 VM executions
+of matrix multiplication across BYTE, INT, CARD, and LONGINT, with square and
+rectangular shapes. C references supply complete matrices and checksums.
+Run `cargo test --locked --test matrix1` from `tools/vm-runtime-tests`.
+
 Run the initialized-array gate directly:
 
 ```sh

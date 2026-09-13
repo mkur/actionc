@@ -1,6 +1,68 @@
 use super::*;
 
 #[test]
+fn runtime_arithmetic_preserves_materialized_left_across_rhs_addresses_and_calls() {
+    let source = "BYTE ARRAY bytes(2)=$07FF CARD ARRAY words(2)=$08FF\n\
+        BYTE POINTER a,b CARD POINTER wa,wb\n\
+        CARD ARRAY output(9)=$0600 CARD index=$0640,calls=$0642\n\
+        CARD FUNC LoadRight() calls==+1 RETURN(words(index))\n\
+        PROC Main() a=bytes b=@bytes(1) wa=words wb=@words(1)\n\
+        output(0)=a^*b^ output(1)=a^/b^ output(2)=a^ MOD b^\n\
+        output(3)=wa^*wb^ output(4)=wa^/wb^ output(5)=wa^ MOD wb^\n\
+        output(6)=(wa^+1)*LoadRight() output(7)=(wa^+1)/LoadRight()\n\
+        output(8)=(wa^+1) MOD LoadRight() RETURN\n";
+    let ast = parse(&tokenize(source).unwrap()).unwrap();
+    let model = analyze(&ast).unwrap();
+    let semir = crate::semantic::ir::lower_program(&ast, &model);
+    let output =
+        generate_semir_standalone_profile_at_origin(&semir, 0x3000, CodegenProfile::Modern)
+            .unwrap();
+    for (a, b, wa, wb) in [
+        (0u8, 1u8, 0u16, 1u16),
+        (1, 3, 1, 3),
+        (127, 128, 255, 256),
+        (128, 127, 256, 255),
+        (254, 255, 32767, 32768),
+        (255, 254, 32768, 32767),
+        (255, 1, 65534, 2),
+        (129, 7, 65535, 65535),
+    ] {
+        let mut memory = [0u8; 65536];
+        let origin = usize::from(output.origin);
+        memory[origin..origin + output.bytes.len()].copy_from_slice(&output.bytes);
+        memory[0x600..0xA00].fill(0xCC);
+        memory[0x640..0x644].copy_from_slice(&[1, 0, 0, 0]);
+        memory[0x7FF..0x801].copy_from_slice(&[a, b]);
+        memory[0x8FF..0x901].copy_from_slice(&wa.to_le_bytes());
+        memory[0x901..0x903].copy_from_slice(&wb.to_le_bytes());
+        let mut expected = memory;
+        let incremented = wa.wrapping_add(1);
+        let results = [
+            u16::from(a) * u16::from(b),
+            u16::from(a / b),
+            u16::from(a % b),
+            wa.wrapping_mul(wb),
+            wa / wb,
+            wa % wb,
+            incremented.wrapping_mul(wb),
+            incremented / wb,
+            incremented % wb,
+        ];
+        for (i, result) in results.into_iter().enumerate() {
+            expected[0x600 + 2 * i..0x602 + 2 * i].copy_from_slice(&result.to_le_bytes());
+        }
+        expected[0x642..0x644].copy_from_slice(&3u16.to_le_bytes());
+        indexed_test_cpu::run_memory(&mut memory, usize::from(output.run_address));
+        for address in 0x600..0xA00 {
+            assert_eq!(
+                memory[address], expected[address],
+                "{a}/{b}/{wa}/{wb}: ${address:04X}"
+            );
+        }
+    }
+}
+
+#[test]
 fn owned_narrow_division_bodies_exhaust_byte_pairs_and_word_boundaries() {
     for word_dividend in [false, true] {
         for remainder in [false, true] {

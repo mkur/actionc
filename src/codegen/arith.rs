@@ -1125,7 +1125,10 @@ impl Generator {
         let materialized_left =
             if self.segment_storage && Self::arithmetic_operand_needs_materialization(left) {
                 let temp_size = self.expr_size(left).unwrap_or(slot.size);
-                let temp = StorageSlot::zero_page(runtime_zp::ARRAY_ADDR.address(), temp_size);
+                // ARRAY_ADDR may still address the source while a compound
+                // word value is written low byte first. Use the ordinary
+                // result homes so staging cannot overwrite that address.
+                let temp = StorageSlot::zero_page(runtime_zp::ARGS.address(), temp_size);
                 if !self.emit_expr_to_slot(left, temp) {
                     return false;
                 }
@@ -1133,6 +1136,17 @@ impl Generator {
             } else {
                 None
             };
+        // RHS address preparation and nested helpers can reuse result homes.
+        // Preserve the left value before any RHS selection emits code,
+        // including direct indexed/call fast paths.
+        let saved_left = materialized_left
+            .filter(|_| Self::arithmetic_operand_needs_materialization(right));
+        if let Some(left_slot) = saved_left {
+            for byte in (0..left_slot.size).rev() {
+                self.emit_lda_slot_byte(left_slot, byte);
+                self.emitter.emit_pha();
+            }
+        }
         let right_loaded_to_afcur = store_right_high
             && (self.emit_runtime_right_call_result_to_afcur(right)
                 || self.emit_runtime_right_indexed_word_to_afcur(right));
@@ -1177,6 +1191,13 @@ impl Generator {
                 return false;
             }
             self.emit_sta_zero_page(runtime_zp::AFCUR);
+        }
+
+        if let Some(left_slot) = saved_left {
+            for byte in 0..left_slot.size {
+                self.emit_pla();
+                self.emit_sta_slot_byte(left_slot, byte);
+            }
         }
 
         if self.segment_storage && self.constant_u16(left).is_some() {

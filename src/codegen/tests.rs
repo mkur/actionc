@@ -7516,7 +7516,7 @@ fn compatible_runtime_shift_materializes_left_arithmetic_operand() {
         output
             .bytes
             .windows(2)
-            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ARRAY_ADDR.address()])
+            .any(|bytes| bytes == [opcode::STA_ZP, runtime_zp::ARGS.address()])
     );
     assert!(output.bytes.windows(3).any(|bytes| bytes
         == [
@@ -12977,7 +12977,7 @@ fn compatible_runtime_multiply_materializes_byte_exprs_as_bytes() {
     assert!(output.bytes.windows(5).any(|bytes| bytes
         == [
             opcode::LDA_ZP,
-            runtime_zp::ARRAY_ADDR.address(),
+            runtime_zp::ARGS.address(),
             opcode::LDX_IMM,
             0x00,
             opcode::JSR_ABS,

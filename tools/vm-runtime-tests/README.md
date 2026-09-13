@@ -49,6 +49,13 @@ source. It checks every table position, all 256 BYTE query values, duplicates,
 signed and unsigned boundaries, widening returns, initialization, unchanged
 tables, memory guards, and LF/CRLF instrumentation and compilation.
 
+The [TACLeBench matrix1 port](../../fixtures/runtime/tacle/matrix1/README.md)
+is checked by `cargo test --locked --test matrix1`: 252 C-reference cases across
+both modern backends and both runtimes (1,008 executions). Four integer types
+share a pointer-based multiply loop, tested at dimensions 10x10x10, 3x7x5, and
+2x129x1. The checks cover full matrices, signed and wrapping arithmetic,
+initialization, page crossings, guards, and LF/CRLF source and vectors.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 
