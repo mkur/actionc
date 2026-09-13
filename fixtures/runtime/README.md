@@ -36,6 +36,11 @@ nested CASE state machines, timer arithmetic, and array flags. Every controller
 state byte is checked against vectors generated from the pinned C reference.
 Run `cargo test --locked --test statemate` from `tools/vm-runtime-tests`.
 
+The [TACLeBench SHA-0 port](tacle/sha/README.md) adds 620 VM executions of
+32-bit arithmetic, rotations, wide arrays, padding, and counter carry/wrap.
+The C reference supplies every digest, counter, block, and schedule word.
+Run `cargo test --locked --test sha` from `tools/vm-runtime-tests`.
+
 Run the initialized-array gate directly:
 
 ```sh

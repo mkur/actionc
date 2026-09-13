@@ -1,5 +1,8 @@
 # TACLeBench Statemate
 
+The separate [SHA-0 port](sha/README.md) exercises 32-bit arithmetic, rotations,
+wide arrays, and block padding against a fixed-width C reference.
+
 `statemate.act` ports the experimental car-window controller from TACLeBench.
 It retains all **16 nested switches as CASE statements**, with 34 explicit arms
 and 16 defaults, the four interacting control routines, and the original

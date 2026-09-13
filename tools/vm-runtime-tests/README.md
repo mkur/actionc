@@ -13,6 +13,13 @@ complete controller state, timer boundaries, and memory guards. The companion
 three modes and both runtimes. Both targets consume local fixtures without
 network access or a host C compiler.
 
+The [TACLeBench SHA-0 port](../../fixtures/runtime/tacle/sha/README.md) is checked
+by `cargo test --locked --test sha`: 155 C-reference cases across both modern
+backends and both runtimes (620 executions), checking 32-bit arithmetic,
+rotations, wide indexed arrays, padding boundaries, counter carry/wrap, and
+memory guards. Both LF and CRLF sources and vectors use the actual compiler/VM
+path. The target consumes committed vectors without a C compiler or network.
+
 Run the tests from this directory so Cargo reads `.cargo/config.toml` and uses
 the pinned `actionc-vm` revision:
 
