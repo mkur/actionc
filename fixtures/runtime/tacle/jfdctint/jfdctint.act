@@ -1,0 +1,133 @@
+; Integer JPEG forward DCT from TACLeBench / the Independent JPEG Group.
+; Copyright (C) 1991-1994, Thomas G. Lane; modified by Steven Li.
+; Action! adaptation, 2026. See README.md and the unmodified upstream README.
+; This software is based in part on the work of the Independent JPEG Group.
+; Rows then columns, in place. Results retain JPEG's factor-of-eight scale.
+
+CONST ConstBits=13,Pass1Bits=2
+LONGINT ARRAY block(64)
+LONGINT checksum
+INT result
+
+; Round, then shift with sign extension. Action! RSH itself is logical.
+; Only counts 2, 11 and 15 are used. Addition wraps at 32 bits.
+LONGINT FUNC Descale(LONGINT value BYTE bits)
+  value==+(LONGINT(1) LSH (bits-1))
+  IF value<0 THEN RETURN(-1-((-1-value) RSH bits)) FI
+RETURN(value RSH bits)
+
+PROC Init()
+  BYTE i
+  LONGINT seed
+  seed=1
+  FOR i=0 TO 63 DO
+    ; CARD keeps 65535 positive; a bare decimal 65535 is INT -1.
+    seed=(seed*133+81) MOD CARD(65535)
+    block(i)=seed
+  OD
+RETURN
+
+PROC Dct()
+  LONGINT tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7
+  LONGINT tmp10,tmp11,tmp12,tmp13,z1,z2,z3,z4,z5
+  LONGINT ARRAY p
+  BYTE row
+
+  ; Pass 1: eight adjacent values per row, scaled by another four.
+  p=block
+  FOR row=0 TO 7 DO
+    tmp0=p(0)+p(7)
+    tmp7=p(0) - p(7)
+    tmp1=p(1)+p(6)
+    tmp6=p(1) - p(6)
+    tmp2=p(2)+p(5)
+    tmp5=p(2) - p(5)
+    tmp3=p(3)+p(4)
+    tmp4=p(3) - p(4)
+    tmp10=tmp0+tmp3
+    tmp13=tmp0 - tmp3
+    tmp11=tmp1+tmp2
+    tmp12=tmp1 - tmp2
+    p(0)=((tmp10+tmp11) LSH Pass1Bits)
+    p(4)=((tmp10 - tmp11) LSH Pass1Bits)
+    ; Integer coefficients scaled by 2^ConstBits.
+    z1=(tmp12+tmp13)*4433
+    p(2)=Descale(z1+tmp13*6270, ConstBits-Pass1Bits)
+    p(6)=Descale(z1+tmp12*(-15137), ConstBits-Pass1Bits)
+    z1=tmp4+tmp7
+    z2=tmp5+tmp6
+    z3=tmp4+tmp6
+    z4=tmp5+tmp7
+    z5=(z3+z4)*9633
+    tmp4=tmp4*2446
+    tmp5=tmp5*16819
+    tmp6=tmp6*25172
+    tmp7=tmp7*12299
+    z1=z1*(-7373)
+    z2=z2*(-20995)
+    z3=z3*(-16069)
+    z4=z4*(-3196)
+    z3==+z5
+    z4==+z5
+    p(7)=Descale(tmp4+z1+z3, ConstBits-Pass1Bits)
+    p(5)=Descale(tmp5+z2+z4, ConstBits-Pass1Bits)
+    p(3)=Descale(tmp6+z2+z3, ConstBits-Pass1Bits)
+    p(1)=Descale(tmp7+z1+z4, ConstBits-Pass1Bits)
+    p==+32
+  OD
+
+  ; Pass 2: eight values per column, eight elements apart.
+  p=block
+  FOR row=0 TO 7 DO
+    tmp0=p(8*0)+p(8*7)
+    tmp7=p(8*0) - p(8*7)
+    tmp1=p(8*1)+p(8*6)
+    tmp6=p(8*1) - p(8*6)
+    tmp2=p(8*2)+p(8*5)
+    tmp5=p(8*2) - p(8*5)
+    tmp3=p(8*3)+p(8*4)
+    tmp4=p(8*3) - p(8*4)
+    tmp10=tmp0+tmp3
+    tmp13=tmp0 - tmp3
+    tmp11=tmp1+tmp2
+    tmp12=tmp1 - tmp2
+    p(8*0)=Descale(tmp10+tmp11, Pass1Bits)
+    p(8*4)=Descale(tmp10 - tmp11, Pass1Bits)
+    z1=(tmp12+tmp13)*4433
+    p(8*2)=Descale(z1+tmp13*6270, ConstBits+Pass1Bits)
+    p(8*6)=Descale(z1+tmp12*(-15137), ConstBits+Pass1Bits)
+    z1=tmp4+tmp7
+    z2=tmp5+tmp6
+    z3=tmp4+tmp6
+    z4=tmp5+tmp7
+    z5=(z3+z4)*9633
+    tmp4=tmp4*2446
+    tmp5=tmp5*16819
+    tmp6=tmp6*25172
+    tmp7=tmp7*12299
+    z1=z1*(-7373)
+    z2=z2*(-20995)
+    z3=z3*(-16069)
+    z4=z4*(-3196)
+    z3==+z5
+    z4==+z5
+    p(8*7)=Descale(tmp4+z1+z3, ConstBits+Pass1Bits)
+    p(8*5)=Descale(tmp5+z2+z4, ConstBits+Pass1Bits)
+    p(8*3)=Descale(tmp6+z2+z3, ConstBits+Pass1Bits)
+    p(8*1)=Descale(tmp7+z1+z4, ConstBits+Pass1Bits)
+    p==+4
+  OD
+RETURN
+
+INT FUNC CheckResult()
+  BYTE i
+  checksum=0
+  FOR i=0 TO 63 DO checksum==+block(i) OD
+  IF checksum=1668124 THEN RETURN(0) FI
+RETURN(-1)
+
+PROC Main()
+  Init()
+  Dct()
+  result=CheckResult()
+RETURN

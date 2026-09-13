@@ -66,6 +66,12 @@ of matrix multiplication across BYTE, INT, CARD, and LONGINT, with square and
 rectangular shapes. C references supply complete matrices and checksums.
 Run `cargo test --locked --test matrix1` from `tools/vm-runtime-tests`.
 
+The [TACLeBench jfdctint port](tacle/jfdctint/README.md) adds 724 VM executions
+of an integer JPEG forward DCT and signed rounding boundaries. The C reference
+supplies complete initialized blocks, row-pass results and final coefficients.
+The benchmark uses ordinary storage; only its VM adapter defines host addresses.
+Run `cargo test --locked --test jfdctint` from `tools/vm-runtime-tests`.
+
 Run the initialized-array gate directly:
 
 ```sh

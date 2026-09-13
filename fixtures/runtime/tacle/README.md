@@ -12,6 +12,8 @@ The [binary-search port](binarysearch/README.md) adds iterative searches over
 BYTE, INT, CARD, and LONGINT records, with shared source and typed C references.
 The [matrix1 port](matrix1/README.md) adds multiply-accumulate loops, typed pointer
 traversal, rectangular matrices, and explicit wrapping arithmetic at each width.
+The [jfdctint port](jfdctint/README.md) adds an integer JPEG forward DCT, signed
+rounding, long arithmetic sequences and complete row/column-pass comparisons.
 
 `statemate.act` ports the experimental car-window controller from TACLeBench.
 It retains all **16 nested switches as CASE statements**, with 34 explicit arms
