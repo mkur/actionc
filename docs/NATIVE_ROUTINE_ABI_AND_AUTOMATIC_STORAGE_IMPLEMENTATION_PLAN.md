@@ -695,6 +695,22 @@ Suggested commit:
 tests: prove native recursive activation semantics
 ```
 
+## MIR68K Execution Harness Decision
+
+The [minimal execution plan](MIR68K_MINIMAL_EXECUTION_PLAN.md) defines the
+delivery slices and executable acceptance gates for this follow-up.
+
+Use [r68k](https://docs.rs/r68k/latest/r68k/) as the CPU emulator for native
+68000 execution tests. The project will provide a small harness for loading
+code/data, memory and stack setup, execution limits, exception diagnostics, and
+typed result inspection through compiler-emitted symbols and layout metadata.
+
+Pin the dependency when integrating it and first qualify the adapter with
+independently encoded instruction tests, including calls, condition flags, and
+odd-address word/long access faults. Initial tests need a CPU and memory only;
+Amiga platform integration is separate work. The harness is not implemented
+yet, and existing native MIR checks remain lowering and ABI-plan checks.
+
 ## Verification Matrix
 
 After every slice that changes semantics, NIR, verification, or backend

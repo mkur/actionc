@@ -1,0 +1,11 @@
+[package]
+name = "actionc-vm68k-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+actionc = { path = "../.." }
+r68k = "=0.2.2"
+
+[workspace]
