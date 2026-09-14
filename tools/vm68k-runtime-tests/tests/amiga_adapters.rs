@@ -38,7 +38,7 @@ fn install_adapter(vm: &mut Machine, address: u32, call: LibraryCall, args: &[Ar
 #[test]
 fn service_binding_uses_ids_and_rejects_missing_or_incompatible_interfaces() {
     let source = common::Source::new(
-        "PROC Main()\nPut(65) PutE() Print(\"a\") PrintE(\"b\")\nPrintB(1) PrintBE(2) PrintC(3) PrintCE(4) PrintI(-5) PrintIE(-6)\nRETURN\n",
+        "MODULE TEST\nUSE SYS\nPROC Main()\nSYS.Put(65) SYS.PutE() SYS.Print(\"a\") SYS.PrintE(\"b\")\nSYS.PrintB(1) SYS.PrintBE(2) SYS.PrintC(3) SYS.PrintCE(4) SYS.PrintI(-5) SYS.PrintIE(-6)\nSYS.PrintLC($FFFFFFFF) SYS.PrintLCE($80000000) SYS.PrintLI(-2147483648) SYS.PrintLIE(2147483647)\nRETURN\nENDMODULE\n",
     );
     let program = prepare_file(&source.0, &Default::default()).unwrap();
     let bindings = bind(&program.mir, NativeRuntime::AmigaDos).unwrap();
@@ -48,7 +48,7 @@ fn service_binding_uses_ids_and_rejects_missing_or_incompatible_interfaces() {
         .iter()
         .filter(|r| r.entry.external)
         .collect();
-    assert_eq!(external.len(), 10);
+    assert_eq!(external.len(), 14);
     for r in &external {
         assert!(bindings.console(r.id).is_some());
     }
@@ -64,6 +64,33 @@ fn service_binding_uses_ids_and_rejects_missing_or_incompatible_interfaces() {
     let rebound = bind(&renamed, NativeRuntime::AmigaDos).unwrap();
     for r in &external {
         assert_eq!(bindings.console(r.id), rebound.console(r.id));
+    }
+    // Width alone is insufficient: signed/unsigned long interfaces differ,
+    // and existing word interfaces must not be accepted for long services.
+    for (service, wrong) in [
+        ("SYS.PrintLC", "SYS.PrintLI"),
+        ("SYS.PrintLCE", "SYS.PrintCE"),
+        ("SYS.PrintLI", "SYS.PrintLC"),
+        ("SYS.PrintLIE", "SYS.PrintIE"),
+    ] {
+        let routine = external
+            .iter()
+            .find(|r| r.entry.external_symbol == Some(actionc::nir::runtime_symbol_id(service)))
+            .unwrap();
+        let wrong = external
+            .iter()
+            .find(|r| r.entry.external_symbol == Some(actionc::nir::runtime_symbol_id(wrong)))
+            .unwrap();
+        assert!(
+            actionc::mir68k::amiga::validate_console_signature(
+                bindings.console(routine.id).unwrap(),
+                &wrong.signature
+            )
+            .unwrap_err()
+            .contains("parameter type does not match"),
+            "{service} accepted {} signature",
+            wrong.name
+        );
     }
     let mut bad = program.mir.clone();
     let r = bad

@@ -19,6 +19,10 @@ pub enum ConsoleService {
     PrintCE,
     PrintI,
     PrintIE,
+    PrintLC,
+    PrintLCE,
+    PrintLI,
+    PrintLIE,
 }
 
 /// Separate identity space for compiler-owned entry points.
@@ -199,6 +203,8 @@ pub fn validate_console_signature(
         Put | PrintB | PrintBE => ty.kind == NirTypeKind::Integer(NirIntegerType::U8),
         PrintC | PrintCE => ty.kind == NirTypeKind::Integer(NirIntegerType::U16),
         PrintI | PrintIE => ty.kind == NirTypeKind::Integer(NirIntegerType::I16),
+        PrintLC | PrintLCE => ty.kind == NirTypeKind::Integer(NirIntegerType::U32),
+        PrintLI | PrintLIE => ty.kind == NirTypeKind::Integer(NirIntegerType::I32),
         Print | PrintE => {
             matches!(&ty.kind, NirTypeKind::Pointer { pointee: Some(p), address_space }
             if **p == NirTypeKind::Integer(NirIntegerType::U8)
@@ -209,7 +215,7 @@ pub fn validate_console_signature(
     let width = match service {
         Put | PrintB | PrintBE => 1,
         PrintC | PrintCE | PrintI | PrintIE => 2,
-        Print | PrintE => 4,
+        Print | PrintE | PrintLC | PrintLCE | PrintLI | PrintLIE => 4,
         PutE => unreachable!(),
     };
     if valid && ty.width.map(|w| w.get()) == Some(width) {

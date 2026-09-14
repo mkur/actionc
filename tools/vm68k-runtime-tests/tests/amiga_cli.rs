@@ -17,7 +17,20 @@ fn public_compiler_output_runs_after_moving_without_sources_or_sidecars() {
                 fs::create_dir(dir).unwrap();
             }
             let source = source_dir.join("input file.act");
-            fs::write(&source,";@actionc target motorola-68000\n;@actionc backend mir68k\nMODULE APP\nUSE SYS\nUSE VALUES\nINCLUDE \"local.inc\"\nPROC Main()\nSYS.PrintE(\"Amiga\")\nSYS.PrintIE(VALUES.Number())\nSYS.PrintCE(answer)\nRETURN\nENDMODULE\n".replace('\n',newline)).unwrap();
+            fs::write(
+                &source,
+                concat!(
+                    ";@actionc target motorola-68000\n;@actionc backend mir68k\n",
+                    "MODULE APP\nUSE SYS\nUSE VALUES\nINCLUDE \"local.inc\"\n",
+                    "PROC Main()\nSYS.PrintE(\"Amiga\")\n",
+                    "SYS.PrintIE(VALUES.Number())\nSYS.PrintCE(answer)\n",
+                    "SYS.PrintLI(-2147483648) SYS.Put(32) SYS.PrintLIE(2147483647)\n",
+                    "SYS.PrintLC($80000000) SYS.Put(32) SYS.PrintLCE($FFFFFFFF)\n",
+                    "RETURN\nENDMODULE\n",
+                )
+                .replace('\n', newline),
+            )
+            .unwrap();
             fs::write(
                 source_dir.join("local.inc"),
                 "CARD answer=[65]\n".replace('\n', newline),
@@ -66,7 +79,10 @@ fn public_compiler_output_runs_after_moving_without_sources_or_sidecars() {
                 let run = os.run(&mut vm, 100000);
                 run.assert_completed();
                 assert_eq!(run.registers[0], 0);
-                assert_eq!(os.output, b"Amiga\n-32768\n65\n");
+                assert_eq!(
+                    os.output,
+                    b"Amiga\n-32768\n65\n-2147483648 2147483647\n2147483648 4294967295\n"
+                );
                 assert_eq!((os.open_count, os.close_count), (1, 1));
             }
         }

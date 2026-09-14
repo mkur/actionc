@@ -155,6 +155,12 @@ closes an owned DOS library and restores the entry state, returning status 0/20.
 Terminal Amiga faults restore this saved stack context and abandon failed Action!
 frames. Fault output uses the same checked span writer; output failure enters
 cleanup directly. No TRAP-based bare transport is emitted for Amiga faults.
+Amiga SYS decimal output accepts the declared BYTE, CARD, INT, LONGCARD and
+LONGINT widths and signedness. The long-integer services use unsigned magnitudes
+through 4294967295, including 2147483648 for LONGINT minimum. Their private
+formatting buffer accommodates a sign, ten digits and optional LF without
+overlapping arguments or formatter state. All decimal output uses the same
+checked span writer and terminal failure path as strings and raw bytes.
 The compiler's Amiga API binds the supported SYS declarations and returns one
 HUNK executable with section-relative metadata. Bare remains the default native
 CLI runtime; `--runtime amiga` rejects explicit origin controls. Both outputs

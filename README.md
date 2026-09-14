@@ -150,9 +150,9 @@ actionc --target motorola-68000 --runtime amiga \
   -o build/hello.amiga samples/amiga/hello.act
 ```
 
-It implements SYS byte/string and BYTE/CARD/INT decimal output. The OS assigns
-load addresses, so `--origin` is invalid. The runtime requests AmigaOS 3.1;
-all four smoke samples passed in vAmiga, including fault recovery.
+It implements SYS byte/string and BYTE/CARD/INT/LONGCARD/LONGINT decimal output.
+The OS assigns load addresses, so `--origin` is invalid. The runtime requests
+AmigaOS 3.1. All four smoke samples passed in vAmiga, including fault recovery.
 See [Amiga usage](docs/AMIGA.md) for samples,
 supported calls, stack setup and the vAmiga smoke procedure. The modes below
 describe Atari output.

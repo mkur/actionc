@@ -44,22 +44,55 @@ measurements are not a bound for arbitrary programs or real OS stack use.
 | `PrintB(value)`, `PrintBE(value)` | Unsigned BYTE decimal, with optional LF |
 | `PrintC(value)`, `PrintCE(value)` | Unsigned CARD decimal, with optional LF |
 | `PrintI(value)`, `PrintIE(value)` | Signed INT decimal, with optional LF |
+| `PrintLC(value)`, `PrintLCE(value)` | Unsigned LONGCARD decimal, with optional LF |
+| `PrintLI(value)`, `PrintLIE(value)` | Signed LONGINT decimal, with optional LF |
 
 These are the existing SYS declarations. Named modules use `USE SYS` and
 qualified calls such as `SYS.PrintE("Hello")`. Legacy-style source can use the
-unqualified names, as the samples do. Strings retain their length prefix in
+original byte, word and string calls unqualified, as the samples do.
+Strings retain their length prefix in
 memory; `Print` omits it. Payload bytes, including NUL and bytes above 127, pass
 unchanged. There is no implicit ATASCII conversion. Use printable ASCII and the
 E routines for portable text examples.
+
+The long-integer routines cover the full 32-bit ranges: 0 through 4294967295
+for LONGCARD, and -2147483648 through 2147483647 for LONGINT. Import `SYS` to
+use these existing interfaces; they are not added to the legacy unqualified
+prelude. For example, compile this module with
+`--target motorola-68000 --runtime amiga`:
+
+```action
+MODULE LONGOUTPUT
+USE SYS
+
+PROC Main()
+  SYS.PrintLI(-2147483648)
+  SYS.Put(32)
+  SYS.PrintLIE(2147483647)
+  SYS.PrintLC($80000000)
+  SYS.Put(32)
+  SYS.PrintLCE($FFFFFFFF)
+RETURN
+ENDMODULE
+```
+
+```text
+-2147483648 2147483647
+2147483648 4294967295
+```
+
+The 32-bit extension is validated in r68k with the OS-call shim, including
+partial writes and terminal output errors. The recorded manual vAmiga run
+predates this extension and covers the original BYTE/CARD/INT console APIs.
 
 Normal completion returns status 0. Startup failure, failed console output or
 a typed Action! fault returns 20 after cleanup. Fault messages identify the
 reason, for example `Action! DivisionByZero`. Partial writes are completed;
 zero progress or a negative result terminates output and the program.
 
-The program entry must be a parameterless PROC. Other SYS services, LONGINT/
-LONGCARD decimal formatting, REAL, input, graphics, general file APIs, argument
-parsing and Workbench launch are outside this runtime. Do not launch these
+The program entry must be a parameterless PROC. Other SYS services, REAL,
+input, graphics, general file APIs, argument parsing and Workbench launch are
+outside this runtime. Do not launch these
 executables as Workbench applications. Source ORG, Atari SET origin controls
 and `--origin` are invalid because the OS chooses load addresses.
 

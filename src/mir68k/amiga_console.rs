@@ -6,7 +6,16 @@ impl Builder {
         use ConsoleService::*;
         if matches!(
             service,
-            PrintB | PrintBE | PrintC | PrintCE | PrintI | PrintIE
+            PrintB
+                | PrintBE
+                | PrintC
+                | PrintCE
+                | PrintI
+                | PrintIE
+                | PrintLC
+                | PrintLCE
+                | PrintLI
+                | PrintLIE
         ) {
             return self.decimal(service);
         }
@@ -60,11 +69,15 @@ impl Builder {
 
     fn decimal(&mut self, service: ConsoleService) -> Result<(), String> {
         use ConsoleService::*;
-        let width = if matches!(service, PrintB | PrintBE) {
-            Width::Byte
-        } else {
-            Width::Word
+        let width = match service {
+            PrintB | PrintBE => Width::Byte,
+            PrintC | PrintCE | PrintI | PrintIE => Width::Word,
+            PrintLC | PrintLCE | PrintLI | PrintLIE => Width::Long,
+            _ => unreachable!(),
         };
+        // Long output needs sign + ten digits + LF. Keep the buffer clear of
+        // the outgoing arguments at -32..-25 and the leading-digit flag at -8.
+        let buffer = if width == Width::Long { -24 } else { -16 };
         let unsigned = self.label()?;
         let mut code = vec![
             Instruction::Link {
@@ -81,20 +94,24 @@ impl Builder {
                 destination: Ea::D(0),
             },
             Instruction::Lea {
-                source: Ea::Displacement(6, -16),
+                source: Ea::Displacement(6, buffer),
                 destination: 0,
             },
             byte(Ea::Immediate(0), Ea::Displacement(6, -8)),
         ];
         if matches!(service, PrintI | PrintIE) {
+            // Widen before negation: INT minimum becomes magnitude 32768.
+            code.push(Instruction::Extend {
+                to: Width::Long,
+                register: 0,
+            });
+        }
+        if matches!(service, PrintI | PrintIE | PrintLI | PrintLIE) {
             code.extend([
-                // Widen before negation: INT minimum becomes magnitude 32768.
-                Instruction::Extend {
-                    to: Width::Long,
-                    register: 0,
-                },
                 cmp(0, 0),
                 local_branch(Condition::Plus, unsigned),
+                // Negating LONGINT minimum leaves $80000000. The digit loop
+                // treats this as the unsigned magnitude 2147483648.
                 Instruction::Negate {
                     width: Width::Long,
                     register: 0,
@@ -108,9 +125,26 @@ impl Builder {
         }
         self.routine(PlatformRoutineId::Console(service), code)?;
         self.block(unsigned, vec![]);
-        // Five bounded decimal places, at most 45 subtractions. Only scratch
-        // registers are used; the result buffer fits sign + five digits + LF.
-        for place in [10000, 1000, 100, 10, 1] {
+        // Each decimal place needs at most nine unsigned subtractions. Only
+        // scratch registers are used, with five places for BYTE/word output
+        // and ten for long output; no division helper or OS formatter is used.
+        let places: &[u32] = if width == Width::Long {
+            &[
+                1_000_000_000,
+                100_000_000,
+                10_000_000,
+                1_000_000,
+                100_000,
+                10_000,
+                1_000,
+                100,
+                10,
+                1,
+            ]
+        } else {
+            &[10_000, 1_000, 100, 10, 1]
+        };
+        for &place in places {
             let init = self.label()?;
             let again = self.label()?;
             let digit = self.label()?;
@@ -171,7 +205,7 @@ impl Builder {
         }
         let end = self.label()?;
         let mut code = vec![];
-        if matches!(service, PrintBE | PrintCE | PrintIE) {
+        if matches!(service, PrintBE | PrintCE | PrintIE | PrintLCE | PrintLIE) {
             code.extend([
                 byte(Ea::Immediate(10), Ea::Indirect(0)),
                 Instruction::AddAddress {
@@ -182,7 +216,7 @@ impl Builder {
         }
         code.extend([
             Instruction::Lea {
-                source: Ea::Displacement(6, -16),
+                source: Ea::Displacement(6, buffer),
                 destination: 1,
             },
             mov(Ea::A(0), Ea::D(0)),

@@ -79,4 +79,8 @@ const SERVICES: &[(&str, ConsoleService)] = &[
     ("SYS.PrintCE", ConsoleService::PrintCE),
     ("SYS.PrintI", ConsoleService::PrintI),
     ("SYS.PrintIE", ConsoleService::PrintIE),
+    ("SYS.PrintLC", ConsoleService::PrintLC),
+    ("SYS.PrintLCE", ConsoleService::PrintLCE),
+    ("SYS.PrintLI", ConsoleService::PrintLI),
+    ("SYS.PrintLIE", ConsoleService::PrintLIE),
 ];
