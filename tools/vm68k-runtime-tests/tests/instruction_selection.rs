@@ -60,6 +60,7 @@ fn immediate_arithmetic_and_full_constant_shift_counts_match_host_oracle() {
                             forward_temporaries: true,
                             select_instructions,
                             relax_branches: false,
+                            ..Options::conservative()
                         },
                         ..Default::default()
                     },

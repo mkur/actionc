@@ -39,6 +39,7 @@ fn forwarding_preserves_calls_branches_widths_and_volatile_accesses() {
                         forward_temporaries,
                         select_instructions: false,
                         relax_branches: false,
+                        ..Options::conservative()
                     },
                     ..Default::default()
                 },

@@ -212,6 +212,7 @@ fn cyclic_parallel_edge_copies_execute_on_loop_backedges() {
                         _ => panic!(),
                     })),
                     base_alignment: Some(word),
+                    alignment_proof: None,
                     displacement: actionc::target::ByteOffset::ZERO,
                     index: None,
                     mode: Mir68kAddressMode::Static,

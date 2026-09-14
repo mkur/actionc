@@ -14,6 +14,7 @@ pub struct Options {
     pub forward_temporaries: bool,
     pub select_instructions: bool,
     pub relax_branches: bool,
+    pub pointer_alignment: bool,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -21,6 +22,17 @@ impl Default for Options {
             forward_temporaries: true,
             select_instructions: true,
             relax_branches: true,
+            pointer_alignment: true,
+        }
+    }
+}
+impl Options {
+    pub const fn conservative() -> Self {
+        Self {
+            forward_temporaries: false,
+            select_instructions: false,
+            relax_branches: false,
+            pointer_alignment: false,
         }
     }
 }
@@ -507,7 +519,10 @@ impl<'a> Builder<'a> {
     }
     fn read_memory(&mut self, address: &Mir68kAddress, width: ByteSize) -> Result<()> {
         self.address(address, 0)?;
-        if naturally_aligned(address, width) {
+        if address.naturally_aligned(width)
+            && (self.options.pointer_alignment
+                || !matches!(address.base, Mir68kAddressBase::Indirect(_)))
+        {
             self.mov(Width::from_bytes(width.get())?, Ea::Indirect(0), Ea::D(0));
         } else {
             self.mov(Width::Long, Ea::Immediate(0), Ea::D(0));
@@ -529,7 +544,10 @@ impl<'a> Builder<'a> {
     }
     fn write_memory(&mut self, address: &Mir68kAddress, width: ByteSize) -> Result<()> {
         self.address(address, 0)?;
-        if naturally_aligned(address, width) {
+        if address.naturally_aligned(width)
+            && (self.options.pointer_alignment
+                || !matches!(address.base, Mir68kAddressBase::Indirect(_)))
+        {
             self.mov(Width::from_bytes(width.get())?, Ea::D(0), Ea::Indirect(0));
         } else {
             for byte in 0..width.get() {
@@ -960,15 +978,6 @@ impl<'a> Builder<'a> {
 fn displacement(value: i64) -> Result<i16> {
     i16::try_from(value)
         .map_err(|_| "native frame exceeds original MC68000 signed-16 displacement limits".into())
-}
-fn naturally_aligned(address: &Mir68kAddress, width: ByteSize) -> bool {
-    width.get() == 1
-        || address.base_alignment.is_some_and(|a| a.get() >= 2)
-            && address.displacement.get() & 1 == 0
-            && address
-                .index
-                .as_ref()
-                .is_none_or(|i| i.stride.get() & 1 == 0)
 }
 fn reserve(cursor: &mut u32, size: u32) -> Result<i16> {
     *cursor = cursor

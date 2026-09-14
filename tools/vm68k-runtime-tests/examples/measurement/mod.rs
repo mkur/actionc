@@ -9,10 +9,9 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
             "--no-codegen-opt" => {
-                options.codegen.forward_temporaries = false;
-                options.codegen.select_instructions = false;
-                options.codegen.relax_branches = false;
+                options.codegen = actionc::mir68k::materialize::Options::conservative();
             }
+            "--no-pointer-alignment" => options.codegen.pointer_alignment = false,
             "--no-forward-temporaries" => options.codegen.forward_temporaries = false,
             "--no-select-instructions" => options.codegen.select_instructions = false,
             "--no-relax-branches" => options.codegen.relax_branches = false,

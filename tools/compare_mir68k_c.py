@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "tools/mir68k-c-reference"
 BENCHMARKS = ("insertsort", "matrix1")
 ACTIONC_SWITCHES = ("no-opt", "no-codegen-opt", "no-forward-temporaries",
-                   "no-select-instructions", "no-relax-branches")
+                   "no-select-instructions", "no-relax-branches", "no-pointer-alignment")
 # -mcpu selects both the instruction set and the original-68000 libgcc multilib.
 # Do not add -mshort: individual C types already match the Action! declarations.
 FLAGS = ["-mcpu=68000", "-std=c11", "-ffreestanding", "-fno-builtin",

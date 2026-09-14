@@ -27,7 +27,8 @@ worktree status in `build/mir68k-c-reference/toolchain.json`.
 The same file records Action! switches; `actionc-options.txt` records the resolved
 native settings and input Git hashes. `--no-opt` selects raw Action! NIR;
 `--no-codegen-opt` disables target optimization. Individual switches
-`--no-forward-temporaries`, `--no-select-instructions` and `--no-relax-branches`
+`--no-forward-temporaries`, `--no-select-instructions`, `--no-relax-branches`
+and `--no-pointer-alignment`
 support controlled comparisons. These switches leave GCC's configuration alone.
 Use a separate `--build-dir` for each experiment to retain its results.
 

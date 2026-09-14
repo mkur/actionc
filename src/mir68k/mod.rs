@@ -331,9 +331,21 @@ pub struct Mir68kAddress {
     /// Proven base alignment. `None` means the backend must assume byte
     /// alignment, as for an arbitrary pointer value.
     pub base_alignment: Option<ByteSize>,
+    /// Required for stronger indirect-base alignment; bound to verified SSA.
+    pub alignment_proof: Option<crate::nir::NirAlignmentProof>,
     pub displacement: ByteOffset,
     pub index: Option<Mir68kIndex>,
     pub mode: Mir68kAddressMode,
+}
+
+impl Mir68kAddress {
+    /// Original MC68000 word and long accesses both require an even address.
+    pub fn naturally_aligned(&self, width: ByteSize) -> bool {
+        width.get() == 1
+            || self.base_alignment.is_some_and(|a| a.get() >= 2)
+                && self.displacement.get() & 1 == 0
+                && self.index.as_ref().is_none_or(|i| i.stride.get() & 1 == 0)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

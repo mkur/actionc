@@ -19,9 +19,7 @@ fn run() -> Result<(), String> {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
             "--no-codegen-opt" => {
-                options.codegen.forward_temporaries = false;
-                options.codegen.select_instructions = false;
-                options.codegen.relax_branches = false;
+                options.codegen = actionc::mir68k::materialize::Options::conservative();
             }
             "--dump" => {
                 dump = Some(std::path::PathBuf::from(

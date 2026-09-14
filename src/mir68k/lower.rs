@@ -34,6 +34,12 @@ pub(super) fn lower_program(
     let data = super::data::lower(program, &mut diagnostics);
 
     let storage = crate::nir::analyze_program_storage(program);
+    let alignment = crate::nir::analyze_alignment(program).map_err(|errors| {
+        errors
+            .into_iter()
+            .map(|error| diagnostic(None, None, &format!("invalid alignment input: {error:?}")))
+            .collect::<Vec<_>>()
+    })?;
     let mut routines = Vec::with_capacity(program.routines.len());
     for (routine, storage) in program.routines.iter().zip(&storage.routines) {
         if matches!(
@@ -50,7 +56,13 @@ pub(super) fn lower_program(
         let Some(frame) = plan_frame(routine, storage, &mut diagnostics) else {
             continue;
         };
-        routines.push(lower_routine(program, routine, frame, &mut diagnostics));
+        routines.push(lower_routine(
+            program,
+            routine,
+            frame,
+            &alignment,
+            &mut diagnostics,
+        ));
     }
     if !diagnostics.is_empty() {
         return Err(diagnostics);
@@ -85,6 +97,7 @@ fn lower_routine(
     program: &NirProgram,
     routine: &NirRoutine,
     frame: Mir68kFramePlan,
+    alignment: &crate::nir::NirAlignmentAnalysis<'_>,
     diagnostics: &mut Vec<Mir68kDiagnostic>,
 ) -> Mir68kRoutine {
     let layout = &program.target_layout;
@@ -101,7 +114,17 @@ fn lower_routine(
             ops: block
                 .ops
                 .iter()
-                .filter_map(|op| lower_op(op, program, routine, &frame, &block.label, diagnostics))
+                .filter_map(|op| {
+                    lower_op(
+                        op,
+                        program,
+                        routine,
+                        &frame,
+                        &block.label,
+                        diagnostics,
+                        &|value| alignment.value_proof(routine.id, block.id, value),
+                    )
+                })
                 .collect(),
             terminator: lower_terminator(
                 &block.terminator,
@@ -499,6 +522,7 @@ pub(super) fn verify_routine_plan(routine: &Mir68kRoutine) -> Result<(), String>
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lower_op(
     op: &NirOp,
     program: &NirProgram,
@@ -506,13 +530,16 @@ fn lower_op(
     frame: &Mir68kFramePlan,
     block: &str,
     diagnostics: &mut Vec<Mir68kDiagnostic>,
+    alignment: &impl Fn(&NirValue) -> Option<crate::nir::NirAlignmentProof>,
 ) -> Option<Mir68kOp> {
     let data_width = program.target_layout.data_pointer.size_bytes;
     let code_width = program.target_layout.code_pointer.size_bytes;
     let width = |ty: &NirType| ty.width.expect("verified scalar NIR type has width");
     match op {
         NirOp::Load { dest, ty, place } | NirOp::VolatileLoad { dest, ty, place } => {
-            let address = lower_place(place, data_width, code_width, program, routine, frame);
+            let address = lower_place(
+                place, data_width, code_width, program, routine, frame, alignment,
+            );
             let width = width(ty);
             Some(Mir68kOp::Load {
                 dest: *dest,
@@ -524,11 +551,15 @@ fn lower_op(
         }
         NirOp::AddrOf { dest, ty, place } => Some(Mir68kOp::AddressOf {
             dest: *dest,
-            address: lower_place(place, data_width, code_width, program, routine, frame),
+            address: lower_place(
+                place, data_width, code_width, program, routine, frame, alignment,
+            ),
             width: width(ty),
         }),
         NirOp::Store { place, src, ty } | NirOp::VolatileStore { place, src, ty } => {
-            let address = lower_place(place, data_width, code_width, program, routine, frame);
+            let address = lower_place(
+                place, data_width, code_width, program, routine, frame, alignment,
+            );
             let width = width(ty);
             Some(Mir68kOp::Store {
                 access: access(width, &address),
@@ -545,8 +576,18 @@ fn lower_op(
             destination_volatile,
             source_volatile,
         } => Some(Mir68kOp::Copy {
-            destination: lower_place(destination, data_width, code_width, program, routine, frame),
-            source: lower_place(source, data_width, code_width, program, routine, frame),
+            destination: lower_place(
+                destination,
+                data_width,
+                code_width,
+                program,
+                routine,
+                frame,
+                alignment,
+            ),
+            source: lower_place(
+                source, data_width, code_width, program, routine, frame, alignment,
+            ),
             bytes: *size,
             overlap_safe: true,
             destination_volatile: *destination_volatile,
@@ -690,13 +731,7 @@ fn lower_op(
 fn access(width: ByteSize, address: &Mir68kAddress) -> Mir68kAccess {
     match width.get() {
         1 => Mir68kAccess::Byte,
-        2 if address
-            .base_alignment
-            .is_some_and(|alignment| alignment.get() >= 2)
-            && address.displacement.get() % 2 == 0 =>
-        {
-            Mir68kAccess::NativeAlignedWord
-        }
+        2 if address.naturally_aligned(width) => Mir68kAccess::NativeAlignedWord,
         2 => Mir68kAccess::BytewisePackedOddWord {
             endian: Endian::Big,
         },
@@ -704,6 +739,7 @@ fn access(width: ByteSize, address: &Mir68kAddress) -> Mir68kAccess {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lower_place(
     place: &NirPlace,
     data_width: ByteSize,
@@ -711,6 +747,7 @@ fn lower_place(
     program: &NirProgram,
     routine: &NirRoutine,
     frame: &Mir68kFramePlan,
+    alignment: &impl Fn(&NirValue) -> Option<crate::nir::NirAlignmentProof>,
 ) -> Mir68kAddress {
     match &place.kind {
         NirPlaceKind::Param { id, .. } => {
@@ -733,7 +770,8 @@ fn lower_place(
         NirPlaceKind::Absolute(address) => absolute(*address),
         NirPlaceKind::Deref { addr } => Mir68kAddress {
             base: Mir68kAddressBase::Indirect(lower_value(addr, data_width, code_width)),
-            base_alignment: None,
+            base_alignment: alignment(addr).map(|_| ByteSize::new(2)),
+            alignment_proof: alignment(addr),
             displacement: ByteOffset::ZERO,
             index: None,
             mode: Mir68kAddressMode::AddressIndirect,
@@ -745,7 +783,8 @@ fn lower_place(
             ..
         } => Mir68kAddress {
             base: Mir68kAddressBase::Indirect(lower_value(base_addr, data_width, code_width)),
-            base_alignment: None,
+            base_alignment: alignment(base_addr).map(|_| ByteSize::new(2)),
+            alignment_proof: alignment(base_addr),
             displacement: ByteOffset::ZERO,
             index: Some(Mir68kIndex {
                 value: lower_value(index, data_width, code_width),
@@ -754,7 +793,9 @@ fn lower_place(
             mode: Mir68kAddressMode::Indexed,
         },
         NirPlaceKind::Field { base, offset, .. } => with_displacement(
-            lower_place(base, data_width, code_width, program, routine, frame),
+            lower_place(
+                base, data_width, code_width, program, routine, frame, alignment,
+            ),
             *offset,
         ),
     }
@@ -819,6 +860,7 @@ fn direct(base: Mir68kAddressBase, base_alignment: Option<ByteSize>) -> Mir68kAd
     Mir68kAddress {
         base,
         base_alignment,
+        alignment_proof: None,
         displacement: ByteOffset::ZERO,
         index: None,
         mode,
@@ -827,6 +869,7 @@ fn direct(base: Mir68kAddressBase, base_alignment: Option<ByteSize>) -> Mir68kAd
 
 fn absolute(address: AddressValue) -> Mir68kAddress {
     Mir68kAddress {
+        alignment_proof: None,
         base: Mir68kAddressBase::External(Mir68kExternalAddress::Absolute(address)),
         base_alignment: Some(if address.value % 2 == 0 {
             ByteSize::new(2)
@@ -871,7 +914,11 @@ fn with_displacement(mut address: Mir68kAddress, offset: ByteOffset) -> Mir68kAd
     address
 }
 
-fn lower_value(value: &NirValue, data_width: ByteSize, code_width: ByteSize) -> Mir68kValue {
+pub(super) fn lower_value(
+    value: &NirValue,
+    data_width: ByteSize,
+    code_width: ByteSize,
+) -> Mir68kValue {
     match value {
         NirValue::Aggregate { .. } => {
             unreachable!("aggregate ABI expansion precedes scalar MIR selection")
@@ -1016,7 +1063,11 @@ RETURN
 "#;
 
     fn lower_source() -> NirProgram {
-        let tokens = crate::lexer::tokenize(SOURCE).expect("tokenize 68k canary");
+        lower_text(SOURCE)
+    }
+
+    fn lower_text(source: &str) -> NirProgram {
+        let tokens = crate::lexer::tokenize(source).expect("tokenize 68k canary");
         let program = crate::parser::parse(&tokens).expect("parse 68k canary");
         let model = analyze_with_options(
             &program,
@@ -1025,6 +1076,40 @@ RETURN
         .expect("analyze 68k canary");
         let semir = crate::semantic::ir::lower_program(&program, &model);
         crate::nir::lower_program(&semir)
+    }
+
+    #[test]
+    fn indirect_alignment_requires_a_matching_verified_receipt() {
+        let nir = lower_text(
+            "LONGCARD ARRAY data(2)\nLONGCARD result\nPROC Main()\nLONGCARD POINTER p\np=data result=p^\nRETURN\n",
+        );
+        let mir = crate::mir68k::lower_program(&nir).unwrap();
+        for replace_value in [false, true] {
+            let mut changed = mir.clone();
+            let address = changed
+                .routines
+                .iter_mut()
+                .flat_map(|r| &mut r.blocks)
+                .flat_map(|b| &mut b.ops)
+                .find_map(|op| match op {
+                    Mir68kOp::Load { address, .. } if address.alignment_proof.is_some() => {
+                        Some(address)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            if replace_value {
+                address.base = Mir68kAddressBase::Indirect(Mir68kValue::U32(0x4001));
+            } else {
+                address.alignment_proof = None;
+            }
+            assert!(
+                super::super::verify::verify_contract(&changed)
+                    .unwrap_err()
+                    .iter()
+                    .any(|d| d.message.contains("matching verified proof"))
+            );
+        }
     }
 
     fn force_one_packed_odd_word(program: &mut NirProgram) {

@@ -117,6 +117,22 @@ observable byte accesses. Fixed-size copies stage the complete source before
 writing the destination, preserving overlapping value semantics. Automatic
 array descriptors, backing, and initialization remain invocation-local.
 
+Indirect base alignment comes from the verified NIR alignment analysis. Each
+stronger claim carries an opaque receipt identifying its routine, block and
+captured value; MIR verification rejects missing or mismatched receipts and
+invalid alignment values. A typed-MIR rewrite that changes the proving SSA
+definitions must discard or recompute these receipts. The current backend
+preserves those definitions through materialization. One effective-address
+predicate checks base alignment, displacement and index stride. Word and long
+accesses both require even addresses, and `pointer_alignment` can disable the
+new indirect-access selection for differential execution.
+
+Pointer cell alignment and descriptor initializers are not pointee guarantees.
+The first analysis tracks private scalar cells and SSA values, with conservative
+joins, unknown entry values and explicit call effects. Mutable descriptor
+loads remain unknown; direct arrays and addresses of frame objects can prove
+alignment without an interprocedural descriptor immutability analysis.
+
 Qualified symbol names are attached as display metadata by the compiler API;
 no machine decision depends on source/linker spelling. Parameters and automatic
 objects have frame-relative symbol locations, including the actual source

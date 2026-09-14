@@ -298,13 +298,25 @@ physical calling conventions, object formats, linker policy, or listing
 syntax. Compatibility wrappers may accept an unchecked `NirProgram`, but must
 construct a `VerifiedNir` token before invoking target lowering.
 
-The current MIR65816 and MIR68K entry points are contract canaries, not code
-emitters. They independently lower scalar arithmetic, address forms, aggregate
+MIR65816 retains a contract canary; MIR68K also emits executable native images.
+They independently lower scalar arithmetic, address forms, aggregate
 copies, branches, calls, returns, and typed relocations. MIR65816 records the
 native three-byte and small-model two-byte pointer policies on a 24-bit
 architecture. MIR68K projects integer data as big-endian, retains four-byte
 data and code pointers, and selects bytewise access for a 16-bit value unless
-its base alignment and even displacement prove a legal 68000 word access.
+its base alignment, displacement and index stride prove a legal 68000 access.
+
+The read-only NIR alignment analysis borrows verified NIR and derives guaranteed
+even values from layouts, addresses, scalar computation, private cell stores
+and SSA edge arguments. Its fixed point distinguishes unreachable paths from
+reachable unknown values, and meets all incoming edges, including parallel
+edges. Calls cannot invalidate captured SSA values; tracking a cell requires
+the existing storage/effect proof that writes cannot reach it indirectly.
+Unknown initial values and mutable descriptor loads never gain alignment from
+the layout of their containing cell. Facts must be recomputed after rewrites.
+Opaque result receipts may cross into MIR as proof metadata, bound to their
+routine/block/value association. NIR derives the guarantee; MIR68K decides
+whether it permits a native memory instruction.
 
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, `CARD` and
 `INT` are 16-bit, and `LONGINT` and `LONGCARD` are 32-bit. `ADDRESS` and `SIZE` are

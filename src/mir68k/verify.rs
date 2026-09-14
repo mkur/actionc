@@ -159,10 +159,10 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
                         }
                     }
                     Mir68kOp::Load { address, .. } | Mir68kOp::AddressOf { address, .. } => {
-                        addresses.push(address)
+                        addresses.push((block.id, address))
                     }
                     Mir68kOp::Store { address, value, .. } => {
-                        addresses.push(address);
+                        addresses.push((block.id, address));
                         values.push(value);
                     }
                     Mir68kOp::Copy {
@@ -170,7 +170,7 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
                         source,
                         ..
                     } => {
-                        addresses.extend([destination, source]);
+                        addresses.extend([(block.id, destination), (block.id, source)]);
                     }
                     Mir68kOp::Unary { value, .. } | Mir68kOp::Cast { value, .. } => {
                         values.push(value)
@@ -262,7 +262,58 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
                 }
             }
         }
-        for address in addresses {
+        for (block, address) in addresses {
+            if address
+                .base_alignment
+                .is_some_and(|a| !matches!(a.get(), 1 | 2))
+            {
+                report(
+                    Some(&routine.name),
+                    "invalid address alignment guarantee".into(),
+                );
+            }
+            if address.base_alignment.is_some_and(|a| a.get() == 2)
+                && match &address.base {
+                    Mir68kAddressBase::External(Mir68kExternalAddress::Absolute(a)) => {
+                        a.value & 1 != 0
+                    }
+                    Mir68kAddressBase::AutomaticFrame(id) => routine
+                        .frame
+                        .objects
+                        .iter()
+                        .find(|object| object.id == *id)
+                        .is_some_and(|object| object.frame_offset & 1 != 0),
+                    _ => false,
+                }
+            {
+                report(
+                    Some(&routine.name),
+                    "address alignment contradicts its placement".into(),
+                );
+            }
+            if let Mir68kAddressBase::Indirect(value) = &address.base {
+                let valid = address.alignment_proof.as_ref().is_some_and(|proof| {
+                    let (source_routine, source_block, source_value) = proof.source();
+                    source_routine == routine.id
+                        && source_block == block
+                        && super::lower::lower_value(
+                            source_value,
+                            program.data_pointer_width,
+                            program.code_pointer_width,
+                        ) == *value
+                });
+                if address.base_alignment.is_some_and(|a| a.get() >= 2) && !valid {
+                    report(
+                        Some(&routine.name),
+                        "indirect alignment lacks a matching verified proof".into(),
+                    );
+                }
+            } else if address.alignment_proof.is_some() {
+                report(
+                    Some(&routine.name),
+                    "indirect alignment proof attached to direct storage".into(),
+                );
+            }
             if let Some(index) = &address.index {
                 values.push(&index.value);
             }

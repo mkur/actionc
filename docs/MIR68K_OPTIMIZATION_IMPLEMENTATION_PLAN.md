@@ -1,6 +1,6 @@
 # MIR68K alignment, control flow and register retention
 
-Status: in progress. Slice 1 is complete; slices 2–6 remain. Commit each major
+Status: in progress. Slices 1–2 are complete; slices 3–6 remain. Commit each major
 slice after its validation gate passes.
 
 The objective is to remove the largest avoidable costs exposed by the
@@ -64,6 +64,22 @@ runners still validate their results. Keep the C sources and GCC flags fixed
 throughout this milestone.
 
 ## Slice 2: Carry proven pointer alignment into memory operations
+
+Implemented: verified NIR even-alignment analysis, private scalar-cell dataflow,
+loop/parallel-edge joins and opaque receipts checked at the MIR68K boundary.
+Native longword accesses reduce optimized matrix1 to 111,376 instructions and
+insertion sort to 6,796, from 162,876 and 10,617 respectively. Stack traffic and
+frames are unchanged. The paired comparison passes all 693 reference executions;
+the native suite passes 62 tests and the NIR sweep passes all 51 fixtures.
+Artifacts are in `build/mir68k-optimization/slice2/`.
+NIR snapshots pass unchanged. The full compiler run passed up to an unrelated
+sample-loader failure in uncommitted `shared/lines.act`; the remaining test
+targets pass, and the sample test passes in an isolated checkout of this slice.
+
+Scope refinement: matrix1 uses direct arrays, so its alignment proof needs no
+descriptor immutability analysis. Mutable descriptor loads remain unknown,
+including when their initialized pointer is changed before execution. Keep
+that conservative boundary until a later workload needs stronger proofs.
 
 Add a reusable analysis over verified NIR, keyed by routine, block, temp and
 storage IDs. Its result describes guaranteed address alignment; it does not
