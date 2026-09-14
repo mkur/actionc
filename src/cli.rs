@@ -51,15 +51,28 @@ struct CompileOutputs {
 }
 
 pub fn actionc_main() {
-    run_main(CliFlavor::Compile);
+    run_main(CliFlavor::Compile, env::args().skip(1).collect());
 }
 
 pub fn emit_main() {
-    run_main(CliFlavor::Emit);
+    run_main(CliFlavor::Emit, env::args().skip(1).collect());
 }
 
-fn run_main(flavor: CliFlavor) {
-    let mut args = env::args().skip(1);
+fn run_main(flavor: CliFlavor, args: Vec<String>) {
+    // Debug frontend/lowering frames can exceed Windows' main-thread stack
+    // even for ordinary fixtures. Match the NIR sweep's compiler stack on all
+    // hosts; RUST_MIN_STACK does not configure the process's main thread.
+    std::thread::Builder::new()
+        .name(flavor.executable_name().into())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(move || run_compiler(flavor, args))
+        .expect("start compiler worker")
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+}
+
+fn run_compiler(flavor: CliFlavor, args: Vec<String>) {
+    let mut args = args.into_iter();
     let mut emit_tokens = false;
     let mut emit_code = false;
     let mut emit_listing = false;
@@ -1629,6 +1642,9 @@ fn parse_origin(value: &str) -> u32 {
         }
     }
 }
+
+#[cfg(test)]
+mod stack_tests;
 
 #[cfg(test)]
 mod tests {
