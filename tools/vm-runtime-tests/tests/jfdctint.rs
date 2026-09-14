@@ -4,6 +4,8 @@ use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_
 use std::path::{Path, PathBuf};
 
 const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/jfdctint/jfdctint.act");
+const SHAPED_SOURCE: &str =
+    include_str!("../../../fixtures/runtime/tacle/jfdctint/multidimensional.act");
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/jfdctint/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
 const HOST_BYTES: usize = 0x0A00;
@@ -17,7 +19,7 @@ fn replace_once(source: &mut String, old: &str, new: &str) {
     *source = source.replace(old, new);
 }
 
-fn instrument(source: &str) -> String {
+fn instrument(source: &str, shaped: bool) -> String {
     let mut source = source.replace("\r\n", "\n");
     // Keep every benchmark variable compiler-allocated. Only this 6502 adapter
     // owns the host mailboxes, serialization layout and page-crossing buffers.
@@ -56,6 +58,22 @@ fn instrument(source: &str) -> String {
            testSum=checksum testResult=result done=$A5\n\
          RETURN\n",
     );
+    if shaped {
+        // Only generated capture/driver accesses use this spelling in the
+        // shaped source. Keep the algorithm itself in two coordinates.
+        assert_eq!(source.matches("block(i)").count(), 6);
+        source = source.replace("block(i)", "testFlat(i)");
+        replace_once(
+            &mut source,
+            "INT result\n",
+            "INT result\nLONGINT ARRAY testFlat\n",
+        );
+        replace_once(
+            &mut source,
+            "IF testCommand=0 THEN Init()",
+            "testFlat=block\nIF testCommand=0 THEN Init()",
+        );
+    }
     source
 }
 
@@ -121,8 +139,8 @@ fn parse_vectors(text: &str) -> Vec<Vector> {
 fn jfdctint_lf_and_crlf_preserve_instrumentation_and_reference_vectors() {
     let source = SOURCE.replace("\r\n", "\n");
     assert_eq!(
-        instrument(&source),
-        instrument(&source.replace('\n', "\r\n"))
+        instrument(&source, false),
+        instrument(&source.replace('\n', "\r\n"), false)
     );
     let text = VECTORS.replace("\r\n", "\n");
     let vectors = parse_vectors(&text);
@@ -159,7 +177,7 @@ impl Drop for TemporarySource {
     }
 }
 
-fn check_jfdctint(mode: CompileMode, runtime: Runtime) {
+fn check_jfdctint(mode: CompileMode, runtime: Runtime, shaped: bool) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let temporary = TemporarySource::new(mode, runtime);
     let text = |source: &str| {
@@ -172,7 +190,14 @@ fn check_jfdctint(mode: CompileMode, runtime: Runtime) {
     };
     let path = temporary.0.join("jfdctint.act");
     // Both newline conventions reach actual instrumentation and compilation.
-    std::fs::write(&path, text(&instrument(&text(SOURCE)))).unwrap();
+    std::fs::write(
+        &path,
+        text(&instrument(
+            &text(if shaped { SHAPED_SOURCE } else { SOURCE }),
+            shaped,
+        )),
+    )
+    .unwrap();
     let compiled = compile_file(
         &path,
         &CompileOptions::for_mode(mode)
@@ -286,20 +311,49 @@ fn check_jfdctint(mode: CompileMode, runtime: Runtime) {
 
 #[test]
 fn jfdctint_mir6502_cart_matches_c_reference() {
-    check_jfdctint(CompileMode::Mir6502, Runtime::ActionCart);
+    check_jfdctint(CompileMode::Mir6502, Runtime::ActionCart, false);
 }
 
 #[test]
 fn jfdctint_mir6502_standalone_matches_c_reference() {
-    check_jfdctint(CompileMode::Mir6502, Runtime::Standalone);
+    check_jfdctint(CompileMode::Mir6502, Runtime::Standalone, false);
 }
 
 #[test]
 fn jfdctint_classic_cart_matches_c_reference() {
-    check_jfdctint(CompileMode::Optimized, Runtime::ActionCart);
+    check_jfdctint(CompileMode::Optimized, Runtime::ActionCart, false);
 }
 
 #[test]
 fn jfdctint_classic_standalone_matches_c_reference() {
-    check_jfdctint(CompileMode::Optimized, Runtime::Standalone);
+    check_jfdctint(CompileMode::Optimized, Runtime::Standalone, false);
+}
+
+#[test]
+fn jfdctint_multidimensional_mir6502_cart_matches_c_reference() {
+    check_jfdctint(CompileMode::Mir6502, Runtime::ActionCart, true);
+}
+
+#[test]
+fn jfdctint_multidimensional_mir6502_standalone_matches_c_reference() {
+    check_jfdctint(CompileMode::Mir6502, Runtime::Standalone, true);
+}
+
+#[test]
+fn jfdctint_multidimensional_classic_cart_matches_c_reference() {
+    check_jfdctint(CompileMode::Optimized, Runtime::ActionCart, true);
+}
+
+#[test]
+fn jfdctint_multidimensional_classic_standalone_matches_c_reference() {
+    check_jfdctint(CompileMode::Optimized, Runtime::Standalone, true);
+}
+
+#[test]
+fn jfdctint_multidimensional_instrumentation_accepts_lf_and_crlf() {
+    let source = SHAPED_SOURCE.replace("\r\n", "\n");
+    assert_eq!(
+        instrument(&source, true),
+        instrument(&source.replace('\n', "\r\n"), true)
+    );
 }

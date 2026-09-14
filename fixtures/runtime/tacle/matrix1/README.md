@@ -161,3 +161,16 @@ vectors without a C compiler or network access.
 Each row contains the type, shape, label, command, three input arrays, three
 expected arrays, checksum, and status. The command is decimal; memory fields
 encode complete little-endian contents as hex.
+
+## Fixed multidimensional variant
+
+`multidimensional.act` and `multidimensional.inc` use modern fixed shapes:
+A is `(Rows,Inner)`, B is `(Columns,Inner)`, and C is `(Columns,Rows)`.
+Multiplication uses `A(row,k) * B(column,k)` and updates `C(column,row)`.
+This preserves the C reference's column-major B/C storage and narrowing after
+each accumulation. The original flat/pointer implementation remains the baseline.
+
+The existing matrix1 VM targets also run this variant against all 252 cases,
+including BYTE, INT, CARD and LONGINT with square, rectangular and 129-element
+inner dimensions. Both 6502 backends/runtimes and raw/optimized 68K are covered.
+See [measurements](../../../../docs/MULTIDIMENSIONAL_ARRAYS_VALIDATION.md).

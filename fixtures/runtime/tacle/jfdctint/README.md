@@ -134,3 +134,16 @@ The r68k adapter runs all 181 cases, comparing the row pass, final block and sig
 ```sh
 cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test jfdctint
 ```
+
+## Fixed multidimensional variant
+
+`multidimensional.act` declares `LONGINT ARRAY block(8,8)` and uses
+`block(row,k)` during the row pass and `block(k,column)` during the column
+pass. Every coefficient, arithmetic operation, Descale call and pass boundary
+is retained. The original pointer implementation remains the baseline.
+
+The existing jfdctint VM targets run both variants against all 181 vectors.
+The shaped adapter uses an explicit flat view only to copy harness input and
+pass snapshots. Both 6502 backends/runtimes and raw/optimized 68K are covered,
+with LF/CRLF instrumentation and complete input, row-pass, output and status
+checks. See [measurements](../../../../docs/MULTIDIMENSIONAL_ARRAYS_VALIDATION.md).

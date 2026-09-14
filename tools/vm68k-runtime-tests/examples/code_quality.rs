@@ -18,9 +18,11 @@ fn run() {
     let names: Vec<String> = [
         "insertsort",
         "matrix1",
+        "matrix1-multidimensional",
         "binarysearch",
         "sha",
         "jfdctint",
+        "jfdctint-multidimensional",
         "adpcm_dec",
         "adpcm_enc",
     ]
@@ -41,8 +43,13 @@ fn run() {
             .into_iter()
             .filter(|optimized| !optimized || options.optimize)
         {
+            let (directory, file) = name
+                .strip_suffix("-multidimensional")
+                .map_or((name.as_str(), name.as_str()), |base| {
+                    (base, "multidimensional")
+                });
             let program = compile_file(
-                root.join(format!("fixtures/runtime/tacle/{name}/{name}.act")),
+                root.join(format!("fixtures/runtime/tacle/{directory}/{file}.act")),
                 &NativeCompileOptions {
                     optimize,
                     ..options.clone()

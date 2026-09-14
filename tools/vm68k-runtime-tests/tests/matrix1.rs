@@ -3,6 +3,10 @@ use actionc::compiler::native::{NativeCompileOptions, compile_file};
 use actionc_vm68k_tests::Machine;
 const CORE: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/kernel.inc");
 const DRIVER: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/matrix1.act");
+const SHAPED_CORE: &str =
+    include_str!("../../../fixtures/runtime/tacle/matrix1/multidimensional.inc");
+const SHAPED_DRIVER: &str =
+    include_str!("../../../fixtures/runtime/tacle/matrix1/multidimensional.act");
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/vectors.txt");
 const SHAPES: [&str; 3] = ["10x10x10", "3x7x5", "2x129x1"];
 const KINDS: [(&str, usize); 4] = [("LONGINT", 4), ("BYTE", 1), ("INT", 2), ("CARD", 2)];
@@ -30,7 +34,7 @@ fn replace_once(source: &mut String, old: &str, new: &str) {
     assert_eq!(source.matches(old).count(), 1, "{old}");
     *source = source.replace(old, new);
 }
-fn execute(optimize: bool) {
+fn execute(optimize: bool, shaped: bool) {
     let vector_text = text(VECTORS, optimize);
     let vectors: Vec<Vec<_>> = vector_text
         .lines()
@@ -42,8 +46,8 @@ fn execute(optimize: bool) {
     for (kind, width) in KINDS {
         for shape in SHAPES {
             let dimensions: Vec<_> = shape.split('x').collect();
-            let mut driver = DRIVER.replace("\r\n", "\n");
-            let mut core = CORE.replace("\r\n", "\n");
+            let mut driver = (if shaped { SHAPED_DRIVER } else { DRIVER }).replace("\r\n", "\n");
+            let mut core = (if shaped { SHAPED_CORE } else { CORE }).replace("\r\n", "\n");
             replace_once(
                 &mut driver,
                 "CONST Rows=10,Inner=10,Columns=10,ElementBytes=4",
@@ -62,13 +66,23 @@ fn execute(optimize: bool) {
             for old in [
                 "PROC PinDown(LONGINT ARRAY a,b,c)",
                 "VOLATILE LONGINT one=[1]",
-                "LONGINT POINTER pa,pb,pc",
             ] {
                 replace_once(&mut core, old, &old.replace("LONGINT", kind));
             }
+            if !shaped {
+                replace_once(
+                    &mut core,
+                    "LONGINT POINTER pa,pb,pc",
+                    &format!("{kind} POINTER pa,pb,pc"),
+                );
+            }
             let source = common::Source::new(&text(&driver, optimize));
             std::fs::write(
-                source.0.parent().unwrap().join("kernel.inc"),
+                source.0.parent().unwrap().join(if shaped {
+                    "multidimensional.inc"
+                } else {
+                    "kernel.inc"
+                }),
                 text(&core, optimize),
             )
             .unwrap();
@@ -125,9 +139,18 @@ fn execute(optimize: bool) {
 }
 #[test]
 fn matrix1_raw_matches_all_types_shapes_and_c_state() {
-    execute(false);
+    execute(false, false);
 }
 #[test]
 fn matrix1_optimized_matches_all_types_shapes_and_c_state() {
-    execute(true);
+    execute(true, false);
+}
+
+#[test]
+fn matrix1_multidimensional_raw_matches_all_types_shapes_and_c_state() {
+    execute(false, true);
+}
+#[test]
+fn matrix1_multidimensional_optimized_matches_all_types_shapes_and_c_state() {
+    execute(true, true);
 }

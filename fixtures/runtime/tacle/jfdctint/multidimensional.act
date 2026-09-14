@@ -1,0 +1,132 @@
+; Integer JPEG forward DCT from TACLeBench / the Independent JPEG Group.
+; Copyright (C) 1991-1994, Thomas G. Lane; modified by Steven Li.
+; Action! adaptation, 2026. See README.md and the unmodified upstream README.
+; This software is based in part on the work of the Independent JPEG Group.
+; Modern fixed multidimensional variant. Rows then columns, in place. Results retain JPEG's factor-of-eight scale.
+
+CONST ConstBits=13,Pass1Bits=2
+LONGINT ARRAY block(8,8)
+LONGINT checksum
+INT result
+
+; Round, then shift with sign extension. Action! RSH itself is logical.
+; Only counts 2, 11 and 15 are used. Addition wraps at 32 bits.
+LONGINT FUNC Descale(LONGINT value BYTE bits)
+  value==+(LONGINT(1) LSH (bits-1))
+  IF value<0 THEN RETURN(-1-((-1-value) RSH bits)) FI
+RETURN(value RSH bits)
+
+PROC Init()
+  BYTE row,column
+  LONGINT seed
+  seed=1
+  FOR row=0 TO 7 DO
+    FOR column=0 TO 7 DO
+      ; Keep the C generator's positive 65535 divisor and row-major order.
+      seed=(seed*133+81) MOD CARD(65535)
+      block(row,column)=seed
+    OD
+  OD
+RETURN
+
+PROC Dct()
+  LONGINT tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7
+  LONGINT tmp10,tmp11,tmp12,tmp13,z1,z2,z3,z4,z5
+  BYTE row,column
+
+  ; Pass 1: eight adjacent values per row, scaled by another four.
+  FOR row=0 TO 7 DO
+    tmp0=block(row,0)+block(row,7)
+    tmp7=block(row,0) - block(row,7)
+    tmp1=block(row,1)+block(row,6)
+    tmp6=block(row,1) - block(row,6)
+    tmp2=block(row,2)+block(row,5)
+    tmp5=block(row,2) - block(row,5)
+    tmp3=block(row,3)+block(row,4)
+    tmp4=block(row,3) - block(row,4)
+    tmp10=tmp0+tmp3
+    tmp13=tmp0 - tmp3
+    tmp11=tmp1+tmp2
+    tmp12=tmp1 - tmp2
+    block(row,0)=((tmp10+tmp11) LSH Pass1Bits)
+    block(row,4)=((tmp10 - tmp11) LSH Pass1Bits)
+    ; Integer coefficients scaled by 2^ConstBits.
+    z1=(tmp12+tmp13)*4433
+    block(row,2)=Descale(z1+tmp13*6270, ConstBits-Pass1Bits)
+    block(row,6)=Descale(z1+tmp12*(-15137), ConstBits-Pass1Bits)
+    z1=tmp4+tmp7
+    z2=tmp5+tmp6
+    z3=tmp4+tmp6
+    z4=tmp5+tmp7
+    z5=(z3+z4)*9633
+    tmp4=tmp4*2446
+    tmp5=tmp5*16819
+    tmp6=tmp6*25172
+    tmp7=tmp7*12299
+    z1=z1*(-7373)
+    z2=z2*(-20995)
+    z3=z3*(-16069)
+    z4=z4*(-3196)
+    z3==+z5
+    z4==+z5
+    block(row,7)=Descale(tmp4+z1+z3, ConstBits-Pass1Bits)
+    block(row,5)=Descale(tmp5+z2+z4, ConstBits-Pass1Bits)
+    block(row,3)=Descale(tmp6+z2+z3, ConstBits-Pass1Bits)
+    block(row,1)=Descale(tmp7+z1+z4, ConstBits-Pass1Bits)
+  OD
+
+  ; Pass 2: eight values per column, eight elements apart.
+  FOR column=0 TO 7 DO
+    tmp0=block(0,column)+block(7,column)
+    tmp7=block(0,column) - block(7,column)
+    tmp1=block(1,column)+block(6,column)
+    tmp6=block(1,column) - block(6,column)
+    tmp2=block(2,column)+block(5,column)
+    tmp5=block(2,column) - block(5,column)
+    tmp3=block(3,column)+block(4,column)
+    tmp4=block(3,column) - block(4,column)
+    tmp10=tmp0+tmp3
+    tmp13=tmp0 - tmp3
+    tmp11=tmp1+tmp2
+    tmp12=tmp1 - tmp2
+    block(0,column)=Descale(tmp10+tmp11, Pass1Bits)
+    block(4,column)=Descale(tmp10 - tmp11, Pass1Bits)
+    z1=(tmp12+tmp13)*4433
+    block(2,column)=Descale(z1+tmp13*6270, ConstBits+Pass1Bits)
+    block(6,column)=Descale(z1+tmp12*(-15137), ConstBits+Pass1Bits)
+    z1=tmp4+tmp7
+    z2=tmp5+tmp6
+    z3=tmp4+tmp6
+    z4=tmp5+tmp7
+    z5=(z3+z4)*9633
+    tmp4=tmp4*2446
+    tmp5=tmp5*16819
+    tmp6=tmp6*25172
+    tmp7=tmp7*12299
+    z1=z1*(-7373)
+    z2=z2*(-20995)
+    z3=z3*(-16069)
+    z4=z4*(-3196)
+    z3==+z5
+    z4==+z5
+    block(7,column)=Descale(tmp4+z1+z3, ConstBits+Pass1Bits)
+    block(5,column)=Descale(tmp5+z2+z4, ConstBits+Pass1Bits)
+    block(3,column)=Descale(tmp6+z2+z3, ConstBits+Pass1Bits)
+    block(1,column)=Descale(tmp7+z1+z4, ConstBits+Pass1Bits)
+  OD
+RETURN
+
+INT FUNC CheckResult()
+  BYTE row,column
+  checksum=0
+  FOR row=0 TO 7 DO
+    FOR column=0 TO 7 DO checksum==+block(row,column) OD
+  OD
+  IF checksum=1668124 THEN RETURN(0) FI
+RETURN(-1)
+
+PROC Main()
+  Init()
+  Dct()
+  result=CheckResult()
+RETURN

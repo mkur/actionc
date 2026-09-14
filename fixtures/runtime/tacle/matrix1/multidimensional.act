@@ -1,0 +1,16 @@
+; Modern multidimensional matrix state; see multidimensional.inc for the shared algorithm.
+CONST Rows=10,Inner=10,Columns=10,ElementBytes=4
+BYTE command
+INT result
+LONGINT checksum
+LONGINT ARRAY matrixA(Rows,Inner)
+LONGINT ARRAY matrixB(Columns,Inner)
+LONGINT ARRAY matrixC(Columns,Rows)
+
+INCLUDE "multidimensional.inc"
+
+PROC Main()
+  IF command=0 THEN Init() FI
+  Multiply()
+  result=CheckResult()
+RETURN

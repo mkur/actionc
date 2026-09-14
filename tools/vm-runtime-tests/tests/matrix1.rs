@@ -5,10 +5,22 @@ use std::path::{Path, PathBuf};
 
 const CORE: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/kernel.inc");
 const DRIVER: &str = include_str!("../fixtures/matrix1_driver.act");
-fn source() -> String {
-    DRIVER
-        .replace("\r\n", "\n")
-        .replace("INCLUDE \"kernel.inc\"", &CORE.replace("\r\n", "\n"))
+const SHAPED_CORE: &str =
+    include_str!("../../../fixtures/runtime/tacle/matrix1/multidimensional.inc");
+const SHAPED_DRIVER: &str = include_str!("../fixtures/matrix1_multidimensional_driver.act");
+fn source(shaped: bool) -> String {
+    let (driver, core, include) = if shaped {
+        (SHAPED_DRIVER, SHAPED_CORE, "multidimensional.inc")
+    } else {
+        (DRIVER, CORE, "kernel.inc")
+    };
+    let mut driver = driver.replace("\r\n", "\n");
+    replace_once(
+        &mut driver,
+        &format!("INCLUDE \"{include}\""),
+        &core.replace("\r\n", "\n"),
+    );
+    driver
 }
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
@@ -57,7 +69,7 @@ fn replace_once(source: &mut String, old: &str, new: &str) {
     *source = source.replace(old, new);
 }
 
-fn typed_source(source: &str, kind: Kind, shape: [usize; 3]) -> String {
+fn typed_source(source: &str, kind: Kind, shape: [usize; 3], shaped: bool) -> String {
     // Normalize before newline-sensitive instrumentation, including include_str!.
     let mut source = source.replace("\r\n", "\n");
     let [rows, inner, columns] = shape;
@@ -75,9 +87,15 @@ fn typed_source(source: &str, kind: Kind, shape: [usize; 3]) -> String {
         "LONGINT ARRAY matrixC(",
         "PROC PinDown(LONGINT ARRAY a,b,c)",
         "VOLATILE LONGINT one=[1]",
-        "LONGINT POINTER pa,pb,pc",
     ] {
         replace_once(&mut source, old, &old.replace("LONGINT", kind.name()));
+    }
+    if !shaped {
+        replace_once(
+            &mut source,
+            "LONGINT POINTER pa,pb,pc",
+            &format!("{} POINTER pa,pb,pc", kind.name()),
+        );
     }
     source
 }
@@ -166,7 +184,7 @@ fn parse_vectors(text: &str) -> Vec<Vector> {
 
 #[test]
 fn matrix1_lf_and_crlf_variants_preserve_original_results_and_layout() {
-    let source = source().replace("\r\n", "\n");
+    let source = source(false).replace("\r\n", "\n");
     let text = VECTORS.replace("\r\n", "\n");
     let vectors = parse_vectors(&text);
     assert_eq!(vectors, parse_vectors(&text.replace('\n', "\r\n")));
@@ -174,8 +192,8 @@ fn matrix1_lf_and_crlf_variants_preserve_original_results_and_layout() {
     for kind in Kind::ALL {
         for shape in SHAPES {
             assert_eq!(
-                typed_source(&source, kind, shape),
-                typed_source(&source.replace('\n', "\r\n"), kind, shape)
+                typed_source(&source, kind, shape, false),
+                typed_source(&source.replace('\n', "\r\n"), kind, shape, false)
             );
             let cases: Vec<_> = vectors
                 .iter()
@@ -211,7 +229,7 @@ fn matrix1_lf_and_crlf_variants_preserve_original_results_and_layout() {
             );
         }
     }
-    assert_eq!(typed_source(&source, Kind::LongInt, [10, 10, 10]), source);
+    assert_eq!(typed_source(&source, Kind::LongInt, [10, 10, 10], false), source);
     let asymmetric = vectors
         .iter()
         .find(|v| v.kind == Kind::LongInt && v.shape == [3, 7, 5] && v.label == "asymmetric")
@@ -241,7 +259,7 @@ impl Drop for TemporarySource {
     }
 }
 
-fn check_matrix1(mode: CompileMode, runtime: Runtime) {
+fn check_matrix1(mode: CompileMode, runtime: Runtime, shaped: bool) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let temporary = TemporarySource::new(mode, runtime);
     let text = |source: &str| {
@@ -279,7 +297,7 @@ fn check_matrix1(mode: CompileMode, runtime: Runtime) {
                 .0
                 .join(format!("{}-{shape_name}.act", kind.name()));
             // Each newline convention reaches instrumentation and compilation.
-            let source = typed_source(&text(&source()), kind, shape);
+            let source = typed_source(&text(&source(shaped)), kind, shape, shaped);
             std::fs::write(&path, text(&source)).unwrap();
             let compiled = compile_file(
                 &path,
@@ -383,7 +401,7 @@ fn check_matrix1(mode: CompileMode, runtime: Runtime) {
                 }
             }
             eprintln!(
-                "Matrix1 {kind:?}/{shape_name}/{mode:?}/{runtime:?}: {} object bytes, {total_steps} instructions",
+                "Matrix1 shaped={shaped} {kind:?}/{shape_name}/{mode:?}/{runtime:?}: {} object bytes, {total_steps} instructions",
                 compiled.object_bytes().len()
             );
         }
@@ -392,20 +410,53 @@ fn check_matrix1(mode: CompileMode, runtime: Runtime) {
 
 #[test]
 fn matrix1_mir6502_cart_matches_c_reference() {
-    check_matrix1(CompileMode::Mir6502, Runtime::ActionCart);
+    check_matrix1(CompileMode::Mir6502, Runtime::ActionCart, false);
 }
 
 #[test]
 fn matrix1_mir6502_standalone_matches_c_reference() {
-    check_matrix1(CompileMode::Mir6502, Runtime::Standalone);
+    check_matrix1(CompileMode::Mir6502, Runtime::Standalone, false);
 }
 
 #[test]
 fn matrix1_classic_cart_matches_c_reference() {
-    check_matrix1(CompileMode::Optimized, Runtime::ActionCart);
+    check_matrix1(CompileMode::Optimized, Runtime::ActionCart, false);
 }
 
 #[test]
 fn matrix1_classic_standalone_matches_c_reference() {
-    check_matrix1(CompileMode::Optimized, Runtime::Standalone);
+    check_matrix1(CompileMode::Optimized, Runtime::Standalone, false);
+}
+
+#[test]
+fn matrix1_multidimensional_mir6502_cart_matches_c_reference() {
+    check_matrix1(CompileMode::Mir6502, Runtime::ActionCart, true);
+}
+
+#[test]
+fn matrix1_multidimensional_mir6502_standalone_matches_c_reference() {
+    check_matrix1(CompileMode::Mir6502, Runtime::Standalone, true);
+}
+
+#[test]
+fn matrix1_multidimensional_classic_cart_matches_c_reference() {
+    check_matrix1(CompileMode::Optimized, Runtime::ActionCart, true);
+}
+
+#[test]
+fn matrix1_multidimensional_classic_standalone_matches_c_reference() {
+    check_matrix1(CompileMode::Optimized, Runtime::Standalone, true);
+}
+
+#[test]
+fn matrix1_multidimensional_instrumentation_accepts_lf_and_crlf() {
+    for kind in Kind::ALL {
+        for shape in SHAPES {
+            let lf = source(true);
+            assert_eq!(
+                typed_source(&lf, kind, shape, true),
+                typed_source(&lf.replace('\n', "\r\n"), kind, shape, true)
+            );
+        }
+    }
 }

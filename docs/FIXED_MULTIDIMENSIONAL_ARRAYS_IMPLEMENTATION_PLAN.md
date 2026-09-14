@@ -1,8 +1,9 @@
 # Fixed-size multidimensional arrays
 
-Status: slices 1–5 implemented. Fixed shapes, typed coordinate places, verified
-NIR normalization and all executable backend paths are enabled in modern mode.
-Dedicated benchmark acceptance variants remain in slice 6.
+Status: all six slices implemented. Fixed shapes, typed coordinate places,
+verified NIR normalization and executable backend paths are enabled in modern
+mode. Dedicated matrix1 and DCT variants pass their complete C reference corpora.
+See [validation and measurements](MULTIDIMENSIONAL_ARRAYS_VALIDATION.md).
 Baseline: `8262140`, after Amiga 32-bit decimal output.
 
 Deliver fixed-size arrays indexed with one coordinate per dimension, using

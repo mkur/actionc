@@ -72,7 +72,11 @@ pub fn metadata(root: &Path, options: &NativeCompileOptions, names: &[String]) -
             "Cargo.lock"
         ]),
     );
-    for name in names {
+    let directories = names
+        .iter()
+        .map(|name| name.strip_suffix("-multidimensional").unwrap_or(name))
+        .collect::<std::collections::BTreeSet<_>>();
+    for name in directories {
         let mut files: Vec<_> =
             std::fs::read_dir(root.join(format!("fixtures/runtime/tacle/{name}")))
                 .unwrap()
