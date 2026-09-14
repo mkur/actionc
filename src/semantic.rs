@@ -13,6 +13,9 @@ pub mod ir;
 pub mod layout;
 pub(crate) mod materialize;
 mod array_places;
+mod multidimensional;
+#[cfg(test)]
+mod multidimensional_tests;
 mod algebraic;
 #[doc(hidden)]
 pub use algebraic::AlgebraicTypeCapabilities;
@@ -45,7 +48,7 @@ pub use layout::{
     SemanticRecordFieldLayout, SemanticRecordLayout,
 };
 pub use types::{
-    AggregateIdentity, ArrayType, CallableType, PointerType, RecordFieldStorage, RecordFieldType, RecordIdentity,
+    AggregateIdentity, ArrayShape, ArrayType, CallableType, PointerType, RecordFieldStorage, RecordFieldType, RecordIdentity,
     RecordIdentityRef, RecordType, ScalarSignedness, ScalarType, TypeCompatibility, ValueTypeKind,
 };
 
@@ -73,6 +76,7 @@ pub struct SemanticModel {
     /// Declared element counts for statically sized arrays. Unsized array
     /// parameters and pointer-backed arrays deliberately have no entry.
     pub array_lengths: HashMap<SymbolId, u32>,
+    pub array_shapes: HashMap<SymbolId, ArrayShape>,
     pub fields: Vec<SemanticField>,
     pub field_lookup: HashMap<String, HashMap<String, FieldId>>,
     /// Authoritative field lookup; the name-keyed table is a debug projection.
@@ -459,6 +463,9 @@ pub struct SemanticOptions {
     pub comparison_values: bool,
     /// Modern-profile fixed-length arrays stored inline inside records.
     pub embedded_record_arrays: bool,
+    /// Staged fixed multidimensional arrays; not a command-line switch.
+    #[doc(hidden)]
+    pub multidimensional_arrays: bool,
     /// Staged aggregate extensions. Not exposed as command-line switches.
     #[doc(hidden)]
     pub algebraic_types: AlgebraicTypeCapabilities,
@@ -477,6 +484,7 @@ impl SemanticOptions {
             lexical_blocks: true,
             comparison_values: true,
             embedded_record_arrays: true,
+            multidimensional_arrays: false,
             algebraic_types: AlgebraicTypeCapabilities {
                 aggregate_values: true,
                 variants: true,
@@ -554,6 +562,7 @@ impl Analyzer {
             &self.symbols,
             &self.array_symbols,
             &self.array_lengths,
+            &self.array_shapes,
             &self.fields,
             &self.aggregate_kinds,
             TargetLayout::for_target(self.options.target),
@@ -601,6 +610,14 @@ impl Analyzer {
                     format!("array `{}` storage size overflows the compiler layout model", array.name),
                 )),
             }
+            if array.shape.rank() > 1
+                && let Some(&base) = self.fixed_array_backing_addresses.get(&array.symbol)
+                && let Some(size) = array.storage_size
+                && u64::from(base) + u64::from(size) > address_limit + 1
+            {
+                self.diagnostics.push(Diagnostic::new(array.span,
+                    "multidimensional fixed array endpoint exceeds the target address space"));
+            }
         }
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
@@ -620,6 +637,7 @@ impl Analyzer {
             lexical_blocks: self.lexical_blocks,
             array_symbols: self.array_symbols,
             array_lengths: self.array_lengths,
+            array_shapes: self.array_shapes,
             fields: self.fields,
             field_lookup: self.field_lookup,
             record_fields_by_owner: self.record_fields_by_owner,
@@ -661,6 +679,7 @@ struct Analyzer {
     lexical_blocks: Vec<SemanticLexicalBlock>,
     array_symbols: HashSet<SymbolId>,
     array_lengths: HashMap<SymbolId, u32>,
+    array_shapes: HashMap<SymbolId, ArrayShape>,
     fields: Vec<SemanticField>,
     field_lookup: HashMap<String, HashMap<String, FieldId>>,
     record_fields_by_owner: HashMap<SymbolId, HashMap<String, FieldId>>,
@@ -745,6 +764,7 @@ impl Analyzer {
             lexical_blocks: Vec::new(),
             array_symbols: HashSet::new(),
             array_lengths: HashMap::new(),
+            array_shapes: HashMap::new(),
             fields: Vec::new(),
             field_lookup: HashMap::new(),
             record_fields_by_owner: HashMap::new(),
@@ -2901,7 +2921,7 @@ impl Analyzer {
                 .map(u64::from),
             subject::SemSubject::Place(place) => {
                 if let Some(array_type) = self.inline_array_type(&place) {
-                    let length = array_type.length.expect("fixed inline array bound");
+                    let length = array_type.length().expect("fixed inline array bound");
                     return self
                         .complete_layout_width(&array_type.element, operand.span)
                         .map(|width| u64::from(length) * u64::from(width));
@@ -2945,7 +2965,7 @@ impl Analyzer {
             return None;
         };
         if let Some(array_type) = self.inline_array_type(&place) {
-            return array_type.length.map(u64::from);
+            return array_type.length().map(u64::from);
         }
         let subject::SemPlaceKind::Symbol(symbol) = place.kind else {
             self.diagnostics.push(Diagnostic::new(
@@ -4326,9 +4346,15 @@ impl Analyzer {
             record_alignment = record_alignment.max(alignment);
             for entry in &field.entries {
                 let (storage, size) = if field.storage == VarStorage::Array {
-                    let Some(length) = self.embedded_array_length(scope, entry) else {
+                    let shape = if entry.dimensions.is_empty() {
+                        self.embedded_array_length(scope, entry).map(|length| ArrayShape::linear(Some(length)))
+                    } else {
+                        self.resolve_multidimensional_shape(scope, entry)
+                    };
+                    let Some(shape) = shape else {
                         continue;
                     };
+                    let length = shape.length().expect("fixed inline array shape");
                     let Some((stride, size)) = align_u32(element_size, alignment)
                         .filter(|stride| *stride != 0)
                         .and_then(|stride| length.checked_mul(stride).filter(|size| *size <= max_extent).map(|size| (stride, size)))
@@ -4341,7 +4367,7 @@ impl Analyzer {
                     };
                     (
                         RecordFieldStorage::InlineArray {
-                            array_type: ArrayType::new(ty.clone(), Some(length)),
+                            array_type: ArrayType::shaped(ty.clone(), shape),
                             stride,
                         },
                         size,
@@ -4499,7 +4525,7 @@ impl Analyzer {
             || field
                 .entries
                 .iter()
-                .any(|entry| (!inline_array && entry.size.is_some()) || entry.initializer.is_some())
+                .any(|entry| (!inline_array && (entry.size.is_some() || !entry.dimensions.is_empty())) || entry.initializer.is_some())
         {
             self.diagnostics.push(Diagnostic::new(
                 field.span,
@@ -4654,6 +4680,20 @@ impl Analyzer {
         declaration: &VarDecl,
         entry: &DeclEntry,
     ) {
+        if !entry.dimensions.is_empty() {
+            if declaration.storage != VarStorage::Array {
+                self.diagnostics.push(Diagnostic::new(entry.span,
+                    "multiple dimensions require an ARRAY declaration"));
+            } else if matches!(self.symbols.symbols[symbol.0].class, SymbolClass::Param) {
+                self.diagnostics.push(Diagnostic::new(entry.span,
+                    "multidimensional ARRAY parameters are not supported yet"));
+            } else if let Some(shape) = self.resolve_multidimensional_shape(scope, entry) {
+                self.array_lengths.insert(symbol, shape.length().unwrap());
+                self.array_shapes.insert(symbol, shape);
+                self.static_array_backings.insert(symbol);
+            }
+            return;
+        }
         if (declaration.storage == VarStorage::Array || is_string_type_ref(&declaration.ty))
             && (entry.size.is_some() || entry.initializer.as_ref().is_some_and(|expr|
                 matches!(expr.kind, ExprKind::InitializerList(_) | ExprKind::String(_))))
@@ -4704,7 +4744,7 @@ impl Analyzer {
         declaration: &VarDecl,
         entry: &DeclEntry,
     ) {
-        if declaration.storage != VarStorage::Array || entry.size.is_none() {
+        if declaration.storage != VarStorage::Array || (entry.size.is_none() && entry.dimensions.is_empty()) {
             return;
         }
         let Some(initializer) = &entry.initializer else {

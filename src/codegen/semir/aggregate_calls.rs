@@ -56,6 +56,7 @@ impl SemIrAstLowerer<'_> {
             ty: self.type_ref(&ValueType::pointer_to(ty.clone())),
             storage: VarStorage::Plain,
             entries: vec![DeclEntry {
+                dimensions: Vec::new(),
                 name: name.text.clone(),
                 size: None,
                 initializer: None,

@@ -773,7 +773,7 @@ impl IrBuilder<'_> {
                     scope,
                     &projected,
                     &array_type.element,
-                    0..array_type.length.unwrap(),
+                    0..array_type.length().unwrap(),
                     |this, element| this.validate_aggregate_value(scope, &element),
                 ));
             } else {

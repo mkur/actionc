@@ -2143,7 +2143,7 @@ fn callable_type_summary(callable_type: &CallableType) -> String {
 
 fn array_type_summary(array_type: &ArrayType) -> String {
     let length = array_type
-        .length
+        .length()
         .map(|length| length.to_string())
         .unwrap_or_else(|| "?".to_string());
     format!(
@@ -2669,7 +2669,7 @@ impl<'a> IrBuilder<'a> {
                     super::RecordFieldStorage::Value => SemDeclarationStorage::Scalar,
                     super::RecordFieldStorage::InlineArray { array_type, .. } => SemDeclarationStorage::Array {
                         array_type: array_type.clone(),
-                        length: array_type.length.map(|length| SemExpr {
+                        length: array_type.length().map(|length| SemExpr {
                             kind: SemExprKind::Literal(SemLiteral::Constant(ConstValue { ty: ScalarType::Size, bits: u64::from(length) })),
                             ty: ValueType::scalar(ScalarType::Size), class: SemExprClass::Value, eval_order: None, span: field.span,
                         }),
@@ -2875,7 +2875,7 @@ impl<'a> IrBuilder<'a> {
                     // uninitialized scalars to downstream storage planners.
                     (initializer.is_none() && self.aggregate_requires_validation(&ty.value)
                         && (!is_array_storage || matches!(&storage,
-                            SemDeclarationStorage::Array { array_type, .. } if array_type.length.is_some())))
+                            SemDeclarationStorage::Array { array_type, .. } if array_type.length().is_some())))
                         .then_some(SemStaticInitializer { initialized_extent: 0, writes: Vec::new() })
                 });
                 if matches!(storage, SemDeclarationStorage::Scalar)
@@ -4470,6 +4470,9 @@ impl<'a> IrBuilder<'a> {
         symbol: &SemSymbolRef,
         length: Option<&SemExpr>,
     ) -> ArrayType {
+        if let Some(shape) = self.model.array_shapes.get(&symbol.id) {
+            return ArrayType::shaped(symbol.ty.clone().unwrap_or_else(ValueType::error), shape.clone());
+        }
         let element = self
             .model
             .layout

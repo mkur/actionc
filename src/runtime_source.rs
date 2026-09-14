@@ -198,6 +198,7 @@ pub(crate) fn compile_runtime_image() -> Result<RuntimeImage, Vec<Diagnostic>> {
             lexical_blocks: false,
             comparison_values: false,
             embedded_record_arrays: false,
+            multidimensional_arrays: false,
             algebraic_types: crate::semantic::AlgebraicTypeCapabilities::DISABLED,
             target: crate::target::TargetId::Atari6502,
         },

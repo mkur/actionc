@@ -27,10 +27,46 @@ pub struct PointerType {
     pub pointee: Box<ValueType>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ArrayType {
     pub element: Box<ValueType>,
-    pub length: Option<u32>,
+    shape: ArrayShape,
+}
+
+/// Immutable, checked source shape. Counts are derived at construction, never
+/// independently mutated by layout or by a descriptor assignment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArrayShape {
+    dimensions: Vec<u32>,
+    length: Option<u32>,
+}
+
+impl ArrayShape {
+    pub fn linear(length: Option<u32>) -> Self {
+        Self { dimensions: length.into_iter().collect(), length }
+    }
+
+    pub fn fixed(dimensions: Vec<u32>) -> Result<Self, &'static str> {
+        if dimensions.len() < 2 || dimensions.contains(&0) {
+            return Err("multidimensional arrays require at least two positive dimensions");
+        }
+        let length = dimensions.iter().try_fold(1u32, |n, &d| n.checked_mul(d))
+            .ok_or("multidimensional array element count overflows the compiler layout range")?;
+        Ok(Self { dimensions, length: Some(length) })
+    }
+
+    pub fn dimensions(&self) -> &[u32] { &self.dimensions }
+    pub fn rank(&self) -> usize { self.dimensions.len().max(1) }
+    pub fn length(&self) -> Option<u32> { self.length }
+}
+
+impl std::fmt::Debug for ArrayType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = f.debug_struct("ArrayType");
+        out.field("element", &self.element).field("length", &self.length());
+        if self.shape.rank() > 1 { out.field("dimensions", &self.shape.dimensions()); }
+        out.finish()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -241,9 +277,16 @@ impl ArrayType {
     pub fn new(element: ValueType, length: Option<u32>) -> Self {
         Self {
             element: Box::new(element),
-            length,
+            shape: ArrayShape::linear(length),
         }
     }
+
+    pub fn shaped(element: ValueType, shape: ArrayShape) -> Self {
+        Self { element: Box::new(element), shape }
+    }
+
+    pub fn shape(&self) -> &ArrayShape { &self.shape }
+    pub fn length(&self) -> Option<u32> { self.shape.length() }
 
     pub fn pointer_type(&self) -> ValueType {
         ValueType::pointer_to((*self.element).clone())
@@ -254,9 +297,9 @@ impl ArrayType {
     }
 
     pub fn total_width_bytes(&self) -> Option<u32> {
-        self.length
+        self.length()
             .zip(self.element_width_bytes())
-            .map(|(length, width)| length.saturating_mul(u32::from(width)))
+            .and_then(|(length, width)| length.checked_mul(u32::from(width)))
     }
 }
 
@@ -1061,7 +1104,7 @@ mod tests {
     fn array_type_models_element_pointer_and_optional_size() {
         let bytes = ArrayType::new(ValueType::fund(FundType::Byte), Some(10));
         assert_eq!(*bytes.element, ValueType::fund(FundType::Byte));
-        assert_eq!(bytes.length, Some(10));
+        assert_eq!(bytes.length(), Some(10));
         assert_eq!(
             bytes.pointer_type(),
             ValueType::pointer_to(ValueType::fund(FundType::Byte))

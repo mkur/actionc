@@ -243,7 +243,7 @@ impl SemIrAstLowerer<'_> {
                 let (size, array) = match &field.storage {
                     RecordFieldStorage::Value => (element_size, None),
                     RecordFieldStorage::InlineArray { array_type, stride } => {
-                        let length = array_type.length
+                        let length = array_type.length()
                             .filter(|length| *length > 0)
                             .ok_or_else(invalid)?;
                         if *stride != u32::from(element_size) || array_type.element.as_ref() != &field.ty {
@@ -346,6 +346,7 @@ impl SemIrAstLowerer<'_> {
                 ty: self.type_ref(ty),
                 storage: VarStorage::Plain,
                 entries: vec![DeclEntry {
+                    dimensions: Vec::new(),
                     name: RECORD_COPY_TEMP.to_string(),
                     size: None,
                     initializer: None,
@@ -487,6 +488,7 @@ impl SemIrAstLowerer<'_> {
                         _ => None,
                     };
                     DeclEntry {
+                        dimensions: Vec::new(),
                         name: self.symbol_name(&decl.symbol),
                         size: match &decl.storage {
                             SemDeclarationStorage::Array { length, .. } => {
@@ -694,6 +696,7 @@ impl SemIrAstLowerer<'_> {
                 SemParamStorage::Array => VarStorage::Array,
             },
             entries: vec![DeclEntry {
+                dimensions: Vec::new(),
                 name: self.symbol_name(&param.symbol),
                 size: None,
                 initializer: None,
@@ -723,6 +726,7 @@ impl SemIrAstLowerer<'_> {
                     ty: self.type_ref(&field.ty.value),
                     storage,
                     entries: vec![DeclEntry {
+                        dimensions: Vec::new(),
                         name: field.name.clone(),
                         size,
                         initializer: None,
@@ -1712,6 +1716,7 @@ fn consider_record_copy_temp(stmt: &SemStmt, largest: &mut Option<(u32, ValueTyp
 fn native_real_hidden_declarations(count: usize, span: Span) -> Vec<Decl> {
     let real_entries = (0..count)
         .map(|index| DeclEntry {
+            dimensions: Vec::new(),
             name: real_temp_name(index),
             size: None,
             initializer: None,
@@ -1751,6 +1756,7 @@ fn hidden_scalar_decl(ty: FundType, names: Vec<&str>, span: Span) -> Decl {
         entries: names
             .into_iter()
             .map(|name| DeclEntry {
+                dimensions: Vec::new(),
                 name: name.to_string(),
                 size: None,
                 initializer: None,

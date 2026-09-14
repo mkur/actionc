@@ -31,7 +31,8 @@ impl Analyzer {
     pub(super) fn array_place_type(&self, place: &subject::SemPlace) -> Option<ArrayType> {
         if let subject::SemPlaceKind::Symbol(id) = &place.kind {
             self.array_element_type(*id)
-                .map(|element| ArrayType::new(element, self.array_lengths.get(id).copied()))
+                .map(|element| ArrayType::shaped(element, self.array_shapes.get(id).cloned()
+                    .unwrap_or_else(|| ArrayShape::linear(self.array_lengths.get(id).copied()))))
         } else {
             self.inline_array_type(place)
         }

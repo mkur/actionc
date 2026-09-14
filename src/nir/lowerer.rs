@@ -3120,7 +3120,7 @@ impl NirBuilder {
             SemLValueKind::Field { base, field } => {
                 if let crate::semantic::RecordFieldStorage::InlineArray { array_type, stride } = &field.storage {
                     assert_eq!(
-                        array_type.length.and_then(|length| length.checked_mul(*stride)),
+                        array_type.length().and_then(|length| length.checked_mul(*stride)),
                         Some(field.size),
                         "inline array field extent must match its canonical shape"
                     );
@@ -4474,7 +4474,7 @@ fn declaration_local_object_layout(
     };
     let alignment = match &declaration.storage {
         SemDeclarationStorage::Array { array_type, .. }
-            if array_type.length.is_none() && declaration.initializer.is_none() =>
+            if array_type.length().is_none() && declaration.initializer.is_none() =>
         {
             target_layout.data_pointer.alignment_bytes
         }
@@ -4600,7 +4600,7 @@ fn declaration_array_storage_size(
     let elem_size =
         array_element_width(array_type, record_storage_sizes, target_layout).unwrap_or(1);
     let initializer_byte_len = array_initializer_byte_len(declaration, elem_size);
-    if array_type.length.is_none() && initializer_byte_len.is_some() {
+    if array_type.length().is_none() && initializer_byte_len.is_some() {
         return target_layout.data_pointer.size_bytes.get();
     }
     if address_initializer.is_some()
@@ -4610,10 +4610,10 @@ fn declaration_array_storage_size(
             target_layout,
         )
     {
-        return array_descriptor_size(target_layout, array_type.length.is_some()).get();
+        return array_descriptor_size(target_layout, array_type.length().is_some()).get();
     }
     if elem_size > 1 && initializer_byte_len.is_some() {
-        return array_descriptor_size(target_layout, array_type.length.is_some()).get();
+        return array_descriptor_size(target_layout, array_type.length().is_some()).get();
     }
     if elem_size == 1
         && let Some(byte_len) = string_initializer_bytes(declaration)
@@ -4621,13 +4621,13 @@ fn declaration_array_storage_size(
             .or(initializer_byte_len)
     {
         return array_type
-            .length
+            .length()
             .map(|length| length.saturating_mul(elem_size))
             .unwrap_or(u32::try_from(byte_len).unwrap_or(u32::MAX))
             .max(u32::try_from(byte_len).unwrap_or(u32::MAX));
     }
     array_type
-        .length
+        .length()
         .map(|length| length.saturating_mul(elem_size))
         .unwrap_or(target_layout.data_pointer.size_bytes.get())
 }
@@ -4645,7 +4645,7 @@ fn declaration_array_address_initializer_uses_pointer_storage(
     }
     let elem_size =
         array_element_width(array_type, record_storage_sizes, target_layout).unwrap_or(1);
-    match array_type.length {
+    match array_type.length() {
         None => true,
         Some(length) => length.saturating_mul(elem_size) > 0x0100,
     }
@@ -4731,8 +4731,8 @@ fn declaration_array_fact(
     );
     Some(NirArrayGlobalFact {
         elem_size: ByteSize::from(elem_size),
-        length: array_type.length,
-        pointer_backed: (array_type.length.is_none() && declaration.initializer.is_none())
+        length: array_type.length(),
+        pointer_backed: (array_type.length().is_none() && declaration.initializer.is_none())
             || (address_initializer.is_some()
                 && declaration_array_address_initializer_uses_pointer_storage(
                     declaration,
@@ -4740,7 +4740,7 @@ fn declaration_array_fact(
                     target_layout,
                 ))
             || symbolic_array_initializer_routine(declaration).is_some()
-            || (initializer_is_data_image && (elem_size > 1 || array_type.length.is_none())),
+            || (initializer_is_data_image && (elem_size > 1 || array_type.length().is_none())),
         address_initializer: address_initializer
             .map(|address| AddressValue::data(u64::from(address))),
     })
@@ -4755,7 +4755,7 @@ fn declaration_symbol_storage_type(
     let SemDeclarationStorage::Array { array_type, .. } = &declaration.storage else {
         return None;
     };
-    if array_type.length.is_none() && declaration.initializer.is_none() {
+    if array_type.length().is_none() && declaration.initializer.is_none() {
         return Some(NirType::from_value_with_layout(
             &array_type.pointer_type(), target_layout,
         ));
@@ -4839,7 +4839,7 @@ fn declaration_global_init(
                         .expect("resolved routine initializer must have a routine id"),
                     descriptor_size: callable_descriptor_size(
                         target_layout,
-                        array_type.length.is_some(),
+                        array_type.length().is_some(),
                     ),
                     size_word: None,
                     mutable: true,
@@ -4850,7 +4850,7 @@ fn declaration_global_init(
                 && let Some(image) = data_image.clone()
             {
                 let len = array_type
-                    .length
+                    .length()
                     .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX) / elem_size);
                 let image_size = u32::try_from(image.bytes.len()).unwrap_or(u32::MAX);
                 let byte_size = elem_size.saturating_mul(len).max(image_size);
@@ -4863,14 +4863,14 @@ fn declaration_global_init(
                     },
                     descriptor_size: array_descriptor_size(
                         target_layout,
-                        array_type.length.is_some(),
+                        array_type.length().is_some(),
                     ),
-                    size_word: array_type.length.map(|_| 0),
+                    size_word: array_type.length().map(|_| 0),
                     mutable: true,
                     section: "global".to_string(),
                 });
             }
-            if array_type.length.is_none()
+            if array_type.length().is_none()
                 && elem_size == 1
                 && let Some(image) = data_image.clone()
             {
@@ -4895,13 +4895,13 @@ fn declaration_global_init(
             let image = data_image.or_else(|| bytes.map(NirDataImage::literal));
             if let Some(image) = image {
                 let total_size = array_type
-                    .length
+                    .length()
                     .map(|length| length.saturating_mul(elem_size))
                     .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX))
                     .max(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX));
                 return Some(data_image_init(image, total_size));
             }
-            array_type.length.map(|length| {
+            array_type.length().map(|length| {
                 let bytes = length.saturating_mul(elem_size);
                 NirGlobalInit::ZeroFill {
                     bytes: ByteSize::from(bytes),
@@ -5065,7 +5065,7 @@ fn declaration_local_init(
                 && let Some(image) = data_image.clone()
             {
                 let len = array_type
-                    .length
+                    .length()
                     .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX) / elem_size);
                 let image_size = u32::try_from(image.bytes.len()).unwrap_or(u32::MAX);
                 let byte_size = elem_size.saturating_mul(len).max(image_size);
@@ -5081,9 +5081,9 @@ fn declaration_local_init(
                     },
                     descriptor_size: array_descriptor_size(
                         target_layout,
-                        array_type.length.is_some(),
+                        array_type.length().is_some(),
                     ),
-                    size_word: array_type.length.map(|_| 0),
+                    size_word: array_type.length().map(|_| 0),
                     mutable: true,
                     section: "local".to_string(),
                 });
@@ -5096,13 +5096,13 @@ fn declaration_local_init(
             let image = data_image.or_else(|| bytes.map(NirDataImage::literal));
             if let Some(image) = image {
                 let total_size = array_type
-                    .length
+                    .length()
                     .map(|length| length.saturating_mul(elem_size))
                     .unwrap_or(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX))
                     .max(u32::try_from(image.bytes.len()).unwrap_or(u32::MAX));
                 return Some(storage_data_image_init(image, total_size));
             }
-            array_type.length.map(|length| {
+            array_type.length().map(|length| {
                 let bytes = length.saturating_mul(elem_size);
                 NirStorageInit::ZeroFill {
                     bytes: ByteSize::from(bytes),
@@ -5117,7 +5117,7 @@ fn declaration_local_init(
 
 fn fixed_array_pointer_initializer_bytes(array_type: &ArrayType, address: u16) -> Vec<u8> {
     let address = address.to_le_bytes();
-    if array_type.length.is_some() {
+    if array_type.length().is_some() {
         vec![address[0], address[1], address[0], address[1]]
     } else {
         vec![address[0], address[1]]

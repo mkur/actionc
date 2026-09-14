@@ -145,7 +145,7 @@ impl Analyzer {
                         return None;
                     }
                 } else {
-                    array.length?;
+                    array.length()?;
                 }
                 let stride = self.value_storage_width(&array.element)?;
                 let index =

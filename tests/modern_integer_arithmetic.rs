@@ -90,7 +90,7 @@ fn typed_array_bound_folding_preserves_large_shift_counts() {
         if let actionc::semantic::ir::SemDeclarationStorage::Array { array_type, .. } =
             &declaration.storage
         {
-            assert_eq!(array_type.length, Some(1), "{expression}");
+            assert_eq!(array_type.length(), Some(1), "{expression}");
         } else {
             panic!("array declaration expected");
         }

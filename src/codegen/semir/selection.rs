@@ -64,6 +64,7 @@ impl SemIrAstLowerer<'_> {
             ty: self.type_ref(ty),
             storage: VarStorage::Plain,
             entries: vec![DeclEntry {
+                dimensions: Vec::new(),
                 name,
                 size: None,
                 initializer: None,

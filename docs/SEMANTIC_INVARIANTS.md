@@ -511,8 +511,16 @@ symbol class and scope.
 The shared semantic type model exposes this shape as `ArrayType`:
 
 - `element` is the source element type;
-- `length` is the declared constant bound when it is statically available;
+- `shape()` is an immutable canonical `ArrayShape`: an existing rank-one bound
+  (possibly unknown), or checked positive dimensions for a fixed higher rank;
+- `length()` derives the flattened count from the canonical shape;
 - `pointer_type()` is the exact decay target type.
+
+Higher-rank shape construction checks the count product. Layout checks the
+complete target element stride, byte extent and address-space limits. The
+existing `array_lengths` and layout count projections must agree with canonical
+shape facts; mutating a runtime descriptor never changes these facts. Higher
+ranks remain behind a semantic rollout capability until execution is validated.
 
 SemIR array declarations and array parameters should carry an `ArrayType`
 alongside their existing element `SemType`. The element `SemType` remains the

@@ -1000,6 +1000,7 @@ impl<'a> Parser<'a> {
             let Some(name) = self.expect_ident() else {
                 break;
             };
+            let mut dimensions = Vec::new();
             let size = if storage == VarStorage::Plain
                 && matches!(ty.base, TypeBase::Callable(_))
                 && self.check(TokenKind::LParen)
@@ -1007,9 +1008,18 @@ impl<'a> Parser<'a> {
                 self.parse_callable_prototype(ty);
                 None
             } else if self.eat(TokenKind::LParen) {
-                let size = self.collect_expr_until(Stop::array_size());
+                dimensions.push(self.collect_expr_until(Stop::array_size()));
+                while self.eat(TokenKind::Comma) {
+                    dimensions.push(self.collect_expr_until(Stop::array_size()));
+                }
+                for bound in &dimensions {
+                    if matches!(bound.kind, ExprKind::Missing) {
+                        self.diagnostics.push(Diagnostic::new(bound.span,
+                            "array dimensions require an explicit bound"));
+                    }
+                }
                 self.expect(TokenKind::RParen);
-                Some(size)
+                if dimensions.len() == 1 { dimensions.pop() } else { None }
             } else {
                 None
             };
@@ -1027,6 +1037,7 @@ impl<'a> Parser<'a> {
             entries.push(DeclEntry {
                 name,
                 size,
+                dimensions,
                 initializer,
                 span: Span::new(start, self.previous_end()),
             });
@@ -1037,6 +1048,12 @@ impl<'a> Parser<'a> {
 
     fn parse_callable_prototype(&mut self, ty: &mut TypeRef) {
         let params = self.parse_param_list();
+        for entry in params.iter().flat_map(|decl| &decl.entries) {
+            if !entry.dimensions.is_empty() {
+                self.diagnostics.push(Diagnostic::new(entry.span,
+                    "multidimensional ARRAY parameters are not supported yet"));
+            }
+        }
         if let TypeBase::Callable(callable) = &mut ty.base {
             callable.params = params
                 .into_iter()
@@ -2719,7 +2736,7 @@ impl Stop {
 
     fn array_size() -> Self {
         Self {
-            tokens: &[TokenKind::RParen],
+            tokens: &[TokenKind::Comma, TokenKind::RParen],
             keywords: &[],
             stop_at_top_level: false,
             stop_before_decl_start: false,

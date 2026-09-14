@@ -87,7 +87,7 @@ fn embedded_array_places_carry_field_identity_full_extent_and_element_stride_in_
     let RecordFieldStorage::InlineArray { array_type, stride } = &field.storage else {
         panic!("array shape");
     };
-    assert_eq!((array_type.length, *stride), (Some(100), 2));
+    assert_eq!((array_type.length(), *stride), (Some(100), 2));
     assert_eq!(
         model.fields[field.id.unwrap().0].owner,
         field.owner.unwrap()

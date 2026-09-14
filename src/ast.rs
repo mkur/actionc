@@ -257,6 +257,8 @@ pub struct VarQualifiers {
 pub struct DeclEntry {
     pub name: String,
     pub size: Option<Expr>,
+    /// Rank >= 2 bounds; mutually exclusive with the legacy single size.
+    pub dimensions: Vec<Expr>,
     pub initializer: Option<Expr>,
     pub span: Span,
 }

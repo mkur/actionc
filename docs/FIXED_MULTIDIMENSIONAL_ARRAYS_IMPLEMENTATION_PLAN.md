@@ -1,6 +1,8 @@
 # Fixed-size multidimensional arrays
 
-Status: proposed; no compiler implementation in this change.
+Status: implementation in progress. Slice 1 adds declaration syntax and checked
+canonical shapes behind a semantic rollout capability. Public enablement remains
+in slice 5, after indexing and executable backend validation.
 Baseline: `8262140`, after Amiga 32-bit decimal output.
 
 Deliver fixed-size arrays indexed with one coordinate per dimension, using

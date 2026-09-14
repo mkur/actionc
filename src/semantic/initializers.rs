@@ -58,7 +58,7 @@ pub(super) fn static_initializer_leaves(
                         self.append(&field.ty, field_offset, field_path)?
                     }
                     RecordFieldStorage::InlineArray { array_type, stride } => {
-                        for index in 0..array_type.length? {
+                        for index in 0..array_type.length()? {
                             let element_offset =
                                 field_offset.checked_add(index.checked_mul(*stride)?)?;
                             self.append(

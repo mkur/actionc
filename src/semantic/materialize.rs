@@ -134,6 +134,7 @@ impl Materializer<'_> {
             if let Some(size) = &mut entry.size {
                 self.expr(scope, size);
             }
+            for dimension in &mut entry.dimensions { self.expr(scope, dimension); }
             if let Some(initializer) = &mut entry.initializer {
                 self.expr(scope, initializer);
             }
