@@ -7,6 +7,38 @@ pub fn encode(
 ) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
+        Instruction::Trap(vector) => {
+            if vector > 15 {
+                return Err("TRAP vector must be 0..15".into());
+            }
+            words.push(0x4e40 | u16::from(vector));
+        }
+        Instruction::AddExtend {
+            width,
+            source,
+            destination,
+        } => {
+            check_register(source)?;
+            check_register(destination)?;
+            words.push(0xd100 | (destination as u16) << 9 | size_bits(width) << 6 | source as u16);
+        }
+        Instruction::AddQuick {
+            width,
+            delta,
+            register,
+        } => {
+            check_register(register)?;
+            if !matches!(delta, -8..=-1 | 1..=8) {
+                return Err("ADDQ/SUBQ magnitude must be 1..8".into());
+            }
+            words.push(
+                0x5000
+                    | ((delta.unsigned_abs() as u16 & 7) << 9)
+                    | if delta < 0 { 0x100 } else { 0 }
+                    | size_bits(width) << 6
+                    | register as u16,
+            );
+        }
         Instruction::MultiplyUnsignedWord {
             source,
             destination,
@@ -274,6 +306,31 @@ mod tests {
         );
         assert_eq!(bytes(Instruction::Unlink(6)), [0x4e, 0x5e]);
         assert_eq!(bytes(Instruction::Rts), [0x4e, 0x75]);
+        assert_eq!(bytes(Instruction::Trap(14)), [0x4e, 0x4e]);
+        assert_eq!(
+            bytes(Instruction::AddExtend {
+                width: Width::Long,
+                source: 1,
+                destination: 1
+            }),
+            [0xd3, 0x81]
+        );
+        assert_eq!(
+            bytes(Instruction::AddQuick {
+                width: Width::Long,
+                delta: 1,
+                register: 0
+            }),
+            [0x52, 0x80]
+        );
+        assert_eq!(
+            bytes(Instruction::AddQuick {
+                width: Width::Long,
+                delta: -1,
+                register: 3
+            }),
+            [0x53, 0x83]
+        );
         // M68000 PRM, MULU.W instruction format (4-139).
         assert_eq!(
             bytes(Instruction::MultiplyUnsignedWord {
@@ -322,6 +379,22 @@ mod tests {
             },
             Instruction::Jsr(Ea::D(0)),
             Instruction::Unlink(8),
+            Instruction::Trap(16),
+            Instruction::AddExtend {
+                width: Width::Long,
+                source: 8,
+                destination: 0,
+            },
+            Instruction::AddQuick {
+                width: Width::Long,
+                delta: 0,
+                register: 0,
+            },
+            Instruction::AddQuick {
+                width: Width::Long,
+                delta: 9,
+                register: 0,
+            },
             Instruction::MultiplyUnsignedWord {
                 source: 8,
                 destination: 0,

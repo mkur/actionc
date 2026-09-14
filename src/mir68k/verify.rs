@@ -136,7 +136,7 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
                     );
                 }
             }
-            for op in &block.ops {
+            for (index, op) in block.ops.iter().enumerate() {
                 if let Some((id, width)) = op_result(op) {
                     if temps.get(&id).and_then(|t| t.width) != Some(width)
                         || !definitions.insert(id)
@@ -148,6 +148,16 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
                     }
                 }
                 match op {
+                    Mir68kOp::Fault(_) => {
+                        if index + 1 != block.ops.len()
+                            || !matches!(block.terminator, Mir68kTerminator::Exit)
+                        {
+                            report(
+                                Some(&routine.name),
+                                "native fault must end an Exit block".into(),
+                            );
+                        }
+                    }
                     Mir68kOp::Load { address, .. } | Mir68kOp::AddressOf { address, .. } => {
                         addresses.push(address)
                     }

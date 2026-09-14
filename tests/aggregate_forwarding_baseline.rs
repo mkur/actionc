@@ -112,6 +112,7 @@ fn aggregate_forwarding_corpus_is_verified_and_analysis_only_on_every_target() {
                             }),
                     };
                     if let Err(errors) = result {
+                        assert_ne!(target, TargetId::Motorola68000);
                         // Existing native runtime capability gate, not native
                         // execution coverage or an error suppressed by analysis.
                         assert_eq!(shape, "variant");

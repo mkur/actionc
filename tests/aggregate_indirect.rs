@@ -115,7 +115,7 @@ fn aggregate_indirect_nir_rejects_forged_callable_signature_identity() {
 }
 
 #[test]
-fn aggregate_native_variants_keep_the_missing_error_adapter_explicit() {
+fn aggregate_native_variants_preserve_target_fault_capabilities() {
     let source = "TYPE Event=VARIANT [NONE SOME [BYTE x]] Event FUNC Make() RETURN(Event.SOME(3)) PROC Main() LET saved=Make() RETURN";
     for target in [
         TargetId::Motorola68000,
@@ -127,10 +127,15 @@ fn aggregate_native_variants_keep_the_missing_error_adapter_explicit() {
         let program = nir::lower_program(&semantic::ir::lower_program(&ast, &model));
         nir::verify_program(&program).unwrap();
         let errors = if target == TargetId::Motorola68000 {
-            format!(
-                "{:?}",
-                actionc::mir68k::lower_program(&program).unwrap_err()
-            )
+            let mir = actionc::mir68k::lower_program(&program).unwrap();
+            assert!(
+                mir.routines
+                    .iter()
+                    .flat_map(|r| &r.blocks)
+                    .flat_map(|b| &b.ops)
+                    .any(|op| matches!(op, actionc::mir68k::Mir68kOp::Fault(_)))
+            );
+            continue;
         } else {
             format!(
                 "{:?}",

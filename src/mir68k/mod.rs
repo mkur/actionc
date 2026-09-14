@@ -9,6 +9,7 @@ pub mod image;
 mod lower;
 pub mod machine;
 pub mod materialize;
+pub mod runtime;
 pub mod verify;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
@@ -247,6 +248,8 @@ pub struct Mir68kBlock {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir68kOp {
+    /// Typed non-returning runtime failure; final operation of an Exit block.
+    Fault(crate::runtime_fault::RuntimeFault),
     Load {
         dest: TempId,
         width: ByteSize,

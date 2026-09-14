@@ -2,6 +2,9 @@
 use super::{machine::*, *};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "materialize_arithmetic.rs"]
+mod arithmetic;
+
 type Result<T> = std::result::Result<T, String>;
 
 pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
@@ -98,7 +101,7 @@ pub fn reachable_blocks(routine: &Mir68kRoutine) -> Result<BTreeSet<BlockId>> {
                     routine.name
                 ));
             }
-            Mir68kTerminator::Exit => {
+            Mir68kTerminator::Exit if !matches!(block.ops.last(), Some(Mir68kOp::Fault(_))) => {
                 return Err(format!(
                     "{}: native terminal exit requires a runtime adapter",
                     routine.name
@@ -475,6 +478,7 @@ impl<'a> Builder<'a> {
     }
     fn op(&mut self, op: &Mir68kOp) -> Result<()> {
         match op {
+            Mir68kOp::Fault(reason) => self.fault(*reason)?,
             Mir68kOp::Store {
                 address,
                 value,
@@ -548,13 +552,20 @@ impl<'a> Builder<'a> {
                 operation,
                 left,
                 right,
-                ..
+                signed,
             } => {
                 self.value(left, 0)?;
                 self.value(right, 1)?;
                 let machine_width = Width::from_bytes(width.get())?;
                 match operation {
                     NirBinaryOp::Mul => self.multiply(machine_width, left)?,
+                    NirBinaryOp::Div | NirBinaryOp::Mod => self.divide(
+                        machine_width,
+                        *signed,
+                        *operation == NirBinaryOp::Mod,
+                        left,
+                        right,
+                    )?,
                     NirBinaryOp::Lsh | NirBinaryOp::Rsh => {
                         self.emit(Instruction::LogicalShift {
                             width: machine_width,
@@ -859,6 +870,7 @@ impl<'a> Builder<'a> {
                 self.current = alternate;
                 self.edge(else_edge)?;
             }
+            Mir68kTerminator::Exit => {} // A verified final Fault emitted its non-returning guard.
             _ => return Err("unresolved native terminator".into()),
         }
         Ok(())

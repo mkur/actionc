@@ -56,6 +56,24 @@ fn arithmetic_flags_and_conditional_branch() {
 }
 
 #[test]
+fn literal_division_primitives_preserve_shift_extend_and_quick_flags() {
+    let mut vm = machine(&[
+        0x203c, 0xffff, 0xffff, // MOVE.L #-1,D0
+        0x7200, // MOVEQ #0,D1
+        0xe388, // LSL.L #1,D0 (X=1)
+        0xd381, // ADDX.L D1,D1 -> 1
+        0x0c81, 0, 1, // CMPI.L #1,D1
+        0x6702, 0x4afc, // BEQ, else ILLEGAL
+        0x5280, // ADDQ.L #1,D0 -> $ffffffff
+        0x5381, // SUBQ.L #1,D1 -> 0
+        0x6702, 0x4afc, 0x4e75,
+    ]);
+    vm.run(100).assert_completed();
+    assert_eq!(vm.cpu.dar[0], u32::MAX);
+    assert_eq!(vm.cpu.dar[1], 0);
+}
+
+#[test]
 fn nested_calls_link_unlink_and_return_preserve_stack() {
     let mut vm = machine(&[
         0x4e56, 0xfff8, // LINK A6,#-8

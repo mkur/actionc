@@ -93,7 +93,7 @@ fn native_union_pointer_views_preserve_width_endianness_and_byte_displacements()
 }
 
 #[test]
-fn union_payloads_do_not_bypass_native_variant_error_adapter_limits() {
+fn union_payloads_preserve_native_variant_fault_requirements() {
     let source = "TYPE View=UNION [CARD word] TYPE Event=VARIANT [DATA [View value]] \
         Event current CARD result PROC Main()\nCASE current OF\nWHEN Event.DATA(saved) THEN\nresult=saved.word\nESAC\nRETURN";
     for target in [
@@ -104,7 +104,15 @@ fn union_payloads_do_not_bypass_native_variant_error_adapter_limits() {
         let raw = lower(source, target);
         for nir in [raw.clone(), nir::optimize_program(&raw).unwrap()] {
             let errors = if target == TargetId::Motorola68000 {
-                format!("{:?}", actionc::mir68k::lower_program(&nir).unwrap_err())
+                let mir = actionc::mir68k::lower_program(&nir).unwrap();
+                assert!(
+                    mir.routines
+                        .iter()
+                        .flat_map(|r| &r.blocks)
+                        .flat_map(|b| &b.ops)
+                        .any(|op| matches!(op, actionc::mir68k::Mir68kOp::Fault(_)))
+                );
+                continue;
             } else {
                 format!("{:?}", actionc::mir65816::lower_program(&nir).unwrap_err())
             };

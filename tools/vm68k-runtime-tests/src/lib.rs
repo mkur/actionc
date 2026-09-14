@@ -195,6 +195,7 @@ impl Callbacks for Exceptions {
 #[derive(Debug, Clone)]
 pub enum Outcome {
     Completed,
+    RuntimeFault(actionc::runtime_fault::RuntimeFault),
     Exception(Exception),
     MemoryViolation(MemoryViolation),
     Stopped,
@@ -230,6 +231,7 @@ impl RunResult {
 pub struct Machine {
     pub cpu: ConfiguredCore<AutoInterruptController, Memory>,
     initial_registers: [u32; 16],
+    terminal_fault: Option<actionc::runtime_fault::RuntimeFault>,
 }
 
 impl Machine {
@@ -263,6 +265,7 @@ impl Machine {
         Ok(Self {
             cpu,
             initial_registers,
+            terminal_fault: None,
         })
     }
 
@@ -271,6 +274,9 @@ impl Machine {
         let mut steps = 0;
         let mut cycles = 0;
         let outcome = loop {
+            if let Some(reason) = self.terminal_fault {
+                break Outcome::RuntimeFault(reason);
+            }
             if let Some(fault) = self.cpu.mem.violation.borrow().clone() {
                 break Outcome::MemoryViolation(fault);
             }
@@ -302,6 +308,13 @@ impl Machine {
                 break Outcome::MemoryViolation(fault);
             }
             if let Some(exception) = exceptions.0 {
+                if matches!(exception, Exception::Trap(vector, _) if vector == 32 + actionc::mir68k::runtime::FAULT_TRAP)
+                {
+                    if let Some(reason) = actionc::mir68k::runtime::decode_fault(self.cpu.dar[0]) {
+                        self.terminal_fault = Some(reason);
+                        break Outcome::RuntimeFault(reason);
+                    }
+                }
                 if matches!(exception, Exception::Trap(47, _)) && pc == TRAMPOLINE + 6 {
                     let changed = (2..8)
                         .chain(10..16)

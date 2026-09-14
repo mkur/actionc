@@ -36,24 +36,6 @@ pub(super) fn lower_program(
     let storage = crate::nir::analyze_program_storage(program);
     let mut routines = Vec::with_capacity(program.routines.len());
     for (routine, storage) in program.routines.iter().zip(&storage.routines) {
-        if let Some(block) = routine.blocks.iter().find(|block| {
-            block.ops.iter().any(|op| {
-                matches!(
-                    op,
-                    NirOp::Call {
-                        callee: NirCallee::Fault(_),
-                        ..
-                    }
-                )
-            })
-        }) {
-            diagnostics.push(diagnostic(
-                Some(&routine.name),
-                Some(&block.label),
-                "runtime fault requires a native target Error adapter",
-            ));
-            continue;
-        }
         if matches!(
             routine.convention,
             crate::nir::NirCallConvention::External(_)
@@ -364,11 +346,17 @@ fn max_outgoing_bytes(routine: &NirRoutine) -> Option<ByteSize> {
     let mut maximum = 0u32;
     for op in routine.blocks.iter().flat_map(|block| &block.ops) {
         let NirOp::Call {
-            args, signature, ..
+            callee,
+            args,
+            signature,
+            ..
         } = op
         else {
             continue;
         };
+        if matches!(callee, NirCallee::Fault(_)) {
+            continue;
+        }
         let signature = signature.as_ref()?;
         let sizes = call_argument_sizes(signature, args.len())?;
         let homes = abi_stack_homes(&sizes)?;
@@ -633,13 +621,8 @@ fn lower_op(
             signature,
             ..
         } => {
-            if matches!(callee, NirCallee::Fault(_)) {
-                diagnostics.push(diagnostic(
-                    Some(&routine.name),
-                    Some(block),
-                    "runtime fault requires a native target Error adapter",
-                ));
-                return None;
+            if let NirCallee::Fault(reason) = callee {
+                return Some(Mir68kOp::Fault(*reason));
             }
             let Some(signature) = signature.as_ref() else {
                 diagnostics.push(diagnostic(
@@ -925,7 +908,7 @@ fn lower_callee(
     code_width: ByteSize,
 ) -> Mir68kCallTarget {
     match callee {
-        NirCallee::Fault(_) => unreachable!("fault diagnosed before native call planning"),
+        NirCallee::Fault(_) => unreachable!("fault lowered before native call planning"),
         NirCallee::User { id, .. } => Mir68kCallTarget::Direct(*id),
         NirCallee::Builtin(name) => Mir68kCallTarget::Builtin(name.clone()),
         NirCallee::Runtime { symbol, .. } => Mir68kCallTarget::Runtime(*symbol),

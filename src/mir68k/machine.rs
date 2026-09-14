@@ -103,6 +103,18 @@ pub enum ShiftCount {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    Trap(u8),
+    AddExtend {
+        width: Width,
+        source: u8,
+        destination: u8,
+    },
+    /// ADDQ/SUBQ on a data register; delta is -8..-1 or 1..8.
+    AddQuick {
+        width: Width,
+        delta: i8,
+        register: u8,
+    },
     /// Original MC68000 MULU.W: low 16-bit inputs, full 32-bit product.
     MultiplyUnsignedWord {
         source: u8,

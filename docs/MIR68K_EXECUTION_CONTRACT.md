@@ -53,11 +53,11 @@ The native compiler API uses the existing source/module loader, semantic
 analysis, reachable SemIR selection and NIR verifier/optimizer. Source-level
 startup and origin constraints are diagnosed before the verified backend
 boundary. Materialization rejects missing/parameterized program entries and
-reachable unresolved fallthrough or terminal exits. A6-relative temporary homes
+reachable unresolved fallthrough or terminal exits without a final typed fault. A6-relative temporary homes
 are separate from automatic objects and the preallocated outgoing area; frame
 sizes outside original MC68000 displacement limits are rejected.
 
-Integer materialization supports 8/16/32-bit add, subtract, multiply, negation, bitwise
+Integer materialization supports 8/16/32-bit add, subtract, multiply, divide, remainder, negation, bitwise
 operations, logical shifts, casts and signed/unsigned comparisons. Narrow loads
 clear unused register bits, signed widening uses explicit EXT instructions, and
 comparison results are normalized to 0/1. Dynamic shifts mask the provisional
@@ -80,7 +80,9 @@ Arguments and indirect targets are captured before this area is written. After
 JSR and LINK, incoming arguments begin at A6+8. Slots are even-sized; a BYTE
 occupies the first byte of its slot. Mutated or address-taken parameters are
 copied to invocation-local homes. Scalars return in D0 and pointers in A0.
-Only D0/D1/A0/A1 are scratch; D2–D7/A2–A5 are untouched and A6/A7 are restored.
+D0/D1/A0/A1 are scratch. Division temporarily borrows D2/D3, saving them in
+A0/A1 and restoring them before completion; it makes no calls while they are
+borrowed. D2–D7/A2–A5 remain preserved and A6/A7 are restored.
 Final frame reservations are checked for overlap and signed-16 displacement
 limits, including incoming arguments and fixed-size copy staging.
 
@@ -96,3 +98,19 @@ Qualified symbol names are attached as display metadata by the compiler API;
 no machine decision depends on source/linker spelling. Parameters and automatic
 objects have frame-relative symbol locations, including the actual source
 parameter names. Routine symbols report their emitted code extents.
+
+Division and remainder consume operands already converted to the NIR result
+width/domain. A 32-step unsigned restoring loop operates on magnitudes; signed
+correction produces truncation toward zero and a remainder with the dividend's
+sign. MIN/-1 wraps and MIN MOD -1 is zero. Runtime zero is checked before any
+result store, including a divisor that becomes zero after conversion.
+
+`Mir68kOp::Fault(RuntimeFault)` preserves NIR's typed, non-returning reason.
+Verification requires it to be the final operation of an Exit block; it has no
+ordinary callable signature or stack arguments. The bare native adapter puts
+an explicitly mapped reason code in D0 and executes TRAP #14. A following
+self-loop prevents continuation even if an adapter incorrectly returns. The
+r68k harness reports RuntimeFault separately from architectural exceptions and
+completion, and latches it so subsequent run requests execute no instructions.
+The mapping in `mir68k::runtime` is independent of Atari Error numbers. Other
+native platforms must provide this adapter before executing these images.

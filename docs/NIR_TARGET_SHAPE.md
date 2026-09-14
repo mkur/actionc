@@ -1431,8 +1431,9 @@ Error(106), with A/Y=code and X=0. The complete mapping is documented in
 Both Atari runtime linkers select the real Error
 entry independently of user routine names. If Error returns, a defensive guard
 clears decimal mode and stops. Native construction/layout lowering is supported;
-native fault calls explicitly require an Error adapter and are diagnosed until
-that target runtime contract exists.
+MIR68K preserves typed faults and provides the bare TRAP adapter described in
+[MIR68K execution](MIR68K_EXECUTION_CONTRACT.md). MIR65816 still diagnoses native
+fault calls until its target runtime adapter exists.
 
 ## Checked aggregate transfers
 

@@ -4,8 +4,10 @@ Status: multiplication and matrix1 are implemented. All 252 matrix1 vectors
 pass in both native modes (504 executions) and four 6502 configurations
 (1,008 executions). A separate NIR fix makes signed binary widening explicit;
 snapshots and the 51-fixture sweep pass. The broad compiler run has only the
-pre-existing untracked lines.act / SHARED.SCREEN sample failure. Division and
-the remaining benchmark slices are in progress.
+pre-existing untracked lines.act / SHARED.SCREEN sample failure. Division,
+remainder and typed native faults now pass 1,674 host-oracle cases, terminal
+fault checks, the full native suite and the affected compiler contract tests.
+Binary search and SHA acceptance remain in progress.
 
 The next native milestone completes multiplication, division and remainder,
 then executes matrix1, binary search and SHA against the existing reference

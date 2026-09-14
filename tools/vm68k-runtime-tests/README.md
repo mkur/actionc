@@ -39,8 +39,9 @@ The initial native subset covers integer arithmetic and casts, logical shifts,
 comparisons, IF/CASE/loops, direct and typed indirect calls, recursive automatic
 frames, pointers, one-dimensional arrays, record fields and overlapping copies.
 The ordinary `MATH.INTEGER.AsrI`/`AsrLI` library also executes on MC68000.
-Integer multiplication is supported at all three widths. Divide/remainder
-helpers, REAL operations, OS/runtime adapters, foreign
+Integer multiplication, division and remainder are supported at all three
+widths. Division by zero reports a terminal RuntimeFault and cannot resume.
+REAL operations, OS/runtime adapters, foreign
 machine code and executable top-level statements are not yet supported.
 This is a bare CPU development path; Amiga startup/object formats and the
 public `actionc` output CLI remain follow-up work.
