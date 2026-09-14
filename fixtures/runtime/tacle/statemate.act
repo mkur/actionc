@@ -3,835 +3,110 @@
 ; May be used, modified, and re-distributed freely; see statemate.c and README.md.
 ; Modern Action!: all 16 switches remain CASE; early C breaks become ELSE paths.
 ; C logical operands are explicitly compared with zero, including noncanonical flags.
-; Fixed addresses expose the full state to the VM harness. Layout: state.tsv.
+; Portable state. The host decodes the legacy packet using state.tsv.
 ; BYTE flags, INT measurements/counters, LONGCARD timestamps. No OS I/O.
 
-BYTE ARRAY bitlist=$07A1
-LONGCARD tmMeasure=$07E1
-LONGCARD tmReady=$07E5
-LONGCARD tmRepeat=$07E9
-LONGCARD sc_DoorCtl_2375_2=$07ED
-LONGCARD sc_DoorCtl_2352_1=$07F1
-LONGCARD sc_DoorCtl_2329_1=$07F5
-INT DoorCtl_N=$07F9
-INT DoorCtl_N_old=$07FB
-LONGCARD sc_DoorCtl_1781_10=$07FD
-LONGCARD sc_DoorCtl_1739_10=$0801
-INT Door_POSITION=$0805
-INT Door_I_EIN=$0807
-INT Door_I_EIN_old=$0809
-INT Unit_MFH=$080B
-INT Unit_MFH_copy=$080D
-INT Unit_POSITION=$080F
-INT Unit_I_EIN=$0811
-INT Unit_I_EIN_old=$0813
-INT Block_I_EIN_MAX=$0815
-INT Block_N=$0817
-INT Block_N_old=$0819
-BYTE DoorCtl_INREVERS2=$081B
-BYTE DoorCtl_INREVERS2_copy=$081C
-BYTE DoorCtl_INREVERS1=$081D
-BYTE DoorCtl_INREVERS1_copy=$081E
-BYTE Door_SFHZ_ZENTRAL=$081F
-BYTE Door_SFHZ_ZENTRAL_old=$0820
-BYTE Door_SFHZ_MEC=$0821
-BYTE Door_SFHZ_MEC_old=$0822
-BYTE Door_SFHA_ZENTRAL=$0823
-BYTE Door_SFHA_ZENTRAL_old=$0824
-BYTE Door_SFHA_MEC=$0825
-BYTE Door_SFHA_MEC_old=$0826
-BYTE Door_KL_50=$0827
-BYTE Door_BLOCK=$0828
-BYTE Door_BLOCK_copy=$0829
-BYTE Door_BLOCK_old=$082A
-BYTE Door_FT=$082B
-BYTE Door_SFHZ=$082C
-BYTE Door_SFHZ_copy=$082D
-BYTE Door_SFHZ_old=$082E
-BYTE Door_SFHA=$082F
-BYTE Door_SFHA_copy=$0830
-BYTE Door_SFHA_old=$0831
-BYTE Door_MFHZ=$0832
-BYTE Door_MFHZ_copy=$0833
-BYTE Door_MFHZ_old=$0834
-BYTE Door_MFHA=$0835
-BYTE Door_MFHA_copy=$0836
-BYTE Door_MFHA_old=$0837
-BYTE Door_EKS_LEISTE_AKTIV=$0838
-BYTE Door_EKS_LEISTE_AKTIV_old=$0839
-BYTE Unit_KL_50=$083A
-BYTE Unit_S_FH_FTZU=$083B
-BYTE Unit_S_FH_FTAUF=$083C
-BYTE Unit_FT=$083D
-BYTE Unit_EKS_LEISTE_AKTIV=$083E
-BYTE Unit_EKS_LEISTE_AKTIV_old=$083F
-BYTE Unit_S_FH_TMBFAUFCAN=$0840
-BYTE Unit_S_FH_TMBFAUFCAN_old=$0841
-BYTE Unit_S_FH_TMBFZUCAN=$0842
-BYTE Unit_S_FH_TMBFZUCAN_old=$0843
-BYTE Unit_S_FH_TMBFZUDISC=$0844
-BYTE Unit_S_FH_TMBFZUDISC_old=$0845
-BYTE Unit_S_FH_TMBFAUFDISC=$0846
-BYTE Unit_S_FH_TMBFAUFDISC_old=$0847
-BYTE Unit_S_FH_ZUDISC=$0848
-BYTE Unit_S_FH_AUFDISC=$0849
-BYTE Unit_DOOR_ID=$084A
-BYTE Unit_BLOCK=$084B
-BYTE Unit_BLOCK_copy=$084C
-BYTE Unit_BLOCK_old=$084D
-BYTE Unit_MFHZ=$084E
-BYTE Unit_MFHZ_copy=$084F
-BYTE Unit_MFHZ_old=$0850
-BYTE Unit_MFHA=$0851
-BYTE Unit_MFHA_copy=$0852
-BYTE Unit_MFHA_old=$0853
-LONGCARD time=$0854
-BYTE stable=$0858
-BYTE microstep=$0859
-BYTE UninitState=$085A
-BYTE ZENTRAL_ChildState=$085B
-BYTE MEC_ChildState=$085C
-BYTE ChildState=$085D
-BYTE B_DoorCtlState=$085E
-BYTE A_DoorCtlState=$085F
-BYTE Repeat_DoorCtlState=$0860
-BYTE Init_DoorCtlState=$0861
-BYTE TapClose_DoorCtlState=$0862
-BYTE ManualClose_DoorCtlState=$0863
-BYTE Open_DoorCtlState=$0864
-BYTE Close_DoorCtlState=$0865
-BYTE MotorState=$0866
-BYTE PinchState=$0867
-BYTE Motion_BlockState=$0868
-BYTE BlockState=$0869
-BYTE command=$0600,signature=$06FF
+BYTE ARRAY bitlist(64)
+LONGCARD tmMeasure
+LONGCARD tmReady
+LONGCARD tmRepeat
+LONGCARD sc_DoorCtl_2375_2
+LONGCARD sc_DoorCtl_2352_1
+LONGCARD sc_DoorCtl_2329_1
+INT DoorCtl_N
+INT DoorCtl_N_old
+LONGCARD sc_DoorCtl_1781_10
+LONGCARD sc_DoorCtl_1739_10
+INT Door_POSITION
+INT Door_I_EIN
+INT Door_I_EIN_old
+INT Unit_MFH
+INT Unit_MFH_copy
+INT Unit_POSITION
+INT Unit_I_EIN
+INT Unit_I_EIN_old
+INT Block_I_EIN_MAX
+INT Block_N
+INT Block_N_old
+BYTE DoorCtl_INREVERS2
+BYTE DoorCtl_INREVERS2_copy
+BYTE DoorCtl_INREVERS1
+BYTE DoorCtl_INREVERS1_copy
+BYTE Door_SFHZ_ZENTRAL
+BYTE Door_SFHZ_ZENTRAL_old
+BYTE Door_SFHZ_MEC
+BYTE Door_SFHZ_MEC_old
+BYTE Door_SFHA_ZENTRAL
+BYTE Door_SFHA_ZENTRAL_old
+BYTE Door_SFHA_MEC
+BYTE Door_SFHA_MEC_old
+BYTE Door_KL_50
+BYTE Door_BLOCK
+BYTE Door_BLOCK_copy
+BYTE Door_BLOCK_old
+BYTE Door_FT
+BYTE Door_SFHZ
+BYTE Door_SFHZ_copy
+BYTE Door_SFHZ_old
+BYTE Door_SFHA
+BYTE Door_SFHA_copy
+BYTE Door_SFHA_old
+BYTE Door_MFHZ
+BYTE Door_MFHZ_copy
+BYTE Door_MFHZ_old
+BYTE Door_MFHA
+BYTE Door_MFHA_copy
+BYTE Door_MFHA_old
+BYTE Door_EKS_LEISTE_AKTIV
+BYTE Door_EKS_LEISTE_AKTIV_old
+BYTE Unit_KL_50
+BYTE Unit_S_FH_FTZU
+BYTE Unit_S_FH_FTAUF
+BYTE Unit_FT
+BYTE Unit_EKS_LEISTE_AKTIV
+BYTE Unit_EKS_LEISTE_AKTIV_old
+BYTE Unit_S_FH_TMBFAUFCAN
+BYTE Unit_S_FH_TMBFAUFCAN_old
+BYTE Unit_S_FH_TMBFZUCAN
+BYTE Unit_S_FH_TMBFZUCAN_old
+BYTE Unit_S_FH_TMBFZUDISC
+BYTE Unit_S_FH_TMBFZUDISC_old
+BYTE Unit_S_FH_TMBFAUFDISC
+BYTE Unit_S_FH_TMBFAUFDISC_old
+BYTE Unit_S_FH_ZUDISC
+BYTE Unit_S_FH_AUFDISC
+BYTE Unit_DOOR_ID
+BYTE Unit_BLOCK
+BYTE Unit_BLOCK_copy
+BYTE Unit_BLOCK_old
+BYTE Unit_MFHZ
+BYTE Unit_MFHZ_copy
+BYTE Unit_MFHZ_old
+BYTE Unit_MFHA
+BYTE Unit_MFHA_copy
+BYTE Unit_MFHA_old
+LONGCARD time
+BYTE stable
+BYTE microstep
+BYTE UninitState
+BYTE ZENTRAL_ChildState
+BYTE MEC_ChildState
+BYTE ChildState
+BYTE B_DoorCtlState
+BYTE A_DoorCtlState
+BYTE Repeat_DoorCtlState
+BYTE Init_DoorCtlState
+BYTE TapClose_DoorCtlState
+BYTE ManualClose_DoorCtlState
+BYTE Open_DoorCtlState
+BYTE Close_DoorCtlState
+BYTE MotorState
+BYTE PinchState
+BYTE Motion_BlockState
+BYTE BlockState
+BYTE command,signature
 
-; Update timestamps and expire the five 500-tick timers.
-PROC Interface()
-  IF bitlist(4) THEN
-    tmRepeat=time
-  FI
-  IF ((bitlist(4)<>0) OR (bitlist(6)<>0)) THEN
-    tmReady=time
-  FI
-  IF ((sc_DoorCtl_2375_2 <> 0) AND ((time - sc_DoorCtl_2375_2) >= 500)) THEN
-    Door_MFHA_copy=0
-    sc_DoorCtl_2375_2=0
-  FI
-  IF ((sc_DoorCtl_2352_1 <> 0) AND ((time - sc_DoorCtl_2352_1) >= 500)) THEN
-    Door_MFHZ_copy=0
-    sc_DoorCtl_2352_1=0
-  FI
-  IF ((sc_DoorCtl_2329_1 <> 0) AND ((time - sc_DoorCtl_2329_1) >= 500)) THEN
-    Door_MFHZ_copy=0
-    sc_DoorCtl_2329_1=0
-  FI
-  IF ((sc_DoorCtl_1781_10 <> 0) AND ((time - sc_DoorCtl_1781_10) >= 500)) THEN
-    sc_DoorCtl_1781_10=0
-  FI
-  IF ((sc_DoorCtl_1739_10 <> 0) AND ((time - sc_DoorCtl_1739_10) >= 500)) THEN
-    sc_DoorCtl_1739_10=0
-  FI
-  IF ((bitlist(0)<>0) OR (Block_N <> Block_N_old)) THEN
-    tmMeasure=time
-  FI
-RETURN
-
-; Reset the statechart control states, as in the upstream initializer.
-PROC Init()
-  tmMeasure=0
-  tmReady=0
-  tmRepeat=0
-  UninitState=0
-  ZENTRAL_ChildState=0
-  MEC_ChildState=0
-  ChildState=0
-  B_DoorCtlState=0
-  A_DoorCtlState=0
-  Repeat_DoorCtlState=0
-  Init_DoorCtlState=0
-  TapClose_DoorCtlState=0
-  ManualClose_DoorCtlState=0
-  Open_DoorCtlState=0
-  Close_DoorCtlState=0
-  MotorState=0
-  PinchState=0
-  Motion_BlockState=0
-  BlockState=0
-  Interface()
-RETURN
-
-; Select central or mechanical window buttons, including edge detection.
-PROC ChildLock()
-  IF bitlist(10) THEN
-    CASE ChildState OF
-    WHEN 1 THEN
-      IF (((Door_SFHA_ZENTRAL<>0) OR (Door_SFHZ_ZENTRAL<>0))=0) THEN
-        stable=0
-        Door_SFHZ_copy=0
-        Door_SFHA_copy=0
-        ChildState=3
-        ZENTRAL_ChildState=0
-      ELSE
-        CASE ZENTRAL_ChildState OF
-        WHEN 1 THEN
-          IF ((Door_SFHA_ZENTRAL<>0) AND ((Door_SFHA_ZENTRAL_old=0)<>0)) THEN
-            stable=0
-            Door_SFHA_copy=1
-            ZENTRAL_ChildState=1
-          ELSE
-            IF ((Door_SFHZ_ZENTRAL<>0) AND ((Door_SFHZ_ZENTRAL_old=0)<>0)) THEN
-              stable=0
-              Door_SFHZ_copy=1
-              ZENTRAL_ChildState=1
-            ELSE
-              IF (((Door_SFHA_ZENTRAL=0)<>0) AND (Door_SFHA_ZENTRAL_old<>0)) THEN
-                stable=0
-                Door_SFHA_copy=0
-                ZENTRAL_ChildState=1
-              ELSE
-                IF (((Door_SFHZ_ZENTRAL=0)<>0) AND (Door_SFHZ_ZENTRAL_old<>0)) THEN
-                  stable=0
-                  Door_SFHZ_copy=0
-                  ZENTRAL_ChildState=1
-                FI
-              FI
-            FI
-          FI
-        ELSE
-          stable=0
-        ESAC
-      FI
-    WHEN 2 THEN
-      IF (((Door_SFHA_MEC<>0) OR (Door_SFHZ_MEC<>0))=0) THEN
-        stable=0
-        Door_SFHZ_copy=0
-        Door_SFHA_copy=0
-        ChildState=3
-        MEC_ChildState=0
-      ELSE
-        CASE MEC_ChildState OF
-        WHEN 1 THEN
-          IF ((Door_SFHA_MEC<>0) AND ((Door_SFHA_MEC_old=0)<>0)) THEN
-            stable=0
-            Door_SFHA_copy=1
-            MEC_ChildState=1
-          ELSE
-            IF ((Door_SFHZ_MEC<>0) AND ((Door_SFHZ_MEC_old=0)<>0)) THEN
-              stable=0
-              Door_SFHZ_copy=1
-              MEC_ChildState=1
-            ELSE
-              IF (((Door_SFHA_MEC=0)<>0) AND (Door_SFHA_MEC_old<>0)) THEN
-                stable=0
-                Door_SFHA_copy=0
-                MEC_ChildState=1
-              ELSE
-                IF (((Door_SFHZ_MEC=0)<>0) AND (Door_SFHZ_MEC_old<>0)) THEN
-                  stable=0
-                  Door_SFHZ_copy=0
-                  MEC_ChildState=1
-                FI
-              FI
-            FI
-          FI
-        ELSE
-          stable=0
-        ESAC
-      FI
-    WHEN 3 THEN
-      IF (((Door_KL_50=0)<>0) AND ((Door_SFHZ_MEC<>0) AND (Door_SFHA_MEC<>0))) THEN
-        stable=0
-        Door_SFHZ_copy=1
-        Door_SFHA_copy=1
-        ChildState=2
-      ELSE
-        IF (((Door_KL_50=0)<>0) AND ((Door_SFHZ_MEC<>0) AND ((Door_SFHA_MEC=0)<>0))) THEN
-          stable=0
-          Door_SFHZ_copy=1
-          ChildState=2
-        ELSE
-          IF (((Door_KL_50=0)<>0) AND (((Door_SFHZ_MEC=0)<>0) AND (Door_SFHA_MEC<>0))) THEN
-            stable=0
-            Door_SFHA_copy=1
-            ChildState=2
-          ELSE
-            IF ((((Door_SFHZ_ZENTRAL=0)<>0) AND (Door_SFHA_ZENTRAL<>0)) AND ((Door_KL_50=0)<>0)) THEN
-              stable=0
-              Door_SFHA_copy=1
-              ChildState=1
-            ELSE
-              IF ((Door_SFHZ_ZENTRAL<>0) AND (Door_SFHA_ZENTRAL<>0)) THEN
-                stable=0
-                Door_SFHA_copy=1
-                Door_SFHZ_copy=1
-                ChildState=1
-              ELSE
-                IF (((Door_SFHZ_ZENTRAL<>0) AND ((Door_SFHA_ZENTRAL=0)<>0)) AND ((Door_KL_50=0)<>0)) THEN
-                  stable=0
-                  Door_SFHZ_copy=1
-                  ChildState=1
-                FI
-              FI
-            FI
-          FI
-        FI
-      FI
-    ELSE
-      stable=0
-      ChildState=3
-    ESAC
-  FI
-RETURN
-
-; Window motion, nested opening/closing states, reversal, and repeat lockout.
-PROC DoorControl()
-  IF ((((bitlist(13)=0)<>0) AND (bitlist(15)<>0)) AND ((bitlist(14)=0)<>0)) THEN
-    bitlist(4)=0
-    bitlist(6)=0
-  FI
-  IF bitlist(13) THEN
-    IF (bitlist(10)=0) THEN
-      ChildState=3
-    FI
-    bitlist(11)=0
-    IF (bitlist(19)=0) THEN
-      bitlist(0)=0
-      BlockState=1
-    FI
-    bitlist(20)=0
-    bitlist(11)=1
-    bitlist(20)=1
-    CASE B_DoorCtlState OF
-    WHEN 1 THEN
-      IF ((DoorCtl_N = 59) AND (((DoorCtl_N_old = 59)=0)<>0)) THEN
-        stable=0
-        B_DoorCtlState=3
-        Init_DoorCtlState=3
-      FI
-    WHEN 2 THEN
-      IF (((Door_BLOCK<>0) AND ((Door_BLOCK_old=0)<>0)) AND (Door_MFHZ<>0)) THEN
-        stable=0
-        Door_MFHZ_copy=0
-        sc_DoorCtl_2329_1=time
-        B_DoorCtlState=3
-        Init_DoorCtlState=3
-      ELSE
-        CASE UninitState OF
-        WHEN 1 THEN
-          IF (Door_SFHZ=0) THEN
-            stable=0
-            Door_MFHZ_copy=0
-            UninitState=3
-          FI
-        WHEN 2 THEN
-          IF (Door_SFHA=0) THEN
-            stable=0
-            Door_MFHA_copy=0
-            UninitState=3
-          FI
-        WHEN 3 THEN
-          IF Door_SFHA THEN
-            stable=0
-            Door_MFHA_copy=1
-            UninitState=2
-          ELSE
-            IF Door_SFHZ THEN
-              stable=0
-              Door_MFHZ_copy=1
-              UninitState=1
-            FI
-          FI
-        ELSE
-          stable=0
-          UninitState=3
-        ESAC
-      FI
-    WHEN 3 THEN
-      IF (((DoorCtl_N > 60) AND (((DoorCtl_N_old > 60)=0)<>0)) AND ((((DoorCtl_INREVERS1<>0) OR (DoorCtl_INREVERS2<>0))=0)<>0)) THEN
-        stable=0
-        Door_MFHZ_copy=0
-        Door_MFHA_copy=0
-        B_DoorCtlState=1
-      ELSE
-        IF (((Door_BLOCK<>0) AND ((Door_BLOCK_old=0)<>0)) AND (Door_MFHA<>0)) THEN
-          stable=0
-          Door_MFHA_copy=0
-          sc_DoorCtl_2375_2=time
-          B_DoorCtlState=2
-          UninitState=3
-        ELSE
-          IF (((Door_BLOCK<>0) AND ((Door_BLOCK_old=0)<>0)) AND (Door_MFHZ<>0)) THEN
-            stable=0
-            Door_MFHZ_copy=0
-            sc_DoorCtl_2352_1=time
-            B_DoorCtlState=2
-            UninitState=3
-          ELSE
-            CASE Init_DoorCtlState OF
-            WHEN 1 THEN
-              IF (Door_POSITION >= 405) THEN
-                stable=0
-                Door_MFHA_copy=0
-                Init_DoorCtlState=3
-              ELSE
-                CASE Open_DoorCtlState OF
-                WHEN 1 THEN
-                  IF (((Door_SFHZ<>0) AND ((Door_SFHZ_old=0)<>0)) OR ((Door_SFHA<>0) AND ((Door_SFHA_old=0)<>0))) THEN
-                    stable=0
-                    Door_MFHA_copy=0
-                    Init_DoorCtlState=3
-                    Open_DoorCtlState=0
-                  FI
-                WHEN 2 THEN
-                  IF ((Door_SFHZ<>0) AND ((Door_SFHZ_old=0)<>0)) THEN
-                    stable=0
-                    Open_DoorCtlState=1
-                  ELSE
-                    IF (((Door_SFHA=0)<>0) AND (Door_SFHA_old<>0)) THEN
-                      stable=0
-                      Door_MFHA_copy=0
-                      Init_DoorCtlState=3
-                      Open_DoorCtlState=0
-                    FI
-                  FI
-                ELSE
-                  stable=0
-                  Open_DoorCtlState=2
-                ESAC
-              FI
-            WHEN 2 THEN
-              IF (Door_POSITION <= 0) THEN
-                stable=0
-                Door_MFHZ_copy=0
-                Init_DoorCtlState=3
-              ELSE
-                CASE Close_DoorCtlState OF
-                WHEN 1 THEN
-                  IF (((Door_SFHA<>0) AND ((Door_SFHA_old=0)<>0)) OR ((Door_SFHZ<>0) AND ((Door_SFHZ_old=0)<>0))) THEN
-                    stable=0
-                    Door_MFHZ_copy=0
-                    Init_DoorCtlState=3
-                  ELSE
-                    CASE TapClose_DoorCtlState OF
-                    WHEN 1 THEN
-                      bitlist(23)=0
-                      IF bitlist(22) THEN
-                        stable=0
-                        Door_MFHZ_copy=1
-                        DoorCtl_INREVERS2_copy=0
-                        TapClose_DoorCtlState=2
-                        Door_MFHA_copy=0
-                        bitlist(17)=1
-                      FI
-                    WHEN 2 THEN
-                      IF bitlist(24) THEN
-                        stable=0
-                        DoorCtl_INREVERS2_copy=1
-                        bitlist(23)=1
-                        TapClose_DoorCtlState=1
-                        bitlist(17)=0
-                        Door_MFHZ_copy=0
-                        sc_DoorCtl_1781_10=time
-                        Door_MFHA_copy=1
-                      FI
-                    ELSE
-                      stable=0
-                      TapClose_DoorCtlState=2
-                      bitlist(17)=1
-                    ESAC
-                  FI
-                WHEN 2 THEN
-                  IF (((Door_SFHZ=0)<>0) AND (Door_SFHZ_old<>0)) THEN
-                    stable=0
-                    Door_MFHZ_copy=0
-                    Init_DoorCtlState=3
-                  ELSE
-                    CASE ManualClose_DoorCtlState OF
-                    WHEN 1 THEN
-                      bitlist(23)=0
-                      IF bitlist(22) THEN
-                        stable=0
-                        DoorCtl_INREVERS1_copy=0
-                        ManualClose_DoorCtlState=2
-                        Door_MFHA_copy=0
-                        bitlist(17)=1
-                        Door_MFHZ_copy=1
-                      FI
-                    WHEN 2 THEN
-                      IF bitlist(24) THEN
-                        stable=0
-                        Door_MFHZ_copy=0
-                        DoorCtl_INREVERS1_copy=1
-                        bitlist(23)=1
-                        ManualClose_DoorCtlState=1
-                        bitlist(17)=0
-                        sc_DoorCtl_1739_10=time
-                        Door_MFHA_copy=1
-                      ELSE
-                        IF ((Door_SFHA<>0) AND ((Door_SFHA_old=0)<>0)) THEN
-                          stable=0
-                          Close_DoorCtlState=1
-                          ManualClose_DoorCtlState=0
-                        FI
-                      FI
-                    ELSE
-                      stable=0
-                      ManualClose_DoorCtlState=2
-                      bitlist(17)=1
-                      Door_MFHZ_copy=1
-                    ESAC
-                  FI
-                ELSE
-                  stable=0
-                  Close_DoorCtlState=2
-                  ManualClose_DoorCtlState=2
-                  bitlist(17)=1
-                  Door_MFHZ_copy=1
-                ESAC
-              FI
-            WHEN 3 THEN
-              IF (((Door_SFHZ<>0) AND ((Door_SFHZ_old=0)<>0)) AND (Door_POSITION > 0)) THEN
-                stable=0
-                Init_DoorCtlState=2
-                Close_DoorCtlState=2
-                ManualClose_DoorCtlState=2
-                bitlist(17)=1
-                Door_MFHZ_copy=1
-              ELSE
-                IF (((Door_SFHA<>0) AND ((Door_SFHA_old=0)<>0)) AND (Door_POSITION < 405)) THEN
-                  stable=0
-                  Door_MFHA_copy=1
-                  Init_DoorCtlState=1
-                  Open_DoorCtlState=2
-                FI
-              FI
-            ELSE
-              stable=0
-              Init_DoorCtlState=3
-            ESAC
-          FI
-        FI
-      FI
-    ELSE
-      stable=0
-      B_DoorCtlState=2
-    ESAC
-    CASE A_DoorCtlState OF
-    WHEN 1 THEN
-      bitlist(5)=0
-      IF ((((microstep = 1) AND (tmReady <> 0)) AND ((time - tmReady) = 1)) AND ((Door_MFHZ<>0) OR (Door_MFHA<>0))) THEN
-        stable=0
-        DoorCtl_N=(DoorCtl_N + 1)
-        A_DoorCtlState=1
-        bitlist(5)=1
-        Repeat_DoorCtlState=1
-      ELSE
-        CASE Repeat_DoorCtlState OF
-        WHEN 1 THEN
-          IF ((((microstep = 1) AND (tmRepeat <> 0)) AND ((time - tmRepeat) = 3)) AND (((((Door_MFHZ<>0) OR (Door_MFHA<>0))=0)<>0) AND (DoorCtl_N > 0))) THEN
-            stable=0
-            DoorCtl_N=(DoorCtl_N - 1)
-            Repeat_DoorCtlState=1
-          FI
-        ELSE
-          stable=0
-          bitlist(5)=1
-          Repeat_DoorCtlState=1
-        ESAC
-      FI
-    ELSE
-      stable=0
-      DoorCtl_N=0
-      A_DoorCtlState=1
-      bitlist(5)=1
-      Repeat_DoorCtlState=1
-    ESAC
-    bitlist(5)=bitlist(4)
-    bitlist(7)=bitlist(6)
-  FI
-RETURN
-
-; Detect the rising/falling edge of the anti-pinch sensor.
-PROC AntiPinch()
-  IF bitlist(16) THEN
-    CASE PinchState OF
-    WHEN 1 THEN
-      IF (((Door_EKS_LEISTE_AKTIV<>0) AND ((Door_EKS_LEISTE_AKTIV_old=0)<>0)) AND ((((Door_SFHZ<>0) AND (Door_SFHA<>0))=0)<>0)) THEN
-        stable=0
-        bitlist(24)=1
-        PinchState=2
-      FI
-    WHEN 2 THEN
-      bitlist(24)=0
-      IF (((Door_EKS_LEISTE_AKTIV=0)<>0) AND (Door_EKS_LEISTE_AKTIV_old<>0)) THEN
-        stable=0
-        PinchState=1
-      FI
-    ELSE
-      stable=0
-      PinchState=1
-    ESAC
-  FI
-RETURN
-
-; Measure motor current, then detect a stalled window.
-PROC BlockDetect()
-  IF ((((bitlist(19)=0)<>0) AND (bitlist(21)<>0)) AND ((bitlist(20)=0)<>0)) THEN
-    bitlist(0)=0
-  FI
-  IF bitlist(19) THEN
-    CASE BlockState OF
-    WHEN 1 THEN
-      IF ((Door_I_EIN <> Door_I_EIN_old) AND (Door_I_EIN > 0)) THEN
-        stable=0
-        Door_BLOCK_copy=0
-        BlockState=2
-        Block_N=0
-        Block_I_EIN_MAX=2
-        Motion_BlockState=3
-        bitlist(0)=1
-      FI
-    WHEN 2 THEN
-      IF ((((Door_MFHA=0)<>0) AND (Door_MFHA_old<>0)) OR (((Door_MFHZ=0)<>0) AND (Door_MFHZ_old<>0))) THEN
-        stable=0
-        BlockState=1
-        Motion_BlockState=0
-      ELSE
-        CASE Motion_BlockState OF
-        WHEN 1 THEN
-        WHEN 2 THEN
-          IF (Door_I_EIN > (Block_I_EIN_MAX - 2)) THEN
-            stable=0
-            Door_BLOCK_copy=1
-            Motion_BlockState=1
-          FI
-        WHEN 3 THEN
-          bitlist(0)=0
-          IF ((Block_N = 11) AND (((Block_N_old = 11)=0)<>0)) THEN
-            stable=0
-            Motion_BlockState=2
-          ELSE
-            IF (Motion_BlockState = 3) THEN
-              IF (((microstep = 1) AND (tmMeasure <> 0)) AND ((time - tmMeasure) = 2)) THEN
-                Block_N=(Block_N + 1)
-                IF (Door_I_EIN > Block_I_EIN_MAX) THEN
-                  Block_I_EIN_MAX=Door_I_EIN
-                FI
-              FI
-            FI
-          FI
-        ELSE
-          stable=0
-          Block_N=0
-          Block_I_EIN_MAX=2
-          Motion_BlockState=3
-          bitlist(0)=1
-        ESAC
-      FI
-    ELSE
-      stable=0
-      BlockState=1
-    ESAC
-  FI
-RETURN
-
-; Upstream WCET driver: fixed clock 1 and exactly 100 microsteps.
-; Preserve the original order of controller calls and old/copy signal transfers.
-PROC Controller()
-  BYTE i
-  time=1
-  stable=0
-  microstep=0
-  FOR i=0 TO 99 DO
-    stable=1
-    microstep==+1
-    CASE MotorState OF
-    WHEN 1 THEN
-      IF (((Unit_MFHZ=0)<>0) AND (Unit_MFHZ_old<>0)) THEN
-        stable=0
-        Unit_MFH=0
-        MotorState=2
-      FI
-    WHEN 2 THEN
-      IF ((Unit_MFHZ<>0) AND ((Unit_MFHZ_old=0)<>0)) THEN
-        stable=0
-        Unit_MFH=(-100)
-        MotorState=1
-      ELSE
-        IF ((Unit_MFHA<>0) AND ((Unit_MFHA_old=0)<>0)) THEN
-          stable=0
-          Unit_MFH=100
-          MotorState=3
-        FI
-      FI
-    WHEN 3 THEN
-      IF (((Unit_MFHA=0)<>0) AND (Unit_MFHA_old<>0)) THEN
-        stable=0
-        Unit_MFH=0
-        MotorState=2
-      FI
-    ELSE
-      stable=0
-      Unit_MFH=0
-      MotorState=2
-    ESAC
-    IF (bitlist(10)=0) THEN
-      ChildState=3
-    FI
-    bitlist(11)=0
-    IF (bitlist(16)=0) THEN
-      PinchState=1
-    FI
-    bitlist(17)=0
-    IF (bitlist(19)=0) THEN
-      bitlist(0)=0
-      BlockState=1
-    FI
-    bitlist(20)=0
-    IF (bitlist(13)=0) THEN
-      bitlist(4)=0
-      bitlist(6)=0
-      B_DoorCtlState=2
-      DoorCtl_N=0
-      A_DoorCtlState=1
-      bitlist(5)=1
-      Repeat_DoorCtlState=1
-    FI
-    bitlist(14)=0
-    bitlist(11)=1
-    bitlist(17)=1
-    bitlist(20)=1
-    bitlist(14)=1
-    IF (Unit_S_FH_TMBFZUCAN <> Unit_S_FH_TMBFZUCAN_old) THEN
-      IF (Unit_DOOR_ID=0) THEN
-        Unit_S_FH_FTZU=Unit_S_FH_TMBFZUCAN
-      FI
-    FI
-    IF (Unit_S_FH_TMBFZUDISC <> Unit_S_FH_TMBFZUDISC_old) THEN
-      IF Unit_DOOR_ID THEN
-        Unit_S_FH_TMBFZUCAN=Unit_S_FH_TMBFZUDISC
-      FI
-    FI
-    IF (Unit_S_FH_TMBFAUFCAN <> Unit_S_FH_TMBFAUFCAN_old) THEN
-      IF (Unit_DOOR_ID=0) THEN
-        Unit_S_FH_FTAUF=Unit_S_FH_TMBFAUFCAN
-      FI
-    FI
-    IF (Unit_S_FH_TMBFAUFDISC <> Unit_S_FH_TMBFAUFDISC_old) THEN
-      IF Unit_DOOR_ID THEN
-        Unit_S_FH_TMBFAUFCAN=Unit_S_FH_TMBFAUFDISC
-      FI
-    FI
-    bitlist(10)=bitlist(12)
-    bitlist(13)=bitlist(15)
-    bitlist(16)=bitlist(18)
-    bitlist(19)=bitlist(21)
-    Door_SFHA_MEC=Unit_S_FH_AUFDISC
-    Door_SFHA_ZENTRAL=Unit_S_FH_FTAUF
-    Door_SFHZ_MEC=Unit_S_FH_ZUDISC
-    Door_SFHZ_ZENTRAL=Unit_S_FH_FTZU
-    ChildLock()
-    Unit_MFHA=Door_MFHA
-    Unit_MFHZ=Door_MFHZ
-    Unit_I_EIN=Door_I_EIN
-    Unit_EKS_LEISTE_AKTIV=Door_EKS_LEISTE_AKTIV
-    Unit_POSITION=Door_POSITION
-    Unit_FT=Door_FT
-    Unit_S_FH_AUFDISC=Door_SFHA_MEC
-    Unit_S_FH_FTAUF=Door_SFHA_ZENTRAL
-    Unit_S_FH_ZUDISC=Door_SFHZ_MEC
-    Unit_S_FH_FTZU=Door_SFHZ_ZENTRAL
-    Unit_KL_50=Door_KL_50
-    Unit_BLOCK=Door_BLOCK
-    Door_SFHA_MEC=Unit_S_FH_AUFDISC
-    Door_SFHA_ZENTRAL=Unit_S_FH_FTAUF
-    Door_SFHZ_MEC=Unit_S_FH_ZUDISC
-    Door_SFHZ_ZENTRAL=Unit_S_FH_FTZU
-    DoorControl()
-    Unit_MFHA=Door_MFHA
-    Unit_MFHZ=Door_MFHZ
-    Unit_I_EIN=Door_I_EIN
-    Unit_EKS_LEISTE_AKTIV=Door_EKS_LEISTE_AKTIV
-    Unit_POSITION=Door_POSITION
-    Unit_FT=Door_FT
-    Unit_S_FH_AUFDISC=Door_SFHA_MEC
-    Unit_S_FH_FTAUF=Door_SFHA_ZENTRAL
-    Unit_S_FH_ZUDISC=Door_SFHZ_MEC
-    Unit_S_FH_FTZU=Door_SFHZ_ZENTRAL
-    Unit_KL_50=Door_KL_50
-    Unit_BLOCK=Door_BLOCK
-    Door_SFHA_MEC=Unit_S_FH_AUFDISC
-    Door_SFHA_ZENTRAL=Unit_S_FH_FTAUF
-    Door_SFHZ_MEC=Unit_S_FH_ZUDISC
-    Door_SFHZ_ZENTRAL=Unit_S_FH_FTZU
-    AntiPinch()
-    Unit_MFHA=Door_MFHA
-    Unit_MFHZ=Door_MFHZ
-    Unit_I_EIN=Door_I_EIN
-    Unit_EKS_LEISTE_AKTIV=Door_EKS_LEISTE_AKTIV
-    Unit_POSITION=Door_POSITION
-    Unit_FT=Door_FT
-    Unit_S_FH_AUFDISC=Door_SFHA_MEC
-    Unit_S_FH_FTAUF=Door_SFHA_ZENTRAL
-    Unit_S_FH_ZUDISC=Door_SFHZ_MEC
-    Unit_S_FH_FTZU=Door_SFHZ_ZENTRAL
-    Unit_KL_50=Door_KL_50
-    Unit_BLOCK=Door_BLOCK
-    Door_SFHA_MEC=Unit_S_FH_AUFDISC
-    Door_SFHA_ZENTRAL=Unit_S_FH_FTAUF
-    Door_SFHZ_MEC=Unit_S_FH_ZUDISC
-    Door_SFHZ_ZENTRAL=Unit_S_FH_FTZU
-    BlockDetect()
-    Unit_MFHA=Door_MFHA
-    Unit_MFHZ=Door_MFHZ
-    Unit_I_EIN=Door_I_EIN
-    Unit_EKS_LEISTE_AKTIV=Door_EKS_LEISTE_AKTIV
-    Unit_POSITION=Door_POSITION
-    Unit_FT=Door_FT
-    Unit_S_FH_AUFDISC=Door_SFHA_MEC
-    Unit_S_FH_FTAUF=Door_SFHA_ZENTRAL
-    Unit_S_FH_ZUDISC=Door_SFHZ_MEC
-    Unit_S_FH_FTZU=Door_SFHZ_ZENTRAL
-    Unit_KL_50=Door_KL_50
-    Unit_BLOCK=Door_BLOCK
-    bitlist(11)=bitlist(10)
-    bitlist(14)=bitlist(13)
-    bitlist(17)=bitlist(16)
-    bitlist(20)=bitlist(19)
-    DoorCtl_N_old=DoorCtl_N
-    Door_I_EIN_old=Door_I_EIN
-    Unit_MFH=Unit_MFH_copy
-    Unit_I_EIN_old=Unit_I_EIN
-    Block_N_old=Block_N
-    Door_SFHZ_ZENTRAL_old=Door_SFHZ_ZENTRAL
-    Door_SFHZ_MEC_old=Door_SFHZ_MEC
-    Door_SFHA_ZENTRAL_old=Door_SFHA_ZENTRAL
-    Door_SFHA_MEC_old=Door_SFHA_MEC
-    Door_BLOCK=Door_BLOCK_copy
-    Door_BLOCK_old=Door_BLOCK
-    Door_SFHZ=Door_SFHZ_copy
-    Door_SFHZ_old=Door_SFHZ
-    Door_SFHA=Door_SFHA_copy
-    Door_SFHA_old=Door_SFHA
-    Door_MFHZ=Door_MFHZ_copy
-    Door_MFHZ_old=Door_MFHZ
-    Door_MFHA=Door_MFHA_copy
-    Door_MFHA_old=Door_MFHA
-    Door_EKS_LEISTE_AKTIV_old=Door_EKS_LEISTE_AKTIV
-    Unit_EKS_LEISTE_AKTIV_old=Unit_EKS_LEISTE_AKTIV
-    Unit_S_FH_TMBFAUFCAN_old=Unit_S_FH_TMBFAUFCAN
-    Unit_S_FH_TMBFZUCAN_old=Unit_S_FH_TMBFZUCAN
-    Unit_S_FH_TMBFZUDISC_old=Unit_S_FH_TMBFZUDISC
-    Unit_S_FH_TMBFAUFDISC_old=Unit_S_FH_TMBFAUFDISC
-    Unit_BLOCK=Unit_BLOCK_copy
-    Unit_BLOCK_old=Unit_BLOCK
-    Unit_MFHZ=Unit_MFHZ_copy
-    Unit_MFHZ_old=Unit_MFHZ
-    Unit_MFHA=Unit_MFHA_copy
-    Unit_MFHA_old=Unit_MFHA
-  OD
-RETURN
+INCLUDE "statemate-kernel.inc"
 
 ; Command 0 is the original zero-initialized benchmark; others test individual steps.
 PROC Main()
@@ -853,5 +128,4 @@ PROC Main()
     Controller()
   FI
   signature=$A5
-  DO OD
 RETURN

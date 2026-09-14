@@ -1,8 +1,9 @@
 # MIR68K public CLI, native artifacts and benchmark coverage
 
 Status: implementation in progress. Slices 2 (artifact I/O), 1 (CLI) and 3
-(artifact execution) are complete; the three slice-4 benchmark ports remain. Baseline: `c753845`, with compiler behavior and
-measurements at `8ecf73a`.
+(artifact execution) and slice 4a (Statemate) are complete. Dijkstra and Huffman
+decoding remain. Baseline: `c753845`, with compiler behavior and measurements
+at `8ecf73a`.
 
 Slice 2 validation: all 69 native tests pass, including four artifact tests;
 the paired C command retains every measurement in `mir68k-c-comparison.csv`.
@@ -18,6 +19,10 @@ existing dominance test; compiler analysis behavior is unchanged.
 Slice 3 validation: all 72 native tests pass. The public-artifact target also
 passes without `ACTIONC_TEST_COMPILER`, exercising the isolated Cargo build
 helper. CI receives the root workspace binary explicitly.
+
+Slice 4a validation: 314 native and 628 guarded 6502 Statemate executions pass,
+with both newline conventions through the actual source/include loaders. All
+16 CASE routines are shared unchanged; the vector generator check passes.
 
 Deliver the four requested areas: public CLI integration, native output,
 compile-and-run execution tests, and native Statemate/Dijkstra/Huffman-decoder

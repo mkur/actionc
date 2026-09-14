@@ -73,6 +73,9 @@ The acceptance benchmark is the shared TACLeBench insertion-sort algorithm:
 209 independent C-reference cases, compiled once per optimization configuration
 and executed in 418 fresh VMs. Its state is addressed by compiler symbols and
 serialized in target byte order. No benchmark address belongs to a 6502 map.
+Statemate adds 157 complete controller-state cases per NIR mode, including all
+16 shared CASE statements, 64 flag bytes, signed measurements and timer wrap.
+Its native driver is compiled through the public CLI artifact workflow.
 Public artifact tests invoke the actual `actionc` executable. CI supplies it
 through `ACTIONC_TEST_COMPILER`; standalone tests build it once per integration
 test process in a separate Cargo target directory and use Cargo's reported

@@ -4,6 +4,8 @@ use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_
 use std::path::{Path, PathBuf};
 
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/statemate-vectors.txt");
+const DRIVER: &str = include_str!("../fixtures/statemate_driver.act");
+const CORE: &str = include_str!("../../../fixtures/runtime/tacle/statemate-kernel.inc");
 const STATE: u16 = 0x07A1;
 const STATE_BYTES: usize = 201;
 const SIGNATURE: u16 = 0x06FF;
@@ -47,6 +49,34 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+struct SourceDirectory(PathBuf);
+impl SourceDirectory {
+    fn new(crlf: bool) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "actionc-statemate-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        for (name, source) in [("driver.act", DRIVER), ("statemate-kernel.inc", CORE)] {
+            let lf = source.replace("\r\n", "\n");
+            std::fs::write(
+                directory.join(name),
+                if crlf { lf.replace('\n', "\r\n") } else { lf },
+            )
+            .unwrap();
+        }
+        Self(directory)
+    }
+}
+impl Drop for SourceDirectory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 fn state_field(address: u16) -> String {
     let offset = usize::from(address.saturating_sub(STATE));
     for line in include_str!("../../../fixtures/runtime/tacle/state.tsv").lines() {
@@ -86,8 +116,9 @@ fn statemate_nested_cases_match_complete_c_state_in_both_backends_and_runtimes()
                 Runtime::ActionCart => lf.clone(),
                 Runtime::Standalone => lf.replace('\n', "\r\n"),
             };
+            let source = SourceDirectory::new(runtime == Runtime::Standalone);
             let compiled = compile_file(
-                root().join("fixtures/runtime/tacle/statemate.act"),
+                source.0.join("driver.act"),
                 &CompileOptions::for_mode(mode).with_runtime(runtime),
             )
             .unwrap_or_else(|error| panic!("compile {mode:?}/{runtime:?}: {error}"));

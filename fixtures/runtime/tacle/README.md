@@ -70,6 +70,11 @@ The original checksum shifts an `unsigned long` by indices up to 63, which is
 not a valid portable checksum for a 32-bit `long`. Tests instead compare all
 **201 state bytes**, including all 64 array flags and every scalar global.
 
+`statemate-kernel.inc` contains the shared controller routines and all 16 CASE
+statements. `statemate.act` allocates portable state and returns normally. The
+[6502 driver](../../../tools/vm-runtime-tests/fixtures/statemate_driver.act)
+retains the fixed packet addresses and completion loop below.
+
 ## VM contract and coverage
 
 | Location | Meaning |
@@ -99,6 +104,12 @@ runtimes: **628 executions**. It checks every state byte, the unchanged command,
 completion, and every surrounding guard byte in `$0600..$08FF`. The unaligned
 state block includes a LONGCARD crossing a page boundary. LF and CRLF vector
 text pass through the same parser and VM path. Standalone executions load no ROMs.
+
+The MC68000 `statemate` target executes all 157 vectors in raw and optimized NIR
+from public CLI artifacts: **314 native executions**. It decodes each INT and
+LONGCARD numerically from `state.tsv`, preserves all 64 flag bytes, and compares
+every field through emitted symbols. Packet offsets never become native
+addresses. Both targets compile the actual shared include with LF and CRLF.
 
 ```sh
 cd tools/vm-runtime-tests
