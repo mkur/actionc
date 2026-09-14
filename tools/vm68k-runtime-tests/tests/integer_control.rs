@@ -155,14 +155,21 @@ fn cyclic_parallel_edge_copies_execute_on_loop_backedges() {
         args,
     };
     let r = &mut mir.routines[0];
-    r.temps = (0..6)
+    r.temps = (0..7)
         .map(|i| (TempId(i), if i == 3 { boolean.clone() } else { ty.clone() }))
         .collect();
     r.blocks = vec![
         Mir68kBlock {
             id: BlockId(0),
             params: vec![],
-            ops: vec![],
+            ops: vec![Mir68kOp::Binary {
+                dest: TempId(6),
+                width: word,
+                signed: false,
+                operation: NirBinaryOp::Add,
+                left: Mir68kValue::U16(0),
+                right: Mir68kValue::U16(1),
+            }],
             terminator: Mir68kTerminator::Goto(edge(
                 1,
                 vec![
@@ -198,7 +205,7 @@ fn cyclic_parallel_edge_copies_execute_on_loop_backedges() {
                 signed: false,
                 operation: NirBinaryOp::Sub,
                 left: t(2),
-                right: Mir68kValue::U16(1),
+                right: t(6),
             }],
             terminator: Mir68kTerminator::Goto(edge(1, vec![t(1), t(0), t(4)])),
         },
@@ -228,9 +235,35 @@ fn cyclic_parallel_edge_copies_execute_on_loop_backedges() {
             },
         },
     ];
-    let machine = mir68k::materialize::materialize(&mir).unwrap();
-    let image = mir68k::image::link(&mir, &machine, 0x10000).unwrap();
-    let mut vm = Machine::from_image(&image).unwrap();
-    vm.run(1000).assert_completed();
-    assert_eq!(vm.read_scalar(image.symbol("result").unwrap()).unwrap(), 2);
+    // An unreachable predecessor must not invalidate the entry definition's
+    // dominance over the emitted loop.
+    r.blocks.push(Mir68kBlock {
+        id: BlockId(4),
+        params: vec![],
+        ops: vec![],
+        terminator: Mir68kTerminator::Goto(edge(1, vec![Mir68kValue::U16(0); 3])),
+    });
+    for register_allocation in [false, true] {
+        let machine = mir68k::materialize::materialize_with_options(
+            &mir,
+            mir68k::materialize::Options {
+                register_allocation,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let image = mir68k::image::link(&mir, &machine, 0x10000).unwrap();
+        let mut vm = Machine::from_image(&image).unwrap();
+        vm.run(1000).assert_completed();
+        assert_eq!(vm.read_scalar(image.symbol("result").unwrap()).unwrap(), 2);
+    }
+    let Mir68kTerminator::Goto(edge) = &mut mir.routines[0].blocks[0].terminator else {
+        unreachable!()
+    };
+    edge.args[0] = t(0); // The loop parameter does not dominate the entry edge.
+    assert!(
+        mir68k::materialize::materialize(&mir)
+            .unwrap_err()
+            .contains("does not dominate")
+    );
 }

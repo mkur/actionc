@@ -28,12 +28,15 @@ The same file records Action! switches; `actionc-options.txt` records the resolv
 native settings and input Git hashes. `--no-opt` selects raw Action! NIR;
 `--no-codegen-opt` disables target optimization. Individual switches
 `--no-forward-temporaries`, `--no-select-instructions`, `--no-relax-branches`
-`--no-pointer-alignment` and `--no-control-flow`
+`--no-pointer-alignment`, `--no-control-flow` and `--no-register-allocation`
 support controlled comparisons. These switches leave GCC's configuration alone.
 Use a separate `--build-dir` for each experiment to retain its results.
-Use `--native-promotion` to opt into broader NIR promotion for native loops,
+Use `--native-promotion` to select the default broader NIR promotion for native loops,
 or `--conservative-promotion` for the existing profitability policy. These
 mutually exclusive switches are independent of the target optimization flags.
+Register allocation is enabled by default. `--register-allocation` explicitly
+enables it; `--no-register-allocation` selects private stack homes and staged
+edge copies instead.
 
 ## Comparison contract
 

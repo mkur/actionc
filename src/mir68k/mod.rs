@@ -3,6 +3,7 @@
 //! The canary owns 68k access strategy and big-endian data projection. It does
 //! not share an instruction or register model with either 6502-family backend.
 
+mod allocation;
 mod analysis;
 mod branch_relaxation;
 mod control_flow;

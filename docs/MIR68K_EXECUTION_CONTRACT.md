@@ -145,10 +145,28 @@ The `control_flow` option disables this selection for differential execution.
 
 Native compilation has an explicit NIR promotion policy, independent of
 materialization options. `NativeLoops` exposes eligible automatic counters,
-accumulators and pointers as SSA values and block parameters. It currently
-remains opt-in pending register allocation. Home elision removes unused local
+accumulators and pointers as SSA values and block parameters. It is the native
+default; `Conservative` retains the earlier profitability policy. Home elision removes unused local
 cells before MIR frame planning; removed cells have no emitted memory symbol.
 Alignment receipts are derived from the resulting verified NIR, after promotion.
+
+Bounded allocation retains selected SSA values in D4–D7 across blocks and calls.
+It checks dominating definitions, computes backward liveness including edge
+arguments, and verifies deterministic assignments against interference and the
+reserved scratch-register set. Values live repeatedly in loops have priority;
+unassigned values keep private stack homes. No typed SSA definition or alignment
+receipt is rewritten. Only used preserved registers receive save slots, and
+every normal return restores them after materializing its result.
+
+Parallel edge copies use final register/stack locations, omit identical homes,
+and break cycles with one normalized longword spill slot. Narrow stack values
+are read at their declared width before normalization; a big-endian byte/word
+home is never reinterpreted as the low bits of a longword. Frame layout follows
+allocation, retaining source-visible objects and distinguishing saved-register
+bytes from spill bytes. Unused and register-held temps have no stack reservation.
+The `register_allocation` switch retains the conservative path for differential
+execution. Block-local forwarding receives only the remaining private spill
+homes and continues to respect widths, calls and flag liveness.
 
 Qualified symbol names are attached as display metadata by the compiler API;
 no machine decision depends on source/linker spelling. Parameters and automatic

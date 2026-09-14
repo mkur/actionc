@@ -24,7 +24,7 @@ impl Default for NativeCompileOptions {
         Self {
             origin: 0x10000,
             optimize: true,
-            promotion: nir::NirPromotionPolicy::Conservative,
+            promotion: nir::NirPromotionPolicy::NativeLoops,
             codegen: Default::default(),
             target: crate::target::TargetId::Motorola68000,
             project_root: None,

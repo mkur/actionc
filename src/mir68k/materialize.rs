@@ -1,4 +1,4 @@
-//! Conservative stack homes and instruction selection from MIR68K alone.
+//! Verified register/stack homes and instruction selection from MIR68K alone.
 use super::{machine::*, *};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,6 +16,7 @@ pub struct Options {
     pub relax_branches: bool,
     pub pointer_alignment: bool,
     pub control_flow: bool,
+    pub register_allocation: bool,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -25,6 +26,7 @@ impl Default for Options {
             relax_branches: true,
             pointer_alignment: true,
             control_flow: true,
+            register_allocation: true,
         }
     }
 }
@@ -36,6 +38,7 @@ impl Options {
             relax_branches: false,
             pointer_alignment: false,
             control_flow: false,
+            register_allocation: false,
         }
     }
 }
@@ -179,6 +182,8 @@ struct Builder<'a> {
     routine: &'a Mir68kRoutine,
     frame: Mir68kFramePlan,
     temps: BTreeMap<TempId, i16>,
+    allocation: super::allocation::Allocation,
+    saved_registers: Vec<(u8, i16)>,
     labels: BTreeMap<BlockId, MachineBlockId>,
     instructions: Vec<Instruction>,
     blocks: Vec<MachineBlock>,
@@ -192,6 +197,15 @@ struct Builder<'a> {
     options: Options,
 }
 
+struct EdgeCopy {
+    dest: TempId,
+    width: ByteSize,
+    destination: Ea,
+    // None denotes the normalized longword saved to break a cycle.
+    source: Option<Mir68kValue>,
+    source_home: Option<Ea>,
+}
+
 impl<'a> Builder<'a> {
     fn new(routine: &'a Mir68kRoutine, next: &mut u32, options: Options) -> Result<Self> {
         let mut frame = routine.frame.clone();
@@ -201,10 +215,28 @@ impl<'a> Builder<'a> {
             .checked_add(1)
             .ok_or("frame overflow")?
             & !1;
+        let allocation = if options.register_allocation {
+            super::allocation::allocate(routine, options.control_flow)?
+        } else {
+            super::allocation::Allocation::default()
+        };
+        let mut saved_registers = Vec::new();
+        for register in allocation
+            .registers
+            .values()
+            .copied()
+            .collect::<BTreeSet<_>>()
+        {
+            saved_registers.push((register, reserve(&mut cursor, 4)?));
+        }
+        frame.saved_register_bytes = ByteSize::new(saved_registers.len() as u32 * 4);
         let start = cursor;
         let mut temps = BTreeMap::new();
         for (id, ty) in &routine.temps {
             Width::from_bytes(ty.width.ok_or("temporary has no width")?.get())?;
+            if allocation.registers.contains_key(id) || allocation.discarded.contains(id) {
+                continue;
+            }
             cursor = cursor.checked_add(4).ok_or("temporary area overflow")?;
             temps.insert(*id, displacement(-(cursor as i64))?);
         }
@@ -214,6 +246,11 @@ impl<'a> Builder<'a> {
             .map(|b| b.params.len())
             .max()
             .unwrap_or(0);
+        let edge_count = if options.register_allocation {
+            edge_count.min(1)
+        } else {
+            edge_count
+        };
         let mut edge_slots = Vec::new();
         for _ in 0..edge_count {
             cursor = cursor.checked_add(4).ok_or("edge copy area overflow")?;
@@ -264,6 +301,11 @@ impl<'a> Builder<'a> {
                 )
             })
             .collect();
+        ranges.extend(
+            saved_registers
+                .iter()
+                .map(|(_, offset)| (i64::from(*offset), i64::from(*offset) + 4)),
+        );
         ranges.extend(
             temps
                 .values()
@@ -316,6 +358,8 @@ impl<'a> Builder<'a> {
             routine,
             frame,
             temps,
+            allocation,
+            saved_registers,
             labels,
             instructions: Vec::new(),
             blocks: Vec::new(),
@@ -352,6 +396,9 @@ impl<'a> Builder<'a> {
             register: 6,
             displacement: displacement(-i64::from(self.frame.extent.get()))?,
         });
+        for (register, offset) in self.saved_registers.clone() {
+            self.mov(Width::Long, Ea::D(register), Ea::Displacement(6, offset));
+        }
         for copy in &self.routine.prologue.parameter_copies {
             let Mir68kAbiHome::StackArgument { offset, size } = copy.source else {
                 return Err("parameter copy requires a stack argument".into());
@@ -372,12 +419,18 @@ impl<'a> Builder<'a> {
         Ok(())
     }
     fn temp(&self, id: TempId) -> Result<Ea> {
+        if let Some(register) = self.allocation.registers.get(&id) {
+            return Ok(Ea::D(*register));
+        }
         Ok(Ea::Displacement(
             6,
             *self.temps.get(&id).ok_or("temporary has no stack home")?,
         ))
     }
     fn save(&mut self, id: TempId, width: ByteSize) -> Result<()> {
+        if self.allocation.discarded.contains(&id) {
+            return Ok(());
+        }
         self.mov(Width::from_bytes(width.get())?, Ea::D(0), self.temp(id)?);
         Ok(())
     }
@@ -961,6 +1014,13 @@ impl<'a> Builder<'a> {
     }
 
     fn edge(&mut self, edge: &Mir68kEdge) -> Result<()> {
+        if self.options.register_allocation {
+            self.parallel_edge(edge)?;
+            self.emit(Instruction::Jump(Ea::Absolute(Address::new(
+                Target::Block(self.labels[&edge.target]),
+            ))));
+            return Ok(());
+        }
         // Stage every source before writing any destination. This also handles
         // cyclic transfers on a loop backedge without overwriting a live source.
         for (index, value) in edge.args.iter().enumerate() {
@@ -992,6 +1052,77 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
+    fn parallel_edge(&mut self, edge: &Mir68kEdge) -> Result<()> {
+        // Sources are either typed values or a normalized longword in the
+        // cycle slot. A narrow big-endian stack home is never read as a long.
+        let params = &self
+            .routine
+            .blocks
+            .iter()
+            .find(|b| b.id == edge.target)
+            .ok_or("missing edge target")?
+            .params;
+        let mut pending = Vec::new();
+        for ((dest, ty), source) in params.iter().zip(&edge.args) {
+            if self.allocation.discarded.contains(dest) {
+                continue;
+            }
+            let destination = self.temp(*dest)?;
+            let source_home = match source {
+                Mir68kValue::Temp(id, _) => Some(self.temp(*id)?),
+                _ => None,
+            };
+            if source_home != Some(destination) {
+                pending.push(EdgeCopy {
+                    dest: *dest,
+                    width: ty.width.ok_or("block parameter has no width")?,
+                    destination,
+                    source: Some(source.clone()),
+                    source_home,
+                });
+            }
+        }
+        while !pending.is_empty() {
+            if let Some(index) = pending.iter().position(|copy| {
+                !pending
+                    .iter()
+                    .any(|other| other.source_home == Some(copy.destination))
+            }) {
+                let copy = pending.remove(index);
+                if let Some(source) = copy.source {
+                    self.value(&source, 0)?;
+                } else {
+                    self.mov(
+                        Width::Long,
+                        Ea::Displacement(6, self.edge_slots[0]),
+                        Ea::D(0),
+                    );
+                }
+                self.save(copy.dest, copy.width)?;
+            } else {
+                let home = pending[0].destination;
+                let reader = pending
+                    .iter()
+                    .find(|copy| copy.source_home == Some(home))
+                    .and_then(|copy| copy.source.as_ref())
+                    .ok_or("invalid edge copy cycle")?;
+                self.value(reader, 0)?;
+                self.mov(
+                    Width::Long,
+                    Ea::D(0),
+                    Ea::Displacement(6, self.edge_slots[0]),
+                );
+                for copy in &mut pending {
+                    if copy.source_home == Some(home) {
+                        copy.source = None;
+                        copy.source_home = None;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn terminator(&mut self, term: &Mir68kTerminator, compare: Option<&Mir68kOp>) -> Result<()> {
         match term {
             Mir68kTerminator::Return { value, .. } => {
@@ -1003,6 +1134,9 @@ impl<'a> Builder<'a> {
                     ) {
                         self.mov(Width::Long, Ea::D(0), Ea::A(0));
                     }
+                }
+                for (register, offset) in self.saved_registers.clone() {
+                    self.mov(Width::Long, Ea::Displacement(6, offset), Ea::D(register));
                 }
                 self.emit(Instruction::Unlink(6));
                 self.emit(Instruction::Rts);

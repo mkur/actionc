@@ -6,6 +6,7 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
     let mut options = NativeCompileOptions::default();
     let mut names = Vec::new();
     let mut promotion = None;
+    let mut allocation = None;
     for arg in args {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
@@ -27,6 +28,15 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
             }
             "--no-pointer-alignment" => options.codegen.pointer_alignment = false,
             "--no-control-flow" => options.codegen.control_flow = false,
+            "--register-allocation" | "--no-register-allocation" => {
+                let selected = arg == "--register-allocation";
+                assert!(
+                    allocation.is_none_or(|previous| previous == selected),
+                    "conflicting register allocation options"
+                );
+                allocation = Some(selected);
+                options.codegen.register_allocation = selected;
+            }
             "--no-forward-temporaries" => options.codegen.forward_temporaries = false,
             "--no-select-instructions" => options.codegen.select_instructions = false,
             "--no-relax-branches" => options.codegen.relax_branches = false,

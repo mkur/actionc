@@ -36,7 +36,8 @@ module search paths and a project root; it returns a native image and physical
 instruction listing without a 6502 runtime or Atari output wrapper.
 
 Use `--no-codegen-opt` to disable target temporary forwarding, instruction
-selection, branch relaxation, pointer-alignment and control-flow selection
+selection, branch relaxation, pointer-alignment, control-flow selection and
+register allocation
 independently of NIR optimization. The
 measurement example accepts the same flag; with it the
 target passes retain conservative stack homes. Use the recorded compiler
@@ -99,17 +100,18 @@ addresses. Configuration, compiler revision/status and input Git hashes go to
 stderr, so redirect stdout to a CSV and stderr to a companion log when retaining
 a measurement. Existing CSV columns retain their meanings.
 Use `--no-forward-temporaries`, `--no-select-instructions` or
-`--no-relax-branches`, `--no-pointer-alignment` or `--no-control-flow` to isolate
-one target optimization; `--no-codegen-opt` disables all five. `--no-opt`
+`--no-relax-branches`, `--no-pointer-alignment`, `--no-control-flow` or
+`--no-register-allocation` to isolate one target optimization;
+`--no-codegen-opt` disables all six. `--no-opt`
 restricts this example to raw NIR. Unknown options
 and benchmark names are rejected.
 SHA hashes `abc`; other programs run their default benchmark entry. Each run
 checks completion and its expected result. Host execution time is not measured.
-`--native-promotion` opts the measurement example into broader NIR promotion for
+`--native-promotion` explicitly selects the default broader NIR promotion for
 native loops; `--conservative-promotion` selects the existing profitability
 policy. This choice is independent of target switches and is ignored in raw
-NIR mode. The native loop policy remains opt-in until register allocation is
-validated. Wide native pointer storage facts are now recognized by shared NIR
+NIR mode. Register allocation is enabled by default; `--register-allocation`
+explicitly enables it. Wide native pointer storage facts are recognized by shared NIR
 analysis under both policies, so older compiler revisions remain the reference
 for the exact pre-migration baseline.
 The [initial baseline](../../docs/mir68k-code-quality-baseline.csv) precedes

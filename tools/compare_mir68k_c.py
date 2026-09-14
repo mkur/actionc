@@ -12,7 +12,8 @@ SOURCES = ROOT / "tools/mir68k-c-reference"
 BENCHMARKS = ("insertsort", "matrix1")
 ACTIONC_SWITCHES = ("no-opt", "no-codegen-opt", "no-forward-temporaries",
                    "no-select-instructions", "no-relax-branches", "no-pointer-alignment",
-                   "no-control-flow", "native-promotion", "conservative-promotion")
+                   "no-control-flow", "native-promotion", "conservative-promotion",
+                   "register-allocation", "no-register-allocation")
 # -mcpu selects both the instruction set and the original-68000 libgcc multilib.
 # Do not add -mshort: individual C types already match the Action! declarations.
 FLAGS = ["-mcpu=68000", "-std=c11", "-ffreestanding", "-fno-builtin",
@@ -94,8 +95,11 @@ def main():
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build/mir68k-c-reference")
     parser.add_argument("benchmarks", nargs="*", choices=BENCHMARKS)
     promotion = parser.add_mutually_exclusive_group()
+    allocation = parser.add_mutually_exclusive_group()
     for switch in ACTIONC_SWITCHES:
         owner = promotion if switch in ("native-promotion", "conservative-promotion") else parser
+        if switch in ("register-allocation", "no-register-allocation"):
+            owner = allocation
         owner.add_argument(f"--{switch}", action="store_true", help="Action! configuration only")
     args = parser.parse_args()
     actionc_switches = [f"--{switch}" for switch in ACTIONC_SWITCHES

@@ -1,6 +1,6 @@
 # MIR68K alignment, control flow and register retention
 
-Status: in progress. Slices 1–4 are complete; slices 5–6 remain. Commit each major
+Status: in progress. Slices 1–5 are complete; slice 6 remains. Commit each major
 slice after its validation gate passes.
 
 The objective is to remove the largest avoidable costs exposed by the
@@ -211,6 +211,20 @@ remain unchanged. Promotion alone is not claimed as a performance win if the
 values merely spill into new stack slots.
 
 ## Slice 5: Retain selected values across blocks
+
+Implemented: verified liveness/interference allocation to D4–D7, deterministic
+spills, used-register saves/restores, final frame layout and parallel edge
+copies with a single cycle slot. Native loop promotion and allocation are now
+enabled together. All seven optimized benchmarks reduce instructions, code
+size and stack traffic relative to slice 4's defaults. Matrix1 uses 72,336
+instructions and 39,102 stack bytes; insertion sort uses 5,572 and 3,968.
+Raw NIR has small save/restore overheads (4–26 instructions on four benchmarks)
+while stack traffic and frames decrease or stay unchanged; optimized NIR is the
+default and improves on every benchmark. All 65 native tests, 15 backend unit
+tests, 47 contract/ABI/type tests and 693 paired reference executions pass.
+Regressions cover pressure, narrow widths, cyclic copies, unreachable edges,
+invalid dominance, division, recursive calls and early returns. Artifacts are
+in `build/mir68k-optimization/slice5/`.
 
 Add a bounded allocator over typed MIR68K temps and block parameters, before
 materialization. Compute liveness including edge arguments and use a
