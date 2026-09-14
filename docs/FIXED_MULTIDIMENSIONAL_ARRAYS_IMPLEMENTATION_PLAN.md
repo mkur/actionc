@@ -1,9 +1,9 @@
 # Fixed-size multidimensional arrays
 
-Status: implementation in progress. Slices 1–2 add checked declaration shapes,
-typed coordinate places, static addresses and initializer extents behind a
-semantic rollout capability. Public enablement remains in slice 5, after
-normalization and executable backend validation.
+Status: implementation in progress. Slices 1–3 add checked declaration shapes,
+typed coordinate places, static addresses, initializer extents and verified NIR
+normalization behind a semantic rollout capability. Public enablement remains
+in slice 5, after executable backend validation.
 Baseline: `8262140`, after Amiga 32-bit decimal output.
 
 Deliver fixed-size arrays indexed with one coordinate per dimension, using

@@ -2995,7 +2995,7 @@ impl NirBuilder {
                 self.materialize_call(call)
             }
             SemExprKind::Literal(literal) => {
-                literal_value(literal, &NirFacts::type_from_value(&expr.ty))
+                literal_value(literal, &NirType::from_value_with_layout(&expr.ty, self.target_layout))
             }
             _ => None,
         }
@@ -3117,7 +3117,10 @@ impl NirBuilder {
                 kind: self.lower_index_place(base, index, element_type),
                 ty,
             },
-            SemLValueKind::MultiIndex(_) => panic!("multidimensional NIR lowering is not enabled yet"),
+            SemLValueKind::MultiIndex(index) => NirPlace {
+                kind: self.lower_index_place(&index.base, &index.normalized_index(), &index.element_type),
+                ty,
+            },
             SemLValueKind::Field { base, field } => {
                 if let crate::semantic::RecordFieldStorage::InlineArray { array_type, stride } = &field.storage {
                     assert_eq!(

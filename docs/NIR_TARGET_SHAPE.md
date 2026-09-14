@@ -727,6 +727,23 @@ validation, not runtime bounds checking: NIR does not retain source array
 bounds across pointer temporaries. The SemIR-to-NIR boundary rejects bare
 inline-array scalar loads/stores and whole-array copies before normalization.
 
+Fixed multidimensional places also reduce to one `Index`. SemIR retains the
+checked shape and ordered coordinates; its shared normalization constructs the
+row-major expression for NIR and the classic projection. NIR captures the base,
+then evaluates each coordinate once and converts it to the target ADDRESS
+integer width before generated multiplication/addition. No executable shape or
+source-coordinate syntax reaches a MIR backend. Ordinary source coordinate
+expressions keep their own arithmetic types before the conversion.
+
+Generated ADDRESS multiplication is distinct from Action's ordinary INT
+multiplication rule: its result and both inputs must have the same target-sized
+unsigned ADDRESS domain. The verifier rejects narrow inputs, noninteger indexes,
+invalid flattened array counts/strides, overflowing extents, and direct backing
+storage smaller than its declared extent. These facts describe declared storage;
+they prove no bounds for dynamic indexes or a rebound descriptor. Native literal
+lowering applies the target type before masking, preserving large SIZE/ADDRESS
+constants. Runtime descriptor size words remain separate from canonical counts.
+
 ## Operations
 
 Recommended core operation set:

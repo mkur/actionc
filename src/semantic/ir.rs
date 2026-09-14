@@ -2481,6 +2481,7 @@ struct IrBuilder<'a> {
 
 mod aggregate;
 mod walk;
+mod multidimensional;
 pub use walk::{visit_lexical_declarations, visit_nested_statements};
 mod fresh;
 mod selection;

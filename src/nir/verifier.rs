@@ -170,6 +170,36 @@ impl NirVerifier {
         let mut globals = BTreeSet::new();
         let mut global_ids = BTreeSet::new();
         for global in &program.globals {
+            if let Some(array) = &global.array {
+                let size_limit = u64::MAX >> (64 - self.target_layout.size_integer_bits);
+                let address_limit = u64::MAX >> (64 - self.target_layout.address_bits);
+                let extent = array.length.and_then(|length| length.checked_mul(array.elem_size.get()));
+                if array.elem_size.is_zero()
+                    || array.length.is_some_and(|length| u64::from(length) > size_limit)
+                    || (array.length.is_some() && extent.is_none())
+                    || extent.is_some_and(|size| u64::from(size) > size_limit.min(address_limit))
+                {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "array `{}` has an invalid count, stride or target extent", global.name,
+                    )));
+                }
+                // Classic descriptor canonicalization can retain an array's
+                // direct-address strategy flag. Its cell size is not the
+                // backing extent; inspect the structured initializer instead.
+                let available = match &global.init {
+                    Some(NirGlobalInit::Descriptor { backing, .. }) =>
+                        u32::try_from(backing.image.bytes.len()).ok()
+                            .and_then(|initialized| initialized.checked_add(backing.zero_fill.get())),
+                    _ if !array.pointer_backed => Some(global.storage_size.get()),
+                    _ => None,
+                };
+                if extent.zip(available).is_some_and(|(size, available)| size > available)
+                {
+                    self.diagnostics.push(NirDiagnostic::program(format!(
+                        "array `{}` storage is smaller than its declared extent", global.name,
+                    )));
+                }
+            }
             self.global_sizes.insert(global.id, global.storage_size);
             if let Some(ty) = &global.ty {
                 self.global_types.insert(global.id, ty.clone());
@@ -1768,8 +1798,22 @@ impl NirVerifier {
                         format!("duplicate temp definition `%t{}`", dest.0),
                     ));
                 }
+                let address_domain = ty.kind.integer().filter(|integer|
+                    integer.role == NirIntegerRole::Address
+                        && integer.bits == self.target_layout.address_integer_bits && !integer.signed);
+                if *op == NirBinaryOp::Mul && address_domain.is_some()
+                    && ![left, right].iter().all(|value| match value {
+                        NirValue::Temp { ty, .. } => ty.kind.integer() == address_domain,
+                        NirValue::IntegerConst { ty, .. } => Some(*ty) == address_domain,
+                        _ => false,
+                    })
+                {
+                    self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                        "normalized address multiplication requires explicitly widened ADDRESS operands"));
+                }
                 if *op == NirBinaryOp::Mul && ty.kind != NirTypeKind::I16
                     && !ty.kind.integer().is_some_and(|integer| integer.bits == 32)
+                    && address_domain.is_none()
                 {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,
@@ -3221,7 +3265,18 @@ impl NirVerifier {
                     ));
                 }
             }
-            NirPlaceKind::Index { elem_ty, elem_size, .. } => {
+            NirPlaceKind::Index { base_addr, index, elem_ty, elem_size } => {
+                self.value_type(routine, block, base_addr, "index base");
+                self.value_type(routine, block, index, "index coordinate");
+                let integer_index = match index {
+                    NirValue::Temp { ty, .. } => ty.kind.integer().is_some() || matches!(ty.kind, NirTypeKind::Bool),
+                    NirValue::IntegerConst { .. } => true,
+                    _ => false,
+                };
+                if !integer_index {
+                    self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                        "index coordinate must be an integer value"));
+                }
                 self.type_shape(routine, block, elem_ty, "index element");
                 if elem_size.is_zero() || elem_ty.width.is_some_and(|width| *elem_size < width) {
                     self.diagnostics.push(NirDiagnostic::block(
