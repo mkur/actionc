@@ -81,6 +81,10 @@ queue exhaustion and complete node/queue/graph state. Record sizes and offsets
 come from a compiler-executed layout query; queue links are compared as pool
 slot identities. The full benchmark takes roughly 196–259 million native
 instructions, so this target can take a few minutes in debug builds.
+Huffman decoding adds all 185 cases per NIR mode, including 256-bit codes and
+the full output, code table and tree pool. Native field offsets are queried;
+tree links use slot identities, and record padding is checked separately from
+the C reference fields. These three ports add 750 native reference executions.
 Public artifact tests invoke the actual `actionc` executable. CI supplies it
 through `ACTIONC_TEST_COMPILER`; standalone tests build it once per integration
 test process in a separate Cargo target directory and use Cargo's reported

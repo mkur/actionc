@@ -6,9 +6,12 @@ construction and traversal are iterative. The full **257-entry code table**,
 **514-node pool**, **32-byte code words**, and **1,024-byte output buffer** are
 retained. No new language constructs or allocator are needed.
 
-This is a host-driven compiler fixture. Both modern backends (`--mode optimized`
-and `--mode mir6502`) run with cartridge and standalone runtimes. Compile at
-**`$8000`**, above the host data and below the cartridge at `$A000`.
+This is a host-driven compiler fixture. `huff_dec.act` allocates portable storage
+and shares `types.inc` and `kernel.inc` with the
+[6502 driver](../../../../tools/vm-runtime-tests/fixtures/huff_dec_driver.act).
+That driver runs in both modern 6502 backends and runtimes at **`$8000`**, above
+the host packet and below the cartridge at `$A000`. The portable driver also
+runs from public MC68000 CLI artifacts.
 
 ## Provenance
 
@@ -28,7 +31,8 @@ and `--mode mir6502`) run with cartridge and standalone runtimes. Compile at
 ## Adaptations and source behavior
 
 Each code record has 32 bytes of bits, a CARD length, and a BYTE presence flag
-(35 bytes). Each tree node has a CARD symbol and two typed pointers (six bytes).
+(35 bytes on 6502). Each tree node has a CARD symbol and two typed pointers
+(six bytes on 6502). Native layout is queried from the compiler.
 Symbols 256 and 257 mean end-of-message and internal node, respectively.
 Pointers name actual pool records; bit 1 chooses the left child.
 
@@ -51,7 +55,7 @@ must fit the declared buffers and tree pool and contain an end-of-message code.
 
 ## Host memory contract
 
-All words and pointer addresses are little-endian. A tree pointer is null or
+In the 6502 packet, words and pointer addresses are little-endian. A tree pointer is null or
 `$6501 + 6*index`, for index 0..513.
 
 | Address | Meaning |
@@ -74,6 +78,12 @@ The unused bytes in the 24-byte control area are preserved. Commands 1 and 2
 accept seeded reader state for focused tests. The tested ReadBits contract has
 requests 0..16 and buffered counts 0..16, with enough bits available; Decode
 itself requests at most eight bits at a time.
+
+The native adapter reads each field as a numeric value or exact byte string.
+Tree links travel through slot identities and the native pool's symbol-derived
+base and stride. The portable `rootAddress` is a Tree POINTER. Command 255 is a
+test-only `SIZEOF`/`OFFSETOF` query, executed once per compiled image; it avoids
+assuming native padding or field offsets in the host adapter.
 
 ## Coverage and checks
 
@@ -100,6 +110,14 @@ and node pool, including unused bytes and every pointer. It checks the unchanged
 input and all surrounding guard bytes in `$0600..$7FFF`. Structures start at odd
 addresses and cross pages. Standalone runs load no ROMs. LF and CRLF source and
 vector text pass through the actual compiler, parser, and VM path.
+
+The MC68000 target adds **370 executions**, all 185 cases in raw and optimized
+NIR from CLI artifacts. It compares the complete logical header, output and
+poison tail, all code bits/lengths/presence flags, every tree symbol and link,
+root identity, node count and unchanged input. Native record padding is poisoned
+and checked separately from reference fields. Both source includes and vectors
+pass through the actual LF/CRLF paths. No recursive or malformed-stream behavior
+is added.
 
 The port exposed two general compiler bugs, fixed with regression coverage:
 MIR6502 parameter-register availability survived stores that materialize through

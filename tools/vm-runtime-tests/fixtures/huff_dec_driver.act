@@ -1,0 +1,25 @@
+; Huffman decoder by David Bourgin (1994), from TACLeBench huff_dec.
+; Action! adaptation, 2026. See README.md and huff_dec.c for attribution/terms.
+; The host supplies valid streams and zeroed code/tree storage. No recursion.
+
+INCLUDE "types.inc"
+
+BYTE command=$0600,done=$06FF
+CARD inputLength=$0602,inputPos=$0604,outputPos=$0606
+BYTE bitsLeft=$0608
+LONGCARD reservoir=$060A
+CARD request=$060E
+LONGCARD result=$0610
+CARD rootAddress=$0614,nodeCount=$0616
+BYTE ARRAY encoded(12288)=$0801,decoded(1024)=$3901
+Code ARRAY codes(257)=$4001
+Tree ARRAY heap(514)=$6501
+
+INCLUDE "kernel.inc"
+
+PROC Main()
+  IF command=0 THEN Decode()
+  ELSEIF command=1 THEN result=ReadBits(request)
+  ELSE result=ReadBit() FI
+  done=$A5
+RETURN

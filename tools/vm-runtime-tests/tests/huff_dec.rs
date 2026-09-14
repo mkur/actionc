@@ -3,7 +3,9 @@ use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE};
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/huff_dec/huff_dec.act");
+const SOURCE: &str = include_str!("../fixtures/huff_dec_driver.act");
+const TYPES: &str = include_str!("../../../fixtures/runtime/tacle/huff_dec/types.inc");
+const CORE: &str = include_str!("../../../fixtures/runtime/tacle/huff_dec/kernel.inc");
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/huff_dec/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
 const HOST_BYTES: usize = 0x7A00;
@@ -145,6 +147,9 @@ fn check_huff_dec(mode: CompileMode, runtime: Runtime) {
     };
     let path = temporary.0.join("huff_dec.act");
     std::fs::write(&path, text(&source_lf)).unwrap();
+    for (name, source) in [("types.inc", TYPES), ("kernel.inc", CORE)] {
+        std::fs::write(temporary.0.join(name), text(&source.replace("\r\n", "\n"))).unwrap();
+    }
     let compiled = compile_file(
         &path,
         &CompileOptions::for_mode(mode)
