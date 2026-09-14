@@ -252,3 +252,11 @@ r68k harness reports RuntimeFault separately from architectural exceptions and
 completion, and latches it so subsequent run requests execute no instructions.
 The mapping in `mir68k::runtime` is independent of Atari Error numbers. Other
 native platforms must provide this adapter before executing these images.
+
+Fixed multidimensional arrays are a modern source feature. NIR normalizes their
+coordinates using 32-bit ADDRESS arithmetic and ordinary indexed accesses; the
+68K backend needs no source shape. Named arrays use mutable descriptors, native
+local backing belongs to each invocation, and inline fields retain their full
+record extent. Version-2 artifacts expose flattened count and stride without
+adding dimension fields. Bare and HUNK execution use the same normalized code.
+65816 layouts have semantic/NIR coverage only; this feature adds no 65816 VM.

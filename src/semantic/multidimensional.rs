@@ -10,7 +10,7 @@ impl Analyzer {
         if !self.options.multidimensional_arrays {
             self.diagnostics.push(Diagnostic::new(
                 entry.span,
-                "multidimensional arrays require the modern profile (feature not yet enabled)",
+                "multidimensional arrays require the modern profile",
             ));
             return None;
         }

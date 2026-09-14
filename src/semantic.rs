@@ -463,8 +463,7 @@ pub struct SemanticOptions {
     pub comparison_values: bool,
     /// Modern-profile fixed-length arrays stored inline inside records.
     pub embedded_record_arrays: bool,
-    /// Staged fixed multidimensional arrays; not a command-line switch.
-    #[doc(hidden)]
+    /// Modern-profile fixed multidimensional arrays.
     pub multidimensional_arrays: bool,
     /// Staged aggregate extensions. Not exposed as command-line switches.
     #[doc(hidden)]
@@ -484,7 +483,7 @@ impl SemanticOptions {
             lexical_blocks: true,
             comparison_values: true,
             embedded_record_arrays: true,
-            multidimensional_arrays: false,
+            multidimensional_arrays: true,
             algebraic_types: AlgebraicTypeCapabilities {
                 aggregate_values: true,
                 variants: true,

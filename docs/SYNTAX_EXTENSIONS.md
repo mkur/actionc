@@ -19,6 +19,7 @@ some ambiguous routine-address cases.
 - [CASE Statements](#case-statements)
 - [Variants and Generic Types](#variants-and-generic-types)
 - [Fixed-Length Arrays Inside Records](#fixed-length-arrays-inside-records)
+- [Fixed Multidimensional Arrays](#fixed-multidimensional-arrays)
 - [Volatile Storage](#volatile-storage)
 - [ATASCII And Screen-Code Escapes](#atascii-and-screen-code-escapes)
 - [Typed Cast Expressions](#typed-cast-expressions)
@@ -69,8 +70,8 @@ must also fit code-growth and trial budgets. See the
 `LONGINT` is signed 32-bit (-2147483648..2147483647); `LONGCARD` is unsigned
 32-bit (0..4294967295). Classic (Compatibility and Optimized) and MIR6502
 generate executable Atari code for both, with cartridge-linked or standalone
-runtime. Native 68k/65816 support remains typed
-lowering/ABI validation, not executable backend support.
+runtime. MIR68K emits executable MC68000 code for these integer types.
+65816 has typed lowering and ABI validation.
 
 `INT` and `CARD` stay 16-bit on every target. A wide operand or cast before an
 operation selects wide computation; a wide assignment destination alone does
@@ -275,7 +276,8 @@ pointer sharing, initialization, backend limits and the runnable sample.
 ## Fixed-Length Arrays Inside Records
 
 Modern classic and MIR6502 on Atari support arrays stored directly inside a
-record, with either ActionCart or Standalone runtime:
+record, with either ActionCart or Standalone runtime. MIR68K supports inline
+storage for its supported element types:
 
 ```action
 CONST Count=100
@@ -464,6 +466,48 @@ This feature is modern-only. The original cartridge does not assign numeric
 values to relational expressions. Compatibility rejects value uses during
 semantic analysis with `comparison values require the modern profile`;
 comparisons in IF, WHILE and UNTIL conditions remain supported.
+
+## Fixed Multidimensional Arrays
+
+Modern mode supports two or more fixed dimensions on named arrays and inline
+record fields. Dimensions are positive integer constants, and the last index
+varies fastest:
+
+```action
+CONST Rows=3,Columns=4
+CARD ARRAY matrix(Rows,Columns)
+TYPE Tile=[BYTE tag CARD ARRAY pixels(2,3)]
+Tile image
+PROC Main()
+  matrix(2,3)=203
+  image.pixels(1,2)=matrix(2,3)
+RETURN
+```
+
+The [complete example](../fixtures/runtime/multidimensional/example.act) fills
+a rectangular matrix and builds with modern classic, MIR6502 and MIR68K. Rank
+three uses the same rules: `BYTE ARRAY volume(2,3,5)` and `volume(1,2,4)=77`.
+
+Supply exactly one integer index per dimension. Known negative or out-of-range
+coordinates are errors; dynamic indexes are unchecked. Source index expressions
+keep their normal arithmetic widths. Generated row-major multiplication uses
+the target ADDRESS width, so BYTE loop variables can address more than 255
+elements. `ELEMENTS(matrix)` is 12 and `SIZEOF(matrix)` is 24; query operands
+are unevaluated.
+
+Flat lists initialize consecutive elements: `CARD ARRAY values(2,3)=[1 2 3 4]`
+leaves the last two elements zero. Nested row lists are unsupported. A pointer
+initializer such as `CARD POINTER last=[@values(1,2)]` refers to that element's
+initial backing. Rebinding a named array changes its base but preserves its
+original dimensions; it does not copy elements. Inline fields cannot be rebound.
+Passing an array to an existing flat ARRAY parameter or element pointer erases
+its shape. Shaped formal parameters, slices, partial indexing and runtime bounds
+are deferred. Compatibility mode rejects multidimensional declarations.
+
+Evaluation captures the base first, then coordinates from left to right, then
+an assignment's RHS. Compound assignments evaluate the RHS before reading and
+updating the captured destination. A coordinate call cannot redirect the base
+already captured for that access.
 
 ## Volatile Storage
 

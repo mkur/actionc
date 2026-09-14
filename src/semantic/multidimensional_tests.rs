@@ -180,9 +180,9 @@ fn multidimensional_shapes_diagnose_bad_bounds_and_checked_extents() {
 }
 
 #[test]
-fn multidimensional_declarations_remain_gated_and_require_every_bound() {
+fn multidimensional_declarations_require_modern_profile_and_every_bound() {
     let ast = parse(&tokenize("BYTE ARRAY a(2,3)").unwrap()).unwrap();
-    for options in [SemanticOptions::default(), SemanticOptions::modern()] {
+    for options in [SemanticOptions::default()] {
         let errors = analyze_with_options(&ast, options).unwrap_err();
         assert!(
             errors
@@ -190,6 +190,7 @@ fn multidimensional_declarations_remain_gated_and_require_every_bound() {
                 .any(|e| e.message.contains("multidimensional arrays require"))
         );
     }
+    analyze_with_options(&ast, SemanticOptions::modern()).unwrap();
     for source in [
         "BYTE ARRAY a(,3)",
         "BYTE ARRAY a(2,)",

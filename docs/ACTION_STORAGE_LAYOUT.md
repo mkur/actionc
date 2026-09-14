@@ -330,3 +330,18 @@ When changing storage or codegen, check these before trusting size deltas:
 - Array parameters receive base pointers, never the full 4-byte descriptor.
 - Existing toolkit exact matches are sensitive to zero-page pair choice,
   especially `$AE/$AF` versus `$AC/$AD`.
+
+## Modern Fixed Multidimensional Arrays
+
+Named arrays of rank two or higher consistently allocate a mutable descriptor
+and contiguous row-major element backing, even for small BYTE arrays. Atari
+descriptors contain a two-byte pointer and the existing two-byte size-word slot;
+native descriptors use the target pointer width plus that slot. Checked element
+counts and extents remain compile-time facts, independent of the size word.
+Inline record fields contain only elements, with the target's existing alignment
+and element stride. No row padding is added.
+
+Atari locals retain static storage; native locals have a descriptor and backing
+per invocation. Rebinding updates the pointer, preserves the declared dimensions
+and does not imply ownership or bounds information about the new base. Existing
+one-dimensional layouts and compatibility behavior remain unchanged.

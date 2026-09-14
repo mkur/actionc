@@ -1,9 +1,8 @@
 # Fixed-size multidimensional arrays
 
-Status: implementation in progress. Slices 1–4 add checked declaration shapes,
-typed coordinate places, verified NIR normalization and execution across classic
-6502, MIR6502 and MIR68K behind a semantic rollout capability. Public enablement remains
-in slice 5, after executable backend validation.
+Status: slices 1–5 implemented. Fixed shapes, typed coordinate places, verified
+NIR normalization and all executable backend paths are enabled in modern mode.
+Dedicated benchmark acceptance variants remain in slice 6.
 Baseline: `8262140`, after Amiga 32-bit decimal output.
 
 Deliver fixed-size arrays indexed with one coordinate per dimension, using

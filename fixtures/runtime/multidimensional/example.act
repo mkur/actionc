@@ -1,0 +1,18 @@
+; actionc modern extension: fixed rectangular arrays and inline fields.
+CONST Rows=3,Columns=4
+CARD ARRAY matrix(Rows,Columns)
+TYPE Tile=[BYTE tag CARD ARRAY pixels(2,3)]
+Tile image
+CARD result
+
+PROC Main()
+  BYTE row,column
+  FOR row=0 TO Rows-1 DO
+    FOR column=0 TO Columns-1 DO
+      matrix(row,column)=CARD(row)*100+column
+    OD
+  OD
+  image.tag=7
+  image.pixels(1,2)=matrix(2,3)
+  result=image.pixels(1,2)
+RETURN
