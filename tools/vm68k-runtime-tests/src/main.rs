@@ -18,7 +18,10 @@ fn run() -> Result<(), String> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
-            "--no-codegen-opt" => options.codegen.forward_temporaries = false,
+            "--no-codegen-opt" => {
+                options.codegen.forward_temporaries = false;
+                options.codegen.select_instructions = false;
+            }
             "--dump" => {
                 dump = Some(std::path::PathBuf::from(
                     args.next().ok_or("--dump requires a path prefix")?,

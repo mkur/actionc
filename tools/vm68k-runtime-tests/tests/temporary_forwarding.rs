@@ -37,6 +37,7 @@ fn forwarding_preserves_calls_branches_widths_and_volatile_accesses() {
                     optimize,
                     codegen: Options {
                         forward_temporaries,
+                        select_instructions: false,
                     },
                     ..Default::default()
                 },

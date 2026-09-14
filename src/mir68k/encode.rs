@@ -7,6 +7,32 @@ pub fn encode(
 ) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
+        Instruction::MoveQuick { value, register } => {
+            check_register(register)?;
+            words.push(0x7000 | (register as u16) << 9 | value as u8 as u16);
+        }
+        Instruction::AluImmediate {
+            operation,
+            width,
+            value,
+            destination,
+        } => {
+            check_register(destination)?;
+            let opcode = match operation {
+                Alu::Add => 0x0600,
+                Alu::Sub => 0x0400,
+                Alu::And => 0x0200,
+                Alu::Or => 0x0000,
+                Alu::Xor => 0x0a00,
+                Alu::Compare => 0x0c00,
+            };
+            words.push(opcode | size_bits(width) << 6 | destination as u16);
+            if width == Width::Long {
+                long(&mut words, value);
+            } else {
+                words.push(value as u16 & if width == Width::Byte { 0xff } else { 0xffff });
+            }
+        }
         Instruction::Trap(vector) => {
             if vector > 15 {
                 return Err("TRAP vector must be 0..15".into());
@@ -362,6 +388,16 @@ mod tests {
     #[test]
     fn illegal_operands_are_diagnostics() {
         for instruction in [
+            Instruction::MoveQuick {
+                value: 0,
+                register: 8,
+            },
+            Instruction::AluImmediate {
+                operation: Alu::And,
+                width: Width::Long,
+                value: 0,
+                destination: 8,
+            },
             Instruction::Move {
                 width: Width::Byte,
                 source: Ea::D(0),
@@ -401,6 +437,43 @@ mod tests {
             },
         ] {
             assert!(size(&instruction).is_err());
+        }
+    }
+
+    #[test]
+    fn immediate_encodings_match_motorola_instruction_formats() {
+        assert_eq!(
+            bytes(Instruction::MoveQuick {
+                value: -128,
+                register: 1
+            }),
+            [0x72, 0x80]
+        );
+        for (operation, width, value, register, expected) in [
+            (Alu::Add, Width::Byte, 0x81, 0, vec![0x0600, 0x0081]),
+            (Alu::Sub, Width::Word, 0x8765, 1, vec![0x0441, 0x8765]),
+            (
+                Alu::And,
+                Width::Long,
+                0x12345678,
+                0,
+                vec![0x0280, 0x1234, 0x5678],
+            ),
+            (Alu::Or, Width::Word, 0x8000, 0, vec![0x0040, 0x8000]),
+            (Alu::Xor, Width::Byte, 0xff, 1, vec![0x0a01, 0x00ff]),
+        ] {
+            assert_eq!(
+                bytes(Instruction::AluImmediate {
+                    operation,
+                    width,
+                    value,
+                    destination: register
+                }),
+                expected
+                    .into_iter()
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>()
+            );
         }
     }
 }

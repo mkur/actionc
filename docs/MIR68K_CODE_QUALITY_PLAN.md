@@ -65,3 +65,12 @@ optimized Matrix1 from 185,892 to 170,264 instructions and DCT from 10,192 to
 are unchanged. The differential regression checks branch/call composition,
 mixed widths, ABI completion and the exact volatile access trace. The
 `--no-codegen-opt` measurement reproduces the baseline CSV byte for byte.
+
+## Instruction selection
+
+MOVEQ, immediate arithmetic and comparisons, constant shifts, and simpler
+constant/power-of-two index calculations reduce optimized SHA to 6,124 bytes
+and 28,620 instructions. Independent literal MC68000 programs qualify the new
+instruction encodings and flags. A host oracle checks all five integer types,
+constant shift boundaries, and immediate arithmetic with target selection on
+and off. The conservative option still reproduces the original baseline.

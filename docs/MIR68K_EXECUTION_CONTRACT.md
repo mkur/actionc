@@ -64,6 +64,14 @@ comparison results are normalized to 0/1. Dynamic shifts mask the provisional
 MC68000 result to zero when the full source count reaches the operand width;
 CPU modulo-64 count decoding cannot change Action! semantics.
 
+Instruction selection uses MOVEQ only for a full long value equal to the
+sign-extension of an 8-bit immediate. Constant integer operations use immediate
+forms, with ADDQ/SUBQ for magnitudes 1–8. Constant shifts are sequences of
+original immediate shifts or a zero result for oversized counts; dynamic
+counts retain the full-count guard. Constant indexes use their wrapping 32-bit
+scaled displacement, and power-of-two strides shift the captured index
+directly. These address choices neither widen nor duplicate memory accesses.
+
 Multiplication retains only the resolved result width. Byte/word products use
 MULU.W; 32-bit products combine three unsigned 16-bit partial products modulo
 2^32, so signed and unsigned bit patterns obey the same wrapping contract.

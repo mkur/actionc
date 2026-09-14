@@ -39,6 +39,7 @@ fn run() {
                     optimize,
                     codegen: actionc::mir68k::materialize::Options {
                         forward_temporaries: !conservative,
+                        select_instructions: !conservative,
                     },
                     ..Default::default()
                 },

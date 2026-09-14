@@ -35,7 +35,7 @@ values. `actionc::compiler::native::compile_file` accepts full-width origins,
 module search paths and a project root; it returns a native image and physical
 instruction listing without a 6502 runtime or Atari output wrapper.
 
-Use `--no-codegen-opt` to disable target temporary forwarding independently of
+Use `--no-codegen-opt` to disable target temporary forwarding and instruction selection independently of
 NIR optimization. The measurement example accepts the same flag; with it the
 corrected compiler reproduces the committed stack-home baseline exactly.
 

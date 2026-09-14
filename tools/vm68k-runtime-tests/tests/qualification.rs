@@ -74,6 +74,26 @@ fn literal_division_primitives_preserve_shift_extend_and_quick_flags() {
 }
 
 #[test]
+fn immediate_word_logic_and_moveq_sign_extension_are_qualified() {
+    let mut vm = machine(&[
+        0x7280, // MOVEQ #-128,D1
+        0x0c81, 0xffff, 0xff80, // CMPI.L #-128,D1
+        0x6702, 0x4afc, 0x7000, // MOVEQ #0,D0
+        0x0040, 0x8000, // ORI.W #$8000,D0
+        0x6b02, 0x4afc, // BMI
+        0x0440, 1, // SUBI.W #1,D0 -> $7fff, overflow
+        0x6902, 0x4afc, // BVS
+        0x0a40, 0xffff, // EORI.W #$ffff,D0 -> $8000
+        0x0280, 0, 0x7fff, // ANDI.L #$7fff,D0 -> 0
+        0x6702, 0x4afc, // BEQ
+        0x4e75,
+    ]);
+    vm.run(100).assert_completed();
+    assert_eq!(vm.cpu.dar[0], 0);
+    assert_eq!(vm.cpu.dar[1], 0xffffff80);
+}
+
+#[test]
 fn nested_calls_link_unlink_and_return_preserve_stack() {
     let mut vm = machine(&[
         0x4e56, 0xfff8, // LINK A6,#-8

@@ -109,15 +109,21 @@ fn transfer(instruction: &Instruction, homes: &BTreeSet<i16>, registers: &mut [O
                 _ => *registers = [None; 8],
             }
         }
-        Instruction::Alu {
+        Instruction::AluImmediate {
+            operation: Alu::Compare,
+            ..
+        }
+        | Instruction::Alu {
             operation: Alu::Compare,
             ..
         }
         | Instruction::CompareImmediate { .. } => {}
-        Instruction::Alu { destination, .. }
+        Instruction::AluImmediate { destination, .. }
+        | Instruction::Alu { destination, .. }
         | Instruction::MultiplyUnsignedWord { destination, .. }
         | Instruction::AddExtend { destination, .. } => registers[destination as usize] = None,
-        Instruction::Negate { register, .. }
+        Instruction::MoveQuick { register, .. }
+        | Instruction::Negate { register, .. }
         | Instruction::Extend { register, .. }
         | Instruction::LogicalShift { register, .. }
         | Instruction::SetCondition { register, .. }
@@ -155,11 +161,12 @@ fn flags_live_after(instructions: &[Instruction]) -> Vec<u8> {
             | Instruction::Link { .. }
             | Instruction::Unlink(_)
             | Instruction::Rts => (0, 0),
-            Instruction::Move { .. }
+            Instruction::MoveQuick { .. }
+            | Instruction::Move { .. }
             | Instruction::MultiplyUnsignedWord { .. }
             | Instruction::Extend { .. }
             | Instruction::CompareImmediate { .. } => (0, NZVC),
-            Instruction::Alu { operation, .. } => (
+            Instruction::AluImmediate { operation, .. } | Instruction::Alu { operation, .. } => (
                 0,
                 if matches!(operation, Alu::Add | Alu::Sub) {
                     ALL

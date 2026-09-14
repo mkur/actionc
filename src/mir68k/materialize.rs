@@ -4,17 +4,21 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "materialize_arithmetic.rs"]
 mod arithmetic;
+#[path = "materialize_selection.rs"]
+mod selection;
 
 type Result<T> = std::result::Result<T, String>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
     pub forward_temporaries: bool,
+    pub select_instructions: bool,
 }
 impl Default for Options {
     fn default() -> Self {
         Self {
             forward_temporaries: true,
+            select_instructions: true,
         }
     }
 }
@@ -55,7 +59,7 @@ pub fn materialize_with_options(
                 routine.name
             ));
         }
-        let mut builder = Builder::new(routine, &mut next)?;
+        let mut builder = Builder::new(routine, &mut next, options)?;
         let reachable = reachable_blocks(routine)?;
         for block in &routine.blocks {
             if !reachable.contains(&block.id) {
@@ -153,10 +157,11 @@ struct Builder<'a> {
     callee_slot: i16,
     call_slots: Vec<i16>,
     copy_slot: i16,
+    options: Options,
 }
 
 impl<'a> Builder<'a> {
-    fn new(routine: &'a Mir68kRoutine, next: &mut u32) -> Result<Self> {
+    fn new(routine: &'a Mir68kRoutine, next: &mut u32, options: Options) -> Result<Self> {
         let mut frame = routine.frame.clone();
         let mut cursor = frame
             .automatic_bytes
@@ -289,12 +294,21 @@ impl<'a> Builder<'a> {
             callee_slot,
             call_slots,
             copy_slot,
+            options,
         })
     }
     fn emit(&mut self, op: Instruction) {
         self.instructions.push(op);
     }
     fn mov(&mut self, width: Width, source: Ea, destination: Ea) {
+        if self.options.select_instructions
+            && width == Width::Long
+            && let (Ea::Immediate(value), Ea::D(register)) = (source, destination)
+            && let Ok(value) = i8::try_from(value as i32)
+        {
+            self.emit(Instruction::MoveQuick { value, register });
+            return;
+        }
         self.emit(Instruction::Move {
             width,
             source,
@@ -431,12 +445,31 @@ impl<'a> Builder<'a> {
             });
         }
         if address.displacement.get() != 0 {
-            self.emit(Instruction::AddAddress {
-                source: Ea::Immediate(address.displacement.get()),
-                destination: register,
-            });
+            if self.options.select_instructions {
+                self.add_displacement(register, address.displacement.get());
+            } else {
+                self.emit(Instruction::AddAddress {
+                    source: Ea::Immediate(address.displacement.get()),
+                    destination: register,
+                });
+            }
         }
         if let Some(index) = &address.index {
+            if self.options.select_instructions {
+                if let Some(value) = selection::constant(&index.value) {
+                    self.add_displacement(register, value.wrapping_mul(index.stride.get()));
+                    return Ok(());
+                }
+                if index.stride.get().is_power_of_two() {
+                    self.value(&index.value, 1)?;
+                    self.shift_immediate(1, true, index.stride.get().trailing_zeros());
+                    self.emit(Instruction::AddAddress {
+                        source: Ea::D(1),
+                        destination: register,
+                    });
+                    return Ok(());
+                }
+            }
             self.value(&index.value, 1)?;
             self.mov(Width::Long, Ea::D(1), Ea::Displacement(6, self.index_slot));
             // Full-width constant scaling, including non-power-of-two record
@@ -581,6 +614,12 @@ impl<'a> Builder<'a> {
                 signed,
             } => {
                 self.value(left, 0)?;
+                if self.options.select_instructions
+                    && self.constant_binary(Width::from_bytes(width.get())?, *operation, right)
+                {
+                    self.save(*dest, *width)?;
+                    return Ok(());
+                }
                 self.value(right, 1)?;
                 let machine_width = Width::from_bytes(width.get())?;
                 match operation {
@@ -657,13 +696,23 @@ impl<'a> Builder<'a> {
                 right,
             } => {
                 self.value(left, 0)?;
-                self.value(right, 1)?;
-                self.emit(Instruction::Alu {
-                    operation: Alu::Compare,
-                    width: Width::from_bytes(width.get())?,
-                    source: 1,
-                    destination: 0,
-                });
+                if self.options.select_instructions
+                    && let Some(value) = selection::constant(right)
+                {
+                    self.emit(Instruction::CompareImmediate {
+                        width: Width::from_bytes(width.get())?,
+                        value,
+                        destination: 0,
+                    });
+                } else {
+                    self.value(right, 1)?;
+                    self.emit(Instruction::Alu {
+                        operation: Alu::Compare,
+                        width: Width::from_bytes(width.get())?,
+                        source: 1,
+                        destination: 0,
+                    });
+                }
                 self.emit(Instruction::SetCondition {
                     condition: compare_condition(*operation, *signed),
                     register: 0,

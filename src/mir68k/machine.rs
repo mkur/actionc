@@ -103,6 +103,16 @@ pub enum ShiftCount {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    MoveQuick {
+        value: i8,
+        register: u8,
+    },
+    AluImmediate {
+        operation: Alu,
+        width: Width,
+        value: u32,
+        destination: u8,
+    },
     Trap(u8),
     AddExtend {
         width: Width,
