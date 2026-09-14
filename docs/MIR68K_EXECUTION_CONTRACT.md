@@ -49,8 +49,19 @@ BRA.W when the signed word displacement fits. Iterative shrinking preserves
 that range; distant targets retain the absolute form. Emission resolves each
 relative displacement from the opcode address plus two and checks its range.
 
-The linker allocates code and data at a full-width even origin, resolves stable
-IDs and checked addends, and emits initialized segments plus zero-fill regions.
+The encoder records symbolic longword operand sites as it writes instructions.
+The relocatable object contains section-relative code/data, explicit initializer
+and instruction fixups, allocation extents and typed symbols, without executable
+IR. Numeric constants and absolute external references do not acquire movable
+relocations. Relative branches resolve only inside CODE. Object verification
+rejects missing sections, out-of-bounds and overlapping fixups, invalid encodings
+and frame-relative relocation targets. Consumers check full address/addend ranges.
+
+The bare linker consumes that object, allocates code and data at a full-width
+even origin, and emits initialized segments plus zero-fill regions. Its layout
+remains CODE followed by complete data objects in declaration order; fixed
+regions and aliases do not advance allocation. Other consumers can assign
+independent section bases. `ImageEnd` requires the contiguous bare layout.
 All linked extents fit the 24-bit bus. Executable bytes include four bytes of
 prefetch padding. Image verification rejects overlapping regions and an entry
 outside code. Image symbols carry absolute or frame-relative locations; array

@@ -15,6 +15,14 @@ root `cargo test` in an isolated checkout, and all 82 native tests pass.
 The adapter offsets/register maps were checked against the official NDK 3.2
 rev4 archive. HUNK output and Amiga startup/console composition remain next.
 
+Slice 2a is complete. Encoding now retains typed operand fixups in a verified
+section-relative object, and the bare linker consumes it without changing its
+layout. Six saved bare-image baselines (recursive scalar, insertion sort and
+matrix1 at two origins) match byte for byte, including metadata. New execution
+coverage loads code/data at three independent layouts, with function pointers,
+descriptors, aliases and BSS. The five encoder tests and all 84 native tests pass.
+The HUNK consumer and independent reader are being implemented in slice 2b.
+
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.
 Preserve the existing bare-image/r68k workflow and the internal native ABI.

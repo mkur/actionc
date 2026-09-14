@@ -11,6 +11,7 @@ mod control_flow;
 mod data;
 pub mod encode;
 pub mod image;
+pub mod object;
 mod lower;
 pub mod machine;
 pub mod materialize;

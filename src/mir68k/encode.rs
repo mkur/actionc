@@ -1,6 +1,34 @@
 //! Checked original-MC68000 encoding; addresses are supplied by the linker.
 use super::machine::*;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodeRelocation {
+    /// Byte offset of the encoded longword within this instruction.
+    pub offset: u32,
+    pub address: Address,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelocatableInstruction {
+    pub bytes: Vec<u8>,
+    pub relocations: Vec<CodeRelocation>,
+}
+
+/// Retain symbolic longword operands; the resolver handles constants and
+/// same-code-section PC-relative targets. No linked bytes are scanned for IDs.
+pub fn encode_relocatable(
+    instruction: &Instruction,
+    offset: u32,
+    resolve: &impl Fn(Address) -> Result<u32, String>,
+) -> Result<RelocatableInstruction, String> {
+    let mut relocations = Some(Vec::new());
+    let bytes = encode_inner(instruction, offset, resolve, &mut relocations)?;
+    Ok(RelocatableInstruction {
+        bytes,
+        relocations: relocations.unwrap(),
+    })
+}
+
 pub fn encode(
     instruction: &Instruction,
     resolve: &impl Fn(Address) -> Result<u32, String>,
@@ -12,6 +40,15 @@ pub fn encode_at(
     instruction: &Instruction,
     address: u32,
     resolve: &impl Fn(Address) -> Result<u32, String>,
+) -> Result<Vec<u8>, String> {
+    encode_inner(instruction, address, resolve, &mut None)
+}
+
+fn encode_inner(
+    instruction: &Instruction,
+    address: u32,
+    resolve: &impl Fn(Address) -> Result<u32, String>,
+    relocations: &mut Option<Vec<CodeRelocation>>,
 ) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
@@ -86,7 +123,7 @@ pub fn encode_at(
             destination,
         } => {
             check_register(destination)?;
-            let (ea, ext) = effective_address(source, Width::Long, resolve)?;
+            let (ea, ext) = effective_address(source, Width::Long, resolve, relocations, 2)?;
             words.push(0xd1c0 | (destination as u16) << 9 | ea);
             words.extend(ext);
         }
@@ -178,8 +215,14 @@ pub fn encode_at(
             {
                 return Err("MC68000 has no byte address-register MOVE".into());
             }
-            let (src, src_ext) = effective_address(source, width, resolve)?;
-            let (dst, dst_ext) = effective_address(destination, width, resolve)?;
+            let (src, src_ext) = effective_address(source, width, resolve, relocations, 2)?;
+            let (dst, dst_ext) = effective_address(
+                destination,
+                width,
+                resolve,
+                relocations,
+                2 + src_ext.len() as u32 * 2,
+            )?;
             let op = match width {
                 Width::Byte => 0x1000,
                 Width::Word => 0x3000,
@@ -195,13 +238,13 @@ pub fn encode_at(
         } => {
             check_register(destination)?;
             control_address(source)?;
-            let (ea, ext) = effective_address(source, Width::Long, resolve)?;
+            let (ea, ext) = effective_address(source, Width::Long, resolve, relocations, 2)?;
             words.push(0x41c0 | ((destination as u16) << 9) | ea);
             words.extend(ext);
         }
         Instruction::Jump(ea) | Instruction::Jsr(ea) => {
             control_address(ea)?;
-            let (bits, ext) = effective_address(ea, Width::Long, resolve)?;
+            let (bits, ext) = effective_address(ea, Width::Long, resolve, relocations, 2)?;
             words.push(
                 if matches!(instruction, Instruction::Jsr(_)) {
                     0x4e80
@@ -214,7 +257,10 @@ pub fn encode_at(
         Instruction::Branch { condition, target } => {
             words.push(0x6006 | condition.inverse_bits() << 8);
             words.push(0x4ef9);
-            long(&mut words, resolve(target)?);
+            long(
+                &mut words,
+                relocated_address(target, resolve, relocations, 4)?,
+            );
         }
         Instruction::BranchRelative { condition, target } => {
             let displacement = i64::from(resolve(target)?) - (i64::from(address) + 2);
@@ -268,6 +314,8 @@ fn effective_address(
     ea: Ea,
     width: Width,
     resolve: &impl Fn(Address) -> Result<u32, String>,
+    relocations: &mut Option<Vec<CodeRelocation>>,
+    offset: u32,
 ) -> Result<(u16, Vec<u16>), String> {
     let mut ext = Vec::new();
     let bits = match ea {
@@ -286,7 +334,10 @@ fn effective_address(
             (mode << 3) | r as u16
         }
         Ea::Absolute(a) => {
-            long(&mut ext, resolve(a)?);
+            long(
+                &mut ext,
+                relocated_address(a, resolve, relocations, offset)?,
+            );
             0x39
         }
         Ea::Immediate(value) => {
@@ -301,16 +352,125 @@ fn effective_address(
             if width != Width::Long {
                 return Err("native address immediate must be four bytes".into());
             }
-            long(&mut ext, resolve(a)?);
+            long(
+                &mut ext,
+                relocated_address(a, resolve, relocations, offset)?,
+            );
             0x3c
         }
     };
     Ok((bits, ext))
 }
 
+fn relocated_address(
+    address: Address,
+    resolve: &impl Fn(Address) -> Result<u32, String>,
+    relocations: &mut Option<Vec<CodeRelocation>>,
+    offset: u32,
+) -> Result<u32, String> {
+    if let Some(relocations) = relocations
+        && !matches!(address.target, Target::Absolute(_))
+    {
+        relocations.push(CodeRelocation { offset, address });
+        Ok(0)
+    } else {
+        resolve(address)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn relocations_are_recorded_at_operand_sites() {
+        let source = Address {
+            target: Target::Block(MachineBlockId(1)),
+            addend: -2,
+        };
+        let dest = Address::new(Target::Block(MachineBlockId(2)));
+        for (op, expected) in [
+            (
+                Instruction::Move {
+                    width: Width::Long,
+                    source: Ea::Absolute(source),
+                    destination: Ea::Absolute(dest),
+                },
+                vec![(2, source), (6, dest)],
+            ),
+            (
+                Instruction::Move {
+                    width: Width::Word,
+                    source: Ea::Immediate(0x2000),
+                    destination: Ea::Absolute(dest),
+                },
+                vec![(4, dest)],
+            ),
+            (
+                Instruction::Move {
+                    width: Width::Long,
+                    source: Ea::ImmediateAddress(source),
+                    destination: Ea::Absolute(dest),
+                },
+                vec![(2, source), (6, dest)],
+            ),
+            (
+                Instruction::Lea {
+                    source: Ea::Absolute(source),
+                    destination: 0,
+                },
+                vec![(2, source)],
+            ),
+            (
+                Instruction::AddAddress {
+                    source: Ea::ImmediateAddress(source),
+                    destination: 0,
+                },
+                vec![(2, source)],
+            ),
+            (Instruction::Jsr(Ea::Absolute(source)), vec![(2, source)]),
+            (
+                Instruction::Branch {
+                    condition: Condition::Equal,
+                    target: dest,
+                },
+                vec![(4, dest)],
+            ),
+        ] {
+            let encoded =
+                encode_relocatable(&op, 0, &|_| panic!("symbol must remain unresolved")).unwrap();
+            assert_eq!(
+                encoded.relocations,
+                expected
+                    .into_iter()
+                    .map(|(offset, address)| CodeRelocation { offset, address })
+                    .collect::<Vec<_>>()
+            );
+            for fixup in encoded.relocations {
+                assert_eq!(
+                    &encoded.bytes[fixup.offset as usize..fixup.offset as usize + 4],
+                    &[0; 4]
+                );
+            }
+        }
+        for op in [
+            Instruction::Move {
+                width: Width::Long,
+                source: Ea::Immediate(0x2000),
+                destination: Ea::Absolute(Address::absolute(0x2000)),
+            },
+            Instruction::BranchRelative {
+                condition: None,
+                target: dest,
+            },
+        ] {
+            let encoded = encode_relocatable(&op, 0x2000, &|_| Ok(0x2000)).unwrap();
+            assert!(encoded.relocations.is_empty());
+            assert_eq!(
+                encoded.bytes,
+                encode_at(&op, 0x2000, &|_| Ok(0x2000)).unwrap()
+            );
+        }
+    }
     fn bytes(i: Instruction) -> Vec<u8> {
         encode(&i, &|a| match a.target {
             Target::Absolute(v) => Ok(v),
