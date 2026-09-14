@@ -4,7 +4,7 @@ MIR68K consumes verified NIR, after shared aggregate ABI expansion. It never
 consults SemIR or recovers executable meaning from names. NIR remains the owner
 of Action! evaluation order, scalar widths, casts, control flow and effects.
 MIR68K owns the native ABI, physical frames, access strategy and big-endian data
-projection. Emission will own instruction encoding and final addresses.
+projection. Emission owns instruction encoding and final addresses.
 
 The MIR preserves routine and program-entry IDs, callable signatures, result
 homes, parameter and temporary types, block parameters and edge arguments.
@@ -57,12 +57,18 @@ reachable unresolved fallthrough or terminal exits. A6-relative temporary homes
 are separate from automatic objects and the preallocated outgoing area; frame
 sizes outside original MC68000 displacement limits are rejected.
 
-Integer materialization supports 8/16/32-bit add, subtract, negation, bitwise
+Integer materialization supports 8/16/32-bit add, subtract, multiply, negation, bitwise
 operations, logical shifts, casts and signed/unsigned comparisons. Narrow loads
 clear unused register bits, signed widening uses explicit EXT instructions, and
 comparison results are normalized to 0/1. Dynamic shifts mask the provisional
 MC68000 result to zero when the full source count reaches the operand width;
 CPU modulo-64 count decoding cannot change Action! semantics.
+
+Multiplication retains only the resolved result width. Byte/word products use
+MULU.W; 32-bit products combine three unsigned 16-bit partial products modulo
+2^32, so signed and unsigned bit patterns obey the same wrapping contract.
+Only captured MIR values may be reloaded; the source expression is never
+reevaluated. The sequence uses the existing D0/D1/A0/A1 scratch set.
 
 Temporary homes are four-byte reservations with each value stored at its
 actual width at the start of its home. Edge transfers stage all sources in a

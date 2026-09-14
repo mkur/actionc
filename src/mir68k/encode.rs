@@ -7,6 +7,14 @@ pub fn encode(
 ) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
+        Instruction::MultiplyUnsignedWord {
+            source,
+            destination,
+        } => {
+            check_register(source)?;
+            check_register(destination)?;
+            words.push(0xc0c0 | (destination as u16) << 9 | source as u16);
+        }
         Instruction::AddAddress {
             source,
             destination,
@@ -266,6 +274,14 @@ mod tests {
         );
         assert_eq!(bytes(Instruction::Unlink(6)), [0x4e, 0x5e]);
         assert_eq!(bytes(Instruction::Rts), [0x4e, 0x75]);
+        // M68000 PRM, MULU.W instruction format (4-139).
+        assert_eq!(
+            bytes(Instruction::MultiplyUnsignedWord {
+                source: 1,
+                destination: 0
+            }),
+            [0xc0, 0xc1]
+        );
         assert_eq!(
             bytes(Instruction::Jsr(Ea::Absolute(Address::absolute(0x1001a)))),
             [0x4e, 0xb9, 0, 1, 0, 0x1a]
@@ -306,6 +322,10 @@ mod tests {
             },
             Instruction::Jsr(Ea::D(0)),
             Instruction::Unlink(8),
+            Instruction::MultiplyUnsignedWord {
+                source: 8,
+                destination: 0,
+            },
         ] {
             assert!(size(&instruction).is_err());
         }

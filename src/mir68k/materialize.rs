@@ -554,6 +554,7 @@ impl<'a> Builder<'a> {
                 self.value(right, 1)?;
                 let machine_width = Width::from_bytes(width.get())?;
                 match operation {
+                    NirBinaryOp::Mul => self.multiply(machine_width, left)?,
                     NirBinaryOp::Lsh | NirBinaryOp::Rsh => {
                         self.emit(Instruction::LogicalShift {
                             width: machine_width,
@@ -745,6 +746,48 @@ impl<'a> Builder<'a> {
                     self.save(*dest, *width)?;
                 }
             }
+        }
+        Ok(())
+    }
+    fn multiply(&mut self, width: Width, left: &Mir68kValue) -> Result<()> {
+        // Truncation makes signed and unsigned products identical at the
+        // resolved result width. MULU.W suffices for the low byte/word.
+        self.emit(Instruction::MultiplyUnsignedWord {
+            source: 1,
+            destination: 0,
+        });
+        if width == Width::Long {
+            // a*b = alo*blo + ((ahi*blo + alo*bhi) << 16), modulo 2^32.
+            // Reload only captured NIR values, never the source expression.
+            self.mov(Width::Long, Ea::D(0), Ea::A(0));
+            self.value(left, 0)?;
+            self.shift_immediate(0, false, 16);
+            self.emit(Instruction::MultiplyUnsignedWord {
+                source: 1,
+                destination: 0,
+            });
+            self.mov(Width::Long, Ea::D(0), Ea::A(1));
+            self.value(left, 0)?;
+            self.shift_immediate(1, false, 16);
+            self.emit(Instruction::MultiplyUnsignedWord {
+                source: 1,
+                destination: 0,
+            });
+            self.mov(Width::Long, Ea::A(1), Ea::D(1));
+            self.emit(Instruction::Alu {
+                operation: Alu::Add,
+                width: Width::Long,
+                source: 1,
+                destination: 0,
+            });
+            self.shift_immediate(0, true, 16);
+            self.mov(Width::Long, Ea::A(0), Ea::D(1));
+            self.emit(Instruction::Alu {
+                operation: Alu::Add,
+                width: Width::Long,
+                source: 1,
+                destination: 0,
+            });
         }
         Ok(())
     }

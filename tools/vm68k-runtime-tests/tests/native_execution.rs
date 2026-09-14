@@ -36,10 +36,6 @@ fn invalid_entries_and_unsupported_programs_produce_no_image() {
         ("LONGINT value", "entry"),
         ("PROC Entry(BYTE argument) RETURN", "parameterless"),
         ("BYTE value value=1 PROC Entry() RETURN", "top-level"),
-        (
-            "LONGINT a,b,result PROC Entry() result=a*b RETURN",
-            "support",
-        ),
     ] {
         let source = common::Source::new(source);
         for optimize in [false, true] {

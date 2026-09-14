@@ -103,6 +103,11 @@ pub enum ShiftCount {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
+    /// Original MC68000 MULU.W: low 16-bit inputs, full 32-bit product.
+    MultiplyUnsignedWord {
+        source: u8,
+        destination: u8,
+    },
     AddAddress {
         source: Ea,
         destination: u8,
