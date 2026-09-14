@@ -28,6 +28,10 @@ def script(run_id):
     # Classic Shell RC expansion and FAILAT/IF/QUIT contracts:
     # https://wiki.amigaos.net/wiki/AmigaOS_Manual:_AmigaDOS_Environment_Variables
     # https://wiki.amigaos.net/wiki/AmigaOS_Manual:_AmigaDOS_Command_Reference
+    # Unbraced Shell variable references accept only letters and digits.
+    # Keep actioncrc alphanumeric: $actionc_rc would expand $actionc instead.
+    # RKRM AmigaDOS (2024), section 15.1.5:
+    # https://developer.amigaos3.net/sites/default/files/downloads/2024-10/Amiga_ROM_Kernel_Reference_Manual_DOS.pdf
     lines = [
         "; Run with Execute smoke from this directory in an AmigaOS 3.1 Shell.",
         "Stack 65536",
@@ -41,10 +45,11 @@ def script(run_id):
         redirect = f" >RAM:actionc-{name}.txt" if mode == "redirect" else ""
         lines.extend([
             f"{name}.amiga{redirect}",
-            "Set actionc_rc $RC",  # Capture immediately, before another command.
-            f'Echo "RC {label} $actionc_rc" >>RAM:actionc-status.txt',
-            f"If NOT $actionc_rc EQ {status} VAL",
+            "Set actioncrc $RC",  # Capture immediately, before another command.
+            f'Echo "RC {label} $actioncrc" >>RAM:actionc-status.txt',
+            f"If NOT $actioncrc EQ {status} VAL",
             f'Echo "FAIL {label}" >>RAM:actionc-status.txt',
+            f'Echo "FAIL {label}: return code $actioncrc, expected {status}"',
             "Quit 20",
             "EndIf",
         ])
@@ -94,6 +99,8 @@ def verify(bundle, collected):
         if digest(bundle / name) != sha:
             raise ValueError(f"bundle changed after build: {name}")
     status = (collected / "actionc-status.txt").read_bytes()
+    if b"$" in status:
+        raise ValueError("unexpanded Shell variable in status report; rerun a regenerated smoke script")
     wanted = [f"BUILD {manifest['run_id']}", *(f"RC {label} {rc}" for label, _, _, rc in runs()), "SMOKE PASS"]
     if status != ("\n".join(wanted) + "\n").encode("ascii"):
         raise ValueError("missing success marker, wrong run ID or unexpected Shell status")

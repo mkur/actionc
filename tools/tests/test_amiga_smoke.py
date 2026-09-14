@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,9 +16,40 @@ class AmigaSmokeTests(unittest.TestCase):
         self.assertNotIn("\r", text)
         for line, following in zip(text.splitlines(), text.splitlines()[1:]):
             if ".amiga" in line:
-                self.assertEqual(following, "Set actionc_rc $RC")
+                self.assertRegex(following, r"^Set [A-Za-z][A-Za-z0-9]* \$RC$")
         self.assertIn("FailAt 21", text)
         self.assertLess(text.index("RC division-zero.redirect"), text.index("RC hello.recovery"))
+
+    def test_saved_status_survives_classic_shell_variable_expansion(self):
+        # RKRM AmigaDOS 15.1.5: an unbraced variable ends at the first
+        # non-alphanumeric character; unknown variables remain literal.
+        # Apply that grammar independently to the generated command lines.
+        def expand(line, variables):
+            return re.sub(
+                r"\$([A-Za-z0-9]+)",
+                lambda match: variables.get(match[1].lower(), match[0]),
+                line,
+            )
+
+        self.assertEqual(expand("$actionc_rc", {"actionc_rc": "20"}), "$actionc_rc")
+        lines = SMOKE.script("a" * 32).decode("ascii").splitlines()
+        commands = 0
+        for index, line in enumerate(lines):
+            if not re.match(r"^[a-z-]+\.amiga(?:\s|$)", line):
+                continue
+            commands += 1
+            capture = re.fullmatch(r"Set (\S+) (.+)", lines[index + 1])
+            self.assertIsNotNone(capture)
+            for rc in (0, 5, 20):
+                with self.subTest(command=line, rc=rc):
+                    variables = {"rc": str(rc)}
+                    variables[capture[1].lower()] = expand(capture[2], variables)
+                    variables["rc"] = "0"  # Set/Echo must not lose the saved result.
+                    logged = expand(lines[index + 2], variables)
+                    checked = expand(lines[index + 3], variables)
+                    self.assertRegex(logged, rf'^Echo "RC [a-z.-]+ {rc}" >>RAM:actionc-status.txt$')
+                    self.assertRegex(checked, rf"^If NOT {rc} EQ (0|20) VAL$")
+        self.assertEqual(commands, 9)
 
     def test_verification_requires_current_marker_exact_output_statuses_and_os_versions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -46,6 +78,9 @@ class AmigaSmokeTests(unittest.TestCase):
                 status.write_bytes(invalid.encode())
                 with self.assertRaises(ValueError):
                     SMOKE.verify(bundle, collected)
+            status.write_bytes(good_status.replace("RC hello.console 0", "RC hello.console $actionc_rc").encode())
+            with self.assertRaisesRegex(ValueError, "unexpanded Shell variable"):
+                SMOKE.verify(bundle, collected)
             status.write_bytes(good_status.encode())
             report = collected / "actionc-insertsort.txt"
             original = report.read_bytes()

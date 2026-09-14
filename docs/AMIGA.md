@@ -20,12 +20,13 @@ hello.amiga
 Echo $RC
 ```
 
-The runtime requests DOS library version 40 (AmigaOS 3.1). **Real AmigaOS
-acceptance is pending**; r68k execution with a bounded OS-call shim currently
-provides the automated evidence. A working vAmiga installation alone does not
-supply the required OS boot disk. The inspected local ROM is Kickstart 37.175
-(2.04), and the available saved-machine thumbnails do not show a 3.1 Shell.
-Older OS versions have not been validated.
+The runtime requests DOS library version 40 (AmigaOS 3.1). A manual vAmiga run
+with Exec 40.10 and DOS 40.3 passed all four smoke samples: exact redirected
+output, status 0 for normal runs, status 20 for the deliberate division fault,
+and successful execution after the fault. See the
+[emulator validation record](MIR68K_AMIGA_EMULATOR_VALIDATION.md).
+Older OS versions and AROS have not been validated. An older DOS library makes
+startup return 20 before any output is available.
 
 Use an MC68000 configuration, at least 1 MiB RAM and a 64 KiB command stack for
 the initial smoke test. The program uses the inherited stack. The shim measured
@@ -99,8 +100,9 @@ compiler output. Keep ROMs and OS disks outside the repository.
 
 In vAmiga, use a **copy** of an AmigaOS 3.1 machine and its disks. Verify the CPU,
 memory, Kickstart and DOS versions, then insert `actionc-smoke.adf` in DF1.
-The inspected emulator is vAmiga 4.5, build 260807. Its actual execution of this
-bundle has not yet been validated. Boot the OS, open a Shell, and run:
+The locally inspected emulator is vAmiga 4.5, build 260807. Keep the Workbench
+boot disk mounted too, so disk commands such as Execute and Version remain
+available. Boot the OS, open a Shell, and run:
 
 ```text
 CD ActionC:
@@ -112,14 +114,25 @@ Copy RAM:actionc-#? ActionC:results
 
 The script saves each program's return code immediately after execution and
 writes `SMOKE PASS` only after the expected statuses, including recovery. Inspect
-the visible console output too. Export the modified DF1 disk as
+the visible console output too. Its saved-status variable is `actioncrc`:
+unbraced Amiga Shell variable names contain only letters and digits, so
+`$actionc_rc` would refer to `$actionc` followed by literal `_rc`.
+See [RKRM AmigaDOS, section 15.1.5](https://developer.amigaos3.net/sites/default/files/downloads/2024-10/Amiga_ROM_Kernel_Reference_Manual_DOS.pdf).
+Use a freshly generated script if a status report contains literal variables.
+
+Export the modified **ActionC** disk (normally DF1) as
 `build/actionc-results.adf`, then unpack and verify the returned files:
 
 ```sh
+mkdir -p build/amiga-returned
 build/amiga-host-tools/bin/xdftool -r build/actionc-results.adf \
   unpack build/amiga-returned
-python3 tools/amiga_smoke.py verify build/amiga-returned/results
+python3 tools/amiga_smoke.py verify build/amiga-returned/ActionC/results
 ```
+
+Use an extraction directory without an existing `ActionC` subdirectory.
+With an existing destination directory, amitools creates a subdirectory named
+after the volume. An exported Workbench disk does not contain the test reports.
 
 Verification requires exact output bytes, the current run ID, every expected
 return code, the final marker, and recorded Exec/DOS version 40. Missing markers,

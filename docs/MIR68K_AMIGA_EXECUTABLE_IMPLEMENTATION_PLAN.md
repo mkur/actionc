@@ -1,8 +1,9 @@
 # MIR68K minimal Amiga executable
 
-Status: compiler/runtime slices 1–3b are complete. Slice 4 samples, build and
-smoke tooling, documentation and CI coverage are ready; real AmigaOS acceptance
-is still pending. The plan was committed as `d72ae47`.
+Status: slices 1–4 are implemented. The manual AmigaOS 3.1 smoke run passed in
+vAmiga on 2026-09-14: all four outputs, numeric return codes, recovery after a
+deliberate fault and the final success marker were verified. This completes the
+minimal Amiga executable milestone. The plan was committed as `d72ae47`.
 Baseline: `ac64b98`, after the
 [public CLI and benchmark milestone](MIR68K_CLI_AND_BENCHMARK_IMPLEMENTATION_PLAN.md).
 
@@ -13,6 +14,7 @@ Baseline: `ac64b98`, after the
 | 2b | `af0e7da` | HUNK writer and independent VM loader |
 | 3a | `cf94726` | Shell startup, resource cleanup and terminal faults |
 | 3b | `cc472e3` | Public Amiga CLI/API and SYS console subset |
+| 4 | `9599469` plus smoke-script correction | Samples, smoke tooling and CI; manual AmigaOS 3.1 acceptance passed |
 
 The existing SYS path uses external RoutineIds, so service identity lives on the
 routine-entry fact; ordinary call-site IDs are unchanged. Decimal formatting is
@@ -29,13 +31,17 @@ working-tree samples. Smoke-tool tests require exact output, statuses, a current
 run ID and the final success marker. The four executables also pass amitools'
 independent HUNK reader and an OFS disk-image pack/unpack byte comparison.
 
-The inspected local vAmiga is 4.5, build 260807. Its configured ROM is Kickstart
-37.175 (2.04); the inspected saved-machine thumbnails show a demo, an empty
-screen and the Kickstart 2.04 boot screen. A confirmed AmigaOS 3.1 boot disk or
-saved setup is still needed. The transfer bundle and 880 KiB data disk are
-prepared under `build/`; they contain no ROM or OS files. Do not mark this
-milestone complete until the real Shell run and returned-file verification pass.
-See [Amiga usage](AMIGA.md) for the reproducible procedure.
+The locally inspected vAmiga is 4.5, build 260807. The user ran the prepared
+executables and returned an ActionC disk with Exec 40.10 and DOS 40.3 reports.
+All four redirected outputs match byte for byte. Normal console and redirected
+runs return 0, the deliberate fault returns 20 in both modes, and the subsequent
+greeting returns 0. The returned status report ends with `SMOKE PASS`.
+The corrected generator uses the alphanumeric saved-status variable `actioncrc`,
+with regression coverage for the Shell expansion grammar. The executable bytes
+are unchanged from the prepared bundle. Active CPU/RAM settings and the full ROM
+revision were not captured in the reports. See the
+[validation record](MIR68K_AMIGA_EMULATOR_VALIDATION.md) and
+[Amiga usage](AMIGA.md) for the evidence and reproducible procedure.
 
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.
@@ -64,7 +70,7 @@ The output is a single executable; `.amiga` is a naming convention, not a loader
 requirement. The default output name is `<source-stem>.amiga`. Bare remains the
 default for `--target motorola-68000`. An explicit `--origin`, source ORG or
 Atari SET origin is invalid for the Amiga path: the OS chooses load addresses.
-The command and samples are implemented; real-OS acceptance remains pending.
+The command and samples are implemented and passed the recorded AmigaOS 3.1 run.
 
 Keep the existing parameterless PROC program entry. Normal completion returns
 status 0 to the Shell. Startup failure, console failure and a typed runtime

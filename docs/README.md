@@ -31,7 +31,7 @@ crowding the active reference set.
   - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
 - [MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md](MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md)
   - implemented runtime adapters, relocatable HUNK output, Shell startup and
-    console I/O; real AmigaOS acceptance remains pending.
+    console I/O; the AmigaOS 3.1 smoke run passed in vAmiga.
 - [AMIGA.md](AMIGA.md)
   - experimental Amiga CLI, supported calls, examples and reproducible vAmiga smoke procedure.
 - [MIR68K_INTEGER_COMPLETION_PLAN.md](MIR68K_INTEGER_COMPLETION_PLAN.md)

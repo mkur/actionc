@@ -21,5 +21,7 @@ The insertion-sort driver includes the unchanged
 sentinel independently.
 
 See [Amiga usage and smoke testing](../../docs/AMIGA.md) for the supported SYS
-calls, stack setup and current validation status. Real AmigaOS acceptance is
-still pending; the automated tests run through r68k and an OS-call shim.
+calls and stack setup. All four samples passed the manual AmigaOS 3.1 smoke run
+in vAmiga, including exact output, return codes and fault recovery; see the
+[validation record](../../docs/MIR68K_AMIGA_EMULATOR_VALIDATION.md).
+The automated tests run through r68k and an OS-call shim.
