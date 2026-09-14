@@ -21,7 +21,13 @@ layout. Six saved bare-image baselines (recursive scalar, insertion sort and
 matrix1 at two origins) match byte for byte, including metadata. New execution
 coverage loads code/data at three independent layouts, with function pointers,
 descriptors, aliases and BSS. The five encoder tests and all 84 native tests pass.
-The HUNK consumer and independent reader are being implemented in slice 2b.
+Slice 2b is also complete: the bounded HUNK writer packs whole objects into
+CODE/DATA/BSS, and the independent VM reader loads only executable bytes. The
+five HUNK tests cover specified byte fixtures, three independent layouts,
+truncation and invalid fixups, unsupported placements and a 65,536-site group.
+All 15 focused HUNK/object/emission/artifact tests pass. Shell startup and the
+public Amiga CLI remain to be implemented; the intermediate entry thunk has no
+OS interaction.
 
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.

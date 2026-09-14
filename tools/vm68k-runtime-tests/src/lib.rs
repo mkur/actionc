@@ -2,6 +2,7 @@
 //! pinned r68k, never by a compiler-IR interpreter.
 pub mod amiga;
 pub mod artifacts;
+pub mod hunk;
 
 use actionc::mir68k::image::{ImageView, SymbolView};
 use r68k::cpu::{Callbacks, ConfiguredCore, Core, Cycles, Exception, ProcessingState};

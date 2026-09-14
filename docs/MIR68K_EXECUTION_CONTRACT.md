@@ -74,6 +74,16 @@ tags and region metadata before loading bounded payloads. In-memory and imported
 images share region verification and VM symbol access; the VM retains ownership
 of reserved-memory, stack, ABI and fault checks.
 
+The Amiga HUNK consumer packs whole objects into CODE, initialized DATA and BSS,
+retaining section-relative metadata and materializing initialized objects' zero
+tails. The entry is the first CODE byte. It emits deterministic longword padding
+and even, full-width HUNK_RELOC32 sites with target-section offsets as addends.
+Groups larger than 65,535 entries are split into separate terminated records.
+Movable narrow/selected-byte fixups, fixed-memory initialization, ImageEnd and
+other HUNK record types are explicitly unsupported. Absolute external references
+remain unrelocated. The independent VM reader checks bytes, extents and fixups
+before mapping separate load bases; it consumes no compiler object or symbols.
+
 The native compiler API uses the existing source/module loader, semantic
 analysis, reachable SemIR selection and NIR verifier/optimizer. Source-level
 startup and origin constraints are diagnosed before the verified backend

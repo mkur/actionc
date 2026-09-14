@@ -12,6 +12,7 @@ mod data;
 pub mod encode;
 pub mod image;
 pub mod object;
+pub mod hunk;
 mod lower;
 pub mod machine;
 pub mod materialize;
