@@ -98,3 +98,10 @@ The [initial baseline](../../docs/mir68k-code-quality-baseline.csv) precedes
 temporary forwarding, instruction selection and branch relaxation. The
 [current measurements](../../docs/mir68k-code-quality-current.csv) and
 [milestone comparison](../../docs/MIR68K_CODE_QUALITY_PLAN.md) record the result.
+
+Compare equivalent C compiled by MC68000 GCC against Action! with
+`python3 tools/compare_mir68k_c.py` from the repository root. Both use this r68k
+harness and the same reference vectors. The optional cross-toolchain setup,
+measurement contract and artifacts are described in the
+[C reference README](../mir68k-c-reference/README.md); the
+[comparison report](../../docs/MIR68K_C_COMPARISON.md) records the initial gaps.

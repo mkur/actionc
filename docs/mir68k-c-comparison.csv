@@ -1,0 +1,7 @@
+benchmark,compiler,mode,code_bytes,default_instructions,default_stack_read_bytes,default_stack_write_bytes,reference_cases,reference_instructions
+insertsort,actionc,optimized,2242,10617,3506,2586,209,899340
+insertsort,gcc,O2,574,1426,186,120,209,116077
+insertsort,gcc,Os,440,1499,382,140,209,122802
+matrix1,actionc,optimized,1790,162876,72256,42304,22,3243282
+matrix1,gcc,O2,306,20230,16860,12064,22,425740
+matrix1,gcc,Os,298,22032,16864,12068,22,465363

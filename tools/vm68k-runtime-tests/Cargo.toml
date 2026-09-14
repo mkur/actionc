@@ -9,3 +9,7 @@ actionc = { path = "../.." }
 r68k = "=0.2.2"
 
 [workspace]
+
+[[example]]
+name = "c_reference"
+test = true
