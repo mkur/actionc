@@ -38,3 +38,21 @@ to cover all workspaces on Linux, Windows and macOS.
 Register allocation across blocks, multidimensional arrays and platform output
 formats remain separate work. NIR continues to own typed computation and
 effects; instruction selection and physical register decisions belong to MIR68K.
+
+## Baseline
+
+The [baseline CSV](mir68k-code-quality-baseline.csv) records the corrected
+compiler at `aefccef`, with conservative stack homes. The reproducible command
+is documented in the [runner README](../tools/vm68k-runtime-tests/README.md).
+Optimized NIR examples before target optimization:
+
+| Benchmark | Executable bytes | Executed instructions | Largest frame |
+| --- | ---: | ---: | ---: |
+| Matrix1 | 2,524 | 185,892 | 166 |
+| SHA (`abc`) | 9,010 | 36,010 | 786 |
+| DCT | 10,192 | 57,837 | 1,304 |
+| ADPCM encoder | 17,742 | 2,851,208 | 802 |
+
+The encoder includes its original integer sine initialization. These are
+deterministic instruction counts, not host wall-clock timings or whole-machine
+performance estimates. Frame measurements exclude dynamic call nesting.

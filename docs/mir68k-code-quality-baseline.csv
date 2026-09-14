@@ -1,0 +1,15 @@
+benchmark,nir,code_bytes,instructions,max_frame_bytes
+insertsort,raw,3258,14029,224
+insertsort,optimized,2990,12700,182
+matrix1,raw,3062,201032,194
+matrix1,optimized,2524,185892,166
+binarysearch,raw,1910,12098,146
+binarysearch,optimized,1720,11557,126
+sha,raw,9476,38782,886
+sha,optimized,9010,36010,786
+jfdctint,raw,11874,63649,1592
+jfdctint,optimized,10192,57837,1304
+adpcm_dec,raw,15032,27741,826
+adpcm_dec,optimized,13850,26447,794
+adpcm_enc,raw,19588,2997966,866
+adpcm_enc,optimized,17742,2851208,802

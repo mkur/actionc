@@ -76,3 +76,18 @@ decoder checkpoints and all 1,561 encoder checkpoints in each NIR mode. DCT
 checks both passes and rounding; ADPCM checks complete intermediate state and
 the final report. Test adapters use compiler symbols and numeric endian
 conversion, and exercise LF/CRLF source instrumentation without fixed addresses.
+
+Measure ordinary benchmark entry points with:
+
+```sh
+cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --example code_quality
+```
+
+Optional benchmark names restrict the run, for example `-- matrix1 sha`.
+The CSV reports initialized executable bytes (including prefetch padding),
+executed instructions through the completion trampoline, and the largest
+individual emitted frame reservation. Frame size is not peak stack usage.
+SHA hashes `abc`; other programs run their default benchmark entry. Each run
+checks completion and its expected result. Host execution time is not measured.
+The [initial baseline](../../docs/mir68k-code-quality-baseline.csv) precedes
+temporary forwarding and instruction-selection improvements.
