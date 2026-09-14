@@ -1,6 +1,6 @@
 # MIR68K alignment, control flow and register retention
 
-Status: in progress. Slices 1–3 are complete; slices 4–6 remain. Commit each major
+Status: in progress. Slices 1–4 are complete; slices 5–6 remain. Commit each major
 slice after its validation gate passes.
 
 The objective is to remove the largest avoidable costs exposed by the
@@ -170,6 +170,16 @@ and edges with arguments. Existing distant-branch and relocation tests remain
 green; literal MC68000 encoding tests qualify any newly emitted instructions.
 
 ## Slice 4: Extend existing NIR promotion for native loops
+
+Implemented: a native loop profitability policy reuses the existing verified
+promotion and home-elision passes. Canonical native pointer widths participate
+in scalar storage facts. The policy is opt-in pending allocation: it reduces
+matrix1 to 89,476 instructions but increases stack traffic from edge staging.
+Atari policy and all NIR snapshots remain unchanged. Both promotion regressions,
+all 64 native tests, all 693 paired reference executions, the 51-fixture NIR
+sweep and the full compiler suite pass. The full suite ran in an isolated
+checkout to exclude unrelated uncommitted sample work. Artifacts are in
+`build/mir68k-optimization/slice4/`.
 
 `src/nir/promotion.rs` already implements storage-to-value promotion, including
 dominance, block parameters and edge arguments. Its current profitability gates

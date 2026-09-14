@@ -53,9 +53,12 @@ fn connected_relays_promote_two_or_more_single_definition_homes() {
         body.push_str(&format!("result=v{}", count - 1));
         let input = program(&format!("BYTE {locals}"), &body);
         assert!(!no_local_accesses(&input));
-        let promoted = promote_program(&input).unwrap();
+        let promoted = promote_program(&input, NirPromotionPolicy::Conservative).unwrap();
         assert!(no_local_accesses(&promoted), "{promoted:#?}");
-        assert_eq!(promote_program(&promoted).unwrap(), promoted);
+        assert_eq!(
+            promote_program(&promoted, NirPromotionPolicy::Conservative).unwrap(),
+            promoted
+        );
     }
 }
 
@@ -72,7 +75,9 @@ fn connected_relays_compose_table_indexing_for_fresh_locals_and_let() {
         ),
     ] {
         let input = program(locals, body);
-        assert!(no_local_accesses(&promote_program(&input).unwrap()));
+        assert!(no_local_accesses(
+            &promote_program(&input, NirPromotionPolicy::Conservative).unwrap()
+        ));
         let optimized = crate::nir::optimize_program(&input).unwrap();
         assert!(main(&optimized).locals.is_empty());
         assert!(
@@ -103,7 +108,10 @@ fn connected_relays_leave_isolated_and_unrelated_cold_homes_alone() {
         "first=input\nside=first\nsecond=input\nresult=second",
     ] {
         let input = program("BYTE first,second", body);
-        assert_eq!(promote_program(&input).unwrap(), input);
+        assert_eq!(
+            promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+            input
+        );
     }
 }
 
@@ -113,7 +121,10 @@ fn connected_relays_reject_multiple_home_reads_and_temp_fanout() {
         "BYTE first,second",
         "first=input\nside=first\nsecond=first XOR $5A\nresult=second",
     );
-    assert_eq!(promote_program(&input).unwrap(), input);
+    assert_eq!(
+        promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+        input
+    );
 
     // The home is loaded once, but either its loaded SSA value or an
     // intermediate computation in the connecting path has two consumers.
@@ -142,7 +153,10 @@ fn connected_relays_reject_multiple_home_reads_and_temp_fanout() {
         *src = NirValue::Temp { id: dest, ty };
         ops.insert(producer + 1, extra_use);
         routine.temps = collect_temps(&routine.blocks);
-        assert_eq!(promote_program(&input).unwrap(), input);
+        assert_eq!(
+            promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+            input
+        );
     }
 }
 
@@ -153,7 +167,10 @@ fn connected_relays_reject_cross_block_lifetimes() {
         "first=input\nsecond=first XOR $5A\nIF input THEN\nresult=second\nFI",
     ] {
         let input = program("BYTE first,second", body);
-        assert_eq!(promote_program(&input).unwrap(), input);
+        assert_eq!(
+            promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+            input
+        );
     }
 }
 
@@ -174,7 +191,10 @@ fn connected_relays_reject_escaped_initialized_and_absolute_homes() {
         ),
     ] {
         let input = program(locals, body);
-        assert_eq!(promote_program(&input).unwrap(), input);
+        assert_eq!(
+            promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+            input
+        );
     }
 }
 
@@ -185,7 +205,10 @@ fn connected_relays_leave_wider_storage_on_the_existing_tiers() {
             &format!("{ty} first,second"),
             "first=input\nsecond=first XOR $5A\nwide=second",
         );
-        assert_eq!(promote_program(&input).unwrap(), input);
+        assert_eq!(
+            promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+            input
+        );
     }
 }
 
@@ -206,7 +229,7 @@ fn connected_relays_reject_ordering_and_fault_barriers() {
         ] {
             let input = program("BYTE first,second", &body);
             assert_eq!(
-                promote_program(&input).unwrap(),
+                promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
                 input,
                 "barrier: {barrier}"
             );
@@ -241,7 +264,7 @@ fn connected_relays_bound_both_storage_and_def_use_gaps() {
                 ops.insert(load_index + usize::from(after_load), padding.clone());
             }
             routine.temps = collect_temps(&routine.blocks);
-            let promoted = promote_program(&input).unwrap();
+            let promoted = promote_program(&input, NirPromotionPolicy::Conservative).unwrap();
             if gap == MAX_BOUNDED_RELAY_GAP_OPS {
                 assert!(no_local_accesses(&promoted));
             } else {
@@ -267,5 +290,8 @@ fn connected_relays_do_not_connect_through_an_unsupported_operation() {
         },
     );
     routine.temps = collect_temps(&routine.blocks);
-    assert_eq!(promote_program(&input).unwrap(), input);
+    assert_eq!(
+        promote_program(&input, NirPromotionPolicy::Conservative).unwrap(),
+        input
+    );
 }

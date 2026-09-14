@@ -143,6 +143,13 @@ inverts a conditional branch when that permits fallthrough. Labels remain
 stable, and checked branch relaxation runs after layout simplification.
 The `control_flow` option disables this selection for differential execution.
 
+Native compilation has an explicit NIR promotion policy, independent of
+materialization options. `NativeLoops` exposes eligible automatic counters,
+accumulators and pointers as SSA values and block parameters. It currently
+remains opt-in pending register allocation. Home elision removes unused local
+cells before MIR frame planning; removed cells have no emitted memory symbol.
+Alignment receipts are derived from the resulting verified NIR, after promotion.
+
 Qualified symbol names are attached as display metadata by the compiler API;
 no machine decision depends on source/linker spelling. Parameters and automatic
 objects have frame-relative symbol locations, including the actual source

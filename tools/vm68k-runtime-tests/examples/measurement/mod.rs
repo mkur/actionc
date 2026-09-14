@@ -5,9 +5,23 @@ use std::{path::Path, process::Command};
 pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec<String>) {
     let mut options = NativeCompileOptions::default();
     let mut names = Vec::new();
+    let mut promotion = None;
     for arg in args {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
+            "--native-promotion" | "--conservative-promotion" => {
+                let selected = if arg == "--native-promotion" {
+                    actionc::nir::NirPromotionPolicy::NativeLoops
+                } else {
+                    actionc::nir::NirPromotionPolicy::Conservative
+                };
+                assert!(
+                    promotion.is_none_or(|previous| previous == selected),
+                    "conflicting promotion policies"
+                );
+                promotion = Some(selected);
+                options.promotion = selected;
+            }
             "--no-codegen-opt" => {
                 options.codegen = actionc::mir68k::materialize::Options::conservative();
             }

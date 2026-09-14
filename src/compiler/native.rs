@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 pub struct NativeCompileOptions {
     pub origin: u32,
     pub optimize: bool,
+    pub promotion: nir::NirPromotionPolicy,
     /// Target optimization is independent of shared NIR optimization.
     pub codegen: mir68k::materialize::Options,
     pub target: crate::target::TargetId,
@@ -23,6 +24,7 @@ impl Default for NativeCompileOptions {
         Self {
             origin: 0x10000,
             optimize: true,
+            promotion: nir::NirPromotionPolicy::Conservative,
             codegen: Default::default(),
             target: crate::target::TargetId::Motorola68000,
             project_root: None,
@@ -113,7 +115,8 @@ pub fn compile_file(
         .collect();
     let nir = nir::lower_program(&semir);
     let nir = if options.optimize {
-        nir::optimize_program(&nir).map_err(CompileError::from_nir_diagnostics)?
+        nir::optimize_program_with_promotion(&nir, options.promotion)
+            .map_err(CompileError::from_nir_diagnostics)?
     } else {
         nir
     };

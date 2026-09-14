@@ -31,6 +31,9 @@ native settings and input Git hashes. `--no-opt` selects raw Action! NIR;
 `--no-pointer-alignment` and `--no-control-flow`
 support controlled comparisons. These switches leave GCC's configuration alone.
 Use a separate `--build-dir` for each experiment to retain its results.
+Use `--native-promotion` to opt into broader NIR promotion for native loops,
+or `--conservative-promotion` for the existing profitability policy. These
+mutually exclusive switches are independent of the target optimization flags.
 
 ## Comparison contract
 

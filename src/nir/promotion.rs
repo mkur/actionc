@@ -27,18 +27,33 @@ const MAX_HOT_HOME_STORE_BLOCKS: usize = 2;
 const MIN_BOUNDED_RELAY_PAIRS: usize = 2;
 const MAX_BOUNDED_RELAY_GAP_OPS: usize = 3;
 
-pub(super) fn promote_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
+/// Profitability policy only; storage legality remains in the shared analysis.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum NirPromotionPolicy {
+    #[default]
+    Conservative,
+    NativeLoops,
+}
+
+pub(super) fn promote_program(
+    program: &NirProgram,
+    policy: NirPromotionPolicy,
+) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
     let analyses = analyze_program_storage(program);
     let mut promoted = program.clone();
     for (routine, analysis) in promoted.routines.iter_mut().zip(&analyses.routines) {
-        promote_routine(routine, analysis);
+        promote_routine(routine, analysis, policy);
     }
     verify_program(&promoted)?;
     Ok(promoted)
 }
 
-fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysis) {
+fn promote_routine(
+    routine: &mut NirRoutine,
+    analysis: &NirRoutineStorageAnalysis,
+    policy: NirPromotionPolicy,
+) {
     let cfg = NirCfg::from_routine(routine);
     let Some(entry) = cfg.entry() else {
         return;
@@ -48,6 +63,11 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
     }
     let induction_address_homes = induction_address_homes(routine, &cfg);
     let bounded_relay_homes = bounded_relay_homes(routine, &cfg, analysis);
+    let loop_blocks = if policy == NirPromotionPolicy::NativeLoops {
+        natural_loop_blocks(&cfg)
+    } else {
+        BTreeSet::new()
+    };
     // Requested expansion benefits from removing private scalar scratch even
     // below the automatic hot/relay cost gates. Storage legality still comes
     // entirely from the shared analysis, including current-invocation definite
@@ -69,8 +89,24 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         .values()
         .filter(|facts| facts.is_promotable())
         .filter(|facts| matches!(facts.id, NirStorageId::Local(_)))
-        .filter(|facts| requested_scratch || facts.store_blocks.len() <= MAX_HOT_HOME_STORE_BLOCKS)
         .filter(|facts| {
+            let native_loop = facts.is_proven_private_to_invocation()
+                && !facts.calls_may_read
+                && !facts.calls_may_write
+                && facts.direct_loads >= 2
+                && !facts.load_blocks.is_disjoint(&loop_blocks)
+                && facts.direct_access_ty.as_ref().is_some_and(|ty| {
+                    ty.kind
+                        .integer()
+                        .is_some_and(|i| matches!(i.bits, 8 | 16 | 32))
+                        || matches!(ty.kind, super::NirTypeKind::Pointer { .. })
+                });
+            if native_loop {
+                return true;
+            }
+            if !requested_scratch && facts.store_blocks.len() > MAX_HOT_HOME_STORE_BLOCKS {
+                return false;
+            }
             let width = facts.direct_access_ty.as_ref().and_then(|ty| ty.width);
             (width == Some(ByteSize::ONE) && facts.direct_loads >= MIN_HOT_HOME_LOADS)
                 || width == Some(ByteSize::new(2))
@@ -78,9 +114,13 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
                     && induction_address_homes.contains(&facts.id)
                 || bounded_relay_homes.contains(&facts.id)
                 || (requested_scratch
-                    && !facts.calls_may_read && !facts.calls_may_write
+                    && !facts.calls_may_read
+                    && !facts.calls_may_write
                     && !facts.value_needed_at_exit
-                    && facts.direct_access_ty.as_ref().and_then(|ty| ty.kind.integer())
+                    && facts
+                        .direct_access_ty
+                        .as_ref()
+                        .and_then(|ty| ty.kind.integer())
                         .is_some_and(|integer| matches!(integer.bits, 8 | 16 | 32)))
         })
         .cloned()
@@ -93,6 +133,32 @@ fn promote_routine(routine: &mut NirRoutine, analysis: &NirRoutineStorageAnalysi
         }
     }
     routine.temps = collect_temps(&routine.blocks);
+}
+
+fn natural_loop_blocks(cfg: &NirCfg) -> BTreeSet<super::BlockId> {
+    let dominance = NirDominance::from_cfg(cfg);
+    let mut loops = BTreeSet::new();
+    for &tail in cfg.reachable() {
+        for &header in cfg.successors(tail) {
+            if !dominance.dominates(header, tail) {
+                continue;
+            }
+            let mut members = BTreeSet::from([header]);
+            let mut pending = vec![tail];
+            while let Some(block) = pending.pop() {
+                if members.insert(block) {
+                    pending.extend(
+                        cfg.predecessors(block)
+                            .iter()
+                            .copied()
+                            .filter(|b| cfg.reachable().contains(b)),
+                    );
+                }
+            }
+            loops.extend(members);
+        }
+    }
+    loops
 }
 
 #[derive(Clone, Copy)]
@@ -151,11 +217,13 @@ fn bounded_relay_homes(
         // Follow an existing single-use def-use chain, not source syntax or
         // a particular operation sequence. A table load can consume the
         // preceding byte as an index and produce the next stored byte.
-        while let [NirUseSite::Op {
-            block: used_block,
-            op_index,
-            kind,
-        }] = use_def.uses(value)
+        while let [
+            NirUseSite::Op {
+                block: used_block,
+                op_index,
+                kind,
+            },
+        ] = use_def.uses(value)
         {
             if *used_block != block
                 || *op_index <= previous
@@ -628,7 +696,10 @@ fn rename_block(
     rewrite_terminator_values(&mut routine.blocks[block_index].terminator, &replacements);
     let terminal_fault = matches!(
         rewritten.last(),
-        Some(NirOp::Call { callee: NirCallee::Fault(_), .. })
+        Some(NirOp::Call {
+            callee: NirCallee::Fault(_),
+            ..
+        })
     );
     if context.value_needed_at_exit
         && !terminal_fault
@@ -1040,8 +1111,15 @@ fn rewrite_op_values(op: &mut NirOp, replacements: &BTreeMap<TempId, NirValue>) 
             rewrite_value(offset, replacements);
         }
         NirOp::Real(real) => rewrite_real_op_values(real, replacements),
-        NirOp::Call { callee, args, aggregate_result, .. } => {
-            if let Some(place) = aggregate_result { rewrite_place_values(place, replacements); }
+        NirOp::Call {
+            callee,
+            args,
+            aggregate_result,
+            ..
+        } => {
+            if let Some(place) = aggregate_result {
+                rewrite_place_values(place, replacements);
+            }
             if let NirCallee::Indirect { target, .. } = callee {
                 rewrite_value(target, replacements);
             }
@@ -1124,7 +1202,9 @@ fn rewrite_real_source_values(
 }
 
 fn rewrite_value(value: &mut NirValue, replacements: &BTreeMap<TempId, NirValue>) {
-    if let NirValue::Aggregate { place } = value { rewrite_place_values(place, replacements); }
+    if let NirValue::Aggregate { place } = value {
+        rewrite_place_values(place, replacements);
+    }
     let mut visited = BTreeSet::new();
     while let NirValue::Temp { id, .. } = value {
         if !visited.insert(*id) {
@@ -1443,7 +1523,8 @@ mod tests {
             block(3, Vec::new(), NirTerminator::Return(None)),
         ]);
 
-        let promoted = promote_program(&program).expect("promote loop home");
+        let promoted =
+            promote_program(&program, NirPromotionPolicy::Conservative).expect("promote loop home");
         let routine = &promoted.routines[0];
         assert_eq!(routine.blocks[1].params.len(), 1);
         assert!(matches!(
@@ -1483,17 +1564,26 @@ mod tests {
                 } else {
                     program.clone()
                 };
-                let promoted = promote_program(&input).expect("promote across arithmetic fault");
+                let promoted = promote_program(&input, NirPromotionPolicy::Conservative)
+                    .expect("promote across arithmetic fault");
                 let elided = crate::nir::home_elision::elide_program(&promoted).unwrap();
                 let ops = &elided.routines[0].blocks[0].ops;
                 assert!(
                     !ops.iter().any(|op| matches!(op, NirOp::Load { .. })),
                     "home was promoted"
                 );
-                let fault = ops.iter()
-                    .position(|op| matches!(op, NirOp::Binary { .. })).unwrap();
+                let fault = ops
+                    .iter()
+                    .position(|op| matches!(op, NirOp::Binary { .. }))
+                    .unwrap();
                 let saved = ops.iter().position(|op| {
-                    matches!(op, NirOp::Store { src: NirValue::IntegerConst { bits: 41, .. }, .. })
+                    matches!(
+                        op,
+                        NirOp::Store {
+                            src: NirValue::IntegerConst { bits: 41, .. },
+                            ..
+                        }
+                    )
                 });
                 if private {
                     assert!(
@@ -1515,7 +1605,8 @@ mod tests {
             NirTerminator::Return(None),
         )]);
 
-        let promoted = promote_program(&program).expect("retain cold home");
+        let promoted =
+            promote_program(&program, NirPromotionPolicy::Conservative).expect("retain cold home");
         assert_eq!(promoted, program);
     }
 
@@ -1527,7 +1618,8 @@ mod tests {
             NirTerminator::Return(None),
         )]);
 
-        let promoted = promote_program(&program).expect("promote bounded byte relay");
+        let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+            .expect("promote bounded byte relay");
         let routine = &promoted.routines[0];
         assert!(routine.blocks[0].ops.iter().all(|op| {
             !matches!(
@@ -1546,7 +1638,8 @@ mod tests {
             NirTerminator::Return(None),
         )]);
 
-        let promoted = promote_program(&program).expect("retain multiply-read relay");
+        let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+            .expect("retain multiply-read relay");
         assert_eq!(promoted, program);
     }
 
@@ -1561,7 +1654,8 @@ mod tests {
             ),
         ]);
 
-        let promoted = promote_program(&program).expect("retain cross-block relay");
+        let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+            .expect("retain cross-block relay");
         assert_eq!(promoted, program);
     }
 
@@ -1579,7 +1673,8 @@ mod tests {
             NirTerminator::Return(None),
         )]);
 
-        let promoted = promote_program(&program).expect("retain call-crossing relay");
+        let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+            .expect("retain call-crossing relay");
         assert_eq!(promoted, program);
     }
 
@@ -1600,7 +1695,8 @@ mod tests {
                 NirTerminator::Return(None),
             )]);
 
-            let promoted = promote_program(&program).expect("retain barrier-crossing relay");
+            let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+                .expect("retain barrier-crossing relay");
             assert_eq!(promoted, program);
         }
     }
@@ -1623,7 +1719,8 @@ mod tests {
             NirTerminator::Return(None),
         )]);
 
-        let promoted = promote_program(&program).expect("retain address-taken relay");
+        let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+            .expect("retain address-taken relay");
         assert_eq!(promoted, program);
     }
 
@@ -1669,7 +1766,8 @@ mod tests {
         local.ty = ty;
         program.routines[0].temps = collect_temps(&program.routines[0].blocks);
 
-        let promoted = promote_program(&program).expect("retain word relay");
+        let promoted =
+            promote_program(&program, NirPromotionPolicy::Conservative).expect("retain word relay");
         assert_eq!(promoted, program);
     }
 
@@ -1693,15 +1791,26 @@ mod tests {
             },
         });
         let input = program(vec![block(0, ops, NirTerminator::Exit)]);
-        let classic = promote_program(&input).expect("terminal fault remains verifier-clean");
+        let classic = promote_program(&input, NirPromotionPolicy::Conservative)
+            .expect("terminal fault remains verifier-clean");
         assert!(matches!(
             classic.routines[0].blocks[0].ops.as_slice(),
-            [NirOp::Store { .. }, NirOp::Call { callee: NirCallee::Fault(_), .. }]
+            [
+                NirOp::Store { .. },
+                NirOp::Call {
+                    callee: NirCallee::Fault(_),
+                    ..
+                }
+            ]
         ));
-        let native = promote_program(&native(input)).expect("private automatic fault home");
+        let native = promote_program(&native(input), NirPromotionPolicy::Conservative)
+            .expect("private automatic fault home");
         assert!(matches!(
             native.routines[0].blocks[0].ops.as_slice(),
-            [NirOp::Call { callee: NirCallee::Fault(_), .. }]
+            [NirOp::Call {
+                callee: NirCallee::Fault(_),
+                ..
+            }]
         ));
     }
 
@@ -1711,13 +1820,15 @@ mod tests {
         ops.extend((0..MIN_HOT_HOME_LOADS as u32).map(load));
         let input = program(vec![block(0, ops, NirTerminator::Return(None))]);
 
-        let classic = promote_program(&input).expect("promote classic recursive home");
+        let classic = promote_program(&input, NirPromotionPolicy::Conservative)
+            .expect("promote classic recursive home");
         assert!(classic.routines[0].blocks[0].ops.iter().any(|op| {
             matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
                 if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
         }));
 
-        let native = promote_program(&native(input)).expect("promote native recursive home");
+        let native = promote_program(&native(input), NirPromotionPolicy::Conservative)
+            .expect("promote native recursive home");
         assert!(native.routines[0].blocks[0].ops.iter().all(|op| {
             !matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
                 if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
@@ -1844,7 +1955,8 @@ mod tests {
             routines: vec![routine],
         };
 
-        let promoted = promote_program(&program).expect("promote indexed induction home");
+        let promoted = promote_program(&program, NirPromotionPolicy::Conservative)
+            .expect("promote indexed induction home");
         let routine = &promoted.routines[0];
         assert_eq!(routine.blocks[1].params[0].ty, word);
         assert!(matches!(

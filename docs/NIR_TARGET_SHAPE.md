@@ -318,6 +318,16 @@ Opaque result receipts may cross into MIR as proof metadata, bound to their
 routine/block/value association. NIR derives the guarantee; MIR68K decides
 whether it permits a native memory instruction.
 
+Scalar promotion uses one shared legality analysis and SSA rewrite engine.
+The default `Conservative` profitability policy retains existing hot-byte,
+word-induction and bounded-relay selection. Explicit `NativeLoops` policy also
+selects repeatedly loaded private automatic integer/pointer locals in natural
+loops, provided their addresses and effects permit promotion. It does not
+assign physical registers or change the ABI. Native pointer cells with verified
+three- or four-byte widths are supported scalar storage, rather than rejected
+as if every pointer occupied a 6502 word. All policies retain volatile, aliased,
+address-required and potentially uninitialized storage constraints.
+
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, `CARD` and
 `INT` are 16-bit, and `LONGINT` and `LONGCARD` are 32-bit. `ADDRESS` and `SIZE` are
 distinct unsigned integer roles whose widths come from the selected target

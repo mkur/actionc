@@ -1,5 +1,5 @@
-mod analysis;
 mod aggregate_forwarding;
+mod analysis;
 mod classifier;
 mod facts;
 mod home_elision;
@@ -50,6 +50,7 @@ pub use ir::{
     NirStorageBacking, NirStorageClass, NirStorageDuration, NirStorageInit, NirTemp, NirTempDef,
     NirTerminator, NirUnaryOp,
 };
+pub use promotion::NirPromotionPolicy;
 pub use stats::{
     NirPlaceStats, NirProgramStats, NirStorageKindStats, NirStorageStats, collect_program_stats,
     format_stats_comparison,
@@ -72,6 +73,13 @@ pub fn verify_program(program: &NirProgram) -> Result<(), Vec<NirDiagnostic>> {
 }
 
 pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
+    optimize_program_with_promotion(program, NirPromotionPolicy::Conservative)
+}
+
+pub fn optimize_program_with_promotion(
+    program: &NirProgram,
+    promotion: NirPromotionPolicy,
+) -> Result<NirProgram, Vec<NirDiagnostic>> {
     let optimized = optimizer::optimize_program(program)?;
     // Programs without aggregate captures retain the existing scalar schedule.
     // The dependent fixed point is only needed for the new byte proofs.
@@ -83,13 +91,13 @@ pub fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagn
     }) {
         let optimized = aggregate_forwarding::forward_program(&optimized)?;
         let optimized = storage_optimizer::propagate_program(&optimized)?;
-        let optimized = promotion::promote_program(&optimized)?;
+        let optimized = promotion::promote_program(&optimized, promotion)?;
         let optimized = home_elision::elide_program(&optimized)?;
         return optimizer::optimize_program(&optimized);
     }
     let optimized = optimize_storage_values(&optimized)?;
     // Scalar promotion is a representation change and runs exactly once.
-    let optimized = promotion::promote_program(&optimized)?;
+    let optimized = promotion::promote_program(&optimized, promotion)?;
     optimize_storage_values(&optimized)
 }
 

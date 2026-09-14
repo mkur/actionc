@@ -737,6 +737,13 @@ fn duration_identity_domain(
 }
 
 fn supported_scalar_type(ty: &NirType) -> bool {
+    // Pointer width is a verified target-layout fact, not a 6502 word lane.
+    if matches!(
+        ty.kind,
+        NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. }
+    ) {
+        return matches!(ty.width.map(ByteSize::get), Some(1 | 2 | 3 | 4));
+    }
     if ty.kind.integer().is_some_and(|integer| integer.bits == 32) {
         return ty.width.map(ByteSize::get) == Some(4);
     }
