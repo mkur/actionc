@@ -1,4 +1,5 @@
 //! Bare native image API, independent of Atari runtimes and load-file formats.
+pub mod amiga;
 pub mod artifacts;
 pub mod runtime;
 use super::{CompileError, CompilerPhase};
@@ -126,7 +127,7 @@ pub fn prepare_file(
     });
     if semir.origin.is_some() || legacy_origin {
         return Err(CompileError::configuration(
-            "native source ORG/SET origin is unsupported; use the full-width native origin option",
+            "native source ORG/SET origin is unsupported; bare images use --origin and Amiga load addresses are assigned by the OS",
         ));
     }
     let semir = crate::linker::select_semir(&semir, crate::linker::SemLinkPolicy::EntryReachable)
@@ -182,18 +183,26 @@ pub fn prepare_file(
 }
 
 impl PreparedNativeProgram {
+    fn qualify_object(&self, object: &mut mir68k::object::Object) {
+        for symbol in &mut object.symbols {
+            self.qualify_name(&mut symbol.name);
+        }
+    }
     fn qualify_symbols(&self, symbols: &mut [mir68k::image::Symbol]) {
         for symbol in symbols {
-            let (base, suffix) = if let Some((base, local)) = symbol.name.split_once("::") {
-                (base, format!("::{local}"))
-            } else if let Some(base) = symbol.name.strip_suffix(".__backing") {
-                (base, ".__backing".into())
-            } else {
-                (symbol.name.as_str(), String::new())
-            };
-            if let Some(display) = self.display_names.get(base) {
-                symbol.name = format!("{display}{suffix}");
-            }
+            self.qualify_name(&mut symbol.name);
+        }
+    }
+    fn qualify_name(&self, name: &mut String) {
+        let (base, suffix) = if let Some((base, local)) = name.split_once("::") {
+            (base, format!("::{local}"))
+        } else if let Some(base) = name.strip_suffix(".__backing") {
+            (base, ".__backing".into())
+        } else {
+            (name.as_str(), String::new())
+        };
+        if let Some(display) = self.display_names.get(base) {
+            *name = format!("{display}{suffix}");
         }
     }
 }

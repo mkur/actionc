@@ -155,6 +155,15 @@ closes an owned DOS library and restores the entry state, returning status 0/20.
 Terminal Amiga faults restore this saved stack context and abandon failed Action!
 frames. Fault output uses the same checked span writer; output failure enters
 cleanup directly. No TRAP-based bare transport is emitted for Amiga faults.
+The compiler's Amiga API binds the supported SYS declarations and returns one
+HUNK executable with section-relative metadata. Bare remains the default native
+CLI runtime; `--runtime amiga` rejects explicit origin controls. Both outputs
+use canonical source/include/module collision checks and staged publication.
+Console adapters receive captured Action! arguments. Counted strings omit their
+prefix, payload bytes are unchanged, and E routines append LF. Decimal BYTE/CARD/
+INT helpers live in the target runtime, outside optimization and serialization;
+INT is widened before negating its minimum. The private span writer handles
+partial writes and treats zero/negative progress as terminal failure.
 Final frame reservations are checked for overlap and signed-16 displacement
 limits, including incoming arguments and fixed-size copy staging.
 

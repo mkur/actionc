@@ -104,7 +104,7 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, String> {
     }
     Ok(bytes)
 }
-fn parent(path: &Path) -> &Path {
+pub(super) fn parent(path: &Path) -> &Path {
     path.parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or(Path::new("."))
@@ -125,11 +125,11 @@ pub fn destination(path: &Path) -> Result<PathBuf, String> {
     Ok(destination(parent(path))?.join(name))
 }
 
-struct Staged {
-    files: Vec<PathBuf>,
+pub(super) struct Staged {
+    pub(super) files: Vec<PathBuf>,
 }
 impl Staged {
-    fn create(&mut self, path: PathBuf, bytes: &[u8]) -> Result<(), String> {
+    pub(super) fn create(&mut self, path: PathBuf, bytes: &[u8]) -> Result<(), String> {
         let mut file = fs::OpenOptions::new()
             .write(true)
             .create_new(true)

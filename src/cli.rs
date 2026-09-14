@@ -213,12 +213,13 @@ fn run_main(flavor: CliFlavor) {
             }
             "--runtime" => {
                 let Some(value) = args.next() else {
-                    eprintln!("--runtime requires cart, standalone or bare");
+                    eprintln!("--runtime requires cart, standalone, bare or amiga");
                     print_help_for(flavor);
                     process::exit(2);
                 };
                 native_flags.bare = value == "bare";
-                if !native_flags.bare {
+                native_flags.amiga = value == "amiga";
+                if !native_flags.bare && !native_flags.amiga {
                     runtime = parse_runtime_or_exit(&value);
                 }
                 runtime_explicit = true;
@@ -337,7 +338,8 @@ fn run_main(flavor: CliFlavor) {
                 .file_stem()
                 .unwrap_or_default()
                 .to_string_lossy();
-            output_path = Some(PathBuf::from(format!("{stem}.native.json")));
+            let extension = if native_flags.amiga { "amiga" } else { "native.json" };
+            output_path = Some(PathBuf::from(format!("{stem}.{extension}")));
         }
     }
     let compile_outputs = match flavor {
@@ -416,20 +418,7 @@ fn run_main(flavor: CliFlavor) {
         let inspection =
             emit_tokens || emit_semir || emit_nir || emit_optimized_nir || emit_nir_stats;
         if !inspection {
-            let compiled = native::compile(&input_path, options, diagnostic_byte_ranges);
-            if let Some(outputs) = &compile_outputs {
-                if let Err(error) = crate::compiler::native::artifacts::write(
-                    &compiled,
-                    &outputs.object,
-                    outputs.listing.as_deref(),
-                    &[Path::new(&input_path)],
-                ) {
-                    eprintln!("failed to write native image: {error}");
-                    process::exit(1);
-                }
-            } else {
-                native::emit(&compiled, emit_listing, emit_map);
-            }
+            native::run(&input_path, options, native_flags.amiga, compile_outputs.as_ref(), emit_listing, emit_map, diagnostic_byte_ranges);
             return;
         }
     }
@@ -1552,13 +1541,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--target <name>] [--runtime cart|standalone|bare] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile Action! to Atari load format or a bare Motorola 68000 image.\nThe default target is atari-6502, mode compatibility, runtime cart.\n--target motorola-68000 selects modern semantics, MIR68K and runtime bare.\nNative defaults: origin 0x10000, output <source-stem>.native.json plus payloads.\nNative --listing writes physical MIR68K inspection text. --no-opt disables NIR\noptimization; --no-codegen-opt independently selects conservative materialization.\nRepeated --module-path options add module search directories. Advanced users may select --profile and --backend directly instead\nof --mode. For Atari, no -o writes <source-stem>.xex in the current directory.\nAtari --listing writes re-originable, source-annotated MADS assembly. Change only\nACTIONC_ORIGIN in the generated listing to move its main segment."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--target <name>] [--runtime cart|standalone|bare|amiga] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile Action! to Atari load format, a bare 68000 image or an Amiga executable.\nThe default target is atari-6502, mode compatibility, runtime cart.\n--target motorola-68000 selects modern semantics, MIR68K and runtime bare.\nNative defaults: origin 0x10000, output <source-stem>.native.json plus payloads.\n--runtime amiga writes one relocatable <source-stem>.amiga Shell executable;\nAmiga load addresses are assigned by the OS, so --origin is invalid.\nNative --listing writes physical MIR68K inspection text. --no-opt disables NIR\noptimization; --no-codegen-opt independently selects conservative materialization.\nRepeated --module-path options add module search directories. Advanced users may select --profile and --backend directly instead\nof --mode. For Atari, no -o writes <source-stem>.xex in the current directory.\nAtari --listing writes re-originable, source-annotated MADS assembly. Change only\nACTIONC_ORIGIN in the generated listing to move its main segment."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare|amiga] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
     );
 }
 

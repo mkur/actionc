@@ -307,3 +307,89 @@ fn module_search_paths_and_import_diagnostics_are_forwarded() {
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains("maths.act"));
 }
+
+#[test]
+fn amiga_cli_selects_single_file_output_and_section_relative_inspection() {
+    let temp = TestDir::new(
+        ";@actionc target motorola-68000\n;@actionc backend mir68k\nBYTE result PROC Entry() result=1 PrintIE(-32768) RETURN",
+    );
+    success(temp.run(false, &["--runtime", "amiga"]));
+    let bytes = fs::read(temp.0.join("probe.amiga")).unwrap();
+    assert_eq!(&bytes[..4], &1011u32.to_be_bytes());
+    assert!(!temp.0.join("probe.native.json").exists());
+    let api = native::amiga::compile_file(temp.0.join("probe.act"), &Default::default()).unwrap();
+    assert_eq!(bytes, api.executable.bytes);
+    for (mode, expected) in [
+        ("--emit-code", "HUNK+00000000:"),
+        ("--emit-listing", "PlatformRoutine"),
+        ("--emit-map", "result Section"),
+        ("--emit-nir", "result"),
+        ("--emit-optimized-nir", "result"),
+    ] {
+        let output = temp.run(true, &["--runtime", "amiga", mode]);
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains(expected),
+            "{mode}: {} / {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        success(output);
+    }
+}
+
+#[test]
+fn amiga_cli_rejects_incompatible_options_and_preserves_outputs_and_inputs() {
+    let temp = TestDir::new("PROC Entry() PrintE(\"ok\") RETURN");
+    let base = ["--target", "68k", "--runtime", "amiga"];
+    success(temp.run(false, &base));
+    let output = temp.0.join("probe.amiga");
+    let original = fs::read(&output).unwrap();
+    for flags in [
+        vec!["--origin", "0x10000"],
+        vec!["--mode", "optimized"],
+        vec!["--profile", "legacy"],
+        vec!["--backend", "classic"],
+        vec!["--backend", "mir6502"],
+        vec!["--target", "atari-6502"],
+        vec!["--target", "wdc-65816-native"],
+    ] {
+        let args: Vec<_> = base.iter().copied().chain(flags).collect();
+        assert_eq!(temp.run(false, &args).status.code(), Some(2), "{args:?}");
+        assert_eq!(fs::read(&output).unwrap(), original);
+    }
+    for source in [
+        "ORG $4000 PROC Entry() RETURN",
+        "SET $E=$4000 PROC Entry() RETURN",
+        "PROC Entry() Graphics(0) RETURN",
+        "PROC Entry() missing=1 RETURN",
+    ] {
+        fs::write(temp.0.join("probe.act"), source).unwrap();
+        let result = temp.run(false, &base);
+        assert!(!result.status.success(), "{source}");
+        assert_eq!(fs::read(&output).unwrap(), original);
+    }
+    fs::write(temp.0.join("local.inc"), "CARD value=[65]\n").unwrap();
+    let source = "INCLUDE \"local.inc\"\nPROC Entry() PrintCE(value) RETURN";
+    fs::write(temp.0.join("probe.act"), source).unwrap();
+    for destination in ["probe.act", "local.inc"] {
+        let before = fs::read(temp.0.join(destination)).unwrap();
+        let args: Vec<_> = base.iter().copied().chain(["-o", destination]).collect();
+        assert!(!temp.run(false, &args).status.success());
+        assert_eq!(fs::read(temp.0.join(destination)).unwrap(), before);
+        let args: Vec<_> = base
+            .iter()
+            .copied()
+            .chain(["--listing", destination])
+            .collect();
+        assert!(!temp.run(false, &args).status.success());
+        assert_eq!(fs::read(temp.0.join(destination)).unwrap(), before);
+    }
+    fs::write(temp.0.join("blocked"), b"file").unwrap();
+    let args: Vec<_> = base
+        .iter()
+        .copied()
+        .chain(["--listing", "blocked/list.txt"])
+        .collect();
+    assert!(!temp.run(false, &args).status.success());
+    assert_eq!(fs::read(&output).unwrap(), original);
+}

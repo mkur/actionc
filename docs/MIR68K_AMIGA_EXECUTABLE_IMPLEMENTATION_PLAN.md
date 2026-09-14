@@ -39,6 +39,15 @@ process tests cover three placements, raw/optimized/conservative codegen,
 normal/failure launches, all fault reasons and distinct CPU/budget outcomes.
 Public SYS console composition and CLI publication are next in slice 3b.
 
+Slice 3b is complete. `--runtime amiga` and the origin-free Amiga API publish a
+single HUNK executable. SYS byte/string and BYTE/CARD/INT decimal output uses
+the checked span writer, including short-write/error handling. Decimal helpers
+are small typed target runtime routines (bounded subtraction by decimal place),
+avoiding a second frontend/module pipeline for compiler-private helpers. The
+real CLI tests move output away from deleted LF/CRLF sources and sidecars.
+All 94 native tests, 16 MIR68K unit tests and 52 native/Atari CLI tests pass.
+Samples, usage documentation and real AmigaOS acceptance remain in slice 4.
+
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.
 Preserve the existing bare-image/r68k workflow and the internal native ABI.

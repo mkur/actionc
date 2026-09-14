@@ -8,26 +8,50 @@ const DOS: i64 = 4;
 const OUTPUT: i64 = 8;
 const STATUS: i64 = 12;
 
+#[path = "amiga_console.rs"]
+mod console;
+
 pub fn materialize(
     program: &Mir68kProgram,
     options: materialize::Options,
 ) -> Result<MachineProgram, String> {
+    materialize_with_bindings(program, options, &BTreeMap::new())
+}
+
+pub fn materialize_with_bindings(
+    program: &Mir68kProgram,
+    options: materialize::Options,
+    bindings: &BTreeMap<crate::nir::RoutineId, ConsoleService>,
+) -> Result<MachineProgram, String> {
+    for id in bindings.keys() {
+        if !program
+            .routines
+            .iter()
+            .any(|r| r.id == *id && r.entry.external)
+        {
+            return Err("Amiga binding must identify an external routine".into());
+        }
+    }
     let mut machine = materialize::materialize_program(
         program,
         materialize::Options {
             relax_branches: false,
             ..options
         },
-        true,
+        Some(bindings),
     )?;
-    compose(program, &mut machine)?;
+    compose(program, &mut machine, bindings)?;
     if options.relax_branches {
         crate::mir68k::branch_relaxation::relax(&mut machine)?;
     }
     Ok(machine)
 }
 
-fn compose(program: &Mir68kProgram, machine: &mut MachineProgram) -> Result<(), String> {
+fn compose(
+    program: &Mir68kProgram,
+    machine: &mut MachineProgram,
+    bindings: &BTreeMap<crate::nir::RoutineId, ConsoleService>,
+) -> Result<(), String> {
     let mut builder = Builder {
         next: machine
             .blocks
@@ -58,6 +82,13 @@ fn compose(program: &Mir68kProgram, machine: &mut MachineProgram) -> Result<(), 
     builder.startup(program.entry.ok_or("missing Amiga entry")?)?;
     builder.cleanup()?;
     builder.span()?;
+    for service in bindings
+        .values()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>()
+    {
+        builder.console(service)?;
+    }
     for reason in RuntimeFault::ALL {
         let message = format!("Action! {}\n", reason.name()).into_bytes();
         let length = message.len() as u32;

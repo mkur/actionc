@@ -51,13 +51,13 @@ pub fn materialize_with_options(
     program: &Mir68kProgram,
     options: Options,
 ) -> Result<MachineProgram> {
-    materialize_program(program, options, false)
+    materialize_program(program, options, None)
 }
 
 pub(super) fn materialize_program(
     program: &Mir68kProgram,
     options: Options,
-    amiga: bool,
+    amiga: Option<&BTreeMap<RoutineId, super::amiga::ConsoleService>>,
 ) -> Result<MachineProgram> {
     verify::verify_contract(program).map_err(|e| format!("invalid MIR68K: {e:?}"))?;
     let entry = program
@@ -73,6 +73,17 @@ pub(super) fn materialize_program(
     for routine in &program.routines {
         let first_block = machine.blocks.len();
         if routine.entry.external {
+            if let Some(service) = amiga.and_then(|bindings| bindings.get(&routine.id)) {
+                super::amiga::validate_console_signature(*service, &routine.signature)?;
+                if !matches!(routine.entry.placement, crate::nir::NirRoutinePlacement::Relocatable) {
+                    return Err("Amiga console entry must be relocatable".into());
+                }
+                let entry = MachineBlockId(next);
+                next = next.checked_add(1).ok_or("too many machine blocks")?;
+                machine.blocks.push(MachineBlock { id: entry, instructions: vec![Instruction::Jump(Ea::Absolute(Address::new(Target::PlatformRoutine(super::amiga::PlatformRoutineId::Console(*service)))))] });
+                machine.routines.push(MachineRoutine { id: routine.id, entry, frame: routine.frame.clone() });
+                continue;
+            }
             return Err(format!(
                 "{}: external native routine entry requires an adapter",
                 routine.name
@@ -88,7 +99,7 @@ pub(super) fn materialize_program(
             ));
         }
         let mut builder = Builder::new(routine, &mut next, options)?;
-        builder.amiga = amiga;
+        builder.amiga = amiga.is_some();
         let reachable = reachable_blocks(routine)?;
         let uses = super::analysis::use_counts(routine);
         for block in &routine.blocks {
