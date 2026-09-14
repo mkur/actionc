@@ -179,6 +179,11 @@ pub enum Instruction {
         condition: Condition,
         target: Address,
     },
+    /// Original word-displacement Bcc or BRA (None); resolved relative to PC+2.
+    BranchRelative {
+        condition: Option<Condition>,
+        target: Address,
+    },
     Link {
         register: u8,
         displacement: i16,

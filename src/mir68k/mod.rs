@@ -3,14 +3,15 @@
 //! The canary owns 68k access strategy and big-endian data projection. It does
 //! not share an instruction or register model with either 6502-family backend.
 
+mod branch_relaxation;
 mod data;
 pub mod encode;
 pub mod image;
 mod lower;
 pub mod machine;
 pub mod materialize;
-mod temporary_forwarding;
 pub mod runtime;
+mod temporary_forwarding;
 pub mod verify;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};

@@ -49,5 +49,5 @@ Linux/Windows/macOS CI matrix includes both VM workspaces; local results do
 not establish the status of remote jobs.
 
 CLI/Amiga integration, register allocation and multidimensional arrays remain
-follow-up work. Optimize emitted code only after measuring a correct execution
-baseline.
+follow-up work. The [code quality milestone](MIR68K_CODE_QUALITY_PLAN.md) adds
+DCT/ADPCM acceptance and measured local code-generation improvements.

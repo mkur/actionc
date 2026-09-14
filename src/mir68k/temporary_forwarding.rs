@@ -135,7 +135,8 @@ fn transfer(instruction: &Instruction, homes: &BTreeSet<i16>, registers: &mut [O
         }
         // Branch instructions may occur within a physical block (e.g. divide).
         // No cached value crosses either arm or a callable boundary.
-        Instruction::Branch { .. }
+        Instruction::BranchRelative { .. }
+        | Instruction::Branch { .. }
         | Instruction::Jump(_)
         | Instruction::Jsr(_)
         | Instruction::Trap(_)
@@ -184,7 +185,9 @@ fn flags_live_after(instructions: &[Instruction]) -> Vec<u8> {
                 ALL,
             ),
             Instruction::AddExtend { .. } => (X | 4, ALL), // ADDX also accumulates Z.
-            Instruction::SetCondition { .. } | Instruction::Branch { .. } => (NZVC, 0),
+            Instruction::SetCondition { .. }
+            | Instruction::Branch { .. }
+            | Instruction::BranchRelative { .. } => (NZVC, 0),
             Instruction::Jsr(_) | Instruction::Trap(_) => (ALL, ALL),
         };
         live = (live & !writes) | reads;

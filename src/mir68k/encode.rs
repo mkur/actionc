@@ -5,6 +5,14 @@ pub fn encode(
     instruction: &Instruction,
     resolve: &impl Fn(Address) -> Result<u32, String>,
 ) -> Result<Vec<u8>, String> {
+    encode_at(instruction, 0, resolve)
+}
+
+pub fn encode_at(
+    instruction: &Instruction,
+    address: u32,
+    resolve: &impl Fn(Address) -> Result<u32, String>,
+) -> Result<Vec<u8>, String> {
     let mut words = Vec::new();
     match *instruction {
         Instruction::MoveQuick { value, register } => {
@@ -208,6 +216,13 @@ pub fn encode(
             words.push(0x4ef9);
             long(&mut words, resolve(target)?);
         }
+        Instruction::BranchRelative { condition, target } => {
+            let displacement = i64::from(resolve(target)?) - (i64::from(address) + 2);
+            let displacement = i16::try_from(displacement)
+                .map_err(|_| "word branch displacement is outside -32768..32767")?;
+            words.push(0x6000 | condition.map_or(0, |c| c as u16) << 8);
+            words.push(displacement as u16);
+        }
         Instruction::Link {
             register,
             displacement,
@@ -225,6 +240,9 @@ pub fn encode(
 }
 
 pub fn size(instruction: &Instruction) -> Result<u32, String> {
+    if matches!(instruction, Instruction::BranchRelative { .. }) {
+        return Ok(4);
+    }
     Ok(encode(instruction, &|_| Ok(0))?.len() as u32)
 }
 
@@ -473,6 +491,41 @@ mod tests {
                     .into_iter()
                     .flat_map(u16::to_be_bytes)
                     .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn relative_branch_encodings_use_pc_plus_two_and_check_the_full_range() {
+        for (delta, expected) in [
+            (-32768, vec![0x67, 0, 0x80, 0]),
+            (-2, vec![0x67, 0, 0xff, 0xfe]),
+            (32767, vec![0x67, 0, 0x7f, 0xff]),
+        ] {
+            let instruction = Instruction::BranchRelative {
+                condition: Some(Condition::Equal),
+                target: Address::absolute((0x10002i64 + delta) as u32),
+            };
+            assert_eq!(
+                encode_at(&instruction, 0x10000, &|a| match a.target {
+                    Target::Absolute(v) => Ok(v),
+                    _ => unreachable!(),
+                })
+                .unwrap(),
+                expected
+            );
+        }
+        for delta in [-32769, 32768] {
+            let instruction = Instruction::BranchRelative {
+                condition: None,
+                target: Address::absolute((0x10002i64 + delta) as u32),
+            };
+            assert!(
+                encode_at(&instruction, 0x10000, &|a| match a.target {
+                    Target::Absolute(v) => Ok(v),
+                    _ => unreachable!(),
+                })
+                .is_err()
             );
         }
     }

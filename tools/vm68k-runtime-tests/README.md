@@ -35,8 +35,9 @@ values. `actionc::compiler::native::compile_file` accepts full-width origins,
 module search paths and a project root; it returns a native image and physical
 instruction listing without a 6502 runtime or Atari output wrapper.
 
-Use `--no-codegen-opt` to disable target temporary forwarding and instruction selection independently of
-NIR optimization. The measurement example accepts the same flag; with it the
+Use `--no-codegen-opt` to disable target temporary forwarding, instruction
+selection and branch relaxation independently of NIR optimization. The
+measurement example accepts the same flag; with it the
 corrected compiler reproduces the committed stack-home baseline exactly.
 
 The initial native subset covers integer arithmetic and casts, logical shifts,
@@ -94,4 +95,6 @@ individual emitted frame reservation. Frame size is not peak stack usage.
 SHA hashes `abc`; other programs run their default benchmark entry. Each run
 checks completion and its expected result. Host execution time is not measured.
 The [initial baseline](../../docs/mir68k-code-quality-baseline.csv) precedes
-temporary forwarding and instruction-selection improvements.
+temporary forwarding, instruction selection and branch relaxation. The
+[current measurements](../../docs/mir68k-code-quality-current.csv) and
+[milestone comparison](../../docs/MIR68K_CODE_QUALITY_PLAN.md) record the result.

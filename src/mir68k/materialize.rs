@@ -13,12 +13,14 @@ type Result<T> = std::result::Result<T, String>;
 pub struct Options {
     pub forward_temporaries: bool,
     pub select_instructions: bool,
+    pub relax_branches: bool,
 }
 impl Default for Options {
     fn default() -> Self {
         Self {
             forward_temporaries: true,
             select_instructions: true,
+            relax_branches: true,
         }
     }
 }
@@ -96,6 +98,9 @@ pub fn materialize_with_options(
             entry: builder.labels[&routine.blocks[0].id],
             frame: builder.frame,
         });
+    }
+    if options.relax_branches {
+        super::branch_relaxation::relax(&mut machine)?;
     }
     Ok(machine)
 }

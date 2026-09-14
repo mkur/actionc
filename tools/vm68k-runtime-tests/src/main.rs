@@ -21,6 +21,7 @@ fn run() -> Result<(), String> {
             "--no-codegen-opt" => {
                 options.codegen.forward_temporaries = false;
                 options.codegen.select_instructions = false;
+                options.codegen.relax_branches = false;
             }
             "--dump" => {
                 dump = Some(std::path::PathBuf::from(

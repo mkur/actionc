@@ -399,8 +399,9 @@ change. Report unrelated worktree failures separately from regressions.
 
 Multiplication, division/remainder, the bare native fault adapter and matrix1,
 binary-search and SHA acceptance are now implemented in the
-[integer completion milestone](MIR68K_INTEGER_COMPLETION_PLAN.md). DCT and ADPCM
-remain candidates for further native benchmark coverage.
+[integer completion milestone](MIR68K_INTEGER_COMPLETION_PLAN.md). DCT, ADPCM,
+measured temporary forwarding, instruction selection and branch relaxation are
+implemented in the [code quality milestone](MIR68K_CODE_QUALITY_PLAN.md).
 
 Then expand public CLI/output-format integration and Amiga platform adapters.
 Optimization starts from measured emitted code and VM execution after correctness

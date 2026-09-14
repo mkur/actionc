@@ -31,6 +31,9 @@ crowding the active reference set.
   - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
 - [MIR68K_INTEGER_COMPLETION_PLAN.md](MIR68K_INTEGER_COMPLETION_PLAN.md)
   - multiplication, division/remainder, native faults and portable benchmark acceptance.
+- [MIR68K_CODE_QUALITY_PLAN.md](MIR68K_CODE_QUALITY_PLAN.md)
+  - native DCT/ADPCM acceptance, measured baselines, temporary forwarding,
+    compact instruction selection and checked branch relaxation.
 - [MIR68K_MINIMAL_EXECUTION_PLAN.md](MIR68K_MINIMAL_EXECUTION_PLAN.md)
   - completed minimal path from verified NIR to MC68000 code, an r68k
   execution harness, symbol-based test access and insertion-sort acceptance.

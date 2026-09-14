@@ -1,5 +1,7 @@
 # MIR68K code quality milestone
 
+Status: all four implementation slices complete, with local validation below.
+
 This milestone adds native DCT and ADPCM acceptance, records a reproducible
 code-generation baseline, reduces temporary stack traffic within basic blocks,
 and improves measured instruction selection. Each major slice is committed
@@ -74,3 +76,41 @@ and 28,620 instructions. Independent literal MC68000 programs qualify the new
 instruction encodings and flags. A host oracle checks all five integer types,
 constant shift boundaries, and immediate arithmetic with target selection on
 and off. The conservative option still reproduces the original baseline.
+
+## Branch relaxation and final measurements
+
+Checked word-displacement Bcc/BRA instructions replace nearby absolute jumps.
+Relaxation repeats as code shrinks; distant destinations retain their original
+forms. Independent encodings cover displacement limits and the PC base, and
+compiled loops exercise both branch arms and backedges at multiple origins.
+
+The [final CSV](mir68k-code-quality-current.csv) records all seven benchmarks
+with raw and optimized NIR. Optimized NIR comparisons, with all target
+optimizations enabled:
+
+| Benchmark | Code bytes before → after | Instructions before → after | Largest frame |
+| --- | ---: | ---: | ---: |
+| Insertion sort | 2,990 → 2,242 | 12,700 → 10,617 | 182 |
+| Matrix1 | 2,524 → 1,790 | 185,892 → 162,876 | 166 |
+| Binary search | 1,720 → 1,222 | 11,557 → 9,156 | 126 |
+| SHA (`abc`) | 9,010 → 5,926 | 36,010 → 28,606 | 786 |
+| DCT | 10,192 → 7,402 | 57,837 → 47,129 | 1,304 |
+| ADPCM decoder | 13,850 → 10,258 | 26,447 → 22,924 | 794 |
+| ADPCM encoder | 17,742 → 13,032 | 2,851,208 → 2,304,120 | 802 |
+
+Frame reservations remain unchanged. Disabling target optimizations reproduces
+the baseline CSV byte for byte. These counts describe the documented entry
+inputs, rather than every reference-vector execution.
+
+## Validation
+
+The complete native r68k suite passes, including raw/optimized DSP reference
+states, LF/CRLF instrumentation, arithmetic oracles, volatile traces, ABI
+preservation and differential target-optimization checks. Focused MIR68K unit,
+native ABI and native type checks pass. The NIR snapshots and 51-fixture sweep
+pass; six native snapshots intentionally record the pointer contract bug fix.
+
+The full local compiler suite passes except for a pre-existing untracked
+`samples/vbxe/shared/lines.act` whose `SHARED.SCREEN` dependency is absent.
+That unrelated sample and the user's other worktree changes are outside this
+milestone.

@@ -38,8 +38,12 @@ in [the implementation plan](MIR68K_MINIMAL_EXECUTION_PLAN.md).
 
 Physical instructions use typed widths, registers, addressing modes, machine
 block IDs and symbolic addresses. The encoder rejects illegal operands and
-emits original MC68000 forms only. Conditional branches use an inverse short
-branch over an absolute-long JMP, so their size is fixed without relaxation.
+emits original MC68000 forms only. Conservative conditional branches use an
+inverse short branch over an absolute-long JMP. Optional relaxation replaces
+branches and absolute jumps to zero-addend machine block labels with Bcc.W or
+BRA.W when the signed word displacement fits. Iterative shrinking preserves
+that range; distant targets retain the absolute form. Emission resolves each
+relative displacement from the opcode address plus two and checks its range.
 
 The linker allocates code and data at a full-width even origin, resolves stable
 IDs and checked addends, and emits initialized segments plus zero-fill regions.

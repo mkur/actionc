@@ -40,6 +40,7 @@ fn run() {
                     codegen: actionc::mir68k::materialize::Options {
                         forward_temporaries: !conservative,
                         select_instructions: !conservative,
+                        relax_branches: !conservative,
                     },
                     ..Default::default()
                 },

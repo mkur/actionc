@@ -94,6 +94,19 @@ fn immediate_word_logic_and_moveq_sign_extension_are_qualified() {
 }
 
 #[test]
+fn word_branches_use_the_opcode_pc_plus_two() {
+    let mut vm = machine(&[
+        0x7003, // MOVEQ #3,D0
+        0x5340, // SUBQ.W #1,D0 (offset 2)
+        0x6600, 0xfffc, // BNE.W offset 2: (4+2)-4
+        0x6000, 0x0004, // BRA.W offset 14: (8+2)+4
+        0x4afc, 0x4e75,
+    ]);
+    vm.run(100).assert_completed();
+    assert_eq!(vm.cpu.dar[0], 0);
+}
+
+#[test]
 fn nested_calls_link_unlink_and_return_preserve_stack() {
     let mut vm = machine(&[
         0x4e56, 0xfff8, // LINK A6,#-8

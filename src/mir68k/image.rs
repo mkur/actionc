@@ -218,7 +218,7 @@ pub fn link(
     };
     let mut code = Vec::new();
     for op in machine.blocks.iter().flat_map(|b| &b.instructions) {
-        code.extend(encode::encode(op, &resolve)?);
+        code.extend(encode::encode_at(op, origin + code.len() as u32, &resolve)?);
     }
     code.extend([0x4e, 0x71, 0x4e, 0x71]);
     debug_assert_eq!(code.len() as u32, code_end - origin);
