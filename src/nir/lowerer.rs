@@ -2654,7 +2654,9 @@ impl NirBuilder {
                 (self.convert_integer_operation_input(left, &operation_ty),
                  self.convert_integer_operation_input(src, &operation_ty))
             } else {
-                (left, src)
+                (self.normalize_signed_binary_input(left, &operation_ty),
+                 if matches!(op, NirBinaryOp::Lsh | NirBinaryOp::Rsh) { src }
+                 else { self.normalize_signed_binary_input(src, &operation_ty) })
             };
             self.push(NirOp::Binary {
                 dest: result,
@@ -2684,6 +2686,19 @@ impl NirBuilder {
             target_ty,
             is_volatile,
         );
+    }
+
+    fn normalize_signed_binary_input(&mut self, value: NirValue, to: &NirType) -> NirValue {
+        let from = match &value {
+            NirValue::IntegerConst { ty, .. } => Some(*ty),
+            NirValue::Temp { ty, .. } => ty.kind.integer(),
+            _ => None,
+        };
+        if from.zip(to.kind.integer()).is_some_and(|(from, to)| from.signed && from.bits < to.bits) {
+            self.convert_integer_operation_input(value, to)
+        } else {
+            value
+        }
     }
 
     fn convert_integer_operation_input(&mut self, value: NirValue, to: &NirType) -> NirValue {
@@ -2852,6 +2867,12 @@ impl NirBuilder {
                         subtract: operation == NirBinaryOp::Sub,
                     });
                 } else {
+                    let left = self.normalize_signed_binary_input(left, &ty);
+                    let right = if matches!(operation, NirBinaryOp::Lsh | NirBinaryOp::Rsh) {
+                        right
+                    } else {
+                        self.normalize_signed_binary_input(right, &ty)
+                    };
                     self.push(NirOp::Binary {
                         dest,
                         ty: ty.clone(),

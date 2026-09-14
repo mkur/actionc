@@ -1713,6 +1713,19 @@ impl NirVerifier {
                             "integer division/remainder requires explicitly converted operands in its result domain"));
                     }
                 }
+                for value in std::iter::once(left).chain(
+                    (!matches!(op, NirBinaryOp::Lsh | NirBinaryOp::Rsh)).then_some(right)
+                ) {
+                    let from = match value {
+                        NirValue::IntegerConst { ty, .. } => Some(*ty),
+                        NirValue::Temp { ty, .. } => ty.kind.integer(),
+                        _ => None,
+                    };
+                    if from.zip(ty.kind.integer()).is_some_and(|(from, to)| from.signed && from.bits < to.bits) {
+                        self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                            "signed binary operand widening requires an explicit conversion"));
+                    }
+                }
                 self.value_type(routine, block, left, "binary left operand");
                 self.reject_real_value(routine, block, left, "ordinary binary left operand");
                 self.value_temp_use(

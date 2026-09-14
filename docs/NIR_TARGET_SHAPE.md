@@ -1507,3 +1507,12 @@ escape, initialization, persistence and effect barriers as byte/word homes.
 Eligibility for these passes does not imply profitability for loop promotion.
 MIR owns sign-mask and carry-lane selection; NIR retains typed casts and integer
 arithmetic without machine flags.
+
+## Signed integer binary inputs
+
+When an integer binary operation consumes a signed operand narrower than its
+result, NIR makes the sign extension explicit through a Cast or an extended
+constant. The verifier rejects hidden signed widening, including in compound
+assignments. This applies before the operation, independently of destination
+store conversion. Shift counts retain their original width and are excluded
+from result-domain conversion; truncating a count could change shift behavior.
