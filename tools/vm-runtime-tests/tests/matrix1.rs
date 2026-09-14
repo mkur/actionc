@@ -3,7 +3,13 @@ use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE};
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/matrix1.act");
+const CORE: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/kernel.inc");
+const DRIVER: &str = include_str!("../fixtures/matrix1_driver.act");
+fn source() -> String {
+    DRIVER
+        .replace("\r\n", "\n")
+        .replace("INCLUDE \"kernel.inc\"", &CORE.replace("\r\n", "\n"))
+}
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/matrix1/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
 const HOST_BYTES: usize = 0x1A00;
@@ -160,7 +166,7 @@ fn parse_vectors(text: &str) -> Vec<Vector> {
 
 #[test]
 fn matrix1_lf_and_crlf_variants_preserve_original_results_and_layout() {
-    let source = SOURCE.replace("\r\n", "\n");
+    let source = source().replace("\r\n", "\n");
     let text = VECTORS.replace("\r\n", "\n");
     let vectors = parse_vectors(&text);
     assert_eq!(vectors, parse_vectors(&text.replace('\n', "\r\n")));
@@ -273,7 +279,7 @@ fn check_matrix1(mode: CompileMode, runtime: Runtime) {
                 .0
                 .join(format!("{}-{shape_name}.act", kind.name()));
             // Each newline convention reaches instrumentation and compilation.
-            let source = typed_source(&text(SOURCE), kind, shape);
+            let source = typed_source(&text(&source()), kind, shape);
             std::fs::write(&path, text(&source)).unwrap();
             let compiled = compile_file(
                 &path,

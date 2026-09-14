@@ -1,6 +1,6 @@
 # TACLeBench matrix1
 
-`matrix1.act` ports Juan Martinez Velarde's integer matrix multiplication from
+`kernel.inc` ports Juan Martinez Velarde's integer matrix multiplication from
 DSP-Stone, as collected by TACLeBench. The maintained source preserves the
 original **10x10 matrices**, three nested loops, typed pointer traversal, and
 initialization through array parameters. It uses LONGINT for matrix elements.
@@ -9,7 +9,12 @@ The VM harness derives BYTE, INT, and CARD variants and two rectangular shapes
 from that source. All variants share the multiply body; no multidimensional
 arrays, recursion, or new language features are needed. Both modern backends
 (`--mode optimized` and `--mode mir6502`) run with cartridge and standalone
-runtimes.
+runtimes. The MC68000 adapter runs the same cases in raw and optimized modes.
+
+`matrix1.act` now supplies ordinary globals and an entry around `kernel.inc`.
+The fixed addresses and completion marker belong to
+[`tools/vm-runtime-tests/fixtures/matrix1_driver.act`](../../../../tools/vm-runtime-tests/fixtures/matrix1_driver.act).
+Both adapters use the same algorithm and unchanged numeric reference vectors.
 
 ## Provenance
 
@@ -77,7 +82,7 @@ products, partial sums, and checksum all fit int32_t, a second compiled C
 reference uses the original arithmetic expressions and must produce identical
 state. These include the original workload for each shape.
 
-## Host memory contract
+## 6502 host memory contract
 
 Tests compile at `$3000`. All multibyte fields are little-endian. For element
 width `w` (1, 2, or 4), the array lengths below are in elements.
@@ -106,7 +111,11 @@ matrix element, checksum, status, completion byte, command, and guard.
 | 2x129x1 | 258 A elements, including indexes 255–257 and traversal across pages |
 
 Each shape has 22 cases for LONGINT and INT, and 20 for BYTE and CARD: **252
-C-reference cases**, **1,008 VM executions**, and 48 compiled programs.
+C-reference cases**, **1,008 6502 VM executions**, and 48 compiled 6502 programs.
+The native adapter adds **504 executions** across 24 compiled programs. It finds
+all state through symbols, encodes numeric values in big-endian order, and
+compares all three matrices, checksum, status and unchanged command. Every
+normal return also checks stack/register preservation and mapped-memory guards.
 
 Cases include original initialization, zero matrices, zero on either side,
 asymmetric matrices, rectangular identity matrices on either side, boundary
@@ -131,6 +140,10 @@ multiplication, division, remainder, and compound operands with RHS calls.
 ```sh
 cd tools/vm-runtime-tests
 cargo test --locked --test matrix1
+```
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test matrix1
 ```
 
 ## Regenerating vectors

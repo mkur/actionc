@@ -1,0 +1,16 @@
+CONST Rows=10,Inner=10,Columns=10,ElementBytes=4
+BYTE command=$0600,done=$06FF
+INT result=$0601
+LONGINT checksum=$0605
+LONGINT ARRAY matrixA(Rows*Inner)=$07FF
+LONGINT ARRAY matrixB(Inner*Columns)=$0DFF
+LONGINT ARRAY matrixC(Rows*Columns)=$13FF
+
+INCLUDE "kernel.inc"
+
+PROC Main()
+  IF command=0 THEN Init() FI
+  Multiply()
+  result=CheckResult()
+  done=$A5
+RETURN

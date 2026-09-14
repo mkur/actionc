@@ -61,3 +61,7 @@ compiled image before execution. For example, from the repository root:
 ```sh
 cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- fixtures/runtime/tacle/insertsort/insertsort.act --dump build/insertsort
 ```
+
+Matrix1 also runs all 252 reference cases in both native modes, covering
+LONGINT, INT, CARD and BYTE elements across three square/rectangular shapes.
+Its adapter compares every matrix element and the signed checksum/status.

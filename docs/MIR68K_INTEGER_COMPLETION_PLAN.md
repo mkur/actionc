@@ -1,7 +1,11 @@
 # MIR68K integer completion and benchmark acceptance
 
-Status: multiplication is implemented and passes the native suite and focused
-compiler contracts. Remaining slices are in progress.
+Status: multiplication and matrix1 are implemented. All 252 matrix1 vectors
+pass in both native modes (504 executions) and four 6502 configurations
+(1,008 executions). A separate NIR fix makes signed binary widening explicit;
+snapshots and the 51-fixture sweep pass. The broad compiler run has only the
+pre-existing untracked lines.act / SHARED.SCREEN sample failure. Division and
+the remaining benchmark slices are in progress.
 
 The next native milestone completes multiplication, division and remainder,
 then executes matrix1, binary search and SHA against the existing reference
