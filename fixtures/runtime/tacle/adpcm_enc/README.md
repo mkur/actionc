@@ -145,3 +145,11 @@ load and corrupt the inner argument. Direct memory-byte facts now share physical
 byte identity across views, with overlapping dependencies invalidated on writes.
 A separate small regression in `classic_long_integers` checks nested calls,
 signed extension and guarded stores independently of this benchmark.
+
+## Native MC68000 acceptance
+
+The r68k adapter runs all 15 cases and 1,561 complete state checkpoints in both raw and optimized NIR modes. It uses compiler-emitted symbols and numeric byte-order conversion, with LF and CRLF through actual source instrumentation. The Action! algorithm and C-reference vectors are shared with the 6502 tests.
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test adpcm_enc
+```

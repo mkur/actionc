@@ -70,3 +70,9 @@ Its adapter compares every matrix element and the signed checksum/status.
 Binary search adds all 1,153 cases across LONGINT, BYTE, INT and CARD records
 in both modes. SHA-0 adds 155 complete state/schedule cases in each mode, using
 explicit byte decoding and retaining the reference digest and counter behavior.
+
+The native DSP acceptance tests execute all 181 jfdctint cases, all 2,713 ADPCM
+decoder checkpoints and all 1,561 encoder checkpoints in each NIR mode. DCT
+checks both passes and rounding; ADPCM checks complete intermediate state and
+the final report. Test adapters use compiler symbols and numeric endian
+conversion, and exercise LF/CRLF source instrumentation without fixed addresses.

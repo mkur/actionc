@@ -119,3 +119,11 @@ GCC-compatible C compiler (`--cc clang` is also supported):
 python3 tools/generate_adpcm_dec_vectors.py
 python3 tools/generate_adpcm_dec_vectors.py --check
 ```
+
+## Native MC68000 acceptance
+
+The r68k adapter runs all 15 cases and 2,713 complete state checkpoints in both raw and optimized NIR modes. It uses compiler-emitted symbols and numeric byte-order conversion, with LF and CRLF through actual source instrumentation. The Action! algorithm and C-reference vectors are shared with the 6502 tests.
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test adpcm_dec
+```

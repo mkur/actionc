@@ -126,3 +126,11 @@ The generator verifies both upstream file hashes after newline normalization
 and serializes values independently of host endianness. Each vector contains
 the label, command, shift, input, initialized block, row-pass snapshot, output,
 checksum and status. Numeric buffers use little-endian hex for the 6502 adapter.
+
+## Native MC68000 acceptance
+
+The r68k adapter runs all 181 cases, comparing the row pass, final block and signed rounding in both raw and optimized NIR modes. It uses compiler-emitted symbols and numeric byte-order conversion, with LF and CRLF through actual source instrumentation. The Action! algorithm and C-reference vectors are shared with the 6502 tests.
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test jfdctint
+```
