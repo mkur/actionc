@@ -730,7 +730,8 @@ impl Generator {
         array: StorageSlot,
         index: &Expr,
     ) -> Option<ZeroPage> {
-        if array.size > 2 {
+        if array.size > 2 || (self.profile.enables_modern_optimizations() && array.array == Some(ArrayStorage::Pointer)
+            && (array.is_volatile || !self.expr_side_effect_facts(index).can_reorder())) {
             let pointer = runtime_zp::ARRAY_ADDR;
             self.emit_array_base_to_pointer(array, pointer)?;
             return self.emit_add_scaled_index_to_addr(index, array.size, pointer).then_some(pointer);
@@ -791,6 +792,12 @@ impl Generator {
             || self.direct_scalar_slot(index).is_some()
         {
             return None;
+        }
+        if self.profile.enables_modern_optimizations() && array.array == Some(ArrayStorage::Pointer)
+            && (array.is_volatile || !self.expr_side_effect_facts(index).can_reorder()) {
+            let pointer = runtime_zp::ELEMENT_ADDR;
+            self.emit_array_base_to_pointer(array, pointer)?;
+            return self.emit_add_scaled_index_to_addr(index, array.size, pointer).then_some(pointer);
         }
         if !self.emit_index_expr_to_temp(index, runtime_zp::ARRAY_ADDR) {
             return None;
@@ -1356,7 +1363,8 @@ impl Generator {
             return self.pointer_index_slot_with_addr(slot, index, pointer);
         }
         slot.array?;
-        if slot.size > 2 {
+        if slot.size > 2 || (slot.array == Some(ArrayStorage::Pointer)
+            && (slot.is_volatile || !self.expr_side_effect_facts(index).can_reorder())) {
             self.emit_array_base_to_pointer(slot, pointer)?;
             if !self.emit_add_scaled_index_to_addr(index, slot.size, pointer) { return None; }
             return Some(StorageSlot::indirect_indexed_y(pointer, slot.size)

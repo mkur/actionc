@@ -744,6 +744,14 @@ they prove no bounds for dynamic indexes or a rebound descriptor. Native literal
 lowering applies the target type before masking, preserving large SIZE/ADDRESS
 constants. Runtime descriptor size words remain separate from canonical counts.
 
+Named multidimensional arrays use the existing mutable descriptor form on every
+target, including BYTE and uninitialized arrays. `Load` captures the current
+base before index computation; native automatic descriptors retain their own
+storage identity and point to invocation-local backing. Inline fields remain
+inline. Static array address relocations name initial element backing, whereas
+executable descriptor loads/stores access the base cell. Neither descriptor size
+words nor initial backing locations constrain a subsequently rebound base.
+
 ## Operations
 
 Recommended core operation set:

@@ -145,6 +145,7 @@ impl NirLowerer {
                             }
                         }
                         if let Some(address) = address_initializer
+                            && !declaration_has_mutable_shape(declaration)
                             && declaration_array_address_initializer_uses_pointer_storage(
                                 declaration,
                                 &record_storage_sizes,
@@ -344,6 +345,7 @@ impl NirLowerer {
                                     .insert(local.symbol.id, address.value as u16);
                             }
                             if let Some(address) = address_initializer
+                                && !declaration_has_mutable_shape(local)
                                 && declaration_array_address_initializer_uses_pointer_storage(
                                     local, &record_storage_sizes, self.target_layout,
                                 )
@@ -382,7 +384,8 @@ impl NirLowerer {
                             let executable_init = activation == NirActivationModel::NativeReentrant
                                 && duration == NirStorageDuration::Automatic
                                 && matches!(backing, NirLocalBacking::Ordinary)
-                                && (local.initializer.is_some() || local.static_initializer.is_some());
+                                && (local.initializer.is_some() || local.static_initializer.is_some()
+                                    || declaration_has_mutable_shape(local));
                             let init = if activation == NirActivationModel::ClassicStatic {
                                 load_time_init.clone()
                             } else {
@@ -1439,6 +1442,7 @@ impl NirBuilder {
                 backing: NirLocalBacking::Ordinary,
                 init: None,
             });
+            if !declaration_has_mutable_shape(&initializer.declaration) {
             self.local_ids_by_symbol
                 .insert(initializer.declaration.symbol.id, id);
             // Native automatic arrays already resolve directly to their
@@ -1447,6 +1451,7 @@ impl NirBuilder {
                 .remove(&initializer.declaration.symbol.id);
             self.symbol_storage_types
                 .remove(&initializer.declaration.symbol.name);
+            }
             initializer.aggregate_backing = Some(id);
         }
 
@@ -4594,6 +4599,13 @@ fn literal_expr_u16(expr: &SemExpr) -> Option<u16> {
     }
 }
 
+// A shaped named array has a mutable base cell; inline record fields never
+// pass through declaration storage. Shape remains a compile-time fact.
+fn declaration_has_mutable_shape(declaration: &SemDeclaration) -> bool {
+    matches!(&declaration.storage, SemDeclarationStorage::Array { array_type, .. }
+        if array_type.shape().rank() > 1)
+}
+
 fn declaration_array_storage_size(
     declaration: &SemDeclaration,
     array_type: &ArrayType,
@@ -4604,6 +4616,9 @@ fn declaration_array_storage_size(
     let elem_size =
         array_element_width(array_type, record_storage_sizes, target_layout).unwrap_or(1);
     let initializer_byte_len = array_initializer_byte_len(declaration, elem_size);
+    if declaration_has_mutable_shape(declaration) {
+        return array_descriptor_size(target_layout, true).get();
+    }
     if array_type.length().is_none() && initializer_byte_len.is_some() {
         return target_layout.data_pointer.size_bytes.get();
     }
@@ -4647,6 +4662,7 @@ fn declaration_array_address_initializer_uses_pointer_storage(
     if declaration.initializer.is_none() {
         return false;
     }
+    if declaration_has_mutable_shape(declaration) { return true; }
     let elem_size =
         array_element_width(array_type, record_storage_sizes, target_layout).unwrap_or(1);
     match array_type.length() {
@@ -4736,7 +4752,7 @@ fn declaration_array_fact(
     Some(NirArrayGlobalFact {
         elem_size: ByteSize::from(elem_size),
         length: array_type.length(),
-        pointer_backed: (array_type.length().is_none() && declaration.initializer.is_none())
+        pointer_backed: declaration_has_mutable_shape(declaration) || (array_type.length().is_none() && declaration.initializer.is_none())
             || (address_initializer.is_some()
                 && declaration_array_address_initializer_uses_pointer_storage(
                     declaration,
@@ -4759,7 +4775,8 @@ fn declaration_symbol_storage_type(
     let SemDeclarationStorage::Array { array_type, .. } = &declaration.storage else {
         return None;
     };
-    if array_type.length().is_none() && declaration.initializer.is_none() {
+    if declaration_has_mutable_shape(declaration)
+        || (array_type.length().is_none() && declaration.initializer.is_none()) {
         return Some(NirType::from_value_with_layout(
             &array_type.pointer_type(), target_layout,
         ));
@@ -4833,7 +4850,7 @@ fn declaration_global_init(
                     target_layout,
                 )
             {
-                let bytes = fixed_array_pointer_initializer_bytes(array_type, address);
+                let bytes = fixed_array_pointer_initializer_bytes(array_type, address, target_layout);
                 return Some(bytes_init(bytes, storage_size));
             }
             if let Some(name) = symbolic_array_initializer_routine(declaration) {
@@ -4850,8 +4867,10 @@ fn declaration_global_init(
                     section: "global".to_string(),
                 });
             }
-            if elem_size > 1
-                && let Some(image) = data_image.clone()
+            if let Some(image) = data_image.clone().filter(|_| elem_size > 1)
+                .or_else(|| declaration_has_mutable_shape(declaration).then(|| data_image.clone()
+                    .or_else(|| string_initializer_bytes(declaration).map(NirDataImage::literal))
+                    .unwrap_or_default()))
             {
                 let len = array_type
                     .length()
@@ -5029,7 +5048,7 @@ fn declaration_local_init(
                 )
             {
                 return Some(storage_data_image_init(
-                    NirDataImage::literal(fixed_array_pointer_initializer_bytes(array_type, address)),
+                    NirDataImage::literal(fixed_array_pointer_initializer_bytes(array_type, address, target_layout)),
                     storage_size,
                 ));
             }
@@ -5065,8 +5084,10 @@ fn declaration_local_init(
                     )
                 }),
             };
-            if elem_size > 1
-                && let Some(image) = data_image.clone()
+            if let Some(image) = data_image.clone().filter(|_| elem_size > 1)
+                .or_else(|| declaration_has_mutable_shape(declaration).then(|| data_image.clone()
+                    .or_else(|| string_initializer_bytes(declaration).map(NirDataImage::literal))
+                    .unwrap_or_default()))
             {
                 let len = array_type
                     .length()
@@ -5119,7 +5140,16 @@ fn declaration_local_init(
     }
 }
 
-fn fixed_array_pointer_initializer_bytes(array_type: &ArrayType, address: u16) -> Vec<u8> {
+fn fixed_array_pointer_initializer_bytes(array_type: &ArrayType, address: u16, target_layout: TargetLayout) -> Vec<u8> {
+    if array_type.shape().rank() > 1 {
+        let width = target_layout.data_pointer.size_bytes.get() as usize;
+        let mut bytes = match target_layout.endian {
+            crate::target::Endian::Little => u32::from(address).to_le_bytes()[..width].to_vec(),
+            crate::target::Endian::Big => u32::from(address).to_be_bytes()[4-width..].to_vec(),
+        };
+        bytes.extend([0, 0]);
+        return bytes;
+    }
     let address = address.to_le_bytes();
     if array_type.length().is_some() {
         vec![address[0], address[1], address[0], address[1]]

@@ -1,8 +1,8 @@
 # Fixed-size multidimensional arrays
 
-Status: implementation in progress. Slices 1–3 add checked declaration shapes,
-typed coordinate places, static addresses, initializer extents and verified NIR
-normalization behind a semantic rollout capability. Public enablement remains
+Status: implementation in progress. Slices 1–4 add checked declaration shapes,
+typed coordinate places, verified NIR normalization and execution across classic
+6502, MIR6502 and MIR68K behind a semantic rollout capability. Public enablement remains
 in slice 5, after executable backend validation.
 Baseline: `8262140`, after Amiga 32-bit decimal output.
 
@@ -124,8 +124,9 @@ field; this does not introduce whole-array assignment or array return values.
 ### Descriptor and parameter policy
 
 Dimensions describe an array place's declared interpretation, not a new runtime
-array value. Named arrays retain their existing mutable pointer-descriptor
-behavior and element-pointer conversion/rebinding rules. Rebinding changes the
+array value. New named shaped arrays consistently use mutable pointer descriptors, including
+small BYTE arrays and uninitialized arrays. Existing rank-one allocation choices
+remain unchanged. Element-pointer conversion/rebinding rules are retained. Rebinding changes the
 base, never the declared dimensions; it neither copies elements nor adopts the
 source declaration's shape. Matching element types are still required wherever
 the existing conversion rules require them. No runtime allocation-size or shape

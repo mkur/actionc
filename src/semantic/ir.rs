@@ -3477,7 +3477,14 @@ impl<'a> IrBuilder<'a> {
                 value,
                 span,
             } => {
-                let destination = self.lower_lvalue(scope, target);
+                let mut destination = self.lower_lvalue(scope, target);
+                if let SemLValueKind::Symbol(symbol) = &mut destination.kind
+                    && self.model.array_shapes.contains_key(&symbol.id)
+                    && let Some(layout) = self.model.layout.array_for_symbol(symbol.id)
+                {
+                    destination.ty = layout.pointer_type.clone();
+                    symbol.ty = Some(layout.pointer_type.clone());
+                }
                 if self.aggregate_requires_validation(&destination.ty)
                     || (destination.ty.is_record() && self.is_aggregate_call_source(scope, value)) {
                     self.lower_checked_aggregate_assignment(scope, destination, value, *span)

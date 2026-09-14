@@ -129,7 +129,14 @@ fn multidimensional_nir_native_counts_dimensions_and_queries_do_not_truncate() {
     );
     let big = program.globals.iter().find(|g| g.name == "big").unwrap();
     assert_eq!(big.array.as_ref().unwrap().length, Some(131074));
-    assert_eq!(big.storage_size.get(), 131074);
+    assert_eq!(big.storage_size.get(), 6);
+    let Some(nir::NirGlobalInit::Descriptor { backing, .. }) = &big.init else {
+        panic!("mutable array descriptor")
+    };
+    assert_eq!(
+        backing.image.bytes.len() as u32 + backing.zero_fill.get(),
+        131074
+    );
     assert!(ops(&program).any(|op| matches!(op,NirOp::Binary { op:NirBinaryOp::Mul, right:NirValue::IntegerConst {bits:65537,ty},.. } if ty.bits == 32)));
     let queries = ops(&program)
         .filter(|op| {

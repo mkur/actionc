@@ -118,9 +118,19 @@ pub(super) struct ClassicStaticInitializer {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct ClassicStaticInitializerFacts {
     by_span: BTreeMap<(usize, usize), ClassicStaticInitializer>,
+    // Typed projection marks named shaped arrays whose base is mutable.
+    mutable_arrays: HashSet<String>,
 }
 
 impl ClassicStaticInitializerFacts {
+    pub(super) fn mutable_array(&mut self, name: &str) {
+        self.mutable_arrays.insert(normalize_name(name));
+    }
+
+    fn needs_mutable_descriptor(&self, entry: &DeclEntry) -> bool {
+        self.mutable_arrays.contains(&normalize_name(&entry.name))
+    }
+
     pub(super) fn insert(&mut self, span: Span, initializer: ClassicStaticInitializer) {
         self.by_span.insert((span.start, span.end), initializer);
     }
@@ -350,6 +360,7 @@ impl StorageLayout {
                     static_initializer,
                     record,
                     output_relative,
+                    static_initializers.needs_mutable_descriptor(entry),
                 );
                 continue;
             }
@@ -448,22 +459,24 @@ impl StorageLayout {
         static_initializer: Option<&ClassicStaticInitializer>,
         record: Option<usize>,
         output_relative: bool,
+        mutable_descriptor: bool,
     ) {
         let signed = type_is_signed(&decl.ty);
+        let descriptor_storage = if mutable_descriptor { ArrayStorage::Pointer } else { ArrayStorage::Descriptor };
         let name = normalize_name(&entry.name);
         if let Some(address) = absolute_array_address_initializer(entry) {
-            if array_len_with_defines(entry, numeric_defines).is_some_and(|len| len > 0x0100) {
+            if mutable_descriptor || array_len_with_defines(entry, numeric_defines).is_some_and(|len| len > 0x0100) {
                 let descriptor =
                     self.allocate_initialized_bytes(4, &fixed_array_pointer_storage(address));
-                let slot = StorageSlot::array(descriptor, element_size, ArrayStorage::Descriptor)
+                let slot = StorageSlot::array(descriptor, element_size, descriptor_storage)
                     .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed);
                 self.symbols.insert(name.clone(), slot);
-                self.absolute_array_value_addresses
-                    .insert(name.clone(), address);
-                self.fixed_array_base_targets
-                    .push((slot, MachineSymbolAddress::Absolute(address)));
+                if !mutable_descriptor {
+                    self.absolute_array_value_addresses.insert(name.clone(), address);
+                    self.fixed_array_base_targets.push((slot, MachineSymbolAddress::Absolute(address)));
+                }
                 self.machine_symbol_addresses
                     .insert(name, MachineSymbolAddress::Absolute(address));
                 return;
@@ -476,7 +489,7 @@ impl StorageLayout {
             );
             return;
         }
-        if element_size == 1
+        if element_size == 1 && !mutable_descriptor
             && let Some(bytes) = string_initializer_storage(entry)
         {
             let total_size = string_initialized_byte_size_with_defines(
@@ -503,6 +516,8 @@ impl StorageLayout {
                     .then(|| scalar_array_initializer_storage(entry, element_size))
                     .flatten()
             })
+            .or_else(|| mutable_descriptor.then(|| string_initializer_storage(entry)).flatten()
+                .map(|bytes| bytes.into_iter().map(StorageInit::Byte).collect()))
         {
             let initialized_size = static_initializer.map_or_else(
                 || storage_initializers_size(&initializers),
@@ -511,7 +526,7 @@ impl StorageLayout {
             let len = array_len_with_defines(entry, numeric_defines)
                 .unwrap_or(initialized_size / element_size);
             let byte_size = element_size.saturating_mul(len).max(initialized_size);
-            if element_size == 1 && entry.size.is_some() {
+            if element_size == 1 && entry.size.is_some() && !mutable_descriptor {
                 let address = self.allocate_storage_initializers(byte_size, initializers);
                 self.symbols.insert(
                     name,
@@ -541,7 +556,7 @@ impl StorageLayout {
                 self.initializers.push(StorageInit::Byte(0));
             }
             let slot =
-                StorageSlot::array(descriptor_address, element_size, ArrayStorage::Descriptor)
+                StorageSlot::array(descriptor_address, element_size, descriptor_storage)
                     .output_relative_if(output_relative)
                     .record(record)
                     .signed(signed);
@@ -551,7 +566,7 @@ impl StorageLayout {
             } else {
                 MachineSymbolAddress::Absolute(backing_address)
             };
-            self.fixed_array_base_targets.push((slot, backing.clone()));
+            if !mutable_descriptor { self.fixed_array_base_targets.push((slot, backing.clone())); }
             self.machine_symbol_addresses.insert(name, backing);
             return;
         }
@@ -581,7 +596,7 @@ impl StorageLayout {
         };
 
         let byte_size = element_size.saturating_mul(len);
-        if element_size == 1 && len <= 0x0100 {
+        if element_size == 1 && len <= 0x0100 && !mutable_descriptor {
             let address = self.allocate_sized_byte_array_storage(byte_size, len);
             self.symbols.insert(
                 name,
@@ -605,13 +620,14 @@ impl StorageLayout {
             label: label.clone(),
             size: byte_size,
         });
-        let slot = StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
+        let slot = StorageSlot::array(address, element_size, descriptor_storage)
             .output_relative_if(output_relative)
             .record(record)
             .signed(signed);
         self.symbols.insert(name.clone(), slot);
-        self.fixed_array_base_targets
-            .push((slot, MachineSymbolAddress::Label(label.clone())));
+        if !mutable_descriptor {
+            self.fixed_array_base_targets.push((slot, MachineSymbolAddress::Label(label.clone())));
+        }
         self.machine_symbol_addresses
             .insert(name, MachineSymbolAddress::Label(label));
     }
@@ -833,6 +849,16 @@ fn add_var_decl_to_routine_storage(
             continue;
         }
 
+        let mutable_descriptor = static_initializers.needs_mutable_descriptor(entry);
+        if mutable_descriptor && let Some(base) = absolute_array_address_initializer(entry) {
+            let address = *next_address;
+            *next_address = next_address.wrapping_add(4);
+            initializers.extend([StorageInit::Byte(base as u8), StorageInit::Byte((base >> 8) as u8), StorageInit::Byte(0), StorageInit::Byte(0)]);
+            symbols.insert(normalize_name(&entry.name), StorageSlot::array(address, element_size, ArrayStorage::Pointer)
+                .emitted().record(record).signed(slot_signed_for_type(&decl.ty)));
+            machine_symbol_addresses.insert(normalize_name(&entry.name), MachineSymbolAddress::Absolute(base));
+            continue;
+        }
         let pointer_backed_array = decl_is_array_like(decl)
             && array_entry_is_unsized_pointer_with_defines(entry, element_size, numeric_defines);
         let large_uninitialized_byte_array = decl_is_array_like(decl)
@@ -853,9 +879,11 @@ fn add_var_decl_to_routine_storage(
                     .is_none()
                     .then(|| scalar_array_initializer_storage(entry, element_size))
                     .flatten()
-            });
+            })
+            .or_else(|| mutable_descriptor.then(|| string_initializer_storage(entry)).flatten()
+                .map(|bytes| bytes.into_iter().map(StorageInit::Byte).collect()));
         if decl_is_array_like(decl)
-            && element_size > 1
+            && (element_size > 1 || mutable_descriptor)
             && let Some(entry_initializers) = projected_initializers.as_ref()
         {
             let entry_initializers = entry_initializers.clone();
@@ -900,8 +928,9 @@ fn add_var_decl_to_routine_storage(
                 .signed(slot_signed_for_type(&decl.ty));
             let name = normalize_name(&entry.name);
             symbols.insert(name.clone(), slot);
-            fixed_array_base_targets
-                .push((slot, MachineSymbolAddress::OutputRelative(backing_address)));
+            if !mutable_descriptor {
+                fixed_array_base_targets.push((slot, MachineSymbolAddress::OutputRelative(backing_address)));
+            }
             machine_symbol_addresses
                 .insert(name, MachineSymbolAddress::OutputRelative(backing_address));
             continue;
@@ -954,7 +983,7 @@ fn add_var_decl_to_routine_storage(
             && !pointer_backed_array
             && absolute_array_address_initializer(entry).is_none()
             && projected_initializers.is_none()
-            && (element_size > 1 || large_uninitialized_byte_array);
+            && (element_size > 1 || large_uninitialized_byte_array || mutable_descriptor);
         if descriptor_backed_array && let Some(len) = array_len_with_defines(entry, numeric_defines)
         {
             let byte_size = element_size.saturating_mul(len);
@@ -973,13 +1002,13 @@ fn add_var_decl_to_routine_storage(
                 label: label.clone(),
                 size: byte_size,
             });
-            let slot = StorageSlot::array(address, element_size, ArrayStorage::Descriptor)
+            let slot = StorageSlot::array(address, element_size, if mutable_descriptor { ArrayStorage::Pointer } else { ArrayStorage::Descriptor })
                 .emitted()
                 .record(record)
                 .signed(slot_signed_for_type(&decl.ty));
             let name = normalize_name(&entry.name);
             symbols.insert(name.clone(), slot);
-            fixed_array_base_targets.push((slot, MachineSymbolAddress::Label(label.clone())));
+            if !mutable_descriptor { fixed_array_base_targets.push((slot, MachineSymbolAddress::Label(label.clone()))); }
             machine_symbol_addresses.insert(name, MachineSymbolAddress::Label(label));
             continue;
         }

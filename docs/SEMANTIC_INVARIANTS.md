@@ -754,3 +754,11 @@ Known gaps between these invariants and the current implementation:
   structured, verifier-checked facts.
 
 These gaps should be closed slowly, with tests added before broad rewiring.
+
+Named fixed multidimensional arrays retain their declared shape after pointer
+rebinding. Assignment to the bare name targets its pointer cell even when the
+element type is a record or wide integer. Indexing captures the current base
+before coordinates, then captures the complete destination before the RHS; a
+compound update reads that destination after the RHS. Inline shaped fields are
+not rebindable. Static element addresses refer to initial backing, with checked
+row-major byte addends.

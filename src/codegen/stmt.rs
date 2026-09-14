@@ -1106,6 +1106,9 @@ impl Generator {
     }
 
     pub(super) fn generate_assignment(&mut self, target: &Expr, value: &Expr, span: Span) {
+        if self.emit_array_name_assignment(target, value) {
+            return;
+        }
         if let Some(emitted) = self.try_emit_record_copy_assignment(target, value, span) {
             if !emitted {
                 self.diagnostics.push(Diagnostic::new(
@@ -1128,9 +1131,6 @@ impl Generator {
             if !self.emit_wide_assignment(target, value) {
                 self.diagnostics.push(Diagnostic::new(span, "classic integer assignment could not capture its operands"));
             }
-            return;
-        }
-        if self.emit_array_name_assignment(target, value) {
             return;
         }
         if self.emit_routine_target_assignment(target, value, span) {

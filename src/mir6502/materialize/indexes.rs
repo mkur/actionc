@@ -2023,7 +2023,12 @@ fn find_temp_producer(ops: &[MirOp], use_index: usize, temp: MirTempId) -> Optio
 }
 
 fn mem_is_stable_until(ops: &[MirOp], start: usize, end: usize, mem: &MirMem) -> bool {
-    ops[start..end].iter().all(|op| !op_may_write_mem(op, mem))
+    // A call's ABI effects do not summarize the body of a user routine.
+    // Keep the captured base across calls and opaque execution boundaries.
+    ops[start..end].iter().all(|op| {
+        !matches!(op, MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. })
+            && !op_may_write_mem(op, mem)
+    })
 }
 
 fn indexed_producer_mem_is_stable_source(mem: &MirMem) -> bool {

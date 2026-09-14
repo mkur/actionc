@@ -482,6 +482,9 @@ impl SemIrAstLowerer<'_> {
             entries: decls
                 .iter()
                 .map(|decl| {
+                    if matches!(&decl.storage, SemDeclarationStorage::Array { array_type, .. } if array_type.shape().rank() > 1) {
+                        self.static_initializers.mutable_array(&self.symbol_name(&decl.symbol));
+                    }
                     self.project_static_initializer(decl);
                     let fixed_address = match &decl.storage {
                         SemDeclarationStorage::Array { fixed_address, .. } => *fixed_address,
@@ -515,7 +518,8 @@ impl SemIrAstLowerer<'_> {
 
     fn project_static_initializer(&mut self, declaration: &SemDeclaration) {
         if !declaration.ty.value.is_record() && !declaration.ty.value.is_pointer()
-            && !declaration.ty.value.as_scalar().is_some_and(|ty| ty.width_bytes() == 4) {
+            && !declaration.ty.value.as_scalar().is_some_and(|ty| ty.width_bytes() == 4)
+            && !matches!(&declaration.storage, SemDeclarationStorage::Array { array_type, .. } if array_type.shape().rank() > 1) {
             return;
         }
         let Some(plan) = &declaration.static_initializer else {
@@ -1081,7 +1085,10 @@ impl SemIrAstLowerer<'_> {
                     index: Box::new(self.expr(index)?),
                 },
             },
-            SemLValueKind::MultiIndex(_) => panic!("multidimensional classic projection is not enabled yet"),
+            SemLValueKind::MultiIndex(index) => ExprKind::Index {
+                base: Box::new(self.index_base(&index.base)?),
+                index: Box::new(self.expr(&index.normalized_index())?),
+            },
             SemLValueKind::Field { base, field } => ExprKind::Field {
                 base: Box::new(self.lvalue(base)?),
                 field: field.name.clone(),
@@ -2169,6 +2176,8 @@ mod record_layout_tests;
 
 #[cfg(test)]
 mod array_execution_tests;
+#[cfg(test)]
+mod multidimensional_tests;
 #[cfg(test)]
 mod aggregate_call_tests;
 #[cfg(test)]

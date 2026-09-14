@@ -176,6 +176,22 @@ pub(super) fn lower(program: &NirProgram, errors: &mut Vec<Mir68kDiagnostic>) ->
             data.push(item);
         }
     }
+    // Static array address constants name the initial element storage. The
+    // descriptor cell is used by executable loads/stores, not these constants.
+    for item in &mut data {
+        for relocation in &mut item.relocations {
+            if let Mir68kRelocationTarget::Data(NirStorageId::Global(id)) = relocation.target
+                && let Some(global) = program.globals.iter().find(|g| g.id == id)
+                && let Some(array) = &global.array
+            {
+                if matches!(global.init, Some(NirGlobalInit::Descriptor { .. })) {
+                    relocation.target = Mir68kRelocationTarget::ArrayBacking(id);
+                } else if let Some(address) = array.address_initializer {
+                    relocation.target = Mir68kRelocationTarget::Absolute(address);
+                }
+            }
+        }
+    }
     data
 }
 

@@ -2036,9 +2036,10 @@ impl Analyzer {
         // Nominal element checks must not mistake an enum ARRAY's pointer
         // cell for an element. Reuse the existing compound-target facts;
         // leave legacy non-enum assignment permissiveness unchanged.
-        let enum_storage_type = target_place.ty
-            .as_enum()
-            .and_then(|_| self.compound_assignment_target_type(scope, target, &target_place));
+        let shaped_array = self.symbol_id_for_place_expr(scope, target)
+            .is_some_and(|id| self.array_shapes.contains_key(&id));
+        let enum_storage_type = (shaped_array || target_place.ty.as_enum().is_some())
+            .then(|| self.compound_assignment_target_type(scope, target, &target_place)).flatten();
         let expected = enum_storage_type.as_ref().unwrap_or(&target_place.ty);
         self.validate_assignment_value_type(scope, expected, value_expr);
     }
