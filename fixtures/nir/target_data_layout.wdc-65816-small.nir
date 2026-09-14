@@ -5,7 +5,7 @@ global result: Card
 
 routine r0 Main signature=s2726028260 convention=target-public activation=native-reentrant entry=program+relocatable params=[-] locals=[-]
 bb0:
-  %t0:Card* = addr words
+  %t0:Card* = load words
   %t1:Card = load %t0[0;2]
   store result = %t1
   return

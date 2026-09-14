@@ -3179,6 +3179,14 @@ impl NirVerifier {
                 base, offset, ty: field_ty,
             } => {
                 self.place_type(routine, block, base, "field base");
+                if routine.activation == NirActivationModel::NativeReentrant
+                    && base.ty.as_ref().is_some_and(|ty| matches!(ty.kind, NirTypeKind::Pointer { .. }))
+                {
+                    self.diagnostics.push(NirDiagnostic::block(
+                        &routine.name, &block.label,
+                        "field base requires an explicit pointer load and dereference",
+                    ));
+                }
                 self.type_shape(routine, block, field_ty, "field element");
                 if field_ty.kind != ty.kind || field_ty.width != ty.width {
                     self.diagnostics.push(NirDiagnostic::block(

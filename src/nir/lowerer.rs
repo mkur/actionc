@@ -121,9 +121,9 @@ impl NirLowerer {
                                 .as_ref()
                                 .and_then(|expr| self.const_u16_expr(expr)),
                         };
-                        if let Some(ty) =
-                            declaration_symbol_storage_type(declaration, address_initializer)
-                        {
+                        if let Some(ty) = declaration_symbol_storage_type(
+                            declaration, address_initializer, &record_storage_sizes, self.target_layout,
+                        ) {
                             self.symbol_storage_types
                                 .insert(declaration.symbol.name.clone(), ty.clone());
                             self.semantic_storage_types
@@ -348,9 +348,9 @@ impl NirLowerer {
                                 builder.semantic_absolute_array_value_addresses
                                     .insert(local.symbol.id, address);
                             }
-                            if let Some(ty) =
-                                declaration_symbol_storage_type(local, address_initializer)
-                            {
+                            if let Some(ty) = declaration_symbol_storage_type(
+                                local, address_initializer, &record_storage_sizes, self.target_layout,
+                            ) {
                                 builder
                                     .symbol_storage_types
                                     .insert(local.symbol.name.clone(), ty.clone());
@@ -1438,6 +1438,12 @@ impl NirBuilder {
             });
             self.local_ids_by_symbol
                 .insert(initializer.declaration.symbol.id, id);
+            // Native automatic arrays already resolve directly to their
+            // invocation-local element backing, rather than the descriptor.
+            self.semantic_storage_types
+                .remove(&initializer.declaration.symbol.id);
+            self.symbol_storage_types
+                .remove(&initializer.declaration.symbol.name);
             initializer.aggregate_backing = Some(id);
         }
 
@@ -1539,12 +1545,18 @@ impl NirBuilder {
                 &ValueType::fund(FundType::Card),
                 self.target_layout,
             );
+            // This is a byte offset within the descriptor cell, not a
+            // source-level field selected through its element pointer.
+            let address_ty = pointer_type_to(&ValueType::fund(FundType::Card));
+            let address = self.addr_of_place(descriptor, address_ty.clone(), None);
+            let address = self
+                .native_address_addend(
+                    address, address_ty,
+                    i64::from(self.target_layout.data_pointer.size_bytes.get()),
+                )
+                .expect("descriptor size-word offset");
             let place = NirPlace {
-                kind: NirPlaceKind::Field {
-                    base: Box::new(descriptor),
-                    offset: ByteOffset::new(self.target_layout.data_pointer.size_bytes.get()),
-                    ty: card_ty.clone(),
-                },
+                kind: NirPlaceKind::Deref { addr: address },
                 ty: Some(card_ty.clone()),
             };
             self.push_store(place, NirValue::ConstU16(size_word), card_ty, false);
@@ -3125,11 +3137,14 @@ impl NirBuilder {
                 // enclosing record retains the complete storage/copy extent;
                 // no new aggregate scalar or descriptor-backed field is formed.
                 let mut lowered_base = self.lower_place(base);
-                if base.ty.is_pointer() && !matches!(base.kind, SemLValueKind::Symbol(_)) {
-                    // A pointer-valued subobject is not a direct pointer cell.
-                    // Capture its value before selecting the pointee's field;
-                    // arbitrary nested/indexed storage then uses ordinary NIR
-                    // loads and dereferences on every target.
+                if base.ty.is_pointer()
+                    && (self.activation == NirActivationModel::NativeReentrant
+                        || !matches!(base.kind, SemLValueKind::Symbol(_)))
+                {
+                    // Capture the pointer before selecting the pointee's field.
+                    // Named pointer cells and nested/indexed pointer storage
+                    // use the same explicit load/dereference on native ABIs.
+                    // The Atari backend retains its existing named-cell projection.
                     let pointer_ty = self.storage_type_for_value(&base.ty);
                     let temp = self.next_temp();
                     self.push_load(temp, pointer_ty.clone(), lowered_base, base.is_volatile);
@@ -3280,7 +3295,10 @@ impl NirBuilder {
         let elem_size = self.element_width(ty).unwrap_or(ByteSize::ONE);
         let place = self.resolved_symbol_place(symbol, symbol.ty.as_ref().map(NirType::from_value));
         let pointer_ty = pointer_type_to(ty);
-        let base_addr = if matches!(symbol.class, crate::semantic::SymbolClass::Param) {
+        let base_addr = if matches!(symbol.class, crate::semantic::SymbolClass::Param)
+            || (self.activation == NirActivationModel::NativeReentrant
+                && self.semantic_storage_types.contains_key(&symbol.id))
+        {
             self.load_place_value(place, pointer_ty)
         } else if let Some(address) = self.absolute_index_base_for_symbol(symbol) {
             NirValue::ConstU16(address)
@@ -3317,14 +3335,18 @@ impl NirBuilder {
             return NirValue::ConstU16(address);
         }
         if let SemExprKind::LValue(lvalue) = &base.kind
-            && lvalue_is_param_symbol(lvalue)
+            && (lvalue_is_param_symbol(lvalue)
+                || (self.activation == NirActivationModel::NativeReentrant
+                    && self.lvalue_uses_pointer_storage(lvalue)))
         {
             let place = self.lower_place(lvalue);
             let pointer_ty = pointer_type_to(element_type);
             return self.load_place_value(place, pointer_ty);
         }
         if let SemExprKind::Symbol(symbol) = &base.kind
-            && matches!(symbol.class, crate::semantic::SymbolClass::Param)
+            && (matches!(symbol.class, crate::semantic::SymbolClass::Param)
+                || (self.activation == NirActivationModel::NativeReentrant
+                    && self.semantic_storage_types.contains_key(&symbol.id)))
         {
             let pointer_ty = pointer_type_to(element_type);
             let place = self.resolved_symbol_place(symbol, Some(pointer_ty.clone()));
@@ -4723,13 +4745,26 @@ fn declaration_array_fact(
 
 fn declaration_symbol_storage_type(
     declaration: &SemDeclaration,
-    _address_initializer: Option<u16>,
+    address_initializer: Option<u16>,
+    record_storage_sizes: &BTreeMap<SemSymbolId, u32>,
+    target_layout: TargetLayout,
 ) -> Option<NirType> {
     let SemDeclarationStorage::Array { array_type, .. } = &declaration.storage else {
         return None;
     };
     if array_type.length.is_none() && declaration.initializer.is_none() {
-        return Some(NirFacts::type_from_value(&array_type.pointer_type()));
+        return Some(NirType::from_value_with_layout(
+            &array_type.pointer_type(), target_layout,
+        ));
+    }
+    if target_layout.routine_activation == crate::target::RoutineActivationModel::NativeReentrant
+        && address_initializer.is_none()
+        && declaration_array_fact(declaration, record_storage_sizes, address_initializer, target_layout)
+            .is_some_and(|array| array.pointer_backed)
+    {
+        return Some(NirType::from_value_with_layout(
+            &array_type.pointer_type(), target_layout,
+        ));
     }
     None
 }

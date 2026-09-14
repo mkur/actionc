@@ -369,6 +369,16 @@ automatic backing `LocalId`; their descriptor receives that invocation's
 backing address on every entry. Uninitialized automatic objects carry neither
 a load-time image nor implicit zeroing.
 
+For native ABIs, indexing or decaying an initialized descriptor-backed array loads its element pointer
+explicitly. Native automatic arrays already resolve to their distinct backing
+`LocalId`, so those accesses form a backing address directly. Named record
+pointer fields, like nested pointer fields, capture the pointer in a typed load
+and use a `Deref` place before `Field`. The verifier rejects native pointer-typed field
+bases that would require a backend to invent the dereference. `AddrOf` still
+forms a storage address; descriptor cells are not silently element storage.
+The Atari ABI retains its existing named-cell addressing projection; migrating
+that shape requires preserving MIR6502's established addressing optimizations.
+
 Optimization uses the same identity domain. An automatic scalar is proven
 private to its current invocation only while no address-forming operation
 requires its storage. Unknown and recursive calls cannot name that private
