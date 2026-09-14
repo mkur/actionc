@@ -1,0 +1,38 @@
+;@actionc target motorola-68000
+; Static data, a local array, CASE, a loop and a function pointer.
+
+INT ARRAY values(4)=[-3 1 4 8]
+INT total
+
+INT FUNC Transform(INT value)
+  CASE value OF
+  WHEN -3 THEN
+    RETURN(value*2)
+  WHEN 1,4 THEN
+    RETURN(value+10)
+  ELSE
+    RETURN(value-1)
+  ESAC
+RETURN(0)
+
+INT FUNC POINTER callback(INT value)
+
+PROC Main()
+  BYTE i
+  INT ARRAY work(4)
+
+  callback=@Transform
+  total=0
+  FOR i=0 TO 3 DO
+    work(i)=callback(values(i))
+    total==+work(i)
+  OD
+
+  Print("values: ")
+  FOR i=0 TO 3 DO
+    IF i<>0 THEN Put(32) FI
+    PrintI(work(i))
+  OD
+  PutE()
+  Print("sum: ") PrintIE(total)
+RETURN

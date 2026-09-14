@@ -5,12 +5,16 @@ examples.
 
 ```text
 *.act       small standalone Action! examples
+amiga/      MC68000 Shell console, arrays, sorting and fault examples
 benchmarks/ compiler benchmark suite and its benchmark modules
 graphics/   graphics demonstrations
 toolkit/    maintained modernized ACTION! Toolkit programs
 tn/         maintained TOMS Navigator sources
 vbxe/       VBXE detection, framebuffer, and ray-tracing examples
 ```
+
+The [Amiga examples](amiga/README.md) use `--runtime amiga` and have their own
+native build and r68k execution coverage.
 
 `inline-asm-fine-scroll.act` demonstrates MADS-style inline assembly with
 Action objects, a statically relocated ANTIC display list, a `SCREEN`-encoded
@@ -111,6 +115,8 @@ Every Action-family source in this directory has an explicit role in
   experimental. A MIR6502-only executable must document why no classic build
   exists; it remains covered by the experimental build gate.
 - **Dependencies** name the executable samples which consume them.
+- **Amiga executables** compile through the separate native Amiga API; their
+  HUNK output and behavior are checked by the MC68000 VM suite.
 - **Source-only** files carry a concrete reason why they are retained without
   an executable build contract.
 

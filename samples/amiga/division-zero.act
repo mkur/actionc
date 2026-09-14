@@ -1,0 +1,10 @@
+;@actionc target motorola-68000
+; Deliberate fault: expect a message, return code 20 and a usable Shell.
+
+INT divisor,result
+
+PROC Main()
+  PrintE("before fault")
+  result=10/divisor
+  PrintE("unreachable")
+RETURN

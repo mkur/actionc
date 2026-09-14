@@ -1,6 +1,13 @@
 # MC68000 execution tests
 
 Run `cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml`.
+This includes Amiga HUNK loading, startup, console adapters and fault cleanup.
+The independent HUNK reader maps the same bytes at separate section bases;
+the OS shim intercepts only synthetic library-vector traps and poisons permitted
+scratch registers. Compiler-generated adapter instructions execute in r68k.
+The tests require no ROMs or OS disks and do not establish real AmigaOS support.
+See [Amiga usage](../../docs/AMIGA.md) for the separate vAmiga acceptance procedure
+and [samples](../../samples/amiga/README.md).
 The independent workspace pins [r68k 0.2.2](https://docs.rs/r68k/0.2.2/r68k/).
 The compiler does not depend on the emulator.
 

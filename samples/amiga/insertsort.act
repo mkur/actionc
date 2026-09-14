@@ -1,0 +1,28 @@
+;@actionc target motorola-68000
+; Amiga driver for the unchanged TACLeBench insertion-sort kernel.
+
+LONGINT itersI,minI,maxI,itersA,minA,maxA
+LONGCARD ARRAY values(11)
+
+INCLUDE "../../fixtures/runtime/tacle/insertsort/kernel.inc"
+
+PROC Main()
+  BYTE i,elementsOK
+  CARD checksum
+
+  Init()
+  Sort()
+  checksum=0
+  elementsOK=1
+  IF values(0)<>0 THEN elementsOK=0 FI
+  FOR i=1 TO 10 DO
+    IF values(i)<>LONGCARD(i+1) THEN elementsOK=0 FI
+    checksum==+CARD(values(i))
+    IF i<>1 THEN Put(32) FI
+    PrintC(CARD(values(i)))
+  OD
+  PutE()
+  Print("checksum: ") PrintCE(checksum)
+  Print("check: ") PrintBE(CheckResult())
+  Print("elements: ") PrintBE(elementsOK)
+RETURN

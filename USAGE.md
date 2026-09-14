@@ -13,7 +13,7 @@ actionc [--mode <mode>] [--runtime cart|standalone] [options] \
   [-o <file.xex>] [--listing <file.lst>] <file.act>
 ```
 
-Without `-o` or `--output`, `actionc` writes `<source-stem>.xex` in the current
+For the default Atari target, without `-o` or `--output`, `actionc` writes `<source-stem>.xex` in the current
 directory. Missing parent directories are created automatically. Developer
 representations and raw stdout output are provided by `actionc-emit`.
 
@@ -24,6 +24,22 @@ cargo install --path . --bin actionc-emit
 ```
 
 ## Build Modes
+
+For native MC68000 output, select `--target motorola-68000` instead of an Atari
+mode. The default native runtime is `bare`, which writes a `.native.json` manifest
+and binary payloads. `--runtime amiga` writes one relocatable `.amiga` Shell
+executable with the supported SYS console calls:
+
+```sh
+actionc --target motorola-68000 --runtime amiga \
+  -o build/hello.amiga samples/amiga/hello.act
+```
+
+Amiga output rejects `--origin`; load addresses come from the OS. Bare output
+retains its full-width origin option. Both use modern semantics and MIR68K.
+See [Amiga usage](docs/AMIGA.md) for supported calls, stack setup and the pending
+real-OS acceptance step, and the [native runner guide](tools/vm68k-runtime-tests/README.md)
+for bare images. The modes below apply to Atari output.
 
 Modes provide user-facing presets for the compiler's lower-level profile and
 backend settings:

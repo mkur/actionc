@@ -1,0 +1,4 @@
+Hello from Action! on the Amiga.
+BYTE: 255
+CARD: 65535
+INT: -32768

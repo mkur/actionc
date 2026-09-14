@@ -1,0 +1,9 @@
+;@actionc target motorola-68000
+; Compile with --runtime amiga, then run from the Amiga Shell.
+
+PROC Main()
+  PrintE("Hello from Action! on the Amiga.")
+  Print("BYTE: ") PrintBE(255)
+  Print("CARD: ") PrintCE(65535)
+  Print("INT: ") PrintIE(-32768)
+RETURN

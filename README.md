@@ -141,8 +141,20 @@ physical MIR68K inspection text. `actionc-emit --target motorola-68000` supports
 segment hex (`--emit-code`), this listing (`--emit-listing`), native symbols
 (`--emit-map`), and token/SemIR/NIR inspection. The
 [r68k development runner](tools/vm68k-runtime-tests/README.md) provides execution
-checks. Platform startup, Amiga executable formats and OS I/O remain outside this
-bare CPU target. The modes below describe Atari output.
+checks.
+
+An experimental Amiga Shell runtime produces a single relocatable executable:
+
+```sh
+actionc --target motorola-68000 --runtime amiga \
+  -o build/hello.amiga samples/amiga/hello.act
+```
+
+It implements SYS byte/string and BYTE/CARD/INT decimal output. The OS assigns
+load addresses, so `--origin` is invalid. The runtime requests AmigaOS 3.1;
+real-OS acceptance is still pending. See [Amiga usage](docs/AMIGA.md) for samples,
+supported calls, stack setup and the vAmiga smoke procedure. The modes below
+describe Atari output.
 
 ## Choosing a mode
 

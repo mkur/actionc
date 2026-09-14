@@ -27,6 +27,7 @@ struct BuildCase {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum SampleRole {
+    AmigaExecutable,
     Executable {
         builds: Vec<BuildCase>,
         mir6502_only_reason: Option<&'static str>,
@@ -136,6 +137,10 @@ fn dependency(path: &'static str, used_by: &'static [&'static str]) -> SampleSpe
         path,
         role: SampleRole::Dependency { used_by },
     }
+}
+
+fn amiga(path: &'static str) -> SampleSpec {
+    SampleSpec { path, role: SampleRole::AmigaExecutable }
 }
 
 fn source_only(path: &'static str, reason: &'static str) -> SampleSpec {
@@ -712,6 +717,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
             "samples/vbxe/raytracer/spheres/spheres_scene_probe.act",
             vec![release(Optimized, Standalone), experimental(Standalone)],
         ),
+        amiga("samples/amiga/hello.act"),
+        amiga("samples/amiga/integer-array.act"),
+        amiga("samples/amiga/insertsort.act"),
+        amiga("samples/amiga/division-zero.act"),
         dependency(
             "samples/vbxe/shared/screen.act",
             &[
@@ -766,6 +775,7 @@ fn sample_catalog_roles_are_complete_and_consistent() {
 
     for spec in &catalog {
         match &spec.role {
+            SampleRole::AmigaExecutable => {},
             SampleRole::Executable {
                 builds,
                 mir6502_only_reason,
@@ -896,7 +906,7 @@ fn sample_catalog_roles_are_complete_and_consistent() {
                         spec.path
                     );
                     assert!(
-                        matches!(roles.get(owner), Some(SampleRole::Executable { .. })),
+                        matches!(roles.get(owner), Some(SampleRole::Executable { .. } | SampleRole::AmigaExecutable)),
                         "sample dependency {} names a non-executable owner: {owner}",
                         spec.path
                     );
@@ -916,6 +926,20 @@ fn sample_catalog_roles_are_complete_and_consistent() {
             }
         }
     }
+}
+
+#[test]
+fn amiga_sample_builds_produce_relocatable_executables() {
+    let root = repository_root();
+    let mut count = 0;
+    for spec in sample_catalog() {
+        if spec.role != SampleRole::AmigaExecutable { continue; }
+        let compiled = actionc::compiler::native::amiga::compile_file(root.join(spec.path), &Default::default())
+            .unwrap_or_else(|error| panic!("{}: {error}", spec.path));
+        assert!(compiled.executable.bytes.starts_with(&1011u32.to_be_bytes()));
+        count += 1;
+    }
+    assert_eq!(count, 4);
 }
 
 #[test]

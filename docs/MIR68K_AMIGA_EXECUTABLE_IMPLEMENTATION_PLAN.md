@@ -1,52 +1,41 @@
 # MIR68K minimal Amiga executable
 
-Status: implementation in progress. The plan was committed as `d72ae47`.
-Baseline: `ac64b98`, after
-the [public CLI and benchmark milestone](MIR68K_CLI_AND_BENCHMARK_IMPLEMENTATION_PLAN.md).
+Status: compiler/runtime slices 1–3b are complete. Slice 4 samples, build and
+smoke tooling, documentation and CI coverage are ready; real AmigaOS acceptance
+is still pending. The plan was committed as `d72ae47`.
+Baseline: `ac64b98`, after the
+[public CLI and benchmark milestone](MIR68K_CLI_AND_BENCHMARK_IMPLEMENTATION_PLAN.md).
 
-Slice 1 is complete. External declarations now carry a verified service ID;
-runtime selection checks the supported SYS signatures by ID. Native preparation
-is separate from linking, and the four classic library adapters execute through
-the bounded OS shim with captured narrow values and preserved native registers.
-The existing SYS path uses external RoutineIds, so the new identity lives on
-the routine-entry fact; it does not replace ordinary call-site identities.
-No printed fixture changed. NIR snapshots, all 51 NIR sweep fixtures, the full
-root `cargo test` in an isolated checkout, and all 82 native tests pass.
-The adapter offsets/register maps were checked against the official NDK 3.2
-rev4 archive. HUNK output and Amiga startup/console composition remain next.
+| Slice | Commit | Result |
+| --- | --- | --- |
+| 1 | `f182762` | Verified external service IDs and classic library adapters |
+| 2a | `b2be203` | Section-relative objects and unchanged bare linking |
+| 2b | `af0e7da` | HUNK writer and independent VM loader |
+| 3a | `cf94726` | Shell startup, resource cleanup and terminal faults |
+| 3b | `cc472e3` | Public Amiga CLI/API and SYS console subset |
 
-Slice 2a is complete. Encoding now retains typed operand fixups in a verified
-section-relative object, and the bare linker consumes it without changing its
-layout. Six saved bare-image baselines (recursive scalar, insertion sort and
-matrix1 at two origins) match byte for byte, including metadata. New execution
-coverage loads code/data at three independent layouts, with function pointers,
-descriptors, aliases and BSS. The five encoder tests and all 84 native tests pass.
-Slice 2b is also complete: the bounded HUNK writer packs whole objects into
-CODE/DATA/BSS, and the independent VM reader loads only executable bytes. The
-five HUNK tests cover specified byte fixtures, three independent layouts,
-truncation and invalid fixups, unsupported placements and a 65,536-site group.
-All 15 focused HUNK/object/emission/artifact tests pass. Shell startup and the
-public Amiga CLI remain to be implemented; the intermediate entry thunk has no
-OS interaction.
+The existing SYS path uses external RoutineIds, so service identity lives on the
+routine-entry fact; ordinary call-site IDs are unchanged. Decimal formatting is
+a small typed target runtime helper, using bounded subtraction by decimal place,
+without another frontend/module pipeline for compiler-private code.
 
-Slice 3a is complete. Typed platform routines/storage now participate in physical
-targets and relocation verification. The Shell wrapper opens DOS, obtains the
-borrowed output handle, and restores the saved entry state through one cleanup
-path. The terminal fault path abandons nested Action! frames and reports the
-specific reason through a checked span writer. Failed/zero-progress writes go
-directly to cleanup. All 16 MIR68K unit tests and 17 focused native tests pass;
-process tests cover three placements, raw/optimized/conservative codegen,
-normal/failure launches, all fault reasons and distinct CPU/budget outcomes.
-Public SYS console composition and CLI publication are next in slice 3b.
+Validation includes unchanged NIR snapshots, all 51 NIR sweep fixtures and full
+root `cargo test` after the shared NIR change; six byte-identical bare-image
+baselines at two origins; the full 94-test native workspace through slice 3b;
+16 MIR68K unit tests; 52 native/Atari CLI tests; and the additional public-sample
+execution test at three layouts with raw/optimized NIR. The updated sample build
+matrix and sample parsing checks pass in an isolated checkout, excluding unrelated
+working-tree samples. Smoke-tool tests require exact output, statuses, a current
+run ID and the final success marker. The four executables also pass amitools'
+independent HUNK reader and an OFS disk-image pack/unpack byte comparison.
 
-Slice 3b is complete. `--runtime amiga` and the origin-free Amiga API publish a
-single HUNK executable. SYS byte/string and BYTE/CARD/INT decimal output uses
-the checked span writer, including short-write/error handling. Decimal helpers
-are small typed target runtime routines (bounded subtraction by decimal place),
-avoiding a second frontend/module pipeline for compiler-private helpers. The
-real CLI tests move output away from deleted LF/CRLF sources and sidecars.
-All 94 native tests, 16 MIR68K unit tests and 52 native/Atari CLI tests pass.
-Samples, usage documentation and real AmigaOS acceptance remain in slice 4.
+The inspected local vAmiga is 4.5, build 260807. Its configured ROM is Kickstart
+37.175 (2.04); the inspected saved-machine thumbnails show a demo, an empty
+screen and the Kickstart 2.04 boot screen. A confirmed AmigaOS 3.1 boot disk or
+saved setup is still needed. The transfer bundle and 880 KiB data disk are
+prepared under `build/`; they contain no ROM or OS files. Do not mark this
+milestone complete until the real Shell run and returned-file verification pass.
+See [Amiga usage](AMIGA.md) for the reproducible procedure.
 
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.
@@ -63,7 +52,7 @@ The acceptance setup supplies at least 1 MiB RAM and a 64 KiB command stack.
 Measure the samples' actual stack usage rather than treating this stack setting
 as a compiler guarantee for arbitrary programs.
 
-The proposed public command is:
+The public command is:
 
 ```sh
 actionc --target motorola-68000 --runtime amiga \
@@ -75,7 +64,7 @@ The output is a single executable; `.amiga` is a naming convention, not a loader
 requirement. The default output name is `<source-stem>.amiga`. Bare remains the
 default for `--target motorola-68000`. An explicit `--origin`, source ORG or
 Atari SET origin is invalid for the Amiga path: the OS chooses load addresses.
-These commands and sample paths are planned, not available at this baseline.
+The command and samples are implemented; real-OS acceptance remains pending.
 
 Keep the existing parameterless PROC program entry. Normal completion returns
 status 0 to the Shell. Startup failure, console failure and a typed runtime
