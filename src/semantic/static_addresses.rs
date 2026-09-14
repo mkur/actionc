@@ -137,28 +137,33 @@ impl Analyzer {
                 Some(address)
             }
             SemPlaceKind::Index { base, index } => {
-                let array = self.array_place_type(base)?;
-                // Inferred initialized arrays have backing too, but unsized
-                // pointer-backed arrays and parameters do not have a static base.
-                if let SemPlaceKind::Symbol(id) = &base.kind {
-                    if !self.static_array_backings.contains(id) {
-                        return None;
-                    }
-                } else {
-                    array.length()?;
-                }
-                let stride = self.value_storage_width(&array.element)?;
-                let index =
-                    i32::try_from(exact_const_value(self.evaluate_const_expr(index).ok()?)).ok()?;
-                let mut address = self.static_place_address(base)?;
-                address.addend = address
-                    .addend
-                    .checked_add(index.checked_mul(i32::try_from(stride).ok()?)?)?;
-                Some(address)
+                let index = i32::try_from(exact_const_value(self.evaluate_const_expr(index).ok()?)).ok()?;
+                self.static_index_address(base, index)
+            }
+            SemPlaceKind::MultiIndex { base, coordinates, shape } => {
+                let index = coordinates.iter().zip(shape.dimensions()).try_fold(0i128, |n, (index, &dimension)| {
+                    let coordinate = exact_const_value(self.evaluate_const_expr(index).ok()?);
+                    n.checked_mul(i128::from(dimension))?.checked_add(i128::from(coordinate))
+                })?;
+                self.static_index_address(base, i32::try_from(index).ok()?)
             }
             _ => None,
         }
     }
+    fn static_index_address(&self, base: &subject::SemPlace, index: i32) -> Option<StaticSubobjectAddress> {
+        let array = self.array_place_type(base)?;
+        // A parameter or unsized pointer descriptor has no static backing.
+        if let subject::SemPlaceKind::Symbol(id) = &base.kind {
+            if !self.static_array_backings.contains(id) { return None; }
+        } else {
+            array.length()?;
+        }
+        let stride = i32::try_from(self.value_storage_width(&array.element)?).ok()?;
+        let mut address = self.static_place_address(base)?;
+        address.addend = address.addend.checked_add(index.checked_mul(stride)?)?;
+        Some(address)
+    }
+
 }
 
 #[cfg(test)]

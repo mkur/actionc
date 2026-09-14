@@ -637,6 +637,10 @@ impl SemGraphBuilder {
                 self.expression(owner, base, reason);
                 self.expression(owner, index, reason);
             }
+            SemLValueKind::MultiIndex(index) => {
+                self.expression(owner, &index.base, reason);
+                for coordinate in &index.coordinates { self.expression(owner, coordinate, reason); }
+            }
             SemLValueKind::Field { base, .. } => self.lvalue(owner, base, reason),
             SemLValueKind::UnresolvedName(_) => {}
         }

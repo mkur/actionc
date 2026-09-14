@@ -188,6 +188,10 @@ fn place<'a>(value: &'a SemLValue, visitor: &mut impl Visitor<'a>) {
             expression(base, visitor);
             expression(index, visitor);
         }
+        SemLValueKind::MultiIndex(index) => {
+            expression(&index.base, visitor);
+            for coordinate in &index.coordinates { expression(coordinate, visitor); }
+        }
         SemLValueKind::Field { base, .. } => place(base, visitor),
         SemLValueKind::Symbol(_) | SemLValueKind::UnresolvedName(_) => {}
     }

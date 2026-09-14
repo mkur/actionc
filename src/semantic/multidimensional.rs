@@ -73,3 +73,82 @@ impl Analyzer {
         }
     }
 }
+
+impl Analyzer {
+    /// Resolve array identity before arity. A malformed array access must never
+    /// become a call, and shape is retained even when its descriptor is rebound.
+    pub(super) fn index_subject(
+        &mut self,
+        scope: ScopeId,
+        base: &Expr,
+        coordinates: &[Expr],
+        span: Span,
+    ) -> subject::SemSubject {
+        let base = self.expect_place(scope, base, base.span);
+        let array = self.array_place_type(&base);
+        let rank = array.as_ref().map_or(1, |a| a.shape().rank());
+        if coordinates.len() != rank {
+            self.diagnostics.push(Diagnostic::new(
+                span,
+                format!(
+                    "array rank {rank} requires {rank} indexes, received {}",
+                    coordinates.len()
+                ),
+            ));
+            return self.subject_error(span);
+        }
+        let coordinates: Vec<_> = coordinates
+            .iter()
+            .map(|index| self.expect_expr(scope, index, index.span))
+            .collect();
+        let access = self.indexed_access(&base);
+        if rank == 1 {
+            let index = coordinates.into_iter().next().unwrap();
+            let ty = self.indexed_place_type_or_diagnostic(&base, &index, span);
+            return subject::SemSubject::Place(subject::SemPlace {
+                ty,
+                access,
+                span,
+                kind: subject::SemPlaceKind::Index {
+                    base: Box::new(base),
+                    index: Box::new(index),
+                },
+            });
+        }
+        let array = array.expect("only declared arrays have multiple dimensions");
+        for (axis, (coordinate, &bound)) in coordinates
+            .iter()
+            .zip(array.shape().dimensions())
+            .enumerate()
+        {
+            if coordinate.ty.as_scalar().is_none() {
+                if !coordinate.ty.is_error() {
+                    self.diagnostics.push(Diagnostic::new(coordinate.span,
+                        "multidimensional index requires an integer; convert enum indexes explicitly"));
+                }
+            } else if let Ok(value) = self.evaluate_const_expr(coordinate) {
+                let value = exact_const_value(value);
+                if value < 0 || value >= i64::from(bound) {
+                    self.diagnostics.push(Diagnostic::new(
+                        coordinate.span,
+                        format!(
+                            "array index {value} is outside dimension {} (0..{})",
+                            axis + 1,
+                            bound - 1
+                        ),
+                    ));
+                }
+            }
+        }
+        subject::SemSubject::Place(subject::SemPlace {
+            ty: (*array.element).clone(),
+            access,
+            span,
+            kind: subject::SemPlaceKind::MultiIndex {
+                base: Box::new(base),
+                coordinates,
+                shape: array.shape().clone(),
+            },
+        })
+    }
+}

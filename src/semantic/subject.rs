@@ -30,6 +30,7 @@ impl SemExpr {
             SemExprKind::Selection { .. } => true,
             SemExprKind::Load(place) | SemExprKind::AddressOf(place) => place.any_place(&|place| match &place.kind {
                 SemPlaceKind::Index { index, .. } => index.contains_runtime_selection(),
+                SemPlaceKind::MultiIndex { coordinates, .. } => coordinates.iter().any(SemExpr::contains_runtime_selection),
                 SemPlaceKind::Deref(value) => value.contains_runtime_selection(),
                 _ => false,
             }),
@@ -120,6 +121,7 @@ impl SemPlace {
         predicate(self) || match &self.kind {
             SemPlaceKind::Field { base, .. } => base.any_place(predicate),
             SemPlaceKind::Index { base, index } => base.any_place(predicate) || index.any_place(predicate),
+            SemPlaceKind::MultiIndex { base, coordinates, .. } => base.any_place(predicate) || coordinates.iter().any(|value| value.any_place(predicate)),
             SemPlaceKind::Deref(value) => value.any_place(predicate),
             SemPlaceKind::Symbol(_) | SemPlaceKind::Error => false,
         }
@@ -136,6 +138,11 @@ pub enum SemPlaceKind {
     Index {
         base: Box<SemPlace>,
         index: Box<SemExpr>,
+    },
+    MultiIndex {
+        base: Box<SemPlace>,
+        coordinates: Vec<SemExpr>,
+        shape: super::ArrayShape,
     },
     Deref(Box<SemExpr>),
     Error,

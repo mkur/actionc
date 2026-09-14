@@ -1026,10 +1026,21 @@ pub enum SemLValueKind {
         element_type: ValueType,
         syntax: SemIndexSyntax,
     },
+    MultiIndex(Box<SemMultiIndex>),
     Field {
         base: Box<SemLValue>,
         field: SemFieldRef,
     },
+}
+
+/// An element place with a checked shape. Consumers capture the base first,
+/// then coordinates left to right, once each, before evaluating a store RHS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SemMultiIndex {
+    pub base: Box<SemExpr>,
+    pub coordinates: Vec<SemExpr>,
+    pub shape: super::ArrayShape,
+    pub element_type: ValueType,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1448,6 +1459,10 @@ fn collect_external_lvalue_references(
         SemLValueKind::Index { base, index, .. } => {
             collect_external_expr_references(base, external, referenced);
             collect_external_expr_references(index, external, referenced);
+        }
+        SemLValueKind::MultiIndex(index) => {
+            collect_external_expr_references(&index.base, external, referenced);
+            for coordinate in &index.coordinates { collect_external_expr_references(coordinate, external, referenced); }
         }
         SemLValueKind::Field { base, .. } => {
             collect_external_lvalue_references(base, external, referenced);
@@ -2079,6 +2094,7 @@ fn lvalue_summary(lvalue: &SemLValue) -> String {
         SemLValueKind::Index { base, index, .. } => {
             format!("{}({})", expr_summary(base), expr_summary(index))
         }
+        SemLValueKind::MultiIndex(index) => format!("{}({})", expr_summary(&index.base), index.coordinates.iter().map(expr_summary).collect::<Vec<_>>().join(", ")),
         SemLValueKind::Field { base, field } => {
             format!("{}.{}", lvalue_summary(base), field.name)
         }
@@ -2142,10 +2158,11 @@ fn callable_type_summary(callable_type: &CallableType) -> String {
 }
 
 fn array_type_summary(array_type: &ArrayType) -> String {
-    let length = array_type
-        .length()
-        .map(|length| length.to_string())
-        .unwrap_or_else(|| "?".to_string());
+    let length = if array_type.shape().rank() > 1 {
+        array_type.shape().dimensions().iter().map(u32::to_string).collect::<Vec<_>>().join(",")
+    } else {
+        array_type.length().map(|length| length.to_string()).unwrap_or_else(|| "?".to_string())
+    };
     format!(
         "{} ARRAY({length})->{}",
         type_summary(&array_type.element),
@@ -2817,6 +2834,13 @@ impl<'a> IrBuilder<'a> {
         }
     }
 
+    fn array_count_expr(count: u32, span: Span) -> SemExpr {
+        SemExpr {
+            kind: SemExprKind::Literal(SemLiteral::Constant(ConstValue { ty: ScalarType::Size, bits: u64::from(count) })),
+            ty: ValueType::scalar(ScalarType::Size), class: SemExprClass::Value, eval_order: None, span,
+        }
+    }
+
     fn lower_var_decl(&mut self, scope: ScopeId, decl: &VarDecl) -> Vec<SemDeclaration> {
         decl.entries
             .iter()
@@ -2825,7 +2849,11 @@ impl<'a> IrBuilder<'a> {
                 let is_array_storage =
                     decl.storage == VarStorage::Array || symbol.class == SymbolClass::Array;
                 let storage = if is_array_storage {
-                    let length = entry.size.as_ref().map(|size| self.lower_expr(scope, size));
+                    let length = if let Some(shape) = self.model.array_shapes.get(&symbol.id) {
+                        Some(Self::array_count_expr(shape.length().unwrap(), entry.span))
+                    } else {
+                        entry.size.as_ref().map(|size| self.lower_expr(scope, size))
+                    };
                     SemDeclarationStorage::Array {
                         array_type: self.array_type_from_symbol(&symbol, length.as_ref()),
                         length,
@@ -3047,7 +3075,11 @@ impl<'a> IrBuilder<'a> {
             });
         }
 
-        let initialized_extent = if elements.is_empty() {
+        let initialized_extent = if let SemDeclarationStorage::Array { array_type, .. } = storage
+            && array_type.shape().rank() > 1
+        {
+            array_type.length()?.checked_mul(element_width)?
+        } else if elements.is_empty() {
             0
         } else if repeats {
             let initialized_elements = elements.len().div_ceil(leaves.len());
@@ -3095,7 +3127,12 @@ impl<'a> IrBuilder<'a> {
                                 panic!("inline array requires array storage facts")
                             }
                         },
-                        length: entry.size.as_ref().map(|size| self.lower_expr(scope, size)),
+                        length: if entry.dimensions.is_empty() {
+                            entry.size.as_ref().map(|size| self.lower_expr(scope, size))
+                        } else {
+                            let super::RecordFieldStorage::InlineArray { array_type, .. } = &descriptor.as_ref().unwrap().storage else { unreachable!() };
+                            Some(Self::array_count_expr(array_type.length().unwrap(), entry.span))
+                        },
                         fixed_address: None,
                         action_storage: field.storage,
                         origin: SemArrayOrigin::RecordField,
@@ -3837,8 +3874,8 @@ impl<'a> IrBuilder<'a> {
                         .expect("guarded layout-query value"),
                 ))
             }
-            ExprKind::Call { callee, args }
-                if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
+            ExprKind::Call { callee, .. }
+                if self.is_indexable_lvalue(scope, callee) =>
             {
                 SemExprKind::LValue(Box::new(self.lower_lvalue(scope, expr)))
             }
@@ -4557,14 +4594,25 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             ExprKind::Call { callee, args }
-                if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
+                if self.is_indexable_lvalue(scope, callee) =>
             {
+                let array_type = self.model.array_place_type(scope, callee.span).cloned();
                 let base = self.lower_expr(scope, callee);
-                SemLValueKind::Index {
-                    element_type: indexed_expr_type(&base),
-                    base: Box::new(base),
-                    index: Box::new(self.lower_expr(scope, &args[0])),
-                    syntax: SemIndexSyntax::Call,
+                if let Some(array) = array_type.filter(|array| array.shape().rank() > 1) {
+                    assert_eq!(args.len(), array.shape().rank(), "checked coordinate rank");
+                    SemLValueKind::MultiIndex(Box::new(SemMultiIndex {
+                        base: Box::new(base),
+                        coordinates: args.iter().map(|coordinate| self.lower_expr(scope, coordinate)).collect(),
+                        shape: array.shape().clone(),
+                        element_type: (*array.element).clone(),
+                    }))
+                } else {
+                    SemLValueKind::Index {
+                        element_type: indexed_expr_type(&base),
+                        base: Box::new(base),
+                        index: Box::new(self.lower_expr(scope, &args[0])),
+                        syntax: SemIndexSyntax::Call,
+                    }
                 }
             }
             ExprKind::Field { base, field } => {
@@ -4629,7 +4677,7 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Index { base, .. }
             | ExprKind::Field { base, .. }
             | ExprKind::Cast { expr: base, .. } => self.lvalue_expr_is_volatile(scope, base),
-            ExprKind::Call { callee, args } if args.len() == 1 => {
+            ExprKind::Call { callee, .. } if self.is_indexable_lvalue(scope, callee) => {
                 self.lvalue_expr_is_volatile(scope, callee)
             }
             ExprKind::Missing
@@ -4655,6 +4703,7 @@ impl<'a> IrBuilder<'a> {
                 .as_pointer()
                 .map_or_else(ValueType::error, |ty| *ty.pointee),
             SemLValueKind::Index { element_type, .. } => element_type.clone(),
+            SemLValueKind::MultiIndex(index) => index.element_type.clone(),
             SemLValueKind::Field { field, .. } => field.ty.clone(),
         }
     }
@@ -4675,7 +4724,7 @@ impl<'a> IrBuilder<'a> {
                 | SymbolClass::Record => PlaceAccess::ReadOnly,
             },
             SemLValueKind::UnresolvedName(_) => PlaceAccess::Error,
-            SemLValueKind::Deref { .. } | SemLValueKind::Index { .. } => PlaceAccess::Assignable,
+            SemLValueKind::Deref { .. } | SemLValueKind::Index { .. } | SemLValueKind::MultiIndex(_) => PlaceAccess::Assignable,
             SemLValueKind::Field { base, .. } => {
                 if base.ty.is_pointer() { PlaceAccess::Assignable } else { base.access }
             }
@@ -5179,8 +5228,8 @@ impl<'a> IrBuilder<'a> {
             ExprKind::Index { base, .. } => {
                 self.fallback_expr_type(scope, base).map(indexed_value_type)
             }
-            ExprKind::Call { callee, args }
-                if args.len() == 1 && self.is_indexable_lvalue(scope, callee) =>
+            ExprKind::Call { callee, .. }
+                if self.is_indexable_lvalue(scope, callee) =>
             {
                 self.fallback_expr_type(scope, callee)
                     .map(indexed_value_type)

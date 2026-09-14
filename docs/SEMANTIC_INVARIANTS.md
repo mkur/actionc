@@ -522,6 +522,17 @@ existing `array_lengths` and layout count projections must agree with canonical
 shape facts; mutating a runtime descriptor never changes these facts. Higher
 ranks remain behind a semantic rollout capability until execution is validated.
 
+For fixed higher ranks, semantic subjects and SemIR retain a `MultiIndex` place
+with the canonical shape and typed coordinates in source order. Array identity
+is resolved before arity: every axis requires an integer coordinate, and known
+constants are checked against that axis. Partial indexing is not a call or a
+row view. Base capture precedes all coordinates and the complete destination
+precedes a store RHS. Static subobject addresses use the same row-major order
+with checked byte addends. Flat initializer plans include the complete declared
+extent, including zero-filled trailing elements. Shaped formal parameters,
+including callable prototypes, are diagnosed before their signatures erase
+shape; ordinary element-pointer decay and flat ARRAY parameters are unchanged.
+
 SemIR array declarations and array parameters should carry an `ArrayType`
 alongside their existing element `SemType`. The element `SemType` remains the
 bridge for current codegen, but future semantic-IR/native lowering should use

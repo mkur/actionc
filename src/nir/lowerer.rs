@@ -3117,6 +3117,7 @@ impl NirBuilder {
                 kind: self.lower_index_place(base, index, element_type),
                 ty,
             },
+            SemLValueKind::MultiIndex(_) => panic!("multidimensional NIR lowering is not enabled yet"),
             SemLValueKind::Field { base, field } => {
                 if let crate::semantic::RecordFieldStorage::InlineArray { array_type, stride } = &field.storage {
                     assert_eq!(
@@ -5791,6 +5792,7 @@ fn lvalue_summary(lvalue: &SemLValue) -> String {
                 format!("{}[{}]", expr_summary(base), expr_summary(index))
             }
         },
+        SemLValueKind::MultiIndex(index) => format!("{}({})", expr_summary(&index.base), index.coordinates.iter().map(expr_summary).collect::<Vec<_>>().join(", ")),
         SemLValueKind::Field { base, field } => {
             format!("{}.{}", lvalue_summary(base), field.name)
         }

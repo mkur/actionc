@@ -1081,6 +1081,7 @@ impl SemIrAstLowerer<'_> {
                     index: Box::new(self.expr(index)?),
                 },
             },
+            SemLValueKind::MultiIndex(_) => panic!("multidimensional classic projection is not enabled yet"),
             SemLValueKind::Field { base, field } => ExprKind::Field {
                 base: Box::new(self.lvalue(base)?),
                 field: field.name.clone(),
@@ -1881,6 +1882,7 @@ fn lvalue_uses_native_real(value: &SemLValue) -> bool {
             SemLValueKind::Index { base, index, .. } => {
                 expr_uses_native_real(base) || expr_uses_native_real(index)
             }
+            SemLValueKind::MultiIndex(index) => expr_uses_native_real(&index.base) || index.coordinates.iter().any(expr_uses_native_real),
             SemLValueKind::Field { base, .. } => lvalue_uses_native_real(base),
             SemLValueKind::Symbol(_) | SemLValueKind::UnresolvedName(_) => false,
         }
@@ -1988,6 +1990,7 @@ fn lvalue_expr_node_count(value: &SemLValue) -> usize {
     1 + match &value.kind {
         SemLValueKind::Deref { pointer } => expr_node_count(pointer),
         SemLValueKind::Index { base, index, .. } => expr_node_count(base) + expr_node_count(index),
+        SemLValueKind::MultiIndex(index) => expr_node_count(&index.base) + index.coordinates.iter().map(expr_node_count).sum::<usize>(),
         SemLValueKind::Field { base, .. } => lvalue_expr_node_count(base),
         SemLValueKind::Symbol(_) | SemLValueKind::UnresolvedName(_) => 0,
     }

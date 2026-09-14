@@ -1,8 +1,9 @@
 # Fixed-size multidimensional arrays
 
-Status: implementation in progress. Slice 1 adds declaration syntax and checked
-canonical shapes behind a semantic rollout capability. Public enablement remains
-in slice 5, after indexing and executable backend validation.
+Status: implementation in progress. Slices 1–2 add checked declaration shapes,
+typed coordinate places, static addresses and initializer extents behind a
+semantic rollout capability. Public enablement remains in slice 5, after
+normalization and executable backend validation.
 Baseline: `8262140`, after Amiga 32-bit decimal output.
 
 Deliver fixed-size arrays indexed with one coordinate per dimension, using
@@ -78,7 +79,8 @@ the loop variables happen to be BYTE. A conversion cannot repair overflow
 inside an explicitly written coordinate expression.
 
 An indexed assignment captures the complete destination before its RHS;
-compound assignment retains the existing load/RHS/store ordering. Calls inside
+compound assignment retains the existing RHS/load/store ordering, verified
+against the cartridge compiler by `compound_order.act`. Calls inside
 coordinates can change the array descriptor, other coordinates or memory, but
 cannot change an already captured base or duplicate an earlier evaluation.
 Out-of-range dynamic addresses retain the existing unchecked wrapping address

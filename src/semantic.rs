@@ -2709,20 +2709,9 @@ impl Analyzer {
                 })
             }
             ExprKind::Call { callee, args }
-                if args.len() == 1 && self.can_subject_be_indexed(scope, callee) =>
+                if self.can_subject_be_indexed(scope, callee) =>
             {
-                let base = self.expect_place(scope, callee, callee.span);
-                let index = self.expect_expr(scope, &args[0], args[0].span);
-                let ty = self.indexed_place_type_or_diagnostic(&base, &index, expr.span);
-                subject::SemSubject::Place(subject::SemPlace {
-                    ty,
-                    access: self.indexed_access(&base),
-                    kind: subject::SemPlaceKind::Index {
-                        base: Box::new(base),
-                        index: Box::new(index),
-                    },
-                    span: expr.span,
-                })
+                self.index_subject(scope, callee, args, expr.span)
             }
             ExprKind::Call { callee, args } => {
                 let callee = self.expect_callable(scope, callee, expr.span);
@@ -2750,18 +2739,7 @@ impl Analyzer {
                 })
             }
             ExprKind::Index { base, index } => {
-                let base = self.expect_place(scope, base, base.span);
-                let index = self.expect_expr(scope, index, index.span);
-                let ty = self.indexed_place_type_or_diagnostic(&base, &index, expr.span);
-                subject::SemSubject::Place(subject::SemPlace {
-                    ty,
-                    access: self.indexed_access(&base),
-                    kind: subject::SemPlaceKind::Index {
-                        base: Box::new(base),
-                        index: Box::new(index),
-                    },
-                    span: expr.span,
-                })
+                self.index_subject(scope, base, std::slice::from_ref(index.as_ref()), expr.span)
             }
             ExprKind::Field { base, field } => {
                 if let Some(owner) = self.variant_type_for_expr(scope, base) {
@@ -3673,6 +3651,10 @@ impl Analyzer {
                 self.record_sem_place_with_class(base, ExprClass::LValue);
                 self.record_sem_expr(index);
             }
+            subject::SemPlaceKind::MultiIndex { base, coordinates, .. } => {
+                self.record_sem_place_with_class(base, ExprClass::LValue);
+                for coordinate in coordinates { self.record_sem_expr(coordinate); }
+            }
             subject::SemPlaceKind::Deref(pointer) => self.record_sem_expr(pointer),
             subject::SemPlaceKind::Symbol(_) | subject::SemPlaceKind::Error => {}
         }
@@ -3700,8 +3682,8 @@ impl Analyzer {
     }
 
     fn validate_call(&mut self, scope: ScopeId, callee: &Expr, args: &[Expr], span: Span) {
-        if args.len() == 1 && self.can_subject_be_indexed(scope, callee) {
-            self.lower_expr(scope, &args[0]);
+        if self.can_subject_be_indexed(scope, callee) {
+            self.index_subject(scope, callee, args, span);
             return;
         }
 
@@ -4819,6 +4801,14 @@ impl Analyzer {
                     .flatten();
                 if decl.storage == VarStorage::Array {
                     let leaves_per_element = aggregate_leaves.as_ref().map_or(1, Vec::len);
+                    if let Some(symbol) = self.symbols.lookup(scope, &entry.name)
+                        && let Some(shape) = self.array_shapes.get(&symbol)
+                        && elements.len() as u64 > u64::from(shape.length().unwrap()) * leaves_per_element as u64
+                    {
+                        self.diagnostics.push(Diagnostic::new(initializer.span,
+                            format!("too many initializer elements for multidimensional array `{}`", entry.name)));
+                        return;
+                    }
                     if leaves_per_element > 0
                         && let Some(width) = self.value_storage_width(&element_type)
                         && elements.len().div_ceil(leaves_per_element)
@@ -11337,6 +11327,12 @@ mod tests {
                 assert_eq!(&lvalue.ty, element_type);
                 assert_semir_value_expr_typed(base);
                 assert_semir_value_expr_typed(index);
+            }
+            ir::SemLValueKind::MultiIndex(index) => {
+                assert_eq!(lvalue.ty, index.element_type);
+                assert_eq!(index.coordinates.len(), index.shape.rank());
+                assert_semir_value_expr_typed(&index.base);
+                for coordinate in &index.coordinates { assert_semir_value_expr_typed(coordinate); }
             }
             ir::SemLValueKind::Field { base, field } => {
                 assert_eq!(lvalue.ty, field.ty);

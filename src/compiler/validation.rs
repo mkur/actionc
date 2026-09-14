@@ -313,6 +313,10 @@ fn collect_standalone_lvalue_diagnostics(place: &SemLValue, diagnostics: &mut Ve
             collect_standalone_expr_diagnostics(base, diagnostics);
             collect_standalone_expr_diagnostics(index, diagnostics);
         }
+        SemLValueKind::MultiIndex(index) => {
+            collect_standalone_expr_diagnostics(&index.base, diagnostics);
+            for coordinate in &index.coordinates { collect_standalone_expr_diagnostics(coordinate, diagnostics); }
+        }
         SemLValueKind::Field { base, .. } => {
             collect_standalone_lvalue_diagnostics(base, diagnostics);
         }
