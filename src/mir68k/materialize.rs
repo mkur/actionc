@@ -15,6 +15,7 @@ pub struct Options {
     pub select_instructions: bool,
     pub relax_branches: bool,
     pub pointer_alignment: bool,
+    pub control_flow: bool,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -23,6 +24,7 @@ impl Default for Options {
             select_instructions: true,
             relax_branches: true,
             pointer_alignment: true,
+            control_flow: true,
         }
     }
 }
@@ -33,6 +35,7 @@ impl Options {
             select_instructions: false,
             relax_branches: false,
             pointer_alignment: false,
+            control_flow: false,
         }
     }
 }
@@ -75,6 +78,7 @@ pub fn materialize_with_options(
         }
         let mut builder = Builder::new(routine, &mut next, options)?;
         let reachable = reachable_blocks(routine)?;
+        let uses = super::analysis::use_counts(routine);
         for block in &routine.blocks {
             if !reachable.contains(&block.id) {
                 continue;
@@ -84,13 +88,21 @@ pub fn materialize_with_options(
             if block.id == routine.blocks[0].id {
                 builder.prologue()?;
             }
-            for op in &block.ops {
+            let compare = options
+                .control_flow
+                .then(|| super::analysis::branch_compare(block, &uses))
+                .flatten();
+            for op in block
+                .ops
+                .iter()
+                .take(block.ops.len() - usize::from(compare.is_some()))
+            {
                 builder
                     .op(op)
                     .map_err(|e| format!("{} / {:?}: {e}", routine.name, block.id))?;
             }
             builder
-                .terminator(&block.terminator)
+                .terminator(&block.terminator, compare)
                 .map_err(|e| format!("{} / {:?}: {e}", routine.name, block.id))?;
             machine.blocks.append(&mut builder.blocks);
             machine.blocks.push(MachineBlock {
@@ -103,6 +115,9 @@ pub fn materialize_with_options(
                 &mut machine.blocks[first_block..],
                 &builder.temps.values().copied().collect(),
             );
+        }
+        if options.control_flow {
+            super::control_flow::fallthrough(&mut machine.blocks[first_block..]);
         }
         next = builder.next;
         machine.routines.push(MachineRoutine {
@@ -718,24 +733,7 @@ impl<'a> Builder<'a> {
                 left,
                 right,
             } => {
-                self.value(left, 0)?;
-                if self.options.select_instructions
-                    && let Some(value) = selection::constant(right)
-                {
-                    self.emit(Instruction::CompareImmediate {
-                        width: Width::from_bytes(width.get())?,
-                        value,
-                        destination: 0,
-                    });
-                } else {
-                    self.value(right, 1)?;
-                    self.emit(Instruction::Alu {
-                        operation: Alu::Compare,
-                        width: Width::from_bytes(width.get())?,
-                        source: 1,
-                        destination: 0,
-                    });
-                }
+                self.compare_flags(left, right, *width)?;
                 self.emit(Instruction::SetCondition {
                     condition: compare_condition(*operation, *signed),
                     register: 0,
@@ -900,6 +898,68 @@ impl<'a> Builder<'a> {
         }
         Ok(())
     }
+    fn compare_flags(
+        &mut self,
+        left: &Mir68kValue,
+        right: &Mir68kValue,
+        width: ByteSize,
+    ) -> Result<()> {
+        self.value(left, 0)?;
+        if self.options.select_instructions
+            && let Some(value) = selection::constant(right)
+        {
+            self.emit(Instruction::CompareImmediate {
+                width: Width::from_bytes(width.get())?,
+                value,
+                destination: 0,
+            });
+        } else {
+            self.value(right, 1)?;
+            self.emit(Instruction::Alu {
+                operation: Alu::Compare,
+                width: Width::from_bytes(width.get())?,
+                source: 1,
+                destination: 0,
+            });
+        }
+        Ok(())
+    }
+
+    fn branch_edges(
+        &mut self,
+        condition: Condition,
+        then_edge: &Mir68kEdge,
+        else_edge: &Mir68kEdge,
+    ) -> Result<()> {
+        if self.options.control_flow && then_edge.args.is_empty() {
+            self.emit(Instruction::Branch {
+                condition,
+                target: Address::new(Target::Block(self.labels[&then_edge.target])),
+            });
+            return self.edge(else_edge);
+        }
+        if self.options.control_flow && else_edge.args.is_empty() {
+            self.emit(Instruction::Branch {
+                condition: condition.inverse(),
+                target: Address::new(Target::Block(self.labels[&else_edge.target])),
+            });
+            return self.edge(then_edge);
+        }
+        let alternate = MachineBlockId(self.next);
+        self.next = self.next.checked_add(1).ok_or("too many machine blocks")?;
+        self.emit(Instruction::Branch {
+            condition: condition.inverse(),
+            target: Address::new(Target::Block(alternate)),
+        });
+        self.edge(then_edge)?;
+        self.blocks.push(MachineBlock {
+            id: self.current,
+            instructions: std::mem::take(&mut self.instructions),
+        });
+        self.current = alternate;
+        self.edge(else_edge)
+    }
+
     fn edge(&mut self, edge: &Mir68kEdge) -> Result<()> {
         // Stage every source before writing any destination. This also handles
         // cyclic transfers on a loop backedge without overwriting a live source.
@@ -932,7 +992,7 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    fn terminator(&mut self, term: &Mir68kTerminator) -> Result<()> {
+    fn terminator(&mut self, term: &Mir68kTerminator, compare: Option<&Mir68kOp>) -> Result<()> {
         match term {
             Mir68kTerminator::Return { value, .. } => {
                 if let Some(value) = value {
@@ -953,20 +1013,22 @@ impl<'a> Builder<'a> {
                 then_edge,
                 else_edge,
             } => {
-                self.value(condition, 0)?;
-                let alternate = MachineBlockId(self.next);
-                self.next = self.next.checked_add(1).ok_or("too many machine blocks")?;
-                self.emit(Instruction::Branch {
-                    condition: Condition::Equal,
-                    target: Address::new(Target::Block(alternate)),
-                });
-                self.edge(then_edge)?;
-                self.blocks.push(MachineBlock {
-                    id: self.current,
-                    instructions: std::mem::take(&mut self.instructions),
-                });
-                self.current = alternate;
-                self.edge(else_edge)?;
+                let condition = if let Some(Mir68kOp::Compare {
+                    width,
+                    signed,
+                    operation,
+                    left,
+                    right,
+                    ..
+                }) = compare
+                {
+                    self.compare_flags(left, right, *width)?;
+                    compare_condition(*operation, *signed)
+                } else {
+                    self.value(condition, 0)?;
+                    Condition::NotEqual
+                };
+                self.branch_edges(condition, then_edge, else_edge)?;
             }
             Mir68kTerminator::Exit => {} // A verified final Fault emitted its non-returning guard.
             _ => return Err("unresolved native terminator".into()),

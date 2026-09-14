@@ -1,6 +1,6 @@
 # MIR68K alignment, control flow and register retention
 
-Status: in progress. Slices 1–2 are complete; slices 3–6 remain. Commit each major
+Status: in progress. Slices 1–3 are complete; slices 4–6 remain. Commit each major
 slice after its validation gate passes.
 
 The objective is to remove the largest avoidable costs exposed by the
@@ -132,6 +132,16 @@ access traces. Do not modify the benchmark or assume C pointer alignment to
 make this gate pass.
 
 ## Slice 3: Branch directly from comparisons and use fallthrough
+
+Implemented: typed use counts select branch-only final comparisons, selected
+edges bypass unnecessary staging blocks, and physical fallthrough precedes
+branch relaxation. Optimized insertion sort now takes 6,009 instructions and
+1,728 code bytes; matrix1 takes 99,871 instructions and 1,346 bytes. Disabling
+`control_flow` reproduces slice 2 metrics. All 63 native tests, 14 MIR68K unit
+tests, native contract/ABI/type checks and 693 paired C-reference executions
+pass. The new arithmetic/control regression checks 980 executions across the
+five integer types and both NIR/selection settings. Artifacts are in
+`build/mir68k-optimization/slice3/`.
 
 At MIR68K materialization, recognize a comparison whose result has exactly one
 use: the same block's branch terminator. Initially require the comparison to be

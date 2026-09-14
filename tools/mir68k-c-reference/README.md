@@ -28,7 +28,7 @@ The same file records Action! switches; `actionc-options.txt` records the resolv
 native settings and input Git hashes. `--no-opt` selects raw Action! NIR;
 `--no-codegen-opt` disables target optimization. Individual switches
 `--no-forward-temporaries`, `--no-select-instructions`, `--no-relax-branches`
-and `--no-pointer-alignment`
+`--no-pointer-alignment` and `--no-control-flow`
 support controlled comparisons. These switches leave GCC's configuration alone.
 Use a separate `--build-dir` for each experiment to retain its results.
 

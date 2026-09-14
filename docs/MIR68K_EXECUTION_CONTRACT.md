@@ -133,6 +133,16 @@ joins, unknown entry values and explicit call effects. Mutable descriptor
 loads remain unknown; direct arrays and addresses of frame objects can prove
 alignment without an interprocedural descriptor immutability analysis.
 
+Control-flow selection fuses a block's final comparison with its branch only
+when the boolean has exactly one use, that branch's condition. It selects the
+same width and signedness as numeric comparison emission. Numeric results still
+normalize to 0/1, and unfused conditions accept any nonzero value. Edge copies
+execute only on the selected edge and retain parallel-assignment semantics.
+Physical fallthrough removes jumps to the immediately following label or
+inverts a conditional branch when that permits fallthrough. Labels remain
+stable, and checked branch relaxation runs after layout simplification.
+The `control_flow` option disables this selection for differential execution.
+
 Qualified symbol names are attached as display metadata by the compiler API;
 no machine decision depends on source/linker spelling. Parameters and automatic
 objects have frame-relative symbol locations, including the actual source

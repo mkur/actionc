@@ -36,7 +36,8 @@ module search paths and a project root; it returns a native image and physical
 instruction listing without a 6502 runtime or Atari output wrapper.
 
 Use `--no-codegen-opt` to disable target temporary forwarding, instruction
-selection, branch relaxation and pointer-alignment selection independently of NIR optimization. The
+selection, branch relaxation, pointer-alignment and control-flow selection
+independently of NIR optimization. The
 measurement example accepts the same flag; with it the
 corrected compiler reproduces the committed stack-home baseline exactly.
 
@@ -97,8 +98,9 @@ addresses. Configuration, compiler revision/status and input Git hashes go to
 stderr, so redirect stdout to a CSV and stderr to a companion log when retaining
 a measurement. Existing CSV columns retain their meanings.
 Use `--no-forward-temporaries`, `--no-select-instructions` or
-`--no-relax-branches` or `--no-pointer-alignment` to isolate one target
-optimization; `--no-codegen-opt` disables all four. `--no-opt` restricts this example to raw NIR. Unknown options
+`--no-relax-branches`, `--no-pointer-alignment` or `--no-control-flow` to isolate
+one target optimization; `--no-codegen-opt` disables all five. `--no-opt`
+restricts this example to raw NIR. Unknown options
 and benchmark names are rejected.
 SHA hashes `abc`; other programs run their default benchmark entry. Each run
 checks completion and its expected result. Host execution time is not measured.

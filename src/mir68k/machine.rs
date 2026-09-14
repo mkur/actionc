@@ -81,6 +81,24 @@ pub enum Condition {
     LessOrEqual = 15,
 }
 impl Condition {
+    pub fn inverse(self) -> Self {
+        match self {
+            Self::High => Self::LowOrSame,
+            Self::LowOrSame => Self::High,
+            Self::CarryClear => Self::CarrySet,
+            Self::CarrySet => Self::CarryClear,
+            Self::NotEqual => Self::Equal,
+            Self::Equal => Self::NotEqual,
+            Self::OverflowClear => Self::OverflowSet,
+            Self::OverflowSet => Self::OverflowClear,
+            Self::Plus => Self::Minus,
+            Self::Minus => Self::Plus,
+            Self::GreaterOrEqual => Self::Less,
+            Self::Less => Self::GreaterOrEqual,
+            Self::Greater => Self::LessOrEqual,
+            Self::LessOrEqual => Self::Greater,
+        }
+    }
     pub fn inverse_bits(self) -> u16 {
         (self as u16) ^ 1
     }

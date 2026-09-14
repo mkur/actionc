@@ -12,6 +12,7 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
                 options.codegen = actionc::mir68k::materialize::Options::conservative();
             }
             "--no-pointer-alignment" => options.codegen.pointer_alignment = false,
+            "--no-control-flow" => options.codegen.control_flow = false,
             "--no-forward-temporaries" => options.codegen.forward_temporaries = false,
             "--no-select-instructions" => options.codegen.select_instructions = false,
             "--no-relax-branches" => options.codegen.relax_branches = false,
