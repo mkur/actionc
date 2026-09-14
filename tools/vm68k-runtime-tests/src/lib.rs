@@ -2,6 +2,7 @@
 //! pinned r68k, never by a compiler-IR interpreter.
 pub mod artifacts;
 
+use actionc::mir68k::image::{ImageView, SymbolView};
 use r68k::cpu::{Callbacks, ConfiguredCore, Core, Cycles, Exception, ProcessingState};
 use r68k::interrupts::AutoInterruptController;
 use r68k::ram::{ADDRBUS_MASK, AddressBus, AddressSpace};
@@ -345,10 +346,10 @@ impl Machine {
 }
 
 impl Machine {
-    pub fn from_image(image: &actionc::mir68k::image::NativeImage) -> Result<Self, String> {
+    pub fn from_image(image: &impl ImageView) -> Result<Self, String> {
         image.verify()?;
         let mut memory = Memory::default();
-        for segment in &image.segments {
+        for segment in image.segments() {
             memory.map(
                 segment.address,
                 &segment.bytes,
@@ -356,7 +357,7 @@ impl Machine {
                 segment.executable,
             )?;
         }
-        for zero in &image.zero_fill {
+        for zero in image.zero_fill() {
             memory.map(
                 zero.address,
                 &vec![0; zero.size as usize],
@@ -364,29 +365,11 @@ impl Machine {
                 false,
             )?;
         }
-        Self::new(memory, image.entry)
+        Self::new(memory, image.entry())
     }
 
-    pub fn read_scalar(&self, symbol: &actionc::mir68k::image::Symbol) -> Result<u32, String> {
-        let width = symbol
-            .ty
-            .as_ref()
-            .and_then(|t| t.width)
-            .ok_or("symbol has no scalar type")?
-            .get() as usize;
-        if symbol.array.is_some()
-            || symbol.size != width as u32
-            || !matches!(width, 1 | 2 | 4)
-            || !matches!(
-                symbol.ty.as_ref().unwrap().kind,
-                actionc::nir::NirTypeKind::Integer(_)
-                    | actionc::nir::NirTypeKind::Bool
-                    | actionc::nir::NirTypeKind::Pointer { .. }
-                    | actionc::nir::NirTypeKind::Callable { .. }
-            )
-        {
-            return Err("symbol is not a supported scalar".into());
-        }
+    pub fn read_scalar(&self, symbol: &impl SymbolView) -> Result<u32, String> {
+        let width = symbol.scalar_width()? as usize;
         Ok(self
             .cpu
             .mem
@@ -395,30 +378,8 @@ impl Machine {
             .fold(0, |n, b| (n << 8) | u32::from(*b)))
     }
 
-    pub fn write_scalar(
-        &mut self,
-        symbol: &actionc::mir68k::image::Symbol,
-        value: u32,
-    ) -> Result<(), String> {
-        let width = symbol
-            .ty
-            .as_ref()
-            .and_then(|t| t.width)
-            .ok_or("symbol has no scalar type")?
-            .get() as usize;
-        if symbol.array.is_some()
-            || symbol.size != width as u32
-            || !matches!(width, 1 | 2 | 4)
-            || !matches!(
-                symbol.ty.as_ref().unwrap().kind,
-                actionc::nir::NirTypeKind::Integer(_)
-                    | actionc::nir::NirTypeKind::Bool
-                    | actionc::nir::NirTypeKind::Pointer { .. }
-                    | actionc::nir::NirTypeKind::Callable { .. }
-            )
-        {
-            return Err("symbol is not a supported scalar".into());
-        }
+    pub fn write_scalar(&mut self, symbol: &impl SymbolView, value: u32) -> Result<(), String> {
+        let width = symbol.scalar_width()? as usize;
         self.cpu
             .mem
             .write(symbol.address()?, &value.to_be_bytes()[4 - width..])
@@ -426,11 +387,8 @@ impl Machine {
 }
 
 impl Machine {
-    fn array_layout(
-        &self,
-        symbol: &actionc::mir68k::image::Symbol,
-    ) -> Result<(u32, u32, u32, u32), String> {
-        let array = symbol.array.as_ref().ok_or("symbol is not an array")?;
+    fn array_layout(&self, symbol: &impl SymbolView) -> Result<(u32, u32, u32, u32), String> {
+        let array = symbol.array().ok_or("symbol is not an array")?;
         let count = array.count.ok_or("array has no known element count")?;
         if !matches!(array.element_width, 1 | 2 | 4) || array.stride < array.element_width {
             return Err("unsupported array element layout".into());
@@ -456,7 +414,7 @@ impl Machine {
         .ok_or("array address overflow")?;
         Ok((base, count, array.stride, array.element_width))
     }
-    pub fn read_array(&self, symbol: &actionc::mir68k::image::Symbol) -> Result<Vec<u32>, String> {
+    pub fn read_array(&self, symbol: &impl SymbolView) -> Result<Vec<u32>, String> {
         let (base, count, stride, width) = self.array_layout(symbol)?;
         (0..count)
             .map(|i| {
@@ -467,11 +425,7 @@ impl Machine {
             })
             .collect()
     }
-    pub fn write_array(
-        &mut self,
-        symbol: &actionc::mir68k::image::Symbol,
-        values: &[u32],
-    ) -> Result<(), String> {
+    pub fn write_array(&mut self, symbol: &impl SymbolView, values: &[u32]) -> Result<(), String> {
         let (base, count, stride, width) = self.array_layout(symbol)?;
         if values.len() != count as usize {
             return Err("array input length does not match symbol count".into());

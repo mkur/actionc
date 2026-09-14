@@ -8,6 +8,9 @@ publish = false
 actionc = { path = "../.." }
 r68k = "=0.2.2"
 
+[dev-dependencies]
+serde_json = "1"
+
 [workspace]
 
 [[example]]

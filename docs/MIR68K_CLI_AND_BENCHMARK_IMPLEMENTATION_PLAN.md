@@ -1,7 +1,12 @@
 # MIR68K public CLI, native artifacts and benchmark coverage
 
-Status: proposed; implementation has not started. Baseline: `c753845`, with
-compiler behavior and measurements at `8ecf73a`.
+Status: implementation in progress. Slice 2 (artifact I/O) is complete;
+slices 1, 3 and 4 remain. Baseline: `c753845`, with compiler behavior and
+measurements at `8ecf73a`.
+
+Slice 2 validation: all 69 native tests pass, including four artifact tests;
+the paired C command retains every measurement in `mir68k-c-comparison.csv`.
+The final metadata projection adjustment also passed the artifact target.
 
 Deliver the four requested areas: public CLI integration, native output,
 compile-and-run execution tests, and native Statemate/Dijkstra/Huffman-decoder

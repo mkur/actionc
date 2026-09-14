@@ -12,7 +12,8 @@ pub struct Segment {
     pub writable: bool,
     pub executable: bool,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ZeroFill {
     pub address: u32,
     pub size: u32,
@@ -36,7 +37,8 @@ pub enum SymbolLocation {
     Absolute(u32),
     Frame { routine: RoutineId, offset: i32 },
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ArrayInfo {
     pub element_width: u32,
     pub stride: u32,
@@ -70,6 +72,68 @@ pub struct NativeImage {
     pub zero_fill: Vec<ZeroFill>,
     pub symbols: Vec<Symbol>,
 }
+
+/// Execution and inspection views shared by linked images and artifact readers.
+/// Neither interface reconstructs executable NIR from serialized metadata.
+pub trait ImageView {
+    fn entry(&self) -> u32;
+    fn segments(&self) -> &[Segment];
+    fn zero_fill(&self) -> &[ZeroFill];
+    fn verify(&self) -> Result<(), String>;
+}
+impl ImageView for NativeImage {
+    fn entry(&self) -> u32 {
+        self.entry
+    }
+    fn segments(&self) -> &[Segment] {
+        &self.segments
+    }
+    fn zero_fill(&self) -> &[ZeroFill] {
+        &self.zero_fill
+    }
+    fn verify(&self) -> Result<(), String> {
+        NativeImage::verify(self)
+    }
+}
+pub trait SymbolView {
+    fn name(&self) -> &str;
+    fn size(&self) -> u32;
+    fn address(&self) -> Result<u32, String>;
+    fn array(&self) -> Option<&ArrayInfo>;
+    /// Width and signedness only for inspectable scalar values.
+    fn scalar_type(&self) -> Option<(u32, bool)>;
+    fn scalar_width(&self) -> Result<u32, String> {
+        let (width, _) = self.scalar_type().ok_or("symbol has no scalar type")?;
+        if self.array().is_some() || self.size() != width || !matches!(width, 1 | 2 | 4) {
+            return Err("symbol is not a supported scalar".into());
+        }
+        Ok(width)
+    }
+}
+impl SymbolView for Symbol {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn size(&self) -> u32 {
+        self.size
+    }
+    fn address(&self) -> Result<u32, String> {
+        Symbol::address(self)
+    }
+    fn array(&self) -> Option<&ArrayInfo> {
+        self.array.as_ref()
+    }
+    fn scalar_type(&self) -> Option<(u32, bool)> {
+        use crate::nir::NirTypeKind;
+        let ty = self.ty.as_ref()?;
+        let signed = match &ty.kind {
+            NirTypeKind::Integer(i) => i.signed,
+            NirTypeKind::Bool | NirTypeKind::Pointer { .. } | NirTypeKind::Callable { .. } => false,
+            _ => return None,
+        };
+        Some((ty.width?.get(), signed))
+    }
+}
 impl NativeImage {
     pub fn symbol(&self, name: &str) -> Result<&Symbol, String> {
         let mut found = self
@@ -85,42 +149,72 @@ impl NativeImage {
         Ok(first)
     }
     pub fn verify(&self) -> Result<(), String> {
-        if self.target_layout != TargetLayout::for_target(TargetId::Motorola68000) {
-            return Err("image target is not original MC68000".into());
-        }
-        let mut ranges = Vec::new();
-        for segment in &self.segments {
-            let size = u32::try_from(segment.bytes.len()).map_err(|_| "segment too large")?;
-            if size == 0 {
-                return Err("empty initialized segment".into());
-            }
-            let end = checked_end(segment.address, size)?;
-            if segment.executable && (segment.address & 1 != 0 || size & 1 != 0) {
-                return Err("unaligned code segment".into());
-            }
-            ranges.push((segment.address, end));
-        }
-        for zero in &self.zero_fill {
-            if zero.size == 0 {
-                return Err("empty zero-fill region".into());
-            }
-            ranges.push((zero.address, checked_end(zero.address, zero.size)?));
-        }
-        ranges.sort_unstable();
-        if ranges.windows(2).any(|r| r[0].1 > r[1].0) {
-            return Err("overlapping native image regions".into());
-        }
-        if self.entry & 1 != 0
-            || !self.segments.iter().any(|s| {
-                s.executable
-                    && self.entry >= s.address
-                    && self.entry < s.address + s.bytes.len() as u32
-            })
-        {
-            return Err("entry is not in emitted code".into());
-        }
-        Ok(())
+        verify_regions(
+            self.target_layout,
+            self.entry,
+            &self.segments,
+            &self.zero_fill,
+        )
     }
+}
+
+pub fn verify_regions(
+    layout: TargetLayout,
+    entry: u32,
+    segments: &[Segment],
+    zero_fill: &[ZeroFill],
+) -> Result<(), String> {
+    if layout != TargetLayout::for_target(TargetId::Motorola68000) {
+        return Err("image target is not original MC68000".into());
+    }
+    let extents = segments
+        .iter()
+        .map(|s| {
+            Ok((
+                s.address,
+                u32::try_from(s.bytes.len()).map_err(|_| "segment too large")?,
+                s.executable,
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    verify_region_extents(entry, &extents, zero_fill)
+}
+
+/// Validate declared extents before an artifact loader allocates payload bytes.
+pub fn verify_region_extents(
+    entry: u32,
+    segments: &[(u32, u32, bool)],
+    zero_fill: &[ZeroFill],
+) -> Result<(), String> {
+    let mut ranges = Vec::new();
+    for &(address, size, executable) in segments {
+        if size == 0 {
+            return Err("empty initialized segment".into());
+        }
+        let end = checked_end(address, size)?;
+        if executable && (address & 1 != 0 || size & 1 != 0) {
+            return Err("unaligned code segment".into());
+        }
+        ranges.push((address, end));
+    }
+    for zero in zero_fill {
+        if zero.size == 0 {
+            return Err("empty zero-fill region".into());
+        }
+        ranges.push((zero.address, checked_end(zero.address, zero.size)?));
+    }
+    ranges.sort_unstable();
+    if ranges.windows(2).any(|r| r[0].1 > r[1].0) {
+        return Err("overlapping native image regions".into());
+    }
+    if entry & 1 != 0
+        || !segments.iter().any(|&(address, size, executable)| {
+            executable && entry >= address && entry < address + size
+        })
+    {
+        return Err("entry is not in emitted code".into());
+    }
+    Ok(())
 }
 
 pub fn link(

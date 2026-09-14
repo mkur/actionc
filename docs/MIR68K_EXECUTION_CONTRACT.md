@@ -53,6 +53,12 @@ outside code. Image symbols carry absolute or frame-relative locations; array
 metadata distinguishes the descriptor from backing and records width, stride
 and count. The compiler has no emulator dependency.
 
+The compiler-owned [native artifact format](NATIVE_IMAGE_FORMAT.md) transports
+this linked image without executable IR. Import validates stable symbol/layout
+tags and region metadata before loading bounded payloads. In-memory and imported
+images share region verification and VM symbol access; the VM retains ownership
+of reserved-memory, stack, ABI and fault checks.
+
 The native compiler API uses the existing source/module loader, semantic
 analysis, reachable SemIR selection and NIR verifier/optimizer. Source-level
 startup and origin constraints are diagnosed before the verified backend

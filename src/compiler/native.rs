@@ -1,4 +1,5 @@
 //! Bare native image API, independent of Atari runtimes and load-file formats.
+pub mod artifacts;
 use super::{CompileError, CompilerPhase};
 use crate::{
     backend::BackendLoweringError,
