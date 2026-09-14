@@ -1,8 +1,8 @@
 # MIR68K public CLI, native artifacts and benchmark coverage
 
 Status: implementation in progress. Slices 2 (artifact I/O), 1 (CLI) and 3
-(artifact execution) and slice 4a (Statemate) are complete. Dijkstra and Huffman
-decoding remain. Baseline: `c753845`, with compiler behavior and measurements
+(artifact execution), 4a (Statemate) and 4b (Dijkstra) are complete. Huffman
+decoding is being integrated. Baseline: `c753845`, with compiler behavior and measurements
 at `8ecf73a`.
 
 Slice 2 validation: all 69 native tests pass, including four artifact tests;
@@ -23,6 +23,11 @@ helper. CI receives the root workspace binary explicitly.
 Slice 4a validation: 314 native and 628 guarded 6502 Statemate executions pass,
 with both newline conventions through the actual source/include loaders. All
 16 CASE routines are shared unchanged; the vector generator check passes.
+
+Slice 4b validation: 66 native and 132 guarded 6502 Dijkstra executions pass,
+including the full original benchmark and pool exhaustion. The generator check
+and a focused null/interior/out-of-range pointer-translation test pass. Record
+layout comes from a per-image query; both shared includes exercise LF/CRLF.
 
 Deliver the four requested areas: public CLI integration, native output,
 compile-and-run execution tests, and native Statemate/Dijkstra/Huffman-decoder

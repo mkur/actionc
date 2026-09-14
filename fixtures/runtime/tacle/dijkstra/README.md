@@ -7,9 +7,11 @@ queue pool**, and the original driver performing 20 searches. No new language
 constructs or heap allocator are needed.
 
 This is a host-driven compiler fixture, with the graph and queue state supplied
-in RAM. The modern classic (`--mode optimized`) and MIR6502 backends run with
-both cartridge and standalone runtimes. Compile at **`$8000`** to keep generated
-code above the host data and below the cartridge at `$A000`.
+in RAM. `dijkstra.act` allocates portable storage; `types.inc` and `kernel.inc`
+are shared with the [6502 driver](../../../../tools/vm-runtime-tests/fixtures/dijkstra_driver.act).
+That driver runs in both modern 6502 backends and runtimes at **`$8000`**, above
+the host packet and below the cartridge at `$A000`. The portable driver also
+runs from public MC68000 CLI artifacts.
 
 ## Provenance
 
@@ -28,9 +30,10 @@ code above the host data and below the cartridge at `$A000`.
 
 ## Action! adaptations and preserved behavior
 
-The C structures become packed Action! records. Each node has two INT fields
-(four bytes); each queue entry has three INT fields and a QueueItem POINTER
-(eight bytes). The C matrix becomes `Row ARRAY matrix(100)`, with each row
+The C structures become Action! records. Each node has two INT fields;
+each queue entry has three INT fields and a QueueItem POINTER. Their 6502
+sizes are four and eight bytes. Native sizes and offsets come from the compiler.
+The C matrix becomes `Row ARRAY matrix(100)`, with each row
 containing `BYTE ARRAY cost(100)`. Access remains `matrix(node).cost(i)`.
 
 C integers become signed 16-bit INT in both the port and the reference. Graph
@@ -62,6 +65,8 @@ in the benchmark driver. Several unusual upstream behaviors are preserved:
 
 ## Host memory contract
 
+The following packet addresses belong to the 6502 adapter and reference format.
+
 | Address | Meaning |
 | --- | --- |
 | `$0600` | Command (0..3) |
@@ -85,6 +90,13 @@ little-endian. Queue pointers are null or
 `$4001 + 8*index`, pointing into the actual record pool. The host must supply valid
 node indexes and acyclic queue chains; there is no new runtime
 bounds or pointer validation in the Action! fixture.
+
+The native adapter translates wire links to slot indexes, then to the native
+pool's symbol-derived base and stride. It rejects out-of-pool or interior links
+in either direction. `headAddress` is a typed QueueItem POINTER in the portable
+driver, preserving the complete native address. A test-only command 255 exports
+`SIZEOF`/`OFFSETOF` values once per compiled image. Ordinary commands retain the
+same shared algorithm and return normally.
 
 | Command | Operation |
 | --- | --- |
@@ -116,6 +128,14 @@ checks completion, the unchanged graph, and every surrounding guard byte in
 `$0600..$7FFF`. Data structures start at unaligned addresses and span pages.
 Standalone runs load no ROMs. LF and CRLF source, graph, and vector text pass
 through the actual compiler, parser, and VM path.
+
+The MC68000 target adds **66 executions**, all 33 cases in raw and optimized
+NIR from CLI-produced artifacts. It compares every numeric header field, node,
+queue record and link identity, plus the unchanged graph, array descriptors and
+record padding. The 20-search benchmark remains enabled; it executes roughly
+259 million raw or 196 million optimized native instructions on the current
+compiler. Its instruction bound matches the existing 6502 test's billion-step
+bound. Native addresses never come from the packet layout.
 
 The four configurations are separate Rust tests and can run in parallel. The
 full 20-search driver remains enabled in each one, so the debug VM target can

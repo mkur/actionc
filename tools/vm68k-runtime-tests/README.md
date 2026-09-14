@@ -76,6 +76,11 @@ serialized in target byte order. No benchmark address belongs to a 6502 map.
 Statemate adds 157 complete controller-state cases per NIR mode, including all
 16 shared CASE statements, 64 flag bytes, signed measurements and timer wrap.
 Its native driver is compiled through the public CLI artifact workflow.
+Dijkstra adds all 33 cases per NIR mode, including the original 20-search entry,
+queue exhaustion and complete node/queue/graph state. Record sizes and offsets
+come from a compiler-executed layout query; queue links are compared as pool
+slot identities. The full benchmark takes roughly 196–259 million native
+instructions, so this target can take a few minutes in debug builds.
 Public artifact tests invoke the actual `actionc` executable. CI supplies it
 through `ACTIONC_TEST_COMPILER`; standalone tests build it once per integration
 test process in a separate Cargo target directory and use Cargo's reported

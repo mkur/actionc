@@ -1,0 +1,41 @@
+; TACLeBench/MiBench Dijkstra port. Upstream author unknown; GNU GPL.
+; Revision c6a0d73e47bbd2bc86e34637156fb26dd4d5cf08. See README.md.
+; The host supplies the graph and reads complete node/queue state from RAM.
+
+INCLUDE "types.inc"
+
+BYTE command=$0600,done=$06FF
+INT startNode=$0602,endNode=$0604,result=$0606,checksum=$0608
+INT queueCount=$060A,queueNext=$060C
+CARD headAddress=$060E
+QueueItem POINTER head
+INT argNode=$0610,argDist=$0612,argPrev=$0614
+INT outNode=$0616,outDist=$0618,outPrev=$061A,seedNext=$061C
+Node ARRAY nodes(NumNodes)=$0801
+Row ARRAY matrix(NumNodes)=$1001
+QueueItem ARRAY items(QueueSize)=$4001
+
+INCLUDE "kernel.inc"
+
+PROC Main()
+  ; A numeric POINTER initializer is not a portable fixed-storage binding.
+  ; Transfer the host's address explicitly into the typed queue pointer.
+  head=headAddress
+  IF command=0 THEN
+    Init()
+    Benchmark()
+    result=ChecksumResult()
+  ELSEIF command=1 THEN
+    Init()
+    queueNext=seedNext
+    result=Find(startNode,endNode)
+  ELSEIF command=2 THEN
+    result=Enqueue(argNode,argDist,argPrev)
+  ELSE
+    Dequeue(@outNode,@outDist,@outPrev)
+    result=0
+  FI
+  headAddress=head
+  done=$A5
+  DO OD
+RETURN

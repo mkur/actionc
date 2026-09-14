@@ -4,7 +4,9 @@ use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/dijkstra/dijkstra.act");
+const SOURCE: &str = include_str!("../fixtures/dijkstra_driver.act");
+const TYPES: &str = include_str!("../../../fixtures/runtime/tacle/dijkstra/types.inc");
+const CORE: &str = include_str!("../../../fixtures/runtime/tacle/dijkstra/kernel.inc");
 const GRAPHS: &str = include_str!("../../../fixtures/runtime/tacle/dijkstra/graphs.txt");
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/dijkstra/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
@@ -161,6 +163,9 @@ fn check_dijkstra(mode: CompileMode, runtime: Runtime) {
     };
     let path = temporary.0.join("dijkstra.act");
     std::fs::write(&path, text(&source_lf)).unwrap();
+    for (name, source) in [("types.inc", TYPES), ("kernel.inc", CORE)] {
+        std::fs::write(temporary.0.join(name), text(&source.replace("\r\n", "\n"))).unwrap();
+    }
     let compiled = compile_file(
         &path,
         &CompileOptions::for_mode(mode)
