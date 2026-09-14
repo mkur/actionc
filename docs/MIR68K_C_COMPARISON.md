@@ -67,18 +67,23 @@ improvements after, or alongside, the larger storage and alignment work.
 
 ## Improvement cycle
 
+The [implementation plan](MIR68K_OPTIMIZATION_IMPLEMENTATION_PLAN.md) turns these
+findings into a bounded milestone, with a separate commit and validation gate
+for each major slice.
+
 1. Preserve proven pointer alignment through assignments, loop joins and
    constant-stride updates. Retain conservative byte access for unknown or odd
    pointers, with focused aligned/unaligned and volatile regressions.
-2. Promote eligible private locals and extend register allocation across blocks.
-   Start with nonescaping counters/pointers, respect calls and alias facts, and
-   retain the conservative backend for differential execution.
-3. Fuse compare/branch use and simplify physical fallthrough, then add measured
-   addressing and word-rearrangement choices.
+2. Fuse compare/branch use and simplify physical fallthrough.
+3. Extend existing NIR promotion for eligible native locals, then add bounded
+   register allocation across blocks. Start with nonescaping counters/pointers,
+   respect calls and alias facts, and retain the conservative backend for
+   differential execution.
 4. After each focused change, rerun the paired comparison, confirm all reference
    states, record the new CSV and inspect the changed hot loops. Keep GCC
    versions/flags stable when attributing changes to Action!.
-5. Extend C coverage to SHA and DCT once this comparison is established. Their
+5. Close this milestone and return to construct/platform coverage. Further
+   addressing choices and C ports of SHA and DCT can follow separately; their
    shifts, rounding and wrapping must match the Action! adaptations explicitly.
 
 Compiler CLI/platform integration remains separate. This baseline establishes

@@ -37,6 +37,9 @@ crowding the active reference set.
 - [MIR68K_C_COMPARISON.md](MIR68K_C_COMPARISON.md)
   - equivalent MC68000 GCC benchmarks, shared r68k validation and measured
     priorities for alignment, register allocation and control flow.
+- [MIR68K_OPTIMIZATION_IMPLEMENTATION_PLAN.md](MIR68K_OPTIMIZATION_IMPLEMENTATION_PLAN.md)
+  - proposed slices for proven pointer alignment, direct comparison branches,
+    native scalar promotion and bounded register allocation across blocks.
 - [MIR68K_MINIMAL_EXECUTION_PLAN.md](MIR68K_MINIMAL_EXECUTION_PLAN.md)
   - completed minimal path from verified NIR to MC68000 code, an r68k
   execution harness, symbol-based test access and insertion-sort acceptance.
