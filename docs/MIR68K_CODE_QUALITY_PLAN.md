@@ -1,6 +1,6 @@
 # MIR68K code quality milestone
 
-Status: all four implementation slices complete, with local validation below.
+Status: complete. All four slices are implemented and cross-platform CI passes.
 
 This milestone adds native DCT and ADPCM acceptance, records a reproducible
 code-generation baseline, reduces temporary stack traffic within basic blocks,
@@ -110,7 +110,7 @@ preservation and differential target-optimization checks. Focused MIR68K unit,
 native ABI and native type checks pass. The NIR snapshots and 51-fixture sweep
 pass; six native snapshots intentionally record the pointer contract bug fix.
 
-The full local compiler suite passes except for a pre-existing untracked
-`samples/vbxe/shared/lines.act` whose `SHARED.SCREEN` dependency is absent.
-That unrelated sample and the user's other worktree changes are outside this
-milestone.
+[Cross-platform CI](https://github.com/mkur/actionc/actions/runs/34822617893)
+passed on Linux, Windows and macOS for code commit `05310b3`: sample builds,
+the complete compiler suite, both VM workspaces and Python tooling tests.
+The subsequent completion record changes documentation only.
