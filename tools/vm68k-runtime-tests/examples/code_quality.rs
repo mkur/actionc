@@ -13,6 +13,11 @@ fn main() {
 }
 fn run() {
     let requested: Vec<_> = std::env::args().skip(1).collect();
+    let conservative = requested.iter().any(|arg| arg == "--no-codegen-opt");
+    let requested: Vec<_> = requested
+        .iter()
+        .filter(|arg| !arg.starts_with("--"))
+        .collect();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     println!("benchmark,nir,code_bytes,instructions,max_frame_bytes");
     for name in [
@@ -24,7 +29,7 @@ fn run() {
         "adpcm_dec",
         "adpcm_enc",
     ] {
-        if !requested.is_empty() && !requested.iter().any(|arg| arg == name) {
+        if !requested.is_empty() && !requested.iter().any(|arg| arg.as_str() == name) {
             continue;
         }
         for optimize in [false, true] {
@@ -32,6 +37,9 @@ fn run() {
                 root.join(format!("fixtures/runtime/tacle/{name}/{name}.act")),
                 &NativeCompileOptions {
                     optimize,
+                    codegen: actionc::mir68k::materialize::Options {
+                        forward_temporaries: !conservative,
+                    },
                     ..Default::default()
                 },
             )

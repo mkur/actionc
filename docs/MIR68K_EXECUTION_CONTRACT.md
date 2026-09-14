@@ -75,6 +75,17 @@ actual width at the start of its home. Edge transfers stage all sources in a
 separate frame area before writing destinations. Conditional edges use separate
 machine blocks, so only the chosen edge's parallel transfer executes.
 
+Optional block-local temporary forwarding tracks equal-width values in data
+registers after materialization. A retained register may replace a private
+temporary reload; the load disappears only if its NZVC effects are dead.
+Big-endian partial reads cannot use a cached value of a different width. Every
+instruction's register and CCR effects are explicit in this pass; calls,
+branches and source-visible writes end forwarding. A private temporary store
+can disappear only when no routine instruction still references that home and
+its flags are dead. Frame reservations, edge staging and source-visible memory
+accesses remain unchanged. The conservative materialization option permits
+differential execution independently of NIR optimization.
+
 Native calls use an outgoing area at the bottom of the caller's A6 frame.
 Arguments and indirect targets are captured before this area is written. After
 JSR and LINK, incoming arguments begin at A6+8. Slots are even-sized; a BYTE

@@ -7,7 +7,26 @@ mod arithmetic;
 
 type Result<T> = std::result::Result<T, String>;
 
+#[derive(Debug, Clone, Copy)]
+pub struct Options {
+    pub forward_temporaries: bool,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            forward_temporaries: true,
+        }
+    }
+}
+
 pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
+    materialize_with_options(program, Options::default())
+}
+
+pub fn materialize_with_options(
+    program: &Mir68kProgram,
+    options: Options,
+) -> Result<MachineProgram> {
     verify::verify_contract(program).map_err(|e| format!("invalid MIR68K: {e:?}"))?;
     let entry = program
         .routines
@@ -20,6 +39,7 @@ pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
     let mut machine = MachineProgram::default();
     let mut next = 0;
     for routine in &program.routines {
+        let first_block = machine.blocks.len();
         if routine.entry.external {
             return Err(format!(
                 "{}: external native routine entry requires an adapter",
@@ -59,6 +79,12 @@ pub fn materialize(program: &Mir68kProgram) -> Result<MachineProgram> {
                 id: builder.current,
                 instructions: std::mem::take(&mut builder.instructions),
             });
+        }
+        if options.forward_temporaries {
+            super::temporary_forwarding::forward(
+                &mut machine.blocks[first_block..],
+                &builder.temps.values().copied().collect(),
+            );
         }
         next = builder.next;
         machine.routines.push(MachineRoutine {

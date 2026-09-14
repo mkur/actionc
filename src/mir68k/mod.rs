@@ -9,6 +9,7 @@ pub mod image;
 mod lower;
 pub mod machine;
 pub mod materialize;
+mod temporary_forwarding;
 pub mod runtime;
 pub mod verify;
 

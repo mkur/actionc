@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 pub struct NativeCompileOptions {
     pub origin: u32,
     pub optimize: bool,
+    /// Target optimization is independent of shared NIR optimization.
+    pub codegen: mir68k::materialize::Options,
     pub target: crate::target::TargetId,
     pub project_root: Option<PathBuf>,
     pub module_paths: Vec<PathBuf>,
@@ -21,6 +23,7 @@ impl Default for NativeCompileOptions {
         Self {
             origin: 0x10000,
             optimize: true,
+            codegen: Default::default(),
             target: crate::target::TargetId::Motorola68000,
             project_root: None,
             module_paths: Vec::new(),
@@ -124,7 +127,8 @@ pub fn compile_file(
             d.into_iter().map(|d| (d.routine, d.block, d.message)),
         ),
     })?;
-    let machine = mir68k::materialize::materialize(&mir).map_err(codegen_error)?;
+    let machine = mir68k::materialize::materialize_with_options(&mir, options.codegen)
+        .map_err(codegen_error)?;
     let mut image = mir68k::image::link(&mir, &machine, options.origin).map_err(codegen_error)?;
     for symbol in &mut image.symbols {
         let (base, suffix) = if let Some((base, local)) = symbol.name.split_once("::") {

@@ -10,7 +10,7 @@ fn main() {
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let path = args.next().ok_or(
-        "usage: actionc-vm68k-tests SOURCE [--origin ADDRESS] [--no-opt] [--budget INSTRUCTIONS] [--dump PREFIX]",
+        "usage: actionc-vm68k-tests SOURCE [--origin ADDRESS] [--no-opt] [--no-codegen-opt] [--budget INSTRUCTIONS] [--dump PREFIX]",
     )?;
     let mut options = NativeCompileOptions::default();
     let mut budget = 1_000_000;
@@ -18,6 +18,7 @@ fn run() -> Result<(), String> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
+            "--no-codegen-opt" => options.codegen.forward_temporaries = false,
             "--dump" => {
                 dump = Some(std::path::PathBuf::from(
                     args.next().ok_or("--dump requires a path prefix")?,

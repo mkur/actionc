@@ -35,6 +35,10 @@ values. `actionc::compiler::native::compile_file` accepts full-width origins,
 module search paths and a project root; it returns a native image and physical
 instruction listing without a 6502 runtime or Atari output wrapper.
 
+Use `--no-codegen-opt` to disable target temporary forwarding independently of
+NIR optimization. The measurement example accepts the same flag; with it the
+corrected compiler reproduces the committed stack-home baseline exactly.
+
 The initial native subset covers integer arithmetic and casts, logical shifts,
 comparisons, IF/CASE/loops, direct and typed indirect calls, recursive automatic
 frames, pointers, one-dimensional arrays, record fields and overlapping copies.

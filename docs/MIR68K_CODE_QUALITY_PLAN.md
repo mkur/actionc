@@ -56,3 +56,12 @@ Optimized NIR examples before target optimization:
 The encoder includes its original integer sine initialization. These are
 deterministic instruction counts, not host wall-clock timings or whole-machine
 performance estimates. Frame measurements exclude dynamic call nesting.
+
+## Temporary forwarding
+
+Block-local forwarding and removal of unread private temporary stores reduce
+optimized Matrix1 from 185,892 to 170,264 instructions and DCT from 10,192 to
+9,034 executable bytes. All benchmark results remain unchanged; frame sizes
+are unchanged. The differential regression checks branch/call composition,
+mixed widths, ABI completion and the exact volatile access trace. The
+`--no-codegen-opt` measurement reproduces the baseline CSV byte for byte.
