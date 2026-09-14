@@ -4,4 +4,3 @@
 
 TYPE Code=[BYTE ARRAY bits(32) CARD length BYTE present]
 TYPE Tree=[CARD symbol Tree POINTER left,right]
-

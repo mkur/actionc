@@ -129,4 +129,3 @@ PROC Decode()
     UNTIL current.symbol=256 OD
   FI
 RETURN
-

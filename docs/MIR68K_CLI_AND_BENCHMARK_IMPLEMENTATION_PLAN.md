@@ -1,7 +1,7 @@
 # MIR68K public CLI, native artifacts and benchmark coverage
 
-Status: all implementation slices are complete and locally validated. Final
-review and CI dispatch remain. Baseline: `c753845`, with compiler behavior and measurements
+Status: complete. All implementation slices and local validation are finished;
+CI is dispatched separately without waiting for completion. Baseline: `c753845`, with compiler behavior and measurements
 at `8ecf73a`.
 
 Slice 2 validation: all 69 native tests pass, including four artifact tests;
@@ -32,7 +32,13 @@ Slice 4c validation: 370 native and 740 guarded 6502 Huffman-decoder executions
 pass, including 256-bit codes, all code/tree records and output poison tails.
 The generator check passes. Queried layout separates native padding from
 reference fields; input, code and tree bytes retain their original contracts.
-Together, the three ports execute all 750 requested native reference cases.
+Together, the three ports execute all 750 requested native reference cases
+and retain 1,500 guarded 6502 executions. No shared NIR, semantic-lowering or
+optimizer contract changed. Local validation was scoped to the affected CLI,
+compiler API, artifact and VM targets; the complete existing native suite ran
+after the shared image interface and again after artifact execution integration.
+The benchmark-only slices then ran their affected targets and generator checks.
+A final whitespace check removed only extra blank lines at shared-include EOF.
 
 Deliver the four requested areas: public CLI integration, native output,
 compile-and-run execution tests, and native Statemate/Dijkstra/Huffman-decoder

@@ -6,4 +6,3 @@ CONST NumNodes=100,QueueSize=1000,NoNode=9999
 TYPE Node=[INT dist,prev]
 TYPE QueueItem=[INT node INT dist INT prev QueueItem POINTER next]
 TYPE Row=[BYTE ARRAY cost(NumNodes)]
-
