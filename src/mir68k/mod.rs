@@ -4,6 +4,7 @@
 //! not share an instruction or register model with either 6502-family backend.
 
 mod allocation;
+pub mod amiga;
 mod analysis;
 mod branch_relaxation;
 mod control_flow;

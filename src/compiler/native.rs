@@ -1,5 +1,6 @@
 //! Bare native image API, independent of Atari runtimes and load-file formats.
 pub mod artifacts;
+pub mod runtime;
 use super::{CompileError, CompilerPhase};
 use crate::{
     backend::BackendLoweringError,
@@ -42,19 +43,44 @@ pub struct NativeCompiledProgram {
     pub source_paths: Vec<PathBuf>,
 }
 
+/// Verified target input, before choosing a platform adapter or link layout.
+#[derive(Debug, Clone)]
+pub struct PreparedNativeProgram {
+    pub mir: mir68k::Mir68kProgram,
+    pub source_paths: Vec<PathBuf>,
+    display_names: std::collections::BTreeMap<String, String>,
+}
+
 pub fn compile_file(
     path: impl AsRef<Path>,
     options: &NativeCompileOptions,
 ) -> Result<NativeCompiledProgram, CompileError> {
+    if options.origin & 1 != 0 || options.origin >= 0x1000000 {
+        return Err(CompileError::configuration(
+            "native origin must be even and within the 24-bit address space",
+        ));
+    }
+    let prepared = prepare_file(path, options)?;
+    let machine = mir68k::materialize::materialize_with_options(&prepared.mir, options.codegen)
+        .map_err(codegen_error)?;
+    let mut image =
+        mir68k::image::link(&prepared.mir, &machine, options.origin).map_err(codegen_error)?;
+    prepared.qualify_symbols(&mut image.symbols);
+    Ok(NativeCompiledProgram {
+        image,
+        machine,
+        source_paths: prepared.source_paths,
+    })
+}
+
+pub fn prepare_file(
+    path: impl AsRef<Path>,
+    options: &NativeCompileOptions,
+) -> Result<PreparedNativeProgram, CompileError> {
     let path = path.as_ref();
     if options.target != crate::target::TargetId::Motorola68000 {
         return Err(CompileError::configuration(
             "native emission currently supports only Motorola68000",
-        ));
-    }
-    if options.origin & 1 != 0 || options.origin >= 0x1000000 {
-        return Err(CompileError::configuration(
-            "native origin must be even and within the 24-bit address space",
         ));
     }
     let loaded = load_compilation(
@@ -137,21 +163,6 @@ pub fn compile_file(
             d.into_iter().map(|d| (d.routine, d.block, d.message)),
         ),
     })?;
-    let machine = mir68k::materialize::materialize_with_options(&mir, options.codegen)
-        .map_err(codegen_error)?;
-    let mut image = mir68k::image::link(&mir, &machine, options.origin).map_err(codegen_error)?;
-    for symbol in &mut image.symbols {
-        let (base, suffix) = if let Some((base, local)) = symbol.name.split_once("::") {
-            (base, format!("::{local}"))
-        } else if let Some(base) = symbol.name.strip_suffix(".__backing") {
-            (base, ".__backing".into())
-        } else {
-            (symbol.name.as_str(), String::new())
-        };
-        if let Some(display) = display_names.get(base) {
-            symbol.name = format!("{display}{suffix}");
-        }
-    }
     let source_paths = loaded
         .source_map
         .source_origins()
@@ -163,11 +174,28 @@ pub fn compile_file(
             }
         })
         .collect();
-    Ok(NativeCompiledProgram {
-        image,
-        machine,
+    Ok(PreparedNativeProgram {
+        mir,
         source_paths,
+        display_names,
     })
+}
+
+impl PreparedNativeProgram {
+    fn qualify_symbols(&self, symbols: &mut [mir68k::image::Symbol]) {
+        for symbol in symbols {
+            let (base, suffix) = if let Some((base, local)) = symbol.name.split_once("::") {
+                (base, format!("::{local}"))
+            } else if let Some(base) = symbol.name.strip_suffix(".__backing") {
+                (base, ".__backing".into())
+            } else {
+                (symbol.name.as_str(), String::new())
+            };
+            if let Some(display) = self.display_names.get(base) {
+                symbol.name = format!("{display}{suffix}");
+            }
+        }
+    }
 }
 
 fn codegen_error(message: String) -> CompileError {

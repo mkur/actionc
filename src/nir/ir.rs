@@ -594,6 +594,8 @@ pub struct NirRoutine {
 pub struct NirRoutineEntry {
     pub program: bool,
     pub external: bool,
+    /// Resolved external interface identity; names remain display metadata.
+    pub external_symbol: Option<RuntimeSymbolId>,
     pub placement: NirRoutinePlacement,
 }
 
@@ -602,6 +604,7 @@ impl Default for NirRoutineEntry {
         Self {
             program: false,
             external: false,
+            external_symbol: None,
             placement: NirRoutinePlacement::Relocatable,
         }
     }

@@ -94,7 +94,15 @@ impl NirVerifier {
                 )));
             }
         }
+        let mut external_symbols = BTreeSet::new();
         for routine in &program.routines {
+            if let Some(symbol) = routine.entry.external_symbol
+                && !external_symbols.insert(symbol)
+            {
+                self.diagnostics.push(NirDiagnostic::program(
+                    "duplicate or colliding external routine symbol identity",
+                ));
+            }
             if self
                 .routine_signatures
                 .insert(routine.id, routine.signature.clone())
@@ -349,6 +357,12 @@ impl NirVerifier {
     }
 
     fn routine(&mut self, routine: &NirRoutine) {
+        if routine.entry.external != routine.entry.external_symbol.is_some() {
+            self.diagnostics.push(NirDiagnostic::routine(
+                &routine.name,
+                "external routine entry must carry an external symbol identity, and ordinary entries must not",
+            ));
+        }
         if routine.inline.requested() && routine.entry.external {
             self.diagnostics.push(NirDiagnostic::routine(
                 &routine.name,

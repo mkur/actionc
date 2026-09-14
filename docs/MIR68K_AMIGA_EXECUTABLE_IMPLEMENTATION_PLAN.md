@@ -1,7 +1,19 @@
 # MIR68K minimal Amiga executable
 
-Status: proposed; no implementation in this change. Baseline: `ac64b98`, after
+Status: implementation in progress. The plan was committed as `d72ae47`.
+Baseline: `ac64b98`, after
 the [public CLI and benchmark milestone](MIR68K_CLI_AND_BENCHMARK_IMPLEMENTATION_PLAN.md).
+
+Slice 1 is complete. External declarations now carry a verified service ID;
+runtime selection checks the supported SYS signatures by ID. Native preparation
+is separate from linking, and the four classic library adapters execute through
+the bounded OS shim with captured narrow values and preserved native registers.
+The existing SYS path uses external RoutineIds, so the new identity lives on
+the routine-entry fact; it does not replace ordinary call-site identities.
+No printed fixture changed. NIR snapshots, all 51 NIR sweep fixtures, the full
+root `cargo test` in an isolated checkout, and all 82 native tests pass.
+The adapter offsets/register maps were checked against the official NDK 3.2
+rev4 archive. HUNK output and Amiga startup/console composition remain next.
 
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.

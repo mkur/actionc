@@ -8,6 +8,10 @@ projection. Emission owns instruction encoding and final addresses.
 
 The MIR preserves routine and program-entry IDs, callable signatures, result
 homes, parameter and temporary types, block parameters and edge arguments.
+External declarations retain their verified external-service ID separately from
+their routine ID. Compiler runtime selection binds that ID and validates the
+interface signature before supplying an adapter; MIR68K never parses a routine
+display name to identify a service. Ordinary calls retain their existing ABI.
 Edge arguments transfer in parallel. Comparisons retain operand signedness;
 integer signedness applies to all integer widths. Copies preserve both source
 and destination volatility and overlap-safe semantics.
@@ -115,6 +119,12 @@ copied to invocation-local homes. Scalars return in D0 and pointers in A0.
 D0/D1/A0/A1 are scratch. Division temporarily borrows D2/D3, saving them in
 A0/A1 and restoring them before completion; it makes no calls while they are
 borrowed. D2–D7/A2–A5 remain preserved and A6/A7 are restored.
+Classic Amiga library adapters accept a full-width library base followed by
+typed Action! stack arguments. They capture arguments before loading the
+library base into A6, extend narrow scalars, and use the audited library vector.
+D2/D3 and the Action! frame pointer are saved before marshalling and restored
+through SP after the OS call. Pointer results move from the OS D0 to Action! A0.
+OS calls remain full register/CCR and conservative memory-effect barriers.
 Final frame reservations are checked for overlap and signed-16 displacement
 limits, including incoming arguments and fixed-size copy staging.
 

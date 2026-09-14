@@ -108,7 +108,19 @@ pub fn verify_contract(program: &Mir68kProgram) -> Result<(), Vec<Mir68kDiagnost
             }
         }
     }
+    let mut external_symbols = BTreeSet::new();
     for routine in &program.routines {
+        if let Some(symbol) = routine.entry.external_symbol
+            && !external_symbols.insert(symbol)
+        {
+            report(None, "duplicate external routine identity".into());
+        }
+        if routine.entry.external != routine.entry.external_symbol.is_some() {
+            report(
+                Some(&routine.name),
+                "invalid external routine identity".into(),
+            );
+        }
         if let Err(error) = super::lower::verify_routine_plan(routine) {
             report(Some(&routine.name), error);
         }

@@ -521,6 +521,14 @@ printer strings. In particular, a source `=*` entry carries a structured
 current-location entry kind so MIR6502 can preserve the public Action ABI
 boundary without parsing a displayed note.
 
+Every external routine entry also carries `external_symbol: RuntimeSymbolId`,
+derived during semantic-to-NIR lowering from its resolved interface identity.
+Ordinary routine entries cannot carry this field. The verifier rejects missing
+external IDs and duplicate/colliding IDs. Platform binding uses this ID plus the
+verified signature; changing the routine's display name cannot change its
+implementation. Direct/indirect call sites still use the existing routine and
+signature IDs. This adds no executable operation or target register detail.
+
 The structured `NirRoutineEntry.program` fact records Action!'s source rule
 that the last code-emitting `PROC` is the program entry. `Main` has no special
 entry-point meaning, a trailing function cannot replace the entry, and runtime

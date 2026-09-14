@@ -1,5 +1,6 @@
 //! Bounded, isolated MC68000 test machine. Guest instructions are executed by
 //! pinned r68k, never by a compiler-IR interpreter.
+pub mod amiga;
 pub mod artifacts;
 
 use actionc::mir68k::image::{ImageView, SymbolView};
@@ -203,6 +204,7 @@ pub enum Outcome {
     Halted,
     BudgetExhausted,
     AbiViolation(String),
+    HostServiceError(String),
 }
 
 #[derive(Debug, Clone)]
@@ -271,6 +273,20 @@ impl Machine {
     }
 
     pub fn run(&mut self, instruction_budget: u64) -> RunResult {
+        self.run_with_traps(instruction_budget, &mut |_, _, _| Ok(false))
+    }
+
+    /// A test platform may handle traps only at its installed service stubs.
+    /// Actual caller, adapter, JSR and RTS instructions still execute in r68k.
+    pub fn run_with_traps(
+        &mut self,
+        instruction_budget: u64,
+        handler: &mut impl FnMut(
+            u32,
+            u8,
+            &mut ConfiguredCore<AutoInterruptController, Memory>,
+        ) -> Result<bool, String>,
+    ) -> RunResult {
         let mut history = VecDeque::new();
         let mut steps = 0;
         let mut cycles = 0;
@@ -309,6 +325,13 @@ impl Machine {
                 break Outcome::MemoryViolation(fault);
             }
             if let Some(exception) = exceptions.0 {
+                if let Exception::Trap(vector, _) = exception {
+                    match handler(pc, vector, &mut self.cpu) {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(error) => break Outcome::HostServiceError(error),
+                    }
+                }
                 if matches!(exception, Exception::Trap(vector, _) if vector == 32 + actionc::mir68k::runtime::FAULT_TRAP)
                 {
                     if let Some(reason) = actionc::mir68k::runtime::decode_fault(self.cpu.dar[0]) {

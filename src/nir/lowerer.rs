@@ -216,6 +216,9 @@ impl NirLowerer {
                         let entry = NirRoutineEntry {
                             program: program_entry == Some(routine.symbol.id),
                             external: routine.is_external,
+                            external_symbol: routine.is_external.then(|| {
+                                runtime_symbol_id(&routine.symbol.qualified_name)
+                            }),
                             placement,
                         };
                         let mut builder = NirBuilder::new(

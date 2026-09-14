@@ -9,6 +9,52 @@ use crate::parser::parse;
 use crate::semantic::{SemanticOptions, ValueType, analyze_with_options};
 use crate::source::{InMemorySourceProvider, SourceOrigin};
 
+#[test]
+fn external_routines_have_verified_ids_independent_of_display_names() {
+    let root = SourceOrigin::host("project/api.act");
+    let provider = InMemorySourceProvider::default().with_source(root.clone(),
+        b"MODULE API\nPUBLIC EXTERNAL PROC Emit(BYTE value)\nPUBLIC EXTERNAL PROC Flush()\nPROC Main() Emit(1) Flush() RETURN\nENDMODULE\n".to_vec());
+    let loaded =
+        load_compilation_from_provider(root, &provider, &ModuleLoadOptions::default()).unwrap();
+    let model = crate::semantic::analyze_compilation_with_options(
+        &loaded,
+        SemanticOptions::modern().with_target(crate::target::TargetId::Motorola68000),
+    )
+    .unwrap();
+    let semir = crate::semantic::ir::lower_compilation(&loaded, &model);
+    let mut program = lower_program(&semir);
+    verify_program(&program).unwrap();
+    assert_eq!(program.routines.len(), 3);
+    let id = program.routines[0].entry.external_symbol.unwrap();
+    assert_eq!(id, runtime_symbol_id("API.Emit"));
+    program.routines[0].name = "renamed display only".into();
+    verify_program(&program).unwrap();
+    let mut invalid = program.clone();
+    invalid.routines[0].entry.external_symbol = None;
+    assert!(
+        verify_program(&invalid)
+            .unwrap_err()
+            .iter()
+            .any(|d| d.message.contains("external symbol identity"))
+    );
+    invalid = program.clone();
+    invalid.routines[1].entry.external_symbol = Some(id);
+    assert!(
+        verify_program(&invalid)
+            .unwrap_err()
+            .iter()
+            .any(|d| d.message.contains("colliding external"))
+    );
+    invalid = program;
+    invalid.routines[0].entry.external = false;
+    assert!(
+        verify_program(&invalid)
+            .unwrap_err()
+            .iter()
+            .any(|d| d.message.contains("ordinary entries must not"))
+    );
+}
+
 fn edge(target: u32) -> NirEdge {
     NirEdge {
         target: BlockId(target),
