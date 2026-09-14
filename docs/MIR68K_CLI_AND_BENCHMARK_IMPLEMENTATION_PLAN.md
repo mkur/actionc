@@ -1,7 +1,7 @@
 # MIR68K public CLI, native artifacts and benchmark coverage
 
-Status: implementation in progress. Slices 2 (artifact I/O) and 1 (CLI)
-are complete; slices 3 and 4 remain. Baseline: `c753845`, with compiler behavior and
+Status: implementation in progress. Slices 2 (artifact I/O), 1 (CLI) and 3
+(artifact execution) are complete; the three slice-4 benchmark ports remain. Baseline: `c753845`, with compiler behavior and
 measurements at `8ecf73a`.
 
 Slice 2 validation: all 69 native tests pass, including four artifact tests;
@@ -14,6 +14,10 @@ pass. Source annotation recognition and source-file collision checks are shared;
 legacy SET origins are now explicitly rejected on the native API boundary.
 The JSON dependency required an unambiguous empty-slice assertion in one
 existing dominance test; compiler analysis behavior is unchanged.
+
+Slice 3 validation: all 72 native tests pass. The public-artifact target also
+passes without `ACTIONC_TEST_COMPILER`, exercising the isolated Cargo build
+helper. CI receives the root workspace binary explicitly.
 
 Deliver the four requested areas: public CLI integration, native output,
 compile-and-run execution tests, and native Statemate/Dijkstra/Huffman-decoder
@@ -30,7 +34,7 @@ cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- \
   --image program.native.json --budget 1000000
 ```
 
-These are proposed commands, not commands supported by the baseline. Native
+These commands are now supported; the inspected baseline below predates them. Native
 output is a linked bare CPU image with metadata and payload files. It is not
 an Amiga executable, an Atari load file, or a relocatable object file.
 

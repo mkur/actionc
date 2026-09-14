@@ -23,6 +23,21 @@ references to the [Motorola programmer's manual](https://www.nxp.com/docs/en/ref
 Its tests cover transfers, byte order, condition flags, branches, nested stack
 frames, exceptions, guards, timeout and isolation between parallel instances.
 
+Compile with the public CLI, then run the emitted bundle independently:
+
+```sh
+cargo run --locked --bin actionc -- --target motorola-68000 \
+  --origin 0x10000 -o build/program.native.json program.act
+cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- \
+  --image build/program.native.json --budget 1000000
+```
+
+`--image` loads only the [version-2 artifact](../../docs/NATIVE_IMAGE_FORMAT.md);
+it never compiles or requires source. Copy the manifest and its payloads together.
+Image mode accepts an instruction budget and rejects origin, optimization, dump,
+and source arguments. Mapping still enforces this harness's 1 MiB RAM and reserved
+trampoline/stack regions even though the compiler accepts the 24-bit bus range.
+
 Compile and run a source file with:
 
 ```sh
@@ -51,18 +66,25 @@ Integer multiplication, division and remainder are supported at all three
 widths. Division by zero reports a terminal RuntimeFault and cannot resume.
 REAL operations, OS/runtime adapters, foreign
 machine code and executable top-level statements are not yet supported.
-This is a bare CPU development path; Amiga startup/object formats and the
-public `actionc` output CLI remain follow-up work.
+This is a bare CPU development path; Amiga startup and platform executable
+formats remain follow-up work.
 
 The acceptance benchmark is the shared TACLeBench insertion-sort algorithm:
 209 independent C-reference cases, compiled once per optimization configuration
 and executed in 418 fresh VMs. Its state is addressed by compiler symbols and
 serialized in target byte order. No benchmark address belongs to a 6502 map.
+Public artifact tests invoke the actual `actionc` executable. CI supplies it
+through `ACTIONC_TEST_COMPILER`; standalone tests build it once per integration
+test process in a separate Cargo target directory and use Cargo's reported
+executable path. Compiler builds stay outside reference-vector loops. Tests
+remove source, move bundles, and exercise LF/CRLF text and another working
+directory before execution.
+
 CI runs this workspace on Linux, Windows and macOS; local validation alone does
 not establish the status of those remote jobs.
 
-Use `--dump build/probe` to write a version-1 JSON manifest, exact `.segmentN.bin`
-files, and a `.machine.txt` physical instruction listing. The manifest records
+Use `--dump build/probe` in source mode to write a version-2 JSON manifest,
+uniquely named binary payloads, and a `.machine.txt` physical instruction listing. The manifest records
 the target, entry, initialized/zero-fill regions, stable symbol identities,
 absolute/frame locations, scalar types and array layout. Dumps describe the
 compiled image before execution. For example, from the repository root:

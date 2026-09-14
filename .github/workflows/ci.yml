@@ -49,6 +49,8 @@ jobs:
 
       - name: Test MC68000 runtime contracts
         working-directory: tools/vm68k-runtime-tests
+        env:
+          ACTIONC_TEST_COMPILER: ${{ github.workspace }}/target/debug/actionc${{ runner.os == 'Windows' && '.exe' || '' }}
         run: cargo test --locked
 
       - name: Test nightly tooling
