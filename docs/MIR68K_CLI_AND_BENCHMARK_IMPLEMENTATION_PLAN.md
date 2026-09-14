@@ -413,7 +413,8 @@ metadata/bytes survive validation and loading, all 750 native reference cases
 match, affected 6502 cases and generators pass, and documentation describes
 supported modes and diagnostics. Commit the final completion record separately
 if necessary. Amiga platform output and further language work follow this
-milestone.
+milestone. The next platform milestone is specified in the
+[minimal Amiga executable plan](MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md).
 
 ## Related contracts
 

@@ -29,6 +29,9 @@ crowding the active reference set.
   storage while preserving the classic Atari routine ABI.
 - [MIR68K_EXECUTION_CONTRACT.md](MIR68K_EXECUTION_CONTRACT.md)
   - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
+- [MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md](MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md)
+  - proposed runtime adapters, relocatable HUNK output, Shell startup and console
+    I/O, with r68k contract tests and real AmigaOS acceptance.
 - [MIR68K_INTEGER_COMPLETION_PLAN.md](MIR68K_INTEGER_COMPLETION_PLAN.md)
   - multiplication, division/remainder, native faults and portable benchmark acceptance.
 - [MIR68K_CODE_QUALITY_PLAN.md](MIR68K_CODE_QUALITY_PLAN.md)
