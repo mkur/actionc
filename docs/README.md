@@ -21,6 +21,9 @@ crowding the active reference set.
 - [SEMANTIC_INVARIANTS.md](SEMANTIC_INVARIANTS.md) - semantic rules the compiler
   should preserve.
 - [NIR_TARGET_SHAPE.md](NIR_TARGET_SHAPE.md) - target NIR contract.
+- [FIXED_MULTIDIMENSIONAL_ARRAYS_IMPLEMENTATION_PLAN.md](FIXED_MULTIDIMENSIONAL_ARRAYS_IMPLEMENTATION_PLAN.md)
+  - proposed fixed shapes, row-major indexing, shared lowering and matrix1/DCT
+    acceptance on both 6502 backends and MIR68K.
 - [NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md](NIR_TARGET_INDEPENDENCE_IMPLEMENTATION_PLAN.md)
   - completed sliced migration making NIR consumable by independent 6502,
   65816, and 68k backends while separating compatibility and native layouts.
