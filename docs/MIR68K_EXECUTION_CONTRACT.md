@@ -146,6 +146,15 @@ library base into A6, extend narrow scalars, and use the audited library vector.
 D2/D3 and the Action! frame pointer are saved before marshalling and restored
 through SP after the OS call. Pointer results move from the OS D0 to Action! A0.
 OS calls remain full register/CCR and conservative memory-effect barriers.
+Compiler-owned routines and storage use separate typed platform identities;
+object emission rejects missing platform targets. The Amiga startup wrapper is
+laid out before all code and final branch relaxation. It saves the Shell frame
+and preserved registers, opens DOS version 40, and obtains a borrowed Output
+handle. Invocation state lives in the executable's own BSS. One cleanup path
+closes an owned DOS library and restores the entry state, returning status 0/20.
+Terminal Amiga faults restore this saved stack context and abandon failed Action!
+frames. Fault output uses the same checked span writer; output failure enters
+cleanup directly. No TRAP-based bare transport is emitted for Amiga faults.
 Final frame reservations are checked for overlap and signed-16 displacement
 limits, including incoming arguments and fixed-size copy staging.
 

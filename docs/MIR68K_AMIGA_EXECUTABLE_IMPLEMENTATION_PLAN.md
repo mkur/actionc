@@ -29,6 +29,16 @@ All 15 focused HUNK/object/emission/artifact tests pass. Shell startup and the
 public Amiga CLI remain to be implemented; the intermediate entry thunk has no
 OS interaction.
 
+Slice 3a is complete. Typed platform routines/storage now participate in physical
+targets and relocation verification. The Shell wrapper opens DOS, obtains the
+borrowed output handle, and restores the saved entry state through one cleanup
+path. The terminal fault path abandons nested Action! frames and reports the
+specific reason through a checked span writer. Failed/zero-progress writes go
+directly to cleanup. All 16 MIR68K unit tests and 17 focused native tests pass;
+process tests cover three placements, raw/optimized/conservative codegen,
+normal/failure launches, all fault reasons and distinct CPU/budget outcomes.
+Public SYS console composition and CLI publication are next in slice 3b.
+
 Deliver an Action! program that compiles through MIR68K to one relocatable
 Amiga executable, prints text and integers from the Shell, and returns cleanly.
 Preserve the existing bare-image/r68k workflow and the internal native ABI.

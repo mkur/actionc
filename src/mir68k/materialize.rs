@@ -51,6 +51,14 @@ pub fn materialize_with_options(
     program: &Mir68kProgram,
     options: Options,
 ) -> Result<MachineProgram> {
+    materialize_program(program, options, false)
+}
+
+pub(super) fn materialize_program(
+    program: &Mir68kProgram,
+    options: Options,
+    amiga: bool,
+) -> Result<MachineProgram> {
     verify::verify_contract(program).map_err(|e| format!("invalid MIR68K: {e:?}"))?;
     let entry = program
         .routines
@@ -80,6 +88,7 @@ pub fn materialize_with_options(
             ));
         }
         let mut builder = Builder::new(routine, &mut next, options)?;
+        builder.amiga = amiga;
         let reachable = reachable_blocks(routine)?;
         let uses = super::analysis::use_counts(routine);
         for block in &routine.blocks {
@@ -179,6 +188,7 @@ pub fn reachable_blocks(routine: &Mir68kRoutine) -> Result<BTreeSet<BlockId>> {
 }
 
 struct Builder<'a> {
+    amiga: bool,
     routine: &'a Mir68kRoutine,
     frame: Mir68kFramePlan,
     temps: BTreeMap<TempId, i16>,
@@ -355,6 +365,7 @@ impl<'a> Builder<'a> {
             *next = next.checked_add(1).ok_or("too many machine blocks")?;
         }
         Ok(Self {
+            amiga: false,
             routine,
             frame,
             temps,

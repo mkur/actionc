@@ -34,6 +34,8 @@ pub enum Target {
     Block(MachineBlockId),
     Routine(RoutineId),
     Data(Mir68kDataId),
+    PlatformRoutine(super::amiga::PlatformRoutineId),
+    PlatformData(super::amiga::PlatformDataId),
     Absolute(u32),
 }
 
@@ -225,4 +227,5 @@ pub struct MachineRoutine {
 pub struct MachineProgram {
     pub blocks: Vec<MachineBlock>,
     pub routines: Vec<MachineRoutine>,
+    pub platform: super::amiga::Platform,
 }

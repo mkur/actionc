@@ -27,6 +27,12 @@ impl Builder<'_> {
         ))));
     }
     pub(super) fn fault(&mut self, reason: RuntimeFault) -> Result<()> {
+        if self.amiga {
+            self.emit(Instruction::Jump(Ea::Absolute(Address::new(Target::PlatformRoutine(
+                amiga::PlatformRoutineId::Fault(reason),
+            )))));
+            return Ok(());
+        }
         self.mov(
             Width::Long,
             Ea::Immediate(runtime::fault_code(reason)),

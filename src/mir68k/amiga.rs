@@ -1,5 +1,11 @@
 //! Classic Amiga library adapters. No source names or SemIR are consumed here.
 use super::machine::{Ea, Instruction, Width};
+use crate::runtime_fault::RuntimeFault;
+use std::collections::BTreeMap;
+
+#[path = "amiga_program.rs"]
+mod program;
+pub use program::materialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConsoleService {
@@ -18,8 +24,34 @@ pub enum ConsoleService {
 /// Separate identity space for compiler-owned entry points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlatformRoutineId {
+    Startup,
+    Cleanup,
+    Finish,
+    Failure,
+    WriteSpan,
+    Fault(RuntimeFault),
     Console(ConsoleService),
     Library(LibraryCall),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PlatformDataId {
+    State,
+    LibraryName,
+    FaultMessage(RuntimeFault),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlatformData {
+    pub bytes: Vec<u8>,
+    pub zero_fill: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Platform {
+    pub entry: Option<PlatformRoutineId>,
+    pub routines: BTreeMap<PlatformRoutineId, super::machine::MachineBlockId>,
+    pub data: BTreeMap<PlatformDataId, PlatformData>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

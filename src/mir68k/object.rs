@@ -104,11 +104,21 @@ pub fn emit(mir: &Mir68kProgram, machine: &MachineProgram) -> Result<Object, Str
     {
         return Err("machine routine identities differ from MIR".into());
     }
-    let entry = code_location(
+    let mut entry = code_location(
         *routines
             .get(&mir.entry.ok_or("native image requires a program entry")?)
             .ok_or("entry routine was not emitted")?,
     );
+    let mut platform_routines = BTreeMap::new();
+    for (&id, &block) in &machine.platform.routines {
+        platform_routines.insert(
+            id,
+            *labels.get(&block).ok_or("missing platform routine block")?,
+        );
+    }
+    if let Some(id) = machine.platform.entry {
+        entry = code_location(*platform_routines.get(&id).ok_or("missing platform entry")?);
+    }
     let mut object = Object {
         entry,
         sections: vec![Section {
@@ -177,6 +187,25 @@ pub fn emit(mir: &Mir68kProgram, machine: &MachineProgram) -> Result<Object, Str
         }
         pending = next;
     }
+    let mut platform_data = BTreeMap::new();
+    for (&key, item) in &machine.platform.data {
+        let id = SectionId(object.sections.len() as u32);
+        let size = end(
+            u32::try_from(item.bytes.len()).map_err(|_| "platform data overflow")?,
+            item.zero_fill,
+        )?;
+        platform_data.insert(key, Location::Section { id, offset: 0 });
+        object.sections.push(Section {
+            id,
+            bytes: item.bytes.clone(),
+            zero_fill: item.zero_fill,
+            size,
+            alignment: 2,
+            writable: item.zero_fill != 0,
+            executable: false,
+            fixed_address: None,
+        });
+    }
     let locate = |target: Target| -> Result<Location, String> {
         match target {
             Target::Block(id) => labels
@@ -194,6 +223,15 @@ pub fn emit(mir: &Mir68kProgram, machine: &MachineProgram) -> Result<Object, Str
                 .copied()
                 .ok_or_else(|| "missing data relocation".into()),
             Target::Absolute(address) => Ok(Location::Absolute(physical(u64::from(address))?)),
+            Target::PlatformRoutine(id) => platform_routines
+                .get(&id)
+                .copied()
+                .map(code_location)
+                .ok_or_else(|| "missing platform routine relocation".into()),
+            Target::PlatformData(id) => platform_data
+                .get(&id)
+                .copied()
+                .ok_or_else(|| "missing platform data relocation".into()),
         }
     };
     for instruction in machine.blocks.iter().flat_map(|b| &b.instructions) {
@@ -299,6 +337,7 @@ pub fn emit(mir: &Mir68kProgram, machine: &MachineProgram) -> Result<Object, Str
         let start = routines[&routine.id];
         let stop = routines
             .values()
+            .chain(platform_routines.values())
             .copied()
             .filter(|a| *a > start)
             .min()

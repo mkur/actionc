@@ -63,6 +63,7 @@ fn program() -> (Mir68kProgram, MachineProgram) {
             entry: MachineBlockId(0),
             frame: r.frame.clone(),
         }],
+        ..Default::default()
     };
     (mir, machine)
 }
