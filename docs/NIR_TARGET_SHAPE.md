@@ -1582,3 +1582,12 @@ constant. The verifier rejects hidden signed widening, including in compound
 assignments. This applies before the operation, independently of destination
 store conversion. Shift counts retain their original width and are excluded
 from result-domain conversion; truncating a count could change shift behavior.
+
+## Index arithmetic optimization
+
+Index calculations remain ordinary typed casts, arithmetic and indexed places.
+The shared optimizer can reuse equal integer coordinate computations within a
+bounded region of one block, without reusing loads or descriptor cells. Calls,
+foreign code and volatile accesses bound this additional reuse. Source widths
+and captured evaluation order remain intact. See
+[the optimization contract](INDEX_ARITHMETIC_OPTIMIZATION.md).

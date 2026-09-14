@@ -14,6 +14,9 @@ use super::ir::*;
 use super::verifier::{NirDiagnostic, verify_program};
 use crate::target::ByteSize;
 
+#[path = "optimizer_indexes.rs"]
+mod indexes;
+
 pub(super) fn optimize_program(program: &NirProgram) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
     let mut optimized = program.clone();
@@ -33,6 +36,7 @@ fn optimize_routine(routine: &mut NirRoutine, storage: &NirRoutineStorageAnalysi
         optimize_values_in_routine(routine);
         simplify_constant_branches(routine);
         thread_predicate_branches(routine, storage);
+        indexes::reuse_local_arithmetic(routine);
         eliminate_dominated_pure_redundancy(routine);
         eliminate_dead_pure_temps(routine);
         forward_value_returns(routine);
