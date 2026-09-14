@@ -395,12 +395,10 @@ change. Report unrelated worktree failures separately from regressions.
 
 ## Follow-up after this milestone
 
-Add typed multiplication/division/remainder and the native non-returning fault
-adapter next. Original 68000 multiply/divide instruction widths need explicit
-legalization for full-width LONGINT/LONGCARD arithmetic. Preserve the language's
-division-by-zero and overflow contract. This opens the next benchmark group:
-binary search where division is still present, matrix1, SHA, DCT and ADPCM,
-with focused coverage identifying each remaining dependency.
+Multiplication, division/remainder, the bare native fault adapter and matrix1,
+binary-search and SHA acceptance are now implemented in the
+[integer completion milestone](MIR68K_INTEGER_COMPLETION_PLAN.md). DCT and ADPCM
+remain candidates for further native benchmark coverage.
 
 Then expand public CLI/output-format integration and Amiga platform adapters.
 Optimization starts from measured emitted code and VM execution after correctness

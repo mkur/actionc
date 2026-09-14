@@ -119,7 +119,9 @@ runtime regression testing.
 
 An experimental MC68000 path is available through the native compiler API and
 [r68k development runner](tools/vm68k-runtime-tests/README.md). It executes the
-integer/control-flow/call/array subset and the TACLeBench insertion-sort vectors.
+integer/control-flow/call/array subset, including multiplication and division.
+TACLeBench insertion sort, matrix1, binary search and SHA-0 run against their
+reference vectors in both native optimization modes.
 This uses bare native images through the development runner; the public CLI
 modes below generate Atari output.
 

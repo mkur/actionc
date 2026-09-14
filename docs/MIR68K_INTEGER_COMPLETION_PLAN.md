@@ -12,8 +12,11 @@ executions) and all four 6502 configurations (4,612 executions); its unchanged
 C-reference generator check passes. SHA passes all 155 native cases in both
 modes (310 executions) and all four 6502 configurations (620 executions).
 All three benchmark generator checks and the broad fixture NIR corpus pass.
-The arithmetic and benchmark slices are complete; the previous milestone
-exposed a Windows NIR-sweep stack overflow in remote CI, under investigation.
+The arithmetic and benchmark slices are complete. The previous milestone
+passed Linux/macOS CI but exposed a Windows NIR-sweep stack overflow. The sweep
+now reserves a 16 MiB compiler worker stack; a 128 KiB caller reproduces the
+old crash and succeeds after the fix. The focused sweep tests and broad corpus
+pass locally; remote verification of the new commits is pending.
 
 The next native milestone completes multiplication, division and remainder,
 then executes matrix1, binary search and SHA against the existing reference

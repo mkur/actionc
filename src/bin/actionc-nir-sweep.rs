@@ -42,6 +42,23 @@ struct SweepCounts {
 }
 
 fn main() {
+    on_compiler_stack(run);
+}
+
+fn on_compiler_stack(task: impl FnOnce() + Send + 'static) {
+    // Debug frontend/lowering frames exceed Windows' main-thread stack for
+    // ordinary large fixtures. Reserve a consistent worker stack on every OS;
+    // RUST_MIN_STACK does not configure the process's main thread.
+    std::thread::Builder::new()
+        .name("nir-sweep".into())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(task)
+        .expect("start NIR sweep worker")
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+}
+
+fn run() {
     std::panic::set_hook(Box::new(|_| {}));
     let config = parse_args();
     let mut files = Vec::new();
@@ -312,6 +329,23 @@ fn print_usage() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn large_fixture_sweeps_from_a_small_stack_caller() {
+        std::thread::Builder::new()
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                on_compiler_stack(|| {
+                    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("fixtures/runtime/tacle/huff_dec/huff_dec.act");
+                    let result = sweep_file(&path);
+                    assert_eq!(result.outcome, Outcome::Ok, "{result:?}");
+                })
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
 
     #[test]
     fn counts_results() {
