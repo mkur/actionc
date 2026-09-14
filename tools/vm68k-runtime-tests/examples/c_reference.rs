@@ -3,9 +3,10 @@
 mod image;
 #[path = "c_reference/vectors.rs"]
 mod vectors;
-use actionc::compiler::native::{NativeCompileOptions, compile_file};
+use actionc::compiler::native::compile_file;
 use image::Program;
 use std::path::PathBuf;
+mod measurement;
 
 fn main() {
     std::thread::Builder::new()
@@ -21,11 +22,22 @@ fn run() {
         args.next()
             .expect("usage: c_reference BUILD_DIR [insertsort matrix1]"),
     );
-    let mut names: Vec<_> = args.collect();
+    let (options, mut names) = measurement::options(args);
     if names.is_empty() {
         names = vec!["insertsort".into(), "matrix1".into()];
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    assert!(
+        names
+            .iter()
+            .all(|name| matches!(name.as_str(), "insertsort" | "matrix1")),
+        "unknown benchmark"
+    );
+    std::fs::write(
+        directory.join("actionc-options.txt"),
+        measurement::metadata(&root, &options, &names),
+    )
+    .unwrap();
     println!(
         "benchmark,compiler,mode,code_bytes,default_instructions,default_stack_read_bytes,default_stack_write_bytes,reference_cases,reference_instructions"
     );
@@ -36,7 +48,7 @@ fn run() {
         );
         let compiled = compile_file(
             root.join(format!("fixtures/runtime/tacle/{name}/{name}.act")),
-            &NativeCompileOptions::default(),
+            &options,
         )
         .unwrap();
         actionc_vm68k_tests::artifacts::dump(&compiled, &directory.join(format!("{name}-actionc")))
@@ -49,7 +61,11 @@ fn run() {
             .unwrap();
         }
         let programs = [
-            ("actionc", "optimized", Program::action(compiled.image)),
+            (
+                "actionc",
+                if options.optimize { "optimized" } else { "raw" },
+                Program::action(compiled.image),
+            ),
             (
                 "gcc",
                 "O2",

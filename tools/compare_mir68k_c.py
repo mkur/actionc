@@ -10,6 +10,8 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "tools/mir68k-c-reference"
 BENCHMARKS = ("insertsort", "matrix1")
+ACTIONC_SWITCHES = ("no-opt", "no-codegen-opt", "no-forward-temporaries",
+                   "no-select-instructions", "no-relax-branches")
 # -mcpu selects both the instruction set and the original-68000 libgcc multilib.
 # Do not add -mshort: individual C types already match the Action! declarations.
 FLAGS = ["-mcpu=68000", "-std=c11", "-ffreestanding", "-fno-builtin",
@@ -90,7 +92,11 @@ def main():
     parser.add_argument("--tool-prefix", default="m68k-elf-")
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build/mir68k-c-reference")
     parser.add_argument("benchmarks", nargs="*", choices=BENCHMARKS)
+    for switch in ACTIONC_SWITCHES:
+        parser.add_argument(f"--{switch}", action="store_true", help="Action! configuration only")
     args = parser.parse_args()
+    actionc_switches = [f"--{switch}" for switch in ACTIONC_SWITCHES
+                       if getattr(args, switch.replace("-", "_"))]
     names = args.benchmarks or BENCHMARKS
     tools = {}
     for name in ["gcc", "nm", "objcopy", "objdump"]:
@@ -107,6 +113,7 @@ def main():
                 "actionc_commit": capture(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).strip(),
                 "compiler_worktree_status": capture(["git", "-C", str(ROOT), "status", "--porcelain",
                                                       "--", "src", "Cargo.toml", "Cargo.lock"]),
+                "actionc_switches": actionc_switches,
                 "builds": []}
     inputs = [SOURCES / "memory.c", SOURCES / "reference.ld", Path(__file__).resolve()]
     for name in names:
@@ -120,7 +127,7 @@ def main():
     (directory / "toolchain.json").write_text(json.dumps(metadata, indent=2) + "\n", newline="\n")
     csv = capture(["cargo", "run", "--locked", "--manifest-path",
                    str(ROOT / "tools/vm68k-runtime-tests/Cargo.toml"),
-                   "--example", "c_reference", "--", str(directory), *names])
+                   "--example", "c_reference", "--", str(directory), *names, *actionc_switches])
     (directory / "comparison.csv").write_text(csv, newline="\n")
     for name in names:
         for binary in directory.glob(f"{name}-actionc-*.bin"):

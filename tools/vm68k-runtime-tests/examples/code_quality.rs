@@ -1,6 +1,7 @@
 //! Reproducible native execution measurements; no test-only source instrumentation.
 use actionc::compiler::native::{NativeCompileOptions, compile_file};
 use actionc_vm68k_tests::Machine;
+mod measurement;
 
 fn main() {
     // Match the compiler tooling's explicit stack on Windows as well as Unix.
@@ -12,15 +13,9 @@ fn main() {
         .unwrap();
 }
 fn run() {
-    let requested: Vec<_> = std::env::args().skip(1).collect();
-    let conservative = requested.iter().any(|arg| arg == "--no-codegen-opt");
-    let requested: Vec<_> = requested
-        .iter()
-        .filter(|arg| !arg.starts_with("--"))
-        .collect();
+    let (options, requested) = measurement::options(std::env::args().skip(1));
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    println!("benchmark,nir,code_bytes,instructions,max_frame_bytes");
-    for name in [
+    let names: Vec<String> = [
         "insertsort",
         "matrix1",
         "binarysearch",
@@ -28,21 +23,29 @@ fn run() {
         "jfdctint",
         "adpcm_dec",
         "adpcm_enc",
-    ] {
-        if !requested.is_empty() && !requested.iter().any(|arg| arg.as_str() == name) {
-            continue;
-        }
-        for optimize in [false, true] {
+    ]
+    .into_iter()
+    .filter(|name| requested.is_empty() || requested.iter().any(|arg| arg == name))
+    .map(str::to_owned)
+    .collect();
+    assert!(
+        requested.iter().all(|name| names.contains(name)),
+        "unknown benchmark"
+    );
+    eprintln!("{}", measurement::metadata(&root, &options, &names));
+    println!(
+        "benchmark,nir,code_bytes,instructions,max_frame_bytes,stack_read_bytes,stack_write_bytes"
+    );
+    for name in names {
+        for optimize in [false, true]
+            .into_iter()
+            .filter(|optimized| !optimized || options.optimize)
+        {
             let program = compile_file(
                 root.join(format!("fixtures/runtime/tacle/{name}/{name}.act")),
                 &NativeCompileOptions {
                     optimize,
-                    codegen: actionc::mir68k::materialize::Options {
-                        forward_temporaries: !conservative,
-                        select_instructions: !conservative,
-                        relax_branches: !conservative,
-                    },
-                    ..Default::default()
+                    ..options.clone()
                 },
             )
             .unwrap();
@@ -55,8 +58,14 @@ fn run() {
                 vm.write_scalar(program.image.symbol("length").unwrap(), 3)
                     .unwrap();
             }
+            vm.cpu
+                .mem
+                .trace_range(actionc_vm68k_tests::STACK_BOTTOM..actionc_vm68k_tests::STACK_TOP);
             let run = vm.run(100_000_000);
             run.assert_completed();
+            let trace = vm.cpu.mem.take_trace();
+            let reads = trace.iter().filter(|(_, write)| !write).count();
+            let writes = trace.len() - reads;
             if name == "sha" {
                 assert_eq!(
                     vm.read_array(program.image.symbol("digest").unwrap())
@@ -64,7 +73,7 @@ fn run() {
                     [0x0164b8a9, 0x14cd2a5e, 0x74c4f7ff, 0x082c4d97, 0xf1edf880]
                 );
             } else {
-                let result = match name {
+                let result = match name.as_str() {
                     "adpcm_dec" => "ADPCM_DEC.result",
                     "adpcm_enc" => "ADPCM_ENC.result",
                     _ => "result",
@@ -91,7 +100,7 @@ fn run() {
                 .max()
                 .unwrap_or(0);
             println!(
-                "{name},{},{bytes},{},{frame}",
+                "{name},{},{bytes},{},{frame},{reads},{writes}",
                 if optimize { "optimized" } else { "raw" },
                 run.steps
             );

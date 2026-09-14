@@ -1,7 +1,7 @@
 # MIR68K alignment, control flow and register retention
 
-Status: proposed. Implement in the slices below, committing each major slice
-after its validation gate passes.
+Status: in progress. Slice 1 is complete; slices 2–6 remain. Commit each major
+slice after its validation gate passes.
 
 The objective is to remove the largest avoidable costs exposed by the
 [MC68000 GCC comparison](MIR68K_C_COMPARISON.md), then return to language and
@@ -31,6 +31,14 @@ constructs, platform startup, interprocedural specialization, a general-purpose
 register allocator and additional C benchmark ports remain later work.
 
 ## Slice 1: Preserve the comparison and isolate each change
+
+Implemented: shared measurement switches reject unknown options, the seven-
+benchmark runner reports stack traffic, and both runners record resolved native
+settings, compiler revision/status and input hashes. All 14 current and 14
+conservative benchmark rows reproduce the prior metrics. The paired comparison
+reproduces all six rows and passes all 693 reference executions. Conservative
+and individual branch-relaxation switches were exercised separately; both
+manifest loader tests pass. Artifacts are in `build/mir68k-optimization/slice1/`.
 
 Extend the native measurement tools with explicit switches for the new
 optimizations as they are introduced. Record the switches with the compiler

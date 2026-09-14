@@ -92,6 +92,14 @@ Optional benchmark names restrict the run, for example `-- matrix1 sha`.
 The CSV reports initialized executable bytes (including prefetch padding),
 executed instructions through the completion trampoline, and the largest
 individual emitted frame reservation. Frame size is not peak stack usage.
+It also reports stack byte reads/writes, including arguments and return
+addresses. Configuration, compiler revision/status and input Git hashes go to
+stderr, so redirect stdout to a CSV and stderr to a companion log when retaining
+a measurement. Existing CSV columns retain their meanings.
+Use `--no-forward-temporaries`, `--no-select-instructions` or
+`--no-relax-branches` to isolate one target optimization; `--no-codegen-opt`
+disables all three. `--no-opt` restricts this example to raw NIR. Unknown options
+and benchmark names are rejected.
 SHA hashes `abc`; other programs run their default benchmark entry. Each run
 checks completion and its expected result. Host execution time is not measured.
 The [initial baseline](../../docs/mir68k-code-quality-baseline.csv) precedes

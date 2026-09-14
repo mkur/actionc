@@ -24,6 +24,12 @@ python3 tools/compare_mir68k_c.py matrix1
 GCC 16.2.0 and GNU binutils 2.47.20260726. The script records actual versions,
 commands, selected libgcc, source hashes, compiler revision and compiler
 worktree status in `build/mir68k-c-reference/toolchain.json`.
+The same file records Action! switches; `actionc-options.txt` records the resolved
+native settings and input Git hashes. `--no-opt` selects raw Action! NIR;
+`--no-codegen-opt` disables target optimization. Individual switches
+`--no-forward-temporaries`, `--no-select-instructions` and `--no-relax-branches`
+support controlled comparisons. These switches leave GCC's configuration alone.
+Use a separate `--build-dir` for each experiment to retain its results.
 
 ## Comparison contract
 
