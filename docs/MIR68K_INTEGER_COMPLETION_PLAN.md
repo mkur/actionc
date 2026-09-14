@@ -7,7 +7,9 @@ snapshots and the 51-fixture sweep pass. The broad compiler run has only the
 pre-existing untracked lines.act / SHARED.SCREEN sample failure. Division,
 remainder and typed native faults now pass 1,674 host-oracle cases, terminal
 fault checks, the full native suite and the affected compiler contract tests.
-Binary search and SHA acceptance remain in progress.
+Binary search passes all 1,153 cases in raw/optimized native modes (2,306
+executions) and all four 6502 configurations (4,612 executions); its unchanged
+C-reference generator check passes. SHA acceptance remains in progress.
 
 The next native milestone completes multiplication, division and remainder,
 then executes matrix1, binary search and SHA against the existing reference

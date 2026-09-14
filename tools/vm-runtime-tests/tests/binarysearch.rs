@@ -3,7 +3,13 @@ use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE};
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/binarysearch/binarysearch.act");
+const CORE: &str = include_str!("../../../fixtures/runtime/tacle/binarysearch/kernel.inc");
+const DRIVER: &str = include_str!("../fixtures/binarysearch_driver.act");
+fn source() -> String {
+    DRIVER
+        .replace("\r\n", "\n")
+        .replace("INCLUDE \"kernel.inc\"", &CORE.replace("\r\n", "\n"))
+}
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/binarysearch/vectors.txt");
 const HOST_BASE: u16 = 0x0600;
 const HOST_BYTES: usize = 0x0400;
@@ -157,7 +163,7 @@ fn result_value(vector: &Vector) -> i32 {
 
 #[test]
 fn binarysearch_lf_and_crlf_variants_preserve_upstream_and_typed_results() {
-    let source = SOURCE.replace("\r\n", "\n");
+    let source = source().replace("\r\n", "\n");
     let text = VECTORS.replace("\r\n", "\n");
     let vectors = parse_vectors(&text);
     assert_eq!(vectors, parse_vectors(&text.replace('\n', "\r\n")));
@@ -256,7 +262,7 @@ fn check_binarysearch(mode: CompileMode, runtime: Runtime) {
     for kind in Kind::ALL {
         let path = temporary.0.join(format!("{}.act", kind.name()));
         // CRLF passes through both instrumentation and actual compilation.
-        let source = typed_source(&text(SOURCE), kind);
+        let source = typed_source(&text(&source()), kind);
         std::fs::write(&path, text(&source)).unwrap();
         let compiled = compile_file(
             &path,

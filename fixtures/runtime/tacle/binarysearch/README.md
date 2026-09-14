@@ -1,6 +1,6 @@
 # TACLeBench binary search
 
-`binarysearch.act` ports Sung-Soo Lim's binary search from the **SNU-RT Benchmark
+`kernel.inc` ports Sung-Soo Lim's binary search from the **SNU-RT Benchmark
 Suite for Worst Case Timing Analysis**, as collected by TACLeBench. It retains
 the original 15 key/value records, iterative search, and pseudorandom
 initialization. No new language constructs are needed.
@@ -10,6 +10,12 @@ and CARD variants by changing the record fields, query, result, and function
 types, and explicitly narrowing initialization values. All four variants share
 the same search body. Both modern backends (`--mode optimized` and
 `--mode mir6502`) run with cartridge and standalone runtimes.
+
+`binarysearch.act` supplies portable state and an entry around `kernel.inc`.
+The fixed host memory map and completion marker now live in
+[`tools/vm-runtime-tests/fixtures/binarysearch_driver.act`](../../../../tools/vm-runtime-tests/fixtures/binarysearch_driver.act).
+The native adapter uses emitted symbol addresses and verifies record count,
+element extent and stride before serializing individual fields in target order.
 
 ## Provenance
 
@@ -59,7 +65,7 @@ record order; it does not silently sort the table. Command one accepts a host
 table whose keys must be nondecreasing. Additional sorted-table vectors exercise
 successful searches and meaningful missing-key searches throughout the range.
 
-## Host memory contract
+## 6502 host memory contract
 
 Tests compile at `$3000`. All multibyte fields are little-endian, with no record
 padding. Let `w` be the record-field width: 1 for BYTE, 2 for INT/CARD, 4 for
@@ -82,7 +88,9 @@ at page offset `$FF`, exercising field accesses across a page boundary.
 ## Coverage and checks
 
 The **1,153 C-reference cases** run in all four backend/runtime combinations,
-for **4,612 VM executions** and 16 compiled programs. Each type covers:
+for **4,612 6502 VM executions** and 16 compiled programs. The native adapter
+adds **2,306 executions** across eight raw/optimized programs, checking complete
+records, result, seed, unchanged query/command, and stack/register preservation. Each type covers:
 
 - Original initialization and search, starting from a poisoned table and seed.
 - Every position in a sorted table, plus queries below, between, and above its
@@ -109,6 +117,10 @@ directories, so there are no duplicated maintained search implementations.
 ```sh
 cd tools/vm-runtime-tests
 cargo test --locked --test binarysearch
+```
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test binarysearch
 ```
 
 ## Regenerating vectors
