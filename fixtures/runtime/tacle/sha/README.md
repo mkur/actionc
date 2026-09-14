@@ -1,6 +1,6 @@
 # TACLeBench SHA-0
 
-`sha.act` ports TACLeBench's SHA kernel to Action!, with unsigned 32-bit
+`kernel.inc` ports TACLeBench's SHA kernel to Action!, with unsigned 32-bit
 `LONGCARD` arithmetic. It preserves the 80-word message schedule, four groups
 of 20 rounds, initialization, block update, and final padding. This is **SHA-0**:
 the schedule omits the extra rotation introduced by SHA-1.
@@ -9,7 +9,10 @@ The fixture exercises wide additions and carry propagation, shifts and
 rotations, bitwise expressions, indexed LONGCARD reads and writes, byte/word
 views of the same storage, pointer parameters, loops, and calls. It uses the
 modern language profile in both the classic (`--mode optimized`) and MIR6502
-backends, with cartridge and standalone runtimes. It has no OS I/O.
+backends, with cartridge and standalone runtimes, and raw/optimized MC68000.
+It has no OS I/O. `sha.act` declares portable state and an entry around the
+shared `kernel.inc`; the fixed addresses and completion marker belong to
+[`tools/vm-runtime-tests/fixtures/sha_driver.act`](../../../../tools/vm-runtime-tests/fixtures/sha_driver.act).
 
 ## Provenance and license
 
@@ -20,7 +23,7 @@ backends, with cartridge and standalone runtimes. It has no OS I/O.
   The C source identifies the GNU Lesser General Public License without a
   version; the header separately permits use, modification, and redistribution.
   A copy of LGPL 2.1 is included in [COPYING.LESSER](COPYING.LESSER).
-- `sha.act` is the Action! adaptation added on 2026-09-13, under GNU LGPL.
+- `kernel.inc` contains the Action! adaptation added on 2026-09-13, under GNU LGPL.
 - LF-normalized SHA-256 hashes:
   `sha.c`: `e730bd5d5b3e0d67f7a6078a3b64a00da9a82452e15759f23e29ee4c21e4ef81`;
   `sha.h`: `af50a8e0614bcd3bc085f13345f221bd1256a8251fb210a36241321a2613fa10`.
@@ -33,9 +36,13 @@ size cannot change its arithmetic. The two-word bit counter is retained; the
 port does not require a native 64-bit type. C's bitwise complement becomes XOR
 with `$FFFFFFFF`. Rotations remain explicit shift/OR expressions.
 
-The five digest words, two counters, and block buffer have fixed RAM addresses
-instead of a C structure. The block buffer has byte and LONGCARD array views.
-The schedule is exposed in RAM for validation instead of being a local C array.
+The five digest words, two counters, block words and schedule are ordinary
+globals exposed for validation. `DecodeBlock` constructs each numeric word
+from four input bytes with explicit shifts, independently of target byte order.
+It captures all four bytes before storing the word. The 6502 adapter retains
+overlapping byte/LONGCARD views at its original fixed address; the native
+driver uses separate byte workspace and word arrays found through symbols.
+The byte workspace is temporary and is not part of the C state contract.
 Ordinary loops replace memcpy/memset; the four round groups retain the source
 expressions and assignment order. The finalizer combines the two identical
 zero-fill paths without changing padding or block processing.
@@ -50,7 +57,7 @@ The upstream return check only checks the message length stored in the final
 block. This test compares the **entire digest, both counters, final block, and
 all 80 schedule words** against the C reference instead (412 bytes per case).
 
-## VM contract
+## 6502 VM contract
 
 | Address | Meaning |
 | --- | --- |
@@ -78,7 +85,8 @@ crosses two page boundaries, and requires indexes beyond the first 256 bytes.
 ## Coverage and running
 
 `vectors.txt` contains **155 cases**, executed in four backend/runtime
-combinations (**620 VM executions**):
+6502 combinations (**620 VM executions**) and both native optimization
+settings (**310 additional executions**):
 
 - Two published SHA-0 answers (`abc` and the 56-byte FIPS message), also listed
   in [OpenSSL's SHA-0 test](https://github.com/openssl/openssl/blob/OpenSSL_1_0_2-stable/crypto/sha/shatest.c).
@@ -97,6 +105,16 @@ path: cartridge uses LF, standalone uses CRLF. Standalone runs load no ROMs.
 ```sh
 cd tools/vm-runtime-tests
 cargo test --locked --test sha
+```
+
+The native adapter decodes each reference word into a number, then writes it
+in target byte order. Message bytes remain unchanged. It compares all 103
+state/schedule words, checks published digest strings, and requires unchanged
+message capacity, command and length plus balanced stack/preserved registers.
+Raw source/includes/vectors use LF; optimized inputs use CRLF.
+
+```sh
+cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --test sha
 ```
 
 ## Regenerating the C reference vectors

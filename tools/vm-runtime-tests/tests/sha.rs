@@ -3,7 +3,13 @@ use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
 use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE};
 use std::path::{Path, PathBuf};
 
-const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/sha/sha.act");
+const CORE: &str = include_str!("../../../fixtures/runtime/tacle/sha/kernel.inc");
+const DRIVER: &str = include_str!("../fixtures/sha_driver.act");
+fn source() -> String {
+    DRIVER
+        .replace("\r\n", "\n")
+        .replace("INCLUDE \"kernel.inc\"", &CORE.replace("\r\n", "\n"))
+}
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/sha/vectors.txt");
 const STATE_BYTES: usize = 92;
 const SCHEDULE_BYTES: usize = 320;
@@ -106,7 +112,7 @@ impl Drop for TemporarySource {
 fn sha_full_state_and_schedule_match_c_in_both_backends_and_runtimes() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let temporary = TemporarySource::new();
-    let source_lf = SOURCE.replace("\r\n", "\n");
+    let source_lf = source().replace("\r\n", "\n");
     let vectors_lf = VECTORS.replace("\r\n", "\n");
     let mut failures = Vec::new();
     for mode in [CompileMode::Mir6502, CompileMode::Optimized] {

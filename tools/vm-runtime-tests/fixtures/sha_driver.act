@@ -1,12 +1,11 @@
-; Portable SHA state; byte input workspace is distinct from numeric words.
-BYTE command
-CARD length
-LONGCARD ARRAY digest(5)
-LONGCARD countLo,countHi
-LONGCARD ARRAY data(16)
-BYTE ARRAY blockBytes(64)
-LONGCARD ARRAY w(80)
-BYTE ARRAY message(1025)
+BYTE command=$0600,done=$06FF
+CARD length=$0602
+LONGCARD ARRAY digest(5)=$0701
+LONGCARD countLo=$0715,countHi=$0719
+LONGCARD ARRAY data(16)=$071D
+BYTE ARRAY blockBytes(64)=$071D
+LONGCARD ARRAY w(80)=$07FD
+BYTE ARRAY message(1025)=$0A01
 
 INCLUDE "kernel.inc"
 
@@ -20,4 +19,6 @@ PROC Main()
     Update(message,length)
     Final()
   FI
+  done=$A5
+  DO OD
 RETURN

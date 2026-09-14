@@ -66,3 +66,7 @@ cargo run --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml -- fixtu
 Matrix1 also runs all 252 reference cases in both native modes, covering
 LONGINT, INT, CARD and BYTE elements across three square/rectangular shapes.
 Its adapter compares every matrix element and the signed checksum/status.
+
+Binary search adds all 1,153 cases across LONGINT, BYTE, INT and CARD records
+in both modes. SHA-0 adds 155 complete state/schedule cases in each mode, using
+explicit byte decoding and retaining the reference digest and counter behavior.
