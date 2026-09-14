@@ -726,6 +726,17 @@ impl<'a> Builder<'a> {
                 right,
                 signed,
             } => {
+                // Both operands are captured MIR values: commuting multiplication
+                // here cannot reorder source evaluation or memory reads.
+                let (left, right) = if self.options.select_instructions
+                    && *operation == NirBinaryOp::Mul
+                    && selection::constant(left).is_some()
+                    && selection::constant(right).is_none()
+                {
+                    (right, left)
+                } else {
+                    (left, right)
+                };
                 self.value(left, 0)?;
                 if self.options.select_instructions
                     && self.constant_binary(Width::from_bytes(width.get())?, *operation, right)
