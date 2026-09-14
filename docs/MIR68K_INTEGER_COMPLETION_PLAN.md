@@ -1,24 +1,27 @@
 # MIR68K integer completion and benchmark acceptance
 
-Status: multiplication and matrix1 are implemented. All 252 matrix1 vectors
-pass in both native modes (504 executions) and four 6502 configurations
-(1,008 executions). A separate NIR fix makes signed binary widening explicit;
-snapshots and the 51-fixture sweep pass. The broad compiler run has only the
-pre-existing untracked lines.act / SHARED.SCREEN sample failure. Division,
-remainder and typed native faults now pass 1,674 host-oracle cases, terminal
-fault checks, the full native suite and the affected compiler contract tests.
-Binary search passes all 1,153 cases in raw/optimized native modes (2,306
-executions) and all four 6502 configurations (4,612 executions); its unchanged
-C-reference generator check passes. SHA passes all 155 native cases in both
-modes (310 executions) and all four 6502 configurations (620 executions).
-All three benchmark generator checks and the broad fixture NIR corpus pass.
-The arithmetic and benchmark slices are complete. The previous milestone
-passed Linux/macOS CI but exposed a Windows NIR-sweep stack overflow. The sweep
-now reserves a 16 MiB compiler worker stack; a 128 KiB caller reproduces the
-old crash and succeeds after the fix. The focused sweep tests and broad corpus
-pass locally; remote verification of the new commits is pending.
+Status: complete. Multiplication, division, remainder and typed native faults
+are implemented, with 2,970 multiplication and 1,674 division/remainder
+host-oracle cases plus focused composition and terminal-fault checks. A separate
+NIR fix makes signed binary widening explicit; snapshots and the 51-fixture
+sweep pass without snapshot changes.
 
-The next native milestone completes multiplication, division and remainder,
+Benchmark acceptance passes against the unchanged C-reference vectors:
+
+- Matrix1: 252 cases, 504 native executions and 1,008 6502 executions.
+- Binary search: 1,153 cases, 2,306 native executions and 4,612 6502 executions.
+- SHA: 155 cases, 310 native executions and 620 6502 executions.
+
+All three generator checks and the broad fixture NIR corpus pass. The NIR sweep
+reserves a 16 MiB compiler worker stack to prevent Windows main-thread stack
+overflow; the regression check invokes it from a 128 KiB caller.
+
+[Cross-platform CI](https://github.com/mkur/actionc/actions/runs/34796179839)
+passed on Linux, Windows and macOS for code commit `e3ece64`: sample builds,
+the complete compiler suite, both VM suites and Python tooling tests. The
+subsequent completion record changes documentation only.
+
+This milestone completes multiplication, division and remainder,
 then executes matrix1, binary search and SHA against the existing reference
 vectors. SemIR/NIR continue to own widths, signedness and fault semantics;
 MIR68K legalizes those operations for the original MC68000.

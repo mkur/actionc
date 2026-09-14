@@ -1,9 +1,11 @@
 # Minimal MIR68K Execution Plan
 
-Status: slices 0–6 are implemented and locally validated, with a separate NIR
+Status: slices 0–6 are implemented and validated, with a separate NIR
 hardening fix for explicit integer return widths. The native API, r68k runner,
 symbol-based access, image dumps and insertion-sort acceptance are available.
-Linux/Windows/macOS CI is configured; remote results remain pending.
+Linux/Windows/macOS CI passes with the subsequent
+[integer completion milestone](MIR68K_INTEGER_COMPLETION_PLAN.md), including
+its Windows NIR-sweep stack fix.
 
 Validation includes the complete native suite, all 209 insertion-sort vectors
 in both native optimization modes (418 executions), and the affected four-mode
