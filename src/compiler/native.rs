@@ -38,6 +38,8 @@ impl Default for NativeCompileOptions {
 pub struct NativeCompiledProgram {
     pub image: mir68k::image::NativeImage,
     pub machine: mir68k::machine::MachineProgram,
+    /// Host inputs are protected by artifact publication, not embedded in images.
+    pub source_paths: Vec<PathBuf>,
 }
 
 pub fn compile_file(
@@ -92,9 +94,13 @@ pub fn compile_file(
             "native executable top-level statements require an explicit startup contract".into(),
         ));
     }
-    if semir.origin.is_some() {
+    let legacy_origin = semir.modules.iter().flat_map(|m| &m.items).any(|item| {
+        matches!(item, semantic::ir::SemItem::Set(set)
+            if matches!(super::sem_const_u16(&set.address), Some(0x000e | 0x000f | 0x0491 | 0x0492)))
+    });
+    if semir.origin.is_some() || legacy_origin {
         return Err(CompileError::configuration(
-            "native source SET origin is unsupported; use the full-width native origin option",
+            "native source ORG/SET origin is unsupported; use the full-width native origin option",
         ));
     }
     let semir = crate::linker::select_semir(&semir, crate::linker::SemLinkPolicy::EntryReachable)
@@ -146,7 +152,22 @@ pub fn compile_file(
             symbol.name = format!("{display}{suffix}");
         }
     }
-    Ok(NativeCompiledProgram { image, machine })
+    let source_paths = loaded
+        .source_map
+        .source_origins()
+        .filter_map(|origin| {
+            if let crate::source::SourceOrigin::Host(path) = origin {
+                Some(path.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    Ok(NativeCompiledProgram {
+        image,
+        machine,
+        source_paths,
+    })
 }
 
 fn codegen_error(message: String) -> CompileError {

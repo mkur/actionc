@@ -117,13 +117,32 @@ The maintained samples include small graphics programs, the Action! Toolkit,
 and TOMS Navigator. These larger programs are also used for compatibility and
 runtime regression testing.
 
-An experimental MC68000 path is available through the native compiler API and
-[r68k development runner](tools/vm68k-runtime-tests/README.md). It executes the
-integer/control-flow/call/array subset, including multiplication and division.
-TACLeBench insertion sort, matrix1, binary search and SHA-0 run against their
-reference vectors in both native optimization modes.
-This uses bare native images through the development runner; the public CLI
-modes below generate Atari output.
+An experimental MC68000 path is available through the public CLI and native
+compiler API. It executes integer arithmetic, control flow, calls and arrays
+with the [bare native ABI](docs/MIR68K_EXECUTION_CONTRACT.md):
+
+```sh
+actionc --target motorola-68000 --origin 0x10000 \
+  -o build/program.native.json --listing build/program.68k.txt program.act
+```
+
+This selects modern semantics, MIR68K and the bare runtime automatically.
+`--backend mir68k`, `--profile modern` and `--runtime bare` are optional explicit
+settings. `--no-opt` disables shared NIR optimization; `--no-codegen-opt`
+independently disables target optimizations. Atari `--mode` and runtime settings
+cannot be combined with native compilation. A root
+`;@actionc target motorola-68000` annotation also selects native output; explicit
+flags override annotations. Repeated `--module-path` options work on both targets.
+
+Native output is a [versioned manifest and binary payload bundle](docs/NATIVE_IMAGE_FORMAT.md),
+with default name `<source-stem>.native.json` in the current directory. Keep its
+payloads beside the manifest when copying it. The optional listing contains
+physical MIR68K inspection text. `actionc-emit --target motorola-68000` supports
+segment hex (`--emit-code`), this listing (`--emit-listing`), native symbols
+(`--emit-map`), and token/SemIR/NIR inspection. The
+[r68k development runner](tools/vm68k-runtime-tests/README.md) provides execution
+checks. Platform startup, Amiga executable formats and OS I/O remain outside this
+bare CPU target. The modes below describe Atari output.
 
 ## Choosing a mode
 

@@ -3507,8 +3507,9 @@ fn is_source_actionc_annotation(text: &str) -> bool {
         .to_ascii_uppercase();
     matches!(
         normalized.as_str(),
-        "PROFILE MODERN" | "BACKEND CLASSIC" | "BACKEND MIR6502"
+        "PROFILE MODERN" | "BACKEND CLASSIC" | "BACKEND MIR6502" | "BACKEND MIR68K"
     )
+        || normalized.strip_prefix("TARGET ").is_some_and(|name| name.parse::<crate::target::TargetId>().is_ok())
 }
 
 fn parse_writes_annotation(text: &str) -> Option<ActioncAnnotation> {

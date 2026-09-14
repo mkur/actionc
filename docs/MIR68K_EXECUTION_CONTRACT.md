@@ -62,7 +62,10 @@ of reserved-memory, stack, ABI and fault checks.
 The native compiler API uses the existing source/module loader, semantic
 analysis, reachable SemIR selection and NIR verifier/optimizer. Source-level
 startup and origin constraints are diagnosed before the verified backend
-boundary. Materialization rejects missing/parameterized program entries and
+boundary. Native output rejects source ORG and Atari SET code-origin controls;
+the full-width compile option owns the linked origin. Input origins, including
+textual includes, are retained outside the image to prevent output collisions.
+Materialization rejects missing/parameterized program entries and
 reachable unresolved fallthrough or terminal exits without a final typed fault. A6-relative temporary homes
 are separate from automatic objects and the preallocated outgoing area; frame
 sizes outside original MC68000 displacement limits are rejected.

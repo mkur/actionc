@@ -1,12 +1,19 @@
 # MIR68K public CLI, native artifacts and benchmark coverage
 
-Status: implementation in progress. Slice 2 (artifact I/O) is complete;
-slices 1, 3 and 4 remain. Baseline: `c753845`, with compiler behavior and
+Status: implementation in progress. Slices 2 (artifact I/O) and 1 (CLI)
+are complete; slices 3 and 4 remain. Baseline: `c753845`, with compiler behavior and
 measurements at `8ecf73a`.
 
 Slice 2 validation: all 69 native tests pass, including four artifact tests;
 the paired C command retains every measurement in `mir68k-c-comparison.csv`.
 The final metadata projection adjustment also passed the artifact target.
+
+Slice 1 validation: native CLI (5), Atari CLI (42), emit modes (3), compiler
+API (28), NIR CLI (7), CLI unit (13), and focused native artifact/API tests
+pass. Source annotation recognition and source-file collision checks are shared;
+legacy SET origins are now explicitly rejected on the native API boundary.
+The JSON dependency required an unambiguous empty-slice assertion in one
+existing dominance test; compiler analysis behavior is unchanged.
 
 Deliver the four requested areas: public CLI integration, native output,
 compile-and-run execution tests, and native Statemate/Dijkstra/Huffman-decoder

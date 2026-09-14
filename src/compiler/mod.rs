@@ -1,6 +1,7 @@
 pub(crate) mod artifacts;
 mod diagnostics;
 pub mod native;
+pub(crate) mod settings;
 pub(crate) mod validation;
 
 use std::fmt;
@@ -632,28 +633,22 @@ fn resolve_request(
     let mut profile = request.profile;
     let mut backend = request.backend;
     let mut target = request.target;
-    for line in source.lines() {
-        let Some(annotation) = line.trim_start().strip_prefix(";@actionc") else {
-            continue;
-        };
-        let normalized = annotation
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-            .to_ascii_lowercase();
-        match normalized.as_str() {
-            "profile modern" if !request.profile_explicit => profile = CodegenProfile::Modern,
-            "backend classic" if !request.backend_explicit => backend = Backend::Classic,
-            "backend mir6502" if !request.backend_explicit => backend = Backend::Mir6502,
-            "target atari-6502" if !request.target_explicit => target = TargetId::Atari6502,
-            "target wdc-65816-native" if !request.target_explicit => {
-                target = TargetId::Wdc65816Native
+    let settings = settings::SourceSettings::parse(source);
+    if !request.profile_explicit {
+        profile = settings.profile.unwrap_or(profile);
+    }
+    if !request.target_explicit {
+        target = settings.target.unwrap_or(target);
+    }
+    if !request.backend_explicit {
+        match settings.backend {
+            Some(settings::BackendSetting::Atari(selected)) => backend = selected,
+            Some(settings::BackendSetting::Mir68k) => {
+                return Err(CompileError::configuration(
+                    "MIR68K requires the native compiler API or --target motorola-68000 CLI path",
+                ));
             }
-            "target wdc-65816-small" if !request.target_explicit => {
-                target = TargetId::Wdc65816Small
-            }
-            "target motorola-68000" if !request.target_explicit => target = TargetId::Motorola68000,
-            _ => {}
+            None => {}
         }
     }
 

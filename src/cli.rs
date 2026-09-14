@@ -1,3 +1,4 @@
+mod native;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -75,7 +76,8 @@ fn run_main(flavor: CliFlavor) {
     let mut emit_mir6502 = false;
     let mut emit_materialized_mir6502 = false;
     let mut diagnostic_byte_ranges = false;
-    let mut origin = CODE_ORIGIN;
+    let mut origin = u32::from(CODE_ORIGIN);
+    let mut native_flags = native::Flags::default();
     let mut origin_explicit = false;
     let mut profile = CodegenProfile::default();
     let mut profile_explicit = false;
@@ -94,6 +96,8 @@ fn run_main(flavor: CliFlavor) {
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--no-opt" => native_flags.no_opt = true,
+            "--no-codegen-opt" => native_flags.no_codegen_opt = true,
             "--emit-tokens" => emit_tokens = true,
             "--emit-code" => emit_code = true,
             "--emit-listing" => emit_listing = true,
@@ -197,24 +201,34 @@ fn run_main(flavor: CliFlavor) {
             }
             "--backend" => {
                 let Some(value) = args.next() else {
-                    eprintln!("--backend requires classic or mir6502");
+                    eprintln!("--backend requires classic, mir6502 or mir68k");
                     print_help_for(flavor);
                     process::exit(2);
                 };
-                backend = parse_backend_or_exit(&value);
+                native_flags.backend = value == "mir68k";
+                if !native_flags.backend {
+                    backend = parse_backend_or_exit(&value);
+                }
                 backend_explicit = true;
             }
             "--runtime" => {
                 let Some(value) = args.next() else {
-                    eprintln!("--runtime requires cart or standalone");
+                    eprintln!("--runtime requires cart, standalone or bare");
                     print_help_for(flavor);
                     process::exit(2);
                 };
-                runtime = parse_runtime_or_exit(&value);
+                native_flags.bare = value == "bare";
+                if !native_flags.bare {
+                    runtime = parse_runtime_or_exit(&value);
+                }
                 runtime_explicit = true;
             }
             _ if arg.starts_with("--backend=") => {
-                backend = parse_backend_or_exit(&arg["--backend=".len()..]);
+                let value = &arg["--backend=".len()..];
+                native_flags.backend = value == "mir68k";
+                if !native_flags.backend {
+                    backend = parse_backend_or_exit(value);
+                }
                 backend_explicit = true;
             }
             "--target" => {
@@ -280,6 +294,52 @@ fn run_main(flavor: CliFlavor) {
             }
         }
     }
+    // Resolve the root target before choosing an output format or narrowing an
+    // address. Missing/unreadable input is diagnosed by the normal frontend.
+    let root_source = fs::read(&input_path)
+        .map(|b| decode_source(&b))
+        .unwrap_or_default();
+    let settings = crate::compiler::settings::SourceSettings::parse(&root_source);
+    if !target_explicit {
+        target = settings.target.unwrap_or(target);
+    }
+    let selected_profile = if profile_explicit {
+        Some(profile)
+    } else {
+        settings.profile
+    };
+    let selected_backend = if backend_explicit {
+        Some(if native_flags.backend {
+            crate::compiler::settings::BackendSetting::Mir68k
+        } else {
+            crate::compiler::settings::BackendSetting::Atari(backend)
+        })
+    } else {
+        settings.backend
+    };
+    let native_options = native_flags.resolve(
+        target,
+        selected_profile,
+        selected_backend,
+        runtime_explicit,
+        compile_mode.is_some(),
+        origin_explicit.then_some(origin),
+        &module_paths,
+    );
+    if native_options.is_some() {
+        profile = CodegenProfile::Modern;
+        profile_explicit = true;
+        // The old backend variable is used only for shared frontend inspection.
+        backend = Backend::Classic;
+        backend_explicit = true;
+        if flavor == CliFlavor::Compile && output_path.is_none() {
+            let stem = Path::new(&input_path)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy();
+            output_path = Some(PathBuf::from(format!("{stem}.native.json")));
+        }
+    }
     let compile_outputs = match flavor {
         CliFlavor::Compile => {
             if emit_mode_selected(
@@ -339,6 +399,49 @@ fn run_main(flavor: CliFlavor) {
         eprintln!("{message}");
         process::exit(2);
     }
+
+    if let Some(options) = &native_options {
+        if emit_source_listing
+            || emit_load
+            || emit_link_plan
+            || emit_proofs
+            || emit_proof_attempts
+            || emit_mir6502
+            || emit_materialized_mir6502
+        {
+            native::configuration(
+                "this output mode is unavailable for Motorola 68000; use --emit-code, --emit-listing, --emit-map, or SemIR/NIR inspection",
+            );
+        }
+        let inspection =
+            emit_tokens || emit_semir || emit_nir || emit_optimized_nir || emit_nir_stats;
+        if !inspection {
+            let compiled = native::compile(&input_path, options, diagnostic_byte_ranges);
+            if let Some(outputs) = &compile_outputs {
+                if let Err(error) = crate::compiler::native::artifacts::write(
+                    &compiled,
+                    &outputs.object,
+                    outputs.listing.as_deref(),
+                    &[Path::new(&input_path)],
+                ) {
+                    eprintln!("failed to write native image: {error}");
+                    process::exit(1);
+                }
+            } else {
+                native::emit(&compiled, emit_listing, emit_map);
+            }
+            return;
+        }
+    }
+    // Only the Atari emission path uses a 16-bit origin. Shared inspection does
+    // not consume it; native compilation above retains the complete address.
+    let origin = if native_options.is_some() {
+        CODE_ORIGIN
+    } else {
+        u16::try_from(origin).unwrap_or_else(|_| {
+            native::configuration("origin exceeds the 16-bit Atari address space")
+        })
+    };
 
     if let Some(outputs) = &compile_outputs {
         let request = CompileRequest {
@@ -684,7 +787,8 @@ fn run_main(flavor: CliFlavor) {
             return;
         }
 
-        let uses_wide_integers = crate::compiler::validation::classic_requires_wide_integer_projection(&model, &semir);
+        let uses_wide_integers =
+            crate::compiler::validation::classic_requires_wide_integer_projection(&model, &semir);
 
         if runtime == Runtime::Standalone {
             let standalone_origin = if origin_explicit {
@@ -1053,25 +1157,17 @@ fn apply_source_codegen_settings(
     target: &mut TargetId,
     target_explicit: bool,
 ) {
-    for line in source_text.lines() {
-        let Some(annotation) = line.trim_start().strip_prefix(";@actionc") else {
-            continue;
-        };
-        let normalized = annotation
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-            .to_ascii_lowercase();
-        match normalized.as_str() {
-            "profile modern" if !profile_explicit => *profile = CodegenProfile::Modern,
-            "backend classic" if !backend_explicit => *backend = Backend::Classic,
-            "backend mir6502" if !backend_explicit => *backend = Backend::Mir6502,
-            "target atari-6502" if !target_explicit => *target = TargetId::Atari6502,
-            "target wdc-65816-native" if !target_explicit => *target = TargetId::Wdc65816Native,
-            "target wdc-65816-small" if !target_explicit => *target = TargetId::Wdc65816Small,
-            "target motorola-68000" if !target_explicit => *target = TargetId::Motorola68000,
-            _ => {}
+    let settings = crate::compiler::settings::SourceSettings::parse(source_text);
+    if !profile_explicit {
+        *profile = settings.profile.unwrap_or(*profile);
+    }
+    if !backend_explicit {
+        if let Some(crate::compiler::settings::BackendSetting::Atari(selected)) = settings.backend {
+            *backend = selected;
         }
+    }
+    if !target_explicit {
+        *target = settings.target.unwrap_or(*target);
     }
 }
 
@@ -1456,13 +1552,13 @@ fn print_help_for(flavor: CliFlavor) {
 
 fn print_compile_help() {
     eprintln!(
-        "usage: actionc [--mode compatibility|optimized|mir6502] [--target <name>] [--runtime cart|standalone] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile an Action! source file to an Atari load-format object.\nThe default target is atari-6502, the default mode is compatibility, and the\ndefault runtime is cart. Other targets currently support NIR inspection through\nactionc-emit. Advanced users may select --profile and --backend directly instead\nof --mode. With no -o option, write <source-stem>.xex in the current directory.\n--listing writes re-originable, source-annotated MADS assembly. Change only\nACTIONC_ORIGIN in the generated listing to move its main segment."
+        "usage: actionc [--mode compatibility|optimized|mir6502] [--target <name>] [--runtime cart|standalone|bare] [--origin <addr>] [-o <file.xex>] [--listing <file.asm>] <file.act>\n       actionc --version\n\nCompile Action! to Atari load format or a bare Motorola 68000 image.\nThe default target is atari-6502, mode compatibility, runtime cart.\n--target motorola-68000 selects modern semantics, MIR68K and runtime bare.\nNative defaults: origin 0x10000, output <source-stem>.native.json plus payloads.\nNative --listing writes physical MIR68K inspection text. --no-opt disables NIR\noptimization; --no-codegen-opt independently selects conservative materialization.\nRepeated --module-path options add module search directories. Advanced users may select --profile and --backend directly instead\nof --mode. For Atari, no -o writes <source-stem>.xex in the current directory.\nAtari --listing writes re-originable, source-annotated MADS assembly. Change only\nACTIONC_ORIGIN in the generated listing to move its main segment."
     );
 }
 
 fn print_help() {
     eprintln!(
-        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502] <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. The\nnon-Atari targets currently support SemIR and NIR inspection only. Listings are\nre-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
+        "usage: actionc-emit [--emit-tokens] [--emit-semir|--emit-nir|--emit-optimized-nir|--emit-nir-stats|--emit-mir6502|--emit-materialized-mir6502|--emit-code|--emit-listing|--emit-source-listing|--emit-load|--emit-map|--emit-link-plan|--emit-proofs|--emit-proof-attempts] [--diagnostic-byte-ranges] [--target <name>] [--runtime cart|standalone|bare] [--origin <addr>] [--profile legacy|modern] [--backend classic|mir6502|mir68k] <file.act>\n       actionc-emit --version\n\nTargets: atari-6502, wdc-65816-native, wdc-65816-small, motorola-68000. Motorola 68000\nsupports --emit-code (address-labelled segment hex), --emit-listing (physical\nMIR68K), --emit-map and shared frontend inspection. The 65816 targets support\nSemIR/NIR inspection only. Atari listings are re-originable MADS assembly. Change only ACTIONC_ORIGIN to move the main segment."
     );
 }
 
@@ -1524,16 +1620,16 @@ fn optimize_nir_or_exit(program: nir::NirProgram) -> nir::NirProgram {
     }
 }
 
-fn parse_origin(value: &str) -> u16 {
+fn parse_origin(value: &str) -> u32 {
     let parsed = if let Some(hex) = value.strip_prefix('$') {
-        u16::from_str_radix(hex, 16)
+        u32::from_str_radix(hex, 16)
     } else if let Some(hex) = value
         .strip_prefix("0x")
         .or_else(|| value.strip_prefix("0X"))
     {
-        u16::from_str_radix(hex, 16)
+        u32::from_str_radix(hex, 16)
     } else {
-        value.parse::<u16>()
+        value.parse::<u32>()
     };
 
     match parsed {

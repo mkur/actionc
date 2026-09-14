@@ -58,6 +58,10 @@ fn unsupported_native_runtime_and_arithmetic_features_are_diagnosed() {
         ("REAL a,b PROC Entry() a=a+b RETURN", "REAL"),
         ("PROC Entry() PrintE() RETURN", "adapter"),
         ("ORG $3000\nPROC Entry() RETURN", "origin"),
+        ("SET $E=$3000\nPROC Entry() RETURN", "origin"),
+        ("SET $F=$30\nPROC Entry() RETURN", "origin"),
+        ("SET $491=$3000\nPROC Entry() RETURN", "origin"),
+        ("SET $492=$30\nPROC Entry() RETURN", "origin"),
     ] {
         let source = common::Source::new(source);
         for optimize in [false, true] {

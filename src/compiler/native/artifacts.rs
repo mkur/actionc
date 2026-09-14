@@ -162,7 +162,11 @@ pub fn write(
     if list.as_ref() == Some(&out) {
         return Err("manifest and listing paths must differ".into());
     }
-    for source in protected {
+    for source in protected
+        .iter()
+        .copied()
+        .chain(program.source_paths.iter().map(PathBuf::as_path))
+    {
         let source = destination(source)?;
         if source == out || list.as_ref() == Some(&source) {
             return Err("output would overwrite source".into());

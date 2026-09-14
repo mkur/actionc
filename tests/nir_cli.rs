@@ -61,7 +61,7 @@ fn candidate_targets_reach_verified_nir_with_their_layout_contract() {
 }
 
 #[test]
-fn candidate_target_codegen_reports_the_missing_backend() {
+fn unimplemented_65816_codegen_reports_the_missing_backend() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
         .join("nir")
@@ -71,17 +71,17 @@ fn candidate_target_codegen_reports_the_missing_backend() {
             "--profile",
             "modern",
             "--target",
-            "motorola-68000",
+            "wdc-65816-native",
             "--emit-code",
         ])
         .arg(&fixture)
         .output()
-        .expect("request unavailable 68k backend");
+        .expect("request unavailable 65816 backend");
 
     assert_eq!(output.status.code(), Some(2));
     assert!(
         String::from_utf8_lossy(&output.stderr)
-            .contains("code generation backend for target `motorola-68000` is not implemented")
+            .contains("code generation backend for target `wdc-65816-native` is not implemented")
     );
 }
 

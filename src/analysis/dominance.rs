@@ -294,7 +294,7 @@ mod tests {
         assert_eq!(dominance.children(0), &[1, 2, 3]);
         assert_eq!(dominance.dominance_frontier(1), &BTreeSet::from([3]));
         assert_eq!(dominance.immediate_dominator(9), None);
-        assert_eq!(dominance.children(9), &[]);
+        assert!(dominance.children(9).is_empty());
     }
 
     #[test]

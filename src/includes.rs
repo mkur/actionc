@@ -116,6 +116,11 @@ struct CompilationLoader<'a> {
 }
 
 impl SourceMap {
+    /// All input origins, including textual includes, for output collision checks.
+    pub fn source_origins(&self) -> impl Iterator<Item = &SourceOrigin> {
+        self.files.iter().map(|file| &file.origin)
+    }
+
     pub fn location(&self, span: Span) -> Option<MappedSourceLocation> {
         let segment = self.segments.iter().find(|segment| {
             span.start >= segment.expanded.start && span.start < segment.expanded.end
