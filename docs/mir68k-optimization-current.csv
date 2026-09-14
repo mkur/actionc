@@ -1,0 +1,15 @@
+benchmark,nir,code_bytes,instructions,max_frame_bytes,stack_read_bytes,stack_write_bytes
+insertsort,raw,1934,7379,200,4169,3429
+insertsort,optimized,1610,5572,140,2125,1843
+matrix1,raw,1712,114612,182,76131,46179
+matrix1,optimized,990,72336,68,24753,14349
+binarysearch,raw,1074,9179,134,2001,1483
+binarysearch,optimized,754,8302,68,885,737
+sha,raw,5238,25989,862,19235,16114
+sha,optimized,3196,14924,452,8453,7090
+jfdctint,raw,8642,50750,1504,26794,20342
+jfdctint,optimized,5768,38767,742,13560,10432
+adpcm_dec,raw,9892,19990,818,12053,9404
+adpcm_dec,optimized,8292,16361,704,8584,6576
+adpcm_enc,raw,13000,2407387,842,1142310,688221
+adpcm_enc,optimized,10568,1990889,736,421430,264909

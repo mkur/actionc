@@ -27,7 +27,7 @@ worktree status in `build/mir68k-c-reference/toolchain.json`.
 The same file records Action! switches; `actionc-options.txt` records the resolved
 native settings and input Git hashes. `--no-opt` selects raw Action! NIR;
 `--no-codegen-opt` disables target optimization. Individual switches
-`--no-forward-temporaries`, `--no-select-instructions`, `--no-relax-branches`
+`--no-forward-temporaries`, `--no-select-instructions`, `--no-relax-branches`,
 `--no-pointer-alignment`, `--no-control-flow` and `--no-register-allocation`
 support controlled comparisons. These switches leave GCC's configuration alone.
 Use a separate `--build-dir` for each experiment to retain its results.
@@ -92,7 +92,8 @@ completion, malformed records, overlapping ranges and symbol extents:
 cargo test --locked --manifest-path tools/vm68k-runtime-tests/Cargo.toml --example c_reference
 ```
 
-See the [measured comparison and improvement priorities](../../docs/MIR68K_C_COMPARISON.md).
+See the [measured comparison and completed milestone](../../docs/MIR68K_C_COMPARISON.md)
+for the initial/current CSVs and feature comparisons at a fixed compiler revision.
 
 ## Provenance
 

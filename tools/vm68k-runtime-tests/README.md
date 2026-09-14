@@ -114,14 +114,17 @@ NIR mode. Register allocation is enabled by default; `--register-allocation`
 explicitly enables it. Wide native pointer storage facts are recognized by shared NIR
 analysis under both policies, so older compiler revisions remain the reference
 for the exact pre-migration baseline.
-The [initial baseline](../../docs/mir68k-code-quality-baseline.csv) precedes
-temporary forwarding, instruction selection and branch relaxation. The
-[current measurements](../../docs/mir68k-code-quality-current.csv) and
-[milestone comparison](../../docs/MIR68K_CODE_QUALITY_PLAN.md) record the result.
+The [first milestone](../../docs/MIR68K_CODE_QUALITY_PLAN.md) retains historical
+measurements for temporary forwarding, instruction selection and branch
+relaxation. The subsequent alignment, control-flow and register-retention
+milestone has its own [baseline](../../docs/mir68k-optimization-baseline.csv),
+[current measurements](../../docs/mir68k-optimization-current.csv) and
+[feature comparisons](../../docs/mir68k-optimization-features.csv).
 
 Compare equivalent C compiled by MC68000 GCC against Action! with
 `python3 tools/compare_mir68k_c.py` from the repository root. Both use this r68k
 harness and the same reference vectors. The optional cross-toolchain setup,
 measurement contract and artifacts are described in the
 [C reference README](../mir68k-c-reference/README.md); the
-[comparison report](../../docs/MIR68K_C_COMPARISON.md) records the initial gaps.
+[comparison report](../../docs/MIR68K_C_COMPARISON.md) records the improvements
+and remaining gaps.

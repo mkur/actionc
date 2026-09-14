@@ -1,7 +1,8 @@
 # MIR68K alignment, control flow and register retention
 
-Status: in progress. Slices 1–5 are complete; slice 6 remains. Commit each major
-slice after its validation gate passes.
+Status: implementation and measurements complete in six committed slices.
+Local validation passes. Cross-platform CI has started on compiler revision
+`8ecf73a`; its result is pending and is not a completion claim in this report.
 
 The objective is to remove the largest avoidable costs exposed by the
 [MC68000 GCC comparison](MIR68K_C_COMPARISON.md), then return to language and
@@ -269,6 +270,18 @@ recursion and stack/ABI preservation. Enable the broader native promotion and
 allocation together only after their combined measurements justify doing so.
 
 ## Slice 6: Measure, document and close the milestone
+
+Measurements are complete at clean compiler revision `8ecf73a`. The paired C
+corpus passes all 693 reference executions, and all seven native benchmark
+measurements reproduce slice 5. Published baseline/current and feature CSVs
+retain raw and optimized NIR rows; C versions, flags, inputs and results remain
+unchanged. The report connects native longword accesses, direct branches and
+D4–D7 loop retention to the measured improvements and documents remaining gaps.
+CSV integrity, input identity, revision metadata and local documentation links
+pass validation. Full Linux, Windows and macOS CI is running on the compiler
+commit used by this documentation-only completion slice:
+[CI run](https://github.com/mkur/actionc/actions/runs/34837619732).
+Its result was pending when these measurements were committed.
 
 Run the unchanged paired C corpus and all seven native benchmark measurements.
 Compare executable bytes, instructions, stack traffic and frames. Inspect hot
