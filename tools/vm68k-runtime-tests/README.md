@@ -143,7 +143,7 @@ a measurement. Existing CSV columns retain their meanings.
 Use `--no-forward-temporaries`, `--no-select-instructions` or
 `--no-relax-branches`, `--no-pointer-alignment`, `--no-control-flow` or
 `--no-register-allocation` to isolate one target optimization;
-`--no-codegen-opt` disables all six. `--no-opt`
+`--no-codegen-opt` disables target optimizations. `--no-opt`
 restricts this example to raw NIR. Unknown options
 and benchmark names are rejected.
 SHA hashes `abc`; other programs run their default benchmark entry. Each run
@@ -169,3 +169,9 @@ measurement contract and artifacts are described in the
 [C reference README](../mir68k-c-reference/README.md); the
 [comparison report](../../docs/MIR68K_C_COMPARISON.md) records the improvements
 and remaining gaps.
+
+The developer measurement runners also accept `--guarded-memory` and
+`--no-guarded-memory` for the optional nonvolatile indirect longword fast path.
+Conflicting guard switches are rejected. `--no-codegen-opt` disables guards
+regardless of argument order; `--no-pointer-alignment` affects static proofs
+independently. See [descriptor alignment measurements](../../docs/MIR68K_DESCRIPTOR_ALIGNMENT.md).

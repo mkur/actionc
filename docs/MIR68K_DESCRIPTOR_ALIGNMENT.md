@@ -34,3 +34,28 @@ compiler tests passed with the unrelated untracked sample scan excluded. The
 exact sample-parser test also passed against tracked sources using the current
 compiler library. Ten focused native tests passed across descriptor alignment,
 pointer alignment, multidimensional arrays and index arithmetic.
+
+## Optional guarded accesses
+
+The longword-only guard is initially off. Developer runners accept
+`--guarded-memory` / `--no-guarded-memory`, reject conflicting switches and record
+the resolved setting. `--no-codegen-opt` disables guards regardless of argument
+order; `--no-pointer-alignment` controls static proofs independently.
+
+With guards and static proofs enabled, optimized shaped matrix1 executes 106651
+instructions with 1494 executable bytes; shaped DCT executes 38991 instructions
+with 7558 bytes. Frames and stack traffic are unchanged. The focused eight-value
+loop executes 787 instructions with guards off, 651 on even pointers with guards
+on, and 835 on odd pointers with guards on. Guarding trades additional code and
+odd-path checks for cheaper aligned accesses.
+
+Literal MC68000 qualification covers the actual address-test primitives and D0
+preservation. Differential tests cover both NIR modes, register allocation and
+forwarding settings, zero-trip loops, calls, full memory and byte traces, and
+faults at every byte of even/odd longwords. Statically selected accesses and
+excluded operations emit identical machine programs with guards off/on.
+
+Slice 2 validation: all 16 MIR68K compiler unit tests and the affected native
+qualification, guard, descriptor, pointer, fault, emission, forwarding,
+allocation and measurement-parser tests passed. The real C runner rejected
+conflicting guard switches before building. No NIR fixtures changed.

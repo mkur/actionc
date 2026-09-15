@@ -3,25 +3,25 @@ use super::*;
 use crate::runtime_fault::RuntimeFault;
 
 impl Builder<'_> {
-    fn label(&mut self) -> Result<MachineBlockId> {
+    pub(super) fn label(&mut self) -> Result<MachineBlockId> {
         let id = MachineBlockId(self.next);
         self.next = self.next.checked_add(1).ok_or("too many machine blocks")?;
         Ok(id)
     }
-    fn begin(&mut self, label: MachineBlockId) {
+    pub(super) fn begin(&mut self, label: MachineBlockId) {
         self.blocks.push(MachineBlock {
             id: self.current,
             instructions: std::mem::take(&mut self.instructions),
         });
         self.current = label;
     }
-    fn branch(&mut self, condition: Condition, target: MachineBlockId) {
+    pub(super) fn branch(&mut self, condition: Condition, target: MachineBlockId) {
         self.emit(Instruction::Branch {
             condition,
             target: Address::new(Target::Block(target)),
         });
     }
-    fn jump(&mut self, target: MachineBlockId) {
+    pub(super) fn jump(&mut self, target: MachineBlockId) {
         self.emit(Instruction::Jump(Ea::Absolute(Address::new(
             Target::Block(target),
         ))));

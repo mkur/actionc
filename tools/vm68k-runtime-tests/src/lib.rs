@@ -149,6 +149,10 @@ impl AddressBus for Memory {
         *self = other.clone();
     }
     fn read_byte(&self, space: AddressSpace, address: u32) -> u32 {
+        // r68k's bus trait cannot return a bus error mid-instruction. Latch the
+        // first violation and suppress later subaccesses of that instruction;
+        // Machine reports the terminal fault immediately after it executes.
+        if self.violation.borrow().is_some() { return 0; }
         let address = address & ADDRBUS_MASK;
         self.record_access(address, false);
         if self.allowed(address, false, space.fc() & 2 != 0) {
@@ -164,6 +168,7 @@ impl AddressBus for Memory {
         self.read_word(space, address) << 16 | self.read_word(space, address.wrapping_add(2))
     }
     fn write_byte(&mut self, _: AddressSpace, address: u32, value: u32) {
+        if self.violation.borrow().is_some() { return; }
         let address = address & ADDRBUS_MASK;
         self.record_access(address, true);
         if self.allowed(address, true, false) {

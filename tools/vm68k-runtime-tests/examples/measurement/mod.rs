@@ -7,6 +7,8 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
     let mut names = Vec::new();
     let mut promotion = None;
     let mut allocation = None;
+    let mut guards = None;
+    let mut conservative_codegen = false;
     for arg in args {
         match arg.as_str() {
             "--no-opt" => options.optimize = false,
@@ -24,7 +26,17 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
                 options.promotion = selected;
             }
             "--no-codegen-opt" => {
+                conservative_codegen = true;
                 options.codegen = actionc::mir68k::materialize::Options::conservative();
+            }
+            "--guarded-memory" | "--no-guarded-memory" => {
+                let selected = arg == "--guarded-memory";
+                assert!(
+                    guards.is_none_or(|previous| previous == selected),
+                    "conflicting guarded memory options"
+                );
+                guards = Some(selected);
+                options.codegen.guarded_memory = selected;
             }
             "--no-pointer-alignment" => options.codegen.pointer_alignment = false,
             "--no-control-flow" => options.codegen.control_flow = false,
@@ -43,6 +55,9 @@ pub fn options(args: impl Iterator<Item = String>) -> (NativeCompileOptions, Vec
             _ if arg.starts_with('-') => panic!("unknown measurement option: {arg}"),
             _ => names.push(arg),
         }
+    }
+    if conservative_codegen {
+        options.codegen.guarded_memory = false;
     }
     (options, names)
 }
@@ -98,4 +113,44 @@ pub fn metadata(root: &Path, options: &NativeCompileOptions, names: &[String]) -
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn guarded_memory_switches_are_explicit_and_conservative_mode_disables_them() {
+        for switches in [
+            vec!["--guarded-memory", "--no-codegen-opt"],
+            vec!["--no-codegen-opt", "--guarded-memory"],
+        ] {
+            assert!(
+                !options(switches.into_iter().map(String::from))
+                    .0
+                    .codegen
+                    .guarded_memory
+            );
+        }
+        assert!(
+            options(["--guarded-memory".into()].into_iter())
+                .0
+                .codegen
+                .guarded_memory
+        );
+        assert!(
+            !options(["--no-guarded-memory".into()].into_iter())
+                .0
+                .codegen
+                .guarded_memory
+        );
+        for switches in [
+            ["--guarded-memory", "--no-guarded-memory"],
+            ["--no-guarded-memory", "--guarded-memory"],
+        ] {
+            assert!(
+                std::panic::catch_unwind(|| options(switches.into_iter().map(String::from)))
+                    .is_err()
+            );
+        }
+    }
 }

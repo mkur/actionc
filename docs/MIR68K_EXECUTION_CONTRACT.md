@@ -201,6 +201,25 @@ automatic descriptors are initialized by explicit entry stores and use the
 actual backing alignment. Volatile accesses and volatile copies retain the
 pre-descriptor proof policy and their existing access sequence.
 
+The optional `guarded_memory` materialization policy handles ordinary indirect
+longword accesses without a selected static proof. It forms the complete
+effective address once in A0, copies it to scratch D1 and tests bit zero with
+original-MC68000 instructions. The even path uses MOVE.L; the odd path retains
+the existing big-endian byte sequence. D0's pending store value is preserved.
+The paths join in physical machine blocks, so temporary forwarding resets at
+control transfers; no static alignment receipt is invented by a runtime guard.
+Byte/word accesses, volatile operations, copies, real operations and explicit
+absolute addresses keep their existing policy. `pointer_alignment` controls
+static-proof selection independently; conservative materialization disables
+both options. The guard option is initially off pending corpus validation.
+
+The r68k harness latches the first invalid bus access and suppresses later
+subaccesses of that instruction before reporting a terminal memory violation.
+This prevents a longword operation from writing mapped bytes beyond a faulting
+gap. Qualification covers the valid prefix, first failing byte, untouched
+later bytes and inability to resume. Byte traces are harness observations, not
+a claim of exact original-CPU bus-cycle timing.
+
 Control-flow selection fuses a block's final comparison with its branch only
 when the boolean has exactly one use, that branch's condition. It selects the
 same width and signedness as numeric comparison emission. Numeric results still

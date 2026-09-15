@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "materialize_arithmetic.rs"]
 mod arithmetic;
+#[path = "materialize_memory.rs"]
+mod memory;
 #[path = "materialize_selection.rs"]
 mod selection;
 
@@ -15,6 +17,8 @@ pub struct Options {
     pub select_instructions: bool,
     pub relax_branches: bool,
     pub pointer_alignment: bool,
+    /// Guard unknown nonvolatile indirect longword accesses at runtime.
+    pub guarded_memory: bool,
     pub control_flow: bool,
     pub register_allocation: bool,
 }
@@ -25,6 +29,7 @@ impl Default for Options {
             select_instructions: true,
             relax_branches: true,
             pointer_alignment: true,
+            guarded_memory: false,
             control_flow: true,
             register_allocation: true,
         }
@@ -37,6 +42,7 @@ impl Options {
             select_instructions: false,
             relax_branches: false,
             pointer_alignment: false,
+            guarded_memory: false,
             control_flow: false,
             register_allocation: false,
         }
@@ -607,47 +613,6 @@ impl<'a> Builder<'a> {
             count -= step;
         }
     }
-    fn read_memory(&mut self, address: &Mir68kAddress, width: ByteSize) -> Result<()> {
-        self.address(address, 0)?;
-        if address.naturally_aligned(width)
-            && (self.options.pointer_alignment
-                || !matches!(address.base, Mir68kAddressBase::Indirect(_)))
-        {
-            self.mov(Width::from_bytes(width.get())?, Ea::Indirect(0), Ea::D(0));
-        } else {
-            self.mov(Width::Long, Ea::Immediate(0), Ea::D(0));
-            self.mov(Width::Long, Ea::Immediate(0), Ea::D(1));
-            for byte in 0..width.get() {
-                if byte != 0 {
-                    self.shift_immediate(0, true, 8);
-                }
-                self.mov(Width::Byte, Ea::Displacement(0, byte as i16), Ea::D(1));
-                self.emit(Instruction::Alu {
-                    operation: Alu::Or,
-                    width: Width::Long,
-                    source: 1,
-                    destination: 0,
-                });
-            }
-        }
-        Ok(())
-    }
-    fn write_memory(&mut self, address: &Mir68kAddress, width: ByteSize) -> Result<()> {
-        self.address(address, 0)?;
-        if address.naturally_aligned(width)
-            && (self.options.pointer_alignment
-                || !matches!(address.base, Mir68kAddressBase::Indirect(_)))
-        {
-            self.mov(Width::from_bytes(width.get())?, Ea::D(0), Ea::Indirect(0));
-        } else {
-            for byte in 0..width.get() {
-                self.mov(Width::Long, Ea::D(0), Ea::D(1));
-                self.shift_immediate(1, false, 8 * (width.get() - byte - 1));
-                self.mov(Width::Byte, Ea::D(1), Ea::Displacement(0, byte as i16));
-            }
-        }
-        Ok(())
-    }
     fn op(&mut self, op: &Mir68kOp) -> Result<()> {
         match op {
             Mir68kOp::Fault(reason) => self.fault(*reason)?,
@@ -655,18 +620,20 @@ impl<'a> Builder<'a> {
                 address,
                 value,
                 width,
+                volatile,
                 ..
             } => {
                 self.value(value, 0)?;
-                self.write_memory(address, *width)?;
+                self.write_memory(address, *width, *volatile)?;
             }
             Mir68kOp::Load {
                 dest,
                 width,
                 address,
+                volatile,
                 ..
             } => {
-                self.read_memory(address, *width)?;
+                self.read_memory(address, *width, *volatile)?;
                 self.save(*dest, *width)?;
             }
             Mir68kOp::AddressOf {

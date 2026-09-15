@@ -1,7 +1,7 @@
 # MIR68K descriptor alignment and guarded memory accesses
 
-Status: implementation in progress. Slice 1 is complete and validated; slices
-2–4 follow below. Commit after each completed slice.
+Status: implementation in progress. Slices 1–2 are complete and validated;
+slices 3–4 follow below. Commit after each completed slice.
 
 ## Objective and baseline
 

@@ -94,6 +94,62 @@ fn immediate_word_logic_and_moveq_sign_extension_are_qualified() {
 }
 
 #[test]
+fn literal_alignment_guard_tests_the_address_without_reading_memory_or_clobbering_d0() {
+    for address in [0x20000u32, 0x20001] {
+        let mut vm = machine(&[
+            0x207c,
+            (address >> 16) as u16,
+            address as u16, // MOVEA.L #address,A0
+            0x203c,
+            0x1234,
+            0x5678, // MOVE.L #$12345678,D0 (pending store)
+            0x2208, // MOVE.L A0,D1
+            0x0281,
+            0,
+            1,      // ANDI.L #1,D1
+            0x6604, // BNE odd
+            0x2080, // MOVE.L D0,(A0)
+            0x6002, // BRA join
+            0x1080, // odd: MOVE.B D0,(A0)
+            0x4e75,
+        ]);
+        vm.cpu.mem.trace_range(0x20000..0x20010);
+        vm.run(100).assert_completed();
+        assert_eq!(vm.cpu.dar[0], 0x12345678);
+        let count = if address & 1 == 0 { 4 } else { 1 };
+        assert_eq!(
+            vm.cpu.mem.take_trace(),
+            (0..count).map(|i| (address + i, true)).collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
+fn a_faulting_longword_stops_before_later_mapped_bytes_of_the_same_access() {
+    for opcode in [0x2039u16, 0x23c0] {
+        // MOVE.L address,D0 / MOVE.L D0,address
+        let mut memory = Memory::default();
+        let words = [opcode, 0x0003, 0x0000, 0x4e75, 0x4e71];
+        let code: Vec<_> = words.iter().flat_map(|w| w.to_be_bytes()).collect();
+        memory.map(0x10000, &code, false, true).unwrap();
+        memory.map(0x30000, &[0xaa], true, false).unwrap();
+        memory.map(0x30002, &[0xbb, 0xcc], true, false).unwrap();
+        let mut vm = Machine::new(memory, 0x10000).unwrap();
+        vm.cpu.dar[0] = 0x12345678;
+        vm.cpu.mem.trace_range(0x30000..0x30004);
+        let result = vm.run(100);
+        assert!(matches!(result.outcome, Outcome::MemoryViolation(_)));
+        assert_eq!(vm.cpu.mem.bytes(0x30002, 2).unwrap(), &[0xbb, 0xcc]);
+        let write = opcode == 0x23c0;
+        assert_eq!(
+            vm.cpu.mem.take_trace(),
+            [(0x30000, write), (0x30001, write)]
+        );
+        assert!(matches!(vm.run(100).outcome, Outcome::MemoryViolation(_)));
+    }
+}
+
+#[test]
 fn word_branches_use_the_opcode_pc_plus_two() {
     let mut vm = machine(&[
         0x7003, // MOVEQ #3,D0
