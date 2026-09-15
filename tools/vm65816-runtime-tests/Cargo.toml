@@ -1,0 +1,13 @@
+[package]
+name = "actionc-vm65816-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "GPL-3.0-only"
+
+[dependencies]
+# Last revision before the common audio code began requiring Rust 1.98.
+# The CPU crate is unchanged between this revision and d19ee94f.
+wdc65816-emu = { git = "https://github.com/jsgroth/jgenesis.git", rev = "22f62e89f6faf33164411987e4d52703196cc8d1" }
+
+[workspace]

@@ -9,6 +9,14 @@ and documentation changes. No compiler implementation changed during this
 review. The findings and proposed sequence below do not constitute executable
 65816 qualification.
 
+The subsequent [CPU test drive](../tools/vm65816-runtime-tests/README.md) records
+independent jgenesis execution and its limitations. It does not resolve the
+compiler gaps or establish emitted-code readiness described in this review.
+
+The later [X65 execution checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
+records the C qualification, Rust port, VM integration and Altirra comparison.
+Native compiler emission and the Exec acceptance gates remain pending.
+
 ## Assessment
 
 The requirements set the right readiness standard for Exec. Reentrancy,

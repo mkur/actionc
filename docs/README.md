@@ -39,6 +39,12 @@ crowding the active reference set.
 - [MIR65816_EXEC_READINESS_REVIEW.md](MIR65816_EXEC_READINESS_REVIEW.md)
   - baseline audit, confirmed lowering gaps, physical ABI decisions and proposed
     implementation sequence for reaching the Exec readiness gates.
+- [MIR65816_CPU_EXECUTION_CHECKPOINT.md](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
+  - X65 C qualification, safe Rust port, VM integration, Altirra cross-check,
+    and the remaining native compiler and interrupt-timing boundaries.
+- [65816 CPU test drive](../tools/vm65816-runtime-tests/README.md)
+  - pinned jgenesis core, executable CPU qualification and confirmed NMI/reset
+    limitations to address before full Exec interrupt qualification.
 - [MIR68K_EXECUTION_CONTRACT.md](MIR68K_EXECUTION_CONTRACT.md)
   - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
 - [MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md](MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md)
