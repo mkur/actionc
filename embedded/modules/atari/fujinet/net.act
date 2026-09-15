@@ -1,0 +1,214 @@
+; Synchronous FujiNet byte streams over the Atari OS SIO vector.
+; Contract: firmware v1.6.1 (d7a5b2faac61a7889874849bf5db6f82718e42c1).
+; See docs/ATARI_FUJINET_NET.md for ownership, counts and failure semantics.
+MODULE ATARI.FUJINET.NET
+USE ATARI.SIO AS SIO
+USE ATARI.SIO.DEVICES AS DEV
+USE ATARI.FUJINET.NET.COMMANDS AS CMD
+
+PUBLIC CONST BYTE DEFAULT_TIMEOUT=15,
+                  READ_ONLY=4, WRITE_ONLY=8, READ_WRITE=12,
+                  HTTP_GET=12, HTTP_POST=13, HTTP_PUT=14,
+                  BINARY=0, TRANSLATE_CR=1, TRANSLATE_LF=2, TRANSLATE_CRLF=3,
+                  NETWORK_SUCCESS=1, NETWORK_EOF=136
+PUBLIC CONST CARD DEFAULT_CHUNK=256
+
+PUBLIC TYPE Channel=[
+  BYTE unit BYTE timeout BYTE access BYTE translation
+  CARD chunkLimit
+]
+
+PUBLIC TYPE Error=ENUM [
+  BAD_UNIT=1 BAD_TIMEOUT BAD_CHUNK_LIMIT BAD_ACCESS BAD_TRANSLATION
+  BAD_LENGTH BAD_URI_LENGTH BAD_URI_TERMINATOR BAD_URI_UNIT
+]
+PUBLIC TYPE Result=VARIANT [
+  OK
+  SIO_ERROR [BYTE status]
+  INVALID [Error reason]
+]
+PUBLIC TYPE StatusFields=[CARD available BYTE connected BYTE error]
+PUBLIC TYPE NetworkStatus=UNION [StatusFields fields BYTE ARRAY bytes(4)]
+PUBLIC TYPE StatusResult=VARIANT [
+  OK [NetworkStatus value]
+  SIO_ERROR [BYTE status]
+  INVALID [Error reason]
+]
+PUBLIC TYPE ReadResult=VARIANT [
+  DATA [CARD count]
+  WAITING
+  END_OF_STREAM
+  SIO_ERROR [BYTE status]
+  NETWORK_ERROR [BYTE code]
+  INVALID [Error reason]
+]
+
+PUBLIC Channel FUNC DefaultChannel(BYTE unit)
+  Channel channel
+  channel.unit=unit
+  channel.timeout=DEFAULT_TIMEOUT
+  channel.access=READ_ONLY
+  channel.translation=BINARY
+  channel.chunkLimit=DEFAULT_CHUNK
+RETURN(channel)
+
+; Zero is private success, never a public Error alternative.
+BYTE FUNC ChannelError(Channel channel)
+  IF channel.unit<1 OR channel.unit>8 THEN RETURN(BYTE(Error.BAD_UNIT)) FI
+  IF channel.timeout=0 THEN RETURN(BYTE(Error.BAD_TIMEOUT)) FI
+  IF channel.chunkLimit=0 THEN RETURN(BYTE(Error.BAD_CHUNK_LIMIT)) FI
+  IF channel.access<>READ_ONLY AND channel.access<>WRITE_ONLY AND
+     channel.access<>READ_WRITE AND channel.access<>HTTP_POST AND
+     channel.access<>HTTP_PUT THEN RETURN(BYTE(Error.BAD_ACCESS)) FI
+  IF channel.translation>TRANSLATE_CRLF THEN RETURN(BYTE(Error.BAD_TRANSLATION)) FI
+RETURN(0)
+
+SIO.Request FUNC NewRequest(Channel channel BYTE command)
+  SIO.Request request
+  request.device=DEV.FUJINET_NETWORK
+  request.unit=channel.unit
+  request.command=command
+  request.timeout=channel.timeout
+  request.aux.word=0
+  request.phase=SIO.Transfer.NO_DATA
+RETURN(request)
+
+Result FUNC Execute(SIO.Request request)
+  Result answer
+  LET outcome=SIO.Execute(request)
+  CASE outcome OF
+  WHEN SIO.Result.OK THEN
+    answer=Result.OK
+  WHEN SIO.Result.ERROR(status) THEN
+    answer=Result.SIO_ERROR(status)
+  ESAC
+RETURN(answer)
+
+PUBLIC Result FUNC OpenBuffer(Channel channel BYTE POINTER address CARD length)
+  SIO.Request request
+  Result answer
+  BYTE ARRAY payload(256)
+  CARD i
+  BYTE value
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(Result.INVALID(Error(problem))) FI
+  IF length=0 OR length>255 THEN RETURN(Result.INVALID(Error.BAD_URI_LENGTH)) FI
+  FOR i=0 TO 255 DO payload(i)=0 OD
+  FOR i=0 TO length-1 DO
+    value=address^
+    IF value=0 OR value=$9B THEN RETURN(Result.INVALID(Error.BAD_URI_TERMINATOR)) FI
+    payload(i)=value
+    address==+1
+  OD
+  ; N: leaves endpoint selection to channel.unit. A numbered prefix must agree.
+  IF length>=2 THEN
+    IF payload(0)='N OR payload(0)='n THEN
+      IF payload(1)>='0 AND payload(1)<='9 THEN
+        IF length<3 OR payload(2)<>': OR payload(1)<>'0+channel.unit THEN
+          RETURN(Result.INVALID(Error.BAD_URI_UNIT))
+        FI
+      FI
+    FI
+  FI
+  ; T clears the firmware's sticky translation override before O uses AUX2.
+  request=NewRequest(channel,CMD.SET_TRANSLATION)
+  LET prepared=Execute(request)
+  CASE prepared OF
+  WHEN Result.OK THEN
+    request.command=CMD.OPEN
+    request.aux.bytes.low=channel.access
+    request.aux.bytes.high=channel.translation
+    request.phase=SIO.Transfer.WRITE(@payload(0),256)
+    answer=Execute(request)
+  ELSE
+    answer=prepared
+  ESAC
+RETURN(answer)
+
+PUBLIC Result FUNC Open(Channel channel STRING uri)
+RETURN(OpenBuffer(channel,BYTE POINTER(@uri(1)),uri(0)))
+
+PUBLIC StatusResult FUNC Status(Channel channel)
+  SIO.Request request
+  StatusResult answer
+  NetworkStatus snapshot
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(StatusResult.INVALID(Error(problem))) FI
+  request=NewRequest(channel,CMD.STATUS)
+  request.phase=SIO.Transfer.READ(@snapshot.bytes(0),4)
+  LET outcome=SIO.Execute(request)
+  CASE outcome OF
+  WHEN SIO.Result.OK THEN
+    answer=StatusResult.OK(snapshot)
+  WHEN SIO.Result.ERROR(status) THEN
+    answer=StatusResult.SIO_ERROR(status)
+  ESAC
+RETURN(answer)
+
+PUBLIC Result FUNC Read(Channel channel BYTE POINTER destination CARD length)
+  SIO.Request request
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(Result.INVALID(Error(problem))) FI
+  IF length=0 THEN RETURN(Result.INVALID(Error.BAD_LENGTH)) FI
+  request=NewRequest(channel,CMD.READ)
+  request.aux.word=length
+  request.phase=SIO.Transfer.READ(destination,length)
+RETURN(Execute(request))
+
+PUBLIC ReadResult FUNC ReadAvailable(Channel channel BYTE POINTER destination CARD capacity)
+  ReadResult answer
+  CARD count
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(ReadResult.INVALID(Error(problem))) FI
+  IF capacity=0 THEN RETURN(ReadResult.INVALID(Error.BAD_LENGTH)) FI
+  LET state=Status(channel)
+  CASE state OF
+  WHEN StatusResult.SIO_ERROR(status) THEN
+    RETURN(ReadResult.SIO_ERROR(status))
+  WHEN StatusResult.INVALID(reason) THEN
+    RETURN(ReadResult.INVALID(reason))
+  WHEN StatusResult.OK(value) THEN
+    IF value.fields.error<>NETWORK_SUCCESS AND value.fields.error<>NETWORK_EOF THEN
+      RETURN(ReadResult.NETWORK_ERROR(value.fields.error))
+    FI
+    count=value.fields.available
+    IF count=0 THEN
+      IF value.fields.error=NETWORK_EOF THEN RETURN(ReadResult.END_OF_STREAM) FI
+      RETURN(ReadResult.WAITING)
+    FI
+  ESAC
+  IF count>capacity THEN count=capacity FI
+  IF count>channel.chunkLimit THEN count=channel.chunkLimit FI
+  LET outcome=Read(channel,destination,count)
+  CASE outcome OF
+  WHEN Result.OK THEN
+    answer=ReadResult.DATA(count)
+  WHEN Result.SIO_ERROR(status) THEN
+    answer=ReadResult.SIO_ERROR(status)
+  WHEN Result.INVALID(reason) THEN
+    answer=ReadResult.INVALID(reason)
+  ESAC
+RETURN(answer)
+
+PUBLIC Result FUNC Write(Channel channel BYTE POINTER source CARD length)
+  SIO.Request request
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(Result.INVALID(Error(problem))) FI
+  IF length=0 THEN RETURN(Result.INVALID(Error.BAD_LENGTH)) FI
+  request=NewRequest(channel,CMD.WRITE)
+  request.aux.word=length
+  request.phase=SIO.Transfer.WRITE(source,length)
+RETURN(Execute(request))
+
+PUBLIC Result FUNC WriteString(Channel channel STRING text)
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(Result.INVALID(Error(problem))) FI
+  IF text(0)=0 THEN RETURN(Result.OK) FI
+RETURN(Write(channel,BYTE POINTER(@text(1)),text(0)))
+
+PUBLIC Result FUNC Close(Channel channel)
+  LET problem=ChannelError(channel)
+  IF problem<>0 THEN RETURN(Result.INVALID(Error(problem))) FI
+RETURN(Execute(NewRequest(channel,CMD.CLOSE)))
+
+ENDMODULE

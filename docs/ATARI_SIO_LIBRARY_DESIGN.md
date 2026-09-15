@@ -1,8 +1,8 @@
 # Atari SIO library design for FujiNet
 
-Status: transport foundation implemented, 2026-09-15; FujiNet convenience layers
-and optional disk helpers remain proposed. The library uses existing modern
-Action! constructs. The [68K checkpoint](MIR68K_CHECKPOINT.md) records the previous
+Status: transport and `ATARI.FUJINET.NET` implemented, 2026-09-15. Live network
+acceptance, JSON and optional disk helpers remain pending. The library uses
+existing modern Action! constructs. The [68K checkpoint](MIR68K_CHECKPOINT.md) records the previous
 work.
 
 ## Purpose and scope
@@ -136,7 +136,7 @@ under each protocol. Start with:
 | Module | Constants |
 | --- | --- |
 | ATARI.SIO.DISK.COMMANDS | `READ=$52`, `WRITE=$50`, `WRITE_VERIFY=$57`, `STATUS=$53` |
-| ATARI.FUJINET.NET.COMMANDS | `OPEN=$4F`, `CLOSE=$43`, `READ=$52`, `WRITE=$57`, `STATUS=$53` |
+| ATARI.FUJINET.NET.COMMANDS | `OPEN=$4F`, `CLOSE=$43`, `READ=$52`, `WRITE=$57`, `STATUS=$53`, `SET_TRANSLATION=$54` |
 
 Use `USE ATARI.SIO.DISK.COMMANDS AS DISK` for `request.command=DISK.READ`, or
 alias the network constants as NETCMD when also importing the NET convenience
@@ -368,8 +368,9 @@ chunkLimit.
 The factory performs no I/O or allocation. Calls capture the settings by value;
 there is no mutable global default timeout or implicit current channel.
 
-The proposed call shapes below are design notation; complete Action! declarations
-and result types are finalized and compiled against examples in slice 2:
+The call shapes below are implemented. The [NET API reference](ATARI_FUJINET_NET.md)
+contains the complete result types, validation reasons and pinned firmware contract.
+The [HTTP example](../samples/fujinet/http-fetch.act) compiles in both backends/runtimes:
 
 | Call | Contract |
 | --- | --- |
@@ -416,7 +417,9 @@ and content, never transmitting its Action! prefix. OpenBuffer uses exactly
 the supplied span. Reject empty, oversized or internally terminated device
 specifications before I/O; never silently truncate or read 256 bytes from a
 shorter caller allocation. The accepted wire terminator and maximum content
-length must be fixed against the chosen firmware. AUX1 and AUX2 carry independent
+length are fixed to NUL and 255 bytes in firmware v1.6.1. NET resets the sticky
+translation override with SET_TRANSLATION before OPEN; a reset failure prevents
+OPEN and is returned unchanged as SIO_ERROR. AUX1 and AUX2 carry independent
 open options, which makes the auxiliary union's byte view useful. See the upstream
 [Open command](https://github.com/FujiNetWIFI/fujinet-firmware/wiki/N%3A-SIO-Command-%27O%27---Open).
 
@@ -447,9 +450,9 @@ defines this payload; it is distinct from OS DSTATS.
 Use variants for the higher-level read outcome: DATA(count), WAITING,
 END_OF_STREAM, SIO_ERROR(status), NETWORK_ERROR(code) and INVALID(reason).
 INVALID uses the network module's own Error reasons for its helper checks;
-it is never forwarded from SIO.Execute. These are the intended alternatives,
-with the complete public declarations to be settled alongside the first network
-implementation. A zero available count alone is not EOF. Decode completion and
+it is never forwarded from SIO.Execute. The complete public declarations and
+checks are recorded in the [NET reference](ATARI_FUJINET_NET.md#results-and-local-checks).
+A zero available count alone is not EOF. Decode completion and
 errors using the selected protocol's
 documented status rules, and allow buffered data to be drained after the remote
 side closes. Preserve unrecognized device errors as bytes.
@@ -670,7 +673,7 @@ also return the four received bytes as a value.
    must execute. Do not substitute a host implementation of Execute. Include
    FujiNet command fixtures: a 256-byte open payload, four-byte network status,
    and read/write counts in the auxiliary word alongside generic directions.
-2. **FujiNet primitives and convenience API.** Add
+2. **FujiNet primitives and convenience API (implemented).** Add
    `embedded/modules/atari/fujinet/net.act` with Channel/DefaultChannel, named
    defaults, Open/OpenBuffer, Status, Read/ReadAvailable, Write/WriteString and
    Close. Finalize the typed status/operation/read results and network-specific
@@ -682,8 +685,9 @@ also return the four received bytes as a value.
    independent channels, ownership and cleanup. The implementation uses
    SIO.Execute and imports its network command constants; no separate DCB code
    in NET.
-3. **First network application and acceptance.** Add an HTTP fetch example with
-   a small fixed buffer, caller-controlled waiting/deadline, EOF handling and
+3. **First network application and acceptance (pending).** The initial
+   [HTTP fetch example](../samples/fujinet/http-fetch.act) is included with slice 2.
+   Complete acceptance with a small fixed buffer, caller-controlled waiting/deadline, EOF handling and
    explicit Close. Initialize channel defaults once and select HTTP_GET by name;
    use the convenience API throughout. Fetch a deterministic resource larger
    than that buffer; test binary contents and a TCP echo write/readback path
@@ -837,8 +841,12 @@ overridden by host files.
 
 The disk helper declarations and example were syntax-checked with temporary
 implementations during design, but that optional module is not implemented.
-FujiNet call shapes, defaults and later slices remain proposals. The boundary
-fixtures include network-shaped Open/Status/Read/Write requests; they do not
-establish firmware compatibility, serial timing or a working network connection.
+[NET VM tests](../tools/vm-runtime-tests/tests/fujinet_net.rs) now exercise the
+production NET and SIO bodies against a stateful SIO service pinned to FujiNet
+v1.6.1. Coverage includes Open/translation sequencing, equivalent string/span
+payloads, units 1/8 with independent timeouts, chunk/capacity limits, binary data,
+EOF draining, partial transfers, local checks, raw/optimized NIR and CRLF modules.
+The [NET reference](ATARI_FUJINET_NET.md) records exact types and wire semantics.
+These tests do not establish serial timing or a working network connection.
 No hardware/emulator FujiNet acceptance or Mad Pascal code-size comparison has
 been validated yet.

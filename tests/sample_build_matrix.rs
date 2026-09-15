@@ -211,6 +211,10 @@ fn sample_catalog() -> Vec<SampleSpec> {
             vec![release(Optimized, ActionCart), release(Optimized, Standalone), experimental(ActionCart), experimental(Standalone)],
         ),
         executable(
+            "samples/fujinet/http-fetch.act",
+            vec![release(Optimized, ActionCart), release(Optimized, Standalone), experimental(ActionCart), experimental(Standalone)],
+        ),
+        executable(
             "samples/if-case-expressions.act",
             vec![release(Optimized, ActionCart), release(Optimized, Standalone), experimental(ActionCart), experimental(Standalone)],
         ),

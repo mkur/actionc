@@ -5,6 +5,14 @@ This isolated harness runs generated Action! objects through the reusable
 revision and is deliberately absent from the root `actionc` manifest, so normal
 compiler builds do not resolve or compile the VM.
 
+The Atari library targets `sio` and `fujinet_net` execute the embedded transport
+and network helpers against a controlled SIOV service. NET coverage includes
+stateful Open/Close, independent channels, translation reset, bounded reads,
+EOF/error handling, strings and explicit byte spans, across both Atari backends
+and runtimes with raw/optimized NIR and CRLF module loading. See the
+[NET contract](../../docs/ATARI_FUJINET_NET.md). These are protocol fixtures, not
+live FujiNet firmware/network acceptance tests.
+
 The [TACLeBench Statemate port](../../fixtures/runtime/tacle/README.md) is checked
 by `cargo test --locked --test statemate`: 157 C-reference vectors across both
 modern backends and both runtimes (628 executions), covering every switch arm,

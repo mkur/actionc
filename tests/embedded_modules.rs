@@ -77,7 +77,7 @@ BYTE value
 PROC Main()
   value=DEV.DISK value=DEV.PRINTER value=DEV.FUJINET value=DEV.FUJINET_NETWORK
   value=DISK.READ value=DISK.WRITE value=DISK.WRITE_VERIFY value=DISK.STATUS
-  value=NET.OPEN value=NET.CLOSE value=NET.READ value=NET.WRITE value=NET.STATUS
+  value=NET.OPEN value=NET.CLOSE value=NET.READ value=NET.WRITE value=NET.STATUS value=NET.SET_TRANSLATION
 RETURN
 ENDMODULE
 "#,
@@ -119,6 +119,7 @@ ENDMODULE
                 ("READ", 0x52),
                 ("WRITE", 0x57),
                 ("STATUS", 0x53),
+                ("SET_TRANSLATION", 0x54),
             ],
         ),
     ] {
@@ -1303,4 +1304,75 @@ fn copied_compiler_compiles_standalone_plasma_without_adjacent_support_files() {
         3,
         "embedded modules must not be extracted beside the compiler"
     );
+}
+
+#[test]
+fn fujinet_status_overlay_and_channel_have_the_documented_atari_layout() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/fujinet/http-fetch.act");
+    let loaded = load_compilation(&source, &ModuleLoadOptions::default()).unwrap();
+    let model = actionc::semantic::analyze_compilation_with_options(
+        &loaded,
+        actionc::semantic::SemanticOptions::modern(),
+    )
+    .unwrap();
+    for (name, size, offsets) in [
+        ("StatusFields", 4, vec![(0, 2), (2, 1), (3, 1)]),
+        ("NetworkStatus", 4, vec![(0, 4), (0, 4)]),
+        ("Channel", 6, vec![(0, 1), (1, 1), (2, 1), (3, 1), (4, 2)]),
+    ] {
+        let layout = model
+            .layout
+            .record_for_name(&format!("ATARI.FUJINET.NET.{name}"))
+            .unwrap();
+        assert_eq!(layout.size, size);
+        assert_eq!(
+            layout
+                .fields
+                .iter()
+                .map(|f| (f.offset, f.size))
+                .collect::<Vec<_>>(),
+            offsets
+        );
+    }
+    for (name, fund, bits) in [
+        ("DEFAULT_TIMEOUT", FundType::Byte, 15),
+        ("DEFAULT_CHUNK", FundType::Card, 256),
+        ("READ_ONLY", FundType::Byte, 4),
+        ("WRITE_ONLY", FundType::Byte, 8),
+        ("READ_WRITE", FundType::Byte, 12),
+        ("HTTP_GET", FundType::Byte, 12),
+        ("HTTP_POST", FundType::Byte, 13),
+        ("HTTP_PUT", FundType::Byte, 14),
+        ("BINARY", FundType::Byte, 0),
+        ("TRANSLATE_CR", FundType::Byte, 1),
+        ("TRANSLATE_LF", FundType::Byte, 2),
+        ("TRANSLATE_CRLF", FundType::Byte, 3),
+        ("NETWORK_SUCCESS", FundType::Byte, 1),
+        ("NETWORK_EOF", FundType::Byte, 136),
+    ] {
+        let (id, symbol) = model
+            .symbols
+            .symbols
+            .iter()
+            .enumerate()
+            .find(|(_, s)| s.qualified_name == format!("ATARI.FUJINET.NET.{name}"))
+            .unwrap();
+        assert_eq!(symbol.visibility, Visibility::Public);
+        assert_eq!(symbol.ty.as_ref().unwrap().base, ValueTypeBase::Fund(fund));
+        assert_eq!(model.constants[&SymbolId(id)].bits, bits);
+    }
+}
+
+#[test]
+fn fujinet_example_compiles_in_both_atari_backends_and_runtimes() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/fujinet/http-fetch.act");
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap();
+        }
+    }
 }

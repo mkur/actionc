@@ -1,0 +1,67 @@
+; FujiNet must already be configured and connected to the network.
+; Replace this URI with a small controlled HTTP resource for acceptance testing.
+MODULE HTTP_FETCH
+USE ATARI.FUJINET.NET AS NET
+USE SYS
+
+STRING uri="N:HTTP://example.com/"
+BYTE ARRAY buffer(128)
+VOLATILE BYTE tick=$14
+
+PROC WaitFrame()
+  LET start=tick
+  WHILE tick=start DO OD
+RETURN
+
+BYTE FUNC Report(NET.Result outcome)
+  BYTE ok
+  ok=0
+  CASE outcome OF
+  WHEN NET.Result.OK THEN
+    ok=1
+  WHEN NET.Result.SIO_ERROR(status) THEN
+    SYS.Print("SIO error: ") SYS.PrintBE(status)
+  WHEN NET.Result.INVALID(reason) THEN
+    SYS.Print("Invalid setting: ") SYS.PrintBE(BYTE(reason))
+  ESAC
+RETURN(ok)
+
+PROC Main()
+  NET.Channel channel
+  BYTE finished,opened
+  CARD polls,total
+  channel=NET.DefaultChannel(1)
+  channel.access=NET.HTTP_GET
+  total=0 finished=0
+  opened=Report(NET.Open(channel,uri))
+  IF opened THEN
+    ; Bound the number of transactions. Applications can add a clock deadline
+    ; or cancellation here; ReadAvailable itself never polls internally.
+    FOR polls=1 TO 200 DO
+      CASE NET.ReadAvailable(channel,@buffer(0),128) OF
+      WHEN NET.ReadResult.DATA(count) THEN
+        total==+count
+      WHEN NET.ReadResult.WAITING THEN
+        WaitFrame()
+      WHEN NET.ReadResult.END_OF_STREAM THEN
+        SYS.Print("Bytes received: ") SYS.PrintCE(total)
+        finished=1
+      WHEN NET.ReadResult.SIO_ERROR(status) THEN
+        SYS.Print("SIO error: ") SYS.PrintBE(status)
+        finished=1
+      WHEN NET.ReadResult.NETWORK_ERROR(code) THEN
+        SYS.Print("Network error: ") SYS.PrintBE(code)
+        finished=1
+      WHEN NET.ReadResult.INVALID(reason) THEN
+        SYS.Print("Invalid setting: ") SYS.PrintBE(BYTE(reason))
+        finished=1
+      ESAC
+      IF finished THEN EXIT FI
+    OD
+    IF finished=0 THEN SYS.PrintE("Polling limit reached") FI
+  FI
+  ; Report the primary result before cleanup; Close has its own result.
+  SYS.PrintE("Closing channel")
+  opened=Report(NET.Close(channel))
+RETURN
+ENDMODULE

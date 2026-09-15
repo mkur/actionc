@@ -1,12 +1,13 @@
 ; FujiNet network endpoint commands (DDEVIC $71 plus DUNIT).
 ; Reference: FujiNet firmware wiki, SIO Commands for Device IDs $71 to $78.
-; This catalogue does not imply that the NET convenience module is installed.
+; Constants can be imported without loading the NET convenience module.
 MODULE ATARI.FUJINET.NET.COMMANDS
 
 PUBLIC CONST BYTE OPEN=$4F,
                   CLOSE=$43,
                   READ=$52,
                   WRITE=$57,
-                  STATUS=$53
+                  STATUS=$53,
+                  SET_TRANSLATION=$54
 
 ENDMODULE
