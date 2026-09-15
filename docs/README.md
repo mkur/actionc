@@ -42,6 +42,13 @@ crowding the active reference set.
 - [MIR65816_LOWERING_CONTRACT.md](MIR65816_LOWERING_CONTRACT.md)
   - preserved signedness, data identities, initialization, alignment and relocation
     byte selection in both native 65816 models, with regression coverage.
+- [MIR65816_PHYSICAL_ABI_V1.md](MIR65816_PHYSICAL_ABI_V1.md)
+  - Specifies the native far-call ABI, aligned stack arguments, A/X results,
+    direct-page ownership, interrupt frames and first-task construction, with
+    machine-readable constants. Implementation and execution remain pending.
+- [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
+  - Tracks separately committed ABI, frame, emission and context-qualification
+    slices with explicit completion checks.
 - [MIR65816_CPU_EXECUTION_CHECKPOINT.md](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
   - X65 C qualification, safe Rust port, VM integration, Altirra cross-check,
     and the remaining native compiler and interrupt-timing boundaries.

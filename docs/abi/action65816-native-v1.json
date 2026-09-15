@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "abi": "action65816.native.v1",
+  "abi_version": 1,
+  "target": "wdc-65816-native",
+  "status": "specified_not_implemented",
+  "byte_order": "little",
+  "address_bits": 24,
+  "boundary": {
+    "e": 0,
+    "p_m": 0,
+    "p_x": 0,
+    "p_d": 0,
+    "dbr": 0,
+    "d": "execution_domain_direct_page",
+    "caller_clobbered_registers": ["A", "X", "Y"],
+    "caller_clobbered_flags": ["C", "Z", "N", "V"],
+    "preserved": ["D", "I"],
+    "entry_s_modulo_2": 0,
+    "body_s_modulo_2": 0,
+    "before_call_s_modulo_2": 1
+  },
+  "scalar_classes": {
+    "byte": { "size": 1, "alignment": 1, "result": "a_low8_zero_extended_to16" },
+    "word": { "size": 2, "alignment": 2, "result": "a16" },
+    "address_or_size": { "size": 3, "alignment": 2, "result": "a_low16_x_high8_x_upper8_zero" },
+    "data_pointer": { "size": 3, "alignment": 1, "result": "a_low16_x_high8_x_upper8_zero" },
+    "code_pointer": { "size": 3, "alignment": 1, "result": "a_low16_x_high8_x_upper8_zero" },
+    "long_integer": { "size": 4, "alignment": 2, "result": "a_low16_x_high16" }
+  },
+  "calls": {
+    "arguments": "declaration_order_with_natural_alignment",
+    "argument_offset_origin": "s_call_plus_1",
+    "payload_extent": "end_of_last_argument_or_zero",
+    "outgoing_extent": "least_odd_integer_greater_than_or_equal_to_payload_extent",
+    "minimum_outgoing_bytes": 1,
+    "padding_byte": 0,
+    "cleanup": "caller",
+    "callee_incoming_area": "read_only",
+    "direct_call": "JSL",
+    "normal_return": "RTL",
+    "return_address_bytes": 3,
+    "entry_return_pc_offset": 1,
+    "entry_return_pbr_offset": 3,
+    "entry_first_argument_offset": 4,
+    "direct_transfer_peak_bytes": 3,
+    "indirect_transfer_peak_bytes": 6,
+    "indirect_transfer": "stack_synthesized_RTL",
+    "return_pc_encoding": "low16_continuation_minus_one_modulo_65536_bank_unchanged"
+  },
+  "frames": {
+    "bank": 0,
+    "fixed_extent_multiple": 2,
+    "initial_strategy_max_fixed_extent": 254,
+    "stack_relative_min_displacement": 1,
+    "stack_relative_max_last_byte_displacement": 255,
+    "mandatory_saved_register_bytes": 0,
+    "outgoing_area": "per_call_below_fixed_frame",
+    "red_zone_bytes": 0,
+    "overflow_check": "before_reservation_or_push"
+  },
+  "direct_page": {
+    "bank": 0,
+    "size": 256,
+    "alignment": 256,
+    "offset_base": "D",
+    "fields": [
+      { "name": "scratch", "offset": 0, "size": 64, "owner": "compiler_call_clobbered" },
+      { "name": "owner_pointer", "offset": 64, "size": 3, "owner": "execution_domain" },
+      { "name": "domain_kind", "offset": 67, "size": 1, "owner": "execution_domain" },
+      { "name": "stack_floor", "offset": 68, "size": 2, "owner": "execution_domain" },
+      { "name": "stack_ceiling", "offset": 70, "size": 2, "owner": "execution_domain" },
+      { "name": "reserved_zero", "offset": 72, "size": 184, "owner": "reserved" }
+    ],
+    "scratch_aliases": [
+      { "name": "pointer0", "offset": 0, "size": 3 },
+      { "name": "pointer1", "offset": 3, "size": 3 },
+      { "name": "pointer2", "offset": 6, "size": 3 }
+    ],
+    "domain_kinds": { "task": 0, "irq": 1, "bootstrap": 2 }
+  },
+  "saved_frame": {
+    "bank": 0,
+    "size": 13,
+    "offset_base": "saved_s",
+    "first_byte_offset": 1,
+    "hardware_bytes": 4,
+    "software_bytes": 9,
+    "original_s_delta": 13,
+    "fields": [
+      { "name": "dbr", "offset": 1, "size": 1 },
+      { "name": "d", "offset": 2, "size": 2 },
+      { "name": "y", "offset": 4, "size": 2 },
+      { "name": "x", "offset": 6, "size": 2 },
+      { "name": "a_full", "offset": 8, "size": 2 },
+      { "name": "p", "offset": 10, "size": 1 },
+      { "name": "pc", "offset": 11, "size": 2 },
+      { "name": "pbr", "offset": 13, "size": 1 }
+    ],
+    "save_after_hardware": ["REP #$30", "PHA", "PHX", "PHY", "PHD", "PHB"],
+    "restore_with_m_x_zero": ["PLB", "PLD", "PLY", "PLX", "PLA", "RTI"]
+  },
+  "context_record": {
+    "size": 2,
+    "alignment": 2,
+    "fields": [{ "name": "saved_s", "offset": 0, "size": 2 }]
+  },
+  "interrupts": {
+    "maximum_active_irq_dispatchers": 1,
+    "maximum_active_nmi_handlers": 1,
+    "irq_uses_separate_stack_and_direct_page": true,
+    "nmi_uses_interrupted_stack": true,
+    "nmi_action_calls_allowed": false,
+    "nmi_requires_board_nesting_guarantee": true,
+    "task_or_bootstrap_headroom_base_bytes": 26,
+    "irq_headroom_base_bytes": 13,
+    "headroom_extra": "published_nmi_additional_stack_bytes",
+    "stack_floor": "allocation_low_minus_one_plus_headroom",
+    "yield_cop_signature": 0,
+    "dispatch_reasons": { "irq": 0, "yield": 1 }
+  },
+  "runtime_bindings": [
+    { "symbol": "__a816_dispatch_v1", "params": ["word", "byte"], "result": "word", "domain": "irq", "meaning": "select_saved_s" },
+    { "symbol": "__a816_yield_v1", "params": [], "result": null, "domain": "task", "requires_i": 0 },
+    { "symbol": "__a816_task_exit_v1", "params": [], "result": null, "domain": "task", "returns": false },
+    { "symbol": "__a816_irq_save_disable_v1", "params": [], "result": "byte", "i_effect": "return_old_i_mask_then_disable", "memory_barrier": true },
+    { "symbol": "__a816_irq_restore_v1", "params": ["byte"], "result": null, "i_effect": "restore_i_only_from_token", "memory_barrier": true }
+  ],
+  "irq_state_tokens": { "enabled": 0, "disabled": 4 },
+  "stack_overflow_entry": {
+    "symbol": "__a816_stack_overflow_v1",
+    "transfer": "JML",
+    "returns": false,
+    "a": "requested_additional_bytes",
+    "x": "unchanged_s",
+    "y": "unspecified",
+    "s_effect_before_transfer": "unchanged",
+    "i_effect_before_transfer": "unchanged",
+    "other_boundary_state": "ordinary_v1"
+  },
+  "first_task": {
+    "entry_parameters": ["data_pointer"],
+    "entry_result": null,
+    "empty_body_s_modulo_2": 0,
+    "outgoing_bytes": 3,
+    "saved_s_below_empty_body_s": 19,
+    "return_pc_offset_from_saved_s": 14,
+    "return_pbr_offset_from_saved_s": 16,
+    "argument_offset_from_saved_s": 17,
+    "return_continuation": "__a816_task_return_v1",
+    "initial_a": 0,
+    "initial_x": 0,
+    "initial_y": 0,
+    "initial_dbr": 0,
+    "irq_enabled_initial_p": 0,
+    "irq_disabled_initial_p": 4
+  },
+  "examples": {
+    "mixed_call": {
+      "classes": ["byte", "word", "data_pointer", "long_integer"],
+      "values_unsigned_bits": [127, 4660, 5680077, 4294967294],
+      "offsets": [0, 2, 4, 8],
+      "payload_bytes": 12,
+      "outgoing_bytes": 13,
+      "argument_image_hex": "7f003412cdab5600feffffff00",
+      "caller_body_s": 16384,
+      "s_call": 16371,
+      "s_entry": 16368,
+      "callee_frame_bytes": 16,
+      "callee_body_s": 16352,
+      "incoming_body_displacements": [20, 22, 24, 28]
+    },
+    "first_task": {
+      "empty_body_s": 24576,
+      "d": 8704,
+      "entry_address": 1212416,
+      "return_address": 36864,
+      "argument": 3430008,
+      "initial_p": 0,
+      "saved_s": 24557,
+      "image_hex": "00002200000000000000008012ff8f00785634"
+    }
+  }
+}

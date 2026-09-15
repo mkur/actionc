@@ -17,9 +17,11 @@ The later [X65 execution checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
 records the C qualification, Rust port, VM integration and Altirra comparison.
 Native compiler emission and the Exec acceptance gates remain pending.
 
-The [lowering contract](MIR65816_LOWERING_CONTRACT.md) now implements the four
-information-preservation corrections identified below, with permanent regression
-tests. The physical ABI decisions and emitted execution remain pending.
+The four information-preservation corrections identified below are implemented
+and covered by the [lowering contract](MIR65816_LOWERING_CONTRACT.md) and permanent
+regression tests. The subsequent [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md)
+specifies the machine conventions. Implementing those conventions and emitted
+execution remains pending.
 
 ## Assessment
 
@@ -86,37 +88,29 @@ lowering correction now covers both cases permanently.
 
 ## Physical ABI decisions
 
-The existing frame plans remain provisional. They report zero saved-register
-and spill bytes. The current 255-byte check therefore does not establish the
-final frame limit. Incoming arguments, return addresses, temporary pushes and
-allocation must contribute to the final addressing and stack checks. R5
-correctly requires this distinction.
+[Physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) now fixes these decisions:
 
-Before instruction selection, settle and publish ABI v1:
+- Far JSL/RTL calls, naturally aligned stack arguments, odd outgoing extents,
+  even entry/body S, and caller cleanup that preserves A/X results.
+- Native 16-bit boundaries, binary arithmetic, DBR zero, fixed domain D and
+  explicit IRQ-state primitives.
+- Separate task/IRQ direct-page blocks, invocation storage for values live
+  across calls, a 13-byte saved context and a fabricated first-task stack.
+- Non-nested IRQ dispatch on a separate stack and bounded assembly-only NMI.
 
-- Exact stack layout: argument order, caller/callee cleanup, outgoing argument
-  placement, alignment and the fabricated initial task frame.
-- Register conventions: precise 24-/32-bit result placement, unused register
-  bits, decimal-mode policy, and direct-page register `D` and data-bank register
-  `DBR` ownership.
-- Scratch ownership: invocation-local storage for surviving values, with
-  explicit rules for temporary direct-page storage and interrupt re-entry.
-- Interrupt policy: initially keep ordinary IRQ handlers non-nested, with a
-  separate, clearly bounded NMI policy. This is a proposed starting policy,
-  not an implemented guarantee.
-
-Bank-zero reservations need a concrete shared memory map covering bootstrap,
-vectors, stacks and interrupt workspace. Direct-page addressing uses bank
-zero; native interrupts transfer execution to bank zero while saving the
-previous program bank. These CPU constraints are documented in the
-[WDC W65C816S datasheet](https://www.westerndesigncenter.com/wdc/documentation/w65c816s.pdf),
-particularly sections 2.6 and 7.11. Compiler scratch ownership and the ABI are
-project decisions built on that hardware behavior.
+The existing frame plans remain provisional. They pack arguments without
+alignment and place outgoing space after automatic objects. They also report
+zero saved-register and spill bytes. The final v1 planner must place outgoing
+areas below the fixed frame, account for parity and all stack movement, and
+check each actual access. Its even fixed frame is at most 254 bytes; that limit
+does not establish a whole-task stack bound. Board-specific bank-zero placement
+and executable interrupt qualification remain required.
 
 ## Recommended implementation sequence
 
-1. **Publish ABI v1.** The identified information-loss gaps are corrected.
-   Specify assembly-visible layouts and conventions on top of the retained facts.
+1. **Implement ABI v1 planning.** The information-loss gaps are corrected and
+   the physical contract is specified. Bring frame/call plans and generated
+   assembly constants into agreement with its versioned layouts.
 2. **Establish minimal emitted execution.** Generalize the image transport,
    select and qualify an independent emulator, and execute basic memory
    operations, arithmetic, branches and far calls from binary artifacts.

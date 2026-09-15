@@ -26,7 +26,8 @@ for commands, source provenance and hardware limitations.
 Compiler-generated **native** execution remains blocked by the missing
 MIR65816 emitter. Emulation-mode execution does not establish a native calling
 convention, stack frames, reentrancy or two-context interrupt safety. The next
-compiler work is the physical ABI and minimal emission path in
+compiler work is implementing the [specified physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md)
+and the minimal emission path in
 [the readiness review](MIR65816_EXEC_READINESS_REVIEW.md).
 
 The port retains X65's documented REP/SEP/RTI status-update timing limitations;
