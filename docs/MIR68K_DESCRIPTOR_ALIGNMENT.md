@@ -101,3 +101,13 @@ unit tests passed. Both VM workspaces passed the full 252-case matrix1 and
 181-case DCT corpora, including flat/shaped implementations, native raw/optimized
 NIR and the existing 6502 compiler/runtime combinations. Complete states and DCT
 row-pass snapshots were checked; the 6502 targets also checked LF/CRLF handling.
+
+## Paired C comparison
+
+The [updated GCC report](MIR68K_C_COMPARISON.md#descriptor-alignment-milestone)
+and [new CSV](mir68k-descriptor-c-comparison.csv) add shaped matrix1 and both DCT
+variants without changing the earlier control sources or pinned oracles.
+All 1845 complete reference cases and 15 default runs pass. DCT reference
+instruction totals include capture instrumentation and are labeled; headline
+measurements come from separate uninstrumented builds. The shared Action!
+instrumentation and descriptor manifest adapters pass their LF/CRLF checks.

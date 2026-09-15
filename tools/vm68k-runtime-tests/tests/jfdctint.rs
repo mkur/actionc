@@ -4,63 +4,15 @@ mod common;
 mod reference;
 use actionc::compiler::native::{NativeCompileOptions, compile_file};
 use actionc_vm68k_tests::Machine;
-use reference::{bytes, replace_once, text, words};
+use reference::{bytes, text, words};
+#[path = "common/dct.rs"]
+mod dct;
+use dct::instrument;
 
 const SOURCE: &str = include_str!("../../../fixtures/runtime/tacle/jfdctint/jfdctint.act");
 const SHAPED_SOURCE: &str =
     include_str!("../../../fixtures/runtime/tacle/jfdctint/multidimensional.act");
 const VECTORS: &str = include_str!("../../../fixtures/runtime/tacle/jfdctint/vectors.txt");
-
-fn instrument(source: &str, shaped: bool) -> String {
-    let mut source = text(source, false);
-    replace_once(
-        &mut source,
-        "INT result\n",
-        "INT result\n\
-        BYTE testCommand,testShift\n\
-        LONGINT ARRAY testInput(64),testInitial(64),testRows(64)\n\
-        PROC CaptureRows()\n\
-          BYTE i\n\
-          FOR i=0 TO 63 DO testRows(i)=block(i) OD\n\
-        RETURN\n",
-    );
-    replace_once(
-        &mut source,
-        "  ; Pass 2: eight values per column, eight elements apart.",
-        "  CaptureRows()\n  ; Pass 2: eight values per column, eight elements apart.",
-    );
-    replace_once(
-        &mut source,
-        "PROC Main()\n  Init()\n  Dct()\n  result=CheckResult()\nRETURN\n",
-        "PROC Main()\n\
-          BYTE i\n\
-          IF testCommand=0 THEN Init()\n\
-          ELSE FOR i=0 TO 63 DO block(i)=testInput(i) OD FI\n\
-          FOR i=0 TO 63 DO testInitial(i)=block(i) OD\n\
-          IF testCommand=2 THEN\n\
-            FOR i=0 TO 63 DO block(i)=Descale(block(i),testShift) OD\n\
-          ELSE Dct() FI\n\
-          result=CheckResult()\n\
-        RETURN\n",
-    );
-    if shaped {
-        // Only generated capture/driver accesses use this spelling in the
-        // shaped source. Keep the algorithm itself in two coordinates.
-        assert_eq!(source.matches("block(i)").count(), 5);
-        source = source.replace("block(i)", "testFlat(i)");
-        replace_once(
-            &mut source,
-            "INT result\n",
-            "INT result\nLONGINT ARRAY testFlat\n",
-        );
-        replace_once(
-            &mut source,
-            "IF testCommand=0 THEN Init()",
-            "testFlat=block\nIF testCommand=0 THEN Init()",
-        );
-    }
-    source
-}
 
 fn execute(optimize: bool, shaped: bool) {
     let source = common::Source::new(&text(

@@ -10,12 +10,14 @@ use std::{collections::BTreeMap, path::Path};
 pub struct Program {
     pub image: NativeImage,
     symbols: Option<BTreeMap<String, (u32, u32)>>,
+    array_pointers: BTreeMap<String, (usize, usize)>,
 }
 impl Program {
     pub fn action(image: NativeImage) -> Self {
         Self {
             image,
             symbols: None,
+            array_pointers: BTreeMap::new(),
         }
     }
     pub fn load(path: &Path) -> Result<Self, String> {
@@ -40,6 +42,7 @@ impl Program {
         };
         let mut entry = None;
         let mut symbols = BTreeMap::new();
+        let mut array_pointers = BTreeMap::new();
         for line in lines {
             let fields: Vec<_> = line.split_whitespace().collect();
             match fields.as_slice() {
@@ -72,6 +75,17 @@ impl Program {
                         return Err("duplicate C symbol".into());
                     }
                 }
+                ["array_pointer", name, backing, width, count] => {
+                    if array_pointers
+                        .insert(
+                            (*name).to_owned(),
+                            ((*backing).to_owned(), number(width)?, number(count)?),
+                        )
+                        .is_some()
+                    {
+                        return Err("duplicate C array pointer".into());
+                    }
+                }
                 _ => return Err(format!("invalid C image record: {line}")),
             }
         }
@@ -92,9 +106,23 @@ impl Program {
                 return Err("C symbol is outside mapped storage".into());
             }
         }
+        for (name, (backing, width, count)) in &array_pointers {
+            let bytes = width.checked_mul(*count).ok_or("C array extent overflow")?;
+            if !matches!(*width, 1 | 2 | 4)
+                || *count == 0
+                || symbols.get(name).is_none_or(|(_, size)| *size != 4)
+                || symbols.get(backing).is_none_or(|(_, size)| *size != bytes)
+            {
+                return Err("invalid C array pointer layout".into());
+            }
+        }
         Ok(Self {
             image,
             symbols: Some(symbols),
+            array_pointers: array_pointers
+                .into_iter()
+                .map(|(name, (_, width, count))| (name, (width as usize, count as usize)))
+                .collect(),
         })
     }
     pub fn code_bytes(&self) -> usize {
@@ -108,14 +136,21 @@ impl Program {
     pub fn machine(&self) -> Machine {
         Machine::from_image(&self.image).unwrap()
     }
-    fn location(&self, name: &str, width: usize, count: usize) -> u32 {
+    fn location(&self, vm: &Machine, name: &str, width: usize, count: usize) -> u32 {
+        let pointer =
+            |address| u32::from_be_bytes(vm.cpu.mem.bytes(address, 4).unwrap().try_into().unwrap());
         assert!(matches!(width, 1 | 2 | 4));
         if let Some(symbols) = &self.symbols {
             let &(address, size) = symbols
                 .get(name)
                 .unwrap_or_else(|| panic!("missing C symbol {name}"));
-            assert_eq!(size as usize, width * count, "C {name} extent");
-            address
+            if let Some(shape) = self.array_pointers.get(name) {
+                assert_eq!(*shape, (width, count), "C {name} array layout");
+                pointer(address)
+            } else {
+                assert_eq!(size as usize, width * count, "C {name} extent");
+                address
+            }
         } else {
             let symbol = self.image.symbol(name).unwrap();
             if let Some(array) = &symbol.array {
@@ -123,7 +158,7 @@ impl Program {
                 assert_eq!(array.stride as usize, width);
                 assert_eq!(array.count, Some(count as u32));
                 if array.descriptor {
-                    array.backing_address.unwrap()
+                    pointer(symbol.address().unwrap())
                 } else {
                     symbol.address().unwrap()
                 }
@@ -134,7 +169,7 @@ impl Program {
         }
     }
     pub fn write(&self, vm: &mut Machine, name: &str, width: usize, values: &[u32]) {
-        let address = self.location(name, width, values.len());
+        let address = self.location(vm, name, width, values.len());
         let bytes: Vec<_> = values
             .iter()
             .flat_map(|v| v.to_be_bytes()[4 - width..].to_vec())
@@ -142,7 +177,7 @@ impl Program {
         vm.cpu.mem.write(address, &bytes).unwrap();
     }
     pub fn check(&self, vm: &Machine, name: &str, width: usize, expected: &[u32]) {
-        let address = self.location(name, width, expected.len());
+        let address = self.location(vm, name, width, expected.len());
         let bytes = vm.cpu.mem.bytes(address, width * expected.len()).unwrap();
         let actual: Vec<u32> = bytes
             .chunks_exact(width)
@@ -184,5 +219,66 @@ mod tests {
         ] {
             assert!(Program::parse(&text, read).is_err(), "{text}");
         }
+    }
+
+    #[test]
+    fn array_pointer_records_use_current_pointees_and_validate_extents_in_both_line_endings() {
+        let manifest = "m68k-c-reference-v1\nentry 10000\nsegment 10000 6 rx code.bin\nzero 11000 4\nzero 12000 16\nsymbol values 11000 4\nsymbol backing 12000 8\narray_pointer values backing 4 2\n";
+        for text in [manifest.to_owned(), manifest.replace('\n', "\r\n")] {
+            let program = Program::parse(&text, read).unwrap();
+            let mut vm = program.machine();
+            for address in [0x12000u32, 0x12008] {
+                vm.cpu.mem.write(0x11000, &address.to_be_bytes()).unwrap();
+                program.write(&mut vm, "values", 4, &[address, 0x89ABCDEF]);
+                program.check(&vm, "values", 4, &[address, 0x89ABCDEF]);
+                assert_eq!(vm.cpu.mem.bytes(address, 4).unwrap(), address.to_be_bytes());
+                assert_eq!(vm.cpu.mem.bytes(0x11000, 4).unwrap(), address.to_be_bytes());
+            }
+        }
+        for bad in [
+            manifest.replace("backing 4 2", "backing 4 3"),
+            manifest.replace("backing 4 2", "missing 4 2"),
+            manifest.replace("values 11000 4", "values 11000 2"),
+            format!("{manifest}array_pointer values backing 4 2\n"),
+        ] {
+            assert!(Program::parse(&bad, read).is_err());
+        }
+    }
+    #[test]
+    fn action_array_view_follows_rebinding_instead_of_initializer_metadata() {
+        let source = crate::common::Source::new(
+            "LONGCARD ARRAY values(2,2),other(2,2) LONGCARD result PROC Main() result=values(0,0)+other(0,0) RETURN",
+        );
+        let compiled =
+            actionc::compiler::native::compile_file(&source.0, &Default::default()).unwrap();
+        let program = Program::action(compiled.image);
+        let mut vm = program.machine();
+        program.write(&mut vm, "other", 4, &[1, 2, 3, 4]);
+        let pointer = vm
+            .cpu
+            .mem
+            .bytes(program.image.symbol("other").unwrap().address().unwrap(), 4)
+            .unwrap()
+            .to_vec();
+        vm.cpu
+            .mem
+            .write(
+                program.image.symbol("values").unwrap().address().unwrap(),
+                &pointer,
+            )
+            .unwrap();
+        program.check(&vm, "values", 4, &[1, 2, 3, 4]);
+        program.write(&mut vm, "values", 4, &[5, 6, 7, 8]);
+        program.check(&vm, "other", 4, &[5, 6, 7, 8]);
+        let original = program
+            .image
+            .symbol("values")
+            .unwrap()
+            .array
+            .as_ref()
+            .unwrap()
+            .backing_address
+            .unwrap();
+        assert_eq!(vm.cpu.mem.bytes(original, 16).unwrap(), [0; 16]);
     }
 }

@@ -1,0 +1,16 @@
+benchmark,compiler,mode,code_bytes,default_instructions,default_stack_read_bytes,default_stack_write_bytes,reference_cases,reference_instructions,reference_instrumented
+insertsort,actionc,optimized,1622,5349,2125,1843,209,469929,false
+insertsort,gcc,O2,574,1426,186,120,209,116077,false
+insertsort,gcc,Os,440,1499,382,140,209,122802,false
+matrix1,actionc,optimized,1044,69106,24373,13969,22,1363777,false
+matrix1,gcc,O2,306,20230,16860,12064,22,425740,false
+matrix1,gcc,Os,298,22032,16864,12068,22,465363,false
+matrix1-multidimensional,actionc,optimized,1494,106651,53741,31777,22,2189767,false
+matrix1-multidimensional,gcc,O2,470,34831,16872,12076,22,669304,false
+matrix1-multidimensional,gcc,Os,450,36022,22052,12468,22,691285,false
+jfdctint,actionc,optimized,6632,35567,13560,10432,181,4347101,true
+jfdctint,gcc,O2,1404,7614,5380,4036,181,864614,true
+jfdctint,gcc,Os,1244,9109,6900,5860,181,1173968,true
+jfdctint-multidimensional,actionc,optimized,7558,38991,15398,12982,181,4957305,true
+jfdctint-multidimensional,gcc,O2,1556,8395,5764,4292,181,1324021,true
+jfdctint-multidimensional,gcc,Os,1372,9845,7192,6056,181,1603287,true

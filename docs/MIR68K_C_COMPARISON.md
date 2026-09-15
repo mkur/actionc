@@ -1,14 +1,77 @@
 # MIR68K compared with MC68000 GCC
 
 The [reference command](../tools/mir68k-c-reference/README.md) compiles equivalent
-C and executes it in the same r68k VM as Action!. The alignment, control-flow and
-register-retention work reduces default insertion-sort instructions by 47.5%
-and matrix1 instructions by 55.6%. All reference states still match. This closes
-the bounded code-quality milestone; construct and platform coverage can resume.
+C and executes it in the same r68k VM as Action!. The latest comparison includes
+flat and shaped matrix1 and DCT alongside the insertion-sort control.
 
-## Recorded results
+## Descriptor alignment milestone
 
-The initial compiler baseline is `545d8e3`; the current compiler is `8ecf73a`.
+Compiler `bc9fafd` was measured with clean compiler sources, GCC 16.2.0,
+GNU binutils 2.47.20260726 and the original-MC68000 `m68000/libgcc.a` multilib.
+The target flags, `-O2`/`-Os`, no-LTO policy and existing C controls are unchanged.
+The [new CSV](mir68k-descriptor-c-comparison.csv) retains all 15 rows, including
+stack traffic. Earlier reports and CSVs below remain historical records.
+
+These headline measurements use uninstrumented default entries and include
+initialization, result checking, linked helpers and trampoline completion:
+
+| Workload | Action! bytes / instructions | GCC `-O2` bytes / instructions | GCC `-Os` bytes / instructions |
+| --- | ---: | ---: | ---: |
+| insertsort | 1,622 / 5,349 | 574 / 1,426 | 440 / 1,499 |
+| matrix1 | 1,044 / 69,106 | 306 / 20,230 | 298 / 22,032 |
+| matrix1-multidimensional | 1,494 / 106,651 | 470 / 34,831 | 450 / 36,022 |
+| jfdctint | 6,632 / 35,567 | 1,404 / 7,614 | 1,244 / 9,109 |
+| jfdctint-multidimensional | 7,558 / 38,991 | 1,556 / 8,395 | 1,372 / 9,845 |
+
+Each compiler passes 209 insertion-sort cases, 22 LONGINT/10×10×10 cases for
+each matrix variant, and all 181 cases for each DCT variant: 1845 complete
+reference executions plus 15 default runs. Separate DCT capture builds check
+input, initialized state, row-pass state, final state, rounding, checksum and
+status. Their reference instruction totals are marked `reference_instrumented`
+in the CSV; capture calls do not affect headline bytes or instructions.
+Uninstrumented default runs also check complete final arrays and scalar results
+against the pinned upstream case.
+
+The shaped C variants use mutable pointer-to-row descriptors and separate
+backing arrays. The adapter reads the current pointer slot for array access,
+for both languages. C uses valid aligned row objects; odd Action! addresses are
+covered separately by native differential tests. The shaped matrix initializer
+retains the flat 16-bit counter and volatile-read order using row division and
+remainder, keeping C accesses within individual rows. Consequently its added
+initialization cost is included in this separate shaped comparison. DCT uses
+unsigned bit-pattern arithmetic and explicit sign extension to define wrapping
+and shifts over the complete input corpus. Its IJG attribution and original
+permission/no-warranty README are retained.
+
+[The alignment report](MIR68K_DESCRIPTOR_ALIGNMENT.md) isolates the improvement:
+shaped matrix1 falls from 144051 to 106651 instructions, and shaped DCT from
+43279 to 38991. Guards add code and odd-path overhead, while frames and stack
+traffic stay unchanged. Against GCC `-O2`, the resulting instruction ratios are
+3.06× for shaped matrix and 4.64× for shaped DCT. These are instruction counts,
+not cycle or elapsed-time ratios.
+
+The remaining cost is visible in stack traffic and address formation. Shaped
+matrix reads/writes 53741/31777 stack bytes in Action!, versus 16872/12076 with
+GCC `-O2`. GCC's listing uses address registers, indexed effective addresses and
+memory-destination arithmetic; these remain useful next targets for MIR68K.
+Runtime guards are still needed for unknown Action! descriptors. This milestone
+does not assume that a global initializer remains the descriptor's value.
+
+Reproduce the latest comparison:
+
+```sh
+python3 tools/compare_mir68k_c.py --build-dir build/mir68k-descriptor-alignment/c-comparison insertsort matrix1 matrix1-multidimensional jfdctint jfdctint-multidimensional
+```
+
+That directory retains toolchain versions, selected libgcc, exact commands,
+source hashes, resolved Action! options, assembly, linked helpers and listings.
+The C runner's six adapter/instrumentation tests pass for actual LF/CRLF
+handling; all four native flat/shaped DCT corpus configurations pass with the
+shared instrumentation. Cross-compilation remains a developer-only dependency.
+
+## Earlier recorded results
+
+The earlier compiler baseline is `545d8e3`; that milestone completed at `8ecf73a`.
 Both were measured with clean compiler sources, GCC 16.2.0 and GNU binutils
 2.47.20260726, targeting the original MC68000. C sources, flags, selected
 libgcc, fixtures and reference vectors are unchanged. Both GCC modes and
@@ -39,7 +102,7 @@ sides include initialization, result checking and required linked helpers.
 GCC remains free to inline and transform loops; its optimizations are not
 disabled to match Action!'s current capabilities.
 
-## Wider native corpus
+## Earlier native corpus
 
 The [initial](mir68k-optimization-baseline.csv) and
 [current](mir68k-optimization-current.csv) files retain raw and optimized NIR
@@ -65,7 +128,7 @@ other raw instruction counts are unchanged. This small overhead is accepted;
 optimized NIR is the default and improves throughout the corpus. Largest frame
 means one routine's reservation, not peak stack use including nested calls.
 
-## Evidence for each change
+## Earlier feature comparisons
 
 The [feature comparison](mir68k-optimization-features.csv) uses the same current
 compiler revision throughout. All configurations check their default result.
@@ -100,7 +163,7 @@ allocation resolves transfers using their final locations and breaks cycles
 with one normalized spill slot. This is why promotion and allocation became
 defaults together.
 
-## Reproduction and validation
+## Earlier reproduction and validation
 
 The [implementation plan](MIR68K_OPTIMIZATION_IMPLEMENTATION_PLAN.md) records
 the six slices and validation gates. Baseline files retain the old compiler's
@@ -127,17 +190,14 @@ states for seven benchmark families, ABI preservation, recursion, pressure,
 mixed widths, cyclic copies, odd pointers, volatile accesses and fault exits.
 Backend/contract tests pass. Shared NIR changes pass the full compiler suite,
 unchanged snapshots and all 51 sweep fixtures in an isolated checkout.
-Cross-platform validation is running on compiler revision `8ecf73a` in
+Cross-platform validation was started on compiler revision `8ecf73a` in
 [the Linux, Windows and macOS CI run](https://github.com/mkur/actionc/actions/runs/34837619732).
-Its result was pending when this report was committed.
+Its result was pending when that earlier report was committed.
 
 ## Remaining opportunities
 
-GCC still has smaller output and fewer executed instructions. Its multiply
-helper uses SWAP, while ours rearranges words with shifts and reloads. GCC also
-uses postincrement addressing, direct memory arithmetic, byte branches and
-broader loop/register optimization. Those remain focused follow-ups, along
-with extending the paired C corpus to SHA and DCT with explicit wrapping and
-rounding contracts. A general allocator, new language constructs and platform
-startup were outside this milestone; the next implementation work can return
-to construct and platform coverage.
+Address-register allocation, indexed/postincrement addressing, memory-destination
+arithmetic and cheaper wide multiply helpers remain useful follow-ups. The
+paired corpus now includes DCT; SHA is a possible later addition. Optimization
+must continue to preserve mutable descriptors, captured addresses, volatile
+accesses and odd-address behavior.

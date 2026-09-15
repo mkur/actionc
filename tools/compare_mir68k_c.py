@@ -9,7 +9,16 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "tools/mir68k-c-reference"
-BENCHMARKS = ("insertsort", "matrix1")
+# Explicit source inputs and pointer slots; no inferred kernel.inc convention.
+VARIANTS = {
+    "insertsort": ("insertsort", "insertsort.act", ["kernel.inc"], {}),
+    "matrix1": ("matrix1", "matrix1.act", ["kernel.inc"], {}),
+    "matrix1-multidimensional": ("matrix1", "multidimensional.act", ["multidimensional.inc"],
+                                {name: (name + "Backing", 4, 100) for name in ("matrixA", "matrixB", "matrixC")}),
+    "jfdctint": ("jfdctint", "jfdctint.act", [], {}),
+    "jfdctint-multidimensional": ("jfdctint", "multidimensional.act", [], {"block": ("blockBacking", 4, 64)}),
+}
+BENCHMARKS = tuple(VARIANTS)
 ACTIONC_SWITCHES = ("no-opt", "no-codegen-opt", "no-forward-temporaries",
                    "no-select-instructions", "no-relax-branches", "no-pointer-alignment",
                    "no-control-flow", "native-promotion", "conservative-promotion",
@@ -45,9 +54,9 @@ def symbols(text):
     return result
 
 
-def build(directory, name, mode, tools):
-    stem = directory / f"{name}-{mode}"
-    flags = [*FLAGS, f"-{mode}"]
+def build(directory, name, mode, tools, instrumented=False):
+    stem = directory / f"{name}-{mode}{'-capture' if instrumented else ''}"
+    flags = [*FLAGS, f"-{mode}", *(["-DACTIONC_REFERENCE_CAPTURE"] if instrumented else [])]
     source = SOURCES / f"{name}.c"
     commands = [
         [tools["gcc"], *flags, "-fstack-usage", "-c", str(source), "-o", f"{stem}.o"],
@@ -83,10 +92,14 @@ def build(directory, name, mode, tools):
     for symbol, (address, size, _) in table.items():
         if size:
             manifest.append(f"symbol {symbol} {address:x} {size}")
+    for symbol, (backing, width, count) in VARIANTS[name][3].items():
+        if table[symbol][1] != 4 or table[backing][1] != width * count:
+            raise ValueError(f"Invalid descriptor layout: {name}/{symbol}")
+        manifest.append(f"array_pointer {symbol} {backing} {width} {count}")
     Path(f"{stem}.image").write_text("\n".join(manifest) + "\n", newline="\n")
     Path(f"{stem}.dis").write_text(
         capture([tools["objdump"], "-d", "-w", f"{stem}.elf"]), newline="\n")
-    return {"benchmark": name, "mode": mode, "commands": commands,
+    return {"benchmark": name, "mode": mode, "instrumented": instrumented, "commands": commands,
             "c_source_sha256": hashlib.sha256(source.read_text().encode()).hexdigest()}
 
 
@@ -128,13 +141,22 @@ def main():
                 "builds": []}
     inputs = [SOURCES / "memory.c", SOURCES / "reference.ld", Path(__file__).resolve()]
     for name in names:
-        fixture = ROOT / f"fixtures/runtime/tacle/{name}"
-        inputs.extend([SOURCES / f"{name}.c", fixture / f"{name}.act", fixture / "kernel.inc", fixture / "vectors.txt"])
+        family, action, includes, _ = VARIANTS[name]
+        fixture = ROOT / f"fixtures/runtime/tacle/{family}"
+        inputs.extend([SOURCES / f"{name}.c", fixture / action, fixture / "vectors.txt",
+                       *(fixture / include for include in includes)])
+        if family == "jfdctint":
+            inputs.extend([SOURCES / "jfdctint_impl.h", fixture / "README", fixture / "jfdctint.c"])
+    inputs.extend([ROOT / "tools/vm68k-runtime-tests/tests/common/dct.rs",
+                   ROOT / "tools/vm68k-runtime-tests/examples/c_reference.rs",
+                   *(ROOT / "tools/vm68k-runtime-tests/examples/c_reference").glob("*.rs")])
     metadata["inputs_sha256"] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_text().encode()).hexdigest()
                                  for path in inputs}
     for name in names:
         for mode in ["O2", "Os"]:
             metadata["builds"].append(build(directory, name, mode, tools))
+            if VARIANTS[name][0] == "jfdctint":
+                metadata["builds"].append(build(directory, name, mode, tools, instrumented=True))
     (directory / "toolchain.json").write_text(json.dumps(metadata, indent=2) + "\n", newline="\n")
     csv = capture(["cargo", "run", "--locked", "--manifest-path",
                    str(ROOT / "tools/vm68k-runtime-tests/Cargo.toml"),
