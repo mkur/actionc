@@ -143,6 +143,9 @@ segment hex (`--emit-code`), this listing (`--emit-listing`), native symbols
 [r68k development runner](tools/vm68k-runtime-tests/README.md) provides execution
 checks.
 
+The [68K checkpoint](docs/MIR68K_CHECKPOINT.md) records the supported surface,
+validation evidence, remaining gaps and priorities for resuming development.
+
 An experimental Amiga Shell runtime produces a single relocatable executable:
 
 ```sh
