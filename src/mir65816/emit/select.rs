@@ -708,19 +708,27 @@ impl Builder<'_> {
         result: Option<(TempId, ByteSize)>,
         plan: &Mir65816CallPlan,
     ) -> Result<(), String> {
-        let target = match target {
-            Mir65816CallTarget::Direct(id) => Target::Routine(RoutineId(*id)),
-            Mir65816CallTarget::Runtime(id) => Target::Runtime(*id),
-            Mir65816CallTarget::Indirect(..) => {
-                return Err("indirect native calls require implementation slice 5".into());
-            }
+        let direct = match target {
+            Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
+            Mir65816CallTarget::Runtime(id) => Some(Target::Runtime(*id)),
+            Mir65816CallTarget::Indirect(..) => None,
             Mir65816CallTarget::Builtin(_) => {
                 return Err("builtin call requires a resolved native runtime binding".into());
             }
         };
         let outgoing =
             u16::try_from(plan.outgoing_bytes.get()).map_err(|_| "outgoing extent overflow")?;
-        self.check_stack(outgoing.checked_add(3).ok_or("call stack overflow")?);
+        let transfer = plan
+            .native
+            .ok_or("missing native call contract")?
+            .transfer
+            .peak_bytes()
+            .get() as u16;
+        self.check_stack(
+            outgoing
+                .checked_add(transfer)
+                .ok_or("call stack overflow")?,
+        );
         self.reserve(outgoing);
         self.delta = outgoing.into();
         self.code.a8();
@@ -746,8 +754,38 @@ impl Builder<'_> {
                 self.code.byte(0x83, d.get() as u8);
             }
         }
-        self.code.a16();
-        self.code.reference(0x22, target, 0, None); // JSL
+        if let Some(target) = direct {
+            self.code.a16();
+            self.code.reference(0x22, target, 0, None); // JSL
+        } else {
+            let Mir65816CallTarget::Indirect(value, bytes) = target else {
+                unreachable!()
+            };
+            if bytes.get() != 3 || self.value_width(value)? != 3 {
+                return Err("indirect call requires a full-width callable".into());
+            }
+            // Capture the target before pushing: all d,S accesses still use delta=O.
+            self.pointer_value(value, PTR)?;
+            self.code.a16();
+            self.code.byte(0xa5, PTR + 1);
+            self.code.op(0xeb); // XBA; isolate bank without reading a fourth byte
+            self.code.word(0x29, 0x00ff);
+            self.code.op(0xa8); // TAY
+            self.code.byte(0xa5, PTR);
+            self.code.op(0xaa); // TAX
+            let resume = self.code.label();
+            self.code.op(0x4b); // PHK: real caller bank
+            self.code.push_return(resume);
+            self.code.op(0x98); // TYA
+            self.code.a8();
+            self.code.op(0x48); // PHA: target bank
+            self.code.a16();
+            self.code.op(0x8a); // TXA
+            self.code.op(0x3a); // DEC A: wrap only the low word, never borrow from bank
+            self.code.op(0x48); // PHA: target PC minus one
+            self.code.op(0x6b); // RTL: enter callee with ordinary three-byte return frame
+            self.code.mark(resume);
+        }
         self.release(outgoing);
         self.delta = 0;
         if let Some((id, bytes)) = result {

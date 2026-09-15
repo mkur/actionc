@@ -26,8 +26,8 @@ for commands, source provenance and hardware limitations.
 The later [native scalar emitter](MIR65816_EMISSION_CONTRACT.md) now executes
 compiler-generated native images on this bus, including checked frames and
 assembly interoperability. That separate corpus covers the
-[physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) scalar subset. Indirect calls,
-context entry/save/restore and asynchronous qualification remain in the
+[physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) scalar subset, including indirect calls.
+Context entry/save/restore and asynchronous qualification remain in the
 [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md). The earlier
 emulation-mode probe alone does not establish any native ABI property.
 

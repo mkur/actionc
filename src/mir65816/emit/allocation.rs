@@ -82,7 +82,15 @@ impl AllocatedFrame {
             .flat_map(|b| &b.ops)
             .filter_map(|op| {
                 if let Mir65816Op::Call { plan, .. } = op {
-                    Some(plan.outgoing_bytes.get() + 3)
+                    Some(
+                        plan.outgoing_bytes.get()
+                            + plan
+                                .native
+                                .expect("verified native call")
+                                .transfer
+                                .peak_bytes()
+                                .get(),
+                    )
                 } else {
                     None
                 }

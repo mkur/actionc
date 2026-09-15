@@ -57,13 +57,7 @@ fn emits_checked_frames_and_round_trips_a_freestanding_image() {
 
 #[test]
 fn unsupported_operations_and_unbound_assembly_fail_before_an_image_exists() {
-    for (source, error) in [
-        ("CARD a,b,result PROC Main() result=a*b RETURN", "Mul"),
-        (
-            "CARD FUNC POINTER callback() PROC Main() callback() RETURN",
-            "slice 5",
-        ),
-    ] {
+    for (source, error) in [("CARD a,b,result PROC Main() result=a*b RETURN", "Mul")] {
         let program = mir(source, false);
         assert!(emit::materialize(&program).unwrap_err().contains(error));
     }
@@ -155,5 +149,44 @@ fn image_relocations_select_bytes_after_the_addend_and_reject_address_wrap() {
         image::link(&program, &machine, &layout())
             .unwrap_err()
             .contains("exceeds the 24-bit address space")
+    );
+}
+
+#[test]
+fn indirect_per_relocations_reject_invalid_continuations_and_ranges() {
+    let program = mir(
+        "PROC POINTER cb PROC Empty() RETURN PROC Main() cb=@Empty cb() RETURN",
+        false,
+    );
+    let machine = emit::materialize(&program).unwrap();
+    let r = machine
+        .routines
+        .iter()
+        .position(|r| !r.code.return_fixups.is_empty())
+        .unwrap();
+    let (offset, label) = machine.routines[r].code.return_fixups[0];
+    let mut bad = machine.clone();
+    bad.routines[r].code.bytes.resize(40000, 0xea);
+    bad.routines[r].code.labels.insert(label, 39999);
+    assert!(
+        image::link(&program, &bad, &layout())
+            .unwrap_err()
+            .contains("relative range")
+    );
+    let mut bad = machine.clone();
+    bad.routines[r].code.bytes[offset - 1] = 0xea;
+    assert!(
+        image::link(&program, &bad, &layout())
+            .unwrap_err()
+            .contains("PER instruction")
+    );
+    let mut options = layout();
+    options.code_origin = 0x01fff0;
+    let linked = image::link(&program, &machine, &options).unwrap();
+    assert!(
+        linked
+            .routines
+            .iter()
+            .all(|r| r.address >> 16 == (r.address + r.size - 1) >> 16)
     );
 }

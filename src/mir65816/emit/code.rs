@@ -29,6 +29,8 @@ pub struct Code {
     pub bytes: Vec<u8>,
     pub fixups: Vec<Fixup>,
     pub labels: BTreeMap<Label, usize>,
+    /// PER operand offsets and the continuation whose low word minus one is pushed.
+    pub return_fixups: Vec<(usize, Label)>,
     next_label: u32,
 }
 
@@ -72,6 +74,11 @@ impl Code {
     }
     pub(super) fn jump(&mut self, label: Label) {
         self.reference(0x5c, Target::Label(label), 0, None); // JML
+    }
+    pub(super) fn push_return(&mut self, continuation: Label) {
+        self.op(0x62); // PER
+        self.return_fixups.push((self.bytes.len(), continuation));
+        self.bytes.extend([0, 0]);
     }
     /// Short inverse branch skips exactly one JML. No range relaxation or
     /// wraparound is assumed for a MIR control-flow edge.

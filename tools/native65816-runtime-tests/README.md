@@ -34,6 +34,8 @@ jgenesis CPU comparison experiment.
   bytes, zero-argument padding, A/X results, narrow unused bits and assembly
   clobbering all 64 scratch bytes. Both I states and both optimization modes
   are covered.
+- `indirect`: callable targets at offsets $0000/$FFFF, cross-bank calls, every
+  scalar result class, mixed assembly arguments and six-byte transient checks.
 - `stack_faults`: floor, unsigned underflow, ceiling and pre-call return-address
   costs. The raw fault adapter receives the required A/X/S state before any
   prohibited stack write.
@@ -50,7 +52,7 @@ and the repository's physical ABI. The assembler fixture supplies independent
 code and literal expectations; exported addresses are the only compiler
 metadata used to assemble its calls.
 
-All nine tests passed in debug and release on 2026-09-16. Local toolchain:
+All 12 tests passed in debug and release on 2026-09-16. Local toolchain:
 Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. The
 [CPU checkpoint](../../docs/MIR65816_CPU_EXECUTION_CHECKPOINT.md) documents the
 remaining timing limitations. Context switching and G1–G6 acceptance remain

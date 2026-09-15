@@ -245,7 +245,12 @@ impl Harness {
         let data = image
             .data
             .iter()
-            .find(|d| d.name.eq_ignore_ascii_case(name))
+            .find(|d| {
+                d.name.eq_ignore_ascii_case(name)
+                    || d.name
+                        .to_ascii_uppercase()
+                        .contains(&format!("_{}_", name.to_ascii_uppercase()))
+            })
             .unwrap_or_else(|| panic!("missing global {name}: {:?}", image.data));
         self.bus.value(data.address, bytes)
     }

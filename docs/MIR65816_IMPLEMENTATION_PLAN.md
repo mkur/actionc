@@ -16,7 +16,7 @@ Update this status table in the same commit as each completed slice.
 | 2 | Native call plans, result lanes and boundary/state contracts | Complete |
 | 3 | Native frame placement, incoming offsets and stack verification | Complete |
 | 4 | Minimal native emission and assembly interoperability | Complete |
-| 5 | Indirect calls across banks | Pending |
+| 5 | Indirect calls across banks | Complete |
 | 6 | First-task entry, return, IRQ/COP save/restore | Pending |
 | 7 | Two-context reentrancy and asynchronous qualification | Pending |
 
@@ -129,6 +129,17 @@ through explicit pointers. Validation is recorded below.
 
 Completion: direct and indirect calls have identical visible entry/exit state
 and independent binary execution evidence.
+
+The emitter now captures full-width callable values and synthesizes the far
+transfer on the current stack. Allocated peaks and pre-write checks include
+all six transient bytes. PER continuations are checked after placement. The
+independent VM corpus covers targets at $050000/$06FFFF, all scalar results,
+mixed assembly arguments, scratch clobbers and overflow before transfer writes.
+
+Validation (2026-09-16): all 12 native execution tests passed in debug/release;
+the emission, ABI, lowering-contract and CLI targets passed (25 tests). ABI
+generation, scoped formatting and whitespace checks passed. Shared NIR and
+semantic contracts did not change in this slice.
 
 ## Slice 6: assembly context interface
 

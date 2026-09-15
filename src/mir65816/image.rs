@@ -399,6 +399,26 @@ pub fn link(
         let base = routines[&r.id];
         let source = program.routines.iter().find(|p| p.id == r.id).unwrap();
         let mut bytes = r.code.bytes.clone();
+        for &(offset, continuation) in &r.code.return_fixups {
+            let resume = *r
+                .code
+                .labels
+                .get(&continuation)
+                .ok_or("unresolved PER continuation")?;
+            if offset == 0
+                || offset + 2 > bytes.len()
+                || bytes[offset - 1] != 0x62
+                || resume == 0
+                || resume >= bytes.len()
+                || (base + offset as u32 + 2) >> 16 != base >> 16
+                || (base + resume as u32) >> 16 != base >> 16
+            {
+                return Err("invalid PER instruction/continuation placement".into());
+            }
+            let delta = i16::try_from(resume as i64 - 1 - (offset as i64 + 2))
+                .map_err(|_| "PER continuation exceeds signed relative range")?;
+            bytes[offset..offset + 2].copy_from_slice(&delta.to_le_bytes());
+        }
         for fixup in &r.code.fixups {
             let target = match fixup.target {
                 Target::Label(label) => {

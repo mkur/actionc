@@ -1,6 +1,6 @@
 # Native 65816 scalar emission
 
-Slice 4 adds freestanding machine-code emission for `wdc-65816-native` under
+Slices 4–5 add freestanding machine-code emission for `wdc-65816-native` under
 [`action65816.native.v1`](MIR65816_PHYSICAL_ABI_V1.md). The output executes on
 the VM's independent 24-bit bus. It does not establish the context-switch,
 interrupt or complete kernel-subset acceptance gates.
@@ -51,7 +51,7 @@ dependency.
 ## Supported operations
 
 - BYTE, CARD/INT, ADDRESS/SIZE, data/code pointer storage, and LONGCARD/LONGINT
-  retain their physical widths. Direct calls and returns use the v1 scalar ABI.
+  retain their physical widths. Direct/typed indirect calls and returns use the v1 scalar ABI.
 - Loads, stores and address formation cover automatic objects, incoming
   arguments, globals, absolute addresses, pointer dereferences and indexed
   fields/elements. Pointer arithmetic and constant-stride indexing retain all
@@ -67,7 +67,7 @@ dependency.
 - Volatile accesses remain ordered byte accesses. A byte operation does not
   touch its neighbor. Wider volatile operations are not claimed to be atomic.
 
-Multiply, divide, remainder, shifts, indirect calls, aggregate byte-copy
+Multiply, divide, remainder, shifts, aggregate byte-copy
 operations, by-value aggregate interfaces, REAL, foreign code, unresolved
 runtime/builtin calls and terminal exits have explicit diagnostics. A local
 aggregate initializer may require an unsupported byte copy. Scalar field and
@@ -100,9 +100,12 @@ checked against `1..255`, including accesses to argument values after reserving
 outgoing space. No displacement is truncated.
 
 At entry, emitted code checks the frame reservation against the current
-domain's stack floor and ceiling. Before a direct call it checks `O + 3`, then
+domain's stack floor and ceiling. Before a call it checks `O + 3` (direct) or `O + 6` (indirect), then
 reserves O, zeroes the entire outgoing area and writes arguments. There are no
-additional temporary pushes or compiler helper calls in this subset.
+additional temporary pushes beyond the declared transfer or compiler helper calls
+in this subset. Indirect calls capture the callable before PHK/PER and the
+stack-synthesized RTL transfer; decrementing the target PC does not borrow
+from its bank. Same-bank PER continuation/range checks run after placement.
 Caller cleanup and frame release preserve A/X through the specified Y-based
 sequence. Byte results zero A's unused high byte; 24-bit results zero X's high
 byte.
@@ -182,7 +185,7 @@ subtraction underflow and ceiling violations transfer before stack writes.
 Both enabled and disabled I states are preserved in the call/interop probes.
 
 The [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) tracks validation
-results and remaining slices. Indirect transfer is slice 5. Context fabrication
+results and remaining slices. Indirect transfer is implemented. Context fabrication
 and IRQ/COP stubs are slice 6; asynchronous/two-context qualification is slice
 7. The VM's REP/SEP/RTI timing limitations still apply. No emitted context
 switch or full Exec readiness is claimed by this scalar corpus.
