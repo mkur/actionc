@@ -42,6 +42,27 @@ move. Loops containing calls, foreign code, real operations or volatile accesses
 (including volatile copies) are excluded. Computing total integer expressions on
 a zero-trip path is unobservable. All source widths remain explicit.
 
+## Incremental offsets
+
+Shared NIR can replace generated ADDRESS multiplication by a non-power-of-two
+constant stride with an additional header parameter. The preheader computes the
+initial product; the sole backedge advances it by `step * stride`, modulo the
+target ADDRESS width. At most four products become carried values per loop.
+Power-of-two strides retain their cheap shift form, and ordinary source
+multiplications keep their existing policy.
+
+The counter must already be in SSA, increase by a positive constant, and have a
+header comparison against a constant upper bound. That bound must prove that
+even the final source-width update cannot wrap. A single integer widening cast
+is allowed; narrowing or nonlinear coordinate calculations are excluded. The
+product must dominate the backedge. Unsupported loop shapes keep recomputation.
+
+This transform replaces a computation proved equal to the carried value; it does
+not move any source evaluation. Its only inputs are the counter and constants,
+so calls cannot change the recurrence. Descriptor reads and RHS calls retain
+their original order, including calls that rebind the array. Signed extension
+and zero-trip behavior are preserved.
+
 ## Validation and measurements
 
 The constant multiplication oracle exercises all five scalar integer types,
@@ -59,6 +80,7 @@ Same uninstrumented workloads and options as
 | Constant multiplication | 175833 | 44739 | 1370 | 6952 |
 | Local index reuse | 164833 | 43723 | 1344 | 6646 |
 | Loop-invariant arithmetic | 144207 | 43279 | 1326 | 6658 |
+| Incremental offsets | 144051 | 43279 | 1332 | 6658 |
 
 Reproduce with:
 
@@ -70,3 +92,18 @@ Local validation runs the compiler suite, NIR snapshots and the 51-fixture
 sweep, plus full shaped/flat matrix1 and DCT corpora in both VM workspaces.
 The sample parser check runs against a tracked source snapshot with the current
 compiler library when unrelated untracked samples are present in the workspace.
+
+The final shaped frames are 88 bytes for matrix1 and 886 bytes for DCT, down from
+124 and 1170. The incremental slice has a small additional benefit after
+hoisting has already removed the hot inner-loop products. It deliberately
+retains DCT's power-of-two strides: carrying those offsets increased stack
+traffic in measurement. Against the original shaped versions, final instruction
+counts improve about 36% for matrix1 and 14% for DCT. There is still substantial
+room between the shaped matrix and its flat/pointer baseline.
+
+Focused regressions cover counter wrap rejection, nonlinear/narrowing casts,
+16/24/32-bit ADDRESS verification, and 6502 execution with a promoted word
+counter. Native execution additionally checks signed negative coordinates,
+indices beyond 64 KB, exact volatile traces, zero-trip loops, and array rebinding
+during RHS calls. The 65816 targets have NIR verification coverage, not VM
+execution coverage.

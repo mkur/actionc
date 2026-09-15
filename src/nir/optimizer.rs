@@ -38,6 +38,7 @@ fn optimize_routine(routine: &mut NirRoutine, storage: &NirRoutineStorageAnalysi
         thread_predicate_branches(routine, storage);
         indexes::hoist_invariant_arithmetic(routine);
         indexes::reuse_local_arithmetic(routine);
+        indexes::reduce_induction_arithmetic(routine);
         eliminate_dominated_pure_redundancy(routine);
         eliminate_dead_pure_temps(routine);
         forward_value_returns(routine);

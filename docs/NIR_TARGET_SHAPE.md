@@ -1595,3 +1595,8 @@ and captured evaluation order remain intact. See
 The optimizer may hoist total integer index arithmetic to an existing dedicated
 loop preheader when all operands dominate it. It neither hoists memory reads nor
 faulting arithmetic, and excludes loops with call/machine/volatile barriers.
+
+Proven increasing SSA counters can carry generated address-stride products as
+ordinary block parameters. A header bound must exclude source-counter wrap before
+widening; backedges advance the offset in the target ADDRESS width. This adds no
+IR opcode, shape metadata, memory caching or alias assumption.

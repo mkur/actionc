@@ -41,7 +41,7 @@ the largest routine frame, not peak total stack use.
 | jfdctint | shaped | raw | 12884 | 68030 | 2316 | 35418 | 27918 |
 | jfdctint | shaped | optimized | 8044 | 50499 | 1170 | 18622 | 15438 |
 
-The shaped forms currently cost more. Optimized matrix1 takes about 3.09 times
+At this milestone, the shaped forms cost more. Optimized matrix1 takes about 3.09 times
 as many instructions; DCT takes about 1.30 times as many. Inspection of optimized
 matrix1 MIR shows three extra 32-bit constant-stride products in the inner loop
 for the C, A and B coordinates, alongside the data multiplication. The pointer
@@ -49,6 +49,10 @@ baseline advances cursors instead. Repeated address computation and additional
 temporaries also increase frame/stack traffic. This milestone establishes
 correct indexing; later loop-invariant offset hoisting and induction-variable
 strength reduction must respect mutable descriptors and alias/effect rules.
+
+These are the initial feature measurements. See
+[the index arithmetic optimization report](INDEX_ARITHMETIC_OPTIMIZATION.md)
+for subsequent reductions in instructions, code size and stack traffic.
 
 Reproduce correctness and measurements:
 

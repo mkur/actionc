@@ -3,7 +3,7 @@ use super::*;
 
 #[path = "optimizer_index_loops.rs"]
 mod loops;
-pub(super) use loops::hoist_invariant_arithmetic;
+pub(super) use loops::{hoist_invariant_arithmetic, reduce_induction_arithmetic};
 
 fn arithmetic_inputs(op: &NirOp) -> Option<Vec<&NirValue>> {
     match op {

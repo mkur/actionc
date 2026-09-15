@@ -84,3 +84,19 @@ fn multidimensional_execution_mutable_byte_wide_and_record_arrays() {
         );
     }
 }
+
+#[test]
+fn multidimensional_execution_incremental_word_indexes_match_flat_reads() {
+    // A direct flat read makes the word counter eligible for the conservative
+    // 6502 promotion tier. Shaped reads then exercise the new ADDRESS recurrence.
+    let source = "CARD ARRAY grid(16,10),flat(16) CARD result=$0600 \
+        PROC Sum() CARD row result=0 FOR row=0 TO 15 DO \
+        result==+flat(row)+grid(row,0)+grid(row,1) OD RETURN \
+        PROC Main() CARD i FOR i=0 TO 15 DO \
+        flat(i)=i+1 grid(i,0)=i+2 grid(i,1)=i+3 OD Sum() RETURN";
+    let expected = (0u32..16).map(|r| 3 * r + 6).sum::<u32>() as u16;
+    for (label, output) in outputs(source) {
+        let memory = execute(&output, |_| {});
+        assert_eq!(&memory[0x0600..0x0602], &expected.to_le_bytes(), "{label}");
+    }
+}
