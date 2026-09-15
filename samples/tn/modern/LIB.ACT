@@ -1,15 +1,26 @@
 
-DEFINE nil  = "0",    
-       true = "1",
-       false = "0",
-       EOL  = "155",
-       ESC  = "27"
+CONST BYTE TRUE=1, FALSE=0, EOL=155, ESC=27
+CONST CARD NO_ITEM=0
+
+; Shared text-screen geometry and window save area.
+CONST BYTE SCREEN_COLS=40, SCREEN_ROWS=24
+CONST BYTE LAST_SCREEN_ROW=SCREEN_ROWS-1
+CONST CARD SCREEN_BYTES=SCREEN_COLS*SCREEN_ROWS
+CONST CARD WINDOW_ARENA=$2000, WINDOW_ARENA_BYTES=$800
+
+; CIO commands, open modes and status bytes are separate values.
+CONST BYTE CIO_OPEN=3, CIO_GET_RECORD=5, CIO_GET_CHARS=7,
+           CIO_PUT_CHARS=11, CIO_CLOSE=12
+CONST BYTE OPEN_READ=4, OPEN_DIRECTORY=6, OPEN_WRITE=8
+CONST BYTE IO_SUCCESS=1, IO_EOF=136
 
 BYTE i=$E0,j=$E1,r0=$70
 BYTE kx=$FF,ky=$FE
 
 BYTE zx=$5A,zy=zx+1,zdx=zx+2,zdy=zx+3
 
+; Place screen/scl/sch at $E6/$E7 and allocp at $E8/$E9.
+; Keep these allocator controls for both compiler backends.
 SET $E=$E6
 SET $F=$00
 SET $491=$E6
@@ -20,6 +31,8 @@ BYTE scl=screen,
      sch=screen+1
 CARD POINTER allocp
 
+; Restore normal allocation after the zero-page pointer cells.
+; The root program also declares its load origin with ORG.
 SET $E=$2C00
 SET $491=$2C00
 
@@ -33,7 +46,7 @@ SET $491=$2C00
 
 MODULE
   
-BYTE ARRAY allocbuf($800)=$2000
+BYTE ARRAY allocbuf(WINDOW_ARENA_BYTES)=WINDOW_ARENA
 
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers $A0-$A2
@@ -87,11 +100,9 @@ RETURN(allocp^)
 
 MODULE
   
-DEFINE  CLEAR="$00",
-         FILL="$40",
-       INVERT="$80"
+CONST BYTE CLEAR=$00, FILL=$40, INVERT=$80
 
-BYTE ARRAY quickmul(48)
+BYTE ARRAY quickmul(SCREEN_ROWS*2)
 
 ;@actionc preserves Y $AC/$AD $AE/$AF
 ;@actionc clobbers $E6/$E7
@@ -103,7 +114,7 @@ ASM
   adc quickmul,x
   sta.z scl
   lda $59
-  adc quickmul+24,x
+  adc quickmul+24,x ; SCREEN_ROWS; relocation addends must be numeric
   sta.z sch
   lda.z scl
   adc.z kx
@@ -241,9 +252,9 @@ ASM
   tya
   tax
   pla
-  cmp #$80
-  beq invert
-  cmp #$40
+  cmp #INVERT
+  beq invert_mode
+  cmp #FILL
   beq fill_row
   lda #$00
 mode_ready:
@@ -257,7 +268,7 @@ fill_column:
   bpl fill_column
   clc
   lda.z scl
-  adc #$28
+  adc #SCREEN_COLS
   sta.z scl
   bcc fill_next
   inc.z sch
@@ -265,7 +276,7 @@ fill_next:
   dex
   bpl fill_row
   rts
-invert:
+invert_mode:
   ldy $A0
 invert_column:
   lda (screen),y
@@ -275,13 +286,13 @@ invert_column:
   bpl invert_column
   clc
   lda.z scl
-  adc #$28
+  adc #SCREEN_COLS
   sta.z scl
   bcc invert_next
   inc.z sch
 invert_next:
   dex
-  bpl invert
+  bpl invert_mode
   rts
 ENDASM
 
@@ -307,7 +318,7 @@ get_column:
   bpl get_column
   clc
   lda.z scl
-  adc #$28
+  adc #SCREEN_COLS
   sta.z scl
   bcc screen_ready
   inc.z sch
@@ -346,7 +357,7 @@ put_column:
   bpl put_column
   clc
   lda.z scl
-  adc #$28
+  adc #SCREEN_COLS
   sta.z scl
   bcc screen_ready
   inc.z sch
@@ -416,7 +427,7 @@ copy_name:
   cpy $88
   bne copy_name
   iny
-  lda #$9B
+  lda #EOL
   sta fnam-1,y
 ENDASM
  r=fnam
@@ -437,7 +448,7 @@ ASM
   lda #$00
   sta $0348,x
   sta $0349,x
-  lda #$07
+  lda #CIO_GET_CHARS
   sta $0342,x
   jsr _Cio
   sta $A0
@@ -454,7 +465,7 @@ ASM
   lda #$00
   sta $0348,x
   sta $0349,x
-  lda #$0B
+  lda #CIO_PUT_CHARS
   sta $0342,x
   lda $A0
   jmp _Cio
@@ -473,7 +484,7 @@ ASM
   sta $034A,x
   lda $A4
   sta $034B,x
-  lda #$03
+  lda #CIO_OPEN
   sta $0342,x
   jmp _Cio
 ENDASM
@@ -484,7 +495,7 @@ ENDASM
 PROC Close=*(BYTE chn)
 ASM
   jsr _LodChn
-  lda #$0C
+  lda #CIO_CLOSE
   sta $0342,x
   jmp _Cio
 ENDASM
@@ -504,7 +515,7 @@ ASM
   sta $0348,x
   lda #$00
   sta $0349,x
-  lda #$05
+  lda #CIO_GET_RECORD
   sta $0342,x
   jmp _Cio
 ENDASM
@@ -524,7 +535,7 @@ ASM
   sta $0348,x
   lda $A4
   sta $0349,x
-  lda #$07
+  lda #CIO_GET_CHARS
   sta $0342,x
   jmp _Cio
 ENDASM
@@ -544,7 +555,7 @@ ASM
   sta $0348,x
   lda $A4
   sta $0349,x
-  lda #$0B
+  lda #CIO_PUT_CHARS
   sta $0342,x
   jmp _Cio
 ENDASM
@@ -625,7 +636,7 @@ PROC Window(BYTE x, y, dx, dy)
   CalcAdr()
 
   screen^ = frame(0)
-  h = 40-zdx
+  h = SCREEN_COLS-zdx
  
   FOR i=2 TO zdx DO
     screen==+1
@@ -783,7 +794,7 @@ CARD FUNC FindItem( BYTE POINTER menu CHAR ch )
     IF Key( menu ) = ch THEN RETURN( menu ) FI
     menu = Next( menu )
   OD
-RETURN( nil )
+RETURN( NO_ITEM )
 
 
 PROC DrawMenu( BYTE POINTER menu )
@@ -864,10 +875,10 @@ PROC Init()
  CARD h
  
   h = 0
-  FOR i = 0 TO 23 DO
+  FOR i = 0 TO LAST_SCREEN_ROW DO
     quickmul(i) = h
-    quickmul(i + 24) = h rsh 8
-    h ==+ 40
+    quickmul(i + SCREEN_ROWS) = h rsh 8
+    h ==+ SCREEN_COLS
   OD
 
   FOR i = 0 TO 8 DO

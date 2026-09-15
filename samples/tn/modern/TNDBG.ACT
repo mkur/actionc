@@ -8,12 +8,9 @@
 ;      rev. date 27.09.10
 ;   
 ;
-; The following set command should
-; be performed after compiling the
-; program, but before running it !
-;
-;        SET BUFFER = *
-;
+; The final SET BUFFER=* binds the copy buffer after generated storage.
+
+ORG $2C00
 
 SET $22F = 0  ; disable ANTIC
 
@@ -21,23 +18,38 @@ INCLUDE "D:LIB.ACT"
 
 MODULE 
                            
+; Existing TN capacities and packed storage sizes.
+CONST BYTE VISIBLE_FILES=16, COPY_SLOTS=16
+CONST BYTE LAST_VISIBLE_FILE=VISIBLE_FILES-1
+CONST BYTE PATH_LEVELS=5, PATH_NAME_BYTES=9
+CONST BYTE MAX_PATH_DEPTH=PATH_LEVELS-1
+CONST BYTE PATH_SECTOR_BYTES=PATH_LEVELS*2
+CONST BYTE PATH_BUFFER_BYTES=PATH_SECTOR_BYTES+1+(PATH_LEVELS-1)*PATH_NAME_BYTES
+CONST BYTE DIR_SLOTS=65, DIR_ENTRY_BYTES=18, DIR_READ_BYTES=DIR_ENTRY_BYTES+1
+CONST CARD DIR_BUFFER_BYTES=DIR_SLOTS*DIR_ENTRY_BYTES+1
+CONST BYTE TAG_MASK=$7F, PROTECTED_MARKER=$0A, DIRECTORY_MARKER=$1A
+CONST CARD ROOT_DIRECTORY=$0169
+
+; MyDOS commands passed through CIO/XIO.
+CONST BYTE CIO_RENAME=32, CIO_DELETE=33, CIO_MKDIR=34,
+           CIO_LOCK=35, CIO_UNLOCK=36, CIO_LOAD=39,
+           CIO_CHDIR=41, CIO_FORMAT=254
+
 BYTE ARRAY buffer
 
-CARD ARRAY v, dirsectors, dirnames(5)
+CARD ARRAY v, dirsectors, dirnames(PATH_LEVELS)
 
 CHAR ARRAY fname(15)
 BYTE fnamelen = fname
 
 CARD linebuf
 
-BYTE files,      
-     nestLevel, 
-     driveSh,   
-     allTagged, 
-     c,         
-     cnt        
-
-CARD currentDirSh, dummy
+TYPE PanelState=[
+  BYTE files,nestLevel,drive,tagMask,selected,row
+  CARD directory
+]
+PanelState active
+CARD dummy
   
 BYTE dos=$700          ; 'M if running under MyDOS
 
@@ -67,7 +79,7 @@ BYTE ans,h,winnum,
      dbgCopyFlag,dbgCopyOpen
 BYTE ARRAY s
 CHAR ARRAY dbgCopyName(15)
-BYTE ARRAY dbgCopyEntry(18)
+BYTE ARRAY dbgCopyEntry(DIR_ENTRY_BYTES)
 CARD dbgPathName,dbgFrameName,dbgCellAddr,
      dbgCopyEntryPtr,dbgCopyBuf,dbgCopyMem,dbgCopyLen,dbgCopyTop,
      dbgCopyTransf,dbgCopyTransf2
@@ -171,10 +183,10 @@ PROC Sort()
 
  BYTE gap CARD h
 
-  gap=files rsh 1
+  gap=active.files rsh 1
 
   WHILE gap DO
-    FOR i=gap TO files-1 DO
+    FOR i=gap TO active.files-1 DO
       j=i-gap
       WHILE j<$80 DO
         IF Fnamecmp(v(j), v(j+gap)) THEN
@@ -193,8 +205,8 @@ RETURN
 PROC Path=*()
 
   dbgPathHits ==+ 1
-  dbgPathNest = nestLevel
-  dbgPathName = dirnames(nestLevel)
+  dbgPathNest = active.nestLevel
+  dbgPathName = dirnames(active.nestLevel)
   dbgCellAddr = @dbgPathName
   dbgPathCellLo = Value(dbgCellAddr)
   dbgPathCellHi = Value(dbgCellAddr + 1)
@@ -204,7 +216,7 @@ PROC Path=*()
   Block( CLEAR, 39, 0 )
   Putchar( 'D )
   Putchar( '0%drive )
-  FOR i = 0 TO nestLevel DO
+  FOR i = 0 TO active.nestLevel DO
     Print( dirnames(i) )
     Putchar( ': )
   OD
@@ -215,16 +227,16 @@ PROC Draw(BYTE cnt)
  
  BYTE max=r0
 
-  IF $10 + cnt > files THEN
-    max = files
+  IF VISIBLE_FILES + cnt > active.files THEN
+    max = active.files
   ELSE 
-    max = cnt + $10
+    max = cnt + VISIBLE_FILES
   FI
  
 ;  Relpos( 0, 17 )
 ;  CalcAdr()
 ;  
-;  MovePage( screen, v(files), 17 )
+;  MovePage( screen, v(active.files), 17 )
 ;  Relpos( 0, 0 )
 ;  CalcAdr()
 ;  FOR j = cnt + 1 TO max DO
@@ -233,7 +245,7 @@ PROC Draw(BYTE cnt)
 ;  OD
 
   Relpos( 0, 17 )
-  PutImage( v(files), 16, 0 )
+  PutImage( v(active.files), 16, 0 )
 
   Relpos( 0, 0 )
 
@@ -257,15 +269,15 @@ RETURN
 
 PROC UpdDis=*()
 
-  Draw(c-cnt) Inv(cnt)
+  Draw(active.selected-active.row) Inv(active.row)
 RETURN
 
 
 PROC DrawWinFrame=*()
 
   dbgFrameHits ==+ 1
-  dbgFrameNest = nestLevel
-  dbgFrameName = dirnames(nestLevel)
+  dbgFrameNest = active.nestLevel
+  dbgFrameName = dirnames(active.nestLevel)
   dbgCellAddr = @dbgFrameName
   dbgFrameCellLo = Value(dbgCellAddr)
   dbgFrameCellHi = Value(dbgCellAddr + 1)
@@ -278,7 +290,7 @@ PROC DrawWinFrame=*()
   Putchar('0%drive)
   Print(">            \{$02}")
   Relpos(7, -1)
-  Print(dirnames(nestLevel))
+  Print(dirnames(active.nestLevel))
        
   Relpos(16, -1)
  
@@ -301,7 +313,7 @@ PROC DrawWinFrame=*()
   Block(INVERT, 19, 0)   
   Relpos(0, 0)
   PrintE("\{$11}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$17}\{$12}\{$12}\{$12}\{$17}\{$12}\{$12}\{$12}\{$05}")
-  FOR i=0 TO 15 DO
+  FOR i=0 TO LAST_VISIBLE_FILE DO
     PrintE("|          |   |   |")
   OD
   PrintE("\{$01}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$12}\{$18}\{$12}\{$12}\{$12}\{$18}\{$12}\{$12}\{$12}\{$04}")
@@ -341,7 +353,7 @@ RETURN(Value(v(i)))
 
 BYTE FUNC IsProtected( BYTE i )
 
-  IF Value(v(i) + 1 ) = $0A THEN
+  IF Value(v(i) + 1 ) = PROTECTED_MARKER THEN
     RETURN( 1 )
   ELSE
     RETURN( 0 ) 
@@ -350,7 +362,7 @@ BYTE FUNC IsProtected( BYTE i )
 
 BYTE FUNC IsDirectory( BYTE i )
 
-  IF Value(v(i) + 1 ) = $1A THEN
+  IF Value(v(i) + 1 ) = DIRECTORY_MARKER THEN
     RETURN( 1 )
   ELSE
     RETURN( 0 ) 
@@ -369,29 +381,29 @@ PROC Tag(BYTE i)
     tagged(winnum) ==+ 1
   FI
 
-  Store( v(i), a!$7F )
+  Store( v(i), a!TAG_MASK )
   i = TaggedFiles()
 
-  IF i = files THEN
-    allTagged = $7F
+  IF i = active.files THEN
+    active.tagMask = TAG_MASK
   ELSEIF i = 0 THEN
-    allTagged = 0 
+    active.tagMask = 0
   FI
 RETURN
 
 
 PROC TagAll=*()
 
-  IF allTagged THEN
-    allTagged = 0
+  IF active.tagMask THEN
+    active.tagMask = 0
     tagged(winnum) = 0
   ELSE 
-    allTagged = $7F
-    tagged(winnum) = files
+    active.tagMask = TAG_MASK
+    tagged(winnum) = active.files
   FI
 
-  FOR i = 1 TO files DO
-    Store( v(i-1), allTagged )
+  FOR i = 1 TO active.files DO
+    Store( v(i-1), active.tagMask )
   OD
   UpdDis()
 RETURN
@@ -399,7 +411,7 @@ RETURN
 
 BYTE FUNC FindNext(BYTE c)
 
-  FOR j = c TO files - 1 DO
+  FOR j = c TO active.files - 1 DO
     IF IsTagged( j ) THEN RETURN( j ) FI
   OD
 RETURN( BYTE(-1) )
@@ -408,11 +420,11 @@ RETURN( BYTE(-1) )
 ;@actionc profile compat
 PROC SetWin(BYTE n, drvnum)
 
-	 CARD panelData, panelDataOld
- BYTE ARRAY leftPanel(8),rightPanel(8),
-            lp_PathBuf(47),rp_PathBuf(47),pathBuf,dirBuf,
-            lp_DirBuf(1171),rp_DirBuf(1171)
- CARD ARRAY lp_v(65),rp_v(65)
+	 PanelState POINTER panelData, panelDataOld
+ PanelState leftPanel,rightPanel
+ BYTE ARRAY lp_PathBuf(PATH_BUFFER_BYTES),rp_PathBuf(PATH_BUFFER_BYTES),pathBuf,dirBuf,
+            lp_DirBuf(DIR_BUFFER_BYTES),rp_DirBuf(DIR_BUFFER_BYTES)
+ CARD ARRAY lp_v(DIR_SLOTS),rp_v(DIR_SLOTS)
  BYTE k
 
   dbgSetHits ==+ 1
@@ -420,50 +432,50 @@ PROC SetWin(BYTE n, drvnum)
   panelDataOld=panelData
   IF winnum THEN
     pathBuf=lp_PathBuf
-    panelData=leftPanel
+    panelData=@leftPanel
     v=lp_v
     dirBuf=lp_DirBuf
   ELSE
     pathbuf=rp_PathBuf
-    panelData=rightPanel
+    panelData=@rightPanel
     v=rp_v
     dirBuf=rp_DirBuf
   FI
 
   dirsectors=pathBuf
-  pathBuf==+10
+  pathBuf==+PATH_SECTOR_BYTES
   pathBuf(0)=0
   dirnames(0)=pathBuf
   pathBuf==+1
 
-  FOR i=1 TO 4 DO
+  FOR i=1 TO MAX_PATH_DEPTH DO
     dirnames(i)=pathBuf
-    pathBuf==+9
+    pathBuf==+PATH_NAME_BYTES
   OD
  
   IF drvnum THEN
     IF drvnum#$FF THEN
       drive=drvnum
-      nestLevel=0
-      currentDir^=$169
+      active.nestLevel=0
+      currentDir^=ROOT_DIRECTORY
     FI
 
     Path()
     Close(1)
-    Open(1, "D:*.*", 6, 0)
+    Open(1, "D:*.*", OPEN_DIRECTORY, 0)
  
     s=dirBuf  
 
     i=0 
     DO
-      Input(1, s, 19)
-      IF ioerr#1 THEN EXIT FI
-      v(i)=s s==+18 i==+1 
+      Input(1, s, DIR_READ_BYTES)
+      IF ioerr#IO_SUCCESS THEN EXIT FI
+      v(i)=s s==+DIR_ENTRY_BYTES i==+1
     OD
-    files=i-1
+    active.files=i-1
 
     Sort()
-    FOR j=1 TO files DO
+    FOR j=1 TO active.files DO
       s=v(j-1)
       IF s(1)=32 THEN
         s(1)=Internal(s(0))
@@ -488,7 +500,7 @@ PROC SetWin(BYTE n, drvnum)
       s(10)=124
       s(14)=124
     OD
-    s=v(files)
+    s=v(active.files)
     i=0
     WHILE(s(i)<>EOL AND i <= 17) DO
        s(i)=Internal(s(i))
@@ -499,21 +511,23 @@ PROC SetWin(BYTE n, drvnum)
     OD
     DrawWinFrame()
     panelDataOld=panelData
-    allTagged=true
-    c=0
-    cnt=0
+    active.tagMask=true
+    active.selected=0
+    active.row=0
     TagAll()
     Inv(0)
   FI
 
-  currentDirSh=currentDir^
-  driveSh=drive
+  active.directory=currentDir^
+  active.drive=drive
 
-  MovePage(panelDataOld, @files, 8)
-  MovePage(@files, panelData, 8)
+  ; Save the outgoing state before restoring the selected panel.
+  ; Refresh sets both pointers to the refreshed panel above.
+  MovePage(panelDataOld, @active, SIZEOF(PanelState))
+  MovePage(@active, panelData, SIZEOF(PanelState))
 
-  drive=driveSh
-  currentDir^=currentDirSh
+  drive=active.drive
+  currentDir^=active.directory
 RETURN
 
 
@@ -601,7 +615,7 @@ PROC MarkCopy(BYTE stage CARD mem, len, entry BYTE j, k, files, flag, isopen)
   dbgCopyOpen = isopen
   Strcpy(dbgCopyName, fname)
   IF entry THEN
-    MovePage(dbgCopyEntry, entry, 18)
+    MovePage(dbgCopyEntry, entry, DIR_ENTRY_BYTES)
   ELSE
     FOR i=0 TO 17 DO
       dbgCopyEntry(i)=0
@@ -633,8 +647,8 @@ PROC Dbg()
   Window(1, 2, 38, 21)
   Print("\{INV: TN debug }")
 
-  IF nestLevel THEN
-    prev = nestLevel - 1
+  IF active.nestLevel THEN
+    prev = active.nestLevel - 1
   ELSE
     prev = 0
   FI
@@ -642,12 +656,12 @@ PROC Dbg()
   Relpos(1, 2)
   PrintDbgByte("win", winnum)
   Print(" ") PrintDbgByte("drv", drive)
-  Print(" ") PrintDbgByte("nest", nestLevel)
+  Print(" ") PrintDbgByte("nest", active.nestLevel)
 
   Relpos(1, 3)
-  PrintDbgByte("files", files)
-  Print(" ") PrintDbgByte("c", c)
-  Print(" ") PrintDbgByte("cnt", cnt)
+  PrintDbgByte("files", active.files)
+  Print(" ") PrintDbgByte("c", active.selected)
+  Print(" ") PrintDbgByte("cnt", active.row)
 
   Relpos(1, 4)
   PrintDbgByte("valid", validdir)
@@ -661,14 +675,14 @@ PROC Dbg()
   Relpos(1, 6)
   Print("dsec=$") PrintHexC(dirsectors)
   Print(" p=$") PrintHexC(dirsectors(prev))
-  Print(" n=$") PrintHexC(dirsectors(nestLevel))
+  Print(" n=$") PrintHexC(dirsectors(active.nestLevel))
 
   Relpos(1, 7)
   Print("dn=$") PrintHexC(dirnames)
   Print(" p=$") PrintHexC(dirnames(prev))
-  Print(" n=$") PrintHexC(dirnames(nestLevel))
-  sptr = dirnames(nestLevel)
-  s = dirnames(nestLevel)
+  Print(" n=$") PrintHexC(dirnames(active.nestLevel))
+  sptr = dirnames(active.nestLevel)
+  s = dirnames(active.nestLevel)
 
   Relpos(1, 8)
   PrintDbgCard("dirname", s)
@@ -697,11 +711,11 @@ PROC Dbg()
   Print(" len=$") PrintHexB(dbgFrameLen)
   Print(" cell=") PrintHexB(dbgFrameCellHi) PrintHexB(dbgFrameCellLo)
 
-  IF files THEN
-    p = v(c)
+  IF active.files THEN
+    p = v(active.selected)
 
     Relpos(1, 13)
-    Print("cur ") PrintDbgByte("c", c)
+    Print("cur ") PrintDbgByte("c", active.selected)
     Print(" v=$") PrintHexC(p)
     PrintRawEntry(p)
 
@@ -716,7 +730,7 @@ PROC Dbg()
     Relpos(1, 15)
     Print("copy j=") PrintB(dbgCopyJ)
     Print(" ep=$") PrintHexC(dbgCopyEntryPtr)
-    IF dbgCopyJ < files THEN
+    IF dbgCopyJ < active.files THEN
       Print(" v=$") PrintHexC(v(dbgCopyJ))
     ELSE
       Print(" v=-")
@@ -728,7 +742,7 @@ PROC Dbg()
 
     Relpos(1, 17)
     Print("centry=")
-    IF dbgCopyJ < files THEN
+    IF dbgCopyJ < active.files THEN
       PrintRawEntry(v(dbgCopyJ))
     ELSE
       Print("-")
@@ -770,7 +784,7 @@ RETURN
 
 
 ;
-; Data for popup menus
+; Data for popup menus; each raw byte block ends with $00.
 ;
 
 PROC drives=*()
@@ -780,40 +794,40 @@ PROC drives=*()
    "5" '5 "6" '6
    "7" '7 
    "8" '8 "9" '9
-   "Frm" 'F nil]
+   "Frm" 'F $00]
 
 PROC delcancel=*()
 [  "Delete" 'D
-   "Cancel" 'C nil]
+   "Cancel" 'C $00]
 
 PROC density=*()
 [  "Single"  'S
    "Medium"  'M
    "Double"  'D
    "360K" '3
-   "720K"  '7 nil]
+   "720K"  '7 $00]
 
  
 PROC yesabort=*()  
 [  "Yes"  'Y
-   "Abort" 'A nil]
+   "Abort" 'A $00]
 
 PROC lockunlock=*()
 [  "Lock"   'L
-   "Unlock" 'U nil]
+   "Unlock" 'U $00]
 
 PROC yescancel=*()
 [  "Yes"    'Y 
-   "Cancel" 'C nil]
+   "Cancel" 'C $00]
 
 
 PROC GoTo(BYTE b)
 
-  c=b
-  IF c>$0F THEN 
-    cnt=$0F
+  active.selected=b
+  IF active.selected>LAST_VISIBLE_FILE THEN
+    active.row=LAST_VISIBLE_FILE
   ELSE
-    cnt=c
+    active.row=active.selected
   FI
   UpdDis()
 RETURN
@@ -826,7 +840,7 @@ PROC Xloop( BYTE cmd )
   CloseAll()
   h = TaggedFiles()
  
-  IF h = files THEN
+  IF h = active.files THEN
     Xio(1, cmd, 0, 0, "D:*.*")
   ELSEIF h THEN
 
@@ -841,7 +855,7 @@ PROC Xloop( BYTE cmd )
     UNTIL j = $FF OD
 
   ELSE
-    Convert( v(c) )
+    Convert( v(active.selected) )
     Xio( 1, cmd, 0, 0, fname )
   FI  
 
@@ -861,7 +875,7 @@ PROC Delete=*()
   ELSE
     Window(10, 7, 19, 7)
     Print("\{INV:   Delete  file   }")
-    Convert(v(c))
+    Convert(v(active.selected))
     i=(19-fnamelen) rsh 1
     Relpos(i, 2)
     PrintFname(fname)
@@ -869,7 +883,7 @@ PROC Delete=*()
   FI
   Relpos(1, 2)
   IF PopUp(BYTE POINTER(@delcancel), 1, 4)='D THEN
-    Xloop(33)
+    Xloop(CIO_DELETE)
   FI
 RETURN   
 
@@ -906,7 +920,7 @@ PROC Format()
     Print(" Format ") Print(fname) Print(" ?")
     Relpos(1, 2)
     IF PopUp(BYTE POINTER(@yesabort), 1, 3)='Y THEN
-      Xio(1, 254, aux, 0, fname)
+      Xio(1, CIO_FORMAT, aux, 0, fname)
       validdir=false
     FI
   FI
@@ -966,7 +980,7 @@ PROC Attrib()
     Relpos( 1, 1 )
     ans = PopUp( BYTE POINTER(@lockunlock), 0, 3 )
   ELSE
-    IF IsProtected( c ) THEN
+    IF IsProtected( active.selected ) THEN
       ans = 'U 
     ELSE
       ans = 'L
@@ -975,9 +989,9 @@ PROC Attrib()
 
   IF ans#ESC THEN
     IF ans = 'U THEN
-      cmd = 36
+      cmd = CIO_UNLOCK
     ELSE
-      cmd = 35
+      cmd = CIO_LOCK
     FI
     Xloop(cmd)
   FI
@@ -991,25 +1005,25 @@ PROC SwapScr()
 
   IF firstTime THEN
    
-    linebuf = Alloc( 40 )
-    buffer = Alloc( 960 )
+    linebuf = Alloc( SCREEN_COLS )
+    buffer = Alloc( SCREEN_BYTES )
     Position( 0, 0 )
-    GetImage( buffer, 39, 23 )
+    GetImage( buffer, SCREEN_COLS-1, LAST_SCREEN_ROW )
 
     firstTime = false
   
-  ELSEIF scrnum <> 0 OR ioerr = 1 THEN
+  ELSEIF scrnum <> 0 OR ioerr = IO_SUCCESS THEN
       
     scrnum ==! 1
     a = buffer
 
-    FOR i = 0 TO 23 DO
+    FOR i = 0 TO LAST_SCREEN_ROW DO
       Position( 0, i )
-      MovePage( linebuf, a, 40 )
-      GetImage( a, 39, 0)
+      MovePage( linebuf, a, SCREEN_COLS )
+      GetImage( a, SCREEN_COLS-1, 0)
       Position( 0, i )
-      PutImage( linebuf, 39, 0 )
-      a ==+ 40
+      PutImage( linebuf, SCREEN_COLS-1, 0 )
+      a ==+ SCREEN_COLS
     OD
   FI
 RETURN
@@ -1019,12 +1033,12 @@ PROC View=*()
 
  BYTE ch=h
 
-  Convert(v(c))
-  Open(1, fname, 4, 0)
+  Convert(v(active.selected))
+  Open(1, fname, OPEN_READ, 0)
   SavePos()
   SwapScr()
   ch=EOL
-  WHILE ioerr=1 DO
+  WHILE ioerr=IO_SUCCESS DO
     PutD(0, ch)
     ch=GetD(1)
   OD
@@ -1045,7 +1059,7 @@ PROC MkDir=*()
     Free(s)
     Strcpy(CHAR POINTER(s), "D:")
     Strcat(CHAR POINTER(s), CHAR POINTER(linebuf)) 
-    Xio(1, 34, 8, 0, s)
+    Xio(1, CIO_MKDIR, OPEN_WRITE, 0, s)
     validdir=false
   FI
 RETURN
@@ -1055,7 +1069,7 @@ PROC Rename=*()
 
   Window(10, 7, 17, 9)
   Print("\{INV:     Rename     }")
-  Convert(v(c))
+  Convert(v(active.selected))
   Relpos(2, 2)
   PrintFname(fname)
   Strcpy(CHAR POINTER(linebuf), fname)
@@ -1066,7 +1080,7 @@ PROC Rename=*()
   s="            "
   IF InputLine(CHAR POINTER(s), 12, 0) THEN
     Strcat(CHAR POINTER(linebuf), CHAR POINTER(s))
-    Xio(1, 32, 0, 0, linebuf)
+    Xio(1, CIO_RENAME, 0, 0, linebuf)
     validdir=false
   FI
 RETURN
@@ -1074,8 +1088,8 @@ RETURN
 
 PROC Copy()
 
- CARD ARRAY lentab(16)
- BYTE ARRAY copytab(16)
+ CARD ARRAY lentab(COPY_SLOTS)
+ BYTE ARRAY copytab(COPY_SLOTS)
  CARD mem, len, entry, transf=$358, memtop=$2E5
  BYTE files, j, k, flag, diskswap, isopen
 
@@ -1092,7 +1106,7 @@ PROC Copy()
   SwapWin()
       
   IF TaggedFiles() = 0 THEN
-    Tag( c )
+    Tag( active.selected )
   FI
 
   j = -1
@@ -1127,7 +1141,7 @@ PROC Copy()
 
         MarkCopy(1, mem, len, entry, j, 0, files, flag, isopen)
         Close( 1 )
-        Open( 1, fname, 4, 0 )
+        Open( 1, fname, OPEN_READ, 0 )
 
       FI
 
@@ -1142,9 +1156,9 @@ PROC Copy()
       mem ==+ transf
       len ==- transf
       files ==+ 1
-      flag  = ioerr ! $88
+      flag  = ioerr ! IO_EOF
 
-    UNTIL files = 16 OR flag # false OR FindNext( j + 1 ) = $FF OD
+    UNTIL files = COPY_SLOTS OR flag # false OR FindNext( j + 1 ) = $FF OD
 
     IF diskswap THEN
 
@@ -1171,7 +1185,7 @@ PROC Copy()
 
       IF isopen = false THEN
         Close( 2 )
-        Open( 2, fname, 8, 0 )
+        Open( 2, fname, OPEN_WRITE, 0 )
         MarkCopy(7, mem, len, entry, copytab(k), k, files, flag, isopen)
       FI
 
@@ -1196,9 +1210,9 @@ PROC Copy()
 
   Tag( j )
 
-  c=0
-  cnt=0
-  allTagged=0
+  active.selected=0
+  active.row=0
+  active.tagMask=0
  
   SwapWin()
   Dir()         
@@ -1256,29 +1270,32 @@ PROC Quit=*()
 RETURN
 
 
-PROC Jmp=*()
+; Command indexes follow the key string in Handle.
+PROC MakeJmp(BYTE command)
 
-[<View >View
- <Attrib >Attrib
- <Delete >Delete
- <Rename >Rename
- <TagAll >TagAll
- <Copy >Copy
- <MkDir >MkDir
- <Format >Format
- <Dbg >Dbg
- <Quit >Quit]
-
-
-PROC MakeJmp( BYTE c )
-
- CARD ARRAY adr(10)=Jmp
- CARD go
- 
- go = adr( c - 1 )
- ASM
-   jmp (go)
- ENDASM
+  CASE command OF
+  WHEN 1 THEN
+    View()
+  WHEN 2 THEN
+    Attrib()
+  WHEN 3 THEN
+    Delete()
+  WHEN 4 THEN
+    Rename()
+  WHEN 5 THEN
+    TagAll()
+  WHEN 6 THEN
+    Copy()
+  WHEN 7 THEN
+    MkDir()
+  WHEN 8 THEN
+    Format()
+  WHEN 9 THEN
+    Dbg()
+  WHEN 10 THEN
+    Quit()
+  ESAC
+RETURN
 
 PROC Handle()
 
@@ -1288,18 +1305,18 @@ PROC Handle()
  CARD POINTER p
 
   DO
-    Inv( cnt )
+    Inv( active.row )
     validdir = true
     WHILE validdir DO
 
       Close( 1 )
-      d = c 
+      d = active.selected
 
-      ch = Range( "-=\{$1C}\{$1D}", files-1, @c )
+      ch = Range( "-=\{$1C}\{$1D}", active.files-1, @active.selected )
 
       a = Instr("VADRSCMFGQ", ch)
 
-      IF files THEN
+      IF active.files THEN
 
         IF a THEN 
 
@@ -1310,14 +1327,14 @@ PROC Handle()
           FI
         ELSEIF ch = 32 THEN
 
-          Tag( c )
+          Tag( active.selected )
 
-          IF c < files - 1 THEN
+          IF active.selected < active.files - 1 THEN
 
-            c ==+ 1
+            active.selected ==+ 1
 
-            IF cnt < $0F THEN
-              cnt ==+ 1
+            IF active.row < LAST_VISIBLE_FILE THEN
+              active.row ==+ 1
             FI
           FI
 
@@ -1325,24 +1342,24 @@ PROC Handle()
 
         ELSEIF ch = EOL THEN
 
-          Convert( v(c) )
+          Convert( v(active.selected) )
 
-          IF IsDirectory( c ) THEN
+          IF IsDirectory( active.selected ) THEN
 
-            IF nestLevel < 4 THEN
+            IF active.nestLevel < MAX_PATH_DEPTH THEN
 
-              dirsectors(nestLevel) = currentDir^
-              nestLevel ==+ 1
+              dirsectors(active.nestLevel) = currentDir^
+              active.nestLevel ==+ 1
               j = Instr( fname, '. )
                 
-              s = dirnames(nestLevel)
+              s = dirnames(active.nestLevel)
               s(0) = j - 3    
               
               FOR i = 3 to j DO
                  s(i-2) = fname(i)
               OD
 
-              Xio( 1, 41, 0, 0, fname )
+              Xio( 1, CIO_CHDIR, 0, 0, fname )
 
               validdir = false
             FI
@@ -1363,29 +1380,29 @@ PROC Handle()
               pha
               lda #$47
               pha
-              lda #39
+              lda #CIO_LOAD
               sta $0352
               lda #$00
               sta $0358
               sta $0359
-              lda #$04
+              lda #OPEN_READ
               sta $035A
               jmp $E456
             ENDASM
           FI
-        ELSEIF d < c THEN
+        ELSEIF d < active.selected THEN
 
-          IF cnt < $0F THEN cnt == +1 FI
+          IF active.row < LAST_VISIBLE_FILE THEN active.row == +1 FI
           UpdDis()
 
-        ELSEIF d > c THEN
+        ELSEIF d > active.selected THEN
 
-          IF cnt # 0 THEN cnt == -1 FI
+          IF active.row # 0 THEN active.row == -1 FI
           UpdDis()
 
         ELSEIF ch = '> THEN
 
-          GoTo( files - 1 )
+          GoTo( active.files - 1 )
 
         ELSEIF ch = '< THEN
 
@@ -1415,7 +1432,7 @@ PROC Handle()
 
       ELSEIF ch = '\{$7F} THEN
 
-        Inv( cnt )
+        Inv( active.row )
         SwapWin()
         Path()
         EXIT
@@ -1438,9 +1455,9 @@ PROC Handle()
 
       ELSEIF ch = ESC THEN
 
-        IF nestLevel THEN
-          nestLevel ==- 1
-          currentDir^ = dirsectors(nestLevel)
+        IF active.nestLevel THEN
+          active.nestLevel ==- 1
+          currentDir^ = dirsectors(active.nestLevel)
           validdir = false
         FI
 
@@ -1500,7 +1517,7 @@ RETURN
 
 PROC NavError=*()
 
-  IF ioerr # 136 THEN
+  IF ioerr # IO_EOF THEN
 
     Dbg()
 
@@ -1564,7 +1581,7 @@ BYTE krpdel=$2D9, keyrep=$2DA, shflok=$2BE
  SwapScr()
 
  Print("\{INV:Toms Navigator 1.23 (c) 2010 M.Kurcewicz}")
- Position( 0, 23 )
+ Position( 0, LAST_SCREEN_ROW )
  Print("\{INV:New Copy Del Ren Atr View Mkdir Dbg Quit}")
 
  InitPanels()

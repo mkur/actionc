@@ -10775,9 +10775,23 @@ mod tests {
 
         assert_eq!(
             skipped_lengths,
-            vec![8, 8, 10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
+            vec![10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
             "TN should defer every eligible uninitialized global and local array backing range"
         );
+        // Panel state is now three records. The two saved states used to be
+        // deferred eight-byte arrays; all three record values are emitted.
+        for name in ["active", "leftPanel", "rightPanel"] {
+            let symbol = output
+                .map
+                .storage_symbols
+                .iter()
+                .find(|symbol| symbol.name == name)
+                .unwrap_or_else(|| panic!("missing TN panel record {name}"));
+            assert_eq!(symbol.size, 8, "{name} must preserve the panel layout");
+            assert!(symbol.array.is_none(), "{name} should be a record value");
+            assert!(symbol.address >= output.origin);
+            assert!(symbol.address + symbol.size <= emitted_end);
+        }
         assert!(
             output
                 .skipped_ranges
@@ -11935,7 +11949,11 @@ mod tests {
     fn generate_mir6502_sample(path: &str, origin: u16) -> crate::codegen::CodegenOutput {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
         let program = crate::includes::load_program_with_includes(&path).expect("load sample");
-        let model = crate::semantic::analyze(&program).expect("analyze sample");
+        let model = crate::semantic::analyze_with_options(
+            &program,
+            crate::semantic::SemanticOptions::modern(),
+        )
+        .expect("analyze modern sample");
         let semir = crate::semantic::ir::lower_program(&program, &model);
         let nir =
             crate::nir::optimize_program(&crate::nir::lower_program(&semir)).expect("optimize NIR");

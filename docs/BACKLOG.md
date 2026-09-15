@@ -3,6 +3,44 @@
 This file tracks cross-cutting compiler work that does not naturally belong to a
 single backend or survey note.
 
+## Classic Record-Copy Scratch Placement with SET
+
+Status: backlogged at user request; implementation has not started.
+
+Found while introducing PanelState in [TOMS Navigator](../samples/tn/README.md).
+Whole-record assignment causes classic code generation to prepend copy scratch
+storage before the source's legacy allocation `SET`s. Restoring the source
+cursor then points into already emitted storage. This reproducer fails with
+`--mode optimized --runtime cart`, reporting `compatible code pointer $2C00 is
+before current output $2C0A`; its MIR6502 cartridge build compiles:
+
+```action
+ORG $2C00
+SET $E=$E6
+SET $F=0
+BYTE POINTER screen
+CARD POINTER allocp
+SET $E=$2C00
+SET $491=$2C00
+TYPE State=[BYTE a,b,c,d,e,f CARD g]
+State first,second
+PROC Main()
+  first=second
+RETURN
+```
+
+- Fix the interaction between classic projection's generated copy scratch and
+  source-controlled storage placement. Preserve `ORG`/explicit CLI origin
+  precedence, zero-page pointer homes and the final `SET BUFFER=*` boundary.
+  Do not special-case TN or require source offsets for hidden compiler storage.
+- Add focused compilation and VM regressions for both modern backends and both
+  runtimes. Verify scratch/code/data do not overlap, full record copies preserve
+  evaluation order and alias/overlap semantics, and deferred storage remains
+  outside emitted code.
+- Once fixed, replace TN's two `MovePage(..., SIZEOF(PanelState))` calls with
+  ordinary record assignments. Rerun its panel-transition, dispatch and storage
+  checks in both backends, and measure load size and workspace changes.
+
 ## LONG Codegen Audit and Measured Optimization
 
 Status: backlogged at user request; implementation has not started.

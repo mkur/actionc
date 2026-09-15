@@ -7,6 +7,12 @@ changes that only become visible in a substantial source file.
 
 The original MIR6502 listing baseline and optimization backlog are in
 [`mir6502-optimization-opportunities.md`](mir6502-optimization-opportunities.md).
+The [source modernization audit](source-modernization-audit-2026-09-15.md)
+identifies uses for current language features, preservation constraints and
+compiler limitations, with fresh builds of TN and TNDBG.
+The [directory handling implementation plan](directory-handling-implementation-plan.md)
+replaces the proposed row overlays with 64-entry batches, independent tagging
+and a MyDOS-first migration toward FujiNet. It is proposed, not implemented.
 The fresh final-output audit after carry and dual-pointer selection is in
 [`mir6502-final-listing-audit-2026-07-24.md`](mir6502-final-listing-audit-2026-07-24.md).
 The latest clean-head listing reanalysis and ranked MIR6502 backlog are in

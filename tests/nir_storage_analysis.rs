@@ -2,7 +2,7 @@ use std::path::Path;
 
 use actionc::includes::load_program_with_expanded_source;
 use actionc::nir;
-use actionc::semantic::{analyze, ir};
+use actionc::semantic::{SemanticOptions, analyze_with_options, ir};
 
 #[test]
 fn tn_exposes_high_value_scalar_promotion_candidates() {
@@ -13,7 +13,7 @@ fn tn_exposes_high_value_scalar_promotion_candidates() {
         .join("TN.ACT");
     let loaded = load_program_with_expanded_source(&source)
         .unwrap_or_else(|diagnostics| panic!("load {}: {diagnostics:?}", source.display()));
-    let model = analyze(&loaded.program)
+    let model = analyze_with_options(&loaded.program, SemanticOptions::modern())
         .unwrap_or_else(|diagnostics| panic!("analyze {}: {diagnostics:?}", source.display()));
     let semir = ir::lower_program(&loaded.program, &model);
     let lowered = nir::lower_program(&semir);
