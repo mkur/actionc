@@ -14,7 +14,7 @@ Update this status table in the same commit as each completed slice.
 | 0 | Physical ABI specification and this plan | Complete |
 | 1 | Generated Rust/assembly constants and typed ABI layout calculations | Complete |
 | 2 | Native call plans, result lanes and boundary/state contracts | Complete |
-| 3 | Native frame placement, incoming offsets and stack verification | Pending |
+| 3 | Native frame placement, incoming offsets and stack verification | Complete |
 | 4 | Minimal native emission and assembly interoperability | Pending |
 | 5 | Indirect calls across banks | Pending |
 | 6 | First-task entry, return, IRQ/COP save/restore | Pending |
@@ -75,6 +75,21 @@ aggregate-indirect integration targets passed (61 tests) for this slice.
 
 Completion: the immediate ABI-planning milestone is ready for instruction
 selection, with generated constants, concrete plans and regression coverage.
+
+Native frames now contain an even fixed area with per-call outgoing space
+below it. Parameter plans expose checked body-relative incoming offsets;
+mutable/addressable parameters retain private invocation storage. The
+[MIR verifier](../src/mir65816/mod.rs) checks frame/argument alignment, object
+extents, caller/callee agreement, return cleanup and required saved state.
+[Checked stack operations](../src/mir65816/abi/stack.rs) validate the last byte
+of each access, temporary S movement and unsigned reservation bounds.
+
+`minimum_stack_peak` includes the fixed frame and known call costs.
+`allocation_complete` remains false: instruction selection must account for
+live temporaries, spills, actual accesses and interrupt headroom before
+reporting a final bound. The ABI, routine, type-surface and lowering-contract
+integration targets passed (60 tests), including rejected oversized frames
+and deliberately corrupted plans. Broad validation is recorded below.
 
 ## Slice 4: minimal emitted execution
 
@@ -139,3 +154,25 @@ The pre-existing TN sample catalog/standalone-source failures recorded during
 the lowering work must be reported separately from regressions. Use an
 isolated checkout when unrelated sample edits or untracked programs would
 contaminate broad validation; preserve those user changes.
+
+### ABI-planning milestone validation (2026-09-16)
+
+An isolated checkout of the committed slices plus the slice 3 patch ran:
+
+- `cargo test --locked nir_fixtures_match_snapshots`: passed.
+- `cargo run --locked --bin actionc-nir-sweep -- fixtures/nir`: all 51 fixtures
+  passed loading, semantic analysis, lowering, verification and optimization.
+- `cargo test --locked --no-fail-fast`: 3,231 passed, 24 ignored, two existing
+  TN sample failures. All targets ran despite those failures.
+- `python3 tools/generate_abi65816.py --check`, scoped formatting, whitespace
+  checks and relative documentation links: passed.
+
+The existing failures are `sample_catalog_classifies_every_action_source`
+(DIR.ACT, LOCATION.ACT, MYDOS.ACT and PANELDIR.ACT lack catalog entries) and
+`parses_all_sample_programs` (LOCATION.ACT is analyzed without the DIR_RANGE,
+DIR_INVALID, DIR_OK and DIR_END definitions). These occur outside MIR65816;
+unrelated sample edits were excluded from this validation.
+
+This completes slices 1–3. Slice 4, minimal native emission and independent
+assembly interoperability, is next. No emitted native execution or Exec
+acceptance gate is claimed by these planning tests.

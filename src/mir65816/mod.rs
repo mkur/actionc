@@ -164,6 +164,8 @@ pub struct Mir65816ParameterPlan {
     pub param: ParamId,
     pub incoming: Mir65816AbiHome,
     pub frame_object: Option<Mir65816FrameObjectId>,
+    /// Native incoming address relative to S after reserving the fixed frame.
+    pub body_stack_offset: Option<ByteOffset>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -182,9 +184,21 @@ pub struct Mir65816FramePlan {
     pub automatic_bytes: ByteSize,
     pub saved_state_bytes: ByteSize,
     pub spill_bytes: ByteSize,
-    pub outgoing_offset: ByteOffset,
+    pub outgoing: Mir65816OutgoingArea,
     pub outgoing_bytes: ByteSize,
+    pub incoming_bytes: ByteSize,
+    pub incoming_extent: ByteSize,
     pub extent: ByteSize,
+    /// Includes fixed objects and known call transfers, excluding unknown
+    /// allocated spills and instruction-local pushes.
+    pub minimum_stack_peak: ByteSize,
+    pub allocation_complete: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816OutgoingArea {
+    FixedInFrame { offset: ByteOffset },
+    PerCallBelowFrame,
 }
 
 impl Mir65816FramePlan {
@@ -272,6 +286,18 @@ pub enum Mir65816SavedState {
     ProgramCounter,
     ProcessorStatus,
 }
+
+const TASK_STATE: [Mir65816SavedState; 9] = [
+    Mir65816SavedState::Accumulator,
+    Mir65816SavedState::X,
+    Mir65816SavedState::Y,
+    Mir65816SavedState::StackPointer,
+    Mir65816SavedState::DirectPage,
+    Mir65816SavedState::DataBank,
+    Mir65816SavedState::ProgramBank,
+    Mir65816SavedState::ProgramCounter,
+    Mir65816SavedState::ProcessorStatus,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816TaskSwitchState {
@@ -470,6 +496,96 @@ pub fn lower_verified(
     input: VerifiedNir<'_>,
 ) -> Result<Mir65816Program, BackendLoweringError<Mir65816Diagnostic>> {
     crate::backend::lower_verified(&Mir65816Backend, input)
+}
+
+/// Recheck mutable MIR plans before subsequent target passes consume them.
+/// Final instruction allocation and its concrete stack accesses are a later gate.
+pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagnostic>> {
+    let mut errors = Vec::new();
+    let native = program.call_convention == Mir65816CallConvention::Native;
+    let expected_width = ByteSize::new(if native {
+        abi::generated::SCALAR_CODE_POINTER_SIZE
+    } else {
+        2
+    });
+    if program.endian != Endian::Little
+        || program.architectural_address_bits != 24
+        || program.code_pointer_width != expected_width
+        || program.data_pointer_width != expected_width
+        || program.target
+            != if native {
+                TargetId::Wdc65816Native
+            } else {
+                TargetId::Wdc65816Small
+            }
+        || (native
+            && program.native_abi.as_ref().is_none_or(|abi| {
+                abi.version != abi::generated::ABI_VERSION || abi.boundary != abi::BOUNDARY
+            }))
+        || (!native && program.native_abi.is_some())
+        || program.task_switch_state.native_memory != native.then_some(abi::SUSPENDED_MEMORY)
+        || program.task_switch_state.required != TASK_STATE
+    {
+        errors.push(Mir65816Diagnostic {
+            routine: None,
+            block: None,
+            message: "65816 program does not match its ABI/model state contract".into(),
+        });
+    }
+    let mut routine_ids = std::collections::BTreeSet::new();
+    for routine in &program.routines {
+        if !routine_ids.insert(routine.id) {
+            errors.push(Mir65816Diagnostic {
+                routine: Some(routine.name.clone()),
+                block: None,
+                message: "65816 duplicate routine identity".into(),
+            });
+        }
+        if let Err(message) =
+            lower::verify_routine_plan(routine, expected_width, program.call_convention)
+        {
+            errors.push(Mir65816Diagnostic {
+                routine: Some(routine.name.clone()),
+                block: None,
+                message,
+            });
+        }
+        if native {
+            for block in &routine.blocks {
+                for op in &block.ops {
+                    if let Mir65816Op::Call {
+                        target: Mir65816CallTarget::Direct(id),
+                        plan,
+                        ..
+                    } = op
+                    {
+                        let callee = program.routines.iter().find(|r| r.id.0 == *id);
+                        if callee.is_none_or(|callee| {
+                            plan.arguments
+                                != callee
+                                    .frame
+                                    .parameters
+                                    .iter()
+                                    .map(|p| p.incoming)
+                                    .collect::<Vec<_>>()
+                                || plan.result != callee.result_home
+                        }) {
+                            errors.push(Mir65816Diagnostic {
+                                routine: Some(routine.name.clone()),
+                                block: Some(format!("b{}", block.id.0)),
+                                message: "65816 direct caller/callee ABI homes disagree".into(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
 }
 
 fn relocation_target(target: NirDataAddressTarget) -> Mir65816RelocationTarget {

@@ -10,8 +10,18 @@ use crate::target::{AbiId, ByteOffset, ByteSize, Endian, TargetId};
 pub(super) fn lower_program(
     input: VerifiedNir<'_>,
 ) -> Result<Mir65816Program, Vec<Mir65816Diagnostic>> {
-    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| errors.into_iter()
-        .map(|error| diagnostic(error.routine.as_deref(), error.block.as_deref(), &error.message)).collect::<Vec<_>>())?;
+    let expanded = crate::backend::expand_aggregate_abi(input).map_err(|errors| {
+        errors
+            .into_iter()
+            .map(|error| {
+                diagnostic(
+                    error.routine.as_deref(),
+                    error.block.as_deref(),
+                    &error.message,
+                )
+            })
+            .collect::<Vec<_>>()
+    })?;
     let program = expanded.as_ref();
     let layout = input.target_layout();
     let convention = match layout.abi {
@@ -31,10 +41,22 @@ pub(super) fn lower_program(
     let storage = crate::nir::analyze_program_storage(program);
     let mut routines = Vec::with_capacity(program.routines.len());
     for (routine, storage) in program.routines.iter().zip(&storage.routines) {
-        if let Some(block) = routine.blocks.iter().find(|block| block.ops.iter().any(|op|
-            matches!(op, NirOp::Call { callee: NirCallee::Fault(_), .. }))) {
-            diagnostics.push(diagnostic(Some(&routine.name), Some(&block.label),
-                "runtime fault requires a native target Error adapter"));
+        if let Some(block) = routine.blocks.iter().find(|block| {
+            block.ops.iter().any(|op| {
+                matches!(
+                    op,
+                    NirOp::Call {
+                        callee: NirCallee::Fault(_),
+                        ..
+                    }
+                )
+            })
+        }) {
+            diagnostics.push(diagnostic(
+                Some(&routine.name),
+                Some(&block.label),
+                "runtime fault requires a native target Error adapter",
+            ));
             continue;
         }
         if matches!(
@@ -64,27 +86,19 @@ pub(super) fn lower_program(
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
-    Ok(Mir65816Program {
+    let lowered = Mir65816Program {
         target: input.target(),
         endian: layout.endian,
         architectural_address_bits: layout.address_bits,
         data_pointer_width: layout.data_pointer.size_bytes,
         code_pointer_width: layout.code_pointer.size_bytes,
         call_convention: convention,
-        native_abi: (convention == Mir65816CallConvention::Native).then(|| abi::program_contract(input.program())),
+        native_abi: (convention == Mir65816CallConvention::Native)
+            .then(|| abi::program_contract(input.program())),
         task_switch_state: Mir65816TaskSwitchState {
-            required: vec![
-                Mir65816SavedState::Accumulator,
-                Mir65816SavedState::X,
-                Mir65816SavedState::Y,
-                Mir65816SavedState::StackPointer,
-                Mir65816SavedState::DirectPage,
-                Mir65816SavedState::DataBank,
-                Mir65816SavedState::ProgramBank,
-                Mir65816SavedState::ProgramCounter,
-                Mir65816SavedState::ProcessorStatus,
-            ],
-            native_memory: (convention == Mir65816CallConvention::Native).then_some(abi::SUSPENDED_MEMORY),
+            required: super::TASK_STATE.to_vec(),
+            native_memory: (convention == Mir65816CallConvention::Native)
+                .then_some(abi::SUSPENDED_MEMORY),
         },
         data,
         runtime_bindings: input
@@ -96,7 +110,9 @@ pub(super) fn lower_program(
             })
             .collect(),
         routines,
-    })
+    };
+    super::verify_program(&lowered)?;
+    Ok(lowered)
 }
 
 fn lower_routine(
@@ -179,7 +195,7 @@ fn lower_routine(
         epilogue,
         blocks,
     };
-    if let Err(message) = verify_routine_plan(&lowered, code_pointer_width) {
+    if let Err(message) = verify_routine_plan(&lowered, code_pointer_width, convention) {
         diagnostics.push(diagnostic(Some(&routine.name), None, message));
     }
     lowered
@@ -218,13 +234,14 @@ fn plan_frame(
     let mut cursor = 1u32;
     let mut objects = Vec::new();
     let mut parameters = Vec::with_capacity(routine.params.len());
-    let incoming = match signature_homes(&routine.signature, routine.params.len(), convention) {
-        Ok((homes, _, _)) => homes,
-        Err(message) => {
-            diagnostics.push(diagnostic(Some(&routine.name), None, &message));
-            return None;
-        }
-    };
+    let (incoming, incoming_bytes, incoming_extent) =
+        match signature_homes(&routine.signature, routine.params.len(), convention) {
+            Ok(layout) => layout,
+            Err(message) => {
+                diagnostics.push(diagnostic(Some(&routine.name), None, &message));
+                return None;
+            }
+        };
     if let Err(message) = result_home(routine.signature.result.as_ref(), convention) {
         diagnostics.push(diagnostic(Some(&routine.name), None, &message));
         return None;
@@ -257,6 +274,7 @@ fn plan_frame(
             param: param.id,
             incoming,
             frame_object,
+            body_stack_offset: None,
         });
     }
 
@@ -286,35 +304,90 @@ fn plan_frame(
     let outgoing_bytes = match max_outgoing_bytes(routine, convention) {
         Ok(bytes) => bytes,
         Err(message) => {
-            diagnostics.push(diagnostic(
-                Some(&routine.name),
-                None,
-                &message,
-            ));
+            diagnostics.push(diagnostic(Some(&routine.name), None, &message));
             return None;
         }
     };
-    let outgoing_offset = ByteOffset::new(cursor);
-    let Some(end) = cursor.checked_add(outgoing_bytes.get()) else {
-        diagnostics.push(diagnostic(
-            Some(&routine.name),
-            None,
-            "65816 automatic and outgoing areas overflow frame planning",
-        ));
-        return None;
+    let (extent, outgoing) = if convention == Mir65816CallConvention::Native {
+        let extent = match abi::stack::fixed_extent(automatic_bytes) {
+            Ok(extent) => extent,
+            Err(error) => {
+                diagnostics.push(diagnostic(Some(&routine.name), None, &error.to_string()));
+                return None;
+            }
+        };
+        for parameter in &mut parameters {
+            let Mir65816AbiHome::StackArgument { offset, size, .. } = parameter.incoming else {
+                unreachable!()
+            };
+            match abi::stack::incoming_displacement(extent, offset, size) {
+                Ok(offset) => parameter.body_stack_offset = Some(offset),
+                Err(error) => {
+                    diagnostics.push(diagnostic(
+                        Some(&routine.name),
+                        None,
+                        &format!("incoming parameter: {error}"),
+                    ));
+                    return None;
+                }
+            }
+        }
+        (extent, Mir65816OutgoingArea::PerCallBelowFrame)
+    } else {
+        let Some(extent) = automatic_bytes.checked_add(outgoing_bytes) else {
+            diagnostics.push(diagnostic(
+                Some(&routine.name),
+                None,
+                "65816 automatic and outgoing areas overflow frame planning",
+            ));
+            return None;
+        };
+        if extent.get() > u32::from(u8::MAX) {
+            diagnostics.push(diagnostic(Some(&routine.name), None, &format!("65816 hardware-stack frame requires {} bytes; the initial stack-relative strategy supports at most 255", extent.get())));
+            return None;
+        }
+        (
+            extent,
+            Mir65816OutgoingArea::FixedInFrame {
+                offset: ByteOffset::new(cursor),
+            },
+        )
     };
-    let extent = end - 1;
-    if extent > u32::from(u8::MAX) {
-        diagnostics.push(diagnostic(
-            Some(&routine.name),
-            None,
-            format!(
-                "65816 hardware-stack frame requires {extent} bytes; the initial stack-relative strategy supports at most 255"
-            ),
-        ));
-        return None;
+    let mut minimum_stack_peak = extent;
+    for op in routine.blocks.iter().flat_map(|block| &block.ops) {
+        if let NirOp::Call {
+            callee,
+            args,
+            signature: Some(signature),
+            ..
+        } = op
+        {
+            let (outgoing, transfer) = if convention == Mir65816CallConvention::Native {
+                let outgoing = signature_homes(signature, args.len(), convention)
+                    .expect("outgoing planning checked signature")
+                    .2;
+                (
+                    outgoing,
+                    if matches!(callee, NirCallee::Indirect { .. }) {
+                        abi::FarTransfer::StackRtl
+                    } else {
+                        abi::FarTransfer::Jsl
+                    }
+                    .peak_bytes(),
+                )
+            } else {
+                // Small-model outgoing space is already included in its fixed extent.
+                (ByteSize::ZERO, ByteSize::new(2))
+            };
+            match abi::stack::peak_below_entry(extent, outgoing, transfer, ByteSize::ZERO) {
+                Ok(peak) => minimum_stack_peak = minimum_stack_peak.max(peak),
+                Err(error) => {
+                    diagnostics.push(diagnostic(Some(&routine.name), None, &error.to_string()));
+                    return None;
+                }
+            }
+        }
     }
-
     Some(Mir65816FramePlan {
         strategy: Mir65816FrameStrategy::HardwareStackRelative,
         bank: 0,
@@ -323,9 +396,13 @@ fn plan_frame(
         automatic_bytes,
         saved_state_bytes: ByteSize::ZERO,
         spill_bytes: ByteSize::ZERO,
-        outgoing_offset,
+        outgoing,
         outgoing_bytes,
-        extent: ByteSize::new(extent),
+        incoming_bytes,
+        incoming_extent,
+        extent,
+        minimum_stack_peak,
+        allocation_complete: false,
     })
 }
 
@@ -517,29 +594,69 @@ fn call_plan(
     })
 }
 
-fn verify_routine_plan(
+pub(super) fn verify_routine_plan(
     routine: &Mir65816Routine,
     code_pointer_width: ByteSize,
+    convention: Mir65816CallConvention,
 ) -> Result<(), String> {
-    if routine.frame.bank != 0 {
-        return Err("65816 hardware-stack frame must remain in bank zero".to_string());
+    let frame = &routine.frame;
+    let native = convention == Mir65816CallConvention::Native;
+    if frame.bank != 0 {
+        return Err("65816 hardware-stack frame must remain in bank zero".into());
     }
-    if routine.frame.extent.get() > u32::from(u8::MAX) {
-        return Err("65816 frame exceeds stack-relative displacement range".to_string());
-    }
-    if routine.prologue.reserve_bytes != routine.frame.extent
-        || routine.epilogue.release_bytes != routine.frame.extent
+    if frame.allocation_complete
+        || !frame.spill_bytes.is_zero()
+        || !frame.saved_state_bytes.is_zero()
     {
-        return Err("65816 prologue and epilogue do not balance the frame extent".to_string());
+        return Err(
+            "65816 abstract frame cannot claim final instruction allocation or spill costs".into(),
+        );
     }
-    for object in &routine.frame.objects {
+    if frame.extent.get() > u32::from(u8::MAX) {
+        return Err("65816 frame exceeds stack-relative displacement range".into());
+    }
+    if routine.prologue.reserve_bytes != frame.extent
+        || routine.epilogue.release_bytes != frame.extent
+    {
+        return Err("65816 prologue and epilogue do not balance the frame extent".into());
+    }
+    if routine.prologue.required_mode != boundary_mode()
+        || routine.epilogue.restored_mode != boundary_mode()
+        || routine.epilogue.return_form != return_form(convention)
+    {
+        return Err("65816 routine boundary does not match its memory model".into());
+    }
+    if native {
+        let expected =
+            abi::stack::fixed_extent(frame.automatic_bytes).map_err(|e| e.to_string())?;
+        if frame.extent != expected || frame.outgoing != Mir65816OutgoingArea::PerCallBelowFrame {
+            return Err(
+                "65816 native frame must be even with outgoing arguments below the fixed frame"
+                    .into(),
+            );
+        }
+    } else if frame.automatic_bytes.checked_add(frame.outgoing_bytes) != Some(frame.extent)
+        || frame.outgoing
+            != (Mir65816OutgoingArea::FixedInFrame {
+                offset: ByteOffset::new(frame.automatic_bytes.get() + 1),
+            })
+    {
+        return Err("65816 small-model fixed outgoing area does not match its frame".into());
+    }
+    let mut spans = Vec::new();
+    let mut object_ids = std::collections::BTreeSet::new();
+    for object in &frame.objects {
+        if !object_ids.insert(object.id) {
+            return Err("65816 duplicate frame object identity".into());
+        }
         let end = object
             .stack_offset
             .get()
             .checked_add(object.size.get())
-            .ok_or_else(|| "65816 frame object extent overflowed".to_string())?;
-        if object.stack_offset.get() == 0
-            || end.saturating_sub(1) > routine.frame.extent.get()
+            .ok_or("65816 frame object extent overflowed")?;
+        if !object.alignment.is_power_of_two()
+            || object.stack_offset.get() == 0
+            || end.saturating_sub(1) > frame.automatic_bytes.get()
             || object.stack_offset.get() % object.alignment.get() != 0
         {
             return Err(format!(
@@ -547,28 +664,139 @@ fn verify_routine_plan(
                 object.id.0
             ));
         }
+        if !object.size.is_zero() {
+            abi::stack::access_displacement(object.stack_offset, object.size, ByteSize::ZERO)
+                .map_err(|e| e.to_string())?;
+            spans.push((object.stack_offset.get(), end));
+        }
     }
+    spans.sort_unstable();
+    if spans.windows(2).any(|pair| pair[0].1 > pair[1].0) {
+        return Err("65816 automatic frame objects overlap".into());
+    }
+    if native {
+        verify_native_arguments(
+            &frame
+                .parameters
+                .iter()
+                .map(|p| p.incoming)
+                .collect::<Vec<_>>(),
+            frame.incoming_bytes,
+            frame.incoming_extent,
+        )?;
+    }
+    for parameter in &frame.parameters {
+        let Mir65816AbiHome::StackArgument { offset, size, .. } = parameter.incoming else {
+            return Err("65816 parameter has no stack argument home".into());
+        };
+        if native {
+            let expected = abi::stack::incoming_displacement(frame.extent, offset, size)
+                .map_err(|e| format!("incoming parameter: {e}"))?;
+            if parameter.body_stack_offset != Some(expected) {
+                return Err("65816 incoming parameter has a stale body displacement".into());
+            }
+        } else if parameter.body_stack_offset.is_some() {
+            return Err(
+                "65816 small-model parameter must not acquire a native v1 body offset".into(),
+            );
+        }
+        if let Some(id) = parameter.frame_object {
+            if !frame.objects.iter().any(|object| {
+                object.id == id
+                    && object.owner == Mir65816FrameObjectOwner::Param(parameter.param)
+                    && object.size == size
+            }) {
+                return Err("65816 parameter copy has no matching private frame object".into());
+            }
+        }
+    }
+    let copies = frame
+        .parameters
+        .iter()
+        .filter_map(|p| p.frame_object.map(|id| (p.incoming, id)))
+        .collect::<Vec<_>>();
+    if routine.prologue.parameter_copies != copies {
+        return Err("65816 parameter copies do not match the frame homes".into());
+    }
+    let mut maximum_outgoing = ByteSize::ZERO;
+    let mut minimum_peak = frame.extent;
     for block in &routine.blocks {
         for op in &block.ops {
-            if let Mir65816Op::Call { target, plan, .. } = op {
-                if plan.net_stack_delta != 0 || plan.outgoing_bytes > routine.frame.outgoing_bytes {
-                    return Err(
-                        "65816 call has an unbalanced or oversized outgoing area".to_string()
-                    );
+            if let Mir65816Op::Call {
+                target, plan, args, ..
+            } = op
+            {
+                maximum_outgoing = maximum_outgoing.max(plan.outgoing_bytes);
+                if plan.net_stack_delta != 0 || args.len() != plan.arguments.len() {
+                    return Err("65816 call has an unbalanced stack or wrong argument count".into());
                 }
                 if plan.code_pointer_width != code_pointer_width {
-                    return Err("65816 call uses the wrong code-pointer width".to_string());
+                    return Err("65816 call uses the wrong code-pointer width".into());
                 }
-                if let Mir65816CallTarget::Indirect(_, width) = target
-                    && *width != code_pointer_width
-                {
-                    return Err(
-                        "65816 indirect call width does not match the memory model".to_string()
-                    );
+                let indirect = matches!(target, Mir65816CallTarget::Indirect(..));
+                if let Mir65816CallTarget::Indirect(_, width) = target {
+                    if *width != code_pointer_width {
+                        return Err(
+                            "65816 indirect call width does not match the memory model".into()
+                        );
+                    }
                 }
                 if plan.mode_before != boundary_mode() || plan.mode_after != boundary_mode() {
-                    return Err("65816 call does not preserve the M/X boundary state".to_string());
+                    return Err("65816 call does not preserve the M/X boundary state".into());
                 }
+                let peak = if native {
+                    let contract = plan.native.ok_or("65816 native call has no v1 contract")?;
+                    let transfer = if indirect {
+                        abi::FarTransfer::StackRtl
+                    } else {
+                        abi::FarTransfer::Jsl
+                    };
+                    let form = if indirect {
+                        Mir65816CallForm::FarStackRtl
+                    } else {
+                        Mir65816CallForm::FarJsl
+                    };
+                    if contract.boundary != abi::BOUNDARY
+                        || contract.transfer != transfer
+                        || plan.call_form != form
+                        || contract.caller_cleanup_bytes != plan.outgoing_bytes
+                    {
+                        return Err(
+                            "65816 native call boundary, transfer or cleanup is inconsistent"
+                                .into(),
+                        );
+                    }
+                    verify_native_arguments(
+                        &plan.arguments,
+                        contract.argument_bytes,
+                        plan.outgoing_bytes,
+                    )?;
+                    // Filling the outgoing area also has to fit the initial d,S strategy.
+                    abi::stack::access_displacement(
+                        ByteOffset::new(plan.outgoing_bytes.get()),
+                        ByteSize::ONE,
+                        ByteSize::ZERO,
+                    )
+                    .map_err(|e| format!("outgoing arguments: {e}"))?;
+                    abi::stack::peak_below_entry(
+                        frame.extent,
+                        plan.outgoing_bytes,
+                        transfer.peak_bytes(),
+                        ByteSize::ZERO,
+                    )
+                } else {
+                    if plan.native.is_some() || plan.call_form != Mir65816CallForm::NearJsr {
+                        return Err("65816 small-model call acquired a native v1 contract".into());
+                    }
+                    abi::stack::peak_below_entry(
+                        frame.extent,
+                        ByteSize::ZERO,
+                        code_pointer_width,
+                        ByteSize::ZERO,
+                    )
+                }
+                .map_err(|e| e.to_string())?;
+                minimum_peak = minimum_peak.max(peak);
             }
         }
         if let Mir65816Terminator::Return {
@@ -577,12 +805,53 @@ fn verify_routine_plan(
             restored_mode,
             ..
         } = block.terminator
-            && (release_frame_bytes != routine.frame.extent
-                || form != routine.epilogue.return_form
-                || restored_mode != routine.epilogue.restored_mode)
         {
-            return Err("65816 return does not match the routine epilogue".to_string());
+            if release_frame_bytes != frame.extent
+                || form != routine.epilogue.return_form
+                || restored_mode != routine.epilogue.restored_mode
+            {
+                return Err("65816 return does not match the routine epilogue".into());
+            }
         }
+    }
+    if maximum_outgoing != frame.outgoing_bytes || minimum_peak != frame.minimum_stack_peak {
+        return Err("65816 frame call accounting does not match the lowered calls".into());
+    }
+    Ok(())
+}
+
+fn verify_native_arguments(
+    homes: &[Mir65816AbiHome],
+    payload: ByteSize,
+    outgoing: ByteSize,
+) -> Result<(), String> {
+    let mut cursor = 0u32;
+    for home in homes {
+        let Mir65816AbiHome::StackArgument {
+            offset,
+            size,
+            alignment,
+        } = home
+        else {
+            return Err("65816 native argument is not stack based".into());
+        };
+        if !matches!(
+            (size.get(), alignment.get()),
+            (1, 1) | (2, 2) | (3, 1 | 2) | (4, 2)
+        ) {
+            return Err("65816 native argument size/alignment is outside ABI v1".into());
+        }
+        let expected =
+            abi::align_up(cursor, alignment.get()).ok_or("65816 argument alignment overflow")?;
+        if offset.get() != expected {
+            return Err("65816 native argument offsets do not preserve natural alignment".into());
+        }
+        cursor = expected
+            .checked_add(size.get())
+            .ok_or("65816 argument extent overflow")?;
+    }
+    if payload.get() != cursor || outgoing.get() != (cursor | 1) {
+        return Err("65816 native argument payload/padding extent is inconsistent".into());
     }
     Ok(())
 }

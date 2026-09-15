@@ -45,7 +45,8 @@ crowding the active reference set.
 - [MIR65816_PHYSICAL_ABI_V1.md](MIR65816_PHYSICAL_ABI_V1.md)
   - Specifies the native far-call ABI, aligned stack arguments, A/X results,
     direct-page ownership, interrupt frames and first-task construction, with
-    machine-readable constants. Implementation and execution remain pending.
+    machine-readable constants and verified layout plans. Native emission and
+    executable qualification remain pending.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.

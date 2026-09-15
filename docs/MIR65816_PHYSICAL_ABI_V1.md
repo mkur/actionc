@@ -1,6 +1,6 @@
 # Action! 65816 native physical ABI v1
 
-Status: **specified; compiler implementation and executable qualification pending**.
+Status: **specified; ABI planning implemented; emission and executable qualification pending**.
 ABI identity: `action65816.native.v1`. Target: `wdc-65816-native`.
 
 This fixes the physical decisions required by R2–R5 of the
@@ -487,30 +487,37 @@ exact native result lanes, transfer peaks and the boundary/state inventory.
 Original aggregate interfaces remain explicitly outside v1 qualification even
 after their abstract expansion into physical pointer arguments.
 
-Frame placement is still provisional: outgoing space follows automatic objects,
-and final frame parity, spill and transient displacement checks remain pending.
-These plans must be brought into agreement before an emitter may label output
-`action65816.native.v1`.
+Native fixed frames now have even extents up to 254 bytes. Outgoing argument
+areas sit below the fixed frame for each call. Incoming parameter homes retain
+checked body-relative displacements, including the three-byte return address.
+The MIR verifier checks object extents/alignment, argument layouts, return
+cleanup, caller/callee agreement and the required saved-state inventory.
 
-Implement in this order:
+The [checked stack operations](../src/mir65816/abi/stack.rs) include the last
+accessed byte and temporary movement of S. Plans publish a minimum stack peak
+from the fixed frame and known calls, with `allocation_complete` false. Final
+spills, instruction temporaries, access displacements and interrupt headroom
+must be checked during allocation/emission before output can claim v1 bounds.
 
-1. Consume the versioned layout constants; make argument/frame/call plans obey
-   parity, offsets, result lanes and checked stack costs. Retain the separate
-   small-model policy. Reject emission outside the v1 subset.
-2. Emit and independently execute direct calls and all scalar widths, including
+Generated Rust and assembly constants share the versioned JSON manifest. The
+separate small-model policy is retained. See the
+[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) for completed slices
+and their checks. Remaining work, in order:
+
+1. Emit and independently execute direct calls and all scalar widths, including
    assembly calls in both directions, zero arguments and the worked layout.
-3. Execute the indirect transfer at target offsets `$0000` and `$FFFF`, across
+   Reject emission outside the v1 subset and verify final stack accounting.
+2. Execute the indirect transfer at target offsets `$0000` and `$FFFF`, across
    banks, with a balanced stack and intact A/X result after cleanup.
-4. Assemble the save/restore wrappers and fabricated task image; verify exact
+3. Assemble the save/restore wrappers and fabricated task image; verify exact
    register, PC/status, stack and domain-memory restoration. Exercise ordinary
    task return, COP yield and non-switching IRQ dispatch.
-5. Run two tasks through the same recursive routine/helper. Inject IRQ/NMI in
+4. Run two tasks through the same recursive routine/helper. Inject IRQ/NMI in
    every supported width, call, save/restore and stack-transition sequence;
    test live DP scratch and address-taken locals. Respect the nesting policy.
-6. Test nested IRQ tokens, volatile traces, overflow before writes, rejected
+5. Test nested IRQ tokens, volatile traces, overflow before writes, rejected
    frames/links/bindings and the complete G1–G6 corpus from the requirements.
 
-The JSON examples and document checks establish layout consistency only.
-They do not establish emitted-code correctness. In particular, the
+The layout and verifier tests do not establish emitted-code correctness. The
 [CPU checkpoint's timing limits](MIR65816_CPU_EXECUTION_CHECKPOINT.md) remain
 qualification work before claiming asynchronous Exec readiness.

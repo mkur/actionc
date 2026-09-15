@@ -20,8 +20,10 @@ Native compiler emission and the Exec acceptance gates remain pending.
 The four information-preservation corrections identified below are implemented
 and covered by the [lowering contract](MIR65816_LOWERING_CONTRACT.md) and permanent
 regression tests. The subsequent [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md)
-specifies the machine conventions. Implementing those conventions and emitted
-execution remains pending.
+specifies the machine conventions. Generated constants and verified ABI plans
+now implement the layout decisions. Emission and executable qualification
+remain pending; the [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md)
+tracks that boundary.
 
 ## Assessment
 
@@ -98,29 +100,32 @@ lowering correction now covers both cases permanently.
   across calls, a 13-byte saved context and a fabricated first-task stack.
 - Non-nested IRQ dispatch on a separate stack and bounded assembly-only NMI.
 
-Call plans now retain aligned arguments, result lanes and transfer costs.
-The existing frame plans remain provisional: they place outgoing space after
-automatic objects and report zero saved-register and spill bytes. The final v1 planner must place outgoing
-areas below the fixed frame, account for parity and all stack movement, and
-check each actual access. Its even fixed frame is at most 254 bytes; that limit
-does not establish a whole-task stack bound. Board-specific bank-zero placement
-and executable interrupt qualification remain required.
+Call plans retain aligned arguments, result lanes and transfer costs. Native
+outgoing areas are reserved per call below an even fixed frame of at most 254
+bytes. Incoming body-relative displacements and each object's last byte are
+checked. The verifier also checks caller/callee agreement and the saved-state
+inventory. Small-model plans retain their separate layout.
+
+Stack peaks remain lower bounds before allocation, explicitly marked
+`allocation_complete: false`. The emitter must account for live temporaries,
+spills and every actual access after S moves. Board-specific bank-zero
+placement, whole-task bounds and executable interrupt qualification remain
+required.
 
 ## Recommended implementation sequence
 
-1. **Implement ABI v1 planning.** The information-loss gaps are corrected and
-   the physical contract is specified. Bring frame/call plans and generated
-   assembly constants into agreement with its versioned layouts.
-2. **Establish minimal emitted execution.** Generalize the image transport,
-   select and qualify an independent emulator, and execute basic memory
-   operations, arithmetic, branches and far calls from binary artifacts.
-3. **Prove invocation isolation.** Implement real frames, recursion, assembly
+ABI v1 planning is implemented. Continue with:
+
+1. **Establish minimal emitted execution.** Generalize the image transport and
+   execute basic memory operations, arithmetic, branches and far calls from
+   binary artifacts using the independently qualified CPU subset.
+2. **Prove invocation isolation.** Implement real frames, recursion, assembly
    interoperability, indirect calls and two simultaneously live contexts.
    Introduce the interrupt harness as soon as real calls and frames work.
-4. **Complete the kernel subset.** Add banked pointers, records/arrays, wide
+3. **Complete the kernel subset.** Add banked pointers, records/arrays, wide
    arithmetic, memory helpers, faults and final stack accounting. Expand the
    interruption corpus as each helper arrives.
-5. **Qualify preemption and effects.** Complete instruction-boundary IRQ
+4. **Qualify preemption and effects.** Complete instruction-boundary IRQ
    injection, NMI, volatile traces, nested critical sections and all six
    acceptance gates in the advertised compiler configurations.
 

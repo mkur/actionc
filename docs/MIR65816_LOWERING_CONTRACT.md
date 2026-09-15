@@ -91,6 +91,8 @@ mutability facts, size words, image-end values and byte-selected relocations.
 Selectors and descriptor corner cases without a native source spelling are
 constructed as NIR fixtures and passed through the real verifier/backend entry.
 
-The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) is specified. Its implementation,
-the emitter, image loader and executable G1–G6 qualification remain the next work
-in the [Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md).
+The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) has generated constants and
+verified call/frame plans. Final allocation, emission, image loading and
+executable G1–G6 qualification remain ahead in the
+[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) and
+[Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md).

@@ -1,5 +1,6 @@
 //! Physical `action65816.native.v1` layouts, derived from typed NIR facts.
 pub mod generated;
+pub mod stack;
 
 use crate::nir::{NirCallConvention, NirCallableSignature, NirIntegerRole, NirType, NirTypeKind};
 use crate::target::{ByteOffset, ByteSize, TargetLayout};
