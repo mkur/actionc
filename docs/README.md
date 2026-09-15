@@ -33,6 +33,12 @@ crowding the active reference set.
 - [NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md](NATIVE_ROUTINE_ABI_AND_AUTOMATIC_STORAGE_IMPLEMENTATION_PLAN.md)
   - completed follow-on for reentrant native calls and invocation-scoped local
   storage while preserving the classic Atari routine ABI.
+- [MIR65816_EXEC_READINESS_REQUIREMENTS.md](MIR65816_EXEC_READINESS_REQUIREMENTS.md)
+  - compiler contracts and executable acceptance gates required before starting
+    standalone Exec implementation in native Action! on the 65816.
+- [MIR65816_EXEC_READINESS_REVIEW.md](MIR65816_EXEC_READINESS_REVIEW.md)
+  - baseline audit, confirmed lowering gaps, physical ABI decisions and proposed
+    implementation sequence for reaching the Exec readiness gates.
 - [MIR68K_EXECUTION_CONTRACT.md](MIR68K_EXECUTION_CONTRACT.md)
   - stable storage and control-flow facts, native ABI metadata, and verifier guarantees.
 - [MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md](MIR68K_AMIGA_EXECUTABLE_IMPLEMENTATION_PLAN.md)
