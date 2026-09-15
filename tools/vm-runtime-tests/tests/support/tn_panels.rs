@@ -104,12 +104,13 @@ fn call(mut vm: CompilerVm, hooks: &mut Directory, address: u16, a: u8, x: u8) -
 }
 
 // Compare semantic state, independent of the old packed panel layout.
-fn state(vm: &CompilerVm, active: u16, tags: u16) -> Vec<u16> {
+fn state(vm: &CompilerVm, active: u16, tags: u16, location: u16) -> Vec<u16> {
     let ram = vm.bus().ram();
-    vec![ram.read_word(active), ram.read(active + 4).into(),
-         ram.read(active + 5).into(), u16::from(ram.read(ram.read_word(tags) + 11)) * 0x7F,
-         ram.read_word(active + 2), ram.read(active + 6).into(),
-         ram.read(active + 7).into(), ram.read(active + 8).into()]
+    let location = ram.read_word(location);
+    vec![ram.read_word(active), ram.read(location + 10).into(),
+         ram.read(location + 11).into(), u16::from(ram.read(ram.read_word(tags) + 11)) * 0x7F,
+         ram.read_word(active + 2), ram.read(active + 4).into(),
+         ram.read(location).into(), ram.read(location + 1).into()]
 }
 
 pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
@@ -119,7 +120,7 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
     let active = global("active");
     let current_dir = global("currentdir");
     let tags = global("currenttags");
-    let dirsectors = global("dirsectors");
+    let location = global("currentlocation");
     let batch = global("currentbatch");
     let winnum = global("winnum");
     let dummy = global("dummy");
@@ -180,9 +181,9 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
         vm = call(vm, &mut hooks, routine("InitPanels"), 0, 0);
         assert_eq!(vm.bus().ram().read_word(current_dir), directory);
         assert_eq!(hooks.opens, [(2, 0x169), (other_drive, 0x169)]);
-        assert_eq!(state(&vm, active, tags), [1, 0, 2, 0, 0, 0, 0x69, 1]);
+        assert_eq!(state(&vm, active, tags, location), [1, 0, 2, 0, 0, 0, 0x69, 1]);
         assert_eq!(vm.bus().ram().read(winnum), 0);
-        let right_path = vm.bus().ram().read_word(dirsectors);
+        let right_path = vm.bus().ram().read_word(location);
         let right_table = vm.bus().ram().read_word(batch);
         let right_tags = vm.bus().ram().read_word(tags);
         let right_bits = vm.bus().ram().read_word(right_tags);
@@ -193,47 +194,50 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
         vm = call(vm, &mut hooks, routine("Tag"), 0, 0);
         assert_eq!(vm.bus().ram().read(right_bits), 1);
         assert_eq!(vm.bus().ram().read_word(right_tags + 6), 1);
-        assert_eq!(state(&vm, active, tags)[3], 0x7F, "tags={:?}", (0..14).map(|o|vm.bus().ram().read(right_tags+o)).collect::<Vec<_>>());
+        assert_eq!(state(&vm, active, tags, location)[3], 0x7F, "tags={:?}", (0..14).map(|o|vm.bus().ram().read(right_tags+o)).collect::<Vec<_>>());
         // Exercise selection/row fields through the real navigation routine.
         vm.bus_mut().ram_mut().write(active, 24);
         vm = call(vm, &mut hooks, routine("GoTo"), 19, 0);
-        assert_eq!(&state(&vm, active, tags)[4..6], [19, 15]);
+        assert_eq!(&state(&vm, active, tags, location)[4..6], [19, 15]);
         let ram = vm.bus_mut().ram_mut();
-        ram.write(active + 4, 4);
-        ram.write(active + 5, 0xFE); // Deliberately stale OS shadows.
-        ram.write_word(active + 7, 0xFFFF);
+        ram.write(right_path + 10, 4);
+        ram.write(right_path + 11, 0xFE); // Deliberately stale OS shadows.
+        ram.write_word(right_path, 0xFFFF);
         ram.write(DRIVE, 3);
         ram.write_word(directory, 0x4321);
-        ram.write_word(right_path, 0x2345);
+        ram.write_word(right_path + 2, 0x2345);
 
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
-        assert_eq!(state(&vm, active, tags), [1, 0, u16::from(other_drive), 0, 0, 0, 0x69, 1]);
+        assert_eq!(state(&vm, active, tags, location), [1, 0, u16::from(other_drive), 0, 0, 0, 0x69, 1]);
         assert_eq!(vm.bus().ram().read(winnum), 1);
         assert_eq!(vm.bus().ram().read(0x5A), 21);
-        let left_path = vm.bus().ram().read_word(dirsectors);
+        let left_path = vm.bus().ram().read_word(location);
         let left_table = vm.bus().ram().read_word(batch);
         assert_ne!(left_path, right_path);
         assert_ne!(left_table, right_table);
         assert_eq!(vm.bus().ram().read_word(vm.bus().ram().read_word(tags) + 6), 0);
         assert_eq!(vm.bus().ram().read_word(global("lefttags") + 6), 0);
         let ram = vm.bus_mut().ram_mut();
-        ram.map(active, &[17, 0, 7, 0, 2, 0xFE, 7, 0xFF, 0xFF])
+        ram.map(active, &[17, 0, 7, 0, 7])
             .unwrap();
+        ram.write(left_path + 10, 2);
+        ram.write(left_path + 11, 0xFE);
+        ram.write_word(left_path, 0xFFFF);
         ram.write(DRIVE, 5);
         ram.write_word(directory, 0x6543);
-        ram.write_word(left_path, 0x4567);
+        ram.write_word(left_path + 2, 0x4567);
 
         // Saving and restoring the same panel must capture the live OS values.
         vm = call(vm, &mut hooks, routine("SetWin"), 1, 0);
-        assert_eq!(state(&vm, active, tags), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
+        assert_eq!(state(&vm, active, tags, location), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
-        assert_eq!(state(&vm, active, tags), [24, 4, 3, 0x7F, 19, 15, 0x21, 0x43]);
+        assert_eq!(state(&vm, active, tags, location), [24, 4, 3, 0x7F, 19, 15, 0x21, 0x43]);
         assert_eq!(vm.bus().ram().read(DRIVE), 3);
         assert_eq!(vm.bus().ram().read_word(directory), 0x4321);
-        assert_eq!(vm.bus().ram().read_word(dirsectors), right_path);
+        assert_eq!(vm.bus().ram().read_word(location), right_path);
         assert_eq!(vm.bus().ram().read_word(batch), right_table);
-        assert_eq!(vm.bus().ram().read_word(right_path), 0x2345);
-        assert_eq!(vm.bus().ram().read_word(left_path), 0x4567);
+        assert_eq!(vm.bus().ram().read_word(right_path + 2), 0x2345);
+        assert_eq!(vm.bus().ram().read_word(left_path + 2), 0x4567);
         assert_eq!(vm.bus().ram().read_word(right_tags + 6), 1);
         assert_eq!(
             hooks.opens.len(),
@@ -243,23 +247,23 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
 
         // Reload keeps the depth and live directory, but resets selection/tags.
         vm = call(vm, &mut hooks, routine("Dir"), 0, 0);
-        assert_eq!(state(&vm, active, tags), [1, 4, 3, 0, 0, 0, 0x21, 0x43]);
+        assert_eq!(state(&vm, active, tags, location), [1, 4, 3, 0, 0, 0, 0x21, 0x43]);
         assert_eq!(vm.bus().ram().read_word(right_tags + 6), 0);
         assert_eq!(vm.bus().ram().read(right_bits), 0);
         assert_eq!(hooks.opens.last(), Some(&(3, 0x4321)));
         // Selecting another drive resets depth and selects its root directory.
         vm = call(vm, &mut hooks, routine("SetWin"), 0, 8);
-        assert_eq!(state(&vm, active, tags), [1, 0, 8, 0, 0, 0, 0x69, 1]);
+        assert_eq!(state(&vm, active, tags, location), [1, 0, 8, 0, 0, 0, 0x69, 1]);
         assert_eq!(hooks.opens.last(), Some(&(8, 0x169)));
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
-        assert_eq!(state(&vm, active, tags), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
+        assert_eq!(state(&vm, active, tags, location), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
         assert_eq!(vm.bus().ram().read_word(batch), left_table);
-        assert_eq!(vm.bus().ram().read_word(dirsectors), left_path);
+        assert_eq!(vm.bus().ram().read_word(location), left_path);
         assert_eq!(vm.bus().ram().read(DRIVE), 5);
         assert_eq!(vm.bus().ram().read_word(directory), 0x6543);
         // InitPanels' persistent initialization guard must still work.
         vm = call(vm, &mut hooks, routine("InitPanels"), 0, 0);
-        assert_eq!(state(&vm, active, tags), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
+        assert_eq!(state(&vm, active, tags, location), [17, 2, 5, 0, 7, 7, 0x43, 0x65]);
         assert_eq!(hooks.opens.len(), 4);
         assert_eq!(vm.bus().ram().read_word(dummy), 0xADDE);
         if debug {

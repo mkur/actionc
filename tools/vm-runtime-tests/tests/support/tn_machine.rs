@@ -72,7 +72,7 @@ pub fn call<H: VmRunHooks<Error = String>>(
     let result = VmRunner::new(vm)
         .run_with_hooks(
             RunRequest {
-                max_steps: 2_000_000,
+                max_steps: 40_000_000,
                 stop_after_pc: Some(STOP),
                 history_len: 8,
             },

@@ -1,0 +1,66 @@
+; MyDOS owns its drive, directory sector and bounded path. Generic browsing
+; only selects the panel's location; a future source can own a different type.
+CONST BYTE MYDOS_DEPTH=4, MYDOS_NAME_BYTES=9
+CONST CARD MYDOS_ROOT=$0169
+
+TYPE MyDosLocation=[
+  CARD directory
+  CARD ARRAY sectors(MYDOS_DEPTH)
+  BYTE depth,unit,rootName
+  BYTE ARRAY names(MYDOS_DEPTH,MYDOS_NAME_BYTES)
+]
+
+PROC MyDosRoot(MyDosLocation POINTER location BYTE unit)
+  location.depth=0 location.unit=unit
+  location.directory=MYDOS_ROOT location.rootName=0
+RETURN
+
+PROC MyDosCapture(MyDosLocation POINTER location CARD sector BYTE unit)
+  location.directory=sector location.unit=unit
+RETURN
+
+CARD FUNC MyDosPathName(MyDosLocation POINTER location BYTE level)
+  IF level=0 THEN RETURN(@location.rootName) FI
+  IF level>MYDOS_DEPTH THEN RETURN(0) FI
+RETURN(@location.names(level-1,0))
+
+; Counted D:NAME.EXT input. Check before changing location or issuing CHDIR.
+BYTE FUNC MyDosCanEnter(MyDosLocation POINTER location BYTE ARRAY name)
+  BYTE dot
+  IF location.depth=MYDOS_DEPTH THEN RETURN(DIR_RANGE) FI
+  IF name(0)<4 OR name(1)#'D OR name(2)#': THEN RETURN(DIR_INVALID) FI
+  dot=3
+  WHILE dot<=name(0) AND dot<=11 DO
+    IF name(dot)='. THEN EXIT FI
+    dot==+1
+  OD
+  IF dot<4 OR dot>11 OR dot>name(0) THEN RETURN(DIR_INVALID) FI
+RETURN(DIR_OK)
+
+BYTE FUNC MyDosPush(MyDosLocation POINTER location BYTE ARRAY name
+                   CARD parentSector,newSector)
+  BYTE result,level,n,ch
+  BYTE ARRAY output
+  result=MyDosCanEnter(location,name)
+  IF result#DIR_OK THEN RETURN(result) FI
+  level=location.depth
+  location.sectors(level)=parentSector
+  output=MyDosPathName(location,level+1)
+  n=3
+  WHILE name(n)#'. DO
+    ch=name(n) output(n-2)=ch
+    n==+1
+  OD
+  output(0)=n-3
+  location.depth=level+1 location.directory=newSector
+RETURN(DIR_OK)
+
+BYTE FUNC MyDosParent(MyDosLocation POINTER location)
+  BYTE level
+  CARD sector
+  level=location.depth
+  IF level=0 THEN RETURN(DIR_END) FI
+  level==-1
+  sector=location.sectors(level)
+  location.depth=level location.directory=sector
+RETURN(DIR_OK)

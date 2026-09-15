@@ -1,9 +1,9 @@
 # TN directory handling implementation plan
 
-Status: implementation in progress, 2026-09-15. Slices 1–4 are complete:
-characterization, the shared batch/selection model, isolated MyDOS reader and
-both production roots now pass the MyDOS behavioral checks in both cartridge
-backends. Location isolation and integrated paging are next. The
+Status: implementation in progress, 2026-09-15. Slices 1–5 are complete.
+Both production roots pass MyDOS, location, paging and selection execution
+checks in both cartridge backends. Final storage checks, measurements and
+acceptance documentation are in progress. The
 [data contract](directory-model-contract.md) records layouts and evidence.
 
 ## Milestone and scope

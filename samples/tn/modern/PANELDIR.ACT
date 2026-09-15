@@ -13,12 +13,43 @@ ENDASM
 RETURN
 
 BYTE FUNC ReadWindow(CARD first)
-  ; MyDOS keeps its complete directory in one window. Its initial read is
-  ; performed by SetWin; there are no additional MyDOS pages to retrieve.
-  IF first=0 AND currentBatch.valid=0 THEN
-    RETURN(MyDosRead(currentBatch,currentTags))
-  FI
+  ; The production MyDOS listing is already complete. A future source fills
+  ; currentBatch here, in its established global order, without publishing it.
 RETURN(DIR_RANGE)
+
+PROC InvalidateListing()
+  BatchBegin(currentBatch,0) TagsReset(currentTags)
+  active.files=0 active.selected=0 active.row=0
+RETURN
+
+BYTE FUNC FetchWindow(CARD first)
+  BYTE result,count,ended
+  CARD actual
+  BatchBegin(currentBatch,first)
+  result=ReadWindow(first)
+  IF result=DIR_CHANGED THEN InvalidateListing() FI
+  IF result#DIR_OK THEN
+    currentBatch.valid=0 directoryError=result RETURN(result)
+  FI
+  actual=currentBatch.first
+  IF actual#first THEN RETURN(DIR_INVALID) FI
+  count=currentBatch.count ended=currentBatch.ended
+  result=BatchPublish(currentBatch,currentTags,count,ended)
+  IF result=DIR_OK THEN active.files=currentTags.extent FI
+RETURN(result)
+
+; Discover the end using only the existing cache. Selection bits persist.
+BYTE FUNC ListingEnd()
+  CARD first,extent
+  BYTE result
+  WHILE currentTags.complete=0 DO
+    first=currentTags.extent
+    result=FetchWindow(first)
+    IF result#DIR_OK THEN RETURN(result) FI
+    extent=currentTags.extent
+    IF extent<=first AND currentTags.complete=0 THEN RETURN(DIR_INVALID) FI
+  OD
+RETURN(DIR_OK)
 
 CARD FUNC EntryAddress(CARD ordinal)
   CARD address,first
@@ -26,7 +57,7 @@ CARD FUNC EntryAddress(CARD ordinal)
   address=CachedEntry(currentBatch,ordinal)
   IF address=0 THEN
     first=BatchStart(ordinal)
-    result=ReadWindow(first)
+    result=FetchWindow(first)
     IF result#DIR_OK THEN RETURN(0) FI
     address=CachedEntry(currentBatch,ordinal)
   FI
@@ -42,7 +73,7 @@ BYTE FUNC EnsureView(CARD top)
   IF address THEN address=CachedEntry(currentBatch,last) FI
   IF address THEN RETURN(DIR_OK) FI
   first=BatchStart(top)
-RETURN(ReadWindow(first))
+RETURN(FetchWindow(first))
 
 BYTE FUNC ResolveEntry(CARD ordinal BYTE ARRAY output CARD capacity)
   DirEntry POINTER entry
@@ -60,13 +91,19 @@ RETURN
 ; keeps its previous behavior of ignoring movement keys at either boundary.
 CHAR FUNC FileRange()
   CHAR ch
-  BYTE accepted
+  BYTE accepted,result
+  CARD extent
   DO
     ch=Getchar() accepted=true
     IF ch='- OR ch='\{$1C} THEN
       IF active.selected THEN active.selected==-1 ELSE accepted=false FI
     ELSEIF ch='= OR ch='\{$1D} THEN
-      IF active.files AND active.selected<active.files-1 THEN
+      IF active.selected+1>=active.files AND currentTags.complete=0 THEN
+        extent=currentTags.extent
+        result=FetchWindow(extent)
+        IF result#DIR_OK THEN DirectoryFailure(result) FI
+      FI
+      IF active.files#0 AND active.selected<active.files-1 THEN
         active.selected==+1
       ELSE
         accepted=false
@@ -74,3 +111,19 @@ CHAR FUNC FileRange()
     FI
   UNTIL accepted OD
 RETURN(ch)
+
+CARD FUNC PathName(BYTE level)
+RETURN(MyDosPathName(currentLocation,level))
+
+BYTE FUNC PrepareSelection()
+  BYTE result
+  CARD top
+  top=active.selected-active.row
+  result=TagsReady(currentTags)
+  IF result=DIR_PENDING THEN
+    result=ListingEnd()
+    IF result#DIR_OK THEN RETURN(result) FI
+    result=TagsReady(currentTags)
+  FI
+  IF result#DIR_OK THEN RETURN(result) FI
+RETURN(EnsureView(top))

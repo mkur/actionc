@@ -17,6 +17,10 @@ mod directory;
 mod machine;
 #[path = "support/tn_panels.rs"]
 mod panels;
+#[path = "support/tn_paging.rs"]
+mod paging;
+#[path = "support/tn_locations.rs"]
+mod locations;
 
 const ENTRY: u16 = 0x0600;
 const RETURN: u16 = 0x0610;
@@ -254,6 +258,8 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             panels::check(&compiled, debug);
             directory::check(&compiled, debug);
             copy::check(&compiled, debug);
+            locations::check(&compiled);
+            paging::check(&compiled);
         }
     }
 }

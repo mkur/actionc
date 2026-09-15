@@ -77,3 +77,39 @@ Baseline load-file bytes: TN classic 10,549; TN MIR6502 9,943; TNDBG classic
 13,794; TNDBG MIR6502 13,048. The existing per-panel backing totals 1,357 bytes.
 Subsequent measurements must also account for code and shared scratch growth
 before claiming any improvement in copy-buffer space.
+
+## Integrated browsing and locations
+
+PanelState now contains two CARD fields (files and selected) and a BYTE row:
+five bytes. Each panel separately owns a 49-byte MyDosLocation with its drive,
+directory, four parent sectors, root label and four counted nine-byte name slots.
+SetWin captures live OS state before selecting the next location, copies only
+the five-byte view state, then activates that location. Refresh reads a new
+listing and resets its tags; an ordinary panel switch does neither.
+EnterDirectory commits its new path only after CHDIR returns successfully.
+Guarded location tests cover maximum-length names at all four depths, parent
+navigation, a fifth-level refusal and malformed input without writes.
+
+ReadWindow is the replaceable provider boundary. FetchWindow invalidates the
+cache first, checks the result, publishes through BatchPublish and updates the
+known extent. A provider must report DIR_CHANGED when it cannot preserve the
+listing identity/order, including after cursor loss. That result resets the
+selection generation. A simple I/O failure leaves the cache invalid. SetWin's
+MyDOS path still reads all 64 entries once; it never pages or sorts partial
+windows. A future adapter owns reopening/seeking and identity verification.
+
+The integrated provider fixture exercises real Draw, GoTo, FileRange, GoLast,
+PrepareSelection, FindNext and panel activation. It covers 1,089 entries,
+forward/backward eviction, viewport crossings, independent panels, wide keys,
+unknown-length end discovery, tag-all exceptions and scan failures. A 4,097-entry
+listing remains browsable but cannot run a partial tag-all. Repeated cursor
+restoration is distinguished from an unrepeatable listing, which invalidates
+tags. No whole listing or name table is allocated in Atari RAM.
+
+ResolveEntry receives an output buffer and capacity. The fixture distinguishes
+identical previews using both MyDOS-sized operation names and longer exact
+names in separate caller-owned storage; too-small outputs remain untouched.
+Production Convert still uses a 15-byte MyDOS filename buffer and CIO commands.
+A live FujiNet command adapter must supply its own full-name buffer and I/O
+path before those commands can accept remote long names. This milestone adds
+no remote mutation capability or new source-selection menu.
