@@ -2,7 +2,8 @@
 
 Status: implementation in progress, 2026-09-15. The MyDOS directory/copy
 characterization, source-shape probes and shared batch/selection execution
-checks are complete; MyDOS reader integration is next. The [data contract](directory-model-contract.md) records
+checks and the isolated MyDOS reader/renderer are complete; integration into
+both roots is next. The [data contract](directory-model-contract.md) records
 the frozen layout and baseline evidence. Path-boundary characterization is
 retained with the path migration slice.
 

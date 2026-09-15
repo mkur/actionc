@@ -1,0 +1,17 @@
+BYTE ARRAY cacheData(SIZEOF(DirBatch)+2),bits(8),nameOutput(17),rowOutput(20)
+Selection tags
+DirBatch POINTER cache
+CARD nameAddress,rowAddress
+BYTE result
+
+PROC ReaderInit()
+  cache=CARD(cacheData)+1
+  nameAddress=CARD(nameOutput)+1 rowAddress=CARD(rowOutput)+1
+  result=TagsInit(@tags,bits,64)
+RETURN
+
+CARD ARRAY routines=[@MyDosRead @MyDosName @MyDosRender @MyDosRenderSummary @SetTagged]
+PROC Main()
+  ReaderInit()
+  nameAddress=routines(0)
+RETURN

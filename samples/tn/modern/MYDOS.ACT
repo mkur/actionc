@@ -1,0 +1,176 @@
+; MyDOS directory source. Requires LIB.ACT and DIR.ACT.
+; A whole MyDOS listing is one batch; the summary is not a file entry.
+CONST BYTE DIR_IO_ERROR=6
+BYTE ARRAY directoryInput(19)
+
+BYTE FUNC MyDosSummary(BYTE ARRAY text BYTE length)
+  BYTE n,k,digits
+  CHAR ARRAY suffix="FREE SECTORS"
+  n=0 digits=0
+  WHILE n<length DO
+    IF text(n)>='0 AND text(n)<='9 THEN digits=1
+    ELSEIF text(n)#32 THEN EXIT FI
+    n==+1
+  OD
+  IF digits=0 OR length-n#suffix(0) THEN RETURN(0) FI
+  k=1
+  WHILE n<length DO
+    IF text(n)#suffix(k) THEN RETURN(0) FI
+    n==+1 k==+1
+  OD
+RETURN(1)
+
+BYTE FUNC MyDosParse(DirEntry POINTER entry BYTE ARRAY text BYTE length)
+  BYTE n,offset
+  IF length#17 AND length#18 THEN RETURN(DIR_INVALID) FI
+  IF text(2)=32 THEN RETURN(DIR_INVALID) FI
+  entry.marker=text(1)
+  IF entry.marker=32 THEN entry.marker=text(0) FI
+  entry.flags=0
+  IF entry.marker=': THEN entry.flags=ENTRY_DIRECTORY FI
+  IF entry.marker='* THEN entry.flags==%ENTRY_PROTECTED FI
+  FOR n=0 TO 10 DO entry.name(n)=text(n+2) OD
+  offset=length-3
+  FOR n=0 TO 2 DO
+    IF text(offset+n)<'0 OR text(offset+n)>'9 THEN RETURN(DIR_INVALID) FI
+    entry.detail(n)=text(offset+n)
+  OD
+RETURN(DIR_OK)
+
+BYTE FUNC MyDosAfter(DirEntry POINTER left,right)
+  BYTE n,a,b
+  a=left.flags&ENTRY_DIRECTORY b=right.flags&ENTRY_DIRECTORY
+  IF a#b THEN
+    RETURN(b#0)
+  FI
+  FOR n=0 TO 10 DO
+    a=left.name(n) b=right.name(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+  FOR n=0 TO 2 DO
+    a=left.detail(n) b=right.detail(n)
+    IF a#b THEN RETURN(a>b) FI
+  OD
+RETURN(0)
+
+PROC SortBatch(DirBatch POINTER batch)
+  BYTE gap,slot,pos,left,right
+  DirEntry POINTER entry,leftEntry,rightEntry
+  LET BYTE count=batch.count
+  gap=count RSH 1
+  WHILE gap DO
+    slot=gap
+    WHILE slot<count DO
+      pos=slot
+      WHILE pos>=gap DO
+        left=batch.order(pos-gap) right=batch.order(pos)
+        leftEntry=@batch.items(left) rightEntry=@batch.items(right)
+        IF MyDosAfter(leftEntry,rightEntry)=0 THEN EXIT FI
+        batch.order(pos-gap)=right batch.order(pos)=left
+        pos==-gap
+      OD
+      slot==+1
+    OD
+    gap==RSH 1
+  OD
+  slot=0
+  WHILE slot<count DO
+    entry=@batch.items(batch.order(slot))
+    entry.ordinal=slot
+    slot==+1
+  OD
+RETURN
+
+BYTE FUNC MyDosRead(DirBatch POINTER batch Selection POINTER tags)
+  BYTE count,length,summary,n,result
+  DirEntry POINTER entry
+  BatchBegin(batch,0)
+  TagsReset(tags)
+  count=0 summary=0
+  Close(1)
+  Open(1,"D:*.*",OPEN_DIRECTORY,0)
+  IF ioerr#IO_SUCCESS THEN RETURN(DIR_IO_ERROR) FI
+  DO
+    Input(1,directoryInput,19)
+    IF ioerr=IO_EOF THEN EXIT FI
+    IF ioerr#IO_SUCCESS THEN RETURN(DIR_IO_ERROR) FI
+    IF summary THEN RETURN(DIR_INVALID) FI
+    length=0
+    WHILE length<19 DO
+      IF directoryInput(length)=EOL THEN EXIT FI
+      length==+1
+    OD
+    IF length=19 THEN RETURN(DIR_INVALID) FI
+    IF MyDosSummary(directoryInput,length) THEN
+      FOR n=0 TO 17 DO
+        IF n<length THEN batch.summary(n)=directoryInput(n)
+        ELSE batch.summary(n)=32 FI
+      OD
+      summary=1
+    ELSE
+      IF count=BATCH_CAPACITY THEN RETURN(DIR_RANGE) FI
+      entry=@batch.items(count)
+      result=MyDosParse(entry,directoryInput,length)
+      IF result#DIR_OK THEN RETURN(result) FI
+      entry.position=count
+      batch.order(count)=count
+      count==+1
+    FI
+  OD
+  IF summary=0 THEN RETURN(DIR_INVALID) FI
+  batch.count=count
+  SortBatch(batch)
+RETURN(BatchPublish(batch,tags,count,1))
+
+; Output is counted D:NAME.EXT, including the historical trailing dot when
+; the extension is empty. Capacity includes the count byte.
+BYTE FUNC MyDosName(DirEntry POINTER entry BYTE ARRAY output CARD capacity)
+  BYTE n,length,k,ch
+  IF entry.flags&ENTRY_TRUNCATED THEN RETURN(DIR_INVALID) FI
+  length=3 n=0
+  WHILE n<8 DO
+    IF entry.name(n)=32 THEN EXIT FI
+    length==+1 n==+1
+  OD
+  k=8
+  WHILE k<11 DO
+    IF entry.name(k)=32 THEN EXIT FI
+    length==+1 k==+1
+  OD
+  IF capacity<=length THEN RETURN(DIR_RANGE) FI
+  output(0)=length output(1)='D output(2)=':
+  length=3 k=0
+  WHILE k<n DO
+    ch=entry.name(k) output(length)=ch
+    length==+1 k==+1
+  OD
+  output(length)='. length==+1 k=8
+  WHILE k<11 DO
+    IF entry.name(k)=32 THEN EXIT FI
+    ch=entry.name(k) output(length)=ch
+    length==+1 k==+1
+  OD
+RETURN(DIR_OK)
+
+PROC MyDosRender(DirEntry POINTER entry BYTE tagged BYTE ARRAY output)
+  BYTE n,ch
+  output(0)=0
+  IF tagged THEN output(0)=$7F FI
+  ch=Internal(entry.marker) output(1)=ch
+  FOR n=0 TO 7 DO
+    ch=Internal(entry.name(n)) output(n+2)=ch
+  OD
+  output(10)=124
+  FOR n=0 TO 2 DO
+    ch=Internal(entry.name(n+8)) output(n+11)=ch
+    ch=Internal(entry.detail(n)) output(n+15)=ch
+  OD
+  output(14)=124
+RETURN
+
+PROC MyDosRenderSummary(DirBatch POINTER batch BYTE ARRAY output)
+  BYTE n,ch
+  FOR n=0 TO 17 DO
+    ch=Internal(batch.summary(n)) output(n)=ch
+  OD
+RETURN

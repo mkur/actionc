@@ -109,6 +109,7 @@ impl VmRunHooks for Directory {
                 if mode == 6 {
                     self.row = 0;
                 }
+                vm.bus_mut().ram_mut().write(self.ioerr, 1);
             }
             "Input" => {
                 assert_eq!(vm.bus().ram().read(0xA3), 19);

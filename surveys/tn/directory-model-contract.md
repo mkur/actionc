@@ -26,6 +26,13 @@ lists to avoid a parser ambiguity; backing addresses use explicit CARD casts.
 Runtime fixtures must validate these addresses and extents, not rely on the
 successful compile alone.
 
+The MyDOS adapter now passes independent VM checks for 0/1/63/64 files,
+directory/protection ordering, both record alignments, exact names and rendered
+rows, and separate summary rendering. Guarded outputs reject short filename
+buffers before writing. A 65th file, a missing summary and missing record EOL
+leave the cache invalid. These checks run both backends with LF and CRLF text.
+Full TN integration follows this isolated reader milestone.
+
 The shared model now passes execution checks in both cartridge backends with
 LF and CRLF source: 8/512-byte guarded bitmaps, tag/search boundaries through
 4,096 entries, cache eviction/refetch, unknown-length tag-all and exceptions,
