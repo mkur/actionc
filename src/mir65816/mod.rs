@@ -4,6 +4,7 @@
 //! to prove that a separate 65816 backend can consume verifier-clean NIR
 //! without reaching back into Semantic IR or borrowing MIR6502 concepts.
 
+pub mod abi;
 mod data;
 mod lower;
 

@@ -16,6 +16,12 @@ version, register rules, sizes, offsets and worked examples. Assembly bridges
 must generate their constants from it. Incompatible changes require a new ABI
 identity. No current compiler output should advertise this identity yet.
 
+Generate [Rust constants](../src/mir65816/abi/generated.rs) and
+[assembly equates](abi/action65816-native-v1.inc) with
+`python3 tools/generate_abi65816.py`. Add `--check` to verify freshness without
+writing files. The [implementation slices](MIR65816_IMPLEMENTATION_PLAN.md)
+track which consumers and executable checks have been completed.
+
 ## 1. Scope and CPU foundation
 
 The first executable implementation supports ordinary procedures and fixed

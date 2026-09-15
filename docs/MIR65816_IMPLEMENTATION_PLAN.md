@@ -12,7 +12,7 @@ Update this status table in the same commit as each completed slice.
 | Slice | Deliverable | Status |
 | --- | --- | --- |
 | 0 | Physical ABI specification and this plan | Complete |
-| 1 | Generated Rust/assembly constants and typed ABI layout calculations | Pending |
+| 1 | Generated Rust/assembly constants and typed ABI layout calculations | Complete |
 | 2 | Native call plans, result lanes and boundary/state contracts | Pending |
 | 3 | Native frame placement, incoming offsets and stack verification | Pending |
 | 4 | Minimal native emission and assembly interoperability | Pending |
@@ -34,6 +34,11 @@ Update this status table in the same commit as each completed slice.
 
 Completion: compiler and assembly consume matching versioned constants; pure
 layout calculations match the ABI examples. No calling sequence is emitted.
+
+Implemented in [the ABI module](../src/mir65816/abi/mod.rs). Regenerate with
+`python3 tools/generate_abi65816.py`; check with the same command plus `--check`.
+`cargo test --locked --lib mir65816` covers the typed layouts, generated
+Rust/assembly agreement (including CRLF input), and existing lowering canaries.
 
 ## Slice 2: physical call plans
 
