@@ -4,6 +4,204 @@ use actionc::mir68k::materialize::Options;
 use actionc_vm68k_tests::{Machine, Outcome};
 
 #[test]
+fn recursive_longword_descriptors_and_wrapped_byte_coordinates_keep_separate_storage() {
+    let source = common::Source::new(
+        "LONGCARD ARRAY grid(256,2)
+BYTE depth,index
+LONGCARD result,wrapped
+LONGCARD FUNC Recur(BYTE level)
+  LONGCARD ARRAY scratch(2,3)=[7]
+  LONGCARD child
+  scratch(1,2)=LONGCARD(level)*LONGCARD($10000)
+  IF level>0 THEN child=Recur(level-1) ELSE child=0 FI
+RETURN(scratch(1,2)+child+scratch(0,0))
+PROC Main()
+  result=Recur(depth)
+  grid(BYTE(index+1),1)=$FEDCBA98
+  wrapped=grid(BYTE(index+1),1)
+RETURN
+",
+    );
+    for optimize in [false, true] {
+        let image = compile_file(
+            &source.0,
+            &NativeCompileOptions {
+                optimize,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .image;
+        for (depth, index) in [(0u32, 254u32), (4, 255), (10, 0)] {
+            let mut vm = Machine::from_image(&image).unwrap();
+            vm.write_scalar(image.symbol("depth").unwrap(), depth)
+                .unwrap();
+            vm.write_scalar(image.symbol("index").unwrap(), index)
+                .unwrap();
+            vm.run(200_000).assert_completed();
+            assert_eq!(
+                vm.read_scalar(image.symbol("result").unwrap()).unwrap(),
+                depth * (depth + 1) / 2 * 0x10000 + 7 * (depth + 1)
+            );
+            assert_eq!(
+                vm.read_scalar(image.symbol("wrapped").unwrap()).unwrap(),
+                0xFEDCBA98
+            );
+            let mut expected = vec![0; 512];
+            expected[2 * ((index + 1) & 255) as usize + 1] = 0xFEDCBA98;
+            assert_eq!(
+                vm.read_array(image.symbol("grid").unwrap()).unwrap(),
+                expected
+            );
+        }
+    }
+}
+
+#[test]
+fn volatile_longwords_keep_the_exact_byte_trace_at_even_and_odd_addresses() {
+    let source = common::Source::new(
+        "VOLATILE LONGCARD ARRAY values(2,2)
+LONGCARD first,second
+PROC Main()
+  values(0,1)=$89ABCDEF first=values(0,1)
+  values(1,0)==+first second=values(1,0)
+RETURN
+",
+    );
+    for optimize in [false, true] {
+        for guarded_memory in [false, true] {
+            let program = compile_file(
+                &source.0,
+                &NativeCompileOptions {
+                    optimize,
+                    codegen: Options {
+                        guarded_memory,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            for address in [0x4000u32, 0x4001] {
+                let mut vm = Machine::from_image(&program.image).unwrap();
+                vm.cpu.mem.map(0x4000, &[0; 20], true, false).unwrap();
+                vm.cpu
+                    .mem
+                    .write(
+                        program.image.symbol("values").unwrap().address().unwrap(),
+                        &address.to_be_bytes(),
+                    )
+                    .unwrap();
+                vm.cpu.mem.trace_range(0x4000..0x4014);
+                vm.run(10_000).assert_completed();
+                for name in ["first", "second"] {
+                    assert_eq!(
+                        vm.read_scalar(program.image.symbol(name).unwrap()).unwrap(),
+                        0x89ABCDEF
+                    );
+                }
+                let trace: Vec<_> = [(4, true), (4, false), (8, false), (8, true), (8, false)]
+                    .into_iter()
+                    .flat_map(|(offset, write)| (0..4).map(move |b| (address + offset + b, write)))
+                    .collect();
+                assert_eq!(vm.cpu.mem.take_trace(), trace);
+            }
+        }
+    }
+}
+
+#[test]
+fn guarded_odd_record_strides_and_field_offsets_survive_bare_and_hunk_relocation() {
+    use actionc::compiler::native::prepare_file;
+    use actionc::mir68k::{hunk, materialize, object};
+    use actionc_vm68k_tests::hunk::File;
+    // Native source records pad LONGCARD fields. Exercise the legal packed
+    // address shape directly in verified MIR: one tag byte plus four data
+    // bytes, at alternating even/odd final addresses inside a 64-byte object.
+    let source = common::Source::new(
+        "LONGCARD ARRAY items(16)
+BYTE i
+LONGCARD total
+PROC Main()
+ total=0
+ FOR i=0 TO 7 DO items(i)=LONGCARD($12345670)+LONGCARD(i) total==+items(i) OD
+RETURN
+",
+    );
+    let mut expected = Vec::new();
+    for i in 0..8u32 {
+        expected.push(0);
+        expected.extend_from_slice(&(0x12345670 + i).to_be_bytes());
+    }
+    expected.resize(64, 0);
+    for optimize in [false, true] {
+        let mut prepared = prepare_file(
+            &source.0,
+            &NativeCompileOptions {
+                optimize,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let mut changed = 0;
+        for op in prepared
+            .mir
+            .routines
+            .iter_mut()
+            .flat_map(|r| &mut r.blocks)
+            .flat_map(|b| &mut b.ops)
+        {
+            if let actionc::mir68k::Mir68kOp::Load { address, width, .. }
+            | actionc::mir68k::Mir68kOp::Store { address, width, .. } = op
+                && width.get() == 4
+                && let Some(index) = &mut address.index
+            {
+                assert_eq!(index.stride.get(), 4);
+                index.stride = actionc::target::ByteSize::new(5);
+                address.displacement = actionc::target::ByteOffset::new(1);
+                changed += 1;
+            }
+        }
+        assert_eq!(changed, 2);
+        actionc::mir68k::verify::verify_contract(&prepared.mir).unwrap();
+        let machine = materialize::materialize(&prepared.mir).unwrap();
+        let object = object::emit(&prepared.mir, &machine).unwrap();
+        for origin in [0x10000, 0x30000] {
+            let image = object.link(origin).unwrap();
+            let mut vm = Machine::from_image(&image).unwrap();
+            vm.run(100_000).assert_completed();
+            assert_eq!(
+                vm.cpu
+                    .mem
+                    .bytes(image.symbol("items").unwrap().address().unwrap(), 64)
+                    .unwrap(),
+                expected
+            );
+            assert_eq!(
+                vm.read_scalar(image.symbol("total").unwrap()).unwrap(),
+                (0..8u32).map(|i| 0x12345670 + i).sum::<u32>()
+            );
+        }
+        let executable = hunk::emit(&hunk::entry_thunk(&object).unwrap()).unwrap();
+        let file = File::parse(&executable.bytes).unwrap();
+        for bases in [[0x10000, 0x30000, 0x50000], [0x60000, 0x20000, 0x40000]] {
+            let mut vm = file.load(&bases[..file.segments().len()]).unwrap();
+            vm.run(100_000).assert_completed();
+            let at = executable
+                .object
+                .symbols
+                .iter()
+                .find(|s| s.name == "items")
+                .unwrap()
+                .location
+                .resolve(&bases)
+                .unwrap();
+            assert_eq!(vm.cpu.mem.bytes(at, 64).unwrap(), expected);
+        }
+    }
+}
+
+#[test]
 fn static_byte_word_volatile_and_copy_operations_do_not_acquire_guards() {
     for source in [
         "LONGCARD ARRAY data(4) LONGCARD result PROC Main() LONGCARD POINTER p p=data p^=42 result=p^ RETURN",

@@ -171,7 +171,7 @@ measurement contract and artifacts are described in the
 and remaining gaps.
 
 The developer measurement runners also accept `--guarded-memory` and
-`--no-guarded-memory` for the optional nonvolatile indirect longword fast path.
+`--no-guarded-memory` for the default nonvolatile indirect longword fast path.
 Conflicting guard switches are rejected. `--no-codegen-opt` disables guards
 regardless of argument order; `--no-pointer-alignment` affects static proofs
 independently. See [descriptor alignment measurements](../../docs/MIR68K_DESCRIPTOR_ALIGNMENT.md).

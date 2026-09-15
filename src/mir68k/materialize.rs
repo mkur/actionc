@@ -29,7 +29,7 @@ impl Default for Options {
             select_instructions: true,
             relax_branches: true,
             pointer_alignment: true,
-            guarded_memory: false,
+            guarded_memory: true,
             control_flow: true,
             register_allocation: true,
         }

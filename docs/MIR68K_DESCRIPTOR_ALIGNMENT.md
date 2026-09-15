@@ -59,3 +59,45 @@ Slice 2 validation: all 16 MIR68K compiler unit tests and the affected native
 qualification, guard, descriptor, pointer, fault, emission, forwarding,
 allocation and measurement-parser tests passed. The real C runner rejected
 conflicting guard switches before building. No NIR fixtures changed.
+
+## Default selection and complete workload measurements
+
+The selected default enables static proofs and longword guards. Unknown word
+accesses retain the bytewise path. Compared with `38471f2`, optimized shaped
+matrix1 uses 26.0% fewer instructions and shaped DCT uses 9.9% fewer. Code grows
+by 162 and 900 bytes respectively. Every default workload has unchanged frame
+size and stack traffic; no measured instruction count regresses.
+
+| Workload | Instructions, baseline → selected | Code bytes, baseline → selected | Largest frame | Stack read / write bytes |
+| --- | ---: | ---: | ---: | ---: |
+| insertsort | 5437 → 5349 | 1604 → 1622 | 136 | 2125 / 1843 |
+| matrix1 | 71806 → 69106 | 990 → 1044 | 68 | 24373 / 13969 |
+| matrix1-multidimensional | 144051 → 106651 | 1332 → 1494 | 88 | 53741 / 31777 |
+| binarysearch | 8302 → 8302 | 754 → 754 | 68 | 885 / 737 |
+| sha | 14924 → 14924 | 3196 → 3196 | 452 | 8453 / 7090 |
+| jfdctint | 38767 → 35567 | 5768 → 6632 | 742 | 13560 / 10432 |
+| jfdctint-multidimensional | 43279 → 38991 | 6658 → 7558 | 886 | 15398 / 12982 |
+| adpcm_dec | 15153 → 13509 | 7842 → 8382 | 692 | 8300 / 6340 |
+| adpcm_enc | 1892709 → 1886577 | 10034 → 10682 | 724 | 421070 / 264561 |
+
+[The complete CSV](mir68k-descriptor-alignment.csv) keeps raw and optimized NIR
+separate for all five configurations: baseline (`38471f2`), static facts only,
+guards only, both enabled (`guarded`), and conservative target materialization.
+The latter retains the default NativeLoops NIR policy; it changes target options
+only. Reproduce the current configurations with the `code_quality` example and
+respectively `--no-guarded-memory`, `--guarded-memory --no-pointer-alignment`,
+`--guarded-memory`, or `--no-codegen-opt`. Per-run hashes/options remain in the
+matching build directories. All reference fixtures are unchanged.
+
+Runtime coverage includes negative INT coordinates with 80 KB row strides,
+odd rebasing, BYTE wrap, LONGCARD stores with rebinding during the RHS call,
+recursive LONGCARD local arrays, wide volatile traces and terminal partial
+faults. Native source records pad wide fields; a verified MIR case exercises
+five-byte record strides with a one-byte field offset, including bare images at
+two origins and HUNK execution at two independent sets of segment bases.
+
+Slice 3 validation: the complete native VM suite and all 16 MIR68K compiler
+unit tests passed. Both VM workspaces passed the full 252-case matrix1 and
+181-case DCT corpora, including flat/shaped implementations, native raw/optimized
+NIR and the existing 6502 compiler/runtime combinations. Complete states and DCT
+row-pass snapshots were checked; the 6502 targets also checked LF/CRLF handling.

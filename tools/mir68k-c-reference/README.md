@@ -104,7 +104,7 @@ derives from Juan Martinez Velarde's DSP-Stone benchmark through
 [TACLeBench](../../fixtures/runtime/tacle/matrix1/matrix1.c), with permission to
 use, modify and redistribute freely. The C adaptations retain these credits.
 
-`--guarded-memory` / `--no-guarded-memory` select the optional indirect longword
+`--guarded-memory` / `--no-guarded-memory` select the default indirect longword
 alignment guard independently of static pointer proofs. The switches are
 mutually exclusive and `--no-codegen-opt` disables guards. Resolved settings
 appear in the Action! measurement metadata.
