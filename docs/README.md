@@ -12,6 +12,9 @@ crowding the active reference set.
   emulator discovery, and artifact lifetime.
 - [Modules tutorial](tutorials/MODULES.md) - step-by-step introduction to
   project modules, imports, embedded Atari interfaces, and runtime selection.
+- [ATARI_SIO_LIBRARY_DESIGN.md](ATARI_SIO_LIBRARY_DESIGN.md) - FujiNet-focused
+  SIO library design with device constants, variant results, convenient network
+  calls and optional buffering.
 - [Native REAL tutorial](tutorials/REAL.md) - practical introduction to REAL
   arithmetic, conversions, storage, math, and I/O.
 - [CODEGEN_PROFILES.md](CODEGEN_PROFILES.md) - user-facing profile/backend
