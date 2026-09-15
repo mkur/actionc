@@ -1072,6 +1072,7 @@ fn mir65816_plans_independent_native_and_small_model_frames() {
                 mir65816::Mir65816SavedState::DirectPage,
                 mir65816::Mir65816SavedState::DataBank,
                 mir65816::Mir65816SavedState::ProgramBank,
+                mir65816::Mir65816SavedState::ProgramCounter,
                 mir65816::Mir65816SavedState::ProcessorStatus,
             ],
             "{target}"

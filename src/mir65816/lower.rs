@@ -48,7 +48,7 @@ pub(super) fn lower_program(
             ));
             continue;
         }
-        let Some(frame) = plan_frame(routine, storage, &mut diagnostics) else {
+        let Some(frame) = plan_frame(routine, storage, convention, &mut diagnostics) else {
             continue;
         };
         routines.push(lower_routine(
@@ -71,6 +71,7 @@ pub(super) fn lower_program(
         data_pointer_width: layout.data_pointer.size_bytes,
         code_pointer_width: layout.code_pointer.size_bytes,
         call_convention: convention,
+        native_abi: (convention == Mir65816CallConvention::Native).then(|| abi::program_contract(input.program())),
         task_switch_state: Mir65816TaskSwitchState {
             required: vec![
                 Mir65816SavedState::Accumulator,
@@ -80,8 +81,10 @@ pub(super) fn lower_program(
                 Mir65816SavedState::DirectPage,
                 Mir65816SavedState::DataBank,
                 Mir65816SavedState::ProgramBank,
+                Mir65816SavedState::ProgramCounter,
                 Mir65816SavedState::ProcessorStatus,
             ],
+            native_memory: (convention == Mir65816CallConvention::Native).then_some(abi::SUSPENDED_MEMORY),
         },
         data,
         runtime_bindings: input
@@ -170,6 +173,7 @@ fn lower_routine(
         id: routine.id,
         name: routine.name.clone(),
         convention: routine.convention,
+        result_home: result_home(routine.signature.result.as_ref(), convention).expect("frame planning checked routine signature"),
         frame,
         prologue,
         epilogue,
@@ -206,6 +210,7 @@ fn return_form(convention: Mir65816CallConvention) -> Mir65816ReturnForm {
 fn plan_frame(
     routine: &NirRoutine,
     storage: &NirRoutineStorageAnalysis,
+    convention: Mir65816CallConvention,
     diagnostics: &mut Vec<Mir65816Diagnostic>,
 ) -> Option<Mir65816FramePlan> {
     // S points immediately below the reserved activation, so the first
@@ -213,13 +218,17 @@ fn plan_frame(
     let mut cursor = 1u32;
     let mut objects = Vec::new();
     let mut parameters = Vec::with_capacity(routine.params.len());
-    let incoming = abi_stack_homes(
-        &routine
-            .params
-            .iter()
-            .map(|param| param.layout.size)
-            .collect::<Vec<_>>(),
-    )?;
+    let incoming = match signature_homes(&routine.signature, routine.params.len(), convention) {
+        Ok((homes, _, _)) => homes,
+        Err(message) => {
+            diagnostics.push(diagnostic(Some(&routine.name), None, &message));
+            return None;
+        }
+    };
+    if let Err(message) = result_home(routine.signature.result.as_ref(), convention) {
+        diagnostics.push(diagnostic(Some(&routine.name), None, &message));
+        return None;
+    }
 
     for (param, incoming) in routine.params.iter().zip(incoming) {
         let facts = storage.homes.get(&NirStorageId::Param(param.id));
@@ -274,13 +283,13 @@ fn plan_frame(
     }
 
     let automatic_bytes = ByteSize::new(cursor - 1);
-    let outgoing_bytes = match max_outgoing_bytes(routine) {
-        Some(bytes) => bytes,
-        None => {
+    let outgoing_bytes = match max_outgoing_bytes(routine, convention) {
+        Ok(bytes) => bytes,
+        Err(message) => {
             diagnostics.push(diagnostic(
                 Some(&routine.name),
                 None,
-                "65816 outgoing argument area overflows frame planning",
+                &message,
             ));
             return None;
         }
@@ -370,6 +379,7 @@ fn abi_stack_homes(sizes: &[ByteSize]) -> Option<Vec<Mir65816AbiHome>> {
         homes.push(Mir65816AbiHome::StackArgument {
             offset: ByteOffset::new(offset),
             size: *size,
+            alignment: ByteSize::ONE,
         });
         offset = offset.checked_add(size.get())?;
     }
@@ -391,8 +401,63 @@ fn call_argument_sizes(
         .collect()
 }
 
-fn max_outgoing_bytes(routine: &NirRoutine) -> Option<ByteSize> {
-    let mut maximum = 0u32;
+fn signature_homes(
+    signature: &crate::nir::NirCallableSignature,
+    count: usize,
+    convention: Mir65816CallConvention,
+) -> Result<(Vec<Mir65816AbiHome>, ByteSize, ByteSize), String> {
+    if convention == Mir65816CallConvention::Native {
+        if count != signature.params.len() {
+            return Err("native 65816 v1 requires the fixed signature's argument count".into());
+        }
+        let layout = abi::call_layout(signature).map_err(|error| error.to_string())?;
+        let homes = layout
+            .arguments
+            .iter()
+            .map(|argument| Mir65816AbiHome::StackArgument {
+                offset: argument.offset,
+                size: argument.scalar.size,
+                alignment: argument.scalar.alignment,
+            })
+            .collect();
+        Ok((homes, layout.payload_bytes, layout.outgoing_bytes))
+    } else {
+        let sizes = call_argument_sizes(signature, count)
+            .ok_or("65816 small-model argument sizes are unavailable")?;
+        let homes = abi_stack_homes(&sizes).ok_or("65816 small-model arguments overflow")?;
+        let extent = sizes
+            .iter()
+            .try_fold(ByteSize::ZERO, |sum, size| sum.checked_add(*size))
+            .ok_or("65816 small-model arguments overflow")?;
+        Ok((homes, extent, extent))
+    }
+}
+
+fn result_home(
+    ty: Option<&NirType>,
+    convention: Mir65816CallConvention,
+) -> Result<Option<Mir65816AbiHome>, String> {
+    ty.map(|ty| {
+        if convention == Mir65816CallConvention::Native {
+            abi::classify(ty)
+                .map(|layout| Mir65816AbiHome::NativeResult(layout.result))
+                .map_err(|error| error.to_string())
+        } else {
+            Ok(if ty.width.is_some_and(|width| width.get() > 2) {
+                Mir65816AbiHome::AccumulatorAndX
+            } else {
+                Mir65816AbiHome::Accumulator
+            })
+        }
+    })
+    .transpose()
+}
+
+fn max_outgoing_bytes(
+    routine: &NirRoutine,
+    convention: Mir65816CallConvention,
+) -> Result<ByteSize, String> {
+    let mut maximum = ByteSize::ZERO;
     for op in routine.blocks.iter().flat_map(|block| &block.ops) {
         let NirOp::Call {
             args, signature, ..
@@ -400,13 +465,10 @@ fn max_outgoing_bytes(routine: &NirRoutine) -> Option<ByteSize> {
         else {
             continue;
         };
-        let signature = signature.as_ref()?;
-        let bytes = call_argument_sizes(signature, args.len())?
-            .into_iter()
-            .try_fold(0u32, |total, size| total.checked_add(size.get()))?;
-        maximum = maximum.max(bytes);
+        let signature = signature.as_ref().ok_or("65816 call has no signature")?;
+        maximum = maximum.max(signature_homes(signature, args.len(), convention)?.2);
     }
-    Some(ByteSize::new(maximum))
+    Ok(maximum)
 }
 
 fn call_plan(
@@ -415,32 +477,39 @@ fn call_plan(
     result: Option<&crate::nir::NirCallResult>,
     convention: Mir65816CallConvention,
     code_pointer_width: ByteSize,
-) -> Option<Mir65816CallPlan> {
-    let arguments = abi_stack_homes(&call_argument_sizes(signature, argument_count)?)?;
-    let outgoing_bytes = arguments
-        .last()
-        .map(|home| match home {
-            Mir65816AbiHome::StackArgument { offset, size } => {
-                ByteSize::new(offset.get() + size.get())
-            }
-            Mir65816AbiHome::Accumulator | Mir65816AbiHome::AccumulatorAndX => ByteSize::ZERO,
-        })
-        .unwrap_or(ByteSize::ZERO);
-    let result = result.map(|result| {
-        if result.ty.width.is_some_and(|width| width.get() > 2) {
-            Mir65816AbiHome::AccumulatorAndX
-        } else {
-            Mir65816AbiHome::Accumulator
-        }
-    });
+    indirect: bool,
+) -> Result<Mir65816CallPlan, String> {
+    let (arguments, argument_bytes, outgoing_bytes) =
+        signature_homes(signature, argument_count, convention)?;
+    // A discarded native result still has a physical return-register contract.
+    let result_ty = if convention == Mir65816CallConvention::Native {
+        signature.result.as_ref()
+    } else {
+        result.map(|result| &result.ty)
+    };
+    let result = result_home(result_ty, convention)?;
     let mode = boundary_mode();
-    Some(Mir65816CallPlan {
+    Ok(Mir65816CallPlan {
         convention: signature.convention,
+        native: (convention == Mir65816CallConvention::Native).then_some(abi::NativeCallContract {
+            boundary: abi::BOUNDARY,
+            argument_bytes,
+            transfer: if indirect {
+                abi::FarTransfer::StackRtl
+            } else {
+                abi::FarTransfer::Jsl
+            },
+            caller_cleanup_bytes: outgoing_bytes,
+        }),
         arguments,
         result,
         outgoing_bytes,
         code_pointer_width,
-        call_form: call_form(convention),
+        call_form: if convention == Mir65816CallConvention::Native && indirect {
+            Mir65816CallForm::FarStackRtl
+        } else {
+            call_form(convention)
+        },
         mode_before: mode,
         mode_after: mode,
         activation: Mir65816CallActivation::Fresh,
@@ -692,19 +761,19 @@ fn lower_op(
                 ));
                 return None;
             }
-            let Some(plan) = call_plan(
+            let plan = match call_plan(
                 signature,
                 args.len(),
                 result.as_ref(),
                 convention,
                 code_pointer_width,
-            ) else {
-                diagnostics.push(diagnostic(
-                    Some(routine),
-                    Some(block),
-                    "65816 call argument layout exceeds the supported outgoing area",
-                ));
-                return None;
+                matches!(callee, NirCallee::Indirect { .. }),
+            ) {
+                Ok(plan) => plan,
+                Err(message) => {
+                    diagnostics.push(diagnostic(Some(routine), Some(block), &message));
+                    return None;
+                }
             };
             Some(Mir65816Op::Call {
                 target: lower_callee(callee, data_pointer_width, code_pointer_width),

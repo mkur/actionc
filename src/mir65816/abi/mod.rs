@@ -109,6 +109,114 @@ impl fmt::Display for AbiError {
 
 impl std::error::Error for AbiError {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DirectPageRule {
+    CurrentExecutionDomain,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IrqMaskRule {
+    Preserve,
+}
+
+/// Additional obligations beyond the MIR's existing E/M/X mode state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BoundaryContract {
+    pub decimal_clear: bool,
+    pub data_bank: u8,
+    pub direct_page: DirectPageRule,
+    pub irq_mask: IrqMaskRule,
+}
+
+pub const BOUNDARY: BoundaryContract = BoundaryContract {
+    decimal_clear: BOUNDARY_P_D == 0,
+    data_bank: BOUNDARY_DBR as u8,
+    direct_page: DirectPageRule::CurrentExecutionDomain,
+    irq_mask: IrqMaskRule::Preserve,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FarTransfer {
+    Jsl,
+    StackRtl,
+}
+
+impl FarTransfer {
+    pub const fn peak_bytes(self) -> ByteSize {
+        ByteSize::new(match self {
+            Self::Jsl => CALL_DIRECT_TRANSFER_PEAK_BYTES,
+            Self::StackRtl => CALL_INDIRECT_TRANSFER_PEAK_BYTES,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeCallContract {
+    pub boundary: BoundaryContract,
+    pub argument_bytes: ByteSize,
+    pub transfer: FarTransfer,
+    pub caller_cleanup_bytes: ByteSize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnsupportedSignature {
+    pub signature: crate::nir::SignatureId,
+    pub reason: AbiError,
+}
+
+/// A planning contract, not evidence that emitted code implements the ABI.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramContract {
+    pub version: u32,
+    pub boundary: BoundaryContract,
+    /// Checked before aggregate ABI expansion can turn an unsupported public
+    /// aggregate interface into otherwise supported physical pointer arguments.
+    pub unsupported_signatures: Vec<UnsupportedSignature>,
+}
+
+pub(super) fn program_contract(program: &crate::nir::NirProgram) -> ProgramContract {
+    let mut unsupported = std::collections::BTreeMap::new();
+    for signature in program.routines.iter().flat_map(|routine| {
+        std::iter::once(&routine.signature).chain(routine.blocks.iter().flat_map(|block| {
+            block.ops.iter().filter_map(|op| match op {
+                crate::nir::NirOp::Call { signature, .. } => signature.as_ref(),
+                _ => None,
+            })
+        }))
+    }) {
+        if let Err(reason) = call_layout(signature) {
+            unsupported.entry(signature.id).or_insert(reason);
+        }
+    }
+    ProgramContract {
+        version: ABI_VERSION,
+        boundary: BOUNDARY,
+        unsupported_signatures: unsupported
+            .into_iter()
+            .map(|(signature, reason)| UnsupportedSignature { signature, reason })
+            .collect(),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SuspendedMemory {
+    pub hardware_stack_contents: bool,
+    pub saved_frame_bytes: ByteSize,
+    pub direct_page_bytes: ByteSize,
+    pub direct_page_alignment: ByteSize,
+    pub call_clobbered_scratch_bytes: ByteSize,
+    pub separate_interrupt_domain: bool,
+}
+
+pub const SUSPENDED_MEMORY: SuspendedMemory = SuspendedMemory {
+    hardware_stack_contents: true,
+    saved_frame_bytes: ByteSize::new(SAVED_FRAME_SIZE),
+    direct_page_bytes: ByteSize::new(DP_SIZE),
+    direct_page_alignment: ByteSize::new(DP_ALIGNMENT),
+    call_clobbered_scratch_bytes: ByteSize::new(DP_SCRATCH_SIZE),
+    separate_interrupt_domain: true,
+};
+
 pub fn classify(ty: &NirType) -> Result<ScalarLayout, AbiError> {
     let class = match &ty.kind {
         NirTypeKind::Bool => ScalarClass::Byte,

@@ -98,9 +98,9 @@ lowering correction now covers both cases permanently.
   across calls, a 13-byte saved context and a fabricated first-task stack.
 - Non-nested IRQ dispatch on a separate stack and bounded assembly-only NMI.
 
-The existing frame plans remain provisional. They pack arguments without
-alignment and place outgoing space after automatic objects. They also report
-zero saved-register and spill bytes. The final v1 planner must place outgoing
+Call plans now retain aligned arguments, result lanes and transfer costs.
+The existing frame plans remain provisional: they place outgoing space after
+automatic objects and report zero saved-register and spill bytes. The final v1 planner must place outgoing
 areas below the fixed frame, account for parity and all stack movement, and
 check each actual access. Its even fixed frame is at most 254 bytes; that limit
 does not establish a whole-task stack bound. Board-specific bank-zero placement

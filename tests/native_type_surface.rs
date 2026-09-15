@@ -732,14 +732,18 @@ fn check_mir65816_type_surface(program: &nir::NirProgram, target: TargetId) {
         })
         .expect("MIR65816 indirect callback");
     let (code_width, size_width, outgoing) = match target {
-        TargetId::Wdc65816Native => (3, 3, 10),
+        TargetId::Wdc65816Native => (3, 3, 13),
         TargetId::Wdc65816Small => (2, 2, 9),
         _ => unreachable!(),
     };
     assert_eq!(indirect.0.get(), code_width);
     assert_eq!(
         indirect.1.result,
-        Some(mir65816::Mir65816AbiHome::AccumulatorAndX)
+        Some(if target == TargetId::Wdc65816Native {
+            mir65816::Mir65816AbiHome::NativeResult(mir65816::abi::ResultLocation::A16X16)
+        } else {
+            mir65816::Mir65816AbiHome::AccumulatorAndX
+        })
     );
     assert_eq!(indirect.1.outgoing_bytes.get(), outgoing);
     assert_eq!(indirect.1.arguments.len(), 3);
@@ -748,13 +752,15 @@ fn check_mir65816_type_surface(program: &nir::NirProgram, target: TargetId) {
         mir65816::Mir65816AbiHome::StackArgument {
             offset: actionc::target::ByteOffset::new(0),
             size: actionc::target::ByteSize::new(3),
+            alignment: actionc::target::ByteSize::new(if target == TargetId::Wdc65816Native { 2 } else { 1 }),
         }
     );
     assert_eq!(
         indirect.1.arguments[1],
         mir65816::Mir65816AbiHome::StackArgument {
-            offset: actionc::target::ByteOffset::new(3),
+            offset: actionc::target::ByteOffset::new(if target == TargetId::Wdc65816Native { 4 } else { 3 }),
             size: actionc::target::ByteSize::new(size_width),
+            alignment: actionc::target::ByteSize::new(if target == TargetId::Wdc65816Native { 2 } else { 1 }),
         }
     );
     assert!(

@@ -24,6 +24,7 @@ pub struct Mir65816Program {
     pub data_pointer_width: ByteSize,
     pub code_pointer_width: ByteSize,
     pub call_convention: Mir65816CallConvention,
+    pub native_abi: Option<abi::ProgramContract>,
     pub task_switch_state: Mir65816TaskSwitchState,
     pub data: Vec<Mir65816Data>,
     pub runtime_bindings: Vec<Mir65816RuntimeBinding>,
@@ -105,6 +106,7 @@ pub struct Mir65816Routine {
     pub id: RoutineId,
     pub name: String,
     pub convention: NirCallConvention,
+    pub result_home: Option<Mir65816AbiHome>,
     pub frame: Mir65816FramePlan,
     pub prologue: Mir65816ProloguePlan,
     pub epilogue: Mir65816EpiloguePlan,
@@ -150,9 +152,11 @@ pub enum Mir65816AbiHome {
     StackArgument {
         offset: ByteOffset,
         size: ByteSize,
+        alignment: ByteSize,
     },
     Accumulator,
     AccumulatorAndX,
+    NativeResult(abi::ResultLocation),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -213,6 +217,7 @@ pub struct Mir65816ModeState {
 pub enum Mir65816CallForm {
     NearJsr,
     FarJsl,
+    FarStackRtl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -229,6 +234,7 @@ pub enum Mir65816CallActivation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816CallPlan {
     pub convention: NirCallConvention,
+    pub native: Option<abi::NativeCallContract>,
     pub arguments: Vec<Mir65816AbiHome>,
     pub result: Option<Mir65816AbiHome>,
     pub outgoing_bytes: ByteSize,
@@ -263,12 +269,14 @@ pub enum Mir65816SavedState {
     DirectPage,
     DataBank,
     ProgramBank,
+    ProgramCounter,
     ProcessorStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816TaskSwitchState {
     pub required: Vec<Mir65816SavedState>,
+    pub native_memory: Option<abi::SuspendedMemory>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

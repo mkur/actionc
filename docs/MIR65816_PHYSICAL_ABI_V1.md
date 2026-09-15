@@ -482,12 +482,15 @@ version, domain offsets and saved-frame offsets from the JSON manifest.
 
 ## 11. Required implementation changes and proof
 
-The current [frame/call planner](../src/mir65816/lower.rs) remains provisional.
-It packs arguments without alignment, places outgoing space after automatic
-objects, and lacks final spill, parity and transient accounting. Its A/X result
-home does not encode the lanes above, and its switch inventory omits explicit
-PC/owned-memory descriptions. These plans must be brought into agreement before
-an emitter may label output `action65816.native.v1`.
+The [call planner](../src/mir65816/lower.rs) now retains aligned argument homes,
+exact native result lanes, transfer peaks and the boundary/state inventory.
+Original aggregate interfaces remain explicitly outside v1 qualification even
+after their abstract expansion into physical pointer arguments.
+
+Frame placement is still provisional: outgoing space follows automatic objects,
+and final frame parity, spill and transient displacement checks remain pending.
+These plans must be brought into agreement before an emitter may label output
+`action65816.native.v1`.
 
 Implement in this order:
 

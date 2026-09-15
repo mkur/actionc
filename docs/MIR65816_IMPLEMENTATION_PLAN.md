@@ -13,7 +13,7 @@ Update this status table in the same commit as each completed slice.
 | --- | --- | --- |
 | 0 | Physical ABI specification and this plan | Complete |
 | 1 | Generated Rust/assembly constants and typed ABI layout calculations | Complete |
-| 2 | Native call plans, result lanes and boundary/state contracts | Pending |
+| 2 | Native call plans, result lanes and boundary/state contracts | Complete |
 | 3 | Native frame placement, incoming offsets and stack verification | Pending |
 | 4 | Minimal native emission and assembly interoperability | Pending |
 | 5 | Indirect calls across banks | Pending |
@@ -54,6 +54,11 @@ Rust/assembly agreement (including CRLF input), and existing lowering canaries.
 
 Completion: both ends of a native call agree on the public layout and its
 state obligations. No plan claims final allocated spill or instruction costs.
+
+[ABI pipeline regressions](../tests/mir65816_abi.rs) cover raw/optimized source
+lowering, both memory models, exact result homes, transfer peaks and original
+aggregate-interface exclusions. The ABI, type-surface, lowering-contract and
+aggregate-indirect integration targets passed (61 tests) for this slice.
 
 ## Slice 3: frames and stack verification
 
