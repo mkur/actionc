@@ -68,8 +68,10 @@ checks in both cartridge backends before directory migration:
 
 These checks extend the existing command and panel transition tests. Screen
 services and disk I/O are substituted; they are not disk-level emulator results.
-The inclusive path-name dot copy still needs its dedicated boundary regression
-when path storage is replaced.
+The old inclusive path-name copy is an isolated bug fix: for `D:ABCDEFGH.`
+the dot is at index 11, so copying through it writes slot offset 9, beyond
+the nine-byte counted-name slot. Copying through index 10 writes offsets 1–8
+only. The typed-location fixture will guard this boundary at every depth.
 
 Baseline load-file bytes: TN classic 10,549; TN MIR6502 9,943; TNDBG classic
 13,794; TNDBG MIR6502 13,048. The existing per-panel backing totals 1,357 bytes.

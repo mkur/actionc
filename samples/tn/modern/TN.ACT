@@ -952,7 +952,8 @@ PROC Handle()
               s = dirnames(active.nestLevel)
               s(0) = j - 3    
               
-              FOR i = 3 to j DO
+              ; The dot is not part of the eight-character path name.
+              FOR i = 3 TO j-1 DO
                  s(i-2) = fname(i)
               OD
 
