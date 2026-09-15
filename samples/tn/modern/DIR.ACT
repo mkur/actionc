@@ -84,9 +84,11 @@ BYTE FUNC SetTagged(Selection POINTER tags CARD ordinal BYTE value)
       p^==&mask tags.tagged==-1
     FI
   FI
-  IF tags.complete AND tags.tagged=extent THEN
+  LET CARD selectedCount=tags.tagged
+  LET BYTE complete=tags.complete
+  IF complete AND selectedCount=extent THEN
     tags.allIntent=1
-  ELSEIF tags.tagged=0 THEN
+  ELSEIF selectedCount=0 THEN
     tags.allIntent=0
   FI
 RETURN(DIR_OK)

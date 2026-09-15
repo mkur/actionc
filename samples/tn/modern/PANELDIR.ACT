@@ -1,0 +1,76 @@
+; Shared panel-directory boundary. Included after TN's panel declarations.
+; Only ReadWindow and ResolveEntry need a different directory source later.
+
+PROC DirectoryFailure(BYTE reason)
+  directoryError=reason
+  currentBatch.valid=0 active.files=0
+  ; Keep the established nonlocal error recovery and its stack reset.
+  ; A local directory-format error has no OS status to report.
+  IF reason#DIR_IO_ERROR THEN ioerr=0 FI
+ASM OPAQUE
+  jmp (ErrorHandler)
+ENDASM
+RETURN
+
+BYTE FUNC ReadWindow(CARD first)
+  ; MyDOS keeps its complete directory in one window. Its initial read is
+  ; performed by SetWin; there are no additional MyDOS pages to retrieve.
+  IF first=0 AND currentBatch.valid=0 THEN
+    RETURN(MyDosRead(currentBatch,currentTags))
+  FI
+RETURN(DIR_RANGE)
+
+CARD FUNC EntryAddress(CARD ordinal)
+  CARD address,first
+  BYTE result
+  address=CachedEntry(currentBatch,ordinal)
+  IF address=0 THEN
+    first=BatchStart(ordinal)
+    result=ReadWindow(first)
+    IF result#DIR_OK THEN RETURN(0) FI
+    address=CachedEntry(currentBatch,ordinal)
+  FI
+RETURN(address)
+
+BYTE FUNC EnsureView(CARD top)
+  CARD last,first,address
+  IF active.files=0 THEN RETURN(DIR_OK) FI
+  IF top>=active.files THEN RETURN(DIR_RANGE) FI
+  last=top+LAST_VISIBLE_FILE
+  IF last<top OR last>=active.files THEN last=active.files-1 FI
+  address=CachedEntry(currentBatch,top)
+  IF address THEN address=CachedEntry(currentBatch,last) FI
+  IF address THEN RETURN(DIR_OK) FI
+  first=BatchStart(top)
+RETURN(ReadWindow(first))
+
+BYTE FUNC ResolveEntry(CARD ordinal BYTE ARRAY output CARD capacity)
+  DirEntry POINTER entry
+  entry=EntryAddress(ordinal)
+  IF entry=0 THEN RETURN(DIR_INVALID) FI
+RETURN(MyDosName(entry,output,capacity))
+
+PROC Convert(CARD ordinal)
+  BYTE result
+  result=ResolveEntry(ordinal,BYTE POINTER(fname),15)
+  IF result#DIR_OK THEN DirectoryFailure(result) FI
+RETURN
+
+; Range remains the BYTE menu helper in LIB. File navigation uses CARD and
+; keeps its previous behavior of ignoring movement keys at either boundary.
+CHAR FUNC FileRange()
+  CHAR ch
+  BYTE accepted
+  DO
+    ch=Getchar() accepted=true
+    IF ch='- OR ch='\{$1C} THEN
+      IF active.selected THEN active.selected==-1 ELSE accepted=false FI
+    ELSEIF ch='= OR ch='\{$1D} THEN
+      IF active.files AND active.selected<active.files-1 THEN
+        active.selected==+1
+      ELSE
+        accepted=false
+      FI
+    FI
+  UNTIL accepted OD
+RETURN(ch)

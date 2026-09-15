@@ -30,6 +30,11 @@ reproducers when addressing the compiler, rather than adding TN special cases.
   evaluation effects together; the callee's preserves annotation alone does
   not describe argument evaluation.
 
+- After an indirect CARD equality, classic can replace a following constant
+  `LDA #1` with `TYA` although the comparison has advanced Y to 7. The integrated
+  one-file tag-all regression exposed this (`allIntent` became 7). Snapshotting
+  compared fields avoids this; verify register facts across comparison branches.
+
 ## Classic Record-Copy Scratch Placement with SET
 
 Status: backlogged at user request; implementation has not started.

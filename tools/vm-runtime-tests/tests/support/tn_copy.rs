@@ -177,7 +177,7 @@ pub fn check(compiled: &CompiledProgram, debug: bool) {
             lengths.len(),
             "partial files must remain open across chunks"
         );
-        assert_eq!(vm.bus().ram().read(global("tagged")), 0);
+        assert_eq!(vm.bus().ram().read_word(vm.bus().ram().read_word(global("currenttags")) + 6), 0);
         assert_eq!(vm.bus().ram().read(global("copyflag")), 0);
         assert_eq!(vm.bus().ram().read(0x70B), 2);
         if arena == 256 {

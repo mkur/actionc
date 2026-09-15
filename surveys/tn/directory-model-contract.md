@@ -31,7 +31,10 @@ directory/protection ordering, both record alignments, exact names and rendered
 rows, and separate summary rendering. Guarded outputs reject short filename
 buffers before writing. A 65th file, a missing summary and missing record EOL
 leave the cache invalid. These checks run both backends with LF and CRLF text.
-Full TN integration follows this isolated reader milestone.
+Both full roots now use these routines. Their command dispatch, panel
+transitions, rows, names, tag-all and copy continuation pass in both backends.
+File ordinals and copy references are CARD. TNDBG snapshots render a row from
+the native entry; the saved pointer now points at a DirEntry, not screen bytes.
 
 The shared model now passes execution checks in both cartridge backends with
 LF and CRLF source: 8/512-byte guarded bitmaps, tag/search boundaries through

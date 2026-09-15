@@ -58,7 +58,7 @@ impl VmRunHooks for DispatchHooks {
             return Ok(());
         };
         self.trace.push(name);
-        if name == "Range" {
+        if name == "FileRange" {
             self.input_stack_depths.push(vm.cpu().registers().sp);
             if let Some(key) = self.keys.pop_front() {
                 // Match Range's CHAR result ABI in A and $A0, then really RTS.
@@ -107,7 +107,7 @@ fn run(
             .all(|s| s.end < ENTRY || s.start > STOP)
     );
     let ram = vm.bus_mut().ram_mut();
-    ram.write(files_address, files);
+    ram.write_word(files_address, u16::from(files));
     ram.map(ENTRY, &[0x20, handle as u8, (handle >> 8) as u8, 0xEA])
         .unwrap();
     ram.map(RETURN, &[0x60, 0xA9, 0, 0x85, 0xA0, 0x60]).unwrap();
@@ -151,7 +151,7 @@ fn run(
 fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
     let mut trace = vec!["Inv"];
     for &command in commands {
-        trace.extend(["Close", "Range"]);
+        trace.extend(["Close", "FileRange"]);
         if let Some(name) = command {
             trace.push(name);
         }
@@ -162,7 +162,7 @@ fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
             trace.push("CloseAll");
         }
     }
-    trace.extend(["Close", "Range"]);
+    trace.extend(["Close", "FileRange"]);
     trace
 }
 
@@ -183,7 +183,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             let handle = routine_address(&listing, "Handle");
             let files_address = global_address(&listing, "active");
             let mut entries = BTreeMap::new();
-            for name in ["Inv", "Close", "CloseAll", "Range"].into_iter().chain(
+            for name in ["Inv", "Close", "CloseAll", "FileRange"].into_iter().chain(
                 COMMANDS
                     .iter()
                     .filter(|(_, name)| debug || *name != "Dbg")

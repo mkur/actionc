@@ -173,24 +173,18 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
         assert_eq!(vm.bus().ram().read(global("active")), count as u8);
         assert_eq!(hooks.row, count + 2, "files plus summary plus EOF");
         assert!(hooks.names.iter().all(|n| n == &(6, b"D:*.*".to_vec())));
-        let table = vm.bus().ram().read_word(global("v"));
         for (i, file) in expected.iter().enumerate() {
-            let address = vm.bus().ram().read_word(table + i as u16 * 2);
-            assert_eq!(
-                machine::bytes(&vm, address, 18),
-                file.row(false),
-                "{file:?}"
-            );
-            vm = machine::call(vm, &mut hooks, routine("Convert"), &address.to_le_bytes());
+            vm = machine::call(vm, &mut hooks, routine("Convert"), &(i as u16).to_le_bytes());
             assert_eq!(machine::counted(&vm, global("fname")), file.filename());
         }
+        let tags = vm.bus().ram().read_word(global("currenttags"));
         let mut expected_summary: Vec<_> =
             b"999 FREE SECTORS".iter().copied().map(screen).collect();
         expected_summary.resize(17, 0);
         assert!(hooks.images.iter().any(|row| row == &expected_summary));
         for start in [0, count.saturating_sub(16)] {
             hooks.images.clear();
-            vm = machine::call(vm, &mut hooks, routine("Draw"), &[start as u8]);
+            vm = machine::call(vm, &mut hooks, routine("Draw"), &(start as u16).to_le_bytes());
             let rows: Vec<_> = expected
                 .iter()
                 .skip(start)
@@ -203,17 +197,17 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
             // Mixed tagging from none selects all, while mixed tagging from all
             // clears all: retain this remembered toggle-all direction.
             for (routine_name, arguments, selected) in [
-                ("Tag", vec![0], 1),
+                ("Tag", vec![0, 0], 1),
                 ("TagAll", vec![], if count == 1 { 0 } else { count }),
             ] {
                 vm = machine::call(vm, &mut hooks, routine(routine_name), &arguments);
-                assert_eq!(vm.bus().ram().read(global("tagged")), selected as u8);
+                assert_eq!(vm.bus().ram().read_word(tags + 6), selected as u16);
             }
             if count > 1 {
-                vm = machine::call(vm, &mut hooks, routine("Tag"), &[0]);
-                assert_eq!(vm.bus().ram().read(global("tagged")), count as u8 - 1);
+                vm = machine::call(vm, &mut hooks, routine("Tag"), &[0, 0]);
+                assert_eq!(vm.bus().ram().read_word(tags + 6), count as u16 - 1);
                 vm = machine::call(vm, &mut hooks, routine("TagAll"), &[]);
-                assert_eq!(vm.bus().ram().read(global("tagged")), 0);
+                assert_eq!(vm.bus().ram().read_word(tags + 6), 0);
             }
         }
     }
