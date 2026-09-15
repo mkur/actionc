@@ -3,6 +3,33 @@
 This file tracks cross-cutting compiler work that does not naturally belong to a
 single backend or survey note.
 
+## Classic Indirect Expressions in TN Directory Code
+
+Status: found during the TN directory migration; compiler fixes not started.
+The [directory model tests](../tools/vm-runtime-tests/tests/tn_directory_model.rs)
+exercise source forms that avoid these issues; keep independent failing
+reproducers when addressing the compiler, rather than adding TN special cases.
+
+- A CARD comparison such as `ordinal>=tags.capacity`, where tags is a record
+  pointer, can lose the high operand while preparing the indirect RHS field.
+  The listing loads the operand high byte, overwrites A to form the field
+  address, then continues the comparison. A local CARD snapshot of capacity
+  avoids this; include both operand orders and fields past offset 255 in the fix.
+- `p^==&(mask!$FF)` emits AND mask followed by EOR $FF in classic, changing the
+  meaning of the parenthesized RHS. Computing the inverted mask separately
+  avoids this. Test compound assignments with nested RHS operators against
+  ordinary assignments in both backends.
+- A CARD parameter named start in NextTagged was emitted as the address of a
+  later PROC Start when assigned to a local ordinal. A distinct parameter name
+  avoids the collision. Resolve through semantic storage identity and cover
+  variable/parameter names shadowing routine names.
+- Rendering `output(n)=Internal(batch.summary(n))` can overwrite its destination
+  address in $AE/$AF while evaluating the record-pointer source, then write into
+  the source instead. Capturing the converted byte in a local before the store
+  avoids it. Cover computed lvalues, indirect field/array reads and argument
+  evaluation effects together; the callee's preserves annotation alone does
+  not describe argument evaluation.
+
 ## Classic Record-Copy Scratch Placement with SET
 
 Status: backlogged at user request; implementation has not started.

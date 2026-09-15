@@ -1,0 +1,201 @@
+; Directory data and selection. No screen or operating-system dependencies.
+; Backing storage belongs to the caller. A batch holds at most 64 entries;
+; the tag bitmap belongs to the listing and survives replacing the batch.
+
+CONST BYTE BATCH_CAPACITY=64
+CONST BYTE ENTRY_DIRECTORY=1, ENTRY_PROTECTED=2, ENTRY_TRUNCATED=4
+CONST BYTE DIR_OK=1, DIR_END=0, DIR_RANGE=2, DIR_INVALID=3, DIR_CHANGED=4,
+           DIR_PENDING=5
+
+; Native short names, never screen codes. MyDOS uses eight name bytes and
+; three extension bytes, space padded. A remote source may use a clipped
+; preview and must resolve its full operation name from position instead.
+TYPE DirEntry=[
+  CARD ordinal,position
+  BYTE flags,marker
+  BYTE ARRAY name(11),detail(3)
+]
+TYPE DirBatch=[
+  DirEntry ARRAY items(BATCH_CAPACITY)
+  CARD first
+  BYTE count,valid,ended
+  BYTE ARRAY order(BATCH_CAPACITY),summary(18)
+]
+TYPE Selection=[
+  BYTE POINTER bits
+  CARD capacity,extent,tagged,generation
+  BYTE complete,allIntent,allRequested,limited
+]
+
+PROC TagsFill(Selection POINTER tags BYTE value)
+  BYTE POINTER p
+  CARD n
+  p=tags.bits
+  n=tags.capacity RSH 3
+  WHILE n DO
+    p^=value p==+1 n==-1
+  OD
+RETURN
+
+PROC ClearTags(Selection POINTER tags)
+  TagsFill(tags,0)
+  tags.tagged=0 tags.allIntent=0 tags.allRequested=0
+RETURN
+
+; capacity is a positive multiple of eight, backed by capacity/8 bytes.
+BYTE FUNC TagsInit(Selection POINTER tags BYTE POINTER bits CARD capacity)
+  tags.bits=bits tags.capacity=0
+  tags.extent=0 tags.tagged=0 tags.generation=0
+  tags.complete=0 tags.allIntent=0 tags.allRequested=0 tags.limited=0
+  IF capacity=0 OR (capacity&7)#0 THEN RETURN(DIR_RANGE) FI
+  tags.capacity=capacity
+  ClearTags(tags)
+RETURN(DIR_OK)
+
+PROC TagsReset(Selection POINTER tags)
+  ClearTags(tags)
+  tags.extent=0 tags.complete=0 tags.limited=0
+  tags.generation==+1
+RETURN
+
+BYTE FUNC TagBit(Selection POINTER tags CARD ordinal)
+  BYTE POINTER p
+  BYTE mask
+  LET CARD capacity=tags.capacity
+  IF ordinal>=capacity THEN RETURN(0) FI
+  p=tags.bits+(ordinal RSH 3)
+  mask=1 LSH BYTE(ordinal&7)
+RETURN((p^&mask)#0)
+
+BYTE FUNC SetTagged(Selection POINTER tags CARD ordinal BYTE value)
+  BYTE POINTER p
+  BYTE mask,old
+  LET CARD capacity=tags.capacity
+  LET CARD extent=tags.extent
+  IF ordinal>=capacity OR ordinal>=extent THEN RETURN(DIR_RANGE) FI
+  p=tags.bits+(ordinal RSH 3)
+  mask=1 LSH BYTE(ordinal&7)
+  old=p^&mask
+  IF value THEN
+    IF old=0 THEN p^==%mask tags.tagged==+1 FI
+  ELSE
+    IF old THEN
+      mask==!$FF
+      p^==&mask tags.tagged==-1
+    FI
+  FI
+  IF tags.complete AND tags.tagged=extent THEN
+    tags.allIntent=1
+  ELSEIF tags.tagged=0 THEN
+    tags.allIntent=0
+  FI
+RETURN(DIR_OK)
+
+BYTE FUNC ToggleTag(Selection POINTER tags CARD ordinal)
+RETURN(SetTagged(tags,ordinal,TagBit(tags,ordinal)=0))
+
+PROC TagsRecount(Selection POINTER tags)
+  CARD ordinal,limit
+  LET CARD capacity=tags.capacity
+  limit=tags.extent
+  IF limit>capacity THEN limit=capacity FI
+  tags.tagged=0 ordinal=0
+  WHILE ordinal<limit DO
+    IF TagBit(tags,ordinal) THEN tags.tagged==+1 FI
+    ordinal==+1
+  OD
+RETURN
+
+; extent is the known prefix length; complete makes it the actual total.
+; A seek to a valid ordinal also establishes that the preceding ordinals exist.
+PROC TagsExtent(Selection POINTER tags CARD extent BYTE complete)
+  BYTE POINTER p
+  CARD ordinal
+  BYTE mask
+  LET CARD capacity=tags.capacity
+  LET CARD previous=tags.extent
+  IF extent>previous OR complete THEN tags.extent=extent FI
+  IF complete THEN tags.complete=1 FI
+  LET CARD currentExtent=tags.extent
+  tags.limited=currentExtent>capacity
+  IF tags.complete AND currentExtent<capacity THEN
+    ordinal=currentExtent RSH 3
+    p=tags.bits+ordinal
+    mask=BYTE(currentExtent&7)
+    IF mask THEN
+      mask=(1 LSH mask)-1
+      p^==&mask
+      p==+1 ordinal==+1
+    FI
+    WHILE ordinal<(capacity RSH 3) DO
+      p^=0 p==+1
+      ordinal==+1
+    OD
+  FI
+  TagsRecount(tags)
+RETURN
+
+PROC ToggleAllTags(Selection POINTER tags)
+  IF tags.allIntent THEN
+    ClearTags(tags)
+  ELSE
+    TagsFill(tags,$FF)
+    tags.allIntent=1 tags.allRequested=1
+    TagsExtent(tags,tags.extent,tags.complete)
+  FI
+RETURN
+
+; Tag-all must know its complete extent before file-operation side effects.
+BYTE FUNC TagsReady(Selection POINTER tags)
+  IF tags.allRequested THEN
+    IF tags.limited THEN RETURN(DIR_RANGE) FI
+    IF tags.complete=0 THEN RETURN(DIR_PENDING) FI
+  FI
+RETURN(DIR_OK)
+
+BYTE FUNC NextTagged(Selection POINTER tags CARD fromIndex CARD POINTER found)
+  CARD ordinal,limit
+  LET CARD capacity=tags.capacity
+  limit=tags.extent
+  IF limit>capacity THEN limit=capacity FI
+  ordinal=fromIndex
+  WHILE ordinal<limit DO
+    IF TagBit(tags,ordinal) THEN
+      found^=ordinal RETURN(DIR_OK)
+    FI
+    ordinal==+1
+  OD
+RETURN(DIR_END)
+
+PROC BatchBegin(DirBatch POINTER batch CARD first)
+  batch.valid=0 batch.count=0 batch.ended=0 batch.first=first
+RETURN
+
+BYTE FUNC BatchPublish(DirBatch POINTER batch Selection POINTER tags BYTE count,ended)
+  CARD extent
+  LET CARD first=batch.first
+  IF count>BATCH_CAPACITY THEN RETURN(DIR_RANGE) FI
+  extent=first+count
+  IF extent<first THEN RETURN(DIR_RANGE) FI
+  IF count=0 AND ended=0 THEN RETURN(DIR_INVALID) FI
+  batch.count=count batch.ended=ended
+  TagsExtent(tags,extent,ended)
+  batch.valid=1
+RETURN(DIR_OK)
+
+; Return an address for a cached absolute ordinal; zero means cache miss.
+CARD FUNC CachedEntry(DirBatch POINTER batch CARD ordinal)
+  CARD offset
+  LET CARD first=batch.first
+  LET BYTE count=batch.count
+  IF batch.valid=0 OR ordinal<first THEN RETURN(0) FI
+  offset=ordinal-first
+  IF offset>=count THEN RETURN(0) FI
+RETURN(@batch.items(batch.order(BYTE(offset))))
+
+; Choose a window containing the viewport, without an all-directory index.
+CARD FUNC BatchStart(CARD top)
+  CARD first
+  first=(top RSH 6) LSH 6
+  IF top-first>48 THEN first=top FI
+RETURN(first)

@@ -26,6 +26,21 @@ lists to avoid a parser ambiguity; backing addresses use explicit CARD casts.
 Runtime fixtures must validate these addresses and extents, not rely on the
 successful compile alone.
 
+The shared model now passes execution checks in both cartridge backends with
+LF and CRLF source: 8/512-byte guarded bitmaps, tag/search boundaries through
+4,096 entries, cache eviction/refetch, unknown-length tag-all and exceptions,
+end trimming, capacity errors and reset. A 64-entry fixture window is generated
+on demand. CARD function results are observed through the Action! result cells
+at $A0/$A1; A/X are not a universal public return convention.
+
+Keep local snapshots for pointer-based CARD comparisons. Classic currently
+clobbers a comparison operand while preparing the indirect field address.
+Compute a compound bit operation's mask before applying it to a pointer target;
+the classic path can flatten parentheses in a compound assignment. Also avoid
+routine/parameter name collisions in shared source. These limitations are
+tracked separately in the compiler backlog; no compiler implementation changes
+are included here.
+
 ## Characterization baseline
 
 The complete TN/TNDBG programs pass the following independent host-oracle

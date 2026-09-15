@@ -1,0 +1,40 @@
+; Appended to the production DIR.ACT in the VM test, with TN's SET context.
+Selection left,right
+BYTE ARRAY leftBits(514),rightBits(10),cacheData(SIZEOF(DirBatch))
+DirBatch POINTER cache
+CARD found
+BYTE result
+
+PROC Start()
+  cache=CARD(cacheData)
+  result=TagsInit(@left,@leftBits(1),4096)
+  result=TagsInit(@right,@rightBits(1),64)
+RETURN
+
+; The simulated source generates a bounded window; it has no full directory
+; allocation in Atari memory. Names are deliberately identical previews.
+PROC FakeRead(CARD first BYTE count,ended)
+  BYTE slot,k
+  DirEntry POINTER entry
+  BatchBegin(cache,first)
+  slot=0
+  WHILE slot<count AND slot<BATCH_CAPACITY DO
+    cache.order(slot)=slot
+    entry=@cache.items(slot)
+    entry.ordinal=first+slot entry.position=entry.ordinal
+    entry.flags=ENTRY_TRUNCATED entry.marker=32
+    FOR k=0 TO 10 DO entry.name(k)='A OD
+    FOR k=0 TO 2 DO entry.detail(k)=32 OD
+    slot==+1
+  OD
+  result=BatchPublish(cache,@left,count,ended)
+RETURN
+
+; The harness calls these compiled routines by address. Keep their public
+; entries even when the fixture's startup would not otherwise reach them.
+CARD ARRAY routines=[@TagsExtent @SetTagged @NextTagged @FakeRead @CachedEntry
+                    @BatchStart @TagsReset @ToggleAllTags @TagsReady @found]
+PROC Main()
+  Start()
+  found=routines(0)
+RETURN

@@ -95,6 +95,7 @@ pub fn bytes(vm: &CompilerVm, address: u16, count: usize) -> Vec<u8> {
         .collect()
 }
 
+#[allow(dead_code)] // Used by the full-program tests, not every model fixture.
 pub fn counted(vm: &CompilerVm, address: u16) -> Vec<u8> {
     bytes(vm, address + 1, vm.bus().ram().read(address) as usize)
 }
