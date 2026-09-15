@@ -32,22 +32,33 @@ impl VmRunHooks for Paging {
         let ordinal = u16::from_le_bytes([r.a, r.x]);
         let mut status = 1;
         if name == "Getchar" {
-            status = self.keys.pop_front().expect("navigation consumed expected keys");
+            status = self
+                .keys
+                .pop_front()
+                .expect("navigation consumed expected keys");
         } else if name == "ReadWindow" {
             let tags = vm.bus().ram().read_word(self.tags);
             if self.owner.is_some_and(|owner| owner != tags) {
                 self.reopens += 1;
-                if self.lost_cursor { status = 4; }
+                if self.lost_cursor {
+                    status = 4;
+                }
             }
             self.owner = Some(tags);
             self.requests.push(ordinal);
-            if self.status != 1 { status = self.status; }
+            if self.status != 1 {
+                status = self.status;
+            }
             if status == 1 {
                 assert!(ordinal <= self.total);
                 let count = (self.total - ordinal).min(64);
                 let batch = vm.bus().ram().read_word(self.batch);
                 let ram = vm.bus_mut().ram_mut();
-                assert_eq!(ram.read(batch + 1283), 0, "invalidate before provider writes");
+                assert_eq!(
+                    ram.read(batch + 1283),
+                    0,
+                    "invalidate before provider writes"
+                );
                 ram.write(batch + 1282, count as u8);
                 ram.write(batch + 1284, u8::from(ordinal + count == self.total));
                 ram.map(batch + 1349, &[32; 18])?;
@@ -80,7 +91,9 @@ impl VmRunHooks for Paging {
                 ram.map(output + 1, exact.as_bytes())?;
             }
         }
-        vm.bus_mut().ram_mut().map(RESULT, &[0xA9, status, 0x85, 0xA0, 0x60])?;
+        vm.bus_mut()
+            .ram_mut()
+            .map(RESULT, &[0xA9, status, 0x85, 0xA0, 0x60])?;
         vm.set_pc(RESULT);
         Ok(())
     }
@@ -95,16 +108,38 @@ pub fn check(compiled: &CompiledProgram) {
     let global = |s| global_address(&listing, s);
     let mut hooks = Paging {
         directory: directory::Directory {
-            entries: ["Path", "DrawWinFrame", "Inv", "Close", "Open", "Input", "PutImage"]
-                .into_iter().map(|s| (routine(s), s)).collect(),
+            entries: [
+                "Path",
+                "DrawWinFrame",
+                "Inv",
+                "Close",
+                "Open",
+                "Input",
+                "PutImage",
+            ]
+            .into_iter()
+            .map(|s| (routine(s), s))
+            .collect(),
             ioerr: global("ioerr"),
             input: vec![b"999 FREE SECTORS\x9B\x9B\x9B\x9B".to_vec()],
-            row: 0, images: vec![], names: vec![],
+            row: 0,
+            images: vec![],
+            names: vec![],
         },
-        entries: ["ReadWindow", "ResolveEntry", "Getchar"].into_iter().map(|s| (routine(s), s)).collect(),
-        batch: global("currentbatch"), tags: global("currenttags"), total: 1089,
-        requests: vec![], status: 1, long_names: false, owner: None,
-        lost_cursor: false, reopens: 0, keys: VecDeque::new(),
+        entries: ["ReadWindow", "ResolveEntry", "Getchar"]
+            .into_iter()
+            .map(|s| (routine(s), s))
+            .collect(),
+        batch: global("currentbatch"),
+        tags: global("currenttags"),
+        total: 1089,
+        requests: vec![],
+        status: 1,
+        long_names: false,
+        owner: None,
+        lost_cursor: false,
+        reopens: 0,
+        keys: VecDeque::new(),
     };
     let mut vm = machine::load(compiled);
     for (a, v) in [(0x700, b'M'), (0x76F, 0xA9), (0x70A, 0xFF), (0x70B, 2)] {
@@ -117,9 +152,15 @@ pub fn check(compiled: &CompiledProgram) {
     // Fixture-owned RAM, below the program's $2C00 origin. Guard each bitmap.
     for (tags, backing) in [(right, 0x0800), (left, 0x0A02)] {
         vm.bus_mut().ram_mut().map(backing, &[0xA5; 514]).unwrap();
-        vm = machine::call(vm, &mut hooks, routine("TagsInit"), &words(&[tags, backing + 1, 4096]));
+        vm = machine::call(
+            vm,
+            &mut hooks,
+            routine("TagsInit"),
+            &words(&[tags, backing + 1, 4096]),
+        );
     }
-    let mut extent = words(&[right, 1089]); extent.push(1);
+    let mut extent = words(&[right, 1089]);
+    extent.push(1);
     vm = machine::call(vm, &mut hooks, routine("TagsExtent"), &extent);
     vm = machine::call(vm, &mut hooks, routine("FetchWindow"), &words(&[0]));
     assert_eq!(vm.bus().ram().read_word(active), 1089);
@@ -137,16 +178,29 @@ pub fn check(compiled: &CompiledProgram) {
         assert!(first <= top && first + count >= top + 16);
         assert_eq!(hooks.directory.images.len(), 17);
         for (offset, row) in hooks.directory.images[1..].iter().enumerate() {
-            assert_eq!(row[0], if [7,63,64,256,1024,1088].contains(&(top + offset as u16)) {0x7F} else {0});
+            assert_eq!(
+                row[0],
+                if [7, 63, 64, 256, 1024, 1088].contains(&(top + offset as u16)) {
+                    0x7F
+                } else {
+                    0
+                }
+            );
         }
     }
-    assert!(hooks.requests.contains(&49), "viewport crossing 63/64 needs an unaligned window");
+    assert!(
+        hooks.requests.contains(&49),
+        "viewport crossing 63/64 needs an unaligned window"
+    );
     assert_eq!(vm.bus().ram().read_word(right + 6), 6);
 
     // Execute the wide navigation helper, including ignored boundary keys.
-    for (selected, keys, expected) in [(0, vec![b'-', b'X'], 0),
-        (1088, vec![b'=', b'X'], 1088), (255, vec![b'='], 256),
-        (256, vec![b'-'], 255)] {
+    for (selected, keys, expected) in [
+        (0, vec![b'-', b'X'], 0),
+        (1088, vec![b'=', b'X'], 1088),
+        (255, vec![b'='], 256),
+        (256, vec![b'-'], 255),
+    ] {
         vm.bus_mut().ram_mut().write_word(active + 2, selected);
         hooks.keys = keys.into();
         vm = machine::call(vm, &mut hooks, routine("FileRange"), &[]);
@@ -158,7 +212,10 @@ pub fn check(compiled: &CompiledProgram) {
     vm = machine::call(vm, &mut hooks, routine("Tag"), &words(&[7]));
     vm = machine::call(vm, &mut hooks, routine("SwapWin"), &[]);
     vm = machine::call(vm, &mut hooks, routine("FetchWindow"), &words(&[1024]));
-    assert!(hooks.reopens >= 2, "source cursor must be restored per panel");
+    assert!(
+        hooks.reopens >= 2,
+        "source cursor must be restored per panel"
+    );
     assert_eq!(vm.bus().ram().read_word(left + 6), 1);
     assert_eq!(vm.bus().ram().read_word(right + 6), 6);
     // Iterate selected ordinals independently of the cache and resolve exact
@@ -169,18 +226,34 @@ pub fn check(compiled: &CompiledProgram) {
         assert_eq!(vm.cpu().registers().a, 1);
         assert_eq!(vm.bus().ram().read_word(FOUND), expected);
         vm = machine::call(vm, &mut hooks, routine("Convert"), &words(&[expected]));
-        assert_eq!(machine::counted(&vm, global("fname")), format!("D:F{expected:07}.BIN").as_bytes());
+        assert_eq!(
+            machine::counted(&vm, global("fname")),
+            format!("D:F{expected:07}.BIN").as_bytes()
+        );
         from = expected + 1;
     }
     vm = machine::call(vm, &mut hooks, routine("FindNext"), &words(&[from, FOUND]));
     assert_eq!(vm.cpu().registers().a, 0);
     hooks.long_names = true;
     for ordinal in [63, 1024] {
-        vm = machine::call(vm, &mut hooks, routine("ResolveEntry"), &words(&[ordinal, NAME, 128]));
-        assert_eq!(machine::counted(&vm, NAME), format!("D:Same visible prefix, complete filename {ordinal:05}.bin").as_bytes());
+        vm = machine::call(
+            vm,
+            &mut hooks,
+            routine("ResolveEntry"),
+            &words(&[ordinal, NAME, 128]),
+        );
+        assert_eq!(
+            machine::counted(&vm, NAME),
+            format!("D:Same visible prefix, complete filename {ordinal:05}.bin").as_bytes()
+        );
     }
     let before = machine::bytes(&vm, NAME, 128);
-    vm = machine::call(vm, &mut hooks, routine("ResolveEntry"), &words(&[1024, NAME, 15]));
+    vm = machine::call(
+        vm,
+        &mut hooks,
+        routine("ResolveEntry"),
+        &words(&[1024, NAME, 15]),
+    );
     assert_eq!(vm.cpu().registers().a, 2);
     assert_eq!(machine::bytes(&vm, NAME, 128), before);
 
@@ -208,7 +281,11 @@ pub fn check(compiled: &CompiledProgram) {
     hooks.status = 6;
     vm = machine::call(vm, &mut hooks, routine("PrepareSelection"), &[]);
     assert_eq!(vm.cpu().registers().a, 6);
-    assert_eq!(vm.bus().ram().read_word(active + 2), 31, "failed end scan preserves selection");
+    assert_eq!(
+        vm.bus().ram().read_word(active + 2),
+        31,
+        "failed end scan preserves selection"
+    );
     hooks.status = 1;
 
     hooks.total = 4097;
@@ -216,11 +293,19 @@ pub fn check(compiled: &CompiledProgram) {
     vm = machine::call(vm, &mut hooks, routine("FetchWindow"), &words(&[0]));
     vm = machine::call(vm, &mut hooks, routine("ToggleAllTags"), &words(&[right]));
     vm = machine::call(vm, &mut hooks, routine("PrepareSelection"), &[]);
-    assert_eq!(vm.cpu().registers().a, 2, "no partial tag-all beyond capacity");
+    assert_eq!(
+        vm.cpu().registers().a,
+        2,
+        "no partial tag-all beyond capacity"
+    );
     assert!(hooks.directory.names.iter().all(|(mode, _)| *mode == 6));
     vm = machine::call(vm, &mut hooks, routine("ClearTags"), &words(&[right]));
     vm = machine::call(vm, &mut hooks, routine("GoTo"), &words(&[4096]));
-    assert_eq!(vm.bus().ram().read_word(active + 2), 4096, "browsing exceeds bitmap capacity");
+    assert_eq!(
+        vm.bus().ram().read_word(active + 2),
+        4096,
+        "browsing exceeds bitmap capacity"
+    );
 
     // Ordinary I/O failure cannot publish a partial cache. A changed listing
     // (including an unrepeatable cursor lost on panel activation) clears tags.
@@ -229,7 +314,9 @@ pub fn check(compiled: &CompiledProgram) {
     assert_eq!(vm.cpu().registers().a, 6);
     let batch = vm.bus().ram().read_word(global("currentbatch"));
     assert_eq!(vm.bus().ram().read(batch + 1283), 0);
-    hooks.status = 1; hooks.lost_cursor = true; hooks.owner = Some(left);
+    hooks.status = 1;
+    hooks.lost_cursor = true;
+    hooks.owner = Some(left);
     let generation = vm.bus().ram().read_word(right + 8);
     vm = machine::call(vm, &mut hooks, routine("FetchWindow"), &words(&[0]));
     assert_eq!(vm.cpu().registers().a, 4);

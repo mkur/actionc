@@ -59,6 +59,7 @@ fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
                 &CompileOptions::for_mode(mode).with_runtime(Runtime::ActionCart),
             )
             .unwrap();
+            check_io_failures(&compiled);
             let listing = compiled.source_listing();
             let global = |s| global_address(&listing, s);
             let routine = |s| routine_address(&listing, s);
@@ -185,5 +186,133 @@ fn mydos_reader_renders_and_resolves_a_complete_bounded_batch() {
                 }
             }
         }
+    }
+}
+
+struct ReadFailure {
+    directory: directory::Directory,
+    cache: u16,
+    fail_open: bool,
+    nonlocal: bool,
+    hit: bool,
+}
+impl actionc_vm::VmRunHooks for ReadFailure {
+    type Error = String;
+    fn before_step(&mut self, vm: &mut actionc_vm::CompilerVm) -> Result<(), String> {
+        let name = self
+            .directory
+            .entries
+            .get(&vm.cpu().registers().pc)
+            .copied();
+        let failing = if self.fail_open {
+            name == Some("Open")
+        } else {
+            name == Some("Input") && self.directory.row == 1
+        };
+        if failing {
+            self.hit = true;
+            assert_eq!(
+                vm.bus().ram().read(self.cache + 1283),
+                0,
+                "cache must already be invalid when CIO transfers to its error handler"
+            );
+            vm.bus_mut().ram_mut().write(self.directory.ioerr, 144);
+            // Model either a returned status or CIO's nonlocal transfer. The
+            // latter never executes the reader's normal return/cleanup path.
+            vm.set_pc(if self.nonlocal {
+                0x0630
+            } else {
+                machine::RETURN
+            });
+            Ok(())
+        } else {
+            self.directory.before_step(vm)
+        }
+    }
+}
+
+fn check_io_failures(compiled: &actionc::compiler::CompiledProgram) {
+    use actionc_vm::{RunRequest, StopReason, VmRunner};
+    let listing = compiled.source_listing();
+    let routine = |s| routine_address(&listing, s);
+    let global = |s| global_address(&listing, s);
+    for (fail_open, nonlocal) in [(true, false), (false, false), (true, true), (false, true)] {
+        let mut hooks = ReadFailure {
+            directory: directory::Directory {
+                entries: ["Close", "Open", "Input"]
+                    .into_iter()
+                    .map(|s| (routine(s), s))
+                    .collect(),
+                ioerr: global("ioerr"),
+                input: directory::files(2)
+                    .iter()
+                    .map(directory::File::input)
+                    .collect(),
+                row: 0,
+                images: vec![],
+                names: vec![],
+            },
+            cache: 0,
+            fail_open,
+            nonlocal,
+            hit: false,
+        };
+        let mut vm = machine::load(compiled);
+        vm = machine::call(vm, &mut hooks, routine("ReaderInit"), &[]);
+        let cache = vm.bus().ram().read_word(global("cache"));
+        hooks.cache = cache;
+        vm.bus_mut().ram_mut().write(cache + 1283, 1); // Previously published listing.
+        let tags = global("tags");
+        vm.bus_mut().ram_mut().write_word(tags + 6, 1);
+        if nonlocal {
+            let reader = routine("MyDosRead");
+            let ram = vm.bus_mut().ram_mut();
+            ram.map(
+                machine::ENTRY,
+                &[
+                    0xA9,
+                    cache as u8,
+                    0xA2,
+                    (cache >> 8) as u8,
+                    0xA0,
+                    tags as u8,
+                    0x20,
+                    reader as u8,
+                    (reader >> 8) as u8,
+                ],
+            )
+            .unwrap();
+            ram.write(0xA3, (tags >> 8) as u8);
+            ram.write(0x0630, 0xEA);
+            vm.set_pc(machine::ENTRY);
+            let result = VmRunner::new(vm)
+                .run_with_hooks(
+                    RunRequest {
+                        max_steps: 100_000,
+                        stop_after_pc: Some(0x0630),
+                        history_len: 8,
+                    },
+                    &mut hooks,
+                )
+                .unwrap();
+            assert_eq!(result.stop_reason(), StopReason::PcReached { pc: 0x0630 });
+            vm = result.into_vm();
+        } else {
+            vm = machine::call(
+                vm,
+                &mut hooks,
+                routine("MyDosRead"),
+                &args(&[cache, tags], &[]),
+            );
+            assert_eq!(vm.cpu().registers().a, 6);
+        }
+        assert!(hooks.hit);
+        assert_eq!(
+            vm.bus().ram().read(global("ioerr")),
+            144,
+            "preserve original I/O status"
+        );
+        assert_eq!(vm.bus().ram().read(cache + 1283), 0);
+        assert_eq!(vm.bus().ram().read_word(tags + 6), 0);
     }
 }

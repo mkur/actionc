@@ -10775,19 +10775,27 @@ mod tests {
 
         assert_eq!(
             skipped_lengths,
-            vec![10, 16, 32, 40, 47, 47, 130, 130, 1171, 1171],
+            vec![8, 8, 32, 32, 40, 1367, 1367],
             "TN should defer every eligible uninitialized global and local array backing range"
         );
-        // Panel state is now three records. The two saved states used to be
-        // deferred eight-byte arrays; all three record values are emitted.
-        for name in ["active", "leftPanel", "rightPanel"] {
+        // Generic panel state is separate from source-owned locations and
+        // selection. All three small record values are emitted.
+        for (name, size) in [
+            ("active", 5),
+            ("leftPanel", 5),
+            ("rightPanel", 5),
+            ("leftTags", 14),
+            ("rightTags", 14),
+            ("leftLocation", 49),
+            ("rightLocation", 49),
+        ] {
             let symbol = output
                 .map
                 .storage_symbols
                 .iter()
                 .find(|symbol| symbol.name == name)
                 .unwrap_or_else(|| panic!("missing TN panel record {name}"));
-            assert_eq!(symbol.size, 8, "{name} must preserve the panel layout");
+            assert_eq!(symbol.size, size, "{name} directory-model layout");
             assert!(symbol.array.is_none(), "{name} should be a record value");
             assert!(symbol.address >= output.origin);
             assert!(symbol.address + symbol.size <= emitted_end);
@@ -10800,6 +10808,47 @@ mod tests {
             "skipped ranges must not overlap final code: emitted_end=${emitted_end:04X}, skipped={:?}",
             output.skipped_ranges
         );
+        let mut reserved = output.skipped_ranges.clone();
+        reserved.sort_by_key(|range| range.start);
+        assert!(
+            reserved
+                .windows(2)
+                .all(|pair| pair[0].start + pair[0].len <= pair[1].start)
+        );
+        let storage_end = reserved
+            .iter()
+            .map(|r| r.start + r.len)
+            .max()
+            .unwrap()
+            .max(emitted_end);
+        let buffer = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|s| s.name == "buffer")
+            .unwrap();
+        let offset = usize::from(buffer.address - output.origin);
+        let copy_start = u16::from_le_bytes(output.bytes[offset..offset + 2].try_into().unwrap());
+        assert_eq!(
+            copy_start, storage_end,
+            "SET BUFFER=* follows code, homes and deferred arrays"
+        );
+        assert!(
+            copy_start < 0xA000 - 4096,
+            "retain at least 4K below the cartridge window"
+        );
+        for (name, address) in [("screen", 0xE6), ("allocp", 0xE8)] {
+            assert_eq!(
+                output
+                    .map
+                    .storage_symbols
+                    .iter()
+                    .find(|s| s.name == name)
+                    .unwrap()
+                    .address,
+                address
+            );
+        }
     }
 
     #[test]

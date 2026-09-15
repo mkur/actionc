@@ -71,7 +71,7 @@ services and disk I/O are substituted; they are not disk-level emulator results.
 The old inclusive path-name copy is an isolated bug fix: for `D:ABCDEFGH.`
 the dot is at index 11, so copying through it writes slot offset 9, beyond
 the nine-byte counted-name slot. Copying through index 10 writes offsets 1–8
-only. The typed-location fixture will guard this boundary at every depth.
+only. The typed-location fixture guards this boundary at every depth.
 
 Baseline load-file bytes: TN classic 10,549; TN MIR6502 9,943; TNDBG classic
 13,794; TNDBG MIR6502 13,048. The existing per-panel backing totals 1,357 bytes.
@@ -113,3 +113,47 @@ Production Convert still uses a 15-byte MyDOS filename buffer and CIO commands.
 A live FujiNet command adapter must supply its own full-name buffer and I/O
 path before those commands can accept remote long names. This milestone adds
 no remote mutation capability or new source-selection menu.
+
+## Final acceptance and memory
+
+Both complete roots pass the behavioral checks in modern classic and MIR6502
+with the cartridge runtime. Model and reader fixtures pass both LF and CRLF.
+Reader failures cover Open, a partial Input sequence, returned status and a
+simulated nonlocal CIO error transfer: invalidation precedes the failing call
+and the original I/O status survives. The storage-promotion check now follows
+SortBatch and recognizes Copy's explicit output pointer. The MIR storage check
+verifies all panel/location/selection record sizes, deferred-array non-overlap,
+zero-page bindings and the final copy-buffer boundary.
+
+The final per-panel budget is 1,443 bytes, versus the old 1,357. Shared buffer
+and adapter homes/spills, counted conservatively from the emitted listings,
+are 408/425 bytes for TN classic/MIR and 413/428 for TNDBG, below 512. This
+includes root adapter routines and small panel descriptors as well as all
+shared routines' emitted homes and spills. These are static reservations;
+stack and the unchanged screen/window allocation scheme are separate.
+
+| Program/backend | Old copy start | New copy start | Reduction in copy RAM |
+| --- | --- | --- | ---: |
+| TN classic | `$5F7D` | `$7E95` | 7,960 |
+| TN MIR6502 | `$5DB5` | `$7BB7` | 7,682 |
+| TNDBG classic | `$6C2A` | `$8C34` | 8,202 |
+| TNDBG MIR6502 | `$69D6` | `$8A67` | 8,337 |
+
+These measurements include emitted code, static storage, compiler spills and
+deferred arrays, not only the compact directory records. All four builds leave
+at least 5,068 bytes below a `$A000` comparison MEMTOP; actual Copy uses the OS
+MEMTOP value. Source modularity and wider indexing have a substantial code cost;
+no copy-space saving is claimed. The existing transfer-continuation checks use
+a much smaller 256-byte arena and still reproduce complete output bytes.
+
+`python3 surveys/tn/measure-directory.py` regenerates all four artifacts and a
+JSON report under target. The baseline can be reproduced by extracting TN.ACT,
+TNDBG.ACT and LIB.ACT from commit 0532f7d into an ignored directory and supplying
+that directory via `--source-dir` with a separate `--out-dir`.
+
+A disk-level smoke check is still outstanding. The installed Atari800MacX has
+no interactive control tool in this session; substituted CIO services do not
+establish disk-level MyDOS behavior. Use disposable disks for the manual
+acceptance cases listed in the sample notes. The legacy compatibility size
+script independently stops on a RETURN(-1) typing diagnostic in unchanged
+archived source; it is tracked in the compiler backlog.

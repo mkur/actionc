@@ -12,7 +12,9 @@ identifies uses for current language features, preservation constraints and
 compiler limitations, with fresh builds of TN and TNDBG.
 The [directory handling implementation plan](directory-handling-implementation-plan.md)
 replaces the proposed row overlays with 64-entry batches, independent tagging
-and a MyDOS-first migration toward FujiNet. It is proposed, not implemented.
+and a MyDOS-first migration toward FujiNet. The implementation and VM checks
+are complete; see the [sample notes](../../samples/tn/README.md) for measured
+memory and the outstanding disk-level emulator check.
 The fresh final-output audit after carry and dual-pointer selection is in
 [`mir6502-final-listing-audit-2026-07-24.md`](mir6502-final-listing-audit-2026-07-24.md).
 The latest clean-head listing reanalysis and ranked MIR6502 backlog are in
@@ -41,13 +43,13 @@ with `modern` from the maintained source under `../modern`, compares each
 load-file size against the original Action! compiler `TN.COM`, and fails when a
 profile exceeds its size budget.
 
-The modern budget is wider because the maintained TN source is newer than the
-archived 1.22 source used by the original baseline and intentionally uses a
-different optimized layout. Its default is currently +/- 1792 bytes. After
-modern routine-entry trampoline elision, scaled `(zp),Y` word-index lowering,
-straight-line propagation, and internal parameter-storage elision, the accepted
-load-size delta is -1682 bytes (10445 generated versus 12127 in the original
-baseline).
+The directory migration intentionally increases the maintained program's size.
+The modern budget is now +/- 6,400 bytes against the original 12,127-byte file;
+the maintained classic load file is 18,355 bytes (delta +6,228). Compare memory
+and behavior using the sample's focused checks and `measure-directory.py` too.
+The compatibility budget remains 512 bytes. At this checkpoint the script stops
+on an existing diagnostic in the unchanged archived source: BYTE Fnamecmp rejects
+`RETURN(-1)` at line 336. The modern build is within its revised budget.
 
 Default inputs:
 

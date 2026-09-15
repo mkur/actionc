@@ -174,7 +174,12 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
         assert_eq!(hooks.row, count + 2, "files plus summary plus EOF");
         assert!(hooks.names.iter().all(|n| n == &(6, b"D:*.*".to_vec())));
         for (i, file) in expected.iter().enumerate() {
-            vm = machine::call(vm, &mut hooks, routine("Convert"), &(i as u16).to_le_bytes());
+            vm = machine::call(
+                vm,
+                &mut hooks,
+                routine("Convert"),
+                &(i as u16).to_le_bytes(),
+            );
             assert_eq!(machine::counted(&vm, global("fname")), file.filename());
         }
         let tags = vm.bus().ram().read_word(global("currenttags"));
@@ -184,7 +189,12 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
         assert!(hooks.images.iter().any(|row| row == &expected_summary));
         for start in [0, count.saturating_sub(16)] {
             hooks.images.clear();
-            vm = machine::call(vm, &mut hooks, routine("Draw"), &(start as u16).to_le_bytes());
+            vm = machine::call(
+                vm,
+                &mut hooks,
+                routine("Draw"),
+                &(start as u16).to_le_bytes(),
+            );
             let rows: Vec<_> = expected
                 .iter()
                 .skip(start)

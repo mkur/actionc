@@ -26,6 +26,11 @@ data layouts and control flow explicit.
 This is a source audit. The existing [NIR optimization note](../../docs/NIR_TN_OPTIMIZATION_NOTE.md)
 and MIR listing audits address compiler optimization separately.
 
+Implementation update: the directory migration is complete in both maintained
+roots. The [sample notes](../../samples/tn/README.md) document the shared native
+data model, source-owned paths, synthetic paging acceptance and memory costs.
+The historical shapes and source line numbers below describe the audit baseline.
+
 ## Findings, ranked by value
 
 ### 1. Make panel state an explicit record

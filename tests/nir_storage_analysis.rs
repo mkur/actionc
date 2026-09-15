@@ -21,17 +21,17 @@ fn tn_exposes_high_value_scalar_promotion_candidates() {
         .unwrap_or_else(|diagnostics| panic!("verify {}: {diagnostics:?}", source.display()));
 
     let analysis = nir::analyze_program_storage(&lowered);
-    let sort = analysis.routine("Sort").expect("Sort storage facts");
+    let sort = analysis
+        .routine("SortBatch")
+        .expect("SortBatch storage facts");
     assert!(
         sort.storage_by_name("gap")
             .is_some_and(nir::NirStorageFacts::is_promotable),
-        "Sort::gap should be a scalar-promotion candidate: {sort:#?}"
+        "SortBatch::gap should be a scalar-promotion candidate: {sort:#?}"
     );
 
     let copy = analysis.routine("Copy").expect("Copy storage facts");
-    for name in [
-        "mem", "len", "files", "j", "k", "flag", "diskswap", "isopen",
-    ] {
+    for name in ["mem", "len", "files", "k", "flag", "diskswap", "isopen"] {
         let facts = copy
             .storage_by_name(name)
             .unwrap_or_else(|| panic!("Copy::{name} storage facts"));
@@ -41,9 +41,12 @@ fn tn_exposes_high_value_scalar_promotion_candidates() {
         );
     }
 
+    // NextTagged writes its CARD result through an explicit output pointer.
+    assert!(!copy.storage_by_name("j").unwrap().is_promotable());
+
     let optimized = nir::optimize_program(&lowered)
         .unwrap_or_else(|diagnostics| panic!("optimize {}: {diagnostics:?}", source.display()));
-    for routine_name in ["SetWin", "Copy", "Sort"] {
+    for routine_name in ["SetWin", "Copy", "SortBatch"] {
         let lowered_loads = routine_loads(&lowered, routine_name);
         let optimized_loads = routine_loads(&optimized, routine_name);
         assert!(

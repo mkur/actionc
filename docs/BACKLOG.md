@@ -3,6 +3,16 @@
 This file tracks cross-cutting compiler work that does not naturally belong to a
 single backend or survey note.
 
+## Archived TN Compatibility Return Diagnostic
+
+The optional `surveys/tn/check-stability.sh` currently stops on unchanged
+`corpora/tn/original/extracted/SRC/TN.ACT.atascii:336`: BYTE Fnamecmp's
+`RETURN(-1)` is rejected as returning INT. Reproduced with `--profile compat`
+during the directory migration. Investigate the compatibility typing rule with
+a focused original-language regression; do not edit the archived sample to
+make the diagnostic disappear. The maintained modern builds pass their
+separate behavioral tests.
+
 ## Classic Indirect Expressions in TN Directory Code
 
 Status: found during the TN directory migration; compiler fixes not started.

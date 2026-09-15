@@ -1,10 +1,14 @@
 # TN directory handling implementation plan
 
-Status: implementation in progress, 2026-09-15. Slices 1–5 are complete.
-Both production roots pass MyDOS, location, paging and selection execution
-checks in both cartridge backends. Final storage checks, measurements and
-acceptance documentation are in progress. The
-[data contract](directory-model-contract.md) records layouts and evidence.
+Status: implementation complete, 2026-09-15. All six slices are implemented
+and committed separately. The maintained roots pass focused MyDOS, paging,
+selection, location and storage checks in both cartridge backends. Memory is
+within the planned budgets; measurements are in the
+[sample notes](../../samples/tn/README.md) and can be reproduced with
+`measure-directory.py`. Interactive disk-level emulator acceptance remains
+outstanding, as permitted in slice 6. The unrelated archived compatibility
+stability check currently rejects its existing `RETURN(-1)`; see the backlog.
+The [data contract](directory-model-contract.md) records the final boundaries.
 
 ## Milestone and scope
 

@@ -13,14 +13,14 @@ use actionc_vm::{
 mod copy;
 #[path = "support/tn_directory.rs"]
 mod directory;
-#[path = "support/tn_machine.rs"]
-mod machine;
-#[path = "support/tn_panels.rs"]
-mod panels;
-#[path = "support/tn_paging.rs"]
-mod paging;
 #[path = "support/tn_locations.rs"]
 mod locations;
+#[path = "support/tn_machine.rs"]
+mod machine;
+#[path = "support/tn_paging.rs"]
+mod paging;
+#[path = "support/tn_panels.rs"]
+mod panels;
 
 const ENTRY: u16 = 0x0600;
 const RETURN: u16 = 0x0610;
