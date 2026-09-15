@@ -117,6 +117,13 @@ The maintained samples include small graphics programs, the Action! Toolkit,
 and TOMS Navigator. These larger programs are also used for compatibility and
 runtime regression testing.
 
+The experimental 65816 native scalar emitter has a separate
+[`actionc-65816` driver](docs/MIR65816_EMISSION_CONTRACT.md). It produces
+freestanding images with checked stack frames, direct far calls and assembly
+interoperability. The [execution corpus](tools/native65816-runtime-tests/README.md)
+tests real binaries on the VM's 24-bit bus. Context switching and full Exec
+qualification remain later steps in the [implementation plan](docs/MIR65816_IMPLEMENTATION_PLAN.md).
+
 An experimental MC68000 path is available through the public CLI and native
 compiler API. It executes integer arithmetic, control flow, calls and arrays
 with the [bare native ABI](docs/MIR68K_EXECUTION_CONTRACT.md):

@@ -1,6 +1,7 @@
 pub(crate) mod artifacts;
 mod diagnostics;
 pub mod native;
+pub mod native65816;
 pub(crate) mod settings;
 pub(crate) mod validation;
 

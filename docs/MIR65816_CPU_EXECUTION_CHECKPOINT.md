@@ -23,13 +23,13 @@ for commands, source provenance and hardware limitations.
 
 ## Still pending
 
-Compiler-generated **native** execution remains blocked by the missing
-MIR65816 emitter. Emulation-mode execution does not establish a native calling
-convention, stack frames, reentrancy or two-context interrupt safety. The
-[physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) now has generated constants and
-verified call/frame plans. The next compiler work is minimal native emission
-and assembly interoperability in the
-[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md).
+The later [native scalar emitter](MIR65816_EMISSION_CONTRACT.md) now executes
+compiler-generated native images on this bus, including checked frames and
+assembly interoperability. That separate corpus covers the
+[physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) scalar subset. Indirect calls,
+context entry/save/restore and asynchronous qualification remain in the
+[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md). The earlier
+emulation-mode probe alone does not establish any native ABI property.
 
 The port retains X65's documented REP/SEP/RTI status-update timing limitations;
 two ignored timing tests remain failing reproducers. ABORT is explicitly

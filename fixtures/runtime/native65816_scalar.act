@@ -1,0 +1,14 @@
+CARD total
+LONGINT signedResult
+
+CARD FUNC Sum(CARD n)
+  IF n=0 THEN RETURN(0) FI
+RETURN(n+Sum(n-1))
+
+LONGINT FUNC Add(INT first LONGINT second)
+RETURN(LONGINT(first)+second)
+
+PROC Main()
+  total=Sum(12)
+  signedResult=Add(-32768,-100)
+RETURN

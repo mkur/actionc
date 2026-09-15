@@ -15,15 +15,17 @@ compiler gaps or establish emitted-code readiness described in this review.
 
 The later [X65 execution checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
 records the C qualification, Rust port, VM integration and Altirra comparison.
-Native compiler emission and the Exec acceptance gates remain pending.
+Native scalar emission was added subsequently; the complete Exec acceptance
+gates remain pending.
 
 The four information-preservation corrections identified below are implemented
 and covered by the [lowering contract](MIR65816_LOWERING_CONTRACT.md) and permanent
 regression tests. The subsequent [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md)
 specifies the machine conventions. Generated constants and verified ABI plans
-now implement the layout decisions. Emission and executable qualification
-remain pending; the [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md)
-tracks that boundary.
+now implement the layout decisions. The [scalar emitter](MIR65816_EMISSION_CONTRACT.md)
+adds allocated frames, linked images and assembly interoperability. The
+[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) tracks the remaining
+context and complete kernel-subset qualification.
 
 ## Assessment
 
@@ -32,11 +34,11 @@ interrupt safety and executable evidence should drive the work. The proposed
 two-context qualification harness can prove those properties before building
 a scheduler, allocator or message system.
 
-The shared language and NIR foundations are useful. MIR65816 currently stops
-at lowering and frame planning, however, and needs instruction selection,
-allocation, emission, linking and independent
-execution. Keep all six acceptance gates before declaring the compiler ready
-for Exec implementation.
+The shared language and NIR foundations are useful. MIR65816 now has a scalar
+instruction selector, conservative stack allocation, image linking and
+independent execution evidence. Keep all six acceptance gates before declaring
+the compiler ready for Exec implementation; the scalar corpus does not qualify
+preemption or the complete kernel subset.
 
 ## Lowering gaps identified at the reviewed baseline
 
@@ -106,26 +108,23 @@ bytes. Incoming body-relative displacements and each object's last byte are
 checked. The verifier also checks caller/callee agreement and the saved-state
 inventory. Small-model plans retain their separate layout.
 
-Stack peaks remain lower bounds before allocation, explicitly marked
-`allocation_complete: false`. The emitter must account for live temporaries,
-spills and every actual access after S moves. Board-specific bank-zero
-placement, whole-task bounds and executable interrupt qualification remain
-required.
+Abstract stack peaks remain lower bounds before allocation, explicitly marked
+`allocation_complete: false`. The scalar emitter adds separate allocated frames
+and concrete checks for temporaries, accesses after S moves and call transfers.
+Board-specific bank-zero placement, whole-task bounds and executable interrupt
+qualification remain required.
 
 ## Recommended implementation sequence
 
-ABI v1 planning is implemented. Continue with:
+ABI v1 planning and minimal scalar execution are implemented. Continue with:
 
-1. **Establish minimal emitted execution.** Generalize the image transport and
-   execute basic memory operations, arithmetic, branches and far calls from
-   binary artifacts using the independently qualified CPU subset.
-2. **Prove invocation isolation.** Implement real frames, recursion, assembly
-   interoperability, indirect calls and two simultaneously live contexts.
-   Introduce the interrupt harness as soon as real calls and frames work.
-3. **Complete the kernel subset.** Add banked pointers, records/arrays, wide
-   arithmetic, memory helpers, faults and final stack accounting. Expand the
-   interruption corpus as each helper arrives.
-4. **Qualify preemption and effects.** Complete instruction-boundary IRQ
+1. **Extend invocation qualification.** Add indirect calls and two simultaneously
+   live contexts to the existing frame, recursion and assembly corpus. Implement
+   the context/interrupt harness against the emitted artifacts.
+2. **Complete the kernel subset.** Expand aggregate operations, wide arithmetic,
+   memory helpers and faults. Generalize the legacy declaration-address resolver
+   beyond bank zero and extend stack accounting as instructions/helpers arrive.
+3. **Qualify preemption and effects.** Complete instruction-boundary IRQ
    injection, NMI, volatile traces, nested critical sections and all six
    acceptance gates in the advertised compiler configurations.
 
@@ -148,5 +147,6 @@ surface tests and three modern integer arithmetic tests. The separate probes
 above nevertheless exposed the signedness gaps; the current assertions do not
 cover them.
 
-There is still no emitted 65816 execution evidence. No emulator acceptance
-gate, interrupt qualification or real-machine result is claimed here.
+This historical review did not contain emitted 65816 execution evidence. The
+later scalar corpus is documented separately; no complete acceptance gate,
+interrupt qualification or native real-machine result is claimed by it.

@@ -8,7 +8,7 @@ bytes respectively; both have a 24-bit architectural address space.
 SemIR owns source meaning. Verified NIR supplies typed operations, storage
 identities, backing relationships and initialization. MIR65816 consumes those
 facts without consulting SemIR, source expressions or display names. The
-backend still stops before register allocation and machine-code emission.
+native emitter consumes this contract; small-model lowering remains separate.
 
 ## Arithmetic
 
@@ -20,6 +20,17 @@ backend still stops before register allocation and machine-code emission.
   signedness. Pointer and address comparisons remain unsigned.
 - These are instruction-selection facts. Preserving a division operation does
   not establish an executable division helper.
+- Casts retain `from_signed` independently of widths and conversion kind, so
+  signed widening does not need to recover the source type after lowering.
+
+## Control flow and entries
+
+Routines retain their signature identity, entry/placement facts and typed
+temporary table. Blocks retain parameter definitions; edges retain argument
+values as well as target block IDs. The MIR verifier checks definitions against
+the temporary table, unique identities and edge arity/width agreement. Emission
+performs parallel edge copies using invocation storage. Lowering must not drop
+edge values introduced by native loop promotion or infer an entry from its name.
 
 ## Storage and initialization
 
@@ -91,8 +102,10 @@ mutability facts, size words, image-end values and byte-selected relocations.
 Selectors and descriptor corner cases without a native source spelling are
 constructed as NIR fixtures and passed through the real verifier/backend entry.
 
-The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) has generated constants and
-verified call/frame plans. Final allocation, emission, image loading and
-executable G1–G6 qualification remain ahead in the
+The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) has generated constants,
+verified call/frame plans and a [native scalar emitter](MIR65816_EMISSION_CONTRACT.md).
+The emitter allocates invocation slots, checks concrete accesses and links
+freestanding images. Indirect calls, contexts and executable G1–G6 qualification
+remain ahead in the
 [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) and
 [Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md).

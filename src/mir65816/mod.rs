@@ -1,11 +1,9 @@
-//! Portable NIR-to-MIR canary for the WDC 65816.
-//!
-//! This deliberately stops before register allocation or emission. Its job is
-//! to prove that a separate 65816 backend can consume verifier-clean NIR
-//! without reaching back into Semantic IR or borrowing MIR6502 concepts.
+//! WDC 65816 lowering, native ABI planning and freestanding scalar emission.
 
 pub mod abi;
 mod data;
+pub mod emit;
+pub mod image;
 mod lower;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
@@ -104,6 +102,9 @@ pub struct Mir65816RuntimeBinding {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816Routine {
     pub id: RoutineId,
+    pub signature: SignatureId,
+    pub entry: crate::nir::NirRoutineEntry,
+    pub temps: Vec<(TempId, crate::nir::NirType)>,
     pub name: String,
     pub convention: NirCallConvention,
     pub result_home: Option<Mir65816AbiHome>,
@@ -308,6 +309,7 @@ pub struct Mir65816TaskSwitchState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816Block {
     pub id: BlockId,
+    pub params: Vec<(TempId, ByteSize)>,
     pub ops: Vec<Mir65816Op>,
     pub terminator: Mir65816Terminator,
 }
@@ -346,6 +348,7 @@ pub enum Mir65816Op {
     Cast {
         dest: TempId,
         from: ByteSize,
+        from_signed: bool,
         to: ByteSize,
         kind: NirCastKind,
         value: Mir65816Value,
@@ -448,11 +451,11 @@ pub enum Mir65816CallTarget {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir65816Terminator {
     Fallthrough,
-    Goto(BlockId),
+    Goto(Mir65816Edge),
     Branch {
         condition: Mir65816Value,
-        then_block: BlockId,
-        else_block: BlockId,
+        then_edge: Mir65816Edge,
+        else_edge: Mir65816Edge,
     },
     Return {
         value: Option<Mir65816Value>,
@@ -461,6 +464,12 @@ pub enum Mir65816Terminator {
         restored_mode: Mir65816ModeState,
     },
     Exit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mir65816Edge {
+    pub target: BlockId,
+    pub args: Vec<Mir65816Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -550,6 +559,13 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
                 message,
             });
         }
+        if let Err(message) = verify_control_flow(routine) {
+            errors.push(Mir65816Diagnostic {
+                routine: Some(routine.name.clone()),
+                block: None,
+                message,
+            });
+        }
         if native {
             for block in &routine.blocks {
                 for op in &block.ops {
@@ -586,6 +602,102 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
     } else {
         Err(errors)
     }
+}
+
+fn verify_control_flow(routine: &Mir65816Routine) -> Result<(), String> {
+    use std::collections::{BTreeMap, BTreeSet};
+    let temps = routine
+        .temps
+        .iter()
+        .map(|(id, ty)| (*id, ty.width))
+        .collect::<BTreeMap<_, _>>();
+    if temps.len() != routine.temps.len() {
+        return Err("65816 duplicate temporary identity".into());
+    }
+    let blocks = routine
+        .blocks
+        .iter()
+        .map(|b| (b.id, b))
+        .collect::<BTreeMap<_, _>>();
+    if blocks.len() != routine.blocks.len() {
+        return Err("65816 duplicate block identity".into());
+    }
+    let mut definitions = BTreeSet::new();
+    let mut define = |id, width| {
+        if temps.get(&id) != Some(&Some(width)) || !definitions.insert(id) {
+            Err("65816 temporary definition disagrees with its typed fact".to_string())
+        } else {
+            Ok(())
+        }
+    };
+    for block in &routine.blocks {
+        for &(id, width) in &block.params {
+            define(id, width)?;
+        }
+        for op in &block.ops {
+            let result = match op {
+                Mir65816Op::Load { dest, width, .. }
+                | Mir65816Op::AddressOf { dest, width, .. }
+                | Mir65816Op::Unary { dest, width, .. }
+                | Mir65816Op::PointerOffset { dest, width, .. }
+                | Mir65816Op::Binary { dest, width, .. } => Some((*dest, *width)),
+                Mir65816Op::Cast { dest, to, .. } => Some((*dest, *to)),
+                Mir65816Op::Compare { dest, .. } => Some((*dest, ByteSize::ONE)),
+                Mir65816Op::Call { result, .. } => *result,
+                _ => None,
+            };
+            if let Some((id, width)) = result {
+                define(id, width)?;
+            }
+        }
+        let edges: Vec<_> = match &block.terminator {
+            Mir65816Terminator::Goto(edge) => vec![edge],
+            Mir65816Terminator::Branch {
+                then_edge,
+                else_edge,
+                ..
+            } => vec![then_edge, else_edge],
+            _ => vec![],
+        };
+        for edge in edges {
+            let target = blocks
+                .get(&edge.target)
+                .ok_or("65816 edge targets an unknown block")?;
+            if edge.args.len() != target.params.len() {
+                return Err("65816 edge argument count disagrees with block parameters".into());
+            }
+            for (arg, &(_, expected)) in edge.args.iter().zip(&target.params) {
+                let width = match arg {
+                    Mir65816Value::U8(_) => ByteSize::ONE,
+                    Mir65816Value::U16(_) => ByteSize::new(2),
+                    Mir65816Value::U24(_) => ByteSize::new(3),
+                    Mir65816Value::U32(_) => ByteSize::new(4),
+                    Mir65816Value::Null(w)
+                    | Mir65816Value::Address(_, w)
+                    | Mir65816Value::StaticAddress(_, w)
+                    | Mir65816Value::Temp(_, w)
+                    | Mir65816Value::GlobalAddress(_, w)
+                    | Mir65816Value::RoutineAddress(_, w) => *w,
+                    Mir65816Value::Param(id) => {
+                        let parameter = routine
+                            .frame
+                            .parameters
+                            .iter()
+                            .find(|p| p.param == *id)
+                            .ok_or("65816 edge uses an unknown parameter")?;
+                        let Mir65816AbiHome::StackArgument { size, .. } = parameter.incoming else {
+                            return Err("invalid parameter home".into());
+                        };
+                        size
+                    }
+                };
+                if width != expected {
+                    return Err("65816 edge argument width disagrees with block parameter".into());
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn relocation_target(target: NirDataAddressTarget) -> Mir65816RelocationTarget {

@@ -161,6 +161,11 @@ fn lower_routine(
             );
             Mir65816Block {
                 id: block.id,
+                params: block
+                    .params
+                    .iter()
+                    .map(|p| (p.dest, p.ty.width.expect("verified block parameter width")))
+                    .collect(),
                 ops,
                 terminator,
             }
@@ -187,9 +192,13 @@ fn lower_routine(
     };
     let lowered = Mir65816Routine {
         id: routine.id,
+        signature: routine.signature.id,
+        entry: routine.entry,
+        temps: routine.temps.iter().map(|t| (t.id, t.ty.clone())).collect(),
         name: routine.name.clone(),
         convention: routine.convention,
-        result_home: result_home(routine.signature.result.as_ref(), convention).expect("frame planning checked routine signature"),
+        result_home: result_home(routine.signature.result.as_ref(), convention)
+            .expect("frame planning checked routine signature"),
         frame,
         prologue,
         epilogue,
@@ -953,6 +962,7 @@ fn lower_op(
         } => Some(Mir65816Op::Cast {
             dest: *dest,
             from: width(from),
+            from_signed: from.kind.integer().is_some_and(|i| i.signed),
             to: width(to),
             kind: *kind,
             value: lower_value(src, data_pointer_width, code_pointer_width),
@@ -1295,6 +1305,14 @@ fn lower_terminator(
     boundary_mode: Mir65816ModeState,
     diagnostics: &mut Vec<Mir65816Diagnostic>,
 ) -> Mir65816Terminator {
+    let edge = |edge: &crate::nir::NirEdge| Mir65816Edge {
+        target: edge.target,
+        args: edge
+            .args
+            .iter()
+            .map(|v| lower_value(v, data_pointer_width, code_pointer_width))
+            .collect(),
+    };
     match terminator {
         NirTerminator::Open => {
             diagnostics.push(diagnostic(
@@ -1305,15 +1323,15 @@ fn lower_terminator(
             Mir65816Terminator::Exit
         }
         NirTerminator::Fallthrough => Mir65816Terminator::Fallthrough,
-        NirTerminator::Goto(edge) => Mir65816Terminator::Goto(edge.target),
+        NirTerminator::Goto(target) => Mir65816Terminator::Goto(edge(target)),
         NirTerminator::Branch {
             condition,
             then_edge,
             else_edge,
         } => Mir65816Terminator::Branch {
             condition: lower_value(condition, data_pointer_width, code_pointer_width),
-            then_block: then_edge.target,
-            else_block: else_edge.target,
+            then_edge: edge(then_edge),
+            else_edge: edge(else_edge),
         },
         NirTerminator::Return(value) => Mir65816Terminator::Return {
             value: value

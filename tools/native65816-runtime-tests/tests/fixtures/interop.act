@@ -1,0 +1,23 @@
+MODULE TEST
+PUBLIC EXTERNAL LONGINT FUNC AsmMixed(BYTE first CARD second BYTE POINTER ptr LONGINT last)
+PUBLIC EXTERNAL PROC AsmEmpty()
+
+LONGINT importedResult
+BYTE POINTER ptrValue
+
+PUBLIC LONGINT FUNC ActionMixed(BYTE first CARD second BYTE POINTER ptr LONGINT last)
+RETURN(last+LONGINT(first)+LONGINT(second)+LONGINT(ptr^))
+
+PUBLIC BYTE FUNC EchoByte(BYTE value) RETURN(value)
+PUBLIC INT FUNC EchoWord(INT value) RETURN(value)
+PUBLIC ADDRESS FUNC EchoAddress(ADDRESS value) RETURN(value)
+PUBLIC SIZE FUNC EchoSize(SIZE value) RETURN(value)
+PUBLIC LONGINT FUNC EchoLong(LONGINT value) RETURN(value)
+PUBLIC BYTE POINTER FUNC EchoPointer(BYTE POINTER value) RETURN(value)
+
+PROC Main()
+  ptrValue=BYTE POINTER($AB789A)
+  importedResult=AsmMixed($12,$3456,ptrValue,LONGINT($BCDEF012))
+  AsmEmpty()
+RETURN
+ENDMODULE

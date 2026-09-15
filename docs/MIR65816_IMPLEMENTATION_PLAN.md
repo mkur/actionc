@@ -15,7 +15,7 @@ Update this status table in the same commit as each completed slice.
 | 1 | Generated Rust/assembly constants and typed ABI layout calculations | Complete |
 | 2 | Native call plans, result lanes and boundary/state contracts | Complete |
 | 3 | Native frame placement, incoming offsets and stack verification | Complete |
-| 4 | Minimal native emission and assembly interoperability | Pending |
+| 4 | Minimal native emission and assembly interoperability | Complete |
 | 5 | Indirect calls across banks | Pending |
 | 6 | First-task entry, return, IRQ/COP save/restore | Pending |
 | 7 | Two-context reentrancy and asynchronous qualification | Pending |
@@ -106,6 +106,20 @@ Completion: an Action! binary calls assembly and is called by assembly with
 the advertised scalar subset, including no arguments and the ABI example.
 Unimplemented source operations fail before a successful image is reported.
 
+The [native emission contract](MIR65816_EMISSION_CONTRACT.md) documents the
+implemented scalar subset, the `actionc-65816` driver and image/import format.
+The emitter owns invocation slots for temporaries/edge copies, checks final
+displacements and emits checked frame/call reservations. Lowering also retains
+cast signedness, typed temporary/entry facts and complete control-flow edges.
+
+The [independent execution workspace](../tools/native65816-runtime-tests/README.md)
+loads serialized images into the pinned native VM and assembles handwritten
+callers/callees with ca65/ld65. It covers scalar boundaries, the ABI example,
+recursion, bank crossings, volatile access and pre-write stack faults. The
+legacy declaration-address resolver still needs widening; the initial driver
+rejects wide numeric bare declaration initializers and supports banked memory
+through explicit pointers. Validation is recorded below.
+
 ## Slice 5: indirect transfer
 
 - Emit the stack-synthesized far transfer with six-byte transient accounting.
@@ -173,6 +187,32 @@ The existing failures are `sample_catalog_classifies_every_action_source`
 DIR_INVALID, DIR_OK and DIR_END definitions). These occur outside MIR65816;
 unrelated sample edits were excluded from this validation.
 
-This completes slices 1–3. Slice 4, minimal native emission and independent
-assembly interoperability, is next. No emitted native execution or Exec
-acceptance gate is claimed by these planning tests.
+This milestone completed slices 1–3. These planning tests did not claim emitted
+native execution or an Exec acceptance gate.
+
+### Scalar emission milestone validation (2026-09-16)
+
+An isolated checkout of slice 3 plus the slice 4 changes excluded unrelated
+sample edits and untracked programs. It ran:
+
+- `cargo test --locked nir_fixtures_match_snapshots`: passed.
+- `cargo run --locked --bin actionc-nir-sweep -- fixtures/nir`: all 51 fixtures
+  passed loading, semantic analysis, lowering, verification and optimization.
+- `cargo test --locked --no-fail-fast`: all targets ran. The new scalar example
+  required updating the broad corpus's expected successful fixture count from
+  361 to 362; `cargo test --locked --test nir_corpus` then passed. Across the
+  full suite and this affected-target rerun, 3,239 tests passed, 24 were ignored
+  and only the two existing TN failures described above remain.
+- The separate `tools/native65816-runtime-tests` workspace: all nine tests
+  passed in debug and release, including 72 arithmetic executions and
+  handwritten assembly interoperability in both optimization modes/I states.
+- The documented public CLI example produced a valid image with three routines.
+  ABI generation, scoped formatting, whitespace and relative documentation-link
+  checks passed.
+
+The VM is pinned to `56ddc5c5de41f0e7294e87c440869550eaf53292`; the local toolchain
+was Rust 1.95.0 and ca65/ld65 2.18 on macOS ARM64. The emission contract and
+execution workspace document the supported subset and platform obligations.
+
+Slice 4 is complete. Slice 5 adds indirect calls across banks. Context switching,
+asynchronous execution and complete G1–G6 acceptance remain pending.

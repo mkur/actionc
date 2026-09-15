@@ -1,6 +1,6 @@
 # Action! 65816 native physical ABI v1
 
-Status: **specified; ABI planning implemented; emission and executable qualification pending**.
+Status: **specified; scalar emission exercised; context and full kernel-subset qualification pending**.
 ABI identity: `action65816.native.v1`. Target: `wdc-65816-native`.
 
 This fixes the physical decisions required by R2–R5 of the
@@ -495,29 +495,32 @@ cleanup, caller/callee agreement and the required saved-state inventory.
 
 The [checked stack operations](../src/mir65816/abi/stack.rs) include the last
 accessed byte and temporary movement of S. Plans publish a minimum stack peak
-from the fixed frame and known calls, with `allocation_complete` false. Final
-spills, instruction temporaries, access displacements and interrupt headroom
-must be checked during allocation/emission before output can claim v1 bounds.
+from the fixed frame and known calls, with `allocation_complete` false. The
+[scalar emitter](MIR65816_EMISSION_CONTRACT.md) now produces a separate allocated
+frame, checks concrete accesses and emits bounds checks before frame/call
+reservations. Its reported local peak includes all temporary slots and direct
+transfers; platform interrupt headroom and each callee's reservations remain
+separate obligations.
 
 Generated Rust and assembly constants share the versioned JSON manifest. The
 separate small-model policy is retained. See the
 [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) for completed slices
-and their checks. Remaining work, in order:
+and their checks.
 
-1. Emit and independently execute direct calls and all scalar widths, including
-   assembly calls in both directions, zero arguments and the worked layout.
-   Reject emission outside the v1 subset and verify final stack accounting.
-2. Execute the indirect transfer at target offsets `$0000` and `$FFFF`, across
+Direct scalar calls, assembly interoperability in both directions, zero
+arguments and the worked layout have executable coverage. Continue with:
+
+1. Execute the indirect transfer at target offsets `$0000` and `$FFFF`, across
    banks, with a balanced stack and intact A/X result after cleanup.
-3. Assemble the save/restore wrappers and fabricated task image; verify exact
+2. Assemble the save/restore wrappers and fabricated task image; verify exact
    register, PC/status, stack and domain-memory restoration. Exercise ordinary
    task return, COP yield and non-switching IRQ dispatch.
-4. Run two tasks through the same recursive routine/helper. Inject IRQ/NMI in
+3. Run two tasks through the same recursive routine/helper. Inject IRQ/NMI in
    every supported width, call, save/restore and stack-transition sequence;
    test live DP scratch and address-taken locals. Respect the nesting policy.
-5. Test nested IRQ tokens, volatile traces, overflow before writes, rejected
+4. Test nested IRQ tokens, volatile traces, overflow before writes, rejected
    frames/links/bindings and the complete G1–G6 corpus from the requirements.
 
-The layout and verifier tests do not establish emitted-code correctness. The
+Layout/verifier tests and the scalar execution corpus have different scopes. The
 [CPU checkpoint's timing limits](MIR65816_CPU_EXECUTION_CHECKPOINT.md) remain
 qualification work before claiming asynchronous Exec readiness.
