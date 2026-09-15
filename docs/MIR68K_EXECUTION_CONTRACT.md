@@ -192,10 +192,14 @@ accesses both require even addresses, and `pointer_alignment` can disable the
 new indirect-access selection for differential execution.
 
 Pointer cell alignment and descriptor initializers are not pointee guarantees.
-The first analysis tracks private scalar cells and SSA values, with conservative
-joins, unknown entry values and explicit call effects. Mutable descriptor
-loads remain unknown; direct arrays and addresses of frame objects can prove
-alignment without an interprocedural descriptor immutability analysis.
+The analysis tracks private scalar cells, descriptor pointer regions and captured
+SSA values, with conservative joins, unknown entry values and explicit call
+effects. Descriptor loads gain a proof only after a dominating runtime store of
+a proven-even pointer with no intervening possible mutation. Partial writes
+invalidate the slot; provably disjoint size-word/backing writes do not. Native
+automatic descriptors are initialized by explicit entry stores and use the
+actual backing alignment. Volatile accesses and volatile copies retain the
+pre-descriptor proof policy and their existing access sequence.
 
 Control-flow selection fuses a block's final comparison with its branch only
 when the boolean has exactly one use, that branch's condition. It selects the

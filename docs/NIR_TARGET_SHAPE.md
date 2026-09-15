@@ -312,8 +312,18 @@ and SSA edge arguments. Its fixed point distinguishes unreachable paths from
 reachable unknown values, and meets all incoming edges, including parallel
 edges. Calls cannot invalidate captured SSA values; tracking a cell requires
 the existing storage/effect proof that writes cannot reach it indirectly.
-Unknown initial values and mutable descriptor loads never gain alignment from
-the layout of their containing cell. Facts must be recomputed after rewrites.
+Descriptor pointer slots are identified by structured array/storage facts and
+have the target pointer width, independently of the size word and backing.
+Their contents start unknown at entry. Exact full-pointer runtime stores can
+establish alignment; partial/overlapping writes invalidate it. Exact disjoint
+regions and unescaped invocation-private storage can preserve a fact across
+other writes; unknown alias cases lose precision. Automatic initialization is
+an explicit entry store from the actual backing address, not an entry promise.
+Loads capture the fact valid at their operation; later rebinding cannot change
+that SSA value or retroactively prove an earlier load. Unknown initial values
+never gain alignment from the layout or initializer of their containing cell.
+Volatile consumers use the pre-descriptor analysis so these stronger facts do
+not widen observable accesses. Facts must be recomputed after rewrites.
 Opaque result receipts may cross into MIR as proof metadata, bound to their
 routine/block/value association. NIR derives the guarantee; MIR68K decides
 whether it permits a native memory instruction.

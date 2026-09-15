@@ -475,6 +475,24 @@ impl NirRoutineAggregateRegions<'_> {
         };
         match &self.block(definition)?.ops[index] {
             NirOp::AddrOf { place, .. } => self.place_address(place, definition, budget - 1),
+            NirOp::PointerOffset { base, offset, .. } => {
+                let (bits, ty) = offset
+                    .as_integer_const()
+                    .ok_or(NirAggregateProofFailure::UnknownAddress)?;
+                // Bounded positive byte offsets only. Wrapping or negative
+                // arithmetic cannot justify an in-bounds object region here.
+                if ty.signed && bits & (1u64 << (ty.bits - 1)) != 0 {
+                    return Err(NirAggregateProofFailure::OutOfBounds);
+                }
+                let offset =
+                    u32::try_from(bits).map_err(|_| NirAggregateProofFailure::OutOfBounds)?;
+                let (id, base) = self.value_address(base, definition, budget - 1)?;
+                Ok((
+                    id,
+                    base.checked_add(offset)
+                        .ok_or(NirAggregateProofFailure::OutOfBounds)?,
+                ))
+            }
             _ => Err(NirAggregateProofFailure::UnknownAddress),
         }
     }

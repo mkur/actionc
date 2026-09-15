@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct NirAlignmentAnalysis<'a> {
     program: &'a NirProgram,
     routines: BTreeMap<RoutineId, BTreeMap<BlockId, State>>,
+    volatile_routines: BTreeMap<RoutineId, BTreeMap<BlockId, State>>,
 }
 
 /// Receipt for an analysis result. Consumers must preserve the SSA definition
@@ -37,9 +38,12 @@ pub fn analyze_alignment(
     program: &NirProgram,
 ) -> Result<NirAlignmentAnalysis<'_>, Vec<NirDiagnostic>> {
     verify_program(program)?;
-    let storage = analyze_program_storage(program);
+    let regions = analyze_aggregate_regions(program)?;
     let mut routines = BTreeMap::new();
-    for (routine, storage) in program.routines.iter().zip(&storage.routines) {
+    let mut volatile_routines = BTreeMap::new();
+    for routine in &program.routines {
+        let regions = regions.routine(routine.id).expect("analyzed routine");
+        let storage = regions.storage();
         let cfg = NirCfg::from_routine(routine);
         let private = storage
             .homes
@@ -65,32 +69,68 @@ pub fn analyze_alignment(
             })
             .map(|facts| facts.id)
             .collect();
-        let problem = AlignmentProblem {
+        let mut problem = AlignmentProblem {
             program,
             routine,
             cfg: &cfg,
             private,
+            regions,
+            descriptors: BTreeMap::new(),
         };
-        let result = solve_dataflow(&cfg, &problem);
-        routines.insert(
-            routine.id,
-            routine
-                .blocks
-                .iter()
-                .filter_map(|block| {
-                    result
-                        .out_state(block.id)
-                        .cloned()
-                        .flatten()
-                        .map(|state| (block.id, state))
-                })
-                .collect(),
-        );
+        // Volatile consumers retain the pre-descriptor selection contract.
+        for descriptor_facts in [false, true] {
+            if descriptor_facts {
+                problem.descriptors = descriptor_slots(program, routine, storage);
+            }
+            let result = solve_dataflow(&cfg, &problem);
+            let output = if descriptor_facts {
+                &mut routines
+            } else {
+                &mut volatile_routines
+            };
+            output.insert(
+                routine.id,
+                routine
+                    .blocks
+                    .iter()
+                    .filter_map(|block| {
+                        result
+                            .out_state(block.id)
+                            .cloned()
+                            .flatten()
+                            .map(|state| (block.id, state))
+                    })
+                    .collect(),
+            );
+        }
     }
-    Ok(NirAlignmentAnalysis { program, routines })
+    Ok(NirAlignmentAnalysis {
+        program,
+        routines,
+        volatile_routines,
+    })
 }
 
 impl NirAlignmentAnalysis<'_> {
+    /// Preserve the established volatile access sequence: descriptor-derived
+    /// facts are available only to ordinary memory consumers.
+    pub fn volatile_value_proof(
+        &self,
+        routine: RoutineId,
+        block: BlockId,
+        value: &NirValue,
+    ) -> Option<NirAlignmentProof> {
+        self.volatile_routines
+            .get(&routine)
+            .and_then(|r| r.get(&block))
+            .is_some_and(|state| value_even(self.program, state, value))
+            .then(|| NirAlignmentProof {
+                routine,
+                block,
+                value: value.clone(),
+            })
+    }
+
     pub fn value_proof(
         &self,
         routine: RoutineId,
@@ -125,6 +165,8 @@ struct AlignmentProblem<'a> {
     routine: &'a NirRoutine,
     cfg: &'a NirCfg,
     private: BTreeSet<NirStorageId>,
+    regions: &'a NirRoutineAggregateRegions<'a>,
+    descriptors: BTreeMap<NirStorageId, NirMemoryRegion>,
 }
 
 impl NirDataflowProblem for AlignmentProblem<'_> {
@@ -151,12 +193,23 @@ impl NirDataflowProblem for AlignmentProblem<'_> {
     fn transfer(&self, block: BlockId, state: &Self::State) -> Self::State {
         let mut state = state.clone()?;
         let block = &self.routine.blocks[self.cfg.block_index(block)?];
-        for op in &block.ops {
+        for (op_index, op) in block.ops.iter().enumerate() {
+            let at = NirAggregatePoint {
+                block: block.id,
+                op_index,
+            };
+            // Memory facts describe the slot now; SSA facts describe the value
+            // captured when it was loaded, and survive subsequent rebinding.
+            self.descriptor_effect(op, at, &mut state);
             let known = match op {
                 NirOp::AddrOf { dest, place, .. } => Some((*dest, self.place_even(&state, place))),
-                NirOp::Load { dest, place, .. } => Some((
+                NirOp::Load { dest, place, ty } => Some((
                     *dest,
-                    direct_storage_id(place).is_some_and(|id| state.homes.contains(&id)),
+                    direct_storage_id(place)
+                        .is_some_and(|id| self.private.contains(&id) && state.homes.contains(&id))
+                        || self
+                            .descriptor_slot(place, ty.width, at)
+                            .is_some_and(|id| state.homes.contains(&id)),
                 )),
                 NirOp::Unary { dest, src, .. } => {
                     Some((*dest, value_even(self.program, &state, src)))
@@ -277,6 +330,83 @@ impl NirDataflowProblem for AlignmentProblem<'_> {
 }
 
 impl AlignmentProblem<'_> {
+    fn descriptor_slot(
+        &self,
+        place: &NirPlace,
+        size: Option<ByteSize>,
+        at: NirAggregatePoint,
+    ) -> Option<NirStorageId> {
+        let region = self.regions.region(place, size?, at).ok()?.memory;
+        self.descriptors
+            .iter()
+            .find_map(|(id, slot)| (*slot == region).then_some(*id))
+    }
+
+    fn descriptor_write(
+        &self,
+        place: &NirPlace,
+        size: Option<ByteSize>,
+        at: NirAggregatePoint,
+        state: &mut State,
+    ) {
+        let region = size.and_then(|size| self.regions.region(place, size, at).ok());
+        state.homes.retain(|id| {
+            let Some(slot) = self.descriptors.get(id) else {
+                return true;
+            };
+            match &region {
+                Some(region) => !slot.overlaps(&region.memory),
+                None => self.regions.storage().homes[id].is_proven_private_to_invocation(),
+            }
+        });
+    }
+
+    fn descriptor_effect(&self, op: &NirOp, at: NirAggregatePoint, state: &mut State) {
+        if self.descriptors.is_empty() {
+            return;
+        }
+        match op {
+            NirOp::Store { place, src, ty } => {
+                let even = value_even(self.program, state, src);
+                self.descriptor_write(place, ty.width, at, state);
+                if even && let Some(id) = self.descriptor_slot(place, ty.width, at) {
+                    state.homes.insert(id);
+                }
+            }
+            NirOp::VolatileStore { place, ty, .. } => {
+                self.descriptor_write(place, ty.width, at, state)
+            }
+            NirOp::CopyBytes {
+                destination, size, ..
+            } => self.descriptor_write(destination, Some(*size), at, state),
+            NirOp::Call {
+                callee, effects, ..
+            } => {
+                let broad = effects.opaque
+                    || effects.may_call_external
+                    || matches!(callee, NirCallee::Indirect { .. })
+                    || matches!(callee, NirCallee::User { id, .. } if *id == self.routine.id);
+                state.homes.retain(|id| {
+                    let Some(slot) = self.descriptors.get(id) else {
+                        return true;
+                    };
+                    let private =
+                        self.regions.storage().homes[id].is_proven_private_to_invocation();
+                    match &effects.memory.writes {
+                        NirMemoryAccess::Regions(regions) => {
+                            (private || !broad) && !regions.iter().any(|r| slot.overlaps(r))
+                        }
+                        // None is not yet a trustworthy transitive summary of
+                        // a user routine; match the existing storage optimizer.
+                        _ => private,
+                    }
+                });
+            }
+            // Other barriers are handled by the original scalar transfer too.
+            _ => {}
+        }
+    }
+
     fn place_even(&self, state: &State, place: &NirPlace) -> bool {
         match &place.kind {
             NirPlaceKind::Param { id, .. } => self
@@ -321,6 +451,53 @@ impl AlignmentProblem<'_> {
             }
         }
     }
+}
+
+/// Pointer slots are distinct from their element storage and optional size
+/// word. Initializers describe bytes at load time, never entry-time values.
+fn descriptor_slots(
+    program: &NirProgram,
+    routine: &NirRoutine,
+    storage: &NirRoutineStorageAnalysis,
+) -> BTreeMap<NirStorageId, NirMemoryRegion> {
+    let globals = program
+        .globals
+        .iter()
+        .filter(|g| g.array.as_ref().is_some_and(|a| a.pointer_backed))
+        .map(|g| NirStorageId::Global(g.id));
+    let locals = routine
+        .locals
+        .iter()
+        .filter(|l| {
+            l.purpose == NirLocalPurpose::Storage
+                && l.storage == NirStorageClass::Array
+                && (matches!(l.ty.kind, NirTypeKind::Pointer { .. })
+                    || matches!(l.init, Some(NirStorageInit::Descriptor { .. }))
+                    || routine.locals.iter().any(|backing| {
+                        backing.purpose == NirLocalPurpose::AggregateBacking { owner: l.id }
+                    }))
+        })
+        .map(|l| NirStorageId::Local(l.id));
+    globals
+        .chain(locals)
+        .filter(|id| {
+            storage.homes.get(id).is_some_and(|f| {
+                f.backing == NirStorageBackingClass::Ordinary
+                    && !f.machine_visible
+                    && !f.blockers.contains(&NirPromotionBlocker::AliasedStorage)
+            })
+        })
+        .map(|id| {
+            (
+                id,
+                NirMemoryRegion {
+                    kind: NirMemoryRegionKind::Storage(id),
+                    offset: ByteOffset::ZERO,
+                    size: program.target_layout.data_pointer.size_bytes,
+                },
+            )
+        })
+        .collect()
 }
 
 fn value_even(program: &NirProgram, state: &State, value: &NirValue) -> bool {
@@ -380,6 +557,7 @@ fn global_even(program: &NirProgram, id: SymbolId, depth: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    include!("alignment_descriptor_tests.rs");
     fn lower(source: &str) -> NirProgram {
         let tokens = crate::lexer::tokenize(source).unwrap();
         let ast = crate::parser::parse(&tokens).unwrap();

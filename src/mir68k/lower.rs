@@ -122,7 +122,25 @@ fn lower_routine(
                         &frame,
                         &block.label,
                         diagnostics,
-                        &|value| alignment.value_proof(routine.id, block.id, value),
+                        &|value| {
+                            if matches!(
+                                op,
+                                NirOp::VolatileLoad { .. }
+                                    | NirOp::VolatileStore { .. }
+                                    | NirOp::CopyBytes {
+                                        source_volatile: true,
+                                        ..
+                                    }
+                                    | NirOp::CopyBytes {
+                                        destination_volatile: true,
+                                        ..
+                                    }
+                            ) {
+                                alignment.volatile_value_proof(routine.id, block.id, value)
+                            } else {
+                                alignment.value_proof(routine.id, block.id, value)
+                            }
+                        },
                     )
                 })
                 .collect(),
