@@ -9,6 +9,12 @@ use actionc_vm::{
     StopReason, VmRunHooks, VmRunner,
 };
 
+#[path = "support/tn_copy.rs"]
+mod copy;
+#[path = "support/tn_directory.rs"]
+mod directory;
+#[path = "support/tn_machine.rs"]
+mod machine;
 #[path = "support/tn_panels.rs"]
 mod panels;
 
@@ -274,6 +280,8 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 );
             }
             panels::check(&compiled, debug);
+            directory::check(&compiled, debug);
+            copy::check(&compiled, debug);
         }
     }
 }

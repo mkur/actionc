@@ -1,6 +1,10 @@
 # TN directory handling implementation plan
 
-Status: proposed, 2026-09-15; implementation has not started.
+Status: implementation in progress, 2026-09-15. The MyDOS directory/copy
+characterization and source-shape probes are complete; shared batch/selection
+implementation is next. The [data contract](directory-model-contract.md) records
+the frozen layout and baseline evidence. Path-boundary characterization is
+retained with the path migration slice.
 
 ## Milestone and scope
 
