@@ -1591,3 +1591,7 @@ bounded region of one block, without reusing loads or descriptor cells. Calls,
 foreign code and volatile accesses bound this additional reuse. Source widths
 and captured evaluation order remain intact. See
 [the optimization contract](INDEX_ARITHMETIC_OPTIMIZATION.md).
+
+The optimizer may hoist total integer index arithmetic to an existing dedicated
+loop preheader when all operands dominate it. It neither hoists memory reads nor
+faulting arithmetic, and excludes loops with call/machine/volatile barriers.

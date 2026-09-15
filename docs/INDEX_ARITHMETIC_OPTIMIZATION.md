@@ -29,6 +29,19 @@ source arithmetic, or move computations between blocks. Calls, foreign code,
 volatile accesses and real operations end the reuse region. Replacements include
 all successor uses and edge arguments; verification remains mandatory.
 
+## Loop-invariant arithmetic
+
+Shared NIR recognizes reducible natural loops with a dedicated existing
+preheader. It moves only total integer casts, unary operations and add/subtract/
+multiply operations in the index dependency graph. Every operand must already
+dominate the preheader or be another proven invariant. Inner loops are processed
+first; no CFG edges are split. At most 64 operations move per loop.
+
+Loads, descriptors, division and other potentially faulting operations never
+move. Loops containing calls, foreign code, real operations or volatile accesses
+(including volatile copies) are excluded. Computing total integer expressions on
+a zero-trip path is unobservable. All source widths remain explicit.
+
 ## Validation and measurements
 
 The constant multiplication oracle exercises all five scalar integer types,
@@ -45,6 +58,7 @@ Same uninstrumented workloads and options as
 | Initial, optimized NIR | 223833 | 50499 | 1550 | 8044 |
 | Constant multiplication | 175833 | 44739 | 1370 | 6952 |
 | Local index reuse | 164833 | 43723 | 1344 | 6646 |
+| Loop-invariant arithmetic | 144207 | 43279 | 1326 | 6658 |
 
 Reproduce with:
 

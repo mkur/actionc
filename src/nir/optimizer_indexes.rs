@@ -1,6 +1,10 @@
 //! Reuse and loop transforms for typed index arithmetic, never memory values.
 use super::*;
 
+#[path = "optimizer_index_loops.rs"]
+mod loops;
+pub(super) use loops::hoist_invariant_arithmetic;
+
 fn arithmetic_inputs(op: &NirOp) -> Option<Vec<&NirValue>> {
     match op {
         NirOp::Cast { src, from, to, .. }
