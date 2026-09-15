@@ -37,8 +37,11 @@ crowding the active reference set.
   - compiler contracts and executable acceptance gates required before starting
     standalone Exec implementation in native Action! on the 65816.
 - [MIR65816_EXEC_READINESS_REVIEW.md](MIR65816_EXEC_READINESS_REVIEW.md)
-  - baseline audit, confirmed lowering gaps, physical ABI decisions and proposed
+  - baseline audit, lowering corrections, physical ABI decisions and proposed
     implementation sequence for reaching the Exec readiness gates.
+- [MIR65816_LOWERING_CONTRACT.md](MIR65816_LOWERING_CONTRACT.md)
+  - preserved signedness, data identities, initialization, alignment and relocation
+    byte selection in both native 65816 models, with regression coverage.
 - [MIR65816_CPU_EXECUTION_CHECKPOINT.md](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
   - X65 C qualification, safe Rust port, VM integration, Altirra cross-check,
     and the remaining native compiler and interrupt-timing boundaries.

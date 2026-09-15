@@ -306,6 +306,11 @@ architecture. MIR68K projects integer data as big-endian, retains four-byte
 data and code pointers, and selects bytewise access for a 16-bit value unless
 its base alignment, displacement and index stride prove a legal 68000 access.
 
+The [MIR65816 lowering contract](MIR65816_LOWERING_CONTRACT.md) retains integer
+signedness, stable data and array-backing identities, allocation/alias facts,
+initialization extents, alignment and explicit relocation byte selection.
+Preserving these facts is separate from executable 65816 qualification.
+
 The read-only NIR alignment analysis borrows verified NIR and derives guaranteed
 even values from layouts, addresses, scalar computation, private cell stores
 and SSA edge arguments. Its fixed point distinguishes unreachable paths from

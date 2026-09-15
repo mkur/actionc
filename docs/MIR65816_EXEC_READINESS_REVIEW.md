@@ -17,6 +17,10 @@ The later [X65 execution checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
 records the C qualification, Rust port, VM integration and Altirra comparison.
 Native compiler emission and the Exec acceptance gates remain pending.
 
+The [lowering contract](MIR65816_LOWERING_CONTRACT.md) now implements the four
+information-preservation corrections identified below, with permanent regression
+tests. The physical ABI decisions and emitted execution remain pending.
+
 ## Assessment
 
 The requirements set the right readiness standard for Exec. Reentrancy,
@@ -25,32 +29,32 @@ two-context qualification harness can prove those properties before building
 a scheduler, allocator or message system.
 
 The shared language and NIR foundations are useful. MIR65816 currently stops
-at lowering and frame planning, however, and needs contract corrections as
-well as instruction selection, allocation, emission, linking and independent
+at lowering and frame planning, however, and needs instruction selection,
+allocation, emission, linking and independent
 execution. Keep all six acceptance gates before declaring the compiler ready
 for Exec implementation.
 
-## Gaps in the existing lowering
+## Lowering gaps identified at the reviewed baseline
 
-| Area | Current issue | Required work |
+| Area | Baseline issue | Implemented correction |
 | --- | --- | --- |
-| Signed comparisons | Signed and unsigned comparisons become identical MIR operations. | Preserve the operand's signedness so instruction selection can choose the correct comparison sequence. |
-| LONGINT arithmetic | Binary lowering recognizes only INT as signed. LONGINT division is marked `signed=false`. | Preserve signedness for every supported integer width. |
-| Static data | Lowering skips zero-fill globals, assigns byte alignment to initialized globals, and gives data objects names without stable storage IDs. | Complete the storage model before placement and linking; preserve identity, extent, alignment and initialization. |
-| Relocations | Byte-selected address relocations lose their byte index. | Preserve low/high/bank-byte selection explicitly, or diagnose unsupported encodings. |
+| Signed comparisons | Signed and unsigned comparisons became identical MIR operations. | Comparison signedness is retained from the operand type. |
+| LONGINT arithmetic | Binary lowering recognized only INT as signed. LONGINT division was marked `signed=false`. | Signedness is retained for every integer width. |
+| Static data | Lowering skipped zero-fill globals, assigned byte alignment to initialized globals, and omitted stable storage IDs and descriptor cells. | Explicit data identities, placement, extents, alignment, initialization and descriptor/backing objects are retained. |
+| Relocations | Byte-selected address relocations lost their byte index. | Low/high/bank selection, addends and address spaces are retained; NIR rejects invalid selectors. |
 
-The relevant code is in [MIR65816 lowering](../src/mir65816/lower.rs):
-`lower_op`, `lower_program` and `lower_data_image`. The
-[MIR definitions](../src/mir65816/mod.rs) also need to carry these facts.
+The relevant code is in [operation lowering](../src/mir65816/lower.rs),
+[data lowering](../src/mir65816/data.rs) and the
+[MIR definitions](../src/mir65816/mod.rs).
 An emitter must not recover discarded information from source syntax or
 display names.
 
-Add an explicit preliminary slice to harden the NIR-to-MIR65816 contract.
-Focused regressions should check the preserved facts, including negative
-diagnostics where support is intentionally deferred. Parsing or successful
-lowering alone cannot establish correctness.
+The preliminary NIR-to-MIR65816 correction slice is covered by
+[permanent contract regressions](../tests/mir65816_contract.rs), including
+negative diagnostics. This establishes retained lowering facts; executable
+correctness still requires emitted-code tests.
 
-### Confirmed arithmetic probes
+### Arithmetic probes at the reviewed baseline
 
 Two separate programs differing only in their operand declaration:
 
@@ -62,7 +66,7 @@ PROC Main()
 RETURN
 ```
 
-Replacing `INT a,b` with `CARD a,b` produces an identical
+Replacing `INT a,b` with `CARD a,b` produced an identical
 `Mir65816Op::Compare`. The comparison representation retains width and the
 comparison operator, but not signedness.
 
@@ -73,11 +77,12 @@ PROC Main()
 RETURN
 ```
 
-This produces a four-byte `Mir65816Op::Binary` with `operation=Div` and
+At the reviewed baseline this produced a four-byte `Mir65816Op::Binary` with `operation=Div` and
 `signed=false`. These observations came from temporary probes through the
 real parser, semantic analysis, NIR lowering and `mir65816::lower_program`.
 They are lowering findings, not executed machine-code failures. The probes
-were not added as permanent regression tests during this review.
+were not added as permanent regression tests during that review; the subsequent
+lowering correction now covers both cases permanently.
 
 ## Physical ABI decisions
 
@@ -110,9 +115,8 @@ project decisions built on that hardware behavior.
 
 ## Recommended implementation sequence
 
-1. **Harden MIR facts and publish ABI v1.** Close the information-loss gaps,
-   establish storage and relocation identities, and specify assembly-visible
-   layouts and conventions.
+1. **Publish ABI v1.** The identified information-loss gaps are corrected.
+   Specify assembly-visible layouts and conventions on top of the retained facts.
 2. **Establish minimal emitted execution.** Generalize the image transport,
    select and qualify an independent emulator, and execute basic memory
    operations, arithmetic, branches and far calls from binary artifacts.

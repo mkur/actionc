@@ -4,6 +4,7 @@
 //! to prove that a separate 65816 backend can consume verifier-clean NIR
 //! without reaching back into Semantic IR or borrowing MIR6502 concepts.
 
+mod data;
 mod lower;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
@@ -36,15 +37,47 @@ pub enum Mir65816CallConvention {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816Data {
+    pub id: Mir65816DataId,
+    pub placement: Mir65816DataPlacement,
+    /// Complete storage extent, including the zero-filled tail.
+    pub size: ByteSize,
+    /// Zero-initialized bytes following `bytes`; no host allocation is needed.
+    pub zero_fill: ByteSize,
+    pub mutable: bool,
+    pub ty: Option<crate::nir::NirType>,
+    pub array: Option<crate::nir::NirArrayGlobalFact>,
+    /// NIR section hint, independent of the display name and storage identity.
+    pub section: Option<String>,
     pub name: String,
     pub bytes: Vec<u8>,
     pub alignment: ByteSize,
     pub relocations: Vec<Mir65816Relocation>,
 }
 
+/// Descriptor cells, their elements, and initializer templates are distinct objects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Mir65816DataId {
+    Global(SymbolId),
+    Static(SymbolId),
+    ArrayBacking(SymbolId),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mir65816DataPlacement {
+    Allocate,
+    Absolute(AddressValue),
+    Alias {
+        target: Mir65816DataId,
+        offset: ByteOffset,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816Relocation {
     pub offset: ByteOffset,
+    /// Numeric byte significance, selected after applying the signed addend.
+    /// `None` writes the complete value at `width` in target byte order.
+    pub byte_index: Option<u8>,
     pub width: ByteSize,
     pub address_space: AddressSpaceId,
     pub target: Mir65816RelocationTarget,
@@ -54,7 +87,8 @@ pub struct Mir65816Relocation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mir65816RelocationTarget {
     Data(NirStorageId),
-    Code(u32),
+    Code(RoutineId),
+    ArrayBacking(SymbolId),
     Absolute(AddressValue),
     ImageEnd,
 }
@@ -299,6 +333,7 @@ pub enum Mir65816Op {
     Compare {
         dest: TempId,
         width: ByteSize,
+        signed: bool,
         operation: NirCompareOp,
         left: Mir65816Value,
         right: Mir65816Value,
@@ -431,7 +466,7 @@ pub fn lower_verified(
 fn relocation_target(target: NirDataAddressTarget) -> Mir65816RelocationTarget {
     match target {
         NirDataAddressTarget::Storage(storage) => Mir65816RelocationTarget::Data(storage),
-        NirDataAddressTarget::Routine(routine) => Mir65816RelocationTarget::Code(routine.0),
+        NirDataAddressTarget::Routine(routine) => Mir65816RelocationTarget::Code(routine),
         NirDataAddressTarget::Absolute(address) => Mir65816RelocationTarget::Absolute(address),
     }
 }

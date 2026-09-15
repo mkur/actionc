@@ -1,8 +1,7 @@
 use super::*;
 use crate::backend::VerifiedNir;
 use crate::nir::{
-    NirCallee, NirDataAddressEncoding, NirDataFragment, NirDataImage, NirGlobalBacking,
-    NirGlobalInit, NirLinkValue, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram,
+    NirCallee, NirGlobalBacking, NirLocalBacking, NirOp, NirPlace, NirPlaceKind, NirProgram,
     NirRoutine, NirRoutineStorageAnalysis, NirStorageClass, NirStorageDuration, NirStorageId,
     NirTerminator, NirType, NirValue,
 };
@@ -27,64 +26,7 @@ pub(super) fn lower_program(
     debug_assert_eq!(layout.endian, Endian::Little);
 
     let mut diagnostics = Vec::new();
-    let mut data = Vec::new();
-    for global in &program.globals {
-        match &global.init {
-            Some(NirGlobalInit::Bytes { image, .. }) => data.push(lower_data_image(
-                global.name.clone(),
-                image,
-                ByteSize::ONE,
-                layout.endian,
-            )),
-            Some(NirGlobalInit::Descriptor { backing, .. }) => data.push(lower_data_image(
-                format!("{}.__backing", global.name),
-                &backing.image,
-                ByteSize::ONE,
-                layout.endian,
-            )),
-            Some(NirGlobalInit::RoutineAddress {
-                routine,
-                descriptor_size,
-                ..
-            }) => data.push(Mir65816Data {
-                name: global.name.clone(),
-                bytes: vec![0; descriptor_size.as_usize().unwrap_or(0)],
-                alignment: ByteSize::ONE,
-                relocations: vec![Mir65816Relocation {
-                    offset: ByteOffset::ZERO,
-                    width: layout.code_pointer.size_bytes,
-                    address_space: layout.code_pointer.address_space,
-                    target: Mir65816RelocationTarget::Code(routine.0),
-                    addend: 0,
-                }],
-            }),
-            Some(NirGlobalInit::LinkValue {
-                value: NirLinkValue::ImageEndAddress,
-                width,
-                ..
-            }) => data.push(Mir65816Data {
-                name: global.name.clone(),
-                bytes: vec![0; width.as_usize().unwrap_or(0)],
-                alignment: ByteSize::ONE,
-                relocations: vec![Mir65816Relocation {
-                    offset: ByteOffset::ZERO,
-                    width: *width,
-                    address_space: layout.data_pointer.address_space,
-                    target: Mir65816RelocationTarget::ImageEnd,
-                    addend: 0,
-                }],
-            }),
-            Some(NirGlobalInit::ZeroFill { .. }) | None => {}
-        }
-    }
-    for static_data in &program.statics {
-        data.push(lower_data_image(
-            static_data.name.clone(),
-            &static_data.image,
-            static_data.alignment,
-            layout.endian,
-        ));
-    }
+    let data = super::data::lower(program, &mut diagnostics);
 
     let storage = crate::nir::analyze_program_storage(program);
     let mut routines = Vec::with_capacity(program.routines.len());
@@ -576,62 +518,6 @@ fn verify_routine_plan(
     Ok(())
 }
 
-fn lower_data_image(
-    name: String,
-    image: &NirDataImage,
-    alignment: ByteSize,
-    endian: Endian,
-) -> Mir65816Data {
-    let bytes = image
-        .project_constants(endian)
-        .expect("verified data image projects to bytes");
-    let relocations = image
-        .fragments
-        .iter()
-        .filter_map(|fragment| {
-            let NirDataFragment::Address {
-                offset,
-                encoding,
-                target,
-                addend,
-                ..
-            } = fragment
-            else {
-                return None;
-            };
-            let (width, address_space) = match encoding {
-                NirDataAddressEncoding::Pointer {
-                    width,
-                    address_space,
-                } => (*width, *address_space),
-                NirDataAddressEncoding::TargetByte { .. } => (ByteSize::ONE, target_space(*target)),
-            };
-            Some(Mir65816Relocation {
-                offset: *offset,
-                width,
-                address_space,
-                target: relocation_target(*target),
-                addend: *addend,
-            })
-        })
-        .collect();
-    Mir65816Data {
-        name,
-        bytes,
-        alignment,
-        relocations,
-    }
-}
-
-fn target_space(target: NirDataAddressTarget) -> crate::target::AddressSpaceId {
-    match target {
-        NirDataAddressTarget::Routine(_) => crate::target::TargetLayout::CODE_ADDRESS_SPACE,
-        NirDataAddressTarget::Storage(_) | NirDataAddressTarget::Absolute(_) => {
-            crate::target::TargetLayout::DATA_ADDRESS_SPACE
-        }
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 fn lower_op(
     op: &NirOp,
@@ -755,7 +641,7 @@ fn lower_op(
         } => Some(Mir65816Op::Binary {
             dest: *dest,
             width: width(ty),
-            signed: matches!(ty.kind, crate::nir::NirTypeKind::I16),
+            signed: ty.kind.integer().is_some_and(|integer| integer.signed),
             operation: *op,
             left: lower_value(left, data_pointer_width, code_pointer_width),
             right: lower_value(right, data_pointer_width, code_pointer_width),
@@ -770,6 +656,7 @@ fn lower_op(
         } => Some(Mir65816Op::Compare {
             dest: *dest,
             width: width(operand_ty),
+            signed: operand_ty.kind.integer().is_some_and(|integer| integer.signed),
             operation: *op,
             left: lower_value(left, data_pointer_width, code_pointer_width),
             right: lower_value(right, data_pointer_width, code_pointer_width),
