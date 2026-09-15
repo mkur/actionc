@@ -1,0 +1,10 @@
+; Common disk commands. This module does not import the transport or helpers.
+; Reference: cc65 asminc/atari.inc (DCOMND values).
+MODULE ATARI.SIO.DISK.COMMANDS
+
+PUBLIC CONST BYTE READ=$52,
+                  WRITE=$50,
+                  WRITE_VERIFY=$57,
+                  STATUS=$53
+
+ENDMODULE

@@ -6,6 +6,7 @@ examples.
 ```text
 *.act       small standalone Action! examples
 amiga/      MC68000 Shell console, arrays, sorting and fault examples
+sio/        Atari OS serial-device requests with typed transfer/results
 benchmarks/ compiler benchmark suite and its benchmark modules
 graphics/   graphics demonstrations
 toolkit/    maintained modernized ACTION! Toolkit programs
@@ -15,6 +16,9 @@ vbxe/       VBXE detection, framebuffer, and ray-tracing examples
 
 The [Amiga examples](amiga/README.md) use `--runtime amiga` and have their own
 native build and r68k execution coverage.
+
+The [SIO example](sio/README.md) reads a disk sector through the embedded
+`ATARI.SIO` transport. It supports modern classic/MIR6502 and both Atari runtimes.
 
 `inline-asm-fine-scroll.act` demonstrates MADS-style inline assembly with
 Action objects, a statically relocated ANTIC display list, a `SCREEN`-encoded

@@ -41,6 +41,232 @@ impl Drop for TestDir {
     }
 }
 
+fn sio_source(temp: &TestDir) -> PathBuf {
+    temp.source(
+        "sio.act",
+        r#"MODULE SIO_CLIENT
+USE ATARI.SIO AS SIO
+BYTE status
+PROC Main()
+  SIO.Request request
+  request.device=$71 request.unit=2 request.command=$43 request.timeout=15
+  request.aux.word=0 request.phase=SIO.Transfer.NO_DATA
+  LET result=SIO.Execute(request)
+  CASE result OF
+  WHEN SIO.Result.OK THEN
+    status=1
+  WHEN SIO.Result.ERROR(code) THEN
+    status=code
+  ESAC
+RETURN
+ENDMODULE
+"#,
+    )
+}
+
+#[test]
+fn sio_constants_are_typed_public_and_load_without_parent_implementations() {
+    let temp = TestDir::new();
+    let source = temp.source(
+        "sio-constants.act",
+        r#"MODULE SIO_CONSTANTS
+USE ATARI.SIO.DEVICES AS DEV
+USE ATARI.SIO.DISK.COMMANDS AS DISK
+USE ATARI.FUJINET.NET.COMMANDS AS NET
+BYTE value
+PROC Main()
+  value=DEV.DISK value=DEV.PRINTER value=DEV.FUJINET value=DEV.FUJINET_NETWORK
+  value=DISK.READ value=DISK.WRITE value=DISK.WRITE_VERIFY value=DISK.STATUS
+  value=NET.OPEN value=NET.CLOSE value=NET.READ value=NET.WRITE value=NET.STATUS
+RETURN
+ENDMODULE
+"#,
+    );
+    let loaded = load_compilation(&source, &ModuleLoadOptions::default()).unwrap();
+    for parent in ["ATARI.SIO", "ATARI.SIO.DISK", "ATARI.FUJINET.NET"] {
+        assert!(
+            !loaded
+                .modules
+                .iter()
+                .any(|m| m.origin.to_string() == format!("<embedded:{parent}>"))
+        );
+    }
+    let model = analyze_compilation(&loaded).unwrap();
+    for (module, constants) in [
+        (
+            "ATARI.SIO.DEVICES",
+            vec![
+                ("DISK", 0x31),
+                ("PRINTER", 0x40),
+                ("FUJINET", 0x70),
+                ("FUJINET_NETWORK", 0x71),
+            ],
+        ),
+        (
+            "ATARI.SIO.DISK.COMMANDS",
+            vec![
+                ("READ", 0x52),
+                ("WRITE", 0x50),
+                ("WRITE_VERIFY", 0x57),
+                ("STATUS", 0x53),
+            ],
+        ),
+        (
+            "ATARI.FUJINET.NET.COMMANDS",
+            vec![
+                ("OPEN", 0x4F),
+                ("CLOSE", 0x43),
+                ("READ", 0x52),
+                ("WRITE", 0x57),
+                ("STATUS", 0x53),
+            ],
+        ),
+    ] {
+        for (name, expected) in constants {
+            let qualified = format!("{module}.{name}");
+            let (id, symbol) = model
+                .symbols
+                .symbols
+                .iter()
+                .enumerate()
+                .find(|(_, s)| s.qualified_name == qualified)
+                .unwrap();
+            assert_eq!(symbol.visibility, Visibility::Public);
+            assert_eq!(symbol.class, SymbolClass::Const);
+            assert!(matches!(
+                symbol.ty.as_ref().map(|t| &t.base),
+                Some(ValueTypeBase::Fund(FundType::Byte))
+            ));
+            assert_eq!(model.constants[&SymbolId(id)].bits, expected);
+        }
+    }
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let output = compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap();
+            assert_eq!(
+                count_instruction(output.object_bytes(), &[0x20, 0x59, 0xE4]),
+                0
+            );
+        }
+    }
+}
+
+#[test]
+fn sio_private_os_overlay_has_exact_atari_layout_and_public_status_constants() {
+    let temp = TestDir::new();
+    let source = sio_source(&temp);
+    let loaded = load_compilation(&source, &ModuleLoadOptions::default()).unwrap();
+    let model = actionc::semantic::analyze_compilation_with_options(
+        &loaded,
+        actionc::semantic::SemanticOptions::modern(),
+    )
+    .unwrap();
+    let fields = model.layout.record_for_name("ATARI.SIO.DcbFields").unwrap();
+    assert_eq!(fields.size, 12);
+    assert_eq!(
+        fields
+            .fields
+            .iter()
+            .map(|f| (f.offset, f.size))
+            .collect::<Vec<_>>(),
+        [
+            (0, 1),
+            (1, 1),
+            (2, 1),
+            (3, 1),
+            (4, 2),
+            (6, 1),
+            (7, 1),
+            (8, 2),
+            (10, 2)
+        ]
+    );
+    let image = model.layout.record_for_name("ATARI.SIO.DcbImage").unwrap();
+    assert_eq!(image.kind, actionc::semantic::AggregateKind::Union);
+    assert_eq!((image.size, image.alignment), (12, 1));
+    assert!(image.fields.iter().all(|f| f.offset == 0 && f.size == 12));
+    for (name, expected) in [
+        ("SUCCESS", 1),
+        ("BREAK_ABORT", 128),
+        ("TIMEOUT", 138),
+        ("NAK", 139),
+        ("FRAMING_ERROR", 140),
+        ("OVERRUN", 142),
+        ("CHECKSUM_ERROR", 143),
+        ("DEVICE_ERROR", 144),
+    ] {
+        let qualified = format!("ATARI.SIO.{name}");
+        let (id, symbol) = model
+            .symbols
+            .symbols
+            .iter()
+            .enumerate()
+            .find(|(_, s)| s.qualified_name == qualified)
+            .unwrap();
+        assert_eq!(symbol.visibility, Visibility::Public);
+        assert!(matches!(
+            symbol.ty.as_ref().map(|t| &t.base),
+            Some(ValueTypeBase::Fund(FundType::Byte))
+        ));
+        assert_eq!(model.constants[&SymbolId(id)].bits, expected);
+    }
+    for name in ["dcb", "DcbFields", "DcbImage", "OsSio"] {
+        let qualified = format!("ATARI.SIO.{name}");
+        let symbol = model
+            .symbols
+            .symbols
+            .iter()
+            .find(|s| s.qualified_name == qualified)
+            .unwrap();
+        assert_ne!(symbol.visibility, Visibility::Public);
+        if name == "dcb" {
+            assert!(symbol.is_volatile);
+        }
+    }
+}
+
+#[test]
+fn sio_transport_requires_modern_atari_execution() {
+    let temp = TestDir::new();
+    let source = sio_source(&temp);
+    let error = compile_file(
+        &source,
+        &CompileOptions::for_mode(CompileMode::Compatibility),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("not enabled"), "{error}");
+    let error = actionc::compiler::native::compile_file(&source, &Default::default())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("absolute routine entry requires a target adapter"),
+        "{error}"
+    );
+}
+
+#[test]
+fn sio_sample_compiles_in_all_advertised_modes() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/sio/read-sector.act");
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            compile_file(
+                &source,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap();
+        }
+    }
+}
+
 #[test]
 fn unused_wide_sys_interfaces_do_not_require_mir6502() {
     let temp = TestDir::new();

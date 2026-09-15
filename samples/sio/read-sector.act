@@ -1,0 +1,27 @@
+; Read sector 1 from a known 128-byte-sector test image on D1:.
+MODULE SIO_DEMO
+USE ATARI.SIO AS SIO
+USE ATARI.SIO.DEVICES AS DEV
+USE ATARI.SIO.DISK.COMMANDS AS CMD
+USE SYS
+
+BYTE ARRAY sector(128)
+
+PROC Main()
+  SIO.Request request
+  request.device=DEV.DISK
+  request.unit=1
+  request.command=CMD.READ
+  request.timeout=7
+  request.aux.word=1
+  request.phase=SIO.Transfer.READ(@sector(0),128)
+
+  LET result=SIO.Execute(request)
+  CASE result OF
+  WHEN SIO.Result.OK THEN
+    SYS.PrintE("Sector read")
+  WHEN SIO.Result.ERROR(status) THEN
+    SYS.PrintBE(status)
+  ESAC
+RETURN
+ENDMODULE

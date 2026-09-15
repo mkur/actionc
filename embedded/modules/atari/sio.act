@@ -1,0 +1,87 @@
+; Synchronous Atari OS SIO transport (modern Action!, Atari 8-bit only).
+; Calls require a compatible OS and normal foreground execution. The caller
+; owns the transfer buffer and supplies accessible storage of the stated size.
+; See docs/ATARI_SIO_LIBRARY_DESIGN.md for memory and partial-transfer contracts.
+MODULE ATARI.SIO
+
+PUBLIC TYPE AuxBytes=[BYTE low,high]
+PUBLIC TYPE Auxiliary=UNION [CARD word AuxBytes bytes]
+
+PUBLIC TYPE Transfer=VARIANT [
+  NO_DATA
+  READ [BYTE POINTER buffer CARD length]
+  WRITE [BYTE POINTER buffer CARD length]
+  WRITE_READ [BYTE POINTER buffer CARD length]
+]
+
+PUBLIC TYPE Request=[
+  BYTE device BYTE unit BYTE command BYTE timeout
+  Auxiliary aux
+  Transfer phase
+]
+
+PUBLIC TYPE Result=VARIANT [
+  OK
+  ERROR [BYTE status]
+]
+
+; Raw OS completion codes, separate from device status payloads.
+PUBLIC CONST BYTE SUCCESS=$01,
+                  BREAK_ABORT=$80,
+                  TIMEOUT=$8A,
+                  NAK=$8B,
+                  FRAMING_ERROR=$8C,
+                  OVERRUN=$8E,
+                  CHECKSUM_ERROR=$8F,
+                  DEVICE_ERROR=$90
+
+; Private untagged OS image. Neither Request nor Result overlays the DCB.
+TYPE DcbFields=[
+  BYTE device,unit,command,status
+  CARD buffer
+  BYTE timeout,reserved
+  CARD length
+  Auxiliary aux
+]
+TYPE DcbImage=UNION [DcbFields fields BYTE ARRAY bytes(12)]
+VOLATILE DcbImage dcb=$0300
+
+; The OS returns status in Y and DSTATS, not the Action! BYTE FUNC register A.
+PROC OsSio=$E459()
+
+PUBLIC Result FUNC Execute(Request request)
+  CASE request.phase OF
+  WHEN Transfer.NO_DATA THEN
+    dcb.fields.status=$00
+    dcb.fields.buffer=0
+    dcb.fields.length=0
+  WHEN Transfer.READ(buffer,length) THEN
+    dcb.fields.status=$40
+    dcb.fields.buffer=CARD(buffer)
+    dcb.fields.length=length
+  WHEN Transfer.WRITE(buffer,length) THEN
+    dcb.fields.status=$80
+    dcb.fields.buffer=CARD(buffer)
+    dcb.fields.length=length
+  WHEN Transfer.WRITE_READ(buffer,length) THEN
+    dcb.fields.status=$C0
+    dcb.fields.buffer=CARD(buffer)
+    dcb.fields.length=length
+  ESAC
+
+  dcb.fields.device=request.device
+  dcb.fields.unit=request.unit
+  dcb.fields.command=request.command
+  dcb.fields.timeout=request.timeout
+  dcb.fields.reserved=0
+  dcb.fields.aux.word=request.aux.word
+
+  ; One OS entry, with no input interpretation, payload copy or library retry.
+  OsSio()
+  LET status=dcb.fields.status
+  IF status=SUCCESS THEN
+    RETURN(Result.OK)
+  FI
+RETURN(Result.ERROR(status))
+
+ENDMODULE

@@ -1,8 +1,9 @@
 # Atari SIO library design for FujiNet
 
-Status: proposed, 2026-09-15. This note specifies a library built with existing
-modern Action! constructs; it does not add the implementation or new language
-features. The [68K checkpoint](MIR68K_CHECKPOINT.md) records the previous work.
+Status: transport foundation implemented, 2026-09-15; FujiNet convenience layers
+and optional disk helpers remain proposed. The library uses existing modern
+Action! constructs. The [68K checkpoint](MIR68K_CHECKPOINT.md) records the previous
+work.
 
 ## Purpose and scope
 
@@ -233,8 +234,8 @@ to the OS.
 
 - Exactly status `$01` becomes OK. Every other OS status becomes
   ERROR(status), preserving the complete byte, including unknown codes.
-  Export BYTE constants for success, BREAK abort, timeout, NAK, framing, overrun,
-  checksum and device error. Do not decode device error as necessarily
+  The exported BYTE constants are SUCCESS, BREAK_ABORT, TIMEOUT, NAK,
+  FRAMING_ERROR, OVERRUN, CHECKSUM_ERROR and DEVICE_ERROR. Do not decode device error as necessarily
   write-protection. The [OS equates](https://raw.githubusercontent.com/cc65/cc65/master/asminc/atari.inc)
   identify these codes; they are separate from any status bytes returned by a
   peripheral's status command.
@@ -343,6 +344,15 @@ this call pure or infer that WRITE means the OS has no other memory effects.
 Audit actual OS zero-page clobbers against compiler/runtime scratch conventions.
 Only add a small assembly bridge if that audit demonstrates a need; no new
 calling convention should be inferred from the public aggregate signatures.
+
+The initial non-cassette audit compares the Rev B SIO/interrupt/timer routines
+linked above with [compiler runtime scratch assignments](../src/codegen/storage.rs).
+The SIO workspace at `$30..$42` is separate from the compiler's argument and
+pointer scratch; shared BREAK state at `$11` belongs to the OS contract.
+The implementation uses the unannotated fixed PROC boundary and needs no
+assembly bridge for that path. Boundary tests overwrite `$30..$42` and return
+different A and Y/DSTATS values. This checks compiler behavior under those
+clobbers; it does not validate an arbitrary patched OS or custom interrupt handler.
 
 UNION is intentionally limited to byte representation. The existing language
 rejects inline variants inside unions, so neither Transfer nor Result belongs
@@ -570,9 +580,10 @@ not flush DOS caches or implement filesystems.
 
 ## Examples using generic SIO and the disk helper
 
-These proposed clients both read drive 1, sector 1 using a 128-byte buffer and
-timeout 7. The first constructs the request through the generic API and can
-become an executable sample as soon as the transport exists:
+Both clients read drive 1, sector 1 using a 128-byte buffer and timeout 7.
+The generic client is available as [read-sector.act](../samples/sio/read-sector.act),
+with [build and usage instructions](../samples/sio/README.md). The disk-helper
+client remains a proposed example until that optional module is added:
 
 ```action
 MODULE SIO_DEMO
@@ -638,7 +649,7 @@ also return the four received bytes as a value.
 
 ## Implementation and acceptance slices
 
-1. **Device/command constants and transport with OS-boundary tests.** Add
+1. **Device/command constants and transport with OS-boundary tests (implemented).** Add
    `embedded/modules/atari/sio/devices.act` with the documented public BYTE
    constants, plus `embedded/modules/atari/sio/disk/commands.act` and
    `embedded/modules/atari/fujinet/net/commands.act` with the command catalogue.
@@ -808,16 +819,26 @@ shared compiler changes require the broader checks there.
 
 ## Design validation
 
-The proposed device/command constants, SIO/disk declarations and both client
-examples compile with temporary implementations of the disk helpers over an
-Execute stub under modern classic/MIR6502, cartridge/standalone, and LF/CRLF
-source files: eight combinations per example.
-This exercises module loading, aggregate arguments/results, nested union members
-and variant CASE handling.
-The check substitutes `DESIGN.SIO` for the reserved `ATARI.SIO` namespace until
-the embedded library exists. It does not execute SIO or establish the OS ABI,
-DCB layout or buffer-effect guarantees; those require the acceptance checks above.
-The FujiNet call shapes, defaults, optional layers and implementation slices are
-design proposals; their full declarations and behavior require validation in
-the corresponding slices. No FujiNet network execution or Mad Pascal code-size
-comparison has been validated yet.
+[Embedded-module tests](../tests/embedded_modules.rs) verify public BYTE
+constants and independent command-module imports, private DCB layout/visibility,
+compatibility rejection, native execution rejection and the generic sample's
+four advertised backend/runtime builds.
+
+[SIO VM tests](../tools/vm-runtime-tests/tests/sio.rs) execute the production
+Execute body against a test OS vector. They check all twelve DCB bytes, all four
+transfer forms, zero/nonstandard input pass-through, page-crossing spans,
+partial reads, send-before-overwrite, buffer tails, argument/result snapshots,
+all 256 return status bytes and invalid-tag faults before OS entry/DCB writes.
+The service supplies only peripheral effects and a 6502 return stub; it does not
+replace the transport. Coverage includes both modern Atari backends/runtimes
+and raw/optimized NIR. Additional CRLF runs use identical embedded module bodies
+under a temporary host namespace because reserved ATARI modules cannot be
+overridden by host files.
+
+The disk helper declarations and example were syntax-checked with temporary
+implementations during design, but that optional module is not implemented.
+FujiNet call shapes, defaults and later slices remain proposals. The boundary
+fixtures include network-shaped Open/Status/Read/Write requests; they do not
+establish firmware compatibility, serial timing or a working network connection.
+No hardware/emulator FujiNet acceptance or Mad Pascal code-size comparison has
+been validated yet.

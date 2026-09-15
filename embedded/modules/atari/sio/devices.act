@@ -1,0 +1,10 @@
+; DDEVIC base IDs. Pass the unit separately through DUNIT.
+; References: cc65 asminc/atari.inc and FujiNet's SIO command tables.
+MODULE ATARI.SIO.DEVICES
+
+PUBLIC CONST BYTE DISK=$31,
+                  PRINTER=$40,
+                  FUJINET=$70,
+                  FUJINET_NETWORK=$71
+
+ENDMODULE
