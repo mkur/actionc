@@ -69,7 +69,14 @@ NIR supplies no global record field-alignment table, so records use conservative
 word alignment. Compiler static templates retain their explicit NIR alignment.
 This does not change record field offsets or array strides.
 
-Native automatic locals remain invocation objects in routine frame plans;
+The native driver applies the verified `Native65816` NIR promotion policy before
+lowering. Eligible private pointer locals become typed values, and immutable
+pointer parameters are captured once. Existing home elision removes unused
+local objects; lowering never re-creates a home from a display name. MIR owns
+physical placement and scratch proofs, including the bounded pointer-leaf
+allocator described by the [emission contract](MIR65816_EMISSION_CONTRACT.md).
+
+Remaining native automatic locals stay invocation objects in routine frame plans;
 immutable initialization templates remain separate static data. No global
 allocation is invented for an automatic local. Unsized initialized native BYTE
 and string arrays have separate descriptor/backing objects, just like wider
@@ -118,7 +125,7 @@ constructed as NIR fixtures and passed through the real verifier/backend entry.
 
 The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) has generated constants,
 verified call/frame plans and a [native scalar emitter](MIR65816_EMISSION_CONTRACT.md).
-The emitter allocates invocation slots, checks concrete accesses and links
+The emitter allocates stack or per-domain pointer homes, checks concrete accesses and links
 freestanding images. Indirect calls, contexts and G1–G6 for the advertised
 subset are covered by [initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md).
 The [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) records the slices.

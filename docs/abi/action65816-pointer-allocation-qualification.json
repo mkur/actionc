@@ -1,0 +1,137 @@
+{
+  "date": "2026-09-17",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 3,
+  "scope": "Bounded three-byte pointer leaves; raw/optimized NIR; emulator execution only",
+  "compiler_base_revision": "c25a297d866a93aeaeaf19fed10ae0d585363d7a",
+  "compiler_changes": "Qualification tests and documentation in the commit containing this record; emission inputs already committed in the base revision",
+  "compiler_and_runtime_fixture_inventory": {
+    "sha256": "10dc9dfcd43e46f7771ca58db20c11227fc4ada5cf4d6d133c24c527b754011a",
+    "files": 338,
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase file SHA-256, two spaces, path, LF; hash raw file bytes"
+  },
+  "compiler_contract_test_sha256": {
+    "tests/mir65816_emission.rs": "e9e5159898b1e8aac2ffc86d2516fe66fc2ffd57f79e64a1ecc1ad4750a826c2",
+    "tests/nir_native_promotion.rs": "d71d885522e9a8c3a252dac5a2ea55f426ff1b5dcda6f7e87f75d37d4bc13787"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "platform": "macOS ARM64",
+  "commands": [
+    "cargo test nir_fixtures_match_snapshots",
+    "cargo run --bin actionc-nir-sweep -- fixtures/nir",
+    "cargo test --locked",
+    "cargo test --locked --no-fail-fast",
+    "python3 tools/generate_abi65816.py --check",
+    "python3 tools/native65816-runtime-tests/qualify.py -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --release -- --nocapture"
+  ],
+  "results": {
+    "native_debug_passed": 33,
+    "native_release_passed": 33,
+    "compiler_passed": 3256,
+    "compiler_failed": 2,
+    "compiler_ignored": 24,
+    "nir_fixtures_passed": 51,
+    "nir_snapshot_changes": 0,
+    "emission_contract_tests": 13,
+    "promotion_tests": 5,
+    "disassembled_v3_context_images": 8,
+    "compiler_existing_failures": [
+      "sample_catalog_classifies_every_action_source",
+      "parses_all_sample_programs"
+    ]
+  },
+  "unlink": {
+    "original": {
+      "bytes": 369,
+      "vm_cycles": 609,
+      "fixed_frame": 38
+    },
+    "previous_selector": {
+      "bytes": 223,
+      "vm_cycles": 420,
+      "fixed_frame": 38
+    },
+    "raw_nir": {
+      "bytes": 191,
+      "vm_cycles": 324,
+      "fixed_frame": 6
+    },
+    "optimized_nir": {
+      "bytes": 129,
+      "vm_cycles": 189,
+      "fixed_frame": 0
+    },
+    "assembly_reference": {
+      "bytes": 127,
+      "vm_cycles": 200,
+      "fixed_frame": 0
+    },
+    "optimized_budget": {
+      "bytes": 144,
+      "vm_cycles": 220,
+      "fixed_frame": 0
+    },
+    "scope": "Includes checked entry through RTL; five distinct/aliased layouts, both I states, LF and CRLF source/assembly"
+  },
+  "pointer_irq": {
+    "schedule": "Every distinct reachable enabled (task domain, PC) within the pointer leaf; IRQ dispatch uses the same leaf and its own domain",
+    "raw_sites": 164,
+    "optimized_sites": 100,
+    "task_domains": [
+      "0x2000",
+      "0x2100"
+    ],
+    "irq_domain": "0x2300"
+  },
+  "baseline_irq": {
+    "raw_addresses": 2504,
+    "optimized_addresses": 2352
+  },
+  "seeded_irq_nmi": {
+    "seeds": [
+      "0x81620260916",
+      "0x5eedcafe"
+    ],
+    "nmi_minimum_interval_cycles": 250,
+    "cycle_budget_per_run": 2000000
+  },
+  "pointer_context_artifact_sha256": {
+    "debug": {
+      "context-false-37c57e09908ba768.bridge.bin": "30667485595704df433e491bfe29113b267dfd2afdabc736ab440b582180f0b2",
+      "context-true-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+      "context-false-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+      "context-true-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+      "context-true-37c57e09908ba768.a816.json": "ecac6813d146ceb4019ffdab5afff5d238cedb87ca05ba064294482a27c6e354",
+      "context-false-37c57e09908ba768.a816.json": "f22e7e770c14f18eb740c2d96ed8557420d2a3bff0b480b53bff94b0da794662",
+      "context-true-37c57e09908ba768.bridge.bin": "c29c855fece3d1d754f176cb3a9343e221c2cf10e31559951da81220149765c3",
+      "context-false-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3"
+    },
+    "release": {
+      "context-false-37c57e09908ba768.bridge.bin": "30667485595704df433e491bfe29113b267dfd2afdabc736ab440b582180f0b2",
+      "context-true-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+      "context-false-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+      "context-true-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+      "context-true-37c57e09908ba768.a816.json": "ecac6813d146ceb4019ffdab5afff5d238cedb87ca05ba064294482a27c6e354",
+      "context-false-37c57e09908ba768.a816.json": "f22e7e770c14f18eb740c2d96ed8557420d2a3bff0b480b53bff94b0da794662",
+      "context-true-37c57e09908ba768.bridge.bin": "c29c855fece3d1d754f176cb3a9343e221c2cf10e31559951da81220149765c3",
+      "context-false-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3"
+    }
+  },
+  "local_manifest_sha256": {
+    "debug": "e45b31ed9d5eafd0f60dbe6cb7d9457e69ad96bed6e52a97f33afa919ba796f3",
+    "release": "84770a1f75a03f20b38a47de4848cbb02e6fbac207d12aa3435331c8c2f625e5"
+  },
+  "limitations": [
+    "Hardware timing and board startup are not qualified",
+    "Whole-routine stack fallback for pressure, calls, CFGs and unsupported scratch operations",
+    "Existing TN sample failures are retained; unrelated worktree changes were not committed"
+  ]
+}

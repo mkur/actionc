@@ -1,6 +1,6 @@
 # Native 65816 acceptance for initial Exec work
 
-Date: 2026-09-16. **G1–G6 pass for the initial subset described here**, using
+Updated: 2026-09-17 (initial acceptance 2026-09-16). **G1–G6 pass for the initial subset described here**, using
 `wdc-65816-native`, ABI `action65816.native.v1`, image format version 3, and
 both raw and optimized NIR. Ordinary standalone Exec implementation can begin
 on this boundary. The next platform milestone is a real-machine bootstrap and
@@ -48,7 +48,7 @@ layouts, host integer calculations and explicit memory expectations.
 | G1 | `arithmetic`, `execution`, `memory`: all scalar widths, signed boundaries, shift counts, natural record/array layout, initialized local descriptors, full-width pointer offsets including negative INT and SIZE above 64 KiB, overlap-safe movement/clear across banks, exact memory and guards. |
 | G2 | `interop`, `indirect`, `contexts`: assembly calls both ways, mixed arguments, all scalar results, targets `$050000`/`$06FFFF`, scratch clobbers, stack balance, exact 19-byte first-task image, yield and return/exit. |
 | G3 | `execution`, `memory`, `preemption`: per-entry arrays, mutable parameters, recursion/mutual recursion, escaped live local addresses, two simultaneously live contexts entering the same routines and memory helpers. |
-| G4 | `preemption`: IRQ asserted at 2,942 raw and 2,716 optimized distinct reachable enabled instruction addresses. `contexts`: full A/X/Y/S/D/DBR/P/PC/PBR restoration for every M/X combination, hidden B, status flags, NMI while masked and through IRQ stack/domain transitions. Seeded IRQ/NMI runs cover both modes. |
+| G4 | `preemption`: IRQ asserted at 2,504 raw and 2,352 optimized distinct reachable enabled instruction addresses. `contexts`: full A/X/Y/S/D/DBR/P/PC/PBR restoration for every M/X combination, hidden B, status flags, NMI while masked and through IRQ stack/domain transitions. Seeded IRQ/NMI runs cover both modes. |
 | G5 | `effects`: nested tokens with I initially clear/set, IRQ held pending across a multiword update, normal and volatile values reread after dispatch, exact `write/read/write/read` byte MMIO trace and unmapped neighbors. |
 | G6 | `stack_faults`, compiler emission/CLI/ABI tests: faults before prohibited writes, frame/argument limits, bad placement/relocations/imports, image round trips, separate section origins and allocated frame maps, explicit unsupported-operation diagnostics. |
 
@@ -95,7 +95,7 @@ bridge and memory layout. The checked-in
 [acceptance record](abi/action65816-native-v1-qualification.json) identifies the
 two-context images and the compiler source tree used for this result.
 
-Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Results:
+Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Original acceptance results:
 
 - All 24 native execution tests passed in debug and release.
 - NIR snapshots and all 51 NIR fixtures passed without snapshot changes.
@@ -130,4 +130,8 @@ Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Results:
 The pointer allocation extension uses image version 3 with tagged temporary
 homes; its physical ABI is unchanged. See the [allocation plan](MIR65816_POINTER_ALLOCATION_PLAN.md)
 for the newer measurements and qualification. The original version-2 evidence
-record below remains historical evidence for its recorded compiler revision.
+record linked above remains historical evidence for its recorded compiler revision.
+All 33 current native tests pass in debug/release; the additional pointer fixture
+covers 164 raw and 100 optimized task/instruction IRQ sites plus seeded IRQ/NMI.
+The [pointer qualification record](abi/action65816-pointer-allocation-qualification.json)
+records current hashes, budgets and results.

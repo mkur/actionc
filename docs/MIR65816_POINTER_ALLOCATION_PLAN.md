@@ -1,6 +1,6 @@
 # Native 65816 pointer promotion and direct-page allocation
 
-Status: implementation in progress.
+Status: all five slices implemented and qualified in the emulator.
 
 | Slice | Status | Validation |
 | --- | --- | --- |
@@ -8,7 +8,7 @@ Status: implementation in progress.
 | 2: NIR promotion | Complete | Five-op unlink, home removal, legality/barrier tests, target isolation, native execution |
 | 3: allocation contracts | Complete | Typed homes, closed intervals, corrupt plans, reuse and whole-routine fallback; selection activation in slice 4 |
 | 4: selection and maps | Complete | 129 bytes / 189 VM cycles / zero frame; v3 tagged maps, ABI v1 unchanged |
-| 5: execution qualification | Pending | |
+| 5: execution qualification | Complete | 33 native tests in debug/release, differential traces, IRQ/NMI, NIR snapshots/sweep; two pre-existing TN failures retained |
 
 ## Objective and measured baseline
 
@@ -239,6 +239,23 @@ Update the lowering/emission contracts, image-format documentation, native
 runtime coverage table and qualification evidence with the final implementation.
 No implementation slice is complete with weaker verification, incorrect frame
 maps, a special case for `Remove`, or unexplained memory-order changes.
+
+## Final qualification
+
+The [qualification record](abi/action65816-pointer-allocation-qualification.json)
+binds compiler/fixture hashes and saved context artifacts to these results:
+
+- 33 native execution tests pass in debug and release, with identical inputs.
+- NIR snapshots and all 51 sweep fixtures pass without fixture changes.
+- 13 emission/allocation/image tests and five promotion tests pass, including
+  classic, small-model and 68k policy isolation.
+- Pointer IRQ injection covers 164 raw and 100 optimized `(task domain, PC)`
+  sites. Both tasks and IRQ dispatch execute the same leaf with separate scratch.
+  Two seeded IRQ/NMI schedules pass in both optimization modes.
+- ABI generated files are current; all eight saved v3 context images disassemble.
+- The final full compiler run reports 3,256 passed, 24 ignored and two
+  pre-existing TN failures: missing catalog roles and standalone `LOCATION.ACT`
+  analysis without imported `DIR_*` constants. These are retained unchanged.
 
 ## Measured selection tradeoff
 

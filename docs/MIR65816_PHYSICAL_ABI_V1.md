@@ -500,9 +500,9 @@ accessed byte and temporary movement of S. Plans publish a minimum stack peak
 from the fixed frame and known calls, with `allocation_complete` false. The
 [scalar emitter](MIR65816_EMISSION_CONTRACT.md) now produces a separate allocated
 frame, checks concrete accesses and emits bounds checks before frame/call
-reservations. Its reported local peak includes all temporary slots and direct/indirect
-transfers; platform interrupt headroom and each callee's reservations remain
-separate obligations.
+reservations. Its reported local peak includes stack temporary slots and
+direct/indirect transfers; direct-page residents add no stack cost. Platform
+interrupt headroom and each callee's reservations remain separate obligations.
 
 Generated Rust and assembly constants share the versioned JSON manifest. The
 separate small-model policy is retained. See the

@@ -1,0 +1,26 @@
+MODULE TEST
+PUBLIC EXTERNAL PROC Yield()
+VOLATILE BYTE irqAck=$7800
+CARD taskA=$7000,taskB=$7002
+BYTE current
+CARD dispatches
+TYPE Node=[Node POINTER next,prev]
+TYPE Job=[Node POINTER item BYTE done BYTE POINTER peer]
+Node POINTER irqItem
+PROC Unlink(Node POINTER item)
+  Node POINTER left,right
+  left=item.prev right=item.next
+  left.next=right right.prev=left
+RETURN
+CARD FUNC Dispatch(CARD saved BYTE reason)
+  irqAck=1 Unlink(irqItem) dispatches==+1
+  IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI
+  taskB=saved current=0
+RETURN(taskA)
+PROC Task(Job POINTER work)
+  Unlink(work.item)
+  work.done=1
+  WHILE work.peer^=0 DO Yield() OD
+RETURN
+PROC Main() RETURN
+ENDMODULE

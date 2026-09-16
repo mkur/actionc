@@ -118,7 +118,11 @@ fn native_pointer_leaf_captures_parameter_and_elides_private_homes() {
             .count(),
         2
     );
-    for target in [TargetId::Atari6502, TargetId::Motorola68000] {
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
         let input = lower(UNLINK, target);
         assert_eq!(
             nir::optimize_program_with_promotion(&input, NirPromotionPolicy::NativeLoops).unwrap(),

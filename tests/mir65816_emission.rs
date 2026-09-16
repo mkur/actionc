@@ -395,6 +395,11 @@ fn pointer_allocation_falls_back_for_pressure_and_unmodelled_scratch() {
         "Link POINTER FUNC Follow(Link POINTER p) RETURN(p.a)",
         "PROC Barrier() RETURN PROC Change(Link POINTER p) p.a=p.b Barrier() RETURN",
         "PROC Change(Link POINTER p BYTE flag) IF flag THEN p.a=p.b FI RETURN",
+        "PROC Change(Link POINTER p) Link POINTER a a=p.a p.b=@a RETURN",
+        "PROC Change(Link POINTER p CARD index) Link ARRAY values(2) values(index).a=p.a RETURN",
+        "PROC Change(Link POINTER p PROC POINTER cb) p.a=p.b cb() RETURN",
+        "PROC Change(Link POINTER p) Change(p) RETURN",
+        "PROC Change(Link POINTER p,q) p^=q^ RETURN",
         "PROC Change(Link POINTER p) BYTE ARRAY a(2) a(0)=1 p.a=p.b RETURN",
     ] {
         let program = mir(&format!("{declarations}{source}"), true);
@@ -407,6 +412,20 @@ fn pointer_allocation_falls_back_for_pressure_and_unmodelled_scratch() {
     let mut program = mir(
         &format!("{declarations}PROC Change(Link POINTER p) p.a=p.b RETURN"),
         true,
+    );
+    let mut large_offset = program.clone();
+    for op in &mut large_offset.routines[0].blocks[0].ops {
+        if let mir65816::Mir65816Op::Load { address, .. } = op
+            && matches!(address.base, mir65816::Mir65816AddressBase::Indirect(_))
+        {
+            address.displacement = actionc::target::ByteOffset::new(65533);
+        }
+    }
+    mir65816::verify_program(&large_offset).unwrap();
+    assert!(
+        AllocatedFrame::pointer_leaf(&large_offset.routines[0])
+            .unwrap()
+            .is_none()
     );
     for op in &mut program.routines[0].blocks[0].ops {
         if let mir65816::Mir65816Op::Load { volatile, .. } = op {
@@ -461,4 +480,33 @@ fn direct_page_locations_survive_image_v3_and_reject_corrupt_maps() {
                 .contains("recompile")
         );
     }
+}
+
+#[test]
+fn pointer_leaf_rechecks_incoming_last_byte_after_removing_spills() {
+    use mir65816::{Mir65816AbiHome, emit::AllocatedFrame};
+    let program = mir(
+        "TYPE Cell=[Cell POINTER next] \
+        PROC Change(BYTE prefix Cell POINTER p) BYTE ARRAY frame(248) p.next=p.next.next RETURN",
+        false,
+    );
+    let routine = &program.routines[0];
+    let frame = AllocatedFrame::pointer_leaf(routine).unwrap().unwrap();
+    assert_eq!(frame.extent, 248);
+    // The pointer occupies exactly 253..255,S. Extra stack spills would make
+    // this routine unrepresentable; resident values keep the ABI range valid.
+    let machine = emit::materialize(&program).unwrap();
+    let image = image::link(&program, &machine, &layout()).unwrap();
+    assert_eq!(image.routines[0].arguments[1].body_displacement, 253);
+    let mut invalid = routine.clone();
+    if let Mir65816AbiHome::StackArgument { offset, .. } = &mut invalid.frame.parameters[1].incoming
+    {
+        *offset = actionc::target::ByteOffset::new(2);
+    }
+    assert!(
+        frame
+            .verify_pointer_leaf(&invalid)
+            .unwrap_err()
+            .contains("stack-relative")
+    );
 }

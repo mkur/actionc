@@ -44,14 +44,21 @@ OS, device intercept or host scheduler participates. The earlier
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
 | `indirect` | 3 | Targets `$050000`/`$06FFFF`, all scalar results, assembly arguments and six-byte transfer overflow checks. |
 | `contexts` | 6 | First-task bytes, yield/exit, full register/flag restoration in every M/X mode, invalid COP/domain paths and NMI through IRQ transition windows. |
-| `pointer_allocation` | 1 | Generated/reference unlink comparison, code/cycle budgets, bank crossings, aliased neighbors, exact traces and LF/CRLF inputs. |
+| `pointer_allocation` | 2 | Generated/reference unlink; differential stack/DP swaps, chains, field layouts and pressure; mixed arguments, bank crossings, aliasing, exact traces and LF/CRLF. |
+| `pointer_preemption` | 2 | Both tasks and IRQ dispatch use the same three-slot leaf; IRQ at 164 raw / 100 optimized task/instruction sites, plus seeded IRQ/NMI. |
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
 | `preemption` | 2 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address plus two seeded IRQ/NMI schedules. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
 
-Both raw and optimized NIR are covered. All **29 tests passed in debug and
-release** on 2026-09-16. Local tools: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64.
+Both raw and optimized NIR are covered. All **33 tests passed in debug and
+release** on 2026-09-17. Local tools: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64.
+Optimized unlink uses 129 bytes, 189 VM cycles and no frame, including checked
+entry and RTL; the independent reference uses 127 bytes and 200 cycles. The
+[qualification record](../../docs/abi/action65816-pointer-allocation-qualification.json)
+binds these results to compiler/fixture hashes and context artifacts. Images
+use transport v3 and retain physical ABI v1.
+
 The corrected CPU suite passes eight tests in each build mode. See
 [initial Exec acceptance](../../docs/MIR65816_EXEC_ACCEPTANCE.md) for G1–G6,
 compiler regressions and qualification limits.
@@ -69,6 +76,9 @@ The baseline corpus reaches 2,504 raw and 2,352 optimized distinct enabled
 instruction addresses. At each, a separate run holds IRQ until assembly dispatch
 acknowledges it, then checks output, guards and domain storage. Seeded runs use
 `0x81620260916` and `0x5eedcafe`; NMI pulses are separated by at least 250 cycles.
+The pointer fixture additionally injects once per reached `(task domain, PC)`
+inside its leaf, so both tasks are checked even when they share instruction
+addresses. IRQ dispatch calls that same leaf using the IRQ domain's scratch.
 IRQ masking and the bridge's non-nested NMI policy are respected. Each run has a
 finite cycle budget; unmapped accesses and code writes fail immediately.
 
