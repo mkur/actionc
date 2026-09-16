@@ -17,7 +17,7 @@ Update this status table in the same commit as each completed slice.
 | 3 | Native frame placement, incoming offsets and stack verification | Complete |
 | 4 | Minimal native emission and assembly interoperability | Complete |
 | 5 | Indirect calls across banks | Complete |
-| 6 | First-task entry, return, IRQ/COP save/restore | Pending |
+| 6 | First-task entry, return, IRQ/COP save/restore | Complete |
 | 7 | Two-context reentrancy and asynchronous qualification | Pending |
 
 ## Slice 1: one source for ABI constants
@@ -152,6 +152,16 @@ semantic contracts did not change in this slice.
 
 Completion: the assembly harness starts and suspends a native context from
 the emitted artifact without using the compiler IR as its execution oracle.
+
+The [context interface](MIR65816_CONTEXT_INTERFACE.md) provides checked domain
+and first-task construction plus a configurable ca65 bridge. Six executable
+context tests cover full register restoration, task/yield/exit paths, invalid
+COP/domain use and NMI throughout IRQ-stack/domain transition windows.
+
+Validation (2026-09-16): all 18 native execution tests passed; the six new
+context tests also passed in release. Generated constants, scoped formatting,
+whitespace and documentation links were checked. No shared NIR/semantic
+contract changed. The status-timing corrections remain slice 7 work.
 
 ## Slice 7: reentrancy and preemption
 

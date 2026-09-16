@@ -1,6 +1,6 @@
 # Action! 65816 native physical ABI v1
 
-Status: **specified; scalar emission exercised; context and full kernel-subset qualification pending**.
+Status: **specified; scalar emission and context bridge exercised; full kernel-subset qualification pending**.
 ABI identity: `action65816.native.v1`. Target: `wdc-65816-native`.
 
 This fixes the physical decisions required by R2–R5 of the
@@ -14,7 +14,7 @@ ownership and lifetime, without implying hardware memory protection.
 The [machine-readable manifest](abi/action65816-native-v1.json) records the
 version, register rules, sizes, offsets and worked examples. Assembly bridges
 must generate their constants from it. Incompatible changes require a new ABI
-identity. No current compiler output should advertise this identity yet.
+identity. The advertised emitted subset and its qualification are tracked below.
 
 Generate [Rust constants](../src/mir65816/abi/generated.rs) and
 [assembly equates](abi/action65816-native-v1.inc) with

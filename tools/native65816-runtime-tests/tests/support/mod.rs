@@ -51,26 +51,55 @@ pub fn compile(source: &str, optimize: bool) -> Image {
     // machine objects. The VM has no knowledge of Action! operations.
     Image::from_json(&compiled.image.to_json().unwrap()).unwrap()
 }
+pub struct Assembly {
+    pub bytes: Vec<u8>,
+    pub symbols: std::collections::BTreeMap<String, u32>,
+}
 pub fn assemble(source: &str, origin: u32) -> Vec<u8> {
+    assemble_artifact(source, origin).bytes
+}
+pub fn assemble_artifact(source: &str, origin: u32) -> Assembly {
     let dir = Temp::new();
     let asm = dir.0.join("probe.s");
     let object = dir.0.join("probe.o");
     let binary = dir.0.join("probe.bin");
     let cfg = dir.0.join("probe.cfg");
+    let labels = dir.0.join("probe.lbl");
     std::fs::write(
         &asm,
         format!(".setcpu \"65816\"\n.a16\n.i16\n.segment \"CODE\"\n{source}\n"),
     )
     .unwrap();
     std::fs::write(&cfg, format!("MEMORY {{ CODE: start = ${origin:06x}, size = $8000, file = %O; }}\nSEGMENTS {{ CODE: load = CODE, type = ro; }}\n")).unwrap();
-    run(Command::new("ca65").arg(&asm).arg("-o").arg(&object));
+    run(Command::new("ca65")
+        .arg("-I")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/abi"))
+        .arg(&asm)
+        .arg("-o")
+        .arg(&object));
     run(Command::new("ld65")
+        .arg("-Ln")
+        .arg(&labels)
         .arg("-C")
         .arg(&cfg)
         .arg(&object)
         .arg("-o")
         .arg(&binary));
-    std::fs::read(binary).unwrap()
+    Assembly {
+        bytes: std::fs::read(binary).unwrap(),
+        symbols: std::fs::read_to_string(labels)
+            .unwrap()
+            .lines()
+            .filter_map(|line| {
+                let mut words = line.split_whitespace();
+                if words.next() != Some("al") {
+                    return None;
+                }
+                let address = u32::from_str_radix(words.next()?, 16).ok()?;
+                Some((words.next()?.trim_start_matches('.').to_string(), address))
+            })
+            .collect(),
+    }
 }
 fn run(command: &mut Command) {
     let result = command
@@ -263,3 +292,5 @@ pub fn caller(entry: u32) -> Vec<u8> {
         0x040000,
     )
 }
+
+pub mod context;

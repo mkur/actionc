@@ -1,6 +1,7 @@
 //! WDC 65816 lowering, native ABI planning and freestanding scalar emission.
 
 pub mod abi;
+pub mod context;
 mod data;
 pub mod emit;
 pub mod image;

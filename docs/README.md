@@ -222,3 +222,6 @@ crowding the active reference set.
 - [archive/notes/](archive/notes/), [archive/reviews/](archive/reviews/), and
   [archive/snapshots/](archive/snapshots/) - old investigation artifacts
   retained for archaeology.
+
+- [Native 65816 context interface](MIR65816_CONTEXT_INTERFACE.md): task fabrication,
+  assembly entry/restore and platform configuration.
