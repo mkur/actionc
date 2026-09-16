@@ -1,0 +1,8 @@
+TYPE Node=[Node POINTER ln_Succ Node POINTER ln_Pred]
+PROC Remove(Node POINTER item)
+  Node POINTER previous,following
+  previous=item.ln_Pred
+  following=item.ln_Succ
+  previous.ln_Succ=following
+  following.ln_Pred=previous
+RETURN

@@ -56,6 +56,9 @@ crowding the active reference set.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.
+- [MIR65816_POINTER_ALLOCATION_PLAN.md](MIR65816_POINTER_ALLOCATION_PLAN.md)
+  - Plans native pointer promotion and bounded direct-page allocation, including
+    scratch ownership, physical-location maps and execution/code-size checks.
 - [MIR65816_CPU_EXECUTION_CHECKPOINT.md](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
   - X65 C qualification, safe Rust port, VM integration, Altirra cross-check,
     status-timing corrections, and remaining CPU/hardware scope.

@@ -44,6 +44,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
 | `indirect` | 3 | Targets `$050000`/`$06FFFF`, all scalar results, assembly arguments and six-byte transfer overflow checks. |
 | `contexts` | 6 | First-task bytes, yield/exit, full register/flag restoration in every M/X mode, invalid COP/domain paths and NMI through IRQ transition windows. |
+| `pointer_allocation` | 1 | Generated/reference unlink comparison, code/cycle budgets, bank crossings, aliased neighbors, exact traces and LF/CRLF inputs. |
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
 | `preemption` | 2 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address plus two seeded IRQ/NMI schedules. |
