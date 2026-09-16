@@ -634,8 +634,8 @@ pub fn link(
                 .iter()
                 .map(|(id, slot)| Temporary {
                     id: id.0,
-                    displacement: slot.offset,
-                    size: slot.width,
+                    displacement: slot.stack().expect("stack selection").offset,
+                    size: slot.slot().width,
                 })
                 .collect(),
             calls: source

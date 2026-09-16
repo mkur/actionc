@@ -155,7 +155,8 @@ impl Builder<'_> {
             .temps
             .get(&id)
             .copied()
-            .ok_or_else(|| format!("undefined temporary t{}", id.0))
+            .ok_or_else(|| format!("undefined temporary t{}", id.0))?
+            .stack()
     }
     fn displacement(&self, offset: u32, byte: u32) -> Result<u8, String> {
         let offset = offset.checked_add(byte).ok_or("stack offset overflow")?;

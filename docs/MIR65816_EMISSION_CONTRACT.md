@@ -124,9 +124,18 @@ subset; banked MMIO uses explicit pointers.
 
 ## Allocation and stack checks
 
-Every MIR temporary gets an invocation-owned stack slot. Edge-copy storage is
-also in the fixed frame. This conservative allocator favors straightforward
-reentrancy over small frames; there is no register allocation or slot reuse yet.
+Temporary locations explicitly distinguish stack and direct-page homes. The
+current selector still uses the complete stack strategy; a separately verified
+pointer-leaf plan is available for the next selection slice. Its whitelist admits
+only a single bounded block of ordinary three-byte pointer loads/stores and a
+void return, with no indexes or calls. These operations may touch only their
+allocated homes and addressed memory, using A/Y/flags without extra scratch.
+Closed def/use intervals prevent reuse during a multi-instruction operation.
+Three ABI pointer slots (D+0, D+3, D+6) are allocated deterministically; pressure
+or an unsupported operation rejects the entire candidate before emission.
+The allocation verifier checks identities, widths, ownership, lifetime overlap
+and frame accounting. Stack fallback and edge-copy storage remain invocation
+owned. No A/X/Y register allocation is introduced.
 
 The allocated even fixed frame must fit 254 bytes. Incoming offsets are
 recomputed after allocation. Every emitted stack-relative byte access is

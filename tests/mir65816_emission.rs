@@ -305,3 +305,114 @@ fn section_origins_and_allocated_frame_maps_survive_transport_and_reject_corrupt
     bad.routines[0].arguments[0].body_displacement += 1;
     assert!(bad.to_json().unwrap_err().contains("displacement map"));
 }
+
+#[test]
+fn pointer_allocation_proves_closed_lifetimes_and_rejects_corrupt_locations() {
+    use mir65816::emit::{AllocatedFrame, Location, Slot};
+    let program = mir(
+        "TYPE Link=[Link POINTER next Link POINTER prev] PROC Cut(Link POINTER p) \
+        Link POINTER a,b a=p.prev b=p.next a.next=b b.prev=a RETURN",
+        true,
+    );
+    let routine = &program.routines[0];
+    let frame = AllocatedFrame::pointer_leaf(routine).unwrap().unwrap();
+    assert_eq!(
+        (frame.extent, frame.spill_bytes, frame.peak_below_entry),
+        (0, 0, 0)
+    );
+    assert_eq!(frame.temps.len(), 3);
+    let ids = routine.blocks[0]
+        .ops
+        .iter()
+        .filter_map(|op| match op {
+            mir65816::Mir65816Op::Load { dest, .. } => Some(*dest),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for (id, offset) in ids.iter().zip([0, 3, 6]) {
+        assert_eq!(
+            frame.temps[id],
+            Location::DirectPage(Slot { offset, width: 3 })
+        );
+    }
+    for bad in [
+        Location::DirectPage(Slot {
+            offset: 7,
+            width: 3,
+        }),
+        Location::DirectPage(Slot {
+            offset: 0,
+            width: 4,
+        }),
+        Location::Stack(Slot {
+            offset: 1,
+            width: 3,
+        }),
+        frame.temps[&ids[0]],
+    ] {
+        let mut corrupt = frame.clone();
+        corrupt.temps.insert(ids[2], bad);
+        assert!(corrupt.verify_pointer_leaf(routine).is_err());
+    }
+    let mut corrupt = frame.clone();
+    corrupt.temps.remove(&ids[0]);
+    assert!(corrupt.verify_pointer_leaf(routine).is_err());
+    let mut corrupt = frame;
+    corrupt.spill_bytes = 2;
+    assert!(corrupt.verify_pointer_leaf(routine).is_err());
+
+    let chain = mir(
+        "TYPE Link=[Link POINTER next] Link POINTER result \
+        PROC Follow(Link POINTER p) result=p.next.next.next RETURN",
+        true,
+    );
+    let frame = AllocatedFrame::pointer_leaf(&chain.routines[0])
+        .unwrap()
+        .unwrap();
+    // Every load's input stays live until its final bank-byte access. A chain
+    // therefore alternates slots instead of overwriting the dying base early.
+    let offsets = chain.routines[0].blocks[0]
+        .ops
+        .iter()
+        .filter_map(|op| match op {
+            mir65816::Mir65816Op::Load { dest, .. } => Some(frame.temps[dest].slot().offset),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(offsets, [0, 3, 0, 3]);
+}
+
+#[test]
+fn pointer_allocation_falls_back_for_pressure_and_unmodelled_scratch() {
+    use mir65816::emit::AllocatedFrame;
+    let declarations = "TYPE Link=[Link POINTER a Link POINTER b Link POINTER c] ";
+    for source in [
+        "PROC Change(Link POINTER p) Link POINTER a,b,c a=p.a b=p.b c=p.c a.a=b b.a=c c.a=a RETURN",
+        "Link POINTER FUNC Follow(Link POINTER p) RETURN(p.a)",
+        "PROC Barrier() RETURN PROC Change(Link POINTER p) p.a=p.b Barrier() RETURN",
+        "PROC Change(Link POINTER p BYTE flag) IF flag THEN p.a=p.b FI RETURN",
+        "PROC Change(Link POINTER p) BYTE ARRAY a(2) a(0)=1 p.a=p.b RETURN",
+    ] {
+        let program = mir(&format!("{declarations}{source}"), true);
+        let routine = program.routines.last().unwrap();
+        assert!(
+            AllocatedFrame::pointer_leaf(routine).unwrap().is_none(),
+            "{source}"
+        );
+    }
+    let mut program = mir(
+        &format!("{declarations}PROC Change(Link POINTER p) p.a=p.b RETURN"),
+        true,
+    );
+    for op in &mut program.routines[0].blocks[0].ops {
+        if let mir65816::Mir65816Op::Load { volatile, .. } = op {
+            *volatile = true;
+        }
+    }
+    mir65816::verify_program(&program).unwrap();
+    assert!(
+        AllocatedFrame::pointer_leaf(&program.routines[0])
+            .unwrap()
+            .is_none()
+    );
+}

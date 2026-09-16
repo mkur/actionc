@@ -6,7 +6,7 @@ Status: implementation in progress.
 | --- | --- | --- |
 | 1: reproducible reference | Complete | Native `pointer_allocation` target: generated/reference execution, aliasing, exact traces, LF/CRLF |
 | 2: NIR promotion | Complete | Five-op unlink, home removal, legality/barrier tests, target isolation, native execution |
-| 3: allocation contracts | Pending | |
+| 3: allocation contracts | Complete | Typed homes, closed intervals, corrupt plans, reuse and whole-routine fallback; selection activation in slice 4 |
 | 4: selection and maps | Pending | |
 | 5: execution qualification | Pending | |
 

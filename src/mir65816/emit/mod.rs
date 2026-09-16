@@ -5,7 +5,7 @@ mod code;
 mod select;
 
 use super::*;
-pub use allocation::{AllocatedFrame, Slot};
+pub use allocation::{AllocatedFrame, Location, Slot};
 pub use code::{Code, Fixup, Label, Target};
 
 #[derive(Debug, Clone)]
