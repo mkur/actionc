@@ -2436,6 +2436,7 @@ impl Analyzer {
                 }
             }
             ExprKind::Cast { ty, expr: inner } => {
+                self.validate_type_ref(scope, ty, expr.span);
                 let inner = self.expect_expr(scope, inner, expr.span);
                 if self.reject_aggregate_address_conversion(&inner) {
                     return self.subject_error(expr.span);

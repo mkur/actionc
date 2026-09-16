@@ -357,6 +357,14 @@ are not aliases for `CARD` on native 65816 or 68k targets. The classic Atari
 ABI may retain the historical 16-bit pointer/`CARD` interoperability as an
 explicit compatibility rule.
 
+Explicit named pointer conversions such as `Link POINTER(address)` and
+`Module.Link POINTER(address)` parse as casts, including through generic type
+applications. SemIR validates and resolves the destination type just as for a
+fundamental pointer cast. The result enters NIR as an ordinary typed cast with
+the target pointer width and resolved pointee identity, never as a call to a
+type. A pointer cast takes exactly one operand; unknown destination types are
+rejected before NIR.
+
 Classic Atari records remain packed. A native ABI may use target-natural field
 and tail alignment, but layout is resolved once before NIR optimization and is
 never changed as an optimization. Packed records remain available for hardware

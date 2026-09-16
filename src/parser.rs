@@ -3202,9 +3202,25 @@ impl<'a> ExprParser<'a> {
                 if !self.eat(TokenKind::RParen) {
                     return None;
                 }
-                ExprKind::Call {
-                    callee: Box::new(expr),
-                    args,
+                if let ExprKind::TypeRef(ty) = &expr.kind
+                    && ty.pointer
+                {
+                    if args.len() != 1 {
+                        self.diagnostics.push(Diagnostic::new(
+                            expr.span,
+                            "pointer cast requires exactly one argument",
+                        ));
+                        return None;
+                    }
+                    ExprKind::Cast {
+                        ty: ty.clone(),
+                        expr: Box::new(args.remove(0)),
+                    }
+                } else {
+                    ExprKind::Call {
+                        callee: Box::new(expr),
+                        args,
+                    }
                 }
             } else if self.eat(TokenKind::LBracket) {
                 let index = self.parse_expr(0)?;

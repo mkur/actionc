@@ -2,6 +2,27 @@ mod support;
 use support::{context::symbol, *};
 
 #[test]
+fn named_record_pointer_casts_and_results_preserve_all_three_bytes() {
+    let source = "TYPE Link=[Link POINTER next Link POINTER prev] \
+        Link POINTER cursor,answer ADDRESS result \
+        Link POINTER FUNC Identity(Link POINTER input) RETURN(Link POINTER(input)) \
+        PROC Main() cursor=Link POINTER($12FFFE) \
+        cursor.next=Link POINTER($AB1234) cursor.prev=Link POINTER(0) \
+        answer=Identity(cursor.next) result=ADDRESS(answer) RETURN";
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        let mut h = Harness::new(&image, &caller(image.entry), 0);
+        h.bus.map(0x12fff0, &[0xa5; 32], true);
+        h.run();
+        h.guards(0);
+        assert_eq!(h.global(&image, "result", 3), 0xab1234);
+        let mut expected = [0xa5; 32];
+        expected[14..20].copy_from_slice(&[0x34, 0x12, 0xab, 0, 0, 0]);
+        assert_eq!(&h.bus.ram[0x12fff0..0x130010], &expected);
+    }
+}
+
+#[test]
 fn absolute_array_indices_preserve_native_addresses_and_element_stride() {
     let source = "BYTE ARRAY bytes(1024)=$FF00 CARD ARRAY words(1024)=$A000 CARD index,result PROC Main() bytes(index)=37 words(index)=$BEEF result=CARD(bytes(index))+words(index) RETURN";
     for optimize in [false, true] {
