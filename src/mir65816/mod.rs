@@ -339,6 +339,8 @@ pub enum Mir65816Op {
         source: Mir65816Address,
         bytes: ByteSize,
         overlap_safe: bool,
+        destination_volatile: bool,
+        source_volatile: bool,
     },
     Unary {
         dest: TempId,
@@ -360,6 +362,7 @@ pub enum Mir65816Op {
         base: Mir65816Value,
         offset: Mir65816Value,
         subtract: bool,
+        offset_signed: bool,
     },
     Binary {
         dest: TempId,

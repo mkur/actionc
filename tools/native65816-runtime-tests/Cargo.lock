@@ -31,7 +31,6 @@ dependencies = [
 [[package]]
 name = "actionc-w65c816"
 version = "0.1.0"
-source = "git+https://github.com/mkur/actionc-vm.git?rev=56ddc5c5de41f0e7294e87c440869550eaf53292#56ddc5c5de41f0e7294e87c440869550eaf53292"
 
 [[package]]
 name = "atrcopy-rs"

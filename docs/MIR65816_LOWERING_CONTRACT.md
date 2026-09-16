@@ -23,6 +23,12 @@ native emitter consumes this contract; small-model lowering remains separate.
 - Casts retain `from_signed` independently of widths and conversion kind, so
   signed widening does not need to recover the source type after lowering.
 
+- `PointerOffset.offset_signed` comes from the offset's NIR integer type.
+  Native NIR accepts integer displacements through four bytes; classic Atari
+  retains its two-byte limit. Address/pointer values are never displacements.
+  Emission sign-extends narrow signed offsets and uses modular pointer-width
+  arithmetic, without consulting a source spelling.
+
 ## Control flow and entries
 
 Routines retain their signature identity, entry/placement facts and typed
@@ -65,7 +71,15 @@ This does not change record field offsets or array strides.
 
 Native automatic locals remain invocation objects in routine frame plans;
 immutable initialization templates remain separate static data. No global
-allocation is invented for an automatic local.
+allocation is invented for an automatic local. Unsized initialized native BYTE
+and string arrays have separate descriptor/backing objects, just like wider
+elements. Their element template initializes backing memory, never the pointer
+descriptor. Descriptor addresses are constructed for the current invocation.
+
+`Copy` retains both resolved volatility flags from `NirOp::CopyBytes` as well as
+its extent and overlap semantics. The initial emitter handles ordinary copies
+and rejects volatile aggregate copies explicitly; it cannot silently discard
+the flags and emit ordinary memory movement.
 
 ## Relocations
 
@@ -105,7 +119,6 @@ constructed as NIR fixtures and passed through the real verifier/backend entry.
 The [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) has generated constants,
 verified call/frame plans and a [native scalar emitter](MIR65816_EMISSION_CONTRACT.md).
 The emitter allocates invocation slots, checks concrete accesses and links
-freestanding images. Indirect calls, contexts and executable G1–G6 qualification
-remain ahead in the
-[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) and
-[Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md).
+freestanding images. Indirect calls, contexts and G1–G6 for the advertised
+subset are covered by [initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md).
+The [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) records the slices.

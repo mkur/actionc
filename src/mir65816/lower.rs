@@ -926,7 +926,8 @@ fn lower_op(
             destination,
             source,
             size,
-            ..
+            destination_volatile,
+            source_volatile,
         } => Some(Mir65816Op::Copy {
             destination: lower_place(
                 destination,
@@ -946,6 +947,8 @@ fn lower_op(
             ),
             bytes: *size,
             overlap_safe: true,
+            destination_volatile: *destination_volatile,
+            source_volatile: *source_volatile,
         }),
         NirOp::Unary { dest, ty, op, src } => Some(Mir65816Op::Unary {
             dest: *dest,
@@ -979,6 +982,11 @@ fn lower_op(
             base: lower_value(base, data_pointer_width, code_pointer_width),
             offset: lower_value(offset, data_pointer_width, code_pointer_width),
             subtract: *subtract,
+            offset_signed: match offset {
+                NirValue::IntegerConst { ty, .. } => ty.signed,
+                NirValue::Temp { ty, .. } => ty.kind.integer().is_some_and(|i| i.signed),
+                _ => false,
+            },
         }),
         NirOp::Binary {
             dest,

@@ -3,8 +3,8 @@
 Date: 2026-09-15. Compiler baseline:
 `c73818d91a2b458aa0d65fcb30d2e3ca844699ec`.
 
-This reviews the [Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md)
-against the current compiler. The working tree also contains unrelated sample
+This historical note reviews the [Exec readiness requirements](MIR65816_EXEC_READINESS_REQUIREMENTS.md)
+against the baseline above. The working tree also contains unrelated sample
 and documentation changes. No compiler implementation changed during this
 review. The findings and proposed sequence below do not constitute executable
 65816 qualification.
@@ -13,19 +13,11 @@ The subsequent [CPU test drive](../tools/vm65816-runtime-tests/README.md) record
 independent jgenesis execution and its limitations. It does not resolve the
 compiler gaps or establish emitted-code readiness described in this review.
 
-The later [X65 execution checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md)
-records the C qualification, Rust port, VM integration and Altirra comparison.
-Native scalar emission was added subsequently; the complete Exec acceptance
-gates remain pending.
-
-The four information-preservation corrections identified below are implemented
-and covered by the [lowering contract](MIR65816_LOWERING_CONTRACT.md) and permanent
-regression tests. The subsequent [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md)
-specifies the machine conventions. Generated constants and verified ABI plans
-now implement the layout decisions. The [scalar emitter](MIR65816_EMISSION_CONTRACT.md)
-adds allocated frames, linked images and assembly interoperability. The
-[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) tracks the remaining
-context and complete kernel-subset qualification.
+Subsequent work completed the lowering corrections, physical ABI, emission and
+context qualification. [Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md)
+records G1–G6 for the current advertised subset; the assessment and sequence
+below retain the earlier review context. The
+[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) records all completed slices.
 
 ## Assessment
 
@@ -114,7 +106,7 @@ and concrete checks for temporaries, accesses after S moves and call transfers.
 Board-specific bank-zero placement, whole-task bounds and executable interrupt
 qualification remain required.
 
-## Recommended implementation sequence
+## Implementation sequence proposed by the review
 
 ABI v1 planning and minimal scalar execution are implemented. Continue with:
 

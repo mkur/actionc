@@ -34,6 +34,8 @@ pub fn layout() -> LinkOptions {
     LinkOptions {
         code_origin: 0x018000,
         data_origin: 0x120000,
+        read_only_origin: None,
+        zero_fill_origin: None,
         stack_overflow: 0x048000,
         nmi_extra_stack: 0,
         imports: vec![],
@@ -43,7 +45,11 @@ pub fn prepare(source: &str, optimize: bool) -> native65816::Prepared {
     let dir = Temp::new();
     let path = dir.0.join("test.act");
     std::fs::write(&path, source).unwrap();
-    native65816::prepare_file(&path, optimize, &ModuleLoadOptions::default()).unwrap()
+    let mut modules = ModuleLoadOptions::default();
+    modules
+        .module_paths
+        .push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../runtime/65816"));
+    native65816::prepare_file(&path, optimize, &modules).unwrap()
 }
 pub fn compile(source: &str, optimize: bool) -> Image {
     let compiled = prepare(source, optimize).compile(&layout()).unwrap();
@@ -127,6 +133,8 @@ pub struct Bus {
     regions: Vec<(u32, u32, bool)>,
     pub writes: Vec<(u32, u8)>,
     pub reads: Vec<u32>,
+    pub watched: std::collections::BTreeSet<u32>,
+    pub trace: Vec<(u64, u32, Access)>,
 }
 impl Bus {
     pub fn new() -> Self {
@@ -135,6 +143,8 @@ impl Bus {
             regions: vec![],
             writes: vec![],
             reads: vec![],
+            watched: Default::default(),
+            trace: vec![],
         }
     }
     pub fn map(&mut self, address: u32, bytes: &[u8], writable: bool) {
@@ -168,6 +178,9 @@ impl Bus {
 impl cpu::Bus for Bus {
     type Error = String;
     fn cycle(&mut self, cycle: cpu::Cycle) -> Result<u8, String> {
+        if self.watched.contains(&cycle.address) && cycle.access != Access::Idle {
+            self.trace.push((cycle.number, cycle.address, cycle.access));
+        }
         match cycle.access {
             Access::Idle => Ok(0),
             Access::Read => {

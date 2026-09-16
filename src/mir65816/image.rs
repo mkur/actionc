@@ -9,6 +9,15 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const LIMIT: u32 = 0x1000000;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IrqEffect {
+    #[default]
+    Preserve,
+    SaveDisable,
+    Restore,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AssemblyImport {
@@ -21,6 +30,8 @@ pub struct AssemblyImport {
     /// JSL return address. The assembly implementation must perform its checks.
     pub stack_peak: u16,
     pub checks_stack: bool,
+    #[serde(default)]
+    pub irq_effect: IrqEffect,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +39,10 @@ pub struct AssemblyImport {
 pub struct LinkOptions {
     pub code_origin: u32,
     pub data_origin: u32,
+    #[serde(default)]
+    pub read_only_origin: Option<u32>,
+    #[serde(default)]
+    pub zero_fill_origin: Option<u32>,
     /// Raw nonreturning __a816_stack_overflow_v1 adapter, supplied by the platform.
     pub stack_overflow: u32,
     pub nmi_extra_stack: u16,
@@ -55,6 +70,7 @@ pub struct ZeroFill {
 #[serde(deny_unknown_fields)]
 pub struct Argument {
     pub offset: u32,
+    pub body_displacement: u32,
     pub size: u32,
     pub alignment: u32,
 }
@@ -74,6 +90,35 @@ pub struct Routine {
     pub spill_bytes: u16,
     /// Local cost only. Calls/recursion require each callee's checked reservation.
     pub local_stack_peak: u16,
+    pub objects: Vec<FrameObject>,
+    pub temporaries: Vec<Temporary>,
+    pub calls: Vec<CallCost>,
+    /// Unknown for recursion and indirect calls; no whole-program analysis.
+    pub whole_task_stack_bound: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrameObject {
+    pub id: u32,
+    pub owner_kind: String,
+    pub owner_id: u32,
+    pub displacement: u32,
+    pub size: u32,
+    pub alignment: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Temporary {
+    pub id: u32,
+    pub displacement: u16,
+    pub size: u8,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallCost {
+    pub outgoing: u32,
+    pub transfer_peak: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +153,7 @@ pub struct Image {
 impl Image {
     pub fn verify(&self) -> Result<(), String> {
         if self.format != "actionc-65816-image"
-            || self.version != 1
+            || self.version != 2
             || self.target != "wdc-65816-native"
             || self.abi != abi::generated::ABI_NAME
         {
@@ -161,6 +206,69 @@ impl Image {
         {
             return Err("platform stack-overflow adapter overlaps emitted storage".into());
         }
+        let mut routine_ids = BTreeSet::new();
+        for r in &self.routines {
+            if !routine_ids.insert(r.id)
+                || r.fixed_frame > 254
+                || r.fixed_frame % 2 != 0
+                || r.spill_bytes > r.fixed_frame
+                || !self.segments.iter().any(|s| {
+                    s.executable && s.address == r.address && s.bytes.len() == r.size as usize
+                })
+                || r.whole_task_stack_bound.is_some()
+            {
+                return Err("invalid routine/frame map".into());
+            }
+            for a in &r.arguments {
+                if Some(a.body_displacement) != (u32::from(r.fixed_frame) + 4).checked_add(a.offset)
+                    || a.size == 0
+                    || a.body_displacement
+                        .checked_add(a.size)
+                        .is_none_or(|e| e > 256)
+                {
+                    return Err("invalid incoming displacement map".into());
+                }
+            }
+            for (offset, size) in r.objects.iter().map(|o| (o.displacement, o.size)).chain(
+                r.temporaries
+                    .iter()
+                    .map(|t| (u32::from(t.displacement), u32::from(t.size))),
+            ) {
+                if offset == 0
+                    || size == 0
+                    || offset
+                        .checked_add(size)
+                        .is_none_or(|e| e > u32::from(r.fixed_frame) + 1)
+                {
+                    return Err("frame map object exceeds its allocation".into());
+                }
+            }
+            let call_peak = r
+                .calls
+                .iter()
+                .try_fold(0u32, |peak, c| {
+                    c.outgoing
+                        .checked_add(c.transfer_peak)
+                        .map(|value| peak.max(value))
+                })
+                .ok_or("stack cost overflow")?;
+            let peak = u32::from(r.fixed_frame)
+                .checked_add(call_peak)
+                .ok_or("stack cost overflow")?;
+            if peak != u32::from(r.local_stack_peak)
+                || r.calls.iter().any(|c| {
+                    c.outgoing == 0
+                        || c.outgoing % 2 != 1
+                        || c.outgoing > 255
+                        || ![3, 6].contains(&c.transfer_peak)
+                })
+            {
+                return Err("invalid local stack cost map".into());
+            }
+        }
+        if !self.routines.iter().any(|r| r.address == self.entry) {
+            return Err("entry does not name a routine export".into());
+        }
         Ok(())
     }
     pub fn from_json(bytes: &[u8]) -> Result<Self, String> {
@@ -209,6 +317,8 @@ pub fn link(
     if options.code_origin >= LIMIT
         || options.data_origin >= LIMIT
         || options.stack_overflow >= LIMIT
+        || options.read_only_origin.is_some_and(|a| a >= LIMIT)
+        || options.zero_fill_origin.is_some_and(|a| a >= LIMIT)
     {
         return Err("native link address exceeds 24 bits".into());
     }
@@ -235,6 +345,24 @@ pub fn link(
                 .ok_or_else(|| format!("{}: unresolved assembly import", r.name))?;
             if import.signature != r.signature.0 {
                 return Err(format!("{}: assembly signature mismatch", r.name));
+            }
+            let valid_effect = match import.irq_effect {
+                IrqEffect::Preserve => true,
+                IrqEffect::SaveDisable => {
+                    r.frame.parameters.is_empty()
+                        && r.result_home
+                            == Some(Mir65816AbiHome::NativeResult(
+                                abi::ResultLocation::A8ZeroExtended,
+                            ))
+                }
+                IrqEffect::Restore => {
+                    r.result_home.is_none()
+                        && r.frame.parameters.len() == 1
+                        && matches!(r.frame.parameters[0].incoming,Mir65816AbiHome::StackArgument{size,..} if size==ByteSize::ONE)
+                }
+            };
+            if !valid_effect {
+                return Err("IRQ-state import has an incompatible signature".into());
             }
             if r.entry.placement != crate::nir::NirRoutinePlacement::Relocatable {
                 return Err("assembly imports require relocatable interface declarations".into());
@@ -309,13 +437,24 @@ pub fn link(
     }
     let mut data = BTreeMap::new();
     let mut data_cursor = options.data_origin;
+    let mut read_only_cursor = options.read_only_origin.unwrap_or(0);
+    let mut zero_fill_cursor = options.zero_fill_origin.unwrap_or(0);
+    let mut allocated_end = 0;
     for item in &program.data {
         let location = match item.placement {
             Mir65816DataPlacement::Allocate => {
-                data_cursor = abi::align_up(data_cursor, item.alignment.get())
+                let cursor = if !item.mutable && options.read_only_origin.is_some() {
+                    &mut read_only_cursor
+                } else if item.bytes.is_empty() && options.zero_fill_origin.is_some() {
+                    &mut zero_fill_cursor
+                } else {
+                    &mut data_cursor
+                };
+                *cursor = abi::align_up(*cursor, item.alignment.get())
                     .ok_or("data alignment overflow")?;
-                let result = data_cursor;
-                data_cursor = end(result, item.size.get())?;
+                let result = *cursor;
+                *cursor = end(result, item.size.get())?;
+                allocated_end = allocated_end.max(*cursor);
                 result
             }
             Mir65816DataPlacement::Absolute(a) => {
@@ -359,17 +498,7 @@ pub fn link(
     if data.len() != program.data.len() {
         return Err("unresolved or cyclic data alias".into());
     }
-    let image_end = code_cursor.max(
-        if program
-            .data
-            .iter()
-            .any(|d| d.placement == Mir65816DataPlacement::Allocate)
-        {
-            data_cursor
-        } else {
-            0
-        },
-    );
+    let image_end = code_cursor.max(allocated_end);
     let entries = program
         .routines
         .iter()
@@ -380,7 +509,7 @@ pub fn link(
     }
     let mut image = Image {
         format: "actionc-65816-image".into(),
-        version: 1,
+        version: 2,
         target: "wdc-65816-native".into(),
         abi: abi::generated::ABI_NAME.into(),
         entry: routines[&entries[0].id],
@@ -406,7 +535,7 @@ pub fn link(
                 .get(&continuation)
                 .ok_or("unresolved PER continuation")?;
             if offset == 0
-                || offset + 2 > bytes.len()
+                || offset.checked_add(2).is_none_or(|end| end > bytes.len())
                 || bytes[offset - 1] != 0x62
                 || resume == 0
                 || resume >= bytes.len()
@@ -462,6 +591,7 @@ pub fn link(
                     };
                     Argument {
                         offset: offset.get(),
+                        body_displacement: u32::from(r.frame.extent) + 4 + offset.get(),
                         size: size.get(),
                         alignment: alignment.get(),
                     }
@@ -479,6 +609,51 @@ pub fn link(
             fixed_frame: r.frame.extent,
             spill_bytes: r.frame.spill_bytes,
             local_stack_peak: r.frame.peak_below_entry,
+            objects: source
+                .frame
+                .objects
+                .iter()
+                .map(|o| {
+                    let (kind, id) = match o.owner {
+                        Mir65816FrameObjectOwner::Local(id) => ("local", id.0),
+                        Mir65816FrameObjectOwner::Param(id) => ("parameter", id.0),
+                    };
+                    FrameObject {
+                        id: o.id.0,
+                        owner_kind: kind.into(),
+                        owner_id: id,
+                        displacement: o.stack_offset.get(),
+                        size: o.size.get(),
+                        alignment: o.alignment.get(),
+                    }
+                })
+                .collect(),
+            temporaries: r
+                .frame
+                .temps
+                .iter()
+                .map(|(id, slot)| Temporary {
+                    id: id.0,
+                    displacement: slot.offset,
+                    size: slot.width,
+                })
+                .collect(),
+            calls: source
+                .blocks
+                .iter()
+                .flat_map(|b| &b.ops)
+                .filter_map(|op| {
+                    if let Mir65816Op::Call { plan, .. } = op {
+                        Some(CallCost {
+                            outgoing: plan.outgoing_bytes.get(),
+                            transfer_peak: plan.native.unwrap().transfer.peak_bytes().get(),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            whole_task_stack_bound: None,
         });
         image.segments.push(Segment {
             address: base,

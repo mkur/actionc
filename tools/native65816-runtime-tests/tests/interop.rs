@@ -32,6 +32,7 @@ fn independent_assembly_calls_action_and_action_calls_assembly() {
                 size,
                 stack_peak: 0,
                 checks_stack: true,
+                irq_effect: Default::default(),
             });
         }
         let compiled = prepared.compile(&options).unwrap();

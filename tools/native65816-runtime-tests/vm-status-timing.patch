@@ -1,0 +1,300 @@
+diff --git a/crates/w65c816/NOTICE.md b/crates/w65c816/NOTICE.md
+index 6568949..01f4542 100644
+--- a/crates/w65c816/NOTICE.md
++++ b/crates/w65c816/NOTICE.md
+@@ -20,7 +20,7 @@ explicitly instead of only waking WAI without performing an abort sequence.
+ 
+ ## Qualification
+ 
+-Three reference tests pass in debug and release:
++Three original-timing reference tests pass in debug and release:
+ 
+ - Original C executes gilyon's 1,610-case instruction ROM successfully.
+ - Rust matches C's 19 internal state words and output pins on **every cycle** of
+@@ -31,6 +31,15 @@ Three reference tests pass in debug and release:
+   Every cycle's state and pins must match C. This is port equivalence evidence,
+   not proof that every upstream hardware detail is correct.
+ 
++Production timing corrects the three documented X65 status defects: REP/SEP
++commit P on their final cycle, including index truncation; RTI IRQ arming sees
++the status byte on its pull cycle. The unchanged generated decoder is wrapped
++by these explicit corrections. The original timing is available only through
++a test helper under the `reference` feature. Cycle-equivalence tests select
++that helper; they do not claim the corrected behavior matches defective C.
++The corrected default independently passes the 1,610-case instruction ROM and
++status/pipeline regressions, including the previously ignored reproducers.
++
+ The VM's architectural and integration tests are described in
+ [the execution note](../../docs/65816_EXECUTION.md).
+ 
+@@ -40,10 +49,9 @@ Inherited upstream limits remain explicit:
+ 
+ - ABORT vectoring/register-write suppression is unavailable and rejected.
+ - No MLB, E or MX output pins. E/M/X can be inspected as CPU state.
+-- REP/SEP update P one cycle early and RTI one cycle late according to the
+-  upstream source. This affects exact IRQ arming around changes to I.
+-  `tests/limitations.rs` retains failing REP/SEP timing reproducers, ignored
+-  in ordinary runs; they must be resolved before claiming exact interrupt timing.
++- Exact electrical timing and the full external single-step corpus remain
++  outside this qualification. The known REP/SEP/RTI status defects are fixed;
++  this is not a claim that all upstream timing details have been qualified.
+ - Reset assertion timing follows X65's model, not every electrical detail of
+   the chip. A level is accepted through the instruction-fetch/reset sequence.
+ - The full SingleStepTests corpus has **not** been run here. Upstream documents
+@@ -61,8 +69,8 @@ under `tests/data`. The ROM does not qualify interrupts or cycle timing.
+ ```sh
+ cargo test --manifest-path crates/w65c816/Cargo.toml --features reference
+ cargo test --release --manifest-path crates/w65c816/Cargo.toml --features reference
+-# These two expected failures expose unsupported timing:
+-cargo test --manifest-path crates/w65c816/Cargo.toml --test limitations -- --ignored
++# Corrected default timing and independent instruction-ROM regressions:
++cargo test --manifest-path crates/w65c816/Cargo.toml --test limitations
+ ```
+ 
+ Regeneration needs Python with `pycparser==2.23` and rustfmt; neither is required
+diff --git a/crates/w65c816/src/lib.rs b/crates/w65c816/src/lib.rs
+index 8bac49e..a10b26d 100644
+--- a/crates/w65c816/src/lib.rs
++++ b/crates/w65c816/src/lib.rs
+@@ -43,6 +43,9 @@ pub struct Cpu {
+     brk_flags: u8,
+     bcd_enabled: u8,
+     stopped: u8,
++    pending_status: u8,
++    #[cfg(feature = "reference")]
++    reference_timing: bool,
+ }
+ 
+ impl Default for Cpu {
+@@ -67,11 +70,22 @@ impl Default for Cpu {
+             brk_flags: 0,
+             bcd_enabled: 1,
+             stopped: 0,
++            pending_status: 0,
++            #[cfg(feature = "reference")]
++            reference_timing: false,
+         }
+     }
+ }
+ 
+ impl Cpu {
++    /// Preserve the pinned C timing only for cycle-equivalence tests.
++    #[cfg(feature = "reference")]
++    #[doc(hidden)]
++    pub fn with_reference_timing(mut self) -> Self {
++        self.reference_timing = true;
++        self
++    }
++
+     pub fn registers(&self) -> Registers {
+         Registers {
+             a: self.C,
+@@ -174,6 +188,21 @@ impl Cpu {
+             self.stopped = 0;
+             self.fetch(&mut signals);
+         }
++        // RTI's pulled status is available on this input cycle. IRQ arming
++        // must observe it now, rather than the old I bit before decode runs.
++        let corrected_timing = {
++            #[cfg(feature = "reference")]
++            {
++                !self.reference_timing
++            }
++            #[cfg(not(feature = "reference"))]
++            {
++                true
++            }
++        };
++        if corrected_timing && self.IR == 0x403 && signals & (RDY | RESET) == 0 {
++            self.P = data(signals);
++        }
+         if signals & (VPA | VDA | IRQ | NMI | RDY | RESET) != 0 {
+             if signals & (signals ^ self.PINS) & NMI != 0 {
+                 self.nmi_pip |= 0x40;
+@@ -220,7 +249,20 @@ impl Cpu {
+         signals = (signals & !(VPA | VDA | VPB)) | RW;
+         let ir = self.IR;
+         self.IR = self.IR.wrapping_add(1);
++        let old_status = self.P;
+         self.decode(&mut signals, ir);
++        if corrected_timing {
++            match ir {
++                // Retain the operand result, but commit it only on the final
++                // cycle. Width truncation below therefore happens then too.
++                0xC21 | 0xE21 => {
++                    self.pending_status = self.P;
++                    self.P = old_status;
++                }
++                0xC22 | 0xE22 => self.P = self.pending_status,
++                _ => {}
++            }
++        }
+         if self.stopped == 2 {
+             signals &= !RDY;
+         }
+@@ -272,3 +314,26 @@ pub mod pins {
+         pins & (VPA | VDA) != 0
+     }
+ }
++
++#[cfg(test)]
++mod status_timing_tests {
++    use super::*;
++    #[test]
++    fn rti_arms_irq_from_the_pulled_status_on_the_data_cycle() {
++        for (old, new) in [(4, 0), (0, 4)] {
++            let mut c = Cpu::start_at(Registers {
++                pc: 0x8000,
++                s: 0x4ff0,
++                p: old,
++                ..Default::default()
++            });
++            let mut p = c.tick(pins::with_data(c.pins(), 0x40));
++            p = c.tick(p);
++            p = c.tick(p);
++            assert_eq!(pins::address(p), 0x4ff1); // P pull, before either PC byte
++            c.tick(pins::with_data(p | pins::IRQ, new));
++            assert_eq!(c.P, new);
++            assert_eq!(c.irq_pip & 0x200, if new & 4 == 0 { 0x200 } else { 0 });
++        }
++    }
++}
+diff --git a/crates/w65c816/tests/limitations.rs b/crates/w65c816/tests/limitations.rs
+index b85a5a6..f76020b 100644
+--- a/crates/w65c816/tests/limitations.rs
++++ b/crates/w65c816/tests/limitations.rs
+@@ -1,6 +1,6 @@
+-//! Failing reproducers for timing limits documented by the pinned X65 source.
+-//! Run explicitly with --test limitations -- --ignored. Do not invert these
+-//! assertions to make unsupported timing look like qualified behavior.
++//! Regression tests for the pinned X65 status-timing defects. Corrected mode
++//! is the production default; the C-equivalence tests explicitly select the
++//! original timing and do not qualify these corrections.
+ use actionc_w65c816::{Cpu, Registers, pins};
+ 
+ fn status_after_operand(opcode: u8, status: u8) -> u8 {
+@@ -15,13 +15,67 @@ fn status_after_operand(opcode: u8, status: u8) -> u8 {
+ }
+ 
+ #[test]
+-#[ignore = "X65 applies REP status one cycle early; see NOTICE.md"]
+ fn rep_keeps_old_irq_mask_until_its_final_cycle() {
+     assert_eq!(status_after_operand(0xC2, 4) & 4, 4);
+ }
+ 
+ #[test]
+-#[ignore = "X65 applies SEP status one cycle early; see NOTICE.md"]
+ fn sep_keeps_old_irq_mask_until_its_final_cycle() {
+     assert_eq!(status_after_operand(0xE2, 0) & 4, 0);
+ }
++
++#[test]
++fn sep_truncates_indexes_only_on_final_cycle_and_retains_hidden_b() {
++    let mut c = Cpu::start_at(Registers {
++        pc: 0x8000,
++        a: 0xabcd,
++        x: 0x1234,
++        y: 0x5678,
++        ..Default::default()
++    });
++    let p = c.tick(pins::with_data(c.pins(), 0xe2));
++    let p = c.tick(pins::with_data(p, 0x30));
++    assert_eq!(
++        (c.registers().x, c.registers().y, c.registers().p & 0x30),
++        (0x1234, 0x5678, 0)
++    );
++    c.tick(p);
++    assert_eq!(
++        (
++            c.registers().a,
++            c.registers().x,
++            c.registers().y,
++            c.registers().p & 0x30
++        ),
++        (0xabcd, 0x34, 0x78, 0x30)
++    );
++}
++#[test]
++fn corrected_core_passes_independent_instruction_rom() {
++    let mut c = Cpu::default();
++    let mut bus = vec![0u8; 1 << 24];
++    let rom = include_bytes!("data/cputest816.bin");
++    bus[0x8000..0x8000 + rom.len()].copy_from_slice(rom);
++    let mut p = c.pins();
++    let mut output = String::new();
++    for _ in 0..10_000_000 {
++        p = c.tick(p);
++        if pins::is_access(p) {
++            let a = pins::address(p) as usize;
++            if p & pins::RW != 0 {
++                p = pins::with_data(p, bus[a]);
++            } else {
++                bus[a] = pins::data(p);
++                if a == 0x7f01 {
++                    output.push(char::from(pins::data(p)));
++                }
++            }
++        }
++        if c.is_stopped() {
++            assert_eq!(bus[0x7f00], 0xff, "{output}");
++            assert!(output.contains("Success"));
++            return;
++        }
++    }
++    panic!("ROM budget exhausted");
++}
+diff --git a/crates/w65c816/tests/reference.rs b/crates/w65c816/tests/reference.rs
+index dc17485..6fd9132 100644
+--- a/crates/w65c816/tests/reference.rs
++++ b/crates/w65c816/tests/reference.rs
+@@ -52,7 +52,7 @@ fn service(signals: u64, bus: &mut [u8]) -> u64 {
+ #[test]
+ fn rust_matches_every_c_cycle_of_gilyon_instruction_rom() {
+     let mut c = Reference::default();
+-    let mut rust = Cpu::default();
++    let mut rust = Cpu::default().with_reference_timing();
+     let mut bus = vec![0u8; 1 << 24];
+     let rom = include_bytes!("data/cputest816.bin");
+     bus[0x8000..0x8000 + rom.len()].copy_from_slice(rom);
+@@ -98,7 +98,7 @@ fn all_opcodes_widths_and_pin_schedules_match_c_cycle_by_cycle() {
+                     p: (random(&mut seed) as u8 & !0x30) | ((mode & 3) << 4),
+                     emulation_mode: mode == 4,
+                 };
+-                let mut rust = Cpu::start_at(r);
++                let mut rust = Cpu::start_at(r).with_reference_timing();
+                 c.set_state(rust.reference_words());
+                 bus[0x018000] = opcode;
+                 for offset in 1..=3 {
+diff --git a/docs/65816_EXECUTION.md b/docs/65816_EXECUTION.md
+index 02b783e..e446416 100644
+--- a/docs/65816_EXECUTION.md
++++ b/docs/65816_EXECUTION.md
+@@ -53,14 +53,18 @@ The script verifies the selected CPU before running the probe.
+ 
+ ## Next boundary
+ 
+-Native compiler-generated execution is still pending: actionc's MIR65816
+-currently ends at lowering and frame planning and cannot emit executable bytes.
+-The compatibility probe is not native ABI qualification. Before Exec, implement
+-the MIR65816 contract corrections and minimal emitter identified in the
+-compiler's `docs/MIR65816_EXEC_READINESS_REVIEW.md`, then run emitted native code
+-through this bus. Add two-context reentrancy/context-switch probes once the
+-physical ABI exists. Resolve the inherited REP/SEP/RTI timing limits before
+-using this CPU as an exact oracle for interrupt-boundary scheduling.
++The Action! compiler now emits native scalar/direct/indirect calls and supplies
++an independently assembled context bridge. Its slice 7 qualification uses the
++corrected production CPU timing: REP/SEP commit status at the final cycle and
++RTI IRQ sampling sees the status byte on its pull cycle. The old cycle-reference
++mode is test-only; see the core notice for the separated evidence.
+ 
+-No scheduler, allocator, message system or general Atari 65816 machine model
+-has been introduced by this checkpoint.
++The CPU corrections retain finite execution, explicit 24-bit buses and the
++ABORT rejection. Electrical timing, all SingleStepTests cases and custom-board
++behavior are not qualified by these changes. No scheduler or general Atari
++65816 machine model is introduced here.
++
++Validation: all 30 native CPU/bus probes passed in an isolated checkout. The
++core's eight tests (five corrected-mode regressions/ROM and three original-mode
++C comparisons) passed in debug and release. Unrelated terminal UI work was
++excluded from these checks.

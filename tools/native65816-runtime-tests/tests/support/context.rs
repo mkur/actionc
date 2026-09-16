@@ -66,26 +66,58 @@ impl ContextHarness {
         let mut options = layout();
         for r in prepared.mir.routines.iter().filter(|r| r.entry.external) {
             let symbol = r.entry.external_symbol.unwrap();
-            let name = if symbol == actionc::nir::runtime_symbol_id("TEST.Yield") {
-                "__a816_yield_v1"
+            let (name, peak) = if symbol == actionc::nir::runtime_symbol_id("TEST.Yield") {
+                ("__a816_yield_v1", 1)
+            } else if symbol == actionc::nir::runtime_symbol_id("TEST.SaveIRQ") {
+                ("__a816_irq_save_disable_v1", 1)
+            } else if symbol == actionc::nir::runtime_symbol_id("TEST.RestoreIRQ") {
+                ("__a816_irq_restore_v1", 0)
             } else {
                 panic!("unexpected external {r:?}")
             };
             let address = provisional.symbols[name];
+            let end = provisional
+                .symbols
+                .values()
+                .copied()
+                .filter(|&next| next > address)
+                .min()
+                .unwrap();
             options.imports.push(AssemblyImport {
                 symbol: symbol.0,
                 signature: r.signature.0,
                 abi: abi::generated::ABI_NAME.into(),
                 address,
-                size: 1,
-                stack_peak: 1,
+                size: end - address,
+                stack_peak: peak,
                 checks_stack: true,
+                irq_effect: match name {
+                    "__a816_irq_save_disable_v1" => {
+                        actionc::mir65816::image::IrqEffect::SaveDisable
+                    }
+                    "__a816_irq_restore_v1" => actionc::mir65816::image::IrqEffect::Restore,
+                    _ => Default::default(),
+                },
             });
         }
         let image = Image::from_json(&prepared.compile(&options).unwrap().image.to_json().unwrap())
             .unwrap();
         let runtime = runtime(routine(&image, "Dispatch"));
         assert_eq!(runtime.symbols, provisional.symbols);
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            let hash = source
+                .as_bytes()
+                .iter()
+                .fold(0xcbf29ce484222325u64, |h, b| {
+                    (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)
+                });
+            let stem = Path::new(&directory).join(format!("context-{optimize}-{hash:016x}"));
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(stem.with_extension("act"), source).unwrap();
+            std::fs::write(stem.with_extension("a816.json"), image.to_json().unwrap()).unwrap();
+            std::fs::write(stem.with_extension("bridge.bin"), &runtime.bytes).unwrap();
+            std::fs::write(stem.with_extension("layout.json"),serde_json::to_vec_pretty(&serde_json::json!({"bridge_origin":0x8000,"symbols":runtime.symbols,"arguments":arguments,"task_entry":task_entry,"irq_dp":IRQ_DP,"irq_stack_top":IRQ_TOP,"task_stacks":[[0x4000,0x4fff],[0x5000,0x5fff]],"task_domains":[0x2000,0x2100],"nmi_minimum_interval_cycles":250})).unwrap()).unwrap();
+        }
         let mut bus = Bus::new();
         bus.load(&image);
         bus.map(0x8000, &runtime.bytes, false);

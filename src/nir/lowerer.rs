@@ -5084,8 +5084,13 @@ fn declaration_local_init(
                     )
                 }),
             };
-            if let Some(image) = data_image.clone().filter(|_| elem_size > 1)
-                .or_else(|| declaration_has_mutable_shape(declaration).then(|| data_image.clone()
+            // Unsized initialized native BYTE/string arrays are pointer-backed
+            // too. Their element template must never overwrite the descriptor.
+            let native_unsized = target_layout.routine_activation == crate::target::RoutineActivationModel::NativeReentrant
+                && array_type.length().is_none()
+                && (data_image.is_some() || string_initializer_bytes(declaration).is_some());
+            if let Some(image) = data_image.clone().filter(|_| elem_size > 1 || native_unsized)
+                .or_else(|| (declaration_has_mutable_shape(declaration) || native_unsized).then(|| data_image.clone()
                     .or_else(|| string_initializer_bytes(declaration).map(NirDataImage::literal))
                     .unwrap_or_default()))
             {

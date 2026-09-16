@@ -73,8 +73,11 @@ fn fabricated_task_yields_and_returns_through_the_exit_binding() {
 }
 #[test]
 fn irq_and_nmi_restore_full_registers_for_every_interrupted_width() {
-    for status in [0, 0x20, 0x10, 0x30, 0x28, 0x38] {
+    for status in [0, 0x20, 0x10, 0x30, 0x28, 0x38, 0xc3, 0xf3, 0xf7] {
         for nmi in [false, true] {
+            if status & 4 != 0 && !nmi {
+                continue;
+            }
             let mut h = ContextHarness::new(SOURCE, false, "Task", &[0x7100]);
             h.bus
                 .map(0x060100, &assemble("nop\nbra *-1", 0x060100), false);

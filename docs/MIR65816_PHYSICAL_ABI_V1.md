@@ -1,6 +1,7 @@
 # Action! 65816 native physical ABI v1
 
-Status: **specified; scalar emission and context bridge exercised; full kernel-subset qualification pending**.
+Status: **implemented and emulator-qualified for the initial Exec subset**.
+See the [acceptance result](MIR65816_EXEC_ACCEPTANCE.md) for scope and limits.
 ABI identity: `action65816.native.v1`. Target: `wdc-65816-native`.
 
 This fixes the physical decisions required by R2–R5 of the
@@ -472,8 +473,9 @@ and bounds-check coverage. Unknown effects are conservative memory barriers.
 The linker rejects incompatible signatures/ABI identities and unresolved
 bindings. Function-pointer relocations name the public entry. An independently
 assembled caller/callee follows sections 3–4 exactly, including the padding
-byte for zero-argument calls. Source binding syntax and object encoding are
-implementation work; this contract does not claim they already exist.
+byte for zero-argument calls. The [emission contract](MIR65816_EMISSION_CONTRACT.md) defines source binding
+syntax and image encoding. `irq_effect` marks the two explicit I-state
+exceptions; all imported calls remain conservative memory barriers.
 
 Vector stubs, first-context restore, terminal faults and the task-return
 continuation have the special contracts stated here; they are not ordinary
@@ -498,7 +500,7 @@ accessed byte and temporary movement of S. Plans publish a minimum stack peak
 from the fixed frame and known calls, with `allocation_complete` false. The
 [scalar emitter](MIR65816_EMISSION_CONTRACT.md) now produces a separate allocated
 frame, checks concrete accesses and emits bounds checks before frame/call
-reservations. Its reported local peak includes all temporary slots and direct
+reservations. Its reported local peak includes all temporary slots and direct/indirect
 transfers; platform interrupt headroom and each callee's reservations remain
 separate obligations.
 
@@ -507,20 +509,20 @@ separate small-model policy is retained. See the
 [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) for completed slices
 and their checks.
 
-Direct scalar calls, assembly interoperability in both directions, zero
-arguments and the worked layout have executable coverage. Continue with:
+[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records executable proof
+for the advertised subset:
 
-1. Execute the indirect transfer at target offsets `$0000` and `$FFFF`, across
-   banks, with a balanced stack and intact A/X result after cleanup.
-2. Assemble the save/restore wrappers and fabricated task image; verify exact
-   register, PC/status, stack and domain-memory restoration. Exercise ordinary
-   task return, COP yield and non-switching IRQ dispatch.
-3. Run two tasks through the same recursive routine/helper. Inject IRQ/NMI in
-   every supported width, call, save/restore and stack-transition sequence;
-   test live DP scratch and address-taken locals. Respect the nesting policy.
-4. Test nested IRQ tokens, volatile traces, overflow before writes, rejected
-   frames/links/bindings and the complete G1–G6 corpus from the requirements.
+1. Direct and indirect calls use the worked layout, including zero arguments,
+   mixed-width values, target offsets `$0000`/`$FFFF` and preserved A/X results.
+2. The assembled bridge fabricates/restores tasks and verifies full registers,
+   status, stack and domain ownership, including yield and return/exit faults.
+3. Two tasks enter shared recursive routines/helpers with instruction-boundary
+   IRQ injection and seeded IRQ/NMI schedules. NMI probes cover every supported
+   width and IRQ save/restore/stack transition under the declared nesting policy.
+4. Nested IRQ tokens, exact volatile traces, pre-write overflow faults and
+   rejected frames/links/bindings complete the selected G1–G6 corpus.
 
-Layout/verifier tests and the scalar execution corpus have different scopes. The
-[CPU checkpoint's timing limits](MIR65816_CPU_EXECUTION_CHECKPOINT.md) remain
-qualification work before claiming asynchronous Exec readiness.
+The [CPU checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md) records the required
+status-timing correction. Custom-board bootstrap, vectors, acknowledgement and
+interrupt smoke testing remain platform work. ABI v1's physical layout is
+unchanged by image format version 2.

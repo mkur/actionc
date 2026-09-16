@@ -1,0 +1,107 @@
+{
+  "date": "2026-09-16",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 2,
+  "scope": "Initial Exec subset; raw and optimized NIR; emulator execution only",
+  "compiler_base_revision": "0111558a569b007bae65e5d95fdb5832ac4ca890",
+  "compiler_changes": "Slice 7 changes in the commit containing this acceptance record",
+  "compiler_input_inventory": {
+    "sha256": "30b34c777f2883526ed35fdad607864b480e19babe1691f5fbb22c3bd78eb7ce",
+    "files": 317,
+    "selection": [
+      "src/**/*.rs",
+      "runtime/65816/* (files)",
+      "Cargo.toml",
+      "Cargo.lock",
+      "docs/abi/action65816-native-v1.json",
+      "docs/abi/action65816-native-v1.inc"
+    ],
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase file SHA-256, two spaces, path, LF; hash raw file bytes"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_correction_commit": "da81c1e",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "platform": "macOS ARM64",
+  "commands": [
+    "python3 tools/native65816-runtime-tests/qualify.py",
+    "python3 tools/native65816-runtime-tests/qualify.py --release",
+    "python3 tools/native65816-runtime-tests/qualify.py --cpu",
+    "cargo test --locked nir_fixtures_match_snapshots",
+    "cargo run --locked --bin actionc-nir-sweep -- fixtures/nir",
+    "cargo test --locked --no-fail-fast"
+  ],
+  "results": {
+    "native_debug_passed": 24,
+    "native_release_passed": 24,
+    "cpu_debug_passed": 8,
+    "cpu_release_passed": 8,
+    "vm_native_passed": 30,
+    "nir_fixtures_passed": 51,
+    "compiler_passed": 3243,
+    "compiler_ignored": 24,
+    "compiler_existing_failures": [
+      "sample_catalog_classifies_every_action_source",
+      "parses_all_sample_programs"
+    ]
+  },
+  "irq": {
+    "schedule": "Each distinct reachable enabled instruction address in the baseline two-task corpus; hold IRQ until dispatch acknowledges it",
+    "raw_addresses": 2942,
+    "optimized_addresses": 2716
+  },
+  "seeded_irq_nmi": {
+    "seeds": [
+      "0x81620260916",
+      "0x5eedcafe"
+    ],
+    "nmi_minimum_interval_cycles": 250,
+    "cycle_budget_per_run": 2000000
+  },
+  "two_context_artifact_sha256": {
+    "raw": {
+      "context-false-d8929097958ba814.a816.json": "0c31e6e8e4d41c4746134c868ca971eecfd5c686762dc6f34c7d6e3636eb214e",
+      "context-false-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+      "context-false-d8929097958ba814.bridge.bin": "735e15ccfb7c2aef0321b9d52151b8f637db0511d96002659cb21e596886ada1",
+      "context-false-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048"
+    },
+    "optimized": {
+      "context-true-d8929097958ba814.a816.json": "8e29c1d37369947e8424fd5cd85564d10599a3d4fc07719665733c558684e550",
+      "context-true-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+      "context-true-d8929097958ba814.bridge.bin": "f0cbc81b92fe6ab99e84c8abec12696a2e08c3e8610a3398faf77223b611bed5",
+      "context-true-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048"
+    }
+  },
+  "expected": {
+    "task_seeds": [
+      13,
+      41
+    ],
+    "task_result_formula": "(seed + 14) * 2 + 1",
+    "task_results": [
+      55,
+      111
+    ],
+    "buffers": [
+      10,
+      10,
+      20,
+      0,
+      0,
+      50,
+      60,
+      70,
+      90,
+      100
+    ],
+    "done": 1,
+    "stack_guards": "unchanged",
+    "domain_metadata": "unchanged"
+  },
+  "map_source": "Each recorded .layout.json contains bridge symbols, task entry/arguments, stack/domain reservations and NMI policy; .a816.json includes linked code/data and frame maps"
+}

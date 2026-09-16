@@ -178,3 +178,32 @@ __a816_task_return_v1:
  rep #$20
  jsl A816_TASK_EXIT
  jml __a816_terminal_v1         ; exit is nonreturning
+
+
+.export __a816_irq_save_disable_v1, __a816_irq_restore_v1
+__a816_irq_save_disable_v1:
+ .a16
+ .i16
+ check_stack 1
+ php
+ sei
+ sep #$20
+ pla
+ and #4
+ rep #$20
+ and #$00FF
+ rtl
+__a816_irq_restore_v1:
+ .a16
+ .i16
+ sep #$20
+ lda 4,s
+ and #4
+ beq enable_irq
+ rep #$20
+ sei
+ rtl
+enable_irq:
+ rep #$20
+ cli
+ rtl

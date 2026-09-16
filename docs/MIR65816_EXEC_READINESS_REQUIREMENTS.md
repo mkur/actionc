@@ -17,6 +17,9 @@ qualification harness needs only two preallocated contexts and an assembly
 switch routine; it does not need a scheduler, allocator, message system or GEM.
 Kernel API design can proceed while these compiler gates are being completed.
 
+Current result: [initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records
+G1–G6 passing for the advertised native subset. The baseline below is historical.
+
 ## Inspected baseline
 
 Source inspection: 2026-09-15, actionc commit
@@ -66,7 +69,7 @@ Preserve existing Action! evaluation, conversion and overflow rules.
 
 The selected contract is now [physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md),
 with [machine-readable layouts](abi/action65816-native-v1.json). This specifies
-the decisions below; implementation and G2–G4 execution evidence remain required.
+the decisions below; the acceptance result supplies implementation and G2–G4 evidence.
 
 Publish the physical application binary interface (ABI): argument and result
 homes for each supported width, stack argument order, return-address layout,
@@ -206,7 +209,8 @@ before it can carry little-endian, three-byte 65816 pointers and values.
 
 ## Executable acceptance gates
 
-These are required future tests, not a report of existing 65816 coverage. Use an
+These define the required evidence; the linked acceptance result records current
+coverage. Use an
 independent 65816 emulator executing emitted bytes, with an assembly harness that
 does not obtain expected results by interpreting the compiler's IR. Qualify the
 emulator's relevant interrupt, width and bank behavior against the CPU contract.

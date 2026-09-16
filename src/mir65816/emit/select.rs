@@ -588,17 +588,30 @@ impl Builder<'_> {
                 base,
                 offset,
                 subtract,
-            } => self.binary(
-                *dest,
-                width(*bytes)?,
-                if *subtract {
-                    NirBinaryOp::Sub
-                } else {
-                    NirBinaryOp::Add
-                },
-                base,
-                offset,
-            )?,
+                offset_signed,
+            } => {
+                let offset_bytes = self.value_width(offset)?;
+                self.code.op(if *subtract { 0x38 } else { 0x18 });
+                for i in 0..width(*bytes)? {
+                    if *offset_signed && i >= offset_bytes {
+                        let positive = self.code.label();
+                        let ready = self.code.label();
+                        self.value_byte(offset, offset_bytes - 1)?;
+                        self.code.branch(0x10, positive);
+                        self.code.byte(0xa9, 0xff);
+                        self.code.jump(ready);
+                        self.code.mark(positive);
+                        self.code.byte(0xa9, 0);
+                        self.code.mark(ready);
+                    } else {
+                        self.value_byte(offset, i)?;
+                    }
+                    self.code.byte(0x85, RIGHT);
+                    self.value_byte(base, i)?;
+                    self.code.byte(if *subtract { 0xe5 } else { 0x65 }, RIGHT);
+                    self.save_byte(*dest, i)?;
+                }
+            }
             Mir65816Op::Compare {
                 dest,
                 width: bytes,
@@ -607,10 +620,20 @@ impl Builder<'_> {
                 left,
                 right,
             } => self.compare(*dest, width(*bytes)?, *signed, *operation, left, right)?,
-            Mir65816Op::Copy { .. } => {
-                return Err(
-                    "aggregate byte copies are not yet supported by native emission".into(),
-                );
+            Mir65816Op::Copy {
+                destination,
+                source,
+                bytes,
+                overlap_safe,
+                destination_volatile,
+                source_volatile,
+            } => {
+                if *destination_volatile || *source_volatile {
+                    return Err(
+                        "volatile aggregate copy requires an explicit byte-access protocol".into(),
+                    );
+                }
+                self.copy(destination, source, bytes.get(), *overlap_safe)?;
             }
             Mir65816Op::Call { .. } => unreachable!(),
         }
@@ -625,6 +648,9 @@ impl Builder<'_> {
         left: &Mir65816Value,
         right: &Mir65816Value,
     ) -> Result<(), String> {
+        if matches!(operation, NirBinaryOp::Lsh | NirBinaryOp::Rsh) {
+            return self.shift(dest, bytes, operation == NirBinaryOp::Lsh, left, right);
+        }
         let opcode = match operation {
             NirBinaryOp::Add => {
                 self.code.op(0x18);
@@ -651,6 +677,138 @@ impl Builder<'_> {
             self.save_byte(dest, i)?;
         }
         Ok(())
+    }
+    fn shift(
+        &mut self,
+        dest: TempId,
+        bytes: u8,
+        left_shift: bool,
+        left: &Mir65816Value,
+        count: &Mir65816Value,
+    ) -> Result<(), String> {
+        let zero = self.code.label();
+        let ready = self.code.label();
+        let loop_start = self.code.label();
+        for i in 0..bytes {
+            self.value_byte(left, i)?;
+            self.code.byte(0x85, RESULT + i);
+        }
+        for i in 1..self.value_width(count)? {
+            self.value_byte(count, i)?;
+            self.code.branch(0xd0, zero);
+        }
+        self.value_byte(count, 0)?;
+        self.code.byte(0xc9, bytes * 8);
+        self.code.branch(0xb0, zero);
+        self.code.byte(0xc9, 0);
+        self.code.branch(0xf0, ready);
+        self.code.a16();
+        self.code.word(0x29, 0xff);
+        self.code.op(0xaa);
+        self.code.a8();
+        self.code.mark(loop_start);
+        if left_shift {
+            self.code.byte(0x06, RESULT);
+            for i in 1..bytes {
+                self.code.byte(0x26, RESULT + i);
+            }
+        } else {
+            self.code.byte(0x46, RESULT + bytes - 1);
+            for i in (0..bytes - 1).rev() {
+                self.code.byte(0x66, RESULT + i);
+            }
+        }
+        self.code.op(0xca);
+        self.code.branch(0xd0, loop_start);
+        self.code.jump(ready);
+        self.code.mark(zero);
+        self.code.byte(0xa9, 0);
+        for i in 0..bytes {
+            self.code.byte(0x85, RESULT + i);
+        }
+        self.code.mark(ready);
+        for i in 0..bytes {
+            self.code.byte(0xa5, RESULT + i);
+            self.save_byte(dest, i)?;
+        }
+        Ok(())
+    }
+    fn pointer_step(&mut self, pointer: u8, subtract: bool, amount: u32) {
+        self.code.op(if subtract { 0x38 } else { 0x18 });
+        for i in 0..3 {
+            self.code.byte(0xa5, pointer + i);
+            self.code.byte(
+                if subtract { 0xe9 } else { 0x69 },
+                (amount >> (i * 8)) as u8,
+            );
+            self.code.byte(0x85, pointer + i);
+        }
+    }
+    fn copy(
+        &mut self,
+        destination: &Mir65816Address,
+        source: &Mir65816Address,
+        bytes: u32,
+        overlap_safe: bool,
+    ) -> Result<(), String> {
+        if bytes == 0 {
+            return Ok(());
+        }
+        if bytes >= 1 << 24 {
+            return Err("copy extent exceeds native address space".into());
+        }
+        let memory = self.prepare_address(destination)?;
+        self.address_to_pointer(memory)?;
+        for i in 0..3 {
+            self.code.byte(0xa5, PTR + i);
+            self.code.byte(0x85, 24 + i);
+        }
+        let memory = self.prepare_address(source)?;
+        self.address_to_pointer(memory)?;
+        for i in 0..3 {
+            self.code.byte(0xa5, PTR + i);
+            self.code.byte(0x85, 3 + i);
+            self.code.byte(0xa5, 24 + i);
+            self.code.byte(0x85, PTR + i);
+        }
+        let forward = self.code.label();
+        let backward = self.code.label();
+        let done = self.code.label();
+        if overlap_safe {
+            for i in (0..3).rev() {
+                self.code.byte(0xa5, PTR + i);
+                self.code.byte(0xc5, 3 + i);
+                self.code.branch(0x90, forward);
+                self.code.branch(0xd0, backward);
+            }
+            self.code.jump(done); // identical source/destination
+            self.code.mark(backward);
+            self.pointer_step(PTR, false, bytes - 1);
+            self.pointer_step(3, false, bytes - 1);
+            self.copy_loop(bytes, true);
+            self.code.jump(done);
+        }
+        self.code.mark(forward);
+        self.copy_loop(bytes, false);
+        self.code.mark(done);
+        Ok(())
+    }
+    fn copy_loop(&mut self, bytes: u32, backward: bool) {
+        for i in 0..3 {
+            self.code.byte(0xa9, (bytes >> (i * 8)) as u8);
+            self.code.byte(0x85, 28 + i);
+        }
+        let again = self.code.label();
+        self.code.mark(again);
+        self.code.byte(0xa7, 3);
+        self.code.byte(0x87, PTR); // long indirect, no DBR dependency
+        self.pointer_step(PTR, backward, 1);
+        self.pointer_step(3, backward, 1);
+        self.pointer_step(28, true, 1);
+        self.code.byte(0xa5, 28);
+        self.code.byte(0x05, 29);
+        self.code.byte(0x05, 30);
+        self.code.branch(0xd0, again);
     }
     fn compare(
         &mut self,

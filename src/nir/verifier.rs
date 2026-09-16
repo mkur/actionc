@@ -1717,8 +1717,14 @@ impl NirVerifier {
                         "pointer offset base type does not match its result type",
                     ));
                 }
-                if value_has_address_type(offset)
-                    || value_width(offset).is_none_or(|width| width > ByteSize::new(2))
+                let integer_offset = match offset {
+                    NirValue::IntegerConst { .. } => true,
+                    NirValue::Temp { ty, .. } => ty.kind.integer().is_some(),
+                    _ => false,
+                };
+                let maximum = if self.target_layout.target == crate::target::TargetId::Atari6502 { 2 } else { 4 };
+                if !integer_offset || value_has_address_type(offset)
+                    || value_width(offset).is_none_or(|width| width > ByteSize::new(maximum))
                 {
                     self.diagnostics.push(NirDiagnostic::block(
                         &routine.name,

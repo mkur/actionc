@@ -134,6 +134,13 @@ must continue to resolve these before NIR:
   activation's backing address, not a link-time relocation;
 - a classic local initializer remains part of fixed routine storage.
 
+Unsized initialized native BYTE and string arrays use separate invocation-owned
+descriptors and backing objects. Entry copies initialize the backing; a typed
+address store initializes the descriptor. The element template must never be
+copied over a pointer descriptor. This is covered across native target profiles
+by [the initialization regressions](../tests/native_execution_gaps.rs) and by
+[65816 execution](MIR65816_EXEC_ACCEPTANCE.md).
+
 No MIR backend may infer which interpretation was intended from initializer
 syntax.
 

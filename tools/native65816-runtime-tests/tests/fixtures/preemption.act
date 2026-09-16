@@ -1,0 +1,53 @@
+MODULE TEST
+USE A816MEMORY
+PUBLIC EXTERNAL PROC Yield()
+PUBLIC EXTERNAL BYTE FUNC SaveIRQ()
+PUBLIC EXTERNAL PROC RestoreIRQ(BYTE token)
+VOLATILE BYTE irqAck=$7800
+CARD taskA=$7000,taskB=$7002
+BYTE current
+CARD dispatches
+TYPE Job=[CARD seed,result BYTE done BYTE POINTER other,buffer]
+CARD FUNC Dispatch(CARD saved BYTE reason)
+  irqAck=1 dispatches==+1
+  IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI
+  taskB=saved current=0
+RETURN(taskA)
+CARD FUNC Read(CARD POINTER p) RETURN(p^)
+CARD FUNC Recursive(CARD n CARD POINTER outer)
+  CARD ARRAY values=[3 5]
+  CARD saved
+  saved=n
+  IF n=0 THEN Yield() RETURN(Read(@values(1))+Read(outer)) FI
+  values(0)=saved
+RETURN(Recursive(n-1,outer)+Read(@values(0)))
+CARD FUNC Odd(CARD n)
+  IF n=0 THEN RETURN(0) FI
+RETURN(n+Even(n-1))
+CARD FUNC Even(CARD n)
+  IF n=0 THEN RETURN(0) FI
+RETURN(n+Odd(n-1))
+LONGCARD FUNC Wide(LONGCARD n) RETURN((n+LONGCARD($A1B2FFFF))-LONGCARD($A1B2FFFF))
+CARD FUNC Shift(CARD n) RETURN((n LSH 1) RSH 1)
+PROC Task(Job POINTER work)
+  BYTE POINTER peer
+  CARD ARRAY local=[7 11]
+  CARD FUNC POINTER callback(CARD n CARD POINTER p)
+  BYTE outer,inner
+  peer=work.other
+  local(0)=work.seed
+  callback=@Recursive
+  work.result=callback(2,@local(0))+Odd(3)
+  work.result=Shift(work.result)+CARD(Wide(LONGCARD(work.seed)))-work.seed
+  A816MEMORY.Move(work.buffer+1,work.buffer,7)
+  A816MEMORY.Clear(work.buffer+3,2)
+  outer=SaveIRQ() inner=SaveIRQ()
+  work.result=work.result LSH 1
+  RestoreIRQ(inner)
+  work.result==+1
+  RestoreIRQ(outer)
+  work.done=1
+  WHILE peer^=0 DO Yield() OD
+RETURN
+PROC Main() RETURN
+ENDMODULE

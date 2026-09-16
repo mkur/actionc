@@ -40,6 +40,7 @@ ENDMODULE
                 size: 1,
                 stack_peak: 0,
                 checks_stack: true,
+                irq_effect: Default::default(),
             });
         }
         let image = Image::from_json(&prepared.compile(&options).unwrap().image.to_json().unwrap())
@@ -112,6 +113,7 @@ fn typed_indirect_results_and_mixed_assembly_arguments_match_direct_calls() {
                 size,
                 stack_peak: 0,
                 checks_stack: true,
+                irq_effect: Default::default(),
             });
         }
         let image = prepared.compile(&options).unwrap().image;

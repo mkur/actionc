@@ -25,6 +25,8 @@ fn layout() -> image::LinkOptions {
     image::LinkOptions {
         code_origin: 0x18000,
         data_origin: 0x120000,
+        read_only_origin: None,
+        zero_fill_origin: None,
         stack_overflow: 0x48000,
         nmi_extra_stack: 7,
         imports: vec![],
@@ -57,9 +59,17 @@ fn emits_checked_frames_and_round_trips_a_freestanding_image() {
 
 #[test]
 fn unsupported_operations_and_unbound_assembly_fail_before_an_image_exists() {
-    for (source, error) in [("CARD a,b,result PROC Main() result=a*b RETURN", "Mul")] {
-        let program = mir(source, false);
-        assert!(emit::materialize(&program).unwrap_err().contains(error));
+    for (source, error) in [
+        ("CARD a,b,result PROC Main() result=a*b RETURN", "Mul"),
+        (
+            "TYPE Pair=[BYTE tag CARD value] VOLATILE Pair source,target PROC Main() target=source RETURN",
+            "volatile aggregate copy",
+        ),
+    ] {
+        for optimize in [false, true] {
+            let program = mir(source, optimize);
+            assert!(emit::materialize(&program).unwrap_err().contains(error));
+        }
     }
     let mut program = mir("PROC Missing() RETURN PROC Main() Missing() RETURN", false);
     program.routines[0].entry.external = true;
@@ -69,6 +79,22 @@ fn unsupported_operations_and_unbound_assembly_fail_before_an_image_exists() {
         image::link(&program, &machine, &layout())
             .unwrap_err()
             .contains("unresolved assembly import")
+    );
+    let mut options = layout();
+    options.imports.push(image::AssemblyImport {
+        symbol: nir::runtime_symbol_id("TEST.Missing").0,
+        signature: program.routines[0].signature.0,
+        abi: mir65816::abi::generated::ABI_NAME.into(),
+        address: 0x40100,
+        size: 1,
+        stack_peak: 1,
+        checks_stack: true,
+        irq_effect: image::IrqEffect::SaveDisable,
+    });
+    assert!(
+        image::link(&program, &machine, &options)
+            .unwrap_err()
+            .contains("IRQ-state import")
     );
 }
 
@@ -189,4 +215,42 @@ fn indirect_per_relocations_reject_invalid_continuations_and_ranges() {
             .iter()
             .all(|r| r.address >> 16 == (r.address + r.size - 1) >> 16)
     );
+}
+
+#[test]
+fn section_origins_and_allocated_frame_maps_survive_transport_and_reject_corruption() {
+    let program = mir(
+        "CARD output,initialized=[7] CARD FUNC Local(CARD n) BYTE ARRAY values=[1 2 3] RETURN(n+CARD(values(1))) PROC Main() output=Local(initialized) RETURN",
+        false,
+    );
+    let machine = emit::materialize(&program).unwrap();
+    let mut options = layout();
+    options.read_only_origin = Some(0x340000);
+    options.zero_fill_origin = Some(0x560000);
+    let image = image::link(&program, &machine, &options).unwrap();
+    assert!(
+        image
+            .segments
+            .iter()
+            .any(|s| !s.executable && !s.writable && s.address == 0x340000)
+    );
+    assert!(image.zero_fill.iter().any(|s| s.address == 0x560000));
+    assert!(
+        image
+            .segments
+            .iter()
+            .any(|s| s.writable && s.address == options.data_origin)
+    );
+    let local = image.routines.iter().find(|r| r.name == "Local").unwrap();
+    assert!(local.objects.len() >= 2 && !local.temporaries.is_empty());
+    assert_eq!(
+        local.arguments[0].body_displacement,
+        u32::from(local.fixed_frame) + 4
+    );
+    let mut bad = image.clone();
+    bad.routines[0].fixed_frame = 255;
+    assert!(bad.to_json().unwrap_err().contains("frame map"));
+    let mut bad = image.clone();
+    bad.routines[0].arguments[0].body_displacement += 1;
+    assert!(bad.to_json().unwrap_err().contains("displacement map"));
 }

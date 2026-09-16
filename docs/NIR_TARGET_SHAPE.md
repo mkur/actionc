@@ -848,6 +848,11 @@ pub enum NirOp {
 }
 ```
 
+`PointerOffset.offset` must be an integer constant or integer-typed temporary,
+never an address/pointer value. Native targets accept up to four-byte integer
+displacements; classic Atari retains the two-byte limit. The integer type carries
+signedness so each MIR can extend/truncate the displacement to its pointer width.
+
 SemIR decides whether a source lvalue is volatile. NIR records that decision
 on the executable access, after names and aliases have been resolved, so MIR
 does not need to recover language meaning from SemIR. A volatile load or store

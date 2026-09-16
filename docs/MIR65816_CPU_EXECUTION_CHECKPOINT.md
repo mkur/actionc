@@ -21,23 +21,35 @@ for commands, source provenance and hardware limitations.
    bytes match. Also executed standalone compiler output from the classic
    optimized and MIR6502 backends in 65816 **emulation mode**.
 
-## Still pending
+## Native compiler and status-timing qualification
 
-The later [native scalar emitter](MIR65816_EMISSION_CONTRACT.md) now executes
-compiler-generated native images on this bus, including checked frames and
-assembly interoperability. That separate corpus covers the
-[physical ABI v1](MIR65816_PHYSICAL_ABI_V1.md) scalar subset, including indirect calls.
-Context entry/save/restore and asynchronous qualification remain in the
-[implementation plan](MIR65816_IMPLEMENTATION_PLAN.md). The earlier
-emulation-mode probe alone does not establish any native ABI property.
+The [native emitter](MIR65816_EMISSION_CONTRACT.md) now executes compiled images
+on this bus. The [initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records
+scalar/memory, ABI, two-context, asynchronous, effects and image-limit evidence
+for the advertised kernel subset. The original emulation-mode probe alone did
+not establish any native ABI property.
 
-The port retains X65's documented REP/SEP/RTI status-update timing limitations;
-two ignored timing tests remain failing reproducers. ABORT is explicitly
-rejected. Exact interrupt timing, the complete SingleStepTests corpus and
-Altirra comparisons of banked/timed behavior remain further qualification work.
-These limits prevent treating this checkpoint as full Exec readiness.
+The REP/SEP and RTI status-timing defects are corrected in actionc-vm commit
+`da81c1e`. REP/SEP retain the old status until their final update cycle, and RTI
+applies its pulled status before the corresponding IRQ pipeline sample. The
+former ignored reproducers and a focused RTI regression now pass. The corrected
+production core also runs the independent 1,610-case instruction ROM.
 
-No compiler lowering or emission implementation changed during this work.
-The [jgenesis workspace](../tools/vm65816-runtime-tests/README.md) remains as
-the earlier comparison experiment; actionc does not acquire a dependency on
-either emulator through this checkpoint.
+Cycle-by-cycle equivalence against the unmodified pinned C source remains a
+separate regression check in an explicit test-only original-timing mode. Native
+compiler execution always uses the corrected production mode. Eight CPU tests
+pass in debug/release; 30 VM native CPU/bus tests also pass. The compiler's
+[qualification runner](../tools/native65816-runtime-tests/qualify.py) reproducibly
+applies the committed correction to the published VM base in a private cache.
+
+## Remaining hardware scope
+
+ABORT is explicitly rejected. Full external CPU conformance, the complete
+SingleStepTests corpus, and banked/timed comparisons on real target hardware
+remain further work. The qualified compiler corpus does not establish arbitrary
+interrupt timing or custom-board behavior. A native board bootstrap and
+interrupt smoke test is the next platform milestone.
+
+The [jgenesis workspace](../tools/vm65816-runtime-tests/README.md) remains the
+earlier comparison experiment. The compiler itself does not depend on either
+emulator; qualification runs in an isolated test workspace.

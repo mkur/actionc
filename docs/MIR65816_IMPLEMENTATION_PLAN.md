@@ -18,7 +18,7 @@ Update this status table in the same commit as each completed slice.
 | 4 | Minimal native emission and assembly interoperability | Complete |
 | 5 | Indirect calls across banks | Complete |
 | 6 | First-task entry, return, IRQ/COP save/restore | Complete |
-| 7 | Two-context reentrancy and asynchronous qualification | Pending |
+| 7 | Two-context reentrancy and asynchronous qualification | Complete |
 
 ## Slice 1: one source for ABI constants
 
@@ -178,6 +178,29 @@ Completion: executable readiness evidence permits ordinary Exec implementation.
 Scheduling policy, allocation, IPC, drivers and GEM integration remain Exec
 work on top of that compiler boundary.
 
+[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) records G1–G6 for the
+advertised native subset. The compiler now emits logical shifts and ordinary
+aggregate copies; `A816MEMORY` supplies reentrant movement/clear. NIR retains
+wide integer pointer offsets and correct per-entry BYTE-array backing; MIR
+retains offset signedness and aggregate volatility. Volatile aggregate copies
+remain an explicit diagnostic.
+
+The assembly bridge supplies nested IRQ save/restore tokens. Image format v2
+adds separate section origins, allocated object/temp/call maps and declared IRQ
+import effects; physical ABI v1 is unchanged. A supported disassembler and a
+reproducible qualification runner preserve source, image, bridge, layout and
+version/hash evidence.
+
+Validation (2026-09-16): all 24 native execution tests passed in debug/release,
+including 2,942 raw and 2,716 optimized enabled instruction addresses plus two
+seeded IRQ/NMI schedules per mode. The VM status-timing correction is committed
+in actionc-vm as `da81c1e` and reproduced by a checked-in patch against the pinned
+base. Eight CPU tests passed in debug/release; all 30 native VM tests passed.
+NIR snapshots and all 51 fixtures passed. The isolated full compiler suite
+reported 3,243 passed, 24 ignored and only the two existing TN failures below.
+Focused emission/CLI/shared-NIR tests, ABI generation, scoped formatting,
+whitespace, disassembly and documentation links passed.
+
 ## Validation rules
 
 Run focused tests after each change and the generator's freshness check when
@@ -235,5 +258,5 @@ The VM is pinned to `56ddc5c5de41f0e7294e87c440869550eaf53292`; the local toolch
 was Rust 1.95.0 and ca65/ld65 2.18 on macOS ARM64. The emission contract and
 execution workspace document the supported subset and platform obligations.
 
-Slice 4 is complete. Slice 5 adds indirect calls across banks. Context switching,
-asynchronous execution and complete G1–G6 acceptance remain pending.
+At this historical checkpoint, slice 4 was complete. Slices 5–7 above record
+the subsequent indirect-call, context and initial Exec qualification work.

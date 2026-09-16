@@ -72,6 +72,28 @@ direct-page use or task-bookkeeping access. The board must prevent a second NMI
 until this handler finishes. SEI does not provide that guarantee. Boards whose
 acknowledgement differs must replace and independently qualify the NMI body.
 
+## IRQ-state imports
+
+The bridge exports ordinary v1 routines with explicit IRQ effects:
+
+| Export | Action! interface | `irq_effect` | Checked local peak |
+| --- | --- | --- | --- |
+| `__a816_irq_save_disable_v1` | `BYTE FUNC SaveIRQ()` | `save_disable` | 1 byte |
+| `__a816_irq_restore_v1` | `PROC RestoreIRQ(BYTE token)` | `restore` | 0 bytes |
+
+Save/disable returns the previous I bit as BYTE 0 or 4, with A's high byte zero,
+and returns with IRQ masked. Restore changes only I according to token bit 2;
+it never loads arbitrary processor status. Both return at the native boundary.
+Nest these operations by retaining each token in its invocation. All imported
+calls are conservative memory barriers in raw/optimized compilation. Import
+metadata is carried in image version 2 and checked against these signatures.
+
+The saved-status push is checked before it occurs. An IRQ between reading the
+old status and disabling it may suspend the caller normally; its eventual
+return still reports the original state. The critical region begins after the
+save/disable call returns. NMI remains possible and follows the bounded policy
+above; these routines do not protect against NMI or hardware bus agents.
+
 ## Executable checks
 
 `tools/native65816-runtime-tests/tests/contexts.rs` executes the assembled bridge
@@ -81,6 +103,8 @@ unknown COP signatures, returning exit faults, and all interrupted M/X
 combinations including hidden B and nonzero DBR. NMI is injected at each IRQ
 bridge instruction boundary, including partial saves/restores and S/D changes.
 
-This slice establishes the assembly interface. Two simultaneously live tasks,
-IRQ-state primitives and instruction-boundary scheduling qualification belong
-to slice 7; the VM's status-timing limitations are not waived by these tests.
+The separate `preemption` and `effects` tests qualify two simultaneously live
+tasks, shared recursive/memory helper entry, instruction-boundary IRQ scheduling,
+nested tokens and volatile traces. They use the corrected CPU status timing.
+See [initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) for exact coverage,
+reproduction commands and the required board validation.

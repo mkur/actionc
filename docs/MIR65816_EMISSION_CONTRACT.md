@@ -1,9 +1,9 @@
-# Native 65816 scalar emission
+# Native 65816 emission
 
-Slices 4–5 add freestanding machine-code emission for `wdc-65816-native` under
-[`action65816.native.v1`](MIR65816_PHYSICAL_ABI_V1.md). The output executes on
-the VM's independent 24-bit bus. It does not establish the context-switch,
-interrupt or complete kernel-subset acceptance gates.
+The compiler emits freestanding machine code for `wdc-65816-native` under
+[`action65816.native.v1`](MIR65816_PHYSICAL_ABI_V1.md).
+[Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) covers the subset below
+on the VM's independent 24-bit bus, including context switching and interrupts.
 
 ## Compile an image
 
@@ -55,23 +55,35 @@ dependency.
 - Loads, stores and address formation cover automatic objects, incoming
   arguments, globals, absolute addresses, pointer dereferences and indexed
   fields/elements. Pointer arithmetic and constant-stride indexing retain all
-  24 bits. Static initializers, zero-fill, aliases and low/high/bank relocations
+  24 bits. Signed narrow displacements are sign-extended; wide displacements
+  use their low 24 bits, with pointer movement modulo 2^24. Static initializers, zero-fill, aliases and low/high/bank relocations
   are linked by stable identities.
 - Integer addition, subtraction, negation, AND/OR/XOR, all six comparisons and
   integer/pointer casts are emitted. Signed comparison and signed widening use
   the retained typed facts. Arithmetic follows the NIR operation's width;
   notably, Action! unary minus on SIZE currently produces INT. Use a SIZE
   subtraction when the intended operation is modular 24-bit subtraction.
-- Branches, loops, direct recursion and block-parameter transfers are supported.
+- Logical left/right shifts operate at the typed width, including signed
+  integer operands. A count at least the bit width produces zero, following NIR
+  semantics. The bounded shift loop uses only current-domain scratch.
+- Ordinary whole-aggregate copies preserve source-value semantics on overlap.
+  Byte loops use full-width pointers and per-domain scratch; they make no calls
+  or temporary stack pushes. Local initializers execute on each entry, with
+  descriptor cells separate from their invocation-owned backing.
+- `USE A816MEMORY` with `--module-path runtime/65816` provides
+  `Move(BYTE POINTER destination,source SIZE length)` and
+  `Clear(BYTE POINTER destination SIZE length)`. Move handles overlap; both
+  operate on ordinary contiguous memory and use invocation storage.
+- Branches, loops, direct/mutual recursion and block-parameter transfers are supported.
   Parallel edge copies first save all sources, so loops can swap live values.
 - Volatile accesses remain ordered byte accesses. A byte operation does not
   touch its neighbor. Wider volatile operations are not claimed to be atomic.
 
-Multiply, divide, remainder, shifts, aggregate byte-copy
-operations, by-value aggregate interfaces, REAL, foreign code, unresolved
-runtime/builtin calls and terminal exits have explicit diagnostics. A local
-aggregate initializer may require an unsupported byte copy. Scalar field and
-element access does not imply support for whole-aggregate copying.
+Multiply, divide, remainder, by-value aggregate interfaces, REAL, foreign code,
+unresolved runtime/builtin calls and source terminal exits have explicit
+diagnostics. Volatile aggregate copies are rejected: use a deliberate scalar
+byte-access protocol for such hardware. Freestanding terminal faults are supplied
+through the platform assembly interface.
 
 Small-model emission is unsupported; its existing lowering/planning policy is
 preserved. Source ORG/SET origins, fixed routine placement and top-level
@@ -85,8 +97,8 @@ instead of a hardware alias. The new driver rejects wide numeric bare
 initializers in global and local declarations. Use bracketed initialized data
 or explicit 24-bit pointer casts and accesses for banked memory. Bank-zero
 absolute aliases are exercised by the volatile execution test. Generalizing
-the shared declaration-address resolver remains compiler work before full R1
-acceptance.
+the shared declaration-address resolver remains outside the advertised initial
+subset; banked MMIO uses explicit pointers.
 
 ## Allocation and stack checks
 
@@ -102,8 +114,8 @@ outgoing space. No displacement is truncated.
 At entry, emitted code checks the frame reservation against the current
 domain's stack floor and ceiling. Before a call it checks `O + 3` (direct) or `O + 6` (indirect), then
 reserves O, zeroes the entire outgoing area and writes arguments. There are no
-additional temporary pushes beyond the declared transfer or compiler helper calls
-in this subset. Indirect calls capture the callable before PHK/PER and the
+additional temporary pushes beyond the declared transfer in emitted operations.
+The source memory helpers use ordinary checked calls. Indirect calls capture the callable before PHK/PER and the
 stack-synthesized RTL transfer; decrementing the target PC does not borrow
 from its bank. Same-bank PER continuation/range checks run after placement.
 Caller cleanup and frame release preserve A/X through the specified Y-based
@@ -122,16 +134,24 @@ bytes. It must reserve task headroom `26 + nmi_extra_stack` or IRQ headroom
 `13 + nmi_extra_stack` when initializing the domain's floor. Emitted checks
 preserve I. Failure transfers by JML to the configured nonreturning
 `__a816_stack_overflow_v1` adapter with required bytes in A, unchanged S in X,
-and S unchanged. The image does not supply reset, task entry, IRQ, COP or NMI
-stubs.
+and S unchanged. The platform assembles the separate
+[context bridge](MIR65816_CONTEXT_INTERFACE.md) for task entry, IRQ, COP and NMI;
+reset/startup and board-specific vector installation remain platform work.
 
 ## Images, placement and assembly
 
-`actionc-65816-image`, version 1, contains initialized segments, separate
+`actionc-65816-image`, version 2, contains initialized segments, separate
 zero-fill regions, exports, data symbols, assembly imports and the platform
 stack contract. The ABI and target identities are checked when loading JSON.
 The platform loads declared regions and calls the exported program entry.
 External address/alias declarations do not allocate or clear memory.
+Version 1 images must be recompiled; the physical ABI remains v1.
+
+Optional `read_only_origin` and `zero_fill_origin` layout fields independently
+place immutable data/templates and wholly zero-filled writable objects. When
+omitted, they share `data_origin`. An initialized object with a zero-filled
+tail stays contiguous. `ImageEnd` uses the highest allocated end. The platform
+reserves bank-zero stacks/domains separately and checks cross-allocation overlap.
 
 Each emitted routine stays within one code bank, leaving the bank's last byte
 unused. The linker advances to the next bank when necessary and rejects a
@@ -156,36 +176,45 @@ abi             "action65816.native.v1"
 address, size   actual assembled code range
 stack_peak      assembly's local reservation peak below its entry S
 checks_stack    true: assembly performs its own required reservation checks
+irq_effect      "preserve" (default), "save_disable" or "restore"
 ```
 
 ABI/signature mismatches and missing bindings fail linking. Imports are
 ordinary returning v1 routines, with conservative call effects and the current
 execution domain. Their stack declarations are platform obligations, not
-proofs obtained by disassembling their bytes. The qualification fixture uses
-leaf assembly routines with no local pushes and zero local peak.
+proofs obtained by disassembling their bytes. The IRQ primitives are explicit exceptions to ordinary I preservation:
+`save_disable` requires zero arguments and a BYTE result; `restore` requires a
+single BYTE argument and no result. Incompatible signatures fail linking. All
+source calls remain conservative memory barriers; these declarations do not
+relax aliasing or optimizer ordering. See the context interface for stack costs.
 
-The compiler exports argument offsets/widths/alignment, result width, code
-address, signature identity and allocated frame costs. Names are display
-metadata. The independent assembly fixture hand-packs the published mixed
+The compiler exports argument offsets/widths/alignment and body displacements,
+result width, code address, signature identity, allocated frame objects and
+temporaries, outgoing call/transfer costs, and the local stack peak.
+`whole_task_stack_bound` is null. Image verification checks map extents and cost
+consistency; it is not a verifier of arbitrary replacement machine bytes. Names
+are display metadata. The independent assembly fixture hand-packs the published mixed
 example and consumes only exported code addresses; it does not derive expected
 offsets or results from compiler layout helpers.
 
-## Executable evidence and remaining work
+## Disassembly and executable evidence
+
+```sh
+python3 tools/disassemble65816.py build/scalar.a816.json > build/scalar.asm
+```
+
+This disassembler reads emitted routine bytes, tracks their explicit M/X width
+changes and rejects unknown/truncated encodings. Imported assembly remains
+external; retain its ca65 listing and symbols.
 
 [`tools/native65816-runtime-tests`](../tools/native65816-runtime-tests/README.md)
-loads serialized compiler images into `actionc-vm::native65816`, pinned to
-`56ddc5c5de41f0e7294e87c440869550eaf53292`. Handwritten callers/callees are
-assembled with ca65/ld65. Memory regions and execution budgets are explicit.
+loads serialized compiler images into the pinned native VM with the qualified
+status-timing patch. Handwritten callers/callees are assembled with ca65/ld65.
+Memory regions, instruction/cycle budgets, guards and expected values are
+explicit. Both raw and optimized NIR are exercised.
 
-The corpus covers all scalar widths, arithmetic boundaries, raw/optimized
-loops, recursion, live local addresses, cross-bank code/data, exact volatile
-accesses, the mixed ABI example, padding, unused result bits, scratch clobbers,
-stack balance and guard bytes. Fault probes verify that floor violations,
-subtraction underflow and ceiling violations transfer before stack writes.
-Both enabled and disabled I states are preserved in the call/interop probes.
-
-The [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) tracks validation
-results and remaining slices. Indirect transfer is implemented. Context fabrication
-and IRQ/COP stubs are slice 6; asynchronous/two-context qualification is slice
-7. The VM's REP/SEP/RTI timing limitations still apply. No emitted context
-switch or full Exec readiness is claimed by this scalar corpus.
+The [acceptance result](MIR65816_EXEC_ACCEPTANCE.md) records all 24 native tests,
+the independent CPU corrections, G1–G6 evidence and remaining platform limits.
+The [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) records the separately
+committed slices. New operations, helpers, ABI changes or wider nesting policies
+require corresponding execution qualification.
