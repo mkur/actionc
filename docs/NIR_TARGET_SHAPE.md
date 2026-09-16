@@ -341,7 +341,14 @@ loops, provided their addresses and effects permit promotion. It does not
 assign physical registers or change the ABI. Native pointer cells with verified
 three- or four-byte widths are supported scalar storage, rather than rejected
 as if every pointer occupied a 6502 word. All policies retain volatile, aliased,
-address-required and potentially uninitialized storage constraints.
+address-required and potentially uninitialized storage constraints. The native 65816 driver
+selects `Native65816`, which additionally admits exact three-byte private pointer
+locals and immutable pointer parameters in a single block of at most 64 ordinary
+load/store operations ending in a procedure return. Parameter values are captured
+once by the existing entry-seed machinery. Indirect memory operations retain their
+order and effects; this does not forward pointee loads. Existing home elision
+removes unused local storage. Other targets receive only `NativeLoops` behavior
+when this policy is requested; physical placement remains a MIR responsibility.
 
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, `CARD` and
 `INT` are 16-bit, and `LONGINT` and `LONGCARD` are 32-bit. `ADDRESS` and `SIZE` are

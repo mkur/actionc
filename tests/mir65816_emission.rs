@@ -14,7 +14,7 @@ fn mir(source: &str, optimize: bool) -> mir65816::Mir65816Program {
     .unwrap();
     let nir = nir::lower_program(&semantic::ir::lower_program(&ast, &model));
     let nir = if optimize {
-        nir::optimize_program_with_promotion(&nir, nir::NirPromotionPolicy::NativeLoops).unwrap()
+        nir::optimize_program_with_promotion(&nir, nir::NirPromotionPolicy::Native65816).unwrap()
     } else {
         nir
     };

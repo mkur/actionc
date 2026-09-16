@@ -33,6 +33,8 @@ pub enum NirPromotionPolicy {
     #[default]
     Conservative,
     NativeLoops,
+    /// Native loop policy plus bounded private pointer homes on the 65816.
+    Native65816,
 }
 
 pub(super) fn promote_program(
@@ -41,6 +43,13 @@ pub(super) fn promote_program(
 ) -> Result<NirProgram, Vec<NirDiagnostic>> {
     verify_program(program)?;
     let analyses = analyze_program_storage(program);
+    let policy = if policy == NirPromotionPolicy::Native65816
+        && program.target_layout.target != crate::target::TargetId::Wdc65816Native
+    {
+        NirPromotionPolicy::NativeLoops
+    } else {
+        policy
+    };
     let mut promoted = program.clone();
     for (routine, analysis) in promoted.routines.iter_mut().zip(&analyses.routines) {
         promote_routine(routine, analysis, policy);
@@ -63,11 +72,20 @@ fn promote_routine(
     }
     let induction_address_homes = induction_address_homes(routine, &cfg);
     let bounded_relay_homes = bounded_relay_homes(routine, &cfg, analysis);
-    let loop_blocks = if policy == NirPromotionPolicy::NativeLoops {
+    let loop_blocks = if policy != NirPromotionPolicy::Conservative {
         natural_loop_blocks(&cfg)
     } else {
         BTreeSet::new()
     };
+    let pointer_leaf = policy == NirPromotionPolicy::Native65816
+        && routine.blocks.len() == 1
+        && routine.blocks[0].params.is_empty()
+        && routine.blocks[0].ops.len() <= 64
+        && matches!(routine.blocks[0].terminator, NirTerminator::Return(None))
+        && routine.blocks[0]
+            .ops
+            .iter()
+            .all(|op| matches!(op, NirOp::Load { .. } | NirOp::Store { .. }));
     // Requested expansion benefits from removing private scalar scratch even
     // below the automatic hot/relay cost gates. Storage legality still comes
     // entirely from the shared analysis, including current-invocation definite
@@ -88,8 +106,24 @@ fn promote_routine(
         .homes
         .values()
         .filter(|facts| facts.is_promotable())
-        .filter(|facts| matches!(facts.id, NirStorageId::Local(_)))
         .filter(|facts| {
+            if pointer_leaf
+                && facts.is_proven_private_to_invocation()
+                && !facts.calls_may_read
+                && !facts.calls_may_write
+                && !facts.value_needed_at_exit
+                && facts.direct_access_ty.as_ref().is_some_and(|ty| {
+                    ty.width == Some(ByteSize::new(3))
+                        && matches!(ty.kind, super::NirTypeKind::Pointer { .. })
+                })
+                && (matches!(facts.id, NirStorageId::Local(_))
+                    || matches!(facts.id, NirStorageId::Param(_)) && facts.direct_stores == 0)
+            {
+                return true;
+            }
+            if !matches!(facts.id, NirStorageId::Local(_)) {
+                return false;
+            }
             let native_loop = facts.is_proven_private_to_invocation()
                 && !facts.calls_may_read
                 && !facts.calls_may_write

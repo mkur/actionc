@@ -88,7 +88,7 @@ pub fn prepare_file(
     // no Action! routine refers to them. Do not identify entries by their names.
     let program = nir::lower_program(&semir);
     let program = if optimize {
-        nir::optimize_program_with_promotion(&program, nir::NirPromotionPolicy::NativeLoops)
+        nir::optimize_program_with_promotion(&program, nir::NirPromotionPolicy::Native65816)
             .map_err(CompileError::from_nir_diagnostics)?
     } else {
         program
