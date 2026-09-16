@@ -12,7 +12,8 @@ enum Memory {
     Stack(u32),
     Absolute(u32),
     Symbol(Target, u32),
-    Pointer,
+    /// Displacement retained for [PTR],Y instead of modifying the far pointer.
+    Pointer(u16),
 }
 
 struct Builder<'a> {
@@ -63,6 +64,7 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
             b.operation(op)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
         }
+        b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge(edge)?,
             Mir65816Terminator::Branch {
@@ -190,15 +192,82 @@ impl Builder<'_> {
                 offset.checked_add(byte).ok_or("address offset overflow")?,
                 None,
             ),
-            Memory::Pointer => {
+            Memory::Pointer(offset) => {
                 self.code.word(
                     0xa0,
-                    u16::try_from(byte).map_err(|_| "indirect displacement exceeds Y")?,
+                    u16::try_from(u32::from(offset) + byte)
+                        .map_err(|_| "indirect displacement exceeds Y")?,
                 ); // LDY
                 self.code.byte(indirect, PTR); // LDA/STA [PTR],Y: linear 24-bit access
             }
         }
         Ok(())
+    }
+    /// Copy exactly the scalar extent. Ordinary accesses may use word pairs;
+    /// volatile accesses retain their individual ascending byte transfers.
+    fn transfer(
+        &mut self,
+        source: Memory,
+        destination: Memory,
+        bytes: u8,
+        wide: bool,
+    ) -> Result<(), String> {
+        for memory in [source, destination] {
+            match memory {
+                Memory::Stack(offset) => {
+                    self.displacement(offset, u32::from(bytes) - 1)?;
+                }
+                Memory::Absolute(address)
+                    if address
+                        .checked_add(u32::from(bytes) - 1)
+                        .is_none_or(|end| end >= 1 << 24) =>
+                {
+                    return Err("24-bit instruction address overflow".into());
+                }
+                _ => {}
+            }
+        }
+        // Private frame transfers can stay in A16 for a three-byte value by
+        // overlapping the two words. Never touch a fourth byte, and never
+        // duplicate a read/write through an external or indirect address.
+        if wide
+            && bytes == 3
+            && let (Memory::Stack(src), Memory::Stack(dst)) = (source, destination)
+            && (src == dst || src.abs_diff(dst) >= 3)
+        {
+            self.code.a16();
+            for byte in [0, 1] {
+                self.load_memory(source, byte)?;
+                self.store_memory(destination, byte)?;
+            }
+            return Ok(());
+        }
+        let mut byte = 0;
+        while byte < bytes {
+            let word = wide && byte + 1 < bytes;
+            if word {
+                self.code.a16();
+            } else {
+                self.code.a8();
+            }
+            self.load_memory(source, byte.into())?;
+            self.store_memory(destination, byte.into())?;
+            byte += if word { 2 } else { 1 };
+        }
+        Ok(())
+    }
+    fn value_memory(&self, value: &Mir65816Value) -> Result<Option<Memory>, String> {
+        Ok(match value {
+            Mir65816Value::Temp(id, bytes) => {
+                let slot = self.temp(*id)?;
+                if slot.width != width(*bytes)? {
+                    return Err("temporary width mismatch".into());
+                }
+                Some(Memory::Stack(slot.offset.into()))
+            }
+            Mir65816Value::Param(id) => Some(Memory::Stack(self.parameter(*id)?.0)),
+            _ => None,
+        })
     }
     fn value_width(&self, value: &Mir65816Value) -> Result<u8, String> {
         Ok(match value {
@@ -269,6 +338,30 @@ impl Builder<'_> {
     }
     fn pointer_value(&mut self, value: &Mir65816Value, scratch: u8) -> Result<(), String> {
         let bytes = self.value_width(value)?;
+        if bytes >= 2 {
+            if let Some(memory) = self.value_memory(value)? {
+                if let Memory::Stack(offset) = memory {
+                    // A word's trailing byte must also fit the ABI's d,S
+                    // range, including transient outgoing-call reservations.
+                    self.displacement(offset, u32::from(bytes.min(3)) - 1)?;
+                }
+                self.code.a16();
+                self.load_memory(memory, 0)?;
+                self.code.byte(0x85, scratch);
+                if bytes >= 3 {
+                    // Both source and scratch have three owned bytes. Reading
+                    // the overlapping word avoids a bank-byte mode switch.
+                    self.load_memory(memory, 1)?;
+                    self.code.byte(0x85, scratch + 1);
+                    return Ok(());
+                }
+                self.code.a8();
+                self.value_byte(value, 2)?;
+                self.code.byte(0x85, scratch + 2);
+                return Ok(());
+            }
+        }
+        self.code.a8();
         for i in 0..3 {
             if i < bytes {
                 self.value_byte(value, i)?;
@@ -301,10 +394,10 @@ impl Builder<'_> {
                     return Err("indirect address requires a 24-bit pointer".into());
                 }
                 self.pointer_value(value, PTR)?;
-                Memory::Pointer
+                Memory::Pointer(0)
             }
         };
-        if address.index.is_none() && !matches!(memory, Memory::Pointer) {
+        if address.index.is_none() && !matches!(memory, Memory::Pointer(_)) {
             return Ok(match memory {
                 Memory::Stack(offset) => Memory::Stack(
                     offset
@@ -321,16 +414,18 @@ impl Builder<'_> {
                         .checked_add(displacement)
                         .ok_or("symbol offset overflow")?,
                 ),
-                Memory::Pointer => unreachable!(),
+                Memory::Pointer(_) => unreachable!(),
             });
         }
-        if !matches!(memory, Memory::Pointer) {
+        if !matches!(memory, Memory::Pointer(_)) {
+            self.code.a8();
             self.address_to_pointer(memory)?;
         }
         if let Some(index) = &address.index {
             // Constant-stride scaling in the full 24-bit address domain. This
             // uses only scratch and does not introduce an unqualified helper.
             self.pointer_value(&index.value, INDEX)?;
+            self.code.a8();
             let stride = index.stride.get();
             if stride == 0 || stride >= 0x1000000 {
                 return Err("unsupported index stride".into());
@@ -352,7 +447,13 @@ impl Builder<'_> {
         if displacement >= 0x1000000 {
             return Err("pointer displacement exceeds 24 bits".into());
         }
+        // Leave room for every byte of the largest scalar (four bytes).
+        // AddressOf and aggregate copies explicitly materialize this offset.
+        if displacement <= u32::from(u16::MAX) - 3 {
+            return Ok(Memory::Pointer(displacement as u16));
+        }
         if displacement != 0 {
+            self.code.a8();
             self.code.op(0x18);
             for i in 0..3 {
                 self.code.byte(0xa5, PTR + i);
@@ -360,9 +461,10 @@ impl Builder<'_> {
                 self.code.byte(0x85, PTR + i);
             }
         }
-        Ok(Memory::Pointer)
+        Ok(Memory::Pointer(0))
     }
     fn address_to_pointer(&mut self, memory: Memory) -> Result<(), String> {
+        self.code.a8();
         match memory {
             Memory::Stack(offset) => {
                 let displacement = self.displacement(offset, 0)?;
@@ -390,7 +492,11 @@ impl Builder<'_> {
                     self.code.byte(0x85, PTR + i);
                 }
             }
-            Memory::Pointer => {}
+            Memory::Pointer(offset) => {
+                if offset != 0 {
+                    self.pointer_step(PTR, false, offset.into());
+                }
+            }
         }
         Ok(())
     }
@@ -425,15 +531,19 @@ impl Builder<'_> {
         self.code.word(0xe9, bytes);
         self.code.op(0x1b);
     }
-    fn release(&mut self, bytes: u16) {
+    fn release(&mut self, bytes: u16, preserve_result: bool) {
         if bytes != 0 {
             // TAY; TSC; CLC; ADC #bytes; TCS; TYA. Preserve the entire A/X result.
-            self.code.op(0xa8);
+            if preserve_result {
+                self.code.op(0xa8);
+            }
             self.code.op(0x3b);
             self.code.op(0x18);
             self.code.word(0x69, bytes);
             self.code.op(0x1b);
-            self.code.op(0x98);
+            if preserve_result {
+                self.code.op(0x98);
+            }
         }
     }
     fn edge(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
@@ -479,32 +589,49 @@ impl Builder<'_> {
             ..
         } = op
         {
+            self.code.a16();
             return self.call(target, args, *result, plan);
         }
-        self.code.a8();
+        if !matches!(op, Mir65816Op::Load { .. } | Mir65816Op::Store { .. }) {
+            self.code.a8();
+        }
         match op {
             Mir65816Op::Load {
                 dest,
                 width: bytes,
                 address,
-                ..
+                volatile,
             } => {
                 let memory = self.prepare_address(address)?;
-                for i in 0..width(*bytes)? {
-                    self.load_memory(memory, i.into())?;
-                    self.save_byte(*dest, i)?;
+                let slot = self.temp(*dest)?;
+                if slot.width != width(*bytes)? {
+                    return Err("load temporary width mismatch".into());
                 }
+                self.transfer(
+                    memory,
+                    Memory::Stack(slot.offset.into()),
+                    slot.width,
+                    !volatile,
+                )?;
             }
             Mir65816Op::Store {
                 address,
                 value,
                 width: bytes,
-                ..
+                volatile,
             } => {
                 let memory = self.prepare_address(address)?;
-                for i in 0..width(*bytes)? {
-                    self.value_byte(value, i)?;
-                    self.store_memory(memory, i.into())?;
+                let bytes = width(*bytes)?;
+                if let Some(source) = self.value_memory(value)?
+                    && self.value_width(value)? >= bytes
+                {
+                    self.transfer(source, memory, bytes, !volatile)?;
+                } else {
+                    self.code.a8();
+                    for i in 0..bytes {
+                        self.value_byte(value, i)?;
+                        self.store_memory(memory, i.into())?;
+                    }
                 }
             }
             Mir65816Op::AddressOf {
@@ -637,7 +764,6 @@ impl Builder<'_> {
             }
             Mir65816Op::Call { .. } => unreachable!(),
         }
-        self.code.a16();
         Ok(())
     }
     fn binary(
@@ -944,7 +1070,7 @@ impl Builder<'_> {
             self.code.op(0x6b); // RTL: enter callee with ordinary three-byte return frame
             self.code.mark(resume);
         }
-        self.release(outgoing);
+        self.release(outgoing, true);
         self.delta = 0;
         if let Some((id, bytes)) = result {
             let bytes = width(bytes)?;
@@ -995,7 +1121,7 @@ impl Builder<'_> {
         } else if self.routine.result_home.is_some() {
             return Err("function returns without a value".into());
         }
-        self.release(self.frame.extent);
+        self.release(self.frame.extent, value.is_some());
         self.code.op(0x6b); // RTL
         Ok(())
     }

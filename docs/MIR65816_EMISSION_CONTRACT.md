@@ -79,6 +79,28 @@ dependency.
 - Volatile accesses remain ordered byte accesses. A byte operation does not
   touch its neighbor. Wider volatile operations are not claimed to be atomic.
 
+### Scalar instruction selection
+
+MIR65816 owns access-width and addressing selection. Ordinary scalar loads and
+stores may use sixteen-bit transfers plus a final byte. Three-byte transfers
+between disjoint frame slots (or the same slot), and from a frame slot into
+owned direct-page pointer scratch, may instead use overlapping words at offsets
+zero and one. This touches no fourth byte; overlapping word transfers are never
+used to duplicate external or indirect accesses. Volatile loads and stores keep
+their exact ascending byte accesses.
+
+Small indirect field displacements are carried by `[pointer],Y`, including bank
+carry. Displacements that cannot accommodate a four-byte scalar within Y use
+explicit full-width pointer addition. Address formation and aggregate copies
+materialize any deferred displacement before consuming the pointer itself.
+
+Accumulator-width knowledge is local to emitted instruction sequences and is
+discarded at labels. Scalar operations may retain their final width; calls and
+MIR control-flow boundaries restore sixteen-bit A. Procedure frame teardown
+does not preserve an unused accumulator result. These choices change neither
+the public ABI nor NIR memory effects, and do not allocate persistent values in
+call-clobbered scratch.
+
 Multiply, divide, remainder, by-value aggregate interfaces, REAL, foreign code,
 unresolved runtime/builtin calls and source terminal exits have explicit
 diagnostics. Volatile aggregate copies are rejected: use a deliberate scalar

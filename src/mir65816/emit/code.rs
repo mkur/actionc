@@ -32,6 +32,8 @@ pub struct Code {
     /// PER operand offsets and the continuation whose low word minus one is pushed.
     pub return_fixups: Vec<(usize, Label)>,
     next_label: u32,
+    /// Local emission knowledge only; joins must not inherit fallthrough state.
+    accumulator_is_8_bit: Option<bool>,
 }
 
 impl Code {
@@ -42,6 +44,7 @@ impl Code {
     }
     pub(super) fn mark(&mut self, label: Label) {
         assert!(self.labels.insert(label, self.bytes.len()).is_none());
+        self.accumulator_is_8_bit = None;
     }
     pub(super) fn op(&mut self, opcode: u8) {
         self.bytes.push(opcode);
@@ -87,9 +90,15 @@ impl Code {
         self.jump(label);
     }
     pub(super) fn a8(&mut self) {
-        self.byte(0xe2, 0x20);
+        self.accumulator_width(true);
     }
     pub(super) fn a16(&mut self) {
-        self.byte(0xc2, 0x20);
+        self.accumulator_width(false);
+    }
+    fn accumulator_width(&mut self, byte: bool) {
+        if self.accumulator_is_8_bit != Some(byte) {
+            self.byte(if byte { 0xe2 } else { 0xc2 }, 0x20);
+            self.accumulator_is_8_bit = Some(byte);
+        }
     }
 }

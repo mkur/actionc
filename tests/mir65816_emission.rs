@@ -34,6 +34,57 @@ fn layout() -> image::LinkOptions {
 }
 
 #[test]
+fn pointer_unlink_has_a_bounded_native_code_size() {
+    let source = "TYPE Node=[Node POINTER ln_Succ Node POINTER ln_Pred] \
+        PROC Remove(Node POINTER item) Node POINTER previous,following \
+        previous=item.ln_Pred following=item.ln_Succ \
+        previous.ln_Succ=following following.ln_Pred=previous RETURN";
+    for optimize in [false, true] {
+        let program = mir(source, optimize);
+        let machine = emit::materialize(&program).unwrap();
+        let image = image::link(&program, &machine, &layout()).unwrap();
+        let remove = image.routines.iter().find(|r| r.name == "Remove").unwrap();
+        // The original bytewise selector used 369 bytes. Include the complete
+        // checked entry and ABI return in the budget, not just the four accesses.
+        assert!(remove.size <= 230, "Remove grew to {} bytes", remove.size);
+        assert_eq!(remove.result_bytes, 0);
+    }
+}
+
+#[test]
+fn word_pointer_capture_checks_its_last_stack_byte_after_call_reservation() {
+    use mir65816::{Mir65816CallTarget, Mir65816Op, Mir65816Value};
+    let mut program = mir(
+        "PROC Invoke(BYTE padding PROC POINTER cb) BYTE ARRAY buffer(248) cb() RETURN",
+        false,
+    );
+    let routine = &mut program.routines[0];
+    let parameter = routine.frame.parameters[1].param;
+    // Feed the incoming callable directly to selection. With the 248-byte
+    // frame it occupies d,S=253..255; reserving the zero-argument call's one
+    // byte moves it to 254..256. Both word starts fit, but the last byte does not.
+    routine.temps.clear();
+    routine.blocks[0].ops.retain_mut(|op| {
+        if let Mir65816Op::Call {
+            target: Mir65816CallTarget::Indirect(value, _),
+            ..
+        } = op
+        {
+            *value = Mir65816Value::Param(parameter);
+            true
+        } else {
+            false
+        }
+    });
+    mir65816::verify_program(&program).unwrap();
+    assert!(
+        emit::materialize(&program)
+            .unwrap_err()
+            .contains("stack-relative")
+    );
+}
+
+#[test]
 fn emits_checked_frames_and_round_trips_a_freestanding_image() {
     for optimize in [false, true] {
         let program = mir(
