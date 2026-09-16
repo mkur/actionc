@@ -3073,7 +3073,7 @@ impl NirBuilder {
                 .copied()
                 .or_else(|| resident_array_address(&symbol.name))
         {
-            return NirValue::ConstU16(address);
+            return self.absolute_index_base_value(address);
         }
         let dest = self.next_temp();
         self.push(NirOp::AddrOf {
@@ -3313,7 +3313,7 @@ impl NirBuilder {
         {
             self.load_place_value(place, pointer_ty)
         } else if let Some(address) = self.absolute_index_base_for_symbol(symbol) {
-            NirValue::ConstU16(address)
+            self.absolute_index_base_value(address)
         } else {
             self.addr_of_place(place, pointer_ty, Some(symbol))
         };
@@ -3344,7 +3344,7 @@ impl NirBuilder {
             return self.nir_value(base);
         }
         if let Some(address) = self.absolute_array_base_address(base) {
-            return NirValue::ConstU16(address);
+            return self.absolute_index_base_value(address);
         }
         if let SemExprKind::LValue(lvalue) = &base.kind
             && (lvalue_is_param_symbol(lvalue)
@@ -3374,6 +3374,20 @@ impl NirBuilder {
         };
         let pointer_ty = pointer_type_to(element_type);
         self.addr_of_place(place, pointer_ty, None)
+    }
+
+    fn absolute_index_base_value(&self, address: u16) -> NirValue {
+        if self.activation == NirActivationModel::NativeReentrant {
+            NirValue::AddressConst {
+                address: AddressValue::new(
+                    self.target_layout.data_pointer.address_space,
+                    u64::from(address),
+                ),
+                ty: native_data_pointer_type(None, self.target_layout),
+            }
+        } else {
+            NirValue::ConstU16(address)
+        }
     }
 
     fn absolute_array_base_address(&self, base: &SemExpr) -> Option<u16> {

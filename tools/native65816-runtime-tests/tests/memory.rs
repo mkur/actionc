@@ -2,6 +2,31 @@ mod support;
 use support::{context::symbol, *};
 
 #[test]
+fn absolute_array_indices_preserve_native_addresses_and_element_stride() {
+    let source = "BYTE ARRAY bytes(1024)=$FF00 CARD ARRAY words(1024)=$A000 CARD index,result PROC Main() bytes(index)=37 words(index)=$BEEF result=CARD(bytes(index))+words(index) RETURN";
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        for index in [0u16, 255, 256, 1023] {
+            let mut h = Harness::new(&image, &caller(image.entry), 0);
+            h.bus.map(0xfef0, &[0xa5; 1056], true);
+            h.bus.map(0x9ff0, &[0xa5; 2080], true);
+            let at = symbol(&image, "index") as usize;
+            h.bus.ram[at..at + 2].copy_from_slice(&index.to_le_bytes());
+            h.run();
+            h.guards(0);
+            assert_eq!(h.global(&image, "result", 2), 0xbf14);
+            let mut bytes = [0xa5; 1056];
+            bytes[16 + usize::from(index)] = 37;
+            assert_eq!(&h.bus.ram[0xfef0..0x10310], &bytes);
+            let mut words = [0xa5; 2080];
+            words[16 + usize::from(index) * 2..18 + usize::from(index) * 2]
+                .copy_from_slice(&0xbeefu16.to_le_bytes());
+            assert_eq!(&h.bus.ram[0x9ff0..0xa810], &words);
+        }
+    }
+}
+
+#[test]
 fn logical_shifts_match_language_rules_at_every_scalar_width_and_count_boundary() {
     for (ty, bytes) in [
         ("BYTE", 1),

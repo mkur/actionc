@@ -3273,6 +3273,12 @@ impl NirVerifier {
             }
             NirPlaceKind::Index { base_addr, index, elem_ty, elem_size } => {
                 self.value_type(routine, block, base_addr, "index base");
+                if routine.activation == NirActivationModel::NativeReentrant
+                    && !value_has_address_type(base_addr)
+                {
+                    self.diagnostics.push(NirDiagnostic::block(&routine.name, &block.label,
+                        "native index base requires a typed address"));
+                }
                 self.value_type(routine, block, index, "index coordinate");
                 let integer_index = match index {
                     NirValue::Temp { ty, .. } => ty.kind.integer().is_some() || matches!(ty.kind, NirTypeKind::Bool),

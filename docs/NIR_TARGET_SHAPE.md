@@ -346,7 +346,13 @@ address-required and potentially uninitialized storage constraints.
 Action! scalar meaning remains fixed: `BYTE` and `CHAR` are 8-bit, `CARD` and
 `INT` are 16-bit, and `LONGINT` and `LONGCARD` are 32-bit. `ADDRESS` and `SIZE` are
 distinct unsigned integer roles whose widths come from the selected target
-layout. Pointer and callable widths are selected by their address spaces and
+layout. Native indexed places require a typed address base, including absolute
+arrays declared at a 16-bit source address. NIR lowering supplies an
+`AddressConst` with the target data-pointer width; the verifier rejects integer
+bases before MIR lowering. Dynamic indexing can therefore carry into the next
+bank without reconstructing a pointer type in the backend.
+
+Pointer and callable widths are selected by their address spaces and
 are not aliases for `CARD` on native 65816 or 68k targets. The classic Atari
 ABI may retain the historical 16-bit pointer/`CARD` interoperability as an
 explicit compatibility rule.
