@@ -1,7 +1,7 @@
 # Native 65816 acceptance for initial Exec work
 
 Date: 2026-09-16. **G1–G6 pass for the initial subset described here**, using
-`wdc-65816-native`, ABI `action65816.native.v1`, image format version 2, and
+`wdc-65816-native`, ABI `action65816.native.v1`, image format version 3, and
 both raw and optimized NIR. Ordinary standalone Exec implementation can begin
 on this boundary. The next platform milestone is a real-machine bootstrap and
 interrupt smoke test; these results establish emulator execution only.
@@ -106,7 +106,7 @@ Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Results:
   (`LOCATION.ACT` lacks imported DIR constants when analyzed alone).
 - Emission, CLI and shared-NIR regressions passed, including rejection of
   volatile aggregate copy in both optimization modes. Artifact export and
-  disassembly were checked against current version-2 images.
+  disassembly were checked against the original version-2 images.
 
 ## Limits retained for initial Exec
 
@@ -126,3 +126,8 @@ Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Results:
 - The platform owns nonoverlapping bank-zero reservations, static/zero-fill
   loading, native startup, task/resource lifetimes, stack sizing and the raw
   nonreturning fault/exit adapters. Image maps report costs, not a scheduler.
+
+The pointer allocation extension uses image version 3 with tagged temporary
+homes; its physical ABI is unchanged. See the [allocation plan](MIR65816_POINTER_ALLOCATION_PLAN.md)
+for the newer measurements and qualification. The original version-2 evidence
+record below remains historical evidence for its recorded compiler revision.

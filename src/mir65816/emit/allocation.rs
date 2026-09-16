@@ -27,6 +27,9 @@ pub(super) fn width(width: ByteSize) -> Result<u8, String> {
 
 impl AllocatedFrame {
     pub(super) fn new(routine: &Mir65816Routine) -> Result<Self, String> {
+        if let Some(frame) = Self::pointer_leaf(routine)? {
+            return Ok(frame);
+        }
         let mut cursor = routine.frame.extent.get() + 1;
         let mut reserve = |width: u8| -> Result<Slot, String> {
             if width > 1 {

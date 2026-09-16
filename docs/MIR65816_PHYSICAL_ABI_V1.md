@@ -525,4 +525,4 @@ for the advertised subset:
 The [CPU checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md) records the required
 status-timing correction. Custom-board bootstrap, vectors, acknowledgement and
 interrupt smoke testing remain platform work. ABI v1's physical layout is
-unchanged by image format version 2.
+unchanged by image format version 3.

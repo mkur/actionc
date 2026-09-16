@@ -125,8 +125,7 @@ subset; banked MMIO uses explicit pointers.
 ## Allocation and stack checks
 
 Temporary locations explicitly distinguish stack and direct-page homes. The
-current selector still uses the complete stack strategy; a separately verified
-pointer-leaf plan is available for the next selection slice. Its whitelist admits
+selector consumes a verified pointer-leaf plan when eligible. Its whitelist admits
 only a single bounded block of ordinary three-byte pointer loads/stores and a
 void return, with no indexes or calls. These operations may touch only their
 allocated homes and addressed memory, using A/Y/flags without extra scratch.
@@ -171,12 +170,18 @@ reset/startup and board-specific vector installation remain platform work.
 
 ## Images, placement and assembly
 
-`actionc-65816-image`, version 2, contains initialized segments, separate
+`actionc-65816-image`, version 3, contains initialized segments, separate
 zero-fill regions, exports, data symbols, assembly imports and the platform
 stack contract. The ABI and target identities are checked when loading JSON.
 The platform loads declared regions and calls the exported program entry.
 External address/alias declarations do not allocate or clear memory.
-Version 1 images must be recompiled; the physical ABI remains v1.
+Version 1 and 2 images must be recompiled; the physical ABI remains v1.
+Temporary maps contain `id`, `size` and a tagged `home`: either
+`{"kind":"stack","displacement":N}` or `{"kind":"direct_page","offset":N}`.
+Stack homes are checked against the allocated frame; DP pointer homes must
+occupy one of the three owned ABI slots and cannot coexist with calls. DP
+values are not stack spills. Lifetime and scratch-clobber proofs are checked
+against typed MIR before selection, not inferred from the final map.
 
 Optional `read_only_origin` and `zero_fill_origin` layout fields independently
 place immutable data/templates and wholly zero-filled writable objects. When

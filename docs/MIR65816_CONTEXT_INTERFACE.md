@@ -86,7 +86,7 @@ and returns with IRQ masked. Restore changes only I according to token bit 2;
 it never loads arbitrary processor status. Both return at the native boundary.
 Nest these operations by retaining each token in its invocation. All imported
 calls are conservative memory barriers in raw/optimized compilation. Import
-metadata is carried in image version 2 and checked against these signatures.
+metadata is carried in image version 3 and checked against these signatures.
 
 The saved-status push is checked before it occurs. An IRQ between reading the
 old status and disabling it may suspend the caller normally; its eventual

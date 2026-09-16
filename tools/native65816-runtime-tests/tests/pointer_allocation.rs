@@ -90,7 +90,11 @@ fn unlink_matches_independent_reference_with_banked_and_aliased_nodes() {
         assert_eq!(reference.routines[0].size, 127);
         for optimize in [false, true] {
             let image = compile(&source, optimize);
-            assert!(image.routines[0].size <= 223);
+            assert!(image.routines[0].size <= if optimize { 144 } else { 223 });
+            if optimize {
+                assert_eq!(image.routines[0].fixed_frame, 0);
+                assert_eq!(image.routines[0].spill_bytes, 0);
+            }
             for nodes in [
                 [0x21ffff, 0x32fffc, 0x43fffe],
                 [0x32fffc, 0x43fffe, 0x21ffff],
@@ -101,7 +105,16 @@ fn unlink_matches_independent_reference_with_banked_and_aliased_nodes() {
                 for mask in [0, 4] {
                     assert_eq!(exercise_unlink(&reference, nodes, mask), 200);
                     let cycles = exercise_unlink(&image, nodes, mask);
-                    assert!(cycles <= 420, "optimize={optimize}: {cycles} cycles");
+                    if newline == "\n" && nodes == [0x21ffff, 0x32fffc, 0x43fffe] && mask == 0 {
+                        eprintln!(
+                            "unlink optimize={optimize}: {} bytes, {cycles} cycles, {} frame bytes",
+                            image.routines[0].size, image.routines[0].fixed_frame
+                        );
+                    }
+                    assert!(
+                        cycles <= if optimize { 220 } else { 420 },
+                        "optimize={optimize}: {cycles} cycles"
+                    );
                 }
             }
         }

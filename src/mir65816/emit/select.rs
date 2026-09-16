@@ -10,10 +10,23 @@ const INDEX: u8 = 20;
 #[derive(Clone, Copy)]
 enum Memory {
     Stack(u32),
+    DirectPage(u16),
     Absolute(u32),
     Symbol(Target, u32),
-    /// Displacement retained for [PTR],Y instead of modifying the far pointer.
-    Pointer(u16),
+    /// The actual base slot and deferred Y displacement.
+    Pointer {
+        slot: u8,
+        offset: u16,
+    },
+}
+
+impl From<Location> for Memory {
+    fn from(location: Location) -> Self {
+        match location {
+            Location::Stack(slot) => Self::Stack(slot.offset.into()),
+            Location::DirectPage(slot) => Self::DirectPage(slot.offset),
+        }
+    }
 }
 
 struct Builder<'a> {
@@ -150,13 +163,12 @@ impl Builder<'_> {
             width(size)?,
         ))
     }
-    fn temp(&self, id: TempId) -> Result<Slot, String> {
+    fn temp(&self, id: TempId) -> Result<Location, String> {
         self.frame
             .temps
             .get(&id)
             .copied()
-            .ok_or_else(|| format!("undefined temporary t{}", id.0))?
-            .stack()
+            .ok_or_else(|| format!("undefined temporary t{}", id.0))
     }
     fn displacement(&self, offset: u32, byte: u32) -> Result<u8, String> {
         let offset = offset.checked_add(byte).ok_or("stack offset overflow")?;
@@ -184,6 +196,12 @@ impl Builder<'_> {
     ) -> Result<(), String> {
         match memory {
             Memory::Stack(offset) => self.code.byte(stack, self.displacement(offset, byte)?),
+            Memory::DirectPage(offset) => {
+                let offset = u8::try_from(u32::from(offset) + byte)
+                    .map_err(|_| "direct-page offset overflow")?;
+                self.code
+                    .byte(if stack == 0xa3 { 0xa5 } else { 0x85 }, offset);
+            }
             Memory::Absolute(address) => self
                 .code
                 .long(long, address.checked_add(byte).ok_or("address overflow")?)?,
@@ -193,13 +211,13 @@ impl Builder<'_> {
                 offset.checked_add(byte).ok_or("address offset overflow")?,
                 None,
             ),
-            Memory::Pointer(offset) => {
+            Memory::Pointer { slot, offset } => {
                 self.code.word(
                     0xa0,
                     u16::try_from(u32::from(offset) + byte)
                         .map_err(|_| "indirect displacement exceeds Y")?,
                 ); // LDY
-                self.code.byte(indirect, PTR); // LDA/STA [PTR],Y: linear 24-bit access
+                self.code.byte(indirect, slot); // LDA/STA [PTR],Y: linear 24-bit access
             }
         }
         Ok(())
@@ -233,8 +251,15 @@ impl Builder<'_> {
         // duplicate a read/write through an external or indirect address.
         if wide
             && bytes == 3
-            && let (Memory::Stack(src), Memory::Stack(dst)) = (source, destination)
-            && (src == dst || src.abs_diff(dst) >= 3)
+            && match (source, destination) {
+                (Memory::Stack(src), Memory::Stack(dst)) => src == dst || src.abs_diff(dst) >= 3,
+                (Memory::DirectPage(src), Memory::DirectPage(dst)) => {
+                    src == dst || src.abs_diff(dst) >= 3
+                }
+                (Memory::Stack(_), Memory::DirectPage(_))
+                | (Memory::DirectPage(_), Memory::Stack(_)) => true,
+                _ => false,
+            }
         {
             self.code.a16();
             for byte in [0, 1] {
@@ -261,10 +286,10 @@ impl Builder<'_> {
         Ok(match value {
             Mir65816Value::Temp(id, bytes) => {
                 let slot = self.temp(*id)?;
-                if slot.width != width(*bytes)? {
+                if slot.slot().width != width(*bytes)? {
                     return Err("temporary width mismatch".into());
                 }
-                Some(Memory::Stack(slot.offset.into()))
+                Some(slot.into())
             }
             Mir65816Value::Param(id) => Some(Memory::Stack(self.parameter(*id)?.0)),
             _ => None,
@@ -303,10 +328,10 @@ impl Builder<'_> {
             Mir65816Value::Address(v, _) => self.code.byte(0xa9, (v.value >> (byte * 8)) as u8),
             Mir65816Value::Temp(id, w) => {
                 let slot = self.temp(*id)?;
-                if slot.width != width(*w)? {
+                if slot.slot().width != width(*w)? {
                     return Err("temporary width mismatch".into());
                 }
-                self.load_memory(Memory::Stack(slot.offset.into()), byte.into())?;
+                self.load_memory(slot.into(), byte.into())?;
             }
             Mir65816Value::Param(id) => {
                 self.load_memory(Memory::Stack(self.parameter(*id)?.0), byte.into())?
@@ -332,10 +357,10 @@ impl Builder<'_> {
     }
     fn save_byte(&mut self, dest: TempId, byte: u8) -> Result<(), String> {
         let slot = self.temp(dest)?;
-        if byte >= slot.width {
+        if byte >= slot.slot().width {
             return Err("temporary write exceeds its width".into());
         }
-        self.store_memory(Memory::Stack(slot.offset.into()), byte.into())
+        self.store_memory(slot.into(), byte.into())
     }
     fn pointer_value(&mut self, value: &Mir65816Value, scratch: u8) -> Result<(), String> {
         let bytes = self.value_width(value)?;
@@ -394,11 +419,25 @@ impl Builder<'_> {
                 if self.value_width(value)? != 3 {
                     return Err("indirect address requires a 24-bit pointer".into());
                 }
+                if let Mir65816Value::Temp(id, _) = value
+                    && let Location::DirectPage(slot) = self.temp(*id)?
+                {
+                    if address.index.is_some() || displacement > u32::from(u16::MAX) - 3 {
+                        return Err("unmodelled resident pointer addressing".into());
+                    }
+                    return Ok(Memory::Pointer {
+                        slot: slot.offset as u8,
+                        offset: displacement as u16,
+                    });
+                }
                 self.pointer_value(value, PTR)?;
-                Memory::Pointer(0)
+                Memory::Pointer {
+                    slot: PTR,
+                    offset: 0,
+                }
             }
         };
-        if address.index.is_none() && !matches!(memory, Memory::Pointer(_)) {
+        if address.index.is_none() && !matches!(memory, Memory::Pointer { .. }) {
             return Ok(match memory {
                 Memory::Stack(offset) => Memory::Stack(
                     offset
@@ -415,10 +454,10 @@ impl Builder<'_> {
                         .checked_add(displacement)
                         .ok_or("symbol offset overflow")?,
                 ),
-                Memory::Pointer(_) => unreachable!(),
+                Memory::Pointer { .. } | Memory::DirectPage(_) => unreachable!(),
             });
         }
-        if !matches!(memory, Memory::Pointer(_)) {
+        if !matches!(memory, Memory::Pointer { .. }) {
             self.code.a8();
             self.address_to_pointer(memory)?;
         }
@@ -451,7 +490,10 @@ impl Builder<'_> {
         // Leave room for every byte of the largest scalar (four bytes).
         // AddressOf and aggregate copies explicitly materialize this offset.
         if displacement <= u32::from(u16::MAX) - 3 {
-            return Ok(Memory::Pointer(displacement as u16));
+            return Ok(Memory::Pointer {
+                slot: PTR,
+                offset: displacement as u16,
+            });
         }
         if displacement != 0 {
             self.code.a8();
@@ -462,7 +504,10 @@ impl Builder<'_> {
                 self.code.byte(0x85, PTR + i);
             }
         }
-        Ok(Memory::Pointer(0))
+        Ok(Memory::Pointer {
+            slot: PTR,
+            offset: 0,
+        })
     }
     fn address_to_pointer(&mut self, memory: Memory) -> Result<(), String> {
         self.code.a8();
@@ -493,7 +538,11 @@ impl Builder<'_> {
                     self.code.byte(0x85, PTR + i);
                 }
             }
-            Memory::Pointer(offset) => {
+            Memory::DirectPage(_) => return Err("resident scratch address cannot escape".into()),
+            Memory::Pointer { slot, offset } => {
+                if slot != PTR {
+                    return Err("resident pointer cannot use generic address scratch".into());
+                }
                 if offset != 0 {
                     self.pointer_step(PTR, false, offset.into());
                 }
@@ -605,15 +654,10 @@ impl Builder<'_> {
             } => {
                 let memory = self.prepare_address(address)?;
                 let slot = self.temp(*dest)?;
-                if slot.width != width(*bytes)? {
+                if slot.slot().width != width(*bytes)? {
                     return Err("load temporary width mismatch".into());
                 }
-                self.transfer(
-                    memory,
-                    Memory::Stack(slot.offset.into()),
-                    slot.width,
-                    !volatile,
-                )?;
+                self.transfer(memory, slot.into(), slot.slot().width, !volatile)?;
             }
             Mir65816Op::Store {
                 address,
@@ -1075,7 +1119,7 @@ impl Builder<'_> {
         self.delta = 0;
         if let Some((id, bytes)) = result {
             let bytes = width(bytes)?;
-            if self.temp(id)?.width != bytes {
+            if self.temp(id)?.slot().width != bytes {
                 return Err("call result width mismatch".into());
             }
             self.code.a8();

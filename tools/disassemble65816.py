@@ -16,7 +16,7 @@ BRANCH = {0x10:'BPL',0x30:'BMI',0x90:'BCC',0xb0:'BCS',0xd0:'BNE',0xf0:'BEQ'}
 
 
 def disassemble(image):
-    if (image['format'], image['version'], image['abi']) != ('actionc-65816-image', 2, 'action65816.native.v1'):
+    if (image['format'], image['version'], image['abi']) != ('actionc-65816-image', 3, 'action65816.native.v1'):
         raise ValueError('unsupported native image')
     lines=[]
     for segment in image['segments']:

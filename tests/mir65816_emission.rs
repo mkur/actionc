@@ -46,7 +46,11 @@ fn pointer_unlink_has_a_bounded_native_code_size() {
         let remove = image.routines.iter().find(|r| r.name == "Remove").unwrap();
         // The original bytewise selector used 369 bytes. Include the complete
         // checked entry and ABI return in the budget, not just the four accesses.
-        assert!(remove.size <= 230, "Remove grew to {} bytes", remove.size);
+        assert!(
+            remove.size <= if optimize { 144 } else { 223 },
+            "Remove grew to {} bytes",
+            remove.size
+        );
         assert_eq!(remove.result_bytes, 0);
     }
 }
@@ -415,4 +419,46 @@ fn pointer_allocation_falls_back_for_pressure_and_unmodelled_scratch() {
             .unwrap()
             .is_none()
     );
+}
+
+#[test]
+fn direct_page_locations_survive_image_v3_and_reject_corrupt_maps() {
+    let program = mir(
+        "TYPE Node=[Node POINTER a Node POINTER b] PROC Cut(Node POINTER p) \
+        Node POINTER a,b a=p.a b=p.b a.b=b b.a=a RETURN",
+        true,
+    );
+    let machine = emit::materialize(&program).unwrap();
+    let image = image::link(&program, &machine, &layout()).unwrap();
+    let loaded = image::Image::from_json(&image.to_json().unwrap()).unwrap();
+    assert_eq!(loaded.version, 3);
+    let routine = &loaded.routines[0];
+    assert_eq!(routine.fixed_frame, 0);
+    assert_eq!(routine.spill_bytes, 0);
+    assert_eq!(routine.arguments[0].body_displacement, 4);
+    assert!(
+        routine
+            .temporaries
+            .iter()
+            .all(|t| matches!(t.home, image::TemporaryHome::DirectPage { .. }))
+    );
+    for home in [
+        image::TemporaryHome::DirectPage { offset: 7 },
+        image::TemporaryHome::DirectPage { offset: 44 },
+        image::TemporaryHome::Stack { displacement: 0 },
+    ] {
+        let mut corrupt = loaded.clone();
+        corrupt.routines[0].temporaries[0].home = home;
+        assert!(corrupt.verify().is_err());
+    }
+    for version in [1, 2] {
+        let mut json: serde_json::Value =
+            serde_json::from_slice(&image.to_json().unwrap()).unwrap();
+        json["version"] = version.into();
+        assert!(
+            image::Image::from_json(&serde_json::to_vec(&json).unwrap())
+                .unwrap_err()
+                .contains("recompile")
+        );
+    }
 }

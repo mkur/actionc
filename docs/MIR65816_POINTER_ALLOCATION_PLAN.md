@@ -7,7 +7,7 @@ Status: implementation in progress.
 | 1: reproducible reference | Complete | Native `pointer_allocation` target: generated/reference execution, aliasing, exact traces, LF/CRLF |
 | 2: NIR promotion | Complete | Five-op unlink, home removal, legality/barrier tests, target isolation, native execution |
 | 3: allocation contracts | Complete | Typed homes, closed intervals, corrupt plans, reuse and whole-routine fallback; selection activation in slice 4 |
-| 4: selection and maps | Pending | |
+| 4: selection and maps | Complete | 129 bytes / 189 VM cycles / zero frame; v3 tagged maps, ABI v1 unchanged |
 | 5: execution qualification | Pending | |
 
 ## Objective and measured baseline
@@ -32,7 +32,9 @@ RETURN
 | Implementation | Code bytes | VM cycles | Fixed frame bytes |
 | --- | ---: | ---: | ---: |
 | Original bytewise selector | 369 | 609 | 38 |
-| Current selector | 223 | 420 | 38 |
+| Previous scalar selector | 223 | 420 | 38 |
+| Pointer allocation, optimized | 129 | 189 | 0 |
+| Pointer allocation, raw NIR | 191 | 324 | 6 |
 | Handwritten direct-page reference | 127 | 200 | 0 |
 
 Measurements include the complete checked entry and RTL, with identical code
@@ -237,6 +239,14 @@ Update the lowering/emission contracts, image-format documentation, native
 runtime coverage table and qualification evidence with the final implementation.
 No implementation slice is complete with weaker verification, incorrect frame
 maps, a special case for `Remove`, or unexplained memory-order changes.
+
+## Measured selection tradeoff
+
+The selected word-plus-bank-byte field transfers use 129 bytes and 189 cycles,
+versus the reference's byte transfers with INY at 127 bytes and 200 cycles.
+Both include the same checked entry. The two-byte size difference buys eleven
+fewer cycles, without adding index-state tracking or a new encoding. Retain this
+tradeoff within the explicit 144-byte / 220-cycle acceptance limits.
 
 ## Follow-up scope
 

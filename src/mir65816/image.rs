@@ -111,8 +111,14 @@ pub struct FrameObject {
 #[serde(deny_unknown_fields)]
 pub struct Temporary {
     pub id: u32,
-    pub displacement: u16,
+    pub home: TemporaryHome,
     pub size: u8,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum TemporaryHome {
+    Stack { displacement: u16 },
+    DirectPage { offset: u16 },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -153,11 +159,11 @@ pub struct Image {
 impl Image {
     pub fn verify(&self) -> Result<(), String> {
         if self.format != "actionc-65816-image"
-            || self.version != 2
+            || self.version != 3
             || self.target != "wdc-65816-native"
             || self.abi != abi::generated::ABI_NAME
         {
-            return Err("unsupported native image identity".into());
+            return Err("unsupported native image identity; recompile for image version 3".into());
         }
         if self.stack_overflow >= LIMIT
             || self.task_headroom < 26
@@ -229,10 +235,32 @@ impl Image {
                     return Err("invalid incoming displacement map".into());
                 }
             }
+            let mut temp_ids = std::collections::BTreeSet::new();
+            for temp in &r.temporaries {
+                if !temp_ids.insert(temp.id) || !(1..=4).contains(&temp.size) {
+                    return Err("invalid temporary identity or width".into());
+                }
+                if let TemporaryHome::DirectPage { offset } = temp.home {
+                    if temp.size != 3
+                        || ![
+                            abi::generated::DP_POINTER0_OFFSET as u16,
+                            abi::generated::DP_POINTER1_OFFSET as u16,
+                            abi::generated::DP_POINTER2_OFFSET as u16,
+                        ]
+                        .contains(&offset)
+                        || !r.calls.is_empty()
+                    {
+                        return Err("invalid direct-page temporary map".into());
+                    }
+                }
+            }
             for (offset, size) in r.objects.iter().map(|o| (o.displacement, o.size)).chain(
-                r.temporaries
-                    .iter()
-                    .map(|t| (u32::from(t.displacement), u32::from(t.size))),
+                r.temporaries.iter().filter_map(|t| match t.home {
+                    TemporaryHome::Stack { displacement } => {
+                        Some((u32::from(displacement), u32::from(t.size)))
+                    }
+                    TemporaryHome::DirectPage { .. } => None,
+                }),
             ) {
                 if offset == 0
                     || size == 0
@@ -272,6 +300,11 @@ impl Image {
         Ok(())
     }
     pub fn from_json(bytes: &[u8]) -> Result<Self, String> {
+        let envelope: serde_json::Value =
+            serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if envelope.get("version").and_then(|v| v.as_u64()) != Some(3) {
+            return Err("unsupported native image version; recompile for image version 3".into());
+        }
         let image: Self = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         image.verify()?;
         Ok(image)
@@ -509,7 +542,7 @@ pub fn link(
     }
     let mut image = Image {
         format: "actionc-65816-image".into(),
-        version: 2,
+        version: 3,
         target: "wdc-65816-native".into(),
         abi: abi::generated::ABI_NAME.into(),
         entry: routines[&entries[0].id],
@@ -634,7 +667,14 @@ pub fn link(
                 .iter()
                 .map(|(id, slot)| Temporary {
                     id: id.0,
-                    displacement: slot.stack().expect("stack selection").offset,
+                    home: match slot {
+                        emit::Location::Stack(slot) => TemporaryHome::Stack {
+                            displacement: slot.offset,
+                        },
+                        emit::Location::DirectPage(slot) => TemporaryHome::DirectPage {
+                            offset: slot.offset,
+                        },
+                    },
                     size: slot.slot().width,
                 })
                 .collect(),
