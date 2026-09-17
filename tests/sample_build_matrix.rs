@@ -569,6 +569,22 @@ fn sample_catalog() -> Vec<SampleSpec> {
             "samples/tn/modern/LIB.ACT",
             &["samples/tn/modern/TN.ACT", "samples/tn/modern/TNDBG.ACT"],
         ),
+        dependency(
+            "samples/tn/modern/DIR.ACT",
+            &["samples/tn/modern/TN.ACT", "samples/tn/modern/TNDBG.ACT"],
+        ),
+        dependency(
+            "samples/tn/modern/MYDOS.ACT",
+            &["samples/tn/modern/TN.ACT", "samples/tn/modern/TNDBG.ACT"],
+        ),
+        dependency(
+            "samples/tn/modern/LOCATION.ACT",
+            &["samples/tn/modern/TN.ACT", "samples/tn/modern/TNDBG.ACT"],
+        ),
+        dependency(
+            "samples/tn/modern/PANELDIR.ACT",
+            &["samples/tn/modern/TN.ACT", "samples/tn/modern/TNDBG.ACT"],
+        ),
         executable(
             "samples/tn/modern/TN.ACT",
             vec![release(Optimized, ActionCart), experimental(ActionCart)],

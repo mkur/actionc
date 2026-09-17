@@ -25,8 +25,21 @@ fn parses_all_sample_programs() {
 }
 
 fn is_support_module_without_entry_point(path: &Path, samples_dir: &Path) -> bool {
-    path.strip_prefix(samples_dir)
-        .is_ok_and(|relative| relative == Path::new("modules/project/demo/color.act"))
+    // TN includes inherit declarations from earlier includes and their parent
+    // program (PANELDIR also uses TN's panel globals). Both TN.ACT and TNDBG.ACT
+    // are checked below with all their includes, through raw and optimized NIR.
+    let Ok(relative) = path.strip_prefix(samples_dir) else {
+        return false;
+    };
+    [
+        "modules/project/demo/color.act",
+        "tn/modern/DIR.ACT",
+        "tn/modern/MYDOS.ACT",
+        "tn/modern/LOCATION.ACT",
+        "tn/modern/PANELDIR.ACT",
+    ]
+    .iter()
+    .any(|support| relative == Path::new(support))
 }
 
 fn check_sample(path: &Path, samples_dir: &Path) {
