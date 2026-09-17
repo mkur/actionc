@@ -11,17 +11,25 @@ The initial driver is `actionc-65816`. It has separate platform options from
 the Atari and Amiga drivers. The existing `actionc-emit` command still provides
 65816 SemIR/NIR inspection.
 
-Save this layout as `layout.json`; addresses in JSON are decimal:
+Save this layout as `layout.json`. Addresses accept decimal JSON numbers or
+quoted hexadecimal strings with a `0x`, `0X` or `$` prefix:
 
 ```json
 {
-  "code_origin": 98304,
-  "data_origin": 1179648,
-  "stack_overflow": 294912,
+  "code_origin": "0x018000",
+  "data_origin": "0x120000",
+  "stack_overflow": "0x048000",
   "nmi_extra_stack": 0,
   "imports": []
 }
 ```
+
+The same syntax applies to optional `read_only_origin`, `zero_fill_origin`,
+and each assembly import's `address`. For example, `98304`, `"0x018000"` and
+`"$018000"` specify the same address. Hex digits are case-insensitive; bare
+`0x018000` is invalid JSON. Addresses must fit in 24 bits. Sizes, stack budgets
+and symbol/signature IDs remain decimal JSON numbers. Emitted image JSON
+continues to use numeric addresses.
 
 The example places code from `$018000`, data from `$120000`, and expects the
 platform's raw stack-overflow adapter at `$048000`. These are explicit layout

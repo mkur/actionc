@@ -24,6 +24,7 @@ pub struct AssemblyImport {
     pub symbol: u32,
     pub signature: u32,
     pub abi: String,
+    #[serde(deserialize_with = "json_address::deserialize")]
     pub address: u32,
     pub size: u32,
     /// Maximum reservation below this callee's entry S, excluding its caller's
@@ -37,16 +38,67 @@ pub struct AssemblyImport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LinkOptions {
+    #[serde(deserialize_with = "json_address::deserialize")]
     pub code_origin: u32,
+    #[serde(deserialize_with = "json_address::deserialize")]
     pub data_origin: u32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "json_address::optional")]
     pub read_only_origin: Option<u32>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "json_address::optional")]
     pub zero_fill_origin: Option<u32>,
     /// Raw nonreturning __a816_stack_overflow_v1 adapter, supplied by the platform.
+    #[serde(deserialize_with = "json_address::deserialize")]
     pub stack_overflow: u32,
     pub nmi_extra_stack: u16,
     pub imports: Vec<AssemblyImport>,
+}
+
+/// Accept readable layout addresses without changing numeric serialization.
+/// The linker still checks the target's 24-bit address bounds.
+mod json_address {
+    use serde::{Deserialize, Deserializer, de::Error};
+
+    #[derive(Deserialize)]
+    #[serde(
+        untagged,
+        expecting = "an unsigned integer or a hex string prefixed with 0x, 0X or $"
+    )]
+    enum Address {
+        Number(u32),
+        Hex(String),
+    }
+
+    impl Address {
+        fn value<E: Error>(self) -> Result<u32, E> {
+            match self {
+                Self::Number(value) => Ok(value),
+                Self::Hex(text) => {
+                    let digits = text
+                        .strip_prefix("0x")
+                        .or_else(|| text.strip_prefix("0X"))
+                        .or_else(|| text.strip_prefix('$'))
+                        .filter(|digits| {
+                            !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_hexdigit())
+                        })
+                        .ok_or_else(|| {
+                            E::custom("hex address must have a 0x, 0X or $ prefix followed by hexadecimal digits")
+                        })?;
+                    u32::from_str_radix(digits, 16)
+                        .map_err(|_| E::custom("hex address exceeds 32 bits"))
+                }
+            }
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+        Address::deserialize(deserializer)?.value()
+    }
+
+    pub fn optional<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<u32>, D::Error> {
+        Option::<Address>::deserialize(deserializer)?
+            .map(Address::value)
+            .transpose()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
