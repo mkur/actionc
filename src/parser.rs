@@ -1091,11 +1091,31 @@ impl<'a> Parser<'a> {
 
     fn comma_continues_fund_decl(&self, ty: &TypeRef, stop: Stop) -> bool {
         matches!(ty.base, TypeBase::Fund(_))
-            && (stop.stop_at_top_level || ty.pointer)
+            && (stop.stop_at_top_level || ty.pointer || self.declaration_group_starts_at(self.pos + 2))
             && matches!(
                 self.tokens.get(self.pos + 1).map(|token| &token.kind),
                 Some(TokenKind::Ident(_))
             )
+    }
+
+    // A comma may continue a scalar name list before a contextual/named
+    // type: `CARD a,b LONGCARD c`. Resolve only this comma ambiguity from
+    // the declaration suffix; ordinary statement/declaration lookahead must
+    // retain its contextual-keyword behavior.
+    fn declaration_group_starts_at(&self, pos: usize) -> bool {
+        if !self.is_var_decl_start_at(pos) {
+            return false;
+        }
+        if matches!(
+            self.tokens.get(pos).map(|t| &t.kind),
+            Some(TokenKind::Ident(_))
+        ) && matches!(
+            self.tokens.get(pos + 1).map(|t| &t.kind),
+            Some(TokenKind::Ident(_))
+        ) {
+            return !self.declaration_group_starts_at(pos + 1);
+        }
+        true
     }
 
     fn parse_field_decls_until(&mut self, terminator: TokenKind) -> Vec<VarDecl> {
@@ -4417,6 +4437,50 @@ mod tests {
         assert_eq!(routine.params.len(), 2);
         assert_eq!(routine.params[0].entries[0].name, "d");
         assert_eq!(routine.params[1].entries[0].name, "s");
+    }
+
+    #[test]
+    fn comma_groups_before_named_types_in_parameters_and_fields() {
+        for source in [
+            "TYPE Pair=[BYTE value] TYPE R=[CARD a,b LONGCARD c BYTE d,e LONGINT f Pair p] PROC Test(CARD a,b LONGCARD c BYTE d,e LONGINT f Pair p) RETURN",
+            "TYPE Pair=[BYTE value] TYPE R=[CARD a, Pair p LONGCARD c] PROC Test(CARD a, Pair p LONGCARD c) RETURN",
+        ] {
+            for text in [
+                source.to_string(),
+                source
+                    .replace(" TYPE", "\r\nTYPE")
+                    .replace(" PROC", "\r\nPROC"),
+            ] {
+                let program = parse(&tokenize(&text).unwrap()).unwrap();
+                let Item::Declaration(Decl::Type(record)) = &program.modules[0].items[1] else {
+                    panic!("record");
+                };
+                let Item::Routine(routine) = &program.modules[0].items[2] else {
+                    panic!("routine");
+                };
+                let TypeDefinition::Record(declarations) = &record.definition else {
+                    panic!("record fields");
+                };
+                let fields: Vec<_> = declarations
+                    .iter()
+                    .flat_map(|d| d.entries.iter().map(|e| e.name.as_str()))
+                    .collect();
+                let params: Vec<_> = routine
+                    .params
+                    .iter()
+                    .flat_map(|d| d.entries.iter().map(|e| e.name.as_str()))
+                    .collect();
+                assert_eq!(fields, params);
+                assert_eq!(
+                    fields,
+                    if source.contains("a,b") {
+                        vec!["a", "b", "c", "d", "e", "f", "p"]
+                    } else {
+                        vec!["a", "p", "c"]
+                    }
+                );
+            }
+        }
     }
 
     #[test]

@@ -14,6 +14,7 @@ Install Rust, Python 3.12+, git, ca65 and ld65. From the actionc repository root
 python3 tools/native65816-runtime-tests/qualify.py
 python3 tools/native65816-runtime-tests/qualify.py --release
 python3 tools/native65816-runtime-tests/qualify.py --cpu
+python3 tools/native65816-runtime-tests/qualify.py --test comma_groups --test memory --test interop
 ```
 
 The runner uses VM base `56ddc5c5de41f0e7294e87c440869550eaf53292` plus
@@ -42,6 +43,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `execution` | 5 | Recursion, mutable parameters, loop edges, local addresses/descriptors, record strides, banked code/data and exact volatile byte access. |
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
+| `comma_groups` | 1 | Scalar comma groups before contextual types in parameters and fields; mixed-width values, a bank-crossing record, LF/CRLF and both I states. |
 | `indirect` | 3 | Targets `$050000`/`$06FFFF`, all scalar results, assembly arguments and six-byte transfer overflow checks. |
 | `contexts` | 6 | First-task bytes, yield/exit, full register/flag restoration in every M/X mode, invalid COP/domain paths and NMI through IRQ transition windows. |
 | `pointer_allocation` | 2 | Generated/reference unlink; differential stack/DP swaps, chains, field layouts and pressure; mixed arguments, bank crossings, aliasing, exact traces and LF/CRLF. |
@@ -51,12 +53,15 @@ OS, device intercept or host scheduler participates. The earlier
 | `preemption` | 2 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address plus two seeded IRQ/NMI schedules. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
 
-Both raw and optimized NIR are covered. All **33 tests passed in debug and
-release** on 2026-09-17. Local tools: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64.
+Both raw and optimized NIR are covered. The original **33 tests passed in debug
+and release** on 2026-09-17. The later `comma_groups` regression, plus the eight
+`memory` tests and `interop`, pass in debug on 2026-09-20; this targeted run does
+not claim a new full-suite or release qualification. Local tools: Rust 1.95.0,
+ca65/ld65 2.18, macOS ARM64.
 Optimized unlink uses 129 bytes, 189 VM cycles and no frame, including checked
 entry and RTL; the independent reference uses 127 bytes and 200 cycles. The
 [qualification record](../../docs/abi/action65816-pointer-allocation-qualification.json)
-binds these results to compiler/fixture hashes and context artifacts. Images
+binds the 2026-09-17 results to compiler/fixture hashes and context artifacts. Images
 use transport v3 and retain physical ABI v1.
 
 The corrected CPU suite passes eight tests in each build mode. See

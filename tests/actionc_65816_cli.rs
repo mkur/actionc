@@ -251,3 +251,55 @@ fn native_cli_exports_interface_ids_and_the_physical_argument_layout() {
         ])
     );
 }
+
+#[test]
+fn native_cli_keeps_comma_group_widths_before_contextual_types() {
+    for newline in ["\n", "\r\n"] {
+        let source = "MODULE API\nPUBLIC EXTERNAL LONGINT FUNC Mixed(CARD a,b LONGCARD c BYTE d,e LONGINT f)\nPROC Main() Mixed(1,2,LONGCARD($12345678),3,4,LONGINT(-70000)) RETURN\nENDMODULE".replace('\n', newline);
+        let dir = Directory::new(&source);
+        let result = dir.run(&["--emit-interfaces"]);
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let interfaces: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+        assert_eq!(interfaces[0]["outgoing_bytes"], 15);
+        assert_eq!(
+            interfaces[0]["arguments"],
+            serde_json::json!([
+                {"offset":0,"size":2,"alignment":2}, {"offset":2,"size":2,"alignment":2},
+                {"offset":4,"size":4,"alignment":2}, {"offset":8,"size":1,"alignment":1},
+                {"offset":9,"size":1,"alignment":1}, {"offset":10,"size":4,"alignment":2}
+            ])
+        );
+        let local = Directory::new(
+            &source
+                .replace("PUBLIC EXTERNAL", "PUBLIC")
+                .replace("LONGINT f)", "LONGINT f) RETURN(f)"),
+        );
+        for no_opt in [false, true] {
+            let mut args = vec!["--layout", "layout.json"];
+            if no_opt {
+                args.push("--no-opt");
+            }
+            let result = local.run(&args);
+            assert!(
+                result.status.success(),
+                "{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            let image = Image::from_json(&std::fs::read(local.0.join("source.a816.json")).unwrap())
+                .unwrap();
+            let mixed = image
+                .routines
+                .iter()
+                .find(|r| r.name.contains("MIXED"))
+                .unwrap();
+            assert_eq!(
+                mixed.arguments.iter().map(|a| a.size).collect::<Vec<_>>(),
+                [2, 2, 4, 1, 1, 4]
+            );
+        }
+    }
+}
