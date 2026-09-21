@@ -1,0 +1,74 @@
+{
+  "date": "2026-09-21",
+  "scope": "Verified baseline before native word comparison selection",
+  "comparison_snapshot": "docs/benchmarks/65816-word-returns/after",
+  "compiler_revision": "cac8aeb12d09bf207a086aefebe01ed373f3ef72",
+  "tools": {
+    "actionc": {
+      "path": "actionc-65816",
+      "sha256": "78ebef007d010ed982e92fc0876704c736eb8355eeb83877bf6190ab00f5348b"
+    },
+    "vbcc": {
+      "path": "vbcc65816",
+      "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+    },
+    "vasm": {
+      "path": "vasm6502_oldstyle",
+      "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+    },
+    "vlink": {
+      "path": "vlink",
+      "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+    }
+  },
+  "saved_artifacts_verified": 56,
+  "saved_file_hashes_verified": 224,
+  "paired_mask_records": 264,
+  "baseline_measurement_sha256": {
+    "manifest.json": "2ccdc4dce5bd2a6d331cfda7534557313b3bcb875f6d52d7bde298f381330be1",
+    "debug.json": "a5b0b14cb756db3315614e9876cf97c397244640ac3bf70616a50a0a8ad0c7ce",
+    "release.json": "a5b0b14cb756db3315614e9876cf97c397244640ac3bf70616a50a0a8ad0c7ce"
+  },
+  "baseline_snapshot_sha256": {
+    "docs/benchmarks/65816-word-returns/after/add.optimized.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-word-returns/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-word-returns/after/add.raw.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-word-returns/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-word-returns/after/identity.optimized.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-word-returns/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-word-returns/after/identity.raw.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-word-returns/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-word-returns/after/provenance.json": "a96e5be9e24334656b5da86ccd07f5cd8c2baebaa332aaa6a328c0c5161c0915",
+    "docs/benchmarks/65816-word-returns/after/results.csv": "e16d46b9e4594f3bcdc511a69189d9a198b5fc2ace72ce3320712859e070ac4d",
+    "docs/benchmarks/65816-word-returns/after/subtract.optimized.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-word-returns/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-word-returns/after/subtract.raw.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-word-returns/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.optimized.actionc.lst": "d81bfcb9216db8f3a2d36c3e3c04fd88758ea965bf36480c5be904242a8d7fa1",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.raw.actionc.lst": "f5e39b509a37a6e0d3cfdeebd6e06f8e20e18a45614192fd07cf260fb556e7bd",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-word-returns/after/tables.md": "47172c4de464f3022310bb36e899801065034cc6757f32e58822f8550c9d3d64",
+    "docs/benchmarks/65816-word-returns/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-word-returns/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-word-returns/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-word-returns/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8"
+  },
+  "baseline_emitter_sha256": "d60e16a79b29636a013573937cdb08064546d1dfed6b23802ee94e1e9d2e888a",
+  "semantic_test_sha256": "17efb20b5270914fc36fa00921eeb38e80c9b94ad0b0795ccfbe879b701e9878",
+  "semantic_tests_per_host_build": 3,
+  "semantic_machine_runs_per_host_build": 480,
+  "lf_crlf_image_pairs": 4,
+  "known_comparison_failure": "Optimized vbcc unlink, vector 0, both incoming I states; retained, no exemption.",
+  "checks": "Three new word_comparisons tests pass in debug and release via qualify.py; 480 machine runs per host build. Saved baseline artifact hashes and all debug/release measurements agree.",
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-cs877741/manifest.json",
+      "sha256": "552501b0d96de660c8fad309a5f5a35f94752ca758d2b55a915fcbfbc7cb7090"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-lkq3sub3/manifest.json",
+      "sha256": "c09d915242f027adcd3f52de6c69e4c7858b5c291571670584ba16c959e8a9f1"
+    }
+  }
+}

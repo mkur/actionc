@@ -1,0 +1,30 @@
+[
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "delta": 2
+  },
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 4,
+    "delta": 2
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "delta": 2
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "delta": 2
+  }
+]
