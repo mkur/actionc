@@ -14,7 +14,7 @@ pub struct Snapshot {
     pub overflow: Option<bool>,
     pub m: Width,
     pub index: Width,
-    pub depth: i32,
+    pub depth: i64,
     pub homes: Vec<(u16, u8, Value)>,
 }
 impl Snapshot {

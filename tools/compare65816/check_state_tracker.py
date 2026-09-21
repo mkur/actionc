@@ -19,9 +19,13 @@ def equal_records(old, new):
 
 def equal_artifact(old, new):
     # Only build provenance may differ; executable/map contracts must match.
-    excluded = {'directory', 'commands', 'hashes'}
-    assert {k: v for k, v in old.items() if k not in excluded} == {
-        k: v for k, v in new.items() if k not in excluded}, 'artifact contract'
+    def contract(artifact):
+        result = {k: v for k, v in artifact.items() if k not in {'directory', 'commands', 'hashes'}}
+        for field in ('image', 'binary'):
+            if field in result:
+                result[field] = str(Path(result[field]).relative_to(artifact['directory']))
+        return result
+    assert contract(old) == contract(new), 'artifact contract'
     assert old['hashes'].keys() == new['hashes'].keys(), 'artifact files'
     for name in old['hashes']:
         contents = []

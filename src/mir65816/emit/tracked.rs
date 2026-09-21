@@ -29,7 +29,7 @@ instruction_set!(Branch { Plus=0x10, Minus=0x30, CarryClear=0x90, CarrySet=0xb0,
 #[derive(Clone, Copy, Debug)]
 struct Entry {
     env: Environment,
-    stack_a: Option<i32>,
+    stack_a: Option<i64>,
 }
 #[derive(Clone, Debug, Default)]
 pub(super) struct TrackedEmitter65816 {
@@ -44,6 +44,26 @@ pub(super) struct TrackedEmitter65816 {
     trace: Option<Vec<super::proof::Snapshot>>,
 }
 impl TrackedEmitter65816 {
+    #[cfg(test)]
+    pub fn for_test(frame: &super::AllocatedFrame) -> Self {
+        let mut e = Self::default();
+        e.test_frame(frame.extent);
+        for home in frame.temps.values() {
+            e.register_home(home.slot());
+        }
+        e
+    }
+    #[cfg(test)]
+    pub fn test_delta(&mut self, delta: u32) {
+        self.state.env.depth = self.state.env.anchor.unwrap_or(0) + i64::from(delta);
+    }
+
+    #[cfg(test)]
+    pub fn test_frame(&mut self, bytes: u16) {
+        self.state.env.depth = i64::from(bytes);
+        self.state.env.anchor = Some(i64::from(bytes));
+    }
+
     pub fn code(&self) -> &Code {
         &self.code
     }

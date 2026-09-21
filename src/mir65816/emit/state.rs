@@ -21,7 +21,7 @@ pub enum Value {
     Constant(u16, Width),
     Opaque(u64, Width),
     /// Entry S plus a checked constant. Used only for selected stack equations.
-    StackAddress(i32),
+    StackAddress(i64),
 }
 impl Value {
     pub(super) fn width(self) -> Option<Width> {
@@ -45,8 +45,8 @@ pub(super) struct Environment {
     pub current_domain: bool,
     pub irq_preserved: bool,
     /// Positive down from invocation entry. Includes transfer pushes.
-    pub depth: i32,
-    pub anchor: Option<i32>,
+    pub depth: i64,
+    pub anchor: Option<i64>,
     pub pushes: u8,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,7 +77,7 @@ pub(super) struct State65816 {
     pub homes: BTreeMap<(u16, u8), Home>,
     private_ranges: BTreeSet<(u16, u8)>,
     next: u64,
-    pub peak: i32,
+    pub peak: i64,
 }
 impl Default for State65816 {
     fn default() -> Self {
@@ -137,7 +137,7 @@ impl State65816 {
         self.private_ranges.insert((slot.offset, slot.width));
     }
     pub fn stack_key(&self, offset: u8, width: Width) -> Option<(u16, u8)> {
-        let offset = i32::from(offset) - i32::try_from(self.delta()).unwrap();
+        let offset = i64::from(offset) - i64::try_from(self.delta()).unwrap();
         u16::try_from(offset).ok().map(|o| (o, width.bytes()))
     }
     pub fn read_stack(&mut self, offset: u8, width: Width) -> Value {
@@ -224,9 +224,9 @@ impl State65816 {
                 if width == Width::Word && c == subtract =>
             {
                 Value::StackAddress(if subtract {
-                    s - i32::from(v)
+                    s - i64::from(v)
                 } else {
-                    s + i32::from(v)
+                    s + i64::from(v)
                 })
             }
             (Value::Constant(a, w), Value::Constant(b, v), Some(c), Some(false))
@@ -271,7 +271,7 @@ impl State65816 {
     pub fn push(&mut self, bytes: u8) {
         self.adjacent = None;
         self.env.pushes += bytes;
-        self.env.depth += i32::from(bytes);
+        self.env.depth += i64::from(bytes);
         self.peak = self.peak.max(self.env.depth);
     }
     pub fn publish_word(&mut self, temp: TempId, slot: Slot, cursor: (usize, usize)) {

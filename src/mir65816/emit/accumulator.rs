@@ -30,34 +30,47 @@ impl Builder<'_> {
     /// retained private STA. STA leaves the full-word N/Z proof intact.
     pub(super) fn remember_word(&mut self, temp: TempId) {
         self.resident_word = None;
-        if self.delta == 0
+        self.code.barrier();
+        if self.code.delta() == 0
             && let Some(&Location::Stack(slot)) = self.frame.temps.get(&temp)
             && slot.width == 2
             && let Some(cursor) = self.code.word_cursor()
         {
+            self.code.remember_word(temp, slot);
             self.resident_word = Some(ResidentWord {
                 temp,
                 slot,
-                delta: self.delta,
+                delta: self.code.delta(),
                 cursor,
             });
         }
     }
     /// The caller has preflighted *all* operand extents before reaching here.
     pub(super) fn load_checked_word(&mut self, operand: WordOperand, temp: Option<TempId>) {
+        let tracked = self.code.consume_word(
+            temp,
+            temp.and_then(|id| self.frame.temps.get(&id))
+                .map(|h| h.slot()),
+            match operand {
+                WordOperand::Stack(o) => Some(o),
+                _ => None,
+            },
+        );
         if let Some(fact) = self.resident_word.take()
             && temp == Some(fact.temp)
             && self.frame.temps.get(&fact.temp) == Some(&Location::Stack(fact.slot))
             && operand == WordOperand::Stack(fact.slot.offset as u8)
-            && self.delta == 0
-            && fact.delta == self.delta
+            && self.code.delta() == 0
+            && fact.delta == self.code.delta()
             && self.code.word_cursor() == Some(fact.cursor)
         {
+            assert!(tracked, "tracked forwarding rejected legacy witness");
             return;
         }
+        assert!(!tracked, "tracked forwarding broadened eligibility");
         match operand {
-            WordOperand::Immediate(value) => self.code.word(0xa9, value),
-            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+            WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
+            WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
         }
     }
     pub(super) fn word_store(
@@ -67,7 +80,7 @@ impl Builder<'_> {
         bytes: u8,
         volatile: bool,
     ) -> Result<bool, String> {
-        if self.delta != 0
+        if self.code.delta() != 0
             || bytes != 2
             || volatile
             || !Self::direct_word_address(address)
@@ -89,6 +102,7 @@ impl Builder<'_> {
         self.load_checked_word(source, Self::word_temp(value));
         self.store_memory(destination, 0)?;
         self.resident_word = None;
+        self.code.barrier();
         Ok(true)
     }
 }

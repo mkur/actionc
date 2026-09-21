@@ -3,9 +3,8 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
         routine: r,
         frame: AllocatedFrame::new(r).unwrap(),
-        code: Code::default(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
         blocks: BTreeMap::new(),
-        delta: 0,
         resident_word: None,
     }
 }
@@ -26,11 +25,12 @@ fn inputs(r: &Mir65816Routine) -> (TempId, TempId, TempId) {
 }
 fn seed(b: &mut Builder<'_>, id: TempId) {
     b.code.a16();
-    b.code.word(0xa9, 0x8000);
+    b.code.word(WordOp::LdaImm, 0x8000);
     let Location::Stack(slot) = b.temp(id).unwrap() else {
         panic!()
     };
-    b.code.byte(0x83, slot.offset as u8);
+    b.code.register_home(slot);
+    b.code.byte(ByteOp::StaStack, slot.offset as u8);
     b.remember_word(id);
     assert!(b.resident_word.is_some());
 }
@@ -42,7 +42,7 @@ fn adjacent_word_arithmetic_and_return_retain_homes_and_stores() {
     let mut b = builder(r);
     let homes = b.frame.temps.clone();
     seed(&mut b, a);
-    let start = b.code.bytes.len();
+    let start = b.code.code().bytes.len();
     assert!(
         b.word_binary(
             dest,
@@ -54,7 +54,7 @@ fn adjacent_word_arithmetic_and_return_retain_homes_and_stores() {
         .unwrap()
     );
     assert_eq!(
-        &b.code.bytes[start..],
+        &b.code.code().bytes[start..],
         [
             0x18,
             0x69,
@@ -64,12 +64,12 @@ fn adjacent_word_arithmetic_and_return_retain_homes_and_stores() {
             b.temp(dest).unwrap().slot().offset as u8
         ]
     );
-    let start = b.code.bytes.len();
+    let start = b.code.code().bytes.len();
     assert!(
         b.word_return(&Mir65816Value::Temp(dest, ByteSize::new(2)))
             .unwrap()
     );
-    assert_eq!(b.code.bytes.len(), start);
+    assert_eq!(b.code.code().bytes.len(), start);
     assert_eq!(b.frame.temps, homes);
     assert!(b.resident_word.is_none());
 }
@@ -86,10 +86,10 @@ fn stale_value_flags_width_label_and_stack_facts_cannot_remove_loads() {
             .unwrap()
             .unwrap();
         match case {
-            0 => b.code.word(0xc9, 0),   // A unchanged, N/Z no longer describe A.
-            1 => b.code.word(0xa0, 0),   // LDY changes N/Z only.
-            2 => b.code.op(0xea),        // Unknown to forwarding, even if NOP.
-            3 => b.code.byte(0x83, 200), // Even a disjoint store is a barrier.
+            0 => b.code.word(WordOp::CmpImm, 0), // A unchanged, N/Z no longer describe A.
+            1 => b.code.word(WordOp::LdyImm, 0), // LDY changes N/Z only.
+            2 => b.code.op(Implied::Nop),        // Unknown to forwarding, even if NOP.
+            3 => b.code.byte(ByteOp::StaStack, 200), // Even a disjoint store is a barrier.
             4 => {
                 let l = b.code.label();
                 b.code.mark(l);
@@ -98,19 +98,19 @@ fn stale_value_flags_width_label_and_stack_facts_cannot_remove_loads() {
                 b.code.a8();
                 b.code.a16();
             }
-            6 => b.code.op(0x3b),
-            7 => b.delta = 2,
+            6 => b.code.op(Implied::Tsc),
+            7 => b.code.test_delta(2),
             8 => b.release(0, false), // Zero-byte path must also forget the fact.
             9 => b.check_stack(0),
             10 => b.reserve(2),
-            11 => b.code.byte(0xe2, 0x20), // Raw unmodelled mode instruction.
+            11 => b.code.byte(ByteOp::Sep, 0x20), // Raw unmodelled mode instruction.
             _ => unreachable!(),
         }
         b.code.a16();
-        let start = b.code.bytes.len();
+        let start = b.code.code().bytes.len();
         b.load_checked_word(operand, Some(a));
         assert_eq!(
-            &b.code.bytes[start..],
+            &b.code.code().bytes[start..],
             [
                 0xa3,
                 match operand {
@@ -150,9 +150,9 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
             2 => (WordOperand::Stack(slot.offset as u8), None),
             _ => (WordOperand::Immediate(0x8000), Some(a)),
         };
-        let start = b.code.bytes.len();
+        let start = b.code.code().bytes.len();
         b.load_checked_word(operand, id);
-        assert!(b.code.bytes.len() > start);
+        assert!(b.code.code().bytes.len() > start);
     }
     for offset in [254, 255] {
         let mut b = builder(r);
@@ -160,7 +160,7 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
             .temps
             .insert(a, Location::Stack(Slot { offset, width: 2 }));
         seed(&mut b, a);
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         let fact = b.resident_word;
         let result = b.word_binary(
             dest,
@@ -171,13 +171,13 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
         );
         assert_eq!(result.is_ok(), offset == 254);
         if offset == 255 {
-            assert_eq!(b.code.bytes, before);
+            assert_eq!(b.code.code().bytes, before);
             assert_eq!(b.resident_word, fact);
         }
     }
     let mut b = builder(r);
     seed(&mut b, a);
-    let before = b.code.bytes.clone();
+    let before = b.code.code().bytes.clone();
     let fact = b.resident_word;
     assert!(
         !b.word_binary(
@@ -189,7 +189,7 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
         )
         .unwrap()
     );
-    assert_eq!(b.code.bytes, before);
+    assert_eq!(b.code.code().bytes, before);
     assert_eq!(b.resident_word, fact);
 }
 #[test]
@@ -206,7 +206,7 @@ fn store_preflights_destination_and_preserves_only_the_original_write() {
         mode: Mir65816AddressMode::Parameter,
     };
     let at = b.parameter(r.frame.parameters[0].param).unwrap().0 as u8;
-    let start = b.code.bytes.len();
+    let start = b.code.code().bytes.len();
     assert!(
         b.word_store(
             &address,
@@ -216,15 +216,15 @@ fn store_preflights_destination_and_preserves_only_the_original_write() {
         )
         .unwrap()
     );
-    assert_eq!(&b.code.bytes[start..], [0x83, at]);
+    assert_eq!(&b.code.code().bytes[start..], [0x83, at]);
     assert!(b.resident_word.is_none());
     seed(&mut b, a);
-    let start = b.code.bytes.len();
+    let start = b.code.code().bytes.len();
     assert!(
         !b.word_store(&address, &Mir65816Value::Temp(a, ByteSize::new(2)), 2, true)
             .unwrap()
     );
-    assert_eq!(b.code.bytes.len(), start);
+    assert_eq!(b.code.code().bytes.len(), start);
     let mut bad = address;
     bad.displacement = ByteOffset::new(u32::MAX);
     let fact = b.resident_word;
@@ -232,6 +232,6 @@ fn store_preflights_destination_and_preserves_only_the_original_write() {
         b.word_store(&bad, &Mir65816Value::Temp(a, ByteSize::new(2)), 2, false)
             .is_err()
     );
-    assert_eq!(b.code.bytes.len(), start);
+    assert_eq!(b.code.code().bytes.len(), start);
     assert_eq!(b.resident_word, fact);
 }

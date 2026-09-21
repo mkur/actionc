@@ -20,9 +20,8 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
         routine: r,
         frame: AllocatedFrame::new(r).unwrap(),
-        code: Code::default(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
         blocks: BTreeMap::new(),
-        delta: 0,
         resident_word: None,
     }
 }
@@ -78,7 +77,7 @@ fn word_comparison_predicates_use_checked_operands_and_byte_results() {
                 let mut b = builder(r);
                 let dest_offset = b.temp(dest).unwrap().slot().offset;
                 b.code.a16();
-                let prefix = b.code.bytes.len();
+                let prefix = b.code.code().bytes.len();
                 let a = b.word_operand(left).unwrap().unwrap();
                 let c = b.word_operand(right).unwrap().unwrap();
                 let (a, c) = if swap { (c, a) } else { (a, c) };
@@ -118,14 +117,14 @@ fn word_comparison_predicates_use_checked_operands_and_byte_results() {
                     right: right.clone(),
                 })
                 .unwrap();
-                assert_eq!(&b.code.bytes[prefix..], expected);
-                assert_eq!(b.code.fixups.len(), 2);
-                assert_eq!(b.code.labels.len(), 2);
-                assert_eq!(b.code.fixups[0].target, Target::Label(Label(0)));
-                assert_eq!(b.code.fixups[1].target, Target::Label(Label(1)));
-                let end = b.code.bytes.clone();
+                assert_eq!(&b.code.code().bytes[prefix..], expected);
+                assert_eq!(b.code.code().fixups.len(), 2);
+                assert_eq!(b.code.code().labels.len(), 2);
+                assert_eq!(b.code.code().fixups[0].target, Target::Label(Label(0)));
+                assert_eq!(b.code.code().fixups[1].target, Target::Label(Label(1)));
+                let end = b.code.code().bytes.clone();
                 b.code.a8();
-                assert_eq!(b.code.bytes, end);
+                assert_eq!(b.code.code().bytes, end);
                 assert_eq!(b.frame.temps, frame.temps);
                 assert_eq!(b.frame.extent, frame.extent);
                 assert_eq!(b.frame.edge_copies, frame.edge_copies);
@@ -325,7 +324,7 @@ fn comparison_extent_checks_distinguish_the_byte_result_and_word_inputs() {
                 width: 1,
             }),
         );
-        b.delta = delta;
+        b.code.test_delta(delta);
         b.code.a8();
         let before = format!("{:?}", b.code);
         assert_eq!(
@@ -345,7 +344,7 @@ fn comparison_extent_checks_distinguish_the_byte_result_and_word_inputs() {
             assert_eq!(format!("{:?}", b.code), before);
         } else {
             assert_eq!(
-                &b.code.bytes[b.code.bytes.len() - 2..],
+                &b.code.code().bytes[b.code.code().bytes.len() - 2..],
                 [0x83, (u32::from(result) + delta) as u8]
             );
         }

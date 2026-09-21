@@ -18,9 +18,10 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     let mut b = Builder {
         routine: r,
         frame: AllocatedFrame::new(&super::word_tests::program().routines[0]).unwrap(),
-        code: Code::default(),
+        code: TrackedEmitter65816::for_test(
+            &AllocatedFrame::new(&super::word_tests::program().routines[0]).unwrap(),
+        ),
         blocks: BTreeMap::new(),
-        delta: 0,
         resident_word: None,
     };
     b.blocks.insert(BlockId(99), b.code.label());
@@ -61,7 +62,7 @@ fn checked_word_edges_emit_two_phases_and_one_typed_jump_in_every_mode() {
             Some(false) => b.code.a16(),
             None => (),
         }
-        let start = b.code.bytes.len();
+        let start = b.code.code().bytes.len();
         b.edge(&edge()).unwrap();
         let mut expected = vec![];
         if mode != Some(false) {
@@ -71,17 +72,17 @@ fn checked_word_edges_emit_two_phases_and_one_typed_jump_in_every_mode() {
             0xa3, 4, 0x83, 8, 0xa9, 0x5a, 0xa5, 0x83, 12, 0xa3, 8, 0x83, 2, 0xa3, 12, 0x83, 4,
             0x5c, 0, 0, 0,
         ]);
-        assert_eq!(b.code.bytes[start..], expected);
-        assert_eq!(b.code.fixups.len(), 1);
-        let f = &b.code.fixups[0];
+        assert_eq!(b.code.code().bytes[start..], expected);
+        assert_eq!(b.code.code().fixups.len(), 1);
+        let f = &b.code.code().fixups[0];
         assert_eq!(f.target, Target::Label(b.blocks[&BlockId(99)]));
         assert_eq!(
             (f.offset, f.addend, f.byte),
-            (b.code.bytes.len() - 3, 0, None)
+            (b.code.code().bytes.len() - 3, 0, None)
         );
-        let end = b.code.bytes.len();
+        let end = b.code.code().bytes.len();
         b.code.a16();
-        assert_eq!(b.code.bytes.len(), end);
+        assert_eq!(b.code.code().bytes.len(), end);
     }
 }
 
@@ -129,7 +130,7 @@ fn word_edge_preflight_checks_every_entry_without_mutation() {
             10 => {
                 e.args.pop();
             }
-            11 => b.delta = u32::MAX,
+            11 => b.code.test_delta(u32::MAX),
             _ => unreachable!(),
         }
         b.code.a8();
@@ -184,7 +185,7 @@ fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
         let before = format!("{:?}", b.code);
         assert!(b.word_edge(&e).unwrap().is_none());
         assert_eq!(format!("{:?}", b.code), before);
-        let start = b.code.bytes.len();
+        let start = b.code.code().bytes.len();
         b.edge(&e).unwrap();
         let source = if form == 0 {
             vec![0xa9, 0, 0x83, 8, 0xa9, 0, 0x83, 9]
@@ -206,7 +207,7 @@ fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
             expected.extend(if form == 1 { [0x85, 1] } else { [0x83, 5] });
         }
         expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]);
-        assert_eq!(b.code.bytes[start..], expected, "{form}");
+        assert_eq!(b.code.code().bytes[start..], expected, "{form}");
     }
 }
 
@@ -224,7 +225,7 @@ fn only_accessed_word_extent_matters_after_transient_stack_movement() {
         ] {
             let mut b = builder(&p.routines[0]);
             let mut e = edge();
-            b.delta = delta;
+            b.code.test_delta(delta);
             match field {
                 0 => {
                     e.args[1] = Mir65816Value::Temp(TempId(2), ByteSize::new(2));
@@ -258,7 +259,7 @@ fn empty_edges_only_restore_a16_when_needed_and_keep_the_typed_target() {
         }
         let mut e = edge();
         e.args.clear();
-        let start = b.code.bytes.len();
+        let start = b.code.code().bytes.len();
         let frame = b.frame.clone();
         b.edge(&e).unwrap();
         let expected = if mode == Some(false) {
@@ -266,22 +267,22 @@ fn empty_edges_only_restore_a16_when_needed_and_keep_the_typed_target() {
         } else {
             vec![0xc2, 0x20, 0x5c, 0, 0, 0]
         };
-        assert_eq!(b.code.bytes[start..], expected);
-        assert_eq!(b.code.fixups.len(), 1);
-        let f = &b.code.fixups[0];
+        assert_eq!(b.code.code().bytes[start..], expected);
+        assert_eq!(b.code.code().fixups.len(), 1);
+        let f = &b.code.code().fixups[0];
         assert_eq!(
             (f.offset, f.target, f.addend, f.byte),
             (
-                b.code.bytes.len() - 3,
+                b.code.code().bytes.len() - 3,
                 Target::Label(b.blocks[&e.target]),
                 0,
                 None
             )
         );
         assert_eq!(format!("{:?}", b.frame), format!("{:?}", frame));
-        let end = b.code.bytes.clone();
+        let end = b.code.code().bytes.clone();
         b.code.a16();
-        assert_eq!(b.code.bytes, end);
+        assert_eq!(b.code.code().bytes, end);
     }
 }
 
@@ -336,7 +337,7 @@ fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
                 Some(false) => b.code.a16(),
                 None => (),
             }
-            let start = b.code.bytes.len();
+            let start = b.code.code().bytes.len();
             let frame = format!("{:?}", b.frame);
             let mut expected = if mode == Some(false) {
                 vec![]
@@ -353,22 +354,22 @@ fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
                 args: vec![source],
             })
             .unwrap();
-            assert_eq!(b.code.bytes[start..], expected);
+            assert_eq!(b.code.code().bytes[start..], expected);
             assert_eq!(format!("{:?}", b.frame), frame);
-            assert_eq!(b.code.fixups.len(), 1);
-            let f = &b.code.fixups[0];
+            assert_eq!(b.code.code().fixups.len(), 1);
+            let f = &b.code.code().fixups[0];
             assert_eq!(
                 (f.offset, f.target, f.addend, f.byte),
                 (
-                    b.code.bytes.len() - 3,
+                    b.code.code().bytes.len() - 3,
                     Target::Label(b.blocks[&BlockId(99)]),
                     0,
                     None
                 )
             );
-            let bytes = b.code.bytes.clone();
+            let bytes = b.code.code().bytes.clone();
             b.code.a16();
-            assert_eq!(b.code.bytes, bytes);
+            assert_eq!(b.code.code().bytes, bytes);
         }
     }
 }
@@ -413,7 +414,7 @@ fn single_word_edges_retain_full_preflight_including_unused_staging() {
             8 => b.blocks.clear(),
             9 => e.target = BlockId(999),
             10 => e.args.clear(),
-            11 => b.delta = u32::MAX,
+            11 => b.code.test_delta(u32::MAX),
             _ => unreachable!(),
         }
         b.code.a8();
@@ -430,7 +431,7 @@ fn single_word_edges_retain_full_preflight_including_unused_staging() {
             (0, 0, false),
         ] {
             let mut b = builder(&p.routines[0]);
-            b.delta = delta;
+            b.code.test_delta(delta);
             match field {
                 0 => {
                     b.frame

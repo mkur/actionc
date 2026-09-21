@@ -19,6 +19,7 @@ mod edge_tests;
 
 #[path = "accumulator.rs"]
 mod accumulator;
+use super::tracked::*;
 use accumulator::ResidentWord;
 
 #[cfg(test)]
@@ -58,7 +59,7 @@ struct WordCondition {
     left_temp: Option<TempId>,
     right: WordOperand,
     destination: u8,
-    predicate: u8,
+    predicate: Branch,
 }
 
 /// Complete immutable preflight for a two-phase parallel assignment. Staging
@@ -80,10 +81,8 @@ impl From<Location> for Memory {
 struct Builder<'a> {
     routine: &'a Mir65816Routine,
     frame: AllocatedFrame,
-    code: Code,
+    code: TrackedEmitter65816,
     blocks: BTreeMap<BlockId, Label>,
-    /// Current downward S movement relative to the allocated body frame.
-    delta: u32,
     resident_word: Option<ResidentWord>,
 }
 
@@ -91,9 +90,8 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
     let mut b = Builder {
         routine,
         frame: AllocatedFrame::new(routine)?,
-        code: Code::default(),
+        code: TrackedEmitter65816::default(),
         blocks: BTreeMap::new(),
-        delta: 0,
         resident_word: None,
     };
     if routine.blocks.is_empty() || !routine.blocks[0].params.is_empty() {
@@ -104,8 +102,12 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
             return Err("duplicate block identity".into());
         }
     }
+    for home in b.frame.temps.values() {
+        b.code.register_home(home.slot());
+    }
     b.check_stack(b.frame.extent);
-    b.code.op(0x1b); // TCS: checked new S in A, no write/push before the check.
+    b.code.op(Implied::Tcs); // TCS: checked new S in A, no write/push before the check.
+    b.code.establish_body();
     for parameter in &routine.frame.parameters {
         if let Some(object) = parameter.frame_object {
             let source = b.incoming(parameter.param)?;
@@ -121,34 +123,29 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
             b.code.a16();
         }
     }
+    b.code.declare_blocks(b.blocks.values().copied());
     let sole_conditions = liveness::sole_branch_conditions(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
         b.code.mark(b.blocks[&block.id]);
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
-                let start = b.code.bytes.len();
+                let start = b.code.code().bytes.len();
                 b.operation(op)
                     .map_err(|e| format!("b{}: {e}", block.id.0))?;
-                b.code
-                    .mir_spans
-                    .insert((block.id, op_index), start..b.code.bytes.len());
+                b.code.span(block.id, op_index, start);
             }
-            let start = b.code.bytes.len();
+            let start = b.code.code().bytes.len();
             if b.compare_branch(last, &block.terminator, &sole_conditions)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
-                b.code
-                    .mir_spans
-                    .insert((block.id, prefix.len()), start..b.code.bytes.len());
+                b.code.span(block.id, prefix.len(), start);
                 continue;
             }
             b.operation(last)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
-            b.code
-                .mir_spans
-                .insert((block.id, prefix.len()), start..b.code.bytes.len());
+            b.code.span(block.id, prefix.len(), start);
         }
-        let start = b.code.bytes.len();
+        let start = b.code.code().bytes.len();
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge(edge)?,
@@ -162,7 +159,7 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
                 b.value_byte(condition, 0)?;
                 // Mode restoration does not change N/Z.
                 b.code.a16();
-                b.code.branch(0xd0, yes); // BNE
+                b.code.branch(Branch::NotEqual, yes); // BNE
                 b.edge(else_edge)?;
                 b.code.mark(yes);
                 b.edge(then_edge)?;
@@ -182,14 +179,12 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
                 return Err("terminal exit requires a native runtime adapter".into());
             }
         }
-        b.code
-            .mir_spans
-            .insert((block.id, block.ops.len()), start..b.code.bytes.len());
+        b.code.span(block.id, block.ops.len(), start);
     }
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,
-        code: b.code,
+        code: b.code.finish(),
     })
 }
 
@@ -250,7 +245,7 @@ impl Builder<'_> {
         abi::stack::access_displacement(
             ByteOffset::new(offset),
             ByteSize::ONE,
-            ByteSize::new(self.delta),
+            ByteSize::new(self.code.delta()),
         )
         .map(|d| d.get() as u8)
         .map_err(|e| e.to_string())
@@ -259,7 +254,7 @@ impl Builder<'_> {
         let offset = abi::stack::access_displacement(
             ByteOffset::new(offset),
             ByteSize::new(2),
-            ByteSize::new(self.delta),
+            ByteSize::new(self.code.delta()),
         )
         .map_err(|e| e.to_string())?;
         u8::try_from(offset.get()).map_err(|_| "word stack displacement overflow".into())
@@ -321,16 +316,27 @@ impl Builder<'_> {
         self.code.a16();
         self.load_checked_word(left, left_temp);
         let subtract = operation == NirBinaryOp::Sub;
-        self.code.op(if subtract { 0x38 } else { 0x18 }); // SEC / CLC
+        self.code
+            .op(if subtract { Implied::Sec } else { Implied::Clc }); // SEC / CLC
         match right {
-            WordOperand::Immediate(value) => {
-                self.code.word(if subtract { 0xe9 } else { 0x69 }, value)
-            }
-            WordOperand::Stack(offset) => {
-                self.code.byte(if subtract { 0xe3 } else { 0x63 }, offset)
-            }
+            WordOperand::Immediate(value) => self.code.word(
+                if subtract {
+                    WordOp::SbcImm
+                } else {
+                    WordOp::AdcImm
+                },
+                value,
+            ),
+            WordOperand::Stack(offset) => self.code.byte(
+                if subtract {
+                    ByteOp::SbcStack
+                } else {
+                    ByteOp::AdcStack
+                },
+                offset,
+            ),
         }
-        self.code.byte(0x83, destination); // STA d,S: result has its existing home.
+        self.code.byte(ByteOp::StaStack, destination); // STA d,S: result has its existing home.
         self.remember_word(dest);
         Ok(true)
     }
@@ -367,17 +373,17 @@ impl Builder<'_> {
         // Swapping captured values changes no source memory access or ordering.
         // CMP does not set V, so signed ordering stays on the bytewise path.
         let predicate = match operation {
-            NirCompareOp::Eq => 0xf0, // BEQ
-            NirCompareOp::Ne => 0xd0, // BNE
-            NirCompareOp::Lt => 0x90, // BCC
-            NirCompareOp::Ge => 0xb0, // BCS
+            NirCompareOp::Eq => Branch::Equal,      // BEQ
+            NirCompareOp::Ne => Branch::NotEqual,   // BNE
+            NirCompareOp::Lt => Branch::CarryClear, // BCC
+            NirCompareOp::Ge => Branch::CarrySet,   // BCS
             NirCompareOp::Gt | NirCompareOp::Le => {
                 std::mem::swap(&mut left, &mut right);
                 left_temp = right_temp;
                 if operation == NirCompareOp::Gt {
-                    0x90
+                    Branch::CarryClear
                 } else {
-                    0xb0
+                    Branch::CarrySet
                 }
             }
         };
@@ -393,8 +399,8 @@ impl Builder<'_> {
         self.code.a16();
         self.load_checked_word(condition.left, condition.left_temp);
         match condition.right {
-            WordOperand::Immediate(value) => self.code.word(0xc9, value),
-            WordOperand::Stack(offset) => self.code.byte(0xc3, offset),
+            WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
+            WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
         }
         self.code.branch(condition.predicate, yes); // Consume C/Z immediately.
     }
@@ -455,27 +461,39 @@ impl Builder<'_> {
         let done = self.code.label();
         self.branch_on_word(&condition, yes);
         self.code.a8();
-        self.code.byte(0xa9, 0);
+        self.code.byte(ByteOp::LdaImm, 0);
         self.code.jump(done);
         self.code.mark(yes);
         self.code.a8();
-        self.code.byte(0xa9, 1);
+        self.code.byte(ByteOp::LdaImm, 1);
         self.code.mark(done);
         self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
-        self.code.byte(0x83, condition.destination);
+        self.code.byte(ByteOp::StaStack, condition.destination);
         Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
-        self.memory(0xa3, 0xaf, 0xb7, memory, byte)
+        self.memory(
+            ByteOp::LdaStack,
+            LongOp::Lda,
+            ByteOp::LdaIndirectY,
+            memory,
+            byte,
+        )
     }
     fn store_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
-        self.memory(0x83, 0x8f, 0x97, memory, byte)
+        self.memory(
+            ByteOp::StaStack,
+            LongOp::Sta,
+            ByteOp::StaIndirectY,
+            memory,
+            byte,
+        )
     }
     fn memory(
         &mut self,
-        stack: u8,
-        long: u8,
-        indirect: u8,
+        stack: ByteOp,
+        long: LongOp,
+        indirect: ByteOp,
         memory: Memory,
         byte: u32,
     ) -> Result<(), String> {
@@ -484,21 +502,31 @@ impl Builder<'_> {
             Memory::DirectPage(offset) => {
                 let offset = u8::try_from(u32::from(offset) + byte)
                     .map_err(|_| "direct-page offset overflow")?;
-                self.code
-                    .byte(if stack == 0xa3 { 0xa5 } else { 0x85 }, offset);
+                self.code.byte(
+                    if stack == ByteOp::LdaStack {
+                        ByteOp::LdaDp
+                    } else {
+                        ByteOp::StaDp
+                    },
+                    offset,
+                );
             }
             Memory::Absolute(address) => self
                 .code
                 .long(long, address.checked_add(byte).ok_or("address overflow")?)?,
             Memory::Symbol(target, offset) => self.code.reference(
-                long,
+                if long == LongOp::Lda {
+                    ReferenceOp::LdaLong
+                } else {
+                    ReferenceOp::StaLong
+                },
                 target,
                 offset.checked_add(byte).ok_or("address offset overflow")?,
                 None,
             ),
             Memory::Pointer { slot, offset } => {
                 self.code.word(
-                    0xa0,
+                    WordOp::LdyImm,
                     u16::try_from(u32::from(offset) + byte)
                         .map_err(|_| "indirect displacement exceeds Y")?,
                 ); // LDY
@@ -604,17 +632,19 @@ impl Builder<'_> {
         // NIR permits narrow operands (notably loop-step constants). Values are
         // zero-extended here; signed widening is an explicit Cast operation.
         if byte >= self.value_width(value)? {
-            self.code.byte(0xa9, 0);
+            self.code.byte(ByteOp::LdaImm, 0);
             return Ok(());
         }
         match value {
-            Mir65816Value::U8(v) => self.code.byte(0xa9, *v),
-            Mir65816Value::U16(v) => self.code.byte(0xa9, (*v >> (byte * 8)) as u8),
+            Mir65816Value::U8(v) => self.code.byte(ByteOp::LdaImm, *v),
+            Mir65816Value::U16(v) => self.code.byte(ByteOp::LdaImm, (*v >> (byte * 8)) as u8),
             Mir65816Value::U24(v) | Mir65816Value::U32(v) => {
-                self.code.byte(0xa9, (*v >> (byte * 8)) as u8)
+                self.code.byte(ByteOp::LdaImm, (*v >> (byte * 8)) as u8)
             }
-            Mir65816Value::Null(_) => self.code.byte(0xa9, 0),
-            Mir65816Value::Address(v, _) => self.code.byte(0xa9, (v.value >> (byte * 8)) as u8),
+            Mir65816Value::Null(_) => self.code.byte(ByteOp::LdaImm, 0),
+            Mir65816Value::Address(v, _) => self
+                .code
+                .byte(ByteOp::LdaImm, (v.value >> (byte * 8)) as u8),
             Mir65816Value::Temp(id, w) => {
                 let slot = self.temp(*id)?;
                 if slot.slot().width != width(*w)? {
@@ -626,21 +656,23 @@ impl Builder<'_> {
                 self.load_memory(Memory::Stack(self.parameter(*id)?.0), byte.into())?
             }
             Mir65816Value::StaticAddress(id, _) => self.code.reference(
-                0xa9,
+                ReferenceOp::LdaByte,
                 Target::Data(Mir65816DataId::Static(*id)),
                 0,
                 Some(byte),
             ),
             Mir65816Value::GlobalAddress(id, _) => self.code.reference(
-                0xa9,
+                ReferenceOp::LdaByte,
                 Target::Data(Mir65816DataId::Global(*id)),
                 0,
                 Some(byte),
             ),
-            Mir65816Value::RoutineAddress(id, _) => {
-                self.code
-                    .reference(0xa9, Target::Routine(RoutineId(*id)), 0, Some(byte))
-            }
+            Mir65816Value::RoutineAddress(id, _) => self.code.reference(
+                ReferenceOp::LdaByte,
+                Target::Routine(RoutineId(*id)),
+                0,
+                Some(byte),
+            ),
         }
         Ok(())
     }
@@ -662,17 +694,17 @@ impl Builder<'_> {
                 }
                 self.code.a16();
                 self.load_memory(memory, 0)?;
-                self.code.byte(0x85, scratch);
+                self.code.byte(ByteOp::StaDp, scratch);
                 if bytes >= 3 {
                     // Both source and scratch have three owned bytes. Reading
                     // the overlapping word avoids a bank-byte mode switch.
                     self.load_memory(memory, 1)?;
-                    self.code.byte(0x85, scratch + 1);
+                    self.code.byte(ByteOp::StaDp, scratch + 1);
                     return Ok(());
                 }
                 self.code.a8();
                 self.value_byte(value, 2)?;
-                self.code.byte(0x85, scratch + 2);
+                self.code.byte(ByteOp::StaDp, scratch + 2);
                 return Ok(());
             }
         }
@@ -681,9 +713,9 @@ impl Builder<'_> {
             if i < bytes {
                 self.value_byte(value, i)?;
             } else {
-                self.code.byte(0xa9, 0);
+                self.code.byte(ByteOp::LdaImm, 0);
             }
-            self.code.byte(0x85, scratch + i);
+            self.code.byte(ByteOp::StaDp, scratch + i);
         }
         Ok(())
     }
@@ -761,16 +793,16 @@ impl Builder<'_> {
             }
             for bit in 0..(32 - stride.leading_zeros()) {
                 if stride & (1 << bit) != 0 {
-                    self.code.op(0x18);
+                    self.code.op(Implied::Clc);
                     for i in 0..3 {
-                        self.code.byte(0xa5, PTR + i);
-                        self.code.byte(0x65, INDEX + i);
-                        self.code.byte(0x85, PTR + i);
+                        self.code.byte(ByteOp::LdaDp, PTR + i);
+                        self.code.byte(ByteOp::AdcDp, INDEX + i);
+                        self.code.byte(ByteOp::StaDp, PTR + i);
                     }
                 }
-                self.code.byte(0x06, INDEX); // ASL / ROL, low byte first
-                self.code.byte(0x26, INDEX + 1);
-                self.code.byte(0x26, INDEX + 2);
+                self.code.byte(ByteOp::AslDp, INDEX); // ASL / ROL, low byte first
+                self.code.byte(ByteOp::RolDp, INDEX + 1);
+                self.code.byte(ByteOp::RolDp, INDEX + 2);
             }
         }
         if displacement >= 0x1000000 {
@@ -786,11 +818,12 @@ impl Builder<'_> {
         }
         if displacement != 0 {
             self.code.a8();
-            self.code.op(0x18);
+            self.code.op(Implied::Clc);
             for i in 0..3 {
-                self.code.byte(0xa5, PTR + i);
-                self.code.byte(0x69, (displacement >> (i * 8)) as u8);
-                self.code.byte(0x85, PTR + i);
+                self.code.byte(ByteOp::LdaDp, PTR + i);
+                self.code
+                    .byte(ByteOp::AdcImm, (displacement >> (i * 8)) as u8);
+                self.code.byte(ByteOp::StaDp, PTR + i);
             }
         }
         Ok(Memory::Pointer {
@@ -804,27 +837,28 @@ impl Builder<'_> {
             Memory::Stack(offset) => {
                 let displacement = self.displacement(offset, 0)?;
                 self.code.a16();
-                self.code.op(0x3b);
-                self.code.op(0x18); // TSC / CLC
-                self.code.word(0x69, displacement.into());
-                self.code.byte(0x85, PTR);
+                self.code.op(Implied::Tsc);
+                self.code.op(Implied::Clc); // TSC / CLC
+                self.code.word(WordOp::AdcImm, displacement.into());
+                self.code.byte(ByteOp::StaDp, PTR);
                 self.code.a8();
-                self.code.byte(0xa9, 0);
-                self.code.byte(0x85, PTR + 2);
+                self.code.byte(ByteOp::LdaImm, 0);
+                self.code.byte(ByteOp::StaDp, PTR + 2);
             }
             Memory::Absolute(a) => {
                 if a >= 0x1000000 {
                     return Err("24-bit address overflow".into());
                 }
                 for i in 0..3 {
-                    self.code.byte(0xa9, (a >> (i * 8)) as u8);
-                    self.code.byte(0x85, PTR + i);
+                    self.code.byte(ByteOp::LdaImm, (a >> (i * 8)) as u8);
+                    self.code.byte(ByteOp::StaDp, PTR + i);
                 }
             }
             Memory::Symbol(t, offset) => {
                 for i in 0..3 {
-                    self.code.reference(0xa9, t, offset, Some(i));
-                    self.code.byte(0x85, PTR + i);
+                    self.code
+                        .reference(ReferenceOp::LdaByte, t, offset, Some(i));
+                    self.code.byte(ByteOp::StaDp, PTR + i);
                 }
             }
             Memory::DirectPage(_) => return Err("resident scratch address cannot escape".into()),
@@ -841,50 +875,54 @@ impl Builder<'_> {
     }
     fn check_stack(&mut self, bytes: u16) {
         self.resident_word = None;
+        self.code.barrier();
         // A/X/Y are caller-clobbered. X retains the unchanged S for the raw
         // overflow adapter. Neither branch changes I, D, DBR or the stack.
         let within = self.code.label();
         let fault = self.code.label();
         let done = self.code.label();
-        self.code.op(0x3b);
-        self.code.op(0xaa); // TSC / TAX
+        self.code.op(Implied::Tsc);
+        self.code.op(Implied::Tax); // TSC / TAX
         self.code
-            .byte(0xc5, abi::generated::DP_STACK_CEILING_OFFSET as u8);
-        self.code.branch(0x90, within);
-        self.code.branch(0xf0, within);
+            .byte(ByteOp::CmpDp, abi::generated::DP_STACK_CEILING_OFFSET as u8);
+        self.code.branch(Branch::CarryClear, within);
+        self.code.branch(Branch::Equal, within);
         self.code.jump(fault);
         self.code.mark(within);
-        self.code.op(0x38);
-        self.code.word(0xe9, bytes); // SEC / SBC
-        self.code.branch(0x90, fault);
+        self.code.op(Implied::Sec);
+        self.code.word(WordOp::SbcImm, bytes); // SEC / SBC
+        self.code.branch(Branch::CarryClear, fault);
         self.code
-            .byte(0xc5, abi::generated::DP_STACK_FLOOR_OFFSET as u8);
-        self.code.branch(0xb0, done);
+            .byte(ByteOp::CmpDp, abi::generated::DP_STACK_FLOOR_OFFSET as u8);
+        self.code.branch(Branch::CarrySet, done);
         self.code.mark(fault);
-        self.code.word(0xa9, bytes);
-        self.code.reference(0x5c, Target::StackOverflow, 0, None);
+        self.code.word(WordOp::LdaImm, bytes);
+        self.code
+            .reference(ReferenceOp::Jml, Target::StackOverflow, 0, None);
         self.code.mark(done);
     }
     fn reserve(&mut self, bytes: u16) {
         self.resident_word = None;
-        self.code.op(0x3b);
-        self.code.op(0x38);
-        self.code.word(0xe9, bytes);
-        self.code.op(0x1b);
+        self.code.barrier();
+        self.code.op(Implied::Tsc);
+        self.code.op(Implied::Sec);
+        self.code.word(WordOp::SbcImm, bytes);
+        self.code.op(Implied::Tcs);
     }
     fn release(&mut self, bytes: u16, preserve_result: bool) {
         self.resident_word = None;
+        self.code.barrier();
         if bytes != 0 {
             // TAY; TSC; CLC; ADC #bytes; TCS; TYA. Preserve the entire A/X result.
             if preserve_result {
-                self.code.op(0xa8);
+                self.code.op(Implied::Tay);
             }
-            self.code.op(0x3b);
-            self.code.op(0x18);
-            self.code.word(0x69, bytes);
-            self.code.op(0x1b);
+            self.code.op(Implied::Tsc);
+            self.code.op(Implied::Clc);
+            self.code.word(WordOp::AdcImm, bytes);
+            self.code.op(Implied::Tcs);
             if preserve_result {
-                self.code.op(0x98);
+                self.code.op(Implied::Tya);
             }
         }
     }
@@ -943,33 +981,35 @@ impl Builder<'_> {
     }
     fn emit_word_edge(&mut self, edge: WordEdge) {
         self.resident_word = None;
+        self.code.barrier();
         self.code.a16();
         if let &[(source, _, destination)] = edge.moves.as_slice() {
             // One assignment needs no staging: capture the complete word in A
             // before writing either destination byte, even for a self-copy.
             match source {
-                WordOperand::Immediate(value) => self.code.word(0xa9, value),
-                WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+                WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
+                WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
             }
-            self.code.byte(0x83, destination);
+            self.code.byte(ByteOp::StaStack, destination);
             self.code.jump(edge.target);
             return;
         }
         for &(source, staging, _) in &edge.moves {
             match source {
-                WordOperand::Immediate(value) => self.code.word(0xa9, value),
-                WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+                WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
+                WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
             }
-            self.code.byte(0x83, staging);
+            self.code.byte(ByteOp::StaStack, staging);
         }
         for &(_, staging, destination) in &edge.moves {
-            self.code.byte(0xa3, staging);
-            self.code.byte(0x83, destination);
+            self.code.byte(ByteOp::LdaStack, staging);
+            self.code.byte(ByteOp::StaStack, destination);
         }
         self.code.jump(edge.target);
     }
     fn edge(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
         self.resident_word = None;
+        self.code.barrier();
         if let Some(word) = self.word_edge(edge)? {
             self.emit_word_edge(word);
             return Ok(());
@@ -1028,6 +1068,7 @@ impl Builder<'_> {
         } = op
         {
             self.resident_word = None;
+            self.code.barrier();
             self.code.a16();
             return self.call(target, args, *result, plan);
         }
@@ -1057,6 +1098,7 @@ impl Builder<'_> {
         }
         if !matches!(op, Mir65816Op::Store { .. }) {
             self.resident_word = None;
+            self.code.barrier();
         }
         if !matches!(op, Mir65816Op::Load { .. } | Mir65816Op::Store { .. }) {
             self.code.a8();
@@ -1088,6 +1130,7 @@ impl Builder<'_> {
                     return Ok(());
                 }
                 self.resident_word = None;
+                self.code.barrier();
                 let memory = self.prepare_address(address)?;
                 let bytes = width(*bytes)?;
                 if let Some(source) = self.value_memory(value)?
@@ -1113,7 +1156,7 @@ impl Builder<'_> {
                 let memory = self.prepare_address(address)?;
                 self.address_to_pointer(memory)?;
                 for i in 0..3 {
-                    self.code.byte(0xa5, PTR + i);
+                    self.code.byte(ByteOp::LdaDp, PTR + i);
                     self.save_byte(*dest, i)?;
                 }
             }
@@ -1124,14 +1167,14 @@ impl Builder<'_> {
                 value,
             } => {
                 if *operation == NirUnaryOp::Neg {
-                    self.code.op(0x38);
+                    self.code.op(Implied::Sec);
                 }
                 for i in 0..width(*bytes)? {
                     self.value_byte(value, i)?;
                     if *operation == NirUnaryOp::Neg {
-                        self.code.byte(0x85, RIGHT);
-                        self.code.byte(0xa9, 0);
-                        self.code.byte(0xe5, RIGHT);
+                        self.code.byte(ByteOp::StaDp, RIGHT);
+                        self.code.byte(ByteOp::LdaImm, 0);
+                        self.code.byte(ByteOp::SbcDp, RIGHT);
                     }
                     self.save_byte(*dest, i)?;
                 }
@@ -1155,14 +1198,14 @@ impl Builder<'_> {
                         let positive = self.code.label();
                         let ready = self.code.label();
                         self.value_byte(value, from - 1)?;
-                        self.code.branch(0x10, positive); // BPL
-                        self.code.byte(0xa9, 0xff);
+                        self.code.branch(Branch::Plus, positive); // BPL
+                        self.code.byte(ByteOp::LdaImm, 0xff);
                         self.code.jump(ready);
                         self.code.mark(positive);
-                        self.code.byte(0xa9, 0);
+                        self.code.byte(ByteOp::LdaImm, 0);
                         self.code.mark(ready);
                     } else {
-                        self.code.byte(0xa9, 0);
+                        self.code.byte(ByteOp::LdaImm, 0);
                     }
                     for i in from..to {
                         self.save_byte(*dest, i)?;
@@ -1186,24 +1229,35 @@ impl Builder<'_> {
                 offset_signed,
             } => {
                 let offset_bytes = self.value_width(offset)?;
-                self.code.op(if *subtract { 0x38 } else { 0x18 });
+                self.code.op(if *subtract {
+                    Implied::Sec
+                } else {
+                    Implied::Clc
+                });
                 for i in 0..width(*bytes)? {
                     if *offset_signed && i >= offset_bytes {
                         let positive = self.code.label();
                         let ready = self.code.label();
                         self.value_byte(offset, offset_bytes - 1)?;
-                        self.code.branch(0x10, positive);
-                        self.code.byte(0xa9, 0xff);
+                        self.code.branch(Branch::Plus, positive);
+                        self.code.byte(ByteOp::LdaImm, 0xff);
                         self.code.jump(ready);
                         self.code.mark(positive);
-                        self.code.byte(0xa9, 0);
+                        self.code.byte(ByteOp::LdaImm, 0);
                         self.code.mark(ready);
                     } else {
                         self.value_byte(offset, i)?;
                     }
-                    self.code.byte(0x85, RIGHT);
+                    self.code.byte(ByteOp::StaDp, RIGHT);
                     self.value_byte(base, i)?;
-                    self.code.byte(if *subtract { 0xe5 } else { 0x65 }, RIGHT);
+                    self.code.byte(
+                        if *subtract {
+                            ByteOp::SbcDp
+                        } else {
+                            ByteOp::AdcDp
+                        },
+                        RIGHT,
+                    );
                     self.save_byte(*dest, i)?;
                 }
             }
@@ -1247,16 +1301,16 @@ impl Builder<'_> {
         }
         let opcode = match operation {
             NirBinaryOp::Add => {
-                self.code.op(0x18);
-                0x65
+                self.code.op(Implied::Clc);
+                ByteOp::AdcDp
             }
             NirBinaryOp::Sub => {
-                self.code.op(0x38);
-                0xe5
+                self.code.op(Implied::Sec);
+                ByteOp::SbcDp
             }
-            NirBinaryOp::And => 0x25,
-            NirBinaryOp::Or => 0x05,
-            NirBinaryOp::Xor => 0x45,
+            NirBinaryOp::And => ByteOp::AndDp,
+            NirBinaryOp::Or => ByteOp::OraDp,
+            NirBinaryOp::Xor => ByteOp::EorDp,
             _ => {
                 return Err(format!(
                     "native emission does not support integer {operation:?}"
@@ -1265,7 +1319,7 @@ impl Builder<'_> {
         };
         for i in 0..bytes {
             self.value_byte(right, i)?;
-            self.code.byte(0x85, RIGHT);
+            self.code.byte(ByteOp::StaDp, RIGHT);
             self.value_byte(left, i)?;
             self.code.byte(opcode, RIGHT);
             self.save_byte(dest, i)?;
@@ -1285,57 +1339,62 @@ impl Builder<'_> {
         let loop_start = self.code.label();
         for i in 0..bytes {
             self.value_byte(left, i)?;
-            self.code.byte(0x85, RESULT + i);
+            self.code.byte(ByteOp::StaDp, RESULT + i);
         }
         for i in 1..self.value_width(count)? {
             self.value_byte(count, i)?;
-            self.code.branch(0xd0, zero);
+            self.code.branch(Branch::NotEqual, zero);
         }
         self.value_byte(count, 0)?;
-        self.code.byte(0xc9, bytes * 8);
-        self.code.branch(0xb0, zero);
-        self.code.byte(0xc9, 0);
-        self.code.branch(0xf0, ready);
+        self.code.byte(ByteOp::CmpImm, bytes * 8);
+        self.code.branch(Branch::CarrySet, zero);
+        self.code.byte(ByteOp::CmpImm, 0);
+        self.code.branch(Branch::Equal, ready);
         self.code.a16();
-        self.code.word(0x29, 0xff);
-        self.code.op(0xaa);
+        self.code.word(WordOp::AndImm, 0xff);
+        self.code.op(Implied::Tax);
         self.code.a8();
         self.code.mark(loop_start);
         if left_shift {
-            self.code.byte(0x06, RESULT);
+            self.code.byte(ByteOp::AslDp, RESULT);
             for i in 1..bytes {
-                self.code.byte(0x26, RESULT + i);
+                self.code.byte(ByteOp::RolDp, RESULT + i);
             }
         } else {
-            self.code.byte(0x46, RESULT + bytes - 1);
+            self.code.byte(ByteOp::LsrDp, RESULT + bytes - 1);
             for i in (0..bytes - 1).rev() {
-                self.code.byte(0x66, RESULT + i);
+                self.code.byte(ByteOp::RorDp, RESULT + i);
             }
         }
-        self.code.op(0xca);
-        self.code.branch(0xd0, loop_start);
+        self.code.op(Implied::Dex);
+        self.code.branch(Branch::NotEqual, loop_start);
         self.code.jump(ready);
         self.code.mark(zero);
-        self.code.byte(0xa9, 0);
+        self.code.byte(ByteOp::LdaImm, 0);
         for i in 0..bytes {
-            self.code.byte(0x85, RESULT + i);
+            self.code.byte(ByteOp::StaDp, RESULT + i);
         }
         self.code.mark(ready);
         for i in 0..bytes {
-            self.code.byte(0xa5, RESULT + i);
+            self.code.byte(ByteOp::LdaDp, RESULT + i);
             self.save_byte(dest, i)?;
         }
         Ok(())
     }
     fn pointer_step(&mut self, pointer: u8, subtract: bool, amount: u32) {
-        self.code.op(if subtract { 0x38 } else { 0x18 });
+        self.code
+            .op(if subtract { Implied::Sec } else { Implied::Clc });
         for i in 0..3 {
-            self.code.byte(0xa5, pointer + i);
+            self.code.byte(ByteOp::LdaDp, pointer + i);
             self.code.byte(
-                if subtract { 0xe9 } else { 0x69 },
+                if subtract {
+                    ByteOp::SbcImm
+                } else {
+                    ByteOp::AdcImm
+                },
                 (amount >> (i * 8)) as u8,
             );
-            self.code.byte(0x85, pointer + i);
+            self.code.byte(ByteOp::StaDp, pointer + i);
         }
     }
     fn copy(
@@ -1354,26 +1413,26 @@ impl Builder<'_> {
         let memory = self.prepare_address(destination)?;
         self.address_to_pointer(memory)?;
         for i in 0..3 {
-            self.code.byte(0xa5, PTR + i);
-            self.code.byte(0x85, 24 + i);
+            self.code.byte(ByteOp::LdaDp, PTR + i);
+            self.code.byte(ByteOp::StaDp, 24 + i);
         }
         let memory = self.prepare_address(source)?;
         self.address_to_pointer(memory)?;
         for i in 0..3 {
-            self.code.byte(0xa5, PTR + i);
-            self.code.byte(0x85, 3 + i);
-            self.code.byte(0xa5, 24 + i);
-            self.code.byte(0x85, PTR + i);
+            self.code.byte(ByteOp::LdaDp, PTR + i);
+            self.code.byte(ByteOp::StaDp, 3 + i);
+            self.code.byte(ByteOp::LdaDp, 24 + i);
+            self.code.byte(ByteOp::StaDp, PTR + i);
         }
         let forward = self.code.label();
         let backward = self.code.label();
         let done = self.code.label();
         if overlap_safe {
             for i in (0..3).rev() {
-                self.code.byte(0xa5, PTR + i);
-                self.code.byte(0xc5, 3 + i);
-                self.code.branch(0x90, forward);
-                self.code.branch(0xd0, backward);
+                self.code.byte(ByteOp::LdaDp, PTR + i);
+                self.code.byte(ByteOp::CmpDp, 3 + i);
+                self.code.branch(Branch::CarryClear, forward);
+                self.code.branch(Branch::NotEqual, backward);
             }
             self.code.jump(done); // identical source/destination
             self.code.mark(backward);
@@ -1389,20 +1448,20 @@ impl Builder<'_> {
     }
     fn copy_loop(&mut self, bytes: u32, backward: bool) {
         for i in 0..3 {
-            self.code.byte(0xa9, (bytes >> (i * 8)) as u8);
-            self.code.byte(0x85, 28 + i);
+            self.code.byte(ByteOp::LdaImm, (bytes >> (i * 8)) as u8);
+            self.code.byte(ByteOp::StaDp, 28 + i);
         }
         let again = self.code.label();
         self.code.mark(again);
-        self.code.byte(0xa7, 3);
-        self.code.byte(0x87, PTR); // long indirect, no DBR dependency
+        self.code.byte(ByteOp::LdaIndirect, 3);
+        self.code.byte(ByteOp::StaIndirect, PTR); // long indirect, no DBR dependency
         self.pointer_step(PTR, backward, 1);
         self.pointer_step(3, backward, 1);
         self.pointer_step(28, true, 1);
-        self.code.byte(0xa5, 28);
-        self.code.byte(0x05, 29);
-        self.code.byte(0x05, 30);
-        self.code.branch(0xd0, again);
+        self.code.byte(ByteOp::LdaDp, 28);
+        self.code.byte(ByteOp::OraDp, 29);
+        self.code.byte(ByteOp::OraDp, 30);
+        self.code.branch(Branch::NotEqual, again);
     }
     fn compare(
         &mut self,
@@ -1420,16 +1479,16 @@ impl Builder<'_> {
         for i in (0..bytes).rev() {
             self.value_byte(right, i)?;
             if signed && i == bytes - 1 {
-                self.code.byte(0x49, 0x80);
+                self.code.byte(ByteOp::EorImm, 0x80);
             }
-            self.code.byte(0x85, RIGHT);
+            self.code.byte(ByteOp::StaDp, RIGHT);
             self.value_byte(left, i)?;
             if signed && i == bytes - 1 {
-                self.code.byte(0x49, 0x80);
+                self.code.byte(ByteOp::EorImm, 0x80);
             }
-            self.code.byte(0xc5, RIGHT);
-            self.code.branch(0x90, less);
-            self.code.branch(0xd0, greater);
+            self.code.byte(ByteOp::CmpDp, RIGHT);
+            self.code.branch(Branch::CarryClear, less);
+            self.code.branch(Branch::NotEqual, greater);
         }
         self.code.jump(equal);
         for (label, answer) in [
@@ -1447,7 +1506,7 @@ impl Builder<'_> {
             ),
         ] {
             self.code.mark(label);
-            self.code.byte(0xa9, u8::from(answer));
+            self.code.byte(ByteOp::LdaImm, u8::from(answer));
             self.code.jump(done);
         }
         self.code.mark(done);
@@ -1482,12 +1541,12 @@ impl Builder<'_> {
                 .ok_or("call stack overflow")?,
         );
         self.reserve(outgoing);
-        self.delta = outgoing.into();
+        assert_eq!(self.code.delta(), u32::from(outgoing));
         self.code.a8();
-        self.code.byte(0xa9, 0);
+        self.code.byte(ByteOp::LdaImm, 0);
         for i in 1..=outgoing {
             self.code.byte(
-                0x83,
+                ByteOp::StaStack,
                 u8::try_from(i).map_err(|_| "outgoing displacement overflow")?,
             );
         }
@@ -1503,12 +1562,12 @@ impl Builder<'_> {
                     ByteSize::ZERO,
                 )
                 .map_err(|e| e.to_string())?;
-                self.code.byte(0x83, d.get() as u8);
+                self.code.byte(ByteOp::StaStack, d.get() as u8);
             }
         }
         if let Some(target) = direct {
             self.code.a16();
-            self.code.reference(0x22, target, 0, None); // JSL
+            self.code.reference(ReferenceOp::Jsl, target, 0, None); // JSL
         } else {
             let Mir65816CallTarget::Indirect(value, bytes) = target else {
                 unreachable!()
@@ -1519,27 +1578,27 @@ impl Builder<'_> {
             // Capture the target before pushing: all d,S accesses still use delta=O.
             self.pointer_value(value, PTR)?;
             self.code.a16();
-            self.code.byte(0xa5, PTR + 1);
-            self.code.op(0xeb); // XBA; isolate bank without reading a fourth byte
-            self.code.word(0x29, 0x00ff);
-            self.code.op(0xa8); // TAY
-            self.code.byte(0xa5, PTR);
-            self.code.op(0xaa); // TAX
+            self.code.byte(ByteOp::LdaDp, PTR + 1);
+            self.code.op(Implied::Xba); // XBA; isolate bank without reading a fourth byte
+            self.code.word(WordOp::AndImm, 0x00ff);
+            self.code.op(Implied::Tay); // TAY
+            self.code.byte(ByteOp::LdaDp, PTR);
+            self.code.op(Implied::Tax); // TAX
             let resume = self.code.label();
-            self.code.op(0x4b); // PHK: real caller bank
+            self.code.op(Implied::Phk); // PHK: real caller bank
             self.code.push_return(resume);
-            self.code.op(0x98); // TYA
+            self.code.op(Implied::Tya); // TYA
             self.code.a8();
-            self.code.op(0x48); // PHA: target bank
+            self.code.op(Implied::Pha); // PHA: target bank
             self.code.a16();
-            self.code.op(0x8a); // TXA
-            self.code.op(0x3a); // DEC A: wrap only the low word, never borrow from bank
-            self.code.op(0x48); // PHA: target PC minus one
-            self.code.op(0x6b); // RTL: enter callee with ordinary three-byte return frame
+            self.code.op(Implied::Txa); // TXA
+            self.code.op(Implied::DecA); // DEC A: wrap only the low word, never borrow from bank
+            self.code.op(Implied::Pha); // PHA: target PC minus one
+            self.code.indirect_transfer(); // RTL: enter callee with ordinary three-byte return frame
             self.code.mark(resume);
         }
         self.release(outgoing, true);
-        self.delta = 0;
+        assert_eq!(self.code.delta(), 0);
         if let Some((id, bytes)) = result {
             let bytes = width(bytes)?;
             if self.temp(id)?.slot().width != bytes {
@@ -1548,16 +1607,16 @@ impl Builder<'_> {
             self.code.a8();
             self.save_byte(id, 0)?;
             if bytes > 1 {
-                self.code.op(0xeb);
+                self.code.op(Implied::Xba);
                 self.save_byte(id, 1)?;
             } // XBA
             self.code.a16();
             if bytes > 2 {
-                self.code.op(0x8a);
+                self.code.op(Implied::Txa);
                 self.code.a8();
                 self.save_byte(id, 2)?; // TXA
                 if bytes > 3 {
-                    self.code.op(0xeb);
+                    self.code.op(Implied::Xba);
                     self.save_byte(id, 3)?;
                 }
                 self.code.a16();
@@ -1590,23 +1649,23 @@ impl Builder<'_> {
             };
             if !self.word_return(value)? {
                 self.code.a8();
-                self.code.byte(0xa9, 0);
+                self.code.byte(ByteOp::LdaImm, 0);
                 for i in 0..4 {
-                    self.code.byte(0x85, RESULT + i);
+                    self.code.byte(ByteOp::StaDp, RESULT + i);
                 }
                 for i in 0..bytes {
                     self.value_byte(value, i)?;
-                    self.code.byte(0x85, RESULT + i);
+                    self.code.byte(ByteOp::StaDp, RESULT + i);
                 }
                 self.code.a16();
-                self.code.byte(0xa5, RESULT);
-                self.code.byte(0xa6, RESULT + 2); // LDA / LDX
+                self.code.byte(ByteOp::LdaDp, RESULT);
+                self.code.byte(ByteOp::LdxDp, RESULT + 2); // LDA / LDX
             }
         } else if self.routine.result_home.is_some() {
             return Err("function returns without a value".into());
         }
         self.release(self.frame.extent, value.is_some());
-        self.code.op(0x6b); // RTL
+        self.code.op(Implied::Rtl); // RTL
         Ok(())
     }
 }

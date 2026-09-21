@@ -21,9 +21,8 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     let mut b = Builder {
         routine: r,
         frame: AllocatedFrame::new(r).unwrap(),
-        code: Code::default(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
         blocks: BTreeMap::new(),
-        delta: 0,
         resident_word: None,
     };
     for block in &r.blocks {
@@ -73,7 +72,7 @@ fn fused_selection_uses_one_dispatch_and_retains_both_edges_and_frame() {
                 }
             };
             b.code.a16();
-            let prefix = b.code.bytes.len();
+            let prefix = b.code.code().bytes.len();
             let frame = b.frame.clone();
             let mut expected = encode(a, true);
             expected.extend(encode(c, false));
@@ -81,8 +80,8 @@ fn fused_selection_uses_one_dispatch_and_retains_both_edges_and_frame() {
             expected.extend([0x5c, 0, 0, 0]); // false edge already knows A16
             expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]); // true label resets knowledge
             assert!(b.compare_branch(&op, &block.terminator, &sole).unwrap());
-            assert_eq!(&b.code.bytes[prefix..], expected);
-            assert_eq!(b.code.fixups.len(), 3);
+            assert_eq!(&b.code.code().bytes[prefix..], expected);
+            assert_eq!(b.code.code().fixups.len(), 3);
             let Mir65816Terminator::Branch {
                 then_edge,
                 else_edge,
@@ -92,18 +91,18 @@ fn fused_selection_uses_one_dispatch_and_retains_both_edges_and_frame() {
                 panic!()
             };
             assert_eq!(
-                b.code.fixups[1].target,
+                b.code.code().fixups[1].target,
                 Target::Label(b.blocks[&else_edge.target])
             );
             assert_eq!(
-                b.code.fixups[2].target,
+                b.code.code().fixups[2].target,
                 Target::Label(b.blocks[&then_edge.target])
             );
             assert_eq!(b.frame.temps, frame.temps);
             assert_eq!(b.frame.extent, frame.extent);
-            let end = b.code.bytes.clone();
+            let end = b.code.code().bytes.clone();
             b.code.a16();
-            assert_eq!(end, b.code.bytes);
+            assert_eq!(end, b.code.code().bytes);
         }
     }
 }
@@ -177,7 +176,7 @@ fn pair_gates_and_checked_homes_fail_without_partial_comparison_emission() {
                         width: 1,
                     }),
                 );
-                b.delta = 1;
+                b.code.test_delta(1);
             }
             10 => {
                 let Mir65816Value::Temp(id, ..) = left else {
@@ -190,7 +189,7 @@ fn pair_gates_and_checked_homes_fail_without_partial_comparison_emission() {
                         width: 2,
                     }),
                 );
-                b.delta = 1;
+                b.code.test_delta(1);
             }
             11 => {
                 let Mir65816Value::Temp(id, ..) = left else {
@@ -242,10 +241,13 @@ fn fusion_obeys_byte_and_word_limits_after_transient_stack_movement() {
         }),
     );
     *right = Mir65816Value::U8(255);
-    b.delta = 1;
+    b.code.test_delta(1);
     assert!(
         b.compare_branch(&op, &block.terminator, &liveness::sole_branch_conditions(r))
             .unwrap()
     );
-    assert_eq!(&b.code.bytes[..7], &[0xc2, 0x20, 0xa3, 254, 0xc9, 255, 0]);
+    assert_eq!(
+        &b.code.code().bytes[..7],
+        &[0xc2, 0x20, 0xa3, 254, 0xc9, 255, 0]
+    );
 }

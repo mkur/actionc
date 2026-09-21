@@ -20,9 +20,8 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     Builder {
         routine,
         frame: AllocatedFrame::new(routine).unwrap(),
-        code: Code::default(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(routine).unwrap()),
         blocks: BTreeMap::new(),
-        delta: 0,
         resident_word: None,
     }
 }
@@ -88,7 +87,7 @@ fn word_extent_checks_last_byte_and_transient_reservations() {
         (2, 253, false),
         (u32::MAX, 2, false),
     ] {
-        b.delta = delta;
+        b.code.test_delta(delta);
         assert_eq!(
             b.word_displacement(body).is_ok(),
             accepted,
@@ -136,7 +135,7 @@ fn unsupported_operands_do_not_emit_a_prefix_or_change_mode_knowledge() {
             _ => {}
         }
         b.code.a8();
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         assert!(
             !b.word_binary(
                 dest,
@@ -147,13 +146,14 @@ fn unsupported_operands_do_not_emit_a_prefix_or_change_mode_knowledge() {
             )
             .unwrap()
         );
-        assert_eq!(b.code.bytes, before);
+        assert_eq!(b.code.code().bytes, before);
         b.code.a8();
         assert_eq!(
-            b.code.bytes, before,
+            b.code.code().bytes,
+            before,
             "fallback changed local mode knowledge"
         );
-        assert!(b.code.fixups.is_empty());
+        assert!(b.code.code().fixups.is_empty());
     }
     let mut b = builder(r);
     assert!(
@@ -164,7 +164,7 @@ fn unsupported_operands_do_not_emit_a_prefix_or_change_mode_knowledge() {
         !b.word_binary(dest, 1, NirBinaryOp::Add, &left, &left)
             .unwrap()
     );
-    assert!(b.code.bytes.is_empty());
+    assert!(b.code.code().bytes.is_empty());
 }
 
 #[test]
@@ -223,15 +223,15 @@ fn malformed_word_operands_fail_before_mutating_code() {
             _ => unreachable!(),
         }
         b.code.a8();
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         assert!(
             b.word_binary(dest, 2, NirBinaryOp::Sub, &left, &right)
                 .is_err(),
             "problem {problem}"
         );
-        assert_eq!(b.code.bytes, before);
+        assert_eq!(b.code.code().bytes, before);
         b.code.a8();
-        assert_eq!(b.code.bytes, before);
+        assert_eq!(b.code.code().bytes, before);
     }
     // A legal fallback operand must not hide a malformed operand on the right.
     let mut b = builder(r);
@@ -240,7 +240,7 @@ fn malformed_word_operands_fail_before_mutating_code() {
         b.word_binary(dest, 2, NirBinaryOp::Add, &Mir65816Value::U24(1), &right)
             .is_err()
     );
-    assert!(b.code.bytes.is_empty());
+    assert!(b.code.code().bytes.is_empty());
 }
 
 #[test]
@@ -251,7 +251,7 @@ fn operation_dispatch_keeps_native_width_without_changing_allocations() {
     let mut b = builder(r);
     let before = b.frame.clone();
     b.code.a16();
-    let prefix = b.code.bytes.len();
+    let prefix = b.code.code().bytes.len();
     b.operation(&Mir65816Op::Binary {
         dest,
         width: ByteSize::new(2),
@@ -263,7 +263,7 @@ fn operation_dispatch_keeps_native_width_without_changing_allocations() {
     .unwrap();
     // Isolated selector output: operands are displacements, never scanned as
     // opcodes in a whole program. This covers the dispatcher's A8 trap.
-    let code = &b.code.bytes[prefix..];
+    let code = &b.code.code().bytes[prefix..];
     assert_eq!(code.len(), 7);
     assert_eq!(
         [code[0], code[2], code[3], code[5]],
@@ -295,7 +295,7 @@ fn word_returns_select_checked_sources_and_share_frame_teardown() {
             WordOperand::Stack(d) => vec![0xa3, d],
         };
         b.code.a8();
-        let prefix = b.code.bytes.len();
+        let prefix = b.code.code().bytes.len();
         b.return_value(Some(&value)).unwrap();
         let mut expected = vec![0xc2, 0x20];
         expected.extend(load);
@@ -310,7 +310,7 @@ fn word_returns_select_checked_sources_and_share_frame_teardown() {
             0x98,
             0x6b,
         ]);
-        assert_eq!(&b.code.bytes[prefix..], expected);
+        assert_eq!(&b.code.code().bytes[prefix..], expected);
         assert_eq!(b.frame.temps, before.temps);
         assert_eq!(
             (
@@ -321,15 +321,16 @@ fn word_returns_select_checked_sources_and_share_frame_teardown() {
             (before.extent, before.spill_bytes, before.peak_below_entry)
         );
         assert_eq!(b.frame.edge_copies, before.edge_copies);
-        assert!(b.code.fixups.is_empty() && b.code.return_fixups.is_empty());
-        let after = b.code.bytes.len();
+        assert!(b.code.code().fixups.is_empty() && b.code.code().return_fixups.is_empty());
+        let after = b.code.code().bytes.len();
         b.code.a16();
-        assert_eq!(b.code.bytes.len(), after);
+        assert_eq!(b.code.code().bytes.len(), after);
     }
     let mut b = builder(r);
-    b.frame.extent = 0; // Isolate the zero-frame epilogue; runtime tests use a real leaf.
+    b.frame.extent = 0;
+    b.code.test_frame(0); // Isolate the zero-frame epilogue; runtime tests use a real leaf.
     b.return_value(Some(&Mir65816Value::U16(0xffff))).unwrap();
-    assert_eq!(b.code.bytes, [0xc2, 0x20, 0xa9, 0xff, 0xff, 0x6b]);
+    assert_eq!(b.code.code().bytes, [0xc2, 0x20, 0xa9, 0xff, 0xff, 0x6b]);
 }
 
 #[test]
@@ -345,10 +346,10 @@ fn word_return_gate_uses_the_abi_home_and_fallback_does_not_emit() {
         r.result_home = home.map(Mir65816AbiHome::NativeResult);
         let mut b = builder(r);
         b.code.a8();
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         assert!(!b.word_return(&Mir65816Value::U16(0x8000)).unwrap());
         b.code.a8();
-        assert_eq!(b.code.bytes, before);
+        assert_eq!(b.code.code().bytes, before);
     }
     r.result_home = Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16));
     let (_, input, _) = operands(r);
@@ -381,11 +382,11 @@ fn word_return_gate_uses_the_abi_home_and_fallback_does_not_emit() {
             );
         }
         b.code.a8();
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         assert!(!b.word_return(&value).unwrap());
         b.code.a8();
-        assert_eq!(b.code.bytes, before);
-        assert!(b.code.fixups.is_empty());
+        assert_eq!(b.code.code().bytes, before);
+        assert!(b.code.code().fixups.is_empty());
     }
 }
 
@@ -406,21 +407,21 @@ fn word_return_rejects_bad_homes_before_emission_and_checks_delta() {
         (2, u32::MAX, false),
     ] {
         let mut b = builder(r);
-        b.delta = delta;
+        b.code.test_delta(delta);
         b.frame
             .temps
             .insert(id, Location::Stack(Slot { offset, width: 2 }));
         b.code.a8();
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         assert_eq!(b.word_return(&input).is_ok(), valid);
         if valid {
             assert_eq!(
-                &b.code.bytes[before.len()..],
+                &b.code.code().bytes[before.len()..],
                 [0xc2, 0x20, 0xa3, (u32::from(offset) + delta) as u8]
             );
         } else {
             b.code.a8();
-            assert_eq!(b.code.bytes, before);
+            assert_eq!(b.code.code().bytes, before);
         }
     }
     for problem in 0..5 {
@@ -465,10 +466,10 @@ fn word_return_rejects_bad_homes_before_emission_and_checks_delta() {
             _ => {}
         }
         b.code.a8();
-        let before = b.code.bytes.clone();
+        let before = b.code.code().bytes.clone();
         assert!(b.word_return(&value).is_err());
         b.code.a8();
-        assert_eq!(b.code.bytes, before);
+        assert_eq!(b.code.code().bytes, before);
     }
 }
 
@@ -481,17 +482,17 @@ fn native_return_diagnostics_and_procedure_teardown_remain_strict() {
         b.return_value(None).unwrap_err(),
         "function returns without a value"
     );
-    assert!(b.code.bytes.is_empty());
+    assert!(b.code.code().bytes.is_empty());
     r.result_home = None;
     let mut b = builder(r);
     assert_eq!(
         b.return_value(Some(&Mir65816Value::U16(1))).unwrap_err(),
         "value return has no native result home"
     );
-    assert!(b.code.bytes.is_empty());
+    assert!(b.code.code().bytes.is_empty());
     b.return_value(None).unwrap();
     assert_eq!(
-        b.code.bytes,
+        b.code.code().bytes,
         [0x3b, 0x18, 0x69, b.frame.extent as u8, 0, 0x1b, 0x6b]
     );
 }
