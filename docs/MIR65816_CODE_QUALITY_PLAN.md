@@ -3,8 +3,9 @@
 Status: refreshed on 2026-09-21 against main `86fcef2`, after qualification of the
 native state tracker. Direct single-word edge copies, adjacent accumulator
 forwarding and the tracker foundation are complete. The next proposed slice is
-removing redundant width setup at proved MIR block entries, starting with a
-corpus inventory and an explicit implementation plan.
+removing redundant width setup at proved MIR block entries. The
+[implementation plan for slices 3a–3c](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
+defines the initial site inventory, bounded changes and separate acceptance gates.
 
 ## Objective and current baseline
 
@@ -101,7 +102,8 @@ a mode-setting instruction. Its byte-identical integration deliberately revokes
 that permission at every label. Knowing the CPU's width alone does not currently
 authorize an omission; see the [emission contract](MIR65816_EMISSION_CONTRACT.md).
 
-Prepare the implementation plan around these limits:
+Follow the [3a–3c implementation plan](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
+within these limits:
 
 1. Inventory redundant mode requests in raw and optimized emitted code. Separate
    MIR block entries from guard, comparison, shift/copy-loop and indirect-resume
