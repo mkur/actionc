@@ -91,6 +91,7 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
     for optimize in [false, true] {
         let mut h = machine(optimize);
         let mut seen = BTreeSet::new();
+        let mut word_windows = BTreeSet::new();
         for _ in 0..2_000_000 {
             if h.cpu.is_stopped() {
                 break;
@@ -101,6 +102,20 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                 && [0x2000, 0x2100].contains(&r.d)
                 && seen.insert(h.cpu.pc())
             {
+                let pc = h.cpu.pc();
+                let opcode = h.bus.ram[pc as usize];
+                if matches!(opcode, 0x63 | 0xe3) {
+                    // Decode only at a reached instruction boundary. These
+                    // stack-relative forms are emitted by word arithmetic;
+                    // immediate arithmetic in stack guards is not counted.
+                    assert_eq!(r.p & 0x20, 0);
+                    assert_eq!(
+                        h.bus.ram[pc as usize - 1],
+                        if opcode == 0x63 { 0x18 } else { 0x38 }
+                    );
+                    assert_eq!(h.bus.ram[pc as usize + 2], 0x83);
+                    word_windows.insert((opcode, pc - 1, pc, pc + 2));
+                }
                 let saved_cpu = h.cpu.clone();
                 let saved_bus = h.bus.clone();
                 run_injected(&mut h, true, None);
@@ -110,6 +125,31 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
             h.tick(Inputs::default());
         }
         check(&h);
+        assert_eq!(
+            word_windows.iter().map(|w| w.0).collect::<BTreeSet<_>>(),
+            BTreeSet::from([0x63, 0xe3])
+        );
+        for &(_, carry, arithmetic, store) in &word_windows {
+            assert!(
+                [carry, arithmetic, store]
+                    .into_iter()
+                    .all(|pc| seen.contains(&pc)),
+                "unqualified word arithmetic interruption window"
+            );
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(
+                std::path::Path::new(&directory).join(format!("word-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(&serde_json::json!({
+                    "optimized": optimize, "enabled_instruction_addresses": seen.len(),
+                    "word_windows": word_windows,
+                    "window_columns": ["opcode", "carry_setup_pc", "arithmetic_pc", "store_pc"],
+                    "each_window_address_irq_tested": true,
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+        }
         assert!(
             seen.len() > 300,
             "only {} instruction boundaries",
@@ -118,6 +158,10 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
         eprintln!(
             "qualified optimize={optimize}: {} enabled instruction addresses",
             seen.len()
+        );
+        eprintln!(
+            "word arithmetic optimize={optimize}: {} qualified interruption windows",
+            word_windows.len()
         );
     }
 }

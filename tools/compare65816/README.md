@@ -75,3 +75,22 @@ The [word-arithmetic baseline](../../docs/benchmarks/65816-word-arithmetic/befor
 adds subtraction: 264 paired-mask records, or 528 executions per host build.
 The original snapshot remains unchanged. New snapshots also retain subtraction
 listings alongside add, sum-loop, and unlink.
+
+The [word-arithmetic results](../../docs/MIR65816_WORD_ARITHMETIC.md) include a
+separate [post-change snapshot](../../docs/benchmarks/65816-word-arithmetic/after/tables.md)
+and [before/after table](../../docs/benchmarks/65816-word-arithmetic/delta.md).
+Given both saved build directories, regenerate the comparison with:
+
+```sh
+python3 tools/compare65816/delta.py \
+  target/word-arithmetic-before target/word-arithmetic-after \
+  --output docs/benchmarks/65816-word-arithmetic
+```
+
+The script requires identical debug/release measurements, matching cases and
+external tools, unchanged vbcc results, no Action correctness/size/cycle
+regression, and unchanged ABI/storage maps, stack traffic, peaks, and guard
+costs. Build the baseline with its historical compiler when reproducing from
+scratch (`7907b77`, supplied to `build.py --actionc`); the current compiler is
+the post-change side. Each directory needs its own manifest and both execution
+reports before running `delta.py`. The known vbcc unlink failure remains visible.

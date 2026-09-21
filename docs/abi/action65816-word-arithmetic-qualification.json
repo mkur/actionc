@@ -1,0 +1,472 @@
+{
+  "date": "2026-09-21",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 3,
+  "scope": "Native two-byte ADD/SUB selection into existing stack homes; raw/optimized emitted machine code; emulator execution",
+  "baseline_and_coverage_commit": "7907b7737f6e54e5219f4bd7133eedcebbf6f4fe",
+  "baseline_compiler_revision": "6fb82197b83cf625a7413c4d223d6e5a9db5a818",
+  "implementation_commit": "7803040c8cb8433c5ea81de7acf9648afdbc9c83",
+  "qualification_changes": "Preemption coverage accounting, measured snapshots, and this record are in the containing commit; hashes identify the tested worktree.",
+  "compiler_and_runtime_fixture_inventory": {
+    "sha256": "d5dbbe6d6dc44b699ea1ed5c18d1bffc3ba7e1a7afab5dc10e3f5a9afb61f0ea",
+    "files": 390,
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase file SHA-256, two spaces, path, LF; hash raw file bytes"
+  },
+  "changed_code_and_test_sha256": {
+    "src/mir65816/emit/select.rs": "44b38a2f004327c7a2510862c01e467c4f0ddd63a2285d23f76fdf51c6e6b834",
+    "src/mir65816/emit/word_tests.rs": "7579217ff887b3a0d9865e9ba07082539ecb4a1075592fcb9a7ac9b232dc62aa",
+    "tests/mir65816_emission.rs": "d9aa4c50d7dd014c066ed075a30328cd923fdf437b84b6bbedc4307d0b30bbb4",
+    "tools/disassemble65816.py": "ba783510673dfd7a9ab62cd802881ba95ea4466f1a4ae122e85ebf8fac11cc8c",
+    "tools/test_disassemble65816.py": "954d590818ffa6138f9e0985b0c27baf55285505d7948ff847d11e490b71b20c",
+    "tools/native65816-runtime-tests/tests/word_arithmetic.rs": "d22e7b515788ca57e5e031d0f4b680465e5fa94c30424d827f143b1241a611a3",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "ebfc4a5c2ef35f2bc397e9050aa7def8d38a5fe255251dd84b924e333bef0941",
+    "tools/compare65816/corpus.py": "1a7631d5e3bca42a6ceb1a08e91958e11fab5a88e0e6d2ed69cf5ab9e682b4b9",
+    "tools/compare65816/report.py": "cab8a7cc2f8c6361ddd19eeb98121f3ecec9e24a9a21803685f5928468cc03b0",
+    "tools/compare65816/build.py": "6b8250b08c226ce1beee340a1e05501374b826097767a35ba5c18d913a1543a7",
+    "tools/compare65816/delta.py": "b183244a9a61ba30fbe77095211914cbf2bf10f987366d2b74d6a92ff2ea2f22"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "host": "macOS ARM64",
+  "environment": {
+    "debug": {
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    }
+  },
+  "checks": [
+    "cargo test --lib mir65816",
+    "cargo test --test mir65816_abi --test mir65816_contract --test mir65816_emission --test mir65816_o65 --test actionc_65816_cli --test actionc_65816_o65_cli",
+    "python3 -m unittest discover -s tools -p test_disassemble65816.py",
+    "python3 tools/native65816-runtime-tests/qualify.py --test arithmetic --test word_arithmetic --test memory --test interop --test indirect --test stack_allocation --test stack_faults",
+    "python3 tools/native65816-runtime-tests/qualify.py -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --release -- --nocapture",
+    "cargo build --release --bin actionc-65816",
+    "python3 tools/compare65816/corpus.py --check",
+    "python3 tools/compare65816/build.py --output target/word-arithmetic-after --verify-crlf",
+    "Separate debug/release code_quality qualification runs for both snapshots, with their A816_COMPARISON_MANIFEST and A816_COMPARISON_RESULTS paths; known vbcc failure retained",
+    "python3 tools/compare65816/report.py --input target/word-arithmetic-after --output docs/benchmarks/65816-word-arithmetic/after",
+    "python3 tools/compare65816/delta.py target/word-arithmetic-before target/word-arithmetic-after --output docs/benchmarks/65816-word-arithmetic",
+    "rustfmt --check on changed Rust files; git diff --check; edited documentation links and source/artifact hash verification"
+  ],
+  "results": {
+    "compiler_unit": {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0
+    },
+    "compiler_integration": {
+      "passed": 56,
+      "failed": 0,
+      "ignored": 0
+    },
+    "disassembler_passed": 3,
+    "native": {
+      "debug": {
+        "passed": 48,
+        "failed": 0,
+        "ignored": 1
+      },
+      "release": {
+        "passed": 48,
+        "failed": 0,
+        "ignored": 1
+      }
+    },
+    "ignored_native_test": "code_quality: external comparison is invoked separately",
+    "word_arithmetic_tests": 4,
+    "word_semantic_executions_per_host_build": 420,
+    "independent_assembly_executions_per_host_build": 16,
+    "identical_debug_release_saved_artifacts": 118
+  },
+  "benchmark": {
+    "kernels": 14,
+    "input_vectors": 66,
+    "paired_mask_records_per_snapshot": 264,
+    "executions_per_snapshot_per_host_build": 528,
+    "action_executions_passed_per_snapshot_per_host_build": 264,
+    "vbcc_executions_passed_per_snapshot_per_host_build": 262,
+    "vbcc_executions_failed_per_snapshot_per_host_build": 2,
+    "lf_crlf_compilations_per_snapshot": 112,
+    "crlf_identical": true,
+    "before": "docs/benchmarks/65816-word-arithmetic/before",
+    "after": "docs/benchmarks/65816-word-arithmetic/after",
+    "delta": {
+      "before_revision": "6fb82197b83cf625a7413c4d223d6e5a9db5a818",
+      "after_revision": "7803040c8cb8433c5ea81de7acf9648afdbc9c83",
+      "paired_mask_records": 264,
+      "preserved_fields": [
+        "correct",
+        "errors",
+        "result",
+        "args",
+        "incoming_stack_bytes",
+        "incoming_return_bytes",
+        "peak_below_entry_s",
+        "static_stack_check_bytes",
+        "stack_check_cycles",
+        "stack_check_instructions",
+        "stack_reads",
+        "stack_writes",
+        "metadata_reads",
+        "input_padding_reads"
+      ],
+      "routine_storage_contracts_identical": true,
+      "vbcc_measurements_identical": true,
+      "no_action_failures": true,
+      "no_code_size_or_cycle_regressions": true,
+      "known_external_failures": [
+        [
+          "unlink",
+          "optimized",
+          "vbcc",
+          0
+        ]
+      ],
+      "input_sha256": {
+        "before/manifest.json": "5499a3397d3b6935d92a5c7e641587fa28658642ee93eddafb08cee4ea81e7fa",
+        "before/debug.json": "7fd4112f386307745ce01a0e41ebbffa860b4f334633618ea5bf2a9768e367cb",
+        "before/release.json": "7fd4112f386307745ce01a0e41ebbffa860b4f334633618ea5bf2a9768e367cb",
+        "after/manifest.json": "d1358a57a12feaebce2ddd804a06142d131aff7f00405ff0ca8cdd444e5e282e",
+        "after/debug.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37",
+        "after/release.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37"
+      }
+    },
+    "measurement_scope": "Final worker/helper machine code including guards and RTL; VM cycles from worker entry through RTL; stack is peak below entry S, excluding incoming arguments/return bytes listed separately.",
+    "tools_after": {
+      "actionc": {
+        "filename": "actionc-65816",
+        "sha256": "cbf67adb4131f15c8e779e0d92c84bcf6577d23ff30ce7f98c2a77b26b21b6ad"
+      },
+      "vbcc": {
+        "filename": "vbcc65816",
+        "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+      },
+      "vasm": {
+        "filename": "vasm6502_oldstyle",
+        "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+      },
+      "vlink": {
+        "filename": "vlink",
+        "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+      }
+    },
+    "existing_failure": {
+      "case": "unlink",
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "vector": 0,
+      "incoming_interrupt_masks": [
+        0,
+        4
+      ],
+      "cause": "16-bit store to the third byte of a three-byte pointer corrupts the adjacent pointer field",
+      "comparison_test_status": "FAILED in both host builds before and after; failure is not exempted or suppressed"
+    }
+  },
+  "preserved_contracts": [
+    "Physical ABI v1, transport v3, experimental o65 profile and Exec816 compiler pin",
+    "All benchmark routine storage maps, frames, spills, arguments, results and stack-cost metadata",
+    "All benchmark observed stack peaks, stack byte traffic, guard bytes/cycles/instructions and domain metadata reads",
+    "Explicit signed widening, captured memory values, volatile byte ordering and conservative call barriers"
+  ],
+  "asynchronous_coverage": {
+    "word_windows": {
+      "raw": {
+        "each_window_address_irq_tested": true,
+        "enabled_instruction_addresses": 2416,
+        "optimized": false,
+        "window_columns": [
+          "opcode",
+          "carry_setup_pc",
+          "arithmetic_pc",
+          "store_pc"
+        ],
+        "word_windows": [
+          [
+            99,
+            101100,
+            101101,
+            101103
+          ],
+          [
+            99,
+            101561,
+            101562,
+            101564
+          ],
+          [
+            99,
+            101906,
+            101907,
+            101909
+          ],
+          [
+            99,
+            102251,
+            102252,
+            102254
+          ],
+          [
+            99,
+            103725,
+            103726,
+            103728
+          ],
+          [
+            99,
+            104037,
+            104038,
+            104040
+          ],
+          [
+            227,
+            104067,
+            104068,
+            104070
+          ]
+        ]
+      },
+      "optimized": {
+        "each_window_address_irq_tested": true,
+        "enabled_instruction_addresses": 2264,
+        "optimized": true,
+        "window_columns": [
+          "opcode",
+          "carry_setup_pc",
+          "arithmetic_pc",
+          "store_pc"
+        ],
+        "word_windows": [
+          [
+            99,
+            101058,
+            101059,
+            101061
+          ],
+          [
+            99,
+            101519,
+            101520,
+            101522
+          ],
+          [
+            99,
+            101852,
+            101853,
+            101855
+          ],
+          [
+            99,
+            102185,
+            102186,
+            102188
+          ],
+          [
+            99,
+            103457,
+            103458,
+            103460
+          ],
+          [
+            99,
+            103753,
+            103754,
+            103756
+          ],
+          [
+            227,
+            103775,
+            103776,
+            103778
+          ]
+        ]
+      }
+    },
+    "pointer_leaf_task_instruction_sites": {
+      "raw": 164,
+      "optimized": 100
+    },
+    "seeds": [
+      8891121666326,
+      1592642302
+    ]
+  },
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-3_f_092m/manifest.json",
+      "manifest_sha256": "ac5f445fad6558d20b3e846e2005f0b1cd11b21a443991213397fbc0c0fea0a7"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-ad3r6xuw/manifest.json",
+      "manifest_sha256": "13b8a56ce7a9f6848af923ecc23d647f9cf097c84d75317ca42370ad04e775fa"
+    }
+  },
+  "saved_artifact_sha256": {
+    "context-false-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "o65-guard-false-100000.metrics.json": "205356422f13bf40a051c13f9d9487b56a7227b8b7c503fba97f033ce82e6254",
+    "o65-guard-true-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-contexts-true-600000.o65": "de7587937cc1216c19ed247148914ec16c5016b2f895225ea34b38f63597c8d7",
+    "o65-static-addresses-true-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "context-false-f1c43bfbb4b6c823.a816.json": "7a024fed4db01d757f485789ca7d4ceab66bbc21a4e64a60681c155f04ab249f",
+    "o65-static-addresses-true-600000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-static-addresses-true-600000.metrics.json": "353e5d713bec5898397cc73e2f2412cb291e1827eedf30914ccb0549f690be1e",
+    "o65-static-addresses-false-600000.metrics.json": "353e5d713bec5898397cc73e2f2412cb291e1827eedf30914ccb0549f690be1e",
+    "o65-pointers-true-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "context-false-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "o65-interop-false-600000.metrics.json": "dd7be2f782df8cb8676a7f21e6dab7bd539aa54b24e6ad79f4e88d39157d57a9",
+    "o65-static-addresses-false-100000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "word-preemption-false.json": "c8201439aec371e6eb02fb78f9fdad9223179ecfb15ed2254724a3f08081f16c",
+    "o65-pointers-false-100000.o65": "16e07150f0d1bbd40ebee8c205604ed3e113b509b503a660026259eda21d3156",
+    "o65-guard-false-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-imports-false-600000.metrics.json": "1aaf7d375697b6228ae9834bfb45b525950894f81ec43d2357b32b58154033e7",
+    "context-false-37c57e09908ba768.bridge.bin": "30667485595704df433e491bfe29113b267dfd2afdabc736ab440b582180f0b2",
+    "context-false-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "word-preemption-true.json": "b6c20a60f70116a2ea94691ca5c98dbef36c46a7ffda9209e747302c3e4250f9",
+    "context-true-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "o65-banks-true-100000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-true-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "context-true-f1c43bfbb4b6c823.a816.json": "5dc3c7ac78fb3b8c44fdbdcaf7a4f1bbfb366719077eb9c61f09e5e82fd9b11d",
+    "o65-guard-false-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "o65-guard-true-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "o65-interop-true-100000.metrics.json": "b294ab29e53b195975c8c12ef833ab091704363cf1e8f7571b4ddd2dfb9f0501",
+    "o65-banks-true-100000.metrics.json": "99a632fd2fc7ce1806f0e8d0a9c81efe57f90af947fade8c10805ce68bd3a4d9",
+    "o65-imports-true-600000.o65": "3bbfb96e25deef83b9a108d9e151d61c15d31c476e9be69a5a9292c693354cc7",
+    "o65-static-addresses-true-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "context-false-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-pointers-true-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "o65-banks-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-interop-false-100000.metrics.json": "b4a6581278e597177d07e6e99907102ca4e324c5d71d024238a16813aaf691b2",
+    "o65-imports-false-600000.placement.json": "7ef32c0f15efedfc0ca0138d553c9ac2e950199dcbb2922ec039df42979a4a75",
+    "o65-contexts-false-600000.placement.json": "82c19e89a1f20ca740a7a0ce825a275be0adea8fac53116ea40a18f09f936395",
+    "context-true-b61b8a7a03265980.a816.json": "c67f1970468092fece42ccd3aef141143df4453cf2f2ec8cffa09d0ac1982790",
+    "o65-imports-false-100000.metrics.json": "60edba861f0f5fa741978adfb33580f5390e6281a2718ba604e480aa78a8a05c",
+    "o65-banks-true-600000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-contexts-true-600000.placement.json": "82c19e89a1f20ca740a7a0ce825a275be0adea8fac53116ea40a18f09f936395",
+    "context-true-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-guard-false-600000.metrics.json": "aea839a9c666315623b28f06ca9ab8f17bc8002da54ea736035e2365cf41b774",
+    "context-false-d8929097958ba814.bridge.bin": "b60a0841ef77de105e436ea72838c96fa6bdf5d20ba6e878a97ffc7580d412c6",
+    "context-false-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-pointers-false-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "o65-imports-true-100000.o65": "3bbfb96e25deef83b9a108d9e151d61c15d31c476e9be69a5a9292c693354cc7",
+    "context-true-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "context-false-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-static-addresses-true-100000.metrics.json": "bf67f7c847a0beafd2316ae851031ddcc48abc6d2e639f7ee4f75a26bce165b6",
+    "context-false-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-static-addresses-false-100000.metrics.json": "bf67f7c847a0beafd2316ae851031ddcc48abc6d2e639f7ee4f75a26bce165b6",
+    "o65-pointers-false-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "o65-contexts-true-100000.o65": "de7587937cc1216c19ed247148914ec16c5016b2f895225ea34b38f63597c8d7",
+    "o65-interop-true-600000.metrics.json": "b9790f9e15722cb9428bf78ba75f3fd08e4cb802298ed94a08437ecfc5a1424f",
+    "context-false-b61b8a7a03265980.a816.json": "1b41e6fa99a3be4d4e66df183f52d3b51842eaab473d92ef6cee4c28ec9f6786",
+    "o65-banks-true-600000.metrics.json": "d25dac1bd047edaa2a2ccce0571c0afb711cf5863098502e7a21375aa2770ddb",
+    "o65-static-addresses-true-100000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-static-addresses-false-600000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-banks-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-imports-false-100000.placement.json": "6006f39f7a51ccb3d79f7c2dd8357f9a360d9dd1116e380c26aa13f3b0cd06fa",
+    "context-false-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "o65-contexts-false-100000.placement.json": "328f25d1fe27f9dd959c8491268a4a65585693b39a8960e495f0cd0ca1b10d58",
+    "o65-pointers-false-600000.o65": "16e07150f0d1bbd40ebee8c205604ed3e113b509b503a660026259eda21d3156",
+    "o65-contexts-true-100000.placement.json": "328f25d1fe27f9dd959c8491268a4a65585693b39a8960e495f0cd0ca1b10d58",
+    "o65-banks-false-100000.metrics.json": "99a632fd2fc7ce1806f0e8d0a9c81efe57f90af947fade8c10805ce68bd3a4d9",
+    "o65-imports-true-100000.placement.json": "6006f39f7a51ccb3d79f7c2dd8357f9a360d9dd1116e380c26aa13f3b0cd06fa",
+    "o65-interop-false-600000.placement.json": "2088c17c82b6b0138b95e35d6ad4dc01e5e3fc0ba5529f5c0adddb5e3bcf9cf8",
+    "context-true-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "o65-pointers-false-100000.metrics.json": "4331c89333f2bd8ad280e399886f26727a869a267d5f2a0676a9a34c7aefbe9b",
+    "context-true-37c57e09908ba768.a816.json": "acf1df0860b05000abaf01e54dcc34dd29306ac6f554dfdbc113bfe2412647e6",
+    "o65-contexts-false-600000.metrics.json": "82d6e5d06ed7c7f8fbe6a5afb5c02529e29c4ae0d583d0f5a4ce455a47ebd3fa",
+    "o65-interop-true-100000.placement.json": "ecaffbcdf1748bf72e4f4cb5468c8a837f88d5a193a80944022baf305bc6c0ef",
+    "o65-contexts-true-100000.metrics.json": "d3f0467758bc681711941e4b4ee3d8b91e1d814cdcfaa1dc6a3705401a87bab2",
+    "o65-banks-false-100000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-false-d8929097958ba814.a816.json": "f9f9a6399019a2743d4c4c72a5f81c19ff4eeea71c3a569e5a4930886df43c97",
+    "o65-static-addresses-false-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "o65-guard-false-600000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-pointers-true-100000.metrics.json": "40916ca781ccc7033ce3dff0c5ebacaa0a9bba0d950416aa32c46d7e3e22af2c",
+    "o65-interop-true-100000.o65": "fc74d5b2fe3c473d1a043e7e4ce7ea34f44699bbb7ea7c059cfef39f19ced561",
+    "context-true-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-pointers-true-100000.o65": "91702f69947a2b0747a7112d1b6d36cd884c390f2f2a83a413bfabcdab130048",
+    "o65-static-addresses-false-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "context-false-37c57e09908ba768.a816.json": "b02d201f291f89720e450bf13c0dee69eadc0da3d1ae2485ebc7744fb70a04c2",
+    "context-true-37c57e09908ba768.bridge.bin": "c29c855fece3d1d754f176cb3a9343e221c2cf10e31559951da81220149765c3",
+    "o65-contexts-false-100000.o65": "3fea1faf1a9f27f6486dbe3a616e858d90035afbe0cf26d6f3ed342ff26cca2e",
+    "context-false-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "o65-guard-true-600000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-interop-false-600000.o65": "dfa3251bebdd7e3a7e53c1b37f41600247310140b9098825552f0e4a592fdf2c",
+    "o65-imports-false-100000.o65": "84291819df93eeb37ff793ccda83d6d0af93f4e5eb19f33e959a047e7dc9a08f",
+    "context-true-d8929097958ba814.a816.json": "44ba31635af97b9fa117db743a4c84051269ed91b84dfd45b2a102daf4283094",
+    "o65-imports-true-600000.placement.json": "7ef32c0f15efedfc0ca0138d553c9ac2e950199dcbb2922ec039df42979a4a75",
+    "o65-interop-false-100000.placement.json": "ecaffbcdf1748bf72e4f4cb5468c8a837f88d5a193a80944022baf305bc6c0ef",
+    "o65-guard-true-600000.metrics.json": "aea839a9c666315623b28f06ca9ab8f17bc8002da54ea736035e2365cf41b774",
+    "o65-interop-true-600000.placement.json": "2088c17c82b6b0138b95e35d6ad4dc01e5e3fc0ba5529f5c0adddb5e3bcf9cf8",
+    "o65-imports-true-600000.metrics.json": "47d38c6ecd37b4949559009246addd59cbc80914ab099e04379789c49f14041d",
+    "o65-pointers-true-600000.metrics.json": "c7990be1c7a2ef5e63510287f28b5828c972724fbeb12951d2c6a36725e51794",
+    "o65-contexts-false-600000.o65": "3fea1faf1a9f27f6486dbe3a616e858d90035afbe0cf26d6f3ed342ff26cca2e",
+    "o65-guard-true-100000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-imports-false-600000.o65": "84291819df93eeb37ff793ccda83d6d0af93f4e5eb19f33e959a047e7dc9a08f",
+    "o65-interop-false-100000.o65": "dfa3251bebdd7e3a7e53c1b37f41600247310140b9098825552f0e4a592fdf2c",
+    "o65-banks-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-banks-false-600000.metrics.json": "d25dac1bd047edaa2a2ccce0571c0afb711cf5863098502e7a21375aa2770ddb",
+    "o65-contexts-false-100000.metrics.json": "e18b959e27830ad9c659157584cdbda839f2ea84c5086c39ece55f9fdc6c1865",
+    "o65-pointers-false-600000.metrics.json": "ba519745a5995ed3ca7b880dd9bf05fcb9a0057540677f2ed3c31e8069d0a9e5",
+    "o65-contexts-true-600000.metrics.json": "f484c2f73c44e6d80ab2e33125634ef9c5c24593eac6ec9b533c53391adacdcf",
+    "o65-banks-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-guard-true-100000.metrics.json": "205356422f13bf40a051c13f9d9487b56a7227b8b7c503fba97f033ce82e6254",
+    "context-false-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "context-true-d8929097958ba814.bridge.bin": "b01c4bcc66ee41eefab0418ec3aeaced195344594308adc35cd1ec3bb28af5a6",
+    "context-true-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-imports-true-100000.metrics.json": "284734bc776a803d8f0f957b994026b9b0414fea7ed8ddc0ab22776b882eb166",
+    "o65-banks-false-600000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-guard-false-100000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-interop-true-600000.o65": "fc74d5b2fe3c473d1a043e7e4ce7ea34f44699bbb7ea7c059cfef39f19ced561",
+    "o65-pointers-true-600000.o65": "91702f69947a2b0747a7112d1b6d36cd884c390f2f2a83a413bfabcdab130048"
+  },
+  "snapshot_sha256": {
+    "docs/benchmarks/65816-word-arithmetic/before/add.optimized.actionc.lst": "276786980542fcdff739ce1889d8af03f8141bbd98d769f9a04e38aa1cd1d835",
+    "docs/benchmarks/65816-word-arithmetic/before/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-word-arithmetic/before/add.raw.actionc.lst": "276786980542fcdff739ce1889d8af03f8141bbd98d769f9a04e38aa1cd1d835",
+    "docs/benchmarks/65816-word-arithmetic/before/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-word-arithmetic/before/provenance.json": "99d9be8301dca630b9512decf5b1baefdfcd1c46a6deea54ecc3e72c13ffeaea",
+    "docs/benchmarks/65816-word-arithmetic/before/results.csv": "0db5bd0679f1f918cd4ceec0cfcb85cb7510221f0ba817199accab9a96490dcb",
+    "docs/benchmarks/65816-word-arithmetic/before/subtract.optimized.actionc.lst": "46c2e238b68cc938cf88c938fd97ddab8bbe48a19da7f4610dc7a76501a87b43",
+    "docs/benchmarks/65816-word-arithmetic/before/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-word-arithmetic/before/subtract.raw.actionc.lst": "46c2e238b68cc938cf88c938fd97ddab8bbe48a19da7f4610dc7a76501a87b43",
+    "docs/benchmarks/65816-word-arithmetic/before/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-word-arithmetic/before/sum_loop.optimized.actionc.lst": "471cb927fc8e313502e04e9a1a7783cc37e5215a86c45e86f55799aeffa177b8",
+    "docs/benchmarks/65816-word-arithmetic/before/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-word-arithmetic/before/sum_loop.raw.actionc.lst": "e94a140880f392ab83543305ae5278659ebaa9ae512ff6cb98849e90d225a9bc",
+    "docs/benchmarks/65816-word-arithmetic/before/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-word-arithmetic/before/tables.md": "efd847dcf4871d074de8184cd7ff2fa777ca1d4eb9a5775b7f068ce1f44f419d",
+    "docs/benchmarks/65816-word-arithmetic/before/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-word-arithmetic/before/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-word-arithmetic/before/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-word-arithmetic/before/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "docs/benchmarks/65816-word-arithmetic/after/add.optimized.actionc.lst": "492a29dd12482f4137039f1feb92ed11688d851a251c15a2adab27b5901c0e43",
+    "docs/benchmarks/65816-word-arithmetic/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-word-arithmetic/after/add.raw.actionc.lst": "492a29dd12482f4137039f1feb92ed11688d851a251c15a2adab27b5901c0e43",
+    "docs/benchmarks/65816-word-arithmetic/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-word-arithmetic/after/provenance.json": "c9540ede544ebfc238339434c7dc15a4704706c1fa149be349612a8ce3e1abf7",
+    "docs/benchmarks/65816-word-arithmetic/after/results.csv": "fbc50b7060425c936b41af82f543ca4e53adea1a01fa88630589234577c5bb63",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.optimized.actionc.lst": "c5c415588a3e05dabc7f9c79d76d11fd4f88452c727011a08d4d5e193d4e32b2",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.raw.actionc.lst": "c5c415588a3e05dabc7f9c79d76d11fd4f88452c727011a08d4d5e193d4e32b2",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.optimized.actionc.lst": "946fa77b801eeb12446b83aceab6ba1ef7cd2fa14d0eb8fe9bd3f99d592cb8d0",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.raw.actionc.lst": "2b85870cc6493280ec1d1fd73d5589022d935d3765975251b16dac43e126be8d",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-word-arithmetic/after/tables.md": "5f80705252568aef39bb6402e7c235583d20d1b1acb79e108311475253de09fb",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8"
+  },
+  "limits": "Emulator qualification, not board timing. No SemIR/NIR changes; no full root suite or NIR sweep was run for this bounded emitter change."
+}

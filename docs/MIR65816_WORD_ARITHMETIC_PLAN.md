@@ -1,9 +1,14 @@
 # Native 16-bit ADD/SUB implementation plan
 
-Status: proposed, based on main `ef02c8f` and the
-[native vbcc comparison](MIR65816_VBCC_COMPARISON.md). No compiler changes are
-implemented by this document. Deliver one instruction-selection improvement in
-three independently reviewable commits: baseline/coverage, emission, qualification.
+Status: completed on 2026-09-21. Baseline/coverage is committed in `7907b77`,
+emission in `7803040`, and qualification in the commit containing the
+[results and validation report](MIR65816_WORD_ARITHMETIC.md). ADD and SUB each
+measure **98 bytes / 135 cycles**, with unchanged stack use and guards. All
+48 ordinary native tests pass in debug and release.
+
+The approved plan below is retained as the implementation's acceptance boundary.
+It was based on main `ef02c8f` and the
+[native vbcc comparison](MIR65816_VBCC_COMPARISON.md).
 
 ## Objective and acceptance boundary
 
@@ -23,7 +28,7 @@ less DP scratch traffic. Reading/writing the same two-byte stack values still
 transfers the same number of stack bytes. Frame size and observed stack depth
 should remain unchanged; general register allocation is separate work.
 
-## Current code and constraints
+## Baseline code and constraints
 
 | Component | Current behavior / implication |
 | --- | --- |
@@ -190,8 +195,8 @@ ordinary native tests must pass.
 
 ## Validation commands during implementation
 
-Run these against the implemented slice, including the new tests from commits
-1 and 2; they are not checks claimed for this planning-only change:
+The implementation used these checks, including the new tests from commits
+1 and 2; the results report records their scope:
 
 ```sh
 cargo test --lib mir65816

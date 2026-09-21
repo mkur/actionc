@@ -48,6 +48,7 @@ OS, device intercept or host scheduler participates. The earlier
 | Target | Tests | Coverage |
 | --- | ---: | --- |
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
+| `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `execution` | 5 | Recursion, mutable parameters, loop edges, local addresses/descriptors, record strides, banked code/data and exact volatile byte access. |
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
 | `comma_groups` | 1 | Scalar comma groups before contextual types in parameters and fields; mixed-width values, a bank-crossing record, LF/CRLF and both I states. |
@@ -94,6 +95,12 @@ The corrected CPU suite passes eight tests in each build mode. See
 [initial Exec acceptance](../../docs/MIR65816_EXEC_ACCEPTANCE.md) for G1–G6,
 compiler regressions and qualification limits.
 
+The [native word arithmetic qualification](../../docs/abi/action65816-word-arithmetic-qualification.json)
+passes all **48 native tests in debug and release** on 2026-09-21; the external
+comparison remains a separately invoked test. All 118 saved artifacts match
+between host builds. The [results report](../../docs/MIR65816_WORD_ARITHMETIC.md)
+records measurements and the unchanged public ABI, frames, and guards.
+
 ## Interrupt schedules and memory ownership
 
 The two-task fixture uses task domains `$2000`/`$2100`, task stacks
@@ -103,10 +110,14 @@ data at `$120000`, fault handling at `$048000`, and explicit IRQ/NMI/exit
 acknowledgements at `$7800..$7803`. Each image/layout records exact extents.
 These are test reservations, not an Atari board memory map.
 
-The baseline corpus reaches 2,504 raw and 2,352 optimized distinct enabled
-instruction addresses. At each, a separate run holds IRQ until assembly dispatch
+After native word selection, the corpus reaches 2,416 raw and 2,264 optimized
+distinct enabled instruction addresses (previously 2,504 / 2,352). At each,
+a separate run holds IRQ until assembly dispatch
 acknowledges it, then checks output, guards and domain storage. Seeded runs use
 `0x81620260916` and `0x5eedcafe`; NMI pulses are separated by at least 250 cycles.
+The exhaustive test records seven word-arithmetic windows per mode, including
+both stack-relative ADC and SBC. Each window is interrupted before carry setup,
+before arithmetic, and before storing the result, exercising live A/P restoration.
 The pointer fixture additionally injects once per reached `(task domain, PC)`
 inside its leaf, so both tasks are checked even when they share instruction
 addresses. IRQ dispatch calls that same leaf using the IRQ domain's scratch.
@@ -125,6 +136,9 @@ hash, assembler/linker/Rust versions, command, seeds and artifact hashes. Contex
 runs save `.act`, `.a816.json`, `.bridge.bin` and `.layout.json` files. Filtered
 runs contain only artifacts produced by the selected tests; they cannot inherit
 stale images from an earlier run.
+
+`word-preemption-false.json` and `word-preemption-true.json` record the reached
+ADC/SBC windows and the instruction addresses covered by IRQ injection.
 
 The o65 tests save `.o65`, `.placement.json` and `.metrics.json` artifacts.
 Metrics separate machine code, text, data, BSS, descriptor and total file sizes,
