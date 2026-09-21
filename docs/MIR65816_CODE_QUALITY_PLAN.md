@@ -58,6 +58,9 @@ change before relying on them.
 
 ## First slice: direct single-word edge copies
 
+The [detailed implementation plan](MIR65816_SINGLE_WORD_EDGE_COPIES_PLAN.md)
+records checked selection, independent counts, forecasts and qualification.
+
 Start in [`select.rs`](../src/mir65816/emit/select.rs), using the existing checked
 word-edge preflight. Select only an edge with exactly one argument and one
 successor parameter, both exactly two bytes, with supported physical homes or
