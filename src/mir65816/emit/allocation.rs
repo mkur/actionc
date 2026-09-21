@@ -30,7 +30,56 @@ impl AllocatedFrame {
         if let Some(frame) = Self::pointer_leaf(routine)? {
             return Ok(frame);
         }
+        let interference = super::liveness::interference(routine)?;
         let mut cursor = routine.frame.extent.get() + 1;
+        let mut ordered = routine
+            .temps
+            .iter()
+            .map(|(id, ty)| {
+                Ok((
+                    *id,
+                    width(ty.width.ok_or("temporary has no scalar width")?)?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        // Large, highly constrained values first; stable IDs break ties. Keep
+        // actual widths in maps even when differently sized values share bytes.
+        ordered.sort_by_key(|(id, width)| {
+            (
+                std::cmp::Reverse(*width),
+                std::cmp::Reverse(interference[id].len()),
+                *id,
+            )
+        });
+        let mut temps = BTreeMap::<TempId, Location>::new();
+        for (id, width) in ordered {
+            let mut offset = routine.frame.extent.get() + 1;
+            loop {
+                if width > 1 {
+                    offset = (offset + 1) & !1;
+                }
+                abi::stack::access_displacement(
+                    ByteOffset::new(offset),
+                    ByteSize::new(width.into()),
+                    ByteSize::ZERO,
+                )
+                .map_err(|e| e.to_string())?;
+                let slot = Slot {
+                    offset: offset as u16,
+                    width,
+                };
+                if interference[&id].iter().all(|other| {
+                    temps
+                        .get(other)
+                        .is_none_or(|home| !overlap(slot, home.slot()))
+                }) {
+                    temps.insert(id, Location::Stack(slot));
+                    cursor = cursor.max(offset + u32::from(width));
+                    break;
+                }
+                offset += 1;
+            }
+        }
         let mut reserve = |width: u8| -> Result<Slot, String> {
             if width > 1 {
                 cursor = (cursor + 1) & !1;
@@ -48,20 +97,6 @@ impl AllocatedFrame {
                 width,
             })
         };
-        let mut temps = BTreeMap::new();
-        for (id, ty) in &routine.temps {
-            if temps
-                .insert(
-                    *id,
-                    Location::Stack(reserve(width(
-                        ty.width.ok_or("temporary has no scalar width")?,
-                    )?)?),
-                )
-                .is_some()
-            {
-                return Err("duplicate temporary identity".into());
-            }
-        }
         let count = routine
             .blocks
             .iter()
@@ -81,35 +116,124 @@ impl AllocatedFrame {
             abi::stack::incoming_displacement(ByteSize::new(extent.into()), offset, size)
                 .map_err(|e| e.to_string())?;
         }
-        let call_peak = routine
-            .blocks
-            .iter()
-            .flat_map(|b| &b.ops)
-            .filter_map(|op| {
-                if let Mir65816Op::Call { plan, .. } = op {
-                    Some(
-                        plan.outgoing_bytes.get()
-                            + plan
-                                .native
-                                .expect("verified native call")
-                                .transfer
-                                .peak_bytes()
-                                .get(),
-                    )
-                } else {
-                    None
-                }
-            })
-            .max()
-            .unwrap_or(0);
-        Ok(Self {
+        let frame = Self {
             extent,
             spill_bytes: extent - routine.frame.extent.get() as u16,
-            peak_below_entry: extent + call_peak as u16,
+            peak_below_entry: local_peak(routine, extent)?,
             temps,
             edge_copies,
-        })
+        };
+        frame.verify_stack(routine)?;
+        Ok(frame)
     }
+
+    /// Recheck physical byte overlap against closed-operation CFG liveness.
+    /// Image maps alone cannot establish the lifetime proof for shared homes.
+    pub fn verify_stack(&self, routine: &Mir65816Routine) -> Result<(), String> {
+        let graph = super::liveness::interference(routine)?;
+        if self.temps.len() != routine.temps.len() {
+            return Err("invalid stack temporary count".into());
+        }
+        let mut end = routine.frame.extent.get();
+        let mut check_slot = |slot: Slot| -> Result<(), String> {
+            if u32::from(slot.offset) <= routine.frame.extent.get()
+                || !(1..=4).contains(&slot.width)
+                || (slot.width > 1 && slot.offset % 2 != 0)
+            {
+                return Err(
+                    "stack temporary overlaps frame objects or has invalid alignment/width".into(),
+                );
+            }
+            abi::stack::access_displacement(
+                ByteOffset::new(slot.offset.into()),
+                ByteSize::new(slot.width.into()),
+                ByteSize::ZERO,
+            )
+            .map_err(|e| e.to_string())?;
+            end = end.max(u32::from(slot.offset) + u32::from(slot.width) - 1);
+            Ok(())
+        };
+        for (id, ty) in &routine.temps {
+            let slot = self
+                .temps
+                .get(id)
+                .ok_or("missing stack temporary")?
+                .stack()?;
+            if Some(ByteSize::new(slot.width.into())) != ty.width {
+                return Err("stack temporary width mismatch".into());
+            }
+            check_slot(slot)?;
+            for other in &graph[id] {
+                let other_slot = self
+                    .temps
+                    .get(other)
+                    .ok_or("missing stack temporary")?
+                    .stack()?;
+                if overlap(slot, other_slot) {
+                    return Err("overlapping live stack temporaries".into());
+                }
+            }
+        }
+        if self.edge_copies.len()
+            != routine
+                .blocks
+                .iter()
+                .map(|b| b.params.len())
+                .max()
+                .unwrap_or(0)
+        {
+            return Err("invalid edge-copy slot count".into());
+        }
+        for (index, &slot) in self.edge_copies.iter().enumerate() {
+            check_slot(slot)?;
+            if slot.width != 4
+                || self.temps.values().any(|home| overlap(slot, home.slot()))
+                || self.edge_copies[..index]
+                    .iter()
+                    .any(|&other| overlap(slot, other))
+            {
+                return Err("invalid or overlapping edge-copy staging slot".into());
+            }
+        }
+        let extent = abi::stack::fixed_extent(ByteSize::new(end))
+            .map_err(|e| e.to_string())?
+            .get();
+        if extent != u32::from(self.extent)
+            || u32::from(self.spill_bytes) != extent - routine.frame.extent.get()
+            || self.peak_below_entry != local_peak(routine, self.extent)?
+        {
+            return Err("invalid stack frame accounting".into());
+        }
+        for parameter in &routine.frame.parameters {
+            let Mir65816AbiHome::StackArgument { offset, size, .. } = parameter.incoming else {
+                return Err("parameter has no stack home".into());
+            };
+            abi::stack::incoming_displacement(ByteSize::new(extent), offset, size)
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+}
+
+fn overlap(a: Slot, b: Slot) -> bool {
+    u32::from(a.offset) < u32::from(b.offset) + u32::from(b.width)
+        && u32::from(b.offset) < u32::from(a.offset) + u32::from(a.width)
+}
+
+fn local_peak(routine: &Mir65816Routine, extent: u16) -> Result<u16, String> {
+    let mut peak = u32::from(extent);
+    for op in routine.blocks.iter().flat_map(|b| &b.ops) {
+        if let Mir65816Op::Call { plan, .. } = op {
+            let transfer = plan
+                .native
+                .ok_or("missing native call contract")?
+                .transfer
+                .peak_bytes()
+                .get();
+            peak = peak.max(u32::from(extent) + plan.outgoing_bytes.get() + transfer);
+        }
+    }
+    u16::try_from(peak).map_err(|_| "local stack peak overflow".into())
 }
 
 /// A physical home for a typed MIR value. Offsets are relative to S or D,

@@ -2,6 +2,7 @@
 //! storage or a verified per-domain pointer home; scratch is dead at calls.
 mod allocation;
 mod code;
+mod liveness;
 mod select;
 
 use super::*;

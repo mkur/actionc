@@ -75,6 +75,9 @@ pointer parameters are captured once. Existing home elision removes unused
 local objects; lowering never re-creates a home from a display name. MIR owns
 physical placement and scratch proofs, including the bounded pointer-leaf
 allocator described by the [emission contract](MIR65816_EMISSION_CONTRACT.md).
+Its general stack allocator uses typed MIR def/use and CFG liveness to reuse
+non-addressable temporary homes. This does not merge storage identities or
+weaken source alias/effect facts; addressable invocation objects stay separate.
 
 Remaining native automatic locals stay invocation objects in routine frame plans;
 immutable initialization templates remain separate static data. No global

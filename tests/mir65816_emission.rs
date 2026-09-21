@@ -157,10 +157,219 @@ fn unsupported_operations_and_unbound_assembly_fail_before_an_image_exists() {
 fn allocated_spills_and_actual_outgoing_accesses_must_fit_stack_displacements() {
     let source = "CARD FUNC Large(CARD n) BYTE ARRAY buffer(248) buffer(0)=BYTE(n) RETURN(n+CARD(buffer(0))) PROC Main() RETURN";
     let program = mir(source, false);
+    // Reused spills fit the last byte at 255, but rounding this allocation to
+    // an even fixed frame requires 256 bytes, still outside the strategy.
+    let error = emit::materialize(&program).unwrap_err();
+    assert!(error.contains("fixed frame requires 256 bytes"), "{error}");
+}
+
+#[test]
+fn stack_reuse_keeps_closed_operations_and_rejects_corrupt_plans() {
+    use mir65816::{
+        Mir65816Op, Mir65816Value,
+        emit::{Location, Slot},
+    };
+    let program = mir(
+        "LONGCARD FUNC Chain(LONGCARD n) RETURN(n+1+2+3+4+5+6+7+8) PROC Main() RETURN",
+        false,
+    );
+    let machine = emit::materialize(&program).unwrap();
+    let routine = &program.routines[0];
+    let frame = &machine.routines[0].frame;
+    frame.verify_stack(routine).unwrap();
+    assert!(frame.extent <= 14, "{}", frame.extent);
+    assert!(frame.temps.len() > 8);
+    let (dest, input) = routine
+        .blocks
+        .iter()
+        .flat_map(|b| &b.ops)
+        .find_map(|op| match op {
+            Mir65816Op::Binary {
+                dest,
+                left: Mir65816Value::Temp(input, _),
+                ..
+            } => Some((*dest, *input)),
+            _ => None,
+        })
+        .unwrap();
+    let mut corrupt = frame.clone();
+    let input_slot = frame.temps[&input].slot();
+    // Partially overlapping wide homes are as invalid as identical homes.
+    corrupt.temps.insert(
+        dest,
+        Location::Stack(Slot {
+            offset: input_slot.offset + 2,
+            width: 4,
+        }),
+    );
     assert!(
-        emit::materialize(&program)
+        corrupt
+            .verify_stack(routine)
             .unwrap_err()
-            .contains("stack-relative")
+            .contains("overlapping live")
+    );
+    for slot in [
+        Slot {
+            offset: 0,
+            width: 4,
+        },
+        Slot {
+            offset: 255,
+            width: 4,
+        },
+        Slot {
+            offset: 2,
+            width: 3,
+        },
+    ] {
+        let mut corrupt = frame.clone();
+        corrupt.temps.insert(dest, Location::Stack(slot));
+        assert!(corrupt.verify_stack(routine).is_err());
+    }
+    let mut corrupt = frame.clone();
+    corrupt.temps.remove(&input);
+    assert!(corrupt.verify_stack(routine).is_err());
+    for field in [0, 1, 2] {
+        let mut corrupt = frame.clone();
+        match field {
+            0 => corrupt.extent += 2,
+            1 => corrupt.spill_bytes += 2,
+            _ => corrupt.peak_below_entry += 2,
+        }
+        assert!(corrupt.verify_stack(routine).is_err());
+    }
+    let linked = image::link(&program, &machine, &layout()).unwrap();
+    let loaded = image::Image::from_json(&linked.to_json().unwrap()).unwrap();
+    assert_eq!(
+        loaded.routines[0]
+            .temporaries
+            .iter()
+            .map(|t| (t.id, t.home, t.size))
+            .collect::<Vec<_>>(),
+        linked.routines[0]
+            .temporaries
+            .iter()
+            .map(|t| (t.id, t.home, t.size))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn reused_stack_homes_keep_the_incoming_last_byte_at_255() {
+    for (padding, accepted) in [(244, true), (246, false)] {
+        let program = mir(
+            &format!(
+                "CARD FUNC Edge(CARD n) BYTE ARRAY padding({padding}) RETURN(n+1+2+3+4) PROC Main() RETURN"
+            ),
+            false,
+        );
+        if accepted {
+            let machine = emit::materialize(&program).unwrap();
+            assert_eq!(machine.routines[0].frame.extent, 250);
+            let linked = image::link(&program, &machine, &layout()).unwrap();
+            assert_eq!(linked.routines[0].arguments[0].body_displacement, 254);
+        } else {
+            let error = emit::materialize(&program).unwrap_err();
+            assert!(
+                error.contains("stack-relative access at 256 with width 2"),
+                "{error}"
+            );
+        }
+    }
+}
+
+#[test]
+fn stack_reuse_preserves_backedge_live_ins_and_dead_parallel_destinations() {
+    use actionc::target::ByteSize;
+    use mir65816::{Mir65816Block, Mir65816Edge, Mir65816Op, Mir65816Terminator, Mir65816Value};
+    use nir::{BlockId, NirBinaryOp, TempId};
+    let mut program = mir("CARD FUNC Probe(CARD n) RETURN(n)", false);
+    let routine = &mut program.routines[0];
+    let ty = routine.temps[0].1.clone();
+    routine.temps = (0..6).map(|id| (TempId(id), ty.clone())).collect();
+    let word = ByteSize::new(2);
+    let value = |id| Mir65816Value::Temp(TempId(id), word);
+    let edge = |a, b| Mir65816Edge {
+        target: BlockId(1),
+        args: vec![value(a), value(b), Mir65816Value::U16(99)],
+    };
+    let mut load = routine.blocks[0].ops[0].clone();
+    let Mir65816Op::Load { dest, .. } = &mut load else {
+        panic!("expected parameter load")
+    };
+    *dest = TempId(0);
+    let mut ret = routine.blocks[0].terminator.clone();
+    let Mir65816Terminator::Return {
+        value: returned, ..
+    } = &mut ret
+    else {
+        panic!("expected return")
+    };
+    *returned = Some(value(4));
+    routine.blocks = vec![
+        Mir65816Block {
+            id: BlockId(0),
+            params: vec![],
+            ops: vec![load],
+            terminator: Mir65816Terminator::Goto(edge(0, 0)),
+        },
+        Mir65816Block {
+            id: BlockId(1),
+            params: vec![(TempId(1), word), (TempId(2), word), (TempId(5), word)],
+            ops: vec![Mir65816Op::Binary {
+                dest: TempId(3),
+                width: word,
+                signed: false,
+                operation: NirBinaryOp::Add,
+                left: value(1),
+                right: Mir65816Value::U16(1),
+            }],
+            terminator: Mir65816Terminator::Branch {
+                condition: Mir65816Value::U8(0),
+                then_edge: edge(2, 1),
+                else_edge: Mir65816Edge {
+                    target: BlockId(2),
+                    args: vec![],
+                },
+            },
+        },
+        Mir65816Block {
+            id: BlockId(2),
+            params: vec![],
+            ops: vec![Mir65816Op::Binary {
+                dest: TempId(4),
+                width: word,
+                signed: false,
+                operation: NirBinaryOp::Add,
+                left: value(0),
+                right: value(3),
+            }],
+            terminator: ret,
+        },
+    ];
+    mir65816::verify_program(&program).unwrap();
+    let machine = emit::materialize(&program).unwrap();
+    let routine = &program.routines[0];
+    let frame = &machine.routines[0].frame;
+    frame.verify_stack(routine).unwrap();
+    for id in [1, 2, 3, 4, 5] {
+        let mut corrupt = frame.clone();
+        corrupt.temps.insert(TempId(id), frame.temps[&TempId(0)]);
+        assert!(
+            corrupt
+                .verify_stack(routine)
+                .unwrap_err()
+                .contains("overlapping live")
+        );
+    }
+    assert_eq!(frame.edge_copies.len(), 3);
+    let mut corrupt = frame.clone();
+    corrupt.edge_copies[0].offset = frame.temps[&TempId(0)].slot().offset;
+    assert!(
+        corrupt
+            .verify_stack(routine)
+            .unwrap_err()
+            .contains("edge-copy")
     );
 }
 

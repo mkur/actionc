@@ -37,42 +37,54 @@ CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
   --test stack_allocation --test pointer_allocation -- --nocapture
 ```
 
-## Focused slice: reuse private stack temporaries
+## Implemented slice: reuse private stack temporaries
 
-MIR65816 owns allocation from typed def/use facts and CFG edges. Use fixed-point
-backward liveness, including loops, edge arguments, block parameters, indirect
-call targets, address bases/indexes and return values. Allocate deterministic
-aligned stack homes with reuse only for noninterfering temporaries. An operation's
+MIR65816 owns allocation from typed def/use facts and CFG edges. Fixed-point
+backward liveness includes loops, edge arguments, block parameters, indirect
+call targets, address bases/indexes and return values. Deterministic aligned
+stack homes are reused only for noninterfering temporaries. An operation's
 inputs, outputs and other live values coexist for its entire machine sequence:
 bytewise casts, pointer formation and carry chains must not overwrite a dying
-input early. Include dead results and dead block parameters because emission
-still writes them. Keep the existing source-saving parallel-copy staging area
-separate from all temporary homes.
+input early. This includes dead results and dead block parameters because
+emission still writes them. The existing source-saving parallel-copy staging
+area stays separate from all temporary homes.
 
 Automatic frame objects, mutable parameters and addressable locals retain their
 dedicated homes. Only non-addressable MIR value temporaries share bytes. No
 pointee-load forwarding, memory reordering or new alias assumption is needed.
 Every value live across a direct, indirect, recursive or helper call stays on
-its invocation's stack. Recheck the allocation before selection, including
-physical byte overlap, widths, frame ownership and accounting. Derive incoming
-displacements, spill bytes and local peak from the final allocation; preserve
-all last-byte access checks, the 254-byte even-frame strategy, call guards and
+its invocation's stack. The allocation is rechecked before selection, including
+physical byte overlap, widths, frame ownership and accounting. Incoming
+displacements, spill bytes and local peak derive from the final allocation;
+emission preserves last-byte access checks, the 254-byte even-frame strategy, call guards and
 platform interrupt reserve. Public ABI v1 and image v3 remain unchanged; image
 maps can already give several temporary IDs the same physical location.
 
-Qualify actual raw and optimized machine code for loops/parallel copies,
+Qualification executes actual raw and optimized machine code for loops/parallel copies,
 recursion, direct/indirect calls, helpers, mixed widths, aliasing and stack
-boundaries. Exercise an assembly callee destroying all scratch and registers
-while the caller has a live value. Reuse the existing two-task IRQ-at-each-site
-and seeded IRQ/NMI suites to cover suspension during reused-slot operations.
+boundaries, including an assembly callee destroying all scratch and registers
+while the caller has a live value. The existing two-task IRQ-at-each-site and
+seeded IRQ/NMI suites cover suspension during reused-slot operations.
 
 ## CPU register and DP opportunities
 
 The 64-byte scratch area is per execution domain, but all of it and A/X/Y are
-call-clobbered. The general selector currently uses D+0 for pointers, D+8 for
-results, D+16 for right operands, and D+20 for indexing; aggregate copies also
-use secondary pointers. The bounded pointer-leaf selector has a separate,
-verified scratch whitelist. It cannot simply be enabled around other operations.
+call-clobbered. The general selector currently uses these byte ranges:
+
+| D-relative bytes | Selector use |
+| --- | --- |
+| 0..2 | Address formation and indirect-call target |
+| 3..5 | Aggregate-copy source pointer |
+| 8..11 | Shift workspace and scalar return marshalling |
+| 16 | Arithmetic/comparison right operand |
+| 20..22 | Scaled index |
+| 24..26 | Saved aggregate-copy destination |
+| 28..30 | Aggregate-copy count |
+
+The bounded pointer-leaf selector has a separate, verified scratch whitelist
+and uses 0..2, 3..5 and 6..8. Its third slot overlaps general result scratch.
+It cannot simply be enabled around other operations. Bytes 31..63 are not used
+by today's selector, but any ordinary callee may destroy them.
 
 Further allocation needs explicit per-operation and helper scratch/register
 clobber contracts, with homes split or spilled before calls. Initially allocate
@@ -89,3 +101,48 @@ allocation nor register retention permits shared scratch between suspended
 domains or removal of interrupt headroom. Stack reuse reduces pressure without
 extending those contracts. Exec816 adoption still needs image-v3 packaging and
 hosted call-chain qualification; this slice does not change its pin or budget.
+
+## Measured result
+
+The same probes, input, caller, VM and entry modes after stack reuse:
+
+| Probe | Mode | Observed stack before → after | Worker frame before → after |
+| --- | --- | ---: | ---: |
+| Scalar chain | raw | 52 → 22 | 36 → 6 |
+| Scalar chain | optimized | 22 → 22 | 6 → 6 |
+| Loop rotation | raw | 60 → 34 | 44 → 18 |
+| Loop rotation | optimized | 54 → 42 | 38 → 26 |
+| Recursive sum | raw | 346 → 206 | 18 → 8 |
+| Recursive sum | optimized | 290 → 206 | 14 → 8 |
+| Wide indirect call | raw | 94 → 70 | 54 → 30 |
+| Wide indirect call | optimized | 62 → 50 | 26 → 14 |
+
+Code size and VM cycles in the baseline table are unchanged: this slice changes
+stack displacements and reservation sizes, not instruction selection or memory
+traffic. The optimized loop retains dedicated edge staging and is therefore
+larger than its raw counterpart despite other optimized code improvements.
+The existing pointer-leaf measurements also remain unchanged.
+
+The native target enforces these whole-call-chain stack ceilings and checks an
+additional 160-update scalar sequence with more than 160 raw MIR temporaries in
+a frame of at most 10 bytes. The previous one-home-per-temporary strategy cannot
+represent that sequence. A separate independent assembly callee destroys all 64
+scratch bytes and A/X/Y across both direct and indirect calls while wide values
+remain live. Allocation regressions reject overlapping live byte ranges,
+incorrect accounting, frame-object/staging collisions and incoming bytes beyond
+255. No existing NIR snapshots or source fixtures change.
+
+The [qualification record](abi/action65816-stack-allocation-qualification.json)
+binds the source inventory, measurements, VM inputs and saved artifact hashes.
+All 37 native tests pass in debug and release, including 2,504 raw / 2,352
+optimized general IRQ sites and the unchanged pointer-leaf IRQ/NMI corpus.
+All eight saved context images disassemble, and the 32 saved artifacts have
+identical hashes across host build modes. NIR snapshots and all 51 sweep
+fixtures pass; ABI generation and formatting checks pass.
+
+Compiler checks finish with 3,265 passed, 24 ignored and one unrelated sample
+failure: the pre-existing untracked `samples/vbxe/shared/lines.act` cannot find
+`SHARED.SCREEN` under the generic sample loader's module paths. An isolated
+baseline compiler with the same current sample files reproduces that failure.
+The test targets after the failing target were run separately and pass. Local
+sample edits, untracked files and deletions were left intact.

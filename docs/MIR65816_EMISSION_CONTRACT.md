@@ -141,8 +141,27 @@ Closed def/use intervals prevent reuse during a multi-instruction operation.
 Three ABI pointer slots (D+0, D+3, D+6) are allocated deterministically; pressure
 or an unsupported operation rejects the entire candidate before emission.
 The allocation verifier checks identities, widths, ownership, lifetime overlap
-and frame accounting. Stack fallback and edge-copy storage remain invocation
-owned. No A/X/Y register allocation is introduced.
+and frame accounting. No A/X/Y register allocation is introduced.
+
+Other routines use invocation-owned stack temporaries with CFG-aware lifetime
+reuse. Backward fixed-point liveness includes indirect address bases, indexes,
+call targets/arguments/results, returns, edge arguments and block parameters.
+All inputs, outputs and values live across an operation interfere for its entire
+instruction sequence, including dead outputs that selection still writes. Block
+parameters, even unused ones, interfere with each other and successor live-ins.
+Parallel-edge staging slots remain separate: selection saves every source before
+writing any destination. This permits cyclic copies without destroying live-ins.
+
+Only MIR value temporaries share storage. Frame objects, addressed locals and
+mutable parameters retain their dedicated homes. No temporary address escapes,
+and no alias-sensitive load forwarding or memory reordering is performed.
+Values live across calls and helpers remain on the invocation's stack, outside
+call-clobbered registers and DP scratch. Allocation is deterministic (descending
+width, then interference count, then ID; first available aligned byte range),
+and is rechecked against liveness, byte extents, frame objects, staging slots
+and final accounting before selection. It need not find the minimum frame.
+Both raw and optimized emission use allocation; `--no-opt` controls NIR passes.
+See the [measurements and scope](MIR65816_TEMPORARY_ALLOCATION.md).
 
 The allocated even fixed frame must fit 254 bytes. Incoming offsets are
 recomputed after allocation. Every emitted stack-relative byte access is
@@ -188,7 +207,9 @@ Temporary maps contain `id`, `size` and a tagged `home`: either
 `{"kind":"stack","displacement":N}` or `{"kind":"direct_page","offset":N}`.
 Stack homes are checked against the allocated frame; DP pointer homes must
 occupy one of the three owned ABI slots and cannot coexist with calls. DP
-values are not stack spills. Lifetime and scratch-clobber proofs are checked
+values are not stack spills. Multiple temporary IDs can share stack bytes;
+their individual widths remain exact and spill bytes count physical extent,
+not the sum of temporary widths. Lifetime and scratch-clobber proofs are checked
 against typed MIR before selection, not inferred from the final map.
 
 Optional `read_only_origin` and `zero_fill_origin` layout fields independently

@@ -51,6 +51,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
 | `preemption` | 2 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address plus two seeded IRQ/NMI schedules. |
+| `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
 
 Both raw and optimized NIR are covered. The original **33 tests passed in debug
@@ -63,6 +64,14 @@ entry and RTL; the independent reference uses 127 bytes and 200 cycles. The
 [qualification record](../../docs/abi/action65816-pointer-allocation-qualification.json)
 binds the 2026-09-17 results to compiler/fixture hashes and context artifacts. Images
 use transport v3 and retain physical ABI v1.
+
+The [stack allocation investigation](../../docs/MIR65816_TEMPORARY_ALLOCATION.md)
+records the `90bd73e` baseline and reductions from CFG-aware temporary reuse.
+Its [2026-09-21 qualification](../../docs/abi/action65816-stack-allocation-qualification.json)
+passes all 37 native tests in debug and release, with unchanged ABI and guards.
+Run `--test stack_allocation -- --nocapture` to print emitted code sizes, VM
+cycles, frames and the observed stack use across complete call chains. Inputs
+are supplied after compilation, and both raw and optimized images are executed.
 
 The corrected CPU suite passes eight tests in each build mode. See
 [initial Exec acceptance](../../docs/MIR65816_EXEC_ACCEPTANCE.md) for G1–G6,

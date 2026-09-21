@@ -1,0 +1,219 @@
+{
+  "date": "2026-09-21",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 3,
+  "scope": "CFG-aware reuse of private stack temporaries; raw/optimized emitted machine code; emulator execution",
+  "inspected_main_revision": "90bd73e",
+  "baseline_and_measurement_commit": "c70a1e7ca1f2c4c5461ce3f7aed927e3333f947e",
+  "implementation": "Compiler changes are in the commit containing this record; source hashes identify the tested worktree.",
+  "compiler_and_runtime_fixture_inventory": {
+    "sha256": "a2be7d02412c1900dbae90187111dc2f407c486cda0d2c49665b8b515187014e",
+    "files": 341,
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase file SHA-256, two spaces, path, LF; hash raw file bytes"
+  },
+  "changed_code_and_test_sha256": {
+    "src/mir65816/emit/mod.rs": "e3a251065d921e6f695be2beed28d46de7ebb0bc4c97261139e20a5700e8ccf3",
+    "src/mir65816/emit/allocation.rs": "e2e974af70e1ef60d7d2151f8011238ec799564e60330adcc20dc7d26dcfbb27",
+    "src/mir65816/emit/liveness.rs": "893aacbda5f6944ef4a3b6a790ab296529313cc89bd57bd7549b8f95a2109c60",
+    "tests/mir65816_emission.rs": "cf683a69192cbbcb78ac36840abc08deb75b18efcd7e5d03c371ecc5d5940d99",
+    "tools/native65816-runtime-tests/tests/stack_allocation.rs": "8d1b838e992c840aa04c93308da3a0d033d6405dca0957863dbf6976976b3f0a"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "host": "macOS ARM64",
+  "environment": {
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_BUILD_JOBS": "4 for compiler checks"
+  },
+  "checks": [
+    "cargo test nir_fixtures_match_snapshots",
+    "cargo run --bin actionc-nir-sweep -- fixtures/nir",
+    "cargo test (stopped at the existing samples failure)",
+    "cargo test --test semir_fixtures --test unions_acceptance --test unions_access --test unions_generics --test unions_layout --test unions_public --test unions_storage --test unions_values --test variant_case_validation --test variant_initialization --test variant_storage_contract --test variants --test version_cli --test volatile",
+    "cargo test --doc",
+    "python3 tools/generate_abi65816.py --check",
+    "python3 tools/native65816-runtime-tests/qualify.py -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --release -- --nocapture",
+    "python3 tools/disassemble65816.py on all eight saved raw/optimized debug context images",
+    "rustfmt --check on changed Rust files; git diff --check; edited documentation link checks"
+  ],
+  "results": {
+    "compiler_passed": 3265,
+    "compiler_failed": 1,
+    "compiler_ignored": 24,
+    "nir_sweep_passed": 51,
+    "nir_snapshot_changes": 0,
+    "native_debug_passed": 37,
+    "native_release_passed": 37,
+    "emission_contract_tests": 16,
+    "disassembled_context_images": 8,
+    "identical_debug_release_saved_artifacts": 32
+  },
+  "existing_failure": {
+    "test": "parses_all_sample_programs",
+    "path": "samples/vbxe/shared/lines.act",
+    "diagnostic": "cannot find module `SHARED.SCREEN` in the project root or configured module paths",
+    "baseline_reproduction": "Isolated git archive of c70a1e7 with an exact copy of the current samples directory; cargo test --test samples reproduces the same failure before native lowering. The pre-existing untracked source and all user edits were preserved."
+  },
+  "stack_measurements": [
+    {
+      "probe": "scalar_chain",
+      "mode": "raw",
+      "code_bytes": 586,
+      "vm_cycles": 891,
+      "observed_stack_before": 52,
+      "observed_stack_after": 22,
+      "worker_frame_before": 36,
+      "worker_frame_after": 6
+    },
+    {
+      "probe": "scalar_chain",
+      "mode": "optimized",
+      "code_bytes": 271,
+      "vm_cycles": 381,
+      "observed_stack_before": 22,
+      "observed_stack_after": 22,
+      "worker_frame_before": 6,
+      "worker_frame_after": 6
+    },
+    {
+      "probe": "loop_rotation",
+      "mode": "raw",
+      "code_bytes": 544,
+      "vm_cycles": 2867,
+      "observed_stack_before": 60,
+      "observed_stack_after": 34,
+      "worker_frame_before": 44,
+      "worker_frame_after": 18
+    },
+    {
+      "probe": "loop_rotation",
+      "mode": "optimized",
+      "code_bytes": 560,
+      "vm_cycles": 2857,
+      "observed_stack_before": 54,
+      "observed_stack_after": 42,
+      "worker_frame_before": 38,
+      "worker_frame_after": 26
+    },
+    {
+      "probe": "recursive_sum",
+      "mode": "raw",
+      "code_bytes": 539,
+      "vm_cycles": 5950,
+      "observed_stack_before": 346,
+      "observed_stack_after": 206,
+      "worker_frame_before": 18,
+      "worker_frame_after": 8
+    },
+    {
+      "probe": "recursive_sum",
+      "mode": "optimized",
+      "code_bytes": 527,
+      "vm_cycles": 5596,
+      "observed_stack_before": 290,
+      "observed_stack_after": 206,
+      "worker_frame_before": 14,
+      "worker_frame_after": 8
+    },
+    {
+      "probe": "wide_indirect",
+      "mode": "raw",
+      "code_bytes": 834,
+      "vm_cycles": 1687,
+      "observed_stack_before": 94,
+      "observed_stack_after": 70,
+      "worker_frame_before": 54,
+      "worker_frame_after": 30
+    },
+    {
+      "probe": "wide_indirect",
+      "mode": "optimized",
+      "code_bytes": 756,
+      "vm_cycles": 1503,
+      "observed_stack_before": 62,
+      "observed_stack_after": 50,
+      "worker_frame_before": 26,
+      "worker_frame_after": 14
+    }
+  ],
+  "measurement_scope": "Code bytes sum emitted routines; VM cycles include the independent caller; observed stack is initial S minus minimum S over the entire call chain. Code size/cycles are unchanged. Input 13 is supplied after linking.",
+  "asynchronous_coverage": {
+    "general_enabled_instruction_addresses": {
+      "raw": 2504,
+      "optimized": 2352
+    },
+    "pointer_leaf_task_instruction_sites": {
+      "raw": 164,
+      "optimized": 100
+    },
+    "seeds": [
+      8891121666326,
+      1592642302
+    ]
+  },
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-0eqdpg16/manifest.json",
+      "manifest_sha256": "0e2ad5689d643721937250eec0bd5ebafb8cb1aa7183eeea27ef0b96db644e8b"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-bvp7yuuk/manifest.json",
+      "manifest_sha256": "df968647f3c6617021f20f32b0fd3b7d58837607310fab33ff7588ae9a2d13b0"
+    }
+  },
+  "saved_artifact_sha256": {
+    "context-false-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "context-false-f1c43bfbb4b6c823.a816.json": "0fc1a90b6c2354d9c04eba29b07d54edcaeaf33e932d45ef87d1360780ca0cb8",
+    "context-false-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "context-false-37c57e09908ba768.bridge.bin": "30667485595704df433e491bfe29113b267dfd2afdabc736ab440b582180f0b2",
+    "context-false-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "context-true-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "context-true-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-true-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "context-true-f1c43bfbb4b6c823.a816.json": "028a44dfe65522549679365e4fdd6572cf89a69a3ab44515becc81dcd8541013",
+    "context-false-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-true-b61b8a7a03265980.a816.json": "0a9540b881437841dbf40b3606cab0b2360125213e375d5a0663f1705d7b097a",
+    "context-true-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-true-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "context-false-d8929097958ba814.bridge.bin": "b60a0841ef77de105e436ea72838c96fa6bdf5d20ba6e878a97ffc7580d412c6",
+    "context-false-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "context-true-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "context-false-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-false-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "context-false-b61b8a7a03265980.a816.json": "91d7671393b6ff2bfec2843f058592306126982b1fa020f551b9def1a788323a",
+    "context-false-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "context-true-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "context-true-37c57e09908ba768.a816.json": "1a5d88d3433a9c3d4975d57f5e249b7175bfa156cf8ea88cf24c306ed05b170c",
+    "context-false-d8929097958ba814.a816.json": "f1a0a6654868ddf9a8925f28c1bfb076b62f9e017d1f86ef26e89261af56e0bc",
+    "context-true-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "context-false-37c57e09908ba768.a816.json": "5c5f8fc30b12361ce2a8520c626e8a97e7c1eeaa13c3c7a8f0de9b16f1b8a045",
+    "context-true-37c57e09908ba768.bridge.bin": "c29c855fece3d1d754f176cb3a9343e221c2cf10e31559951da81220149765c3",
+    "context-false-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "context-true-d8929097958ba814.a816.json": "5b8bde67922a03509f5b008d8867b10c774af5262a4789b47bd7973fdcc906c1",
+    "context-false-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "context-true-d8929097958ba814.bridge.bin": "b01c4bcc66ee41eefab0418ec3aeaced195344594308adc35cd1ec3bb28af5a6",
+    "context-true-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "context-true-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e"
+  },
+  "local_log_sha256": {
+    "target/native-stack-reuse-review-20260921/baseline.log": "d5a40a808eefd0e528b72d47bf6944aaf4354fe821842d198f4ae4139bc9bcf5",
+    "target/native-stack-reuse-review-20260921/after2.log": "d341324abb94b67fb3e704063b703889ec75bd6ef160ab2a90c7136e3f01054b",
+    "target/native-stack-reuse-review-20260921/native-debug.log": "ab027a1274f546ad0894374f7ce1b0cb93148795b6b1ab6f0d52e5af02812c90",
+    "target/native-stack-reuse-review-20260921/native-release.log": "c5b55b290cfa4ee7e0c1859eb47ac5c9c1740d104e98990f1a14783a6772ddf2",
+    "target/native-stack-reuse-review-20260921/snapshots.log": "2cd3b55489bfe0ca1ad7a59709fa8bcdfd6e33faaba70f3fdbc69d35f843bca3",
+    "target/native-stack-reuse-review-20260921/sweep.log": "86cd0417082874a2d26c6ff270cbca7673bfe9959919283873a4cb7199217b76",
+    "target/native-stack-reuse-review-20260921/all-tests.log": "56ded1fbd4ea4eefc345d81ded6dc1be633f2c8669d5d7fb979b9b701500f806",
+    "target/native-stack-reuse-review-20260921/remaining-tests.log": "86ca355cec78755c40a1f3099ba9e9c02cd43a3bfcb9e69c60fb240363c3e883",
+    "target/native-stack-reuse-review-20260921/doctests.log": "3abfbfe6904ef4f1e282b835cb4409d5c19b5c2442b1bb92a00475d1e05bfeea",
+    "target/native-stack-reuse-review-20260921/baseline-samples.log": "9889f47088661e301b4554013d2dadd092a37d919658f7d3c9ba5b5aa363c472"
+  },
+  "limits": "Greedy allocation is not guaranteed minimal. No new register/DP residency, ABI change, guard removal or interrupt-reserve reduction. Exec816 pin/image-v3 migration and hosted DOS/SIO stack qualification remain separate."
+}
