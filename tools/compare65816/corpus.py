@@ -45,6 +45,11 @@ def cases():
         'PUBLIC CARD FUNC Work(CARD x,y) RETURN(x+y)',
         'u16 Work(u16 x,u16 y) { return x+y; }',
         [vector([x, y], (x+y) & 65535) for x, y in pairs])
+    add('subtract', [2, 2], 2,
+        'PUBLIC CARD FUNC Work(CARD x,y) RETURN(x-y)',
+        'u16 Work(u16 x,u16 y) { return x-y; }',
+        [vector([x, y], (x-y) & 65535) for x, y in
+         [(0, 1), (0x100, 1), (13, 41), (0x8000, 1), (0x7fff, 0xffff), (41, 41)]])
     expression = '+'.join(['x', *map(str, range(1, 17))])
     add('constant_chain', [2], 2,
         f'PUBLIC CARD FUNC Work(CARD x) RETURN({expression})',

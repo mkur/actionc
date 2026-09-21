@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PICKS = dict(identity=2, add=2, constant_chain=2, maximum=2, wide_shift=2,
+PICKS = dict(identity=2, add=2, subtract=2, constant_chain=2, maximum=2, wide_shift=2,
              loop_rotation=2, sum_loop=3, recursive_sum=3, direct_calls=2,
              byte_sum=4, record_field=1, unlink=0, forward_copy=0)
 
@@ -87,7 +87,7 @@ def main():
         # final listings are portable; retain full logs in the ignored build dir.
         entry['hashes'] = {k: v for k, v in entry['hashes'].items() if k != 'code.lst'}
         artifacts.append(entry)
-        if a['case'] in ('add', 'sum_loop', 'unlink'):
+        if a['case'] in ('add', 'subtract', 'sum_loop', 'unlink'):
             source = Path(a['directory'])/('code.asm' if a['compiler'] == 'actionc' else 'code.linked.lst')
             (output/f"{a['case']}.{a['mode']}.{a['compiler']}.lst").write_text(source.read_text())
     provenance = dict(

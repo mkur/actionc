@@ -1,7 +1,7 @@
 # actionc / vbcc native 65816 comparison
 
 The [analysis and findings](../../docs/MIR65816_VBCC_COMPARISON.md) accompany
-13 equivalent Action!/C kernels, 60 independently calculated input vectors,
+14 equivalent Action!/C kernels, 66 independently calculated input vectors,
 raw/optimized machine code, and execution on the existing independent native VM.
 This corpus does not change either compiler or the public Action ABI.
 
@@ -57,7 +57,7 @@ default because it requires external compiler artifacts. `debug` and `release`
 refer to the **host VM harness**, independently of each compiler's raw/optimized
 target code.
 
-The 2026-09-21 baseline intentionally reports a failing comparison test in both
+The original 13-kernel 2026-09-21 baseline reports a failing comparison test in both
 host modes: optimized vbcc unlink corrupts an adjacent pointer field. This is a
 compiler result, not an expected-success exemption in the test. All 240 records
 (480 executions, including both interrupt-mask states) are saved. `report.py`
@@ -70,3 +70,8 @@ snapshot was written using `--output docs/benchmarks/65816-vbcc`; it contains al
 vector measurements in CSV, representative tables, provenance, and raw/optimized
 final listings for add, sum-loop, and unlink. Refresh it only when deliberately
 recording a new comparison, not as an assembly golden test.
+
+The [word-arithmetic baseline](../../docs/benchmarks/65816-word-arithmetic/before/tables.md)
+adds subtraction: 264 paired-mask records, or 528 executions per host build.
+The original snapshot remains unchanged. New snapshots also retain subtraction
+listings alongside add, sum-loop, and unlink.

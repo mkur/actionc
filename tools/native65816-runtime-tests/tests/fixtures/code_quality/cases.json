@@ -114,6 +114,71 @@
     "note": ""
   },
   {
+    "id": "subtract",
+    "args": [
+      2,
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0,
+          1
+        ],
+        "result": 65535,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          256,
+          1
+        ],
+        "result": 255,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13,
+          41
+        ],
+        "result": 65508,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768,
+          1
+        ],
+        "result": 32767,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32767,
+          65535
+        ],
+        "result": 32768,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          41,
+          41
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
     "id": "constant_chain",
     "args": [
       2
