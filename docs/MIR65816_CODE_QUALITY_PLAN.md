@@ -7,6 +7,11 @@ slices. Steps 1 and 2 are now complete; see the
 [accumulator-forwarding results](MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md).
 Later steps remain planned.
 
+The [state-tracker design](MIR65816_STATE_TRACKER_DESIGN.md) proposes a shared
+instruction-state foundation for later native improvements, drawing on the
+6502 tracked emitter. Its first integration preserves current bytes; broader
+local forwarding and block-entry width proofs are separate measured slices.
+
 ## Objective and baseline
 
 Preserve the public ABI and reduce internal data movement, then improve control
