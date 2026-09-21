@@ -3,6 +3,100 @@ use actionc::mir65816::image::Image;
 use actionc_vm::native65816::Access;
 use support::*;
 
+#[test]
+fn native_stack_and_immediate_encodings_agree_with_ca65_and_execute() {
+    use actionc_vm::native65816::{Inputs, Machine, Registers};
+    let code = assemble(
+        r#"
+        rep #$20
+        lda 2,s
+        clc
+        adc 4,s
+        sta 6,s
+        lda 2,s
+        sec
+        sbc 4,s
+        sta 8,s
+        lda #1
+        sec
+        sbc 2,s
+        sta 10,s
+        lda 2,s
+        clc
+        adc #255
+        sta 12,s
+        lda 2,s
+        sec
+        sbc #255
+        sta 14,s
+        stp
+        nop
+    "#,
+        0x040000,
+    );
+    // Independent assembler checks the numeric encodings used by selection.
+    assert_eq!(
+        code,
+        [
+            0xc2, 0x20, 0xa3, 2, 0x18, 0x63, 4, 0x83, 6, 0xa3, 2, 0x38, 0xe3, 4, 0x83, 8, 0xa9, 1,
+            0, 0x38, 0xe3, 2, 0x83, 10, 0xa3, 2, 0x18, 0x69, 255, 0, 0x83, 12, 0xa3, 2, 0x38, 0xe9,
+            255, 0, 0x83, 14, 0xdb, 0xea,
+        ]
+    );
+    for (a, b) in [(0u16, 1u16), (0xffff, 1), (0x8000, 0xffff), (0x100, 1)] {
+        for p in [0, 1, 0x24, 0x25] {
+            let mut bus = Bus::new();
+            bus.map(0x040000, &code, false);
+            bus.map(0x4000, &[0xa5; 0x2000], true);
+            bus.ram[0x5fe2..0x5fe4].copy_from_slice(&a.to_le_bytes());
+            bus.ram[0x5fe4..0x5fe6].copy_from_slice(&b.to_le_bytes());
+            let registers = Registers {
+                a: 0xabcd,
+                x: 0x1234,
+                y: 0x5678,
+                s: 0x5fe0,
+                d: 0x2000,
+                dbr: 0,
+                pbr: 4,
+                pc: 0,
+                p,
+                emulation_mode: false,
+            };
+            let mut cpu = Machine::start_at(registers);
+            assert!(
+                cpu.run_until(&mut bus, 500, |_| Inputs::default(), |cpu| cpu.is_stopped())
+                    .unwrap()
+            );
+            for (offset, expected) in [
+                (6, a.wrapping_add(b)),
+                (8, a.wrapping_sub(b)),
+                (10, 1u16.wrapping_sub(a)),
+                (12, a.wrapping_add(255)),
+                (14, a.wrapping_sub(255)),
+            ] {
+                assert_eq!(bus.value(0x5fe0 + offset, 2), u32::from(expected));
+            }
+            let end = cpu.registers();
+            assert_eq!(
+                (end.s, end.d, end.dbr, end.x, end.y),
+                (
+                    registers.s,
+                    registers.d,
+                    registers.dbr,
+                    registers.x,
+                    registers.y
+                )
+            );
+            assert_eq!(end.p & 0x3c, p & 4);
+            assert!(
+                bus.writes
+                    .iter()
+                    .all(|(address, _)| (0x5fe6..0x5ff0).contains(address))
+            );
+        }
+    }
+}
+
 fn set(h: &mut Harness, image: &Image, name: &str, value: u32, bytes: usize) {
     let address = image.data.iter().find(|d| d.name == name).unwrap().address as usize;
     h.bus.ram[address..address + bytes].copy_from_slice(&value.to_le_bytes()[..bytes]);

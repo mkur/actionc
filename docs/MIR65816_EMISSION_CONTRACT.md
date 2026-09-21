@@ -130,6 +130,18 @@ generated stack checks are unchanged.
 
 ### Scalar instruction selection
 
+Two-byte integer ADD/SUB may use native sixteen-bit A with one ADC/SBC and
+an immediate store to the existing two-byte stack result home. Eligible operands
+are two-byte stack temps/parameters and U8/U16 constants; U8 constants are
+zero-extended and signed widening remains an explicit Cast. Selection checks
+both bytes of every source/destination against the stack-displacement limit,
+including transient S movement, before changing code or mode knowledge.
+Legal unsupported forms retain bytewise emission; malformed locations remain
+errors. This path uses no DP scratch, temporary pushes, or persistent registers.
+It preserves the current allocation, call barriers, guards, and ABI. A volatile
+load captured in a private temp may feed word arithmetic; the original memory
+access itself is neither combined nor widened.
+
 MIR65816 owns access-width and addressing selection. Ordinary scalar loads and
 stores may use sixteen-bit transfers plus a final byte. Three-byte transfers
 between disjoint frame slots (or the same slot), and from a frame slot into

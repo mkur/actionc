@@ -13,6 +13,7 @@ DP = {0xa6:'LDX',0xa5:'LDA',0x85:'STA',0x65:'ADC',0xe5:'SBC',0xc5:'CMP',0x25:'AN
 IMMEDIATE = {0xa9:'LDA',0x69:'ADC',0xe9:'SBC',0xc9:'CMP',0x29:'AND',0x49:'EOR',0xa0:'LDY',0xa2:'LDX'}
 LONG = {0xaf:'LDA',0x8f:'STA',0x5c:'JML',0x22:'JSL'}
 BRANCH = {0x10:'BPL',0x30:'BMI',0x90:'BCC',0xb0:'BCS',0xd0:'BNE',0xf0:'BEQ'}
+STACK = {0xa3:'LDA',0x83:'STA',0x63:'ADC',0xe3:'SBC'}
 
 
 def disassemble(image):
@@ -39,7 +40,7 @@ def disassemble(image):
                 text=f'{IMMEDIATE[opcode]} #${operand(size):0{size*2}X}'
             elif opcode in DP:text=f'{DP[opcode]} ${operand(1):02X}'
             elif opcode in LONG:text=f'{LONG[opcode]} ${operand(3):06X}'
-            elif opcode in (0xa3,0x83):text=f'{"LDA" if opcode==0xa3 else "STA"} ${operand(1):02X},S'
+            elif opcode in STACK:text=f'{STACK[opcode]} ${operand(1):02X},S'
             elif opcode in (0xa7,0x87,0xb7,0x97):text=f'{"LDA" if opcode in (0xa7,0xb7) else "STA"} [${operand(1):02X}]'+(',Y' if opcode in (0xb7,0x97) else '')
             elif opcode in BRANCH:
                 delta=operand(1);delta=delta if delta<128 else delta-256

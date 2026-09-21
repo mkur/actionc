@@ -34,6 +34,42 @@ fn layout() -> image::LinkOptions {
 }
 
 #[test]
+fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
+    for operation in ["+", "-"] {
+        for optimize in [false, true] {
+            let program = mir(
+                &format!("CARD FUNC Work(CARD a,b) RETURN(a{operation}b) PROC Main() RETURN"),
+                optimize,
+            );
+            let machine = emit::materialize(&program).unwrap();
+            let image = image::link(&program, &machine, &layout()).unwrap();
+            let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
+            // Includes the checked entry and unchanged result/return sequence.
+            assert!(
+                work.size <= 100,
+                "{operation}/{optimize}: {} bytes",
+                work.size
+            );
+            assert_eq!(
+                (work.fixed_frame, work.spill_bytes, work.local_stack_peak),
+                (8, 8, 8)
+            );
+            assert_eq!((work.outgoing_bytes, work.result_bytes), (5, 2));
+            assert_eq!(
+                work.arguments
+                    .iter()
+                    .map(|a| (a.offset, a.body_displacement, a.size))
+                    .collect::<Vec<_>>(),
+                [(0, 12, 2), (2, 14, 2)]
+            );
+            assert!(work.calls.is_empty());
+            assert!(work.objects.is_empty());
+            assert!(work.temporaries.iter().all(|t| t.size == 2));
+        }
+    }
+}
+
+#[test]
 fn pointer_unlink_has_a_bounded_native_code_size() {
     let source = "TYPE Node=[Node POINTER ln_Succ Node POINTER ln_Pred] \
         PROC Remove(Node POINTER item) Node POINTER previous,following \

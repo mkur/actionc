@@ -1,6 +1,10 @@
 use super::{allocation::width, *};
 use std::collections::BTreeMap;
 
+#[cfg(test)]
+#[path = "word_tests.rs"]
+mod word_tests;
+
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
 const RESULT: u8 = 8;
@@ -18,6 +22,14 @@ enum Memory {
         slot: u8,
         offset: u16,
     },
+}
+
+/// Fully checked operands for one native word operation. These never refer to
+/// external memory or carry a value across MIR operations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WordOperand {
+    Immediate(u16),
+    Stack(u8),
 }
 
 impl From<Location> for Memory {
@@ -179,6 +191,86 @@ impl Builder<'_> {
         )
         .map(|d| d.get() as u8)
         .map_err(|e| e.to_string())
+    }
+    fn word_displacement(&self, offset: u32) -> Result<u8, String> {
+        let offset = abi::stack::access_displacement(
+            ByteOffset::new(offset),
+            ByteSize::new(2),
+            ByteSize::new(self.delta),
+        )
+        .map_err(|e| e.to_string())?;
+        u8::try_from(offset.get()).map_err(|_| "word stack displacement overflow".into())
+    }
+    fn word_operand(&self, value: &Mir65816Value) -> Result<Option<WordOperand>, String> {
+        let offset = match value {
+            Mir65816Value::U8(value) => {
+                return Ok(Some(WordOperand::Immediate(u16::from(*value))));
+            }
+            Mir65816Value::U16(value) => return Ok(Some(WordOperand::Immediate(*value))),
+            Mir65816Value::Temp(id, bytes) => {
+                let location = self.temp(*id)?;
+                if location.slot().width != width(*bytes)? {
+                    return Err("temporary width mismatch".into());
+                }
+                match location {
+                    Location::Stack(slot) if slot.width == 2 => u32::from(slot.offset),
+                    _ => return Ok(None),
+                }
+            }
+            Mir65816Value::Param(id) => {
+                let (offset, bytes) = self.parameter(*id)?;
+                if bytes != 2 {
+                    return Ok(None);
+                }
+                offset
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(WordOperand::Stack(self.word_displacement(offset)?)))
+    }
+    fn word_binary(
+        &mut self,
+        dest: TempId,
+        bytes: u8,
+        operation: NirBinaryOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<bool, String> {
+        if bytes != 2 || !matches!(operation, NirBinaryOp::Add | NirBinaryOp::Sub) {
+            return Ok(false);
+        }
+        // Preflight every operand, including the last byte after any S movement,
+        // before changing either code or local accumulator-width knowledge.
+        let destination = self.temp(dest)?;
+        if destination.slot().width != 2 {
+            return Err("word result temporary width mismatch".into());
+        }
+        let destination = match destination {
+            Location::Stack(slot) => Some(self.word_displacement(slot.offset.into())?),
+            Location::DirectPage(_) => None,
+        };
+        let left = self.word_operand(left)?;
+        let right = self.word_operand(right)?;
+        let (Some(destination), Some(left), Some(right)) = (destination, left, right) else {
+            return Ok(false);
+        };
+        self.code.a16();
+        match left {
+            WordOperand::Immediate(value) => self.code.word(0xa9, value),
+            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+        }
+        let subtract = operation == NirBinaryOp::Sub;
+        self.code.op(if subtract { 0x38 } else { 0x18 }); // SEC / CLC
+        match right {
+            WordOperand::Immediate(value) => {
+                self.code.word(if subtract { 0xe9 } else { 0x69 }, value)
+            }
+            WordOperand::Stack(offset) => {
+                self.code.byte(if subtract { 0xe3 } else { 0x63 }, offset)
+            }
+        }
+        self.code.byte(0x83, destination); // STA d,S: result has its existing home.
+        Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
         self.memory(0xa3, 0xaf, 0xb7, memory, byte)
@@ -641,6 +733,18 @@ impl Builder<'_> {
         {
             self.code.a16();
             return self.call(target, args, *result, plan);
+        }
+        if let Mir65816Op::Binary {
+            dest,
+            width: bytes,
+            operation,
+            left,
+            right,
+            ..
+        } = op
+            && self.word_binary(*dest, width(*bytes)?, *operation, left, right)?
+        {
+            return Ok(());
         }
         if !matches!(op, Mir65816Op::Load { .. } | Mir65816Op::Store { .. }) {
             self.code.a8();
