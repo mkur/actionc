@@ -237,3 +237,58 @@ pub fn rotation(optimize: bool, mixed: bool, ordinary: bool) -> native65816::Pre
     mir65816::verify_program(&p.mir).unwrap();
     p
 }
+
+/// Insert a verified one-word edge after each captured word load. This keeps
+/// external/volatile accesses and call ordering intact while forcing the private
+/// capture to cross an edge in both frontend modes.
+pub fn split_word_loads(p: &mut native65816::Prepared) {
+    for r in &mut p.mir.routines {
+        let mut next_temp = r.temps.iter().map(|(id, _)| id.0).max().unwrap_or(0) + 1;
+        let mut next_block = r.blocks.iter().map(|b| b.id.0).max().unwrap_or(0) + 1;
+        let mut blocks = vec![];
+        for block in std::mem::take(&mut r.blocks) {
+            let mut current = Mir65816Block {
+                ops: vec![],
+                ..block.clone()
+            };
+            for mut op in block.ops {
+                if let Mir65816Op::Load { dest, width, .. } = &mut op {
+                    if width.get() == 2 {
+                        let original = *dest;
+                        let width = *width;
+                        let fresh = TempId(next_temp);
+                        next_temp += 1;
+                        *dest = fresh;
+                        let ty = r
+                            .temps
+                            .iter()
+                            .find(|(id, _)| *id == original)
+                            .unwrap()
+                            .1
+                            .clone();
+                        r.temps.push((fresh, ty));
+                        current.ops.push(op);
+                        let target = BlockId(next_block);
+                        next_block += 1;
+                        current.terminator = Mir65816Terminator::Goto(Mir65816Edge {
+                            target,
+                            args: vec![Mir65816Value::Temp(fresh, width)],
+                        });
+                        blocks.push(current);
+                        current = Mir65816Block {
+                            id: target,
+                            params: vec![(original, width)],
+                            ops: vec![],
+                            terminator: block.terminator.clone(),
+                        };
+                        continue;
+                    }
+                }
+                current.ops.push(op);
+            }
+            blocks.push(current);
+        }
+        r.blocks = blocks;
+    }
+    mir65816::verify_program(&p.mir).unwrap();
+}

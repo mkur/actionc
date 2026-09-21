@@ -7,7 +7,7 @@ use actionc::mir65816::{
 use actionc::nir::runtime_symbol_id;
 use actionc::nir::{BlockId, NirBinaryOp, TempId};
 use actionc::target::ByteSize;
-use actionc_vm::native65816::Access;
+use actionc_vm::native65816::{Access, Inputs};
 use support::*;
 
 #[test]
@@ -161,7 +161,8 @@ ENDMODULE
         0x041000,
     );
     for optimize in [false, true] {
-        let prepared = prepare(source, optimize);
+        let mut prepared = prepare(source, optimize);
+        edges::split_word_loads(&mut prepared);
         let symbol = runtime_symbol_id("TEST.Smash");
         let signature = prepared
             .mir
@@ -194,7 +195,19 @@ ENDMODULE
                 let [lo, hi] = value.to_le_bytes();
                 h.bus.map(0x12fffe, &[0xa5, lo, hi, 0x5a], true);
                 h.bus.ram[0x7200..0x720e].fill(0xa5);
-                h.run();
+                let mut copies = 0;
+                for _ in 0..100000 {
+                    if h.cpu.is_stopped() {
+                        break;
+                    }
+                    if h.cpu.is_instruction_boundary()
+                        && word_edge::reached(&h.cpu, &h.bus, &image.routines).is_some()
+                    {
+                        copies += 1;
+                    }
+                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                }
+                assert!(h.cpu.is_stopped() && copies >= 2);
                 h.guards(mask);
                 for (i, truth) in [
                     value < 0x8000,

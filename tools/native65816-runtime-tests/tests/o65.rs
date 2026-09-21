@@ -706,3 +706,79 @@ fn initialized_split_addresses_wide_containers_and_aliases_execute() {
         }
     }
 }
+
+#[test]
+fn relocated_nonempty_word_edges_preserve_cycles_and_both_conditional_arms() {
+    for optimize in [false, true] {
+        for rotation in [false, true] {
+            // Drop compiler objects before reading/relocating the serialized file.
+            let bytes = {
+                let p = if rotation {
+                    edges::rotation(optimize, false, false)
+                } else {
+                    edges::program(optimize, false)
+                };
+                p.compile_o65(&Default::default()).unwrap().bytes
+            };
+            for variant in 0..2 {
+                let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
+                let image = format::relocate(&bytes, &placement).unwrap();
+                let mut reached = std::collections::BTreeSet::new();
+                for (a, b) in [(0u16, 0xffffu16), (0xffff, 0), (0x8000, 0x7fff)] {
+                    for mask in [0, 4] {
+                        let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                        h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
+                        h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
+                        let mut count = 0;
+                        for _ in 0..100000 {
+                            if h.cpu.is_stopped() {
+                                break;
+                            }
+                            if h.cpu.is_instruction_boundary()
+                                && h.cpu.registers().p & 0x30 == 0
+                                && matches!(h.bus.ram[h.cpu.pc() as usize], 0xa3 | 0xa9)
+                            {
+                                for r in &image.profile().routines {
+                                    let at = image.routine_address(r);
+                                    if let Some(w) =
+                                        word_edge::decode(&h.bus, h.cpu.pc(), at..at + r.size)
+                                    {
+                                        count += 1;
+                                        reached.insert((h.cpu.pc(), w.target, w.moves.len()));
+                                    }
+                                }
+                            }
+                            h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                        }
+                        assert!(h.cpu.is_stopped());
+                        h.guards(mask);
+                        assert_eq!(count, if rotation { 5 } else { 1 });
+                        let expected = if rotation {
+                            a.wrapping_sub(b).wrapping_add(a)
+                        } else {
+                            a.max(b).wrapping_sub(a.min(b))
+                        };
+                        assert_eq!(h.bus.value(0x7200, 2), u32::from(expected));
+                        native::record(
+                            if rotation {
+                                "word-rotation"
+                            } else {
+                                "word-edges"
+                            },
+                            optimize,
+                            &bytes,
+                            &placement,
+                            &image,
+                            h.cpu.cycles(),
+                            None,
+                        );
+                    }
+                }
+                assert_eq!(reached.len(), if rotation { 3 } else { 2 });
+                if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+                    std::fs::write(std::path::Path::new(&directory).join(format!("word-edge-o65-{optimize}-{rotation}-{variant}.json")),serde_json::to_vec_pretty(&serde_json::json!({"sites":reached,"columns":["load","target","words"]})).unwrap()).unwrap();
+                }
+            }
+        }
+    }
+}

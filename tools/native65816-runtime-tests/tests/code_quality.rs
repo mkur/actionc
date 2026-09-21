@@ -136,6 +136,8 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
     let mut lowest_s = ENTRY_S;
     let mut instructions = 0u64;
     let mut fused_sites = BTreeMap::<u32, u64>::new();
+    let mut word_edge_sites = BTreeMap::<u32, u64>::new();
+    let mut edge_words = 0u64;
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
     let mut in_guard = false;
@@ -162,6 +164,10 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
             );
             if let Some(window) = support::comparison::fused_window(&cpu, &bus, &native_routines) {
                 *fused_sites.entry(window.load).or_default() += 1;
+            }
+            if let Some(window) = support::word_edge::reached(&cpu, &bus, &native_routines) {
+                *word_edge_sites.entry(cpu.pc()).or_default() += 1;
+                edge_words += window.moves.len() as u64;
             }
             instructions += 1;
             instruction_pc = pc;
@@ -269,6 +275,9 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
     if action {
         measurement["fused_branches"] = json!(fused_sites.values().sum::<u64>());
         measurement["fused_branch_sites"] = json!(fused_sites);
+        measurement["word_edges"] = json!(word_edge_sites.values().sum::<u64>());
+        measurement["edge_words"] = json!(edge_words);
+        measurement["word_edge_sites"] = json!(word_edge_sites);
     }
     measurement
 }

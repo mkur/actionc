@@ -51,6 +51,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
 | `word_comparisons` | 5 | All signed/unsigned word relations, stored/returned Boolean bytes, canaries, casts and operand orders, clobbering calls, exact volatile/stack traces, independent CMP encodings, and code/cycle/stack budgets. |
+| `word_edges` | 3 | Verified raw/optimized cyclic copies, repeated/unused arguments, live-ins, mixed-width fallback, mutable parameters, ca65 encodings, exact two-phase traces and staging canaries. |
 | `compare_branch` | 6 | Boundary relations and fallbacks, exact fused source traffic, reused conditions, nonempty same-target edges/backedges, volatile/alias/call barriers and decoder rejection cases. |
 | `execution` | 5 | Recursion, mutable parameters, loop edges, local addresses/descriptors, record strides, banked code/data and exact volatile byte access. |
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
@@ -64,7 +65,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `preemption` | 5 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, both comparison flag outcomes in both tasks, and seeded IRQ/NMI schedules. |
 | `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
-| `o65` | 9 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, word comparisons, multi-bank code and preempted tasks. |
+| `o65` | 10 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, word comparisons, multi-bank code and preempted tasks. |
 
 Both raw and optimized NIR are covered. The original **33 tests passed in debug
 and release** on 2026-09-17. The later `comma_groups` regression, plus the eight
@@ -212,3 +213,14 @@ code. The [CPU checkpoint](../../docs/MIR65816_CPU_EXECUTION_CHECKPOINT.md) and
 [WDC datasheet](https://www.westerndesigncenter.com/wdc/documentation/w65c816s.pdf)
 state CPU provenance and the hardware boundary. Emulator acceptance is followed
 by a custom-board startup/interrupt smoke test.
+
+The [native word edge-copy qualification](../../docs/abi/action65816-word-edges-qualification.json)
+passes **71 native tests in debug and release** on 2026-09-21, with **224 identical
+saved artifacts**. Run `--test word_edges --test compare_branch --test preemption
+--test o65 -- --nocapture` for the focused probes. Targeted IRQ coverage includes
+330 task/PC sites (222 word-copy sites) per mode, full register and frame/staging
+restoration, overlapping cyclic copies in both domains, six fused windows and
+24 post-CMP truth/task combinations. Both seeded IRQ/NMI schedules pass. New
+o65 probes execute nonempty edges at both placements. The
+[results](../../docs/MIR65816_WORD_EDGE_COPIES.md) record unchanged ABI, stack/DP
+traffic, frames and guards, plus strict corpus counts and measured gains.

@@ -410,8 +410,8 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
                 3,
                 91,
-                if optimize { 195 } else { 200 },
-                if optimize { 2100 } else { 2250 },
+                if optimize { 165 } else { 200 },
+                if optimize { 1800 } else { 2250 },
                 if optimize { 16 } else { 14 },
             ),
         ] {

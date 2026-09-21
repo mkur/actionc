@@ -87,7 +87,7 @@ def main():
         # final listings are portable; retain full logs in the ignored build dir.
         entry['hashes'] = {k: v for k, v in entry['hashes'].items() if k != 'code.lst'}
         artifacts.append(entry)
-        if a['case'] in ('identity', 'add', 'subtract', 'maximum', 'sum_loop', 'unlink'):
+        if a['case'] in ('identity', 'add', 'subtract', 'maximum', 'sum_loop', 'loop_rotation', 'byte_sum', 'unlink'):
             source = Path(a['directory'])/('code.asm' if a['compiler'] == 'actionc' else 'code.linked.lst')
             (output/f"{a['case']}.{a['mode']}.{a['compiler']}.lst").write_text(source.read_text())
     provenance = dict(

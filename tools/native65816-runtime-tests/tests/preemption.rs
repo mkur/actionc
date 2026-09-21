@@ -500,30 +500,72 @@ CARD FUNC Read"#,
 fn fused_machine(source: &str, optimize: bool) -> ContextHarness {
     use actionc::{mir65816::*, nir::TempId, target::ByteSize};
     let mut prepared = prepare(source, optimize);
-    // Preserve nonempty edge copies in both modes. Each successor returns its
-    // independently chosen word argument instead of an immediate. This is a
+    // Preserve nonempty cyclic edge copies in both modes. Each successor rotates
+    // three words and returns its independently chosen word argument. This is a
     // verified target-IR fixture, not an optimization of the source program.
     for r in prepared.mir.routines.iter_mut().filter(|r| {
         r.name.eq_ignore_ascii_case("BranchEq")
             || r.name.to_ascii_uppercase().contains("_BRANCHEQ_")
     }) {
         let ty = r.temps[0].1.clone();
+        let word = ByteSize::new(2);
         let mut next = r.temps.iter().map(|(id, _)| id.0).max().unwrap() + 1;
+        let mut next_block = r.blocks.iter().map(|b| b.id.0).max().unwrap() + 1;
         let mut returns = std::collections::BTreeMap::new();
+        let mut extra = vec![];
         for block in &mut r.blocks {
-            if let actionc::mir65816::Mir65816Terminator::Return {
-                value: Some(value), ..
-            } = &mut block.terminator
+            if let Mir65816Terminator::Return {
+                value: Some(original),
+                ..
+            } = &block.terminator
             {
-                assert!(block.ops.is_empty() && matches!(value, Mir65816Value::U16(_)));
-                let id = TempId(next);
-                next += 1;
-                r.temps.push((id, ty.clone()));
-                block.params.push((id, ByteSize::new(2)));
-                returns.insert(block.id, value.clone());
-                *value = Mir65816Value::Temp(id, ByteSize::new(2));
+                assert!(block.ops.is_empty() && matches!(original, Mir65816Value::U16(_)));
+                returns.insert(block.id, original.clone());
+                let ret = block.terminator.clone();
+                let mut ids = [TempId(next), TempId(next + 1), TempId(next + 2)];
+                next += 3;
+                for id in ids {
+                    r.temps.push((id, ty.clone()));
+                    block.params.push((id, word));
+                }
+                let val = |id| Mir65816Value::Temp(id, word);
+                // Three cyclic assignments return the original word. All words
+                // have nonzero high bytes; allocator reuse creates overlapping
+                // source/destination homes, protected by the staging phase.
+                block.terminator = Mir65816Terminator::Goto(Mir65816Edge {
+                    target: actionc::nir::BlockId(next_block),
+                    args: vec![val(ids[1]), val(ids[2]), val(ids[0])],
+                });
+                for step in 0..3 {
+                    ids = [TempId(next), TempId(next + 1), TempId(next + 2)];
+                    next += 3;
+                    for id in ids {
+                        r.temps.push((id, ty.clone()));
+                    }
+                    let id = actionc::nir::BlockId(next_block);
+                    next_block += 1;
+                    let terminator = if step == 2 {
+                        let mut t = ret.clone();
+                        if let Mir65816Terminator::Return { value, .. } = &mut t {
+                            *value = Some(val(ids[0]));
+                        }
+                        t
+                    } else {
+                        Mir65816Terminator::Goto(Mir65816Edge {
+                            target: actionc::nir::BlockId(next_block),
+                            args: vec![val(ids[1]), val(ids[2]), val(ids[0])],
+                        })
+                    };
+                    extra.push(Mir65816Block {
+                        id,
+                        params: ids.into_iter().map(|id| (id, word)).collect(),
+                        ops: vec![],
+                        terminator,
+                    });
+                }
             }
         }
+        r.blocks.extend(extra);
         assert_eq!(returns.len(), 2);
         for block in &mut r.blocks {
             if let Mir65816Terminator::Branch {
@@ -533,7 +575,11 @@ fn fused_machine(source: &str, optimize: bool) -> ContextHarness {
             } = &mut block.terminator
             {
                 for edge in [then_edge, else_edge] {
-                    edge.args.push(returns[&edge.target].clone());
+                    edge.args.extend([
+                        returns[&edge.target].clone(),
+                        Mir65816Value::U16(0x8001),
+                        Mir65816Value::U16(0xffff),
+                    ]);
                 }
             }
         }
@@ -603,6 +649,12 @@ fn run_checked_fused_irq(h: &mut ContextHarness) -> (u32, u8) {
                 before,
                 "IRQ changed live fused comparison state"
             );
+            let ceiling = if before.d == 0x2000 { 0x5000 } else { 0x6000 };
+            assert_eq!(
+                &h.bus.ram[usize::from(before.s) + 1..ceiling],
+                &bus.ram[usize::from(before.s) + 1..ceiling],
+                "IRQ changed invocation-owned frame/staging"
+            );
             run_injected(h, false, None);
             return (pc, before.p);
         }
@@ -630,6 +682,8 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
             .collect();
         assert_eq!(ranges.len(), 6);
         let mut windows = BTreeSet::new();
+        let mut word_sites = BTreeSet::new();
+        let mut overlapping_domains = BTreeSet::new();
         let mut targets = BTreeSet::new();
         let mut seen = BTreeSet::new();
         let mut flags = BTreeSet::new();
@@ -646,6 +700,22 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
                     if let Some(w) = comparison::fused_window(&h.cpu, &h.bus, &h.image.routines) {
                         targets.extend(w.addresses().into_iter().map(|pc| (r.d, pc)));
                         windows.insert(w);
+                    }
+                }
+                if ranges.iter().any(|range| range.contains(&pc)) && r.p & 0x30 == 0 {
+                    let range = ranges.iter().find(|range| range.contains(&pc)).unwrap();
+                    if let Some(w) = word_edge::decode(&h.bus, pc, range.clone()) {
+                        if w.moves.iter().any(|&((stack, source), _, dest)| {
+                            stack
+                                && source != u16::from(dest)
+                                && w.moves.iter().any(|&(_, _, d)| u16::from(d) == source)
+                        }) {
+                            overlapping_domains.insert(r.d);
+                        }
+                        for site in w.sites {
+                            targets.insert((r.d, site));
+                            word_sites.insert((r.d, site));
+                        }
                     }
                 }
                 let mut new_flags = false;
@@ -693,6 +763,8 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         }
         check_fused_results(&h);
         assert_eq!(windows.len(), 6);
+        assert!(!word_sites.is_empty());
+        assert_eq!(overlapping_domains, BTreeSet::from([0x2000, 0x2100]));
         assert_eq!(targets, seen);
         assert!(windows.iter().any(|w| w.edges.iter().any(|e| e.len() > 3)));
         let expected: BTreeSet<_> = [0x2000u16, 0x2100]
@@ -706,7 +778,7 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         assert_eq!(flags, expected);
         assert_eq!(cmp_outcomes, expected);
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
-            std::fs::write(std::path::Path::new(&directory).join(format!("fused-task-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_sites":seen,"site_columns":["task_domain","pc"],"live_flag_outcomes":flags,"irq_after_cmp_outcomes":cmp_outcomes,"register_restorations":restorations,"restoration_columns":["domain","armed_pc","restored_pc","restored_p"],"outcome_columns":["task_domain","load_pc","truth"],"windows":windows.iter().map(|w|serde_json::json!({"load":w.load,"cmp":w.cmp,"branch":w.branch,"predicate":w.predicate,"sources":w.sources,"edges":w.edges})).collect::<Vec<_>>()})).unwrap()).unwrap();
+            std::fs::write(std::path::Path::new(&directory).join(format!("fused-task-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_sites":seen,"word_edge_sites":word_sites,"overlapping_domains":overlapping_domains,"site_columns":["task_domain","pc"],"live_flag_outcomes":flags,"irq_after_cmp_outcomes":cmp_outcomes,"register_restorations":restorations,"restoration_columns":["domain","armed_pc","restored_pc","restored_p"],"outcome_columns":["task_domain","load_pc","truth"],"windows":windows.iter().map(|w|serde_json::json!({"load":w.load,"cmp":w.cmp,"branch":w.branch,"predicate":w.predicate,"sources":w.sources,"edges":w.edges})).collect::<Vec<_>>()})).unwrap()).unwrap();
         }
         eprintln!(
             "fused comparisons optimize={optimize}: {} task/PC sites, {} flag outcomes",

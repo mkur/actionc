@@ -165,3 +165,29 @@ measurements include `fused_branches` and per-PC `fused_branch_sites`; these
 fields are absent from vbcc records, which remain identical to baseline.
 Reconstruct the baseline in an isolated `4d54b81` checkout if saved artifacts
 are unavailable. Both host runs retain the known optimized vbcc unlink failure.
+
+The [native word edge-copy results](../../docs/MIR65816_WORD_EDGE_COPIES.md)
+use the fusion `after` snapshot as their immutable baseline. Reproduce:
+
+```sh
+cargo build --release --bin actionc-65816
+python3 tools/compare65816/build.py --output target/word-edges-after --verify-crlf
+# Execute both host comparison commands above, using word-edges-after paths.
+python3 tools/compare65816/report.py \
+  --input target/word-edges-after --output docs/benchmarks/65816-word-edges/after
+python3 tools/compare65816/delta.py target/compare-branch-after target/word-edges-after \
+  --output docs/benchmarks/65816-word-edges --title 'Native word edge copies: before / after'
+python3 tools/compare65816/check_word_edges.py target/compare-branch-after target/word-edges-after \
+  --counts docs/benchmarks/65816-word-edges/expected-edges.json \
+  --output docs/benchmarks/65816-word-edges/coverage.json
+```
+
+Use the **strict default** delta: stack reads and writes must match exactly.
+Do not reuse earlier fusion/read exceptions. The additional check compares
+predeclared counts to decoded `word_edges`, `edge_words` and `word_edge_sites`,
+checks unchanged DP/fusion traffic and storage contracts, verifies raw/unaffected
+emitted-file hashes and enforces the three size/cycle ceilings. New fields exist
+only on Action records; vbcc records remain identical. Reconstruct missing
+baseline artifacts using the compiler and runner from isolated `01ea393`.
+The new snapshot also retains rotation and byte-sum listings. Both host commands
+must run and preserve the known optimized vbcc unlink failure.

@@ -1,8 +1,13 @@
 # Native 65816 word parallel edge-copy implementation plan
 
-Status: proposed on 2026-09-21 against main `01ea393`, following
-[compare-to-branch fusion](MIR65816_COMPARE_BRANCH_FUSION.md). This document
-plans the next slice; it does not change compiler behavior.
+Status: completed on 2026-09-21. Baseline/probes: `988f574`; checked selection
+and focused execution: `b5b4cd4`; interruption, relocation, measurements and
+qualification are in the containing results commit. See the
+[results](MIR65816_WORD_EDGE_COPIES.md) and
+[qualification record](abi/action65816-word-edges-qualification.json).
+The original forecasts below are retained for comparison: measured cycles are
+1,780 / 1,344 / 4,700, within all three ceilings. Forecasts understated native
+copy cost by two cycles per word; code-byte forecasts match exactly.
 
 ## Objective and scope
 
