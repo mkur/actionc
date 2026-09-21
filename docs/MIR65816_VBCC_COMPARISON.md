@@ -186,6 +186,9 @@ rewriting any machine code.
 
 ## Focused next implementation slice
 
+The [word-arithmetic implementation plan](MIR65816_WORD_ARITHMETIC_PLAN.md)
+specifies operand eligibility, commit boundaries, tests, and acceptance budgets.
+
 Add native **16-bit scalar ADD/SUB emission for stack or immediate operands**,
 using M=0 and native stack-relative operands where legal. Keep the current
 allocated homes, public arguments/results, guards, and call barriers. Store
