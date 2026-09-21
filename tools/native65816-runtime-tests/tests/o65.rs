@@ -15,7 +15,7 @@ PROC Main()
 RETURN
 "#;
     for optimize in [false, true] {
-        let bytes = native::compile(source, optimize, vec![]);
+        let (bytes, templates) = forwarding::o65(source, optimize);
         for variant in 0..2 {
             let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
             let image = format::relocate(&bytes, &placement).unwrap();
@@ -23,6 +23,7 @@ RETURN
             for (a, b) in [(0u16, 0u16), (0xffff, 1), (0x8000, 0x7fff), (0, 0xffff)] {
                 for mask in [0, 4] {
                     let mut h = Harness::new_o65(&image, &caller, mask);
+                    h.bus.forwarded_words = forwarding::relocated(&templates, &image);
                     for (name, value) in [("a", a), ("b", b)] {
                         let at = native::object(&image, name) as usize;
                         h.bus.ram[at..at + 2].copy_from_slice(&value.to_le_bytes());
@@ -76,7 +77,7 @@ PROC Main()
 RETURN
 "#;
     for optimize in [false, true] {
-        let bytes = native::compile(source, optimize, vec![]);
+        let (bytes, templates) = forwarding::o65(source, optimize);
         for variant in 0..2 {
             let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
             let image = format::relocate(&bytes, &placement).unwrap();
@@ -84,6 +85,7 @@ RETURN
             for (a, b) in [(0u16, 0u16), (0xffff, 1), (0x8000, 0x7fff), (0, 0xffff)] {
                 for mask in [0, 4] {
                     let mut h = Harness::new_o65(&image, &caller, mask);
+                    h.bus.forwarded_words = forwarding::relocated(&templates, &image);
                     for (name, value) in [("a", a), ("b", b)] {
                         let at = native::object(&image, name) as usize;
                         h.bus.ram[at..at + 2].copy_from_slice(&value.to_le_bytes());

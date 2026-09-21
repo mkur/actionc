@@ -24,6 +24,7 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         code: Code::default(),
         blocks: BTreeMap::new(),
         delta: 0,
+        resident_word: None,
     };
     for block in &r.blocks {
         b.blocks.insert(block.id, b.code.label());

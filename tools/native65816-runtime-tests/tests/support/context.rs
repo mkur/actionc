@@ -116,6 +116,7 @@ impl ContextHarness {
         }
         let compiled = prepared.compile(&options).unwrap();
         let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+        let forwarded = forwarding::compiled(&prepared, &compiled);
         let sites = word_edge::index(&prepared.mir, &compiled.machine, |id| {
             image
                 .routines
@@ -142,6 +143,7 @@ impl ContextHarness {
         }
         let mut h = Self::from_loaded(image, runtime, task_entry, arguments);
         h.bus.single_word_edges = sites;
+        h.bus.forwarded_words = forwarded;
         h
     }
 }

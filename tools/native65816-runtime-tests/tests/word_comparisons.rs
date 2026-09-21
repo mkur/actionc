@@ -27,7 +27,7 @@ fn word_relations_materialize_boolean_bytes_for_all_boundary_pairs() {
              PROC Main() Work(a,b) RETURN\n"
         ));
         for optimize in [false, true] {
-            let image = compile(&source, optimize);
+            let (image, forwarded) = forwarding::compile(&source, optimize);
             assert_eq!(
                 image.to_json().unwrap(),
                 compile(&source.replace('\n', "\r\n"), optimize)
@@ -46,6 +46,7 @@ fn word_relations_materialize_boolean_bytes_for_all_boundary_pairs() {
                 for b in values {
                     for mask in [0, 4] {
                         let mut h = Harness::new(&image, &caller, mask);
+                        h.bus.forwarded_words = forwarded.clone();
                         h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                         h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                         h.bus.ram[0x7200..0x7220].fill(0xa5);
@@ -156,12 +157,14 @@ ENDMODULE
             checks_stack: true,
             irq_effect: Default::default(),
         });
-        let image = Image::from_json(&prepared.compile(&options).unwrap().image.to_json().unwrap())
-            .unwrap();
+        let compiled = prepared.compile(&options).unwrap();
+        let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+        let forwarded = forwarding::compiled(&prepared, &compiled);
         let caller = caller(image.entry);
         for value in [0u16, 0x1234, 0x8000, 0xffff] {
             for mask in [0, 4] {
                 let mut h = Harness::new(&image, &caller, mask);
+                h.bus.forwarded_words = forwarded.clone();
                 h.bus.map(0x041000, &smash, false);
                 h.bus.map(0xd000, &value.to_le_bytes(), true);
                 h.bus.watched.extend(0xd000..0xd002);
@@ -296,12 +299,13 @@ PROC Main()
 RETURN
 "#;
     for optimize in [false, true] {
-        let image = compile(source, optimize);
+        let (image, forwarded) = forwarding::compile(source, optimize);
         let caller = caller(image.entry);
         let mut records = vec![];
         for (a, b) in [(0u16, 0u16), (0xffff, 1), (0x8000, 0x7fff), (0, 0xffff)] {
             for mask in [0, 4] {
                 let mut h = Harness::new(&image, &caller, mask);
+                h.bus.forwarded_words = forwarded.clone();
                 h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                 h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                 let expected = [
@@ -327,6 +331,7 @@ RETURN
                             let stack_reads: Vec<_> = w
                                 .sources
                                 .iter()
+                                .skip(usize::from(w.load_pc.is_none()))
                                 .filter(|s| s.0)
                                 .flat_map(|s| {
                                     [
@@ -415,7 +420,7 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 if optimize { 16 } else { 14 },
             ),
         ] {
-            let image = compile(source, optimize);
+            let (image, forwarded) = forwarding::compile(source, optimize);
             let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
             let caller = assemble_artifact(
                 &format!(
@@ -431,6 +436,7 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
             );
             for mask in [0, 4] {
                 let mut h = Harness::new(&image, &caller.bytes, mask);
+                h.bus.forwarded_words = forwarded.clone();
                 h.bus.ram[0x7100..0x7104].copy_from_slice(&[13, 0, 41, 0]);
                 assert!(
                     h.cpu

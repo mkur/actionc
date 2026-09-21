@@ -40,6 +40,11 @@ pub struct Code {
 }
 
 impl Code {
+    /// Both width and the straight-line emission frontier must still match.
+    /// Every marked label increments labels.len(), including same-offset labels.
+    pub(super) fn word_cursor(&self) -> Option<(usize, usize)> {
+        (self.accumulator_is_8_bit == Some(false)).then_some((self.bytes.len(), self.labels.len()))
+    }
     pub(super) fn label(&mut self) -> Label {
         let label = Label(self.next_label);
         self.next_label += 1;

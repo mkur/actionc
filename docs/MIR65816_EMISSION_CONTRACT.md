@@ -99,6 +99,29 @@ generated stack checks are unchanged.
 
 ## Supported operations
 
+Adjacent eligible word operations may forward a private stack temporary in A16.
+An ordinary direct, nonindexed two-byte Load or native word ADD/SUB establishes
+the fact only after its retained private store. The next native ADD/SUB,
+materialized/fused word comparison, A16 return, or ordinary direct two-byte
+Store may omit that same temporary's LDA. Selection checks TempId, the exact
+allocated slot, zero transient stack displacement, known A16 and an unchanged
+instruction/label cursor. The producer's full-word N/Z must still match A;
+unchanged A alone is insufficient. Comparison operand swaps retain identity.
+
+All stores and homes remain. Calls, helpers, labels, edges, stack movement,
+other operations, intervening instructions and mode changes invalidate the
+fact. Volatile, indirect/indexed, DP, byte and wider transfers retain their
+original paths. No source-memory access is cached or reordered. Complete
+operand/extent preflight still runs before a load is omitted. Each omission
+removes only two private stack-byte reads; ABI, allocation, guard and interrupt
+contracts are unchanged.
+
+`Code.mir_spans` is nonserialized emission proof metadata keyed by MIR block and
+operation index (ops.len() denotes the terminator; a fused comparison includes
+its edges). Qualification combines these ranges with verified MIR identities,
+allocated homes and actual machine instructions. It does not use the metadata
+to execute code or publish it in image/o65 formats.
+
 - BYTE, CARD/INT, ADDRESS/SIZE, data/code pointer storage, and LONGCARD/LONGINT
   retain their physical widths. Direct/typed indirect calls and returns use the v1 scalar ABI.
 - Loads, stores and address formation cover automatic objects, incoming

@@ -23,6 +23,7 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         code: Code::default(),
         blocks: BTreeMap::new(),
         delta: 0,
+        resident_word: None,
     }
 }
 fn operands(r: &Mir65816Routine) -> (TempId, Mir65816Value, Mir65816Value) {

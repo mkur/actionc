@@ -23,6 +23,7 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         code: Code::default(),
         blocks: BTreeMap::new(),
         delta: 0,
+        resident_word: None,
     }
 }
 

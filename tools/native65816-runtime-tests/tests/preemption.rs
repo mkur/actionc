@@ -44,7 +44,10 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
         return None;
     }
     let opcode = h.bus.ram[pc as usize];
+    let resident =
+        forwarding::reached(&h.cpu, &h.bus).is_some_and(|s| s.kind == forwarding::Kind::Return);
     let size = match opcode {
+        0xa8 if resident => 0,
         0xa3 => 2,
         0xa9 => 3,
         _ => return None,
@@ -74,7 +77,12 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
     }
     // The candidate starts at a real CPU instruction boundary. The complete
     // mode-aware sequence is checked inside its owning word-result routine.
-    Some((r.address, opcode == 0xa3, r.fixed_frame, addresses))
+    Some((
+        r.address,
+        opcode == 0xa3 || resident,
+        r.fixed_frame,
+        addresses,
+    ))
 }
 fn check(h: &ContextHarness) {
     assert_eq!(h.bus.value(DONE, 2), 1);

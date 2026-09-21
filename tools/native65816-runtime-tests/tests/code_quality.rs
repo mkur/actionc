@@ -43,10 +43,12 @@ fn execute(
     input: &Value,
     mask: u8,
     sites: &support::word_edge::Index,
+    forwarded: &support::forwarding::Index,
 ) -> Value {
     let action = artifact["compiler"] == "actionc";
     let mut bus = Bus::new();
     bus.single_word_edges = sites.clone();
+    bus.forwarded_words = forwarded.clone();
     let mut native_routines = vec![];
     if action {
         let serialized = std::fs::read(artifact["image"].as_str().unwrap()).unwrap();
@@ -146,6 +148,7 @@ fn execute(
     let mut word_edge_sites = BTreeMap::<u32, u64>::new();
     let mut edge_words = 0u64;
     let mut direct_sites = BTreeMap::<u32, u64>::new();
+    let mut forwarded_sites = BTreeMap::<u32, u64>::new();
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
     let mut in_guard = false;
@@ -179,6 +182,18 @@ fn execute(
                 if window.direct {
                     *direct_sites.entry(cpu.pc()).or_default() += 1;
                 }
+            }
+            if let Some(site) = support::forwarding::reached(&cpu, &bus) {
+                let r = cpu.registers();
+                assert_eq!(
+                    u32::from(r.a),
+                    bus.value(u32::from(r.s) + u32::from(site.slot), 2)
+                );
+                assert_eq!(
+                    r.p & 0x82,
+                    if r.a == 0 { 2 } else { 0 } | if r.a & 0x8000 != 0 { 0x80 } else { 0 }
+                );
+                *forwarded_sites.entry(pc).or_default() += 1;
             }
             instructions += 1;
             instruction_pc = pc;
@@ -291,6 +306,8 @@ fn execute(
         measurement["word_edge_sites"] = json!(word_edge_sites);
         measurement["direct_word_edges"] = json!(direct_sites.values().sum::<u64>());
         measurement["direct_word_edge_sites"] = json!(direct_sites);
+        measurement["forwarded_word_loads"] = json!(forwarded_sites.values().sum::<u64>());
+        measurement["forwarded_word_load_sites"] = json!(forwarded_sites);
     }
     measurement
 }
@@ -321,7 +338,7 @@ fn execute_parallel_corpus() {
             .unwrap();
         // Ground short copy decoding in typed edges from an independently
         // re-prepared artifact. CPU execution still uses only the saved image.
-        let sites = if artifact["compiler"] == "actionc" {
+        let (sites, forwarded) = if artifact["compiler"] == "actionc" {
             let command = artifact["commands"][0].as_array().unwrap();
             let source = command.last().unwrap().as_str().unwrap();
             let layout_pos = command.iter().position(|v| v == "--layout").unwrap();
@@ -344,26 +361,31 @@ fn execute_parallel_corpus() {
                 saved.to_json().unwrap(),
                 "edge evidence must match the saved compiler artifact"
             );
-            support::word_edge::index(&p.mir, &c.machine, |id| {
+            let forwarded = support::forwarding::compiled(&p, &c);
+            let sites = support::word_edge::index(&p.mir, &c.machine, |id| {
                 saved
                     .routines
                     .iter()
                     .find(|r| r.id == id.0)
                     .unwrap()
                     .address
-            })
+            });
+            (sites, forwarded)
         } else {
-            Default::default()
+            (Default::default(), Default::default())
         };
         for (vector, input) in case["vectors"].as_array().unwrap().iter().enumerate() {
             eprintln!(
                 "{} {} {} vector {vector}",
                 case["id"], artifact["compiler"], artifact["mode"]
             );
-            let mut result = execute(artifact, case, input, 0, &sites);
+            let mut result = execute(artifact, case, input, 0, &sites, &forwarded);
             // Both interrupt-mask states must preserve the ABI and produce
             // identical measurements. No IRQ/NMI is injected in this benchmark.
-            assert_eq!(result, execute(artifact, case, input, 4, &sites));
+            assert_eq!(
+                result,
+                execute(artifact, case, input, 4, &sites, &forwarded)
+            );
             let object = result.as_object_mut().unwrap();
             for key in [
                 "case",

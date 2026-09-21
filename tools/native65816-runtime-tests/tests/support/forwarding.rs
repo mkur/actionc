@@ -286,3 +286,48 @@ pub fn index(
     }
     out
 }
+
+pub fn compiled(p: &native65816::Prepared, c: &native65816::Compiled) -> Index {
+    index(&p.mir, &c.machine, |id| {
+        c.image
+            .routines
+            .iter()
+            .find(|r| r.id == id.0)
+            .unwrap()
+            .address
+    })
+}
+pub fn compile(source: &str, optimize: bool) -> (Image, Index) {
+    let p = prepare(source, optimize);
+    let c = p.compile(&layout()).unwrap();
+    let sites = compiled(&p, &c);
+    (
+        Image::from_json(&c.image.to_json().unwrap()).unwrap(),
+        sites,
+    )
+}
+
+pub fn o65(source: &str, optimize: bool) -> (Vec<u8>, Index) {
+    let p = prepare(source, optimize);
+    let m = actionc::mir65816::emit::materialize(&p.mir).unwrap();
+    let templates = index(&p.mir, &m, |id| {
+        0x10000 * (1 + m.routines.iter().position(|r| r.id == id).unwrap() as u32)
+    });
+    let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
+    (bytes, templates)
+}
+pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedImage) -> Index {
+    templates
+        .values()
+        .map(|s| {
+            let r = image
+                .profile()
+                .routines
+                .iter()
+                .find(|r| r.id == s.routine.0)
+                .unwrap();
+            let site = s.rebase(image.routine_address(r));
+            (site.start, site)
+        })
+        .collect()
+}

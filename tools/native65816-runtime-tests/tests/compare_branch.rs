@@ -37,7 +37,7 @@ fn conditional_word_results_distinguish_all_relations_and_boundary_pairs() {
                 assert!(r.blocks.iter().any(|b| matches!((&b.ops.last(), &b.terminator),
                     (Some(Mir65816Op::Compare { dest, .. }), Mir65816Terminator::Branch { condition: Mir65816Value::Temp(id, _), .. }) if dest == id)));
             }
-            let image = compile(&source, optimize);
+            let (image, forwarded) = forwarding::compile(&source, optimize);
             assert_eq!(
                 image.to_json().unwrap(),
                 compile(&source.replace('\n', "\r\n"), optimize)
@@ -54,6 +54,7 @@ fn conditional_word_results_distinguish_all_relations_and_boundary_pairs() {
                 for b in values {
                     for mask in [0, 4] {
                         let mut h = Harness::new(&image, &caller, mask);
+                        h.bus.forwarded_words = forwarded.clone();
                         h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                         h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                         let windows = run_checked_fusions(&mut h, &image);
@@ -93,10 +94,12 @@ fn conditional_parallel_edges_and_backedge_rotations_execute() {
             let p = edge_program(optimize, backedge);
             let compiled = p.compile(&layout()).unwrap();
             let image = image::Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+            let forwarded = forwarding::compiled(&p, &compiled);
             let caller = caller(image.entry);
             for (a, b) in [(0u16, 0u16), (0xffff, 1), (1, 0xffff), (0x8000, 0x7fff)] {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller, mask);
+                    h.bus.forwarded_words = forwarded.clone();
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                     h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                     h.run();
@@ -185,6 +188,7 @@ ENDMODULE
         });
         let compiled = prepared.compile(&options).unwrap();
         let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+        let forwarded = forwarding::compiled(&prepared, &compiled);
         let sites = word_edge::index(&prepared.mir, &compiled.machine, |id| {
             image
                 .routines
@@ -197,6 +201,7 @@ ENDMODULE
         for value in [0u16, 0x1234, 0x8000, 0xffff] {
             for mask in [0, 4] {
                 let mut h = Harness::new(&image, &caller, mask);
+                h.bus.forwarded_words = forwarded.clone();
                 h.bus.single_word_edges = sites.clone();
                 h.bus.map(0x041000, &smash, false);
                 h.bus.map(0xd000, &value.to_le_bytes(), true);
@@ -268,6 +273,7 @@ fn run_checked_fusions(h: &mut Harness, image: &Image) -> Vec<serde_json::Value>
                 let expected: Vec<_> = w
                     .sources
                     .iter()
+                    .skip(usize::from(w.load_pc.is_none()))
                     .filter(|s| s.0)
                     .flat_map(|s| {
                         [
@@ -334,12 +340,14 @@ fn fused_decisions_read_only_the_words_and_keep_parallel_edge_traffic_separate()
         let mut records = vec![];
         for backedge in [false, true] {
             let p = edge_program(optimize, backedge);
-            let image =
-                Image::from_json(&p.compile(&layout()).unwrap().image.to_json().unwrap()).unwrap();
+            let compiled = p.compile(&layout()).unwrap();
+            let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+            let forwarded = forwarding::compiled(&p, &compiled);
             let caller = caller(image.entry);
             for (a, b) in [(0u16, 0u16), (0xffff, 1), (1, 0xffff)] {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller, mask);
+                    h.bus.forwarded_words = forwarded.clone();
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                     h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                     let reached = run_checked_fusions(&mut h, &image);
@@ -447,12 +455,14 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
                 _ => unreachable!(),
             }
             mir65816::verify_program(&p.mir).unwrap();
-            let image =
-                Image::from_json(&p.compile(&layout()).unwrap().image.to_json().unwrap()).unwrap();
+            let compiled = p.compile(&layout()).unwrap();
+            let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+            let forwarded = forwarding::compiled(&p, &compiled);
             let caller = caller(image.entry);
             for (a, b) in [(1u16, 2u16), (2, 1)] {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller, mask);
+                    h.bus.forwarded_words = forwarded.clone();
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                     h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                     let mut materialized = 0;
@@ -487,8 +497,11 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
 fn fused_decoder_rejects_wrong_modes_truncated_windows_and_corrupt_edges() {
     use actionc_vm::native65816::{Inputs, Machine};
     let p = edge_program(false, false);
-    let image = Image::from_json(&p.compile(&layout()).unwrap().image.to_json().unwrap()).unwrap();
+    let compiled = p.compile(&layout()).unwrap();
+    let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+    let forwarded = forwarding::compiled(&p, &compiled);
     let mut h = Harness::new(&image, &caller(image.entry), 0);
+    h.bus.forwarded_words = forwarded;
     let window = loop {
         assert!(!h.cpu.is_stopped());
         if h.cpu.is_instruction_boundary() {

@@ -4,7 +4,9 @@ use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Window {
+    /// First reached instruction (CMP when its left operand is resident).
     pub load: u32,
+    pub load_pc: Option<u32>,
     pub cmp: u32,
     pub branch: u32,
     pub yes: u32,
@@ -45,6 +47,7 @@ pub fn window(
     let routine = routines
         .iter()
         .find(|r| (r.address..r.address + r.size).contains(&start))?;
+    let resident = forwarding::resident_compare(bus, start);
     let mut at = start;
     let mut operand = |load: bool| -> Option<(bool, u16)> {
         let opcode = bus.ram[at as usize];
@@ -60,8 +63,19 @@ pub fn window(
         at += size;
         Some((stack, value))
     };
-    let left = operand(true)?;
-    let cmp = start + if left.0 { 2 } else { 3 };
+    let left = if let Some(slot) = resident {
+        (true, u16::from(slot))
+    } else {
+        operand(true)?
+    };
+    let cmp = start
+        + if resident.is_some() {
+            0
+        } else if left.0 {
+            2
+        } else {
+            3
+        };
     let right = operand(false)?;
     let branch = at;
     let end = branch + 22;
@@ -84,6 +98,7 @@ pub fn window(
     }
     Some(Window {
         load: start,
+        load_pc: resident.is_none().then_some(start),
         cmp,
         branch,
         yes,
@@ -100,7 +115,9 @@ pub fn window(
 /// scanning arbitrary bytes for a CMP opcode or assuming empty successors.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FusedWindow {
+    /// First reached instruction (CMP when its left operand is resident).
     pub load: u32,
+    pub load_pc: Option<u32>,
     pub cmp: u32,
     pub branch: u32,
     pub no: u32,
@@ -146,6 +163,7 @@ pub fn fused_in_range(
         return None;
     }
     let end = range.end;
+    let resident = forwarding::resident_compare(bus, start);
     let mut at = start;
     let mut operand = |load: bool| -> Option<(bool, u16)> {
         if at + 2 > end {
@@ -164,7 +182,11 @@ pub fn fused_in_range(
         at += size;
         Some((stack, value))
     };
-    let left = operand(true)?;
+    let left = if let Some(slot) = resident {
+        (true, u16::from(slot))
+    } else {
+        operand(true)?
+    };
     let right = operand(false)?;
     let branch = at;
     if branch + 6 > end {
@@ -225,7 +247,15 @@ pub fn fused_in_range(
     let (true_sites, true_target, _) = edge(yes)?;
     Some(FusedWindow {
         load: start,
-        cmp: start + if left.0 { 2 } else { 3 },
+        load_pc: resident.is_none().then_some(start),
+        cmp: start
+            + if resident.is_some() {
+                0
+            } else if left.0 {
+                2
+            } else {
+                3
+            },
         branch,
         no,
         yes,

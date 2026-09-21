@@ -250,11 +250,11 @@ fn executed_word_return_tails_read_only_the_source_and_restore_the_stack() {
     use actionc_vm::native65816::Inputs;
     let source = "BYTE marker CARD FUNC Echo(CARD value) RETURN(value) CARD FUNC ZeroFrame() RETURN(32768) CARD FUNC FramedLiteral(CARD value) marker=BYTE(value) RETURN(32768) PROC Main() RETURN";
     for optimize in [false, true] {
-        let image = compile(source, optimize);
+        let (image, forwarded) = forwarding::compile(source, optimize);
         for name in ["Echo", "ZeroFrame", "FramedLiteral"] {
             let r = image.routines.iter().find(|r| r.name == name).unwrap();
             let stack_source = name == "Echo";
-            let load_size = if stack_source { 2 } else { 3 };
+            let load_size = if stack_source { 0 } else { 3 };
             let release_size = if r.fixed_frame == 0 { 1 } else { 9 };
             let load_pc = r.address + r.size - load_size - release_size;
             let outgoing = if name == "ZeroFrame" { 1 } else { 3 };
@@ -274,6 +274,7 @@ fn executed_word_return_tails_read_only_the_source_and_restore_the_stack() {
             for value in [0u16, 0x8000, 0xffff] {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller.bytes, mask);
+                    h.bus.forwarded_words = forwarded.clone();
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&value.to_le_bytes());
                     assert!(
                         h.cpu
@@ -301,7 +302,11 @@ fn executed_word_return_tails_read_only_the_source_and_restore_the_stack() {
                     // Anchor the known tail at an actually reached instruction,
                     // then verify the complete sequence, including its one RTL.
                     let mut expected = if stack_source {
-                        vec![0xa3, h.bus.ram[load_pc as usize + 1]]
+                        let site =
+                            forwarding::reached(&h.cpu, &h.bus).expect("typed forwarded return");
+                        assert_eq!(site.kind, forwarding::Kind::Return);
+                        assert_eq!(before.a, value);
+                        vec![]
                     } else {
                         vec![0xa9, 0, 0x80]
                     };
@@ -351,10 +356,6 @@ fn executed_word_return_tails_read_only_the_source_and_restore_the_stack() {
                         .filter(|a| (0x4000..0x6000).contains(a))
                         .collect();
                     let mut expected_reads = vec![];
-                    if stack_source {
-                        let start = u32::from(before.s) + u32::from(expected[1]);
-                        expected_reads.extend([start, start + 1]);
-                    }
                     expected_reads.extend(
                         (1..=3).map(|i| u32::from(before.s) + u32::from(r.fixed_frame) + i),
                     );

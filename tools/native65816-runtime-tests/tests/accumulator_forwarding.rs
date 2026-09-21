@@ -3,7 +3,7 @@ use actionc_vm::native65816::{Access, Inputs, Machine, Registers};
 use std::{collections::BTreeSet, path::Path};
 use support::*;
 
-const EXPECT_FORWARDED: bool = false;
+const EXPECT_FORWARDED: bool = true;
 
 #[test]
 fn frozen_corpus_sites_match_typed_operations_and_unchanged_baseline_images() {

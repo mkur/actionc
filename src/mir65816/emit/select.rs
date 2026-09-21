@@ -17,6 +17,14 @@ mod branch_tests;
 #[path = "edge_tests.rs"]
 mod edge_tests;
 
+#[path = "accumulator.rs"]
+mod accumulator;
+use accumulator::ResidentWord;
+
+#[cfg(test)]
+#[path = "accumulator_tests.rs"]
+mod accumulator_tests;
+
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
 const RESULT: u8 = 8;
@@ -47,6 +55,7 @@ enum WordOperand {
 /// A complete preflight, shared by materialized and branch-only comparisons.
 struct WordCondition {
     left: WordOperand,
+    left_temp: Option<TempId>,
     right: WordOperand,
     destination: u8,
     predicate: u8,
@@ -75,6 +84,7 @@ struct Builder<'a> {
     blocks: BTreeMap<BlockId, Label>,
     /// Current downward S movement relative to the allocated body frame.
     delta: u32,
+    resident_word: Option<ResidentWord>,
 }
 
 pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, String> {
@@ -84,6 +94,7 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
         code: Code::default(),
         blocks: BTreeMap::new(),
         delta: 0,
+        resident_word: None,
     };
     if routine.blocks.is_empty() || !routine.blocks[0].params.is_empty() {
         return Err("routine requires an entry block without edge parameters".into());
@@ -301,16 +312,14 @@ impl Builder<'_> {
             Location::Stack(slot) => Some(self.word_displacement(slot.offset.into())?),
             Location::DirectPage(_) => None,
         };
+        let left_temp = Self::word_temp(left);
         let left = self.word_operand(left)?;
         let right = self.word_operand(right)?;
         let (Some(destination), Some(left), Some(right)) = (destination, left, right) else {
             return Ok(false);
         };
         self.code.a16();
-        match left {
-            WordOperand::Immediate(value) => self.code.word(0xa9, value),
-            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
-        }
+        self.load_checked_word(left, left_temp);
         let subtract = operation == NirBinaryOp::Sub;
         self.code.op(if subtract { 0x38 } else { 0x18 }); // SEC / CLC
         match right {
@@ -322,6 +331,7 @@ impl Builder<'_> {
             }
         }
         self.code.byte(0x83, destination); // STA d,S: result has its existing home.
+        self.remember_word(dest);
         Ok(true)
     }
     fn word_condition(
@@ -346,6 +356,8 @@ impl Builder<'_> {
             Location::Stack(slot) => Some(self.displacement(slot.offset.into(), 0)?),
             Location::DirectPage(_) => None,
         };
+        let mut left_temp = Self::word_temp(left);
+        let right_temp = Self::word_temp(right);
         let left = self.word_operand(left)?;
         let right = self.word_operand(right)?;
         let (Some(destination), Some(mut left), Some(mut right)) = (destination, left, right)
@@ -361,6 +373,7 @@ impl Builder<'_> {
             NirCompareOp::Ge => 0xb0, // BCS
             NirCompareOp::Gt | NirCompareOp::Le => {
                 std::mem::swap(&mut left, &mut right);
+                left_temp = right_temp;
                 if operation == NirCompareOp::Gt {
                     0x90
                 } else {
@@ -370,6 +383,7 @@ impl Builder<'_> {
         };
         Ok(Some(WordCondition {
             left,
+            left_temp,
             right,
             destination,
             predicate,
@@ -377,10 +391,7 @@ impl Builder<'_> {
     }
     fn branch_on_word(&mut self, condition: &WordCondition, yes: Label) {
         self.code.a16();
-        match condition.left {
-            WordOperand::Immediate(value) => self.code.word(0xa9, value),
-            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
-        }
+        self.load_checked_word(condition.left, condition.left_temp);
         match condition.right {
             WordOperand::Immediate(value) => self.code.word(0xc9, value),
             WordOperand::Stack(offset) => self.code.byte(0xc3, offset),
@@ -496,15 +507,7 @@ impl Builder<'_> {
         }
         Ok(())
     }
-    /// Copy exactly the scalar extent. Ordinary accesses may use word pairs;
-    /// volatile accesses retain their individual ascending byte transfers.
-    fn transfer(
-        &mut self,
-        source: Memory,
-        destination: Memory,
-        bytes: u8,
-        wide: bool,
-    ) -> Result<(), String> {
+    fn check_transfer(&self, source: Memory, destination: Memory, bytes: u8) -> Result<(), String> {
         for memory in [source, destination] {
             match memory {
                 Memory::Stack(offset) => {
@@ -520,6 +523,18 @@ impl Builder<'_> {
                 _ => {}
             }
         }
+        Ok(())
+    }
+    /// Copy exactly the scalar extent. Ordinary accesses may use word pairs;
+    /// volatile accesses retain their individual ascending byte transfers.
+    fn transfer(
+        &mut self,
+        source: Memory,
+        destination: Memory,
+        bytes: u8,
+        wide: bool,
+    ) -> Result<(), String> {
+        self.check_transfer(source, destination, bytes)?;
         // Private frame transfers can stay in A16 for a three-byte value by
         // overlapping the two words. Never touch a fourth byte, and never
         // duplicate a read/write through an external or indirect address.
@@ -825,6 +840,7 @@ impl Builder<'_> {
         Ok(())
     }
     fn check_stack(&mut self, bytes: u16) {
+        self.resident_word = None;
         // A/X/Y are caller-clobbered. X retains the unchanged S for the raw
         // overflow adapter. Neither branch changes I, D, DBR or the stack.
         let within = self.code.label();
@@ -850,12 +866,14 @@ impl Builder<'_> {
         self.code.mark(done);
     }
     fn reserve(&mut self, bytes: u16) {
+        self.resident_word = None;
         self.code.op(0x3b);
         self.code.op(0x38);
         self.code.word(0xe9, bytes);
         self.code.op(0x1b);
     }
     fn release(&mut self, bytes: u16, preserve_result: bool) {
+        self.resident_word = None;
         if bytes != 0 {
             // TAY; TSC; CLC; ADC #bytes; TCS; TYA. Preserve the entire A/X result.
             if preserve_result {
@@ -924,6 +942,7 @@ impl Builder<'_> {
         Ok(supported.then_some(WordEdge { target, moves }))
     }
     fn emit_word_edge(&mut self, edge: WordEdge) {
+        self.resident_word = None;
         self.code.a16();
         if let &[(source, _, destination)] = edge.moves.as_slice() {
             // One assignment needs no staging: capture the complete word in A
@@ -950,6 +969,7 @@ impl Builder<'_> {
         self.code.jump(edge.target);
     }
     fn edge(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
+        self.resident_word = None;
         if let Some(word) = self.word_edge(edge)? {
             self.emit_word_edge(word);
             return Ok(());
@@ -1007,6 +1027,7 @@ impl Builder<'_> {
             ..
         } = op
         {
+            self.resident_word = None;
             self.code.a16();
             return self.call(target, args, *result, plan);
         }
@@ -1034,6 +1055,9 @@ impl Builder<'_> {
         {
             return Ok(());
         }
+        if !matches!(op, Mir65816Op::Store { .. }) {
+            self.resident_word = None;
+        }
         if !matches!(op, Mir65816Op::Load { .. } | Mir65816Op::Store { .. }) {
             self.code.a8();
         }
@@ -1050,6 +1074,9 @@ impl Builder<'_> {
                     return Err("load temporary width mismatch".into());
                 }
                 self.transfer(memory, slot.into(), slot.slot().width, !volatile)?;
+                if !volatile && bytes.get() == 2 && Self::direct_word_address(address) {
+                    self.remember_word(*dest);
+                }
             }
             Mir65816Op::Store {
                 address,
@@ -1057,6 +1084,10 @@ impl Builder<'_> {
                 width: bytes,
                 volatile,
             } => {
+                if self.word_store(address, value, width(*bytes)?, *volatile)? {
+                    return Ok(());
+                }
+                self.resident_word = None;
                 let memory = self.prepare_address(address)?;
                 let bytes = width(*bytes)?;
                 if let Some(source) = self.value_memory(value)?
@@ -1544,10 +1575,7 @@ impl Builder<'_> {
             return Ok(false);
         };
         self.code.a16();
-        match operand {
-            WordOperand::Immediate(value) => self.code.word(0xa9, value),
-            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
-        }
+        self.load_checked_word(operand, Self::word_temp(value));
         // The shared teardown preserves A. X is unspecified for word results.
         Ok(true)
     }
