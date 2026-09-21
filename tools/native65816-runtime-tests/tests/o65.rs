@@ -106,8 +106,8 @@ RETURN
                                     );
                                     assert_eq!(
                                         (w.edges[0].len(), w.edges[1].len()),
-                                        (1, 2),
-                                        "relocated empty edges retain JML and required REP only"
+                                        (1, 1),
+                                        "relocated false jump and true REP/fallthrough remain checked"
                                     );
                                     reached += 1;
                                 }
@@ -719,13 +719,17 @@ fn relocated_nonempty_word_edges_preserve_cycles_and_both_conditional_arms() {
     for optimize in [false, true] {
         for rotation in [false, true] {
             // Drop compiler objects before reading/relocating the serialized file.
-            let bytes = {
+            let (bytes, templates) = {
                 let p = if rotation {
                     edges::rotation(optimize, false, false)
                 } else {
                     edges::program(optimize, false)
                 };
-                p.compile_o65(&Default::default()).unwrap().bytes
+                let m = actionc::mir65816::emit::materialize(&p.mir).unwrap();
+                let templates = forwarding::index(&p.mir, &m, |id| {
+                    0x10000 * (1 + m.routines.iter().position(|r| r.id == id).unwrap() as u32)
+                });
+                (p.compile_o65(&Default::default()).unwrap().bytes, templates)
             };
             for variant in 0..2 {
                 let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
@@ -734,6 +738,7 @@ fn relocated_nonempty_word_edges_preserve_cycles_and_both_conditional_arms() {
                 for (a, b) in [(0u16, 0xffffu16), (0xffff, 0), (0x8000, 0x7fff)] {
                     for mask in [0, 4] {
                         let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                        h.bus.forwarded_words = forwarding::relocated(&templates, &image);
                         h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                         h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                         let mut count = 0;
@@ -859,7 +864,12 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                     let w =
                                         word_edge::decode(&h.bus, h.cpu.pc(), site.range.clone())
                                             .unwrap();
-                                    assert!(w.direct && w.moves.len() == 1 && w.sites.len() == 3);
+                                    assert!(
+                                        w.direct
+                                            && w.moves.len() == 1
+                                            && w.sites.len()
+                                                == if site.fallthrough { 2 } else { 3 }
+                                    );
                                     count += 1;
                                     reached.insert((site.load, w.target));
                                     let stage =
@@ -874,7 +884,8 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                     }
                                     assert_eq!(
                                         h.cpu.cycles() - cycles,
-                                        if site.source.0 { 14 } else { 12 }
+                                        (if site.source.0 { 14 } else { 12 })
+                                            - if site.fallthrough { 4 } else { 0 }
                                     );
                                     assert_eq!(
                                         &h.bus.ram[stage as usize..stage as usize + 4],

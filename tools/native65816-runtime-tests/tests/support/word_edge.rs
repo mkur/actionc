@@ -28,7 +28,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
     let mut pairs = vec![];
     while pc + 2 <= end
         && bus.ram[pc as usize] != 0x5c
-        && control_flow::transfer(bus, pc, &range).is_none()
+        && (pairs.is_empty() || control_flow::transfer(bus, pc, &range).is_none())
     {
         let stack = bus.ram[pc as usize] == 0xa3;
         if !stack && bus.ram[pc as usize] != 0xa9 {

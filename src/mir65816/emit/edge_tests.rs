@@ -16,6 +16,7 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     // Use the ordinary allocated frame, then controlled physical homes so
     // tests exercise overlap, exact endpoints and malformed preflights.
     let mut b = Builder {
+        next_block: None,
         routine: r,
         frame: AllocatedFrame::new(&super::word_tests::program().routines[0]).unwrap(),
         code: TrackedEmitter65816::for_test(

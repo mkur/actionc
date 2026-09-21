@@ -57,12 +57,8 @@ pub fn index(
             let target = m.code.labels[&e.target];
             if e.fallthrough {
                 assert_eq!(e.offset, target);
-                assert!(
-                    !m.code
-                        .fixups
-                        .iter()
-                        .any(|f| f.offset == e.offset + 1 && f.target == Target::Label(e.target))
-                );
+                // The next block may itself start with a relocated instruction;
+                // a zero-byte transfer owns no operand range to exclude.
             } else {
                 assert_eq!(m.code.bytes[e.offset], 0x5c);
                 assert!(m.code.fixups.iter().any(|f| f.offset == e.offset + 1

@@ -9,6 +9,58 @@ fn mir_loop() -> (TrackedEmitter65816, super::Label) {
     (e, l)
 }
 
+fn pending_fallthrough() -> (TrackedEmitter65816, super::Label) {
+    let mut e = TrackedEmitter65816::default();
+    e.test_frame(0);
+    let a = e.label();
+    let b = e.label();
+    e.declare_blocks([a, b].into_iter());
+    e.prove_entries(
+        [(a, [(None, 1)].into()), (b, [(Some(a), 1)].into())].into(),
+        [a, b].into(),
+    );
+    e.mark(a);
+    e.a16();
+    e.fallthrough(b);
+    (e, b)
+}
+
+#[test]
+fn fallthrough_retains_logical_edges_without_instruction_or_mode_changes() {
+    let (mut e, b) = pending_fallthrough();
+    e.mark(b);
+    e.a16();
+    assert!(e.code().bytes.is_empty());
+    e.op(Implied::Rtl);
+    let c = e.finish();
+    assert_eq!(c.bytes, [0x6b]);
+    assert_eq!(c.mir_transfers.len(), 1);
+    assert!(c.mir_transfers[0].fallthrough);
+    assert_eq!(c.labels[&b], c.mir_transfers[0].offset);
+}
+
+#[test]
+#[should_panic(expected = "fallthrough must bind the next MIR block")]
+fn fallthrough_cannot_skip_another_binding() {
+    let (mut e, _) = pending_fallthrough();
+    let other = e.label();
+    e.mark(other);
+}
+
+#[test]
+#[should_panic(expected = "instruction without an execution contract")]
+fn fallthrough_cannot_skip_an_instruction() {
+    let (mut e, _) = pending_fallthrough();
+    e.op(Implied::Nop);
+}
+
+#[test]
+#[should_panic(expected = "unbound fallthrough target")]
+fn fallthrough_must_be_bound_before_finalization() {
+    let (e, _) = pending_fallthrough();
+    e.finish();
+}
+
 #[test]
 fn proved_mir_entry_omits_rep_but_clears_values_and_keeps_byte_transition() {
     let (mut e, l) = mir_loop();

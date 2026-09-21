@@ -27,6 +27,7 @@ fn rotations_repeated_sources_live_ins_unused_and_mixed_parameters_execute() {
                     for mask in [0, 4] {
                         let mut h = Harness::new(&image, &caller, mask);
                         h.bus.single_word_edges = sites.clone();
+                        h.bus.forwarded_words = forwarding::compiled(&p, &compiled);
                         h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                         h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                         assert_eq!(
@@ -109,6 +110,7 @@ fn mutable_parameter_edges_use_current_home_and_preserve_full_words() {
         for mask in [0, 4] {
             let mut h = Harness::new(&image, &caller(image.entry), mask);
             h.bus.single_word_edges = sites.clone();
+            h.bus.forwarded_words = forwarding::compiled(&p, &compiled);
             assert_eq!(run_edges(&mut h, &image), (1, 1));
             h.guards(mask);
             assert_eq!(h.bus.value(0x7200, 2), 0);
@@ -192,13 +194,13 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         assert_eq!(h.bus.value(s + u32::from(stage), 2), 0xefbe);
                     }
                 }
-                let expected_cycles: u64 = 4 + w
-                    .moves
-                    .iter()
-                    .map(|&((stack, _), _, _)| {
-                        (if stack { 5 } else { 3 }) + 5 + if w.direct { 0 } else { 10 }
-                    })
-                    .sum::<u64>();
+                let expected_cycles: u64 = (if w.fallthrough { 0 } else { 4 })
+                    + w.moves
+                        .iter()
+                        .map(|&((stack, _), _, _)| {
+                            (if stack { 5 } else { 3 }) + 5 + if w.direct { 0 } else { 10 }
+                        })
+                        .sum::<u64>();
                 assert_eq!(h.cpu.cycles() - cycles, expected_cycles);
                 let after = h.cpu.registers();
                 let last = *values.last().unwrap();
@@ -306,6 +308,7 @@ fn single_word_edges_cover_immediates_parameters_backedges_and_both_branch_arms(
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller(image.entry), mask);
                     h.bus.single_word_edges = sites.clone();
+                    h.bus.forwarded_words = forwarding::compiled(&p, &c);
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                     h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
                     assert_eq!(run_edges(&mut h, &image), (6, 6));

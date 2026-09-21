@@ -1,12 +1,7 @@
 mod support;
 use actionc::{
     compiler::native65816,
-    mir65816::{
-        self,
-        emit::{Label, Target},
-        image::Image,
-        *,
-    },
+    mir65816::{self, image::Image, *},
     nir::{BlockId, NirBinaryOp, TempId},
     target::{AddressValue, ByteOffset, ByteSize},
 };
@@ -102,34 +97,26 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
                 .find(|m| m.id == r.id)
                 .unwrap();
             let n = r.blocks.len() as u32;
-            // Typed fixups identify actual MIR transfers, excluding guard and
-            // conditional-dispatch JMLs. All executed bytes come from JSON.
-            let mut edges = BTreeMap::new();
-            for f in &machine.code.fixups {
-                let Target::Label(Label(id)) = f.target else {
-                    continue;
-                };
-                if id >= n {
-                    continue;
-                }
-                let jump = f.offset - 1;
-                assert_eq!(machine.code.bytes[jump], 0x5c);
+            // Logical identities survive zero-byte transfers and coincident PCs.
+            let mut edges = BTreeMap::<u32, Vec<_>>::new();
+            for (id, t) in machine.code.mir_transfers.iter().enumerate() {
+                let jump = t.offset;
                 let prefix = jump >= 2
                     && machine
                         .code
                         .labels
                         .iter()
-                        .any(|(label, &offset)| label.0 >= n && offset == jump - 2);
-                let start = if prefix { jump - 2 } else { jump };
-                edges.insert(
-                    work.address + start as u32,
-                    (
-                        work.address + machine.code.labels[&Label(id)] as u32,
-                        usize::from(prefix) + 1,
-                    ),
-                );
+                        .any(|(l, &at)| l.0 >= n && at == jump - 2);
+                let start = jump - if prefix { 2 } else { 0 };
+                edges.entry(work.address + start as u32).or_default().push((
+                    id,
+                    work.address + machine.code.labels[&t.target] as u32,
+                    usize::from(prefix) + usize::from(!t.fallthrough),
+                    u64::from(prefix) * 3 + u64::from(!t.fallthrough) * 4,
+                    u32::from(prefix) * 2 + u32::from(!t.fallthrough) * 4,
+                ));
             }
-            assert_eq!(edges.len(), 4); // Goto, Fallthrough, false and true edges.
+            assert_eq!(edges.values().map(Vec::len).sum::<usize>(), 4);
             let mut seen = BTreeSet::new();
             let mut records = vec![];
             for value in [0, 1, 255] {
@@ -147,49 +134,59 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
                                 comparison::fused_window(&h.cpu, &h.bus, &image.routines)
                             {
                                 fusions += 1;
-                                assert_eq!((w.edges[0].len(), w.edges[1].len()), (1, 2));
+                                assert_eq!((w.edges[0].len(), w.edges[1].len()), (1, 1));
                             }
-                            if let Some(&(target, count)) = edges.get(&h.cpu.pc()) {
-                                let pc = h.cpu.pc();
-                                seen.insert(pc);
-                                let (sites, decoded, end) = comparison::empty_edge(
-                                    &h.bus,
-                                    pc,
-                                    work.address..work.address + work.size,
-                                )
-                                .unwrap();
-                                assert_eq!((decoded, sites.len()), (target, count));
-                                assert_eq!(end - pc, if count == 1 { 4 } else { 6 });
-                                let before = h.cpu.registers();
-                                let reads = h.bus.reads.len();
-                                let writes = h.bus.writes.len();
-                                let cycles = h.cpu.cycles();
-                                assert_eq!(before.p & 0x30, 0);
-                                let mut actual_sites = vec![];
-                                for _ in 0..20 {
-                                    if h.cpu.is_instruction_boundary() {
+                            if let Some(transfers) = edges.get(&h.cpu.pc()) {
+                                let mut advanced = false;
+                                for &(id, target, count, cost, size) in transfers {
+                                    let pc = h.cpu.pc();
+                                    seen.insert(id);
+                                    let (sites, decoded, end) = if count == 0 {
+                                        assert_eq!(target, pc);
+                                        (vec![], target, pc)
+                                    } else {
+                                        comparison::empty_edge(
+                                            &h.bus,
+                                            pc,
+                                            work.address..work.address + work.size,
+                                        )
+                                        .unwrap()
+                                    };
+                                    assert_eq!(
+                                        (decoded, sites.len(), end - pc),
+                                        (target, count, size)
+                                    );
+                                    let before = h.cpu.registers();
+                                    let reads = h.bus.reads.len();
+                                    let writes = h.bus.writes.len();
+                                    let cycles = h.cpu.cycles();
+                                    assert_eq!(before.p & 0x30, 0);
+                                    let mut actual_sites = vec![];
+                                    for _ in 0..count {
                                         actual_sites.push(h.cpu.pc());
+                                        loop {
+                                            h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                                            if h.cpu.is_instruction_boundary() {
+                                                break;
+                                            }
+                                        }
                                     }
-                                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
-                                    if h.cpu.is_instruction_boundary() && h.cpu.pc() == target {
-                                        break;
-                                    }
+                                    assert_eq!(actual_sites, sites);
+                                    let mut expected = before;
+                                    expected.pc = target as u16;
+                                    expected.pbr = (target >> 16) as u8;
+                                    assert_eq!(h.cpu.registers(), expected);
+                                    assert_eq!(h.cpu.cycles() - cycles, cost);
+                                    assert_eq!(h.bus.writes.len(), writes);
+                                    assert!(h.bus.reads[reads..].iter().all(|a| {
+                                        (work.address..work.address + work.size).contains(a)
+                                    }));
+                                    records.push(serde_json::json!({"edge":id,"input":value,"i":mask,"pc":pc,"target":target,"sites":sites,"cycles":cost,"data_reads":0,"writes":0}));
+                                    advanced |= count > 0;
                                 }
-                                assert_eq!(actual_sites, sites);
-                                let mut expected = before;
-                                expected.pc = target as u16;
-                                expected.pbr = (target >> 16) as u8;
-                                assert_eq!(h.cpu.registers(), expected);
-                                assert_eq!(h.cpu.cycles() - cycles, if count == 1 { 4 } else { 7 });
-                                assert_eq!(h.bus.writes.len(), writes);
-                                assert!(
-                                    h.bus.reads[reads..]
-                                        .iter()
-                                        .all(|a| (work.address..work.address + work.size)
-                                            .contains(a))
-                                );
-                                records.push(serde_json::json!({"input":value,"i":mask,"pc":pc,"target":target,"sites":sites,"cycles":h.cpu.cycles()-cycles,"data_reads":0,"writes":0}));
-                                continue;
+                                if advanced {
+                                    continue;
+                                }
                             }
                         }
                         h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
@@ -204,7 +201,7 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
                     assert_eq!(h.bus.value(0x7210, 1), 0xcc);
                 }
             }
-            assert_eq!(seen, edges.keys().copied().collect());
+            assert_eq!(seen, (0..4).collect());
             if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
                 let path = std::path::Path::new(&directory);
                 std::fs::write(

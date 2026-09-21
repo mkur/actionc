@@ -774,7 +774,7 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         assert_eq!(
             windows
                 .iter()
-                .filter(|w| w.edges[0].len() == 1 && w.edges[1].len() == 2)
+                .filter(|w| w.edges[0].len() == 1 && w.edges[1].len() == 1)
                 .count(),
             5,
             "all empty false/true transfers must remain in IRQ coverage"

@@ -82,6 +82,7 @@ struct Builder<'a> {
     frame: AllocatedFrame,
     code: TrackedEmitter65816,
     blocks: BTreeMap<BlockId, Label>,
+    next_block: Option<BlockId>,
 }
 
 pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<MachineRoutine, String> {
@@ -90,6 +91,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         frame: AllocatedFrame::new(routine)?,
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
+        next_block: None,
     };
     #[cfg(feature = "native65816-state-proof")]
     if _trace {
@@ -174,6 +176,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
     b.code.prove_entries(predecessors, reachable);
     let sole_conditions = liveness::sole_branch_conditions(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
+        b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
         b.code.mark(b.blocks[&block.id]);
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
@@ -196,7 +199,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         let start = b.code.code().bytes.len();
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
-            Mir65816Terminator::Goto(edge) => b.edge(edge)?,
+            Mir65816Terminator::Goto(edge) => b.edge_last(edge)?,
             Mir65816Terminator::Branch {
                 condition,
                 then_edge,
@@ -210,7 +213,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
                 b.code.branch(Branch::NotEqual, yes); // BNE
                 b.edge(else_edge)?;
                 b.code.mark(yes);
-                b.edge(then_edge)?;
+                b.edge_last(then_edge)?;
             }
             Mir65816Terminator::Return { value, .. } => b.return_value(value.as_ref())?,
             Mir65816Terminator::Fallthrough => {
@@ -218,7 +221,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
                     .blocks
                     .get(index + 1)
                     .ok_or("unresolved terminal fallthrough")?;
-                b.edge(&Mir65816Edge {
+                b.edge_last(&Mir65816Edge {
                     target: next.id,
                     args: vec![],
                 })?;
@@ -489,7 +492,7 @@ impl Builder<'_> {
         // Each edge still stages parallel arguments before writing destinations.
         self.edge(else_edge)?;
         self.code.mark(yes);
-        self.edge(then_edge)?;
+        self.edge_last(then_edge)?;
         Ok(true)
     }
     fn word_compare(
@@ -1024,7 +1027,7 @@ impl Builder<'_> {
         }
         Ok(supported.then_some(WordEdge { target, moves }))
     }
-    fn emit_word_edge(&mut self, edge: WordEdge) {
+    fn emit_word_edge(&mut self, edge: WordEdge, fallthrough: bool) {
         self.code.barrier();
         self.code.a16();
         if let &[(source, _, destination)] = edge.moves.as_slice() {
@@ -1035,7 +1038,7 @@ impl Builder<'_> {
                 WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
             }
             self.code.byte(ByteOp::StaStack, destination);
-            self.code.jump(edge.target);
+            self.finish_edge(edge.target, fallthrough);
             return;
         }
         for &(source, staging, _) in &edge.moves {
@@ -1049,12 +1052,25 @@ impl Builder<'_> {
             self.code.byte(ByteOp::LdaStack, staging);
             self.code.byte(ByteOp::StaStack, destination);
         }
-        self.code.jump(edge.target);
+        self.finish_edge(edge.target, fallthrough);
     }
     fn edge(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
+        self.edge_transfer(edge, false)
+    }
+    fn edge_last(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
+        self.edge_transfer(edge, self.next_block == Some(edge.target))
+    }
+    fn finish_edge(&mut self, target: Label, fallthrough: bool) {
+        if fallthrough {
+            self.code.fallthrough(target);
+        } else {
+            self.code.jump(target);
+        }
+    }
+    fn edge_transfer(&mut self, edge: &Mir65816Edge, fallthrough: bool) -> Result<(), String> {
         self.code.barrier();
         if let Some(word) = self.word_edge(edge)? {
-            self.emit_word_edge(word);
+            self.emit_word_edge(word, fallthrough);
             return Ok(());
         }
         let block = self
@@ -1074,7 +1090,7 @@ impl Builder<'_> {
             // No copies need A8. Keep the successor's A16 contract, including
             // at branch labels where local mode knowledge has been invalidated.
             self.code.a16();
-            self.code.jump(target);
+            self.finish_edge(target, fallthrough);
             return Ok(());
         }
         self.code.a8();
@@ -1098,7 +1114,7 @@ impl Builder<'_> {
             }
         }
         self.code.a16();
-        self.code.jump(self.blocks[&edge.target]);
+        self.finish_edge(self.blocks[&edge.target], fallthrough);
         Ok(())
     }
     fn operation(&mut self, op: &Mir65816Op) -> Result<(), String> {

@@ -8,6 +8,19 @@ fn redundant_native_rep_omission_preserves_hidden_lane_flags_and_memory() {
     let after = assemble("sta 2,s\nstp\nnop", 0x040000);
     assert_eq!(&before[..2], &[0xc2, 0x20]);
     assert_eq!(&before[2..], after);
+    equivalent_without_transfer(&before, &after, 3);
+}
+
+#[test]
+fn adjacent_jml_omission_preserves_live_a_flags_and_memory() {
+    let before = assemble("jml next\nnext: sta 2,s\nstp\nnop", 0x040000);
+    let after = assemble("sta 2,s\nstp\nnop", 0x040000);
+    assert_eq!(&before[..4], &[0x5c, 4, 0, 4]);
+    assert_eq!(&before[4..], after);
+    equivalent_without_transfer(&before, &after, 4);
+}
+
+fn equivalent_without_transfer(before: &[u8], after: &[u8], saved: u64) {
     for a in [0u16, 0xff, 0x100, 0x8000, 0xabcd, 0xffff] {
         for p in (0..=255u8).filter(|p| p & 0x38 == 0) {
             let initial = Registers {
@@ -47,9 +60,9 @@ fn redundant_native_rep_omission_preserves_hidden_lane_flags_and_memory() {
                 );
                 (cpu.cycles(), bus.writes)
             };
-            let (bc, bw) = run(&before);
-            let (ac, aw) = run(&after);
-            assert_eq!(bc - ac, 3);
+            let (bc, bw) = run(before);
+            let (ac, aw) = run(after);
+            assert_eq!(bc - ac, saved);
             assert_eq!(bw, aw);
         }
     }

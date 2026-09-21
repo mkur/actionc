@@ -205,12 +205,20 @@ multi-word per-byte private stack traffic are unchanged. Each direct single-word
 copy removes two private stack byte reads and two writes; word loads read both
 bytes before the corresponding store.
 
-Empty edges validate the target and arity, restore A16 only when local mode
-knowledge requires it, and emit the existing typed JML. They never select A8.
+Empty edges validate the target and arity and restore A16 only when local mode
+knowledge requires it. They never select A8.
 Known A16 needs no mode instruction; A8 or unknown knowledge requires REP #$20.
 Internal branch labels still revoke omission permission. This changes no branch decision,
-nonempty copy, stack guard, frame, register value or data-memory access; it does
-not introduce fallthrough elimination, jump threading or branch relaxation.
+nonempty copy, stack guard, frame, register value or data-memory access.
+
+All MIR edges retain a typed logical transfer identity. A final Goto/Fallthrough
+or final true arm may omit JML when the intended successor is the physically
+next MIR block, after all required assignments. The pending target must be the
+next binding; intervening instructions, other labels and unfinished fallthrough
+are rejected. The path remains logically closed and the successor retains its
+normal barriers and width contract. Earlier false arms, internal labels, calls,
+fault transfers and backedges retain JML. Block order, copy scheduling, staging
+reservations and conditional encodings are unchanged; no jump threading occurs.
 
 ### Scalar instruction selection
 

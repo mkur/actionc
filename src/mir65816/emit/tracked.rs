@@ -53,6 +53,7 @@ pub(super) struct TrackedEmitter65816 {
     proved_blocks: BTreeSet<Label>,
     remaining_edges: Option<BTreeMap<Label, BTreeMap<Option<Label>, usize>>>,
     active_block: Option<Label>,
+    pending_fallthrough: Option<Label>,
     unreachable: bool,
     indirect_resume: Option<(Label, Environment)>,
     #[cfg(feature = "native65816-state-proof")]
@@ -95,6 +96,10 @@ impl TrackedEmitter65816 {
         &self.code
     }
     pub fn finish(self) -> Code {
+        assert!(
+            self.pending_fallthrough.is_none(),
+            "unbound fallthrough target"
+        );
         if let Some(edges) = &self.remaining_edges {
             assert!(
                 edges.values().all(|p| p.values().all(|&n| n == 0)),
@@ -217,6 +222,9 @@ impl TrackedEmitter65816 {
         }
     }
     pub fn mark(&mut self, label: Label) {
+        if let Some(target) = self.pending_fallthrough.take() {
+            assert_eq!(target, label, "fallthrough must bind the next MIR block");
+        }
         if !self.unreachable {
             self.edge(label);
         }
@@ -524,16 +532,30 @@ impl TrackedEmitter65816 {
             Event::Instruction
         });
     }
-    pub fn jump(&mut self, label: Label) {
+    fn record_transfer(&mut self, label: Label, fallthrough: bool) {
         if self.blocks.contains(&label) {
             self.code.mir_transfers.push(MirTransfer {
                 source: self.active_block.expect("MIR transfer source"),
                 target: label,
                 offset: self.position(),
-                fallthrough: false,
+                fallthrough,
             });
         }
+    }
+    pub fn jump(&mut self, label: Label) {
+        self.record_transfer(label, false);
         self.reference(ReferenceOp::Jml, Target::Label(label), 0, None);
+    }
+    pub fn fallthrough(&mut self, label: Label) {
+        self.live();
+        assert!(
+            self.blocks.contains(&label),
+            "fallthrough requires a MIR block"
+        );
+        self.edge(label);
+        self.record_transfer(label, true);
+        self.unreachable = true;
+        self.pending_fallthrough = Some(label);
     }
     pub fn branch(&mut self, op: Branch, label: Label) {
         self.live();
