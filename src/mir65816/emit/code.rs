@@ -24,6 +24,15 @@ pub struct Fixup {
     pub byte: Option<u8>,
 }
 
+/// Nonserialized MIR transfer identity, retained even for a zero-byte transfer.
+#[derive(Debug, Clone, Copy)]
+pub struct MirTransfer {
+    pub source: Label,
+    pub target: Label,
+    pub offset: usize,
+    pub fallthrough: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Code {
     pub bytes: Vec<u8>,
@@ -34,6 +43,7 @@ pub struct Code {
     /// Nonserialized proof metadata: MIR operation index (or ops.len() for the
     /// terminator) to emitted range. A fused final compare includes its edges.
     pub mir_spans: BTreeMap<(BlockId, usize), std::ops::Range<usize>>,
+    pub mir_transfers: Vec<MirTransfer>,
     next_label: u32,
     #[cfg(feature = "native65816-state-proof")]
     pub(in super::super) state_trace: Vec<super::super::proof::Snapshot>,

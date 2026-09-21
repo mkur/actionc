@@ -5,6 +5,7 @@ use std::ops::Range;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Window {
     pub direct: bool,
+    pub fallthrough: bool,
     pub sites: Vec<u32>,
     pub moves: Vec<((bool, u16), u8, u8)>, // source, staging, destination
     pub target: u32,
@@ -25,7 +26,10 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         pc += 2;
     }
     let mut pairs = vec![];
-    while pc + 2 <= end && bus.ram[pc as usize] != 0x5c {
+    while pc + 2 <= end
+        && bus.ram[pc as usize] != 0x5c
+        && control_flow::transfer(bus, pc, &range).is_none()
+    {
         let stack = bus.ram[pc as usize] == 0xa3;
         if !stack && bus.ram[pc as usize] != 0xa9 {
             return None;
@@ -43,10 +47,14 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         pairs.push(((stack, source), destination));
         pc += size + 2;
     }
-    if pairs.is_empty() || pairs.len() % 2 != 0 || pc + 4 > end {
+    if pairs.is_empty() || pairs.len() % 2 != 0 {
         return None;
     }
-    let target = bus.value(pc + 1, 3);
+    let (target, transfer_end, fallthrough) =
+        control_flow::transfer(bus, pc, &range).or_else(|| {
+            (pc + 4 <= end && bus.ram[pc as usize] == 0x5c)
+                .then(|| (bus.value(pc + 1, 3), pc + 4, false))
+        })?;
     if !range.contains(&target) {
         return None;
     }
@@ -75,13 +83,16 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         }
         moves.push((source, stage, dest));
     }
-    sites.push(pc);
+    if !fallthrough {
+        sites.push(pc);
+    }
     Some(Window {
         direct: false,
+        fallthrough,
         sites,
         moves,
         target,
-        end: pc + 4,
+        end: transfer_end,
     })
 }
 
@@ -113,6 +124,7 @@ pub struct Site {
     pub destination: u8,
     pub target: u32,
     pub direct: bool,
+    pub fallthrough: bool,
 }
 pub type Index = std::collections::BTreeMap<u32, Site>;
 
@@ -201,21 +213,25 @@ pub fn index(
                 expected.push((target as u32, source, destination));
             }
             let mut found = 0;
-            for f in &m.code.fixups {
-                let Target::Label(label) = f.target else {
-                    continue;
-                };
-                if !(lo..hi).contains(&(f.offset - 1)) || !expected.iter().any(|e| e.0 == label.0) {
+            for transfer in &m.code.mir_transfers {
+                let label = transfer.target;
+                if transfer.source != Label(bi as u32) || !expected.iter().any(|e| e.0 == label.0) {
                     continue;
                 }
-                assert_eq!(
-                    (m.code.bytes[f.offset - 1], f.addend, f.byte),
-                    (0x5c, 0, None)
-                );
+                assert!((lo..=hi).contains(&transfer.offset));
+                if transfer.fallthrough {
+                    assert_eq!(m.code.labels[&label], transfer.offset);
+                } else {
+                    assert_eq!(m.code.bytes[transfer.offset], 0x5c);
+                    assert!(m.code.fixups.iter().any(|f| f.offset == transfer.offset + 1
+                        && f.target == Target::Label(label)
+                        && f.addend == 0
+                        && f.byte.is_none()));
+                }
                 let stage = m.frame.edge_copies[0];
                 assert_eq!(stage.width, 4);
                 let staging: u8 = stage.offset.try_into().unwrap();
-                let jump = f.offset - 1;
+                let jump = transfer.offset;
                 let mut matched = None;
                 for &(_, source, destination) in expected.iter().filter(|e| e.0 == label.0) {
                     let load = if source.0 {
@@ -243,6 +259,7 @@ pub fn index(
                                 destination,
                                 target: base + m.code.labels[&label] as u32,
                                 direct,
+                                fallthrough: transfer.fallthrough,
                             });
                             break;
                         }
@@ -277,7 +294,8 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         || s.load != load
         || !range.contains(&s.target)
         || !range.contains(&pc)
-        || s.jump + 4 > range.end
+        || s.jump + if s.fallthrough { 0 } else { 4 } > range.end
+        || (s.fallthrough && s.target != s.jump)
         || !(1..=254).contains(&s.destination)
         || (s.source.0 && !(1..=254).contains(&s.source.1))
     {
@@ -289,8 +307,11 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         vec![0xa9, s.source.1 as u8, (s.source.1 >> 8) as u8]
     };
     let store = load + bytes.len() as u32;
-    bytes.extend([0x83, s.destination, 0x5c]);
-    bytes.extend(&s.target.to_le_bytes()[..3]);
+    bytes.extend([0x83, s.destination]);
+    if !s.fallthrough {
+        bytes.push(0x5c);
+        bytes.extend(&s.target.to_le_bytes()[..3]);
+    }
     if store + 2 != s.jump
         || load + bytes.len() as u32 > range.end
         || bus.ram[load as usize..load as usize + bytes.len()] != bytes
@@ -298,12 +319,16 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         return None;
     }
     let mut sites = if prefix { vec![pc] } else { vec![] };
-    sites.extend([load, store, s.jump]);
+    sites.extend([load, store]);
+    if !s.fallthrough {
+        sites.push(s.jump);
+    }
     Some(Window {
         direct: true,
+        fallthrough: s.fallthrough,
         sites,
         moves: vec![(s.source, s.staging, s.destination)],
         target: s.target,
-        end: s.jump + 4,
+        end: s.jump + if s.fallthrough { 0 } else { 4 },
     })
 }

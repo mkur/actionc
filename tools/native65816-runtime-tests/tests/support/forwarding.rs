@@ -33,7 +33,24 @@ pub struct Site {
     /// linker/relocator and independent source traffic probes, not frozen here.
     pub bytes: Vec<Option<u8>>,
 }
-pub type Index = BTreeMap<u32, Site>;
+/// Independent proof families travel together through existing image/o65 test
+/// adapters. Map operations still refer exclusively to word-forwarding sites.
+#[derive(Clone, Debug, Default)]
+pub struct Index {
+    words: BTreeMap<u32, Site>,
+    pub control: control_flow::Index,
+}
+impl std::ops::Deref for Index {
+    type Target = BTreeMap<u32, Site>;
+    fn deref(&self) -> &Self::Target {
+        &self.words
+    }
+}
+impl std::ops::DerefMut for Index {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.words
+    }
+}
 impl Site {
     pub fn forwarded(&self) -> bool {
         self.load.is_none()
@@ -122,7 +139,10 @@ pub fn index(
     address: impl Fn(RoutineId) -> u32,
 ) -> Index {
     actionc::mir65816::verify_program(mir).unwrap();
-    let mut out = Index::new();
+    let mut out = Index {
+        words: BTreeMap::new(),
+        control: control_flow::index(mir, machine, &address),
+    };
     for m in &machine.routines {
         let r = mir.routines.iter().find(|r| r.id == m.id).unwrap();
         let base = address(r.id);
@@ -317,7 +337,7 @@ pub fn o65(source: &str, optimize: bool) -> (Vec<u8>, Index) {
     (bytes, templates)
 }
 pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedImage) -> Index {
-    templates
+    let words = templates
         .values()
         .map(|s| {
             let r = image
@@ -329,5 +349,9 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
             let site = s.rebase(image.routine_address(r));
             (site.start, site)
         })
-        .collect()
+        .collect();
+    Index {
+        words,
+        control: control_flow::relocated(&templates.control, image),
+    }
 }

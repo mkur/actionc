@@ -432,6 +432,7 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                             destination,
                             target,
                             direct: true,
+                            fallthrough: false,
                         },
                     );
                     let w = word_edge::decode(&bus, 0x040000, 0x040000..target + 2).unwrap();

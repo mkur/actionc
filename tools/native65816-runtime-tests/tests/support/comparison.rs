@@ -230,15 +230,13 @@ pub fn fused_in_range(
             sites.push(pc);
             pc += 2;
         }
-        if pc + 6 > end || bus.ram[pc as usize..pc as usize + 3] != [0xc2, 0x20, 0x5c] {
+        if pc + 2 > end || bus.ram[pc as usize..pc as usize + 2] != [0xc2, 0x20] {
             return None;
         }
-        sites.extend([pc, pc + 2]);
-        let target = bus.value(pc + 3, 3);
-        if !range.contains(&target) {
-            return None;
-        }
-        Some((sites, target, pc + 6))
+        sites.push(pc);
+        let (tail, target, end) = empty_edge(bus, pc + 2, range.clone())?;
+        sites.extend(tail);
+        Some((sites, target, end))
     };
     let (false_sites, false_target, false_end) = edge(no)?;
     if yes != false_end {
@@ -273,13 +271,19 @@ pub fn empty_edge(
     mut pc: u32,
     range: std::ops::Range<u32>,
 ) -> Option<(Vec<u32>, u32, u32)> {
-    if !range.contains(&pc) || pc + 2 > range.end {
+    if !range.contains(&pc) {
         return None;
     }
     let mut sites = vec![];
-    if bus.ram[pc as usize..pc as usize + 2] == [0xc2, 0x20] {
+    if pc + 2 <= range.end && bus.ram[pc as usize..pc as usize + 2] == [0xc2, 0x20] {
         sites.push(pc);
         pc += 2;
+    }
+    if let Some((target, end, fallthrough)) = control_flow::transfer(bus, pc, &range) {
+        if !fallthrough {
+            sites.push(pc);
+        }
+        return Some((sites, target, end));
     }
     if pc + 4 > range.end || bus.ram[pc as usize] != 0x5c {
         return None;

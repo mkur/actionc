@@ -7,6 +7,124 @@ use actionc::mir65816::{
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
+#[derive(Clone, Debug)]
+pub struct Transfer {
+    pub routine: actionc::nir::RoutineId,
+    pub range: std::ops::Range<u32>,
+    pub at: u32,
+    pub target: u32,
+    pub fallthrough: bool,
+}
+pub type Index = Vec<Transfer>;
+
+pub fn index(
+    p: &Mir65816Program,
+    machine: &MachineProgram,
+    address: impl Fn(actionc::nir::RoutineId) -> u32,
+) -> Index {
+    let mut out = vec![];
+    for m in &machine.routines {
+        let r = p.routines.iter().find(|r| r.id == m.id).unwrap();
+        let base = address(r.id);
+        let mut expected = vec![];
+        for (i, b) in r.blocks.iter().enumerate() {
+            let targets = match &b.terminator {
+                Mir65816Terminator::Goto(e) => vec![e.target],
+                Mir65816Terminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                } => vec![else_edge.target, then_edge.target],
+                Mir65816Terminator::Fallthrough => vec![r.blocks[i + 1].id],
+                _ => vec![],
+            };
+            expected.extend(targets.into_iter().map(|id| {
+                (
+                    Label(i as u32),
+                    Label(r.blocks.iter().position(|b| b.id == id).unwrap() as u32),
+                )
+            }));
+        }
+        assert_eq!(
+            expected,
+            m.code
+                .mir_transfers
+                .iter()
+                .map(|e| (e.source, e.target))
+                .collect::<Vec<_>>()
+        );
+        for e in &m.code.mir_transfers {
+            let target = m.code.labels[&e.target];
+            if e.fallthrough {
+                assert_eq!(e.offset, target);
+                assert!(
+                    !m.code
+                        .fixups
+                        .iter()
+                        .any(|f| f.offset == e.offset + 1 && f.target == Target::Label(e.target))
+                );
+            } else {
+                assert_eq!(m.code.bytes[e.offset], 0x5c);
+                assert!(m.code.fixups.iter().any(|f| f.offset == e.offset + 1
+                    && f.target == Target::Label(e.target)
+                    && f.addend == 0
+                    && f.byte.is_none()));
+            }
+            out.push(Transfer {
+                routine: r.id,
+                range: base..base + m.code.bytes.len() as u32,
+                at: base + e.offset as u32,
+                target: base + target as u32,
+                fallthrough: e.fallthrough,
+            });
+        }
+    }
+    out
+}
+
+pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedImage) -> Index {
+    templates
+        .iter()
+        .map(|s| {
+            let r = image
+                .profile()
+                .routines
+                .iter()
+                .find(|r| r.id == s.routine.0)
+                .unwrap();
+            let base = image.routine_address(r);
+            Transfer {
+                range: base..base + (s.range.end - s.range.start),
+                at: base + s.at - s.range.start,
+                target: base + s.target - s.range.start,
+                ..s.clone()
+            }
+        })
+        .collect()
+}
+
+/// Metadata locates a transfer; the final bytes still establish its encoding.
+pub fn transfer(
+    bus: &super::Bus,
+    at: u32,
+    range: &std::ops::Range<u32>,
+) -> Option<(u32, u32, bool)> {
+    let site = bus
+        .forwarded_words
+        .control
+        .iter()
+        .find(|s| s.at == at && &s.range == range)?;
+    if !range.contains(&site.target) {
+        return None;
+    }
+    if site.fallthrough {
+        (site.target == at).then_some((at, at, true))
+    } else {
+        (at + 4 <= range.end && bus.ram[at as usize] == 0x5c && bus.value(at + 1, 3) == site.target)
+            .then_some((site.target, at + 4, false))
+    }
+}
+
 pub fn inventory(p: &Mir65816Program, machine: &MachineProgram, image: &Image) -> Vec<Value> {
     verify_program(p).unwrap();
     let mut out = vec![];

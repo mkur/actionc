@@ -3,7 +3,7 @@
 use super::{BlockId, Slot, TempId, state::*};
 #[path = "code.rs"]
 mod encoding;
-pub use encoding::{Code, Fixup, Label, Target};
+pub use encoding::{Code, Fixup, Label, MirTransfer, Target};
 use std::collections::{BTreeMap, BTreeSet};
 
 macro_rules! instruction_set {
@@ -525,6 +525,14 @@ impl TrackedEmitter65816 {
         });
     }
     pub fn jump(&mut self, label: Label) {
+        if self.blocks.contains(&label) {
+            self.code.mir_transfers.push(MirTransfer {
+                source: self.active_block.expect("MIR transfer source"),
+                target: label,
+                offset: self.position(),
+                fallthrough: false,
+            });
+        }
         self.reference(ReferenceOp::Jml, Target::Label(label), 0, None);
     }
     pub fn branch(&mut self, op: Branch, label: Label) {

@@ -10,7 +10,7 @@ mod tracked;
 
 use super::*;
 pub use allocation::{AllocatedFrame, Location, Slot};
-pub use tracked::{Code, Fixup, Label, Target};
+pub use tracked::{Code, Fixup, Label, MirTransfer, Target};
 
 #[derive(Debug, Clone)]
 pub struct MachineRoutine {
