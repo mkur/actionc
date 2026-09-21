@@ -5,7 +5,7 @@ Status: implementation in progress.
 | Slice | Status | Checks |
 | --- | --- | --- |
 | 1: relocation facts/profile | Complete | 39 existing root checks, 3 o65 checks; native execution/memory/interop/indirect/stack faults |
-| 2: writer | Pending | |
+| 2: writer | Complete | 6 o65 tests; independent Python decoding, vasm fixture, wide fields/carry/gap/index checks |
 | 3: reference relocator | Pending | |
 | 4: CLI integration | Pending | |
 | 5: execution qualification | Pending | |

@@ -3,3 +3,8 @@ mod prepare;
 pub mod profile;
 pub use prepare::{Artifact, prepare};
 pub use profile::{Binding, Options};
+
+mod descriptor;
+pub mod wire;
+mod write;
+pub use write::write;
