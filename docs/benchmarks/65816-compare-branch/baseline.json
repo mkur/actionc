@@ -1,0 +1,80 @@
+{
+  "date": "2026-09-21",
+  "scope": "Verified baseline before adjacent word compare-to-branch fusion",
+  "comparison_snapshot": "docs/benchmarks/65816-word-comparisons/after",
+  "compiler_revision": "51e5bc7d4a21d36f22c96e38c2a9075c11aa4bf6",
+  "tools": {
+    "actionc": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+      "sha256": "9a3d846d6aa5fd2174b24b0213c81073b4bace29535976586209951787f6d56d"
+    },
+    "vbcc": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vbcc65816",
+      "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+    },
+    "vasm": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vasm6502_oldstyle",
+      "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+    },
+    "vlink": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vlink",
+      "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+    }
+  },
+  "saved_artifacts_verified": 56,
+  "saved_file_hashes_verified": 224,
+  "paired_mask_records": 264,
+  "baseline_measurement_sha256": {
+    "manifest.json": "446c0814aa1d6f0b45ed0762ac4642e3df345757930bb1ceb2052d42c676845d",
+    "debug.json": "a205a23d188b8eae13fbfb5784189f7647426a760fdadf3ee7fc3ec9479c1ac6",
+    "release.json": "a205a23d188b8eae13fbfb5784189f7647426a760fdadf3ee7fc3ec9479c1ac6"
+  },
+  "baseline_snapshot_sha256": {
+    "docs/benchmarks/65816-word-comparisons/after/add.optimized.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-word-comparisons/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-word-comparisons/after/add.raw.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-word-comparisons/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-word-comparisons/after/identity.optimized.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-word-comparisons/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-word-comparisons/after/identity.raw.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-word-comparisons/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-word-comparisons/after/maximum.optimized.actionc.lst": "f08b212cd7d3f8bf5a074c6d98aaa50b03287144f24007bb21ab3e373cbb347c",
+    "docs/benchmarks/65816-word-comparisons/after/maximum.optimized.vbcc.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "docs/benchmarks/65816-word-comparisons/after/maximum.raw.actionc.lst": "f08b212cd7d3f8bf5a074c6d98aaa50b03287144f24007bb21ab3e373cbb347c",
+    "docs/benchmarks/65816-word-comparisons/after/maximum.raw.vbcc.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "docs/benchmarks/65816-word-comparisons/after/provenance.json": "f005b5d1ab2e29d8c3aa19b734463d1df57cce8bbdb2814239a6c19f85dd6b7f",
+    "docs/benchmarks/65816-word-comparisons/after/results.csv": "3ba3b8d20b267aec0f63c20b960b5aa0ec661e3a45a6f7d7b8d36b9f96455835",
+    "docs/benchmarks/65816-word-comparisons/after/subtract.optimized.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-word-comparisons/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-word-comparisons/after/subtract.raw.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-word-comparisons/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-word-comparisons/after/sum_loop.optimized.actionc.lst": "4b45e7b6cdfbe4b49401b94e925557fb06f2491997b6d695947d4ec648fb514a",
+    "docs/benchmarks/65816-word-comparisons/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-word-comparisons/after/sum_loop.raw.actionc.lst": "6e6740c6296d87609b03c09e815b25f1bc4961e7fe8b0c2fc62a6a43eb650a01",
+    "docs/benchmarks/65816-word-comparisons/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-word-comparisons/after/tables.md": "70e104d549ab3102ccede55b7ca5257d3aa23cf9e7fa753175ad92c7420aaf2f",
+    "docs/benchmarks/65816-word-comparisons/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-word-comparisons/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-word-comparisons/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-word-comparisons/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8"
+  },
+  "baseline_emitter_sha256": "fe558a98009b89f85996a10e800c75a78663fe96e157fb37ddd6850b5649ebf6",
+  "semantic_test_sha256": "93707a333dca30cd3875321ae3e8e844a0528fbf962b272dfe566bc6af329181",
+  "semantic_tests_per_host_build": 3,
+  "semantic_machine_runs_per_host_build": 832,
+  "lf_crlf_image_pairs": 8,
+  "expected_fusions_sha256": "eb059499e0350a33728473d7a38c256cf891dbf8d651847e1b40c179965b3fa1",
+  "count_proof": "maximum 1; loop rotation 9; sum/recursive/byte sum n+1; forward copy count+1. One sole adjacent condition confirmed per kernel/mode by compiler use-query test. Counts must also match reached decoded machine sequences.",
+  "known_comparison_failure": "Optimized vbcc unlink, vector 0, both incoming I states; retained, no exemption.",
+  "checks": "Native comparison/edge/effect baseline: 3 tests, 832 executions per host build, passing debug and release via qualify.py. Native library tests: 24 plus the subsequently added corpus proof test pass. No emission change.",
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-f61odskw/manifest.json",
+      "sha256": "7d70e684d945f56f3e69bd0a245af3f52f0c12e4a418df630006cf95d97587de"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-bvntczfs/manifest.json",
+      "sha256": "159a182e82d1f8a4ef6baac464e8e8d67a6d9fdb612f9f32e353c552d2cf2ae3"
+    }
+  }
+}

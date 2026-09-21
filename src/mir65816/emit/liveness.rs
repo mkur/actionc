@@ -5,6 +5,53 @@ use std::collections::{BTreeMap, BTreeSet};
 type Live = BTreeSet<TempId>;
 pub(super) type Interference = BTreeMap<TempId, Live>;
 
+/// Temps whose only input occurrence is one Branch condition. This deliberately
+/// includes unreachable blocks and distinguishes edge arguments from conditions.
+/// Adjacency and checked machine operands are separate selector requirements.
+#[allow(dead_code)] // Used by selection in the next implementation slice.
+pub(super) fn sole_branch_conditions(routine: &Mir65816Routine) -> Live {
+    let mut conditions = BTreeMap::<TempId, usize>::new();
+    let mut other = Uses::default();
+    for block in &routine.blocks {
+        for op in &block.ops {
+            other.inputs.extend(Uses::operation(op).inputs);
+        }
+        let edges = match &block.terminator {
+            Mir65816Terminator::Branch {
+                condition,
+                then_edge,
+                else_edge,
+            } => {
+                if let Mir65816Value::Temp(id, _) = condition {
+                    *conditions.entry(*id).or_default() += 1;
+                }
+                vec![then_edge, else_edge]
+            }
+            Mir65816Terminator::Goto(edge) => vec![edge],
+            Mir65816Terminator::Return { value, .. } => {
+                if let Some(value) = value {
+                    other.value(value);
+                }
+                vec![]
+            }
+            Mir65816Terminator::Fallthrough | Mir65816Terminator::Exit => vec![],
+        };
+        for edge in edges {
+            for value in &edge.args {
+                other.value(value);
+            }
+        }
+    }
+    conditions
+        .into_iter()
+        .filter_map(|(id, count)| (count == 1 && !other.inputs.contains(&id)).then_some(id))
+        .collect()
+}
+
+#[cfg(test)]
+#[path = "branch_use_tests.rs"]
+mod branch_use_tests;
+
 #[derive(Default)]
 struct Uses {
     inputs: Live,

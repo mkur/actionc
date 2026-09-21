@@ -1,0 +1,408 @@
+[
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 1
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 1
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 5,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 9
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 5,
+    "count": 9
+  },
+  {
+    "case": "sum_loop",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "sum_loop",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 2
+  },
+  {
+    "case": "sum_loop",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "sum_loop",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 14
+  },
+  {
+    "case": "sum_loop",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 32
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 2
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 14
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 32
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 2
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 14
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 2
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 14
+  },
+  {
+    "case": "byte_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "byte_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 2
+  },
+  {
+    "case": "byte_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 5
+  },
+  {
+    "case": "byte_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 9
+  },
+  {
+    "case": "byte_sum",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 17
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 1
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 2
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 5
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 9
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "count": 17
+  },
+  {
+    "case": "forward_copy",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 9
+  },
+  {
+    "case": "forward_copy",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 9
+  },
+  {
+    "case": "forward_copy",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "forward_copy",
+    "mode": "raw",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 1
+  },
+  {
+    "case": "forward_copy",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "count": 9
+  },
+  {
+    "case": "forward_copy",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "count": 9
+  },
+  {
+    "case": "forward_copy",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "count": 9
+  },
+  {
+    "case": "forward_copy",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "count": 1
+  }
+]
