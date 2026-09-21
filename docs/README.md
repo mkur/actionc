@@ -54,11 +54,14 @@ crowding the active reference set.
   - Native scalar emission, freestanding image/assembly interfaces, checked
     allocation, execution evidence and the initial driver's supported subset.
 - [MIR65816_STATE_TRACKER_DESIGN.md](MIR65816_STATE_TRACKER_DESIGN.md)
-  - Proposed instruction-aware native state tracking based on the 6502 emitter:
+  - Instruction-aware native state tracking based on the 6502 emitter:
     register/flag/width facts, memory ownership, barriers and staged integration.
 - [MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md)
-  - First state-tracker slice: typed emission, checked mode/stack contracts,
+  - Completed first state-tracker slice: typed emission, checked mode/stack contracts,
     unchanged forwarding policy and byte-identical qualification.
+- [MIR65816_STATE_TRACKER.md](MIR65816_STATE_TRACKER.md)
+  - Qualified tracker integration: identical code and measurements, independent
+    register/flag/home traces, preserved interrupts, relocation and stack guards.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.

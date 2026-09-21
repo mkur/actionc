@@ -1,13 +1,14 @@
 # Native 65816 processor-state tracking
 
-Status: proposed design, 2026-09-21, based on main `956facf`. This note builds on
-the implemented [local accumulator forwarding](MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md)
-and the existing 6502 tracked emitter. It specifies a direction and staged
-acceptance criteria; it does not claim the broader tracker is implemented.
+Status: stages 1–2 implemented and qualified on 2026-09-21. The
+[implementation results](MIR65816_STATE_TRACKER.md) record the byte-identical
+integration. Broader forwarding, width omission across blocks, register
+allocation and DP-content reuse remain later stages of this design.
 
-The [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) makes
-stages 1–2 concrete, with a rechecked baseline, instruction-boundary migration,
-mode/stack contracts and strict unchanged-output qualification.
+The [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) defines
+the completed foundation and its unchanged-output acceptance criteria. The
+[6502 tracked emitter](../src/codegen/tracked_emitter.rs) supplied the ownership
+and proof-query pattern; native state uses separate width and storage models.
 
 ## Purpose and boundary
 
@@ -62,28 +63,30 @@ until two proven implementations demonstrate a useful common interface.
 
 ## Current native state and proposed structure
 
-Today [Code](../src/mir65816/emit/code.rs) tracks A8/A16/unknown and clears width
-knowledge at every label. [ResidentWord](../src/mir65816/emit/accumulator.rs)
-certifies one private word in A16 and its N/Z, using TempId, exact stack slot,
-zero transient displacement and an unchanged byte/label cursor.
-[Builder](../src/mir65816/emit/select.rs) separately maintains transient stack
-displacement. There is no instruction-level X/Y, carry, DP-content or join
-analysis. Current safety comes partly from rejecting every intervening
-instruction, including ones which happen to preserve the needed facts.
+[TrackedEmitter65816](../src/mir65816/emit/tracked.rs) now owns the mutable encoder
+and [State65816](../src/mir65816/emit/state.rs). `Code` contains finalized bytes and
+proof metadata. The former `Code` width cache, `Builder.delta` and separate
+`ResidentWord` implementation have been removed. Selection retains the exact
+adjacent-word producer/consumer whitelist and complete operand preflight.
 
-Suggested private modules under `src/mir65816/emit/`:
+The state observes A/X/Y, flags, private home contents and execution contracts.
+Its single-use adjacency witness still rejects every intervening instruction.
+DP-content reuse and value propagation across joins remain deferred. Import IRQ
+effects are resolved after selection, so the initial tracker conservatively
+forgets the entry I token at calls and joins.
+
+Implemented foundation modules under `src/mir65816/emit/`:
 
 | Module | Responsibility |
 | --- | --- |
-| `state.rs` (new) | State facts, invalidation, instruction transfer functions and proof predicates; no bytes or source semantics. |
-| `tracked.rs` (new) | Concrete instruction facade; precondition checks, encoding and application of the corresponding effects. |
-| `code.rs` | Byte/label/fixup storage and final proof metadata. Raw writes available only behind the facade once migration completes. |
+| `state.rs` | State facts, invalidation, instruction transfer functions and proof predicates; no bytes or source semantics. |
+| `tracked.rs` | Concrete instruction facade; precondition checks, encoding and application of the corresponding effects. |
+| `code.rs` | Byte/label/fixup storage and final proof metadata. Raw writes are available only behind the facade. |
 | `select.rs`, `accumulator.rs` | Checked target selection and producer/consumer eligibility. Request proofs and emit the chosen sequence. |
 
-The facade owns `Code` and `State65816`. Move width knowledge into that one
-state owner rather than keeping two independent width caches. Expose finalized
-`Code` to linking and qualification as today. Keep `Code.mir_spans` and typed
-fixups nonserialized and independent of optimization correctness.
+The facade owns `Code` and `State65816`; all width knowledge has one state owner.
+Finalized `Code` remains available to linking and qualification. `Code.mir_spans`
+and typed fixups remain nonserialized and independent of optimization correctness.
 
 A modeled instruction has a concrete opcode/addressing form, checked operand
 extent and explicit width requirements. Its encoding and transfer function
@@ -94,7 +97,7 @@ there is no need for a new public IR or a general CPU emulator.
 
 Separate encoding preconditions from optimization permissions. Existing fixed
 sequences, including internal guard labels, need checked width/stack contracts
-even where the current local width cache is unknown. Choosing a sixteen-bit
+even where a label has revoked mode-omission permission. Choosing a sixteen-bit
 immediate encoding is not evidence that the CPU is in A16. Validate those
 sequence contracts during migration; their proof must not silently enable new
 width omissions before the separate block-entry optimization is qualified.
@@ -251,8 +254,8 @@ introduced later, belong to target strategy and require independent tests.
 
 ## Control flow and preemption
 
-Initially every label forgets values, flags and local width knowledge exactly
-as today. Routine entry knowledge comes from the ABI, not from the previous
+Every label forgets value/flag optimization facts and local mode-omission
+permission. Checked execution-width contracts remain separate from that permission. Routine entry knowledge comes from the ABI, not from the previous
 emitted routine. Calls may establish only their declared return facts.
 
 A later width-only analysis may attach checked entry contracts to MIR blocks.
@@ -280,10 +283,10 @@ register/flag interval in both task domains and both incoming I states.
 
 ## Staged implementation and acceptance
 
-1. **State model and effect tests.** Add the private model and concrete effect
+1. **State model and effect tests (complete).** Add the private model and concrete effect
    vocabulary. Port the 6502 unknown/alias/barrier scenarios and add native
    width/range/stack cases. No instruction selection changes.
-2. **Byte-identical integration.** Route native emission through the facade,
+2. **Byte-identical integration (complete).** Route native emission through the facade,
    consolidate width knowledge and represent the existing ResidentWord proof
    in the new state. Retain the adjacency cursor and every existing eligibility
    gate as policy. Preserve all bytes, diagnostics, frame maps, fixups and proof
@@ -301,7 +304,7 @@ register/flag interval in both task domains and both incoming I states.
    coverage, then independently selected uses. Scalar DP allocation, cross-block
    values and loop residency still require their own plans and qualifications.
 
-Stages 1–2 are the recommended first implementation slice. Their acceptance
+Stages 1–2 are the completed first implementation slice. Their acceptance
 criterion is a trustworthy, centrally enforced state boundary with identical
 output, not a code-size gain. Stage 3 needs a fresh measurement-based plan;
 there is no evidence yet for a numerical saving beyond current forwarding.
@@ -317,7 +320,8 @@ Use [current forwarding qualification](abi/action65816-accumulator-forwarding-qu
 and its [saved corpus](benchmarks/65816-local-accumulator-forwarding/after/tables.md)
 as the integration baseline: 84 native tests per host mode, 302 matching saved
 artifacts, and 76 static forwarded sites. Recheck hashes at implementation time;
-this design note does not rerun or renew that qualification.
+the [new qualification](abi/action65816-state-tracker-qualification.json) records
+the completed implementation against this historical baseline.
 
 Required evidence for implementation:
 

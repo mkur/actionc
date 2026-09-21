@@ -1,0 +1,252 @@
+{
+  "date": "2026-09-21",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 3,
+  "scope": "State model and byte-identical typed emission integration; no additional optimization or lifetime extension",
+  "plan_commit": "5b7fec145ad2a06bf525bfbd46fead8b52c88902",
+  "implementation_commit": "d9e820dfb0ba1093c5c3d60b411cd11c80023de3",
+  "qualification_changes": "Final reports and documentation are in the containing commit. Native manifests name the pre-commit base; their source hashes match the committed implementation. CRLF qualification uses an isolated checkout of the implementation commit.",
+  "compiler_and_runtime_fixture_inventory": {
+    "files": 412,
+    "sha256": "1fa6c5f70faa0cfb9bf43d88e4045216653b288564a211f1ad2586ba91869249",
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase raw-file SHA-256, two spaces, path, LF"
+  },
+  "changed_code_and_test_sha256": {
+    "Cargo.toml": "ecd8a5b359794b28aa711e5095868e9ffbf5ef07ad2c5d536f169609895240a1",
+    "src/mir65816/emit/accumulator.rs": "d5fd5337b31652b47fd6e0d7d49c472d6af96399fc1929c7b8619b2ff54627c1",
+    "src/mir65816/emit/accumulator_tests.rs": "ef2bedfa6db48b9b073816ae695626c34bf5ae73755203336620627ac2ae3331",
+    "src/mir65816/emit/branch_tests.rs": "9da4abe879f70ed74cd6d7742bf5c334eb827c1b5eeca31da36ef20d740811d4",
+    "src/mir65816/emit/code.rs": "d581a00075a7d18ad6f47b7d85d8c75078c44ebfb519cb7bd1db7df870d9195c",
+    "src/mir65816/emit/compare_tests.rs": "fd1fb3f4d9ee76f07ace65200f3ad37b4e25d8d758013c92a14381383d5f62d4",
+    "src/mir65816/emit/edge_tests.rs": "020df0bc935a7eb2aa8fa383f9a663d754267c7417f9d3d9aa9f7a461ed5aa5f",
+    "src/mir65816/emit/mod.rs": "8b29883827a9ce40dae2b3ca9d7044f48238d59f4381afb8c3f5278f5ff4b708",
+    "src/mir65816/emit/proof.rs": "c0a0a1c733cd43dd38e24a1a878c61850ff30bf6fc1a4ae8e3d947107fc33da7",
+    "src/mir65816/emit/select.rs": "1baf5053d5b6a414cb4f738e2053b284da387a51a28c61a825d2bce4bb121a89",
+    "src/mir65816/emit/state.rs": "8c940dae8302f20d891244c605ed61725eb6ef4508e10c75d44d6880063e10a1",
+    "src/mir65816/emit/state_tests.rs": "7dceac39ca9e99773203976e867078afd0bfc7198047e9aaa6484c70a1f81468",
+    "src/mir65816/emit/tracked.rs": "f4838110f7eb0b8b567f5ccd35ecf0b1997675e01020c9c73198351abccdd507",
+    "src/mir65816/emit/word_tests.rs": "2d808455e66dee13a3207641b929c88698aa54141c6c15ca8066e8717d9acaad",
+    "tests/mir65816_state_boundary.rs": "676c33183bb433dbfd3c76577ad49a1f5f3d3a739aa8ed53e8732dd18820f555",
+    "tools/compare65816/check_state_tracker.py": "49ba8754413a76979d587cdd3bf823d071e86d38e33e82843a58e112bab4c322",
+    "tools/compare65816/test_state_tracker.py": "057fefd38dce0567e6f77a591229bb0051617f4c4e253dba1ba8047a8798be96",
+    "tools/native65816-runtime-tests/Cargo.toml": "12ebc81817c4d75a4a48003fe2df7cb91f7c005645ac120e3f22141beba71ff6",
+    "tools/native65816-runtime-tests/tests/state_tracking.rs": "f0b6d3dc6e81ef6cee0f58ab8b3b19b83f0ecfd98b4b37b04c22cc565e6b46d0"
+  },
+  "benchmark_sha256": {
+    "docs/benchmarks/65816-state-tracker/equality.json": "d776934ae1f6a032a572b27c21d8bee90811040285575bf6eca44be4cdf0bac9",
+    "docs/benchmarks/65816-state-tracker/baseline.json": "96d6ed6fbf97d608534278c4f9422835e3e202a8114b8a6ee9242f3a31c63482",
+    "docs/benchmarks/65816-state-tracker/instruction-inventory.md": "e730bbb686984dbb70e8a7228ce4bf1129312d44a2c4efdb327032e77eefe75e",
+    "docs/benchmarks/65816-state-tracker/after/byte_sum.optimized.actionc.lst": "e7ebc96119f2e4ad224e983b1ce60c05349beef9c59ebfced677c02ecf9c14c2",
+    "docs/benchmarks/65816-state-tracker/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-state-tracker/after/add.optimized.actionc.lst": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "docs/benchmarks/65816-state-tracker/after/tables.md": "18284d3e4d9f84a71a73a01dfa49c73a6da68f40711c0b4eda4153ee330f3583",
+    "docs/benchmarks/65816-state-tracker/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "docs/benchmarks/65816-state-tracker/after/add.raw.actionc.lst": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "docs/benchmarks/65816-state-tracker/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-state-tracker/after/provenance.json": "bf1ac7c3b1bbc1ed9d224e7e1f2df8d449b2e472db1f210e53bb4ff13318a77d",
+    "docs/benchmarks/65816-state-tracker/after/identity.raw.actionc.lst": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "docs/benchmarks/65816-state-tracker/after/loop_rotation.optimized.vbcc.lst": "a8a9879d093ef16b96c6cc47f32e7663b1e9bddad694a3ab9a917b866f28cf65",
+    "docs/benchmarks/65816-state-tracker/after/maximum.optimized.actionc.lst": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "docs/benchmarks/65816-state-tracker/after/loop_rotation.raw.actionc.lst": "aa1571c60102fda020ea30c5ef0a6a8b6503b9fedaf174a4928812e42363bab3",
+    "docs/benchmarks/65816-state-tracker/after/sum_loop.optimized.actionc.lst": "3787a2bc257732a0c1a8dae55f1b62a961e3e90e307266e478cdba3378d247f8",
+    "docs/benchmarks/65816-state-tracker/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-state-tracker/after/sum_loop.raw.actionc.lst": "cb42e64ebf44dd434790493a92618e1767c2a21a6d03760946d1cf236e504652",
+    "docs/benchmarks/65816-state-tracker/after/subtract.optimized.actionc.lst": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "docs/benchmarks/65816-state-tracker/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-state-tracker/after/byte_sum.optimized.vbcc.lst": "7ccc39ea5d269cc58f565fbc8747f516e4f13bdacc40cdcb8ba606d6d4ae8136",
+    "docs/benchmarks/65816-state-tracker/after/maximum.raw.vbcc.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "docs/benchmarks/65816-state-tracker/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-state-tracker/after/byte_sum.raw.actionc.lst": "3631e40ccb4bcde3d0a9d846d3afb3bcc6661692235f2d98762340fca481e00c",
+    "docs/benchmarks/65816-state-tracker/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-state-tracker/after/maximum.optimized.vbcc.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "docs/benchmarks/65816-state-tracker/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-state-tracker/after/loop_rotation.raw.vbcc.lst": "0648bc3815f35ccc8bf42a86ec95c3e0f928f58a0f4edf35ca4338a39e792ed5",
+    "docs/benchmarks/65816-state-tracker/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-state-tracker/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-state-tracker/after/loop_rotation.optimized.actionc.lst": "07df99dd6306206f5f1a57d6946325fde85b84db06f5fcf27b369121620f2330",
+    "docs/benchmarks/65816-state-tracker/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-state-tracker/after/results.csv": "17467c48e61c7a37767b206a2f3212dfa2173a0e2f86a3778c0054354413d8fa",
+    "docs/benchmarks/65816-state-tracker/after/subtract.raw.actionc.lst": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "docs/benchmarks/65816-state-tracker/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-state-tracker/after/maximum.raw.actionc.lst": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "docs/benchmarks/65816-state-tracker/after/byte_sum.raw.vbcc.lst": "fc3615ab52354e91cad4f842e357c05b74483f245aedfadccd8a01b06f454b1e",
+    "docs/benchmarks/65816-state-tracker/after/identity.optimized.actionc.lst": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "host": "macOS ARM64",
+  "checks": [
+    "cargo test --lib mir65816",
+    "cargo test --test mir65816_state_boundary --test mir65816_abi --test mir65816_contract --test mir65816_emission --test mir65816_o65 --test actionc_65816_cli --test actionc_65816_o65_cli",
+    "python3 tools/native65816-runtime-tests/qualify.py -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --release -- --nocapture",
+    "cargo build --release --bin actionc-65816",
+    "python3 tools/compare65816/corpus.py --check",
+    "python3 tools/compare65816/build.py --output target/state-tracker-after --verify-crlf",
+    "Both external code_quality host commands, saving all 264 paired-mask records before the known vbcc failure",
+    "python3 tools/compare65816/report.py --input target/state-tracker-after --output docs/benchmarks/65816-state-tracker/after",
+    "python3 tools/compare65816/check_state_tracker.py target/local-accumulator-forwarding-after target/state-tracker-after --baseline docs/benchmarks/65816-state-tracker/baseline.json --output docs/benchmarks/65816-state-tracker/equality.json",
+    "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/compare65816 -p test_*.py",
+    "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_disassemble65816.py",
+    "Isolated CRLF checkout: rebuild feature-enabled mir65816_state_boundary; qualify.py --test state_tracking",
+    "Changed Rust formatting, documentation links, git diff --check, baseline evidence hashes and original 140 local path hashes"
+  ],
+  "results": {
+    "compiler_unit": {
+      "passed": 49,
+      "failed": 0,
+      "ignored": 0
+    },
+    "compiler_integration": {
+      "passed": 59,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native": {
+      "debug": {
+        "passed": 88,
+        "failed": 0,
+        "ignored": 1
+      },
+      "release": {
+        "passed": 88,
+        "failed": 0,
+        "ignored": 1
+      }
+    },
+    "python_comparison": {
+      "passed": 18
+    },
+    "python_decoder": {
+      "passed": 5
+    },
+    "identical_native_artifacts": 374,
+    "unchanged_baseline_native_artifacts": 302,
+    "added_state_proof_artifacts": 72,
+    "code_and_measurement_equality": {
+      "records": 264,
+      "builds": 56,
+      "artifact_files": 224,
+      "complete_records_equal": true,
+      "artifacts_equal": true,
+      "external_failures": [
+        {
+          "case": "unlink",
+          "mode": "optimized",
+          "compiler": "vbcc",
+          "vector": 0
+        }
+      ]
+    },
+    "forwarding": {
+      "static_sites": 76,
+      "executions_per_incoming_i_state": 1422,
+      "positive_vector_records": 112
+    },
+    "interrupts": {
+      "general_enabled_addresses": {
+        "raw": 2237,
+        "optimized": 2077
+      },
+      "forwarding_task_pc_sites": {
+        "raw": 98,
+        "optimized": 76
+      },
+      "forwarding_forms": 8,
+      "forwarding_nz_outcomes": 3,
+      "fused_task_pc_sites": {
+        "raw": 300,
+        "optimized": 296
+      },
+      "fused_flag_outcomes": 24,
+      "seeds": [
+        8891121666326,
+        1592642302
+      ]
+    },
+    "feature_proof": "Default-off corpus/CLI output and feature-enabled native artifacts match the same frozen baseline. Traced and untraced materialization has identical code, labels, fixups, PER fixups, MIR spans and images. o65 runtime probes validate explicitly rebased bytes before checking reached observations.",
+    "crlf": {
+      "root_boundary": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native": {
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0
+      },
+      "identical_artifacts": 72,
+      "converted_files": 8,
+      "manifest": "target/state-tracker-crlf/manifest.json",
+      "manifest_sha256": "c1989bcbe6de3781f48645477b78264d1c08471368ef63a0e3bdd787ca38b950"
+    },
+    "preserved_existing_local_paths": 140
+  },
+  "native_manifests": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-t164mx7e/manifest.json",
+      "sha256": "40b342919584cbf48c7828c627daa15dbd66870fc8e7cc270cc5538575d2fae1",
+      "results": {
+        "passed": 88,
+        "failed": 0,
+        "ignored": 1
+      },
+      "verified_inputs": 412,
+      "verified_artifacts": 374
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-wnhswvl6/manifest.json",
+      "sha256": "e3839213355aeff8b9525208cad49c0b1026ac20f76720ce542ff1a7dfe189ef",
+      "results": {
+        "passed": 88,
+        "failed": 0,
+        "ignored": 1
+      },
+      "verified_inputs": 412,
+      "verified_artifacts": 374
+    }
+  },
+  "comparison": {
+    "directory": "target/state-tracker-after",
+    "hashes": {
+      "target/state-tracker-after/manifest.json": "401050e9de4348991ce1d531816c0eccca41ac8176c513a960ac45652c7974ff",
+      "target/state-tracker-after/debug.json": "2816e368f049709ce41be0000da47c01c0ad72d7e73b9eef177b7794f245b3d2",
+      "target/state-tracker-after/release.json": "2816e368f049709ce41be0000da47c01c0ad72d7e73b9eef177b7794f245b3d2"
+    },
+    "artifact_files": 224
+  },
+  "external_failure": "Optimized vbcc unlink vector 0 remains incorrect for both incoming I states in both host runs. Both external code_quality commands exit unsuccessfully after saving all records; this is not an expected-success exemption.",
+  "deferred": [
+    "Broader accumulator forwarding",
+    "Block-entry width omission",
+    "X/Y allocation",
+    "DP-content reuse",
+    "CFG value propagation",
+    "Exec816 pin or loader changes"
+  ],
+  "implementation_slices": [
+    {
+      "commit": "1d83b67",
+      "subject": "Freeze native state-tracker output and metadata equality gates"
+    },
+    {
+      "commit": "fc52648",
+      "subject": "Model native 65816 state and couple typed instructions to explicit effects"
+    },
+    {
+      "commit": "06b07ed",
+      "subject": "Route native selection through checked instruction and stack effects"
+    },
+    {
+      "commit": "d9e820d",
+      "subject": "Make native state authoritative and qualify immutable execution traces"
+    }
+  ]
+}

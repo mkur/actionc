@@ -1,10 +1,11 @@
 # Native 65816 state-tracker implementation plan
 
-Status: proposed on 2026-09-21 against main `63069a6`, following the
-[design note](MIR65816_STATE_TRACKER_DESIGN.md). This plan implements its first
-two stages: the state model and a byte-identical integration. Broader local
-forwarding, block-entry width optimization and X/Y/DP optimization require
-separate measured plans after this foundation is qualified.
+Status: implemented and qualified on 2026-09-21. The five slices were committed
+separately; see [results](MIR65816_STATE_TRACKER.md) and the
+[source/artifact qualification](abi/action65816-state-tracker-qualification.json).
+The plan was proposed against main `63069a6` and implements stages 1–2 of the
+[design note](MIR65816_STATE_TRACKER_DESIGN.md). Broader local forwarding,
+block-entry width omission and X/Y/DP optimization remain separate measured work.
 
 ## Deliverable and fixed scope
 
@@ -254,7 +255,7 @@ Use a bounded matrix:
   relocation probes. No new register lifetime is introduced, so preserve their
   current semantic and PC coverage rather than replacing them with trace tests.
 
-## Commit-sized sequence
+## Completed commit-sized sequence
 
 1. **Freeze baseline and boundary probes.** Recheck the recorded hashes, inventory
    encoder writes/forms and capture code, labels, fixups, PER fixups and MIR spans
@@ -288,7 +289,7 @@ qualified evidence, not merely an unused state model alongside the old emitter.
 
 ## Comparison tooling and acceptance commands
 
-Add `tools/compare65816/check_state_tracker.py` and focused negative tests.
+`tools/compare65816/check_state_tracker.py` and its negative tests implement this gate.
 Reuse manifest loading/hash validation, but require **complete measurement
 record equality**, including metric fields and per-PC maps. The default
 `delta.py` only checks selected invariants and nonregression; that is insufficient
@@ -312,7 +313,7 @@ cargo test --test mir65816_abi --test mir65816_contract \
   --test actionc_65816_cli --test actionc_65816_o65_cli
 ```
 
-The new target below is to be implemented. Use the qualified VM runner, never
+The `state_tracking` target below is implemented. Use the qualified VM runner, never
 bare cargo in the isolated native workspace:
 
 ```sh

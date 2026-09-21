@@ -47,6 +47,7 @@ OS, device intercept or host scheduler participates. The earlier
 
 | Target | Tests | Coverage |
 | --- | ---: | --- |
+| `state_tracking` | 4 | Independent ca65 bytes and VM facts, both widths, hidden B, full status masks, homes/NZ, loop joins, direct/indirect stack phases and o65 rebasing; trace-on/off output equality. |
 | `accumulator_forwarding` | 4 | Frozen full-corpus sites, typed resident-word evidence, independent ca65 register/flag/traffic equivalence, all four consumers, volatile traces, LF/CRLF and evidence rejection. |
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
@@ -271,3 +272,12 @@ sites and 24 flag outcomes. Both seeded IRQ/NMI schedules pass. Forty new o65
 executions reach every forwarding site at both placements, retaining exact
 volatile traces. See the [results](../../docs/MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md)
 for exact reload savings with unchanged stores, homes, ABI and guards.
+
+The [state-tracker qualification](../../docs/abi/action65816-state-tracker-qualification.json)
+retains all 302 previous artifacts and adds 72 trace/code artifacts. Both native
+hosts pass 88 tests with the optional corpus test ignored; all 374 artifacts match.
+The isolated workspace enables `native65816-state-proof`. Its immutable snapshots
+never drive VM execution; ordinary compiler builds leave tracing disabled. Run
+`--test state_tracking` for the four focused tests. The separate external corpus
+runs retain the known optimized vbcc `unlink` failure while requiring complete
+before/after equality for every record.
