@@ -40,9 +40,12 @@ fn contains(ranges: &Value, address: u32) -> bool {
 fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
     let action = artifact["compiler"] == "actionc";
     let mut bus = Bus::new();
+    let mut native_routines = vec![];
     if action {
         let serialized = std::fs::read(artifact["image"].as_str().unwrap()).unwrap();
-        bus.load(&Image::from_json(&serialized).unwrap());
+        let image = Image::from_json(&serialized).unwrap();
+        native_routines = image.routines.clone();
+        bus.load(&image);
     } else {
         let code = std::fs::read(artifact["binary"].as_str().unwrap()).unwrap();
         bus.map(0x010000, &code, false);
@@ -132,6 +135,7 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
     let mut cpu = Machine::start_at(registers);
     let mut lowest_s = ENTRY_S;
     let mut instructions = 0u64;
+    let mut fused_sites = BTreeMap::<u32, u64>::new();
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
     let mut in_guard = false;
@@ -156,6 +160,9 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
                 contains(&artifact["code_ranges"], pc),
                 "execution outside counted code at ${pc:06x}"
             );
+            if let Some(window) = support::comparison::fused_window(&cpu, &bus, &native_routines) {
+                *fused_sites.entry(window.load).or_default() += 1;
+            }
             instructions += 1;
             instruction_pc = pc;
             in_guard = contains(&artifact["guard_ranges"], pc);
@@ -249,7 +256,7 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
             }
         }
     }
-    json!({
+    let mut measurement = json!({
         "cycles": cpu.cycles(), "instructions": instructions,
         "stack_check_cycles": guard_cycles, "stack_check_instructions": guard_instructions,
         "peak_below_entry_s": ENTRY_S-lowest_s,
@@ -258,7 +265,12 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
         "dp_reads": dp_reads, "dp_writes": dp_writes, "dp_touched_offsets": dp_touched,
         "metadata_reads": metadata_reads, "input_padding_reads": padding_reads,
         "result": result, "correct": errors.is_empty(), "errors": errors
-    })
+    });
+    if action {
+        measurement["fused_branches"] = json!(fused_sites.values().sum::<u64>());
+        measurement["fused_branch_sites"] = json!(fused_sites);
+    }
+    measurement
 }
 
 #[test]

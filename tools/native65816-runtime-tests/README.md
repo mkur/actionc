@@ -51,6 +51,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
 | `word_comparisons` | 5 | All signed/unsigned word relations, stored/returned Boolean bytes, canaries, casts and operand orders, clobbering calls, exact volatile/stack traces, independent CMP encodings, and code/cycle/stack budgets. |
+| `compare_branch` | 6 | Boundary relations and fallbacks, exact fused source traffic, reused conditions, nonempty same-target edges/backedges, volatile/alias/call barriers and decoder rejection cases. |
 | `execution` | 5 | Recursion, mutable parameters, loop edges, local addresses/descriptors, record strides, banked code/data and exact volatile byte access. |
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
 | `comma_groups` | 1 | Scalar comma groups before contextual types in parameters and fields; mixed-width values, a bank-crossing record, LF/CRLF and both I states. |
@@ -60,10 +61,10 @@ OS, device intercept or host scheduler participates. The earlier
 | `pointer_preemption` | 2 | Both tasks and IRQ dispatch use the same three-slot leaf; IRQ at 164 raw / 100 optimized task/instruction sites, plus seeded IRQ/NMI. |
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
-| `preemption` | 4 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, both comparison flag outcomes in both tasks, and seeded IRQ/NMI schedules. |
+| `preemption` | 5 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, both comparison flag outcomes in both tasks, and seeded IRQ/NMI schedules. |
 | `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
-| `o65` | 8 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, word comparisons, multi-bank code and preempted tasks. |
+| `o65` | 9 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, word comparisons, multi-bank code and preempted tasks. |
 
 Both raw and optimized NIR are covered. The original **33 tests passed in debug
 and release** on 2026-09-17. The later `comma_groups` regression, plus the eight
@@ -115,6 +116,27 @@ saved artifacts identical. The [results report](../../docs/MIR65816_WORD_COMPARI
 records 146-byte / 149-cycle maximum and 213-byte / 2,465-cycle optimized sum loop,
 with no DP traffic in either. ABI, allocation, stack writes, peaks and guards
 are unchanged; four corpus records read two additional private stack bytes.
+
+The [compare-to-branch qualification](../../docs/abi/action65816-compare-branch-qualification.json)
+passes **67 native tests in debug and release**. The
+[results report](../../docs/MIR65816_COMPARE_BRANCH_FUSION.md) records maximum at
+116 bytes / 117 cycles and optimized sum loop at 183 bytes / 2,030 cycles.
+Frame allocation, guards and DP traffic are unchanged; each reached fusion
+removes one Boolean stack write and reload. Corpus counts are checked against
+predeclared predictions in both host modes and both incoming I states.
+
+General preemption now reaches 2,275 raw / 2,117 optimized enabled addresses.
+The targeted fused probe covers 152 task/PC sites and 24 window/truth/task
+combinations per mode, including immediate/stack sources and nonempty edges.
+It checks the full restored register state immediately after IRQ resumes each
+instruction, including both CMP flag outcomes in both tasks. Both seeded IRQ/NMI
+schedules pass. The separate materialized probe retains its 96 sites.
+`fused-task-preemption-*.json` records armed and restored PCs/status, while
+`fused-preemption-mir-*.txt` retains the verified nonempty-edge fixture.
+`fused-branch-traffic-*.json` separates comparison reads from edge-copy writes.
+The new o65 fused-branch probe executes relocated conditional/JML edges at both
+placements; its `.o65`, placement and metrics artifacts accompany the existing
+materialized comparison probe.
 
 ## Interrupt schedules and memory ownership
 

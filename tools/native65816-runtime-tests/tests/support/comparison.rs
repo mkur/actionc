@@ -133,7 +133,19 @@ pub fn fused_window(
     let r = routines
         .iter()
         .find(|r| (r.address..r.address + r.size).contains(&start))?;
-    let end = r.address + r.size;
+    fused_in_range(cpu, bus, r.address..r.address + r.size)
+}
+pub fn fused_in_range(
+    cpu: &Machine,
+    bus: &Bus,
+    range: std::ops::Range<u32>,
+) -> Option<FusedWindow> {
+    assert!(cpu.is_instruction_boundary());
+    let start = cpu.pc();
+    if cpu.registers().p & 0x20 != 0 || !range.contains(&start) {
+        return None;
+    }
+    let end = range.end;
     let mut at = start;
     let mut operand = |load: bool| -> Option<(bool, u16)> {
         if at + 2 > end {
@@ -193,7 +205,7 @@ pub fn fused_window(
         }
         sites.extend([pc, pc + 2]);
         let target = bus.value(pc + 3, 3);
-        if !(r.address..end).contains(&target) {
+        if !range.contains(&target) {
             return None;
         }
         Some((sites, target, pc + 6))

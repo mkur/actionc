@@ -60,6 +60,88 @@ RETURN
 }
 
 #[test]
+fn relocated_fused_branches_consume_flags_and_fix_both_edge_transfers() {
+    let source = r#"
+CARD a,b
+BYTE ARRAY output(8)
+PROC Main()
+ IF a=b THEN output(0)=1 ELSE output(0)=0 FI
+ IF a#b THEN output(1)=1 ELSE output(1)=0 FI
+ IF a<b THEN output(2)=1 ELSE output(2)=0 FI
+ IF a<=b THEN output(3)=1 ELSE output(3)=0 FI
+ IF a>b THEN output(4)=1 ELSE output(4)=0 FI
+ IF a>=b THEN output(5)=1 ELSE output(5)=0 FI
+ IF a<CARD($8000) THEN output(6)=1 ELSE output(6)=0 FI
+ IF CARD($8000)<b THEN output(7)=1 ELSE output(7)=0 FI
+RETURN
+"#;
+    for optimize in [false, true] {
+        let bytes = native::compile(source, optimize, vec![]);
+        for variant in 0..2 {
+            let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
+            let image = format::relocate(&bytes, &placement).unwrap();
+            let caller = caller(image.entry());
+            for (a, b) in [(0u16, 0u16), (0xffff, 1), (0x8000, 0x7fff), (0, 0xffff)] {
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller, mask);
+                    for (name, value) in [("a", a), ("b", b)] {
+                        let at = native::object(&image, name) as usize;
+                        h.bus.ram[at..at + 2].copy_from_slice(&value.to_le_bytes());
+                    }
+                    let mut reached = 0;
+                    for _ in 0..100_000 {
+                        if h.cpu.is_stopped() {
+                            break;
+                        }
+                        if h.cpu.is_instruction_boundary() {
+                            for r in &image.profile().routines {
+                                let at = image.routine_address(r);
+                                if let Some(w) =
+                                    comparison::fused_in_range(&h.cpu, &h.bus, at..at + r.size)
+                                {
+                                    assert!(
+                                        w.targets.iter().all(|pc| (at..at + r.size).contains(pc))
+                                    );
+                                    reached += 1;
+                                }
+                            }
+                        }
+                        h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                    }
+                    assert!(h.cpu.is_stopped());
+                    assert_eq!(reached, 8);
+                    h.guards(mask);
+                    let output = native::object(&image, "output") as usize;
+                    assert_eq!(
+                        &h.bus.ram[output..output + 8],
+                        [
+                            a == b,
+                            a != b,
+                            a < b,
+                            a <= b,
+                            a > b,
+                            a >= b,
+                            a < 0x8000,
+                            0x8000 < b
+                        ]
+                        .map(u8::from)
+                    );
+                    native::record(
+                        "fused-branches",
+                        optimize,
+                        &bytes,
+                        &placement,
+                        &image,
+                        h.cpu.cycles(),
+                        None,
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn serialized_images_execute_bank_crossing_data_and_indirect_calls() {
     let source = r#"
 CARD input,result,initial=[7]

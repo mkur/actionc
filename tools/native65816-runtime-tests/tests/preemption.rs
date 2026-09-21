@@ -7,7 +7,14 @@ fn machine(optimize: bool) -> ContextHarness {
     machine_source(&fixture("preemption.act"), optimize)
 }
 fn machine_source(source: &str, optimize: bool) -> ContextHarness {
-    let mut h = ContextHarness::new(source, optimize, "Task", &[0x7100, 0x7120]);
+    initialize(ContextHarness::new(
+        source,
+        optimize,
+        "Task",
+        &[0x7100, 0x7120],
+    ))
+}
+fn initialize(mut h: ContextHarness) -> ContextHarness {
     for (i, seed) in [13u16, 41].into_iter().enumerate() {
         let at = 0x7100 + i * 0x20;
         h.bus.ram[at..at + 2].copy_from_slice(&seed.to_le_bytes());
@@ -455,6 +462,261 @@ fn zero_frame_word_return_survives_both_task_irq_sites_and_seeded_nmi() {
         }
         for seed in [0x81620260916, 0x5eedcafe] {
             run_injected(&mut machine_source(&source, optimize), false, Some(seed));
+        }
+    }
+}
+
+fn fused_source(source: &str) -> String {
+    source
+        .replace("\r\n", "\n")
+        .replace(
+            "BYTE POINTER other,buffer]",
+            "BYTE POINTER other,buffer CARD low,high,equal,immLow,immHigh,immEqual]",
+        )
+        .replace(
+            "CARD FUNC Read",
+            r#"
+CARD FUNC BranchEq(CARD a,b) IF a=b THEN RETURN($A001) FI RETURN($A000)
+CARD FUNC BranchNe(CARD a,b) IF a#b THEN RETURN($A002) FI RETURN($A000)
+CARD FUNC BranchLt(CARD a,b) IF a<b THEN RETURN($A004) FI RETURN($A000)
+CARD FUNC BranchGe(CARD a,b) IF a>=b THEN RETURN($A008) FI RETURN($A000)
+CARD FUNC BranchImm(CARD a) IF a<CARD($8000) THEN RETURN($1234) FI RETURN($ABCD)
+CARD FUNC BranchImmEq(CARD a) IF a=CARD($8000) THEN RETURN($5678) FI RETURN($9876)
+CARD FUNC Compare(CARD a,b) RETURN(BranchEq(a,b)+BranchNe(a,b)+BranchLt(a,b)+BranchGe(a,b))
+CARD FUNC Read"#,
+        )
+        .replace(
+            "  work.done=1",
+            r#"
+  work.low=Compare(work.seed,work.seed+1)
+  work.high=Compare(work.seed+1,work.seed)
+  work.equal=Compare(work.seed,work.seed)
+  work.immLow=BranchImm(work.seed)+BranchImmEq(work.seed)
+  work.immHigh=BranchImm(work.seed+32768)+BranchImmEq(work.seed+32768)
+  work.immEqual=BranchImm(32768)+BranchImmEq(32768)
+  work.done=1"#,
+        )
+}
+fn fused_machine(source: &str, optimize: bool) -> ContextHarness {
+    use actionc::{mir65816::*, nir::TempId, target::ByteSize};
+    let mut prepared = prepare(source, optimize);
+    // Preserve nonempty edge copies in both modes. Each successor returns its
+    // independently chosen word argument instead of an immediate. This is a
+    // verified target-IR fixture, not an optimization of the source program.
+    for r in prepared.mir.routines.iter_mut().filter(|r| {
+        r.name.eq_ignore_ascii_case("BranchEq")
+            || r.name.to_ascii_uppercase().contains("_BRANCHEQ_")
+    }) {
+        let ty = r.temps[0].1.clone();
+        let mut next = r.temps.iter().map(|(id, _)| id.0).max().unwrap() + 1;
+        let mut returns = std::collections::BTreeMap::new();
+        for block in &mut r.blocks {
+            if let actionc::mir65816::Mir65816Terminator::Return {
+                value: Some(value), ..
+            } = &mut block.terminator
+            {
+                assert!(block.ops.is_empty() && matches!(value, Mir65816Value::U16(_)));
+                let id = TempId(next);
+                next += 1;
+                r.temps.push((id, ty.clone()));
+                block.params.push((id, ByteSize::new(2)));
+                returns.insert(block.id, value.clone());
+                *value = Mir65816Value::Temp(id, ByteSize::new(2));
+            }
+        }
+        assert_eq!(returns.len(), 2);
+        for block in &mut r.blocks {
+            if let Mir65816Terminator::Branch {
+                then_edge,
+                else_edge,
+                ..
+            } = &mut block.terminator
+            {
+                for edge in [then_edge, else_edge] {
+                    edge.args.push(returns[&edge.target].clone());
+                }
+            }
+        }
+    }
+    actionc::mir65816::verify_program(&prepared.mir).unwrap();
+    if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+        std::fs::write(
+            std::path::Path::new(&directory).join(format!("fused-preemption-mir-{optimize}.txt")),
+            format!("{:#?}", prepared.mir),
+        )
+        .unwrap();
+    }
+    initialize(ContextHarness::from_prepared(
+        source,
+        optimize,
+        "Task",
+        &[0x7100, 0x7120],
+        prepared,
+    ))
+}
+fn check_fused_results(h: &ContextHarness) {
+    check(h);
+    for job in [0x7100, 0x7120] {
+        for (offset, expected) in [
+            (12, 0x8006),
+            (14, 0x800a),
+            (16, 0x8009),
+            (18, 0x1234u16.wrapping_add(0x9876)),
+            (20, 0xabcdu16.wrapping_add(0x9876)),
+            (22, 0xabcdu16.wrapping_add(0x5678)),
+        ] {
+            assert_eq!(
+                h.bus.value(job + offset, 2),
+                u32::from(expected),
+                "job {job:x} field {offset}"
+            );
+        }
+    }
+}
+fn run_checked_fused_irq(h: &mut ContextHarness) -> (u32, u8) {
+    // IRQ is sampled at the end of the instruction whose boundary arms it.
+    // Independently execute that instruction without IRQ to obtain the exact
+    // A/P (and other registers) which the bridge must restore at its saved PC.
+    let mut reference = h.cpu.clone();
+    let mut bus = h.bus.clone();
+    reference.tick(&mut bus, Inputs::default()).unwrap();
+    while !reference.is_instruction_boundary() {
+        reference.tick(&mut bus, Inputs::default()).unwrap();
+    }
+    let before = reference.registers();
+    let pc = reference.pc();
+    let mut acknowledged = false;
+    for _ in 0..2_000_000 {
+        let writes = h.bus.writes.len();
+        h.tick(Inputs {
+            irq: !acknowledged,
+            ..Default::default()
+        });
+        acknowledged |= h.bus.writes[writes..].iter().any(|&(a, _)| a == IRQ_ACK);
+        if acknowledged
+            && h.cpu.is_instruction_boundary()
+            && h.cpu.pc() == pc
+            && h.cpu.registers().d == before.d
+        {
+            assert_eq!(
+                h.cpu.registers(),
+                before,
+                "IRQ changed live fused comparison state"
+            );
+            run_injected(h, false, None);
+            return (pc, before.p);
+        }
+        assert!(
+            !h.cpu.is_stopped(),
+            "task never resumed its interrupted instruction"
+        );
+    }
+    panic!("fused IRQ restoration budget exhausted");
+}
+
+#[test]
+fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
+    let fixture = fixture("preemption.act");
+    let source = fused_source(&fixture);
+    assert_eq!(source, fused_source(&fixture.replace('\n', "\r\n")));
+    for optimize in [false, true] {
+        let mut h = fused_machine(&source, optimize);
+        let ranges: Vec<_> = h
+            .image
+            .routines
+            .iter()
+            .filter(|r| r.name.to_ascii_uppercase().contains("BRANCH"))
+            .map(|r| r.address..r.address + r.size)
+            .collect();
+        assert_eq!(ranges.len(), 6);
+        let mut windows = BTreeSet::new();
+        let mut targets = BTreeSet::new();
+        let mut seen = BTreeSet::new();
+        let mut flags = BTreeSet::new();
+        let mut cmp_outcomes = BTreeSet::new();
+        let mut restorations = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 4 == 0 && [0x2000, 0x2100].contains(&r.d) {
+                if ranges.iter().any(|range| range.contains(&pc)) {
+                    if let Some(w) = comparison::fused_window(&h.cpu, &h.bus, &h.image.routines) {
+                        targets.extend(w.addresses().into_iter().map(|pc| (r.d, pc)));
+                        windows.insert(w);
+                    }
+                }
+                let mut new_flags = false;
+                for w in &windows {
+                    if pc == w.cmp {
+                        let right = if w.sources[1].0 {
+                            h.bus.value(u32::from(r.s) + u32::from(w.sources[1].1), 2) as u16
+                        } else {
+                            w.sources[1].1
+                        };
+                        let truth = match w.predicate {
+                            0xf0 => r.a == right,
+                            0xd0 => r.a != right,
+                            0x90 => r.a < right,
+                            0xb0 => r.a >= right,
+                            _ => unreachable!(),
+                        };
+                        // Re-arm CMP for both outcomes: its completion leaves live
+                        // flags which must survive IRQ before the branch executes.
+                        new_flags |= cmp_outcomes.insert((r.d, w.load, truth));
+                    }
+                    if pc == w.branch {
+                        let truth = match w.predicate {
+                            0xf0 => r.p & 2 != 0,
+                            0xd0 => r.p & 2 == 0,
+                            0x90 => r.p & 1 == 0,
+                            0xb0 => r.p & 1 != 0,
+                            _ => unreachable!(),
+                        };
+                        new_flags |= flags.insert((r.d, w.load, truth));
+                    }
+                }
+                let site = (r.d, pc);
+                if targets.contains(&site) && (seen.insert(site) || new_flags) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    let restored = run_checked_fused_irq(&mut h);
+                    restorations.insert((r.d, pc, restored.0, restored.1));
+                    check_fused_results(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_fused_results(&h);
+        assert_eq!(windows.len(), 6);
+        assert_eq!(targets, seen);
+        assert!(windows.iter().any(|w| w.edges.iter().any(|e| e.len() > 3)));
+        let expected: BTreeSet<_> = [0x2000u16, 0x2100]
+            .into_iter()
+            .flat_map(|d| {
+                windows
+                    .iter()
+                    .flat_map(move |w| [false, true].map(|truth| (d, w.load, truth)))
+            })
+            .collect();
+        assert_eq!(flags, expected);
+        assert_eq!(cmp_outcomes, expected);
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(std::path::Path::new(&directory).join(format!("fused-task-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_sites":seen,"site_columns":["task_domain","pc"],"live_flag_outcomes":flags,"irq_after_cmp_outcomes":cmp_outcomes,"register_restorations":restorations,"restoration_columns":["domain","armed_pc","restored_pc","restored_p"],"outcome_columns":["task_domain","load_pc","truth"],"windows":windows.iter().map(|w|serde_json::json!({"load":w.load,"cmp":w.cmp,"branch":w.branch,"predicate":w.predicate,"sources":w.sources,"edges":w.edges})).collect::<Vec<_>>()})).unwrap()).unwrap();
+        }
+        eprintln!(
+            "fused comparisons optimize={optimize}: {} task/PC sites, {} flag outcomes",
+            seen.len(),
+            flags.len()
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = fused_machine(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check_fused_results(&h);
         }
     }
 }

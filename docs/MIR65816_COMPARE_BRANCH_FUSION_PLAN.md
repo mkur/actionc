@@ -1,8 +1,10 @@
 # Native 65816 compare-to-branch fusion implementation plan
 
-Status: proposed on 2026-09-21 against main `4d54b81`, following the completed
-[native word comparison slice](MIR65816_WORD_COMPARISONS.md). This plan does not
-change compiler behavior.
+Status: completed on 2026-09-21. Baseline/use proof: `e4dbdd1`; fused emission:
+`4687170`; qualification and measured results are in the containing commit. See
+[results](MIR65816_COMPARE_BRANCH_FUSION.md). The original plan below was prepared
+against main `4d54b81`, following the completed
+[native word comparison slice](MIR65816_WORD_COMPARISONS.md).
 
 ## Objective and scope
 

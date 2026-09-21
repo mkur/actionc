@@ -30,29 +30,49 @@ PRESERVED = ('correct', 'errors', 'result', 'args', 'incoming_stack_bytes',
              'metadata_reads', 'input_padding_reads')
 
 
-def stack_read_deltas(rows):
+def positive_counts(rows, field):
     expected = {}
     for row in rows:
-        assert set(row) == {'case', 'mode', 'compiler', 'vector', 'delta'}, row
+        assert set(row) == {'case', 'mode', 'compiler', 'vector', field}, row
         assert row['compiler'] == 'actionc' and row['mode'] in ('raw', 'optimized'), row
         assert isinstance(row['case'], str) and row['case'], row
         assert type(row['vector']) is int and row['vector'] >= 0, row
-        assert type(row['delta']) is int and row['delta'] > 0, row
+        assert type(row[field]) is int and row[field] > 0, row
         key = tuple(row[k] for k in ('case', 'mode', 'compiler', 'vector'))
-        assert key not in expected, ('duplicate stack-read delta', key)
-        expected[key] = row['delta']
+        assert key not in expected, ('duplicate count', field, key)
+        expected[key] = row[field]
     return expected
 
 
-def check_records(old, new, expected):
+def stack_read_deltas(rows):
+    return positive_counts(rows, 'delta')
+
+
+def fused_branch_counts(rows):
+    return positive_counts(rows, 'count')
+
+
+def check_records(old, new, expected, fused=None):
+    assert not (expected and fused is not None), 'accounting options are mutually exclusive'
+    counts = fused or {}
+    assert counts.keys() <= new.keys(), ('unused fusion counts', counts.keys() - new.keys())
     assert old.keys() == new.keys()
     assert expected.keys() <= new.keys(), ('unused stack-read deltas', expected.keys() - new.keys())
     for key, before in old.items():
         after = new[key]
         for field in PRESERVED:
-            assert before[field] == after[field], (key, field, before[field], after[field])
-        difference = after['stack_reads'] - before['stack_reads']
-        assert difference == expected.get(key, 0), (key, 'stack_reads', difference, expected.get(key, 0))
+            if field != 'stack_writes':
+                assert before[field] == after[field], (key, field, before[field], after[field])
+        for field in ('stack_reads', 'stack_writes'):
+            allowed = -counts.get(key, 0) if fused is not None else (expected.get(key, 0) if field == 'stack_reads' else 0)
+            assert type(before[field]) is int and type(after[field]) is int, (key, field)
+            difference = after[field] - before[field]
+            assert difference == allowed, (key, field, difference, allowed)
+        if fused is not None:
+            for field in ('dp_reads', 'dp_writes', 'dp_touched_offsets'):
+                assert before[field] == after[field], (key, field)
+            if before['compiler'] == 'actionc':
+                assert after['fused_branches'] == counts.get(key, 0), (key, 'executed fusions')
         if before['compiler'] == 'vbcc':
             assert before == after, key
         else:
@@ -67,7 +87,10 @@ def main():
     parser.add_argument('after', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--title', default='Native word arithmetic: before / after')
-    parser.add_argument('--stack-read-deltas', type=Path,
+    accounting = parser.add_mutually_exclusive_group()
+    accounting.add_argument('--fused-branch-counts', type=Path,
+                            help='JSON list of predicted executed fusions, each removing one stack read and write')
+    accounting.add_argument('--stack-read-deltas', type=Path,
                         help='JSON list of exact, independently predicted Action stack-read increases; default requires equality')
     args = parser.parse_args()
     old_manifest, old = load(args.before)
@@ -77,8 +100,12 @@ def main():
         assert old_manifest['tools'][tool]['sha256'] == new_manifest['tools'][tool]['sha256']
     delta_rows = json.loads(args.stack_read_deltas.read_text()) if args.stack_read_deltas else []
     expected = stack_read_deltas(delta_rows)
-    check_records(old, new, expected)
+    fusion_rows = json.loads(args.fused_branch_counts.read_text()) if args.fused_branch_counts else None
+    fused = fused_branch_counts(fusion_rows) if fusion_rows is not None else None
+    check_records(old, new, expected, fused)
     preserved = PRESERVED if expected else (*PRESERVED, 'stack_reads')
+    if fused is not None:
+        preserved = tuple(f for f in PRESERVED if f != 'stack_writes') + ('dp_reads', 'dp_writes', 'dp_touched_offsets')
     old_artifacts = {(a['case'], a['mode'], a['compiler']): a for a in old_manifest['artifacts']}
     for artifact in new_manifest['artifacts']:
         if artifact['compiler'] != 'actionc':
@@ -87,12 +114,21 @@ def main():
         assert [frame_contract(r) for r in before['routines']] == [frame_contract(r) for r in artifact['routines']]
     lines = ['# '+args.title, '',
              'All cells are **before / after actionc**, including guards and RTL.',
-             'Stack depth, stack writes, ABI arguments, complete routine',
+             'Stack depth, ABI arguments, complete routine',
              'storage maps, and stack-check costs are unchanged for every vector.', '',
              'DP traffic counts byte reads plus writes; cycles are independent VM',
              'cycles. Both host build modes produce identical measurements.', '']
-    if expected:
-        lines.extend(['Stack reads change only by the following predeclared amounts; all',
+    if fused is not None:
+        lines.extend(['Each reached, decoded fusion removes exactly one stack byte read and write.',
+                      'The predeclared counts match both host modes and both incoming I states.',
+                      'All other stack traffic and all DP traffic are unchanged.', '',
+                      '| Case | Mode | Vector | Fusions | Stack reads before / after | Stack writes before / after |',
+                      '| --- | --- | ---: | ---: | ---: | ---: |'])
+        for key, count in sorted(fused.items()):
+            lines.append(f'| {key[0]} | {key[1]} | {key[3]} | {count} | {old[key]["stack_reads"]} / {new[key]["stack_reads"]} | {old[key]["stack_writes"]} / {new[key]["stack_writes"]} |')
+        lines.append('')
+    elif expected:
+        lines.extend(['Stack writes are unchanged for every vector.', '', 'Stack reads change only by the following predeclared amounts; all',
                       'other records retain exactly their previous stack-read counts.', '',
                       '| Case | Mode | Vector | Stack reads before / after |',
                       '| --- | --- | ---: | ---: |'])
@@ -100,7 +136,7 @@ def main():
             lines.append(f'| {key[0]} | {key[1]} | {key[3]} | {old[key]["stack_reads"]} / {new[key]["stack_reads"]} |')
         lines.append('')
     else:
-        lines.extend(['Stack reads are also unchanged for every vector.', ''])
+        lines.extend(['Stack reads and writes are unchanged for every vector.', ''])
     for mode in ('optimized', 'raw'):
         lines.extend([f'## {mode.title()}', '',
                       '| Kernel | Code bytes | Cycles | Stack bytes | DP traffic |',
@@ -124,6 +160,10 @@ def main():
                    input_sha256={f'{label}/{name}': hashlib.sha256((directory/name).read_bytes()).hexdigest()
                                  for label, directory in [('before', args.before), ('after', args.after)]
                                  for name in ('manifest.json', 'debug.json', 'release.json')})
+    if args.fused_branch_counts:
+        summary['expected_fused_branch_counts'] = fusion_rows
+        summary['expected_fused_branch_counts_sha256'] = hashlib.sha256(args.fused_branch_counts.read_bytes()).hexdigest()
+        summary['executed_fusions_match_predictions'] = True
     if args.stack_read_deltas:
         summary['expected_stack_read_deltas_sha256'] = hashlib.sha256(args.stack_read_deltas.read_bytes()).hexdigest()
     args.output.mkdir(parents=True, exist_ok=True)

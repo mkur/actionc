@@ -612,3 +612,53 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
         }
     }
 }
+
+#[test]
+fn fused_decoder_rejects_wrong_modes_truncated_windows_and_corrupt_edges() {
+    use actionc_vm::native65816::{Inputs, Machine};
+    let p = edge_program(false, false);
+    let image = Image::from_json(&p.compile(&layout()).unwrap().image.to_json().unwrap()).unwrap();
+    let mut h = Harness::new(&image, &caller(image.entry), 0);
+    let window = loop {
+        assert!(!h.cpu.is_stopped());
+        if h.cpu.is_instruction_boundary() {
+            if let Some(w) = comparison::fused_window(&h.cpu, &h.bus, &image.routines) {
+                break w;
+            }
+        }
+        h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+    };
+    let r = image
+        .routines
+        .iter()
+        .find(|r| (r.address..r.address + r.size).contains(&window.load))
+        .unwrap();
+    for end in [
+        window.cmp,
+        window.branch + 5,
+        window.yes,
+        window.edges[1].last().unwrap() + 3,
+    ] {
+        assert!(comparison::fused_in_range(&h.cpu, &h.bus, r.address..end).is_none());
+    }
+    for (at, byte) in [
+        (window.cmp, 0xe3),
+        (window.branch + 1, 3),
+        (window.no, 0xc2),
+        (window.yes, 0xc2),
+        (window.branch + 3, 0),
+        (window.edges[1][1], 0xea),
+    ] {
+        let mut bus = h.bus.clone();
+        bus.ram[at as usize] = byte;
+        assert!(
+            comparison::fused_window(&h.cpu, &bus, &image.routines).is_none(),
+            "{at:x}"
+        );
+    }
+    let mut registers = h.cpu.registers();
+    registers.p |= 0x20;
+    assert!(
+        comparison::fused_window(&Machine::start_at(registers), &h.bus, &image.routines).is_none()
+    );
+}

@@ -59,7 +59,21 @@ pub struct ContextHarness<I = Image> {
 }
 impl ContextHarness {
     pub fn new(source: &str, optimize: bool, task_entry: &str, arguments: &[u32]) -> Self {
-        let prepared = prepare(source, optimize);
+        Self::from_prepared(
+            source,
+            optimize,
+            task_entry,
+            arguments,
+            prepare(source, optimize),
+        )
+    }
+    pub fn from_prepared(
+        source: &str,
+        optimize: bool,
+        task_entry: &str,
+        arguments: &[u32],
+        prepared: actionc::compiler::native65816::Prepared,
+    ) -> Self {
         // Runtime length/exports do not depend on the dispatch address. Link
         // exported assembly identities first, then assemble with the image map.
         let provisional = runtime(0x018000);

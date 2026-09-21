@@ -136,3 +136,32 @@ keys, other read differences, and all other contract changes still fail; vbcc
 records must remain identical. Without the option, every stack-read count must
 match. Reconstruct this baseline from the isolated `943ed21` checkout if its
 saved artifacts are unavailable. Historical snapshots are never rewritten.
+
+The [compare-to-branch fusion results](../../docs/MIR65816_COMPARE_BRANCH_FUSION.md)
+use the word-comparison `after` snapshot as their immutable baseline. Reproduce:
+
+```sh
+cargo build --release --bin actionc-65816
+python3 tools/compare65816/build.py --output target/compare-branch-after --verify-crlf
+# Execute both host comparison commands above, using compare-branch-after paths.
+python3 tools/compare65816/report.py \
+  --input target/compare-branch-after \
+  --output docs/benchmarks/65816-compare-branch/after
+python3 tools/compare65816/delta.py \
+  target/word-comparisons-after target/compare-branch-after \
+  --output docs/benchmarks/65816-compare-branch \
+  --title 'Native compare-to-branch fusion: before / after' \
+  --fused-branch-counts docs/benchmarks/65816-compare-branch/fused-branch-counts.json
+```
+
+`--fused-branch-counts` accepts positive integer `count` entries keyed by
+case/mode/compiler/vector. Each count must match reached, decoded fused machine
+sequences and exactly that many fewer stack byte reads **and** writes. Unlisted
+records retain equality. Invalid, duplicate, missing/unused or external-compiler
+entries fail. DP traffic and every other invariant remain strict; this option
+is mutually exclusive with `--stack-read-deltas`. The strict default and the
+older positive-only read accounting retain their original behavior. Action
+measurements include `fused_branches` and per-PC `fused_branch_sites`; these
+fields are absent from vbcc records, which remain identical to baseline.
+Reconstruct the baseline in an isolated `4d54b81` checkout if saved artifacts
+are unavailable. Both host runs retain the known optimized vbcc unlink failure.
