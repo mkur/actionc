@@ -235,7 +235,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,
-        code: super::layout::finalize(b.code.finish(), false)?,
+        code: super::layout::finalize(b.code.finish(), true)?,
     })
 }
 

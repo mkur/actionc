@@ -382,7 +382,7 @@ fn actual_raw_and_optimized_traces_survive_linking_loops_and_o65_rebasing() {
 #[test]
 fn direct_return_and_indirect_transfer_events_have_distinct_stack_phases() {
     use actionc::mir65816::image;
-    let source = "CARD direct,indirect CARD FUNC POINTER cb(CARD value) CARD FUNC Echo(CARD value) RETURN(value) PROC Main() direct=Echo($8001) cb=@Echo indirect=cb($8001) RETURN";
+    let source = "CARD direct,indirect,choose=$7100 CARD FUNC POINTER cb(CARD value) CARD FUNC Echo(CARD value) RETURN(value) PROC Main() IF choose=0 THEN direct=Echo($8001) ELSE direct=Echo($9001) FI cb=@Echo indirect=cb(direct) RETURN";
     for optimize in [false, true] {
         let prepared = prepare(source, optimize);
         let (machine, traces) = proof::materialize_with_trace(&prepared.mir).unwrap();
@@ -401,6 +401,17 @@ fn direct_return_and_indirect_transfer_events_have_distinct_stack_phases() {
             .iter()
             .find(|r| r.address == image.entry)
             .unwrap();
+        let code = &machine
+            .routines
+            .iter()
+            .find(|r| r.id.0 == main.id)
+            .unwrap()
+            .code;
+        assert!(
+            code.conditional_branches
+                .iter()
+                .any(|s| s.short && code.return_fixups.iter().any(|(at, _)| s.offset < *at))
+        );
         let trace = &traces
             .iter()
             .find(|t| t.routine.0 == main.id)
@@ -422,28 +433,37 @@ fn direct_return_and_indirect_transfer_events_have_distinct_stack_phases() {
             .filter(|s| s.pc < main.size as usize && s.event != proof::Event::IndirectTransfer)
             .map(|s| (s.pc, s))
             .collect();
-        for irq in [0, 4] {
-            let mut h = Harness::new(&image, &caller(image.entry), irq);
-            for _ in 0..100_000 {
-                if h.cpu.is_stopped() {
-                    break;
-                }
-                if h.cpu.is_instruction_boundary() {
-                    if let Some(s) = h
-                        .cpu
-                        .pc()
-                        .checked_sub(main.address)
-                        .and_then(|pc| at.get(&(pc as usize)))
-                    {
-                        check(s, h.cpu.registers(), 0x5fec, &h.bus, irq);
+        for choose in [0u16, 1] {
+            for irq in [0, 4] {
+                let mut h = Harness::new(&image, &caller(image.entry), irq);
+                h.bus.ram[0x7100..0x7102].copy_from_slice(&choose.to_le_bytes());
+                for _ in 0..100_000 {
+                    if h.cpu.is_stopped() {
+                        break;
                     }
+                    if h.cpu.is_instruction_boundary() {
+                        if let Some(s) = h
+                            .cpu
+                            .pc()
+                            .checked_sub(main.address)
+                            .and_then(|pc| at.get(&(pc as usize)))
+                        {
+                            check(s, h.cpu.registers(), 0x5fec, &h.bus, irq);
+                        }
+                    }
+                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
                 }
-                h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                assert!(h.cpu.is_stopped());
+                h.guards(irq);
+                assert_eq!(
+                    h.global(&image, "direct", 2),
+                    if choose == 0 { 0x8001 } else { 0x9001 }
+                );
+                assert_eq!(
+                    h.global(&image, "indirect", 2),
+                    if choose == 0 { 0x8001 } else { 0x9001 }
+                );
             }
-            assert!(h.cpu.is_stopped());
-            h.guards(irq);
-            assert_eq!(h.global(&image, "direct", 2), 0x8001);
-            assert_eq!(h.global(&image, "indirect", 2), 0x8001);
         }
     }
 }

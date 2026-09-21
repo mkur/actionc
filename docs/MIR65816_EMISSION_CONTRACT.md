@@ -217,8 +217,26 @@ next MIR block, after all required assignments. The pending target must be the
 next binding; intervening instructions, other labels and unfinished fallthrough
 are rejected. The path remains logically closed and the successor retains its
 normal barriers and width contract. Earlier false arms, internal labels, calls,
-fault transfers and backedges retain JML. Block order, copy scheduling, staging
-reservations and conditional encodings are unchanged; no jump threading occurs.
+fault transfers and backedges retain JML. Block order, copy scheduling and staging
+reservations are unchanged; no jump threading occurs.
+
+Conditional MIR dispatch (ordinary Branch and compare-to-branch fusion) has a
+typed predicate and local target. After selection, routine-local finalization
+may replace inverse-branch/JML with the original short predicate. It starts from
+long forms and shrinks to a fixed point, requiring signed-byte displacement in
+the candidate's own shortened layout. Out-of-range sites retain the long form.
+Materialized comparisons, guard/fault paths, shifts, casts and helper loops keep
+their existing encodings. No flags, values, widths or copy decisions change.
+
+One checked position mapping updates labels, retained absolute fixups, PER sites,
+MIR spans, logical transfers, conditional records and immutable trace PCs together.
+Labels or unrelated metadata inside removed instruction bytes are rejected;
+coincident labels, empty spans and trace event ordering remain valid. Short
+operands are finalized constants, validated against their targets and protected
+from overlapping relocations. Both writers pack final routine sizes; placed
+instruction/next-PC/target addresses must share PBR without low-word wrap.
+Existing bank-contained routines and o65's aligned text relocation preserve
+local displacement bytes. No image/o65 profile or loader extension is required.
 
 ### Scalar instruction selection
 

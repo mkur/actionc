@@ -573,6 +573,70 @@ fn indirect_per_relocations_reject_invalid_continuations_and_ranges() {
 }
 
 #[test]
+fn short_conditional_fixups_reject_corruption_and_preserve_bank_placement() {
+    for optimize in [false, true] {
+        let program = mir(
+            "CARD a,b CARD FUNC Work(CARD x) IF x=0 THEN RETURN(1) FI RETURN(2) PROC Main() b=Work(a) RETURN",
+            optimize,
+        );
+        let machine = emit::materialize(&program).unwrap();
+        let ri = machine
+            .routines
+            .iter()
+            .position(|r| r.code.conditional_branches.iter().any(|s| s.short))
+            .unwrap();
+        let s = *machine.routines[ri]
+            .code
+            .conditional_branches
+            .iter()
+            .find(|s| s.short)
+            .unwrap();
+        let mut bad = machine.clone();
+        bad.routines[ri].code.bytes[s.offset + 1] ^= 1;
+        assert!(
+            image::link(&program, &bad, &layout())
+                .unwrap_err()
+                .contains("conditional")
+        );
+        let mut bad = machine.clone();
+        bad.routines[ri].code.labels.insert(s.target, s.offset + 1);
+        assert!(
+            image::link(&program, &bad, &layout())
+                .unwrap_err()
+                .contains("conditional")
+        );
+        let mut bad = machine.clone();
+        bad.routines[ri].code.fixups.push(emit::Fixup {
+            offset: s.offset + 1,
+            target: emit::Target::StackOverflow,
+            addend: 0,
+            byte: Some(0),
+        });
+        assert!(
+            image::link(&program, &bad, &layout())
+                .unwrap_err()
+                .contains("overlaps conditional")
+        );
+        let mut bad = machine.clone();
+        bad.routines[ri]
+            .code
+            .return_fixups
+            .push((s.offset + 1, s.target));
+        assert!(
+            image::link(&program, &bad, &layout())
+                .unwrap_err()
+                .contains("overlaps conditional")
+        );
+        let mut options = layout();
+        options.code_origin = 0x01fff0;
+        let image = image::link(&program, &machine, &options).unwrap();
+        for r in &image.routines {
+            assert_eq!(r.address >> 16, (r.address + r.size) >> 16);
+        }
+    }
+}
+
+#[test]
 fn section_origins_and_allocated_frame_maps_survive_transport_and_reject_corruption() {
     let program = mir(
         "CARD output,initialized=[7] CARD FUNC Local(CARD n) BYTE ARRAY values=[1 2 3] RETURN(n+CARD(values(1))) PROC Main() output=Local(initialized) RETURN",

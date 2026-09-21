@@ -1,6 +1,7 @@
 //! Reviewed emitted output and nonserialized proof boundaries. The original
 //! pre-tracker snapshot remains in history; 3a removes MIR-entry REP and
-//! 3b removes only terminal JMLs to physically adjacent MIR blocks.
+//! 3b removes terminal JMLs to adjacent MIR blocks; 3c shortens only MIR
+//! conditional dispatch, remapping every position-bearing contract.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]
