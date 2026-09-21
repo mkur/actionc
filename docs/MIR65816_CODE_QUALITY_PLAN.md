@@ -3,7 +3,8 @@
 Status: refreshed on 2026-09-21 against main `86fcef2`, after qualification of the
 native state tracker. Direct single-word edge copies, adjacent accumulator
 forwarding and the tracker foundation are complete. The next proposed slice is
-removing redundant width setup at proved MIR block entries. The
+removing jumps to physically adjacent blocks (3b); checked MIR-entry width
+omission (3a) is now [implemented and qualified](MIR65816_CONTROL_FLOW.md). The
 [implementation plan for slices 3a–3c](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
 defines the initial site inventory, bounded changes and separate acceptance gates.
 
@@ -75,8 +76,8 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 
 | Order | Improvement | Initial scope |
 | --- | --- | --- |
-| 3a (next) | Checked MIR-entry width omission | Remove redundant `REP #$20` only at MIR entries with proved A16 execution contracts. Preserve value/flag barriers, branches, copies and allocation. |
-| 3b | Jumps to adjacent blocks | Omit a jump only when physical fallthrough reaches the intended successor after all required edge assignments. Keep branch selection and width policy fixed. |
+| 3a (complete) | Checked MIR-entry width omission | Qualified results and the fresh 3b baseline are in the [control-flow results](MIR65816_CONTROL_FLOW.md). Value/flag barriers, branches, copies and allocation are preserved. |
+| 3b (next) | Jumps to adjacent blocks | Omit a jump only when physical fallthrough reaches the intended successor after all required edge assignments. Keep branch selection and width policy fixed. |
 | 3c | Short-branch selection | Use final placement, displacement and bank proofs with compatible fixups/o65 relocation and a long-transfer fallback. Keep allocation and copy scheduling fixed. |
 | 4 | Parallel-copy scheduling and coalescing | Separate self-copy removal and direct scheduling from cycle staging, reservation shrinking and later home coalescing. Qualify each part independently. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
@@ -95,12 +96,14 @@ facts; do not recover semantics from source strings or SemIR. If a later slice
 needs stronger NIR facts, introduce and verify those in a separate boundary
 change before relying on them.
 
-## Next slice: checked MIR-entry width omission
+## Checked MIR-entry width omission: completed scope
 
-The tracker already distinguishes proved execution width from permission to omit
-a mode-setting instruction. Its byte-identical integration deliberately revokes
-that permission at every label. Knowing the CPU's width alone does not currently
-authorize an omission; see the [emission contract](MIR65816_EMISSION_CONTRACT.md).
+The tracker distinguishes proved execution width from permission to omit
+a mode-setting instruction. Its byte-identical foundation revoked permission at
+every label; qualified slice 3a now grants it only at checked MIR entries.
+See the [emission contract](MIR65816_EMISSION_CONTRACT.md). The historical tracker
+measurements above remain the start of this sequence; use the qualified 3a
+snapshot for 3b forecasts.
 
 Follow the [3a–3c implementation plan](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
 within these limits:

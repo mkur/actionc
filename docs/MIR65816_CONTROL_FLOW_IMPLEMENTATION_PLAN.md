@@ -1,6 +1,8 @@
 # Native 65816 control-flow implementation plan: 3a–3c
 
-Status: proposed on 2026-09-21 against main `a9e3c0b`. Implements the next three
+Status: slice 3a implemented in `55579fd` and qualified on 2026-09-21;
+3b and 3c pending. See [results](MIR65816_CONTROL_FLOW.md). Proposed against
+main `a9e3c0b`. Implements the next three
 slices of the [code-quality roadmap](MIR65816_CODE_QUALITY_PLAN.md), following
 the qualified [state-tracker foundation](MIR65816_STATE_TRACKER.md). This is a
 plan; the forecasts below are not measurements of implemented optimizations.

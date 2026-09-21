@@ -1,0 +1,1072 @@
+{
+  "slice": "3a",
+  "records": 264,
+  "static_sites": 60,
+  "exact_instruction_streams": 28,
+  "deltas": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 6,
+      "instructions": 4,
+      "cycles": 12
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 6,
+      "instructions": 18,
+      "cycles": 54
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 6,
+      "instructions": 28,
+      "cycles": 84
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 6,
+      "instructions": 64,
+      "cycles": 192
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 8,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 8,
+      "instructions": 5,
+      "cycles": 15
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 8,
+      "instructions": 29,
+      "cycles": 87
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 8,
+      "instructions": 65,
+      "cycles": 195
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 6,
+      "instructions": 4,
+      "cycles": 12
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 6,
+      "instructions": 18,
+      "cycles": 54
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 6,
+      "instructions": 28,
+      "cycles": 84
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 6,
+      "instructions": 4,
+      "cycles": 12
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 6,
+      "instructions": 18,
+      "cycles": 54
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 6,
+      "instructions": 28,
+      "cycles": 84
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 6,
+      "instructions": 2,
+      "cycles": 6
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 6,
+      "instructions": 4,
+      "cycles": 12
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 6,
+      "instructions": 10,
+      "cycles": 30
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 6,
+      "instructions": 18,
+      "cycles": 54
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 6,
+      "instructions": 34,
+      "cycles": 102
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 8,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 8,
+      "instructions": 5,
+      "cycles": 15
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 8,
+      "instructions": 11,
+      "cycles": 33
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 8,
+      "instructions": 35,
+      "cycles": 105
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 2,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 8,
+      "instructions": 3,
+      "cycles": 9
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 8,
+      "instructions": 19,
+      "cycles": 57
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 8,
+      "instructions": 3,
+      "cycles": 9
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}
