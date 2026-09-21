@@ -1,5 +1,9 @@
 # Native 65816 emission
 
+The [experimental o65 profile](MIR65816_O65_PROFILE.md) retains typed emission
+fixups for a separate relocatable output path. Its
+[implementation status](MIR65816_O65_IMPLEMENTATION_PLAN.md) is tracked per slice.
+
 The compiler emits freestanding machine code for `wdc-65816-native` under
 [`action65816.native.v1`](MIR65816_PHYSICAL_ABI_V1.md).
 [Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) covers the subset below

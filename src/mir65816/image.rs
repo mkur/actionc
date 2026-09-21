@@ -1,5 +1,6 @@
 //! Freestanding, explicitly placed native images. The platform establishes the
 //! ABI execution domain and calls `entry`; this image contains no reset/IRQ stub.
+use super::relocation::patch;
 use super::{
     emit::{self, Target},
     *,
@@ -388,6 +389,7 @@ pub fn link(
     machine: &emit::MachineProgram,
     options: &LinkOptions,
 ) -> Result<Image, String> {
+    super::relocation::collect(program, machine)?;
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
     if program.call_convention != Mir65816CallConvention::Native {
         return Err("image requires the native ABI".into());
@@ -612,27 +614,7 @@ pub fn link(
     for r in &machine.routines {
         let base = routines[&r.id];
         let source = program.routines.iter().find(|p| p.id == r.id).unwrap();
-        let mut bytes = r.code.bytes.clone();
-        for &(offset, continuation) in &r.code.return_fixups {
-            let resume = *r
-                .code
-                .labels
-                .get(&continuation)
-                .ok_or("unresolved PER continuation")?;
-            if offset == 0
-                || offset.checked_add(2).is_none_or(|end| end > bytes.len())
-                || bytes[offset - 1] != 0x62
-                || resume == 0
-                || resume >= bytes.len()
-                || (base + offset as u32 + 2) >> 16 != base >> 16
-                || (base + resume as u32) >> 16 != base >> 16
-            {
-                return Err("invalid PER instruction/continuation placement".into());
-            }
-            let delta = i16::try_from(resume as i64 - 1 - (offset as i64 + 2))
-                .map_err(|_| "PER continuation exceeds signed relative range")?;
-            bytes[offset..offset + 2].copy_from_slice(&delta.to_le_bytes());
-        }
+        let mut bytes = super::relocation::routine_bytes(r, base)?;
         for fixup in &r.code.fixups {
             let target = match fixup.target {
                 Target::Label(label) => {
@@ -822,38 +804,4 @@ pub fn link(
     }
     image.verify()?;
     Ok(image)
-}
-
-fn patch(
-    bytes: &mut [u8],
-    offset: usize,
-    value: i64,
-    selector: Option<u8>,
-    width: u32,
-) -> Result<(), String> {
-    if !(0..i64::from(LIMIT)).contains(&value) || !(1..=4).contains(&width) {
-        return Err("relocation value exceeds the 24-bit address space".into());
-    }
-    let value = value as u32;
-    let value = if let Some(byte) = selector {
-        if byte > 2 || width != 1 {
-            return Err("invalid relocation byte selector".into());
-        }
-        (value >> (byte * 8)) & 0xff
-    } else {
-        if width < 4 && value >= (1 << (width * 8)) {
-            return Err("relocation does not fit its destination".into());
-        }
-        value
-    };
-    let output = bytes
-        .get_mut(
-            offset
-                ..offset
-                    .checked_add(width as usize)
-                    .ok_or("relocation offset overflow")?,
-        )
-        .ok_or("relocation exceeds initialized storage")?;
-    output.copy_from_slice(&value.to_le_bytes()[..width as usize]);
-    Ok(())
 }

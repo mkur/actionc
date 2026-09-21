@@ -6,6 +6,8 @@ mod data;
 pub mod emit;
 pub mod image;
 mod lower;
+pub mod o65;
+pub mod relocation;
 
 use crate::backend::{BackendLoweringError, NirBackend, VerifiedNir};
 use crate::nir::{

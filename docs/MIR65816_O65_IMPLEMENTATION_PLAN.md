@@ -1,6 +1,14 @@
 # Experimental native 65816 o65 writer and reference relocator
 
-Status: proposed; no implementation slices are complete.
+Status: implementation in progress.
+
+| Slice | Status | Checks |
+| --- | --- | --- |
+| 1: relocation facts/profile | Complete | 39 existing root checks, 3 o65 checks; native execution/memory/interop/indirect/stack faults |
+| 2: writer | Pending | |
+| 3: reference relocator | Pending | |
+| 4: CLI integration | Pending | |
+| 5: execution qualification | Pending | |
 Baseline: actionc `fc9892a`, native ABI v1, existing JSON image v3.
 
 ## Objective and completion criteria
