@@ -2,13 +2,6 @@
 //! and its N/Z; any emitted instruction or label makes its cursor stale.
 use super::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct ResidentWord {
-    temp: TempId,
-    slot: Slot,
-    delta: u32,
-    cursor: (usize, usize),
-}
 impl Builder<'_> {
     pub(super) fn word_temp(value: &Mir65816Value) -> Option<TempId> {
         match value {
@@ -29,45 +22,26 @@ impl Builder<'_> {
     /// Only call after a checked LDA16 or binary ADC/SBC16 followed by its
     /// retained private STA. STA leaves the full-word N/Z proof intact.
     pub(super) fn remember_word(&mut self, temp: TempId) {
-        self.resident_word = None;
         self.code.barrier();
-        if self.code.delta() == 0
-            && let Some(&Location::Stack(slot)) = self.frame.temps.get(&temp)
-            && slot.width == 2
-            && let Some(cursor) = self.code.word_cursor()
-        {
+        if let Some(&Location::Stack(slot)) = self.frame.temps.get(&temp) {
             self.code.remember_word(temp, slot);
-            self.resident_word = Some(ResidentWord {
-                temp,
-                slot,
-                delta: self.code.delta(),
-                cursor,
-            });
         }
     }
-    /// The caller has preflighted *all* operand extents before reaching here.
+    /// Complete operand/home preflight remains the selector's responsibility.
     pub(super) fn load_checked_word(&mut self, operand: WordOperand, temp: Option<TempId>) {
-        let tracked = self.code.consume_word(
-            temp,
-            temp.and_then(|id| self.frame.temps.get(&id))
-                .map(|h| h.slot()),
-            match operand {
-                WordOperand::Stack(o) => Some(o),
+        let slot = temp
+            .and_then(|id| self.frame.temps.get(&id))
+            .and_then(|home| match home {
+                Location::Stack(slot) => Some(*slot),
                 _ => None,
-            },
-        );
-        if let Some(fact) = self.resident_word.take()
-            && temp == Some(fact.temp)
-            && self.frame.temps.get(&fact.temp) == Some(&Location::Stack(fact.slot))
-            && operand == WordOperand::Stack(fact.slot.offset as u8)
-            && self.code.delta() == 0
-            && fact.delta == self.code.delta()
-            && self.code.word_cursor() == Some(fact.cursor)
-        {
-            assert!(tracked, "tracked forwarding rejected legacy witness");
+            });
+        let offset = match operand {
+            WordOperand::Stack(offset) => Some(offset),
+            _ => None,
+        };
+        if self.code.consume_word(temp, slot, offset) {
             return;
         }
-        assert!(!tracked, "tracked forwarding broadened eligibility");
         match operand {
             WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
             WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
@@ -101,7 +75,6 @@ impl Builder<'_> {
         self.code.a16();
         self.load_checked_word(source, Self::word_temp(value));
         self.store_memory(destination, 0)?;
-        self.resident_word = None;
         self.code.barrier();
         Ok(true)
     }

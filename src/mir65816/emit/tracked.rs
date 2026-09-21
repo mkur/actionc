@@ -1,11 +1,15 @@
 //! The only native instruction-writing boundary: each admitted form owns bytes
 //! and effects together. Finalized Code remains patchable by the linker.
-use super::{BlockId, Label, Slot, Target, TempId, code::Code, state::*};
+use super::{BlockId, Slot, TempId, state::*};
+#[path = "code.rs"]
+mod encoding;
+pub use encoding::{Code, Fixup, Label, Target};
 use std::collections::{BTreeMap, BTreeSet};
 
 macro_rules! instruction_set {
     ($name:ident { $($variant:ident = $byte:literal),* $(,)? }) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        #[cfg_attr(not(any(test, feature = "native65816-state-proof")), allow(dead_code))]
         pub(super) enum $name { $($variant),* }
         impl $name { fn opcode(self) -> u8 { match self { $(Self::$variant => $byte),* } } }
     };
@@ -24,7 +28,15 @@ instruction_set!(WordOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
     AndImm=0x29, LdyImm=0xa0 });
 instruction_set!(LongOp { Lda=0xaf, Sta=0x8f });
 instruction_set!(ReferenceOp { LdaLong=0xaf, StaLong=0x8f, LdaByte=0xa9, Jsl=0x22, Jml=0x5c });
-instruction_set!(Branch { Plus=0x10, Minus=0x30, CarryClear=0x90, CarrySet=0xb0, NotEqual=0xd0, Equal=0xf0 });
+instruction_set!(Branch { Plus=0x10, CarryClear=0x90, CarrySet=0xb0, NotEqual=0xd0, Equal=0xf0 });
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Event {
+    Instruction,
+    Join,
+    CallReturn,
+    IndirectTransfer,
+}
 
 #[derive(Clone, Copy, Debug)]
 struct Entry {
@@ -34,7 +46,7 @@ struct Entry {
 #[derive(Clone, Debug, Default)]
 pub(super) struct TrackedEmitter65816 {
     code: Code,
-    pub(super) state: State65816,
+    state: State65816,
     entries: BTreeMap<Label, Entry>,
     bound: BTreeSet<Label>,
     blocks: BTreeSet<Label>,
@@ -44,12 +56,24 @@ pub(super) struct TrackedEmitter65816 {
     trace: Option<Vec<super::proof::Snapshot>>,
 }
 impl TrackedEmitter65816 {
+    pub fn for_entry(mode: super::super::Mir65816ModeState) -> Self {
+        assert!(mode.native_mode);
+        assert_eq!(
+            mode.accumulator,
+            super::super::Mir65816RegisterWidth::Bits16
+        );
+        assert_eq!(mode.index, super::super::Mir65816RegisterWidth::Bits16);
+        Self::default()
+    }
+
     #[cfg(test)]
     pub fn for_test(frame: &super::AllocatedFrame) -> Self {
         let mut e = Self::default();
         e.test_frame(frame.extent);
         for home in frame.temps.values() {
-            e.register_home(home.slot());
+            if let super::Location::Stack(slot) = home {
+                e.register_home(*slot);
+            }
         }
         e
     }
@@ -68,8 +92,26 @@ impl TrackedEmitter65816 {
         &self.code
     }
     pub fn finish(self) -> Code {
-        self.code
+        #[cfg(feature = "native65816-state-proof")]
+        {
+            let mut code = self.code;
+            code.state_trace = self.trace.unwrap_or_default();
+            code
+        }
+        #[cfg(not(feature = "native65816-state-proof"))]
+        {
+            self.code
+        }
     }
+    #[cfg(test)]
+    pub fn resident(&self) -> Option<AdjacentWord> {
+        self.state.adjacent
+    }
+    #[cfg(test)]
+    pub fn peak(&self) -> i64 {
+        self.state.peak
+    }
+
     pub fn position(&self) -> usize {
         self.code.bytes.len()
     }
@@ -109,8 +151,11 @@ impl TrackedEmitter65816 {
             assert_eq!(current.env.m, Width::Word, "MIR exit width");
         }
         if let Some(old) = self.entries.get_mut(&label) {
+            old.env.irq_preserved &= current.env.irq_preserved;
+            let mut incoming = current.env;
+            incoming.irq_preserved = old.env.irq_preserved;
             assert_eq!(
-                old.env, current.env,
+                old.env, incoming,
                 "incompatible execution contracts for {label:?}"
             );
             if old.stack_a != current.stack_a {
@@ -134,6 +179,7 @@ impl TrackedEmitter65816 {
             .expect("label requires incoming execution contract");
         self.state.values_barrier();
         self.state.env = entry.env;
+        self.state.env.irq_preserved = false;
         if !self.blocks.contains(&label) {
             if let Some(s) = entry.stack_a {
                 self.state.a = Value::StackAddress(s);
@@ -143,7 +189,7 @@ impl TrackedEmitter65816 {
         self.code.mark(label);
         self.bound.insert(label);
         self.unreachable = false;
-        self.observe();
+        self.observe_event(Event::Join);
     }
     pub fn word_cursor(&self) -> Option<(usize, usize)> {
         (self.state.env.m == Width::Word && self.state.mode_permission)
@@ -220,6 +266,7 @@ impl TrackedEmitter65816 {
                 let Value::StackAddress(s) = self.state.a else {
                     panic!("TCS requires a checked stack equation");
                 };
+                self.state.homes.clear();
                 self.state.env.depth = -s;
                 self.state.peak = self.state.peak.max(-s);
                 self.barrier();
@@ -421,7 +468,11 @@ impl TrackedEmitter65816 {
             }
         }
         self.code.reference(op.opcode(), target, addend, byte);
-        self.observe();
+        self.observe_event(if op == ReferenceOp::Jsl {
+            Event::CallReturn
+        } else {
+            Event::Instruction
+        });
     }
     pub fn jump(&mut self, label: Label) {
         self.reference(ReferenceOp::Jml, Target::Label(label), 0, None);
@@ -453,24 +504,26 @@ impl TrackedEmitter65816 {
         self.code.op(0x6b);
         self.state.env.depth -= 3;
         self.state.env.pushes -= 3;
-        self.observe(); // Callee entry: result/ABI postconditions do not apply yet.
+        self.observe_event(Event::IndirectTransfer); // Callee entry: result/ABI postconditions do not apply yet.
         self.state.env = env;
         self.state.call_return();
         self.entries.insert(label, Entry { env, stack_a: None });
         self.unreachable = true;
     }
     fn observe(&mut self) {
+        self.observe_event(Event::Instruction);
+    }
+    fn observe_event(&mut self, _event: Event) {
         #[cfg(feature = "native65816-state-proof")]
         if let Some(trace) = self.trace.as_mut() {
-            trace.push(super::proof::Snapshot::new(
-                self.code.bytes.len(),
-                &self.state,
-            ));
+            let mut snapshot = super::proof::Snapshot::new(self.code.bytes.len(), &self.state);
+            snapshot.event = _event;
+            trace.push(snapshot);
         }
     }
     #[cfg(feature = "native65816-state-proof")]
     pub fn trace(&mut self) {
-        self.trace = Some(Vec::new());
+        self.trace = Some(vec![super::proof::Snapshot::new(0, &self.state)]);
     }
     #[cfg(feature = "native65816-state-proof")]
     pub fn finish_traced(self) -> (Code, Vec<super::proof::Snapshot>) {

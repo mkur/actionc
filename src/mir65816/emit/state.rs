@@ -175,7 +175,9 @@ impl State65816 {
     }
     pub fn narrow(&mut self, value: Value, width: Width) -> Value {
         match value {
-            Value::Constant(v, _) => Self::constant(v, width),
+            Value::Constant(v, source) if source == width || width == Width::Byte => {
+                Self::constant(v, width)
+            }
             v if v.width() == Some(width) => v,
             _ => self.fresh(width),
         }
@@ -265,11 +267,15 @@ impl State65816 {
         self.env.decimal = Some(false);
         self.env.dbr = Some(0);
         self.env.current_domain = true;
+        // Import IRQ effects are resolved by linking, after instruction selection.
+        // Conservatively stop claiming the entry I token across any call.
+        self.env.irq_preserved = false;
         self.a = self.fresh(Width::Word);
         self.x = self.fresh(Width::Word);
     }
     pub fn push(&mut self, bytes: u8) {
         self.adjacent = None;
+        self.homes.clear();
         self.env.pushes += bytes;
         self.env.depth += i64::from(bytes);
         self.peak = self.peak.max(self.env.depth);

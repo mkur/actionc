@@ -131,5 +131,42 @@ fn stack_equations_and_transfer_peak_are_separate_from_body_addresses() {
     e.indirect_transfer();
     e.mark(resume);
     assert_eq!(e.delta(), 5);
-    assert_eq!(e.state.peak, 19);
+    assert_eq!(e.peak(), 19);
+}
+
+#[test]
+fn a_byte_constant_cannot_invent_the_hidden_high_lane_on_transfer() {
+    let mut s = State65816::default();
+    let v = s.narrow(Value::Constant(0x81, Width::Byte), Width::Word);
+    assert!(matches!(v, Value::Opaque(_, Width::Word)));
+    let v = s.narrow(Value::Constant(0xab81, Width::Word), Width::Byte);
+    assert_eq!(v, Value::Constant(0x81, Width::Byte));
+}
+#[test]
+fn call_and_join_invalidate_value_and_flag_relations_without_new_mode_omissions() {
+    use super::Target;
+    let mut e = TrackedEmitter65816::default();
+    let slot = Slot {
+        offset: 2,
+        width: 2,
+    };
+    e.register_home(slot);
+    e.a16();
+    e.word(WordOp::LdaImm, 1);
+    e.byte(ByteOp::StaStack, 2);
+    e.remember_word(TempId(0), slot);
+    e.reference(
+        ReferenceOp::Jsl,
+        Target::Routine(super::RoutineId(0)),
+        0,
+        None,
+    );
+    assert!(!e.consume_word(Some(TempId(0)), Some(slot), Some(2)));
+    let before = e.position();
+    e.a16();
+    assert_eq!(e.position(), before);
+    let label = e.label();
+    e.mark(label);
+    e.a16();
+    assert_eq!(e.position(), before + 2);
 }

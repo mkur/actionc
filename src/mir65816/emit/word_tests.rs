@@ -22,7 +22,6 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
         frame: AllocatedFrame::new(routine).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::new(routine).unwrap()),
         blocks: BTreeMap::new(),
-        resident_word: None,
     }
 }
 

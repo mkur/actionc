@@ -20,7 +20,6 @@ mod edge_tests;
 #[path = "accumulator.rs"]
 mod accumulator;
 use super::tracked::*;
-use accumulator::ResidentWord;
 
 #[cfg(test)]
 #[path = "accumulator_tests.rs"]
@@ -83,17 +82,19 @@ struct Builder<'a> {
     frame: AllocatedFrame,
     code: TrackedEmitter65816,
     blocks: BTreeMap<BlockId, Label>,
-    resident_word: Option<ResidentWord>,
 }
 
-pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, String> {
+pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<MachineRoutine, String> {
     let mut b = Builder {
         routine,
         frame: AllocatedFrame::new(routine)?,
-        code: TrackedEmitter65816::default(),
+        code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
-        resident_word: None,
     };
+    #[cfg(feature = "native65816-state-proof")]
+    if _trace {
+        b.code.trace();
+    }
     if routine.blocks.is_empty() || !routine.blocks[0].params.is_empty() {
         return Err("routine requires an entry block without edge parameters".into());
     }
@@ -103,7 +104,9 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
         }
     }
     for home in b.frame.temps.values() {
-        b.code.register_home(home.slot());
+        if let Location::Stack(slot) = home {
+            b.code.register_home(*slot);
+        }
     }
     b.check_stack(b.frame.extent);
     b.code.op(Implied::Tcs); // TCS: checked new S in A, no write/push before the check.
@@ -874,7 +877,6 @@ impl Builder<'_> {
         Ok(())
     }
     fn check_stack(&mut self, bytes: u16) {
-        self.resident_word = None;
         self.code.barrier();
         // A/X/Y are caller-clobbered. X retains the unchanged S for the raw
         // overflow adapter. Neither branch changes I, D, DBR or the stack.
@@ -902,7 +904,6 @@ impl Builder<'_> {
         self.code.mark(done);
     }
     fn reserve(&mut self, bytes: u16) {
-        self.resident_word = None;
         self.code.barrier();
         self.code.op(Implied::Tsc);
         self.code.op(Implied::Sec);
@@ -910,7 +911,6 @@ impl Builder<'_> {
         self.code.op(Implied::Tcs);
     }
     fn release(&mut self, bytes: u16, preserve_result: bool) {
-        self.resident_word = None;
         self.code.barrier();
         if bytes != 0 {
             // TAY; TSC; CLC; ADC #bytes; TCS; TYA. Preserve the entire A/X result.
@@ -980,7 +980,6 @@ impl Builder<'_> {
         Ok(supported.then_some(WordEdge { target, moves }))
     }
     fn emit_word_edge(&mut self, edge: WordEdge) {
-        self.resident_word = None;
         self.code.barrier();
         self.code.a16();
         if let &[(source, _, destination)] = edge.moves.as_slice() {
@@ -1008,7 +1007,6 @@ impl Builder<'_> {
         self.code.jump(edge.target);
     }
     fn edge(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
-        self.resident_word = None;
         self.code.barrier();
         if let Some(word) = self.word_edge(edge)? {
             self.emit_word_edge(word);
@@ -1067,7 +1065,6 @@ impl Builder<'_> {
             ..
         } = op
         {
-            self.resident_word = None;
             self.code.barrier();
             self.code.a16();
             return self.call(target, args, *result, plan);
@@ -1097,7 +1094,6 @@ impl Builder<'_> {
             return Ok(());
         }
         if !matches!(op, Mir65816Op::Store { .. }) {
-            self.resident_word = None;
             self.code.barrier();
         }
         if !matches!(op, Mir65816Op::Load { .. } | Mir65816Op::Store { .. }) {
@@ -1129,7 +1125,6 @@ impl Builder<'_> {
                 if self.word_store(address, value, width(*bytes)?, *volatile)? {
                     return Ok(());
                 }
-                self.resident_word = None;
                 self.code.barrier();
                 let memory = self.prepare_address(address)?;
                 let bytes = width(*bytes)?;

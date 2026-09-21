@@ -1,19 +1,16 @@
 //! Conservative native instruction selection. Every live value has invocation
 //! storage or a verified per-domain pointer home; scratch is dead at calls.
 mod allocation;
-mod code;
 mod liveness;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod select;
-#[allow(dead_code)]
 mod state;
-#[allow(dead_code)]
 mod tracked;
 
 use super::*;
 pub use allocation::{AllocatedFrame, Location, Slot};
-pub use code::{Code, Fixup, Label, Target};
+pub use tracked::{Code, Fixup, Label, Target};
 
 #[derive(Debug, Clone)]
 pub struct MachineRoutine {
@@ -28,6 +25,10 @@ pub struct MachineProgram {
 }
 
 pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> {
+    materialize_inner(program, false)
+}
+
+fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachineProgram, String> {
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
     if program.call_convention != Mir65816CallConvention::Native {
         return Err(
@@ -53,7 +54,8 @@ pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> 
                 routine.name
             ));
         }
-        routines.push(select::routine(routine).map_err(|e| format!("{}: {e}", routine.name))?);
+        routines
+            .push(select::routine(routine, trace).map_err(|e| format!("{}: {e}", routine.name))?);
     }
     Ok(MachineProgram { routines })
 }

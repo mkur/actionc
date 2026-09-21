@@ -22,7 +22,6 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
             &AllocatedFrame::new(&super::word_tests::program().routines[0]).unwrap(),
         ),
         blocks: BTreeMap::new(),
-        resident_word: None,
     };
     b.blocks.insert(BlockId(99), b.code.label());
     for (id, offset) in [(0, 2), (1, 4)] {

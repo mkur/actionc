@@ -23,7 +23,6 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         frame: AllocatedFrame::new(r).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
         blocks: BTreeMap::new(),
-        resident_word: None,
     };
     for block in &r.blocks {
         b.blocks.insert(block.id, b.code.label());

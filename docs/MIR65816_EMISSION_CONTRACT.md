@@ -97,6 +97,38 @@ multi-bank code, stack failures and preempted tasks. The complete 44-test native
 suite passes in debug and release. JSON transport v3, physical ABI v1 and
 generated stack checks are unchanged.
 
+## Instruction state boundary
+
+Native selection uses the private `TrackedEmitter65816` in
+[tracked.rs](../src/mir65816/emit/tracked.rs). Its closed instruction forms select
+both encoding and effects. The mutable encoder and `State65816` are private to
+the facade; selection can inspect finalized bytes and metadata but cannot write
+raw instructions or attach caller-supplied effects. Linking retains its existing
+ability to patch finalized `Code` buffers.
+
+The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
+execution modes and environment, exact private stack-home generations, stack
+movement and the existing single-use adjacent-word permission. DP and unknown
+writes conservatively invalidate memory relations. Source memory is never cached.
+Calls clear value/flag/home relations; I preservation becomes unknown because
+import IRQ effects are resolved later by linking. Labels discard value/flag
+optimization facts and revoke mode-omission permission. Checked incoming edges
+retain execution preconditions, including byte-mode internal labels and loop
+backedges. Knowing the execution width alone does not permit omitting REP/SEP.
+
+TSC/TCS use bounded stack-address equations. The body anchor, outgoing argument
+displacement and transfer pushes are distinct: JSL has a three-byte peak, and
+indirect PHK/PER/PHA/RTL has a six-byte peak with return facts applied at resume.
+The original guards, overflow A/X/S state, homes, stores, ABI and emitted bytes
+remain unchanged. This foundation enables no additional optimization.
+
+The default-off `native65816-state-proof` feature exposes only immutable snapshots
+and checked probes through `emit::proof`. Ordinary compilation collects no trace.
+Qualification compares known values and simultaneous register/home/NZ relations
+against independent VM execution and ca65 encodings, including rebased o65 code.
+See the [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) and
+[design](MIR65816_STATE_TRACKER_DESIGN.md) for the foundation and deferred work.
+
 ## Supported operations
 
 Adjacent eligible word operations may forward a private stack temporary in A16.

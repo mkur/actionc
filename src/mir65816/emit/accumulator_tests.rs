@@ -5,7 +5,6 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
         frame: AllocatedFrame::new(r).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
         blocks: BTreeMap::new(),
-        resident_word: None,
     }
 }
 fn inputs(r: &Mir65816Routine) -> (TempId, TempId, TempId) {
@@ -32,7 +31,7 @@ fn seed(b: &mut Builder<'_>, id: TempId) {
     b.code.register_home(slot);
     b.code.byte(ByteOp::StaStack, slot.offset as u8);
     b.remember_word(id);
-    assert!(b.resident_word.is_some());
+    assert!(b.code.resident().is_some());
 }
 #[test]
 fn adjacent_word_arithmetic_and_return_retain_homes_and_stores() {
@@ -71,7 +70,7 @@ fn adjacent_word_arithmetic_and_return_retain_homes_and_stores() {
     );
     assert_eq!(b.code.code().bytes.len(), start);
     assert_eq!(b.frame.temps, homes);
-    assert!(b.resident_word.is_none());
+    assert!(b.code.resident().is_none());
 }
 #[test]
 fn stale_value_flags_width_label_and_stack_facts_cannot_remove_loads() {
@@ -161,7 +160,7 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
             .insert(a, Location::Stack(Slot { offset, width: 2 }));
         seed(&mut b, a);
         let before = b.code.code().bytes.clone();
-        let fact = b.resident_word;
+        let fact = b.code.resident();
         let result = b.word_binary(
             dest,
             2,
@@ -172,13 +171,13 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
         assert_eq!(result.is_ok(), offset == 254);
         if offset == 255 {
             assert_eq!(b.code.code().bytes, before);
-            assert_eq!(b.resident_word, fact);
+            assert_eq!(b.code.resident(), fact);
         }
     }
     let mut b = builder(r);
     seed(&mut b, a);
     let before = b.code.code().bytes.clone();
-    let fact = b.resident_word;
+    let fact = b.code.resident();
     assert!(
         !b.word_binary(
             dest,
@@ -190,7 +189,7 @@ fn identity_exact_range_and_checked_extent_are_required_even_for_resident_words(
         .unwrap()
     );
     assert_eq!(b.code.code().bytes, before);
-    assert_eq!(b.resident_word, fact);
+    assert_eq!(b.code.resident(), fact);
 }
 #[test]
 fn store_preflights_destination_and_preserves_only_the_original_write() {
@@ -217,7 +216,7 @@ fn store_preflights_destination_and_preserves_only_the_original_write() {
         .unwrap()
     );
     assert_eq!(&b.code.code().bytes[start..], [0x83, at]);
-    assert!(b.resident_word.is_none());
+    assert!(b.code.resident().is_none());
     seed(&mut b, a);
     let start = b.code.code().bytes.len();
     assert!(
@@ -227,11 +226,11 @@ fn store_preflights_destination_and_preserves_only_the_original_write() {
     assert_eq!(b.code.code().bytes.len(), start);
     let mut bad = address;
     bad.displacement = ByteOffset::new(u32::MAX);
-    let fact = b.resident_word;
+    let fact = b.code.resident();
     assert!(
         b.word_store(&bad, &Mir65816Value::Temp(a, ByteSize::new(2)), 2, false)
             .is_err()
     );
     assert_eq!(b.code.code().bytes.len(), start);
-    assert_eq!(b.resident_word, fact);
+    assert_eq!(b.code.resident(), fact);
 }

@@ -3,9 +3,25 @@
 pub use super::state::{Value, Width};
 use super::{Code, state::State65816, tracked::*};
 
+pub use super::tracked::Event;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HomeSnapshot {
+    pub offset: u16,
+    pub width: u8,
+    pub generation: u64,
+    pub value: Value,
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Snapshot {
     pub pc: usize,
+    pub event: Event,
+    pub anchor: Option<i64>,
+    pub transfer_pushes: u8,
+    pub native: bool,
+    pub decimal: Option<bool>,
+    pub dbr: Option<u8>,
+    pub current_domain: bool,
+    pub irq_preserved: bool,
     pub a: Value,
     pub x: Value,
     pub y: Value,
@@ -15,12 +31,20 @@ pub struct Snapshot {
     pub m: Width,
     pub index: Width,
     pub depth: i64,
-    pub homes: Vec<(u16, u8, Value)>,
+    pub homes: Vec<HomeSnapshot>,
 }
 impl Snapshot {
     pub(super) fn new(pc: usize, s: &State65816) -> Self {
         Self {
             pc,
+            event: Event::Instruction,
+            anchor: s.env.anchor,
+            transfer_pushes: s.env.pushes,
+            native: s.env.native,
+            decimal: s.env.decimal,
+            dbr: s.env.dbr,
+            current_domain: s.env.current_domain,
+            irq_preserved: s.env.irq_preserved,
             a: s.a,
             x: s.x,
             y: s.y,
@@ -33,7 +57,12 @@ impl Snapshot {
             homes: s
                 .homes
                 .iter()
-                .map(|(&(offset, width), h)| (offset, width, h.value))
+                .map(|(&(offset, width), h)| HomeSnapshot {
+                    offset,
+                    width,
+                    generation: h.generation,
+                    value: h.value,
+                })
                 .collect(),
         }
     }
@@ -60,5 +89,96 @@ pub fn arithmetic_probe(left: u16, right: u16) -> (Code, Vec<Snapshot>) {
     e.op(Implied::Clc);
     e.word(WordOp::AdcImm, 0);
     e.op(Implied::Tcs);
+    e.finish_traced()
+}
+
+#[derive(Clone, Debug)]
+pub struct RoutineTrace {
+    pub routine: super::RoutineId,
+    pub snapshots: Vec<Snapshot>,
+}
+/// Trace opt-in has no effect on allocation, selection or finalized machine code.
+pub fn materialize_with_trace(
+    program: &super::Mir65816Program,
+) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
+    let mut machine = super::materialize_inner(program, true)?;
+    let traces = machine
+        .routines
+        .iter_mut()
+        .map(|r| RoutineTrace {
+            routine: r.id,
+            snapshots: std::mem::take(&mut r.code.state_trace),
+        })
+        .collect();
+    Ok((machine, traces))
+}
+
+/// Audited non-control-flow families, in both memory widths. DP contents are
+/// deliberately not tracked; private homes and immutable register copies are.
+pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.register_home(super::Slot {
+        offset: 2,
+        width: if byte { 1 } else { 2 },
+    });
+    if byte {
+        e.a8();
+        e.byte(ByteOp::LdaImm, 0x81);
+    } else {
+        e.a16();
+        e.word(WordOp::LdaImm, 0x8001);
+    }
+    e.op(Implied::Tax);
+    e.byte(ByteOp::StaStack, 2);
+    e.byte(ByteOp::LdaStack, 2);
+    e.op(Implied::Clc);
+    e.byte(ByteOp::AdcStack, 2);
+    e.op(Implied::Sec);
+    e.byte(ByteOp::SbcStack, 2);
+    e.byte(ByteOp::CmpStack, 2);
+    e.byte(ByteOp::StaDp, 8);
+    e.byte(ByteOp::LdaDp, 8);
+    e.op(Implied::Clc);
+    e.byte(ByteOp::AdcDp, 8);
+    e.op(Implied::Sec);
+    e.byte(ByteOp::SbcDp, 8);
+    e.byte(ByteOp::CmpDp, 8);
+    e.byte(ByteOp::AndDp, 8);
+    e.byte(ByteOp::OraDp, 8);
+    e.byte(ByteOp::EorDp, 8);
+    for op in [ByteOp::AslDp, ByteOp::RolDp, ByteOp::LsrDp, ByteOp::RorDp] {
+        e.byte(op, 8);
+    }
+    e.byte(ByteOp::LdxDp, 8);
+    e.word(WordOp::LdyImm, 2);
+    e.byte(ByteOp::LdaIndirect, 0);
+    e.byte(ByteOp::StaIndirect, 0);
+    e.byte(ByteOp::LdaIndirectY, 0);
+    e.byte(ByteOp::StaIndirectY, 0);
+    e.long(LongOp::Lda, 0x120004).unwrap();
+    e.long(LongOp::Sta, 0x120006).unwrap();
+    e.op(Implied::Txa);
+    e.op(Implied::Tay);
+    e.op(Implied::Tya);
+    e.op(Implied::Dex);
+    e.op(Implied::DecA);
+    e.a16();
+    e.word(WordOp::AndImm, 0xff);
+    e.a8();
+    e.byte(ByteOp::EorImm, 0x80);
+    e.op(Implied::Clc);
+    e.byte(ByteOp::AdcImm, 1);
+    e.op(Implied::Sec);
+    e.byte(ByteOp::SbcImm, 1);
+    e.byte(ByteOp::CmpImm, 0x80);
+    e.byte(ByteOp::Sep, 0xdf);
+    e.byte(ByteOp::Rep, 0xff);
+    e.a8();
+    e.op(Implied::Tsc);
+    e.op(Implied::Tax);
+    e.op(Implied::Tcs);
+    e.a16();
+    e.op(Implied::Nop);
     e.finish_traced()
 }
