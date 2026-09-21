@@ -46,7 +46,7 @@ allocator or emitter rewrite.
 | Order | Improvement | Initial scope |
 | --- | --- | --- |
 | 1 (complete) | Direct single-word edge copies | Bypass staging for one checked word argument. Preserve multi-value edges, frame allocation and guards. |
-| 2 | Local accumulator forwarding | Avoid reloading private stack values already held in A. Retain stores and existing homes initially. |
+| 2 | [Local accumulator forwarding](MIR65816_LOCAL_ACCUMULATOR_FORWARDING_PLAN.md) | Adjacent eligible word operations reuse A16 when the private temporary and N/Z match. Retain stores and existing homes. |
 | 3 | Simpler control flow and width handling | Use proven A16 block-entry contracts, remove jumps to adjacent blocks, then select short branches where final placement permits. |
 | 4 | Parallel-copy scheduling and coalescing | Remove self-copies, schedule independent moves directly and retain staging for cycles; subsequently shrink unused storage and coalesce compatible homes. |
 | 5 | Scalar DP allocation | Extend allocation to verified, call-free scalar routines with loops, after defining operation and helper clobbers. |
