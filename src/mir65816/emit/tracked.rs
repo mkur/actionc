@@ -50,6 +50,9 @@ pub(super) struct TrackedEmitter65816 {
     entries: BTreeMap<Label, Entry>,
     bound: BTreeSet<Label>,
     blocks: BTreeSet<Label>,
+    proved_blocks: BTreeSet<Label>,
+    remaining_edges: Option<BTreeMap<Label, BTreeMap<Option<Label>, usize>>>,
+    active_block: Option<Label>,
     unreachable: bool,
     indirect_resume: Option<(Label, Environment)>,
     #[cfg(feature = "native65816-state-proof")]
@@ -92,6 +95,16 @@ impl TrackedEmitter65816 {
         &self.code
     }
     pub fn finish(self) -> Code {
+        if let Some(edges) = &self.remaining_edges {
+            assert!(
+                edges.values().all(|p| p.values().all(|&n| n == 0)),
+                "unchecked MIR predecessors"
+            );
+            assert!(
+                edges.keys().all(|l| self.bound.contains(l)),
+                "unbound MIR block"
+            );
+        }
         #[cfg(feature = "native65816-state-proof")]
         {
             let mut code = self.code;
@@ -136,6 +149,33 @@ impl TrackedEmitter65816 {
             );
         }
     }
+    /// Expected CFG transfers are obligations, not observations. Every actual
+    /// exit is checked, including backedges emitted after an eligible binding.
+    pub fn prove_entries(
+        &mut self,
+        predecessors: BTreeMap<Label, BTreeMap<Option<Label>, usize>>,
+        reachable: BTreeSet<Label>,
+    ) {
+        let e = self.state.env;
+        assert!(e.native && e.m == Width::Word && e.index == Width::Word);
+        assert!(
+            e.anchor == Some(e.depth) && e.pushes == 0,
+            "MIR body stack contract"
+        );
+        assert_eq!(
+            predecessors.keys().copied().collect::<BTreeSet<_>>(),
+            self.blocks
+        );
+        assert!(reachable.is_subset(&self.blocks));
+        assert!(
+            reachable
+                .iter()
+                .all(|l| predecessors[l].values().any(|&n| n > 0))
+        );
+        assert!(self.remaining_edges.is_none() && self.active_block.is_none());
+        self.remaining_edges = Some(predecessors);
+        self.proved_blocks = reachable;
+    }
     fn entry(&self) -> Entry {
         Entry {
             env: self.state.env,
@@ -149,6 +189,13 @@ impl TrackedEmitter65816 {
         let current = self.entry();
         if self.blocks.contains(&label) {
             assert_eq!(current.env.m, Width::Word, "MIR exit width");
+            if let Some(edges) = &mut self.remaining_edges {
+                let count = edges
+                    .get_mut(&label)
+                    .and_then(|p| p.get_mut(&self.active_block))
+                    .expect("unexpected MIR predecessor");
+                *count = count.checked_sub(1).expect("duplicate MIR predecessor");
+            }
         }
         if let Some(old) = self.entries.get_mut(&label) {
             old.env.irq_preserved &= current.env.irq_preserved;
@@ -185,7 +232,10 @@ impl TrackedEmitter65816 {
                 self.state.a = Value::StackAddress(s);
             }
         }
-        self.state.mode_permission = false;
+        self.state.mode_permission = self.proved_blocks.contains(&label);
+        if self.blocks.contains(&label) {
+            self.active_block = Some(label);
+        }
         self.code.mark(label);
         self.bound.insert(label);
         self.unreachable = false;

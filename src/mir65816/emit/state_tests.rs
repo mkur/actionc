@@ -1,5 +1,85 @@
 use super::{Slot, TempId, state::*, tracked::*};
 
+fn mir_loop() -> (TrackedEmitter65816, super::Label) {
+    let mut e = TrackedEmitter65816::default();
+    e.test_frame(8);
+    let l = e.label();
+    e.declare_blocks([l].into_iter());
+    e.prove_entries([(l, [(None, 1), (Some(l), 1)].into())].into(), [l].into());
+    (e, l)
+}
+
+#[test]
+fn proved_mir_entry_omits_rep_but_clears_values_and_keeps_byte_transition() {
+    let (mut e, l) = mir_loop();
+    let slot = Slot {
+        offset: 2,
+        width: 2,
+    };
+    e.register_home(slot);
+    e.a16();
+    e.word(WordOp::LdaImm, 0xab80);
+    e.byte(ByteOp::StaStack, 2);
+    e.remember_word(TempId(0), slot);
+    e.mark(l);
+    let at = e.position();
+    e.a16();
+    assert_eq!(e.position(), at);
+    assert!(!e.consume_word(Some(TempId(0)), Some(slot), Some(2)));
+    e.a8();
+    assert_eq!(&e.code().bytes[at..], &[0xe2, 0x20]);
+    e.a16();
+    e.jump(l);
+    e.finish();
+}
+
+#[test]
+fn dead_or_unproved_mir_binding_keeps_explicit_rep() {
+    let mut e = TrackedEmitter65816::default();
+    e.test_frame(0);
+    let live = e.label();
+    let dead = e.label();
+    e.declare_blocks([live, dead].into_iter());
+    e.prove_entries(
+        [(live, [(None, 1)].into()), (dead, Default::default())].into(),
+        [live].into(),
+    );
+    e.mark(live);
+    e.op(Implied::Rtl);
+    e.mark(dead);
+    let at = e.position();
+    e.a16();
+    assert_eq!(&e.code().bytes[at..], &[0xc2, 0x20]);
+    e.op(Implied::Rtl);
+    e.finish();
+}
+
+#[test]
+#[should_panic(expected = "unchecked MIR predecessors")]
+fn missing_backedge_obligation_rejects_finalization() {
+    let (mut e, l) = mir_loop();
+    e.mark(l);
+    e.finish();
+}
+
+#[test]
+#[should_panic(expected = "MIR exit width")]
+fn proved_entry_cannot_hide_an_incompatible_late_backedge() {
+    let (mut e, l) = mir_loop();
+    e.mark(l);
+    e.a8();
+    e.jump(l);
+}
+
+#[test]
+#[should_panic(expected = "duplicate MIR predecessor")]
+fn duplicate_predecessor_cannot_replace_a_missing_one() {
+    let (mut e, l) = mir_loop();
+    e.mark(l);
+    e.branch(Branch::Equal, l);
+    e.jump(l);
+}
+
 #[test]
 fn immutable_values_unknowns_and_overlapping_home_generations() {
     let mut s = State65816::default();

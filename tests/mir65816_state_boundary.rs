@@ -1,8 +1,9 @@
-//! Frozen before tracker integration: output and nonserialized proof boundaries.
+//! Reviewed emitted output and nonserialized proof boundaries. The original
+//! pre-tracker snapshot remains in history; 3a removes only MIR-entry REP.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]
-fn native_state_boundary_is_byte_and_metadata_identical() {
+fn native_emission_boundary_matches_reviewed_snapshot() {
     let mut actual = String::new();
     for fixture in [
         "accumulator_forwarding.act",

@@ -111,16 +111,22 @@ execution modes and environment, exact private stack-home generations, stack
 movement and the existing single-use adjacent-word permission. DP and unknown
 writes conservatively invalidate memory relations. Source memory is never cached.
 Calls clear value/flag/home relations; I preservation becomes unknown because
-import IRQ effects are resolved later by linking. Labels discard value/flag
-optimization facts and revoke mode-omission permission. Checked incoming edges
-retain execution preconditions, including byte-mode internal labels and loop
-backedges. Knowing the execution width alone does not permit omitting REP/SEP.
+import IRQ effects are resolved later by linking. Every label discards value/flag
+optimization facts. Internal labels revoke mode-omission permission. Reachable
+MIR entries may retain A16 permission only under a checked native A16/X16 body
+contract: the ABI/prologue supplies the initial edge, and every CFG predecessor,
+including both branch arms and later-emitted backedges, must discharge its
+execution/stack obligation before finalization. Unproved/dead entries retain
+explicit mode requests. Seeded label environments alone are not proof; a missing,
+duplicate or incompatible transfer is rejected. This never retains values,
+home relations or forwarding permission across joins, nor omits a needed SEP.
 
 TSC/TCS use bounded stack-address equations. The body anchor, outgoing argument
 displacement and transfer pushes are distinct: JSL has a three-byte peak, and
 indirect PHK/PER/PHA/RTL has a six-byte peak with return facts applied at resume.
-The original guards, overflow A/X/S state, homes, stores, ABI and emitted bytes
-remain unchanged. This foundation enables no additional optimization.
+The original guards, overflow A/X/S state, homes, stores and ABI remain unchanged.
+The foundation was byte-identical; subsequent checked MIR-entry width omission
+removes only redundant REP instructions and shifts code positions accordingly.
 
 The default-off `native65816-state-proof` feature exposes only immutable snapshots
 and checked probes through `emit::proof`. Ordinary compilation collects no trace.
@@ -191,8 +197,9 @@ word assignment loads its entire source into A before storing directly to the
 destination; its staging reservation and validation remain, without any staging
 access. Self-copies still load and store. For multi-word edges, all sources are
 captured in staging before any destination is assigned. Mixed-width and legal
-unsupported nonempty edges retain bytewise emission. Local mode knowledge is reset at
-labels; word edges restore A16 when needed. No DP traffic, pushes, calls or wider
+unsupported nonempty edges retain bytewise emission. Internal labels reset mode
+permission; proved MIR entries use the contract above. Word edges restore A16
+when needed. No DP traffic, pushes, calls or wider
 external memory accesses are introduced. Frame allocation, guard costs and
 multi-word per-byte private stack traffic are unchanged. Each direct single-word
 copy removes two private stack byte reads and two writes; word loads read both
@@ -201,7 +208,7 @@ bytes before the corresponding store.
 Empty edges validate the target and arity, restore A16 only when local mode
 knowledge requires it, and emit the existing typed JML. They never select A8.
 Known A16 needs no mode instruction; A8 or unknown knowledge requires REP #$20.
-Branch labels still invalidate knowledge. This changes no branch decision,
+Internal branch labels still revoke omission permission. This changes no branch decision,
 nonempty copy, stack guard, frame, register value or data-memory access; it does
 not introduce fallthrough elimination, jump threading or branch relaxation.
 

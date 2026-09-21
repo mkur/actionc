@@ -127,6 +127,51 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         }
     }
     b.code.declare_blocks(b.blocks.values().copied());
+    let mut predecessors: BTreeMap<_, BTreeMap<_, usize>> = b
+        .blocks
+        .values()
+        .map(|&label| (label, BTreeMap::new()))
+        .collect();
+    predecessors
+        .get_mut(&b.blocks[&routine.blocks[0].id])
+        .unwrap()
+        .insert(None, 1);
+    let mut successors = BTreeMap::new();
+    for (i, block) in routine.blocks.iter().enumerate() {
+        let next = match &block.terminator {
+            Mir65816Terminator::Goto(edge) => vec![edge.target],
+            Mir65816Terminator::Branch {
+                then_edge,
+                else_edge,
+                ..
+            } => vec![else_edge.target, then_edge.target],
+            Mir65816Terminator::Fallthrough => vec![
+                routine
+                    .blocks
+                    .get(i + 1)
+                    .ok_or("unresolved terminal fallthrough")?
+                    .id,
+            ],
+            _ => vec![],
+        };
+        for target in &next {
+            let label = b.blocks.get(target).ok_or("missing branch target label")?;
+            *predecessors
+                .get_mut(label)
+                .unwrap()
+                .entry(Some(b.blocks[&block.id]))
+                .or_default() += 1;
+        }
+        successors.insert(block.id, next);
+    }
+    let mut reachable = BTreeSet::new();
+    let mut pending = vec![routine.blocks[0].id];
+    while let Some(id) = pending.pop() {
+        if reachable.insert(b.blocks[&id]) {
+            pending.extend(&successors[&id]);
+        }
+    }
+    b.code.prove_entries(predecessors, reachable);
     let sole_conditions = liveness::sole_branch_conditions(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
         b.code.mark(b.blocks[&block.id]);
