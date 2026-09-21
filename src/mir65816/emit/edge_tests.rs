@@ -141,13 +141,10 @@ fn word_edge_preflight_checks_every_entry_without_mutation() {
 #[test]
 fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
     let mut p = program();
-    for form in 0..4 {
+    for form in 0..3 {
         let r = &mut p.routines[0];
         if form == 2 {
             r.blocks.last_mut().unwrap().params[1].1 = ByteSize::ONE;
-        }
-        if form == 3 {
-            r.blocks.last_mut().unwrap().params.clear();
         }
         let mut b = builder(r);
         let mut e = edge();
@@ -180,7 +177,6 @@ fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
                     }),
                 );
             }
-            3 => e.args.clear(),
             _ => unreachable!(),
         }
         b.code.a16();
@@ -197,18 +193,16 @@ fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
             vec![0xa3, 4, 0x83, 8, 0xa3, 5, 0x83, 9]
         };
         let mut expected = vec![0xe2, 0x20];
-        if form != 3 {
-            expected.extend(source);
-            expected.extend([0xa9, 0x5a, 0x83, 12]);
-            if form != 2 {
-                expected.extend([0xa9, 0xa5, 0x83, 13]);
-            }
-            expected.extend([0xa3, 8, 0x83, 2, 0xa3, 9, 0x83, 3, 0xa3, 12]);
-            expected.extend(if form == 1 { [0x85, 0] } else { [0x83, 4] });
-            if form != 2 {
-                expected.extend([0xa3, 13]);
-                expected.extend(if form == 1 { [0x85, 1] } else { [0x83, 5] });
-            }
+        expected.extend(source);
+        expected.extend([0xa9, 0x5a, 0x83, 12]);
+        if form != 2 {
+            expected.extend([0xa9, 0xa5, 0x83, 13]);
+        }
+        expected.extend([0xa3, 8, 0x83, 2, 0xa3, 9, 0x83, 3, 0xa3, 12]);
+        expected.extend(if form == 1 { [0x85, 0] } else { [0x83, 4] });
+        if form != 2 {
+            expected.extend([0xa3, 13]);
+            expected.extend(if form == 1 { [0x85, 1] } else { [0x83, 5] });
         }
         expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]);
         assert_eq!(b.code.bytes[start..], expected, "{form}");
@@ -247,5 +241,78 @@ fn only_accessed_word_extent_matters_after_transient_stack_movement() {
             }
             assert_eq!(b.word_edge(&e).is_ok(), ok, "{field}/{offset}/{delta}");
         }
+    }
+}
+
+#[test]
+fn empty_edges_only_restore_a16_when_needed_and_keep_the_typed_target() {
+    let mut p = program();
+    p.routines[0].blocks.last_mut().unwrap().params.clear();
+    for mode in [None, Some(true), Some(false)] {
+        let mut b = builder(&p.routines[0]);
+        match mode {
+            Some(true) => b.code.a8(),
+            Some(false) => b.code.a16(),
+            None => (),
+        }
+        let mut e = edge();
+        e.args.clear();
+        let start = b.code.bytes.len();
+        let frame = b.frame.clone();
+        b.edge(&e).unwrap();
+        let expected = if mode == Some(false) {
+            vec![0x5c, 0, 0, 0]
+        } else {
+            vec![0xc2, 0x20, 0x5c, 0, 0, 0]
+        };
+        assert_eq!(b.code.bytes[start..], expected);
+        assert_eq!(b.code.fixups.len(), 1);
+        let f = &b.code.fixups[0];
+        assert_eq!(
+            (f.offset, f.target, f.addend, f.byte),
+            (
+                b.code.bytes.len() - 3,
+                Target::Label(b.blocks[&e.target]),
+                0,
+                None
+            )
+        );
+        assert_eq!(format!("{:?}", b.frame), format!("{:?}", frame));
+        let end = b.code.bytes.clone();
+        b.code.a16();
+        assert_eq!(b.code.bytes, end);
+    }
+}
+
+#[test]
+fn malformed_empty_edges_fail_without_emission_or_mode_changes() {
+    for problem in 0..4 {
+        let mut p = program();
+        if problem != 2 {
+            p.routines[0].blocks.last_mut().unwrap().params.clear();
+        }
+        let mut b = builder(&p.routines[0]);
+        let mut e = edge();
+        e.args.clear();
+        let message = match problem {
+            0 => {
+                e.target = BlockId(999);
+                "unknown branch target"
+            }
+            1 => {
+                b.blocks.clear();
+                "missing branch target label"
+            }
+            2 => "edge argument count mismatch",
+            3 => {
+                e.args.push(Mir65816Value::U16(1));
+                "edge argument count mismatch"
+            }
+            _ => unreachable!(),
+        };
+        b.code.a8();
+        let before = format!("{:?}", b.code);
+        assert_eq!(b.edge(&e), Err(message.into()));
+        assert_eq!(format!("{:?}", b.code), before);
     }
 }

@@ -763,6 +763,14 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         }
         check_fused_results(&h);
         assert_eq!(windows.len(), 6);
+        assert_eq!(
+            windows
+                .iter()
+                .filter(|w| w.edges[0].len() == 1 && w.edges[1].len() == 2)
+                .count(),
+            5,
+            "all empty false/true transfers must remain in IRQ coverage"
+        );
         assert!(!word_sites.is_empty());
         assert_eq!(overlapping_domains, BTreeSet::from([0x2000, 0x2100]));
         assert_eq!(targets, seen);

@@ -180,6 +180,11 @@ pub fn fused_in_range(
         if let Some(w) = super::word_edge::decode(bus, pc, range.clone()) {
             return Some((w.sites, w.target, w.end));
         }
+        // Dispatch is already A16. An empty edge is JML, with a retained
+        // REP at a label where the emitter conservatively forgets that fact.
+        if let Some(empty) = empty_edge(bus, pc, range.clone()) {
+            return Some(empty);
+        }
         if pc + 2 > end || bus.ram[pc as usize..pc as usize + 2] != [0xe2, 0x20] {
             return None;
         }
@@ -229,4 +234,30 @@ pub fn fused_in_range(
         edges: [false_sites, true_sites],
         targets: [false_target, true_target],
     })
+}
+
+/// Decode an empty edge in a caller-established A16 context. This is deliberately
+/// not a general JML classifier: callers supply known edge entries/routine bounds.
+pub fn empty_edge(
+    bus: &Bus,
+    mut pc: u32,
+    range: std::ops::Range<u32>,
+) -> Option<(Vec<u32>, u32, u32)> {
+    if !range.contains(&pc) || pc + 2 > range.end {
+        return None;
+    }
+    let mut sites = vec![];
+    if bus.ram[pc as usize..pc as usize + 2] == [0xc2, 0x20] {
+        sites.push(pc);
+        pc += 2;
+    }
+    if pc + 4 > range.end || bus.ram[pc as usize] != 0x5c {
+        return None;
+    }
+    let target = bus.value(pc + 1, 3);
+    if !range.contains(&target) {
+        return None;
+    }
+    sites.push(pc);
+    Some((sites, target, pc + 4))
 }

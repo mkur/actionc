@@ -132,12 +132,19 @@ Nonempty edges whose arguments and parameters are all exactly two bytes may use
 native A16 LDA/STA. Complete preflight checks stack sources, authoritative mutable
 parameter homes, destinations, the target label and the two accessed bytes of
 each existing four-byte staging slot, including transient S movement. All sources
-are captured before any destination is assigned. Empty, mixed-width and legal
-unsupported edges retain bytewise emission. Local mode knowledge is reset at
+are captured before any destination is assigned. Mixed-width and legal
+unsupported nonempty edges retain bytewise emission. Local mode knowledge is reset at
 labels; word edges restore A16 when needed. No DP traffic, pushes, calls or wider
 external memory accesses are introduced. Frame allocation, guard costs and
 per-byte private stack traffic are unchanged; word loads read both bytes before
 the corresponding store.
+
+Empty edges validate the target and arity, restore A16 only when local mode
+knowledge requires it, and emit the existing typed JML. They never select A8.
+Known A16 needs no mode instruction; A8 or unknown knowledge requires REP #$20.
+Branch labels still invalidate knowledge. This changes no branch decision,
+nonempty copy, stack guard, frame, register value or data-memory access; it does
+not introduce fallthrough elimination, jump threading or branch relaxation.
 
 ### Scalar instruction selection
 

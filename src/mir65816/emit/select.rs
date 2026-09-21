@@ -937,6 +937,17 @@ impl Builder<'_> {
         if edge.args.len() != block.params.len() {
             return Err("edge argument count mismatch".into());
         }
+        if edge.args.is_empty() {
+            let target = *self
+                .blocks
+                .get(&edge.target)
+                .ok_or("missing branch target label")?;
+            // No copies need A8. Keep the successor's A16 contract, including
+            // at branch labels where local mode knowledge has been invalidated.
+            self.code.a16();
+            self.code.jump(target);
+            return Ok(());
+        }
         self.code.a8();
         // Save every source before assigning any destination: parallel copies
         // stay correct for loops that swap or rotate live values.

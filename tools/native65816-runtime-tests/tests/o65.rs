@@ -102,6 +102,11 @@ RETURN
                                     assert!(
                                         w.targets.iter().all(|pc| (at..at + r.size).contains(pc))
                                     );
+                                    assert_eq!(
+                                        (w.edges[0].len(), w.edges[1].len()),
+                                        (1, 2),
+                                        "relocated empty edges retain JML and required REP only"
+                                    );
                                     reached += 1;
                                 }
                             }
