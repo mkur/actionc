@@ -1,0 +1,8 @@
+MODULE CORPUS
+PUBLIC CARD FUNC Work(CARD x)
+CARD a,b,c,i
+a=x b=x+1
+FOR i=0 TO 7 DO c=a a=b b=c+1 OD
+RETURN(a+b)
+PROC Main() RETURN
+ENDMODULE

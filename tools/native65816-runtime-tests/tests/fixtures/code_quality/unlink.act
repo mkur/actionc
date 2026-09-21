@@ -1,0 +1,9 @@
+MODULE CORPUS
+TYPE Node=[Node POINTER next Node POINTER previous]
+PUBLIC PROC Work(Node POINTER item)
+Node POINTER previous,following
+previous=item.previous following=item.next
+previous.next=following following.previous=previous
+RETURN
+PROC Main() RETURN
+ENDMODULE

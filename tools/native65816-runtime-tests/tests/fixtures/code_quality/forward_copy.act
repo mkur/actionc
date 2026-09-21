@@ -1,0 +1,6 @@
+MODULE CORPUS
+PUBLIC PROC Work(BYTE POINTER dst,src CARD n)
+WHILE n#0 DO dst^=src^ dst==+1 src==+1 n==-1 OD
+RETURN
+PROC Main() RETURN
+ENDMODULE

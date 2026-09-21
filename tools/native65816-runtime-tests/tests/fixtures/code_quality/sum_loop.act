@@ -1,0 +1,8 @@
+MODULE CORPUS
+PUBLIC CARD FUNC Work(CARD n)
+CARD total
+total=0
+WHILE n#0 DO total==+n n==-1 OD
+RETURN(total)
+PROC Main() RETURN
+ENDMODULE

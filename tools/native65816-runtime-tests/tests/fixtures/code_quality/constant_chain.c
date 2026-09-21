@@ -1,0 +1,8 @@
+/* Exact unsigned widths; compile with -mhuge -ptr24. */
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned long u32;
+typedef char check_u16[sizeof(u16)==2 ? 1 : -1];
+typedef char check_u32[sizeof(u32)==4 ? 1 : -1];
+typedef char check_ptr[sizeof(u8 *)==3 ? 1 : -1];
+u16 Work(u16 x) { return x+1+2+3+4+5+6+7+8+9+10+11+12+13+14+15+16; }

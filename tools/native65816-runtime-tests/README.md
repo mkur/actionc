@@ -7,6 +7,11 @@ JSON images and experimental o65 applications and executes their bytes on the
 VM's independent native 24-bit bus.
 The compiler does not depend on the VM.
 
+An opt-in [actionc/vbcc code-quality comparison](../compare65816/README.md)
+executes paired C and Action! kernels from external build artifacts. Its
+`code_quality` test is ignored by default; it reports incorrect external compiler
+outputs as failures and saves the complete measurements for analysis.
+
 ## Reproduce qualification
 
 Install Rust, Python 3.12+, git, ca65 and ld65. From the actionc repository root:

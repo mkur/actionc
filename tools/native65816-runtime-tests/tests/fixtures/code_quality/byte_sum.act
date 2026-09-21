@@ -1,0 +1,8 @@
+MODULE CORPUS
+PUBLIC CARD FUNC Work(BYTE POINTER p CARD n)
+CARD total
+total=0
+WHILE n#0 DO total==+CARD(p^) p==+1 n==-1 OD
+RETURN(total)
+PROC Main() RETURN
+ENDMODULE

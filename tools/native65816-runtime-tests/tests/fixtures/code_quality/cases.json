@@ -1,0 +1,1030 @@
+[
+  {
+    "id": "identity",
+    "args": [
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1
+        ],
+        "result": 1,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13
+        ],
+        "result": 13,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32767
+        ],
+        "result": 32767,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768
+        ],
+        "result": 32768,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          65535
+        ],
+        "result": 65535,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "add",
+    "args": [
+      2,
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0,
+          0
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1,
+          2
+        ],
+        "result": 3,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13,
+          41
+        ],
+        "result": 54,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          65535,
+          1
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768,
+          32767
+        ],
+        "result": 65535,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "constant_chain",
+    "args": [
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0
+        ],
+        "result": 136,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1
+        ],
+        "result": 137,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13
+        ],
+        "result": 149,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32767
+        ],
+        "result": 32903,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768
+        ],
+        "result": 32904,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          65535
+        ],
+        "result": 135,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "maximum",
+    "args": [
+      2,
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0,
+          0
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1,
+          2
+        ],
+        "result": 2,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13,
+          41
+        ],
+        "result": 41,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          65535,
+          1
+        ],
+        "result": 65535,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768,
+          32767
+        ],
+        "result": 32768,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wide_shift",
+    "args": [
+      4
+    ],
+    "returns": 4,
+    "vectors": [
+      {
+        "args": [
+          0
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1
+        ],
+        "result": 32,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          305419896
+        ],
+        "result": 1154237903,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          2147483648
+        ],
+        "result": 268435456,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          4294967295
+        ],
+        "result": 3758096415,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "loop_rotation",
+    "args": [
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0
+        ],
+        "result": 9,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1
+        ],
+        "result": 11,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13
+        ],
+        "result": 35,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32767
+        ],
+        "result": 7,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768
+        ],
+        "result": 9,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          65535
+        ],
+        "result": 7,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "sum_loop",
+    "args": [
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1
+        ],
+        "result": 1,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          8
+        ],
+        "result": 36,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13
+        ],
+        "result": 91,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          31
+        ],
+        "result": 496,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "recursive_sum",
+    "args": [
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0
+        ],
+        "result": 0,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1
+        ],
+        "result": 1,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          8
+        ],
+        "result": 36,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13
+        ],
+        "result": 91,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "direct_calls",
+    "args": [
+      2,
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          0,
+          0
+        ],
+        "result": 14,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          1,
+          2
+        ],
+        "result": 17,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          13,
+          41
+        ],
+        "result": 68,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          65535,
+          1
+        ],
+        "result": 14,
+        "memory": [],
+        "after": []
+      },
+      {
+        "args": [
+          32768,
+          32767
+        ],
+        "result": 13,
+        "memory": [],
+        "after": []
+      }
+    ],
+    "note": "Both public C functions and all emitted Action functions are counted; no forced inlining policy."
+  },
+  {
+    "id": "byte_sum",
+    "args": [
+      3,
+      2
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          1245180,
+          0
+        ],
+        "result": 0,
+        "memory": [
+          {
+            "address": 1245180,
+            "bytes": [
+              1,
+              2,
+              3,
+              250,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": []
+      },
+      {
+        "args": [
+          1245180,
+          1
+        ],
+        "result": 1,
+        "memory": [
+          {
+            "address": 1245180,
+            "bytes": [
+              1,
+              2,
+              3,
+              250,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": []
+      },
+      {
+        "args": [
+          1245180,
+          4
+        ],
+        "result": 256,
+        "memory": [
+          {
+            "address": 1245180,
+            "bytes": [
+              1,
+              2,
+              3,
+              250,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": []
+      },
+      {
+        "args": [
+          1245180,
+          8
+        ],
+        "result": 282,
+        "memory": [
+          {
+            "address": 1245180,
+            "bytes": [
+              1,
+              2,
+              3,
+              250,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": []
+      },
+      {
+        "args": [
+          1245180,
+          16
+        ],
+        "result": 382,
+        "memory": [
+          {
+            "address": 1245180,
+            "bytes": [
+              1,
+              2,
+              3,
+              250,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": []
+      }
+    ],
+    "note": "The buffer crosses a 64 KiB bank; huge 24-bit C pointers match full native pointer progression here."
+  },
+  {
+    "id": "record_field",
+    "args": [
+      3
+    ],
+    "returns": 2,
+    "vectors": [
+      {
+        "args": [
+          1245182
+        ],
+        "result": 0,
+        "memory": [
+          {
+            "address": 1245182,
+            "bytes": [
+              7,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "after": []
+      },
+      {
+        "args": [
+          1245182
+        ],
+        "result": 13,
+        "memory": [
+          {
+            "address": 1245182,
+            "bytes": [
+              7,
+              0,
+              13,
+              0
+            ]
+          }
+        ],
+        "after": []
+      },
+      {
+        "args": [
+          1245182
+        ],
+        "result": 65535,
+        "memory": [
+          {
+            "address": 1245182,
+            "bytes": [
+              7,
+              0,
+              255,
+              255
+            ]
+          }
+        ],
+        "after": []
+      }
+    ],
+    "note": "Both records have two adjacent 16-bit fields. The second field is in the next bank."
+  },
+  {
+    "id": "unlink",
+    "args": [
+      3
+    ],
+    "returns": 0,
+    "vectors": [
+      {
+        "args": [
+          1245248
+        ],
+        "result": null,
+        "memory": [
+          {
+            "address": 1245180,
+            "bytes": [
+              64,
+              0,
+              19,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "address": 1245248,
+            "bytes": [
+              254,
+              255,
+              20,
+              252,
+              255,
+              18
+            ]
+          },
+          {
+            "address": 1376254,
+            "bytes": [
+              0,
+              0,
+              0,
+              64,
+              0,
+              19
+            ]
+          }
+        ],
+        "after": [
+          {
+            "address": 1245180,
+            "bytes": [
+              254,
+              255,
+              20,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "address": 1245248,
+            "bytes": [
+              254,
+              255,
+              20,
+              252,
+              255,
+              18
+            ]
+          },
+          {
+            "address": 1376254,
+            "bytes": [
+              0,
+              0,
+              0,
+              252,
+              255,
+              18
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "The same six-byte node layout and full 24-bit pointers; two nodes cross banks."
+  },
+  {
+    "id": "forward_copy",
+    "args": [
+      3,
+      3,
+      2
+    ],
+    "returns": 0,
+    "vectors": [
+      {
+        "args": [
+          1245184,
+          1245176,
+          8
+        ],
+        "result": null,
+        "memory": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ]
+          }
+        ]
+      },
+      {
+        "args": [
+          1245180,
+          1245176,
+          8
+        ],
+        "result": null,
+        "memory": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              1,
+              2,
+              3,
+              4,
+              1,
+              2,
+              3,
+              4,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ]
+      },
+      {
+        "args": [
+          1245176,
+          1245180,
+          8
+        ],
+        "result": null,
+        "memory": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": [
+          {
+            "address": 1245176,
+            "bytes": [
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ]
+      },
+      {
+        "args": [
+          1245176,
+          1245176,
+          0
+        ],
+        "result": null,
+        "memory": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ],
+        "after": [
+          {
+            "address": 1245176,
+            "bytes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "Explicit forward-copy semantics, including both overlap directions; neither source uses restrict or memcpy."
+  }
+]
