@@ -94,3 +94,19 @@ costs. Build the baseline with its historical compiler when reproducing from
 scratch (`7907b77`, supplied to `build.py --actionc`); the current compiler is
 the post-change side. Each directory needs its own manifest and both execution
 reports before running `delta.py`. The known vbcc unlink failure remains visible.
+
+The [native word return results](../../docs/MIR65816_WORD_RETURNS.md) reuse the
+word-arithmetic `after` snapshot as their immutable baseline. New snapshots also
+retain identity listings. Reproduce the delta from the saved build directories:
+
+```sh
+python3 tools/compare65816/delta.py \
+  target/word-arithmetic-after target/word-returns-after \
+  --output docs/benchmarks/65816-word-returns \
+  --title 'Native word returns: before / after'
+```
+
+When reconstructing historical builds, run their compiler and build runner from
+an isolated historical checkout (`257e5f9` for this baseline). The manifest
+records the runner's checkout revision as well as the supplied binary hash;
+`--actionc` alone does not update that revision.

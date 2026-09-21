@@ -1,0 +1,851 @@
+{
+  "date": "2026-09-21",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 3,
+  "scope": "Checked direct A16 returns through the existing frame teardown; raw/optimized machine code; emulator execution",
+  "baseline_and_coverage_commit": "5010b78f72604fe9901fbb16a66d454b86e22cc6",
+  "implementation_commit": "cac8aeb12d09bf207a086aefebe01ed373f3ef72",
+  "qualification_changes": "Preemption accounting, zero-frame task probe, comparison snapshots and this record are in the containing commit. Source hashes identify the tested worktree.",
+  "compiler_and_runtime_fixture_inventory": {
+    "sha256": "2464f773a3e2c9f7492ce9f5e8abdf6989507492778aa72bc6aa78642910a73b",
+    "files": 391,
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase file SHA-256, two spaces, path, LF; hash raw file bytes"
+  },
+  "changed_code_and_test_sha256": {
+    "src/mir65816/emit/select.rs": "d60e16a79b29636a013573937cdb08064546d1dfed6b23802ee94e1e9d2e888a",
+    "src/mir65816/emit/word_tests.rs": "c8929c78ace00be0479f101253827140474be96abd0cdd520b1bbfa6043d175a",
+    "tests/mir65816_emission.rs": "ee0e9b9d1587209a8320645ede53d48904f8f068421ccad80f4c0c361ede4cf6",
+    "tools/native65816-runtime-tests/tests/word_returns.rs": "8d3871562a14920edab9b62db83a2f8233b00fd6be29aa0d9bf339f85da4618f",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "9424a0cfe786553356167d62ebdd4f05e5948d83d7fde94e536c88702ef3f020",
+    "tools/compare65816/build.py": "6b8250b08c226ce1beee340a1e05501374b826097767a35ba5c18d913a1543a7",
+    "tools/compare65816/report.py": "735759c873a004bbb33c360291c7c279fed29cccfb71a21762dbbe8d79721b43",
+    "tools/compare65816/delta.py": "f57d89f712848caba3dbb26ebc4645283fbcd32b4cb720b9c7a6ae64bb35de76"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "host": "macOS ARM64",
+  "environment": {
+    "debug": {
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    }
+  },
+  "checks": [
+    "Baseline artifacts and measurements verified against saved hashes; baseline word_returns tests pass in debug and release via qualify.py",
+    "cargo test --lib mir65816",
+    "cargo test --test mir65816_abi --test mir65816_contract --test mir65816_emission --test mir65816_o65 --test actionc_65816_cli --test actionc_65816_o65_cli",
+    "python3 tools/native65816-runtime-tests/qualify.py --test word_returns --test word_arithmetic --test arithmetic --test execution --test interop --test indirect --test memory --test stack_allocation --test stack_faults -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --test preemption -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --release -- --nocapture",
+    "cargo build --release --bin actionc-65816",
+    "python3 tools/compare65816/build.py --output target/word-returns-after --verify-crlf",
+    "Separate debug/release code_quality qualification runs, with A816_COMPARISON_MANIFEST and A816_COMPARISON_RESULTS pointing into target/word-returns-after; known vbcc failure retained",
+    "python3 tools/compare65816/report.py --input target/word-returns-after --output docs/benchmarks/65816-word-returns/after",
+    "python3 tools/compare65816/delta.py target/word-arithmetic-after target/word-returns-after --output docs/benchmarks/65816-word-returns --title 'Native word returns: before / after'",
+    "Changed Rust formatting, Python syntax, documentation links/tables, source/artifact hashes and git diff --check",
+    "Delta default title reproduces the historical arithmetic delta.md and delta.json byte for byte; custom return title generated successfully"
+  ],
+  "results": {
+    "compiler_unit": {
+      "passed": 18,
+      "failed": 0,
+      "ignored": 0
+    },
+    "compiler_integration": {
+      "passed": 57,
+      "failed": 0,
+      "ignored": 0
+    },
+    "focused_native": {
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native": {
+      "debug": {
+        "passed": 52,
+        "failed": 0,
+        "ignored": 1
+      },
+      "release": {
+        "passed": 52,
+        "failed": 0,
+        "ignored": 1
+      }
+    },
+    "ignored_native_test": "code_quality: requires external artifacts and was run separately",
+    "word_return_tests": 3,
+    "word_return_machine_runs_per_host_build": 104,
+    "word_return_independent_call_results_per_host_build": 800,
+    "word_return_lf_crlf_image_pairs": 4,
+    "identical_debug_release_saved_artifacts": 136
+  },
+  "benchmark": {
+    "baseline": "docs/benchmarks/65816-word-returns/baseline.json",
+    "before": "docs/benchmarks/65816-word-arithmetic/after",
+    "after": "docs/benchmarks/65816-word-returns/after",
+    "kernels": 14,
+    "vectors": 66,
+    "paired_mask_records": 264,
+    "executions_per_host_build": 528,
+    "action_executions_passed_per_host_build": 264,
+    "vbcc_executions_passed_per_host_build": 262,
+    "vbcc_executions_failed_per_host_build": 2,
+    "lf_crlf_compilations": 112,
+    "crlf_identical": true,
+    "delta": {
+      "before_revision": "7803040c8cb8433c5ea81de7acf9648afdbc9c83",
+      "after_revision": "cac8aeb12d09bf207a086aefebe01ed373f3ef72",
+      "paired_mask_records": 264,
+      "preserved_fields": [
+        "correct",
+        "errors",
+        "result",
+        "args",
+        "incoming_stack_bytes",
+        "incoming_return_bytes",
+        "peak_below_entry_s",
+        "static_stack_check_bytes",
+        "stack_check_cycles",
+        "stack_check_instructions",
+        "stack_reads",
+        "stack_writes",
+        "metadata_reads",
+        "input_padding_reads"
+      ],
+      "routine_storage_contracts_identical": true,
+      "vbcc_measurements_identical": true,
+      "no_action_failures": true,
+      "no_code_size_or_cycle_regressions": true,
+      "known_external_failures": [
+        [
+          "unlink",
+          "optimized",
+          "vbcc",
+          0
+        ]
+      ],
+      "input_sha256": {
+        "before/manifest.json": "d1358a57a12feaebce2ddd804a06142d131aff7f00405ff0ca8cdd444e5e282e",
+        "before/debug.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37",
+        "before/release.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37",
+        "after/manifest.json": "2ccdc4dce5bd2a6d331cfda7534557313b3bcb875f6d52d7bde298f381330be1",
+        "after/debug.json": "a5b0b14cb756db3315614e9876cf97c397244640ac3bf70616a50a0a8ad0c7ce",
+        "after/release.json": "a5b0b14cb756db3315614e9876cf97c397244640ac3bf70616a50a0a8ad0c7ce"
+      }
+    },
+    "measurement_scope": "Worker/helper code including guards and RTL. Cycles from worker entry through RTL. Stack is the observed peak below entry S; incoming arguments/return bytes are reported separately.",
+    "known_external_failure": "Optimized vbcc unlink, vector 0, both I states. A word store to the third byte of a three-byte pointer corrupts the next field. Comparison exits FAILED in both builds; no exemption or assertion suppression.",
+    "tools": {
+      "actionc": {
+        "filename": "actionc-65816",
+        "sha256": "78ebef007d010ed982e92fc0876704c736eb8355eeb83877bf6190ab00f5348b"
+      },
+      "vbcc": {
+        "filename": "vbcc65816",
+        "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+      },
+      "vasm": {
+        "filename": "vasm6502_oldstyle",
+        "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+      },
+      "vlink": {
+        "filename": "vlink",
+        "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+      }
+    }
+  },
+  "preserved_contracts": [
+    "Physical ABI v1, image v3, experimental o65 profile, Exec816 compiler pin",
+    "All measured routine storage/argument/result maps, frame/spill/stack-cost metadata",
+    "All observed benchmark stack peaks, stack byte traffic, guard costs and domain metadata reads",
+    "Other result lanes, explicit casts, captured memory ordering and call barriers"
+  ],
+  "asynchronous_coverage": {
+    "raw": {
+      "general": {
+        "each_window_address_irq_tested": true,
+        "enabled_instruction_addresses": 2332,
+        "optimized": false,
+        "return_windows": [
+          [
+            100041,
+            true,
+            8,
+            [
+              100112,
+              100114,
+              100115,
+              100116,
+              100117,
+              100120,
+              100121,
+              100122
+            ]
+          ],
+          [
+            100123,
+            true,
+            22,
+            [
+              101033,
+              101035,
+              101036,
+              101037,
+              101038,
+              101041,
+              101042,
+              101043
+            ]
+          ],
+          [
+            100123,
+            true,
+            22,
+            [
+              101470,
+              101472,
+              101473,
+              101474,
+              101475,
+              101478,
+              101479,
+              101480
+            ]
+          ],
+          [
+            101481,
+            true,
+            8,
+            [
+              101768,
+              101770,
+              101771,
+              101772,
+              101773,
+              101776,
+              101777,
+              101778
+            ]
+          ],
+          [
+            101779,
+            false,
+            8,
+            [
+              101937,
+              101940,
+              101941,
+              101942,
+              101943,
+              101946,
+              101947,
+              101948
+            ]
+          ],
+          [
+            101779,
+            true,
+            8,
+            [
+              102066,
+              102068,
+              102069,
+              102070,
+              102071,
+              102074,
+              102075,
+              102076
+            ]
+          ],
+          [
+            102294,
+            true,
+            6,
+            [
+              102478,
+              102480,
+              102481,
+              102482,
+              102483,
+              102486,
+              102487,
+              102488
+            ]
+          ]
+        ],
+        "window_columns": [
+          "routine",
+          "stack_source",
+          "frame",
+          "instruction_addresses"
+        ]
+      },
+      "zero_frame": {
+        "columns": [
+          "task_domain",
+          "pc"
+        ],
+        "irq_sites": [
+          [
+            8192,
+            100089
+          ],
+          [
+            8192,
+            100092
+          ],
+          [
+            8448,
+            100089
+          ],
+          [
+            8448,
+            100092
+          ]
+        ],
+        "optimized": false
+      },
+      "arithmetic": {
+        "each_window_address_irq_tested": true,
+        "enabled_instruction_addresses": 2332,
+        "optimized": false,
+        "window_columns": [
+          "opcode",
+          "carry_setup_pc",
+          "arithmetic_pc",
+          "store_pc"
+        ],
+        "word_windows": [
+          [
+            99,
+            101028,
+            101029,
+            101031
+          ],
+          [
+            99,
+            101465,
+            101466,
+            101468
+          ],
+          [
+            99,
+            101763,
+            101764,
+            101766
+          ],
+          [
+            99,
+            102061,
+            102062,
+            102064
+          ],
+          [
+            99,
+            103487,
+            103488,
+            103490
+          ],
+          [
+            99,
+            103799,
+            103800,
+            103802
+          ],
+          [
+            227,
+            103829,
+            103830,
+            103832
+          ]
+        ]
+      }
+    },
+    "optimized": {
+      "general": {
+        "each_window_address_irq_tested": true,
+        "enabled_instruction_addresses": 2180,
+        "optimized": true,
+        "return_windows": [
+          [
+            100011,
+            true,
+            8,
+            [
+              100082,
+              100084,
+              100085,
+              100086,
+              100087,
+              100090,
+              100091,
+              100092
+            ]
+          ],
+          [
+            100093,
+            true,
+            22,
+            [
+              100991,
+              100993,
+              100994,
+              100995,
+              100996,
+              100999,
+              101000,
+              101001
+            ]
+          ],
+          [
+            100093,
+            true,
+            22,
+            [
+              101428,
+              101430,
+              101431,
+              101432,
+              101433,
+              101436,
+              101437,
+              101438
+            ]
+          ],
+          [
+            101439,
+            true,
+            8,
+            [
+              101714,
+              101716,
+              101717,
+              101718,
+              101719,
+              101722,
+              101723,
+              101724
+            ]
+          ],
+          [
+            101725,
+            false,
+            8,
+            [
+              101875,
+              101878,
+              101879,
+              101880,
+              101881,
+              101884,
+              101885,
+              101886
+            ]
+          ],
+          [
+            101725,
+            true,
+            8,
+            [
+              102000,
+              102002,
+              102003,
+              102004,
+              102005,
+              102008,
+              102009,
+              102010
+            ]
+          ],
+          [
+            102110,
+            true,
+            6,
+            [
+              102294,
+              102296,
+              102297,
+              102298,
+              102299,
+              102302,
+              102303,
+              102304
+            ]
+          ]
+        ],
+        "window_columns": [
+          "routine",
+          "stack_source",
+          "frame",
+          "instruction_addresses"
+        ]
+      },
+      "zero_frame": {
+        "columns": [
+          "task_domain",
+          "pc"
+        ],
+        "irq_sites": [
+          [
+            8192,
+            100059
+          ],
+          [
+            8192,
+            100062
+          ],
+          [
+            8448,
+            100059
+          ],
+          [
+            8448,
+            100062
+          ]
+        ],
+        "optimized": true
+      },
+      "arithmetic": {
+        "each_window_address_irq_tested": true,
+        "enabled_instruction_addresses": 2180,
+        "optimized": true,
+        "window_columns": [
+          "opcode",
+          "carry_setup_pc",
+          "arithmetic_pc",
+          "store_pc"
+        ],
+        "word_windows": [
+          [
+            99,
+            100986,
+            100987,
+            100989
+          ],
+          [
+            99,
+            101423,
+            101424,
+            101426
+          ],
+          [
+            99,
+            101709,
+            101710,
+            101712
+          ],
+          [
+            99,
+            101995,
+            101996,
+            101998
+          ],
+          [
+            99,
+            103219,
+            103220,
+            103222
+          ],
+          [
+            99,
+            103515,
+            103516,
+            103518
+          ],
+          [
+            227,
+            103537,
+            103538,
+            103540
+          ]
+        ]
+      }
+    }
+  },
+  "asynchronous_seeds": [
+    8891121666326,
+    1592642302
+  ],
+  "pointer_leaf_task_instruction_sites": {
+    "raw": 164,
+    "optimized": 100
+  },
+  "qualified_return_tail_metrics": {
+    "word-return-tail-false-Echo.json": {
+      "code_bytes": 63,
+      "cycles": 71,
+      "frame": 4,
+      "optimized": false,
+      "routine": "Echo",
+      "tail_dp_reads": 0,
+      "tail_pc": 98356,
+      "tail_stack_reads": [
+        24552,
+        24553,
+        24555,
+        24556,
+        24557
+      ],
+      "tail_writes": 0
+    },
+    "word-return-tail-false-FramedLiteral.json": {
+      "code_bytes": 78,
+      "cycles": 92,
+      "frame": 4,
+      "optimized": false,
+      "routine": "FramedLiteral",
+      "tail_dp_reads": 0,
+      "tail_pc": 98485,
+      "tail_stack_reads": [
+        24555,
+        24556,
+        24557
+      ],
+      "tail_writes": 0
+    },
+    "word-return-tail-false-ZeroFrame.json": {
+      "code_bytes": 52,
+      "cycles": 46,
+      "frame": 0,
+      "optimized": false,
+      "routine": "ZeroFrame",
+      "tail_dp_reads": 0,
+      "tail_pc": 98415,
+      "tail_stack_reads": [
+        24557,
+        24558,
+        24559
+      ],
+      "tail_writes": 0
+    },
+    "word-return-tail-true-Echo.json": {
+      "code_bytes": 63,
+      "cycles": 71,
+      "frame": 4,
+      "optimized": true,
+      "routine": "Echo",
+      "tail_dp_reads": 0,
+      "tail_pc": 98356,
+      "tail_stack_reads": [
+        24552,
+        24553,
+        24555,
+        24556,
+        24557
+      ],
+      "tail_writes": 0
+    },
+    "word-return-tail-true-FramedLiteral.json": {
+      "code_bytes": 78,
+      "cycles": 92,
+      "frame": 4,
+      "optimized": true,
+      "routine": "FramedLiteral",
+      "tail_dp_reads": 0,
+      "tail_pc": 98485,
+      "tail_stack_reads": [
+        24555,
+        24556,
+        24557
+      ],
+      "tail_writes": 0
+    },
+    "word-return-tail-true-ZeroFrame.json": {
+      "code_bytes": 52,
+      "cycles": 46,
+      "frame": 0,
+      "optimized": true,
+      "routine": "ZeroFrame",
+      "tail_dp_reads": 0,
+      "tail_pc": 98415,
+      "tail_stack_reads": [
+        24557,
+        24558,
+        24559
+      ],
+      "tail_writes": 0
+    }
+  },
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-_ncmmvu5/manifest.json",
+      "manifest_sha256": "0b4d0423610573b0d7a2e5dbd07d6cd56ad1b139d40252aa28803e18cd3e36f8"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-w46odosz/manifest.json",
+      "manifest_sha256": "8021bba591d03d5d0466d95341b1a1c280159022620652d8d97d2e7501ee2782"
+    }
+  },
+  "saved_artifact_sha256": {
+    "context-false-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "o65-guard-false-100000.metrics.json": "205356422f13bf40a051c13f9d9487b56a7227b8b7c503fba97f033ce82e6254",
+    "return-preemption-false.json": "2e6a4adaa172da2c888694fa298566b6872beb0450fab4235459f84bbaeb26f1",
+    "o65-guard-true-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-contexts-true-600000.o65": "ccdef29121981cc6fbcec062f013b1f7da5a63d1590ce328f855fab5fe793fd3",
+    "o65-static-addresses-true-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "context-false-f1c43bfbb4b6c823.a816.json": "1582cf43405f83ab0f4757efde36875392ca47b7efadbf4a69f8425c46d6b512",
+    "context-false-a2f9092a87607bae.a816.json": "b5ea277f545e787ce6c473eb183a1a2d3ae1a809ad5f8a2baf5d0d2f80dadf2f",
+    "o65-static-addresses-true-600000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-static-addresses-true-600000.metrics.json": "353e5d713bec5898397cc73e2f2412cb291e1827eedf30914ccb0549f690be1e",
+    "o65-static-addresses-false-600000.metrics.json": "353e5d713bec5898397cc73e2f2412cb291e1827eedf30914ccb0549f690be1e",
+    "o65-pointers-true-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "context-false-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "o65-interop-false-600000.metrics.json": "085087aba2cc96c519e6eb3af01bfb7657c09144623b9b69bf5d49619801501c",
+    "o65-static-addresses-false-100000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "context-true-a2f9092a87607bae.bridge.bin": "b01c4bcc66ee41eefab0418ec3aeaced195344594308adc35cd1ec3bb28af5a6",
+    "word-preemption-false.json": "9f44a9281db8bd48bb22a2c21aa2b5a10d23e1a9ad3c4fced46495a736aa1df1",
+    "word-return-tail-false-ZeroFrame.json": "3fee58e8455ca4e241d53584e086002b2f60529ccc5af0af80e4fe29cc054574",
+    "word-return-tail-true-Echo.json": "5e68019277cac97beb3ecf388a17b5b8fa56649b42e95a6a1fd3bdcde16d0bdb",
+    "o65-pointers-false-100000.o65": "8e0baecd751702d4c5524b258dca87200bbee46a0bbb22c57452a93533b49815",
+    "o65-guard-false-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-imports-false-600000.metrics.json": "1aaf7d375697b6228ae9834bfb45b525950894f81ec43d2357b32b58154033e7",
+    "context-false-37c57e09908ba768.bridge.bin": "30667485595704df433e491bfe29113b267dfd2afdabc736ab440b582180f0b2",
+    "context-false-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "word-preemption-true.json": "a3a5091c78f170135db01d20d19e19b13b424ee0e74d9d23e0dada723f31e406",
+    "context-true-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "o65-banks-true-100000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-true-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "context-true-f1c43bfbb4b6c823.a816.json": "c9320ab0b6fdc0c38cb7e00765ed7bd3bf9203d7ef7f5e68a71a1e239be1626b",
+    "o65-guard-false-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "context-true-a2f9092a87607bae.a816.json": "0132b4dc732fad8147fc442c42cf36bc27049e149f1ac6923ed3b7dc19484f46",
+    "o65-guard-true-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "return-zero-preemption-false.json": "658735162e2a3e7a9c0a26ebfa8e6a47b0ca75ae940e84108cb1a169844aa576",
+    "o65-interop-true-100000.metrics.json": "1667e7a0e92efa51c09dd4746a8c745d73823a1b7be0a0056eeb2257e0dca730",
+    "o65-banks-true-100000.metrics.json": "99a632fd2fc7ce1806f0e8d0a9c81efe57f90af947fade8c10805ce68bd3a4d9",
+    "o65-imports-true-600000.o65": "3bbfb96e25deef83b9a108d9e151d61c15d31c476e9be69a5a9292c693354cc7",
+    "o65-static-addresses-true-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "context-false-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-pointers-true-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "word-return-tail-true-FramedLiteral.json": "3588bf6cbaba96f5f5bb6a35d58dbccd05fc958b59cf8101744c26686f75c65f",
+    "o65-banks-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-interop-false-100000.metrics.json": "72e7fa847652c24fb6bcc1510748b7a02e565afe8e8ead03c16d61f550d01079",
+    "o65-imports-false-600000.placement.json": "7ef32c0f15efedfc0ca0138d553c9ac2e950199dcbb2922ec039df42979a4a75",
+    "o65-contexts-false-600000.placement.json": "82c19e89a1f20ca740a7a0ce825a275be0adea8fac53116ea40a18f09f936395",
+    "context-true-b61b8a7a03265980.a816.json": "e4d3fa4e60094a9c8edcf4b682b6aaa7e85b29da76322382dabb12b9b5f0e95e",
+    "o65-imports-false-100000.metrics.json": "60edba861f0f5fa741978adfb33580f5390e6281a2718ba604e480aa78a8a05c",
+    "o65-banks-true-600000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-contexts-true-600000.placement.json": "82c19e89a1f20ca740a7a0ce825a275be0adea8fac53116ea40a18f09f936395",
+    "context-true-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-guard-false-600000.metrics.json": "aea839a9c666315623b28f06ca9ab8f17bc8002da54ea736035e2365cf41b774",
+    "context-false-d8929097958ba814.bridge.bin": "b60a0841ef77de105e436ea72838c96fa6bdf5d20ba6e878a97ffc7580d412c6",
+    "context-false-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-pointers-false-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "o65-imports-true-100000.o65": "3bbfb96e25deef83b9a108d9e151d61c15d31c476e9be69a5a9292c693354cc7",
+    "context-true-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "context-false-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-static-addresses-true-100000.metrics.json": "bf67f7c847a0beafd2316ae851031ddcc48abc6d2e639f7ee4f75a26bce165b6",
+    "context-false-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-static-addresses-false-100000.metrics.json": "bf67f7c847a0beafd2316ae851031ddcc48abc6d2e639f7ee4f75a26bce165b6",
+    "o65-pointers-false-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "o65-contexts-true-100000.o65": "ccdef29121981cc6fbcec062f013b1f7da5a63d1590ce328f855fab5fe793fd3",
+    "o65-interop-true-600000.metrics.json": "5ec9211a5e8212db7e3cea98fd63a8e0c3a72310a0e2cd7307bb7b9440a1627e",
+    "context-false-b61b8a7a03265980.a816.json": "b8cec4ef5f00f3bf5c6593fb43d378293c2e315c48105b3cf248d832f5056ebf",
+    "o65-banks-true-600000.metrics.json": "d25dac1bd047edaa2a2ccce0571c0afb711cf5863098502e7a21375aa2770ddb",
+    "return-preemption-true.json": "119c21f66badd9e8ca26049f9111e17cb4c28e672f48d970dc523a83b511093e",
+    "o65-static-addresses-true-100000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-static-addresses-false-600000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-banks-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-imports-false-100000.placement.json": "6006f39f7a51ccb3d79f7c2dd8357f9a360d9dd1116e380c26aa13f3b0cd06fa",
+    "context-false-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "o65-contexts-false-100000.placement.json": "328f25d1fe27f9dd959c8491268a4a65585693b39a8960e495f0cd0ca1b10d58",
+    "o65-pointers-false-600000.o65": "8e0baecd751702d4c5524b258dca87200bbee46a0bbb22c57452a93533b49815",
+    "o65-contexts-true-100000.placement.json": "328f25d1fe27f9dd959c8491268a4a65585693b39a8960e495f0cd0ca1b10d58",
+    "o65-banks-false-100000.metrics.json": "99a632fd2fc7ce1806f0e8d0a9c81efe57f90af947fade8c10805ce68bd3a4d9",
+    "o65-imports-true-100000.placement.json": "6006f39f7a51ccb3d79f7c2dd8357f9a360d9dd1116e380c26aa13f3b0cd06fa",
+    "o65-interop-false-600000.placement.json": "2088c17c82b6b0138b95e35d6ad4dc01e5e3fc0ba5529f5c0adddb5e3bcf9cf8",
+    "context-true-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "context-false-a2f9092a87607bae.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-pointers-false-100000.metrics.json": "4b36124b30b5e8a212c3ec5c8cb673dfaa14ff2d140e79a7b478df4d8c9a03d1",
+    "context-true-37c57e09908ba768.a816.json": "82f49687f430071659cf70e41df503e83bee5adbb9b9272d1e996707ecf54040",
+    "o65-contexts-false-600000.metrics.json": "d37abbff3fb19439aaef4fc5d9719ace6c518f2ee0e2228aacac58df8324313f",
+    "o65-interop-true-100000.placement.json": "ecaffbcdf1748bf72e4f4cb5468c8a837f88d5a193a80944022baf305bc6c0ef",
+    "o65-contexts-true-100000.metrics.json": "3c1d3c81d66a21f10eb1a84c998deb6d67c5def85a33de304d8f2d9478990984",
+    "o65-banks-false-100000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-a2f9092a87607bae.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-false-d8929097958ba814.a816.json": "4d1666ee801cce60cf390b4023113a9cbac3db3886d9263bfb5e3e455f1cd2d5",
+    "o65-static-addresses-false-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "o65-guard-false-600000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-pointers-true-100000.metrics.json": "b8c26aa9932dd4980e3f13e928bb4b12c901ff85bd5371df913db13a536f1243",
+    "o65-interop-true-100000.o65": "0ae1a7082023bf89b216d6af9f255d17d5ebedce0dcee9eeba3a5492cdb4efd0",
+    "context-true-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-pointers-true-100000.o65": "d496479350b2ff9db7e1b399fc5ebc83339c8453ff6426f2678637492fe488ca",
+    "o65-static-addresses-false-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "context-false-37c57e09908ba768.a816.json": "a1ea26e8c914188ddb19217e3d228ce6bff0de7f50e190d15016823b45c38013",
+    "context-true-37c57e09908ba768.bridge.bin": "c29c855fece3d1d754f176cb3a9343e221c2cf10e31559951da81220149765c3",
+    "o65-contexts-false-100000.o65": "b57c8f8b9462460b297c151dcec6dd13514477506263986aea191b1f0ebc590f",
+    "context-false-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "o65-guard-true-600000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-interop-false-600000.o65": "03f0cad19a6e6acef8e6d80e81ec0a8435060c534153d4960a143163d00662eb",
+    "o65-imports-false-100000.o65": "84291819df93eeb37ff793ccda83d6d0af93f4e5eb19f33e959a047e7dc9a08f",
+    "context-false-a2f9092a87607bae.bridge.bin": "b60a0841ef77de105e436ea72838c96fa6bdf5d20ba6e878a97ffc7580d412c6",
+    "context-true-d8929097958ba814.a816.json": "217ecfe63750c49f026cfeb2a92aaee5d46c1c006425d44e42139f21a1e80f33",
+    "o65-imports-true-600000.placement.json": "7ef32c0f15efedfc0ca0138d553c9ac2e950199dcbb2922ec039df42979a4a75",
+    "o65-interop-false-100000.placement.json": "ecaffbcdf1748bf72e4f4cb5468c8a837f88d5a193a80944022baf305bc6c0ef",
+    "return-zero-preemption-true.json": "e6f39a5e7f87d5b31fb31e21e8968db79c09373647a8aedd273ef4561032c3a0",
+    "o65-guard-true-600000.metrics.json": "aea839a9c666315623b28f06ca9ab8f17bc8002da54ea736035e2365cf41b774",
+    "o65-interop-true-600000.placement.json": "2088c17c82b6b0138b95e35d6ad4dc01e5e3fc0ba5529f5c0adddb5e3bcf9cf8",
+    "o65-imports-true-600000.metrics.json": "47d38c6ecd37b4949559009246addd59cbc80914ab099e04379789c49f14041d",
+    "word-return-tail-true-ZeroFrame.json": "9e0025025bc7601a0680840669fff053a52410d3f1e034e0acd83479daf46183",
+    "o65-pointers-true-600000.metrics.json": "0668c48ccdb25afb2b945b78c84f9a12c3e3ffcaa1b7f4fb265caee3b74b6fe8",
+    "o65-contexts-false-600000.o65": "b57c8f8b9462460b297c151dcec6dd13514477506263986aea191b1f0ebc590f",
+    "o65-guard-true-100000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "o65-imports-false-600000.o65": "84291819df93eeb37ff793ccda83d6d0af93f4e5eb19f33e959a047e7dc9a08f",
+    "o65-interop-false-100000.o65": "03f0cad19a6e6acef8e6d80e81ec0a8435060c534153d4960a143163d00662eb",
+    "o65-banks-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-banks-false-600000.metrics.json": "d25dac1bd047edaa2a2ccce0571c0afb711cf5863098502e7a21375aa2770ddb",
+    "o65-contexts-false-100000.metrics.json": "86084e54fe704d7ecfb6de3799e86322cafef67f9c7acf2205d518ebffc19d48",
+    "o65-pointers-false-600000.metrics.json": "e0d615a7d7f98b6910d4d0a86620d437163ec9d75006a8e0073550f35986ed4c",
+    "o65-contexts-true-600000.metrics.json": "a9171d3812f52b5d9154584a8925f5edd9063fd09a35b5c934e4671211d5a737",
+    "context-false-a2f9092a87607bae.act": "a01a2874feee81cf35a8c8c3ca64eb24a0f4410f3ed0f700cc5837e4a928d164",
+    "o65-banks-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-guard-true-100000.metrics.json": "205356422f13bf40a051c13f9d9487b56a7227b8b7c503fba97f033ce82e6254",
+    "context-false-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "context-true-d8929097958ba814.bridge.bin": "b01c4bcc66ee41eefab0418ec3aeaced195344594308adc35cd1ec3bb28af5a6",
+    "context-true-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-imports-true-100000.metrics.json": "284734bc776a803d8f0f957b994026b9b0414fea7ed8ddc0ab22776b882eb166",
+    "o65-banks-false-600000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "word-return-tail-false-Echo.json": "8bad5161a1a0e6e8b0507cfa26acee5c112cb6445eca9852e120b609194f1508",
+    "word-return-tail-false-FramedLiteral.json": "cd8b1f9a9f73016bb575a34e2d896f4661bc384e69dea540c83c2ef3dd8576e9",
+    "context-true-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-guard-false-100000.o65": "5968ede065d4c032918e56bf4333d66a89af66fbd33046f84448a2373a9bea53",
+    "context-true-a2f9092a87607bae.act": "a01a2874feee81cf35a8c8c3ca64eb24a0f4410f3ed0f700cc5837e4a928d164",
+    "o65-interop-true-600000.o65": "0ae1a7082023bf89b216d6af9f255d17d5ebedce0dcee9eeba3a5492cdb4efd0",
+    "o65-pointers-true-600000.o65": "d496479350b2ff9db7e1b399fc5ebc83339c8453ff6426f2678637492fe488ca"
+  },
+  "snapshot_sha256": {
+    "docs/benchmarks/65816-word-returns/after/add.optimized.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-word-returns/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-word-returns/after/add.raw.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-word-returns/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-word-returns/after/identity.optimized.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-word-returns/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-word-returns/after/identity.raw.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-word-returns/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-word-returns/after/provenance.json": "a96e5be9e24334656b5da86ccd07f5cd8c2baebaa332aaa6a328c0c5161c0915",
+    "docs/benchmarks/65816-word-returns/after/results.csv": "e16d46b9e4594f3bcdc511a69189d9a198b5fc2ace72ce3320712859e070ac4d",
+    "docs/benchmarks/65816-word-returns/after/subtract.optimized.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-word-returns/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-word-returns/after/subtract.raw.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-word-returns/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.optimized.actionc.lst": "d81bfcb9216db8f3a2d36c3e3c04fd88758ea965bf36480c5be904242a8d7fa1",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.raw.actionc.lst": "f5e39b509a37a6e0d3cfdeebd6e06f8e20e18a45614192fd07cf260fb556e7bd",
+    "docs/benchmarks/65816-word-returns/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-word-returns/after/tables.md": "47172c4de464f3022310bb36e899801065034cc6757f32e58822f8550c9d3d64",
+    "docs/benchmarks/65816-word-returns/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-word-returns/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-word-returns/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-word-returns/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8"
+  },
+  "limits": "Emulator qualification, not board timing. No SemIR/NIR changes; root testing scoped to native compiler consumers without full root suite or NIR sweep."
+}

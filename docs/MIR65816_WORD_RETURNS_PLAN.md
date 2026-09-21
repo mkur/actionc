@@ -1,9 +1,13 @@
 # Native 16-bit return implementation plan
 
-Status: proposed against main `257e5f9`, following the completed
-[native ADD/SUB slice](MIR65816_WORD_ARITHMETIC.md). This document changes no
-compiler behavior. Implement and commit three slices: baseline/coverage,
-selection, and measured qualification.
+Status: implemented on 2026-09-21. Baseline/coverage is committed in `5010b78`,
+selection in `cac8aeb`, and qualification in the commit containing the
+[results report](MIR65816_WORD_RETURNS.md). Identity measures 63 bytes / 71 VM
+cycles; add/subtract measure 74 / 98, all with zero DP scratch traffic.
+
+The approved plan below is retained as the acceptance boundary. It was based on
+main `257e5f9`, following the completed
+[native ADD/SUB slice](MIR65816_WORD_ARITHMETIC.md).
 
 ## Objective and scope
 
@@ -19,7 +23,7 @@ forwarding, tail calls, load folding, branch relaxation, or Exec816 pin change
 belongs to this slice. In particular, ADD/SUB still writes its allocated result;
 the return reloads that home instead of assuming A still contains the value.
 
-## Inspected code and measured baseline
+## Baseline code and measurements
 
 [`Builder::return_value`](../src/mir65816/emit/select.rs) currently handles every
 scalar through DP `$08..$0B`: it switches to A8, clears four bytes, copies the
@@ -221,7 +225,7 @@ the native-runner README and this plan's status. Keep scope to this return slice
 
 ## Validation commands for implementation
 
-These are future implementation checks, not checks claimed for this document:
+The implementation used these checks; the results report records their scope:
 
 ```sh
 cargo test --lib mir65816

@@ -4,12 +4,10 @@ use std::collections::BTreeSet;
 use support::{context::*, *};
 
 fn machine(optimize: bool) -> ContextHarness {
-    let mut h = ContextHarness::new(
-        &fixture("preemption.act"),
-        optimize,
-        "Task",
-        &[0x7100, 0x7120],
-    );
+    machine_source(&fixture("preemption.act"), optimize)
+}
+fn machine_source(source: &str, optimize: bool) -> ContextHarness {
+    let mut h = ContextHarness::new(source, optimize, "Task", &[0x7100, 0x7120]);
     for (i, seed) in [13u16, 41].into_iter().enumerate() {
         let at = 0x7100 + i * 0x20;
         h.bus.ram[at..at + 2].copy_from_slice(&seed.to_le_bytes());
@@ -22,6 +20,54 @@ fn machine(optimize: bool) -> ContextHarness {
             .map(buffer, &[10, 20, 30, 40, 50, 60, 70, 80, 90, 100], true);
     }
     h
+}
+
+// Routine, stack/immediate source, frame extent, reached tail instruction PCs.
+type ReturnWindow = (u32, bool, u16, Vec<u32>);
+
+fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
+    assert!(h.cpu.is_instruction_boundary());
+    let pc = h.cpu.pc();
+    let r = h
+        .image
+        .routines
+        .iter()
+        .find(|r| r.result_bytes == 2 && (r.address..r.address + r.size).contains(&pc))?;
+    if h.cpu.registers().p & 0x30 != 0 {
+        return None;
+    }
+    let opcode = h.bus.ram[pc as usize];
+    let size = match opcode {
+        0xa3 => 2,
+        0xa9 => 3,
+        _ => return None,
+    };
+    let tail = pc + size;
+    let mut bytes = vec![];
+    let mut addresses = vec![pc];
+    if r.fixed_frame != 0 {
+        bytes.extend([
+            0xa8,
+            0x3b,
+            0x18,
+            0x69,
+            r.fixed_frame as u8,
+            (r.fixed_frame >> 8) as u8,
+            0x1b,
+            0x98,
+        ]);
+        addresses.extend([0, 1, 2, 3, 6, 7].map(|offset| tail + offset));
+    }
+    addresses.push(tail + bytes.len() as u32);
+    bytes.push(0x6b);
+    if tail + bytes.len() as u32 > r.address + r.size
+        || h.bus.ram[tail as usize..tail as usize + bytes.len()] != bytes
+    {
+        return None;
+    }
+    // The candidate starts at a real CPU instruction boundary. The complete
+    // mode-aware sequence is checked inside its owning word-result routine.
+    Some((r.address, opcode == 0xa3, r.fixed_frame, addresses))
 }
 fn check(h: &ContextHarness) {
     assert_eq!(h.bus.value(DONE, 2), 1);
@@ -92,6 +138,7 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
         let mut h = machine(optimize);
         let mut seen = BTreeSet::new();
         let mut word_windows = BTreeSet::new();
+        let mut return_windows = BTreeSet::new();
         for _ in 0..2_000_000 {
             if h.cpu.is_stopped() {
                 break;
@@ -103,6 +150,9 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                 && seen.insert(h.cpu.pc())
             {
                 let pc = h.cpu.pc();
+                if let Some(window) = return_window(&h) {
+                    return_windows.insert(window);
+                }
                 let opcode = h.bus.ram[pc as usize];
                 if matches!(opcode, 0x63 | 0xe3) {
                     // Decode only at a reached instruction boundary. These
@@ -137,6 +187,13 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                 "unqualified word arithmetic interruption window"
             );
         }
+        assert!(return_windows.iter().any(|w| w.1));
+        assert!(return_windows.iter().any(|w| !w.1));
+        assert!(
+            return_windows
+                .iter()
+                .all(|w| w.3.iter().all(|pc| seen.contains(pc)))
+        );
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
             std::fs::write(
                 std::path::Path::new(&directory).join(format!("word-preemption-{optimize}.json")),
@@ -144,6 +201,17 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                     "optimized": optimize, "enabled_instruction_addresses": seen.len(),
                     "word_windows": word_windows,
                     "window_columns": ["opcode", "carry_setup_pc", "arithmetic_pc", "store_pc"],
+                    "each_window_address_irq_tested": true,
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+            std::fs::write(
+                std::path::Path::new(&directory).join(format!("return-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(&serde_json::json!({
+                    "optimized": optimize, "enabled_instruction_addresses": seen.len(),
+                    "return_windows": return_windows,
+                    "window_columns": ["routine", "stack_source", "frame", "instruction_addresses"],
                     "each_window_address_irq_tested": true,
                 }))
                 .unwrap(),
@@ -163,5 +231,77 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
             "word arithmetic optimize={optimize}: {} qualified interruption windows",
             word_windows.len()
         );
+        eprintln!(
+            "word returns optimize={optimize}: {} qualified interruption windows",
+            return_windows.len()
+        );
+    }
+}
+
+fn zero_frame_source(source: &str) -> String {
+    source
+        .replace("\r\n", "\n")
+        .replace(
+            "CARD FUNC Read",
+            "CARD FUNC ZeroFrame() RETURN(32768)\nCARD FUNC Read",
+        )
+        .replace(
+            "  work.done=1",
+            // Keep every returned bit observable: the earlier Shift and final
+            // doubling would otherwise discard a corrupted high bit.
+            "  work.result=work.result+ZeroFrame()-32768\n  work.done=1",
+        )
+}
+
+#[test]
+fn zero_frame_word_return_survives_both_task_irq_sites_and_seeded_nmi() {
+    let fixture = fixture("preemption.act");
+    let source = zero_frame_source(&fixture);
+    assert_eq!(source, zero_frame_source(&fixture.replace('\n', "\r\n")));
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let address = routine(&h.image, "ZeroFrame");
+        let map = h
+            .image
+            .routines
+            .iter()
+            .find(|r| r.address == address)
+            .unwrap();
+        assert_eq!(map.fixed_frame, 0);
+        let mut targets = BTreeSet::new();
+        let mut seen = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            if h.cpu.is_instruction_boundary() && r.p & 4 == 0 && [0x2000, 0x2100].contains(&r.d) {
+                if let Some(window) = return_window(&h) {
+                    if window.0 == address {
+                        assert!(!window.1 && window.2 == 0);
+                        targets.extend(window.3.into_iter().map(|pc| (r.d, pc)));
+                    }
+                }
+                let site = (r.d, h.cpu.pc());
+                if targets.contains(&site) && seen.insert(site) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    run_injected(&mut h, true, None);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check(&h);
+        assert_eq!(targets, seen);
+        assert_eq!(seen.len(), 4); // LDA / RTL in each task, with A live before RTL.
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(std::path::Path::new(&directory).join(format!("return-zero-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(&serde_json::json!({"optimized":optimize,"irq_sites":seen,"columns":["task_domain","pc"]})).unwrap()).unwrap();
+        }
+        for seed in [0x81620260916, 0x5eedcafe] {
+            run_injected(&mut machine_source(&source, optimize), false, Some(seed));
+        }
     }
 }

@@ -29,6 +29,7 @@ def main():
     parser.add_argument('before', type=Path)
     parser.add_argument('after', type=Path)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--title', default='Native word arithmetic: before / after')
     args = parser.parse_args()
     old_manifest, old = load(args.before)
     new_manifest, new = load(args.after)
@@ -56,7 +57,7 @@ def main():
             continue
         before = old_artifacts[artifact['case'], artifact['mode'], artifact['compiler']]
         assert [frame_contract(r) for r in before['routines']] == [frame_contract(r) for r in artifact['routines']]
-    lines = ['# Native word arithmetic: before / after', '',
+    lines = ['# '+args.title, '',
              'All cells are **before / after actionc**, including guards and RTL.',
              'Stack depth, byte traffic on the stack, ABI arguments, complete routine',
              'storage maps, and stack-check costs are unchanged for every vector.', '',

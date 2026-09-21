@@ -1,0 +1,41 @@
+{
+  "before_revision": "7803040c8cb8433c5ea81de7acf9648afdbc9c83",
+  "after_revision": "cac8aeb12d09bf207a086aefebe01ed373f3ef72",
+  "paired_mask_records": 264,
+  "preserved_fields": [
+    "correct",
+    "errors",
+    "result",
+    "args",
+    "incoming_stack_bytes",
+    "incoming_return_bytes",
+    "peak_below_entry_s",
+    "static_stack_check_bytes",
+    "stack_check_cycles",
+    "stack_check_instructions",
+    "stack_reads",
+    "stack_writes",
+    "metadata_reads",
+    "input_padding_reads"
+  ],
+  "routine_storage_contracts_identical": true,
+  "vbcc_measurements_identical": true,
+  "no_action_failures": true,
+  "no_code_size_or_cycle_regressions": true,
+  "known_external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ],
+  "input_sha256": {
+    "before/manifest.json": "d1358a57a12feaebce2ddd804a06142d131aff7f00405ff0ca8cdd444e5e282e",
+    "before/debug.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37",
+    "before/release.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37",
+    "after/manifest.json": "2ccdc4dce5bd2a6d331cfda7534557313b3bcb875f6d52d7bde298f381330be1",
+    "after/debug.json": "a5b0b14cb756db3315614e9876cf97c397244640ac3bf70616a50a0a8ad0c7ce",
+    "after/release.json": "a5b0b14cb756db3315614e9876cf97c397244640ac3bf70616a50a0a8ad0c7ce"
+  }
+}
