@@ -37,9 +37,16 @@ fn contains(ranges: &Value, address: u32) -> bool {
         .any(|r| number(&r[0]) <= address && address < number(&r[1]))
 }
 
-fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
+fn execute(
+    artifact: &Value,
+    case: &Value,
+    input: &Value,
+    mask: u8,
+    sites: &support::word_edge::Index,
+) -> Value {
     let action = artifact["compiler"] == "actionc";
     let mut bus = Bus::new();
+    bus.single_word_edges = sites.clone();
     let mut native_routines = vec![];
     if action {
         let serialized = std::fs::read(artifact["image"].as_str().unwrap()).unwrap();
@@ -138,6 +145,7 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
     let mut fused_sites = BTreeMap::<u32, u64>::new();
     let mut word_edge_sites = BTreeMap::<u32, u64>::new();
     let mut edge_words = 0u64;
+    let mut direct_sites = BTreeMap::<u32, u64>::new();
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
     let mut in_guard = false;
@@ -168,6 +176,9 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
             if let Some(window) = support::word_edge::reached(&cpu, &bus, &native_routines) {
                 *word_edge_sites.entry(cpu.pc()).or_default() += 1;
                 edge_words += window.moves.len() as u64;
+                if window.direct {
+                    *direct_sites.entry(cpu.pc()).or_default() += 1;
+                }
             }
             instructions += 1;
             instruction_pc = pc;
@@ -278,6 +289,8 @@ fn execute(artifact: &Value, case: &Value, input: &Value, mask: u8) -> Value {
         measurement["word_edges"] = json!(word_edge_sites.values().sum::<u64>());
         measurement["edge_words"] = json!(edge_words);
         measurement["word_edge_sites"] = json!(word_edge_sites);
+        measurement["direct_word_edges"] = json!(direct_sites.values().sum::<u64>());
+        measurement["direct_word_edge_sites"] = json!(direct_sites);
     }
     measurement
 }
@@ -306,15 +319,51 @@ fn execute_parallel_corpus() {
             .iter()
             .find(|case| case["id"] == artifact["case"])
             .unwrap();
+        // Ground short copy decoding in typed edges from an independently
+        // re-prepared artifact. CPU execution still uses only the saved image.
+        let sites = if artifact["compiler"] == "actionc" {
+            let command = artifact["commands"][0].as_array().unwrap();
+            let source = command.last().unwrap().as_str().unwrap();
+            let layout_pos = command.iter().position(|v| v == "--layout").unwrap();
+            let options = serde_json::from_slice(
+                &std::fs::read(command[layout_pos + 1].as_str().unwrap()).unwrap(),
+            )
+            .unwrap();
+            let p = actionc::compiler::native65816::prepare_file(
+                source,
+                artifact["mode"] == "optimized",
+                &Default::default(),
+            )
+            .unwrap();
+            let c = p.compile(&options).unwrap();
+            let saved =
+                Image::from_json(&std::fs::read(artifact["image"].as_str().unwrap()).unwrap())
+                    .unwrap();
+            assert_eq!(
+                c.image.to_json().unwrap(),
+                saved.to_json().unwrap(),
+                "edge evidence must match the saved compiler artifact"
+            );
+            support::word_edge::index(&p.mir, &c.machine, |id| {
+                saved
+                    .routines
+                    .iter()
+                    .find(|r| r.id == id.0)
+                    .unwrap()
+                    .address
+            })
+        } else {
+            Default::default()
+        };
         for (vector, input) in case["vectors"].as_array().unwrap().iter().enumerate() {
             eprintln!(
                 "{} {} {} vector {vector}",
                 case["id"], artifact["compiler"], artifact["mode"]
             );
-            let mut result = execute(artifact, case, input, 0);
+            let mut result = execute(artifact, case, input, 0, &sites);
             // Both interrupt-mask states must preserve the ABI and produce
             // identical measurements. No IRQ/NMI is injected in this benchmark.
-            assert_eq!(result, execute(artifact, case, input, 4));
+            assert_eq!(result, execute(artifact, case, input, 4, &sites));
             let object = result.as_object_mut().unwrap();
             for key in [
                 "case",

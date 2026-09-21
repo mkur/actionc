@@ -800,3 +800,93 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         }
     }
 }
+
+fn single_word_machine(source: &str, optimize: bool) -> ContextHarness {
+    let mut p = prepare(source, optimize);
+    edges::single_returns(&mut p, "BranchEq");
+    initialize(ContextHarness::from_prepared(
+        source,
+        optimize,
+        "Task",
+        &[0x7100, 0x7120],
+        p,
+    ))
+}
+
+#[test]
+fn direct_word_edges_preserve_live_a_and_frame_at_every_transfer_boundary() {
+    let source = fused_source(&fixture("preemption.act"));
+    for optimize in [false, true] {
+        let mut h = single_word_machine(&source, optimize);
+        assert_eq!(h.bus.single_word_edges.len(), 4);
+        assert!(h.bus.single_word_edges.values().all(|s| s.direct));
+        let mut targets = BTreeSet::new();
+        let mut seen = BTreeSet::new();
+        let mut forms = BTreeSet::new();
+        let mut restored = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 0x34 == 0 && [0x2000, 0x2100].contains(&r.d)
+            {
+                for routine in &h.image.routines {
+                    if let Some(w) = word_edge::decode(
+                        &h.bus,
+                        pc,
+                        routine.address..routine.address + routine.size,
+                    ) {
+                        if w.direct {
+                            forms.insert((r.d, w.moves[0].0.0, w.moves[0].0.1));
+                            targets
+                                .extend(w.sites.into_iter().chain([w.target]).map(|pc| (r.d, pc)));
+                        }
+                    }
+                }
+                let site = (r.d, pc);
+                if targets.contains(&site) && seen.insert(site) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    let after = run_checked_fused_irq(&mut h);
+                    restored.insert((r.d, pc, after.0, after.1));
+                    check_fused_results(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_fused_results(&h);
+        assert_eq!(targets, seen);
+        for d in [0x2000, 0x2100] {
+            for immediate in [0xa000, 0xa001] {
+                assert!(forms.contains(&(d, false, immediate)));
+            }
+            assert!(forms.iter().any(|&(domain, stack, _)| domain == d && stack));
+        }
+        assert_eq!(restored.len(), seen.len());
+        assert!(seen.len() >= 24);
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(
+                std::path::Path::new(&directory)
+                    .join(format!("single-word-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(
+                    &serde_json::json!({"sites":seen,"restorations":restored,"forms":forms}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        }
+        eprintln!(
+            "single-word edges optimize={optimize}: {} IRQ sites",
+            seen.len()
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = single_word_machine(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check_fused_results(&h);
+        }
+    }
+}

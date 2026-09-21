@@ -215,3 +215,38 @@ executed instruction, unchanged DP/fusion/word-copy counts and storage contracts
 identical unaffected emitted files and exact representative forecasts. Both host
 commands must run and retain the known optimized vbcc unlink failure. Reconstruct
 missing baseline artifacts from an isolated `932a0cf` checkout.
+
+
+The [direct single-word edge results](../../docs/MIR65816_SINGLE_WORD_EDGE_COPIES.md)
+use the empty-edge snapshot as baseline. Reproduce with:
+
+```sh
+cargo build --release --bin actionc-65816
+python3 tools/compare65816/build.py --output target/single-word-edges-after --verify-crlf
+# Execute both host comparison commands above, using single-word-edges-after paths.
+python3 tools/compare65816/report.py \
+  --input target/single-word-edges-after --output docs/benchmarks/65816-single-word-edges/after
+python3 tools/compare65816/delta.py target/empty-edges-after target/single-word-edges-after \
+  --output docs/benchmarks/65816-single-word-edges --title 'Native direct single-word edges: before / after' \
+  --direct-word-edge-counts docs/benchmarks/65816-single-word-edges/expected-copies.json
+python3 tools/compare65816/check_single_word_edges.py target/empty-edges-after target/single-word-edges-after \
+  --counts docs/benchmarks/65816-single-word-edges/expected-copies.json \
+  --baseline docs/benchmarks/65816-single-word-edges/baseline.json \
+  --output docs/benchmarks/65816-single-word-edges/coverage.json
+```
+
+The dedicated accounting option is mutually exclusive with existing read/fusion
+exceptions. Each predeclared direct copy must remove exactly two instructions,
+ten cycles and two stack byte reads/writes, with unchanged DP/fusion/word totals
+and complete storage/guard contracts. Unlisted records remain strict. New metrics
+`direct_word_edges` and `direct_word_edge_sites` appear only on Action records.
+The runner rebuilds each Action artifact from its recorded source/mode/layout and
+requires identical serialized image bytes before using typed edge-site evidence;
+CPU execution still consumes the saved artifact.
+
+The focused checker proves that only selected staging STA/LDA pairs and relocated
+JSL/JML addresses changed. Unaffected Action artifacts and vbcc code/records are
+identical; vasm's listing source-header path changes with the build directory and
+is compared after replacing that exact header. Both host commands retain the
+known vbcc optimized unlink failure. Reconstruct missing baseline artifacts using
+an isolated `192b6d8` checkout and its runner.

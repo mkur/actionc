@@ -52,10 +52,14 @@ def fused_branch_counts(rows):
     return positive_counts(rows, 'count')
 
 
-def check_records(old, new, expected, fused=None):
-    assert not (expected and fused is not None), 'accounting options are mutually exclusive'
-    counts = fused or {}
-    assert counts.keys() <= new.keys(), ('unused fusion counts', counts.keys() - new.keys())
+def direct_word_edge_counts(rows):
+    return positive_counts(rows, 'count')
+
+
+def check_records(old, new, expected, fused=None, direct=None):
+    assert sum([bool(expected), fused is not None, direct is not None]) <= 1, 'accounting options are mutually exclusive'
+    counts = fused or direct or {}
+    assert counts.keys() <= new.keys(), ('unused execution counts', counts.keys() - new.keys())
     assert old.keys() == new.keys()
     assert expected.keys() <= new.keys(), ('unused stack-read deltas', expected.keys() - new.keys())
     for key, before in old.items():
@@ -64,7 +68,7 @@ def check_records(old, new, expected, fused=None):
             if field != 'stack_writes':
                 assert before[field] == after[field], (key, field, before[field], after[field])
         for field in ('stack_reads', 'stack_writes'):
-            allowed = -counts.get(key, 0) if fused is not None else (expected.get(key, 0) if field == 'stack_reads' else 0)
+            allowed = -2*counts.get(key, 0) if direct is not None else (-counts.get(key, 0) if fused is not None else (expected.get(key, 0) if field == 'stack_reads' else 0))
             assert type(before[field]) is int and type(after[field]) is int, (key, field)
             difference = after[field] - before[field]
             assert difference == allowed, (key, field, difference, allowed)
@@ -73,6 +77,18 @@ def check_records(old, new, expected, fused=None):
                 assert before[field] == after[field], (key, field)
             if before['compiler'] == 'actionc':
                 assert after['fused_branches'] == counts.get(key, 0), (key, 'executed fusions')
+        if direct is not None and before['compiler'] == 'actionc':
+            count = counts.get(key, 0)
+            for field in ('dp_reads', 'dp_writes', 'dp_touched_offsets', 'fused_branches', 'word_edges', 'edge_words'):
+                assert before[field] == after[field], (key, field)
+            for field in ('fused_branch_sites', 'word_edge_sites'):
+                assert sorted(before[field].values()) == sorted(after[field].values()), (key, field)
+            assert after['direct_word_edges'] == count, (key, 'executed direct copies')
+            assert sum(after['direct_word_edge_sites'].values()) == count, (key, 'direct sites')
+            for field, cost in [('instructions', 2), ('cycles', 10)]:
+                assert before[field] - after[field] == cost*count, (key, field)
+            if count == 0:
+                assert {k: v for k, v in after.items() if k not in ('direct_word_edges', 'direct_word_edge_sites')} == before, key
         if before['compiler'] == 'vbcc':
             assert before == after, key
         else:
@@ -92,6 +108,8 @@ def main():
                             help='JSON list of predicted executed fusions, each removing one stack read and write')
     accounting.add_argument('--stack-read-deltas', type=Path,
                         help='JSON list of exact, independently predicted Action stack-read increases; default requires equality')
+    accounting.add_argument('--direct-word-edge-counts', type=Path,
+                            help='JSON list of predicted direct word copies, each removing two stack byte reads and writes')
     args = parser.parse_args()
     old_manifest, old = load(args.before)
     new_manifest, new = load(args.after)
@@ -102,9 +120,11 @@ def main():
     expected = stack_read_deltas(delta_rows)
     fusion_rows = json.loads(args.fused_branch_counts.read_text()) if args.fused_branch_counts else None
     fused = fused_branch_counts(fusion_rows) if fusion_rows is not None else None
-    check_records(old, new, expected, fused)
+    direct_rows = json.loads(args.direct_word_edge_counts.read_text()) if args.direct_word_edge_counts else None
+    direct = direct_word_edge_counts(direct_rows) if direct_rows is not None else None
+    check_records(old, new, expected, fused, direct)
     preserved = PRESERVED if expected else (*PRESERVED, 'stack_reads')
-    if fused is not None:
+    if fused is not None or direct is not None:
         preserved = tuple(f for f in PRESERVED if f != 'stack_writes') + ('dp_reads', 'dp_writes', 'dp_touched_offsets')
     old_artifacts = {(a['case'], a['mode'], a['compiler']): a for a in old_manifest['artifacts']}
     for artifact in new_manifest['artifacts']:
@@ -118,7 +138,15 @@ def main():
              'storage maps, and stack-check costs are unchanged for every vector.', '',
              'DP traffic counts byte reads plus writes; cycles are independent VM',
              'cycles. Both host build modes produce identical measurements.', '']
-    if fused is not None:
+    if direct is not None:
+        lines.extend(['Each verified direct word copy removes two instructions, ten cycles,',
+                      'two stack byte reads and two writes. Other traffic is unchanged.', '',
+                      '| Case | Mode | Vector | Direct copies | Stack reads before / after | Stack writes before / after |',
+                      '| --- | --- | ---: | ---: | ---: | ---: |'])
+        for key, count in sorted(direct.items()):
+            lines.append(f'| {key[0]} | {key[1]} | {key[3]} | {count} | {old[key]["stack_reads"]} / {new[key]["stack_reads"]} | {old[key]["stack_writes"]} / {new[key]["stack_writes"]} |')
+        lines.append('')
+    elif fused is not None:
         lines.extend(['Each reached, decoded fusion removes exactly one stack byte read and write.',
                       'The predeclared counts match both host modes and both incoming I states.',
                       'All other stack traffic and all DP traffic are unchanged.', '',
@@ -164,6 +192,10 @@ def main():
         summary['expected_fused_branch_counts'] = fusion_rows
         summary['expected_fused_branch_counts_sha256'] = hashlib.sha256(args.fused_branch_counts.read_bytes()).hexdigest()
         summary['executed_fusions_match_predictions'] = True
+    if args.direct_word_edge_counts:
+        summary['expected_direct_word_edge_counts'] = direct_rows
+        summary['expected_direct_word_edge_counts_sha256'] = hashlib.sha256(args.direct_word_edge_counts.read_bytes()).hexdigest()
+        summary['executed_direct_copies_match_predictions'] = True
     if args.stack_read_deltas:
         summary['expected_stack_read_deltas_sha256'] = hashlib.sha256(args.stack_read_deltas.read_bytes()).hexdigest()
     args.output.mkdir(parents=True, exist_ok=True)

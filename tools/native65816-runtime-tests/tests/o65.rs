@@ -787,3 +787,135 @@ fn relocated_nonempty_word_edges_preserve_cycles_and_both_conditional_arms() {
         }
     }
 }
+
+#[test]
+fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
+    for optimize in [false, true] {
+        for ordinary in [false, true] {
+            let (bytes, templates) = {
+                let p = edges::single(optimize, ordinary);
+                let c = p.compile(&layout()).unwrap();
+                let sites = word_edge::index(&p.mir, &c.machine, |id| {
+                    c.image
+                        .routines
+                        .iter()
+                        .find(|r| r.id == id.0)
+                        .unwrap()
+                        .address
+                });
+                let templates: Vec<_> = sites
+                    .values()
+                    .map(|s| {
+                        let r = c
+                            .image
+                            .routines
+                            .iter()
+                            .find(|r| r.address == s.range.start)
+                            .unwrap();
+                        (r.id, s.clone())
+                    })
+                    .collect();
+                (p.compile_o65(&Default::default()).unwrap().bytes, templates)
+            };
+            assert_eq!(templates.len(), 5);
+            for variant in 0..2 {
+                let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
+                let image = format::relocate(&bytes, &placement).unwrap();
+                let mut sites = word_edge::Index::new();
+                for (id, template) in &templates {
+                    let r = image
+                        .profile()
+                        .routines
+                        .iter()
+                        .find(|r| r.id == *id)
+                        .unwrap();
+                    let base = image.routine_address(r);
+                    let old = template.range.start;
+                    let mut s = template.clone();
+                    assert_eq!(r.size, s.range.end - old);
+                    s.range = base..base + r.size;
+                    s.load = base + s.load - old;
+                    s.jump = base + s.jump - old;
+                    s.target = base + s.target - old;
+                    assert!(s.direct);
+                    sites.insert(s.load, s);
+                }
+                let mut reached = std::collections::BTreeSet::new();
+                for (a, b) in [(0u16, 0xffffu16), (0xffff, 0), (0x8000, 0x7fff)] {
+                    for mask in [0, 4] {
+                        let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                        h.bus.single_word_edges = sites.clone();
+                        h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
+                        h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
+                        let mut count = 0;
+                        for _ in 0..100000 {
+                            if h.cpu.is_stopped() {
+                                break;
+                            }
+                            if h.cpu.is_instruction_boundary() {
+                                if let Some(site) = sites.get(&h.cpu.pc()) {
+                                    let w =
+                                        word_edge::decode(&h.bus, h.cpu.pc(), site.range.clone())
+                                            .unwrap();
+                                    assert!(w.direct && w.moves.len() == 1 && w.sites.len() == 3);
+                                    count += 1;
+                                    reached.insert((site.load, w.target));
+                                    let stage =
+                                        u32::from(h.cpu.registers().s) + u32::from(site.staging);
+                                    h.bus.ram[stage as usize..stage as usize + 4]
+                                        .copy_from_slice(&[0x12, 0x34, 0x56, 0x78]);
+                                    let cycles = h.cpu.cycles();
+                                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                                    while !h.cpu.is_instruction_boundary() || h.cpu.pc() != w.target
+                                    {
+                                        h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                                    }
+                                    assert_eq!(
+                                        h.cpu.cycles() - cycles,
+                                        if site.source.0 { 14 } else { 12 }
+                                    );
+                                    assert_eq!(
+                                        &h.bus.ram[stage as usize..stage as usize + 4],
+                                        &[0x12, 0x34, 0x56, 0x78]
+                                    );
+                                    continue;
+                                }
+                            }
+                            h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                        }
+                        assert!(h.cpu.is_stopped());
+                        assert_eq!(count, 6);
+                        h.guards(mask);
+                        assert_eq!(h.bus.value(0x7200, 2), u32::from(a.min(b).wrapping_add(a)));
+                        native::record(
+                            if ordinary {
+                                "direct-word-ordinary"
+                            } else {
+                                "direct-word-fused"
+                            },
+                            optimize,
+                            &bytes,
+                            &placement,
+                            &image,
+                            h.cpu.cycles(),
+                            None,
+                        );
+                    }
+                }
+                assert_eq!(reached.len(), 5);
+                if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+                    std::fs::write(
+                        std::path::Path::new(&directory).join(format!(
+                            "direct-word-o65-{optimize}-{ordinary}-{variant}.json"
+                        )),
+                        serde_json::to_vec_pretty(
+                            &serde_json::json!({"sites":reached,"columns":["load","target"]}),
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap();
+                }
+            }
+        }
+    }
+}

@@ -127,5 +127,80 @@ class FusedBranchCounts(unittest.TestCase):
             check_records(old, new, {}, {})
 
 
+
+class DirectWordEdgeCounts(unittest.TestCase):
+    def setUp(self):
+        from delta import direct_word_edge_counts
+        self.parse = direct_word_edge_counts
+        self.key = ('sum_loop', 'optimized', 'actionc', 3)
+        self.row = dict(case='sum_loop', mode='optimized', compiler='actionc', vector=3, count=14)
+        r = dict.fromkeys(PRESERVED, 0)
+        r.update(compiler='actionc', correct=True, errors=[], result=91, code_bytes=154,
+                 cycles=1735, instructions=417, stack_reads=273, stack_writes=216,
+                 dp_reads=0, dp_writes=0, dp_touched_offsets=[], fused_branches=14,
+                 fused_branch_sites={'1': 14}, word_edges=14, edge_words=14,
+                 word_edge_sites={'2': 1, '3': 13})
+        self.old = {self.key: r}
+        self.new = {self.key: dict(r, code_bytes=146, cycles=1595, instructions=389,
+                                 stack_reads=245, stack_writes=188, direct_word_edges=14,
+                                 direct_word_edge_sites={'20': 1, '30': 13},
+                                 fused_branch_sites={'10': 14}, word_edge_sites={'20': 1, '30': 13})}
+        self.counts = self.parse([self.row])
+
+    def check(self, new):
+        check_records(self.old, new, {}, direct=self.counts)
+
+    def test_default_stays_strict_and_copy_accounting_is_exact(self):
+        with self.assertRaises(AssertionError):
+            check_records(self.old, self.new, {})
+        self.check(self.new)
+        for field in ['stack_reads', 'stack_writes', 'instructions', 'cycles',
+                      'direct_word_edges', 'dp_reads', 'dp_writes', 'word_edges',
+                      'edge_words', 'fused_branches']:
+            for change in [-1, 1]:
+                modified = copy.deepcopy(self.new)
+                modified[self.key][field] += change
+                with self.subTest(field=field, change=change), self.assertRaises(AssertionError):
+                    self.check(modified)
+        for field in ['fused_branch_sites', 'word_edge_sites', 'direct_word_edge_sites']:
+            modified = copy.deepcopy(self.new)
+            modified[self.key][field]['extra'] = 1
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                self.check(modified)
+
+    def test_contract_and_unlisted_records_remain_strict(self):
+        for field in [f for f in PRESERVED if f != 'stack_writes'] + ['dp_touched_offsets']:
+            modified = copy.deepcopy(self.new)
+            modified[self.key][field] = 'changed'
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                self.check(modified)
+        key = ('identity', 'raw', 'actionc', 0)
+        self.old[key] = copy.deepcopy(self.old[self.key])
+        self.new[key] = dict(self.old[key], direct_word_edges=0, direct_word_edge_sites={})
+        self.check(self.new)
+        for field in ['cycles', 'stack_reads', 'stack_writes', 'code_bytes']:
+            modified = copy.deepcopy(self.new)
+            modified[key][field] -= 1
+            with self.subTest(field=field), self.assertRaises(AssertionError):
+                self.check(modified)
+
+    def test_counts_reject_missing_stale_invalid_and_mixed_modes(self):
+        for fields in [dict(count=0), dict(count=-1), dict(count=True), dict(count=1.0),
+                       dict(compiler='vbcc'), dict(mode='unknown'), dict(vector=-1)]:
+            with self.subTest(fields=fields), self.assertRaises(AssertionError):
+                self.parse([dict(self.row, **fields)])
+        with self.assertRaises(AssertionError): self.parse([self.row, self.row])
+        with self.assertRaises(AssertionError): check_records(self.old, self.new, {}, direct={})
+        with self.assertRaises(AssertionError): check_records(self.old, self.new, {}, direct=self.parse([dict(self.row, vector=99)]))
+        with self.assertRaises(AssertionError): check_records(self.old, self.new, {self.key: 28}, direct=self.counts)
+        with self.assertRaises(AssertionError): check_records(self.old, self.new, {}, fused={}, direct=self.counts)
+        key = ('unlink', 'optimized', 'vbcc', 0)
+        self.old[key] = dict(self.old[self.key], compiler='vbcc', correct=False)
+        self.new[key] = copy.deepcopy(self.old[key])
+        self.check(self.new)
+        self.new[key]['cycles'] -= 1
+        with self.assertRaises(AssertionError): self.check(self.new)
+
+
 if __name__ == '__main__':
     unittest.main()

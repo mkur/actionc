@@ -2,7 +2,8 @@
 
 Status: proposed on 2026-09-21, following empty-edge cleanup at `192b6d8`
 (emitter implementation `3dd5cb2`). This document records the next implementation
-slices; none of the improvements below is implemented by this plan commit.
+slices. Step 1 is now complete; see the
+[direct-copy results](MIR65816_SINGLE_WORD_EDGE_COPIES.md). Later steps remain planned.
 
 ## Objective and baseline
 
@@ -44,7 +45,7 @@ allocator or emitter rewrite.
 
 | Order | Improvement | Initial scope |
 | --- | --- | --- |
-| 1 | Direct single-word edge copies | Bypass staging for one checked word argument. Preserve multi-value edges, frame allocation and guards. |
+| 1 (complete) | Direct single-word edge copies | Bypass staging for one checked word argument. Preserve multi-value edges, frame allocation and guards. |
 | 2 | Local accumulator forwarding | Avoid reloading private stack values already held in A. Retain stores and existing homes initially. |
 | 3 | Simpler control flow and width handling | Use proven A16 block-entry contracts, remove jumps to adjacent blocks, then select short branches where final placement permits. |
 | 4 | Parallel-copy scheduling and coalescing | Remove self-copies, schedule independent moves directly and retain staging for cycles; subsequently shrink unused storage and coalesce compatible homes. |

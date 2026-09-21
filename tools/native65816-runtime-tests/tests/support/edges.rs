@@ -394,3 +394,71 @@ pub fn single(optimize: bool, ordinary: bool) -> native65816::Prepared {
     mir65816::verify_program(&p.mir).unwrap();
     p
 }
+
+/// Preserve each constant return while forcing an immediate branch edge and a
+/// stack-source Goto. Used by the two-domain preemption probe in both modes.
+pub fn single_returns(p: &mut native65816::Prepared, name: &str) {
+    for r in p.mir.routines.iter_mut().filter(|r| {
+        r.name.eq_ignore_ascii_case(name)
+            || r.name
+                .to_ascii_uppercase()
+                .contains(&format!("_{}_", name.to_ascii_uppercase()))
+    }) {
+        let word = ByteSize::new(2);
+        let ty = r
+            .temps
+            .iter()
+            .find(|(_, t)| t.width == Some(word))
+            .unwrap()
+            .1
+            .clone();
+        let mut temp = r.temps.iter().map(|(id, _)| id.0).max().unwrap() + 1;
+        let mut block = r.blocks.iter().map(|b| b.id.0).max().unwrap() + 1;
+        let mut values = std::collections::BTreeMap::new();
+        let mut extra = vec![];
+        for b in &mut r.blocks {
+            if let Mir65816Terminator::Return { value: Some(v), .. } = &b.terminator {
+                assert!(b.ops.is_empty() && matches!(v, Mir65816Value::U16(_)));
+                values.insert(b.id, v.clone());
+                let a = TempId(temp);
+                let z = TempId(temp + 1);
+                temp += 2;
+                r.temps.extend([(a, ty.clone()), (z, ty.clone())]);
+                b.params.push((a, word));
+                let mut ret = b.terminator.clone();
+                if let Mir65816Terminator::Return { value, .. } = &mut ret {
+                    *value = Some(Mir65816Value::Temp(z, word));
+                }
+                b.terminator = Mir65816Terminator::Goto(Mir65816Edge {
+                    target: BlockId(block),
+                    args: vec![Mir65816Value::Temp(a, word)],
+                });
+                extra.push(Mir65816Block {
+                    id: BlockId(block),
+                    params: vec![(z, word)],
+                    ops: vec![],
+                    terminator: ret,
+                });
+                block += 1;
+            }
+        }
+        assert_eq!(values.len(), 2);
+        for b in &mut r.blocks {
+            if let Mir65816Terminator::Branch {
+                then_edge,
+                else_edge,
+                ..
+            } = &mut b.terminator
+            {
+                for e in [then_edge, else_edge] {
+                    if let Some(v) = values.get(&e.target) {
+                        assert!(e.args.is_empty());
+                        e.args.push(v.clone());
+                    }
+                }
+            }
+        }
+        r.blocks.extend(extra);
+    }
+    mir65816::verify_program(&p.mir).unwrap();
+}

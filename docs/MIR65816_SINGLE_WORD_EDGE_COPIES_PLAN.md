@@ -1,8 +1,10 @@
 # Native 65816 direct single-word edge-copy implementation plan
 
-Status: proposed on 2026-09-21 against main `bdb0f67`. This is the first slice of
-the [code-quality plan](MIR65816_CODE_QUALITY_PLAN.md); no compiler implementation
-is included in this planning commit.
+Status: completed on 2026-09-21. Baseline probes and typed edge evidence: `34af812`;
+checked selection and focused execution: `91b8e4e`. Qualification is in the
+containing results commit. See the [results](MIR65816_SINGLE_WORD_EDGE_COPIES.md)
+and [qualification record](abi/action65816-single-word-edges-qualification.json).
+The original plan against `bdb0f67` and its exact forecasts are retained below.
 
 ## Objective and boundaries
 

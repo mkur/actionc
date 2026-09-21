@@ -114,8 +114,16 @@ impl ContextHarness {
                 },
             });
         }
-        let image = Image::from_json(&prepared.compile(&options).unwrap().image.to_json().unwrap())
-            .unwrap();
+        let compiled = prepared.compile(&options).unwrap();
+        let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+        let sites = word_edge::index(&prepared.mir, &compiled.machine, |id| {
+            image
+                .routines
+                .iter()
+                .find(|r| r.id == id.0)
+                .unwrap()
+                .address
+        });
         let runtime = runtime(routine(&image, "Dispatch"));
         assert_eq!(runtime.symbols, provisional.symbols);
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
@@ -132,7 +140,9 @@ impl ContextHarness {
             std::fs::write(stem.with_extension("bridge.bin"), &runtime.bytes).unwrap();
             std::fs::write(stem.with_extension("layout.json"),serde_json::to_vec_pretty(&serde_json::json!({"bridge_origin":0x8000,"symbols":runtime.symbols,"arguments":arguments,"task_entry":task_entry,"irq_dp":IRQ_DP,"irq_stack_top":IRQ_TOP,"task_stacks":[[0x4000,0x4fff],[0x5000,0x5fff]],"task_domains":[0x2000,0x2100],"nmi_minimum_interval_cycles":250})).unwrap()).unwrap();
         }
-        Self::from_loaded(image, runtime, task_entry, arguments)
+        let mut h = Self::from_loaded(image, runtime, task_entry, arguments);
+        h.bus.single_word_edges = sites;
+        h
     }
 }
 

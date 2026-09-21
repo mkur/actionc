@@ -1,0 +1,153 @@
+{
+  "records": 264,
+  "action_builds": 28,
+  "changed_builds": 2,
+  "selected_static_sites": 4,
+  "selected_vector_records": 10,
+  "executed_direct_copies_per_incoming_i_state": 92,
+  "only_staging_pairs_removed": true,
+  "forecasts_exact": true,
+  "unchanged_storage_and_guards": true,
+  "sites": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "direct_sites": 2
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "direct_sites": 2
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "direct_sites": 0
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "direct_sites": 0
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "direct_sites": 0
+    }
+  ]
+}
