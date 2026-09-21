@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-21",
+  "scope": "Verified baseline before native word-return selection",
+  "comparison_snapshot": "docs/benchmarks/65816-word-arithmetic/after",
+  "compiler_revision": "7803040c8cb8433c5ea81de7acf9648afdbc9c83",
+  "baseline_measurement_sha256": {
+    "manifest.json": "d1358a57a12feaebce2ddd804a06142d131aff7f00405ff0ca8cdd444e5e282e",
+    "debug.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37",
+    "release.json": "96f61f2f531deaad007ac5cf55d6cad835c3f8b648f5f31887961b2d712d1a37"
+  },
+  "baseline_snapshot_sha256": {
+    "docs/benchmarks/65816-word-arithmetic/after/add.optimized.actionc.lst": "492a29dd12482f4137039f1feb92ed11688d851a251c15a2adab27b5901c0e43",
+    "docs/benchmarks/65816-word-arithmetic/after/tables.md": "5f80705252568aef39bb6402e7c235583d20d1b1acb79e108311475253de09fb",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "docs/benchmarks/65816-word-arithmetic/after/add.raw.actionc.lst": "492a29dd12482f4137039f1feb92ed11688d851a251c15a2adab27b5901c0e43",
+    "docs/benchmarks/65816-word-arithmetic/after/provenance.json": "c9540ede544ebfc238339434c7dc15a4704706c1fa149be349612a8ce3e1abf7",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.optimized.actionc.lst": "946fa77b801eeb12446b83aceab6ba1ef7cd2fa14d0eb8fe9bd3f99d592cb8d0",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.raw.actionc.lst": "2b85870cc6493280ec1d1fd73d5589022d935d3765975251b16dac43e126be8d",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.optimized.actionc.lst": "c5c415588a3e05dabc7f9c79d76d11fd4f88452c727011a08d4d5e193d4e32b2",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-word-arithmetic/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-word-arithmetic/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-word-arithmetic/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-word-arithmetic/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-word-arithmetic/after/results.csv": "fbc50b7060425c936b41af82f543ca4e53adea1a01fa88630589234577c5bb63",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.raw.actionc.lst": "c5c415588a3e05dabc7f9c79d76d11fd4f88452c727011a08d4d5e193d4e32b2",
+    "docs/benchmarks/65816-word-arithmetic/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696"
+  },
+  "baseline_emitter_sha256": "44b38a2f004327c7a2510862c01e467c4f0ddd63a2285d23f76fdf51c6e6b834",
+  "semantic_test_sha256": "dfa6497518f64b17e78827044faf16aa8c848a73c38ed75395bbcb00b949831b",
+  "semantic_tests_per_host_build": 2,
+  "semantic_machine_runs_per_host_build": 68,
+  "independent_call_results_checked_per_host_build": 764,
+  "lf_crlf_image_pairs": 4,
+  "result_abi_audit": "Word comparison and independent assembly consumers read only A; X is unspecified. Existing other-width result and raw fault-register checks are retained.",
+  "checks": "New word_returns target passes debug and release via qualify.py. Prior interop and indirect targets passed during baseline work. All 56 comparison variants and 264 paired-mask records verified against saved hashes; debug/release measurements match.",
+  "known_comparison_failure": "Optimized vbcc unlink, vector 0, both incoming I states; retained, no exemption.",
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-f2par1lr/manifest.json",
+      "sha256": "0903c28780faa0d7db3ad41c11e16c9746da98f428dffdd02ac0483b9e465d84"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-p24z2m1i/manifest.json",
+      "sha256": "fe88ddcfd0cd42e1a17850d4695a1752961b26b5deed65352823b9239dc32b66"
+    }
+  }
+}
