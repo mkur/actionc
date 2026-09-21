@@ -38,5 +38,25 @@ class WordArithmetic(unittest.TestCase):
                 listing(bytes.fromhex(code))
 
 
+class WordComparisons(unittest.TestCase):
+    def test_stack_and_immediate_cmp_follow_accumulator_width(self):
+        result = listing(bytes.fromhex('c3 fe c9 00 80 e2 20 c3 ff c9 ff c2 20 c9 ff 00 6b'))
+        self.assertEqual(result.splitlines(), [
+            '018000  C3 FE       CMP $FE,S',
+            '018002  C9 00 80    CMP #$8000',
+            '018005  E2 20       SEP #$20',
+            '018007  C3 FF       CMP $FF,S',
+            '018009  C9 FF       CMP #$FF',
+            '01800B  C2 20       REP #$20',
+            '01800D  C9 FF 00    CMP #$00FF',
+            '018010  6B          RTL',
+        ])
+
+    def test_truncated_cmp_is_rejected(self):
+        for code in ('c3', 'c9 ff', 'e2 20 c3', 'e2 20 c9', 'e2 20 c9 ff c2 20 c9 00'):
+            with self.subTest(code=code), self.assertRaisesRegex(ValueError, 'truncated'):
+                listing(bytes.fromhex(code))
+
+
 if __name__ == '__main__':
     unittest.main()

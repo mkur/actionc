@@ -5,6 +5,10 @@ use std::collections::BTreeMap;
 #[path = "word_tests.rs"]
 mod word_tests;
 
+#[cfg(test)]
+#[path = "compare_tests.rs"]
+mod compare_tests;
+
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
 const RESULT: u8 = 8;
@@ -270,6 +274,73 @@ impl Builder<'_> {
             }
         }
         self.code.byte(0x83, destination); // STA d,S: result has its existing home.
+        Ok(true)
+    }
+    fn word_compare(
+        &mut self,
+        dest: TempId,
+        bytes: u8,
+        signed: bool,
+        operation: NirCompareOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<bool, String> {
+        if bytes != 2 || (signed && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)) {
+            return Ok(false);
+        }
+        // Compare's width describes its inputs; the result is one Boolean byte.
+        // Preflight everything before changing bytes, labels or mode knowledge.
+        let destination = self.temp(dest)?;
+        if destination.slot().width != 1 {
+            return Err("comparison result temporary width mismatch".into());
+        }
+        let destination = match destination {
+            Location::Stack(slot) => Some(self.displacement(slot.offset.into(), 0)?),
+            Location::DirectPage(_) => None,
+        };
+        let left = self.word_operand(left)?;
+        let right = self.word_operand(right)?;
+        let (Some(destination), Some(mut left), Some(mut right)) = (destination, left, right)
+        else {
+            return Ok(false);
+        };
+        // Swapping captured values changes no source memory access or ordering.
+        // CMP does not set V, so signed ordering stays on the bytewise path.
+        let predicate = match operation {
+            NirCompareOp::Eq => 0xf0, // BEQ
+            NirCompareOp::Ne => 0xd0, // BNE
+            NirCompareOp::Lt => 0x90, // BCC
+            NirCompareOp::Ge => 0xb0, // BCS
+            NirCompareOp::Gt | NirCompareOp::Le => {
+                std::mem::swap(&mut left, &mut right);
+                if operation == NirCompareOp::Gt {
+                    0x90
+                } else {
+                    0xb0
+                }
+            }
+        };
+        let yes = self.code.label();
+        let done = self.code.label();
+        self.code.a16();
+        match left {
+            WordOperand::Immediate(value) => self.code.word(0xa9, value),
+            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+        }
+        match right {
+            WordOperand::Immediate(value) => self.code.word(0xc9, value),
+            WordOperand::Stack(offset) => self.code.byte(0xc3, offset),
+        }
+        self.code.branch(predicate, yes); // Consume C/Z before LDA overwrites them.
+        self.code.a8();
+        self.code.byte(0xa9, 0);
+        self.code.jump(done);
+        self.code.mark(yes);
+        self.code.a8();
+        self.code.byte(0xa9, 1);
+        self.code.mark(done);
+        self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
+        self.code.byte(0x83, destination);
         Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
@@ -743,6 +814,18 @@ impl Builder<'_> {
             ..
         } = op
             && self.word_binary(*dest, width(*bytes)?, *operation, left, right)?
+        {
+            return Ok(());
+        }
+        if let Mir65816Op::Compare {
+            dest,
+            width: bytes,
+            signed,
+            operation,
+            left,
+            right,
+        } = op
+            && self.word_compare(*dest, width(*bytes)?, *signed, *operation, left, right)?
         {
             return Ok(());
         }

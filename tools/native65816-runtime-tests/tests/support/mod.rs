@@ -331,4 +331,6 @@ pub fn caller(entry: u32) -> Vec<u8> {
 
 pub mod context;
 
+pub mod comparison;
+
 pub mod o65;

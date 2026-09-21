@@ -70,6 +70,34 @@ fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
 }
 
 #[test]
+fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
+    for optimize in [false, true] {
+        for (source, ceiling, extent) in [
+            (
+                "CARD FUNC Work(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y) PROC Main() RETURN",
+                155,
+                6,
+            ),
+            (
+                "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
+                220,
+                if optimize { 16 } else { 14 },
+            ),
+        ] {
+            let program = mir(source, optimize);
+            let machine = emit::materialize(&program).unwrap();
+            let image = image::link(&program, &machine, &layout()).unwrap();
+            let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
+            assert!(work.size <= ceiling, "{optimize}: {} bytes", work.size);
+            assert_eq!((work.fixed_frame, work.local_stack_peak), (extent, extent));
+            assert!(work.temporaries.iter().any(|t| t.size == 1));
+            assert_eq!(work.result_bytes, 2);
+            assert!(work.calls.is_empty());
+        }
+    }
+}
+
+#[test]
 fn native_word_identity_keeps_its_frame_and_has_a_bounded_return() {
     for optimize in [false, true] {
         let program = mir(

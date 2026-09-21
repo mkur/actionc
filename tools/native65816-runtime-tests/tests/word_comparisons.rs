@@ -276,3 +276,118 @@ fn independent_word_cmp_encodings_execute_with_arbitrary_incoming_carry_and_over
         }
     }
 }
+
+#[test]
+fn executed_comparisons_read_complete_sources_and_write_one_boolean_without_scratch() {
+    let source = r#"
+CARD a=$7100,b=$7102
+BYTE ARRAY out=$7200
+BYTE FUNC Eq(CARD x,y) RETURN(x=y)
+BYTE FUNC Ne(CARD x,y) RETURN(x#y)
+BYTE FUNC Lt(CARD x,y) RETURN(x<y)
+BYTE FUNC Le(CARD x,y) RETURN(x<=y)
+BYTE FUNC Gt(CARD x,y) RETURN(x>y)
+BYTE FUNC Ge(CARD x,y) RETURN(x>=y)
+BYTE FUNC Left(CARD x) RETURN(CARD($8000)<x)
+BYTE FUNC Right(CARD x) RETURN(x<CARD($8000))
+PROC Main()
+  out(0)=Eq(a,b) out(1)=Ne(a,b) out(2)=Lt(a,b) out(3)=Le(a,b)
+  out(4)=Gt(a,b) out(5)=Ge(a,b) out(6)=Left(a) out(7)=Right(a)
+RETURN
+"#;
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        let caller = caller(image.entry);
+        let mut records = vec![];
+        for (a, b) in [(0u16, 0u16), (0xffff, 1), (0x8000, 0x7fff), (0, 0xffff)] {
+            for mask in [0, 4] {
+                let mut h = Harness::new(&image, &caller, mask);
+                h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
+                h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
+                let expected = [
+                    a == b,
+                    a != b,
+                    a < b,
+                    a <= b,
+                    a > b,
+                    a >= b,
+                    0x8000 < a,
+                    a < 0x8000,
+                ];
+                let mut count = 0;
+                for _ in 0..100_000 {
+                    if h.cpu.is_stopped() {
+                        break;
+                    }
+                    if h.cpu.is_instruction_boundary() {
+                        if let Some(w) = comparison::window(&h.cpu, &h.bus, &image.routines) {
+                            let r = h.cpu.registers();
+                            let start_reads = h.bus.reads.len();
+                            let start_writes = h.bus.writes.len();
+                            let stack_reads: Vec<_> = w
+                                .sources
+                                .iter()
+                                .filter(|s| s.0)
+                                .flat_map(|s| {
+                                    [
+                                        u32::from(r.s) + u32::from(s.1),
+                                        u32::from(r.s) + u32::from(s.1) + 1,
+                                    ]
+                                })
+                                .collect();
+                            assert!(
+                                h.cpu
+                                    .run_until(
+                                        &mut h.bus,
+                                        100,
+                                        |_| Inputs::default(),
+                                        |cpu| cpu.is_instruction_boundary() && cpu.pc() == w.end
+                                    )
+                                    .unwrap()
+                            );
+                            let end = h.cpu.registers();
+                            assert_eq!(
+                                (end.s, end.d, end.dbr, end.x, end.y, end.p & 0x3c),
+                                (r.s, r.d, r.dbr, r.x, r.y, mask | 0x20)
+                            );
+                            assert_eq!(
+                                &h.bus.writes[start_writes..],
+                                &[(
+                                    u32::from(r.s) + u32::from(w.dest),
+                                    u8::from(expected[count])
+                                )]
+                            );
+                            let reads = &h.bus.reads[start_reads..];
+                            assert!(!reads.iter().any(|p| (0x2000..0x2040).contains(p)));
+                            assert_eq!(
+                                reads
+                                    .iter()
+                                    .copied()
+                                    .filter(|p| (0x4000..0x6000).contains(p))
+                                    .collect::<Vec<_>>(),
+                                stack_reads
+                            );
+                            records.push(serde_json::json!({"args":[a,b],"mask":mask,"load":w.load,"cmp":w.cmp,
+                                "end":w.end,"sources":w.sources,"stack_reads":stack_reads,
+                                "writes":h.bus.writes[start_writes..],"dp_reads_writes":0}));
+                            count += 1;
+                        }
+                    }
+                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                }
+                assert!(h.cpu.is_stopped());
+                h.guards(mask);
+                assert_eq!(count, 8);
+                assert_eq!(&h.bus.ram[0x7200..0x7208], expected.map(u8::from));
+            }
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(
+                std::path::Path::new(&directory)
+                    .join(format!("comparison-traffic-{optimize}.json")),
+                serde_json::to_vec_pretty(&records).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+}

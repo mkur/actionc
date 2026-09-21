@@ -142,6 +142,19 @@ It preserves the current allocation, call barriers, guards, and ABI. A volatile
 load captured in a private temp may feed word arithmetic; the original memory
 access itself is neither combined nor widened.
 
+Two-byte comparisons may use one native CMP for equality/inequality (signed or
+unsigned) and unsigned ordering, using the same checked word sources. The result
+must have an exact one-byte stack home and is stored as 0 or 1 in A8. Selection
+checks the destination and both inputs before changing code, labels or mode
+knowledge. Signed ordering and legal unsupported sources/destinations retain
+bytewise emission; malformed homes remain errors. CMP flags are consumed within
+the operation before loading the Boolean; no flags survive to another MIR
+operation or branch. Both inputs are read before the result store, allowing
+existing dead-input slot reuse. Complete-word reads may increase private stack
+read traffic compared with the old high-byte early exit; original volatile or
+aliased source accesses remain separate and unchanged. No DP scratch, pushes,
+helpers, X/Y use, allocation change or ABI change is introduced.
+
 An A16 ABI return may load a U8/U16 immediate or an exact two-byte stack
 temp/parameter directly into A16. It reuses the complete-word displacement
 checks and explicit-cast rules above, including authoritative mutable-parameter
