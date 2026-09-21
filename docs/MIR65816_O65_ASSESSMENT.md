@@ -3,6 +3,9 @@
 Assessment: 2026-09-21, actionc `f9eb285`. This is a format assessment and
 proposed qualification slice, not an implemented output format or loader.
 
+The [implementation plan](MIR65816_O65_IMPLEMENTATION_PLAN.md) defines the
+experimental profile, commit-sized slices and execution qualification gates.
+
 ## Recommendation
 
 Use o65 as a candidate for an Exec816 relocatable application format. Its
