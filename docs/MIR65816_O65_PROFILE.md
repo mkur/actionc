@@ -86,7 +86,8 @@ physical contract; numeric signature equality alone is insufficient.
 ## Loading and ownership
 
 The host provides three final bases, allowed/reserved regions, NMI allowance
-and named providers with extents/contracts. Nonempty application sections must
+and named providers with extents/contracts. The platform NMI allowance must
+match the descriptor; the task/IRQ floor setup uses that declared allowance. Nonempty application sections must
 fit upper RAM; text starts on a 64 KiB boundary, data/BSS on a four-byte
 boundary. Check all allocation, import and reserved extents for overlaps and
 24-bit overflow. Validate routine containment and all complete target offsets,

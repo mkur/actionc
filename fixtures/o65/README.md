@@ -15,3 +15,8 @@ committed fixture; no external assembler is required to decode it.
 
 SHA-256: binary `40e5fd88032e4ece0096d6699dca9ac8a64b61ab1212c424f14217fd91f21a04`;
 source `24285296d3ecf23c197af4665f2647a8dcbe5c2f0fc92a34a017d9ff0942f819`.
+
+`reference.o65` is a hand-specified application with a one-byte RTL routine,
+BSS and full/split pointer initializers. Its builder uses literal wire fields,
+not compiler APIs. Check it with `python3 fixtures/o65/build_reference.py --check`.
+It tests reference loading without depending on the Rust writer.

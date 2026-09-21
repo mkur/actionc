@@ -163,9 +163,13 @@ impl Contract {
         let mut next = 0u32;
         for a in &self.arguments {
             if !(1..=4).contains(&a.size)
-                || ![1, 2, 4].contains(&a.alignment)
-                || a.offset % a.alignment != 0
-                || a.offset < next
+                || ![1, 2].contains(&a.alignment)
+                || (a.size == 1 && a.alignment != 1)
+                || ([2, 4].contains(&a.size) && a.alignment != 2)
+                || next
+                    .checked_add(a.alignment - 1)
+                    .map(|n| n & !(a.alignment - 1))
+                    != Some(a.offset)
             {
                 return Err("invalid argument contract".into());
             }

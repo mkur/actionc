@@ -6,7 +6,7 @@ Status: implementation in progress.
 | --- | --- | --- |
 | 1: relocation facts/profile | Complete | 39 existing root checks, 3 o65 checks; native execution/memory/interop/indirect/stack faults |
 | 2: writer | Complete | 6 o65 tests; independent Python decoding, vasm fixture, wide fields/carry/gap/index checks |
-| 3: reference relocator | Pending | |
+| 3: reference relocator | Complete | 11 o65 tests; hand-authored load/carry fixture, every truncated prefix, corruption and placement/binding rejection |
 | 4: CLI integration | Pending | |
 | 5: execution qualification | Pending | |
 Baseline: actionc `fc9892a`, native ABI v1, existing JSON image v3.

@@ -71,7 +71,7 @@ fn align(value: u32, alignment: u32) -> Result<u32, String> {
 }
 fn extent(base: u32, size: u32) -> Result<u32, String> {
     base.checked_add(size)
-        .filter(|v| *v < LIMIT)
+        .filter(|v| *v <= LIMIT)
         .ok_or("o65 section exceeds 24 bits".into())
 }
 
