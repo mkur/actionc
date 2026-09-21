@@ -316,3 +316,139 @@ fn malformed_empty_edges_fail_without_emission_or_mode_changes() {
         assert_eq!(format!("{:?}", b.code), before);
     }
 }
+
+#[test]
+fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
+    let mut p = program();
+    p.routines[0].blocks.last_mut().unwrap().params.truncate(1);
+    let r = &p.routines[0];
+    for mode in [None, Some(true), Some(false)] {
+        for source in [
+            Mir65816Value::U16(0xa55a),
+            Mir65816Value::Temp(TempId(1), ByteSize::new(2)),
+            Mir65816Value::Temp(TempId(0), ByteSize::new(2)),
+            Mir65816Value::Param(r.frame.parameters[0].param),
+        ] {
+            let mut b = builder(r);
+            match mode {
+                Some(true) => b.code.a8(),
+                Some(false) => b.code.a16(),
+                None => (),
+            }
+            let start = b.code.bytes.len();
+            let frame = format!("{:?}", b.frame);
+            let mut expected = if mode == Some(false) {
+                vec![]
+            } else {
+                vec![0xc2, 0x20]
+            };
+            match b.word_operand(&source).unwrap().unwrap() {
+                WordOperand::Immediate(v) => expected.extend([0xa9, v as u8, (v >> 8) as u8]),
+                WordOperand::Stack(offset) => expected.extend([0xa3, offset]),
+            }
+            expected.extend([0x83, 2, 0x5c, 0, 0, 0]);
+            b.edge(&Mir65816Edge {
+                target: BlockId(99),
+                args: vec![source],
+            })
+            .unwrap();
+            assert_eq!(b.code.bytes[start..], expected);
+            assert_eq!(format!("{:?}", b.frame), frame);
+            assert_eq!(b.code.fixups.len(), 1);
+            let f = &b.code.fixups[0];
+            assert_eq!(
+                (f.offset, f.target, f.addend, f.byte),
+                (
+                    b.code.bytes.len() - 3,
+                    Target::Label(b.blocks[&BlockId(99)]),
+                    0,
+                    None
+                )
+            );
+            let bytes = b.code.bytes.clone();
+            b.code.a16();
+            assert_eq!(b.code.bytes, bytes);
+        }
+    }
+}
+
+#[test]
+fn single_word_edges_retain_full_preflight_including_unused_staging() {
+    let mut p = program();
+    p.routines[0].blocks.last_mut().unwrap().params.truncate(1);
+    for problem in 0..12 {
+        let mut b = builder(&p.routines[0]);
+        let mut e = Mir65816Edge {
+            target: BlockId(99),
+            args: vec![Mir65816Value::Temp(TempId(1), ByteSize::new(2))],
+        };
+        match problem {
+            0 => e.args[0] = Mir65816Value::U8(1),
+            1 => e.args[0] = Mir65816Value::Temp(TempId(999), ByteSize::new(2)),
+            2 => {
+                b.frame.temps.remove(&TempId(0));
+            }
+            3 => {
+                b.frame.temps.insert(
+                    TempId(0),
+                    Location::Stack(Slot {
+                        offset: 2,
+                        width: 1,
+                    }),
+                );
+            }
+            4 => {
+                b.frame.temps.insert(
+                    TempId(0),
+                    Location::Stack(Slot {
+                        offset: 255,
+                        width: 2,
+                    }),
+                );
+            }
+            5 => b.frame.edge_copies.clear(),
+            6 => b.frame.edge_copies[0].width = 2,
+            7 => b.frame.edge_copies[0].offset = 255,
+            8 => b.blocks.clear(),
+            9 => e.target = BlockId(999),
+            10 => e.args.clear(),
+            11 => b.delta = u32::MAX,
+            _ => unreachable!(),
+        }
+        b.code.a8();
+        let before = format!("{:?}", b.code);
+        assert!(b.edge(&e).is_err(), "{problem}");
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+    for field in 0..3 {
+        for (offset, delta, ok) in [
+            (254, 0, true),
+            (255, 0, false),
+            (253, 1, true),
+            (254, 1, false),
+            (0, 0, false),
+        ] {
+            let mut b = builder(&p.routines[0]);
+            b.delta = delta;
+            match field {
+                0 => {
+                    b.frame
+                        .temps
+                        .insert(TempId(1), Location::Stack(Slot { offset, width: 2 }));
+                }
+                1 => {
+                    b.frame
+                        .temps
+                        .insert(TempId(0), Location::Stack(Slot { offset, width: 2 }));
+                }
+                2 => b.frame.edge_copies[0].offset = offset,
+                _ => unreachable!(),
+            }
+            let e = Mir65816Edge {
+                target: BlockId(99),
+                args: vec![Mir65816Value::Temp(TempId(1), ByteSize::new(2))],
+            };
+            assert_eq!(b.edge(&e).is_ok(), ok, "{field}/{offset}/{delta}");
+        }
+    }
+}

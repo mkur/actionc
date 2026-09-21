@@ -183,12 +183,21 @@ ENDMODULE
             checks_stack: true,
             irq_effect: Default::default(),
         });
-        let image = Image::from_json(&prepared.compile(&options).unwrap().image.to_json().unwrap())
-            .unwrap();
+        let compiled = prepared.compile(&options).unwrap();
+        let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+        let sites = word_edge::index(&prepared.mir, &compiled.machine, |id| {
+            image
+                .routines
+                .iter()
+                .find(|r| r.id == id.0)
+                .unwrap()
+                .address
+        });
         let caller = caller(image.entry);
         for value in [0u16, 0x1234, 0x8000, 0xffff] {
             for mask in [0, 4] {
                 let mut h = Harness::new(&image, &caller, mask);
+                h.bus.single_word_edges = sites.clone();
                 h.bus.map(0x041000, &smash, false);
                 h.bus.map(0xd000, &value.to_le_bytes(), true);
                 h.bus.watched.extend(0xd000..0xd002);

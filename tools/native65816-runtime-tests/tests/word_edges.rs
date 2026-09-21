@@ -116,7 +116,7 @@ fn mutable_parameter_edges_use_current_home_and_preserve_full_words() {
     }
 }
 
-pub fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
+fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
     use actionc_vm::native65816::{Access, Inputs};
     let mut counts = (0, 0);
     for _ in 0..100000 {
@@ -128,6 +128,7 @@ pub fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                 counts.0 += 1;
                 counts.1 += w.moves.len();
                 let before = h.cpu.registers();
+                let cycles = h.cpu.cycles();
                 let s = u32::from(before.s);
                 let mut expected = vec![];
                 let mut values = vec![];
@@ -191,7 +192,28 @@ pub fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         assert_eq!(h.bus.value(s + u32::from(stage), 2), 0xefbe);
                     }
                 }
+                let expected_cycles: u64 = 4 + w
+                    .moves
+                    .iter()
+                    .map(|&((stack, _), _, _)| {
+                        (if stack { 5 } else { 3 }) + 5 + if w.direct { 0 } else { 10 }
+                    })
+                    .sum::<u64>();
+                assert_eq!(h.cpu.cycles() - cycles, expected_cycles);
                 let after = h.cpu.registers();
+                let last = *values.last().unwrap();
+                assert_eq!(after.a, last);
+                assert_eq!(
+                    after.p & 0x82,
+                    if last == 0 {
+                        2
+                    } else if last & 0x8000 != 0 {
+                        0x80
+                    } else {
+                        0
+                    }
+                );
+                assert_eq!(after.p & 0x41, before.p & 0x41);
                 assert_eq!(
                     (
                         after.s,
@@ -255,7 +277,7 @@ fn independent_assembler_and_decoder_check_complete_word_copy_shape() {
 }
 
 // Changed with selection, after the same semantic probes pass on the baseline.
-const EXPECT_DIRECT_SINGLE_WORD: bool = false;
+const EXPECT_DIRECT_SINGLE_WORD: bool = true;
 
 #[test]
 fn single_word_edges_cover_immediates_parameters_backedges_and_both_branch_arms() {

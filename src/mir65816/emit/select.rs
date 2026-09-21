@@ -910,6 +910,17 @@ impl Builder<'_> {
     }
     fn emit_word_edge(&mut self, edge: WordEdge) {
         self.code.a16();
+        if let &[(source, _, destination)] = edge.moves.as_slice() {
+            // One assignment needs no staging: capture the complete word in A
+            // before writing either destination byte, even for a self-copy.
+            match source {
+                WordOperand::Immediate(value) => self.code.word(0xa9, value),
+                WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+            }
+            self.code.byte(0x83, destination);
+            self.code.jump(edge.target);
+            return;
+        }
         for &(source, staging, _) in &edge.moves {
             match source {
                 WordOperand::Immediate(value) => self.code.word(0xa9, value),

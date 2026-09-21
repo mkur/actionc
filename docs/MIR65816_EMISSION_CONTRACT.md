@@ -131,13 +131,17 @@ generated stack checks are unchanged.
 Nonempty edges whose arguments and parameters are all exactly two bytes may use
 native A16 LDA/STA. Complete preflight checks stack sources, authoritative mutable
 parameter homes, destinations, the target label and the two accessed bytes of
-each existing four-byte staging slot, including transient S movement. All sources
-are captured before any destination is assigned. Mixed-width and legal
+each existing four-byte staging slot, including transient S movement. A single
+word assignment loads its entire source into A before storing directly to the
+destination; its staging reservation and validation remain, without any staging
+access. Self-copies still load and store. For multi-word edges, all sources are
+captured in staging before any destination is assigned. Mixed-width and legal
 unsupported nonempty edges retain bytewise emission. Local mode knowledge is reset at
 labels; word edges restore A16 when needed. No DP traffic, pushes, calls or wider
 external memory accesses are introduced. Frame allocation, guard costs and
-per-byte private stack traffic are unchanged; word loads read both bytes before
-the corresponding store.
+multi-word per-byte private stack traffic are unchanged. Each direct single-word
+copy removes two private stack byte reads and two writes; word loads read both
+bytes before the corresponding store.
 
 Empty edges validate the target and arity, restore A16 only when local mode
 knowledge requires it, and emit the existing typed JML. They never select A8.
