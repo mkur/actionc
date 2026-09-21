@@ -292,3 +292,105 @@ pub fn split_word_loads(p: &mut native65816::Prepared) {
     }
     mir65816::verify_program(&p.mir).unwrap();
 }
+
+/// Single-word immediate entry, countdown backedge, parameter transfer and
+/// same-target conditional arms, with two independent words live across them.
+pub fn single(optimize: bool, ordinary: bool) -> native65816::Prepared {
+    let mut p = program(optimize, false);
+    let r = p
+        .mir
+        .routines
+        .iter_mut()
+        .find(|r| r.name == "Work")
+        .unwrap();
+    let word = ByteSize::new(2);
+    let wt = r.temps.iter().find(|(id, _)| id.0 == 0).unwrap().1.clone();
+    let bt = r.temps.iter().find(|(id, _)| id.0 == 8).unwrap().1.clone();
+    r.temps = [0, 1, 2, 3, 4, 6, 9]
+        .into_iter()
+        .map(|i| (TempId(i), wt.clone()))
+        .collect();
+    r.temps.extend([(TempId(8), bt.clone()), (TempId(10), bt)]);
+    let loads = r.blocks[0].ops[..2].to_vec();
+    let mut ret = r.blocks.last().unwrap().terminator.clone();
+    let value = |i| Mir65816Value::Temp(TempId(i), word);
+    let edge = |b, v| Mir65816Edge {
+        target: BlockId(b),
+        args: vec![v],
+    };
+    let compare = |dest, operation, left, right| Mir65816Op::Compare {
+        dest: TempId(dest),
+        width: word,
+        signed: false,
+        operation,
+        left,
+        right,
+    };
+    if let Mir65816Terminator::Return { value: v, .. } = &mut ret {
+        *v = Some(value(9));
+    }
+    r.blocks = vec![
+        Mir65816Block {
+            id: BlockId(0),
+            params: vec![],
+            ops: loads,
+            terminator: Mir65816Terminator::Goto(edge(1, Mir65816Value::U16(3))),
+        },
+        Mir65816Block {
+            id: BlockId(1),
+            params: vec![(TempId(2), word)],
+            ops: vec![
+                Mir65816Op::Binary {
+                    dest: TempId(3),
+                    width: word,
+                    signed: false,
+                    operation: NirBinaryOp::Sub,
+                    left: value(2),
+                    right: Mir65816Value::U16(1),
+                },
+                compare(8, NirCompareOp::Ne, value(2), Mir65816Value::U16(0)),
+            ],
+            terminator: Mir65816Terminator::Branch {
+                condition: Mir65816Value::Temp(TempId(8), ByteSize::ONE),
+                then_edge: edge(1, value(3)),
+                else_edge: edge(2, Mir65816Value::Param(r.frame.parameters[0].param)),
+            },
+        },
+        Mir65816Block {
+            id: BlockId(2),
+            params: vec![(TempId(4), word)],
+            ops: vec![compare(10, NirCompareOp::Lt, value(4), value(1))],
+            terminator: Mir65816Terminator::Branch {
+                condition: Mir65816Value::Temp(TempId(10), ByteSize::ONE),
+                then_edge: edge(3, value(4)),
+                else_edge: edge(3, value(1)),
+            },
+        },
+        Mir65816Block {
+            id: BlockId(3),
+            params: vec![(TempId(6), word)],
+            ops: vec![Mir65816Op::Binary {
+                dest: TempId(9),
+                width: word,
+                signed: false,
+                operation: NirBinaryOp::Add,
+                left: value(6),
+                right: value(0),
+            }],
+            terminator: ret,
+        },
+    ];
+    if ordinary {
+        r.temps.push((TempId(11), wt));
+        r.blocks[2].ops.push(Mir65816Op::Binary {
+            dest: TempId(11),
+            width: word,
+            signed: false,
+            operation: NirBinaryOp::Add,
+            left: value(0),
+            right: value(1),
+        });
+    }
+    mir65816::verify_program(&p.mir).unwrap();
+    p
+}

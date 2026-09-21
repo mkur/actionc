@@ -1,9 +1,10 @@
-//! Test-only, mode-aware decoding of the complete two-phase word edge shape.
+//! Test-only decoding. Direct copies require typed edge-site evidence.
 use super::*;
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Window {
+    pub direct: bool,
     pub sites: Vec<u32>,
     pub moves: Vec<((bool, u16), u8, u8)>, // source, staging, destination
     pub target: u32,
@@ -11,6 +12,9 @@ pub struct Window {
 }
 
 pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
+    if let Some(w) = direct(bus, pc, &range) {
+        return Some(w);
+    }
     let mut sites = vec![];
     let end = range.end;
     if !range.contains(&pc) || pc + 2 > end {
@@ -73,6 +77,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
     }
     sites.push(pc);
     Some(Window {
+        direct: false,
         sites,
         moves,
         target,
@@ -94,4 +99,211 @@ pub fn reached(
         .iter()
         .find(|r| (r.address..r.address + r.size).contains(&cpu.pc()))?;
     decode(bus, cpu.pc(), r.address..r.address + r.size)
+}
+
+/// Test-only evidence derived from a verified MIR edge and its typed JML fixup.
+/// Staging is retained in the frame even when the machine transfer is direct.
+#[derive(Clone, Debug)]
+pub struct Site {
+    pub range: Range<u32>,
+    pub load: u32,
+    pub jump: u32,
+    pub source: (bool, u16),
+    pub staging: u8,
+    pub destination: u8,
+    pub target: u32,
+    pub direct: bool,
+}
+pub type Index = std::collections::BTreeMap<u32, Site>;
+
+pub fn index(
+    mir: &actionc::mir65816::Mir65816Program,
+    machine: &actionc::mir65816::emit::MachineProgram,
+    address: impl Fn(actionc::nir::RoutineId) -> u32,
+) -> Index {
+    use actionc::mir65816::{
+        emit::{Label, Location, Target},
+        *,
+    };
+    actionc::mir65816::verify_program(mir).unwrap();
+    let mut result = Index::new();
+    for m in &machine.routines {
+        let r = mir.routines.iter().find(|r| r.id == m.id).unwrap();
+        let base = address(r.id);
+        let range = base..base + m.code.bytes.len() as u32;
+        let stack = |id| match m.frame.temps[&id] {
+            Location::Stack(slot) if slot.width == 2 => Some(slot.offset as u8),
+            _ => None,
+        };
+        for (bi, b) in r.blocks.iter().enumerate() {
+            let lo = m.code.labels[&Label(bi as u32)];
+            let hi = if bi + 1 < r.blocks.len() {
+                m.code.labels[&Label(bi as u32 + 1)]
+            } else {
+                m.code.bytes.len()
+            };
+            let edges: Vec<_> = match &b.terminator {
+                Mir65816Terminator::Goto(e) => vec![e],
+                Mir65816Terminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                } => vec![else_edge, then_edge],
+                _ => vec![],
+            };
+            let mut expected = vec![];
+            for e in edges {
+                let target = r.blocks.iter().position(|b| b.id == e.target).unwrap();
+                let params = &r.blocks[target].params;
+                if e.args.len() != 1 || params.len() != 1 || params[0].1.get() != 2 {
+                    continue;
+                }
+                let Some(destination) = stack(params[0].0) else {
+                    continue;
+                };
+                let source = match &e.args[0] {
+                    Mir65816Value::U16(v) => (false, *v),
+                    Mir65816Value::Temp(id, w) if w.get() == 2 => {
+                        let Some(s) = stack(*id) else {
+                            continue;
+                        };
+                        (true, u16::from(s))
+                    }
+                    Mir65816Value::Param(id) => {
+                        let p = r.frame.parameters.iter().find(|p| p.param == *id).unwrap();
+                        let Mir65816AbiHome::StackArgument { offset, size, .. } = p.incoming else {
+                            panic!()
+                        };
+                        if size.get() != 2 {
+                            continue;
+                        }
+                        let at = if let Some(id) = p.frame_object {
+                            r.frame
+                                .objects
+                                .iter()
+                                .find(|o| o.id == id)
+                                .unwrap()
+                                .stack_offset
+                                .get()
+                        } else {
+                            actionc::mir65816::abi::stack::incoming_displacement(
+                                actionc::target::ByteSize::new(m.frame.extent.into()),
+                                offset,
+                                size,
+                            )
+                            .unwrap()
+                            .get()
+                        };
+                        (true, at.try_into().unwrap())
+                    }
+                    _ => continue,
+                };
+                expected.push((target as u32, source, destination));
+            }
+            let mut found = 0;
+            for f in &m.code.fixups {
+                let Target::Label(label) = f.target else {
+                    continue;
+                };
+                if !(lo..hi).contains(&(f.offset - 1)) || !expected.iter().any(|e| e.0 == label.0) {
+                    continue;
+                }
+                assert_eq!(
+                    (m.code.bytes[f.offset - 1], f.addend, f.byte),
+                    (0x5c, 0, None)
+                );
+                let stage = m.frame.edge_copies[0];
+                assert_eq!(stage.width, 4);
+                let staging: u8 = stage.offset.try_into().unwrap();
+                let jump = f.offset - 1;
+                let mut matched = None;
+                for &(_, source, destination) in expected.iter().filter(|e| e.0 == label.0) {
+                    let load = if source.0 {
+                        vec![0xa3, source.1.try_into().unwrap()]
+                    } else {
+                        vec![0xa9, source.1 as u8, (source.1 >> 8) as u8]
+                    };
+                    // Try the complete staged shape first: its final LDA/STA
+                    // suffix must never become a second direct edge.
+                    for direct in [false, true] {
+                        let mut bytes = load.clone();
+                        if !direct {
+                            bytes.extend([0x83, staging, 0xa3, staging]);
+                        }
+                        bytes.extend([0x83, destination]);
+                        if jump >= lo + bytes.len()
+                            && m.code.bytes[jump - bytes.len()..jump] == bytes
+                        {
+                            matched = Some(Site {
+                                range: range.clone(),
+                                load: base + (jump - bytes.len()) as u32,
+                                jump: base + jump as u32,
+                                source,
+                                staging,
+                                destination,
+                                target: base + m.code.labels[&label] as u32,
+                                direct,
+                            });
+                            break;
+                        }
+                    }
+                    if matched.is_some() {
+                        break;
+                    }
+                }
+                let site = matched.expect("typed single-word edge has an unexpected encoding");
+                assert!(result.insert(site.load, site).is_none());
+                found += 1;
+            }
+            assert_eq!(
+                found,
+                expected.len(),
+                "missing typed single-word edge in {}",
+                r.name
+            );
+        }
+    }
+    result
+}
+
+fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
+    let prefix = range.contains(&pc)
+        && pc + 2 <= range.end
+        && bus.ram[pc as usize..pc as usize + 2] == [0xc2, 0x20];
+    let load = pc + if prefix { 2 } else { 0 };
+    let s = bus.single_word_edges.get(&load)?;
+    if !s.direct
+        || &s.range != range
+        || s.load != load
+        || !range.contains(&s.target)
+        || !range.contains(&pc)
+        || s.jump + 4 > range.end
+        || !(1..=254).contains(&s.destination)
+        || (s.source.0 && !(1..=254).contains(&s.source.1))
+    {
+        return None;
+    }
+    let mut bytes = if s.source.0 {
+        vec![0xa3, s.source.1 as u8]
+    } else {
+        vec![0xa9, s.source.1 as u8, (s.source.1 >> 8) as u8]
+    };
+    let store = load + bytes.len() as u32;
+    bytes.extend([0x83, s.destination, 0x5c]);
+    bytes.extend(&s.target.to_le_bytes()[..3]);
+    if store + 2 != s.jump
+        || load + bytes.len() as u32 > range.end
+        || bus.ram[load as usize..load as usize + bytes.len()] != bytes
+    {
+        return None;
+    }
+    let mut sites = if prefix { vec![pc] } else { vec![] };
+    sites.extend([load, store, s.jump]);
+    Some(Window {
+        direct: true,
+        sites,
+        moves: vec![(s.source, s.staging, s.destination)],
+        target: s.target,
+        end: s.jump + 4,
+    })
 }
