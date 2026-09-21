@@ -493,7 +493,7 @@ fn fused_decoder_rejects_wrong_modes_truncated_windows_and_corrupt_edges() {
         (window.cmp, 0xe3),
         (window.branch + 1, 3),
         (window.no, 0xc2),
-        (window.yes, 0xc2),
+        (window.yes, 0xea),
         (window.branch + 3, 0),
         (window.edges[1][1], 0xea),
     ] {

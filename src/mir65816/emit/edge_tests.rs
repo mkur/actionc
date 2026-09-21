@@ -1,0 +1,251 @@
+use super::*;
+
+fn program() -> Mir65816Program {
+    let mut p = super::word_tests::program();
+    let r = &mut p.routines[0];
+    let w = ByteSize::new(2);
+    r.blocks.push(Mir65816Block {
+        id: BlockId(99),
+        params: vec![(TempId(0), w), (TempId(1), w)],
+        ops: vec![],
+        terminator: r.blocks.last().unwrap().terminator.clone(),
+    });
+    p
+}
+fn builder(r: &Mir65816Routine) -> Builder<'_> {
+    // Use the ordinary allocated frame, then controlled physical homes so
+    // tests exercise overlap, exact endpoints and malformed preflights.
+    let mut b = Builder {
+        routine: r,
+        frame: AllocatedFrame::new(&super::word_tests::program().routines[0]).unwrap(),
+        code: Code::default(),
+        blocks: BTreeMap::new(),
+        delta: 0,
+    };
+    b.blocks.insert(BlockId(99), b.code.label());
+    for (id, offset) in [(0, 2), (1, 4)] {
+        b.frame
+            .temps
+            .insert(TempId(id), Location::Stack(Slot { offset, width: 2 }));
+    }
+    b.frame.edge_copies = vec![
+        Slot {
+            offset: 8,
+            width: 4,
+        },
+        Slot {
+            offset: 12,
+            width: 4,
+        },
+    ];
+    b
+}
+fn edge() -> Mir65816Edge {
+    Mir65816Edge {
+        target: BlockId(99),
+        args: vec![
+            Mir65816Value::Temp(TempId(1), ByteSize::new(2)),
+            Mir65816Value::U16(0xa55a),
+        ],
+    }
+}
+
+#[test]
+fn checked_word_edges_emit_two_phases_and_one_typed_jump_in_every_mode() {
+    let p = program();
+    for mode in [None, Some(true), Some(false)] {
+        let mut b = builder(&p.routines[0]);
+        match mode {
+            Some(true) => b.code.a8(),
+            Some(false) => b.code.a16(),
+            None => (),
+        }
+        let start = b.code.bytes.len();
+        b.edge(&edge()).unwrap();
+        let mut expected = vec![];
+        if mode != Some(false) {
+            expected.extend([0xc2, 0x20]);
+        }
+        expected.extend([
+            0xa3, 4, 0x83, 8, 0xa9, 0x5a, 0xa5, 0x83, 12, 0xa3, 8, 0x83, 2, 0xa3, 12, 0x83, 4,
+            0x5c, 0, 0, 0,
+        ]);
+        assert_eq!(b.code.bytes[start..], expected);
+        assert_eq!(b.code.fixups.len(), 1);
+        let f = &b.code.fixups[0];
+        assert_eq!(f.target, Target::Label(b.blocks[&BlockId(99)]));
+        assert_eq!(
+            (f.offset, f.addend, f.byte),
+            (b.code.bytes.len() - 3, 0, None)
+        );
+        let end = b.code.bytes.len();
+        b.code.a16();
+        assert_eq!(b.code.bytes.len(), end);
+    }
+}
+
+#[test]
+fn word_edge_preflight_checks_every_entry_without_mutation() {
+    let p = program();
+    for problem in 0..12 {
+        let mut b = builder(&p.routines[0]);
+        let mut e = edge();
+        // Even an unsupported earlier value must not hide a later error.
+        e.args[0] = Mir65816Value::Null(ByteSize::new(2));
+        match problem {
+            0 => e.args[1] = Mir65816Value::U8(1),
+            1 => e.args[1] = Mir65816Value::Temp(TempId(999), ByteSize::new(2)),
+            2 => {
+                b.frame.temps.remove(&TempId(1));
+            }
+            3 => {
+                b.frame.temps.insert(
+                    TempId(1),
+                    Location::Stack(Slot {
+                        offset: 4,
+                        width: 1,
+                    }),
+                );
+            }
+            4 => {
+                b.frame.temps.insert(
+                    TempId(1),
+                    Location::Stack(Slot {
+                        offset: 255,
+                        width: 2,
+                    }),
+                );
+            }
+            5 => {
+                b.frame.edge_copies.pop();
+            }
+            6 => b.frame.edge_copies[1].width = 2,
+            7 => b.frame.edge_copies[1].offset = 255,
+            8 => {
+                b.blocks.clear();
+            }
+            9 => e.target = BlockId(999),
+            10 => {
+                e.args.pop();
+            }
+            11 => b.delta = u32::MAX,
+            _ => unreachable!(),
+        }
+        b.code.a8();
+        let before = format!("{:?}", b.code);
+        assert!(b.word_edge(&e).is_err(), "{problem}");
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}
+
+#[test]
+fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
+    let mut p = program();
+    for form in 0..4 {
+        let r = &mut p.routines[0];
+        if form == 2 {
+            r.blocks.last_mut().unwrap().params[1].1 = ByteSize::ONE;
+        }
+        if form == 3 {
+            r.blocks.last_mut().unwrap().params.clear();
+        }
+        let mut b = builder(r);
+        let mut e = edge();
+        match form {
+            0 => e.args[0] = Mir65816Value::Null(ByteSize::new(2)),
+            1 => {
+                b.frame.temps.insert(
+                    TempId(1),
+                    Location::DirectPage(Slot {
+                        offset: 0,
+                        width: 2,
+                    }),
+                );
+            }
+            2 => {
+                e.args[1] = Mir65816Value::U8(0x5a);
+                e.args[0] = Mir65816Value::Temp(TempId(2), ByteSize::new(2));
+                b.frame.temps.insert(
+                    TempId(2),
+                    Location::Stack(Slot {
+                        offset: 4,
+                        width: 2,
+                    }),
+                );
+                b.frame.temps.insert(
+                    TempId(1),
+                    Location::Stack(Slot {
+                        offset: 4,
+                        width: 1,
+                    }),
+                );
+            }
+            3 => e.args.clear(),
+            _ => unreachable!(),
+        }
+        b.code.a16();
+        let before = format!("{:?}", b.code);
+        assert!(b.word_edge(&e).unwrap().is_none());
+        assert_eq!(format!("{:?}", b.code), before);
+        let start = b.code.bytes.len();
+        b.edge(&e).unwrap();
+        let source = if form == 0 {
+            vec![0xa9, 0, 0x83, 8, 0xa9, 0, 0x83, 9]
+        } else if form == 1 {
+            vec![0xa5, 0, 0x83, 8, 0xa5, 1, 0x83, 9]
+        } else {
+            vec![0xa3, 4, 0x83, 8, 0xa3, 5, 0x83, 9]
+        };
+        let mut expected = vec![0xe2, 0x20];
+        if form != 3 {
+            expected.extend(source);
+            expected.extend([0xa9, 0x5a, 0x83, 12]);
+            if form != 2 {
+                expected.extend([0xa9, 0xa5, 0x83, 13]);
+            }
+            expected.extend([0xa3, 8, 0x83, 2, 0xa3, 9, 0x83, 3, 0xa3, 12]);
+            expected.extend(if form == 1 { [0x85, 0] } else { [0x83, 4] });
+            if form != 2 {
+                expected.extend([0xa3, 13]);
+                expected.extend(if form == 1 { [0x85, 1] } else { [0x83, 5] });
+            }
+        }
+        expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]);
+        assert_eq!(b.code.bytes[start..], expected, "{form}");
+    }
+}
+
+#[test]
+fn only_accessed_word_extent_matters_after_transient_stack_movement() {
+    let p = program();
+    for field in 0..3 {
+        for (offset, delta, ok) in [
+            (254, 0, true),
+            (255, 0, false),
+            (253, 1, true),
+            (254, 1, false),
+            (0, 0, false),
+            (2, u32::MAX, false),
+        ] {
+            let mut b = builder(&p.routines[0]);
+            let mut e = edge();
+            b.delta = delta;
+            match field {
+                0 => {
+                    e.args[1] = Mir65816Value::Temp(TempId(2), ByteSize::new(2));
+                    b.frame
+                        .temps
+                        .insert(TempId(2), Location::Stack(Slot { offset, width: 2 }));
+                }
+                1 => b.frame.edge_copies[1].offset = offset,
+                2 => {
+                    b.frame
+                        .temps
+                        .insert(TempId(0), Location::Stack(Slot { offset, width: 2 }));
+                }
+                _ => unreachable!(),
+            }
+            assert_eq!(b.word_edge(&e).is_ok(), ok, "{field}/{offset}/{delta}");
+        }
+    }
+}

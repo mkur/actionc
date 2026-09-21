@@ -128,6 +128,17 @@ generated stack checks are unchanged.
 - Volatile accesses remain ordered byte accesses. A byte operation does not
   touch its neighbor. Wider volatile operations are not claimed to be atomic.
 
+Nonempty edges whose arguments and parameters are all exactly two bytes may use
+native A16 LDA/STA. Complete preflight checks stack sources, authoritative mutable
+parameter homes, destinations, the target label and the two accessed bytes of
+each existing four-byte staging slot, including transient S movement. All sources
+are captured before any destination is assigned. Empty, mixed-width and legal
+unsupported edges retain bytewise emission. Local mode knowledge is reset at
+labels; word edges restore A16 when needed. No DP traffic, pushes, calls or wider
+external memory accesses are introduced. Frame allocation, guard costs and
+per-byte private stack traffic are unchanged; word loads read both bytes before
+the corresponding store.
+
 ### Scalar instruction selection
 
 Two-byte integer ADD/SUB may use native sixteen-bit A with one ADC/SBC and
@@ -160,7 +171,7 @@ C/Z flags directly when a routine-wide use proof establishes exactly one use:
 that Branch condition. Other block conditions, edge arguments, returns and all
 operation inputs (including addresses and indirect calls) disqualify fusion.
 No flags cross an intervening operation or block. Both edge trampolines retain
-parallel copies, typed JML fixups and explicit A8/A16 restoration, even for equal
+parallel copies, typed JML fixups and A16 successor state, even for equal
 targets with different arguments. Calls and source-memory operations stay in
 place. Unsupported or nonadjacent pairs use ordinary materialization/branching.
 The Boolean's home is still validated and reserved, with unchanged allocation,

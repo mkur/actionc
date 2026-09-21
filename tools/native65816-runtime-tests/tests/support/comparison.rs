@@ -177,6 +177,9 @@ pub fn fused_in_range(
     let yes = bus.value(branch + 3, 3);
     let no = branch + 6;
     let edge = |mut pc: u32| -> Option<(Vec<u32>, u32, u32)> {
+        if let Some(w) = super::word_edge::decode(bus, pc, range.clone()) {
+            return Some((w.sites, w.target, w.end));
+        }
         if pc + 2 > end || bus.ram[pc as usize..pc as usize + 2] != [0xe2, 0x20] {
             return None;
         }

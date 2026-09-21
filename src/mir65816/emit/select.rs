@@ -13,6 +13,10 @@ mod compare_tests;
 #[path = "branch_tests.rs"]
 mod branch_tests;
 
+#[cfg(test)]
+#[path = "edge_tests.rs"]
+mod edge_tests;
+
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
 const RESULT: u8 = 8;
@@ -46,6 +50,13 @@ struct WordCondition {
     right: WordOperand,
     destination: u8,
     predicate: u8,
+}
+
+/// Complete immutable preflight for a two-phase parallel assignment. Staging
+/// capacity remains four bytes; only its checked low word is accessed here.
+struct WordEdge {
+    target: Label,
+    moves: Vec<(WordOperand, u8, u8)>, // source, staging, destination
 }
 
 impl From<Location> for Memory {
@@ -844,7 +855,79 @@ impl Builder<'_> {
             }
         }
     }
+    fn word_edge(&self, edge: &Mir65816Edge) -> Result<Option<WordEdge>, String> {
+        let block = self
+            .routine
+            .blocks
+            .iter()
+            .find(|b| b.id == edge.target)
+            .ok_or("unknown branch target")?;
+        if edge.args.len() != block.params.len() {
+            return Err("edge argument count mismatch".into());
+        }
+        if block.params.is_empty() || block.params.iter().any(|(_, w)| w.get() != 2) {
+            return Ok(None);
+        }
+        let target = *self
+            .blocks
+            .get(&edge.target)
+            .ok_or("missing branch target label")?;
+        let mut moves = Vec::with_capacity(edge.args.len());
+        let mut supported = true;
+        for (n, (value, &(dest, _))) in edge.args.iter().zip(&block.params).enumerate() {
+            // word_operand deliberately widens U8 for arithmetic, but edges
+            // require exact physical argument widths.
+            if self.value_width(value)? != 2 {
+                return Err("edge argument width mismatch".into());
+            }
+            let source = self.word_operand(value)?;
+            let home = self.temp(dest)?;
+            if home.slot().width != 2 {
+                return Err("edge destination temporary width mismatch".into());
+            }
+            let destination = match home {
+                Location::Stack(slot) => Some(self.word_displacement(slot.offset.into())?),
+                Location::DirectPage(_) => None,
+            };
+            let staging = self
+                .frame
+                .edge_copies
+                .get(n)
+                .ok_or("missing edge staging slot")?;
+            if staging.width != 4 {
+                return Err("invalid edge staging slot width".into());
+            }
+            let staging = self.word_displacement(staging.offset.into())?;
+            if let (Some(source), Some(destination)) = (source, destination) {
+                moves.push((source, staging, destination));
+            } else {
+                // Continue checking: a legal fallback must not mask malformed
+                // later entries, nor emit a prefix before discovering them.
+                supported = false;
+            }
+        }
+        Ok(supported.then_some(WordEdge { target, moves }))
+    }
+    fn emit_word_edge(&mut self, edge: WordEdge) {
+        self.code.a16();
+        for &(source, staging, _) in &edge.moves {
+            match source {
+                WordOperand::Immediate(value) => self.code.word(0xa9, value),
+                WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+            }
+            self.code.byte(0x83, staging);
+        }
+        for &(_, staging, destination) in &edge.moves {
+            self.code.byte(0xa3, staging);
+            self.code.byte(0x83, destination);
+        }
+        self.code.jump(edge.target);
+    }
     fn edge(&mut self, edge: &Mir65816Edge) -> Result<(), String> {
+        if let Some(word) = self.word_edge(edge)? {
+            self.emit_word_edge(word);
+            return Ok(());
+        }
         let block = self
             .routine
             .blocks

@@ -1,6 +1,6 @@
 use super::*;
 
-fn program() -> Mir65816Program {
+pub(super) fn program() -> Mir65816Program {
     let ast = crate::parser::parse(
         &crate::lexer::tokenize("CARD FUNC Work(CARD a,b) RETURN(a+b) PROC Main() RETURN").unwrap(),
     )

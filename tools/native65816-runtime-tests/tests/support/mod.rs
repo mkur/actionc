@@ -336,3 +336,5 @@ pub mod comparison;
 pub mod o65;
 
 pub mod edges;
+
+pub mod word_edge;
