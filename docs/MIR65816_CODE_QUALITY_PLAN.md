@@ -1,10 +1,11 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed on 2026-09-21 against main `86fcef2`, after qualification of the
-native state tracker. Direct single-word edge copies, adjacent accumulator
-forwarding and the tracker foundation are complete. The next proposed slice is
-short conditional MIR dispatch (3c); checked MIR-entry width omission (3a) and
-terminal fallthrough (3b) are [implemented and qualified](MIR65816_CONTROL_FLOW.md). The
+Status: refreshed on 2026-09-22 against main `fc43602`, after qualification of
+control-flow slices 3a–3c. Direct single-word edge copies, adjacent accumulator
+forwarding, the tracker foundation, checked MIR-entry width omission, terminal
+fallthrough and short conditional dispatch are complete. See the
+[control-flow results](MIR65816_CONTROL_FLOW.md). Next, inventory parallel-copy
+scheduling opportunities for a bounded slice 4. The
 [implementation plan for slices 3a–3c](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
 defines the initial site inventory, bounded changes and separate acceptance gates.
 
@@ -16,12 +17,13 @@ a restricted pointer-leaf DP allocator. General lifetime-based stack reuse is
 an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
 
-Use the qualified [state-tracker snapshot](benchmarks/65816-state-tracker/after/tables.md)
+Use the qualified [3c snapshot](benchmarks/65816-control-flow/3c/after/tables.md)
 as the working baseline for new forecasts. Its
-[equality report](benchmarks/65816-state-tracker/equality.json) confirms identical
-code and all 264 measurement records against the preceding forwarding snapshot.
-The tracker introduced proofs without changing generated code or register lifetimes.
-Keep each historical snapshot immutable.
+[exact delta](benchmarks/65816-control-flow/3c/delta.json) accounts for every
+shortened dispatch and all 264 measurement records against the preceding 3b
+snapshot. All three control-flow slices preserve data traffic, stack peaks,
+frames, guards and existing copy/forwarding counts. Keep each historical
+snapshot immutable.
 
 Both compilers implement a general unsigned 16-bit sum loop; input 13 is supplied
 at runtime, and both return 91. Measurements run from function entry through RTL,
@@ -29,15 +31,16 @@ including Action's stack guards and excluding caller setup:
 
 | Mode / compiler | Code bytes | VM cycles | Additional stack bytes |
 | --- | ---: | ---: | ---: |
-| Optimized actionc | 140 | 1,395 | 16 |
+| Optimized actionc | 120 | 1,212 | 16 |
 | Optimized vbcc | 22 | 344 | 0 |
-| Raw actionc | 164 | 1,767 | 14 |
+| Raw actionc | 146 | 1,587 | 14 |
 | Raw vbcc | 32 | 533 | 4 |
 
-The current optimized [Action listing](benchmarks/65816-state-tracker/after/sum_loop.optimized.actionc.lst)
+The current optimized [Action listing](benchmarks/65816-control-flow/3c/after/sum_loop.optimized.actionc.lst)
 uses native word arithmetic, direct single-word edge copies and adjacent A16
-forwarding, while retaining stack homes and stores. The
-[vbcc listing](benchmarks/65816-state-tracker/after/sum_loop.optimized.vbcc.lst)
+forwarding with checked width omission, fallthrough and short dispatch, while
+retaining stack homes and stores. The
+[vbcc listing](benchmarks/65816-control-flow/3c/after/sum_loop.optimized.vbcc.lst)
 retains the counter in X and the sum in DP. This supports later allocation work;
 it does not justify changing public argument placement or removing stack guards.
 Use the full corpus, including calls, pointer traffic and wider values, to choose
@@ -51,6 +54,7 @@ and qualify general improvements.
 | Direct single-word edge copies | Bypass staging for one checked word assignment; retain multi-value paths, reservations and guards. | [Results](MIR65816_SINGLE_WORD_EDGE_COPIES.md) |
 | Local accumulator forwarding | Adjacent eligible word operations reuse A16 with matching private-home and N/Z facts; retain stores and homes. | [Results](MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md) |
 | State-tracker foundation | One typed emission boundary owns instruction effects, execution modes, stack equations and the existing forwarding witness. No additional optimization. | [Results](MIR65816_STATE_TRACKER.md), [qualification](abi/action65816-state-tracker-qualification.json) |
+| Control-flow slices 3a–3c | Checked MIR-entry REP omission, terminal fallthrough after copies and bounded short dispatch with final offset/relocation checks. | [Results](MIR65816_CONTROL_FLOW.md), [qualification](abi/action65816-control-flow-3c-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -61,7 +65,10 @@ progress for `sum_loop(13)` is:
 | Empty-edge cleanup | 174 / 2,032 | 154 / 1,735 |
 | Direct single-word edge copies | 174 / 2,032 | 146 / 1,595 |
 | Adjacent accumulator forwarding | 164 / 1,767 | 140 / 1,395 |
-| State-tracker foundation (current baseline) | 164 / 1,767 | 140 / 1,395 |
+| State-tracker foundation | 164 / 1,767 | 140 / 1,395 |
+| Checked MIR-entry width omission (3a) | 158 / 1,683 | 132 / 1,308 |
+| Terminal fallthrough (3b) | 150 / 1,627 | 124 / 1,252 |
+| Short conditional dispatch (3c, current baseline) | 146 / 1,587 | 120 / 1,212 |
 
 The observed stack peak remains 14 bytes raw and 16 bytes optimized through these
 stages. The original direct-copy forecasts and selection details remain in its
@@ -76,18 +83,18 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 
 | Order | Improvement | Initial scope |
 | --- | --- | --- |
-| 3a (complete) | Checked MIR-entry width omission | Qualified results and the fresh 3b baseline are in the [control-flow results](MIR65816_CONTROL_FLOW.md). Value/flag barriers, branches, copies and allocation are preserved. |
-| 3b (complete) | Jumps to adjacent blocks | Qualified terminal fallthrough preserves edge assignments, branch selection and width policy. Its [snapshot](benchmarks/65816-control-flow/3b/after/tables.md) is the 3c baseline. |
-| 3c (next) | Short-branch selection | Use final placement, displacement and bank proofs with compatible fixups/o65 relocation and a long-transfer fallback. Keep allocation and copy scheduling fixed. |
-| 4 | Parallel-copy scheduling and coalescing | Separate self-copy removal and direct scheduling from cycle staging, reservation shrinking and later home coalescing. Qualify each part independently. |
+| 3a (complete) | Checked MIR-entry width omission | Omit redundant REP only with checked complete predecessor obligations; retain value/flag barriers. |
+| 3b (complete) | Jumps to adjacent blocks | Checked terminal fallthrough follows every edge assignment; earlier arms retain their jumps. |
+| 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
+| 4 (next inventory) | Parallel-copy scheduling and coalescing | Separate self-copy removal and direct scheduling from cycle staging, reservation shrinking and later home coalescing. Qualify each part independently. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
 Broader local private-word forwarding is a **measurement candidate**, described
-below. Its position is not fixed ahead of 3a: count useful sites and executions
-before promoting it to an implementation slice. The
+below. Count useful sites and executions before promoting it ahead of the next
+copy slice. The
 [tracker design's stages](MIR65816_STATE_TRACKER_DESIGN.md#staged-implementation-and-acceptance)
-describe the additional capabilities; this roadmap prioritizes width omission
+describe the additional capabilities; this roadmap prioritizes copy scheduling
 for the next measured plan. Revisit that priority if the inventory shows little
 benefit or a materially stronger candidate.
 
@@ -96,40 +103,25 @@ facts; do not recover semantics from source strings or SemIR. If a later slice
 needs stronger NIR facts, introduce and verify those in a separate boundary
 change before relying on them.
 
-## Checked MIR-entry width omission: completed scope
+## Completed control-flow scope and next inventory
 
-The tracker distinguishes proved execution width from permission to omit
-a mode-setting instruction. Its byte-identical foundation revoked permission at
-every label; qualified slice 3a now grants it only at checked MIR entries.
-See the [emission contract](MIR65816_EMISSION_CONTRACT.md). The historical tracker
-measurements above remain the start of this sequence; use the qualified 3a
-snapshot for 3b forecasts.
+The [3a–3c implementation plan](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
+is qualified. The tracker grants width-omission permission only at checked MIR
+entries, retaining value/flag/home barriers. Terminal fallthrough executes all
+edge copies first; short dispatch preserves arm order and long fallbacks. The
+[emission contract](MIR65816_EMISSION_CONTRACT.md) records the invariants.
 
-Follow the [3a–3c implementation plan](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
-within these limits:
+Start slice 4 by counting self-copies, independent multi-word assignments and
+cyclic assignments in raw and optimized final code, with dynamic counts and
+physical source/destination ranges. Choose one bounded scheduling change and
+predict its exact traffic and A/N/Z effects before implementation. Keep staging
+reservations and frame sizes fixed in that first change; reservation shrinking
+and home coalescing need separate proofs and qualification. Existing direct
+single-word copies already bypass staging and must not be counted as new savings.
 
-1. Inventory redundant mode requests in raw and optimized emitted code. Separate
-   MIR block entries from guard, comparison, shift/copy-loop and indirect-resume
-   labels. Record candidate PCs and dynamic counts before changing selection;
-   no new numerical saving is assumed here.
-2. Prove the entry's native E/M/X contract from the ABI or every incoming MIR
-   edge, including loop backedges. Check actual emitted exits against it. Keep
-   unknown or incompatible entries on the existing explicit mode-setting path.
-3. Initially remove only redundant `REP #$20` at proved A16 MIR entries. Do not
-   grant omission permission to arbitrary internal labels or byte-mode joins.
-   Preserve routine guards, call/return normalization and indirect-resume behavior.
-4. Retain label barriers for register values, flags, homes and the single-use
-   forwarding witness. Do not broaden forwarding or combine the slice with jump
-   cleanup, copy scheduling, frame shrinking or register allocation.
-5. Predict exact instruction/byte/cycle changes, including resulting address and
-   fixup adjustments. Require unchanged data-access traffic, frames, guards,
-   stack peaks and existing forwarding/copy/fusion execution counts. Validate
-   serialized and relocated code, flag behavior and preemption at affected PCs.
-
-The output of the inventory must be a bounded, reviewable slice with independent
-expected counts. Freeze a fresh baseline for each later optimization; do not
-subtract cumulative forecasts from this snapshot without measuring the intervening
-changes.
+Freeze a fresh baseline for every later optimization. Use the qualified 3c
+snapshot for this inventory; measure intervening changes before making cumulative
+forecasts.
 
 ## Measurement candidate: broader local forwarding
 

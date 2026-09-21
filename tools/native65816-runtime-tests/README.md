@@ -47,7 +47,8 @@ OS, device intercept or host scheduler participates. The earlier
 
 | Target | Tests | Coverage |
 | --- | ---: | --- |
-| `state_tracking` | 4 | Independent ca65 bytes and VM facts, both widths, hidden B, full status masks, homes/NZ, loop joins, direct/indirect stack phases and o65 rebasing; trace-on/off output equality. |
+| `state_tracking` | 4 | Independent ca65 bytes and VM facts, both widths, hidden B, full status masks, homes/NZ, loop joins, direct/indirect stack phases, PER continuations after branch shortening and o65 rebasing; trace-on/off output equality. |
+| `control_flow` | 4 | Independent REP/JML omission and short-predicate equivalence, page boundaries, generated short/long fallbacks, banked placement, edge copies and two o65 placements. |
 | `accumulator_forwarding` | 4 | Frozen full-corpus sites, typed resident-word evidence, independent ca65 register/flag/traffic equivalence, all four consumers, volatile traces, LF/CRLF and evidence rejection. |
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |

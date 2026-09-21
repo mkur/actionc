@@ -1,7 +1,7 @@
 # Native 65816 width and control-flow results
 
 The [3a–3c implementation plan](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
-is being implemented in independently qualified slices. Public ABI v1, image v3,
+is complete in three independently qualified slices. Public ABI v1, image v3,
 o65 profile v1, stack guards and allocation remain unchanged.
 
 ## 3a: checked MIR-entry width omission
@@ -70,4 +70,51 @@ The known external vbcc failure remains visible.
 
 See the [qualification record](abi/action65816-control-flow-3b-qualification.json)
 and [measured snapshot](benchmarks/65816-control-flow/3b/after/tables.md).
-`target/control-3b-after` is the immutable baseline for 3c, which remains pending.
+`target/control-3b-after` is the immutable baseline for 3c.
+
+## 3c: short conditional MIR dispatch
+
+Implemented in `fc43602` on 2026-09-22, following the byte-preserving layout
+foundation in `80826b6`. A private routine finalizer shortens typed ordinary and
+fused MIR dispatches to their original predicate when the signed displacement
+fits. Fixed-point selection accounts for each candidate's own shrink and for
+other shortened sites. Out-of-range dispatches retain the inverse-branch/JML form.
+Internal comparisons, guards, helpers and indirect stubs retain their selection.
+
+One checked offset map updates labels, retained fixups, PER operands, MIR spans,
+logical transfers, conditional records and optional trace PCs. Relocation checks
+the encoded displacement, overlap, target and bank placement. Local relative
+bytes remain invariant at accepted o65 placements; the serialized formats and
+relocator protocol are unchanged.
+
+The [frozen inventory](benchmarks/65816-control-flow/3c/baseline.json) and
+[exact delta](benchmarks/65816-control-flow/3c/delta.json) agree on 12 static short
+sites across the 28 Action streams, removing 320 executed JMLs and saving 1,050
+cycles per incoming I state across the corpus. All data traffic, frames, guards,
+stack peaks and existing optimization counts remain unchanged. The boundary
+snapshot shortens eight dispatches across 24 routines; every byte and metadata
+offset was checked against an independent transformation of the previous output.
+This is an intentional machine-code/offset change, with no NIR contract change.
+
+| Kernel | Mode | Bytes before / after | Cycles before / after | Stack peak |
+| --- | --- | ---: | ---: | ---: |
+| sum_loop(13) | raw | 150 / 146 | 1,627 / 1,587 | 14 |
+| sum_loop(13) | optimized | 124 / 120 | 1,252 / 1,212 | 16 |
+
+Validation: 65 emitter/proof tests, 60 affected compiler integration tests,
+all 92 native tests in each host, 24 Python comparison tests, five disassembler
+tests, LF/CRLF corpus equality and an isolated CRLF boundary-snapshot rebuild.
+Coverage includes independent ca65 predicates across a page boundary,
+signed displacement boundaries and cascades, generated short/long fallbacks,
+banked images, two o65 placements, remapped indirect PER continuations, calls,
+aliasing, IRQ/NMI suspension and stack faults. Both hosts share 374 identical
+saved native artifacts and identical 264 comparison records, each with both I
+states. Their 416 compiler/fixture input hashes match the implemented source.
+The known optimized vbcc unlink vector-0 failure remains explicit in both hosts.
+
+See the [qualification record](abi/action65816-control-flow-3c-qualification.json)
+and [measured snapshot](benchmarks/65816-control-flow/3c/after/tables.md).
+`target/control-3c-after` is the new immutable quality baseline. Across all three
+slices, optimized `sum_loop(13)` falls from 140 bytes / 1,395 cycles to 120 bytes /
+1,212 cycles; raw falls from 164 / 1,767 to 146 / 1,587. Stack reads/writes stay at
+165/188 optimized and 197/246 raw, with peaks of 16 and 14 bytes respectively.

@@ -1,0 +1,1072 @@
+{
+  "slice": "3c",
+  "records": 264,
+  "static_sites": 12,
+  "exact_instruction_streams": 28,
+  "deltas": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 5,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 5,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 4
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 13,
+      "cycles": 40
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 31,
+      "cycles": 94
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 4
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 13,
+      "cycles": 40
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 31,
+      "cycles": 94
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 4
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 11
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 16
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 3
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 4
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 11
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 16
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 4
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 4,
+      "cycles": 13
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 16,
+      "cycles": 49
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 1,
+      "cycles": 4
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 4,
+      "cycles": 13
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 4,
+      "bytes": 4,
+      "instructions": 16,
+      "cycles": 49
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 0,
+      "instructions": 0,
+      "cycles": 0
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 0,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 1,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 2,
+      "bytes": 4,
+      "instructions": 8,
+      "cycles": 25
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "vector": 3,
+      "bytes": 4,
+      "instructions": 0,
+      "cycles": 1
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}

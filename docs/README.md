@@ -64,10 +64,13 @@ crowding the active reference set.
     register/flag/home traces, preserved interrupts, relocation and stack guards.
 - [MIR65816_CODE_QUALITY_PLAN.md](MIR65816_CODE_QUALITY_PLAN.md)
   - Measured native code-quality roadmap, completed optimizations and remaining
-    control-flow, copy and register-allocation work.
+    copy and register-allocation work.
 - [MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
-  - Proposed slices 3a–3c: checked MIR-entry width omission, adjacent-block
+  - Completed slices 3a–3c: checked MIR-entry width omission, adjacent-block
     fallthrough and bounded short branches, with independent qualification gates.
+- [MIR65816_CONTROL_FLOW.md](MIR65816_CONTROL_FLOW.md)
+  - Qualified width/control-flow results, exact instruction deltas, relocation
+    proofs and the current native code-quality baseline.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.

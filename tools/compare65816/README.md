@@ -289,3 +289,36 @@ vasm source-header path. All 112 positive vector counts and representative
 forecasts must match. Both host commands retain the known optimized vbcc unlink
 failure. Reconstruct missing baseline artifacts with compiler and runner from
 an isolated `0e8248c` checkout; preserve historical snapshots.
+
+The [control-flow results](../../docs/MIR65816_CONTROL_FLOW.md) qualify slices
+3a–3c separately. Their immutable baseline directories are
+`target/control-flow-before`, `target/control-3a-after` and
+`target/control-3b-after`. The first retains the tracker code with newly recorded
+instruction-PC counts. To reproduce the final slice's report from saved builds:
+
+```sh
+python3 tools/compare65816/check_control_flow.py check \
+  target/control-3b-after target/control-3c-after \
+  --baseline docs/benchmarks/65816-control-flow/3c/baseline.json \
+  --output docs/benchmarks/65816-control-flow/3c/delta.json
+python3 tools/compare65816/report.py \
+  --input target/control-3c-after \
+  --output docs/benchmarks/65816-control-flow/3c/after
+python3 -m unittest discover -s tools/compare65816 -p 'test_*.py'
+```
+
+Each input directory needs its build manifest and both host execution reports.
+For new inventories, `check_control_flow.py freeze DIRECTORY --slice 3a|3b|3c
+--output FILE` records candidate/rejected sites, artifact hashes and independent
+predictions before selection changes. Do not overwrite the committed baselines.
+The checker permits only predicted REP/JML removals or short dispatches and their
+required address/PER remapping. It compares all 28 instruction streams, dynamic
+counts and traffic, preserving logical copy/fusion/forwarding counts at moved PCs.
+Typed proof metadata authenticates site identity against executing bytes; it
+never supplies CPU behavior or expected results.
+
+Reconstruct missing builds with the compiler and runner from isolated `286a332`
+(initial inventory), `f30e569` (3a), `c18f18a` (3b) and `fc43602` (3c) checkouts.
+Build each corpus with `--verify-crlf` and execute both host comparison commands.
+All 264 records must be retained, including the known optimized vbcc unlink
+failure. The 3c snapshot is the current baseline for later quality improvements.
