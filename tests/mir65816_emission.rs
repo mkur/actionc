@@ -44,9 +44,9 @@ fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
             let machine = emit::materialize(&program).unwrap();
             let image = image::link(&program, &machine, &layout()).unwrap();
             let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
-            // Includes the checked entry and unchanged result/return sequence.
+            // Includes the checked entry, direct word return and frame teardown.
             assert!(
-                work.size <= 100,
+                work.size <= 80,
                 "{operation}/{optimize}: {} bytes",
                 work.size
             );
@@ -66,6 +66,33 @@ fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
             assert!(work.objects.is_empty());
             assert!(work.temporaries.iter().all(|t| t.size == 2));
         }
+    }
+}
+
+#[test]
+fn native_word_identity_keeps_its_frame_and_has_a_bounded_return() {
+    for optimize in [false, true] {
+        let program = mir(
+            "CARD FUNC Echo(CARD value) RETURN(value) PROC Main() RETURN",
+            optimize,
+        );
+        let machine = emit::materialize(&program).unwrap();
+        let image = image::link(&program, &machine, &layout()).unwrap();
+        let echo = image.routines.iter().find(|r| r.name == "Echo").unwrap();
+        assert!(echo.size <= 70, "{optimize}: {} bytes", echo.size);
+        assert_eq!(
+            (echo.fixed_frame, echo.spill_bytes, echo.local_stack_peak),
+            (4, 4, 4)
+        );
+        assert_eq!((echo.outgoing_bytes, echo.result_bytes), (3, 2));
+        assert_eq!(
+            echo.arguments
+                .iter()
+                .map(|a| (a.offset, a.body_displacement, a.size))
+                .collect::<Vec<_>>(),
+            [(0, 8, 2)]
+        );
+        assert!(echo.calls.is_empty());
     }
 }
 

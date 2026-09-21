@@ -274,3 +274,223 @@ fn operation_dispatch_keeps_native_width_without_changing_allocations() {
     assert_eq!(b.frame.peak_below_entry, before.peak_below_entry);
     assert_eq!(b.frame.edge_copies, before.edge_copies);
 }
+
+#[test]
+fn word_returns_select_checked_sources_and_share_frame_teardown() {
+    let p = program();
+    let r = &p.routines[0];
+    let (_, input, _) = operands(r);
+    for value in [
+        Mir65816Value::U8(255),
+        Mir65816Value::U16(0x8000),
+        input,
+        Mir65816Value::Param(r.frame.parameters[0].param),
+    ] {
+        let mut b = builder(r);
+        let before = b.frame.clone();
+        let operand = b.word_operand(&value).unwrap().unwrap();
+        let load = match operand {
+            WordOperand::Immediate(v) => vec![0xa9, v as u8, (v >> 8) as u8],
+            WordOperand::Stack(d) => vec![0xa3, d],
+        };
+        b.code.a8();
+        let prefix = b.code.bytes.len();
+        b.return_value(Some(&value)).unwrap();
+        let mut expected = vec![0xc2, 0x20];
+        expected.extend(load);
+        expected.extend([
+            0xa8,
+            0x3b,
+            0x18,
+            0x69,
+            before.extent as u8,
+            (before.extent >> 8) as u8,
+            0x1b,
+            0x98,
+            0x6b,
+        ]);
+        assert_eq!(&b.code.bytes[prefix..], expected);
+        assert_eq!(b.frame.temps, before.temps);
+        assert_eq!(
+            (
+                b.frame.extent,
+                b.frame.spill_bytes,
+                b.frame.peak_below_entry
+            ),
+            (before.extent, before.spill_bytes, before.peak_below_entry)
+        );
+        assert_eq!(b.frame.edge_copies, before.edge_copies);
+        assert!(b.code.fixups.is_empty() && b.code.return_fixups.is_empty());
+        let after = b.code.bytes.len();
+        b.code.a16();
+        assert_eq!(b.code.bytes.len(), after);
+    }
+    let mut b = builder(r);
+    b.frame.extent = 0; // Isolate the zero-frame epilogue; runtime tests use a real leaf.
+    b.return_value(Some(&Mir65816Value::U16(0xffff))).unwrap();
+    assert_eq!(b.code.bytes, [0xc2, 0x20, 0xa9, 0xff, 0xff, 0x6b]);
+}
+
+#[test]
+fn word_return_gate_uses_the_abi_home_and_fallback_does_not_emit() {
+    let mut p = program();
+    let r = &mut p.routines[0];
+    for home in [
+        None,
+        Some(abi::ResultLocation::A8ZeroExtended),
+        Some(abi::ResultLocation::A16X8ZeroExtended),
+        Some(abi::ResultLocation::A16X16),
+    ] {
+        r.result_home = home.map(Mir65816AbiHome::NativeResult);
+        let mut b = builder(r);
+        b.code.a8();
+        let before = b.code.bytes.clone();
+        assert!(!b.word_return(&Mir65816Value::U16(0x8000)).unwrap());
+        b.code.a8();
+        assert_eq!(b.code.bytes, before);
+    }
+    r.result_home = Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16));
+    let (_, input, _) = operands(r);
+    let Mir65816Value::Temp(id, _) = input else {
+        panic!()
+    };
+    for value in [
+        Mir65816Value::U24(1),
+        Mir65816Value::U32(1),
+        Mir65816Value::Null(ByteSize::new(2)),
+        Mir65816Value::RoutineAddress(0, ByteSize::new(3)),
+        Mir65816Value::Temp(id, ByteSize::ONE),
+        input,
+    ] {
+        let mut b = builder(r);
+        if let Mir65816Value::Temp(_, w) = value {
+            b.frame.temps.insert(
+                id,
+                if w == ByteSize::ONE {
+                    Location::Stack(Slot {
+                        offset: 255,
+                        width: 1,
+                    })
+                } else {
+                    Location::DirectPage(Slot {
+                        offset: 0,
+                        width: 2,
+                    })
+                },
+            );
+        }
+        b.code.a8();
+        let before = b.code.bytes.clone();
+        assert!(!b.word_return(&value).unwrap());
+        b.code.a8();
+        assert_eq!(b.code.bytes, before);
+        assert!(b.code.fixups.is_empty());
+    }
+}
+
+#[test]
+fn word_return_rejects_bad_homes_before_emission_and_checks_delta() {
+    let p = program();
+    let r = &p.routines[0];
+    let (_, input, _) = operands(r);
+    let Mir65816Value::Temp(id, _) = input else {
+        panic!()
+    };
+    for (offset, delta, valid) in [
+        (254, 0, true),
+        (255, 0, false),
+        (0, 0, false),
+        (253, 1, true),
+        (254, 1, false),
+        (2, u32::MAX, false),
+    ] {
+        let mut b = builder(r);
+        b.delta = delta;
+        b.frame
+            .temps
+            .insert(id, Location::Stack(Slot { offset, width: 2 }));
+        b.code.a8();
+        let before = b.code.bytes.clone();
+        assert_eq!(b.word_return(&input).is_ok(), valid);
+        if valid {
+            assert_eq!(
+                &b.code.bytes[before.len()..],
+                [0xc2, 0x20, 0xa3, (u32::from(offset) + delta) as u8]
+            );
+        } else {
+            b.code.a8();
+            assert_eq!(b.code.bytes, before);
+        }
+    }
+    for problem in 0..5 {
+        let mut r = r.clone();
+        if problem == 3 {
+            r.frame.parameters.clear();
+        }
+        if problem == 4 {
+            r.frame.parameters[0].incoming =
+                Mir65816AbiHome::NativeResult(abi::ResultLocation::A16);
+        }
+        let mut b = builder(&p.routines[0]);
+        b.routine = &r;
+        // Invalid parameter metadata is tested after building a valid allocation.
+        let value = if problem >= 3 {
+            Mir65816Value::Param(p.routines[0].frame.parameters[0].param)
+        } else {
+            input.clone()
+        };
+        match problem {
+            0 => {
+                b.frame.temps.remove(&id);
+            }
+            1 => {
+                b.frame.temps.insert(
+                    id,
+                    Location::Stack(Slot {
+                        offset: 2,
+                        width: 1,
+                    }),
+                );
+            }
+            2 => {
+                b.frame.temps.insert(
+                    id,
+                    Location::DirectPage(Slot {
+                        offset: 0,
+                        width: 1,
+                    }),
+                );
+            }
+            _ => {}
+        }
+        b.code.a8();
+        let before = b.code.bytes.clone();
+        assert!(b.word_return(&value).is_err());
+        b.code.a8();
+        assert_eq!(b.code.bytes, before);
+    }
+}
+
+#[test]
+fn native_return_diagnostics_and_procedure_teardown_remain_strict() {
+    let mut p = program();
+    let r = &mut p.routines[0];
+    let mut b = builder(r);
+    assert_eq!(
+        b.return_value(None).unwrap_err(),
+        "function returns without a value"
+    );
+    assert!(b.code.bytes.is_empty());
+    r.result_home = None;
+    let mut b = builder(r);
+    assert_eq!(
+        b.return_value(Some(&Mir65816Value::U16(1))).unwrap_err(),
+        "value return has no native result home"
+    );
+    assert!(b.code.bytes.is_empty());
+    b.return_value(None).unwrap();
+    assert_eq!(
+        b.code.bytes,
+        [0x3b, 0x18, 0x69, b.frame.extent as u8, 0, 0x1b, 0x6b]
+    );
+}

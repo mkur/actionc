@@ -142,6 +142,16 @@ It preserves the current allocation, call barriers, guards, and ABI. A volatile
 load captured in a private temp may feed word arithmetic; the original memory
 access itself is neither combined nor widened.
 
+An A16 ABI return may load a U8/U16 immediate or an exact two-byte stack
+temp/parameter directly into A16. It reuses the complete-word displacement
+checks and explicit-cast rules above, including authoritative mutable-parameter
+homes. Preflight failure changes no return-preparation bytes or mode knowledge;
+legal unsupported operands retain generic return preparation. Other result
+homes retain their defined high-bit guarantees. X is unspecified for A16 results
+and is not cleared by this path. Both paths use the same frame teardown and RTL;
+nonzero-frame teardown preserves A through Y. Selected preparation uses no DP
+scratch, push, helper, or assumption about a preceding operation's register value.
+
 MIR65816 owns access-width and addressing selection. Ordinary scalar loads and
 stores may use sixteen-bit transfers plus a final byte. Three-byte transfers
 between disjoint frame slots (or the same slot), and from a frame slot into

@@ -1246,6 +1246,23 @@ impl Builder<'_> {
         }
         Ok(())
     }
+    fn word_return(&mut self, value: &Mir65816Value) -> Result<bool, String> {
+        if self.routine.result_home != Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16))
+        {
+            return Ok(false);
+        }
+        // Preflight the complete source before changing code or mode knowledge.
+        let Some(operand) = self.word_operand(value)? else {
+            return Ok(false);
+        };
+        self.code.a16();
+        match operand {
+            WordOperand::Immediate(value) => self.code.word(0xa9, value),
+            WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
+        }
+        // The shared teardown preserves A. X is unspecified for word results.
+        Ok(true)
+    }
     fn return_value(&mut self, value: Option<&Mir65816Value>) -> Result<(), String> {
         if let Some(value) = value {
             let bytes = match self.routine.result_home {
@@ -1255,18 +1272,20 @@ impl Builder<'_> {
                 Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X16)) => 4,
                 _ => return Err("value return has no native result home".into()),
             };
-            self.code.a8();
-            self.code.byte(0xa9, 0);
-            for i in 0..4 {
-                self.code.byte(0x85, RESULT + i);
+            if !self.word_return(value)? {
+                self.code.a8();
+                self.code.byte(0xa9, 0);
+                for i in 0..4 {
+                    self.code.byte(0x85, RESULT + i);
+                }
+                for i in 0..bytes {
+                    self.value_byte(value, i)?;
+                    self.code.byte(0x85, RESULT + i);
+                }
+                self.code.a16();
+                self.code.byte(0xa5, RESULT);
+                self.code.byte(0xa6, RESULT + 2); // LDA / LDX
             }
-            for i in 0..bytes {
-                self.value_byte(value, i)?;
-                self.code.byte(0x85, RESULT + i);
-            }
-            self.code.a16();
-            self.code.byte(0xa5, RESULT);
-            self.code.byte(0xa6, RESULT + 2); // LDA / LDX
         } else if self.routine.result_home.is_some() {
             return Err("function returns without a value".into());
         }
