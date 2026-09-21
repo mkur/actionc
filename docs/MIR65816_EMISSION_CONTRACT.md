@@ -144,16 +144,31 @@ access itself is neither combined nor widened.
 
 Two-byte comparisons may use one native CMP for equality/inequality (signed or
 unsigned) and unsigned ordering, using the same checked word sources. The result
-must have an exact one-byte stack home and is stored as 0 or 1 in A8. Selection
-checks the destination and both inputs before changing code, labels or mode
+must have an exact one-byte stack home. Materialized results are stored as 0 or 1
+in A8. Selection checks the destination and both inputs before changing code, labels or mode
 knowledge. Signed ordering and legal unsupported sources/destinations retain
 bytewise emission; malformed homes remain errors. CMP flags are consumed within
-the operation before loading the Boolean; no flags survive to another MIR
-operation or branch. Both inputs are read before the result store, allowing
+the operation before loading the Boolean, except for the adjacent branch fusion
+described below. Both inputs are read before the result store, allowing
 existing dead-input slot reuse. Complete-word reads may increase private stack
 read traffic compared with the old high-byte early exit; original volatile or
 aliased source accesses remain separate and unchanged. No DP scratch, pushes,
 helpers, X/Y use, allocation change or ABI change is introduced.
+
+A final eligible word Compare followed immediately by Branch may consume CMP's
+C/Z flags directly when a routine-wide use proof establishes exactly one use:
+that Branch condition. Other block conditions, edge arguments, returns and all
+operation inputs (including addresses and indirect calls) disqualify fusion.
+No flags cross an intervening operation or block. Both edge trampolines retain
+parallel copies, typed JML fixups and explicit A8/A16 restoration, even for equal
+targets with different arguments. Calls and source-memory operations stay in
+place. Unsupported or nonadjacent pairs use ordinary materialization/branching.
+The Boolean's home is still validated and reserved, with unchanged allocation,
+storage maps and stack guards, but no 0/1 is written for an eliminated branch-only
+value. Each executed fusion removes exactly one Boolean stack write and reload;
+word reads and edge-copy traffic are unchanged. No value resides in flags or DP
+across a call or another MIR operation. Preemption must preserve live A/P through
+the adjacent load, CMP and conditional/JML sequence.
 
 An A16 ABI return may load a U8/U16 immediate or an exact two-byte stack
 temp/parameter directly into A16. It reuses the complete-word displacement

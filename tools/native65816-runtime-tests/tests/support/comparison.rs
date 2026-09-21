@@ -94,3 +94,124 @@ pub fn window(
         predicate: code[0] ^ 0x20,
     })
 }
+
+/// A reached A16 LDA/CMP and one dispatch to two complete edge trampolines.
+/// Decode edge copies, including their real instruction boundaries, rather than
+/// scanning arbitrary bytes for a CMP opcode or assuming empty successors.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FusedWindow {
+    pub load: u32,
+    pub cmp: u32,
+    pub branch: u32,
+    pub no: u32,
+    pub yes: u32,
+    pub sources: [(bool, u16); 2],
+    pub predicate: u8,
+    pub edges: [Vec<u32>; 2], // false / true instruction boundaries
+    pub targets: [u32; 2],
+}
+impl FusedWindow {
+    pub fn addresses(&self) -> Vec<u32> {
+        [
+            vec![self.load, self.cmp, self.branch, self.branch + 2],
+            self.edges[0].clone(),
+            self.edges[1].clone(),
+        ]
+        .concat()
+    }
+}
+pub fn fused_window(
+    cpu: &Machine,
+    bus: &Bus,
+    routines: &[actionc::mir65816::image::Routine],
+) -> Option<FusedWindow> {
+    assert!(cpu.is_instruction_boundary());
+    if cpu.registers().p & 0x20 != 0 {
+        return None;
+    }
+    let start = cpu.pc();
+    let r = routines
+        .iter()
+        .find(|r| (r.address..r.address + r.size).contains(&start))?;
+    let end = r.address + r.size;
+    let mut at = start;
+    let mut operand = |load: bool| -> Option<(bool, u16)> {
+        if at + 2 > end {
+            return None;
+        }
+        let op = bus.ram[at as usize];
+        let stack = op == if load { 0xa3 } else { 0xc3 };
+        if !stack && op != if load { 0xa9 } else { 0xc9 } {
+            return None;
+        }
+        let size = if stack { 2 } else { 3 };
+        if at + size > end {
+            return None;
+        }
+        let value = bus.value(at + 1, (size - 1) as usize) as u16;
+        at += size;
+        Some((stack, value))
+    };
+    let left = operand(true)?;
+    let right = operand(false)?;
+    let branch = at;
+    if branch + 6 > end {
+        return None;
+    }
+    let code = &bus.ram[branch as usize..(branch + 6) as usize];
+    if !matches!(code[0], 0x90 | 0xb0 | 0xd0 | 0xf0) || code[1..3] != [4, 0x5c] {
+        return None;
+    }
+    let yes = bus.value(branch + 3, 3);
+    let no = branch + 6;
+    let edge = |mut pc: u32| -> Option<(Vec<u32>, u32, u32)> {
+        if pc + 2 > end || bus.ram[pc as usize..pc as usize + 2] != [0xe2, 0x20] {
+            return None;
+        }
+        let mut sites = vec![pc];
+        pc += 2;
+        while pc + 2 <= end && bus.ram[pc as usize] != 0xc2 {
+            // Every edge copy byte is one load followed by one store.
+            let size = match bus.ram[pc as usize] {
+                0xa3 | 0xa9 | 0xa5 => 2,
+                0xaf => 4,
+                _ => return None,
+            };
+            if pc + size + 2 > end {
+                return None;
+            }
+            sites.push(pc);
+            pc += size;
+            if !matches!(bus.ram[pc as usize], 0x83 | 0x85) {
+                return None;
+            }
+            sites.push(pc);
+            pc += 2;
+        }
+        if pc + 6 > end || bus.ram[pc as usize..pc as usize + 3] != [0xc2, 0x20, 0x5c] {
+            return None;
+        }
+        sites.extend([pc, pc + 2]);
+        let target = bus.value(pc + 3, 3);
+        if !(r.address..end).contains(&target) {
+            return None;
+        }
+        Some((sites, target, pc + 6))
+    };
+    let (false_sites, false_target, false_end) = edge(no)?;
+    if yes != false_end {
+        return None;
+    }
+    let (true_sites, true_target, _) = edge(yes)?;
+    Some(FusedWindow {
+        load: start,
+        cmp: start + if left.0 { 2 } else { 3 },
+        branch,
+        no,
+        yes,
+        sources: [left, right],
+        predicate: code[0] ^ 0x20,
+        edges: [false_sites, true_sites],
+        targets: [false_target, true_target],
+    })
+}

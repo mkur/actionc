@@ -8,7 +8,6 @@ pub(super) type Interference = BTreeMap<TempId, Live>;
 /// Temps whose only input occurrence is one Branch condition. This deliberately
 /// includes unreachable blocks and distinguishes edge arguments from conditions.
 /// Adjacency and checked machine operands are separate selector requirements.
-#[allow(dead_code)] // Used by selection in the next implementation slice.
 pub(super) fn sole_branch_conditions(routine: &Mir65816Routine) -> Live {
     let mut conditions = BTreeMap::<TempId, usize>::new();
     let mut other = Uses::default();
@@ -258,7 +257,7 @@ pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, St
         let mut live = exit_live(block, &entries);
         add_clique(&mut graph, &live);
         for op in block.ops.iter().rev() {
-            // Include even a dead output: the selector still writes its home.
+            // Reserve even dead outputs, conservatively including fused Booleans.
             // Inputs and output coexist until the entire operation completes.
             live.extend(&op.inputs);
             live.extend(op.output);

@@ -1,5 +1,5 @@
 use super::{allocation::width, *};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(test)]
 #[path = "word_tests.rs"]
@@ -8,6 +8,10 @@ mod word_tests;
 #[cfg(test)]
 #[path = "compare_tests.rs"]
 mod compare_tests;
+
+#[cfg(test)]
+#[path = "branch_tests.rs"]
+mod branch_tests;
 
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
@@ -34,6 +38,14 @@ enum Memory {
 enum WordOperand {
     Immediate(u16),
     Stack(u8),
+}
+
+/// A complete preflight, shared by materialized and branch-only comparisons.
+struct WordCondition {
+    left: WordOperand,
+    right: WordOperand,
+    destination: u8,
+    predicate: u8,
 }
 
 impl From<Location> for Memory {
@@ -87,10 +99,20 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
             b.code.a16();
         }
     }
+    let sole_conditions = liveness::sole_branch_conditions(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
         b.code.mark(b.blocks[&block.id]);
-        for op in &block.ops {
-            b.operation(op)
+        if let Some((last, prefix)) = block.ops.split_last() {
+            for op in prefix {
+                b.operation(op)
+                    .map_err(|e| format!("b{}: {e}", block.id.0))?;
+            }
+            if b.compare_branch(last, &block.terminator, &sole_conditions)
+                .map_err(|e| format!("b{}: {e}", block.id.0))?
+            {
+                continue;
+            }
+            b.operation(last)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
         }
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
@@ -276,17 +298,17 @@ impl Builder<'_> {
         self.code.byte(0x83, destination); // STA d,S: result has its existing home.
         Ok(true)
     }
-    fn word_compare(
-        &mut self,
+    fn word_condition(
+        &self,
         dest: TempId,
         bytes: u8,
         signed: bool,
         operation: NirCompareOp,
         left: &Mir65816Value,
         right: &Mir65816Value,
-    ) -> Result<bool, String> {
+    ) -> Result<Option<WordCondition>, String> {
         if bytes != 2 || (signed && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)) {
-            return Ok(false);
+            return Ok(None);
         }
         // Compare's width describes its inputs; the result is one Boolean byte.
         // Preflight everything before changing bytes, labels or mode knowledge.
@@ -302,7 +324,7 @@ impl Builder<'_> {
         let right = self.word_operand(right)?;
         let (Some(destination), Some(mut left), Some(mut right)) = (destination, left, right)
         else {
-            return Ok(false);
+            return Ok(None);
         };
         // Swapping captured values changes no source memory access or ordering.
         // CMP does not set V, so signed ordering stays on the bytewise path.
@@ -320,18 +342,81 @@ impl Builder<'_> {
                 }
             }
         };
-        let yes = self.code.label();
-        let done = self.code.label();
+        Ok(Some(WordCondition {
+            left,
+            right,
+            destination,
+            predicate,
+        }))
+    }
+    fn branch_on_word(&mut self, condition: &WordCondition, yes: Label) {
         self.code.a16();
-        match left {
+        match condition.left {
             WordOperand::Immediate(value) => self.code.word(0xa9, value),
             WordOperand::Stack(offset) => self.code.byte(0xa3, offset),
         }
-        match right {
+        match condition.right {
             WordOperand::Immediate(value) => self.code.word(0xc9, value),
             WordOperand::Stack(offset) => self.code.byte(0xc3, offset),
         }
-        self.code.branch(predicate, yes); // Consume C/Z before LDA overwrites them.
+        self.code.branch(condition.predicate, yes); // Consume C/Z immediately.
+    }
+    fn compare_branch(
+        &mut self,
+        op: &Mir65816Op,
+        terminator: &Mir65816Terminator,
+        sole_conditions: &BTreeSet<TempId>,
+    ) -> Result<bool, String> {
+        let (
+            Mir65816Op::Compare {
+                dest,
+                width: bytes,
+                signed,
+                operation,
+                left,
+                right,
+            },
+            Mir65816Terminator::Branch {
+                condition: Mir65816Value::Temp(id, size),
+                then_edge,
+                else_edge,
+            },
+        ) = (op, terminator)
+        else {
+            return Ok(false);
+        };
+        if dest != id || *size != ByteSize::ONE || !sole_conditions.contains(id) {
+            return Ok(false);
+        }
+        let Some(condition) =
+            self.word_condition(*dest, width(*bytes)?, *signed, *operation, left, right)?
+        else {
+            return Ok(false);
+        };
+        let yes = self.code.label();
+        self.branch_on_word(&condition, yes);
+        // Each edge still stages parallel arguments before writing destinations.
+        self.edge(else_edge)?;
+        self.code.mark(yes);
+        self.edge(then_edge)?;
+        Ok(true)
+    }
+    fn word_compare(
+        &mut self,
+        dest: TempId,
+        bytes: u8,
+        signed: bool,
+        operation: NirCompareOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<bool, String> {
+        let Some(condition) = self.word_condition(dest, bytes, signed, operation, left, right)?
+        else {
+            return Ok(false);
+        };
+        let yes = self.code.label();
+        let done = self.code.label();
+        self.branch_on_word(&condition, yes);
         self.code.a8();
         self.code.byte(0xa9, 0);
         self.code.jump(done);
@@ -340,7 +425,7 @@ impl Builder<'_> {
         self.code.byte(0xa9, 1);
         self.code.mark(done);
         self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
-        self.code.byte(0x83, destination);
+        self.code.byte(0x83, condition.destination);
         Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {

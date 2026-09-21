@@ -151,7 +151,7 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                 && seen.insert(h.cpu.pc())
             {
                 let pc = h.cpu.pc();
-                if let Some(window) = comparison::window(&h.cpu, &h.bus, &h.image.routines) {
+                if let Some(window) = comparison::fused_window(&h.cpu, &h.bus, &h.image.routines) {
                     comparison_windows.insert(window);
                 }
                 if let Some(window) = return_window(&h) {
@@ -192,14 +192,17 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
             );
         }
         assert!(return_windows.iter().any(|w| w.1));
-        assert!(!comparison_windows.is_empty());
+        assert_eq!(comparison_windows.len(), 3);
         for w in &comparison_windows {
-            assert!(
-                [w.load, w.cmp, w.branch, w.done, w.done + 2, w.end]
-                    .iter()
-                    .all(|pc| seen.contains(pc))
-            );
+            assert!([w.load, w.cmp, w.branch].iter().all(|pc| seen.contains(pc)));
         }
+        // This workload never reaches Odd(0), so its true edge is absent.
+        // The targeted task probe below covers both outcomes per predicate.
+        assert!(
+            comparison_windows
+                .iter()
+                .all(|w| seen.contains(&w.no) || seen.contains(&w.yes))
+        );
         assert!(return_windows.iter().any(|w| !w.1));
         assert!(
             return_windows
@@ -252,7 +255,7 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
             return_windows.len()
         );
         eprintln!(
-            "word comparisons optimize={optimize}: {} qualified interruption windows",
+            "fused comparisons optimize={optimize}: {} qualified interruption windows",
             comparison_windows.len()
         );
     }

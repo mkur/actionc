@@ -401,8 +401,8 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 "CARD FUNC Work(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y) PROC Main() RETURN",
                 5,
                 41,
-                155,
-                160,
+                125,
+                125,
                 6,
             ),
             (
@@ -410,8 +410,8 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
                 3,
                 91,
-                220,
-                if optimize { 2500 } else { 2600 },
+                if optimize { 195 } else { 200 },
+                if optimize { 2100 } else { 2250 },
                 if optimize { 16 } else { 14 },
             ),
         ] {
