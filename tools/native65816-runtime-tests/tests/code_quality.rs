@@ -144,6 +144,7 @@ fn execute(
     let mut cpu = Machine::start_at(registers);
     let mut lowest_s = ENTRY_S;
     let mut instructions = 0u64;
+    let mut instruction_sites = BTreeMap::<u32, u64>::new();
     let mut fused_sites = BTreeMap::<u32, u64>::new();
     let mut word_edge_sites = BTreeMap::<u32, u64>::new();
     let mut edge_words = 0u64;
@@ -196,6 +197,7 @@ fn execute(
                 *forwarded_sites.entry(pc).or_default() += 1;
             }
             instructions += 1;
+            *instruction_sites.entry(pc).or_default() += 1;
             instruction_pc = pc;
             in_guard = contains(&artifact["guard_ranges"], pc);
             guard_instructions += u64::from(in_guard);
@@ -289,7 +291,7 @@ fn execute(
         }
     }
     let mut measurement = json!({
-        "cycles": cpu.cycles(), "instructions": instructions,
+        "cycles": cpu.cycles(), "instructions": instructions, "instruction_sites": instruction_sites,
         "stack_check_cycles": guard_cycles, "stack_check_instructions": guard_instructions,
         "peak_below_entry_s": ENTRY_S-lowest_s,
         "incoming_stack_bytes": stack_arguments, "incoming_return_bytes": 3,
@@ -329,6 +331,7 @@ fn execute_parallel_corpus() {
     assert_eq!(manifest["schema"], 1);
     assert_eq!(manifest["target"], "wdc-65816-native");
     let mut measurements = Vec::new();
+    let mut control = Vec::new();
     for artifact in manifest["artifacts"].as_array().unwrap() {
         let case = manifest["cases"]
             .as_array()
@@ -362,6 +365,12 @@ fn execute_parallel_corpus() {
                 "edge evidence must match the saved compiler artifact"
             );
             let forwarded = support::forwarding::compiled(&p, &c);
+            let inventory: Vec<_> = support::control_flow::inventory(&p.mir, &c.machine, &saved)
+                .into_iter()
+                .filter(|s| contains(&artifact["code_ranges"], number(&s["pc"])))
+                .collect();
+            control.push(json!({"case": artifact["case"], "mode": artifact["mode"],
+                "sites": inventory}));
             let sites = support::word_edge::index(&p.mir, &c.machine, |id| {
                 saved
                     .routines
@@ -403,8 +412,10 @@ fn execute_parallel_corpus() {
     }
     std::fs::write(
         &destination,
-        serde_json::to_string_pretty(&json!({"manifest": manifest, "measurements": measurements}))
-            .unwrap()
+        serde_json::to_string_pretty(
+            &json!({"manifest": manifest, "measurements": measurements, "control": control}),
+        )
+        .unwrap()
             + "\n",
     )
     .unwrap();

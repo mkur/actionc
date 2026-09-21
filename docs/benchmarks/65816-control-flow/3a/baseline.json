@@ -1,0 +1,899 @@
+{
+  "slice": "3a",
+  "baseline_hashes": {
+    "target/control-flow-before/manifest.json": "9afe4f3351268178fac52414591ffcf302c640a68755ea43f5f3a925b98804c9",
+    "target/control-flow-before/debug.json": "b23e79ce50235f9b9526ed80e94b66aa16ea59488ae60009006f0e16a1dfee99",
+    "target/control-flow-before/release.json": "b23e79ce50235f9b9526ed80e94b66aa16ea59488ae60009006f0e16a1dfee99",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/actionc/code.asm": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/actionc/image.json": "4a1ff00e145aeec855da8e6f34c9b9ed1c5fe4f82b34ed2cecff7caf2468373e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/vbcc/code.asm": "a297846384274d4dfbb5970a7a07c1aeb19165577ca7634a5ff1241f561a9866",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/vbcc/code.bin": "4d848382a328c01c5c32d8cd52cd6e88f8175d8efeb45b76747c16610f7dd84d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/vbcc/code.linked.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/vbcc/code.lst": "98e1f53d013753eb8861195319263e1ba24a6693698848154ec5d2d25cdb9afa",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/vbcc/code.map": "f71d82fb92cc513936a4105a282332aa1e224f501aa09a81922d92fcda462f9f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/raw/vbcc/code.o": "f00afe74a6c1dc39ff8724f824bd73c8fb0b2023b99c534f73bb18cb984b95f5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/actionc/code.asm": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/actionc/image.json": "4a1ff00e145aeec855da8e6f34c9b9ed1c5fe4f82b34ed2cecff7caf2468373e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/vbcc/code.asm": "64553d8b7db6bf2df55a318374ba720a85b02c3b64597167632d01039f06cfb6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/vbcc/code.bin": "a4f4f862ea3278c06d2a7740d5c5d9d17e86f4d706b241d681e74f3512329b75",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/vbcc/code.linked.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/vbcc/code.lst": "1a9f8d3f38d76408669de61e837c95e51785c82247c6f3ce3d3d2a077744495f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/vbcc/code.map": "4d2fc5a63b31f6814e6c959cbf82aa2ecbe63238176beb130ef206225229bfb2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/identity/optimized/vbcc/code.o": "58de7baa82f0562d6806a1c8ed6ca7b47c40233413d2489bfd2e8f96d9a3262c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/actionc/code.asm": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/actionc/image.json": "e305a39a4adcea2f89a8b4759455677f6bca794990f705aa41ab68fdda36a258",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/vbcc/code.asm": "ab51a266c8fb7b9bcd4962016eece46a177e787f3866a4a89ad95903c4c14e1b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/vbcc/code.bin": "00ebe1dee10fb8c9b8a542043aa4fcd51985f031744da317f9bae1a5b0769681",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/vbcc/code.linked.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/vbcc/code.lst": "bf0bc8b444992298ea8ce1ea6b2fd1de5fac48f77e38517abcd6a6f4a324d998",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/vbcc/code.map": "02079acdc513bb0cd53872ed091c2226b177db520bbbd962f1ff2d905c88b4d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/raw/vbcc/code.o": "b4af13f11a4d0faf1ed4c43ecfa2887a696572ceaa78712da5c013b89a7d783c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/actionc/code.asm": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/actionc/image.json": "e305a39a4adcea2f89a8b4759455677f6bca794990f705aa41ab68fdda36a258",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/vbcc/code.asm": "6f9f17beb2c8a82d128d97fba69aa3f5bff1b746e6b8d7f51963db330d4ec34d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/vbcc/code.bin": "248c6137d282d4256b06702148b0f16b1755d86b79297967ce6043d05493d5ae",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/vbcc/code.linked.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/vbcc/code.lst": "d69f8e07542c3306ac9b7097e4cca3e82a7c25824590beb243bc18738e8db3d0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/vbcc/code.map": "696618429f8a90f4cb5b4caecb95a674b1769a92d1ee40674ebe4e2ced4346ad",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/add/optimized/vbcc/code.o": "be4801d2c4b370ed1c0357e1343f0f1c50b79f19f14da4f9218c92a0e991b23f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/actionc/code.asm": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/actionc/image.json": "cd62fdf4de05a1df07fe63a27f0e031486603c79f9fe1686beaed07933ed8c1f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/vbcc/code.asm": "2ac00d44940817d9fa8b062ee61614c16ed3af3344c4bcead521592d170fa34b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/vbcc/code.bin": "8e5f3b755045eeea3db2cd2217dceb832e1675235d2a39c87562a077145388e2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/vbcc/code.linked.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/vbcc/code.lst": "030a16041a02dab2e86028e4d3156c94ca613f43071b80ac86391c08f3234ea9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/vbcc/code.map": "02079acdc513bb0cd53872ed091c2226b177db520bbbd962f1ff2d905c88b4d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/raw/vbcc/code.o": "a16d88febe18501bca162bc361a104abd6ee9119c7f4adb106e74cd0752d16ec",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/actionc/code.asm": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/actionc/image.json": "cd62fdf4de05a1df07fe63a27f0e031486603c79f9fe1686beaed07933ed8c1f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/vbcc/code.asm": "32b7f39f0e9d17f71a489448b4f4a230cdf0b065bca473a128f8b771499e5c8c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/vbcc/code.bin": "e47b60296b0e1ae73650a63600d3db82551688fdefffdbb5c986faa30246a9b8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/vbcc/code.linked.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/vbcc/code.lst": "69e6e1c48b21422ea2bfd361baaf5fd911d4321420867e3a00c63a20a879bde0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/vbcc/code.map": "8cdf4d29346c6f86374f5924c3e55ed3be67606b9f15f718142adc73e458b042",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/subtract/optimized/vbcc/code.o": "f291f9d59066dc2eb5409f9dc43f026499d7d01813d7e2931e3c5b54816b02f8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/actionc/code.asm": "ddbf1da8b806723799aedb7369506075087047016acebf164528290998c89ceb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/actionc/image.json": "f076779e22ad2643d15385b70768e42c5c296d9948702deac52a9da221d021af",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/vbcc/code.asm": "834477d5c7803ddbefba04fb46295b926db753ee74f04ac494834adb736cb7dd",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/vbcc/code.bin": "bfa9aba2ca363e74aea492c558e8d94f7cd7f6363398b7b01a5713dc63caa61d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/vbcc/code.linked.lst": "503ffa69ab4bebfa3aa5577001b9093a40e73562eb1ca207de6940c65d90c0d6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/vbcc/code.lst": "52b588f7e3de3ee68025b8a65a686ba29a0e9e5d03916699f0fff1a9a8541a66",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/vbcc/code.map": "4f1794ecaba8313953177f6261781ae4650d81990aa181912d2cd15acb6bc3c0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/raw/vbcc/code.o": "a3239d213b96d3c4bdeb7201fc79d0db90ecd077bf292d179406d8d8ab241b23",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/actionc/code.asm": "56713d1c4c1c322ddf03751f472cd469f35124f84c8462b34d6166c241b6deb4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/actionc/image.json": "b0059c5d11f38564a42bbfee639b4508f7e3603ed81b1702f579927151ea614e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/vbcc/code.asm": "62ae03978c3305facfa35db91fa7ffea64261fceee5f66336a859c68aefcb858",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/vbcc/code.bin": "44f79fd5d50457fdc6578c58c90edbbe07317620f4ca58211a1c7799b6f1bc6c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/vbcc/code.linked.lst": "dfd4aa16f7dbdd88a05b8a8d7c4f34a7236c94c6cdf91b3d794fad0c8ccaa272",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/vbcc/code.lst": "88c5a4df36cbf7afc93bbe5aeba4cd6b03f705b3a886bdc5b7361ef0143ab975",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/vbcc/code.map": "14095abde2edbd390655c9b9bbea275945a533db928cb87199b4909706779b36",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/constant_chain/optimized/vbcc/code.o": "ff879c799379c0fbf08ba22041742a50ae9515342d941b3fc7b499ed70331d0f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/actionc/code.asm": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/actionc/image.json": "86e91be10e8eaef5d6e79febf53ba7f399430ef14df2c915f7d94b9eda260bf3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/vbcc/code.asm": "503909e99fcd3ecd92d375038f52cdf8f28a8ed1fbad38c09d4a30863c497423",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/vbcc/code.bin": "a4ea1acfbdd4fa92b3937109d9883ae747214a337263ed3040dc7158d3cd5971",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/vbcc/code.linked.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/vbcc/code.lst": "ece47281af84ab0088ff11890fea9c43b1454e3ee2398bf1fd9f1fcbf1fd2e89",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/vbcc/code.map": "ec940697a14d737eac6cc99083c44445921a163ca70fe4dff7d3b76bf6cef5d6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/raw/vbcc/code.o": "824cfe48da02f24b05f97c4a8c786a5a5b364e06adfb40bc291ea949413db16d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/actionc/code.asm": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/actionc/image.json": "86e91be10e8eaef5d6e79febf53ba7f399430ef14df2c915f7d94b9eda260bf3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/vbcc/code.asm": "5308cb60b56ba7af9355cc5aaad1fb671e9ba40fce353776d7ecbb16ada02ce4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/vbcc/code.bin": "1f15b3d081f841b7f3b9566915c1881ade6c5dd0c0915aea7cdaebcc3ffcee79",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/vbcc/code.linked.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/vbcc/code.lst": "a3b10f5351c4e8c080ded28220f204d0cb9912f5f4871b146b5049492b880783",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/vbcc/code.map": "200d4b48dff25fbfc8a8a1c0c70464152a3f2f9fe6ead135a9594c7743a9df73",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/maximum/optimized/vbcc/code.o": "3f14d3b75e73872fac1d9201fc9613241fb22d91abf9a7c75be6a57ba0005ebf",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/actionc/code.asm": "f446c96480afe6ae880526d2acfb856738a00b7b0518db60e74362dac3c8ea5e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/actionc/image.json": "9ae06e6bd464590253600c9cce4412fa5d24db96e65ac605ef85dcaedb944b91",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/vbcc/code.asm": "f08abbdfa46633135a87cda5a23ca4b5d86d65fc5d775018e4f4ec9c26a19f9e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/vbcc/code.bin": "bbc94ccf8ec3350b8f9c60b51fc22e7ec94b3e047191f7a55d6f93edb6c995dc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/vbcc/code.linked.lst": "5ed77743c481b1550b4329b481e43dd2f19dce10862e0e6acebca590eb1d09d8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/vbcc/code.lst": "eb5ac7f886a020c3f235c5198141c0324af6de0ce7eb80849a38b036f4b3267d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/vbcc/code.map": "ad58adbdb62d53b734e8a59412bed31c8bafe9d4f16e426aa332afaa70e317fa",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/raw/vbcc/code.o": "1bedeb58d75295f384ea877e3f0e2c34a01ebbf46904f4f841eb278c1f902fd2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/actionc/code.asm": "31592c354f9b444163cb73cb8fb7df0166c7790d9fc47c1f3efc3090c4b67587",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/actionc/image.json": "63db9fbdaddc76f4778453456575ffa47dafc8a919ee0b33bfea397743a044ba",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/vbcc/code.asm": "d7083b602cabb9af93d790d9f042ae6456b30da2a99b7fef5215726cfbbeb12b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/vbcc/code.bin": "201d4bfe689a67effab09efd36f153a602b37ea3b350e0d7d2cf62674fbb6d3e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/vbcc/code.linked.lst": "a95fc43fd5eae9eaf9fd8d1d2aed730ffe07715723a9edb571b278e92ad5b0be",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/vbcc/code.lst": "0dd89b3e227d393fd36b48424ee73f265d6b0e0bdd4db781ac5528e3d09f9655",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/vbcc/code.map": "af010acb673598f3292051d29abb00cade286b3bd411f365ab4bb8cd2871387d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/wide_shift/optimized/vbcc/code.o": "3699feebd3211bf64a5e687ef8e1a7f4957a28599b9ee67f315cfe02091d5be3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/actionc/code.asm": "aa1571c60102fda020ea30c5ef0a6a8b6503b9fedaf174a4928812e42363bab3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/actionc/image.json": "053ebdaca1a7004a569e0e73745a9ac01980a334574eb46a4dea0276c30aa988",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/vbcc/code.asm": "75dc820ff34d0a8752d773feb2cc29a2b3a96dba12f3bc604b6dc099257d81bc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/vbcc/code.bin": "4c5d3e9c116f5df2774f031bc8a76f88632585b939a0a452f519cf9c65c14cfc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/vbcc/code.linked.lst": "0648bc3815f35ccc8bf42a86ec95c3e0f928f58a0f4edf35ca4338a39e792ed5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/vbcc/code.lst": "84de911dfa9739bb671f34019cc86cad457bd0988ccd824815b8768fb6cf0142",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/vbcc/code.map": "7b6555201a90529ee089915d8896bcaf5c7fe24fd2b57980a606e6151f4c565c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/raw/vbcc/code.o": "395cfc355011a97468a0ea51a47a45d2c8c7c505daffa6ec3d975cb0d7bbddf9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/actionc/code.asm": "07df99dd6306206f5f1a57d6946325fde85b84db06f5fcf27b369121620f2330",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/actionc/image.json": "bef38851246fd5e4f39d232127b39d447f750bfbdac398bbf586f6a511a2149c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/vbcc/code.asm": "97567e331c682d8937f7f83f78392d89e9f931d7f0b89613fa9550c0154a8589",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/vbcc/code.bin": "2560440f4dc6632776e64d707fb1bd63840b7da077e42d2c679ae5d10b20bf1f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/vbcc/code.linked.lst": "a8a9879d093ef16b96c6cc47f32e7663b1e9bddad694a3ab9a917b866f28cf65",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/vbcc/code.lst": "718303c0b82abe7116c8e2ba2435aee9d94bfb1c060b6ec6331f4332a4231079",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/vbcc/code.map": "a61599c299fe28532b720107c912bf9d7476cc2ef9bf847d531dd2cda5e7611e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/loop_rotation/optimized/vbcc/code.o": "1d956bfcb0c3f7232e8f6728c6c34a5dc0df1ab25739c2da10e753105250cb41",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/actionc/code.asm": "cb42e64ebf44dd434790493a92618e1767c2a21a6d03760946d1cf236e504652",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/actionc/image.json": "713088fc9d75c3d75488ef863a8ebdf38f9df8172b4b8df14753949a61457f96",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/vbcc/code.asm": "a276ff80233c9ef1452639abe9c271670355dac17d4eb712d5e770f2f2ecd624",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/vbcc/code.bin": "f3819bcfa72964664aa348b50b89409738330146bde7ae54c0a8691ae293f50c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/vbcc/code.linked.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/vbcc/code.lst": "ac40980933c725915ebc2ccbef5d46848b2cba284f9b184d5ccac46f080ceca4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/vbcc/code.map": "26cdf422bb5255d97e46573fe54e006744f70c3c8064c9667d9db6f1a4b31e29",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/raw/vbcc/code.o": "fbbfce5080e23f184f5b159782821c9e747db22fecb24e3c93a6b439759cfe49",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/actionc/code.asm": "3787a2bc257732a0c1a8dae55f1b62a961e3e90e307266e478cdba3378d247f8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/actionc/image.json": "2a323ca2d78b12f73df3df30b32cf5fe8013161f5302334773dd3858ecaa042a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/vbcc/code.asm": "ff6fb889c7c85186ff703ff73251c598123276f2b8675042e890171fe16634a2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/vbcc/code.bin": "98348c67d70db46ea738b6b145c02781974cb7dacb1172bf0bad1a68c2a92549",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/vbcc/code.linked.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/vbcc/code.lst": "fbefadebe26062aee72b95b3b92c3f764cb4ba42660a783ec39c7aab7f693be8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/vbcc/code.map": "b5de3935bc561a565d77999e4ccdb9b4c1ce5f17e2d70efb7b42124c4ddf471e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/sum_loop/optimized/vbcc/code.o": "765e04f479c78af1b60e33880293164dde37dc4a6e68dc509d4a99a28d7095e3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/actionc/code.asm": "d82f8b5c41cdf1324b1223040acb406727fcd5fac3b37c08a1b8a620bd523917",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/actionc/image.json": "7e7cae12c9f3251b1bc826835768333e590816f90d515803ea2b71ae49e71307",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/vbcc/code.asm": "3d79f3e366def107c17941dddd9d6e8d166864858a6fec1761cce8c5e1af071b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/vbcc/code.bin": "ed14a5e4829f84ec7f204b51d627efd0e3ca1bea70d729e01646f5f7c96f0ae6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/vbcc/code.linked.lst": "d29f54c111d4df2024e01f8e9dd1837b435a9679ebbb52ac52b0cf6527cd8845",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/vbcc/code.lst": "69540be4c3a63e4a098f2d20fbaff56d6d390019069122752d39f871229d8160",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/vbcc/code.map": "51364b3a852271841d8451e41f43f20e9802081039e147a59bb015da06ed3a5d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/raw/vbcc/code.o": "1cdf4d5836d8036b635c655105ffb1ee526df2cdeda9676123bec2729759e4fc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/actionc/code.asm": "163a6a66f88d35f865e3f60ca2419e704b4bcf45141521d7474bc337b0da17ee",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/actionc/image.json": "1b333b459932cd6e9544febe1b47811891ac0582843bc5947877d89086a44cb6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/vbcc/code.asm": "ac2073b3f91e8694f3b95ddbf227f48a41d709eb7de93b4a9a5e48abab145b6a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/vbcc/code.bin": "9d0030c22120a58f34755584ae03e55c8e3863201777fa185afaa90e292299ec",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/vbcc/code.linked.lst": "38b79ac0d01bb58f5613d8c9554b9fb4d72624e82b010be835ac6d8a05864782",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/vbcc/code.lst": "ce0c4b109d9d4f3e4accd05f3f84c7347702bef231ff7d4e0280e7d2d111c297",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/vbcc/code.map": "17bf3f8453aa2b80dcfa9a26707eec2a62902231c6bb7460ad7fd491393db444",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/recursive_sum/optimized/vbcc/code.o": "47da49b0f2fbab45f2a9f0a00824ec7e11650d8386297706d22f6336ce482e4b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/actionc/code.asm": "32a808312babc25a30e78b7ca7668998c30c2197989619007d732380271c8e0a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/actionc/image.json": "fdcf8d07b5a28d8c197b18c46948f877a791030a48f3215eaf002c1fe1a1bccb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/vbcc/code.asm": "a7df360b3fc8b2fdb43a294d382a8bd85860a8283fac2ada42754a7c25b2f418",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/vbcc/code.bin": "5948bec51337890efa1f61f3a6693c016e36b033b965a0ca041c51aed50dabad",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/vbcc/code.linked.lst": "584da34ea3d37261258c4a140c80d9a7e4b6891f87f28359bab12ad5f70544f8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/vbcc/code.lst": "4c6940c53dd4fab047024b7ecc6fb1283e80e0cc07da662f22f645864d3bd5b4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/vbcc/code.map": "0f4d6f661bc1789d5214dbd896b8a4e9c03dcd7f0b6dec5aa65e08f78f792ad2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/raw/vbcc/code.o": "9a3cf5330740db863781d7d793938ebf56032c876b23cfb8bc672940bbfda56e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/actionc/code.asm": "32a808312babc25a30e78b7ca7668998c30c2197989619007d732380271c8e0a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/actionc/image.json": "fdcf8d07b5a28d8c197b18c46948f877a791030a48f3215eaf002c1fe1a1bccb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/vbcc/code.asm": "cfd9dac829e115934bd2386e8caf09fd10cf5fa8a9ca0903414ac1732b1691b8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/vbcc/code.bin": "457462e118e5094e14aadb12b3dd838bca9a6891d64e0fbcd8a54f7a5d97c7e9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/vbcc/code.linked.lst": "0382b06d03b2562d45c442ce5196aa10ee5d278a64ecc507d1f1997551207bda",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/vbcc/code.lst": "d3b43f701f2d1f1dcf2a92e09d7b7dcd65cc60cc49f5924e14caf639c7383a17",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/vbcc/code.map": "e79ca73326bf375015934c0b591e62620807b880ec11bce96740ef8535e98ebb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/direct_calls/optimized/vbcc/code.o": "a9acd148004c66ad86bb72a9e6c31bf9c62644d902ac3143dc873bfd5843c53f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/actionc/code.asm": "3631e40ccb4bcde3d0a9d846d3afb3bcc6661692235f2d98762340fca481e00c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/actionc/image.json": "348d59060490ac873c6e0abb57cf0826975d921b300f57648cc0da3f1f810889",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/vbcc/code.asm": "5f5a77a07d4f1726c63082eafcd94f69017963bf23d32d80195272be386cabfd",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/vbcc/code.bin": "872ea3b6840ef6ebb96fda2e401255de0cf93003fc1769d679f33f7a7ca2d1c5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/vbcc/code.linked.lst": "fc3615ab52354e91cad4f842e357c05b74483f245aedfadccd8a01b06f454b1e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/vbcc/code.lst": "fc840ef434cba40eef6ac2343617ec7813829085cc969e7bea04efe4afd5d0c4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/vbcc/code.map": "5b296819573b57168fa512094fb2ffe2cc42eeb3f8a199f32c8c2e253c18dec6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/raw/vbcc/code.o": "cc38f7a0df483d9fad5c8d932a02d3dda9556b0e5cf388e7c24d295084f34b84",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/actionc/code.asm": "e7ebc96119f2e4ad224e983b1ce60c05349beef9c59ebfced677c02ecf9c14c2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/actionc/image.json": "2ba4219582c978c9f08829137301af43fe78009db3dd490f579c029fe80688ab",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/vbcc/code.asm": "c0c9261c63a08d694ff7e89c8e8573ba595639a8d9932be69ed522399e26eb3e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/vbcc/code.bin": "02e8f2a6d6a2d4ee4f19dcef1ed377c4a779f9dea13faed7d121860e32eafe3b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/vbcc/code.linked.lst": "7ccc39ea5d269cc58f565fbc8747f516e4f13bdacc40cdcb8ba606d6d4ae8136",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/vbcc/code.lst": "e982aac8b9787211c3b1d91c9ae6d7837619589cd714a9cb0d991689736b8270",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/vbcc/code.map": "f10cab87770e8469dc00c760fb517a19bbcae63ef6ff86cba4b815d3f2324926",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/byte_sum/optimized/vbcc/code.o": "90bd6b9d5cfd74c90b8e93fd1e46c5f7707efe97eb73ee600fb1afde51dcc140",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/actionc/code.asm": "2e4c760233de1d06b7fd1d6c64de8663838cda6b296f4dba29354eb7b2bf4fd0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/actionc/image.json": "df94fb3ff797f5836273de17bbbf6b4faa204835f67dd2c46726250071dda3dd",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/vbcc/code.asm": "038984d56a3322d58c21aed106db9093a3d123abef4a2ddab997519d335a7b34",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/vbcc/code.bin": "80983fc102bfbfe81ffc9c24873147581ddc3ccbb386a9b254514ae15e9f4230",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/vbcc/code.linked.lst": "cd51842145e5b6658531c7b37a96997f17d10dd08123f3b1484c8bf96ba01949",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/vbcc/code.lst": "dddd2c6ae1f3e377a83076c6e550a7b9be460dcea3caf4e646bf5833f1e01988",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/vbcc/code.map": "54d14aaea4633ca6f725b5fbe63f3850974475d83d888ee5279aa98d2ed69b2d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/raw/vbcc/code.o": "aacf2876776a1cfa0f89d71520716bf3c53dbe6d9359cb1a0d6574038f285717",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/actionc/code.asm": "2e4c760233de1d06b7fd1d6c64de8663838cda6b296f4dba29354eb7b2bf4fd0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/actionc/image.json": "df94fb3ff797f5836273de17bbbf6b4faa204835f67dd2c46726250071dda3dd",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/vbcc/code.asm": "8214ffd183232b7c8e3c55695412e9110d51d7d74c49f13317d82f468296b3ca",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/vbcc/code.bin": "18926d5a2d7d0cf763e0a1119e7a6e2b5c96208d5bd24345b5d3ca24c6af45d9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/vbcc/code.linked.lst": "b78c181d8e641ee76a300e99f29f902aff29e5f600207bbf0721a068a0b0db0f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/vbcc/code.lst": "130db28ed9e7550855aa17e8a9bd426540dfe59afc1d03b21e08e2f1fa04e951",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/vbcc/code.map": "3d119f1e62415035b1d357dc567c08d74947915a45ba99c84bfc7f60691c06e2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/record_field/optimized/vbcc/code.o": "dee57ef5a8defda0f62d179a43483c5de53484df91b6137fe1c4c4be35dcba70",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/actionc/code.asm": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/actionc/image.json": "370053b7b9e0e958bf7954a1192cc70cecf586ecb4e5584e863545c32f8518f9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/vbcc/code.asm": "a583d20db089cfa286acd9dd7dd197cf342292dbdcdb80661c00d8b92556966d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/vbcc/code.bin": "af41c16f4f84f108b3664f45467083daab456b377dae8485208b1e70bfe2f663",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/vbcc/code.linked.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/vbcc/code.lst": "455c8cc1dd168b1876969bc505a745b101114ac088f08fdf6d11e559bfd30571",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/vbcc/code.map": "f74761a74587906808c6cd59a353a6928b440b519ddbc05b25a265dba52124f4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/raw/vbcc/code.o": "ece5bbfa22b85e882874bada01f0a4ed53942b286c8c2732ea40bafe29be4ccb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/actionc/code.asm": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/actionc/image.json": "691dab60096dd8e4adc2eb03cef7cf6e1a82af2912d832104e4354784f93722e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/vbcc/code.asm": "079c2e969905940cf35737c21058a8b95f6eb2a2ff99a1e27c06093cd673645d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/vbcc/code.bin": "6e565d5168db7b7e20737c975ddbf7e00d3c5c75e272d7206af07a8b62e643d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/vbcc/code.linked.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/vbcc/code.lst": "812a312cd1f40378e4a74e3b42b7d205ca3a53881dea790f3d867bc62b2d613e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/vbcc/code.map": "ed8ef1717e421d68dfab5a5a13b50afe7f055dfacdf23bb806726385a60ac478",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/unlink/optimized/vbcc/code.o": "a0fd881286caa4d77b349a12a063436ac9fe44ff53c813418c75624c8ec19e3d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/actionc/code.asm": "5813edbd8df3252cd5116aa0d1c2c0986701113e574eaed2ff9efef514f89b39",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/actionc/image.json": "309886da8452227b7f92370b8a2e1e2336d9700197db7e3ab16bf88e30c5e2c4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/vbcc/code.asm": "125c75dd42137480a8c23d8c2b9b8177a33e6b8b07757c026d9be2ada58fb456",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/vbcc/code.bin": "b74ed50a762e03917c8d5a2e02feec9434de98af9630fb9dc7bf2703ac36935f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/vbcc/code.linked.lst": "90cf252ec03497cb593553df5624a91c17c98368dbcd39d266faae632b0f0dd3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/vbcc/code.lst": "764a96ebfe9bd99d9ca90d51c47d063e6c2f40ccc94fe446fdb5f854dd8acbaa",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/vbcc/code.map": "ec12fdda8344719e264a4b05cbb61f044847d064687a98d19a155f28045ba7ca",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/raw/vbcc/code.o": "a07603295a951b7b63073466e35d9ad6c7fd5aefe04e0a77ef4523b99796f752",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/actionc/code.asm": "2917de49b781f2ef69641d56018991d0ce8c916f1ce395ff9d998bcf786c5ee3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/actionc/image.json": "16ae6c664b024d6d8febfb9e685e0c24fe51177ae0dff3d924b28329ccb54a6c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/vbcc/code.asm": "17f00d388bfa3d65455717dcb3772a084724e4296468b9448656caea19f1a8b6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/vbcc/code.bin": "24cee15e7a866a75207dfcbc49fc9dacc9cdeabfffd98f00e93a3293d1d3c233",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/vbcc/code.linked.lst": "177d7261a2bfefca32246962e4b84608e304636bd2b9408d46ed9db387372089",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/vbcc/code.lst": "def5acf06901c0056444f763c200b4eb9a6c182eab385d19744da89b34b0e1e6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/vbcc/code.map": "7a37e0d58dd3620dda2cd47f2c34dfb54ac79d97622bea3a3d9f5d103ef8acb9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-flow-before/forward_copy/optimized/vbcc/code.o": "5608a43d32ee5bdbb5e3b6088a846143fed2923b260ff5308f500ad4c10c146e"
+  },
+  "inventory": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65610,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65625,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65610,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65625,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65622,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65660,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65702,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65623,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65646,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65698,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65594,
+          "reason": "no entry REP",
+          "routine": 0,
+          "selected": false,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65614,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65652,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65685,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65594,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65605,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65630,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65663,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65620,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65634,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65607,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65621,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 0,
+          "pc": 65649,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 1,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 0,
+          "pc": 65649,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 1,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65610,
+          "reason": "no entry REP",
+          "routine": 0,
+          "selected": false,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65630,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65668,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65783,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65610,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65621,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65646,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65761,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65582,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65626,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65632,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65670,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65844,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65626,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 1,
+          "pc": 65632,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 2,
+          "pc": 65657,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        },
+        {
+          "block": 3,
+          "pc": 65831,
+          "reason": "reachable MIR A16 entry REP",
+          "routine": 0,
+          "selected": true,
+          "slice": "3a"
+        }
+      ]
+    }
+  ],
+  "records": 264
+}
