@@ -260,7 +260,7 @@ fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), St
     Ok(())
 }
 
-pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, String> {
+fn application(bytes: &[u8]) -> Result<(wire::File, Profile), String> {
     let file = read::decode(bytes)?;
     let start = export(&file, DESCRIPTOR)?;
     let raw = file
@@ -269,6 +269,16 @@ pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, S
         .ok_or("descriptor outside text")?;
     let p = read::descriptor(raw)?;
     validate_profile(&file, &p, start)?;
+    Ok((file, p))
+}
+
+/// Inspect and validate the self-contained application contract before placement.
+pub fn inspect(bytes: &[u8]) -> Result<Profile, String> {
+    Ok(application(bytes)?.1)
+}
+
+pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, String> {
+    let (file, p) = application(bytes)?;
     if placement.nmi_extra_stack != p.nmi_extra_stack {
         return Err("platform NMI allowance mismatch".into());
     }

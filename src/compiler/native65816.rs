@@ -21,6 +21,13 @@ pub struct Compiled {
     pub source_paths: Vec<PathBuf>,
 }
 
+/// Self-contained experimental o65 output, separate from JSON image v3.
+#[derive(Debug, Clone)]
+pub struct O65Compiled {
+    pub bytes: Vec<u8>,
+    pub source_paths: Vec<PathBuf>,
+}
+
 pub fn prepare_file(
     path: impl AsRef<Path>,
     optimize: bool,
@@ -118,6 +125,19 @@ pub fn prepare_file(
 }
 
 impl Prepared {
+    pub fn compile_o65(
+        &self,
+        options: &mir65816::o65::Options,
+    ) -> Result<O65Compiled, CompileError> {
+        let artifact = mir65816::o65::prepare(&self.mir, options).map_err(codegen)?;
+        let bytes = mir65816::o65::write(&artifact).map_err(codegen)?;
+        mir65816::o65::inspect(&bytes).map_err(codegen)?;
+        Ok(O65Compiled {
+            bytes,
+            source_paths: self.source_paths.clone(),
+        })
+    }
+
     pub fn compile(&self, layout: &mir65816::image::LinkOptions) -> Result<Compiled, CompileError> {
         let machine = mir65816::emit::materialize(&self.mir).map_err(codegen)?;
         let image = mir65816::image::link(&self.mir, &machine, layout).map_err(codegen)?;
@@ -132,13 +152,26 @@ impl Prepared {
 /// One self-contained JSON image. Validate everything before opening output;
 /// publish by rename and protect every loaded source plus the layout file.
 pub fn write(program: &Compiled, output: &Path, protected: &[&Path]) -> Result<(), String> {
+    let bytes = program.image.to_json()?;
+    publish(&bytes, &program.source_paths, output, protected)
+}
+
+pub fn write_o65(program: &O65Compiled, output: &Path, protected: &[&Path]) -> Result<(), String> {
+    mir65816::o65::inspect(&program.bytes)?;
+    publish(&program.bytes, &program.source_paths, output, protected)
+}
+
+fn publish(
+    bytes: &[u8],
+    source_paths: &[PathBuf],
+    output: &Path,
+    protected: &[&Path],
+) -> Result<(), String> {
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
     static NEXT: AtomicU64 = AtomicU64::new(0);
-    let bytes = program.image.to_json()?;
     let destination = super::native::artifacts::destination(output)?;
-    for path in program
-        .source_paths
+    for path in source_paths
         .iter()
         .map(PathBuf::as_path)
         .chain(protected.iter().copied())
@@ -157,7 +190,7 @@ pub fn write(program: &Compiled, output: &Path, protected: &[&Path]) -> Result<(
         .create_new(true)
         .open(&temporary)
         .map_err(|e| e.to_string())?;
-    let result = file.write_all(&bytes).and_then(|_| {
+    let result = file.write_all(bytes).and_then(|_| {
         drop(file);
         std::fs::rename(&temporary, &destination)
     });

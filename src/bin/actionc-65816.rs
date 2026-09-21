@@ -16,6 +16,8 @@ fn main() {
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let mut layout = None;
+    let mut format = "json".to_string();
+    let mut o65_options = None;
     let mut output = None;
     let mut input = None;
     let mut optimize = true;
@@ -25,9 +27,22 @@ fn run() -> Result<(), String> {
         match arg.as_str() {
             "--help" | "-h" => {
                 println!(
-                    "usage: actionc-65816 --layout <layout.json> [-o <image.a816.json>] [--no-opt] [--module-path <dir>] <source.act>\n       actionc-65816 --emit-interfaces <source.act>\n\nEmits a freestanding action65816.native.v1 scalar image. The platform supplies\nABI entry state, stack/direct-page domains and a raw stack-overflow adapter.\nLayout specifies code_origin, data_origin, stack_overflow, nmi_extra_stack and imports."
+                    "usage: actionc-65816 --layout <layout.json> [-o <image.a816.json>] [--no-opt] [--module-path <dir>] <source.act>\n       actionc-65816 --format o65-experimental --o65-options <options.json> [-o <program.o65>] [--no-opt] <source.act>\n       actionc-65816 --emit-interfaces <source.act>\n\nEmits a freestanding action65816.native.v1 scalar image. The platform supplies\nABI entry state, stack/direct-page domains and a raw stack-overflow adapter.\nLayout specifies code_origin, data_origin, stack_overflow, nmi_extra_stack and imports."
                 );
                 return Ok(());
+            }
+            "--format" => {
+                format = args
+                    .next()
+                    .ok_or("--format requires json or o65-experimental")?;
+                if !["json", "o65-experimental"].contains(&format.as_str()) {
+                    return Err("unsupported output format".into());
+                }
+            }
+            "--o65-options" => {
+                o65_options = Some(PathBuf::from(
+                    args.next().ok_or("--o65-options requires a file")?,
+                ))
             }
             "--layout" => {
                 layout = Some(PathBuf::from(
@@ -49,7 +64,7 @@ fn run() -> Result<(), String> {
     let prepared =
         native65816::prepare_file(&input, optimize, &modules).map_err(|e| e.to_string())?;
     if interfaces {
-        if layout.is_some() || output.is_some() {
+        if layout.is_some() || output.is_some() || o65_options.is_some() || format != "json" {
             return Err("--emit-interfaces does not accept --layout or -o".into());
         }
         let declarations = prepared.mir.routines.iter().filter(|r| r.entry.external).map(|r| {
@@ -64,6 +79,23 @@ fn run() -> Result<(), String> {
             serde_json::to_string_pretty(&declarations).map_err(|e| e.to_string())?
         );
         return Ok(());
+    }
+    if format == "o65-experimental" {
+        if layout.is_some() {
+            return Err("--layout is incompatible with o65-experimental".into());
+        }
+        let options_path = o65_options.ok_or("--o65-options is required for o65-experimental")?;
+        let options =
+            serde_json::from_slice(&std::fs::read(&options_path).map_err(|e| e.to_string())?)
+                .map_err(|e| format!("invalid o65 options: {e}"))?;
+        let program = prepared.compile_o65(&options).map_err(|e| e.to_string())?;
+        let output = output.unwrap_or_else(|| input.with_extension("o65"));
+        native65816::write_o65(&program, &output, &[&input, &options_path])?;
+        println!("wrote {} (experimental o65)", output.display());
+        return Ok(());
+    }
+    if o65_options.is_some() {
+        return Err("--o65-options requires --format o65-experimental".into());
     }
     let layout_path = layout.ok_or("--layout is required: platform addresses must be explicit")?;
     let options = serde_json::from_slice(&std::fs::read(&layout_path).map_err(|e| e.to_string())?)

@@ -60,6 +60,37 @@ The library entry points are
 `Prepared::compile` accepts the explicit link layout. No emulator is a compiler
 dependency.
 
+## Experimental o65 output
+
+Save these experimental options as `o65-options.json`:
+
+```json
+{"profile":"actionc.o65.experimental.v1","nmi_extra_stack":0,"imports":[]}
+```
+
+Compile with:
+
+```sh
+cargo run --locked --bin actionc-65816 -- --format o65-experimental \
+  --o65-options o65-options.json -o build/scalar.o65 \
+  fixtures/runtime/native65816_scalar.act
+```
+
+`--layout` is exclusive to JSON output. Both formats accept `--no-opt` and
+module paths, and protect all loaded inputs when publishing output. For named
+assembly imports, use `--emit-interfaces` to obtain the stable interface IDs,
+then add options entries with `symbol`, explicit ASCII `name`, `stack_peak`,
+`checks_stack: true`, optional `irq_effect` and `domains` (task=1, IRQ=2, both=3).
+Final addresses are supplied to the reference relocator, not these options.
+
+The library APIs are `Prepared::compile_o65`, `native65816::write_o65`, and
+`mir65816::o65::{inspect, relocate}`. `relocate` takes serialized bytes and a
+`Placement` with section bases, allowed/reserved regions, matching NMI allowance
+and named `Provider` contracts/addresses/extents. It returns private loaded
+regions, BSS and ABI/maps through `RelocatedImage` accessors. It does not write
+guest memory, allocate task contexts or implement an Exec816 application loader.
+See the [profile](MIR65816_O65_PROFILE.md) for the admitted subset and rejections.
+
 ## Supported operations
 
 - BYTE, CARD/INT, ADDRESS/SIZE, data/code pointer storage, and LONGCARD/LONGINT

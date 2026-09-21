@@ -12,4 +12,4 @@ pub use write::write;
 mod read;
 pub use read::decode;
 mod relocate;
-pub use relocate::{Placement, Provider, Region, RelocatedImage, relocate};
+pub use relocate::{Placement, Provider, Region, RelocatedImage, inspect, relocate};
