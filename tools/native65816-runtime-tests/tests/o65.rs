@@ -921,3 +921,106 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
         }
     }
 }
+
+#[test]
+fn relocated_accumulator_forwarding_keeps_words_flags_and_exact_volatile_traces() {
+    use actionc_vm::native65816::Access;
+    use std::collections::BTreeSet;
+    let source = include_str!("fixtures/accumulator_forwarding.act").replace("\r\n", "\n");
+    for optimize in [false, true] {
+        let (bytes, templates) = forwarding::o65(&source, optimize);
+        for variant in 0..2 {
+            let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
+            let image = format::relocate(&bytes, &placement).unwrap();
+            let sites = forwarding::relocated(&templates, &image);
+            let mut seen = BTreeSet::new();
+            for (a, b) in [
+                (0u16, 1u16),
+                (1, 0),
+                (0x7fff, 0x8000),
+                (0x8000, 0x7fff),
+                (0xffff, 0xffff),
+            ] {
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                    h.bus.forwarded_words = sites.clone();
+                    for (name, value) in [("a", a), ("b", b)] {
+                        let at = native::object(&image, name) as usize;
+                        h.bus.ram[at..at + 2].copy_from_slice(&value.to_le_bytes());
+                    }
+                    h.bus.map(0xd000, &[0xff, 0x7f], true);
+                    h.bus.watched.extend([0xd000, 0xd001]);
+                    for _ in 0..100_000 {
+                        if h.cpu.is_stopped() {
+                            break;
+                        }
+                        if let Some(s) = forwarding::reached(&h.cpu, &h.bus) {
+                            let r = h.cpu.registers();
+                            assert_eq!(
+                                u32::from(r.a),
+                                h.bus.value(u32::from(r.s) + u32::from(s.slot), 2)
+                            );
+                            assert_eq!(
+                                r.p & 0x82,
+                                if r.a == 0 { 2 } else { 0 }
+                                    | if r.a & 0x8000 != 0 { 0x80 } else { 0 }
+                            );
+                            seen.insert(s.start);
+                        }
+                        h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                    }
+                    assert!(h.cpu.is_stopped());
+                    h.guards(mask);
+                    for (name, value) in [
+                        ("result", a.wrapping_sub(1)),
+                        ("maximum", a.max(b)),
+                        ("stored", a.wrapping_sub(1)),
+                        ("before", 0x7fff),
+                        ("after", 0x8000),
+                    ] {
+                        assert_eq!(
+                            h.bus.value(native::object(&image, name), 2),
+                            u32::from(value)
+                        );
+                    }
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|&(_, a, k)| (a, k))
+                            .collect::<Vec<_>>(),
+                        vec![
+                            (0xd000, Access::Read),
+                            (0xd001, Access::Read),
+                            (0xd000, Access::Write(0)),
+                            (0xd001, Access::Write(0x80)),
+                            (0xd000, Access::Read),
+                            (0xd001, Access::Read)
+                        ]
+                    );
+                    native::record(
+                        "accumulator-forwarding",
+                        optimize,
+                        &bytes,
+                        &placement,
+                        &image,
+                        h.cpu.cycles(),
+                        None,
+                    );
+                }
+            }
+            assert_eq!(seen, sites.keys().copied().collect());
+            if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+                std::fs::write(
+                    std::path::Path::new(&directory)
+                        .join(format!("accumulator-o65-{optimize}-{variant}.json")),
+                    serde_json::to_vec_pretty(
+                        &serde_json::json!({"reached":seen,"executions":10,"both_masks":true}),
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+            }
+        }
+    }
+}

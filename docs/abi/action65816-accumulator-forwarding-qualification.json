@@ -1,0 +1,970 @@
+{
+  "date": "2026-09-21",
+  "target": "wdc-65816-native",
+  "abi": "action65816.native.v1",
+  "image_format_version": 3,
+  "scope": "Adjacent exact private words forward through A16 with matching N/Z; retain all stores, homes, guards and edge sequences; raw and optimized emitted machine code",
+  "plan_commit": "d557720c2fcbba12b97b92f021ef28cfc6665970",
+  "baseline_qualification_commit": "0e8248c4185507f3769137bb1b30b4b39993256e",
+  "baseline_probes_commit": "5c8fe62a370900c6a0e2c03482e042abdf2432b4",
+  "implementation_commit": "d946c33f3c2874cc229db6fafa4ca2cf87804111",
+  "qualification_changes": "Interrupt and relocation probes, strict reload accounting, instruction-stream checker, measurements and documentation are in the containing commit. Source hashes bind the tested worktree.",
+  "compiler_and_runtime_fixture_inventory": {
+    "files": 407,
+    "sha256": "6ae2999665fc265da813aa0b5d1a948538164eb63b34fbb2cbe8292e9529147c",
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase raw-file SHA-256, two spaces, path, LF"
+  },
+  "changed_code_and_test_sha256": {
+    "src/mir65816/emit/accumulator.rs": "e397e9d8f4a07aac18bebe21a7e34ee2adc31c3a8fa2ca48ea627738b091d9ba",
+    "src/mir65816/emit/accumulator_tests.rs": "ad271465b56b5f3bbbda4bbf634dccecca3462d730fb76378495dc80e537bc89",
+    "src/mir65816/emit/branch_tests.rs": "2a25eda6e7471830631d2301f61bc853fc9c6fa2b62038396eab22e499f632d0",
+    "src/mir65816/emit/code.rs": "16633976dc4dfa3dac42d1ccd138adcea9346b9bffae2beace106c8de3ebdc24",
+    "src/mir65816/emit/compare_tests.rs": "da84cce8d82e6184c7152ff3eeee936e2d2d06cccf06bef3d89ea9ef5b554165",
+    "src/mir65816/emit/edge_tests.rs": "fc27558b561d5be722a66089b1ffedd28cbaeb5b799d1068ae6e157c7b11eb28",
+    "src/mir65816/emit/select.rs": "f6d993fb3167448fbb7d23bd5aedb101fc58c1ba3bd6a2a4fdcfcc0d6ac4a034",
+    "src/mir65816/emit/word_tests.rs": "e9a36d77a1627526a7ef2bd232cea71b36930946a4e780e224806625cfbe27d0",
+    "tools/compare65816/check_accumulator_forwarding.py": "26fa398490d00b215011c4f794888db5878d8db74486ede86832fea0a8f8fd82",
+    "tools/compare65816/delta.py": "61a055f6265f49eb757be05196082ab39b61df9804d05fff524838694668fa7b",
+    "tools/compare65816/test_accumulator_forwarding.py": "abf9b232a5d745babff8098a7ce62cc97df4230ed119f77233bf0582cc1e919f",
+    "tools/compare65816/test_delta.py": "74c21cc937c577b907f56a66a5e73abbb14d9661fdb15545219e9a788d27dab9",
+    "tools/native65816-runtime-tests/tests/accumulator_forwarding.rs": "876e2b05f5bfd0218d91325cd2cc01d7c06a9eb4f177223c8a8cf51346ed0683",
+    "tools/native65816-runtime-tests/tests/code_quality.rs": "208aa6833df9eb7d217a72957cc166a46c86d069d25f0156a901953f2365f17a",
+    "tools/native65816-runtime-tests/tests/compare_branch.rs": "460be9760f825d0ae98cf32f4f605c9934c3acdf5cd1f4f8482bfc0c7e6c2bf6",
+    "tools/native65816-runtime-tests/tests/empty_edges.rs": "313fa1e4f23f05a212403784b2980e9694eaad12f1b841c5c532bc3a67a0bd15",
+    "tools/native65816-runtime-tests/tests/fixtures/accumulator_forwarding.act": "3ed1505af8613124dbdcab79de9de604b68703c862d570a317557678d859773d",
+    "tools/native65816-runtime-tests/tests/o65.rs": "37e82b022a075f91a1f60905f9a9aaec33a3d54c55b508d39934cac6521b0e28",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "5ebfa90706ba268bbb049c84e588c1a8e37bac54a0eb9efd15bf50c58ff77ab1",
+    "tools/native65816-runtime-tests/tests/support/comparison.rs": "fe2a37fe678290b983fa5d3faa17047dd9fe0549864a0207df23a05753d2c8e8",
+    "tools/native65816-runtime-tests/tests/support/context.rs": "9c6a9f061eee6e4bceccc8e36aee19d06e0c583a8d56196bd1ab2d61a8142db7",
+    "tools/native65816-runtime-tests/tests/support/forwarding.rs": "063598365f3a5077d391c3c5dc92e21b89d774965d22eaab2b975f40be88ccb1",
+    "tools/native65816-runtime-tests/tests/support/mod.rs": "98c6385f25850e33d79bdf455d5b8b5bdf9174cbc0169bee5144c7aa96de3f45",
+    "tools/native65816-runtime-tests/tests/word_comparisons.rs": "0b493b88eaa5a54eb60523df8011a20ef876582b38ab48aceb1045eaf84ab117",
+    "tools/native65816-runtime-tests/tests/word_returns.rs": "7e189d38a7879817efffa97932b5201e46f36f2db7967e9d8fc38addd994e4af"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "toolchain": {
+    "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "ca65": "ca65 V2.18 - N/A",
+    "ld65": "ld65 V2.18 - N/A"
+  },
+  "host": "macOS ARM64",
+  "checks": [
+    "Immutable baseline: 56 builds, 224 artifact hashes and 264 matching host records; freeze 76 sites and 112 positive vector counts before emission changes",
+    "Baseline typed-index probes verify all 28 Action images remain byte-identical before selection changes",
+    "cargo test --lib mir65816",
+    "cargo test --test mir65816_abi --test mir65816_contract --test mir65816_emission --test mir65816_o65 --test actionc_65816_cli --test actionc_65816_o65_cli",
+    "Focused native arithmetic, comparisons, returns, edges, forwarding, preemption and o65 execution",
+    "python3 tools/native65816-runtime-tests/qualify.py -- --nocapture",
+    "python3 tools/native65816-runtime-tests/qualify.py --release -- --nocapture",
+    "Isolated detached checkout: accumulator_forwarding.act and preemption.act use CRLF; rebuild and run accumulator_forwarding, preemption and o65 through qualify.py",
+    "python3 -m unittest discover -s tools/compare65816 -p test_*.py",
+    "python3 -m unittest discover -s tools -p test_disassemble65816.py",
+    "python3 tools/compare65816/corpus.py --check",
+    "cargo build --release --bin actionc-65816",
+    "python3 tools/compare65816/build.py --output target/local-accumulator-forwarding-after --verify-crlf",
+    "Both external code_quality host commands save all records; known optimized vbcc unlink failure remains a test failure",
+    "report.py; delta.py --forwarded-word-load-counts with frozen predictions; check_accumulator_forwarding.py with frozen sites and baseline",
+    "Changed Rust formatting, documentation links, git diff --check, original 140 local-path hashes and immutable baseline hashes"
+  ],
+  "results": {
+    "compiler_unit": {
+      "passed": 40,
+      "failed": 0
+    },
+    "compiler_integration": {
+      "passed": 58,
+      "failed": 0
+    },
+    "native": {
+      "debug": {
+        "passed": 84,
+        "failed": 0,
+        "ignored": 1
+      },
+      "release": {
+        "passed": 84,
+        "failed": 0,
+        "ignored": 1
+      }
+    },
+    "python_comparison": {
+      "passed": 16
+    },
+    "python_decoder": {
+      "passed": 5
+    },
+    "identical_native_artifacts": 302,
+    "forwarded_word_interrupts": {
+      "false": {
+        "cmp_carry_outcomes": 4,
+        "forms": 8,
+        "nz": 3,
+        "restorations": 98,
+        "sites": 98
+      },
+      "true": {
+        "cmp_carry_outcomes": 4,
+        "forms": 8,
+        "nz": 3,
+        "restorations": 76,
+        "sites": 76
+      }
+    },
+    "retained_fused_cyclic_interrupts": {
+      "false": {
+        "irq_sites": 300,
+        "word_edge_sites": 222,
+        "live_flag_outcomes": 24,
+        "irq_after_cmp_outcomes": 24,
+        "register_restorations": 324,
+        "windows": 6,
+        "overlapping_domains": [
+          8192,
+          8448
+        ]
+      },
+      "true": {
+        "irq_sites": 296,
+        "word_edge_sites": 222,
+        "live_flag_outcomes": 24,
+        "irq_after_cmp_outcomes": 24,
+        "register_restorations": 320,
+        "windows": 6,
+        "overlapping_domains": [
+          8192,
+          8448
+        ]
+      }
+    },
+    "general_interrupt_sites": {
+      "raw": 2237,
+      "optimized": 2077
+    },
+    "retained_direct_edge_sites_per_mode": 34,
+    "retained_materialized_comparison_probe": {
+      "sites_per_mode": 96,
+      "truth_domain_combinations": 16
+    },
+    "seeded_irq_nmi_schedules": [
+      8891121666326,
+      1592642302
+    ],
+    "relocated_forwarding": {
+      "placements": [
+        1048576,
+        6291456
+      ],
+      "modes": [
+        "raw",
+        "optimized"
+      ],
+      "incoming_i": [
+        0,
+        4
+      ],
+      "boundary_pairs": 5,
+      "machine_executions": 40,
+      "all_sites_reached": true,
+      "exact_volatile_trace": true
+    },
+    "isolated_crlf": {
+      "passed": 23,
+      "failed": 0,
+      "matching_artifacts": 252,
+      "fixtures": [
+        "accumulator_forwarding.act",
+        "preemption.act"
+      ]
+    },
+    "comparison": {
+      "records": 264,
+      "action_builds": 28,
+      "changed_builds": 22,
+      "selected_static_sites": 76,
+      "selected_vector_records": 112,
+      "executed_forwarded_loads_per_incoming_i_state": 1422,
+      "only_declared_loads_removed": true,
+      "forecasts_exact": true,
+      "unchanged_storage_and_guards": true,
+      "sites": [
+        {
+          "case": "identity",
+          "mode": "raw",
+          "reloads": 1,
+          "pc_map": {
+            "65588": 65588
+          }
+        },
+        {
+          "case": "identity",
+          "mode": "optimized",
+          "reloads": 1,
+          "pc_map": {
+            "65588": 65588
+          }
+        },
+        {
+          "case": "add",
+          "mode": "raw",
+          "reloads": 1,
+          "pc_map": {
+            "65599": 65599
+          }
+        },
+        {
+          "case": "add",
+          "mode": "optimized",
+          "reloads": 1,
+          "pc_map": {
+            "65599": 65599
+          }
+        },
+        {
+          "case": "subtract",
+          "mode": "raw",
+          "reloads": 1,
+          "pc_map": {
+            "65599": 65599
+          }
+        },
+        {
+          "case": "subtract",
+          "mode": "optimized",
+          "reloads": 1,
+          "pc_map": {
+            "65599": 65599
+          }
+        },
+        {
+          "case": "constant_chain",
+          "mode": "raw",
+          "reloads": 17,
+          "pc_map": {
+            "65588": 65588,
+            "65596": 65594,
+            "65604": 65600,
+            "65612": 65606,
+            "65620": 65612,
+            "65628": 65618,
+            "65636": 65624,
+            "65644": 65630,
+            "65652": 65636,
+            "65660": 65642,
+            "65668": 65648,
+            "65676": 65654,
+            "65684": 65660,
+            "65692": 65666,
+            "65700": 65672,
+            "65708": 65678,
+            "65716": 65684
+          }
+        },
+        {
+          "case": "constant_chain",
+          "mode": "optimized",
+          "reloads": 2,
+          "pc_map": {
+            "65588": 65588,
+            "65596": 65594
+          }
+        },
+        {
+          "case": "maximum",
+          "mode": "raw",
+          "reloads": 3,
+          "pc_map": {
+            "65592": 65592,
+            "65618": 65616,
+            "65635": 65631
+          }
+        },
+        {
+          "case": "maximum",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65592": 65592,
+            "65618": 65616,
+            "65635": 65631
+          }
+        },
+        {
+          "case": "wide_shift",
+          "mode": "raw",
+          "reloads": 0,
+          "pc_map": {}
+        },
+        {
+          "case": "wide_shift",
+          "mode": "optimized",
+          "reloads": 0,
+          "pc_map": {}
+        },
+        {
+          "case": "loop_rotation",
+          "mode": "raw",
+          "reloads": 10,
+          "pc_map": {
+            "65588": 65588,
+            "65596": 65594,
+            "65604": 65600,
+            "65672": 65666,
+            "65680": 65672,
+            "65688": 65678,
+            "65696": 65684,
+            "65704": 65690,
+            "65712": 65696,
+            "65737": 65719
+          }
+        },
+        {
+          "case": "loop_rotation",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65588": 65588,
+            "65658": 65656,
+            "65711": 65707
+          }
+        },
+        {
+          "case": "sum_loop",
+          "mode": "raw",
+          "reloads": 5,
+          "pc_map": {
+            "65662": 65662,
+            "65669": 65667,
+            "65677": 65673,
+            "65685": 65679,
+            "65699": 65691
+          }
+        },
+        {
+          "case": "sum_loop",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65611": 65611,
+            "65649": 65647,
+            "65657": 65653
+          }
+        },
+        {
+          "case": "recursive_sum",
+          "mode": "raw",
+          "reloads": 2,
+          "pc_map": {
+            "65644": 65644,
+            "65751": 65749
+          }
+        },
+        {
+          "case": "recursive_sum",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65588": 65588,
+            "65629": 65627,
+            "65736": 65732
+          }
+        },
+        {
+          "case": "direct_calls",
+          "mode": "raw",
+          "reloads": 3,
+          "pc_map": {
+            "65588": 65588,
+            "65596": 65594,
+            "65854": 65850
+          }
+        },
+        {
+          "case": "direct_calls",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65588": 65588,
+            "65596": 65594,
+            "65854": 65850
+          }
+        },
+        {
+          "case": "byte_sum",
+          "mode": "raw",
+          "reloads": 5,
+          "pc_map": {
+            "65709": 65709,
+            "65716": 65714,
+            "65775": 65771,
+            "65783": 65777,
+            "65797": 65789
+          }
+        },
+        {
+          "case": "byte_sum",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65627": 65627,
+            "65747": 65745,
+            "65755": 65751
+          }
+        },
+        {
+          "case": "record_field",
+          "mode": "raw",
+          "reloads": 0,
+          "pc_map": {}
+        },
+        {
+          "case": "record_field",
+          "mode": "optimized",
+          "reloads": 0,
+          "pc_map": {}
+        },
+        {
+          "case": "unlink",
+          "mode": "raw",
+          "reloads": 0,
+          "pc_map": {}
+        },
+        {
+          "case": "unlink",
+          "mode": "optimized",
+          "reloads": 0,
+          "pc_map": {}
+        },
+        {
+          "case": "forward_copy",
+          "mode": "raw",
+          "reloads": 2,
+          "pc_map": {
+            "65832": 65832,
+            "65840": 65838
+          }
+        },
+        {
+          "case": "forward_copy",
+          "mode": "optimized",
+          "reloads": 3,
+          "pc_map": {
+            "65638": 65638,
+            "65821": 65819,
+            "65829": 65825
+          }
+        }
+      ],
+      "kernels": 14,
+      "vectors": 66,
+      "executions_per_host": 528,
+      "crlf_identical": true,
+      "debug_release_identical": true,
+      "known_failure": "vbcc optimized unlink vector 0 in both incoming I states; commands fail, no exemption",
+      "vbcc_records_identical": true,
+      "vbcc_artifact_note": "Code, objects, maps and linked listings are byte-identical. Raw vasm listing differs only in the exact Source header build path."
+    },
+    "representatives": [
+      {
+        "case": "loop_rotation",
+        "mode": "raw",
+        "args": [
+          13
+        ],
+        "code_bytes": 192,
+        "cycles": 1344,
+        "peak_below_entry_s": 18,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "forwarded_word_loads": 52
+      },
+      {
+        "case": "loop_rotation",
+        "mode": "optimized",
+        "args": [
+          13
+        ],
+        "code_bytes": 180,
+        "cycles": 1264,
+        "peak_below_entry_s": 26,
+        "stack_reads": 181,
+        "stack_writes": 178,
+        "forwarded_word_loads": 10
+      },
+      {
+        "case": "sum_loop",
+        "mode": "raw",
+        "args": [
+          13
+        ],
+        "code_bytes": 164,
+        "cycles": 1767,
+        "peak_below_entry_s": 14,
+        "stack_reads": 197,
+        "stack_writes": 246,
+        "forwarded_word_loads": 53
+      },
+      {
+        "case": "sum_loop",
+        "mode": "optimized",
+        "args": [
+          13
+        ],
+        "code_bytes": 140,
+        "cycles": 1395,
+        "peak_below_entry_s": 16,
+        "stack_reads": 165,
+        "stack_writes": 188,
+        "forwarded_word_loads": 40
+      },
+      {
+        "case": "byte_sum",
+        "mode": "raw",
+        "args": [
+          1245180,
+          16
+        ],
+        "code_bytes": 262,
+        "cycles": 4678,
+        "peak_below_entry_s": 16,
+        "stack_reads": 530,
+        "stack_writes": 559,
+        "forwarded_word_loads": 65
+      },
+      {
+        "case": "byte_sum",
+        "mode": "optimized",
+        "args": [
+          1245180,
+          16
+        ],
+        "code_bytes": 238,
+        "cycles": 4231,
+        "peak_below_entry_s": 22,
+        "stack_reads": 492,
+        "stack_writes": 489,
+        "forwarded_word_loads": 49
+      }
+    ],
+    "forecast_outcome": "All forecasts match exactly; each omitted load saves two static bytes, one instruction, five cycles and two private stack-byte reads, retaining every write."
+  },
+  "preserved": [
+    "ABI v1 and image v3",
+    "o65 profile and typed relocations",
+    "all allocated homes, frame maps and staging reservations",
+    "guard costs and stack peaks",
+    "all source/volatile accesses and private writes",
+    "DP counts and touched offsets",
+    "fusion and word-edge execution counts",
+    "unselected corpus images and vbcc output",
+    "call/helper/edge/join barriers",
+    "Exec816 pin"
+  ],
+  "qualification_runs": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-cdbtm82g/manifest.json",
+      "sha256": "3977baf727367d27cea1d89af1c771ed08bbf867134cf31e8da5619198be6cb6",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--",
+        "--nocapture"
+      ]
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-4pj_oi7i/manifest.json",
+      "sha256": "064a07676dce554d9fcfff0c396c55924a5e4fd3b1d374639633afe4d28b5cd3",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/Cargo.toml",
+        "--release",
+        "--",
+        "--nocapture"
+      ]
+    }
+  },
+  "crlf_qualification": {
+    "manifest": "tools/native65816-runtime-tests/target/qualification/run-p7lydqf5/manifest.json",
+    "sha256": "5104edc66317ec1669671de8082f8fb0c6e9279a431dc10dfc08d46072a74d1f",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--config",
+      "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"/private/var/folders/_t/pj7nysld5t909ygsvwdzmpmh0000gn/T/actionc-accumulator-crlf-4yhe8bb9/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+      "--manifest-path",
+      "/private/var/folders/_t/pj7nysld5t909ygsvwdzmpmh0000gn/T/actionc-accumulator-crlf-4yhe8bb9/tools/native65816-runtime-tests/Cargo.toml",
+      "--test",
+      "accumulator_forwarding",
+      "--test",
+      "preemption",
+      "--test",
+      "o65",
+      "--",
+      "--nocapture"
+    ]
+  },
+  "artifact_sha256": {
+    "context-false-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "accumulator-o65-false-0.json": "c20a194b2530bb07304565b004e0daa90d631c213bd2929555a8de9918f58fec",
+    "o65-guard-false-100000.metrics.json": "c3143efa0ed2f1aa56cfacc9c7ed728bb393946d9ac6eedac2e30dba53bf984e",
+    "accumulator-forwarding-true.act": "3ed1505af8613124dbdcab79de9de604b68703c862d570a317557678d859773d",
+    "return-preemption-false.json": "372fa54dcb668ef41cad9f7df73c2cad4547bad4266e9e7b9de0f8dc83bb1e61",
+    "o65-guard-true-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-contexts-true-600000.o65": "a3fedf3c6a74a46f9e247fc4f7a94c7e41f3acaae24a66222b98bdca5f167af2",
+    "context-false-53deed213bbe1a02.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-direct-word-fused-false-600000.metrics.json": "c999fb368f164e2e7f8018f95255e6c36fba69e291be27caf582bc0eb7a15dac",
+    "context-false-38094e602b572c1b.a816.json": "b0e6fcf05d9080f0e6ca4f428e733109cd83fe51298b839259f36eee907816c7",
+    "o65-static-addresses-true-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "context-false-f1c43bfbb4b6c823.a816.json": "b16fc31ac60c49881477760587495faeb3c6762dae9a5769f2aefa7e3fda0180",
+    "context-false-a2f9092a87607bae.a816.json": "79e51469b26820249a30aa1fe963a462fea61220cdce4dcca24609b023f8cf3c",
+    "o65-static-addresses-true-600000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-direct-word-fused-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-word-rotation-true-100000.o65": "f10a93fb9e035fa6c7d9b6ed06f2123e8b49edc4fbb74d35781de81d4ba4a105",
+    "o65-fused-branches-true-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "context-true-40fdbb4768b1f73b.bridge.bin": "b09b2feac1025fe5069b0dc1b494ee87a8d2e3b18eaa2d56069cb8f2fb3ed85b",
+    "o65-word-comparisons-true-100000.o65": "a5ead5570e06c2143b78ee08692f24ad6da3d762bac7ad1610a5d59a5dbf1b7c",
+    "o65-direct-word-fused-false-100000.o65": "6d5fa6be7cad50aa49e44d708d37ffbe32717e638fcaddf863b6bac6282c1d7e",
+    "o65-static-addresses-true-600000.metrics.json": "353e5d713bec5898397cc73e2f2412cb291e1827eedf30914ccb0549f690be1e",
+    "o65-static-addresses-false-600000.metrics.json": "353e5d713bec5898397cc73e2f2412cb291e1827eedf30914ccb0549f690be1e",
+    "o65-pointers-true-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "context-false-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "o65-fused-branches-true-600000.metrics.json": "e484fc396c3cbbec28220dd3896768ea605700f21076f6def10ba3cbbb2c784f",
+    "o65-word-edges-false-600000.o65": "86fc52c078d8d1ba3219acfb8b7494e94d5a558d12bf67adfb860a83cde70642",
+    "o65-interop-false-600000.metrics.json": "3501830612e69a0358019499483283f6d29e50bc4c666b906f00c413df350385",
+    "o65-static-addresses-false-100000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-direct-word-ordinary-true-600000.metrics.json": "219f6ffed934e8d478343e0307a7caa04532a45a308216bd8abd56e9a14c46bb",
+    "o65-word-edges-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "comparison-budget-sum-loop-true.json": "dd8b64e345ef8c076aa3ac01338e02f6b7a68bb1efaae995781f43f9252ec1ad",
+    "o65-accumulator-forwarding-true-600000.o65": "9c369e9852a539f0ef6311bc1fe460e97dc50f4892542ff687e921811bdef0c3",
+    "context-true-a2f9092a87607bae.bridge.bin": "b09b2feac1025fe5069b0dc1b494ee87a8d2e3b18eaa2d56069cb8f2fb3ed85b",
+    "context-true-53deed213bbe1a02.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "word-preemption-false.json": "8ce1712892f6303939f586b890ff14008e62d4906640f2faf0d9c0d6cd3df21d",
+    "word-return-tail-false-ZeroFrame.json": "104b6e48c3af8c8d4da553ee8752a56fa1baeaab013882206d5bbedc1176b5be",
+    "word-return-tail-true-Echo.json": "7de07c29c5f726221e5186887ed5ac819a31cb159fda08473d18035156ed48b4",
+    "context-false-40fdbb4768b1f73b.a816.json": "804545dc8417bbb9117a9ecd7492afada5e0c007462d9823a2cd92655f3cd6a0",
+    "o65-pointers-false-100000.o65": "fb664f099feca24039f972eaa107e84334c84c39e8d94b6990c6e4bffd53f1b7",
+    "fused-preemption-mir-true.txt": "e820008d3cc1abc8cc33204a22b949b95fd566954675b7eacbfc29c5524dd7a8",
+    "o65-guard-false-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "single-word-preemption-false.json": "aa3c22b695b08a6007becc952850e7b84d8a8aa0032f691b31a227d265f3c279",
+    "o65-word-rotation-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-imports-false-600000.metrics.json": "1aaf7d375697b6228ae9834bfb45b525950894f81ec43d2357b32b58154033e7",
+    "o65-word-edges-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "comparison-preemption-false.json": "48239739c991b864c78ac25d87d34fa61fc7e497ac9dc32b281fe8aa3a1b6d76",
+    "comparison-task-preemption-false.json": "32afcf25e9ff70164027f1e6c931501180e960522cf5aa7c313668baa5922133",
+    "context-false-37c57e09908ba768.bridge.bin": "30667485595704df433e491bfe29113b267dfd2afdabc736ab440b582180f0b2",
+    "context-false-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "word-preemption-true.json": "4de5d291838900e5a7ca42405c9dd6b6e63177b4584ceffcfeb1322b050f3a37",
+    "o65-word-edges-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-word-comparisons-true-100000.metrics.json": "f0c4741adb418625b3421a60a0cae7a1aa7c5c48459e95d1af5cb1c9eca114bf",
+    "empty-edges-true-false.json": "0d36bb69945692fc8409555372106d6cba1cb7da8c80fb068453f1481321d02a",
+    "context-true-38094e602b572c1b.a816.json": "3a9588e1ae5e2e90c12887743dfe96458e369209078d1d2d2b0aebe7a2a0822b",
+    "context-true-b61b8a7a03265980.act": "e49ab9c266844268caa11a6a2747de4978f61217a1ef791fff88d89500cc7f5a",
+    "o65-banks-true-100000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "context-true-d8929097958ba814.act": "b43cca05074d1f221b6434b743034ece11495822f75c589d4b019795d32efca1",
+    "context-true-f1c43bfbb4b6c823.a816.json": "248e5b89d6028ba634ee4bba04abf4e2b771cf2b7f5ea8104155995010f14278",
+    "o65-guard-false-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "context-true-a2f9092a87607bae.a816.json": "e4ba43b7c6760913abba03e434653e0c307f370074ea8be6c801aa700db07b98",
+    "o65-word-rotation-false-600000.metrics.json": "d1cd23f8c814c6b5e24a00a06bbad0f7148b2eeee3d851d6645568dbc3910dd3",
+    "o65-word-rotation-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-word-edges-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "empty-edges-false-true.json": "6698178062672a4d31bd17c3565c1ede710eb4cba8cfd7b382000e438bd5b8a9",
+    "o65-direct-word-ordinary-true-600000.o65": "219f08ea121234b7fadc207f8a30b03f3ac22c91ca564fd49bf9b92cc3027615",
+    "accumulator-forwarding-true.metrics.json": "77a5303fc1bf2e12b44486a03069b33ff7d5802987a73f85709c5c9c329e9edb",
+    "o65-guard-true-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "context-true-40fdbb4768b1f73b.a816.json": "0fc9d8318d0e8415ab26e26553dd85e3573099b228cc673a85f9a4f342af376d",
+    "return-zero-preemption-false.json": "2f656bd57771a9a369e8567a62ea274ba5d761355a325db02900665cde6b6f8c",
+    "o65-fused-branches-false-100000.metrics.json": "d1fb69e347892bb3390be76d2f03731b84d3a81ad993295080dec34a4bbeddd7",
+    "o65-interop-true-100000.metrics.json": "c35a0363d0ff6e3dcbfc1f0867f7bea04d81e4fdd837281c825ce90e355adef6",
+    "o65-banks-true-100000.metrics.json": "99a632fd2fc7ce1806f0e8d0a9c81efe57f90af947fade8c10805ce68bd3a4d9",
+    "o65-imports-true-600000.o65": "3bbfb96e25deef83b9a108d9e151d61c15d31c476e9be69a5a9292c693354cc7",
+    "empty-edges-true-true.json": "b3edd3d2db592bb6ed86dbc99abc5769edc5c1901c01c11786caf14623907c92",
+    "o65-static-addresses-true-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "o65-direct-word-ordinary-false-100000.metrics.json": "656262feeb496018b0dd34c7eab8649a3587e6cd1036c5ac75e4feeca7d91a76",
+    "comparison-budget-maximum-true.json": "797a7d1e51fb328ddb2ddd35a2113955cb3a43cc01e94851f0360cc3e4605349",
+    "o65-direct-word-fused-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-fused-branches-true-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-fused-branches-false-100000.o65": "b95b8a57d95ad845fbf8f517b9454a77979a5c30e79bf8e11e713de3c6077de2",
+    "context-false-37c57e09908ba768.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-accumulator-forwarding-true-100000.metrics.json": "c9fa8d3b12cba0b86fb902c610a905dd7cc6008c6a7fec02ba182c5c077d6183",
+    "context-false-38094e602b572c1b.bridge.bin": "ba5f351aa375930414f8949ee29e646f6486345595b71f7e387022407713cc24",
+    "o65-pointers-true-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "accumulator-o65-false-1.json": "0dd783a2e3a663caa47e5fc27ce65bcfb2506069c5220587343a121e00b8b7d1",
+    "word-return-tail-true-FramedLiteral.json": "3a86e67bb9ccfb2c746c26dddfe168c9ec279f74f68036f2b0dea45a2f4690bd",
+    "o65-direct-word-ordinary-true-100000.metrics.json": "656262feeb496018b0dd34c7eab8649a3587e6cd1036c5ac75e4feeca7d91a76",
+    "direct-word-o65-true-false-0.json": "d7833a2ad8e98fdd76ec0e7bdc3456e63b28c94715af46deed231ba306f11520",
+    "o65-banks-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "direct-word-o65-false-false-1.json": "a8a64f85dbd3cb69a6ffe263910b845584f1e8c4a487ebb6721bc8448969f525",
+    "o65-interop-false-100000.metrics.json": "922dd09e916ec23b7fc7c9fa0080da185abc82d44c5dfa3cb2b15fddc30bcc6d",
+    "o65-imports-false-600000.placement.json": "7ef32c0f15efedfc0ca0138d553c9ac2e950199dcbb2922ec039df42979a4a75",
+    "o65-contexts-false-600000.placement.json": "82c19e89a1f20ca740a7a0ce825a275be0adea8fac53116ea40a18f09f936395",
+    "context-true-53deed213bbe1a02.act": "0c057df8358495ad6035966889da83c75620fd316ce2bbb6787c7c2037ebfa49",
+    "context-true-b61b8a7a03265980.a816.json": "e338043e6e6de621e4b122dea9e1b9b9c8ea91fe7a4193af5e01acfcd6a71001",
+    "o65-word-comparisons-false-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-direct-word-ordinary-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-imports-false-100000.metrics.json": "60edba861f0f5fa741978adfb33580f5390e6281a2718ba604e480aa78a8a05c",
+    "o65-banks-true-600000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "o65-fused-branches-false-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "context-true-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "word-edge-o65-true-false-1.json": "30d8a32799b3db17662bfbe995c7e3620a4592c67f012ed26385f56502d793a8",
+    "empty-edges-false-false.json": "ecf5e67b39ecfa957fdbbfbd58fe2c43ca5b94e5b9b7b3276f57a95fce6ad7ce",
+    "o65-direct-word-ordinary-true-100000.o65": "219f08ea121234b7fadc207f8a30b03f3ac22c91ca564fd49bf9b92cc3027615",
+    "o65-contexts-true-600000.placement.json": "82c19e89a1f20ca740a7a0ce825a275be0adea8fac53116ea40a18f09f936395",
+    "context-true-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-guard-false-600000.metrics.json": "b9c8f3f5c06ec5b01f8d04cfa86b63463b8be9e0181c295db9fe97c6f5258487",
+    "context-false-d8929097958ba814.bridge.bin": "ba5f351aa375930414f8949ee29e646f6486345595b71f7e387022407713cc24",
+    "accumulator-o65-true-0.json": "104c8846668880303740f690fe162903f9878111eb4a90c589dbda09023fbc52",
+    "context-false-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-direct-word-fused-false-100000.metrics.json": "0237f756f61e91ba1126166dd86cd4235d3eac53046ef3eb822734b7751c5083",
+    "o65-pointers-false-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "o65-imports-true-100000.o65": "3bbfb96e25deef83b9a108d9e151d61c15d31c476e9be69a5a9292c693354cc7",
+    "context-true-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "context-false-d8929097958ba814.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-static-addresses-true-100000.metrics.json": "bf67f7c847a0beafd2316ae851031ddcc48abc6d2e639f7ee4f75a26bce165b6",
+    "o65-fused-branches-false-600000.o65": "b95b8a57d95ad845fbf8f517b9454a77979a5c30e79bf8e11e713de3c6077de2",
+    "o65-direct-word-ordinary-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "context-false-53deed213bbe1a02.bridge.bin": "ba5f351aa375930414f8949ee29e646f6486345595b71f7e387022407713cc24",
+    "context-false-f1c43bfbb4b6c823.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-fused-branches-true-100000.metrics.json": "60dcf2beff4ab35aa9931a7d2d66fa5ebce200e442d936ec5bbd29e3f8243e79",
+    "o65-static-addresses-false-100000.metrics.json": "bf67f7c847a0beafd2316ae851031ddcc48abc6d2e639f7ee4f75a26bce165b6",
+    "o65-direct-word-fused-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "comparison-budget-sum-loop-false.json": "9df97b6b849562d268fc223586a7472b4dded92baced9adb572c26b59b900512",
+    "context-false-53deed213bbe1a02.act": "0c057df8358495ad6035966889da83c75620fd316ce2bbb6787c7c2037ebfa49",
+    "single-word-edges-false-false.json": "64f010a461d41a5540d571bc18ac44d2e6638819e65706cb240ccad9ccff6ab3",
+    "fused-preemption-mir-false.txt": "a1761849e351aeefc589ad04bc1853e267715c79611d1fd35f1430834048cda7",
+    "o65-pointers-false-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "o65-contexts-true-100000.o65": "a3fedf3c6a74a46f9e247fc4f7a94c7e41f3acaae24a66222b98bdca5f167af2",
+    "accumulator-preemption-true.json": "dc6753eae70e025b4d9b94fde1dda9c47e1d1d6bdeefd6e0bb6345f6c16f0f27",
+    "o65-interop-true-600000.metrics.json": "dda3c18c64a631ad74edcb7c37bb5390869e384a713c5f02cdc53072d0402e77",
+    "o65-fused-branches-false-600000.metrics.json": "c21bebafbcbe43bd1ba6a74691f9fc3854a645fe48bec18c910631f33e2c9187",
+    "context-false-b61b8a7a03265980.a816.json": "00c0b714140b667be9f35de19a776b9b47b15553a5b573c7dc90b9557dd974d4",
+    "o65-banks-true-600000.metrics.json": "d25dac1bd047edaa2a2ccce0571c0afb711cf5863098502e7a21375aa2770ddb",
+    "comparison-traffic-false.json": "7703a163ab459837ba22a5f57e22b006cb794f6863beefcd1fd282ac4b3f486a",
+    "o65-word-rotation-true-600000.o65": "f10a93fb9e035fa6c7d9b6ed06f2123e8b49edc4fbb74d35781de81d4ba4a105",
+    "o65-word-comparisons-true-600000.o65": "a5ead5570e06c2143b78ee08692f24ad6da3d762bac7ad1610a5d59a5dbf1b7c",
+    "o65-direct-word-fused-false-600000.o65": "6d5fa6be7cad50aa49e44d708d37ffbe32717e638fcaddf863b6bac6282c1d7e",
+    "return-preemption-true.json": "3522e61fd6f338b5274b93b07edbcab0b9f0c651a2127250b9dbce6d7bc64934",
+    "o65-direct-word-ordinary-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-direct-word-ordinary-false-600000.metrics.json": "219f6ffed934e8d478343e0307a7caa04532a45a308216bd8abd56e9a14c46bb",
+    "o65-static-addresses-true-100000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-word-edges-false-100000.o65": "86fc52c078d8d1ba3219acfb8b7494e94d5a558d12bf67adfb860a83cde70642",
+    "accumulator-o65-true-1.json": "b8f428d9df100a5c47305de2c3b5d2c4daa5cb7ae21c43b4898cf569ca69c5c1",
+    "o65-direct-word-fused-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-accumulator-forwarding-true-600000.metrics.json": "e9971bf4e98f5c00df980e992ddef99622ee66ad19dac2858d8abc39ab8ae578",
+    "o65-word-comparisons-true-600000.metrics.json": "01b47297d4121f02815e99fe0dd64cf3bd91bde794ff4b02d9d96796dfa4cb89",
+    "o65-static-addresses-false-600000.o65": "bf2cf6f91700480222cf888e7eced5f60e8c506c6366c25f33043c0578966e97",
+    "o65-banks-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-imports-false-100000.placement.json": "6006f39f7a51ccb3d79f7c2dd8357f9a360d9dd1116e380c26aa13f3b0cd06fa",
+    "word-edge-o65-true-false-0.json": "96aca39fff83fc318b4add2d24c467818e2c2fa999f505ba5572197e229ac105",
+    "context-false-f1c43bfbb4b6c823.act": "32723c2399f604d5eff8a0430b264c205041e1e0883391aaeda5ed89591f55f8",
+    "o65-contexts-false-100000.placement.json": "328f25d1fe27f9dd959c8491268a4a65585693b39a8960e495f0cd0ca1b10d58",
+    "single-word-edges-true-true.json": "186ff45715d2125a0439e95f09886674b9da4306336f7a83f759aab8d2368011",
+    "o65-pointers-false-600000.o65": "fb664f099feca24039f972eaa107e84334c84c39e8d94b6990c6e4bffd53f1b7",
+    "o65-accumulator-forwarding-true-100000.o65": "9c369e9852a539f0ef6311bc1fe460e97dc50f4892542ff687e921811bdef0c3",
+    "o65-word-comparisons-false-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "o65-direct-word-ordinary-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-word-rotation-false-100000.metrics.json": "220f0ce9f9e91484970a3e17a04d579d032656d9f24e40743e2994887f3e1a03",
+    "o65-fused-branches-false-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "direct-word-o65-true-false-1.json": "a8a64f85dbd3cb69a6ffe263910b845584f1e8c4a487ebb6721bc8448969f525",
+    "direct-word-o65-false-false-0.json": "d7833a2ad8e98fdd76ec0e7bdc3456e63b28c94715af46deed231ba306f11520",
+    "o65-contexts-true-100000.placement.json": "328f25d1fe27f9dd959c8491268a4a65585693b39a8960e495f0cd0ca1b10d58",
+    "o65-banks-false-100000.metrics.json": "99a632fd2fc7ce1806f0e8d0a9c81efe57f90af947fade8c10805ce68bd3a4d9",
+    "o65-imports-true-100000.placement.json": "6006f39f7a51ccb3d79f7c2dd8357f9a360d9dd1116e380c26aa13f3b0cd06fa",
+    "fused-task-preemption-true.json": "1bd8bde4960d99bf7bac5e7be5a91ddbb67d225ee7d11572f761d481c6da03a6",
+    "o65-interop-false-600000.placement.json": "2088c17c82b6b0138b95e35d6ad4dc01e5e3fc0ba5529f5c0adddb5e3bcf9cf8",
+    "o65-fused-branches-true-100000.o65": "4bfb3cf72c1df6fba682e177e0b232dfd60ad89c1f5404b57aaffc7657e213b9",
+    "o65-word-comparisons-false-100000.metrics.json": "83a052a19407f2b046fa5f37e11ca6270b6ec00e7add4f1db275b26287678ada",
+    "context-true-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "o65-direct-word-fused-true-600000.metrics.json": "c999fb368f164e2e7f8018f95255e6c36fba69e291be27caf582bc0eb7a15dac",
+    "context-false-a2f9092a87607bae.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "direct-word-o65-true-true-1.json": "7a4969c128778a97e01f06fb19fc17313d5f7b14a972a5d3e960bb0be2ca097b",
+    "context-true-38094e602b572c1b.bridge.bin": "b09b2feac1025fe5069b0dc1b494ee87a8d2e3b18eaa2d56069cb8f2fb3ed85b",
+    "o65-pointers-false-100000.metrics.json": "bcfae3cc9d4c23ed4a863c43449419921de1f6e29ad3a13fd5811936d4ab2665",
+    "context-true-37c57e09908ba768.a816.json": "f9988682ac6e4ecc611e0a23646991b5845bd0621d2bd11da7c60b85ae3f2e82",
+    "direct-word-o65-false-true-0.json": "53daa94c9308fa266d3103a80d38192bba0f187c13cd592f589a0099e04415d4",
+    "o65-contexts-false-600000.metrics.json": "7e02dc7cfbbe6143be65b7f79df0e8c5aa5fa1dfc31b442b3ced82b24560ee9b",
+    "word-edge-o65-false-true-1.json": "2811b6648707f5fc0aa981d1cff3ad511de613382ef3d5a4d2937f45a4f9e8cc",
+    "o65-word-rotation-false-600000.o65": "f10a93fb9e035fa6c7d9b6ed06f2123e8b49edc4fbb74d35781de81d4ba4a105",
+    "o65-interop-true-100000.placement.json": "ecaffbcdf1748bf72e4f4cb5468c8a837f88d5a193a80944022baf305bc6c0ef",
+    "o65-contexts-true-100000.metrics.json": "96e6d05a401ec4323fe45f7d667f00f461ab19c71540703252b004c9e9109198",
+    "fused-branch-traffic-true.json": "a7f50a0a6be48623ea0aefaaa45ad9b56e0d23b55309a6665c922762f89178f9",
+    "o65-banks-false-100000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-false-53deed213bbe1a02.a816.json": "e413bd9c888799be1431d84154db20e97d3588ee80f20e155921fa53adb8fe9a",
+    "accumulator-forwarding-false.metrics.json": "1c01c5090edb4efd4f6867435cab07b534bdf467a7b3f65f1bebf957de8e8f5e",
+    "context-true-a2f9092a87607bae.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "empty-edge-traffic-false-false.json": "2d318188ce13b4197fa047adde9b14e5238344d417cd2becc830ce2aabaebc12",
+    "context-false-d8929097958ba814.a816.json": "2080fa2bac1cdbd7e05e7a1a65a475de80961742e60d30982d15ad43b5fe6714",
+    "o65-static-addresses-false-100000.placement.json": "f4e47ff36987ed98b788d43695b4fccc567d4ab1830e33eed4188f78334aa31d",
+    "o65-guard-false-600000.o65": "7f20eaa9c97bc4b03dee4cf5d9cb4c1f4e1edc743876d4d23828493f807e06db",
+    "o65-accumulator-forwarding-false-600000.o65": "329be7c5561412fa48a33a5fd103abe37a3782ca5d1a115f4bfa912f924e788c",
+    "o65-pointers-true-100000.metrics.json": "549f5c3144dd88bd1778564f3aea1a8023e5e0edaa251b9a978da4334e51f980",
+    "o65-word-comparisons-true-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "o65-interop-true-100000.o65": "74d7f8dd733e9213aed0b4d3b0cce4381108ee2219e72eefd398acbb76756a7f",
+    "context-true-f1c43bfbb4b6c823.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "context-false-38094e602b572c1b.act": "5da2d1f237bad695ed83f7e63f00bef6b573b5b89dd15035401186c3b177491f",
+    "o65-pointers-true-100000.o65": "015ceab7a91e2fd5887526f78c4cbc89e662bc9398939211c4856274d7141c7d",
+    "o65-accumulator-forwarding-false-600000.metrics.json": "b9705863240a7f629e83853dc4d1cb7fcfb03848b837794da05bf575a7f92b92",
+    "context-false-38094e602b572c1b.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-static-addresses-false-600000.placement.json": "ceeb40f0fcc8cdbb070c49e8bb88c8e03751278dc869113fc931ea7cecec0518",
+    "context-false-37c57e09908ba768.a816.json": "35c3d6921292ec59307607090e44427439709b36c3b42a6c4ac11dce887c8122",
+    "context-true-37c57e09908ba768.bridge.bin": "c29c855fece3d1d754f176cb3a9343e221c2cf10e31559951da81220149765c3",
+    "o65-contexts-false-100000.o65": "e15a2c28ba002e0ace9655b64b51e4f91a9d7a2a1e33dc7e3c7d57740e5e5fc1",
+    "context-false-37c57e09908ba768.act": "d66574d899416b58213a3cbb1f4136e88d654c1aa80cd6c95a1a9088e38922d3",
+    "o65-guard-true-600000.o65": "7f20eaa9c97bc4b03dee4cf5d9cb4c1f4e1edc743876d4d23828493f807e06db",
+    "o65-word-comparisons-true-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "o65-interop-false-600000.o65": "a1014783baa605a712b2bcbf9f22f903779c23945628cfa16a2361794e36849d",
+    "o65-imports-false-100000.o65": "84291819df93eeb37ff793ccda83d6d0af93f4e5eb19f33e959a047e7dc9a08f",
+    "o65-direct-word-fused-true-600000.o65": "6d5fa6be7cad50aa49e44d708d37ffbe32717e638fcaddf863b6bac6282c1d7e",
+    "context-true-53deed213bbe1a02.a816.json": "c6d03b748f99df883a03a686003ddde103991f66ae3a0f97497fb73d4c46c9fa",
+    "context-false-a2f9092a87607bae.bridge.bin": "ba5f351aa375930414f8949ee29e646f6486345595b71f7e387022407713cc24",
+    "accumulator-forwarding-false.act": "3ed1505af8613124dbdcab79de9de604b68703c862d570a317557678d859773d",
+    "accumulator-forwarding-false.a816.json": "0d92491a286172f65ae3d5c1949d936580bfe65b996b58dd20f37d29e9de42f6",
+    "o65-word-edges-true-100000.o65": "86fc52c078d8d1ba3219acfb8b7494e94d5a558d12bf67adfb860a83cde70642",
+    "context-true-d8929097958ba814.a816.json": "17f76650c73353ea1bd8bce740b283577e036c8be6d283af67dd7e3982d6e03f",
+    "o65-imports-true-600000.placement.json": "7ef32c0f15efedfc0ca0138d553c9ac2e950199dcbb2922ec039df42979a4a75",
+    "single-word-preemption-true.json": "90ac5dec7d6370d60563fc587309e1939508398b692edd665f587957267cc643",
+    "o65-interop-false-100000.placement.json": "ecaffbcdf1748bf72e4f4cb5468c8a837f88d5a193a80944022baf305bc6c0ef",
+    "return-zero-preemption-true.json": "c8cd406564cff5c65858a609a2b578994b00e8c57659592d278fccebd7a5e92e",
+    "context-false-40fdbb4768b1f73b.bridge.bin": "ba5f351aa375930414f8949ee29e646f6486345595b71f7e387022407713cc24",
+    "o65-guard-true-600000.metrics.json": "b9c8f3f5c06ec5b01f8d04cfa86b63463b8be9e0181c295db9fe97c6f5258487",
+    "context-true-38094e602b572c1b.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-word-edges-true-100000.metrics.json": "7865f2c04f0dafcd74499a4b8db000625ae6a8b0cc7a4b50ac656d5c671208ac",
+    "o65-direct-word-ordinary-false-100000.o65": "219f08ea121234b7fadc207f8a30b03f3ac22c91ca564fd49bf9b92cc3027615",
+    "o65-word-rotation-true-600000.metrics.json": "d1cd23f8c814c6b5e24a00a06bbad0f7148b2eeee3d851d6645568dbc3910dd3",
+    "word-edge-o65-false-true-0.json": "8a8b8fc19cefe85921901e0b140853e022b375f1ca7909b870ab33ab4d4f91b1",
+    "o65-word-edges-false-600000.metrics.json": "fec138ca21a76146a288e7a070e1038e5bff86bf902d81b9016f880d7e503a3c",
+    "direct-word-o65-false-true-1.json": "7a4969c128778a97e01f06fb19fc17313d5f7b14a972a5d3e960bb0be2ca097b",
+    "context-true-38094e602b572c1b.act": "5da2d1f237bad695ed83f7e63f00bef6b573b5b89dd15035401186c3b177491f",
+    "o65-interop-true-600000.placement.json": "2088c17c82b6b0138b95e35d6ad4dc01e5e3fc0ba5529f5c0adddb5e3bcf9cf8",
+    "direct-word-o65-true-true-0.json": "53daa94c9308fa266d3103a80d38192bba0f187c13cd592f589a0099e04415d4",
+    "fused-task-preemption-false.json": "ba3d0a668c6641da3339640e52c7ac3c45275f1384c8ef6e533f7a7a1451d93f",
+    "o65-word-comparisons-false-100000.o65": "a07451a5048e69d35e135638867dcf815c5d8512cf078b6c7566a9d4537fd7b3",
+    "o65-imports-true-600000.metrics.json": "47d38c6ecd37b4949559009246addd59cbc80914ab099e04379789c49f14041d",
+    "word-edge-o65-false-false-1.json": "30d8a32799b3db17662bfbe995c7e3620a4592c67f012ed26385f56502d793a8",
+    "word-return-tail-true-ZeroFrame.json": "bbddd9281ff1ddf5cbda7499200741f58545886cabff1ecccbf76860e9c565c1",
+    "o65-pointers-true-600000.metrics.json": "9c2d6890a02d729048bedbaa28828d03ca0343a424339be6fc1109518e630630",
+    "o65-contexts-false-600000.o65": "e15a2c28ba002e0ace9655b64b51e4f91a9d7a2a1e33dc7e3c7d57740e5e5fc1",
+    "o65-guard-true-100000.o65": "7f20eaa9c97bc4b03dee4cf5d9cb4c1f4e1edc743876d4d23828493f807e06db",
+    "o65-imports-false-600000.o65": "84291819df93eeb37ff793ccda83d6d0af93f4e5eb19f33e959a047e7dc9a08f",
+    "context-false-40fdbb4768b1f73b.act": "3acf6d2d35c1db3b91a309afee72c6bde57b3e2d86a183f29730b4a082edf791",
+    "o65-word-rotation-true-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "word-edge-o65-true-true-0.json": "8a8b8fc19cefe85921901e0b140853e022b375f1ca7909b870ab33ab4d4f91b1",
+    "o65-interop-false-100000.o65": "a1014783baa605a712b2bcbf9f22f903779c23945628cfa16a2361794e36849d",
+    "o65-word-edges-true-600000.o65": "86fc52c078d8d1ba3219acfb8b7494e94d5a558d12bf67adfb860a83cde70642",
+    "o65-direct-word-fused-true-100000.o65": "6d5fa6be7cad50aa49e44d708d37ffbe32717e638fcaddf863b6bac6282c1d7e",
+    "o65-banks-false-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "o65-direct-word-fused-true-100000.metrics.json": "0237f756f61e91ba1126166dd86cd4235d3eac53046ef3eb822734b7751c5083",
+    "o65-word-comparisons-false-600000.metrics.json": "05eae3646c27b846b4e8468e9f0ab2dbb867ee962d32fc1562bf350246e37fde",
+    "o65-banks-false-600000.metrics.json": "d25dac1bd047edaa2a2ccce0571c0afb711cf5863098502e7a21375aa2770ddb",
+    "o65-contexts-false-100000.metrics.json": "77aed8358acbf5538fd80a8f16e39a20106b71edbf68f5dfe1b79d29272dd677",
+    "comparison-preemption-true.json": "626c1d3dfd521bfae00589861d062f3890fad5b8e2794952331734072c386c7b",
+    "o65-pointers-false-600000.metrics.json": "ca29704aef946a3acd1bfed44bdc715f418b3d39a694f516db2d6ee0e88c874f",
+    "empty-edge-traffic-false-true.json": "b26b178d9050c345b78efcf211e332cd831c2b5da835e6bf539fead7c9e948bb",
+    "o65-direct-word-ordinary-false-600000.o65": "219f08ea121234b7fadc207f8a30b03f3ac22c91ca564fd49bf9b92cc3027615",
+    "o65-accumulator-forwarding-true-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "empty-edge-traffic-true-false.json": "846b800b4fd7de14557c4e2ef20d50051c3951b063d497774ae5b04627fd1763",
+    "o65-contexts-true-600000.metrics.json": "36b82d2286f402677dd4f51be856752d5bfbc8dfaa0685f6a4da4fe0f11ac4fc",
+    "fused-branch-traffic-false.json": "a7f50a0a6be48623ea0aefaaa45ad9b56e0d23b55309a6665c922762f89178f9",
+    "o65-word-comparisons-false-600000.o65": "a07451a5048e69d35e135638867dcf815c5d8512cf078b6c7566a9d4537fd7b3",
+    "o65-accumulator-forwarding-false-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "context-false-a2f9092a87607bae.act": "a01a2874feee81cf35a8c8c3ca64eb24a0f4410f3ed0f700cc5837e4a928d164",
+    "o65-word-edges-true-600000.metrics.json": "fec138ca21a76146a288e7a070e1038e5bff86bf902d81b9016f880d7e503a3c",
+    "o65-banks-false-600000.placement.json": "0eb36b3dad6d68c7f20b42031455639ab6f5a6a5fd8951ae9c7af476d1b94adc",
+    "o65-guard-true-100000.metrics.json": "c3143efa0ed2f1aa56cfacc9c7ed728bb393946d9ac6eedac2e30dba53bf984e",
+    "context-true-53deed213bbe1a02.bridge.bin": "b09b2feac1025fe5069b0dc1b494ee87a8d2e3b18eaa2d56069cb8f2fb3ed85b",
+    "o65-fused-branches-true-600000.o65": "4bfb3cf72c1df6fba682e177e0b232dfd60ad89c1f5404b57aaffc7657e213b9",
+    "comparison-task-preemption-true.json": "f5383b8d7ae60c8c71b931d3e20143f434f1e457917c89ce7475608c1df58f35",
+    "o65-word-rotation-true-100000.metrics.json": "220f0ce9f9e91484970a3e17a04d579d032656d9f24e40743e2994887f3e1a03",
+    "context-false-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "o65-accumulator-forwarding-true-100000.placement.json": "21be4c7ce5bb6c376aa8c8fdd26a476fe0a9d0618566e55989a7b7fc157dad71",
+    "empty-edge-traffic-true-true.json": "8ef40dcf13ae2a58eb063cec68bfc6cfc24576d49f6d04901cdd7a8b1b708f50",
+    "context-true-d8929097958ba814.bridge.bin": "b09b2feac1025fe5069b0dc1b494ee87a8d2e3b18eaa2d56069cb8f2fb3ed85b",
+    "o65-word-rotation-false-100000.o65": "f10a93fb9e035fa6c7d9b6ed06f2123e8b49edc4fbb74d35781de81d4ba4a105",
+    "context-true-b61b8a7a03265980.bridge.bin": "736b18b8a958ea81b17d960a2f875e845e5adeabb0cd50e3b5e67ea3a3374389",
+    "o65-word-edges-false-100000.metrics.json": "7865f2c04f0dafcd74499a4b8db000625ae6a8b0cc7a4b50ac656d5c671208ac",
+    "context-true-40fdbb4768b1f73b.act": "3acf6d2d35c1db3b91a309afee72c6bde57b3e2d86a183f29730b4a082edf791",
+    "o65-imports-true-100000.metrics.json": "284734bc776a803d8f0f957b994026b9b0414fea7ed8ddc0ab22776b882eb166",
+    "accumulator-preemption-false.json": "c659943b8f40f199368f66c3a6160339994ea93a9d36a2411178e0fb39505061",
+    "o65-banks-false-600000.o65": "9cb42978c0fef1ce0a99120ff68980829b67a19cd9fc360cd0f26db1ca6ce876",
+    "context-true-40fdbb4768b1f73b.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-accumulator-forwarding-false-600000.placement.json": "68b69abc607943d04107daf60112f026fb67ba21a4c71bec60da6086a0485b51",
+    "word-return-tail-false-Echo.json": "7121f1d4a137891db3ba29d49e35a797254b27ddcbe1e8fbcc8848ce48ac466a",
+    "word-return-tail-false-FramedLiteral.json": "f9df2094c00dd21a6852b26fced70a23e7d7108e88fa5f15eeccc44b7ae895e2",
+    "comparison-budget-maximum-false.json": "797a7d1e51fb328ddb2ddd35a2113955cb3a43cc01e94851f0360cc3e4605349",
+    "o65-accumulator-forwarding-false-100000.metrics.json": "db8fb5c7df6d9d0077f2d68185dfa4bc2521db19cf04d61e9534d16479042aab",
+    "o65-accumulator-forwarding-false-100000.o65": "329be7c5561412fa48a33a5fd103abe37a3782ca5d1a115f4bfa912f924e788c",
+    "single-word-edges-true-false.json": "64f010a461d41a5540d571bc18ac44d2e6638819e65706cb240ccad9ccff6ab3",
+    "word-edge-o65-true-true-1.json": "2811b6648707f5fc0aa981d1cff3ad511de613382ef3d5a4d2937f45a4f9e8cc",
+    "context-true-b61b8a7a03265980.layout.json": "7f63b009570d30e865b9e1e831e8b047cd951f912b6b106264b246f87d41084e",
+    "comparison-traffic-true.json": "217e29b6eea3f4f38075cabd58a5b3ba5c13d285c7d5e0a4eaee4f15f8f9419b",
+    "o65-guard-false-100000.o65": "7f20eaa9c97bc4b03dee4cf5d9cb4c1f4e1edc743876d4d23828493f807e06db",
+    "o65-word-rotation-true-100000.placement.json": "01b5a0cdb6b2d4fea1f778dd493061d214c84ebe3b140324cd213f3ea2d92a88",
+    "single-word-edges-false-true.json": "186ff45715d2125a0439e95f09886674b9da4306336f7a83f759aab8d2368011",
+    "context-true-a2f9092a87607bae.act": "a01a2874feee81cf35a8c8c3ca64eb24a0f4410f3ed0f700cc5837e4a928d164",
+    "accumulator-forwarding-true.a816.json": "b7b12820fc17dd7dd97a4dc4e3032afe4ce991e8cea34f3074b1ed579847ec83",
+    "o65-interop-true-600000.o65": "74d7f8dd733e9213aed0b4d3b0cce4381108ee2219e72eefd398acbb76756a7f",
+    "word-edge-o65-false-false-0.json": "96aca39fff83fc318b4add2d24c467818e2c2fa999f505ba5572197e229ac105",
+    "context-false-40fdbb4768b1f73b.layout.json": "12f4dde96479e6f7aa128d21ebdca73d67fbb631a947c03e32a8c2033eef8048",
+    "o65-pointers-true-600000.o65": "015ceab7a91e2fd5887526f78c4cbc89e662bc9398939211c4856274d7141c7d"
+  },
+  "benchmark_files": {
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.optimized.actionc.lst": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.raw.actionc.lst": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.optimized.actionc.lst": "e7ebc96119f2e4ad224e983b1ce60c05349beef9c59ebfced677c02ecf9c14c2",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.optimized.vbcc.lst": "7ccc39ea5d269cc58f565fbc8747f516e4f13bdacc40cdcb8ba606d6d4ae8136",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.raw.actionc.lst": "3631e40ccb4bcde3d0a9d846d3afb3bcc6661692235f2d98762340fca481e00c",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.raw.vbcc.lst": "fc3615ab52354e91cad4f842e357c05b74483f245aedfadccd8a01b06f454b1e",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.optimized.actionc.lst": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.raw.actionc.lst": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.optimized.actionc.lst": "07df99dd6306206f5f1a57d6946325fde85b84db06f5fcf27b369121620f2330",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.optimized.vbcc.lst": "a8a9879d093ef16b96c6cc47f32e7663b1e9bddad694a3ab9a917b866f28cf65",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.raw.actionc.lst": "aa1571c60102fda020ea30c5ef0a6a8b6503b9fedaf174a4928812e42363bab3",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.raw.vbcc.lst": "0648bc3815f35ccc8bf42a86ec95c3e0f928f58a0f4edf35ca4338a39e792ed5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.optimized.actionc.lst": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.optimized.vbcc.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.raw.actionc.lst": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.raw.vbcc.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/provenance.json": "c1aad1c7b4adfcb7adc673bf7f71f8af877d20a1043f076d1c9772340bad99f5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/results.csv": "17467c48e61c7a37767b206a2f3212dfa2173a0e2f86a3778c0054354413d8fa",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.optimized.actionc.lst": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.raw.actionc.lst": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.optimized.actionc.lst": "3787a2bc257732a0c1a8dae55f1b62a961e3e90e307266e478cdba3378d247f8",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.raw.actionc.lst": "cb42e64ebf44dd434790493a92618e1767c2a21a6d03760946d1cf236e504652",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/tables.md": "18284d3e4d9f84a71a73a01dfa49c73a6da68f40711c0b4eda4153ee330f3583",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "docs/benchmarks/65816-local-accumulator-forwarding/baseline.json": "35a9cf9ba0a2728d88dc5afd031872ed42c80e9f054fe5f3966bd40024337fe5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/coverage.json": "ca23301aebc92c6a4e514598f00b7356c7ebd46db82f071727ed563f551d9df3",
+    "docs/benchmarks/65816-local-accumulator-forwarding/delta.json": "6a71dabb9ab58dd6fabfd6fc5a6992080d2297a6d76999c570f0693e975c4bd8",
+    "docs/benchmarks/65816-local-accumulator-forwarding/delta.md": "6dacccec43ce29163022897f965e480edf4037af876d2b860fcdb765f5aa7266",
+    "docs/benchmarks/65816-local-accumulator-forwarding/expected-reloads.json": "54b27532afb639eed09a4c53c3d3f01af049219df9a479e85fd26f13d433755a",
+    "docs/benchmarks/65816-local-accumulator-forwarding/expected-sites.json": "c14591f56f29203656c31ca1409f25839f17ace4338441feb72105701843293c"
+  },
+  "comparison_saved_files": {
+    "target/local-accumulator-forwarding-after/manifest.json": "26b01313911969f02ae5c2b8b1982227a31b42947ac530d2d30b8664c5ba228b",
+    "target/local-accumulator-forwarding-after/debug.json": "c748cb59df930f62787c484aab1f669b6b538a1bcd3bfab9c03409dc47d2d194",
+    "target/local-accumulator-forwarding-after/release.json": "c748cb59df930f62787c484aab1f669b6b538a1bcd3bfab9c03409dc47d2d194"
+  },
+  "limits": "Corrected pinned VM execution; board and Exec816 loader integration remain separate. No NIR/semantic/allocator change, so no full root suite or NIR sweep."
+}

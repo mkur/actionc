@@ -201,6 +201,67 @@ class DirectWordEdgeCounts(unittest.TestCase):
         self.new[key]['cycles'] -= 1
         with self.assertRaises(AssertionError): self.check(self.new)
 
+class ForwardedWordLoads(unittest.TestCase):
+    def setUp(self):
+        from delta import forwarded_word_load_counts
+        self.parse = forwarded_word_load_counts
+        self.key = ('sum_loop', 'optimized', 'actionc', 3)
+        self.row = dict(case='sum_loop', mode='optimized', compiler='actionc', vector=3, count=40)
+        r = dict.fromkeys(PRESERVED, 0)
+        r.update(compiler='actionc', correct=True, code_bytes=146, cycles=1595,
+                 instructions=389, stack_reads=245, stack_writes=188, dp_reads=0,
+                 dp_writes=0, dp_touched_offsets=[], fused_branches=14,
+                 fused_branch_sites={'1':14}, word_edges=14, edge_words=14,
+                 word_edge_sites={'2':1,'3':13}, direct_word_edges=14,
+                 direct_word_edge_sites={'2':1,'3':13})
+        self.old = {self.key:r}
+        self.new = {self.key:dict(r, code_bytes=140, cycles=1395, instructions=349,
+                                 stack_reads=165, forwarded_word_loads=40,
+                                 forwarded_word_load_sites={'10':14,'11':13,'12':13})}
+        self.counts = self.parse([self.row])
+
+    def check(self, new):
+        check_records(self.old, new, {}, forwarded=self.counts)
+
+    def test_exact_read_instruction_cycle_accounting_and_unchanged_stores(self):
+        self.check(self.new)
+        with self.assertRaises(AssertionError): check_records(self.old,self.new,{})
+        for field in ['stack_reads','stack_writes','instructions','cycles','forwarded_word_loads',
+                      'dp_reads','dp_writes','fused_branches','word_edges','edge_words','direct_word_edges']:
+            for change in [-1,1]:
+                modified = copy.deepcopy(self.new)
+                modified[self.key][field] += change
+                with self.subTest(field=field,change=change), self.assertRaises(AssertionError): self.check(modified)
+        for field in ['fused_branch_sites','word_edge_sites','direct_word_edge_sites','forwarded_word_load_sites']:
+            modified=copy.deepcopy(self.new);modified[self.key][field]['extra']=1
+            with self.subTest(field=field),self.assertRaises(AssertionError): self.check(modified)
+        for field in PRESERVED:
+            modified=copy.deepcopy(self.new);modified[self.key][field]='changed'
+            with self.subTest(field=field),self.assertRaises(AssertionError): self.check(modified)
+
+    def test_zero_execution_vector_may_share_a_shrunk_body_but_not_changed_traffic(self):
+        key=('recursive_sum','raw','actionc',0)
+        self.old[key]=copy.deepcopy(self.old[self.key])
+        self.new[key]=dict(self.old[key],code_bytes=142,forwarded_word_loads=0,forwarded_word_load_sites={})
+        self.check(self.new)
+        for field in ['cycles','instructions','stack_reads','stack_writes']:
+            modified=copy.deepcopy(self.new);modified[key][field]-=1
+            with self.subTest(field=field),self.assertRaises(AssertionError): self.check(modified)
+
+    def test_invalid_missing_duplicate_external_and_mixed_accounting_fail(self):
+        for fields in [dict(count=0),dict(count=-1),dict(count=True),dict(count=1.0),dict(compiler='vbcc'),dict(mode='bad'),dict(vector=-1)]:
+            with self.subTest(fields=fields),self.assertRaises(AssertionError):self.parse([dict(self.row,**fields)])
+        with self.assertRaises(AssertionError):self.parse([self.row,self.row])
+        with self.assertRaises(AssertionError):check_records(self.old,self.new,{},forwarded={})
+        with self.assertRaises(AssertionError):check_records(self.old,self.new,{},forwarded=self.parse([dict(self.row,vector=99)]))
+        for extra in [dict(fused={}),dict(direct={})]:
+            with self.assertRaises(AssertionError):check_records(self.old,self.new,{},forwarded=self.counts,**extra)
+        with self.assertRaises(AssertionError):check_records(self.old,self.new,{self.key:1},forwarded=self.counts)
+        key=('unlink','optimized','vbcc',0)
+        self.old[key]=dict(self.old[self.key],compiler='vbcc',correct=False)
+        self.new[key]=copy.deepcopy(self.old[key]);self.check(self.new)
+        self.new[key]['cycles']-=1
+        with self.assertRaises(AssertionError):self.check(self.new)
 
 if __name__ == '__main__':
     unittest.main()

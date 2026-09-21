@@ -56,9 +56,13 @@ def direct_word_edge_counts(rows):
     return positive_counts(rows, 'count')
 
 
-def check_records(old, new, expected, fused=None, direct=None):
-    assert sum([bool(expected), fused is not None, direct is not None]) <= 1, 'accounting options are mutually exclusive'
-    counts = fused or direct or {}
+def forwarded_word_load_counts(rows):
+    return positive_counts(rows, "count")
+
+
+def check_records(old, new, expected, fused=None, direct=None, forwarded=None):
+    assert sum([bool(expected), fused is not None, direct is not None, forwarded is not None]) <= 1, 'accounting options are mutually exclusive'
+    counts = fused or direct or forwarded or {}
     assert counts.keys() <= new.keys(), ('unused execution counts', counts.keys() - new.keys())
     assert old.keys() == new.keys()
     assert expected.keys() <= new.keys(), ('unused stack-read deltas', expected.keys() - new.keys())
@@ -68,7 +72,14 @@ def check_records(old, new, expected, fused=None, direct=None):
             if field != 'stack_writes':
                 assert before[field] == after[field], (key, field, before[field], after[field])
         for field in ('stack_reads', 'stack_writes'):
-            allowed = -2*counts.get(key, 0) if direct is not None else (-counts.get(key, 0) if fused is not None else (expected.get(key, 0) if field == 'stack_reads' else 0))
+            if forwarded is not None:
+                allowed = -2*counts.get(key, 0) if field == 'stack_reads' else 0
+            elif direct is not None:
+                allowed = -2*counts.get(key, 0)
+            elif fused is not None:
+                allowed = -counts.get(key, 0)
+            else:
+                allowed = expected.get(key, 0) if field == 'stack_reads' else 0
             assert type(before[field]) is int and type(after[field]) is int, (key, field)
             difference = after[field] - before[field]
             assert difference == allowed, (key, field, difference, allowed)
@@ -89,6 +100,18 @@ def check_records(old, new, expected, fused=None, direct=None):
                 assert before[field] - after[field] == cost*count, (key, field)
             if count == 0:
                 assert {k: v for k, v in after.items() if k not in ('direct_word_edges', 'direct_word_edge_sites')} == before, key
+        if forwarded is not None and before['compiler'] == 'actionc':
+            count = counts.get(key, 0)
+            assert set(after) == set(before) | {'forwarded_word_loads', 'forwarded_word_load_sites'}, key
+            for field in ('dp_reads', 'dp_writes', 'dp_touched_offsets', 'fused_branches', 'word_edges', 'edge_words', 'direct_word_edges'):
+                assert before[field] == after[field], (key, field)
+            for field in ('fused_branch_sites', 'word_edge_sites', 'direct_word_edge_sites'):
+                assert sorted(before[field].values()) == sorted(after[field].values()), (key, field)
+            assert after['forwarded_word_loads'] == count, (key, 'executed forwarding')
+            assert all(type(v) is int and v > 0 for v in after['forwarded_word_load_sites'].values())
+            assert sum(after['forwarded_word_load_sites'].values()) == count, (key, 'forwarding sites')
+            for field, cost in [('instructions', 1), ('cycles', 5)]:
+                assert before[field] - after[field] == cost*count, (key, field)
         if before['compiler'] == 'vbcc':
             assert before == after, key
         else:
@@ -110,6 +133,8 @@ def main():
                         help='JSON list of exact, independently predicted Action stack-read increases; default requires equality')
     accounting.add_argument('--direct-word-edge-counts', type=Path,
                             help='JSON list of predicted direct word copies, each removing two stack byte reads and writes')
+    accounting.add_argument('--forwarded-word-load-counts', type=Path,
+                            help='JSON list of predicted omitted word loads; stores remain unchanged')
     args = parser.parse_args()
     old_manifest, old = load(args.before)
     new_manifest, new = load(args.after)
@@ -122,7 +147,9 @@ def main():
     fused = fused_branch_counts(fusion_rows) if fusion_rows is not None else None
     direct_rows = json.loads(args.direct_word_edge_counts.read_text()) if args.direct_word_edge_counts else None
     direct = direct_word_edge_counts(direct_rows) if direct_rows is not None else None
-    check_records(old, new, expected, fused, direct)
+    forwarding_rows = json.loads(args.forwarded_word_load_counts.read_text()) if args.forwarded_word_load_counts else None
+    forwarded = forwarded_word_load_counts(forwarding_rows) if forwarding_rows is not None else None
+    check_records(old, new, expected, fused, direct, forwarded)
     preserved = PRESERVED if expected else (*PRESERVED, 'stack_reads')
     if fused is not None or direct is not None:
         preserved = tuple(f for f in PRESERVED if f != 'stack_writes') + ('dp_reads', 'dp_writes', 'dp_touched_offsets')
@@ -138,7 +165,12 @@ def main():
              'storage maps, and stack-check costs are unchanged for every vector.', '',
              'DP traffic counts byte reads plus writes; cycles are independent VM',
              'cycles. Both host build modes produce identical measurements.', '']
-    if direct is not None:
+    if forwarded is not None:
+        preserved = tuple(f for f in PRESERVED) + ('dp_reads', 'dp_writes', 'dp_touched_offsets')
+        lines.extend(['Each verified forwarded word removes one instruction, five cycles and',
+                      'two private stack-byte reads. Every store, DP access and frame remains.', '',
+                      f'{sum(forwarded.values())} reload executions match independent predictions per incoming I state.', ''])
+    elif direct is not None:
         lines.extend(['Each verified direct word copy removes two instructions, ten cycles,',
                       'two stack byte reads and two writes. Other traffic is unchanged.', '',
                       '| Case | Mode | Vector | Direct copies | Stack reads before / after | Stack writes before / after |',
@@ -196,6 +228,10 @@ def main():
         summary['expected_direct_word_edge_counts'] = direct_rows
         summary['expected_direct_word_edge_counts_sha256'] = hashlib.sha256(args.direct_word_edge_counts.read_bytes()).hexdigest()
         summary['executed_direct_copies_match_predictions'] = True
+    if args.forwarded_word_load_counts:
+        summary['expected_forwarded_word_load_counts'] = forwarding_rows
+        summary['expected_forwarded_word_load_counts_sha256'] = hashlib.sha256(args.forwarded_word_load_counts.read_bytes()).hexdigest()
+        summary['executed_forwarding_matches_predictions'] = True
     if args.stack_read_deltas:
         summary['expected_stack_read_deltas_sha256'] = hashlib.sha256(args.stack_read_deltas.read_bytes()).hexdigest()
     args.output.mkdir(parents=True, exist_ok=True)

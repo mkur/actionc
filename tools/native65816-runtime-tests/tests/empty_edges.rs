@@ -92,6 +92,7 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
             let p = program(optimize, ordinary);
             let r = p.mir.routines.iter().find(|r| r.name == "Work").unwrap();
             let compiled = p.compile(&layout()).unwrap();
+            let forwarded = forwarding::compiled(&p, &compiled);
             let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
             let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
             let machine = compiled
@@ -134,6 +135,7 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
             for value in [0, 1, 255] {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller(image.entry), mask);
+                    h.bus.forwarded_words = forwarded.clone();
                     h.bus.ram[0x7100] = value;
                     let mut fusions = 0;
                     for _ in 0..10000 {

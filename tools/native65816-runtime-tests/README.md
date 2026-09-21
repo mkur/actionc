@@ -47,6 +47,7 @@ OS, device intercept or host scheduler participates. The earlier
 
 | Target | Tests | Coverage |
 | --- | ---: | --- |
+| `accumulator_forwarding` | 4 | Frozen full-corpus sites, typed resident-word evidence, independent ca65 register/flag/traffic equivalence, all four consumers, volatile traces, LF/CRLF and evidence rejection. |
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
@@ -63,10 +64,10 @@ OS, device intercept or host scheduler participates. The earlier
 | `pointer_preemption` | 2 | Both tasks and IRQ dispatch use the same three-slot leaf; IRQ at 164 raw / 100 optimized task/instruction sites, plus seeded IRQ/NMI. |
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
-| `preemption` | 6 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, both comparison flag outcomes and direct-copy live A in both tasks, and seeded IRQ/NMI schedules. |
+| `preemption` | 7 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, comparison flag outcomes, direct-copy and forwarded live A in both tasks, and seeded IRQ/NMI schedules. |
 | `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
-| `o65` | 11 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, word comparisons, direct/staged edges, multi-bank code and preempted tasks. |
+| `o65` | 12 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, resident comparisons/returns, direct/staged edges, multi-bank code and preempted tasks. |
 
 Both raw and optimized NIR are covered. The original **33 tests passed in debug
 and release** on 2026-09-17. The later `comma_groups` regression, plus the eight
@@ -253,3 +254,20 @@ participates in CPU execution or changes image/o65 formats. Traces require all
 four reserved staging bytes to remain untouched by direct copies. See the
 [results](../../docs/MIR65816_SINGLE_WORD_EDGE_COPIES.md) for measured traffic
 reductions and unchanged ABI, frame maps and guards.
+
+The [local accumulator qualification](../../docs/abi/action65816-accumulator-forwarding-qualification.json)
+passes **84 native tests in debug and release**, with **302 identical artifacts**.
+Run `--test accumulator_forwarding --test compare_branch --test word_returns
+--test preemption --test o65 -- --nocapture` for focused coverage. Resident-word
+decoding uses typed MIR identities, exact homes, nonserialized emission spans
+and final instruction boundaries. It validates the retained producer store and
+adjacent consumer; absent evidence cannot turn a bare CMP or TAY into a match.
+
+The new IRQ probe checks 98 raw / 76 optimized task/PC sites across both domains,
+all four consumer kinds, live carry/compare flags and return teardown, with full
+CPU/frame restoration. General coverage reaches 2,237 raw / 2,077 optimized
+enabled addresses; fused coverage retains 300 / 296 sites, all 222 cyclic-copy
+sites and 24 flag outcomes. Both seeded IRQ/NMI schedules pass. Forty new o65
+executions reach every forwarding site at both placements, retaining exact
+volatile traces. See the [results](../../docs/MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md)
+for exact reload savings with unchanged stores, homes, ABI and guards.

@@ -1,8 +1,10 @@
 # Native 65816 local accumulator forwarding implementation plan
 
-Status: implementation in progress on 2026-09-21 against main `0e8248c`, after direct single-word
-edge copies. This is step 2 of the [code-quality roadmap](MIR65816_CODE_QUALITY_PLAN.md).
-The measurements below are the existing baseline; the reductions are forecasts.
+Status: completed on 2026-09-21 against main `0e8248c`, after direct single-word
+edge copies. Baseline/probes: `5c8fe62`; checked selection: `d946c33`. See the
+[results and qualification](MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md).
+This is step 2 of the [code-quality roadmap](MIR65816_CODE_QUALITY_PLAN.md).
+The original baseline and forecasts below are retained; all forecasts matched.
 
 ## Objective and first-slice boundary
 
@@ -303,7 +305,7 @@ cargo test --test mir65816_abi --test mir65816_contract \
 
 Use the [qualification runner](../tools/native65816-runtime-tests/README.md),
 never bare cargo against the native runtime workspace. The first target below
-is to be added by this plan:
+contains the dedicated forwarding probes:
 
 ```sh
 python3 tools/native65816-runtime-tests/qualify.py \

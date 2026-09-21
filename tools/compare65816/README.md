@@ -250,3 +250,42 @@ identical; vasm's listing source-header path changes with the build directory an
 is compared after replacing that exact header. Both host commands retain the
 known vbcc optimized unlink failure. Reconstruct missing baseline artifacts using
 an isolated `192b6d8` checkout and its runner.
+
+The [local accumulator-forwarding results](../../docs/MIR65816_LOCAL_ACCUMULATOR_FORWARDING.md)
+use the direct-edge `after` snapshot as their immutable baseline. Reproduce:
+
+```sh
+cargo build --release --bin actionc-65816
+python3 tools/compare65816/build.py --output target/local-accumulator-forwarding-after --verify-crlf
+# Execute both host comparison commands above, using local-accumulator-forwarding-after paths.
+python3 tools/compare65816/report.py \
+  --input target/local-accumulator-forwarding-after \
+  --output docs/benchmarks/65816-local-accumulator-forwarding/after
+python3 tools/compare65816/delta.py \
+  target/single-word-edges-after target/local-accumulator-forwarding-after \
+  --output docs/benchmarks/65816-local-accumulator-forwarding \
+  --title 'Native local accumulator forwarding: before / after' \
+  --forwarded-word-load-counts docs/benchmarks/65816-local-accumulator-forwarding/expected-reloads.json
+python3 tools/compare65816/check_accumulator_forwarding.py \
+  target/single-word-edges-after target/local-accumulator-forwarding-after \
+  --counts docs/benchmarks/65816-local-accumulator-forwarding/expected-reloads.json \
+  --sites docs/benchmarks/65816-local-accumulator-forwarding/expected-sites.json \
+  --baseline docs/benchmarks/65816-local-accumulator-forwarding/baseline.json \
+  --output docs/benchmarks/65816-local-accumulator-forwarding/coverage.json
+python3 -m unittest discover -s tools/compare65816 -p 'test_*.py'
+```
+
+The mutually exclusive `--forwarded-word-load-counts` mode requires exactly one
+instruction, five cycles and two private stack-byte reads removed per predicted
+execution. All stores, DP accesses, frames and guards remain equal. Action-only
+`forwarded_word_loads` and `forwarded_word_load_sites` count the first reached
+consumer, authenticated by typed identities, retained stores and final bytes.
+Fusion and edge counts remain checked despite moved PCs.
+
+The instruction checker requires only the 76 declared LDA removals and required
+JSL/JML fixups in all 28 Action streams. Every selected site must be reached;
+unselected builds and vbcc artifacts remain identical, apart from the exact
+vasm source-header path. All 112 positive vector counts and representative
+forecasts must match. Both host commands retain the known optimized vbcc unlink
+failure. Reconstruct missing baseline artifacts with compiler and runner from
+an isolated `0e8248c` checkout; preserve historical snapshots.

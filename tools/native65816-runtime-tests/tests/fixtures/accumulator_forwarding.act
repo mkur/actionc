@@ -1,0 +1,11 @@
+
+CARD a,b,result,maximum,stored
+VOLATILE CARD io=$D000
+CARD before,after
+CARD FUNC Chain(CARD x) RETURN(x+1+2-3+65535)
+CARD FUNC PickMaximum(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y)
+PROC Store(CARD x) stored=x-1 RETURN
+PROC Main()
+ result=Chain(a) maximum=PickMaximum(a,b) Store(a)
+ before=io io=before+1 after=io
+RETURN

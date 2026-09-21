@@ -898,3 +898,165 @@ fn direct_word_edges_preserve_live_a_and_frame_at_every_transfer_boundary() {
         }
     }
 }
+
+fn forwarding_source(source: &str) -> String {
+    source
+        .replace("\r\n", "\n")
+        .replace(
+            "BYTE POINTER other,buffer]",
+            "BYTE POINTER other,buffer CARD fadd,fsub,flow,fhigh,fzero]",
+        )
+        .replace(
+            "CARD FUNC Read",
+            r#"
+CARD FUNC ForwardAdd(CARD x) RETURN(x+1+2)
+CARD FUNC ForwardSub(CARD x) x=x-1 RETURN(x)
+CARD FUNC ForwardGt(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y)
+CARD FUNC Read"#,
+        )
+        .replace(
+            "  work.done=1",
+            r#"
+  work.fadd=ForwardAdd(work.seed)
+  work.fsub=ForwardSub(0)
+  work.flow=ForwardGt(work.seed,work.seed+1)
+  work.fhigh=ForwardGt(work.seed+1,work.seed)
+  work.fzero=ForwardAdd(65533)
+  work.done=1"#,
+        )
+}
+fn check_forwarding_results(h: &ContextHarness) {
+    check(h);
+    for (job, seed) in [(0x7100, 13u32), (0x7120, 41)] {
+        for (offset, value) in [
+            (12, seed + 3),
+            (14, 65535),
+            (16, seed + 1),
+            (18, seed + 1),
+            (20, 0),
+        ] {
+            assert_eq!(
+                h.bus.value(job + offset, 2),
+                value,
+                "forwarded task field {offset}"
+            );
+        }
+    }
+}
+#[test]
+fn forwarded_values_flags_and_return_teardown_survive_both_task_irq_domains() {
+    let original = fixture("preemption.act");
+    let source = forwarding_source(&original);
+    assert_eq!(source, forwarding_source(&original.replace('\n', "\r\n")));
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let selected: BTreeSet<_> = h
+            .image
+            .routines
+            .iter()
+            .filter(|r| r.name.to_ascii_uppercase().contains("FORWARD"))
+            .map(|r| r.id)
+            .collect();
+        let sites: Vec<_> = h
+            .bus
+            .forwarded_words
+            .values()
+            .filter(|s| selected.contains(&s.routine.0))
+            .cloned()
+            .collect();
+        assert!(sites.iter().all(|s| s.forwarded()));
+        let mut boundaries = BTreeSet::new();
+        for s in &sites {
+            let bytes = &h.bus.ram[s.range.start as usize..s.range.end as usize];
+            let ins = forwarding::instructions(bytes);
+            boundaries.insert(s.store);
+            let count = if s.kind == forwarding::Kind::Return {
+                8
+            } else if s.kind == forwarding::Kind::Store {
+                2
+            } else {
+                3
+            };
+            boundaries.extend(
+                ins.range((s.consumer - s.range.start) as usize..)
+                    .take(count)
+                    .map(|(&at, _)| s.range.start + at as u32),
+            );
+        }
+        let targets: BTreeSet<_> = [0x2000, 0x2100]
+            .into_iter()
+            .flat_map(|d| boundaries.iter().map(move |&pc| (d, pc)))
+            .collect();
+        let mut seen = BTreeSet::new();
+        let mut forms = BTreeSet::new();
+        let mut restored = BTreeSet::new();
+        let mut nz = BTreeSet::new();
+        let mut truth = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 0x34 == 0 && [0x2000, 0x2100].contains(&r.d)
+            {
+                if let Some(s) = sites.iter().find(|s| s.consumer == pc) {
+                    assert!(s.valid(&h.bus));
+                    assert_eq!(
+                        u32::from(r.a),
+                        h.bus.value(u32::from(r.s) + u32::from(s.slot), 2)
+                    );
+                    forms.insert((r.d, s.kind));
+                    nz.insert(r.p & 0x82);
+                }
+                if let Some(s) = sites
+                    .iter()
+                    .find(|s| s.kind == forwarding::Kind::Compare && s.consumer + 2 == pc)
+                {
+                    let _ = s;
+                    truth.insert((r.d, r.p & 1 != 0));
+                }
+                if targets.contains(&(r.d, pc)) && seen.insert((r.d, pc)) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    let after = run_checked_fused_irq(&mut h);
+                    restored.insert((r.d, pc, after.0, after.1));
+                    check_forwarding_results(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_forwarding_results(&h);
+        assert_eq!(seen, targets);
+        assert_eq!(restored.len(), seen.len());
+        for d in [0x2000, 0x2100] {
+            for k in [
+                forwarding::Kind::Arithmetic,
+                forwarding::Kind::Compare,
+                forwarding::Kind::Store,
+                forwarding::Kind::Return,
+            ] {
+                assert!(forms.contains(&(d, k)));
+            }
+            for b in [false, true] {
+                assert!(truth.contains(&(d, b)));
+            }
+        }
+        assert_eq!(nz, BTreeSet::from([0, 2, 0x80]));
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(std::path::Path::new(&directory).join(format!("accumulator-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"sites":seen,"restorations":restored,"forms":forms.iter().map(|(d,k)|(d,format!("{k:?}"))).collect::<Vec<_>>(),"nz":nz,"cmp_carry_outcomes":truth})).unwrap()).unwrap();
+        }
+        eprintln!(
+            "accumulator forwarding optimize={optimize}: {} IRQ sites, {} forms",
+            seen.len(),
+            forms.len()
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = machine_source(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check_forwarding_results(&h);
+        }
+    }
+}

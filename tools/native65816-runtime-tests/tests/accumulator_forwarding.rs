@@ -166,28 +166,18 @@ fn independent_ca65_reload_removal_preserves_full_value_flags_and_traffic() {
     }
 }
 
-const SOURCE: &str = r#"
-CARD a,b,result,maximum,stored
-VOLATILE CARD io=$D000
-CARD before,after
-CARD FUNC Chain(CARD x) RETURN(x+1+2-3+65535)
-CARD FUNC PickMaximum(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y)
-PROC Store(CARD x) stored=x-1 RETURN
-PROC Main()
- result=Chain(a) maximum=PickMaximum(a,b) Store(a)
- before=io io=before+1 after=io
-RETURN
-"#;
+const SOURCE: &str = include_str!("fixtures/accumulator_forwarding.act");
 #[test]
 fn generated_private_words_preserve_results_flags_stores_and_volatile_order() {
+    let source = SOURCE.replace("\r\n", "\n");
     for optimize in [false, true] {
-        let p = prepare(SOURCE, optimize);
+        let p = prepare(&source, optimize);
         let c = p.compile(&layout()).unwrap();
         let image =
             actionc::mir65816::image::Image::from_json(&c.image.to_json().unwrap()).unwrap();
         assert_eq!(
             image.to_json().unwrap(),
-            compile(&SOURCE.replace('\n', "\r\n"), optimize)
+            compile(&source.replace('\n', "\r\n"), optimize)
                 .to_json()
                 .unwrap()
         );
@@ -279,6 +269,12 @@ fn generated_private_words_preserve_results_flags_stores_and_volatile_order() {
             }
         }
         assert_eq!(seen, sites.keys().copied().collect());
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            let stem = Path::new(&directory).join(format!("accumulator-forwarding-{optimize}"));
+            std::fs::write(stem.with_extension("act"), &source).unwrap();
+            std::fs::write(stem.with_extension("a816.json"), image.to_json().unwrap()).unwrap();
+            std::fs::write(stem.with_extension("metrics.json"), serde_json::to_vec_pretty(&serde_json::json!({"sites":sites.values().map(|s|serde_json::json!({"start":s.start,"producer":s.producer,"store":s.store,"slot":s.slot,"kind":format!("{:?}",s.kind)})).collect::<Vec<_>>(),"all_sites_reached":seen,"word_pairs":5,"incoming_masks":[0,4]})).unwrap()).unwrap();
+        }
     }
 }
 
