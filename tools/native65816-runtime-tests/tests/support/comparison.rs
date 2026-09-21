@@ -126,11 +126,16 @@ pub struct FusedWindow {
     pub predicate: u8,
     pub edges: [Vec<u32>; 2], // false / true instruction boundaries
     pub targets: [u32; 2],
+    pub short: bool,
 }
 impl FusedWindow {
     pub fn addresses(&self) -> Vec<u32> {
         [
-            vec![self.load, self.cmp, self.branch, self.branch + 2],
+            if self.short {
+                vec![self.load, self.cmp, self.branch]
+            } else {
+                vec![self.load, self.cmp, self.branch, self.branch + 2]
+            },
             self.edges[0].clone(),
             self.edges[1].clone(),
         ]
@@ -189,15 +194,30 @@ pub fn fused_in_range(
     };
     let right = operand(false)?;
     let branch = at;
-    if branch + 6 > end {
+    if branch + 2 > end {
         return None;
     }
-    let code = &bus.ram[branch as usize..(branch + 6) as usize];
-    if !matches!(code[0], 0x90 | 0xb0 | 0xd0 | 0xf0) || code[1..3] != [4, 0x5c] {
+    let opcode = bus.ram[branch as usize];
+    if !matches!(opcode, 0x90 | 0xb0 | 0xd0 | 0xf0) {
         return None;
     }
-    let yes = bus.value(branch + 3, 3);
-    let no = branch + 6;
+    let short = bus
+        .forwarded_words
+        .dispatches
+        .iter()
+        .find(|s| s.at == branch && s.range == range && s.short);
+    let (yes, no, predicate) = if let Some(s) = short {
+        let target = i64::from(branch) + 2 + i64::from(bus.ram[branch as usize + 1] as i8);
+        if opcode != s.predicate || target != i64::from(s.target) || !range.contains(&s.target) {
+            return None;
+        }
+        (s.target, branch + 2, opcode)
+    } else {
+        if branch + 6 > end || bus.ram[branch as usize + 1..branch as usize + 3] != [4, 0x5c] {
+            return None;
+        }
+        (bus.value(branch + 3, 3), branch + 6, opcode ^ 0x20)
+    };
     let edge = |mut pc: u32| -> Option<(Vec<u32>, u32, u32)> {
         if let Some(w) = super::word_edge::decode(bus, pc, range.clone()) {
             return Some((w.sites, w.target, w.end));
@@ -258,9 +278,10 @@ pub fn fused_in_range(
         no,
         yes,
         sources: [left, right],
-        predicate: code[0] ^ 0x20,
+        predicate,
         edges: [false_sites, true_sites],
         targets: [false_target, true_target],
+        short: short.is_some(),
     })
 }
 

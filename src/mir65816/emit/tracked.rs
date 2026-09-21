@@ -3,7 +3,7 @@
 use super::{BlockId, Slot, TempId, state::*};
 #[path = "code.rs"]
 mod encoding;
-pub use encoding::{Code, Fixup, Label, MirTransfer, Target};
+pub use encoding::{Code, ConditionalBranch, Fixup, Label, MirTransfer, Target};
 use std::collections::{BTreeMap, BTreeSet};
 
 macro_rules! instruction_set {
@@ -565,6 +565,16 @@ impl TrackedEmitter65816 {
         self.code.reference(0x5c, Target::Label(label), 0, None);
         self.observe();
     }
+    pub fn dispatch(&mut self, op: Branch, label: Label) {
+        let offset = self.position();
+        self.branch(op, label);
+        self.code.conditional_branches.push(ConditionalBranch {
+            offset,
+            predicate: op.opcode(),
+            target: label,
+            short: false,
+        });
+    }
     pub fn push_return(&mut self, label: Label) {
         self.live();
         assert_eq!(self.state.env.pushes, 1);
@@ -594,6 +604,7 @@ impl TrackedEmitter65816 {
         self.observe_event(Event::Instruction);
     }
     fn observe_event(&mut self, _event: Event) {
+        self.code.boundaries.insert(self.position());
         #[cfg(feature = "native65816-state-proof")]
         if let Some(trace) = self.trace.as_mut() {
             let mut snapshot = super::proof::Snapshot::new(self.code.bytes.len(), &self.state);

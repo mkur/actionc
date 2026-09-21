@@ -2,6 +2,7 @@
 //! storage or a verified per-domain pointer home; scratch is dead at calls.
 mod allocation;
 mod liveness;
+pub(super) mod layout;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod select;
@@ -10,7 +11,7 @@ mod tracked;
 
 use super::*;
 pub use allocation::{AllocatedFrame, Location, Slot};
-pub use tracked::{Code, Fixup, Label, MirTransfer, Target};
+pub use tracked::{Code, ConditionalBranch, Fixup, Label, MirTransfer, Target};
 
 #[derive(Debug, Clone)]
 pub struct MachineRoutine {

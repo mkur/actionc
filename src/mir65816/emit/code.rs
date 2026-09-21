@@ -1,7 +1,7 @@
 //! Small encoder with typed symbolic fixups. Instruction encodings follow WDC
 //! W65C816S tables 5-4/5-5; no assembler or emulator is used by the compiler.
 use super::super::super::{BlockId, Mir65816DataId, RoutineId, RuntimeSymbolId};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Label(pub u32);
@@ -33,6 +33,14 @@ pub struct MirTransfer {
     pub fallthrough: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConditionalBranch {
+    pub offset: usize,
+    pub predicate: u8,
+    pub target: Label,
+    pub short: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Code {
     pub bytes: Vec<u8>,
@@ -44,6 +52,9 @@ pub struct Code {
     /// terminator) to emitted range. A fused final compare includes its edges.
     pub mir_spans: BTreeMap<(BlockId, usize), std::ops::Range<usize>>,
     pub mir_transfers: Vec<MirTransfer>,
+    pub conditional_branches: Vec<ConditionalBranch>,
+    /// Boundaries of typed emissions. Compound dispatch is indivisible here.
+    pub(in super::super) boundaries: BTreeSet<usize>,
     next_label: u32,
     #[cfg(feature = "native65816-state-proof")]
     pub(in super::super) state_trace: Vec<super::super::proof::Snapshot>,

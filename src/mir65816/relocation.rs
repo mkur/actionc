@@ -39,6 +39,11 @@ pub fn collect(
             return Err("duplicate machine routine".into());
         }
         let ranges = sites.entry(owner).or_default();
+        emit::layout::validate_branches(&r.code, None)?;
+        for s in r.code.conditional_branches.iter().filter(|s| s.short) {
+            let off = u32::try_from(s.offset + 1).map_err(|_| "branch offset overflow")?;
+            ranges.push((off, off.checked_add(1).ok_or("branch offset overflow")?));
+        }
         for &(offset, _) in &r.code.return_fixups {
             let off = u32::try_from(offset).map_err(|_| "PER offset overflow")?;
             ranges.push((off, off.checked_add(2).ok_or("PER offset overflow")?));
@@ -149,6 +154,7 @@ pub fn collect(
 }
 
 pub(crate) fn routine_bytes(r: &emit::MachineRoutine, base: u32) -> Result<Vec<u8>, String> {
+    emit::layout::validate_branches(&r.code, Some(base))?;
     let mut bytes = r.code.bytes.clone();
     for &(offset, continuation) in &r.code.return_fixups {
         let resume = *r

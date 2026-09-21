@@ -210,7 +210,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
                 b.value_byte(condition, 0)?;
                 // Mode restoration does not change N/Z.
                 b.code.a16();
-                b.code.branch(Branch::NotEqual, yes); // BNE
+                b.code.dispatch(Branch::NotEqual, yes); // BNE
                 b.edge(else_edge)?;
                 b.code.mark(yes);
                 b.edge_last(then_edge)?;
@@ -235,7 +235,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,
-        code: b.code.finish(),
+        code: super::layout::finalize(b.code.finish(), false)?,
     })
 }
 
@@ -446,14 +446,18 @@ impl Builder<'_> {
             predicate,
         }))
     }
-    fn branch_on_word(&mut self, condition: &WordCondition, yes: Label) {
+    fn branch_on_word(&mut self, condition: &WordCondition, yes: Label, dispatch: bool) {
         self.code.a16();
         self.load_checked_word(condition.left, condition.left_temp);
         match condition.right {
             WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
             WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
         }
-        self.code.branch(condition.predicate, yes); // Consume C/Z immediately.
+        if dispatch {
+            self.code.dispatch(condition.predicate, yes);
+        } else {
+            self.code.branch(condition.predicate, yes);
+        } // Consume C/Z immediately.
     }
     fn compare_branch(
         &mut self,
@@ -488,7 +492,7 @@ impl Builder<'_> {
             return Ok(false);
         };
         let yes = self.code.label();
-        self.branch_on_word(&condition, yes);
+        self.branch_on_word(&condition, yes, true);
         // Each edge still stages parallel arguments before writing destinations.
         self.edge(else_edge)?;
         self.code.mark(yes);
@@ -510,7 +514,7 @@ impl Builder<'_> {
         };
         let yes = self.code.label();
         let done = self.code.label();
-        self.branch_on_word(&condition, yes);
+        self.branch_on_word(&condition, yes, false);
         self.code.a8();
         self.code.byte(ByteOp::LdaImm, 0);
         self.code.jump(done);

@@ -17,6 +17,94 @@ pub struct Transfer {
 }
 pub type Index = Vec<Transfer>;
 
+#[derive(Clone, Debug)]
+pub struct Dispatch {
+    pub routine: actionc::nir::RoutineId,
+    pub range: std::ops::Range<u32>,
+    pub at: u32,
+    pub target: u32,
+    pub predicate: u8,
+    pub short: bool,
+}
+
+pub fn dispatches(
+    p: &Mir65816Program,
+    machine: &MachineProgram,
+    address: impl Fn(actionc::nir::RoutineId) -> u32,
+) -> Vec<Dispatch> {
+    let mut out = vec![];
+    for m in &machine.routines {
+        let r = p.routines.iter().find(|r| r.id == m.id).unwrap();
+        let base = address(r.id);
+        let blocks: Vec<_> = r
+            .blocks
+            .iter()
+            .filter(|b| matches!(b.terminator, Mir65816Terminator::Branch { .. }))
+            .collect();
+        assert_eq!(blocks.len(), m.code.conditional_branches.len());
+        for (b, s) in blocks.iter().zip(&m.code.conditional_branches) {
+            let span = m
+                .code
+                .mir_spans
+                .get(&(b.id, b.ops.len()))
+                .unwrap_or_else(|| &m.code.mir_spans[&(b.id, b.ops.len() - 1)]);
+            assert!(span.contains(&s.offset));
+            let target = m.code.labels[&s.target];
+            if s.short {
+                assert_eq!(m.code.bytes[s.offset], s.predicate);
+                assert_eq!(
+                    s.offset as i64 + 2 + i64::from(m.code.bytes[s.offset + 1] as i8),
+                    target as i64
+                );
+            } else {
+                assert_eq!(
+                    &m.code.bytes[s.offset..s.offset + 3],
+                    &[s.predicate ^ 0x20, 4, 0x5c]
+                );
+                assert!(
+                    m.code
+                        .fixups
+                        .iter()
+                        .any(|f| f.offset == s.offset + 3 && f.target == Target::Label(s.target))
+                );
+            }
+            out.push(Dispatch {
+                routine: r.id,
+                range: base..base + m.code.bytes.len() as u32,
+                at: base + s.offset as u32,
+                target: base + target as u32,
+                predicate: s.predicate,
+                short: s.short,
+            });
+        }
+    }
+    out
+}
+
+pub fn relocated_dispatches(
+    templates: &[Dispatch],
+    image: &actionc::mir65816::o65::RelocatedImage,
+) -> Vec<Dispatch> {
+    templates
+        .iter()
+        .map(|s| {
+            let r = image
+                .profile()
+                .routines
+                .iter()
+                .find(|r| r.id == s.routine.0)
+                .unwrap();
+            let base = image.routine_address(r);
+            Dispatch {
+                range: base..base + s.range.end - s.range.start,
+                at: base + s.at - s.range.start,
+                target: base + s.target - s.range.start,
+                ..s.clone()
+            }
+        })
+        .collect()
+}
+
 pub fn index(
     p: &Mir65816Program,
     machine: &MachineProgram,
@@ -186,29 +274,22 @@ pub fn inventory(p: &Mir65816Program, machine: &MachineProgram, image: &Image) -
                     .get(&(b.id, b.ops.len()))
                     .unwrap_or_else(|| &m.code.mir_spans[&(b.id, b.ops.len() - 1)]);
                 let mut found = 0;
-                for f in &m.code.fixups {
-                    if f.offset < 3 {
+                for branch in &m.code.conditional_branches {
+                    let pc = branch.offset;
+                    if !span.contains(&pc) {
                         continue;
                     }
-                    let pc = f.offset - 3;
-                    if !span.contains(&pc) || !matches!(f.target, Target::Label(_)) {
-                        continue;
-                    }
-                    let code = &m.code.bytes[pc..f.offset];
-                    if matches!(code[0], 0x10 | 0x30 | 0x90 | 0xb0 | 0xd0 | 0xf0)
-                        && code[1..] == [4, 0x5c]
-                    {
-                        let Target::Label(label) = f.target else {
-                            unreachable!()
-                        };
-                        let target = m.code.labels[&label];
-                        // The candidate's own removal also moves a forward target.
-                        let delta =
-                            target as i64 - if target >= pc + 6 { 4 } else { 0 } - (pc + 2) as i64;
-                        out.push(json!({"slice":"3c","routine":r.id.0,"block":b.id.0,"pc":base+pc as u32,"target":base+target as u32,
-                            "predicate":code[0]^0x20,"selected":(-128..=127).contains(&delta)}));
-                        found += 1;
-                    }
+                    let target = m.code.labels[&branch.target];
+                    let delta = target as i64
+                        - if !branch.short && target >= pc + 6 {
+                            4
+                        } else {
+                            0
+                        }
+                        - (pc + 2) as i64;
+                    out.push(json!({"slice":"3c","routine":r.id.0,"block":b.id.0,"pc":base+pc as u32,"target":base+target as u32,
+                        "predicate":branch.predicate,"selected":(-128..=127).contains(&delta)}));
+                    found += 1;
                 }
                 assert_eq!(found, 1, "one MIR conditional dispatch per terminator");
             }

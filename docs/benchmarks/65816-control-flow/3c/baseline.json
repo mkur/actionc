@@ -1,0 +1,495 @@
+{
+  "slice": "3c",
+  "baseline_hashes": {
+    "target/control-3b-after/manifest.json": "8600c73971c27e40105c5d492f99f5e9591fd1c77b04429bdde864acb6454171",
+    "target/control-3b-after/debug.json": "3d3d3eaffdf6e4c6f87f7d3fe921bd2835db13f4027e37ca4264795fa28cf848",
+    "target/control-3b-after/release.json": "3d3d3eaffdf6e4c6f87f7d3fe921bd2835db13f4027e37ca4264795fa28cf848",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/actionc/code.asm": "3ec61e1948ee54bfa21c1bf8b1b1736c82fd7c954499ad7c18fbbeeadd2927f2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/actionc/image.json": "91c3b658db34e56ef1d0483cd59c4064d83c1f0d3a1cd11c32c96bf08925fe8a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/vbcc/code.asm": "a297846384274d4dfbb5970a7a07c1aeb19165577ca7634a5ff1241f561a9866",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/vbcc/code.bin": "4d848382a328c01c5c32d8cd52cd6e88f8175d8efeb45b76747c16610f7dd84d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/vbcc/code.linked.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/vbcc/code.lst": "8ab56695b60bc6c6251e8fbf32a50844b1b150bcb52104879511357d1f5be4e0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/vbcc/code.map": "f71d82fb92cc513936a4105a282332aa1e224f501aa09a81922d92fcda462f9f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/raw/vbcc/code.o": "f00afe74a6c1dc39ff8724f824bd73c8fb0b2023b99c534f73bb18cb984b95f5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/actionc/code.asm": "3ec61e1948ee54bfa21c1bf8b1b1736c82fd7c954499ad7c18fbbeeadd2927f2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/actionc/image.json": "91c3b658db34e56ef1d0483cd59c4064d83c1f0d3a1cd11c32c96bf08925fe8a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/vbcc/code.asm": "64553d8b7db6bf2df55a318374ba720a85b02c3b64597167632d01039f06cfb6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/vbcc/code.bin": "a4f4f862ea3278c06d2a7740d5c5d9d17e86f4d706b241d681e74f3512329b75",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/vbcc/code.linked.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/vbcc/code.lst": "6f4f982881311d6a5485c6585dec2fe410cdb3381aa5fefdd7764bc013d64b27",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/vbcc/code.map": "4d2fc5a63b31f6814e6c959cbf82aa2ecbe63238176beb130ef206225229bfb2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/identity/optimized/vbcc/code.o": "58de7baa82f0562d6806a1c8ed6ca7b47c40233413d2489bfd2e8f96d9a3262c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/actionc/code.asm": "67fe4510ad4eb8321cfb91836a578d18f9aca024a2c945af530da2c7e825b285",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/actionc/image.json": "05210b50bce3f8a479ed1b25fbb3f6d55d95d67bf59499228a2afeab54dc0823",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/vbcc/code.asm": "ab51a266c8fb7b9bcd4962016eece46a177e787f3866a4a89ad95903c4c14e1b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/vbcc/code.bin": "00ebe1dee10fb8c9b8a542043aa4fcd51985f031744da317f9bae1a5b0769681",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/vbcc/code.linked.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/vbcc/code.lst": "61e01ea1215d5d30995f2edc4b69546df372c9823cd8cd6e4f4c7bc9eb3bef78",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/vbcc/code.map": "02079acdc513bb0cd53872ed091c2226b177db520bbbd962f1ff2d905c88b4d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/raw/vbcc/code.o": "b4af13f11a4d0faf1ed4c43ecfa2887a696572ceaa78712da5c013b89a7d783c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/actionc/code.asm": "67fe4510ad4eb8321cfb91836a578d18f9aca024a2c945af530da2c7e825b285",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/actionc/image.json": "05210b50bce3f8a479ed1b25fbb3f6d55d95d67bf59499228a2afeab54dc0823",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/vbcc/code.asm": "6f9f17beb2c8a82d128d97fba69aa3f5bff1b746e6b8d7f51963db330d4ec34d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/vbcc/code.bin": "248c6137d282d4256b06702148b0f16b1755d86b79297967ce6043d05493d5ae",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/vbcc/code.linked.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/vbcc/code.lst": "eb68827bbf363f83a8b0bc0effda0a1882ad70a94f5e27aac3cb78c20878a5a1",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/vbcc/code.map": "696618429f8a90f4cb5b4caecb95a674b1769a92d1ee40674ebe4e2ced4346ad",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/add/optimized/vbcc/code.o": "be4801d2c4b370ed1c0357e1343f0f1c50b79f19f14da4f9218c92a0e991b23f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/actionc/code.asm": "aef0b90d3257f33468d988079bfcb79ed3bf442c69e5e4c7fe666dc17a6a78fc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/actionc/image.json": "814b30849ab69c142d06b2f7affb516a0c14a585b41ae0da6a641b172139c677",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/vbcc/code.asm": "2ac00d44940817d9fa8b062ee61614c16ed3af3344c4bcead521592d170fa34b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/vbcc/code.bin": "8e5f3b755045eeea3db2cd2217dceb832e1675235d2a39c87562a077145388e2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/vbcc/code.linked.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/vbcc/code.lst": "08e77745753e653aee7510fb00f9dd4b0347ea2ac3456f2a0dcc591ec0f7653b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/vbcc/code.map": "02079acdc513bb0cd53872ed091c2226b177db520bbbd962f1ff2d905c88b4d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/raw/vbcc/code.o": "a16d88febe18501bca162bc361a104abd6ee9119c7f4adb106e74cd0752d16ec",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/actionc/code.asm": "aef0b90d3257f33468d988079bfcb79ed3bf442c69e5e4c7fe666dc17a6a78fc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/actionc/image.json": "814b30849ab69c142d06b2f7affb516a0c14a585b41ae0da6a641b172139c677",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/vbcc/code.asm": "32b7f39f0e9d17f71a489448b4f4a230cdf0b065bca473a128f8b771499e5c8c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/vbcc/code.bin": "e47b60296b0e1ae73650a63600d3db82551688fdefffdbb5c986faa30246a9b8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/vbcc/code.linked.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/vbcc/code.lst": "ce8e9905094c61f225974221d02f526b227519302e9ce88bfb601b9ac7ddc334",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/vbcc/code.map": "8cdf4d29346c6f86374f5924c3e55ed3be67606b9f15f718142adc73e458b042",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/subtract/optimized/vbcc/code.o": "f291f9d59066dc2eb5409f9dc43f026499d7d01813d7e2931e3c5b54816b02f8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/actionc/code.asm": "830f57d160fda44816acc1802121880ff0d6566aa715b3cf6817be9026f8bee1",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/actionc/image.json": "b16067d5150a2af33efba1b8a46f83d9090e0959f8b107c21928b4dc3fbf8c17",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/vbcc/code.asm": "834477d5c7803ddbefba04fb46295b926db753ee74f04ac494834adb736cb7dd",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/vbcc/code.bin": "bfa9aba2ca363e74aea492c558e8d94f7cd7f6363398b7b01a5713dc63caa61d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/vbcc/code.linked.lst": "503ffa69ab4bebfa3aa5577001b9093a40e73562eb1ca207de6940c65d90c0d6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/vbcc/code.lst": "93ce56814170b3e58c02fdaf606e6a25e8eaee83e741158dca37877fca206ab3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/vbcc/code.map": "4f1794ecaba8313953177f6261781ae4650d81990aa181912d2cd15acb6bc3c0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/raw/vbcc/code.o": "a3239d213b96d3c4bdeb7201fc79d0db90ecd077bf292d179406d8d8ab241b23",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/actionc/code.asm": "e0eafe419972cae034c0219180dec1539154e63ef325bf7b01403de86dee50b2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/actionc/image.json": "a0fb99ce763524718bac8cc2670e733e8fb0bda00db3591a7ec313f2f16bfc09",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/vbcc/code.asm": "62ae03978c3305facfa35db91fa7ffea64261fceee5f66336a859c68aefcb858",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/vbcc/code.bin": "44f79fd5d50457fdc6578c58c90edbbe07317620f4ca58211a1c7799b6f1bc6c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/vbcc/code.linked.lst": "dfd4aa16f7dbdd88a05b8a8d7c4f34a7236c94c6cdf91b3d794fad0c8ccaa272",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/vbcc/code.lst": "33f5801410eb0483d8d057c202ea5277b9a35b6717245a6c0688308a1a278795",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/vbcc/code.map": "14095abde2edbd390655c9b9bbea275945a533db928cb87199b4909706779b36",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/constant_chain/optimized/vbcc/code.o": "ff879c799379c0fbf08ba22041742a50ae9515342d941b3fc7b499ed70331d0f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/actionc/code.asm": "22acb3443e1d6b391f9df2cd9987eeae0640b7700b4d7da281cbc33abbc266f3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/actionc/image.json": "73a1d77d5575b15f213fc0e2d892fc44bb276ec88286d5d731469c0af2609546",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/vbcc/code.asm": "503909e99fcd3ecd92d375038f52cdf8f28a8ed1fbad38c09d4a30863c497423",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/vbcc/code.bin": "a4ea1acfbdd4fa92b3937109d9883ae747214a337263ed3040dc7158d3cd5971",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/vbcc/code.linked.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/vbcc/code.lst": "c4ad974bb928c921f14398f99e4fa7f5b7d68542a6e9ef434346f7306587a4e8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/vbcc/code.map": "ec940697a14d737eac6cc99083c44445921a163ca70fe4dff7d3b76bf6cef5d6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/raw/vbcc/code.o": "824cfe48da02f24b05f97c4a8c786a5a5b364e06adfb40bc291ea949413db16d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/actionc/code.asm": "22acb3443e1d6b391f9df2cd9987eeae0640b7700b4d7da281cbc33abbc266f3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/actionc/image.json": "73a1d77d5575b15f213fc0e2d892fc44bb276ec88286d5d731469c0af2609546",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/vbcc/code.asm": "5308cb60b56ba7af9355cc5aaad1fb671e9ba40fce353776d7ecbb16ada02ce4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/vbcc/code.bin": "1f15b3d081f841b7f3b9566915c1881ade6c5dd0c0915aea7cdaebcc3ffcee79",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/vbcc/code.linked.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/vbcc/code.lst": "4d70a504286c2b5dfc9862177617e2fa5408beb82cfdfe151ed4f16189ee851d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/vbcc/code.map": "200d4b48dff25fbfc8a8a1c0c70464152a3f2f9fe6ead135a9594c7743a9df73",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/maximum/optimized/vbcc/code.o": "3f14d3b75e73872fac1d9201fc9613241fb22d91abf9a7c75be6a57ba0005ebf",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/actionc/code.asm": "677fd243854df2f6f3895eb2b20c05c034145c8bd5aa18ec549ec82b2d017d38",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/actionc/image.json": "4cf5fa1ac8546552618cf668ed963a6bec45aebc735e51a3457583eec0d1cbea",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/vbcc/code.asm": "f08abbdfa46633135a87cda5a23ca4b5d86d65fc5d775018e4f4ec9c26a19f9e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/vbcc/code.bin": "bbc94ccf8ec3350b8f9c60b51fc22e7ec94b3e047191f7a55d6f93edb6c995dc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/vbcc/code.linked.lst": "5ed77743c481b1550b4329b481e43dd2f19dce10862e0e6acebca590eb1d09d8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/vbcc/code.lst": "12f681ca52b617b213f5cb55080e76c82255c74b8899b3a3b26164578443d69b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/vbcc/code.map": "ad58adbdb62d53b734e8a59412bed31c8bafe9d4f16e426aa332afaa70e317fa",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/raw/vbcc/code.o": "1bedeb58d75295f384ea877e3f0e2c34a01ebbf46904f4f841eb278c1f902fd2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/actionc/code.asm": "004b48402bc67b9534d93b966347d676993929013225ecc4d3e56716ac2bfda9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/actionc/image.json": "83a87fc403c6b5557ede5de968ab7b9d099d09d13710dcfc3428f4b45d4465f6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/vbcc/code.asm": "d7083b602cabb9af93d790d9f042ae6456b30da2a99b7fef5215726cfbbeb12b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/vbcc/code.bin": "201d4bfe689a67effab09efd36f153a602b37ea3b350e0d7d2cf62674fbb6d3e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/vbcc/code.linked.lst": "a95fc43fd5eae9eaf9fd8d1d2aed730ffe07715723a9edb571b278e92ad5b0be",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/vbcc/code.lst": "512fe0346dac2eae55b6fd38b0e04732224bfba7b6c178151ddc71eccc53c6c6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/vbcc/code.map": "af010acb673598f3292051d29abb00cade286b3bd411f365ab4bb8cd2871387d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/wide_shift/optimized/vbcc/code.o": "3699feebd3211bf64a5e687ef8e1a7f4957a28599b9ee67f315cfe02091d5be3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/actionc/code.asm": "577ff7033b8922417dbd6c490e3c8d2deed55c38b7c66e5fb0335902c6ad3719",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/actionc/image.json": "cc2eeb7d3a88c2ed77f842b9a9e311a0d5fd105f83c231ea5a9295a5e15bd810",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/vbcc/code.asm": "75dc820ff34d0a8752d773feb2cc29a2b3a96dba12f3bc604b6dc099257d81bc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/vbcc/code.bin": "4c5d3e9c116f5df2774f031bc8a76f88632585b939a0a452f519cf9c65c14cfc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/vbcc/code.linked.lst": "0648bc3815f35ccc8bf42a86ec95c3e0f928f58a0f4edf35ca4338a39e792ed5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/vbcc/code.lst": "544fcbdd6cd4e4e835693c299352137d345e88c0f56a413fd2b6eefa030af9f8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/vbcc/code.map": "7b6555201a90529ee089915d8896bcaf5c7fe24fd2b57980a606e6151f4c565c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/raw/vbcc/code.o": "395cfc355011a97468a0ea51a47a45d2c8c7c505daffa6ec3d975cb0d7bbddf9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/actionc/code.asm": "ff01f2ed64c96ea6829350c26a9ecf5f7c50a7abacbcf0d567586ec82cdeb12c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/actionc/image.json": "337e32d17c22befa6084fcfb9c70a3a4f9787bd11043c1aa8b31022e2c02c9ab",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/vbcc/code.asm": "97567e331c682d8937f7f83f78392d89e9f931d7f0b89613fa9550c0154a8589",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/vbcc/code.bin": "2560440f4dc6632776e64d707fb1bd63840b7da077e42d2c679ae5d10b20bf1f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/vbcc/code.linked.lst": "a8a9879d093ef16b96c6cc47f32e7663b1e9bddad694a3ab9a917b866f28cf65",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/vbcc/code.lst": "b1a3f193defc554ae1e3bfa8169c597621f590eb7ee0cf9721ee2782b385d86e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/vbcc/code.map": "a61599c299fe28532b720107c912bf9d7476cc2ef9bf847d531dd2cda5e7611e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/loop_rotation/optimized/vbcc/code.o": "1d956bfcb0c3f7232e8f6728c6c34a5dc0df1ab25739c2da10e753105250cb41",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/actionc/code.asm": "e5b9acdeb3be1baf73f6dd0c26587c26f24d55057a170e2d46d3ca32da874e59",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/actionc/image.json": "e2bfcdc71f48e83d06a00e08c01a6c030e4fb3f4f76a906b59595b8c343b182d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/vbcc/code.asm": "a276ff80233c9ef1452639abe9c271670355dac17d4eb712d5e770f2f2ecd624",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/vbcc/code.bin": "f3819bcfa72964664aa348b50b89409738330146bde7ae54c0a8691ae293f50c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/vbcc/code.linked.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/vbcc/code.lst": "d42c01b6823eca5e448caf902dd67e33705801b63f905f9c3873e732adce32ac",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/vbcc/code.map": "26cdf422bb5255d97e46573fe54e006744f70c3c8064c9667d9db6f1a4b31e29",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/raw/vbcc/code.o": "fbbfce5080e23f184f5b159782821c9e747db22fecb24e3c93a6b439759cfe49",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/actionc/code.asm": "7f610df40f38a3f023bd7de8157f5d30b480931ac60637f181c666ad6b7c0cda",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/actionc/image.json": "e3ccbc275e88ae0114ec7cbcaa6a2479d60d622f47d7c1c5995e1804e183eae2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/vbcc/code.asm": "ff6fb889c7c85186ff703ff73251c598123276f2b8675042e890171fe16634a2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/vbcc/code.bin": "98348c67d70db46ea738b6b145c02781974cb7dacb1172bf0bad1a68c2a92549",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/vbcc/code.linked.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/vbcc/code.lst": "a0f64bded4c4e577116bea18660ab58ec6550f2e7255cd7071cef10f126d2b32",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/vbcc/code.map": "b5de3935bc561a565d77999e4ccdb9b4c1ce5f17e2d70efb7b42124c4ddf471e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/sum_loop/optimized/vbcc/code.o": "765e04f479c78af1b60e33880293164dde37dc4a6e68dc509d4a99a28d7095e3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/actionc/code.asm": "32d9413b48542e18e8af9942da053ee18eba4c0d086fecb8dab57282c6b8ce4d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/actionc/image.json": "d3e50867069f7a31c0409309a7c843100e15a572508662c108d6bbeefff02c1e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/vbcc/code.asm": "3d79f3e366def107c17941dddd9d6e8d166864858a6fec1761cce8c5e1af071b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/vbcc/code.bin": "ed14a5e4829f84ec7f204b51d627efd0e3ca1bea70d729e01646f5f7c96f0ae6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/vbcc/code.linked.lst": "d29f54c111d4df2024e01f8e9dd1837b435a9679ebbb52ac52b0cf6527cd8845",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/vbcc/code.lst": "8fd286df51c95d483ceb531373ac4a110831f252dbd82fd3213cc6f86aef226e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/vbcc/code.map": "51364b3a852271841d8451e41f43f20e9802081039e147a59bb015da06ed3a5d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/raw/vbcc/code.o": "1cdf4d5836d8036b635c655105ffb1ee526df2cdeda9676123bec2729759e4fc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/actionc/code.asm": "f8de48f4c43725437d82de348678adf65e82b573e70b74b186544ed0b2420d67",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/actionc/image.json": "d0bbf0c5b621ad354d5c91225512dd651bbf8be4976ddc5135d867869b1e884b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/vbcc/code.asm": "ac2073b3f91e8694f3b95ddbf227f48a41d709eb7de93b4a9a5e48abab145b6a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/vbcc/code.bin": "9d0030c22120a58f34755584ae03e55c8e3863201777fa185afaa90e292299ec",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/vbcc/code.linked.lst": "38b79ac0d01bb58f5613d8c9554b9fb4d72624e82b010be835ac6d8a05864782",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/vbcc/code.lst": "6362308265371ccc57d766260ef5459be27dcf22380b70ec9124a616fab3e0b9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/vbcc/code.map": "17bf3f8453aa2b80dcfa9a26707eec2a62902231c6bb7460ad7fd491393db444",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/recursive_sum/optimized/vbcc/code.o": "47da49b0f2fbab45f2a9f0a00824ec7e11650d8386297706d22f6336ce482e4b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/actionc/code.asm": "6cc56163c128b3b8acd4adda9b3f863c0ad67da5995bd6b8788d7ef95cf91ff3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/actionc/image.json": "17369c0e8d9012844d57fc71887cec8374662bce765b25fba4e4bb28ee4b9083",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/vbcc/code.asm": "a7df360b3fc8b2fdb43a294d382a8bd85860a8283fac2ada42754a7c25b2f418",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/vbcc/code.bin": "5948bec51337890efa1f61f3a6693c016e36b033b965a0ca041c51aed50dabad",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/vbcc/code.linked.lst": "584da34ea3d37261258c4a140c80d9a7e4b6891f87f28359bab12ad5f70544f8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/vbcc/code.lst": "0c27e385ad4203a972e5503519bb55e825b6b65c64900c36712b670e4e16c6e5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/vbcc/code.map": "0f4d6f661bc1789d5214dbd896b8a4e9c03dcd7f0b6dec5aa65e08f78f792ad2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/raw/vbcc/code.o": "9a3cf5330740db863781d7d793938ebf56032c876b23cfb8bc672940bbfda56e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/actionc/code.asm": "6cc56163c128b3b8acd4adda9b3f863c0ad67da5995bd6b8788d7ef95cf91ff3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/actionc/image.json": "17369c0e8d9012844d57fc71887cec8374662bce765b25fba4e4bb28ee4b9083",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/vbcc/code.asm": "cfd9dac829e115934bd2386e8caf09fd10cf5fa8a9ca0903414ac1732b1691b8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/vbcc/code.bin": "457462e118e5094e14aadb12b3dd838bca9a6891d64e0fbcd8a54f7a5d97c7e9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/vbcc/code.linked.lst": "0382b06d03b2562d45c442ce5196aa10ee5d278a64ecc507d1f1997551207bda",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/vbcc/code.lst": "3fc8e85e280dc52cf73c7d12abed11938f36d611b1a7403d6cac2dd3d2e3be49",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/vbcc/code.map": "e79ca73326bf375015934c0b591e62620807b880ec11bce96740ef8535e98ebb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/direct_calls/optimized/vbcc/code.o": "a9acd148004c66ad86bb72a9e6c31bf9c62644d902ac3143dc873bfd5843c53f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/actionc/code.asm": "ec92148b963bd41b23916a362f1cbf6cbe99eba8d8afad70419e3446e27fc0b2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/actionc/image.json": "858f2a318ff2f3fd7852235b17e6e3e84411a872724cef6340d528dd5c223774",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/vbcc/code.asm": "5f5a77a07d4f1726c63082eafcd94f69017963bf23d32d80195272be386cabfd",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/vbcc/code.bin": "872ea3b6840ef6ebb96fda2e401255de0cf93003fc1769d679f33f7a7ca2d1c5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/vbcc/code.linked.lst": "fc3615ab52354e91cad4f842e357c05b74483f245aedfadccd8a01b06f454b1e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/vbcc/code.lst": "2565abc848de0a04e876fb00a2319512e8611d00c57cee6be1ca9722e9cd0113",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/vbcc/code.map": "5b296819573b57168fa512094fb2ffe2cc42eeb3f8a199f32c8c2e253c18dec6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/raw/vbcc/code.o": "cc38f7a0df483d9fad5c8d932a02d3dda9556b0e5cf388e7c24d295084f34b84",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/actionc/code.asm": "e3d0bd98e709c07f4a7a005c7dde4aa25322f543a9a452482aa23f3e7002a932",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/actionc/image.json": "873ce313b41309144cf1866695d6da4af98dfcbd93636176b2278253892e4f1d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/vbcc/code.asm": "c0c9261c63a08d694ff7e89c8e8573ba595639a8d9932be69ed522399e26eb3e",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/vbcc/code.bin": "02e8f2a6d6a2d4ee4f19dcef1ed377c4a779f9dea13faed7d121860e32eafe3b",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/vbcc/code.linked.lst": "7ccc39ea5d269cc58f565fbc8747f516e4f13bdacc40cdcb8ba606d6d4ae8136",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/vbcc/code.lst": "a9148d574586590028fc7c5791e4f270f577644ba7442d84b38738a8a52fabda",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/vbcc/code.map": "f10cab87770e8469dc00c760fb517a19bbcae63ef6ff86cba4b815d3f2324926",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/byte_sum/optimized/vbcc/code.o": "90bd6b9d5cfd74c90b8e93fd1e46c5f7707efe97eb73ee600fb1afde51dcc140",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/actionc/code.asm": "5b84e23ee3c752029ad575e542de59078020d18edac6d847cae49a490893e197",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/actionc/image.json": "1b5d9851b9b48e301a1cd04808ad61dbc6bd067553dfa3d5fb58a4e3a95380f2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/vbcc/code.asm": "038984d56a3322d58c21aed106db9093a3d123abef4a2ddab997519d335a7b34",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/vbcc/code.bin": "80983fc102bfbfe81ffc9c24873147581ddc3ccbb386a9b254514ae15e9f4230",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/vbcc/code.linked.lst": "cd51842145e5b6658531c7b37a96997f17d10dd08123f3b1484c8bf96ba01949",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/vbcc/code.lst": "fcdd2873539fac8fc91f4fe241b9e4d503d15bdf2265b7485e97c99686be2099",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/vbcc/code.map": "54d14aaea4633ca6f725b5fbe63f3850974475d83d888ee5279aa98d2ed69b2d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/raw/vbcc/code.o": "aacf2876776a1cfa0f89d71520716bf3c53dbe6d9359cb1a0d6574038f285717",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/actionc/code.asm": "5b84e23ee3c752029ad575e542de59078020d18edac6d847cae49a490893e197",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/actionc/image.json": "1b5d9851b9b48e301a1cd04808ad61dbc6bd067553dfa3d5fb58a4e3a95380f2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/vbcc/code.asm": "8214ffd183232b7c8e3c55695412e9110d51d7d74c49f13317d82f468296b3ca",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/vbcc/code.bin": "18926d5a2d7d0cf763e0a1119e7a6e2b5c96208d5bd24345b5d3ca24c6af45d9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/vbcc/code.linked.lst": "b78c181d8e641ee76a300e99f29f902aff29e5f600207bbf0721a068a0b0db0f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/vbcc/code.lst": "a37aee203bbf79996e6ed6f615daa19b447690e3c5a2a4204a163de9e4a42390",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/vbcc/code.map": "3d119f1e62415035b1d357dc567c08d74947915a45ba99c84bfc7f60691c06e2",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/record_field/optimized/vbcc/code.o": "dee57ef5a8defda0f62d179a43483c5de53484df91b6137fe1c4c4be35dcba70",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/actionc/code.asm": "77d1079e1ac869ee0a773eb6a5e20b0b0d0d294150454a3d57a4f1d06dc5b87d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/actionc/image.json": "98e789c9d05606b997c7e569d696e9f426d2f1259c5a9022139ade5607a157c9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/vbcc/code.asm": "a583d20db089cfa286acd9dd7dd197cf342292dbdcdb80661c00d8b92556966d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/vbcc/code.bin": "af41c16f4f84f108b3664f45467083daab456b377dae8485208b1e70bfe2f663",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/vbcc/code.linked.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/vbcc/code.lst": "aa50cb7043b1873692677761a00ff6878bf9938de37f55d959f96b6aaed603cf",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/vbcc/code.map": "f74761a74587906808c6cd59a353a6928b440b519ddbc05b25a265dba52124f4",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/raw/vbcc/code.o": "ece5bbfa22b85e882874bada01f0a4ed53942b286c8c2732ea40bafe29be4ccb",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/actionc/code.asm": "0601a0e89964504e9f3c0d04688308df2949d6ec4cebc07139db5db6a927f53c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/actionc/image.json": "d306532bd526a9f8527d6270ee868949b86b234a62b860a132e720456007b248",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/vbcc/code.asm": "079c2e969905940cf35737c21058a8b95f6eb2a2ff99a1e27c06093cd673645d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/vbcc/code.bin": "6e565d5168db7b7e20737c975ddbf7e00d3c5c75e272d7206af07a8b62e643d3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/vbcc/code.linked.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/vbcc/code.lst": "d60b81ab8735e44c31043609c49c747ecee60889d2b5858dc40624b4a0d38afc",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/vbcc/code.map": "ed8ef1717e421d68dfab5a5a13b50afe7f055dfacdf23bb806726385a60ac478",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/unlink/optimized/vbcc/code.o": "a0fd881286caa4d77b349a12a063436ac9fe44ff53c813418c75624c8ec19e3d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/actionc/code.asm": "48932f4550b1c6a3b0eb2e99e01e683050cd7e52e1f111fb6f1c9b18feeb2e2d",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/actionc/image.json": "9a4b54c9634f90732a2f0d99396a8b47b743231885a6e4da841e5f06813ce575",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/vbcc/code.asm": "125c75dd42137480a8c23d8c2b9b8177a33e6b8b07757c026d9be2ada58fb456",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/vbcc/code.bin": "b74ed50a762e03917c8d5a2e02feec9434de98af9630fb9dc7bf2703ac36935f",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/vbcc/code.linked.lst": "90cf252ec03497cb593553df5624a91c17c98368dbcd39d266faae632b0f0dd3",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/vbcc/code.lst": "46b128ffdd2fc473053611bf694c95c8e10232b693cd3209633f285f66e8e52a",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/vbcc/code.map": "ec12fdda8344719e264a4b05cbb61f044847d064687a98d19a155f28045ba7ca",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/raw/vbcc/code.o": "a07603295a951b7b63073466e35d9ad6c7fd5aefe04e0a77ef4523b99796f752",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/actionc/code.asm": "2e41a15943092fd2a23f36f912905576b2e2f0c00347f9ca94baff12506d8fe8",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/actionc/image.json": "afe4322c3f551107775f147c59980ea7730a519c16aa9739e059c325fa0bba3c",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/vbcc/code.asm": "17f00d388bfa3d65455717dcb3772a084724e4296468b9448656caea19f1a8b6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/vbcc/code.bin": "24cee15e7a866a75207dfcbc49fc9dacc9cdeabfffd98f00e93a3293d1d3c233",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/vbcc/code.linked.lst": "177d7261a2bfefca32246962e4b84608e304636bd2b9408d46ed9db387372089",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/vbcc/code.lst": "71f3bb596607f597b4d8c229a8171a7dbd9c31529bcf8d276b7eb3b3c89cf4b5",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/vbcc/code.map": "7a37e0d58dd3620dda2cd47f2c34dfb54ac79d97622bea3a3d9f5d103ef8acb9",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/control-3b-after/forward_copy/optimized/vbcc/code.o": "5608a43d32ee5bdbb5e3b6088a846143fed2923b260ff5308f500ad4c10c146e"
+  },
+  "inventory": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65592,
+          "predicate": 144,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65602
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65592,
+          "predicate": 144,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65602
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65636,
+          "predicate": 176,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65646
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65622,
+          "predicate": 176,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65632
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65630,
+          "predicate": 208,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65640
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65606,
+          "predicate": 208,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65616
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65602,
+          "predicate": 240,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65612
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 0,
+          "pc": 65589,
+          "predicate": 240,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65599
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65646,
+          "predicate": 208,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65656
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65622,
+          "predicate": 208,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65632
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "sites": []
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "sites": []
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65646,
+          "predicate": 208,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65656
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "sites": [
+        {
+          "block": 1,
+          "pc": 65633,
+          "predicate": 208,
+          "routine": 0,
+          "selected": true,
+          "slice": "3c",
+          "target": 65643
+        }
+      ]
+    }
+  ],
+  "records": 264
+}
