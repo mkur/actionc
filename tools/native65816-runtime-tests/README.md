@@ -51,6 +51,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
 | `word_comparisons` | 5 | All signed/unsigned word relations, stored/returned Boolean bytes, canaries, casts and operand orders, clobbering calls, exact volatile/stack traces, independent CMP encodings, and code/cycle/stack budgets. |
+| `empty_edges` | 3 | Compact Goto/Fallthrough/ordinary/fused transfers, both arms and widths, exact cycles, ca65 encodings, full register/flag preservation, no data traffic and decoder rejection cases. |
 | `word_edges` | 3 | Verified raw/optimized cyclic copies, repeated/unused arguments, live-ins, mixed-width fallback, mutable parameters, ca65 encodings, exact two-phase traces and staging canaries. |
 | `compare_branch` | 6 | Boundary relations and fallbacks, exact fused source traffic, reused conditions, nonempty same-target edges/backedges, volatile/alias/call barriers and decoder rejection cases. |
 | `execution` | 5 | Recursion, mutable parameters, loop edges, local addresses/descriptors, record strides, banked code/data and exact volatile byte access. |
@@ -224,3 +225,15 @@ restoration, overlapping cyclic copies in both domains, six fused windows and
 o65 probes execute nonempty edges at both placements. The
 [results](../../docs/MIR65816_WORD_EDGE_COPIES.md) record unchanged ABI, stack/DP
 traffic, frames and guards, plus strict corpus counts and measured gains.
+
+The [empty-edge qualification](../../docs/abi/action65816-empty-edges-qualification.json)
+passes **74 native tests in debug and release**, with **232 identical saved
+artifacts**. Focused tests are `--test empty_edges --test compare_branch
+--test word_edges --test preemption --test o65`. General IRQ coverage is
+2,245 raw / 2,087 optimized enabled instruction addresses. The targeted probe
+covers 300 task/PC sites, all 222 word-copy sites and all 24 post-CMP truth/task
+combinations per mode; both seeded IRQ/NMI schedules pass. The reduced site
+counts reflect removed SEP/REP instructions. Relocated o65 branches require
+compact empty edges at both placements. See the
+[results](../../docs/MIR65816_EMPTY_EDGES.md) for instruction-stream proof and
+unchanged ABI, stack/DP traffic, frames and guard costs.

@@ -191,3 +191,27 @@ only on Action records; vbcc records remain identical. Reconstruct missing
 baseline artifacts using the compiler and runner from isolated `01ea393`.
 The new snapshot also retains rotation and byte-sum listings. Both host commands
 must run and preserve the known optimized vbcc unlink failure.
+
+The [empty-edge cleanup results](../../docs/MIR65816_EMPTY_EDGES.md) use the
+word-edge `after` snapshot as their immutable baseline. Reproduce:
+
+```sh
+cargo build --release --bin actionc-65816
+python3 tools/compare65816/build.py --output target/empty-edges-after --verify-crlf
+# Execute both host comparison commands above, using empty-edges-after paths.
+python3 tools/compare65816/report.py \
+  --input target/empty-edges-after --output docs/benchmarks/65816-empty-edges/after
+python3 tools/compare65816/delta.py target/word-edges-after target/empty-edges-after \
+  --output docs/benchmarks/65816-empty-edges --title 'Native empty edges: before / after'
+python3 tools/compare65816/check_empty_edges.py target/word-edges-after target/empty-edges-after \
+  --baseline docs/benchmarks/65816-empty-edges/baseline.json \
+  --output docs/benchmarks/65816-empty-edges/coverage.json
+```
+
+Use strict default traffic accounting. The additional check proves that every
+Action instruction stream differs only by removed empty-edge SEP/REP instructions
+and relocated JSL/JML targets. It requires exactly three saved cycles per removed
+executed instruction, unchanged DP/fusion/word-copy counts and storage contracts,
+identical unaffected emitted files and exact representative forecasts. Both host
+commands must run and retain the known optimized vbcc unlink failure. Reconstruct
+missing baseline artifacts from an isolated `932a0cf` checkout.
