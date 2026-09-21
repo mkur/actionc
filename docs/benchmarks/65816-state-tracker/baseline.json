@@ -1,0 +1,237 @@
+{
+  "date": "2026-09-21",
+  "status": "proposed implementation; existing evidence rechecked without rebuilding or rerunning compiler/VM tests",
+  "inspected_main": "63069a60f03917067b553df0f1694c48ebfd3c30",
+  "emitter_revision": "d946c33f3c2874cc229db6fafa4ca2cf87804111",
+  "qualification_revision": "956facf02267a762eda58d7d2de3b93bcbae84c6",
+  "scope": "Design stages 1-2: state model and byte-identical native emission integration",
+  "builds": 56,
+  "action_builds": 28,
+  "verified_artifact_hashes": 224,
+  "matching_debug_release_records": 264,
+  "executions_per_host": 528,
+  "verified_manifest_input_hashes": 40,
+  "verified_tool_hashes": 4,
+  "qualification_record": {
+    "docs/abi/action65816-accumulator-forwarding-qualification.json": "4b2612d37f6e29f43d491da9072938b2da3e1eb2f4dbc78eb1e84f5cbaa2f061"
+  },
+  "verified_prior_qualification_code_test_hashes": 25,
+  "verified_prior_qualification_benchmark_hashes": 41,
+  "compiler_and_fixture_inventory": {
+    "files": 407,
+    "sha256": "6ae2999665fc265da813aa0b5d1a948538164eb63b34fbb2cbe8292e9529147c",
+    "encoding": "SHA-256 of UTF-8 lines sorted by relative POSIX path: lowercase raw-file SHA-256, two spaces, path, LF"
+  },
+  "native_qualification": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-cdbtm82g/manifest.json",
+      "sha256": "3977baf727367d27cea1d89af1c771ed08bbf867134cf31e8da5619198be6cb6",
+      "verified_inputs": 407,
+      "verified_artifacts": 302,
+      "results": {
+        "passed": 84,
+        "failed": 0,
+        "ignored": 1
+      }
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-4pj_oi7i/manifest.json",
+      "sha256": "064a07676dce554d9fcfff0c396c55924a5e4fd3b1d374639633afe4d28b5cd3",
+      "verified_inputs": 407,
+      "verified_artifacts": 302,
+      "results": {
+        "passed": 84,
+        "failed": 0,
+        "ignored": 1
+      }
+    }
+  },
+  "measurements": {
+    "target/local-accumulator-forwarding-after/manifest.json": "26b01313911969f02ae5c2b8b1982227a31b42947ac530d2d30b8664c5ba228b",
+    "target/local-accumulator-forwarding-after/debug.json": "c748cb59df930f62787c484aab1f669b6b538a1bcd3bfab9c03409dc47d2d194",
+    "target/local-accumulator-forwarding-after/release.json": "c748cb59df930f62787c484aab1f669b6b538a1bcd3bfab9c03409dc47d2d194"
+  },
+  "artifact_inventory_sha256": "1c551dcc97e3e0a679e1025c70bf3acc30b8d987eb3b8081ba8b5cfff06c75ca",
+  "artifact_inventory_encoding": "SHA-256 of UTF-8 lines sorted by repository-relative artifact path: lowercase raw-file SHA-256, two spaces, path, LF",
+  "snapshot_hashes": {
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.optimized.actionc.lst": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.raw.actionc.lst": "edad4974400ec6f5ba1ed953ec8f6ad96c9a0e8a8a0e7db91c3c5e337500c973",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.optimized.actionc.lst": "e7ebc96119f2e4ad224e983b1ce60c05349beef9c59ebfced677c02ecf9c14c2",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.optimized.vbcc.lst": "7ccc39ea5d269cc58f565fbc8747f516e4f13bdacc40cdcb8ba606d6d4ae8136",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.raw.actionc.lst": "3631e40ccb4bcde3d0a9d846d3afb3bcc6661692235f2d98762340fca481e00c",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/byte_sum.raw.vbcc.lst": "fc3615ab52354e91cad4f842e357c05b74483f245aedfadccd8a01b06f454b1e",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.optimized.actionc.lst": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.raw.actionc.lst": "ed4d7a627f497c634492485773766885897176ca16dc7cb22eb77743d4600e98",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.optimized.actionc.lst": "07df99dd6306206f5f1a57d6946325fde85b84db06f5fcf27b369121620f2330",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.optimized.vbcc.lst": "a8a9879d093ef16b96c6cc47f32e7663b1e9bddad694a3ab9a917b866f28cf65",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.raw.actionc.lst": "aa1571c60102fda020ea30c5ef0a6a8b6503b9fedaf174a4928812e42363bab3",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/loop_rotation.raw.vbcc.lst": "0648bc3815f35ccc8bf42a86ec95c3e0f928f58a0f4edf35ca4338a39e792ed5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.optimized.actionc.lst": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.optimized.vbcc.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.raw.actionc.lst": "ad174acab2aeadacd4855a1e99dda5cb1506877ccc0013e0edfcb9a44232a7a5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/maximum.raw.vbcc.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/provenance.json": "c1aad1c7b4adfcb7adc673bf7f71f8af877d20a1043f076d1c9772340bad99f5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/results.csv": "17467c48e61c7a37767b206a2f3212dfa2173a0e2f86a3778c0054354413d8fa",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.optimized.actionc.lst": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.raw.actionc.lst": "182a7e48afcbca5b5c0536055c0d80f8b686a941eb6a1ae07f63a5e6ea462e29",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.optimized.actionc.lst": "3787a2bc257732a0c1a8dae55f1b62a961e3e90e307266e478cdba3378d247f8",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.raw.actionc.lst": "cb42e64ebf44dd434790493a92618e1767c2a21a6d03760946d1cf236e504652",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/tables.md": "18284d3e4d9f84a71a73a01dfa49c73a6da68f40711c0b4eda4153ee330f3583",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-local-accumulator-forwarding/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "docs/benchmarks/65816-local-accumulator-forwarding/baseline.json": "35a9cf9ba0a2728d88dc5afd031872ed42c80e9f054fe5f3966bd40024337fe5",
+    "docs/benchmarks/65816-local-accumulator-forwarding/coverage.json": "ca23301aebc92c6a4e514598f00b7356c7ebd46db82f071727ed563f551d9df3",
+    "docs/benchmarks/65816-local-accumulator-forwarding/delta.json": "6a71dabb9ab58dd6fabfd6fc5a6992080d2297a6d76999c570f0693e975c4bd8",
+    "docs/benchmarks/65816-local-accumulator-forwarding/delta.md": "6dacccec43ce29163022897f965e480edf4037af876d2b860fcdb765f5aa7266",
+    "docs/benchmarks/65816-local-accumulator-forwarding/expected-reloads.json": "54b27532afb639eed09a4c53c3d3f01af049219df9a479e85fd26f13d433755a",
+    "docs/benchmarks/65816-local-accumulator-forwarding/expected-sites.json": "c14591f56f29203656c31ca1409f25839f17ace4338441feb72105701843293c"
+  },
+  "existing_forwarding": {
+    "static_sites": 76,
+    "executions_per_incoming_i_state": 1422,
+    "positive_vector_records": 112
+  },
+  "expected_change": {
+    "code_bytes": 0,
+    "cycles": 0,
+    "instructions": 0,
+    "stack_reads": 0,
+    "stack_writes": 0,
+    "dp_reads": 0,
+    "dp_writes": 0,
+    "stack_peak": 0,
+    "mode_instructions": 0,
+    "forwarded_loads": 0,
+    "addresses_labels_fixups_and_mir_spans": "identical",
+    "measurement_records": "exactly equal including all fields and per-PC maps",
+    "native_artifacts": "all 302 existing artifacts remain identical; added proof artifacts must match across host builds"
+  },
+  "representatives_expected_unchanged": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "code_bytes": 61,
+      "cycles": 66,
+      "instructions": 22,
+      "peak_below_entry_s": 4,
+      "stack_reads": 5,
+      "stack_writes": 2,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "forwarded_word_loads": 1
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "code_bytes": 61,
+      "cycles": 66,
+      "instructions": 22,
+      "peak_below_entry_s": 4,
+      "stack_reads": 5,
+      "stack_writes": 2,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "forwarded_word_loads": 1
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "vector": 3,
+      "args": [
+        13
+      ],
+      "code_bytes": 164,
+      "cycles": 1767,
+      "instructions": 453,
+      "peak_below_entry_s": 14,
+      "stack_reads": 197,
+      "stack_writes": 246,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "forwarded_word_loads": 53
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "vector": 3,
+      "args": [
+        13
+      ],
+      "code_bytes": 140,
+      "cycles": 1395,
+      "instructions": 349,
+      "peak_below_entry_s": 16,
+      "stack_reads": 165,
+      "stack_writes": 188,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "forwarded_word_loads": 40
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "vector": 4,
+      "args": [
+        1245180,
+        16
+      ],
+      "code_bytes": 262,
+      "cycles": 4678,
+      "instructions": 1210,
+      "peak_below_entry_s": 16,
+      "stack_reads": 530,
+      "stack_writes": 559,
+      "dp_reads": 96,
+      "dp_writes": 112,
+      "forwarded_word_loads": 65
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "vector": 4,
+      "args": [
+        1245180,
+        16
+      ],
+      "code_bytes": 238,
+      "cycles": 4231,
+      "instructions": 1085,
+      "peak_below_entry_s": 22,
+      "stack_reads": 492,
+      "stack_writes": 489,
+      "dp_reads": 96,
+      "dp_writes": 112,
+      "forwarded_word_loads": 49
+    }
+  ],
+  "known_external_failure": "vbcc optimized unlink vector 0 in both incoming I states and both host modes; retain as a test failure",
+  "unchanged_contracts": [
+    "physical ABI v1",
+    "image v3",
+    "o65 profile",
+    "source accesses and all private stores",
+    "allocated homes and complete frame/staging maps",
+    "guard code, costs and raw fault state",
+    "interrupt headroom and context behavior",
+    "Exec816 pin"
+  ],
+  "limits": "Rechecked stored corrected-VM evidence. No new compiler/VM execution, hardware qualification or implementation is claimed."
+}

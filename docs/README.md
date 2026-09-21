@@ -56,6 +56,9 @@ crowding the active reference set.
 - [MIR65816_STATE_TRACKER_DESIGN.md](MIR65816_STATE_TRACKER_DESIGN.md)
   - Proposed instruction-aware native state tracking based on the 6502 emitter:
     register/flag/width facts, memory ownership, barriers and staged integration.
+- [MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md)
+  - First state-tracker slice: typed emission, checked mode/stack contracts,
+    unchanged forwarding policy and byte-identical qualification.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.

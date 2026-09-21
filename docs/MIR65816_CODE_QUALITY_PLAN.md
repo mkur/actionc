@@ -11,6 +11,8 @@ The [state-tracker design](MIR65816_STATE_TRACKER_DESIGN.md) proposes a shared
 instruction-state foundation for later native improvements, drawing on the
 6502 tracked emitter. Its first integration preserves current bytes; broader
 local forwarding and block-entry width proofs are separate measured slices.
+The [first implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md)
+covers that byte-identical foundation and its qualification.
 
 ## Objective and baseline
 

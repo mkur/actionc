@@ -5,6 +5,10 @@ the implemented [local accumulator forwarding](MIR65816_LOCAL_ACCUMULATOR_FORWAR
 and the existing 6502 tracked emitter. It specifies a direction and staged
 acceptance criteria; it does not claim the broader tracker is implemented.
 
+The [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) makes
+stages 1–2 concrete, with a rechecked baseline, instruction-boundary migration,
+mode/stack contracts and strict unchanged-output qualification.
+
 ## Purpose and boundary
 
 Introduce one instruction-aware owner of native 65816 state facts. Use those
