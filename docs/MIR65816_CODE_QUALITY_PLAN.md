@@ -3,8 +3,8 @@
 Status: refreshed on 2026-09-21 against main `86fcef2`, after qualification of the
 native state tracker. Direct single-word edge copies, adjacent accumulator
 forwarding and the tracker foundation are complete. The next proposed slice is
-removing jumps to physically adjacent blocks (3b); checked MIR-entry width
-omission (3a) is now [implemented and qualified](MIR65816_CONTROL_FLOW.md). The
+short conditional MIR dispatch (3c); checked MIR-entry width omission (3a) and
+terminal fallthrough (3b) are [implemented and qualified](MIR65816_CONTROL_FLOW.md). The
 [implementation plan for slices 3a–3c](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
 defines the initial site inventory, bounded changes and separate acceptance gates.
 
@@ -77,8 +77,8 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | Order | Improvement | Initial scope |
 | --- | --- | --- |
 | 3a (complete) | Checked MIR-entry width omission | Qualified results and the fresh 3b baseline are in the [control-flow results](MIR65816_CONTROL_FLOW.md). Value/flag barriers, branches, copies and allocation are preserved. |
-| 3b (next) | Jumps to adjacent blocks | Omit a jump only when physical fallthrough reaches the intended successor after all required edge assignments. Keep branch selection and width policy fixed. |
-| 3c | Short-branch selection | Use final placement, displacement and bank proofs with compatible fixups/o65 relocation and a long-transfer fallback. Keep allocation and copy scheduling fixed. |
+| 3b (complete) | Jumps to adjacent blocks | Qualified terminal fallthrough preserves edge assignments, branch selection and width policy. Its [snapshot](benchmarks/65816-control-flow/3b/after/tables.md) is the 3c baseline. |
+| 3c (next) | Short-branch selection | Use final placement, displacement and bank proofs with compatible fixups/o65 relocation and a long-transfer fallback. Keep allocation and copy scheduling fixed. |
 | 4 | Parallel-copy scheduling and coalescing | Separate self-copy removal and direct scheduling from cycle staging, reservation shrinking and later home coalescing. Qualify each part independently. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |

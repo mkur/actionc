@@ -40,4 +40,34 @@ binds the results to source, tools, saved artifacts and manifests. The measured
 [snapshot](benchmarks/65816-control-flow/3a/after/tables.md) in
 `target/control-3a-after` is the immutable baseline for slice 3b.
 
-Slices 3b and 3c remain pending.
+## 3b: terminal fallthrough after edge copies
+
+Implemented in `7a2f616`. Terminal edges omit JML only when their successor is
+the immediately following MIR block. All direct/staged/mixed copies execute
+first. The tracker closes the logical path and requires that exact next binding;
+width policy and value/flag barriers remain unchanged. Earlier false arms retain
+their jumps. Nonserialized transfer identities keep zero-byte edges visible to
+independent proof tooling, including coincident block entries.
+
+The [frozen inventory](benchmarks/65816-control-flow/3b/baseline.json) and
+[exact delta](benchmarks/65816-control-flow/3b/delta.json) agree on 20 static JML
+removals and 360 removed executions per I state, saving 1,440 cycles. No data
+traffic, stack peak, frame, guard, width or existing optimization count changes.
+The boundary snapshot removes only 12 terminal JMLs across its 24 routines.
+
+| Kernel | Mode | Bytes before / after | Cycles before / after | Stack peak |
+| --- | --- | ---: | ---: | ---: |
+| sum_loop(13) | raw | 158 / 150 | 1,683 / 1,627 | 14 |
+| sum_loop(13) | optimized | 132 / 124 | 1,308 / 1,252 | 16 |
+
+Validation: 58 emitter tests, 59 affected compiler integration tests, all 90
+native tests per host, the existing 24 Python checks, LF/CRLF corpus equality
+and an isolated CRLF snapshot rebuild. Both hosts produce identical 264 corpus
+records and 374 native artifacts. Updated edge evidence retains direct/staged
+copy, both-arm, o65 and IRQ/NMI coverage; independent ca65 execution confirms
+the four-cycle saving with all admitted flag combinations and full A values.
+The known external vbcc failure remains visible.
+
+See the [qualification record](abi/action65816-control-flow-3b-qualification.json)
+and [measured snapshot](benchmarks/65816-control-flow/3b/after/tables.md).
+`target/control-3b-after` is the immutable baseline for 3c, which remains pending.
