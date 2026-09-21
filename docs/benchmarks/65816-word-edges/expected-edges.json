@@ -1,0 +1,130 @@
+[
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "edges": 9,
+    "words": 27
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "edges": 9,
+    "words": 27
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "edges": 9,
+    "words": 27
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "edges": 9,
+    "words": 27
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "edges": 9,
+    "words": 27
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 5,
+    "edges": 9,
+    "words": 27
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "edges": 1,
+    "words": 1
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "edges": 2,
+    "words": 2
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "edges": 9,
+    "words": 9
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "edges": 14,
+    "words": 14
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "edges": 32,
+    "words": 32
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 0,
+    "edges": 1,
+    "words": 1
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 1,
+    "edges": 2,
+    "words": 2
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 2,
+    "edges": 5,
+    "words": 5
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 3,
+    "edges": 9,
+    "words": 9
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "compiler": "actionc",
+    "vector": 4,
+    "edges": 17,
+    "words": 17
+  }
+]

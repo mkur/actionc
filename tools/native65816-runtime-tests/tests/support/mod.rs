@@ -334,3 +334,5 @@ pub mod context;
 pub mod comparison;
 
 pub mod o65;
+
+pub mod edges;

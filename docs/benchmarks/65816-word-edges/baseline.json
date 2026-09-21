@@ -1,0 +1,78 @@
+{
+  "date": "2026-09-21",
+  "scope": "Native word edge-copy baseline; no emitter change",
+  "compiler_revision": "46871700739eaa47c41231d6add6756d9dd09eec",
+  "snapshot": "docs/benchmarks/65816-compare-branch/after",
+  "saved_builds": 56,
+  "verified_hashes": 224,
+  "records": 264,
+  "tools": {
+    "actionc": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/release/actionc-65816",
+      "sha256": "51059e7dc83ee9d4b659ab02a73a53d9b2170244e80bf3a0e6bd91fd0583d100"
+    },
+    "vbcc": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vbcc65816",
+      "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+    },
+    "vasm": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vasm6502_oldstyle",
+      "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+    },
+    "vlink": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vlink",
+      "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+    }
+  },
+  "measurements": {
+    "manifest.json": "26c105bfdd4e101988beda40e9a72bdc0c9836fd3a3f74fbd56e107fd6738ab0",
+    "debug.json": "20610228fde96de4fa9fa6e2e55e9d958c5ff79819ad3d5c0881c09a0671921d",
+    "release.json": "20610228fde96de4fa9fa6e2e55e9d958c5ff79819ad3d5c0881c09a0671921d"
+  },
+  "snapshot_hashes": {
+    "docs/benchmarks/65816-compare-branch/after/add.optimized.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-compare-branch/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-compare-branch/after/add.raw.actionc.lst": "8fa06df6d21290efd79eb4ba0b1cd60a114cc9b89361b79bff7272d2535a6da7",
+    "docs/benchmarks/65816-compare-branch/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-compare-branch/after/identity.optimized.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-compare-branch/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-compare-branch/after/identity.raw.actionc.lst": "1c192308e5e41a213e1f2a7f30b793057a3130054d4e17f28d75cf56a120a281",
+    "docs/benchmarks/65816-compare-branch/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-compare-branch/after/maximum.optimized.actionc.lst": "4aafc11fd1ff79950b1a068bc1dfedde3e34b85cbe343da60ca0ac033a45320c",
+    "docs/benchmarks/65816-compare-branch/after/maximum.optimized.vbcc.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "docs/benchmarks/65816-compare-branch/after/maximum.raw.actionc.lst": "4aafc11fd1ff79950b1a068bc1dfedde3e34b85cbe343da60ca0ac033a45320c",
+    "docs/benchmarks/65816-compare-branch/after/maximum.raw.vbcc.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "docs/benchmarks/65816-compare-branch/after/provenance.json": "55947272d59d0ee9a7771771ffcfedac749ac5b4f9f601220a0b5cd9665e184c",
+    "docs/benchmarks/65816-compare-branch/after/results.csv": "3aea013dda510137308c8c0a27193c3149a185341c149f6fe08b3756e44b7c1f",
+    "docs/benchmarks/65816-compare-branch/after/subtract.optimized.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-compare-branch/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-compare-branch/after/subtract.raw.actionc.lst": "1c2bce1f1c50a5a90ce408edc1a68232261f6f7760ca46a80a3f4ef38d3a0550",
+    "docs/benchmarks/65816-compare-branch/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-compare-branch/after/sum_loop.optimized.actionc.lst": "afb89431d2d5bb938e76ffc310266a3328e78b00647df8f2be91a522d76d2523",
+    "docs/benchmarks/65816-compare-branch/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-compare-branch/after/sum_loop.raw.actionc.lst": "58eaeec26ae7a9506d797bb73ba0257de71e4ed9212fd472380cdc80ba4752ef",
+    "docs/benchmarks/65816-compare-branch/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-compare-branch/after/tables.md": "dcc1287ba32fe5e75a27086f0f87eb49f2d2471ceb2fd836f4dd3b07ce19e5a7",
+    "docs/benchmarks/65816-compare-branch/after/unlink.optimized.actionc.lst": "1d47e54c2ec4359bfa48653c8cbccc4d126535276751b1ac7000d6456c6fa197",
+    "docs/benchmarks/65816-compare-branch/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-compare-branch/after/unlink.raw.actionc.lst": "cbde5a374503ced9e72cb4a04df032d32cb12bf5dce5f8f0dee410091479f43e",
+    "docs/benchmarks/65816-compare-branch/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8"
+  },
+  "emitter_sha256": "dc181de933de12ea73e027c96857442cdac7621af48f6d6ce26be03738f8d786",
+  "expected_edges_sha256": "ff02cf10b70261be13797b9ed3aa2a5755152511df2479fda7f6ddae32f98337",
+  "count_proof": "Optimized sum_loop/byte_sum: initialization plus n backedges; loop_rotation: initialization plus eight three-word backedges; all raw and other optimized cases zero.",
+  "known_failure": "Optimized vbcc unlink vector 0, both I states; no exemption.",
+  "qualification": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-1k1q6noj/manifest.json",
+      "sha256": "4a2dd08f7da0eb5aea679ae1e33dc0f0c64efd9967fb55ba03e1e3fa63c4a73a",
+      "passed": 8
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-e4yn31ol/manifest.json",
+      "sha256": "fad8e41ba9535cbce0c8b30f2f3e1a56200b00f9a6ad59b4a65b4ca9de7c8d4c",
+      "passed": 8
+    }
+  },
+  "checks": "8 semantic tests pass in debug and release before emission changes, including existing conditional/effect/fallback probes and new rotations, mixed widths and mutable parameter edges."
+}
