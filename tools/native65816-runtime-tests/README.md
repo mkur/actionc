@@ -3,7 +3,8 @@
 This isolated workspace tests the
 [native emitter](../../docs/MIR65816_EMISSION_CONTRACT.md) and
 [context bridge](../../docs/MIR65816_CONTEXT_INTERFACE.md). It loads serialized
-JSON images and executes their bytes on the VM's independent native 24-bit bus.
+JSON images and experimental o65 applications and executes their bytes on the
+VM's independent native 24-bit bus.
 The compiler does not depend on the VM.
 
 ## Reproduce qualification
@@ -15,6 +16,7 @@ python3 tools/native65816-runtime-tests/qualify.py
 python3 tools/native65816-runtime-tests/qualify.py --release
 python3 tools/native65816-runtime-tests/qualify.py --cpu
 python3 tools/native65816-runtime-tests/qualify.py --test comma_groups --test memory --test interop
+python3 tools/native65816-runtime-tests/qualify.py --test o65
 ```
 
 The runner uses VM base `56ddc5c5de41f0e7294e87c440869550eaf53292` plus
@@ -53,6 +55,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `preemption` | 2 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address plus two seeded IRQ/NMI schedules. |
 | `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
+| `o65` | 7 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, multi-bank code and preempted tasks. |
 
 Both raw and optimized NIR are covered. The original **33 tests passed in debug
 and release** on 2026-09-17. The later `comma_groups` regression, plus the eight
@@ -72,6 +75,15 @@ passes all 37 native tests in debug and release, with unchanged ABI and guards.
 Run `--test stack_allocation -- --nocapture` to print emitted code sizes, VM
 cycles, frames and the observed stack use across complete call chains. Inputs
 are supplied after compilation, and both raw and optimized images are executed.
+
+The [o65 qualification](../../docs/abi/action65816-o65-qualification.json) passes
+all 44 native tests in debug and release on 2026-09-21. The o65 adapter consumes
+only serialized file bytes, placement and provider contracts; compiler results
+are discarded before loading. It preserves the JSON harness's guards and bus
+permissions. Code is placed at `$100000` and `$600000`, with independently moved
+data/BSS and helper/fault addresses. The o65 context test uses two seeded IRQ/NMI
+schedules and six selected reachable instruction addresses per mode/placement;
+the existing exhaustive JSON context tests also remain in the full suite.
 
 The corrected CPU suite passes eight tests in each build mode. See
 [initial Exec acceptance](../../docs/MIR65816_EXEC_ACCEPTANCE.md) for G1–G6,
@@ -108,6 +120,14 @@ hash, assembler/linker/Rust versions, command, seeds and artifact hashes. Contex
 runs save `.act`, `.a816.json`, `.bridge.bin` and `.layout.json` files. Filtered
 runs contain only artifacts produced by the selected tests; they cannot inherit
 stale images from an earlier run.
+
+The o65 tests save `.o65`, `.placement.json` and `.metrics.json` artifacts.
+Metrics separate machine code, text, data, BSS, descriptor and total file sizes,
+and include relocation counts and cycles. Observed stack use is recorded for
+the pointer/call and guard-failure probes; `null` means it was not measured.
+The qualification record checks identical file hashes across placements and
+identical artifacts between debug/release host builds. Decode the standard wire
+records with `python3 tools/inspect_o65.py PATH/TO/PROGRAM.o65`.
 
 Inspect an emitted image from the repository root:
 

@@ -1,6 +1,8 @@
 # Experimental native 65816 o65 writer and reference relocator
 
-Status: implementation in progress.
+Status: all five slices implemented and qualified on 2026-09-21. See the
+[profile and measured costs](MIR65816_O65_PROFILE.md) and
+[qualification record](abi/action65816-o65-qualification.json).
 
 | Slice | Status | Checks |
 | --- | --- | --- |
@@ -8,7 +10,8 @@ Status: implementation in progress.
 | 2: writer | Complete | 6 o65 tests; independent Python decoding, vasm fixture, wide fields/carry/gap/index checks |
 | 3: reference relocator | Complete | 11 o65 tests; hand-authored load/carry fixture, every truncated prefix, corruption and placement/binding rejection |
 | 4: CLI integration | Complete | 7 existing CLI tests, 5 o65 CLI tests; LF/CRLF, explicit imports, module/input protection |
-| 5: execution qualification | Pending | |
+| 5: execution qualification | Complete | 44 native tests in debug/release, including 7 o65 tests; 16 root o65/CLI tests in both builds; indexed-range regression |
+
 Baseline: actionc `fc9892a`, native ABI v1, existing JSON image v3.
 
 ## Objective and completion criteria
@@ -272,8 +275,8 @@ actionc-65816 --format o65-experimental --o65-options options.json \
   [-o program.o65] [--no-opt] [--module-path directory] source.act
 ```
 
-This is a proposed interface, unavailable until this slice lands. JSON remains
-the default; `--layout` retains its existing meaning. Reject ambiguous option
+This interface is implemented. JSON remains the default; `--layout` retains
+its existing meaning. Reject ambiguous option
 combinations, including JSON layout options in o65 mode. The experimental
 options carry profile identity, NMI allowance and explicit interface-name
 bindings, not final load addresses. Provider addresses and placement belong

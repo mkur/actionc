@@ -85,7 +85,9 @@ def main():
         inputs = (list((ROOT / 'src').rglob('*.rs'))
                   + list((ROOT / 'runtime/65816').glob('*'))
                   + list((HERE / 'tests').rglob('*'))
-                  + [ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', HERE / 'Cargo.toml',
+                  + list((ROOT / 'fixtures/o65').glob('*'))
+                  + [ROOT / 'tools/inspect_o65.py',
+                     ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', HERE / 'Cargo.toml',
                      HERE / 'Cargo.lock', Path(__file__), ROOT / 'tools/disassemble65816.py'])
         input_hashes = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                         for p in inputs if p.is_file()}

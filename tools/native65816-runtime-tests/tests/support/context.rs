@@ -49,10 +49,10 @@ pub fn runtime(dispatch: u32) -> Assembly {
         0x8000,
     )
 }
-pub struct ContextHarness {
+pub struct ContextHarness<I = Image> {
     pub cpu: Machine,
     pub bus: Bus,
-    pub image: Image,
+    pub image: I,
     pub symbols: BTreeMap<String, u32>,
     pub domains: Vec<Domain>,
     pub first: Vec<FirstTask>,
@@ -118,8 +118,53 @@ impl ContextHarness {
             std::fs::write(stem.with_extension("bridge.bin"), &runtime.bytes).unwrap();
             std::fs::write(stem.with_extension("layout.json"),serde_json::to_vec_pretty(&serde_json::json!({"bridge_origin":0x8000,"symbols":runtime.symbols,"arguments":arguments,"task_entry":task_entry,"irq_dp":IRQ_DP,"irq_stack_top":IRQ_TOP,"task_stacks":[[0x4000,0x4fff],[0x5000,0x5fff]],"task_domains":[0x2000,0x2100],"nmi_minimum_interval_cycles":250})).unwrap()).unwrap();
         }
+        Self::from_loaded(image, runtime, task_entry, arguments)
+    }
+}
+
+pub trait ContextImage {
+    fn load_bus(&self, bus: &mut Bus);
+    fn task(&self, name: &str) -> (u32, u16);
+}
+impl ContextImage for Image {
+    fn load_bus(&self, bus: &mut Bus) {
+        bus.load(self);
+    }
+    fn task(&self, name: &str) -> (u32, u16) {
+        let address = routine(self, name);
+        (
+            address,
+            self.routines
+                .iter()
+                .find(|r| r.address == address)
+                .unwrap()
+                .local_stack_peak as u16,
+        )
+    }
+}
+impl ContextImage for actionc::mir65816::o65::RelocatedImage {
+    fn load_bus(&self, bus: &mut Bus) {
+        bus.load_o65(self);
+    }
+    fn task(&self, name: &str) -> (u32, u16) {
+        let r = self
+            .profile()
+            .routines
+            .iter()
+            .find(|r| {
+                r.name.eq_ignore_ascii_case(name)
+                    || r.name
+                        .to_ascii_uppercase()
+                        .contains(&format!("_{}_", name.to_ascii_uppercase()))
+            })
+            .unwrap();
+        (self.routine_address(r), r.local_peak as u16)
+    }
+}
+impl<I: ContextImage> ContextHarness<I> {
+    pub fn from_loaded(image: I, runtime: Assembly, task_entry: &str, arguments: &[u32]) -> Self {
         let mut bus = Bus::new();
-        bus.load(&image);
+        image.load_bus(&mut bus);
         bus.map(0x8000, &runtime.bytes, false);
         bus.map(FAULT, &[0xdb, 0xea], false);
         bus.map(0x7800, &[0; 16], true);
@@ -151,13 +196,7 @@ impl ContextHarness {
         bus.map(0x7000, &[0; 0x400], true);
         let mut domains = Vec::new();
         let mut first = Vec::new();
-        let address = routine(&image, task_entry);
-        let peak = image
-            .routines
-            .iter()
-            .find(|r| r.address == address)
-            .unwrap()
-            .local_stack_peak;
+        let (address, peak) = image.task(task_entry);
         for (i, &argument) in arguments.iter().enumerate() {
             let lo = 0x4000 + i as u16 * 0x1000;
             let domain = Domain {

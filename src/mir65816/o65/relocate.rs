@@ -1,7 +1,7 @@
 use super::super::image::{Segment, ZeroFill};
 use super::{profile::*, read, wire};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -23,6 +23,103 @@ impl Region {
             && u64::from(other.address) < u64::from(self.address) + u64::from(self.size)
     }
 }
+// Prefix maxima support bounded containment/overlap checks without scanning
+// every object/provider for every alias or binding in an untrusted file.
+// Entries hold start, greatest containing end, and greatest nonempty end.
+// Empty owners can contain empty aliases, but empty reservations occupy no RAM.
+struct RangeIndex(Vec<(u32, u32, u32)>);
+impl RangeIndex {
+    fn new(regions: &[Region]) -> Result<Self, String> {
+        let mut ranges = regions
+            .iter()
+            .map(|r| Ok((r.address, r.end()?, 0)))
+            .collect::<Result<Vec<_>, String>>()?;
+        ranges.sort_unstable();
+        let mut greatest = 0;
+        let mut occupied = 0;
+        for (start, end, occupied_end) in &mut ranges {
+            if *end > *start {
+                occupied = occupied.max(*end);
+            }
+            greatest = greatest.max(*end);
+            *end = greatest;
+            *occupied_end = occupied;
+        }
+        Ok(Self(ranges))
+    }
+    fn contains(&self, region: Region) -> bool {
+        let n = self.0.partition_point(|r| r.0 <= region.address);
+        n != 0 && u64::from(self.0[n - 1].1) >= u64::from(region.address) + u64::from(region.size)
+    }
+    fn overlaps(&self, region: Region) -> bool {
+        let end = u64::from(region.address) + u64::from(region.size);
+        let n = self.0.partition_point(|r| u64::from(r.0) < end);
+        region.size != 0 && n != 0 && self.0[n - 1].2 > region.address
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RangeIndex, Region};
+
+    #[test]
+    fn range_index_preserves_individual_region_semantics() {
+        for ranges in [
+            vec![],
+            vec![Region {
+                address: 5,
+                size: 0,
+            }],
+            vec![
+                Region {
+                    address: 4,
+                    size: 3,
+                },
+                Region {
+                    address: 1,
+                    size: 3,
+                },
+                Region {
+                    address: 2,
+                    size: 1,
+                },
+                Region {
+                    address: 8,
+                    size: 0,
+                },
+                Region {
+                    address: 0,
+                    size: 0,
+                },
+            ],
+        ] {
+            let index = RangeIndex::new(&ranges).unwrap();
+            for address in 0..12 {
+                for size in 0..12 - address {
+                    let query = Region { address, size };
+                    assert_eq!(
+                        index.contains(query),
+                        ranges.iter().any(|r| {
+                            r.address <= address && r.end().unwrap() >= address + size
+                        })
+                    );
+                    assert_eq!(
+                        index.overlaps(query),
+                        ranges.iter().any(|r| r.overlaps(query))
+                    );
+                }
+            }
+        }
+        assert!(
+            RangeIndex::new(&[Region {
+                address: 0xffffff,
+                size: 2
+            }])
+            .is_err()
+        );
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Provider {
@@ -144,6 +241,17 @@ fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), St
     if !p.routines.iter().any(|r| r.offset == p.entry) {
         return Err("entry is not a routine start".into());
     }
+    let mut owners: [Vec<Region>; 4] = std::array::from_fn(|_| vec![]);
+    for o in p.objects.iter().filter(|o| !o.alias) {
+        owners[o.location.section.map_or(0, |s| s.index() + 1)].push(Region {
+            address: o.location.offset,
+            size: o.size,
+        });
+    }
+    let owners = owners
+        .iter()
+        .map(|ranges| RangeIndex::new(ranges))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut objects = BTreeSet::new();
     for o in &p.objects {
         if o.kind > 2 || !objects.insert((o.kind, o.id)) || ![1, 2, 4].contains(&o.alignment) {
@@ -177,12 +285,9 @@ fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), St
             }
         }
         if o.alias
-            && !p.objects.iter().any(|owner| {
-                !owner.alias
-                    && owner.location.section == o.location.section
-                    && owner.location.offset <= o.location.offset
-                    && u64::from(owner.location.offset) + u64::from(owner.size)
-                        >= u64::from(o.location.offset) + u64::from(o.size)
+            && !owners[o.location.section.map_or(0, |s| s.index() + 1)].contains(Region {
+                address: o.location.offset,
+                size: o.size,
             })
         {
             return Err("alias has no containing allocation".into());
@@ -288,9 +393,8 @@ pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, S
     {
         return Err("platform table count mismatch".into());
     }
-    for region in placement.allowed.iter().chain(&placement.reserved) {
-        region.end()?;
-    }
+    let allowed = RangeIndex::new(&placement.allowed)?;
+    let reserved = RangeIndex::new(&placement.reserved)?;
     let mut allocations = vec![];
     for i in 0..3 {
         let region = Region {
@@ -307,10 +411,7 @@ pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, S
         if region.address < 65536 || region.address % if i == 0 { 65536 } else { 4 } != 0 {
             return Err("invalid o65 section alignment/bank placement".into());
         }
-        if !placement.allowed.iter().any(|a| {
-            a.address <= region.address && a.end().is_ok_and(|e| e >= region.end().unwrap())
-        }) || placement.reserved.iter().any(|r| r.overlaps(region))
-        {
+        if !allowed.contains(region) || reserved.overlaps(region) {
             return Err("section outside allowed RAM or in reserved region".into());
         }
         if p.objects.iter().any(|o| {
@@ -325,17 +426,15 @@ pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, S
         allocations.push(region);
     }
     let mut addresses = vec![];
-    let mut names = BTreeSet::new();
+    let mut providers = BTreeMap::new();
     for provider in &placement.providers {
-        if !names.insert(&provider.name) {
+        if providers.insert(provider.name.as_str(), provider).is_some() {
             return Err("duplicate provider".into());
         }
     }
     for import in &p.imports {
-        let provider = placement
-            .providers
-            .iter()
-            .find(|i| i.name == import.name)
+        let provider = providers
+            .get(import.name.as_str())
             .ok_or("unresolved o65 import")?;
         if provider.contract != import.contract || provider.size == 0 {
             return Err("incompatible o65 provider contract".into());
@@ -345,7 +444,7 @@ pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, S
             size: provider.size,
         };
         region.end()?;
-        if placement.reserved.iter().any(|r| r.overlaps(region)) {
+        if reserved.overlaps(region) {
             return Err("provider overlaps reserved region".into());
         }
         allocations.push(region);

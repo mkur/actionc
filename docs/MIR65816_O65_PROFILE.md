@@ -101,3 +101,36 @@ DP, stack, vectors, task lifetime and scheduling; it initializes D and stack
 floor/ceiling using ABI headroom (task 26+NMI extra, IRQ 13+NMI extra). Local
 frame/peak maps never claim a bound for recursion or unknown indirect depth.
 The entry retains its native signature. There is no new process-startup ABI.
+
+## Qualification and measured costs
+
+The [2026-09-21 qualification](abi/action65816-o65-qualification.json) passes all
+44 native tests in debug and release, including seven o65 execution groups.
+Sixteen root codec/loader/CLI tests pass in both builds; a separate range-index
+regression checks empty, nested, adjacent and disjoint regions against individual
+containment/overlap semantics. Independent fixtures/decoding cover all five wire
+relocation forms, wide counts and carry bytes. The compiler profile still
+rejects full narrow moving addresses, `ImageEnd` and nonzero import addends.
+
+Each raw or optimized artifact is reused unchanged at two placements. Tests
+cover direct/indirect calls, mixed scalar ABI results, 64-byte scratch clobbers,
+split/full static pointers, aliases, initialized zero tails, zeroed BSS, fresh
+mutable loads, multiple code banks, relocated faults and two live task domains
+under IRQ/NMI. They execute the emitted bytes
+on the independent native VM. No Exec816 loader or hardware qualification is
+claimed.
+
+Representative sizes in bytes, shown as raw / optimized:
+
+| Probe | Machine code | Total file | Descriptor | Observed stack |
+| --- | ---: | ---: | ---: | ---: |
+| Pointer/indirect call | 477 / 435 | 1533 / 1491 | 850 / 850 | 36 / 24 |
+| Live values across imports | 775 / 691 | 2017 / 1933 | 995 / 995 | unmeasured |
+| Recursive task contexts | 7174 / 6854 | 15657 / 15338 | 7433 / 7433 | unmeasured |
+| Multi-bank code | 74673 / 74673 | 78662 / 78662 | 2545 / 2545 | unmeasured |
+
+Stack observations include the independent caller's outgoing bytes and complete
+call chain, relative to its initial S; they are fixture measurements, not general
+task bounds. The pointer probe takes 773 / 669 VM cycles. Descriptor redundancy
+is a substantial cost for small programs. Reducing it needs a separate profile
+change that preserves validation of complete address values and ABI maps.

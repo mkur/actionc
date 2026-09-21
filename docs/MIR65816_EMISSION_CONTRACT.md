@@ -91,6 +91,12 @@ regions, BSS and ABI/maps through `RelocatedImage` accessors. It does not write
 guest memory, allocate task contexts or implement an Exec816 application loader.
 See the [profile](MIR65816_O65_PROFILE.md) for the admitted subset and rejections.
 
+The [o65 qualification](abi/action65816-o65-qualification.json) executes raw and
+optimized files at two independent text/data/BSS placements, including imports,
+multi-bank code, stack failures and preempted tasks. The complete 44-test native
+suite passes in debug and release. JSON transport v3, physical ABI v1 and
+generated stack checks are unchanged.
+
 ## Supported operations
 
 - BYTE, CARD/INT, ADDRESS/SIZE, data/code pointer storage, and LONGCARD/LONGINT

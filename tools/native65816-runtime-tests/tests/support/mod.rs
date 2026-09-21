@@ -165,6 +165,14 @@ impl Bus {
             .enumerate()
             .fold(0, |acc, (i, b)| acc | u32::from(*b) << (i * 8))
     }
+    pub fn load_o65(&mut self, image: &actionc::mir65816::o65::RelocatedImage) {
+        for segment in image.segments() {
+            self.map(segment.address, &segment.bytes, segment.writable);
+        }
+        for zero in image.zero_fill() {
+            self.map(zero.address, &vec![0; zero.size as usize], zero.writable);
+        }
+    }
     pub fn load(&mut self, image: &Image) {
         image.verify().unwrap();
         for s in &image.segments {
@@ -225,8 +233,23 @@ impl Harness {
     pub fn new(image: &Image, caller: &[u8], irq_mask: u8) -> Self {
         let mut bus = Bus::new();
         bus.load(image);
+        Self::with_bus(bus, caller, irq_mask, 0x048000)
+    }
+    pub fn new_o65(
+        image: &actionc::mir65816::o65::RelocatedImage,
+        caller: &[u8],
+        irq_mask: u8,
+    ) -> Self {
+        let mut bus = Bus::new();
+        for z in image.zero_fill() {
+            bus.ram[z.address as usize..(z.address + z.size) as usize].fill(0xcc);
+        }
+        bus.load_o65(image);
+        Self::with_bus(bus, caller, irq_mask, image.stack_overflow())
+    }
+    fn with_bus(mut bus: Bus, caller: &[u8], irq_mask: u8, overflow: u32) -> Self {
         bus.map(0x040000, caller, false);
-        bus.map(0x048000, &[0xdb, 0xea], false); // platform fault sink: STP
+        bus.map(overflow, &[0xdb, 0xea], false); // platform fault sink: STP
         bus.map(0x2000, &[0; 256], true);
         bus.ram[0x2000..0x2040].fill(0xcc);
         bus.ram[0x2043] = 2; // bootstrap domain, no task owner; reserved bytes are zero
@@ -307,3 +330,5 @@ pub fn caller(entry: u32) -> Vec<u8> {
 }
 
 pub mod context;
+
+pub mod o65;
