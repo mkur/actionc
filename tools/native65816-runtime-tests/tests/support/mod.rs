@@ -137,6 +137,7 @@ pub struct Bus {
     pub trace: Vec<(u64, u32, Access)>,
     /// Qualification metadata only; never consulted by CPU execution.
     pub single_word_edges: word_edge::Index,
+    pub forwarded_words: forwarding::Index,
 }
 impl Bus {
     pub fn new() -> Self {
@@ -148,6 +149,7 @@ impl Bus {
             watched: Default::default(),
             trace: vec![],
             single_word_edges: Default::default(),
+            forwarded_words: Default::default(),
         }
     }
     pub fn map(&mut self, address: u32, bytes: &[u8], writable: bool) {
@@ -341,3 +343,5 @@ pub mod o65;
 pub mod edges;
 
 pub mod word_edge;
+
+pub mod forwarding;

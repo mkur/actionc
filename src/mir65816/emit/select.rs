@@ -114,18 +114,30 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
     for (index, block) in routine.blocks.iter().enumerate() {
         b.code.mark(b.blocks[&block.id]);
         if let Some((last, prefix)) = block.ops.split_last() {
-            for op in prefix {
+            for (op_index, op) in prefix.iter().enumerate() {
+                let start = b.code.bytes.len();
                 b.operation(op)
                     .map_err(|e| format!("b{}: {e}", block.id.0))?;
+                b.code
+                    .mir_spans
+                    .insert((block.id, op_index), start..b.code.bytes.len());
             }
+            let start = b.code.bytes.len();
             if b.compare_branch(last, &block.terminator, &sole_conditions)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
+                b.code
+                    .mir_spans
+                    .insert((block.id, prefix.len()), start..b.code.bytes.len());
                 continue;
             }
             b.operation(last)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?;
+            b.code
+                .mir_spans
+                .insert((block.id, prefix.len()), start..b.code.bytes.len());
         }
+        let start = b.code.bytes.len();
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge(edge)?,
@@ -159,6 +171,9 @@ pub(super) fn routine(routine: &Mir65816Routine) -> Result<MachineRoutine, Strin
                 return Err("terminal exit requires a native runtime adapter".into());
             }
         }
+        b.code
+            .mir_spans
+            .insert((block.id, block.ops.len()), start..b.code.bytes.len());
     }
     Ok(MachineRoutine {
         id: routine.id,

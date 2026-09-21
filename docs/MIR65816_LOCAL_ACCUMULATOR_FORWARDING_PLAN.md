@@ -1,6 +1,6 @@
 # Native 65816 local accumulator forwarding implementation plan
 
-Status: proposed on 2026-09-21 against main `0e8248c`, after direct single-word
+Status: implementation in progress on 2026-09-21 against main `0e8248c`, after direct single-word
 edge copies. This is step 2 of the [code-quality roadmap](MIR65816_CODE_QUALITY_PLAN.md).
 The measurements below are the existing baseline; the reductions are forecasts.
 
@@ -80,6 +80,19 @@ changing emission, inventory all 28 Action builds and freeze every selected
 site/count, including call-containing kernels and rotation. Do not treat cases
 omitted from this table as predicted zero. Reconstruct missing baseline artifacts
 from an isolated `0e8248c` checkout and its runner; never overwrite prior snapshots.
+
+The baseline slice freezes [all sites](benchmarks/65816-local-accumulator-forwarding/expected-sites.json)
+and [positive execution counts](benchmarks/65816-local-accumulator-forwarding/expected-reloads.json):
+76 sites and 1,422 executions per incoming I state. Its typed index verifies all
+28 Action images remain byte-identical. Four new native probes and the five
+existing word-edge probes pass in the debug host (`run-uiudrtc_`).
+
+To avoid reproducing the selector in the test index, `Code.mir_spans` records
+nonserialized operation/terminator ranges keyed by block and operation index.
+These are emission proof metadata, not ABI or optimizer inputs. The independent
+index checks typed adjacency, homes, actual instruction boundaries, producer
+stores and consumer encodings against these ranges. No emitted bytes change
+in this baseline slice.
 
 ## Checked selection
 

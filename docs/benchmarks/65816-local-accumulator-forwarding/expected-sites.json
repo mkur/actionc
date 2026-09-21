@@ -1,0 +1,272 @@
+{
+  "baseline": "0e8248c",
+  "scope": "All 28 Action builds. PCs are baseline linked addresses, manually inventoried before emission changes. Counts derive from source/vector control flow.",
+  "builds": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "reload_pcs": [
+        65588
+      ],
+      "count_formula": "1"
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "reload_pcs": [
+        65588
+      ],
+      "count_formula": "1"
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "reload_pcs": [
+        65599
+      ],
+      "count_formula": "1"
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "reload_pcs": [
+        65599
+      ],
+      "count_formula": "1"
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "reload_pcs": [
+        65599
+      ],
+      "count_formula": "1"
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "reload_pcs": [
+        65599
+      ],
+      "count_formula": "1"
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "reload_pcs": [
+        65588,
+        65596,
+        65604,
+        65612,
+        65620,
+        65628,
+        65636,
+        65644,
+        65652,
+        65660,
+        65668,
+        65676,
+        65684,
+        65692,
+        65700,
+        65708,
+        65716
+      ],
+      "count_formula": "17"
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "reload_pcs": [
+        65588,
+        65596
+      ],
+      "count_formula": "2"
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "reload_pcs": [
+        65592,
+        65618,
+        65635
+      ],
+      "count_formula": "2"
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "reload_pcs": [
+        65592,
+        65618,
+        65635
+      ],
+      "count_formula": "2"
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "reload_pcs": [],
+      "count_formula": "0"
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "reload_pcs": [],
+      "count_formula": "0"
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "reload_pcs": [
+        65588,
+        65596,
+        65604,
+        65672,
+        65680,
+        65688,
+        65696,
+        65704,
+        65712,
+        65737
+      ],
+      "count_formula": "3+6*8+1"
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "reload_pcs": [
+        65588,
+        65658,
+        65711
+      ],
+      "count_formula": "1+8+1"
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "reload_pcs": [
+        65662,
+        65669,
+        65677,
+        65685,
+        65699
+      ],
+      "count_formula": "4*n+1"
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "reload_pcs": [
+        65611,
+        65649,
+        65657
+      ],
+      "count_formula": "3*n+1"
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "reload_pcs": [
+        65644,
+        65751
+      ],
+      "count_formula": "2*n"
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "reload_pcs": [
+        65588,
+        65629,
+        65736
+      ],
+      "count_formula": "3*n+1"
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "reload_pcs": [
+        65588,
+        65596,
+        65854
+      ],
+      "count_formula": "2*2+1"
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "reload_pcs": [
+        65588,
+        65596,
+        65854
+      ],
+      "count_formula": "2*2+1"
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "reload_pcs": [
+        65709,
+        65716,
+        65775,
+        65783,
+        65797
+      ],
+      "count_formula": "4*n+1"
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "reload_pcs": [
+        65627,
+        65747,
+        65755
+      ],
+      "count_formula": "3*n+1"
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "reload_pcs": [],
+      "count_formula": "0"
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "reload_pcs": [],
+      "count_formula": "0"
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "reload_pcs": [],
+      "count_formula": "0"
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "reload_pcs": [],
+      "count_formula": "0"
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "reload_pcs": [
+        65832,
+        65840
+      ],
+      "count_formula": "2*n"
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "reload_pcs": [
+        65638,
+        65821,
+        65829
+      ],
+      "count_formula": "3*n+1"
+    }
+  ]
+}

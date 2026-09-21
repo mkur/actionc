@@ -1,6 +1,6 @@
 //! Small encoder with typed symbolic fixups. Instruction encodings follow WDC
 //! W65C816S tables 5-4/5-5; no assembler or emulator is used by the compiler.
-use super::super::{Mir65816DataId, RoutineId, RuntimeSymbolId};
+use super::super::{BlockId, Mir65816DataId, RoutineId, RuntimeSymbolId};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -31,6 +31,9 @@ pub struct Code {
     pub labels: BTreeMap<Label, usize>,
     /// PER operand offsets and the continuation whose low word minus one is pushed.
     pub return_fixups: Vec<(usize, Label)>,
+    /// Nonserialized proof metadata: MIR operation index (or ops.len() for the
+    /// terminator) to emitted range. A fused final compare includes its edges.
+    pub mir_spans: BTreeMap<(BlockId, usize), std::ops::Range<usize>>,
     next_label: u32,
     /// Local emission knowledge only; joins must not inherit fallthrough state.
     accumulator_is_8_bit: Option<bool>,
