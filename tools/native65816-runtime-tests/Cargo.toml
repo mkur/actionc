@@ -5,7 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-actionc = { path = "../.." }
+actionc = { path = "../..", features = ["native65816-state-proof"] }
 actionc-vm = { git = "https://github.com/mkur/actionc-vm.git", rev = "56ddc5c5de41f0e7294e87c440869550eaf53292" }
 serde_json = "1"
 

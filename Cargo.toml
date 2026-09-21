@@ -6,6 +6,9 @@ description = "Experimental cross-compiler scaffold for the Atari 8-bit Action! 
 license = "GPL-3.0-or-later"
 default-run = "actionc"
 
+[features]
+native65816-state-proof = []
+
 [dependencies]
 atrcopy-rs = { path = "crates/atrcopy-rs" }
 serde = { version = "1", features = ["derive"] }

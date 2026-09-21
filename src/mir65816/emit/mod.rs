@@ -3,7 +3,13 @@
 mod allocation;
 mod code;
 mod liveness;
+#[cfg(feature = "native65816-state-proof")]
+pub mod proof;
 mod select;
+#[allow(dead_code)]
+mod state;
+#[allow(dead_code)]
+mod tracked;
 
 use super::*;
 pub use allocation::{AllocatedFrame, Location, Slot};
@@ -51,3 +57,6 @@ pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> 
     }
     Ok(MachineProgram { routines })
 }
+
+#[cfg(test)]
+mod state_tests;
