@@ -391,3 +391,92 @@ RETURN
         }
     }
 }
+
+#[test]
+fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
+    for optimize in [false, true] {
+        for (name, source, outgoing, answer, byte_limit, cycle_limit, frame) in [
+            (
+                "maximum",
+                "CARD FUNC Work(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y) PROC Main() RETURN",
+                5,
+                41,
+                155,
+                160,
+                6,
+            ),
+            (
+                "sum-loop",
+                "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
+                3,
+                91,
+                220,
+                if optimize { 2500 } else { 2600 },
+                if optimize { 16 } else { 14 },
+            ),
+        ] {
+            let image = compile(source, optimize);
+            let work = image.routines.iter().find(|r| r.name == "Work").unwrap();
+            let caller = assemble_artifact(
+                &format!(
+                    "tsc\nsec\nsbc #{outgoing}\ntcs\nsep #$20\n.a8\nlda #0\nsta {outgoing},s\nrep #$20\n.a16\nlda f:$007100\nsta 1,s\n{}jsl ${:06x}\n.export returned\nreturned: sta f:$007200\ntsc\nclc\nadc #{outgoing}\ntcs\nstp\nnop",
+                    if outgoing == 5 {
+                        "lda f:$007102\nsta 3,s\n"
+                    } else {
+                        ""
+                    },
+                    work.address
+                ),
+                0x040000,
+            );
+            for mask in [0, 4] {
+                let mut h = Harness::new(&image, &caller.bytes, mask);
+                h.bus.ram[0x7100..0x7104].copy_from_slice(&[13, 0, 41, 0]);
+                assert!(
+                    h.cpu
+                        .run_until(
+                            &mut h.bus,
+                            1000,
+                            |_| Inputs::default(),
+                            |c| c.is_instruction_boundary() && c.pc() == work.address
+                        )
+                        .unwrap()
+                );
+                let start = h.cpu.cycles();
+                let entry_s = h.cpu.registers().s;
+                let mut lowest_s = entry_s;
+                assert!(
+                    h.cpu
+                        .run_until(
+                            &mut h.bus,
+                            10_000,
+                            |_| Inputs::default(),
+                            |c| {
+                                lowest_s = lowest_s.min(c.registers().s);
+                                c.is_instruction_boundary() && c.pc() == caller.symbols["returned"]
+                            }
+                        )
+                        .unwrap()
+                );
+                let cycles = h.cpu.cycles() - start;
+                assert_eq!(h.cpu.registers().a, answer);
+                assert!(
+                    work.size <= byte_limit && cycles <= cycle_limit,
+                    "{name}/{optimize}: {} bytes/{cycles} cycles",
+                    work.size
+                );
+                assert_eq!(
+                    (work.fixed_frame, work.local_stack_peak, entry_s - lowest_s),
+                    (frame, frame, frame as u16)
+                );
+                if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+                    std::fs::write(std::path::Path::new(&directory).join(format!("comparison-budget-{name}-{optimize}.json")),
+                        serde_json::to_vec_pretty(&serde_json::json!({"code_bytes":work.size,"cycles":cycles,"frame":frame,
+                            "observed_stack":entry_s-lowest_s,"byte_limit":byte_limit,"cycle_limit":cycle_limit})).unwrap()).unwrap();
+                }
+                h.run();
+                h.guards(mask);
+            }
+        }
+    }
+}

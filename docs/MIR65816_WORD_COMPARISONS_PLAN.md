@@ -1,8 +1,12 @@
 # Native 16-bit comparison implementation plan
 
-Status: proposed on 2026-09-21 against main `943ed21`, after the completed
-[native word returns](MIR65816_WORD_RETURNS.md). This document plans the next
-emitter slice; it does not change compiler behavior.
+Status: implemented on 2026-09-21. Baseline/coverage is committed in `9dff815`,
+selection in `51e5bc7`, and qualification in the commit containing the
+[results report](MIR65816_WORD_COMPARISONS.md). Maximum measures 146 bytes /
+149 VM cycles; optimized sum loop measures 213 / 2,465, matching the estimates.
+
+The approved plan below is retained as the acceptance boundary. It was based on
+main `943ed21`, after the completed [native word returns](MIR65816_WORD_RETURNS.md).
 
 ## Objective and scope
 

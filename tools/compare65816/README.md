@@ -110,3 +110,29 @@ When reconstructing historical builds, run their compiler and build runner from
 an isolated historical checkout (`257e5f9` for this baseline). The manifest
 records the runner's checkout revision as well as the supplied binary hash;
 `--actionc` alone does not update that revision.
+
+The [native word comparison results](../../docs/MIR65816_WORD_COMPARISONS.md)
+use the return `after` snapshot as their immutable baseline. New snapshots also
+retain maximum listings. After rebuilding and running both host modes in
+`target/word-comparisons-after`, reproduce the report and delta with:
+
+```sh
+python3 tools/compare65816/report.py \
+  --input target/word-comparisons-after \
+  --output docs/benchmarks/65816-word-comparisons/after
+python3 tools/compare65816/delta.py \
+  target/word-returns-after target/word-comparisons-after \
+  --output docs/benchmarks/65816-word-comparisons \
+  --title 'Native word comparisons: before / after' \
+  --stack-read-deltas docs/benchmarks/65816-word-comparisons/stack-read-deltas.json
+python3 -m unittest discover -s tools/compare65816 -p 'test_delta.py'
+```
+
+`--stack-read-deltas` accepts an explicit JSON list keyed by
+case/mode/compiler/vector, with an exact positive `delta`. The committed four
++2 entries were predicted before implementation: native CMP reads both private
+words where bytewise maximum stopped after unequal high bytes. Missing/unused
+keys, other read differences, and all other contract changes still fail; vbcc
+records must remain identical. Without the option, every stack-read count must
+match. Reconstruct this baseline from the isolated `943ed21` checkout if its
+saved artifacts are unavailable. Historical snapshots are never rewritten.

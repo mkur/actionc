@@ -139,6 +139,7 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
         let mut seen = BTreeSet::new();
         let mut word_windows = BTreeSet::new();
         let mut return_windows = BTreeSet::new();
+        let mut comparison_windows = BTreeSet::new();
         for _ in 0..2_000_000 {
             if h.cpu.is_stopped() {
                 break;
@@ -150,6 +151,9 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                 && seen.insert(h.cpu.pc())
             {
                 let pc = h.cpu.pc();
+                if let Some(window) = comparison::window(&h.cpu, &h.bus, &h.image.routines) {
+                    comparison_windows.insert(window);
+                }
                 if let Some(window) = return_window(&h) {
                     return_windows.insert(window);
                 }
@@ -188,6 +192,14 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
             );
         }
         assert!(return_windows.iter().any(|w| w.1));
+        assert!(!comparison_windows.is_empty());
+        for w in &comparison_windows {
+            assert!(
+                [w.load, w.cmp, w.branch, w.done, w.done + 2, w.end]
+                    .iter()
+                    .all(|pc| seen.contains(pc))
+            );
+        }
         assert!(return_windows.iter().any(|w| !w.1));
         assert!(
             return_windows
@@ -195,6 +207,10 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
                 .all(|w| w.3.iter().all(|pc| seen.contains(pc)))
         );
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(std::path::Path::new(&directory).join(format!("comparison-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(&serde_json::json!({"optimized":optimize,"enabled_instruction_addresses":seen.len(),
+                    "windows":comparison_windows.iter().map(|w| serde_json::json!({"load":w.load,"cmp":w.cmp,"predicate":w.predicate,
+                        "irq_tested_addresses":w.addresses().into_iter().filter(|pc| seen.contains(pc)).collect::<Vec<_>>()})).collect::<Vec<_>>()})).unwrap()).unwrap();
             std::fs::write(
                 std::path::Path::new(&directory).join(format!("word-preemption-{optimize}.json")),
                 serde_json::to_vec_pretty(&serde_json::json!({
@@ -235,6 +251,140 @@ fn irq_at_each_reachable_enabled_instruction_preserves_two_context_results() {
             "word returns optimize={optimize}: {} qualified interruption windows",
             return_windows.len()
         );
+        eprintln!(
+            "word comparisons optimize={optimize}: {} qualified interruption windows",
+            comparison_windows.len()
+        );
+    }
+}
+
+fn comparison_source(source: &str) -> String {
+    source
+        .replace("\r\n", "\n")
+        .replace(
+            "BYTE POINTER other,buffer]",
+            "BYTE POINTER other,buffer CARD low,high,equal]",
+        )
+        .replace(
+            "CARD FUNC Read",
+            r#"
+CARD FUNC Compare(CARD a,b)
+ BYTE eq,ne,lt,ge
+ eq=(a=b) ne=(a#b) lt=(a<b) ge=(a>=b)
+RETURN(CARD(eq)+(CARD(ne) LSH 1)+(CARD(lt) LSH 2)+(CARD(ge) LSH 3))
+CARD FUNC Read"#,
+        )
+        .replace(
+            "  work.done=1",
+            r#"
+  work.low=Compare(work.seed,work.seed+1)
+  work.high=Compare(work.seed+1,work.seed)
+  work.equal=Compare(work.seed,work.seed)
+  work.done=1"#,
+        )
+}
+fn check_comparison_results(h: &ContextHarness) {
+    check(h);
+    for job in [0x7100, 0x7120] {
+        // CARD fields align to two bytes after the final three-byte pointer.
+        for (offset, expected) in [(12, 6), (14, 10), (16, 9)] {
+            assert_eq!(h.bus.value(job + offset, 2), expected);
+        }
+    }
+}
+
+#[test]
+fn both_comparison_outcomes_survive_each_task_irq_boundary_and_seeded_nmi() {
+    let fixture = fixture("preemption.act");
+    let source = comparison_source(&fixture);
+    assert_eq!(source, comparison_source(&fixture.replace('\n', "\r\n")));
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let address = routine(&h.image, "Compare");
+        let map = h
+            .image
+            .routines
+            .iter()
+            .find(|r| r.address == address)
+            .unwrap();
+        let end = address + map.size;
+        let mut windows = BTreeSet::new();
+        let mut targets = BTreeSet::new();
+        let mut seen = BTreeSet::new();
+        let mut outcomes = BTreeSet::new();
+        let mut flag_outcomes = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 4 == 0 && [0x2000, 0x2100].contains(&r.d) {
+                if (address..end).contains(&pc) {
+                    if let Some(w) = comparison::window(&h.cpu, &h.bus, &h.image.routines) {
+                        targets.extend(w.addresses().into_iter().map(|pc| (r.d, pc)));
+                        windows.insert(w);
+                    }
+                }
+                let mut new_flags = false;
+                for w in &windows {
+                    if pc == w.done + 2 {
+                        assert!(r.a & 255 <= 1);
+                        outcomes.insert((r.d, w.predicate, r.a as u8));
+                    }
+                    if pc == w.branch {
+                        let truth = match w.predicate {
+                            0xf0 => r.p & 2 != 0,
+                            0xd0 => r.p & 2 == 0,
+                            0x90 => r.p & 1 == 0,
+                            0xb0 => r.p & 1 != 0,
+                            _ => unreachable!(),
+                        };
+                        new_flags |= flag_outcomes.insert((r.d, w.predicate, u8::from(truth)));
+                    }
+                }
+                let site = (r.d, pc);
+                if targets.contains(&site) && (seen.insert(site) || new_flags) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    run_injected(&mut h, true, None);
+                    check_comparison_results(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_comparison_results(&h);
+        assert_eq!(windows.len(), 4);
+        assert_eq!(targets, seen);
+        let expected = [0x2000u16, 0x2100]
+            .into_iter()
+            .flat_map(|d| {
+                [0xf0u8, 0xd0, 0x90, 0xb0]
+                    .into_iter()
+                    .flat_map(move |predicate| {
+                        [0u8, 1].into_iter().map(move |value| (d, predicate, value))
+                    })
+            })
+            .collect();
+        assert_eq!(outcomes, expected);
+        assert_eq!(flag_outcomes, expected);
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(std::path::Path::new(&directory).join(format!("comparison-task-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(&serde_json::json!({"optimized":optimize,"irq_sites":seen,"site_columns":["task_domain","pc"],
+                    "outcomes":outcomes,"irq_with_live_flag_outcomes":flag_outcomes,"outcome_columns":["task_domain","predicate_opcode","boolean"],"every_window_boundary_tested":true})).unwrap()).unwrap();
+        }
+        eprintln!(
+            "word comparisons optimize={optimize}: {} task/PC sites, {} predicate/outcome/domain combinations",
+            seen.len(),
+            outcomes.len()
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = machine_source(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check_comparison_results(&h);
+        }
     }
 }
 

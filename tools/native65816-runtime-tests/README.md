@@ -50,6 +50,7 @@ OS, device intercept or host scheduler participates. The earlier
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
+| `word_comparisons` | 5 | All signed/unsigned word relations, stored/returned Boolean bytes, canaries, casts and operand orders, clobbering calls, exact volatile/stack traces, independent CMP encodings, and code/cycle/stack budgets. |
 | `execution` | 5 | Recursion, mutable parameters, loop edges, local addresses/descriptors, record strides, banked code/data and exact volatile byte access. |
 | `interop` | 1 | Hand-packed mixed ABI arguments and zero-argument padding, calls both ways, A/X results, unused bits and all 64 scratch bytes clobbered; both I states. |
 | `comma_groups` | 1 | Scalar comma groups before contextual types in parameters and fields; mixed-width values, a bank-crossing record, LF/CRLF and both I states. |
@@ -59,10 +60,10 @@ OS, device intercept or host scheduler participates. The earlier
 | `pointer_preemption` | 2 | Both tasks and IRQ dispatch use the same three-slot leaf; IRQ at 164 raw / 100 optimized task/instruction sites, plus seeded IRQ/NMI. |
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
-| `preemption` | 3 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, explicit arithmetic/return tails, zero-frame returns in both tasks, and two seeded IRQ/NMI schedules. |
+| `preemption` | 4 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, both comparison flag outcomes in both tasks, and seeded IRQ/NMI schedules. |
 | `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
-| `o65` | 7 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, multi-bank code and preempted tasks. |
+| `o65` | 8 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, word comparisons, multi-bank code and preempted tasks. |
 
 Both raw and optimized NIR are covered. The original **33 tests passed in debug
 and release** on 2026-09-17. The later `comma_groups` regression, plus the eight
@@ -108,6 +109,13 @@ saved artifacts identical. The [results report](../../docs/MIR65816_WORD_RETURNS
 records 63-byte / 71-cycle identity and 74-byte / 98-cycle add/subtract, all with
 zero DP scratch traffic and unchanged ABI, stack traffic and guards.
 
+The [native word comparison qualification](../../docs/abi/action65816-word-comparisons-qualification.json)
+passes all **59 native tests in debug and release** on 2026-09-21, with all 166
+saved artifacts identical. The [results report](../../docs/MIR65816_WORD_COMPARISONS.md)
+records 146-byte / 149-cycle maximum and 213-byte / 2,465-cycle optimized sum loop,
+with no DP traffic in either. ABI, allocation, stack writes, peaks and guards
+are unchanged; four corpus records read two additional private stack bytes.
+
 ## Interrupt schedules and memory ownership
 
 The two-task fixture uses task domains `$2000`/`$2100`, task stacks
@@ -117,8 +125,8 @@ data at `$120000`, fault handling at `$048000`, and explicit IRQ/NMI/exit
 acknowledgements at `$7800..$7803`. Each image/layout records exact extents.
 These are test reservations, not an Atari board memory map.
 
-After native word returns, the corpus reaches 2,332 raw and 2,180 optimized
-distinct enabled instruction addresses (previously 2,416 / 2,264). At each,
+After native word comparisons, the corpus reaches 2,311 raw and 2,153 optimized
+distinct enabled instruction addresses (previously 2,332 / 2,180). At each,
 a separate run holds IRQ until assembly dispatch
 acknowledges it, then checks output, guards and domain storage. Seeded runs use
 `0x81620260916` and `0x5eedcafe`; NMI pulses are separated by at least 250 cycles.
@@ -128,6 +136,11 @@ before arithmetic, and before storing the result, exercising live A/P restoratio
 It also covers seven word-return tails and all 56 tail boundaries in each mode,
 including live results in A/Y and stack restoration around TCS. A supplemental
 zero-frame leaf tests LDA/RTL in each task, then both seeded IRQ/NMI schedules.
+Three selected comparison windows are covered by the exhaustive test. A targeted
+probe interrupts all 96 comparison task/PC boundaries per mode and all 16
+predicate/truth/task combinations immediately after CMP with live C/Z, then
+runs both seeded IRQ/NMI schedules. It checks exact Boolean-derived results
+separately for less, greater and equal input pairs.
 The pointer fixture additionally injects once per reached `(task domain, PC)`
 inside its leaf, so both tasks are checked even when they share instruction
 addresses. IRQ dispatch calls that same leaf using the IRQ domain's scratch.
@@ -152,6 +165,10 @@ ADC/SBC windows and the instruction addresses covered by IRQ injection.
 `return-preemption-*.json` and `return-zero-preemption-*.json` record word-return
 IRQ coverage; `word-return-tail-*.json` records independently executed tail
 traffic, restored-stack checks, code sizes and worker cycles.
+`comparison-preemption-*.json` and `comparison-task-preemption-*.json` record
+comparison coverage, including live-flag outcomes in both tasks.
+`comparison-traffic-*.json` records exact executed source reads and Boolean
+writes; `comparison-budget-*.json` records worker code/cycles/stack ceilings.
 
 The o65 tests save `.o65`, `.placement.json` and `.metrics.json` artifacts.
 Metrics separate machine code, text, data, BSS, descriptor and total file sizes,

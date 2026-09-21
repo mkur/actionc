@@ -4,6 +4,62 @@ use actionc_vm::native65816::Inputs;
 use support::{o65 as native, *};
 
 #[test]
+fn relocated_word_comparisons_materialize_both_boolean_outcomes() {
+    let source = r#"
+CARD a,b
+BYTE ARRAY output(8)
+PROC Main()
+ output(0)=(a=b) output(1)=(a#b) output(2)=(a<b)
+ output(3)=(a<=b) output(4)=(a>b) output(5)=(a>=b)
+ output(6)=(a<CARD($8000)) output(7)=(CARD($8000)<b)
+RETURN
+"#;
+    for optimize in [false, true] {
+        let bytes = native::compile(source, optimize, vec![]);
+        for variant in 0..2 {
+            let placement = native::placement(&bytes, variant, vec![native::fault(variant)]);
+            let image = format::relocate(&bytes, &placement).unwrap();
+            let caller = caller(image.entry());
+            for (a, b) in [(0u16, 0u16), (0xffff, 1), (0x8000, 0x7fff), (0, 0xffff)] {
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller, mask);
+                    for (name, value) in [("a", a), ("b", b)] {
+                        let at = native::object(&image, name) as usize;
+                        h.bus.ram[at..at + 2].copy_from_slice(&value.to_le_bytes());
+                    }
+                    h.run();
+                    h.guards(mask);
+                    let output = native::object(&image, "output") as usize;
+                    assert_eq!(
+                        &h.bus.ram[output..output + 8],
+                        [
+                            a == b,
+                            a != b,
+                            a < b,
+                            a <= b,
+                            a > b,
+                            a >= b,
+                            a < 0x8000,
+                            0x8000 < b
+                        ]
+                        .map(u8::from)
+                    );
+                    native::record(
+                        "word-comparisons",
+                        optimize,
+                        &bytes,
+                        &placement,
+                        &image,
+                        h.cpu.cycles(),
+                        None,
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn serialized_images_execute_bank_crossing_data_and_indirect_calls() {
     let source = r#"
 CARD input,result,initial=[7]
