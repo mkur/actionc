@@ -160,7 +160,7 @@ fn reordered_word_edges_restore_original_final_a_and_keep_frame() {
 }
 
 #[test]
-fn cyclic_word_edges_retain_both_staging_phases() {
+fn cyclic_word_edges_capture_only_endangered_sources() {
     let p = program();
     let mut b = builder(&p.routines[0]);
     let mut e = edge();
@@ -169,8 +169,7 @@ fn cyclic_word_edges_retain_both_staging_phases() {
     assert_eq!(
         b.code.code().bytes,
         [
-            0xc2, 0x20, 0xa3, 4, 0x83, 8, 0xa3, 2, 0x83, 12, 0xa3, 8, 0x83, 2, 0xa3, 12, 0x83, 4,
-            0x5c, 0, 0, 0
+            0xc2, 0x20, 0xa3, 2, 0x83, 8, 0xa3, 4, 0x83, 2, 0xa3, 8, 0x83, 4, 0x5c, 0, 0, 0
         ]
     );
 }
@@ -324,7 +323,7 @@ fn only_accessed_word_extent_matters_after_transient_stack_movement() {
                 }
                 1 => {
                     e.args[1] = Mir65816Value::Temp(TempId(0), ByteSize::new(2));
-                    b.frame.edge_copies[1].offset = offset;
+                    b.frame.edge_copies[0].offset = offset;
                 }
                 2 => {
                     b.frame
@@ -546,4 +545,125 @@ fn single_word_edges_validate_operands_without_requiring_unused_staging() {
             assert_eq!(b.edge(&e).is_ok(), ok, "{field}/{offset}/{delta}");
         }
     }
+}
+
+#[test]
+fn selective_plans_match_simultaneous_byte_copies_exhaustively() {
+    use WordOperand::{Immediate as I, Stack as S};
+    use copies::{WordCopies, WordStrategy};
+    let sources = [S(2), S(4), S(6), S(8), S(10), I(0), I(0xffff)];
+    for n in 1..=4u32 {
+        for code in 0..7u32.pow(n) {
+            let mut code = code;
+            let moves: Vec<_> = (0..n)
+                .map(|i| {
+                    let s = sources[(code % 7) as usize];
+                    code /= 7;
+                    (s, 2 + 2 * i as u8)
+                })
+                .collect();
+            let plan = WordCopies::plan(moves.clone());
+            let captures = plan.captures().unwrap();
+            for pattern in [0u8, 0x55, 0xff] {
+                let initial: Vec<u8> = (0..32u8).map(|b| pattern ^ b.wrapping_mul(17)).collect();
+                let load = |mem: &[u8], s| match s {
+                    I(v) => v.to_le_bytes(),
+                    S(s) => [mem[s as usize], mem[s as usize + 1]],
+                };
+                let mut expected = initial.clone();
+                for &(s, d) in &moves {
+                    expected[d as usize..d as usize + 2].copy_from_slice(&load(&initial, s));
+                }
+                let saved: Vec<_> = captures
+                    .iter()
+                    .map(|&i| load(&initial, moves[i].0))
+                    .collect();
+                let order = match &plan.strategy {
+                    WordStrategy::Direct(order) => order.clone(),
+                    WordStrategy::Selective(_) => (0..moves.len()).collect(),
+                    WordStrategy::Complete => panic!("disjoint words must not need full staging"),
+                };
+                let mut actual = initial.clone();
+                let mut a = [0; 2];
+                for i in order {
+                    let (s, d) = moves[i];
+                    a = captures
+                        .iter()
+                        .position(|&j| j == i)
+                        .map_or_else(|| load(&actual, s), |k| saved[k]);
+                    actual[d as usize..d as usize + 2].copy_from_slice(&a);
+                }
+                if let WordStrategy::Direct(order) = &plan.strategy {
+                    if order.last().copied() != Some(moves.len() - 1) {
+                        a = load(&actual, S(moves.last().unwrap().1));
+                    }
+                }
+                assert_eq!(actual, expected);
+                assert_eq!(a, load(&initial, moves.last().unwrap().0));
+            }
+        }
+    }
+    for moves in [vec![(S(3), 6), (I(0), 4)], vec![(S(8), 2), (S(10), 3)]] {
+        assert_eq!(WordCopies::plan(moves).strategy, WordStrategy::Complete);
+    }
+}
+
+#[test]
+fn selective_capture_mapping_is_checked_before_emission_in_every_mode() {
+    use copies::{WordCopies, WordStrategy};
+    let p = program();
+    let mut e = edge();
+    e.args[1] = Mir65816Value::Temp(TempId(0), ByteSize::new(2));
+    for mode in [None, Some(true), Some(false)] {
+        for problem in 0..6 {
+            let mut b = builder(&p.routines[0]);
+            match mode {
+                Some(true) => b.code.a8(),
+                Some(false) => b.code.a16(),
+                None => (),
+            };
+            match problem {
+                0 => b.frame.edge_copies.clear(),
+                1 => b.frame.edge_copies[0].width = 1,
+                2 => b.frame.edge_copies[0].offset = 2,
+                3 => b.frame.edge_copies[0].offset = 3,
+                4 => b.frame.edge_copies[0].offset = 255,
+                5 => b.code.test_delta(u32::MAX),
+                _ => unreachable!(),
+            }
+            let before = format!("{:?}", b.code);
+            assert!(b.word_edge(&e).is_err());
+            assert_eq!(format!("{:?}", b.code), before);
+        }
+    }
+    let b = builder(&p.routines[0]);
+    for captures in [vec![], vec![0], vec![1, 1], vec![2], vec![1, 0]] {
+        let mut plan =
+            WordCopies::plan(vec![(WordOperand::Stack(4), 2), (WordOperand::Stack(2), 4)]);
+        plan.strategy = WordStrategy::Selective(captures);
+        assert!(b.frame.word_staging(&plan, 0).is_err());
+    }
+}
+
+#[test]
+fn partial_word_overlap_keeps_complete_word_staging() {
+    let p = program();
+    let mut b = builder(&p.routines[0]);
+    b.frame.temps.insert(
+        TempId(2),
+        Location::Stack(Slot {
+            offset: 3,
+            width: 2,
+        }),
+    );
+    let mut e = edge();
+    e.args[0] = Mir65816Value::Temp(TempId(2), ByteSize::new(2));
+    b.edge(&e).unwrap();
+    assert_eq!(
+        b.code.code().bytes,
+        [
+            0xc2, 0x20, 0xa3, 3, 0x83, 8, 0xa9, 0x5a, 0xa5, 0x83, 12, 0xa3, 8, 0x83, 2, 0xa3, 12,
+            0x83, 4, 0x5c, 0, 0, 0
+        ]
+    );
 }

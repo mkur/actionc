@@ -10,27 +10,69 @@ pub(super) enum WordOperand {
     Stack(u8),
 }
 
-pub(super) struct WordCopies {
-    pub moves: Vec<(WordOperand, Option<u8>, u8)>,
-    pub order: Option<Vec<usize>>,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum WordStrategy {
+    Direct(Vec<usize>),
+    Selective(Vec<usize>), // original move indices, in capture-pool order
+    Complete,
 }
 
-/// Private word homes are disjoint destinations. Capture each source before
-/// another assignment overwrites it; retain every assignment, including self-copies.
-/// A cycle or partial byte overlap keeps the complete staged path.
+pub(super) struct WordCopies {
+    pub moves: Vec<(WordOperand, u8)>,
+    pub strategy: WordStrategy,
+}
+
+fn whole_words<T>(moves: &[(WordOperand, T, u8)]) -> bool {
+    moves
+        .iter()
+        .enumerate()
+        .all(|(i, &(source, _, destination))| {
+            !moves[..i]
+                .iter()
+                .any(|&(_, _, d)| destination.abs_diff(d) < 2)
+                && !matches!(source, WordOperand::Stack(s)
+                if moves.iter().any(|&(_, _, d)| s.abs_diff(d) == 1))
+        })
+}
+
+impl WordCopies {
+    pub(super) fn plan(moves: Vec<(WordOperand, u8)>) -> Self {
+        let geometry: Vec<_> = moves.iter().map(|&(s, d)| (s, (), d)).collect();
+        let strategy = if moves.len() == 1 {
+            // Own-source partial overlap is safe: the whole load precedes its store.
+            WordStrategy::Direct(vec![0])
+        } else if let Some(order) = acyclic_word_order(&geometry) {
+            WordStrategy::Direct(order)
+        } else if whole_words(&geometry) {
+            WordStrategy::Selective(moves.iter().enumerate().filter_map(|(i, &(s, _))| {
+                matches!(s, WordOperand::Stack(s) if moves[..i].iter().any(|&(_, d)| s == d))
+                    .then_some(i)
+            }).collect())
+        } else {
+            WordStrategy::Complete
+        };
+        Self { moves, strategy }
+    }
+
+    pub(super) fn captures(&self) -> Result<Vec<usize>, String> {
+        // Validate the entire logical mapping before indexing it. Missing, extra,
+        // repeated, out-of-order and out-of-range captures are all malformed.
+        if self.moves.is_empty() || Self::plan(self.moves.clone()).strategy != self.strategy {
+            return Err("invalid word edge strategy or capture mapping".into());
+        }
+        Ok(match &self.strategy {
+            WordStrategy::Direct(_) => vec![],
+            WordStrategy::Selective(indices) => indices.clone(),
+            WordStrategy::Complete => (0..self.moves.len()).collect(),
+        })
+    }
+}
+
+/// Preserve the existing direct order and final-A reload policy. A failed
+/// schedule alone does not distinguish a cycle from partial overlap.
 pub(super) fn acyclic_word_order<T>(moves: &[(WordOperand, T, u8)]) -> Option<Vec<usize>> {
-    for (i, &(source, _, destination)) in moves.iter().enumerate() {
-        if moves[..i]
-            .iter()
-            .any(|&(_, _, d)| destination.abs_diff(d) < 2)
-        {
-            return None;
-        }
-        if let WordOperand::Stack(s) = source {
-            if moves.iter().any(|&(_, _, d)| s.abs_diff(d) == 1) {
-                return None;
-            }
-        }
+    if !whole_words(moves) {
+        return None;
     }
     let mut pending: BTreeSet<_> = (0..moves.len()).collect();
     let mut order = Vec::with_capacity(moves.len());
@@ -219,7 +261,7 @@ impl AllocatedFrame {
                 Location::DirectPage(_) => None,
             };
             if let (Some(source), Some(destination)) = (source, destination) {
-                moves.push((source, None, destination));
+                moves.push((source, destination));
             } else {
                 // Unsupported entries must not hide a malformed later home.
                 supported = false;
@@ -228,17 +270,40 @@ impl AllocatedFrame {
         if !supported {
             return Ok(None);
         }
-        // A single load captures both bytes before any write, even for partial overlap.
-        let order = if moves.len() == 1 {
-            Some(vec![0])
-        } else {
-            acyclic_word_order(&moves)
-        };
-        Ok(Some(WordCopies { moves, order }))
+        Ok(Some(WordCopies::plan(moves)))
     }
 
-    /// Dense prefix of slots: every staged edge saves all its arguments. Only
-    /// staged edges contribute; each index reserves its maximum actual width.
+    /// Resolve logical captures to physical slots only after checking the whole
+    /// plan. Pool index is capture ordinal, never an uncaptured argument index.
+    pub(super) fn word_staging(
+        &self,
+        copies: &WordCopies,
+        delta: u32,
+    ) -> Result<Vec<(usize, u8)>, String> {
+        let mut resolved: Vec<(usize, u8)> = vec![];
+        for (pool, i) in copies.captures()?.into_iter().enumerate() {
+            let slot = self
+                .edge_copies
+                .get(pool)
+                .ok_or("missing edge staging slot")?;
+            if !(2..=4).contains(&slot.width) {
+                return Err("invalid edge staging slot width".into());
+            }
+            let at = word_displacement(slot.offset.into(), delta)?;
+            if resolved.iter().any(|&(_, s)| at.abs_diff(s) < 2)
+                || copies.moves.iter().any(|&(s, d)| {
+                    at.abs_diff(d) < 2 || matches!(s, WordOperand::Stack(s) if at.abs_diff(s) < 2)
+                })
+            {
+                return Err("edge capture overlaps source, destination or another capture".into());
+            }
+            resolved.push((i, at));
+        }
+        Ok(resolved)
+    }
+
+    /// Dense capture pool: reserve each ordinal's maximum actual width across
+    /// every explicit edge. Direct edges request no scratch storage.
     pub(super) fn staging_widths(&self, routine: &Mir65816Routine) -> Result<Vec<u8>, String> {
         let mut required = Vec::<u8>::new();
         for block in &routine.blocks {
@@ -254,13 +319,12 @@ impl AllocatedFrame {
                 | Mir65816Terminator::Exit => vec![],
             };
             for edge in edges {
-                if self
-                    .word_copies(routine, edge, 0)?
-                    .is_some_and(|p| p.order.is_some())
-                {
-                    continue;
-                }
-                for (i, w) in self.edge_widths(routine, edge)?.into_iter().enumerate() {
+                let widths = if let Some(plan) = self.word_copies(routine, edge, 0)? {
+                    vec![2; plan.captures()?.len()]
+                } else {
+                    self.edge_widths(routine, edge)?
+                };
+                for (i, w) in widths.into_iter().enumerate() {
                     if i == required.len() {
                         required.push(w);
                     } else {

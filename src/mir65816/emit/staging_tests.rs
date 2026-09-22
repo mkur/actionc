@@ -106,31 +106,22 @@ fn cyclic_reservations_are_exact_words_and_verified_independently() {
     let mut r = routine(&[2, 2, 2]);
     cycle(&mut r);
     let f = AllocatedFrame::new(&r).unwrap();
+    // Forward rotation only endangers the final source. Move 2 uses pool 0.
     assert_eq!(
         f.edge_copies,
-        [
-            Slot {
-                offset: 8,
-                width: 2
-            },
-            Slot {
-                offset: 10,
-                width: 2
-            },
-            Slot {
-                offset: 12,
-                width: 2
-            }
-        ]
+        [Slot {
+            offset: 8,
+            width: 2
+        }]
     );
-    assert_eq!(f.extent, 14);
+    assert_eq!(f.extent, 10);
     for problem in 0..6 {
         let mut corrupt = f.clone();
         match problem {
             0 => corrupt.edge_copies.clear(),
             1 => corrupt.edge_copies[0].width = 1,
             2 => corrupt.edge_copies[0].width = 4,
-            3 => corrupt.edge_copies[1].offset = corrupt.edge_copies[0].offset,
+            3 => corrupt.edge_copies.push(corrupt.edge_copies[0]),
             4 => corrupt.edge_copies[0].offset = f.temps[&TempId(0)].slot().offset,
             5 => corrupt.extent += 2,
             _ => unreachable!(),
@@ -189,9 +180,88 @@ fn removal_avoids_provisional_overflow_but_keeps_incoming_and_fixed_frame_limits
     r.frame.parameters.clear();
     cycle(&mut r);
     let f = AllocatedFrame::new(&r).unwrap();
-    assert_eq!(f.extent, 254);
+    assert_eq!(f.extent, 130);
     let mut r = routine(&vec![2; 64]);
     r.frame.parameters.clear();
     cycle(&mut r);
-    assert!(AllocatedFrame::new(&r).is_err());
+    assert_eq!(AllocatedFrame::new(&r).unwrap().extent, 132);
+    // Reverse rotation needs n-1 captures, so 64 words really do overflow.
+    for n in [63, 64] {
+        let mut r = routine(&vec![2; n]);
+        r.frame.parameters.clear();
+        // Two frame-object bytes make the 63-word case exactly 254 bytes.
+        r.frame.extent = ByteSize::new(2);
+        cycle(&mut r);
+        let Mir65816Terminator::Goto(e) = &mut r.blocks[1].terminator else {
+            unreachable!()
+        };
+        e.args = (0..n)
+            .map(|i| Mir65816Value::Temp(TempId(((i + n - 1) % n) as u32), ByteSize::new(2)))
+            .collect();
+        if n == 63 {
+            let f = AllocatedFrame::new(&r).unwrap();
+            assert_eq!(f.extent, 254);
+            assert_eq!(f.edge_copies.len(), 62);
+        } else {
+            assert!(AllocatedFrame::new(&r).is_err());
+        }
+    }
+}
+
+#[test]
+fn capture_ordinals_pack_sparse_moves_and_take_mixed_edge_maxima() {
+    let mut r = routine(&[2; 5]);
+    cycle(&mut r);
+    let Mir65816Terminator::Goto(e) = &mut r.blocks[1].terminator else {
+        unreachable!()
+    };
+    e.args = [1, 0, 2, 4, 3]
+        .into_iter()
+        .map(|id| Mir65816Value::Temp(TempId(id), ByteSize::new(2)))
+        .collect();
+    let f = AllocatedFrame::new(&r).unwrap();
+    let Mir65816Terminator::Goto(e) = &r.blocks[1].terminator else {
+        unreachable!()
+    };
+    let plan = f.word_copies(&r, e, 0).unwrap().unwrap();
+    assert_eq!(plan.captures().unwrap(), [1, 4]);
+    assert_eq!(f.edge_copies.len(), 2);
+    assert_eq!(
+        f.word_staging(&plan, 0).unwrap(),
+        [
+            (1, f.edge_copies[0].offset as u8),
+            (4, f.edge_copies[1].offset as u8)
+        ]
+    );
+    let mut corrupt = f.clone();
+    corrupt.edge_copies[1].offset = corrupt.edge_copies[0].offset;
+    assert!(corrupt.verify_stack(&r).is_err());
+    assert!(corrupt.word_staging(&plan, 0).is_err());
+    let mut extra = routine(&[1, 3]).blocks.remove(1);
+    extra.id = BlockId(2);
+    for (i, (id, w)) in extra.params.iter_mut().enumerate() {
+        *id = TempId(5 + i as u32);
+        let mut ty = r.temps[0].1.clone();
+        ty.width = Some(*w);
+        r.temps.push((*id, ty));
+    }
+    let Mir65816Terminator::Goto(then_edge) = r.blocks[1].terminator.clone() else {
+        unreachable!()
+    };
+    r.blocks[1].terminator = Mir65816Terminator::Branch {
+        condition: Mir65816Value::U8(1),
+        then_edge,
+        else_edge: Mir65816Edge {
+            target: BlockId(2),
+            args: vec![Mir65816Value::U8(0), Mir65816Value::U24(0)],
+        },
+    };
+    r.blocks.push(extra);
+    let f = AllocatedFrame::new(&r).unwrap();
+    assert_eq!(
+        f.edge_copies.iter().map(|s| s.width).collect::<Vec<_>>(),
+        [2, 3]
+    );
+    assert!(f.edge_copies.iter().all(|s| s.offset % 2 == 0));
+    f.verify_stack(&r).unwrap();
 }

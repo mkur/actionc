@@ -88,7 +88,7 @@ fn compact_edge_frames_check_exact_floor_before_any_write_in_both_modes() {
         (include_str!("fixtures/code_quality/sum_loop.act"), [14, 12]),
         (
             include_str!("fixtures/code_quality/loop_rotation.act"),
-            [18, 20],
+            [18, 16],
         ),
         (include_str!("fixtures/code_quality/byte_sum.act"), [16, 18]),
     ] {

@@ -9,7 +9,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
 };
-use support::Bus;
+use support::{Bus, word_edge};
 
 const ENTRY_S: u16 = 0x5fe0;
 const RETURN: u32 = 0x040000;
@@ -151,6 +151,9 @@ fn execute(
     let mut direct_sites = BTreeMap::<u32, u64>::new();
     let mut acyclic_sites = BTreeMap::<u32, u64>::new();
     let mut acyclic_words = 0u64;
+    let mut selective_sites = BTreeMap::<u32, u64>::new();
+    let mut selective_words = 0u64;
+    let mut selective_staged = 0u64;
     let mut forwarded_sites = BTreeMap::<u32, u64>::new();
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
@@ -182,12 +185,18 @@ fn execute(
             if let Some(window) = support::word_edge::reached(&cpu, &bus, &native_routines) {
                 *word_edge_sites.entry(cpu.pc()).or_default() += 1;
                 edge_words += window.moves.len() as u64;
-                if window.direct && window.moves.len() == 1 {
+                if window.form == word_edge::Form::Direct && window.moves.len() == 1 {
                     *direct_sites.entry(cpu.pc()).or_default() += 1;
                 }
-                if window.direct && window.moves.len() > 1 {
+                if window.form == word_edge::Form::Direct && window.moves.len() > 1 {
                     *acyclic_sites.entry(cpu.pc()).or_default() += 1;
                     acyclic_words += window.moves.len() as u64;
+                }
+                if window.form == word_edge::Form::Selective {
+                    *selective_sites.entry(cpu.pc()).or_default() += 1;
+                    selective_words += window.moves.len() as u64;
+                    selective_staged +=
+                        window.moves.iter().filter(|m| m.1.is_some()).count() as u64;
                 }
             }
             if let Some(site) = support::forwarding::reached(&cpu, &bus) {
@@ -317,6 +326,11 @@ fn execute(
         measurement["acyclic_word_edges"] = json!(acyclic_sites.values().sum::<u64>());
         measurement["acyclic_edge_words"] = json!(acyclic_words);
         measurement["acyclic_word_edge_sites"] = json!(acyclic_sites);
+        measurement["selective_word_edges"] = json!(selective_sites.values().sum::<u64>());
+        measurement["selective_edge_words"] = json!(selective_words);
+        measurement["selective_staged_words"] = json!(selective_staged);
+        measurement["selective_direct_words"] = json!(selective_words - selective_staged);
+        measurement["selective_word_edge_sites"] = json!(selective_sites);
         measurement["forwarded_word_loads"] = json!(forwarded_sites.values().sum::<u64>());
         measurement["forwarded_word_load_sites"] = json!(forwarded_sites);
     }

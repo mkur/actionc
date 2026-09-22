@@ -70,17 +70,26 @@ seeded IRQ/NMI suites cover suspension during reused-slot operations.
 
 The [staging-reservation slice](MIR65816_STAGING_RESERVATIONS.md) makes allocation
 and emission share the existing word-copy planner. Empty, single-word and
-acyclic word edges require no staging. Cyclic word edges still save every source;
-mixed-width and unsupported word forms still use their complete bytewise path.
-For each argument index, allocation reserves the maximum width among staged
-edges only. There are no holes: every staged edge saves its complete argument
-prefix. Multi-byte slots keep even alignment, and final frame extent stays even.
+acyclic word edges require no staging. The selective-staging extension captures
+only cyclic word sources overwritten by earlier original-order assignments.
+Whole-word, disjoint destination geometry is required; partial overlaps keep
+complete word staging. Mixed-width and unsupported word forms keep their
+complete bytewise path.
+
+The shared plan identifies captured move indices separately from pool slots.
+For captured moves [1, 4], slots [0, 1] hold the two saved words. Allocation
+reserves each capture ordinal's maximum requested width across all explicit
+edges, including both branch arms and unreachable blocks. There are no holes,
+source deduplication or scratch reuse within an edge. Full fallbacks capture all
+arguments, preserving their argument-index mapping. Multi-byte slots keep even
+alignment, and final frame extent stays even.
 
 The planner first uses the minimum frame containing all fixed objects and temp
 homes. Immutable incoming parameters are above that extent; adding staging cannot
 create an overlap with a destination. Mutable parameters use their fixed object
 homes. Final allocation recomputes staging requirements and validates slot count,
-exact capacities, disjointness, incoming last-byte access, spill bytes and local
+exact capacities, logical-to-physical capture mappings, disjointness, incoming
+last-byte access, spill bytes and local
 peak. This avoids rejecting a legal direct edge because a provisional unused
 reservation would exceed the addressing limit. Required reservations and the
 254-byte frame limit remain checked.

@@ -186,7 +186,7 @@ to execute code or publish it in image/o65 formats.
   operate on ordinary contiguous memory and use invocation storage.
 - Branches, loops, direct/mutual recursion and block-parameter transfers are supported.
   Parallel edge copies preserve every source until consumed; cyclic edges save
-  all sources before assigning destinations.
+  sources endangered by earlier assignments before writing destinations.
 - Volatile accesses remain ordered byte accesses. A byte operation does not
   touch its neighbor. Wider volatile operations are not claimed to be atomic.
 
@@ -200,11 +200,18 @@ destinations and no partial source/destination overlap use direct copies when
 their dependency graph is acyclic. A stable topological schedule consumes each
 source before another assignment overwrites it, preferring the original final
 assignment last. If that assignment must move earlier, a final LDA from its
-destination restores the original full A and N/Z. Cycles and unproved overlaps
-retain complete two-phase staging; no partial scheduling is emitted on failure.
-Allocation and selection share this copy planner. Only staged edges contribute
-to reservation requirements; slot index i reserves the maximum actual argument
-width at i across those edges. Mixed-width and legal unsupported nonempty edges
+destination restores the original full A and N/Z. For cyclic whole-word geometry,
+selective staging captures each stack source overlapping an earlier destination,
+then performs all assignments in original argument order. Captures precede every
+destination write and use distinct invocation-owned words; repeated endangered
+sources are saved separately. The final assignment preserves full A and N/Z
+without a reload. Partial or unproved overlaps retain complete word staging.
+
+Allocation, verification and selection share an explicit strategy/capture plan.
+Logical captured move indices are distinct from physical scratch offsets. Pool
+slot k holds the kth capture, so captured moves [1, 4] use slots [0, 1]. Each slot
+reserves the maximum requested width at that capture ordinal across all edges.
+Every logical mapping and accessed scratch range is checked before emission. Mixed-width and legal unsupported nonempty edges
 retain bytewise emission and reserve their full widths. Internal labels reset mode
 permission; proved MIR entries use the contract above. Word edges restore A16
 when needed. No DP traffic, pushes, calls or wider
@@ -363,9 +370,10 @@ All inputs, outputs and values live across an operation interfere for its entire
 instruction sequence, including dead outputs that selection still writes. Block
 parameters, even unused ones, interfere with each other and successor live-ins.
 Required parallel-edge staging slots remain separate from all temporary homes
-and frame objects. Empty/direct edges contribute no staging; staged edges save
-every source before writing destinations. Each shared slot has the maximum
-actual width needed at that argument index, with multi-byte slots aligned evenly.
+and frame objects. Empty/direct edges contribute no staging; selective word
+edges capture only endangered sources. Full word/byte fallbacks save every
+argument. Each shared slot has the maximum actual width needed at that capture
+ordinal, with multi-byte slots aligned evenly.
 The allocator plans from a frame containing all private homes: immutable incoming
 arguments lie above it, and adding staging only moves them farther from any
 destination. The final allocation independently rechecks every plan, required

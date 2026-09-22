@@ -2,9 +2,16 @@
 use super::*;
 use std::ops::Range;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Form {
+    Direct,
+    Selective,
+    Complete,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Window {
-    pub direct: bool,
+    pub form: Form,
     pub fallthrough: bool,
     pub sites: Vec<u32>,
     pub moves: Vec<((bool, u16), Option<u8>, u8)>, // source, staging, destination
@@ -103,7 +110,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         sites.push(pc);
     }
     Some(Window {
-        direct: false,
+        form: Form::Complete,
         fallthrough,
         sites,
         order: (0..moves.len()).collect(),
@@ -346,10 +353,10 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         sites.push(s.jump);
     }
     Some(Window {
-        direct: true,
+        form: Form::Direct,
         fallthrough: s.fallthrough,
         sites,
-        moves: vec![(s.source, s.staging, s.destination)],
+        moves: vec![(s.source, None, s.destination)],
         order: vec![0],
         reload: None,
         target: s.target,

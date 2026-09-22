@@ -143,3 +143,84 @@ fn independent_selective_sequences_match_simultaneous_copies_and_full_staging() 
         }
     }
 }
+
+#[test]
+fn selective_evidence_rejects_missing_late_reused_and_forged_captures() {
+    let moves = [
+        ((true, 6), None, 2),
+        ((true, 2), Some(10), 4),
+        ((true, 4), Some(12), 6),
+    ];
+    let valid = [
+        0xa3, 2, 0x83, 10, 0xa3, 4, 0x83, 12, 0xa3, 6, 0x83, 2, 0xa3, 10, 0x83, 4, 0xa3, 12, 0x83,
+        6,
+    ];
+    assert!(multi_word_edge::selective(&valid, &moves).is_some());
+    for n in 0..valid.len() {
+        assert!(multi_word_edge::selective(&valid[..n], &moves).is_none());
+    }
+    for i in 0..valid.len() {
+        let mut wrong = valid;
+        wrong[i] ^= 1;
+        assert!(multi_word_edge::selective(&wrong, &moves).is_none());
+    }
+    for i in [1, 2] {
+        for slot in [None, Some(0), Some(2), Some(10), Some(254), Some(255)] {
+            if slot == moves[i].1 {
+                continue;
+            }
+            let mut wrong = moves;
+            wrong[i].1 = slot;
+            assert!(multi_word_edge::selective(&valid, &wrong).is_none());
+        }
+    }
+    let mut late = valid;
+    late[..4].copy_from_slice(&valid[8..12]);
+    late[8..12].copy_from_slice(&valid[..4]);
+    assert!(multi_word_edge::selective(&late, &moves).is_none());
+}
+
+#[test]
+fn typed_selective_windows_reject_suffixes_stale_targets_and_bytes() {
+    for optimize in [false, true] {
+        let p = edges::rotation(optimize, false, false);
+        let compiled = p.compile(&layout()).unwrap();
+        let image = &compiled.image;
+        let mut h = Harness::new(image, &caller(image.entry), 0);
+        h.bus.forwarded_words = forwarding::compiled(&p, &compiled);
+        let sites: Vec<_> = h
+            .bus
+            .forwarded_words
+            .multi_words
+            .iter()
+            .filter(|s| s.form == word_edge::Form::Selective)
+            .cloned()
+            .collect();
+        assert!(!sites.is_empty());
+        for s in sites {
+            let w = word_edge::decode(&h.bus, s.load, s.range.clone()).unwrap();
+            assert_eq!(w.form, word_edge::Form::Selective);
+            for pc in s.load + 1..s.jump {
+                assert!(word_edge::decode(&h.bus, pc, s.range.clone()).is_none());
+            }
+            for pc in s.load..s.jump {
+                h.bus.ram[pc as usize] ^= 1;
+                assert!(word_edge::decode(&h.bus, s.load, s.range.clone()).is_none());
+                h.bus.ram[pc as usize] ^= 1;
+            }
+            let i = h
+                .bus
+                .forwarded_words
+                .multi_words
+                .iter()
+                .position(|v| v.load == s.load)
+                .unwrap();
+            h.bus.forwarded_words.multi_words[i].target += 1;
+            assert!(word_edge::decode(&h.bus, s.load, s.range.clone()).is_none());
+            h.bus.forwarded_words.multi_words[i] = s.clone();
+            h.bus.forwarded_words.multi_words[i].jump -= 1;
+            assert!(word_edge::decode(&h.bus, s.load, s.range.clone()).is_none());
+            h.bus.forwarded_words.multi_words[i] = s;
+        }
+    }
+}

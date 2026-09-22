@@ -8,37 +8,70 @@ fn rotations_repeated_sources_live_ins_unused_and_mixed_parameters_execute() {
     for optimize in [false, true] {
         for mixed in [false, true] {
             for ordinary in [false, true] {
-                let p = edges::rotation(optimize, mixed, ordinary);
-                let r = p.mir.routines.iter().find(|r| r.name == "Work").unwrap();
-                assert_eq!(r.blocks[1].params.len(), if mixed { 9 } else { 6 });
-                let compiled = p.compile(&layout()).unwrap();
-                let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
-                let sites = word_edge::index(&p.mir, &compiled.machine, |id| {
-                    image
-                        .routines
-                        .iter()
-                        .find(|r| r.id == id.0)
-                        .unwrap()
-                        .address
-                });
-                let caller = caller(image.entry);
-                for a in [0u16, 1, 0xff, 0x100, 0x7fff, 0x8000, 0xffff] {
-                    let b = a.rotate_left(8) ^ 0x5aa5;
-                    for mask in [0, 4] {
-                        let mut h = Harness::new(&image, &caller, mask);
-                        h.bus.single_word_edges = sites.clone();
-                        h.bus.forwarded_words = forwarding::compiled(&p, &compiled);
-                        h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
-                        h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
+                for reverse in [false, true] {
+                    let mut p = edges::rotation(optimize, mixed, ordinary);
+                    if reverse {
+                        let r = p
+                            .mir
+                            .routines
+                            .iter_mut()
+                            .find(|r| r.name == "Work")
+                            .unwrap();
+                        let Mir65816Terminator::Branch { then_edge, .. } =
+                            &mut r.blocks[1].terminator
+                        else {
+                            panic!()
+                        };
+                        for (i, id) in [(0, 10), (1, 2), (3, 3)] {
+                            then_edge.args[i] =
+                                Mir65816Value::Temp(actionc::nir::TempId(id), ByteSize::new(2));
+                        }
+                        mir65816::verify_program(&p.mir).unwrap();
+                    }
+                    let r = p.mir.routines.iter().find(|r| r.name == "Work").unwrap();
+                    assert_eq!(r.blocks[1].params.len(), if mixed { 9 } else { 6 });
+                    let compiled = p.compile(&layout()).unwrap();
+                    let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
+                    let sites = word_edge::index(&p.mir, &compiled.machine, |id| {
+                        image
+                            .routines
+                            .iter()
+                            .find(|r| r.id == id.0)
+                            .unwrap()
+                            .address
+                    });
+                    if !mixed {
+                        let index = forwarding::compiled(&p, &compiled);
+                        let cyclic: Vec<_> = index
+                            .multi_words
+                            .iter()
+                            .filter(|s| s.form == word_edge::Form::Selective)
+                            .collect();
+                        assert_eq!(cyclic.len(), 1);
                         assert_eq!(
-                            run_edges(&mut h, &image),
-                            if mixed { (1, 2) } else { (5, 26) }
+                            cyclic[0].moves.iter().filter(|m| m.1.is_some()).count(),
+                            if reverse { 2 } else { 1 }
                         );
-                        h.guards(mask);
-                        assert_eq!(
-                            h.bus.value(0x7200, 2),
-                            u32::from(a.wrapping_sub(b).wrapping_add(a))
-                        );
+                    }
+                    let caller = caller(image.entry);
+                    for a in [0u16, 1, 0xff, 0x100, 0x7fff, 0x8000, 0xffff] {
+                        let b = a.rotate_left(8) ^ 0x5aa5;
+                        for mask in [0, 4] {
+                            let mut h = Harness::new(&image, &caller, mask);
+                            h.bus.single_word_edges = sites.clone();
+                            h.bus.forwarded_words = forwarding::compiled(&p, &compiled);
+                            h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
+                            h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
+                            assert_eq!(
+                                run_edges(&mut h, &image),
+                                if mixed { (1, 2) } else { (5, 26) }
+                            );
+                            h.guards(mask);
+                            assert_eq!(
+                                h.bus.value(0x7200, 2),
+                                u32::from(a.wrapping_sub(b).wrapping_add(a))
+                            );
+                        }
                     }
                 }
             }
@@ -142,13 +175,13 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         source
                     };
                     values.push(value);
-                    if stack && !w.direct {
+                    if stack && stage.is_some() {
                         expected.extend([
                             (s + u32::from(source), Access::Read),
                             (s + u32::from(source) + 1, Access::Read),
                         ]);
                     }
-                    if !w.direct {
+                    if stage.is_some() {
                         expected.extend([
                             (
                                 s + u32::from(stage.expect("staged edge")),
@@ -164,13 +197,13 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                 for &i in &w.order {
                     let ((stack, source), stage, dest) = w.moves[i];
                     let value = values[i];
-                    if w.direct && stack {
+                    if stage.is_none() && stack {
                         expected.extend([
                             (s + u32::from(source), Access::Read),
                             (s + u32::from(source) + 1, Access::Read),
                         ]);
                     }
-                    if !w.direct {
+                    if stage.is_some() {
                         expected.extend([
                             (s + u32::from(stage.expect("staged edge")), Access::Read),
                             (s + u32::from(stage.expect("staged edge")) + 1, Access::Read),
@@ -220,8 +253,8 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     + if w.reload.is_some() { 5 } else { 0 }
                     + w.moves
                         .iter()
-                        .map(|&((stack, _), _, _)| {
-                            (if stack { 5 } else { 3 }) + 5 + if w.direct { 0 } else { 10 }
+                        .map(|&((stack, _), stage, _)| {
+                            (if stack { 5 } else { 3 }) + 5 + if stage.is_some() { 10 } else { 0 }
                         })
                         .sum::<u64>();
                 assert_eq!(h.cpu.cycles() - cycles, expected_cycles);
@@ -465,7 +498,7 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                         },
                     );
                     let w = word_edge::decode(&bus, 0x040000, 0x040000..target + 2).unwrap();
-                    assert!(w.direct);
+                    assert_eq!(w.form, word_edge::Form::Direct);
                     assert_eq!(w.sites.len(), if a8 { 4 } else { 3 });
                     for at in [load_pc, target - 6, target - 5, target - 4, target - 3] {
                         let mut bad = bus.clone();

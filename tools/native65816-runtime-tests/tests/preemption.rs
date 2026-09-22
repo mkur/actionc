@@ -692,6 +692,7 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         let mut windows = BTreeSet::new();
         let mut word_sites = BTreeSet::new();
         let mut overlapping_domains = BTreeSet::new();
+        let mut selective_sites = BTreeSet::new();
         let mut targets = BTreeSet::new();
         let mut seen = BTreeSet::new();
         let mut flags = BTreeSet::new();
@@ -719,6 +720,10 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
                                 && w.moves.iter().any(|&(_, _, d)| u16::from(d) == source)
                         }) {
                             overlapping_domains.insert(r.d);
+                        }
+                        if w.form == word_edge::Form::Selective {
+                            assert!(w.moves.iter().any(|m| m.1.is_some()));
+                            selective_sites.extend(w.sites.iter().map(|&pc| (r.d, pc)));
                         }
                         for site in w.sites {
                             targets.insert((r.d, site));
@@ -781,6 +786,11 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         );
         assert!(!word_sites.is_empty());
         assert_eq!(overlapping_domains, BTreeSet::from([0x2000, 0x2100]));
+        assert_eq!(
+            selective_sites.iter().map(|s| s.0).collect::<BTreeSet<_>>(),
+            BTreeSet::from([0x2000, 0x2100])
+        );
+        assert!(selective_sites.is_subset(&seen));
         assert_eq!(targets, seen);
         assert!(windows.iter().any(|w| w.edges.iter().any(|e| e.len() > 3)));
         let expected: BTreeSet<_> = [0x2000u16, 0x2100]
@@ -794,7 +804,7 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
         assert_eq!(flags, expected);
         assert_eq!(cmp_outcomes, expected);
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
-            std::fs::write(std::path::Path::new(&directory).join(format!("fused-task-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_sites":seen,"word_edge_sites":word_sites,"overlapping_domains":overlapping_domains,"site_columns":["task_domain","pc"],"live_flag_outcomes":flags,"irq_after_cmp_outcomes":cmp_outcomes,"register_restorations":restorations,"restoration_columns":["domain","armed_pc","restored_pc","restored_p"],"outcome_columns":["task_domain","load_pc","truth"],"windows":windows.iter().map(|w|serde_json::json!({"load":w.load,"cmp":w.cmp,"branch":w.branch,"predicate":w.predicate,"sources":w.sources,"edges":w.edges})).collect::<Vec<_>>()})).unwrap()).unwrap();
+            std::fs::write(std::path::Path::new(&directory).join(format!("fused-task-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_sites":seen,"word_edge_sites":word_sites,"selective_sites":selective_sites,"overlapping_domains":overlapping_domains,"site_columns":["task_domain","pc"],"live_flag_outcomes":flags,"irq_after_cmp_outcomes":cmp_outcomes,"register_restorations":restorations,"restoration_columns":["domain","armed_pc","restored_pc","restored_p"],"outcome_columns":["task_domain","load_pc","truth"],"windows":windows.iter().map(|w|serde_json::json!({"load":w.load,"cmp":w.cmp,"branch":w.branch,"predicate":w.predicate,"sources":w.sources,"edges":w.edges})).collect::<Vec<_>>()})).unwrap()).unwrap();
         }
         eprintln!(
             "fused comparisons optimize={optimize}: {} task/PC sites, {} flag outcomes",
@@ -846,7 +856,7 @@ fn direct_word_edges_preserve_live_a_and_frame_at_every_transfer_boundary() {
                         pc,
                         routine.address..routine.address + routine.size,
                     ) {
-                        if w.direct {
+                        if w.form == word_edge::Form::Direct {
                             forms.insert((r.d, w.moves[0].0.0, w.moves[0].0.1));
                             targets
                                 .extend(w.sites.into_iter().chain([w.target]).map(|pc| (r.d, pc)));

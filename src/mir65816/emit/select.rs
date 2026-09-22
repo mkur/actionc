@@ -66,6 +66,7 @@ struct WordCondition {
 struct WordEdge {
     target: Label,
     copies: copies::WordCopies,
+    captures: Vec<(usize, u8)>,
 }
 
 impl From<Location> for Memory {
@@ -940,7 +941,7 @@ impl Builder<'_> {
             .get(&edge.target)
             .ok_or("missing branch target label")?;
         // Preflight fallback capacity as well, before any prefix or copy writes.
-        let Some(mut copies) = copies else {
+        let Some(copies) = copies else {
             for (i, bytes) in self
                 .frame
                 .edge_widths(self.routine, edge)?
@@ -951,46 +952,48 @@ impl Builder<'_> {
             }
             return Ok(None);
         };
-        if copies.order.is_none() {
-            for (i, m) in copies.moves.iter_mut().enumerate() {
-                m.1 = Some(self.staging(i, 2)?);
-            }
+        let captures = self.frame.word_staging(&copies, self.code.delta())?;
+        Ok(Some(WordEdge {
+            target,
+            copies,
+            captures,
+        }))
+    }
+    fn edge_load(&mut self, source: WordOperand) {
+        match source {
+            WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
+            WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
         }
-        Ok(Some(WordEdge { target, copies }))
     }
     fn emit_word_edge(&mut self, edge: WordEdge, fallthrough: bool) {
         self.code.barrier();
         self.code.a16();
-        if let Some(order) = &edge.copies.order {
+        if let copies::WordStrategy::Direct(order) = &edge.copies.strategy {
             for &i in order {
-                let (source, _, destination) = edge.copies.moves[i];
-                match source {
-                    WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
-                    WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
-                }
+                let (source, destination) = edge.copies.moves[i];
+                self.edge_load(source);
                 self.code.byte(ByteOp::StaStack, destination);
             }
             if order.last().copied() != Some(edge.copies.moves.len() - 1) {
-                // The old final staged load established full A and N/Z. The
-                // destination retains that value even when its assignment moved.
+                // Retain full A and N/Z of the original final assignment.
                 self.code
-                    .byte(ByteOp::LdaStack, edge.copies.moves.last().unwrap().2);
+                    .byte(ByteOp::LdaStack, edge.copies.moves.last().unwrap().1);
             }
-            self.finish_edge(edge.target, fallthrough);
-            return;
-        }
-        for &(source, staging, _) in &edge.copies.moves {
-            match source {
-                WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
-                WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
+        } else {
+            for &(i, at) in &edge.captures {
+                self.edge_load(edge.copies.moves[i].0);
+                self.code.byte(ByteOp::StaStack, at);
             }
-            self.code
-                .byte(ByteOp::StaStack, staging.expect("checked staged copy"));
-        }
-        for &(_, staging, destination) in &edge.copies.moves {
-            self.code
-                .byte(ByteOp::LdaStack, staging.expect("checked staged copy"));
-            self.code.byte(ByteOp::StaStack, destination);
+            let mut captures = edge.captures.iter().peekable();
+            for (i, &(source, destination)) in edge.copies.moves.iter().enumerate() {
+                let source = if captures.peek().is_some_and(|&&(j, _)| j == i) {
+                    WordOperand::Stack(captures.next().unwrap().1)
+                } else {
+                    source
+                };
+                self.edge_load(source);
+                self.code.byte(ByteOp::StaStack, destination);
+            }
         }
         self.finish_edge(edge.target, fallthrough);
     }

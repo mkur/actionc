@@ -15,6 +15,7 @@ pub struct AllocatedFrame {
     /// and the platform's separately reserved interrupt headroom.
     pub peak_below_entry: u16,
     pub temps: BTreeMap<TempId, Location>,
+    /// Scratch pool in capture order; selective move indices need not be dense.
     pub edge_copies: Vec<Slot>,
 }
 
@@ -210,6 +211,24 @@ impl AllocatedFrame {
             };
             abi::stack::incoming_displacement(ByteSize::new(extent), offset, size)
                 .map_err(|e| e.to_string())?;
+        }
+        // Resolve final capture mappings independently of the minimum-frame
+        // sizing pass, after proving every pool slot disjoint from live homes.
+        for block in &routine.blocks {
+            let edges = match &block.terminator {
+                Mir65816Terminator::Goto(e) => vec![e],
+                Mir65816Terminator::Branch {
+                    then_edge,
+                    else_edge,
+                    ..
+                } => vec![then_edge, else_edge],
+                _ => vec![],
+            };
+            for edge in edges {
+                if let Some(plan) = self.word_copies(routine, edge, 0)? {
+                    self.word_staging(&plan, 0)?;
+                }
+            }
         }
         Ok(())
     }

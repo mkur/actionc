@@ -865,7 +865,7 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                         word_edge::decode(&h.bus, h.cpu.pc(), site.range.clone())
                                             .unwrap();
                                     assert!(
-                                        w.direct
+                                        w.form == word_edge::Form::Direct
                                             && w.moves.len() == 1
                                             && w.sites.len()
                                                 == if site.fallthrough { 2 } else { 3 }

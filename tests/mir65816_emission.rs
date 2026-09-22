@@ -453,7 +453,7 @@ fn stack_reuse_preserves_backedge_live_ins_and_dead_parallel_destinations() {
                 .contains("overlapping live")
         );
     }
-    assert_eq!(frame.edge_copies.len(), 3);
+    assert_eq!(frame.edge_copies.len(), 1);
     let mut corrupt = frame.clone();
     corrupt.edge_copies[0].offset = frame.temps[&TempId(0)].slot().offset;
     assert!(
