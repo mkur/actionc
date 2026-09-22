@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 through 3 complete; slices 4 onward remain planned. Based on main
+Status: slices 0 through 4 complete; slices 5 onward remain planned. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -218,6 +218,11 @@ hand-authored typed graphs, independently of the production classifier.
 **Exit:** read-only `home_live_before/after` queries; no new omissions.
 
 ## Slice 4 — Reaching stored definitions and read attribution
+
+Completed: [stored definitions and read attribution](MIR65816_HOME_DEFINITIONS.md),
+possibly undefined private reads, checked store/window queries and conservative
+alias blockers. [Exact output equality](benchmarks/65816-analysis-rewrite/slice4-equality.json)
+passes. These are read-only facts; no stores or homes are removed.
 
 Adapt [MIR6502 home definitions](../src/mir6502/analysis/home_definitions.rs).
 Identify each definition by `(HomeByte, write site)`. Merge possible reaching

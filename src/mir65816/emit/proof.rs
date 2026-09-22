@@ -12,6 +12,17 @@ pub use super::tracked::Event;
 pub use super::analysis::homes::{HomeAccess, HomeByte, HomeInfo, HomeOwner};
 /// Read-only analyses tied to this immutable selection/allocation snapshot.
 pub struct HomeAnalysis<'a>(super::analysis::AnalysisSnapshot<'a>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DefinitionUse {
+    pub site: SelectedSite,
+    pub access_index: usize,
+    pub uncertain: bool,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UndefinedPrivateRead {
+    pub home: HomeByte,
+    pub usage: DefinitionUse,
+}
 pub fn home_analysis(code: &Code) -> Result<HomeAnalysis<'_>, String> {
     let selected = code
         .selected
@@ -23,6 +34,48 @@ pub fn home_analysis(code: &Code) -> Result<HomeAnalysis<'_>, String> {
     )?))
 }
 impl HomeAnalysis<'_> {
+    pub fn uses_of_definition(
+        &self,
+        home: HomeByte,
+        store: SelectedSite,
+    ) -> Result<Vec<DefinitionUse>, String> {
+        self.0
+            .uses_of_definition(home, store)?
+            .into_iter()
+            .map(|usage| {
+                Ok(DefinitionUse {
+                    site: self.0.site(usage.node)?,
+                    access_index: usage.access_index,
+                    uncertain: usage.uncertain,
+                })
+            })
+            .collect()
+    }
+    /// Inclusive straight-line window; local reads still need replacement validation.
+    pub fn definition_dead_outside_window(
+        &self,
+        home: HomeByte,
+        store: SelectedSite,
+        end: SelectedSite,
+    ) -> Result<bool, String> {
+        self.0.definition_dead_outside_window(home, store, end)
+    }
+    pub fn undefined_private_reads(&self) -> Result<Vec<UndefinedPrivateRead>, String> {
+        self.0
+            .undefined_private_reads()
+            .iter()
+            .map(|read| {
+                Ok(UndefinedPrivateRead {
+                    home: read.home,
+                    usage: DefinitionUse {
+                        site: self.0.site(read.usage.node)?,
+                        access_index: read.usage.access_index,
+                        uncertain: read.usage.uncertain,
+                    },
+                })
+            })
+            .collect()
+    }
     pub fn homes(&self) -> &std::collections::BTreeMap<HomeByte, HomeInfo> {
         &self.0.homes.info
     }

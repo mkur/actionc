@@ -1,0 +1,282 @@
+[
+  {
+    "attributed_reads": 0,
+    "blocked_singleton_windows": 0,
+    "case": "identity",
+    "no_reads_outside_singleton": 2,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 2
+  },
+  {
+    "attributed_reads": 0,
+    "blocked_singleton_windows": 0,
+    "case": "identity",
+    "no_reads_outside_singleton": 2,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 2
+  },
+  {
+    "attributed_reads": 4,
+    "blocked_singleton_windows": 0,
+    "case": "add",
+    "no_reads_outside_singleton": 2,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 6
+  },
+  {
+    "attributed_reads": 4,
+    "blocked_singleton_windows": 0,
+    "case": "add",
+    "no_reads_outside_singleton": 2,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 6
+  },
+  {
+    "attributed_reads": 4,
+    "blocked_singleton_windows": 0,
+    "case": "subtract",
+    "no_reads_outside_singleton": 2,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 6
+  },
+  {
+    "attributed_reads": 4,
+    "blocked_singleton_windows": 0,
+    "case": "subtract",
+    "no_reads_outside_singleton": 2,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 6
+  },
+  {
+    "attributed_reads": 0,
+    "blocked_singleton_windows": 0,
+    "case": "constant_chain",
+    "no_reads_outside_singleton": 34,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 34
+  },
+  {
+    "attributed_reads": 0,
+    "blocked_singleton_windows": 0,
+    "case": "constant_chain",
+    "no_reads_outside_singleton": 4,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 128,
+    "stored_byte_definitions": 4
+  },
+  {
+    "attributed_reads": 2,
+    "blocked_singleton_windows": 0,
+    "case": "maximum",
+    "no_reads_outside_singleton": 6,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 129,
+    "stored_byte_definitions": 8
+  },
+  {
+    "attributed_reads": 2,
+    "blocked_singleton_windows": 0,
+    "case": "maximum",
+    "no_reads_outside_singleton": 6,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 129,
+    "stored_byte_definitions": 8
+  },
+  {
+    "attributed_reads": 76,
+    "blocked_singleton_windows": 8,
+    "case": "wide_shift",
+    "no_reads_outside_singleton": 4,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 144,
+    "stored_byte_definitions": 64
+  },
+  {
+    "attributed_reads": 68,
+    "blocked_singleton_windows": 8,
+    "case": "wide_shift",
+    "no_reads_outside_singleton": 4,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 140,
+    "stored_byte_definitions": 56
+  },
+  {
+    "attributed_reads": 36,
+    "blocked_singleton_windows": 0,
+    "case": "loop_rotation",
+    "no_reads_outside_singleton": 20,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 143,
+    "stored_byte_definitions": 44
+  },
+  {
+    "attributed_reads": 22,
+    "blocked_singleton_windows": 0,
+    "case": "loop_rotation",
+    "no_reads_outside_singleton": 10,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 133,
+    "stored_byte_definitions": 24
+  },
+  {
+    "attributed_reads": 28,
+    "blocked_singleton_windows": 0,
+    "case": "sum_loop",
+    "no_reads_outside_singleton": 10,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 139,
+    "stored_byte_definitions": 26
+  },
+  {
+    "attributed_reads": 24,
+    "blocked_singleton_windows": 0,
+    "case": "sum_loop",
+    "no_reads_outside_singleton": 6,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 131,
+    "stored_byte_definitions": 18
+  },
+  {
+    "attributed_reads": 39,
+    "blocked_singleton_windows": 12,
+    "case": "recursive_sum",
+    "no_reads_outside_singleton": 2,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 200,
+    "stored_byte_definitions": 22
+  },
+  {
+    "attributed_reads": 31,
+    "blocked_singleton_windows": 10,
+    "case": "recursive_sum",
+    "no_reads_outside_singleton": 4,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 202,
+    "stored_byte_definitions": 18
+  },
+  {
+    "attributed_reads": 56,
+    "blocked_singleton_windows": 18,
+    "case": "direct_calls",
+    "no_reads_outside_singleton": 6,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 330,
+    "stored_byte_definitions": 30
+  },
+  {
+    "attributed_reads": 56,
+    "blocked_singleton_windows": 18,
+    "case": "direct_calls",
+    "no_reads_outside_singleton": 6,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 330,
+    "stored_byte_definitions": 30
+  },
+  {
+    "attributed_reads": 84,
+    "blocked_singleton_windows": 9,
+    "case": "byte_sum",
+    "no_reads_outside_singleton": 14,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 208,
+    "stored_byte_definitions": 52
+  },
+  {
+    "attributed_reads": 80,
+    "blocked_singleton_windows": 10,
+    "case": "byte_sum",
+    "no_reads_outside_singleton": 9,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 209,
+    "stored_byte_definitions": 44
+  },
+  {
+    "attributed_reads": 15,
+    "blocked_singleton_windows": 0,
+    "case": "record_field",
+    "no_reads_outside_singleton": 2,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 196,
+    "stored_byte_definitions": 10
+  },
+  {
+    "attributed_reads": 15,
+    "blocked_singleton_windows": 0,
+    "case": "record_field",
+    "no_reads_outside_singleton": 2,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 196,
+    "stored_byte_definitions": 10
+  },
+  {
+    "attributed_reads": 80,
+    "blocked_singleton_windows": 9,
+    "case": "unlink",
+    "no_reads_outside_singleton": 8,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 388,
+    "stored_byte_definitions": 38
+  },
+  {
+    "attributed_reads": 52,
+    "blocked_singleton_windows": 6,
+    "case": "unlink",
+    "no_reads_outside_singleton": 1,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 362,
+    "stored_byte_definitions": 10
+  },
+  {
+    "attributed_reads": 107,
+    "blocked_singleton_windows": 5,
+    "case": "forward_copy",
+    "no_reads_outside_singleton": 12,
+    "optimized": false,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 206,
+    "stored_byte_definitions": 63
+  },
+  {
+    "attributed_reads": 103,
+    "blocked_singleton_windows": 6,
+    "case": "forward_copy",
+    "no_reads_outside_singleton": 13,
+    "optimized": true,
+    "possibly_undefined_exact_reads": 0,
+    "possibly_undefined_uncertain_reads": 207,
+    "stored_byte_definitions": 61
+  }
+]

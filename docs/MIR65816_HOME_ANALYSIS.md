@@ -62,5 +62,6 @@ records scoped debug/release checks and
 [full output equality](benchmarks/65816-analysis-rewrite/slice3-equality.json).
 No NIR/semantic, runtime or fixture-text handling changed; full root/NIR and
 unrelated native suites are outside this slice. Analysis overhead has not been
-benchmarked. Stored-definition and rewrite permission queries are subsequent
-slices, not a consequence of whole-home liveness alone.
+benchmarked. [Stored-definition queries](MIR65816_HOME_DEFINITIONS.md) were added
+in slice 4; rewrite permission remains subsequent work and does not follow from
+whole-home liveness alone.

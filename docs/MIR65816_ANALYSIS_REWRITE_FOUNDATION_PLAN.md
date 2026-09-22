@@ -3,8 +3,9 @@
 Status: in progress. Implementation slices 0 and 1 (baseline gate and typed
 physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md), as is slice 2
 ([selected actions and CFG](MIR65816_SELECTED_ACTIONS.md)) and slice 3
-([physical homes and backward liveness](MIR65816_HOME_ANALYSIS.md)). Stored
-definitions, register/flag liveness and checked rewrites remain planned.
+([physical homes and backward liveness](MIR65816_HOME_ANALYSIS.md)). Slice 4
+([stored definitions and read attribution](MIR65816_HOME_DEFINITIONS.md)) is also
+complete. Register/flag liveness and checked rewrites remain planned.
 This foundation takes priority over further temporary-store
 elimination, mutable-counter promotion and broader register/DP allocation.
 The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and

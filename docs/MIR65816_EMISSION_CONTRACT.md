@@ -693,3 +693,9 @@ may-liveness composes ordered accesses; unresolved aliases and calls remain
 conservative. Queries validate owner, generation and reachability. These facts
 do not change selection or grant rewrite permission. See the
 [home analysis contract](MIR65816_HOME_ANALYSIS.md).
+
+Stored-definition queries identify each physical byte/write site, attribute
+ordered reads and preserve undefined paths and may-write uncertainty. Their
+outside-window proof is restricted to private homes and checked straight-line
+windows; replacements still require independent validation of local reads and
+machine effects. See the [stored-definition contract](MIR65816_HOME_DEFINITIONS.md).
