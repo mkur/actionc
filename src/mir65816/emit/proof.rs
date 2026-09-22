@@ -231,3 +231,21 @@ pub fn scalar_dp_probe(left: u16, right: u16) -> (Code, Vec<Snapshot>) {
     let trace = code.state_trace.clone();
     (code, trace)
 }
+
+/// CPX has index width even when A is byte sized; transfers retain their own
+/// width rules. No production selection is enabled by this probe.
+pub fn x_instruction_probe(value: u16, threshold: u16, byte_a: bool) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.a16();
+    e.word(WordOp::LdaImm, value);
+    e.op(Implied::Tax);
+    if byte_a {
+        e.a8();
+        e.byte(ByteOp::LdaImm, 0x55);
+    }
+    e.word(WordOp::CpxImm, threshold);
+    e.op(Implied::Txa);
+    e.op(Implied::Nop);
+    e.finish_traced()
+}

@@ -457,3 +457,158 @@ fn dp_generations_are_separate_and_partial_writes_invalidate_the_word() {
     s.write_dp(8, Width::Word);
     assert!(s.homes.is_empty());
 }
+
+fn x_loop() -> (TrackedEmitter65816, [super::Label; 4]) {
+    let mut e = TrackedEmitter65816::default();
+    e.test_frame(0);
+    let labels = [e.label(), e.label(), e.label(), e.label()];
+    let [pre, head, body, end] = labels;
+    e.register_home(super::Location::DirectPage(Slot {
+        offset: 32,
+        width: 2,
+    }));
+    e.register_home(super::Location::DirectPage(Slot {
+        offset: 34,
+        width: 2,
+    }));
+    e.declare_blocks(labels.into_iter());
+    e.prove_entries(
+        [
+            (pre, [(None, 1)].into()),
+            (head, [(Some(pre), 1), (Some(body), 1)].into()),
+            (body, [(Some(head), 1)].into()),
+            (end, [(Some(head), 1)].into()),
+        ]
+        .into(),
+        labels.into(),
+    );
+    e.prove_x(XContract {
+        param: TempId(0),
+        home: super::Location::DirectPage(Slot {
+            offset: 32,
+            width: 2,
+        }),
+        header: head,
+        body,
+        predecessors: [pre, body].into(),
+    });
+    e.mark(pre);
+    e.word(WordOp::LdaImm, 0);
+    e.byte(ByteOp::StaDp, 32);
+    (e, labels)
+}
+
+#[test]
+fn x_relation_crosses_only_checked_entries_and_refreshes_after_store() {
+    let (mut e, [_, head, body, end]) = x_loop();
+    e.refresh_x();
+    e.jump(head);
+    e.mark(head);
+    let home = super::Location::DirectPage(Slot {
+        offset: 32,
+        width: 2,
+    });
+    assert!(
+        e.state_for_incoming_test()
+            .x
+            .matches(e.state_for_incoming_test().homes[&home].value)
+    );
+    assert_eq!(e.state_for_incoming_test().a, Value::Unknown);
+    e.compare_x_word(TempId(0), home, 8);
+    let yes = e.label();
+    e.dispatch(Branch::CarryClear, yes);
+    e.jump(end);
+    e.mark(yes);
+    e.fallthrough(body);
+    e.mark(body);
+    assert!(e.load_x_word(Some(TempId(0)), Some(home)));
+    e.op(Implied::Clc);
+    e.word(WordOp::AdcImm, 1);
+    e.byte(ByteOp::StaDp, 34);
+    e.byte(ByteOp::LdaDp, 34);
+    e.byte(ByteOp::StaDp, 32);
+    let s = e.state_for_incoming_test();
+    assert!(!s.x.matches(s.homes[&home].value));
+    e.refresh_x();
+    e.jump(head);
+    e.mark(end);
+    assert!(!e.load_x_word(Some(TempId(0)), Some(home)));
+    e.op(Implied::Rtl);
+    e.finish();
+}
+
+#[test]
+fn x_missing_refresh_clobber_and_partial_store_are_rejected() {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+    let (mut e, [_, head, _, _]) = x_loop();
+    assert!(catch_unwind(AssertUnwindSafe(|| e.jump(head))).is_err());
+    for kind in 0..6 {
+        let (mut e, [_, head, _, _]) = x_loop();
+        e.refresh_x();
+        e.jump(head);
+        e.mark(head);
+        assert!(
+            catch_unwind(AssertUnwindSafe(|| match kind {
+                0 => e.op(Implied::Dex),
+                1 => e.byte(ByteOp::Sep, 0x10),
+                2 => e.reference(
+                    ReferenceOp::Jsl,
+                    super::Target::Routine(super::RoutineId(0)),
+                    0,
+                    None
+                ),
+                3 => {
+                    e.a8();
+                    e.byte(ByteOp::StaDp, 33);
+                    e.a16();
+                    e.compare_x_word(
+                        TempId(0),
+                        super::Location::DirectPage(Slot {
+                            offset: 32,
+                            width: 2,
+                        }),
+                        8,
+                    );
+                }
+                4 => {
+                    e.byte(ByteOp::StaDp, 32);
+                    e.load_x_word(
+                        Some(TempId(0)),
+                        Some(super::Location::DirectPage(Slot {
+                            offset: 32,
+                            width: 2,
+                        })),
+                    );
+                }
+                _ => {
+                    e.finish();
+                }
+            }))
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn cpx_uses_index_width_preserves_a_x_and_v() {
+    for a8 in [false, true] {
+        let mut e = TrackedEmitter65816::default();
+        e.a16();
+        e.word(WordOp::LdaImm, 0x8000);
+        e.op(Implied::Tax);
+        if a8 {
+            e.a8();
+            e.byte(ByteOp::LdaImm, 0x55);
+        }
+        let before = e.state_for_incoming_test();
+        e.word(WordOp::CpxImm, 0x7fff);
+        let after = e.state_for_incoming_test();
+        assert_eq!(
+            (after.a, after.x, after.overflow),
+            (before.a, before.x, before.overflow)
+        );
+        assert_eq!(after.carry, Some(true));
+        assert_eq!(after.nz, Value::Constant(1, Width::Word));
+        assert!(e.code().bytes.ends_with(&[0xe0, 0xff, 0x7f]));
+    }
+}

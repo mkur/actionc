@@ -5,6 +5,9 @@ use super::{BlockId, Location, Slot, TempId, copies::WordHome, state::*};
 mod encoding;
 pub use encoding::{Code, ConditionalBranch, Fixup, Label, MirTransfer, Target};
 use std::collections::{BTreeMap, BTreeSet};
+#[path = "x_state.rs"]
+mod x_state;
+pub(super) use x_state::XContract;
 
 macro_rules! instruction_set {
     ($name:ident { $($variant:ident = $byte:literal),* $(,)? }) => {
@@ -25,7 +28,7 @@ instruction_set!(ByteOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
     LdaIndirect=0xa7, StaIndirect=0x87, LdaIndirectY=0xb7, StaIndirectY=0x97,
     Rep=0xc2, Sep=0xe2 });
 instruction_set!(WordOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
-    AndImm=0x29, LdyImm=0xa0 });
+    AndImm=0x29, LdyImm=0xa0, CpxImm=0xe0 });
 instruction_set!(LongOp { Lda=0xaf, Sta=0x8f });
 instruction_set!(ReferenceOp { LdaLong=0xaf, StaLong=0x8f, LdaByte=0xa9, Jsl=0x22, Jml=0x5c });
 instruction_set!(Branch { Plus=0x10, CarryClear=0x90, CarrySet=0xb0, NotEqual=0xd0, Equal=0xf0 });
@@ -42,11 +45,17 @@ pub enum Event {
 struct Entry {
     env: Environment,
     stack_a: Option<i64>,
+    x_word: bool,
 }
 #[derive(Clone, Debug, Default)]
 pub(super) struct TrackedEmitter65816 {
     code: Code,
     state: State65816,
+    x_contract: Option<XContract>,
+    x_reserved: bool,
+    x_valid: bool,
+    x_refreshed: bool,
+    x_access: bool,
     entries: BTreeMap<Label, Entry>,
     bound: BTreeSet<Label>,
     blocks: BTreeSet<Label>,
@@ -155,6 +164,7 @@ impl TrackedEmitter65816 {
                 Entry {
                     env: self.state.env,
                     stack_a: None,
+                    x_word: false,
                 },
             );
         }
@@ -189,6 +199,7 @@ impl TrackedEmitter65816 {
     fn entry(&self) -> Entry {
         Entry {
             env: self.state.env,
+            x_word: self.x_valid,
             stack_a: match self.state.a {
                 Value::StackAddress(s) => Some(s),
                 _ => None,
@@ -196,7 +207,8 @@ impl TrackedEmitter65816 {
         }
     }
     fn edge(&mut self, label: Label) {
-        let current = self.entry();
+        let mut current = self.entry();
+        current.x_word = self.x_edge(label);
         if self.blocks.contains(&label) {
             assert_eq!(current.env.m, Width::Word, "MIR exit width");
             if let Some(edges) = &mut self.remaining_edges {
@@ -208,6 +220,7 @@ impl TrackedEmitter65816 {
             }
         }
         if let Some(old) = self.entries.get_mut(&label) {
+            assert_eq!(old.x_word, current.x_word, "incompatible X entry");
             old.env.irq_preserved &= current.env.irq_preserved;
             let mut incoming = current.env;
             incoming.irq_preserved = old.env.irq_preserved;
@@ -239,6 +252,7 @@ impl TrackedEmitter65816 {
             .expect("label requires incoming execution contract");
         self.state.values_barrier();
         self.state.env = entry.env;
+        self.x_join(entry.x_word);
         self.state.env.irq_preserved = false;
         if !self.blocks.contains(&label) {
             if let Some(s) = entry.stack_a {
@@ -408,6 +422,7 @@ impl TrackedEmitter65816 {
     pub fn op(&mut self, op: Implied) {
         use Implied::*;
         self.live();
+        self.x_implied(op);
         match op {
             Clc => self.state.carry = Some(false),
             Sec => self.state.carry = Some(true),
@@ -499,6 +514,7 @@ impl TrackedEmitter65816 {
     pub fn byte(&mut self, op: ByteOp, value: u8) {
         use ByteOp::*;
         self.live();
+        self.x_byte(op, value);
         let width = self.state.env.m;
         let immediate = matches!(op, LdaImm | AdcImm | SbcImm | CmpImm | EorImm);
         if immediate {
@@ -552,7 +568,11 @@ impl TrackedEmitter65816 {
     pub fn word(&mut self, op: WordOp, value: u16) {
         use WordOp::*;
         self.live();
-        if op == LdyImm {
+        if self.x_reserved {
+            assert!(op != CpxImm || self.x_access, "unplanned X compare");
+            assert!(!matches!(op, LdyImm), "instruction clobbers X reservation");
+        }
+        if matches!(op, LdyImm | CpxImm) {
             assert_eq!(self.state.env.index, Width::Word);
         } else {
             self.width(Width::Word);
@@ -567,6 +587,9 @@ impl TrackedEmitter65816 {
             AdcImm => self.state.arithmetic(rhs, false),
             SbcImm => self.state.arithmetic(rhs, true),
             CmpImm => self.state.compare(rhs),
+            CpxImm => self
+                .state
+                .compare_value(self.state.x, rhs, self.state.env.index),
             AndImm => {
                 let result = match self.state.a {
                     Value::Constant(a, Width::Word) => State65816::constant(a & value, Width::Word),
@@ -579,6 +602,7 @@ impl TrackedEmitter65816 {
         self.observe();
     }
     pub fn long(&mut self, op: LongOp, address: u32) -> Result<(), String> {
+        assert!(!self.x_reserved, "unmodelled X-region memory access");
         if address >= 0x1000000 {
             return Err("24-bit instruction address overflow".into());
         }
@@ -595,6 +619,10 @@ impl TrackedEmitter65816 {
         Ok(())
     }
     pub fn reference(&mut self, op: ReferenceOp, target: Target, addend: u32, byte: Option<u8>) {
+        assert!(
+            !self.x_reserved || matches!((&op, &target), (ReferenceOp::Jml, Target::Label(_))),
+            "X-region call or reference"
+        );
         self.live();
         match op {
             ReferenceOp::LdaByte => {
@@ -681,6 +709,7 @@ impl TrackedEmitter65816 {
     }
     pub fn push_return(&mut self, label: Label) {
         self.live();
+        assert!(!self.x_reserved, "X-region indirect call");
         assert_eq!(self.state.env.pushes, 1);
         let mut continuation = self.state.env;
         continuation.depth -= 1;
@@ -701,7 +730,14 @@ impl TrackedEmitter65816 {
         self.observe_event(Event::IndirectTransfer); // Callee entry: result/ABI postconditions do not apply yet.
         self.state.env = env;
         self.state.call_return();
-        self.entries.insert(label, Entry { env, stack_a: None });
+        self.entries.insert(
+            label,
+            Entry {
+                env,
+                stack_a: None,
+                x_word: false,
+            },
+        );
         self.unreachable = true;
     }
     fn observe(&mut self) {

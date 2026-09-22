@@ -5,7 +5,11 @@ decisions, 28 complete images and 132 vector forecasts in the
 [implementation baseline](benchmarks/65816-loop-x/frozen.json). The current typed
 export already contains all needed facts and was reproduced against current
 images with LF/CRLF checks; its schema and historical facts remain unchanged.
-Production selection is still disabled. The plan is based on inventory `d775cf6`. See the
+Slice 2 adds checked X-entry/refresh relations and CPX effects, with selection
+still disabled. All 28 images/maps remain identical; 103 native library tests,
+eight native state/VM tests and six disassembler tests pass. Independent ca65/VM
+probes confirm CPX index-width semantics and 3-cycle timing, plus 2-cycle TAX/TXA.
+The plan is based on inventory `d775cf6`. See the
 [measured inventory](MIR65816_REGISTER_INVENTORY.md) and
 [frozen planning evidence](benchmarks/65816-loop-x-plan/baseline.json).
 

@@ -52,6 +52,14 @@ class WordComparisons(unittest.TestCase):
             '018010  6B          RTL',
         ])
 
+    def test_cpx_uses_index_width_independently_of_accumulator(self):
+        text=listing(bytes.fromhex('e2 20 e0 00 80 e2 10 e0 7f c2 20 e0 ff'))
+        self.assertIn('018002  E0 00 80    CPX #$8000',text)
+        self.assertIn('018007  E0 7F       CPX #$7F',text)
+        self.assertIn('01800B  E0 FF       CPX #$FF',text)
+        with self.assertRaisesRegex(ValueError,'truncated'):
+            listing(bytes.fromhex('e2 20 e0 ff'))
+
     def test_truncated_cmp_is_rejected(self):
         for code in ('c3', 'c9 ff', 'e2 20 c3', 'e2 20 c9', 'e2 20 c9 ff c2 20 c9 00'):
             with self.subTest(code=code), self.assertRaisesRegex(ValueError, 'truncated'):

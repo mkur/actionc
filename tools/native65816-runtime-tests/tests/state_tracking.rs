@@ -565,3 +565,81 @@ fn scalar_dp_word_encoding_generations_and_flags_match_ca65_and_vm() {
         }
     }
 }
+
+#[test]
+fn x_compare_and_transfer_encodings_flags_widths_and_cycles_match_vm() {
+    for (value, threshold) in [
+        (0, 0),
+        (0, 1),
+        (7, 8),
+        (0x7fff, 0x8000),
+        (0x8000, 0x7fff),
+        (0xffff, 0xfffe),
+    ] {
+        for byte_a in [false, true] {
+            let (code, trace) = proof::x_instruction_probe(value, threshold, byte_a);
+            let mode = if byte_a {
+                "sep #$20\n.a8\nlda #$55\n"
+            } else {
+                ""
+            };
+            let independent = assemble(
+                &format!("rep #$20\nlda #{value}\ntax\n{mode}cpx #{threshold}\ntxa\nnop\nstp\nnop"),
+                0x40000,
+            );
+            assert_eq!(code.bytes, independent[..code.bytes.len()]);
+            for irq in [0, 4] {
+                let mut bus = Bus::new();
+                bus.map(0x40000, &independent, false);
+                let mut cpu = Machine::start_at(Registers {
+                    a: 0x1234,
+                    x: 0x5678,
+                    y: 0x9abc,
+                    s: 0x5fe0,
+                    d: 0x2000,
+                    dbr: 0,
+                    pbr: 4,
+                    pc: 0,
+                    p: irq | 0x40,
+                    emulation_mode: false,
+                });
+                for snapshot in &trace {
+                    let before = cpu.registers();
+                    let pc = cpu.pc();
+                    let cycles = cpu.cycles();
+                    let boundary = cpu.is_instruction_boundary();
+                    assert!(
+                        cpu.run_until(
+                            &mut bus,
+                            1000,
+                            |_| Inputs::default(),
+                            |c| c.is_instruction_boundary()
+                                && c.pc() == 0x40000 + snapshot.pc as u32
+                        )
+                        .unwrap()
+                    );
+                    check(snapshot, cpu.registers(), 0x5fe0, &bus, irq);
+                    if boundary && pc != cpu.pc() {
+                        let op = bus.ram[pc as usize];
+                        let after = cpu.registers();
+                        if op == 0xe0 {
+                            assert_eq!(cpu.cycles() - cycles, 3);
+                            assert_eq!(
+                                (after.a, after.x, after.y, after.p & 0x40),
+                                (before.a, before.x, before.y, before.p & 0x40)
+                            );
+                            assert_eq!(after.p & 1 != 0, value >= threshold);
+                            assert_eq!(after.p & 2 != 0, value == threshold);
+                            assert_eq!(
+                                after.p & 0x80 != 0,
+                                value.wrapping_sub(threshold) & 0x8000 != 0
+                            );
+                        } else if matches!(op, 0xaa | 0x8a) {
+                            assert_eq!(cpu.cycles() - cycles, 2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

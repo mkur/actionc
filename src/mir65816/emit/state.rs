@@ -154,6 +154,19 @@ impl State65816 {
             u32::try_from(self.env.depth - anchor).expect("frame already released")
         })
     }
+    pub fn bind_home(&mut self, home: Location, value: Value) {
+        assert!(self.private_ranges.contains(&home));
+        assert_eq!(value.width(), Some(Width::Word));
+        self.homes.retain(|&h, _| !h.overlaps(home));
+        self.next += 1;
+        self.homes.insert(
+            home,
+            Home {
+                generation: self.next,
+                value,
+            },
+        );
+    }
     pub fn register_home(&mut self, slot: impl Into<Location>) {
         self.private_ranges.insert(slot.into());
     }
@@ -308,13 +321,16 @@ impl State65816 {
         self.load_a(result);
     }
     pub fn compare(&mut self, rhs: Value) {
-        match (self.a, rhs) {
-            (Value::Constant(a, w), Value::Constant(b, v)) if w == self.env.m && v == w => {
+        self.compare_value(self.a, rhs, self.env.m);
+    }
+    pub fn compare_value(&mut self, lhs: Value, rhs: Value, width: Width) {
+        match (lhs, rhs) {
+            (Value::Constant(a, w), Value::Constant(b, v)) if w == width && v == w => {
                 self.nz = Self::constant(a.wrapping_sub(b), w);
                 self.carry = Some(a >= b);
             }
             _ => {
-                self.nz = self.fresh(self.env.m);
+                self.nz = self.fresh(width);
                 self.carry = None;
             }
         }
