@@ -516,6 +516,7 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                     bus.single_word_edges.insert(
                         load_pc,
                         word_edge::Site {
+                            x_tail: false,
                             range: 0x040000..target + 2,
                             load: load_pc,
                             jump: target - 4,

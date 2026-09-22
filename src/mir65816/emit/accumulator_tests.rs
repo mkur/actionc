@@ -2,6 +2,7 @@ use super::*;
 fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
         next_block: None,
+        loop_x: None,
         routine: r,
         frame: AllocatedFrame::stack(r).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(r).unwrap()),
@@ -502,6 +503,7 @@ fn incoming_classifier_rejects_address_escape_writes_and_bad_extent_before_emiss
         }
         let mut b = Builder {
             next_block: None,
+            loop_x: None,
             routine: r,
             code: TrackedEmitter65816::for_test(&frame),
             frame,
@@ -629,6 +631,7 @@ fn incoming_metadata_and_unrelated_stores_cannot_grant_permission() {
         }
         let mut b = Builder {
             next_block: None,
+            loop_x: None,
             routine: r,
             code: TrackedEmitter65816::for_test(&frame),
             frame,

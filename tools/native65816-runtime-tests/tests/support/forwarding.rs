@@ -40,6 +40,7 @@ pub struct Index {
     pub multi_words: Vec<multi_word_edge::Site>,
     pub frame_words: Vec<frame_forwarding::Site>,
     pub parameter_words: Vec<parameter_forwarding::Site>,
+    pub x_words: Vec<x_residency::Site>,
 }
 impl std::ops::Deref for Index {
     type Target = BTreeMap<u32, Site>;
@@ -118,7 +119,7 @@ pub fn instructions(code: &[u8]) -> BTreeMap<usize, (usize, bool)> {
                     3
                 }
             }
-            0xa0 | 0xa2 | 0x62 => 3,
+            0xa0 | 0xa2 | 0xe0 | 0x62 => 3,
             0xaf | 0x8f | 0x5c | 0x22 => 4,
             0xc2 | 0xe2 | 0xa6 | 0xa5 | 0x85 | 0x65 | 0xe5 | 0xc5 | 0x25 | 0x05 | 0x45 | 0x06
             | 0x26 | 0x46 | 0x66 | 0xa3 | 0x83 | 0x63 | 0xe3 | 0xc3 | 0xa7 | 0x87 | 0xb7 | 0x97
@@ -145,6 +146,7 @@ pub fn index(
         control: control_flow::index(mir, machine, &address),
         frame_words: frame_forwarding::index(mir, machine, &address),
         parameter_words: parameter_forwarding::index(mir, machine, &address),
+        x_words: x_residency::index(mir, machine, &address),
         multi_words: multi_word_edge::index(mir, machine, &address),
         dispatches: control_flow::dispatches(mir, machine, &address),
     };
@@ -376,6 +378,19 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
     Index {
         words,
         control: control_flow::relocated(&templates.control, image),
+        x_words: templates
+            .x_words
+            .iter()
+            .map(|s| {
+                let r = image
+                    .profile()
+                    .routines
+                    .iter()
+                    .find(|r| r.id == s.routine.0)
+                    .unwrap();
+                s.rebase(image.routine_address(r))
+            })
+            .collect(),
         parameter_words: templates
             .parameter_words
             .iter()

@@ -149,6 +149,7 @@ pub struct Site {
     pub destination: u16,
     pub target: u32,
     pub direct: bool,
+    pub x_tail: bool,
     pub fallthrough: bool,
 }
 pub type Index = std::collections::BTreeMap<u32, Site>;
@@ -163,6 +164,7 @@ pub fn index(
         *,
     };
     actionc::mir65816::verify_program(mir).unwrap();
+    let x_proofs = x_residency::index(mir, machine, &address);
     let mut result = Index::new();
     for m in &machine.routines {
         let r = mir.routines.iter().find(|r| r.id == m.id).unwrap();
@@ -259,6 +261,9 @@ pub fn index(
                 let jump = transfer.offset;
                 let mut matched = None;
                 for &(_, source, destination) in expected.iter().filter(|e| e.0 == label.0) {
+                    let x_tail = x_proofs.iter().any(|x| {
+                        x.refresh.contains(&(base + jump as u32 - 1)) && x.home == destination
+                    });
                     let load = homes::load(source);
                     // Try the complete staged shape first: its final LDA/STA
                     // suffix must never become a second direct edge.
@@ -270,6 +275,9 @@ pub fn index(
                         }
                         if !direct || source != (true, u16::from(destination)) {
                             bytes.extend(homes::store(destination));
+                        }
+                        if x_tail {
+                            bytes.push(0xaa);
                         }
                         if jump >= lo + bytes.len()
                             && m.code.bytes[jump - bytes.len()..jump] == bytes
@@ -283,6 +291,7 @@ pub fn index(
                                 destination,
                                 target: base + m.code.labels[&label] as u32,
                                 direct,
+                                x_tail,
                                 fallthrough: transfer.fallthrough,
                             });
                             break;
@@ -338,11 +347,22 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
     if !identity {
         bytes.extend(homes::store(s.destination));
     }
+    if s.x_tail {
+        if !bus
+            .forwarded_words
+            .x_words
+            .iter()
+            .any(|x| x.refresh.contains(&(s.jump - 1)) && x.home == s.destination && x.valid(bus))
+        {
+            return None;
+        }
+        bytes.push(0xaa);
+    }
     if !s.fallthrough {
         bytes.push(0x5c);
         bytes.extend(&s.target.to_le_bytes()[..3]);
     }
-    if store + if identity { 0 } else { 2 } != s.jump
+    if store + if identity { 0 } else { 2 } + u32::from(s.x_tail) != s.jump
         || load + bytes.len() as u32 > range.end
         || bus.ram[load as usize..load as usize + bytes.len()] != bytes
     {
@@ -352,6 +372,9 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
     sites.push(load);
     if !identity {
         sites.push(store);
+    }
+    if s.x_tail {
+        sites.push(s.jump - 1);
     }
     if !s.fallthrough {
         sites.push(s.jump);

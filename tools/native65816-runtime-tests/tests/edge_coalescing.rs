@@ -6,19 +6,22 @@ use support::*;
 
 fn execute(h: &mut Harness, image: &Image, cv: u8) -> BTreeSet<u32> {
     let mut seen = BTreeSet::new();
-    let mut pending: Option<(u32, Registers, Vec<u8>, Vec<u16>, Vec<u16>)> = None;
+    let mut pending: Option<(u32, Registers, Vec<u8>, Vec<u16>, Vec<u16>, bool)> = None;
     for _ in 0..100_000 {
         if h.cpu.is_stopped() {
             assert!(pending.is_none());
             return seen;
         }
         if h.cpu.is_instruction_boundary() {
-            if let Some((target, before, stack, values, dests)) = pending.take() {
+            if let Some((target, before, stack, values, dests, x_tail)) = pending.take() {
                 if h.cpu.pc() == target {
                     let mut expected: Registers = before;
                     expected.pc = target as u16;
                     expected.pbr = (target >> 16) as u8;
                     expected.a = *values.last().unwrap();
+                    if x_tail {
+                        expected.x = expected.a;
+                    }
                     expected.p = (expected.p & !0x82)
                         | if expected.a == 0 { 2 } else { 0 }
                         | if expected.a & 0x8000 != 0 { 0x80 } else { 0 };
@@ -30,7 +33,7 @@ fn execute(h: &mut Harness, image: &Image, cv: u8) -> BTreeSet<u32> {
                     }
                     assert_eq!(&h.bus.ram[0x2000..0x6000], wanted);
                 } else {
-                    pending = Some((target, before, stack, values, dests));
+                    pending = Some((target, before, stack, values, dests, x_tail));
                 }
             }
             if let Some(w) = word_edge::reached(&h.cpu, &h.bus, &image.routines) {
@@ -58,6 +61,11 @@ fn execute(h: &mut Harness, image: &Image, cv: u8) -> BTreeSet<u32> {
                         h.bus.ram[0x2000..0x6000].to_vec(),
                         values,
                         dests,
+                        h.bus
+                            .forwarded_words
+                            .x_words
+                            .iter()
+                            .any(|x| x.refresh.iter().any(|pc| w.sites.contains(pc))),
                     ));
                 }
             }

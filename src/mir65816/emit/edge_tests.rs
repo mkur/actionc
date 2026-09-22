@@ -17,6 +17,7 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     // tests exercise overlap, exact endpoints and malformed preflights.
     let mut b = Builder {
         next_block: None,
+        loop_x: None,
         routine: r,
         frame: AllocatedFrame::stack(&super::word_tests::program().routines[0]).unwrap(),
         code: TrackedEmitter65816::for_test(

@@ -90,12 +90,16 @@ struct Builder<'a> {
     code: TrackedEmitter65816,
     blocks: BTreeMap<BlockId, Label>,
     next_block: Option<BlockId>,
+    loop_x: Option<loop_x::LoopXPlan>,
 }
 
 pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<MachineRoutine, String> {
+    let frame = AllocatedFrame::new(routine)?;
+    let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
         routine,
-        frame: AllocatedFrame::new(routine)?,
+        frame,
+        loop_x,
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
         blocks: BTreeMap::new(),
         next_block: None,
@@ -181,6 +185,15 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         }
     }
     b.code.prove_entries(predecessors, reachable);
+    if let Some(x) = &b.loop_x {
+        b.code.prove_x(XContract {
+            param: x.param,
+            home: x.home,
+            header: b.blocks[&x.header],
+            body: b.blocks[&x.body],
+            predecessors: [b.blocks[&x.preheader], b.blocks[&x.body]].into(),
+        });
+    }
     let sole_conditions = liveness::sole_branch_conditions(routine);
     for (index, block) in routine.blocks.iter().enumerate() {
         b.next_block = routine.blocks.get(index + 1).map(|b| b.id);
@@ -453,7 +466,15 @@ impl Builder<'_> {
             return Ok(false);
         };
         let yes = self.code.label();
-        self.branch_on_word(&condition, yes, true);
+        if let Some(x) = &self.loop_x
+            && x.condition == *dest
+        {
+            self.code.a16();
+            self.code.compare_x_word(x.param, x.home, x.threshold);
+            self.code.dispatch(Branch::CarryClear, yes);
+        } else {
+            self.branch_on_word(&condition, yes, true);
+        }
         // Each edge still stages parallel arguments before writing destinations.
         self.edge(else_edge)?;
         self.code.mark(yes);
@@ -1016,6 +1037,13 @@ impl Builder<'_> {
         self.edge_transfer(edge, self.next_block == Some(edge.target))
     }
     fn finish_edge(&mut self, target: Label, fallthrough: bool) {
+        if self
+            .loop_x
+            .as_ref()
+            .is_some_and(|x| self.blocks[&x.header] == target)
+        {
+            self.code.refresh_x();
+        }
         if fallthrough {
             self.code.fallthrough(target);
         } else {

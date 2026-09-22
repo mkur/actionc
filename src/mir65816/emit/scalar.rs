@@ -41,7 +41,7 @@ fn edges(r: &Mir65816Routine) -> impl Iterator<Item = &Mir65816Edge> {
 /// Closed selector-effect whitelist: native word operations do not use selector
 /// scratch. Branch truth tests may use RESULT (8..12), never resident scratch.
 /// Any new MIR form must be reviewed here; absence of a Call is insufficient.
-fn admitted(r: &Mir65816Routine) -> bool {
+pub(super) fn admitted(r: &Mir65816Routine) -> bool {
     if !matches!(
         r.result_home,
         None | Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16))

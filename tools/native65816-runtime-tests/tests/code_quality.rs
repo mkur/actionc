@@ -157,6 +157,7 @@ fn execute(
     let mut selective_staged = 0u64;
     let mut parameter_forwarded_sites = BTreeMap::<u32, u64>::new();
     let mut frame_forwarded_sites = BTreeMap::<u32, u64>::new();
+    let mut x_sites = BTreeMap::<u32, u64>::new();
     let mut forwarded_sites = BTreeMap::<u32, u64>::new();
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
@@ -227,6 +228,10 @@ fn execute(
             if let Some(site) = support::parameter_forwarding::reached(&cpu, &bus) {
                 site.assert_live(&cpu, &bus);
                 *parameter_forwarded_sites.entry(pc).or_default() += 1;
+            }
+            if let Some(site) = support::x_residency::reached(&cpu, &bus) {
+                site.assert_live(&cpu, &bus);
+                *x_sites.entry(pc).or_default() += 1;
             }
             instructions += 1;
             *instruction_sites.entry(pc).or_default() += 1;
@@ -333,6 +338,8 @@ fn execute(
         "result": result, "correct": errors.is_empty(), "errors": errors
     });
     if action {
+        measurement["x_forwarded_loads"] = json!(x_sites.values().sum::<u64>());
+        measurement["x_forwarded_load_sites"] = json!(x_sites);
         measurement["fused_branches"] = json!(fused_sites.values().sum::<u64>());
         measurement["fused_branch_sites"] = json!(fused_sites);
         measurement["word_edges"] = json!(word_edge_sites.values().sum::<u64>());

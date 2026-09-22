@@ -14,7 +14,7 @@ pub struct XContract {
 impl TrackedEmitter65816 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn prove_x(&mut self, contract: XContract) {
-        assert!(self.x_contract.is_none() && self.bound.is_empty());
+        assert!(self.x_contract.is_none() && self.blocks.is_disjoint(&self.bound));
         assert!(
             matches!(contract.home, Location::DirectPage(s) if s.width == 2 && super::super::scalar::word_offset(s.offset))
         );

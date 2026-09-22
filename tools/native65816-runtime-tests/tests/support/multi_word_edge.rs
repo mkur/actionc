@@ -16,6 +16,7 @@ pub struct Site {
     pub order: Vec<usize>,
     pub reload: Option<u16>,
     pub bytes: Vec<u8>,
+    pub x_tail: bool,
 }
 
 fn source(v: &Mir65816Value, r: &Mir65816Routine, m: &MachineRoutine) -> Option<(bool, u16)> {
@@ -196,6 +197,7 @@ pub fn index(
     machine: &MachineProgram,
     address: impl Fn(actionc::nir::RoutineId) -> u32,
 ) -> Vec<Site> {
+    let x_proofs = x_residency::index(p, machine, &address);
     let mut out = vec![];
     for m in &machine.routines {
         let r = p.routines.iter().find(|r| r.id == m.id).unwrap();
@@ -243,6 +245,11 @@ pub fn index(
                     .collect();
                 let Some(moves) = moves else { continue };
                 let lo = m.code.labels[&t.source];
+                let x_tail = x_proofs.iter().any(|x| {
+                    x.refresh.contains(&(base + t.offset as u32 - 1))
+                        && x.home == moves.last().unwrap().2
+                });
+                let copy_end = t.offset - usize::from(x_tail);
                 if moves.iter().all(|m| m.1.is_some()) {
                     let mut staged = vec![];
                     for &(s, stage, _) in &moves {
@@ -253,8 +260,8 @@ pub fn index(
                         staged.extend([0xa3, stage.unwrap()]);
                         staged.extend(homes::store(d));
                     }
-                    if t.offset >= lo + staged.len()
-                        && m.code.bytes[t.offset - staged.len()..t.offset] == staged
+                    if copy_end >= lo + staged.len()
+                        && m.code.bytes[copy_end - staged.len()..copy_end] == staged
                     {
                         continue;
                     }
@@ -267,11 +274,11 @@ pub fn index(
                         .filter(|m| m.0 == (true, u16::from(m.2)))
                         .count();
                     let length = length - omitted * 4 + if reload { 2 } else { 0 };
-                    if t.offset < lo + length {
+                    if copy_end < lo + length {
                         continue;
                     }
-                    let start = t.offset - length;
-                    let bytes = &m.code.bytes[start..t.offset];
+                    let start = copy_end - length;
+                    let bytes = &m.code.bytes[start..copy_end];
                     if let Some(order) = schedule(bytes, &moves, reload) {
                         found = Some(Site {
                             form: word_edge::Form::Direct,
@@ -284,7 +291,8 @@ pub fn index(
                             reload: reload.then_some(moves.last().unwrap().2),
                             moves: moves.iter().map(|&(s, _, d)| (s, None, d)).collect(),
                             order,
-                            bytes: bytes.to_vec(),
+                            bytes: m.code.bytes[start..t.offset].to_vec(),
+                            x_tail,
                         });
                         break;
                     }
@@ -303,9 +311,9 @@ pub fn index(
                             selected[i].1 = Some(slot.offset.try_into().unwrap());
                         }
                         let length = length + 4 * needed.len();
-                        if t.offset >= lo + length {
-                            let start = t.offset - length;
-                            let bytes = &m.code.bytes[start..t.offset];
+                        if copy_end >= lo + length {
+                            let start = copy_end - length;
+                            let bytes = &m.code.bytes[start..copy_end];
                             if selective(bytes, &selected).is_some() {
                                 found = Some(Site {
                                     form: word_edge::Form::Selective,
@@ -318,7 +326,8 @@ pub fn index(
                                     reload: None,
                                     order: (0..selected.len()).collect(),
                                     moves: selected,
-                                    bytes: bytes.to_vec(),
+                                    bytes: m.code.bytes[start..t.offset].to_vec(),
+                                    x_tail,
                                 });
                             }
                         }
@@ -369,16 +378,24 @@ pub fn decode(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<word_edge::Windo
     {
         return None;
     }
+    if s.x_tail
+        && !bus.forwarded_words.x_words.iter().any(|x| {
+            x.refresh.contains(&(s.jump - 1)) && x.home == s.moves.last().unwrap().2 && x.valid(bus)
+        })
+    {
+        return None;
+    }
+    let copy_bytes = &s.bytes[..s.bytes.len() - usize::from(s.x_tail)];
     match s.form {
         word_edge::Form::Direct => {
             if s.moves.iter().any(|m| m.1.is_some())
-                || schedule(&s.bytes, &s.moves, s.reload.is_some())? != s.order
+                || schedule(copy_bytes, &s.moves, s.reload.is_some())? != s.order
             {
                 return None;
             }
         }
         word_edge::Form::Selective => {
-            selective(&s.bytes, &s.moves)?;
+            selective(copy_bytes, &s.moves)?;
             if s.reload.is_some() || s.order != (0..s.moves.len()).collect::<Vec<_>>() {
                 return None;
             }
@@ -411,6 +428,10 @@ pub fn decode(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<word_edge::Windo
     if s.reload.is_some() {
         sites.push(at);
         at += 2;
+    }
+    if s.x_tail {
+        sites.push(at);
+        at += 1;
     }
     assert_eq!(at, s.jump);
     if !s.fallthrough {

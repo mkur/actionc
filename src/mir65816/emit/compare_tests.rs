@@ -19,6 +19,7 @@ fn program() -> Mir65816Program {
 fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
         next_block: None,
+        loop_x: None,
         routine: r,
         frame: AllocatedFrame::stack(r).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(r).unwrap()),

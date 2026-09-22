@@ -354,3 +354,5 @@ pub mod frame_forwarding;
 pub mod parameter_forwarding;
 
 pub mod coalescing;
+
+pub mod x_residency;

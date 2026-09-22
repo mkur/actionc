@@ -405,7 +405,7 @@ Closed def/use intervals prevent reuse during a multi-instruction operation.
 Three ABI pointer slots (D+0, D+3, D+6) are allocated deterministically; pressure
 or an unsupported operation rejects the entire candidate before emission.
 The allocation verifier checks identities, widths, ownership, lifetime overlap
-and frame accounting. No A/X/Y register allocation is introduced.
+and frame accounting. Pointer-leaf homes remain memory locations.
 
 Other routines use invocation-owned stack temporaries with CFG-aware lifetime
 reuse. Backward fixed-point liveness includes indirect address bases, indexes,
@@ -431,9 +431,29 @@ proposals reject the transaction. The unchanged whole-routine closed-operation
 verifier must accept every resulting home and exact frame/staging accounting.
 Only transactions reducing copy cost without increasing any edge's bytes or
 cycles are accepted. Profitability includes final A/N/Z repair. Rejected trials
-leave the original allocation intact. Frame compaction, DP/register promotion
-and relaxed arithmetic interference are separate work. See the
+leave the original allocation intact. Frame compaction and relaxed arithmetic
+interference are separate work. See the
 [coalescing plan](MIR65816_EDGE_COALESCING_PLAN.md).
+
+A bounded scalar loop may keep one unsigned word header parameter mirrored in
+X16. An immutable typed plan requires a call-free scalar-DP routine, one simple
+loop, a sole-use immediate unsigned comparison, one `p + 1` update, and `p` as
+the final assignment on both incoming word-copy edges. The parameter and update
+retain separate interfering memory homes. Every store remains authoritative.
+TAX follows each completed incoming schedule; TXA can replace the update input
+load; CPX immediate consumes the mirror in the fused branch. A checked `<= K`
+normalization uses `K+1` and rejects `$FFFF`. Unsupported candidates retain the
+ordinary selector before any bytes are emitted.
+
+The tracker carries only the declared X/home relation across checked CFG joins;
+ordinary A/Y/flag/home witnesses still stop at labels. A store overlapping the
+home invalidates the relation until the final TAX. Every emitted instruction
+must preserve the reservation or fail its proof. Region exit releases it; no
+binding crosses a call, helper, unknown write, D/S change or index narrowing.
+CPX updates C/N/Z using index width and leaves A/X/Y/V intact. Its flags need
+only preserve the fused branch truth; TXA and TAX preserve the selected input
+and completed edge A/N/Z contracts. Stack guards, home maps and public ABI are
+unchanged. See the [bounded X plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md).
 
 Only MIR value temporaries share storage. Frame objects, addressed locals and
 mutable parameters retain their dedicated homes. No temporary address escapes,

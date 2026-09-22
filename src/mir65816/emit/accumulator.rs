@@ -104,7 +104,7 @@ impl Builder<'_> {
     pub(super) fn load_checked_word(&mut self, operand: WordOperand, temp: Option<TempId>) {
         let slot = temp.and_then(|id| self.frame.temps.get(&id).copied());
         let offset = operand.home();
-        if self.code.consume_word(temp, slot, offset) {
+        if self.code.consume_word(temp, slot, offset) || self.code.load_x_word(temp, slot) {
             return;
         }
         match operand {

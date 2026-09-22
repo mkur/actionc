@@ -5,6 +5,7 @@ mod coalescing;
 mod copies;
 pub(super) mod layout;
 mod liveness;
+mod loop_x;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 pub(crate) mod scalar;

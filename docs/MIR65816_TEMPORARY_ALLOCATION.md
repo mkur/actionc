@@ -223,3 +223,14 @@ aligned task/IRQ domain. No scalar resident crosses a call or changes D. The
 nonreturning stack-fault path remains checked even for zero-frame routines.
 See the [frozen inventory](MIR65816_SCALAR_DP_INVENTORY.md) and
 [implementation plan](MIR65816_SCALAR_DP_PLAN.md).
+
+## Bounded X mirror
+
+The [loop X plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md) adds a checked register
+mirror after allocation. It leaves all locations, closed-operation conflicts,
+frame accounting and stores intact. One private unsigned word loop parameter
+can feed TXA and CPX while retaining its DP home. Each incoming edge establishes
+the relation with a final TAX; overwriting the home invalidates it immediately
+until that refresh. Calls, helpers, unknown aliasing and unsupported CFG shapes
+cannot enter the reserved region. Interrupts and task switches preserve both
+the CPU register and the suspended domain, including the pending-refresh state.

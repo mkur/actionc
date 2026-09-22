@@ -170,32 +170,37 @@ pub fn fused_in_range(
     }
     let end = range.end;
     let resident = forwarding::resident_compare(bus, start);
-    let mut at = start;
-    let mut operand = |load: bool| -> Option<(bool, u16)> {
-        if at + 2 > end {
-            return None;
-        }
-        let op = bus.ram[at as usize];
-        let dp = op == if load { 0xa5 } else { 0xc5 };
-        let stack = dp || op == if load { 0xa3 } else { 0xc3 };
-        if !stack && op != if load { 0xa9 } else { 0xc9 } {
-            return None;
-        }
-        let size = if stack { 2 } else { 3 };
-        if at + size > end {
-            return None;
-        }
-        let value = bus.value(at + 1, (size - 1) as usize) as u16 + if dp { 256 } else { 0 };
-        at += size;
-        Some((stack, value))
-    };
-    let left = if let Some(slot) = resident {
-        (true, u16::from(slot))
+    let x = super::x_residency::compare(cpu, bus);
+    let (left, right, branch) = if let Some(s) = x {
+        ((true, s.home), (false, s.threshold), start + 3)
     } else {
-        operand(true)?
+        let mut at = start;
+        let mut operand = |load: bool| -> Option<(bool, u16)> {
+            if at + 2 > end {
+                return None;
+            }
+            let op = bus.ram[at as usize];
+            let dp = op == if load { 0xa5 } else { 0xc5 };
+            let stack = dp || op == if load { 0xa3 } else { 0xc3 };
+            if !stack && op != if load { 0xa9 } else { 0xc9 } {
+                return None;
+            }
+            let size = if stack { 2 } else { 3 };
+            if at + size > end {
+                return None;
+            }
+            let value = bus.value(at + 1, (size - 1) as usize) as u16 + if dp { 256 } else { 0 };
+            at += size;
+            Some((stack, value))
+        };
+        let left = if let Some(slot) = resident {
+            (true, u16::from(slot))
+        } else {
+            operand(true)?
+        };
+        let right = operand(false)?;
+        (left, right, at)
     };
-    let right = operand(false)?;
-    let branch = at;
     if branch + 2 > end {
         return None;
     }
@@ -220,6 +225,9 @@ pub fn fused_in_range(
         }
         (bus.value(branch + 3, 3), branch + 6, opcode ^ 0x20)
     };
+    if x.is_some() && predicate != 0x90 {
+        return None;
+    }
     let edge = |mut pc: u32| -> Option<(Vec<u32>, u32, u32)> {
         if let Some(w) = super::word_edge::decode(bus, pc, range.clone()) {
             return Some((w.sites, w.target, w.end));
@@ -267,9 +275,9 @@ pub fn fused_in_range(
     let (true_sites, true_target, _) = edge(yes)?;
     Some(FusedWindow {
         load: start,
-        load_pc: resident.is_none().then_some(start),
+        load_pc: (resident.is_none() && x.is_none()).then_some(start),
         cmp: start
-            + if resident.is_some() {
+            + if resident.is_some() || x.is_some() {
                 0
             } else if left.0 {
                 2

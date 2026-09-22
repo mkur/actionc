@@ -19,6 +19,7 @@ pub(in crate::mir65816::emit) fn program() -> Mir65816Program {
 fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     Builder {
         next_block: None,
+        loop_x: None,
         routine,
         frame: AllocatedFrame::stack(routine).unwrap(),
         code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(routine).unwrap()),
