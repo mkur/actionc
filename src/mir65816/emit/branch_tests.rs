@@ -21,8 +21,8 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     let mut b = Builder {
         next_block: None,
         routine: r,
-        frame: AllocatedFrame::new(r).unwrap(),
-        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
+        frame: AllocatedFrame::stack(r).unwrap(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(r).unwrap()),
         blocks: BTreeMap::new(),
     };
     for block in &r.blocks {

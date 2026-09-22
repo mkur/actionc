@@ -227,7 +227,7 @@ fn generated_private_words_preserve_results_flags_stores_and_volatile_order() {
                             assert!(s.valid(&h.bus));
                             seen.insert(pc);
                             let r = h.cpu.registers();
-                            let value = h.bus.value(u32::from(r.s) + u32::from(s.slot), 2) as u16;
+                            let value = h.bus.value(homes::address(r.s, r.d, s.slot), 2) as u16;
                             assert_eq!(r.a, value);
                             assert_eq!(
                                 r.p & 0x82,

@@ -14,9 +14,9 @@ pub struct Window {
     pub form: Form,
     pub fallthrough: bool,
     pub sites: Vec<u32>,
-    pub moves: Vec<((bool, u16), Option<u8>, u8)>, // source, staging, destination
+    pub moves: Vec<((bool, u16), Option<u8>, u16)>, // source, staging, destination
     pub order: Vec<usize>,
-    pub reload: Option<u8>,
+    pub reload: Option<u16>,
     pub target: u32,
     pub end: u32,
 }
@@ -104,7 +104,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         if pairs[n..n + i].iter().any(|&(_, d)| overlap(dest, d)) {
             return None;
         }
-        moves.push((source, Some(stage), dest));
+        moves.push((source, Some(stage), u16::from(dest)));
     }
     if !fallthrough {
         sites.push(pc);
@@ -128,7 +128,7 @@ pub fn reached(
     routines: &[actionc::mir65816::image::Routine],
 ) -> Option<Window> {
     assert!(cpu.is_instruction_boundary());
-    if cpu.registers().p & 0x30 != 0 || !matches!(bus.ram[cpu.pc() as usize], 0xa3 | 0xa9) {
+    if cpu.registers().p & 0x30 != 0 || !matches!(bus.ram[cpu.pc() as usize], 0xa3 | 0xa5 | 0xa9) {
         return None;
     }
     let r = routines
@@ -146,7 +146,7 @@ pub struct Site {
     pub jump: u32,
     pub source: (bool, u16),
     pub staging: Option<u8>,
-    pub destination: u8,
+    pub destination: u16,
     pub target: u32,
     pub direct: bool,
     pub fallthrough: bool,
@@ -159,7 +159,7 @@ pub fn index(
     address: impl Fn(actionc::nir::RoutineId) -> u32,
 ) -> Index {
     use actionc::mir65816::{
-        emit::{Label, Location, Target},
+        emit::{Label, Target},
         *,
     };
     actionc::mir65816::verify_program(mir).unwrap();
@@ -168,10 +168,7 @@ pub fn index(
         let r = mir.routines.iter().find(|r| r.id == m.id).unwrap();
         let base = address(r.id);
         let range = base..base + m.code.bytes.len() as u32;
-        let stack = |id| match m.frame.temps[&id] {
-            Location::Stack(slot) if slot.width == 2 => Some(slot.offset as u8),
-            _ => None,
-        };
+        let stack = |id| homes::of(m.frame.temps[&id]);
         for (bi, b) in r.blocks.iter().enumerate() {
             let lo = m.code.labels[&Label(bi as u32)];
             let hi = if bi + 1 < r.blocks.len() {
@@ -262,11 +259,7 @@ pub fn index(
                 let jump = transfer.offset;
                 let mut matched = None;
                 for &(_, source, destination) in expected.iter().filter(|e| e.0 == label.0) {
-                    let load = if source.0 {
-                        vec![0xa3, source.1.try_into().unwrap()]
-                    } else {
-                        vec![0xa9, source.1 as u8, (source.1 >> 8) as u8]
-                    };
+                    let load = homes::load(source);
                     // Try the complete staged shape first: its final LDA/STA
                     // suffix must never become a second direct edge.
                     for direct in [false, true] {
@@ -276,7 +269,7 @@ pub fn index(
                             bytes.extend([0x83, stage, 0xa3, stage]);
                         }
                         if !direct || source != (true, u16::from(destination)) {
-                            bytes.extend([0x83, destination]);
+                            bytes.extend(homes::store(destination));
                         }
                         if jump >= lo + bytes.len()
                             && m.code.bytes[jump - bytes.len()..jump] == bytes
@@ -334,20 +327,16 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         || !range.contains(&pc)
         || s.jump + if s.fallthrough { 0 } else { 4 } > range.end
         || (s.fallthrough && s.target != s.jump)
-        || !(1..=254).contains(&s.destination)
-        || (s.source.0 && !(1..=254).contains(&s.source.1))
+        || !homes::valid(s.destination)
+        || (s.source.0 && !homes::valid(s.source.1))
     {
         return None;
     }
-    let mut bytes = if s.source.0 {
-        vec![0xa3, s.source.1 as u8]
-    } else {
-        vec![0xa9, s.source.1 as u8, (s.source.1 >> 8) as u8]
-    };
+    let mut bytes = homes::load(s.source);
     let store = load + bytes.len() as u32;
     let identity = s.source == (true, u16::from(s.destination));
     if !identity {
-        bytes.extend([0x83, s.destination]);
+        bytes.extend(homes::store(s.destination));
     }
     if !s.fallthrough {
         bytes.push(0x5c);

@@ -3,8 +3,8 @@ fn builder(r: &Mir65816Routine) -> Builder<'_> {
     Builder {
         next_block: None,
         routine: r,
-        frame: AllocatedFrame::new(r).unwrap(),
-        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(r).unwrap()),
+        frame: AllocatedFrame::stack(r).unwrap(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(r).unwrap()),
         blocks: BTreeMap::new(),
     }
 }
@@ -461,7 +461,7 @@ fn incoming_classifier_rejects_address_escape_writes_and_bad_extent_before_emiss
     for case in 0..8 {
         let mut p = word_tests::program();
         let r = &mut p.routines[0];
-        let frame = AllocatedFrame::new(r).unwrap();
+        let frame = AllocatedFrame::stack(r).unwrap();
         let original = r.blocks[0].ops[0].clone();
         let Mir65816Op::Load { address, dest, .. } = &original else {
             panic!()
@@ -600,7 +600,7 @@ fn incoming_metadata_and_unrelated_stores_cannot_grant_permission() {
     for case in 0..5 {
         let mut p = frame_program();
         let r = &mut p.routines[0];
-        let frame = AllocatedFrame::new(r).unwrap();
+        let frame = AllocatedFrame::stack(r).unwrap();
         let op = r.blocks[0].ops[0].clone();
         let Mir65816Op::Load { address, dest, .. } = &op else {
             panic!()

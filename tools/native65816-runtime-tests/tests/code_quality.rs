@@ -9,7 +9,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
 };
-use support::{Bus, word_edge};
+use support::{Bus, homes, word_edge};
 
 const ENTRY_S: u16 = 0x5fe0;
 const RETURN: u32 = 0x040000;
@@ -212,7 +212,7 @@ fn execute(
                 let r = cpu.registers();
                 assert_eq!(
                     u32::from(r.a),
-                    bus.value(u32::from(r.s) + u32::from(site.slot), 2)
+                    bus.value(homes::address(r.s, r.d, site.slot), 2)
                 );
                 assert_eq!(
                     r.p & 0x82,

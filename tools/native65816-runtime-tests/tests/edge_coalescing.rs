@@ -6,7 +6,7 @@ use support::*;
 
 fn execute(h: &mut Harness, image: &Image, cv: u8) -> BTreeSet<u32> {
     let mut seen = BTreeSet::new();
-    let mut pending: Option<(u32, Registers, Vec<u8>, Vec<u16>, Vec<u8>)> = None;
+    let mut pending: Option<(u32, Registers, Vec<u8>, Vec<u16>, Vec<u16>)> = None;
     for _ in 0..100_000 {
         if h.cpu.is_stopped() {
             assert!(pending.is_none());
@@ -25,10 +25,10 @@ fn execute(h: &mut Harness, image: &Image, cv: u8) -> BTreeSet<u32> {
                     assert_eq!(h.cpu.registers(), expected);
                     let mut wanted: Vec<u8> = stack;
                     for (&d, &v) in dests.iter().zip(&values) {
-                        let at = usize::from(before.s) + usize::from(d) - 0x4000;
+                        let at = homes::address(before.s, before.d, d) as usize - 0x2000;
                         wanted[at..at + 2].copy_from_slice(&v.to_le_bytes());
                     }
-                    assert_eq!(&h.bus.ram[0x4000..0x6000], wanted);
+                    assert_eq!(&h.bus.ram[0x2000..0x6000], wanted);
                 } else {
                     pending = Some((target, before, stack, values, dests));
                 }
@@ -45,17 +45,17 @@ fn execute(h: &mut Harness, image: &Image, cv: u8) -> BTreeSet<u32> {
                         .iter()
                         .map(|&((stack, v), _, _)| {
                             if stack {
-                                h.bus.value(u32::from(r.s) + u32::from(v), 2) as u16
+                                h.bus.value(homes::address(r.s, r.d, v), 2) as u16
                             } else {
                                 v
                             }
                         })
                         .collect();
-                    let dests: Vec<u8> = w.moves.iter().map(|m| m.2).collect();
+                    let dests: Vec<u16> = w.moves.iter().map(|m| m.2).collect();
                     pending = Some((
                         w.target,
                         r,
-                        h.bus.ram[0x4000..0x6000].to_vec(),
+                        h.bus.ram[0x2000..0x6000].to_vec(),
                         values,
                         dests,
                     ));

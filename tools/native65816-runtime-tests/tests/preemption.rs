@@ -47,8 +47,8 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
     let resident =
         forwarding::reached(&h.cpu, &h.bus).is_some_and(|s| s.kind == forwarding::Kind::Return);
     let size = match opcode {
-        0xa8 if resident => 0,
-        0xa3 => 2,
+        0xa8 | 0x6b if resident => 0,
+        0xa3 | 0xa5 => 2,
         0xa9 => 3,
         _ => return None,
     };
@@ -79,7 +79,7 @@ fn return_window(h: &ContextHarness) -> Option<ReturnWindow> {
     // mode-aware sequence is checked inside its owning word-result routine.
     Some((
         r.address,
-        opcode == 0xa3 || resident,
+        matches!(opcode, 0xa3 | 0xa5) || resident,
         r.fixed_frame,
         addresses,
     ))
@@ -735,7 +735,7 @@ fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
                 for w in &windows {
                     if pc == w.cmp {
                         let right = if w.sources[1].0 {
-                            h.bus.value(u32::from(r.s) + u32::from(w.sources[1].1), 2) as u16
+                            h.bus.value(homes::address(r.s, r.d, w.sources[1].1), 2) as u16
                         } else {
                             w.sources[1].1
                         };
@@ -1014,7 +1014,7 @@ fn forwarded_values_flags_and_return_teardown_survive_both_task_irq_domains() {
                     assert!(s.valid(&h.bus));
                     assert_eq!(
                         u32::from(r.a),
-                        h.bus.value(u32::from(r.s) + u32::from(s.slot), 2)
+                        h.bus.value(homes::address(r.s, r.d, s.slot), 2)
                     );
                     forms.insert((r.d, s.kind));
                     nz.insert(r.p & 0x82);

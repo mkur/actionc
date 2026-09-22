@@ -7,6 +7,7 @@ pub(super) mod layout;
 mod liveness;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
+pub(crate) mod scalar;
 mod select;
 mod state;
 mod tracked;

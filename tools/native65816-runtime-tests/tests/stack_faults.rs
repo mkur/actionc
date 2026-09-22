@@ -85,10 +85,10 @@ fn call_check_includes_far_return_bytes_before_filling_outgoing_space() {
 #[test]
 fn compact_edge_frames_check_exact_floor_before_any_write_in_both_modes() {
     for (source, extents) in [
-        (include_str!("fixtures/code_quality/sum_loop.act"), [14, 12]),
+        (include_str!("fixtures/code_quality/sum_loop.act"), [14, 6]),
         (
             include_str!("fixtures/code_quality/loop_rotation.act"),
-            [18, 16],
+            [18, 8],
         ),
         (include_str!("fixtures/code_quality/byte_sum.act"), [16, 18]),
     ] {

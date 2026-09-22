@@ -277,8 +277,8 @@ fn run_checked_fusions(h: &mut Harness, image: &Image) -> Vec<serde_json::Value>
                     .filter(|s| s.0)
                     .flat_map(|s| {
                         [
-                            u32::from(r.s) + u32::from(s.1),
-                            u32::from(r.s) + u32::from(s.1) + 1,
+                            homes::address(r.s, r.d, s.1),
+                            homes::address(r.s, r.d, s.1) + 1,
                         ]
                     })
                     .collect();
@@ -301,13 +301,13 @@ fn run_checked_fusions(h: &mut Harness, image: &Image) -> Vec<serde_json::Value>
                 let actual: Vec<_> = h.bus.reads[reads..]
                     .iter()
                     .copied()
-                    .filter(|a| (0x4000..0x6000).contains(a))
+                    .filter(|a| (0x4000..0x6000).contains(a) || (0x2020..0x2040).contains(a))
                     .collect();
                 assert_eq!(actual, expected);
                 assert!(
                     !h.bus.reads[reads..]
                         .iter()
-                        .any(|a| (0x2000..0x2040).contains(a))
+                        .any(|a| (0x2000..0x2020).contains(a))
                 );
                 let selected = usize::from(h.cpu.pc() == w.yes);
                 // Observe edge copies separately; at the successor the ABI width

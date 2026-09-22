@@ -12,9 +12,9 @@ pub struct Site {
     pub jump: u32,
     pub target: u32,
     pub fallthrough: bool,
-    pub moves: Vec<((bool, u16), Option<u8>, u8)>,
+    pub moves: Vec<((bool, u16), Option<u8>, u16)>,
     pub order: Vec<usize>,
-    pub reload: Option<u8>,
+    pub reload: Option<u16>,
     pub bytes: Vec<u8>,
 }
 
@@ -22,7 +22,7 @@ fn source(v: &Mir65816Value, r: &Mir65816Routine, m: &MachineRoutine) -> Option<
     match v {
         Mir65816Value::U16(v) => Some((false, *v)),
         Mir65816Value::Temp(id, w) if w.get() == 2 => match m.frame.temps[id] {
-            Location::Stack(s) if s.width == 2 => Some((true, s.offset)),
+            h if homes::of(h).is_some() => Some((true, homes::of(h).unwrap())),
             _ => None,
         },
         Mir65816Value::Param(id) => {
@@ -56,18 +56,14 @@ fn source(v: &Mir65816Value, r: &Mir65816Routine, m: &MachineRoutine) -> Option<
     }
 }
 fn load(v: (bool, u16)) -> Vec<u8> {
-    if v.0 {
-        vec![0xa3, v.1.try_into().unwrap()]
-    } else {
-        vec![0xa9, v.1 as u8, (v.1 >> 8) as u8]
-    }
+    homes::load(v)
 }
 
 /// Decode a direct schedule, then check the parallel-copy dependency rule.
 /// No compiler scheduling decision is used as the expected result.
 pub fn schedule(
     bytes: &[u8],
-    moves: &[((bool, u16), Option<u8>, u8)],
+    moves: &[((bool, u16), Option<u8>, u16)],
     reload: bool,
 ) -> Option<Vec<usize>> {
     let mut order = vec![];
@@ -85,17 +81,17 @@ pub fn schedule(
     }
     while !pending.is_empty() {
         let op = *bytes.get(pc)?;
-        let n = if op == 0xa3 {
+        let n = if matches!(op, 0xa3 | 0xa5) {
             2
         } else if op == 0xa9 {
             3
         } else {
             return None;
         };
-        if bytes.get(pc + n) != Some(&0x83) {
+        if !matches!(bytes.get(pc + n), Some(0x83 | 0x85)) {
             return None;
         }
-        let dest = *bytes.get(pc + n + 1)?;
+        let dest = u16::from(*bytes.get(pc + n + 1)?) + if bytes[pc + n] == 0x85 { 256 } else { 0 };
         let i = *pending.iter().find(|&&i| moves[i].2 == dest)?;
         if bytes.get(pc..pc + n)? != load(moves[i].0) {
             return None;
@@ -121,7 +117,7 @@ pub fn schedule(
         return None;
     }
     if reload {
-        if bytes.get(pc..pc + 2)? != [0xa3, moves.last()?.2] {
+        if bytes.get(pc..pc + 2)? != homes::load((true, moves.last()?.2)) {
             return None;
         }
         pc += 2;
@@ -131,10 +127,10 @@ pub fn schedule(
 
 /// Byte identities are the oracle: a later load needs a snapshot iff an
 /// earlier destination wrote one of its original bytes. No compiler plan is used.
-pub fn endangered(moves: &[((bool, u16), Option<u8>, u8)]) -> Option<Vec<usize>> {
+pub fn endangered(moves: &[((bool, u16), Option<u8>, u16)]) -> Option<Vec<usize>> {
     if moves
         .iter()
-        .any(|m| !(1..=254).contains(&m.2) || (m.0.0 && !(1..=254).contains(&m.0.1)))
+        .any(|m| !homes::valid(m.2) || (m.0.0 && !homes::valid(m.0.1)))
     {
         return None;
     }
@@ -156,7 +152,7 @@ pub fn endangered(moves: &[((bool, u16), Option<u8>, u8)]) -> Option<Vec<usize>>
 
 /// Decode exact captures before assignments, checking every operand, separate
 /// scratch lifetime and the required mapping derived from original byte homes.
-pub fn selective(bytes: &[u8], moves: &[((bool, u16), Option<u8>, u8)]) -> Option<()> {
+pub fn selective(bytes: &[u8], moves: &[((bool, u16), Option<u8>, u16)]) -> Option<()> {
     let needed = endangered(moves)?;
     if needed.is_empty()
         || needed
@@ -176,9 +172,10 @@ pub fn selective(bytes: &[u8], moves: &[((bool, u16), Option<u8>, u8)]) -> Optio
         if stage == 0
             || stage > 254
             || stage % 2 != 0
-            || moves
-                .iter()
-                .any(|m| stage.abs_diff(m.2) < 2 || (m.0.0 && u16::from(stage).abs_diff(m.0.1) < 2))
+            || moves.iter().any(|m| {
+                u16::from(stage).abs_diff(m.2) < 2
+                    || (m.0.0 && u16::from(stage).abs_diff(m.0.1) < 2)
+            })
             || !scratch.insert(stage)
             || !scratch.insert(stage + 1)
         {
@@ -189,7 +186,7 @@ pub fn selective(bytes: &[u8], moves: &[((bool, u16), Option<u8>, u8)]) -> Optio
     }
     for &(src, stage, dest) in moves {
         expected.extend(load(stage.map_or(src, |s| (true, s.into()))));
-        expected.extend([0x83, dest]);
+        expected.extend(homes::store(dest));
     }
     (bytes == expected).then_some(())
 }
@@ -232,9 +229,7 @@ pub fn index(
                     .zip(params)
                     .enumerate()
                     .map(|(i, (v, (id, _)))| {
-                        let Location::Stack(d) = m.frame.temps[id] else {
-                            return None;
-                        };
+                        let d = homes::of(m.frame.temps[id])?;
                         Some((
                             source(v, r, m)?,
                             m.frame
@@ -242,7 +237,7 @@ pub fn index(
                                 .get(i)
                                 .filter(|s| s.width >= 2)
                                 .map(|s| s.offset.try_into().unwrap()),
-                            d.offset.try_into().unwrap(),
+                            d,
                         ))
                     })
                     .collect();
@@ -255,7 +250,8 @@ pub fn index(
                         staged.extend([0x83, stage.unwrap()]);
                     }
                     for &(_, stage, d) in &moves {
-                        staged.extend([0xa3, stage.unwrap(), 0x83, d]);
+                        staged.extend([0xa3, stage.unwrap()]);
+                        staged.extend(homes::store(d));
                     }
                     if t.offset >= lo + staged.len()
                         && m.code.bytes[t.offset - staged.len()..t.offset] == staged

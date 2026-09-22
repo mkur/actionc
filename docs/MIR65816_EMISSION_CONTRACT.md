@@ -566,3 +566,20 @@ the independent CPU corrections, G1–G6 evidence and remaining platform limits.
 The [implementation plan](MIR65816_IMPLEMENTATION_PLAN.md) records the separately
 committed slices. New operations, helpers, ABI changes or wider nesting policies
 require corresponding execution qualification.
+
+## Scalar DP word locations
+
+Image v3 and experimental o65 profile v1 retain their existing tagged temporary
+locations. In addition to the three size-three pointer slots, validators admit
+size-two scalar homes at even offsets $20..$3E, only in routines without calls.
+Invalid widths, out-of-pool/odd offsets and mixed pointer/scalar allocation
+families are rejected. Maps describe geometry; the allocator separately proves
+closed-operation liveness and conservative selector effects before emission.
+Older validators require an update to consume these scalar maps.
+
+Native word instructions use literal D-relative operands. o65 allocates no
+application scratch in its zero segment and adds no relocation for these
+operands. Public arguments/results, stack-guard algorithms, interrupt reserves
+and physical ABI v1 are unchanged. Scalar frame shrinkage changes reservation
+and incoming-argument operands, and zero-frame routines use the existing short
+return. Exec816 adoption and its pinned compiler remain a separate task.

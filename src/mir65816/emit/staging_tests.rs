@@ -89,7 +89,7 @@ fn direct_edge_reservations_are_absent_for_both_parameter_home_kinds() {
             unreachable!()
         };
         e.args[0] = Mir65816Value::Param(r.frame.parameters[0].param);
-        let f = AllocatedFrame::new(&r).unwrap();
+        let f = AllocatedFrame::stack(&r).unwrap();
         assert!(f.edge_copies.is_empty());
         f.verify_stack(&r).unwrap();
         let mut corrupt = f.clone();
@@ -105,7 +105,7 @@ fn direct_edge_reservations_are_absent_for_both_parameter_home_kinds() {
 fn cyclic_reservations_are_exact_words_and_verified_independently() {
     let mut r = routine(&[2, 2, 2]);
     cycle(&mut r);
-    let f = AllocatedFrame::new(&r).unwrap();
+    let f = AllocatedFrame::stack(&r).unwrap();
     // Forward rotation only endangers the final source. Move 2 uses pool 0.
     assert_eq!(
         f.edge_copies,
@@ -149,7 +149,7 @@ fn fallback_reserves_maximum_actual_width_per_argument_and_keeps_alignment() {
             .collect(),
     });
     r.blocks.push(other);
-    let f = AllocatedFrame::new(&r).unwrap();
+    let f = AllocatedFrame::stack(&r).unwrap();
     assert_eq!(
         f.edge_copies.iter().map(|s| s.width).collect::<Vec<_>>(),
         [4, 3, 3, 4]
@@ -161,7 +161,7 @@ fn fallback_reserves_maximum_actual_width_per_argument_and_keeps_alignment() {
             unreachable!()
         };
         e.args[0] = Mir65816Value::Null(ByteSize::new(w.into()));
-        let f = AllocatedFrame::new(&r).unwrap();
+        let f = AllocatedFrame::stack(&r).unwrap();
         assert_eq!(f.edge_copies[0].width, w);
         f.verify_stack(&r).unwrap();
     }
@@ -172,19 +172,19 @@ fn removal_avoids_provisional_overflow_but_keeps_incoming_and_fixed_frame_limits
     // Two word parameters: last byte is S+255 at extent 248. The old four-byte
     // reservations would fail long before this otherwise legal direct edge.
     let r = routine(&vec![2; 123]);
-    let f = AllocatedFrame::new(&r).unwrap();
+    let f = AllocatedFrame::stack(&r).unwrap();
     assert_eq!(f.extent, 248);
     assert!(f.edge_copies.is_empty());
-    assert!(AllocatedFrame::new(&routine(&vec![2; 124])).is_err());
+    assert!(AllocatedFrame::stack(&routine(&vec![2; 124])).is_err());
     let mut r = routine(&vec![2; 63]);
     r.frame.parameters.clear();
     cycle(&mut r);
-    let f = AllocatedFrame::new(&r).unwrap();
+    let f = AllocatedFrame::stack(&r).unwrap();
     assert_eq!(f.extent, 130);
     let mut r = routine(&vec![2; 64]);
     r.frame.parameters.clear();
     cycle(&mut r);
-    assert_eq!(AllocatedFrame::new(&r).unwrap().extent, 132);
+    assert_eq!(AllocatedFrame::stack(&r).unwrap().extent, 132);
     // Reverse rotation needs n-1 captures, so 64 words really do overflow.
     for n in [63, 64] {
         let mut r = routine(&vec![2; n]);
@@ -199,11 +199,11 @@ fn removal_avoids_provisional_overflow_but_keeps_incoming_and_fixed_frame_limits
             .map(|i| Mir65816Value::Temp(TempId(((i + n - 1) % n) as u32), ByteSize::new(2)))
             .collect();
         if n == 63 {
-            let f = AllocatedFrame::new(&r).unwrap();
+            let f = AllocatedFrame::stack(&r).unwrap();
             assert_eq!(f.extent, 254);
             assert_eq!(f.edge_copies.len(), 62);
         } else {
-            assert!(AllocatedFrame::new(&r).is_err());
+            assert!(AllocatedFrame::stack(&r).is_err());
         }
     }
 }
@@ -219,7 +219,7 @@ fn capture_ordinals_pack_sparse_moves_and_take_mixed_edge_maxima() {
         .into_iter()
         .map(|id| Mir65816Value::Temp(TempId(id), ByteSize::new(2)))
         .collect();
-    let f = AllocatedFrame::new(&r).unwrap();
+    let f = AllocatedFrame::stack(&r).unwrap();
     let Mir65816Terminator::Goto(e) = &r.blocks[1].terminator else {
         unreachable!()
     };
@@ -257,7 +257,7 @@ fn capture_ordinals_pack_sparse_moves_and_take_mixed_edge_maxima() {
         },
     };
     r.blocks.push(extra);
-    let f = AllocatedFrame::new(&r).unwrap();
+    let f = AllocatedFrame::stack(&r).unwrap();
     assert_eq!(
         f.edge_copies.iter().map(|s| s.width).collect::<Vec<_>>(),
         [2, 3]

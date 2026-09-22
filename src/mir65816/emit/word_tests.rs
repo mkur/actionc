@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn program() -> Mir65816Program {
+pub(in crate::mir65816::emit) fn program() -> Mir65816Program {
     let ast = crate::parser::parse(
         &crate::lexer::tokenize("CARD FUNC Work(CARD a,b) RETURN(a+b) PROC Main() RETURN").unwrap(),
     )
@@ -20,8 +20,8 @@ fn builder(routine: &Mir65816Routine) -> Builder<'_> {
     Builder {
         next_block: None,
         routine,
-        frame: AllocatedFrame::new(routine).unwrap(),
-        code: TrackedEmitter65816::for_test(&AllocatedFrame::new(routine).unwrap()),
+        frame: AllocatedFrame::stack(routine).unwrap(),
+        code: TrackedEmitter65816::for_test(&AllocatedFrame::stack(routine).unwrap()),
         blocks: BTreeMap::new(),
     }
 }

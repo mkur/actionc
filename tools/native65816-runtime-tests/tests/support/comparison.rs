@@ -51,7 +51,8 @@ pub fn window(
     let mut at = start;
     let mut operand = |load: bool| -> Option<(bool, u16)> {
         let opcode = bus.ram[at as usize];
-        let stack = opcode == if load { 0xa3 } else { 0xc3 };
+        let dp = opcode == if load { 0xa5 } else { 0xc5 };
+        let stack = dp || opcode == if load { 0xa3 } else { 0xc3 };
         if !stack && opcode != if load { 0xa9 } else { 0xc9 } {
             return None;
         }
@@ -59,7 +60,7 @@ pub fn window(
         if at + size > routine.address + routine.size {
             return None;
         }
-        let value = bus.value(at + 1, (size - 1) as usize) as u16;
+        let value = bus.value(at + 1, (size - 1) as usize) as u16 + if dp { 256 } else { 0 };
         at += size;
         Some((stack, value))
     };
@@ -175,7 +176,8 @@ pub fn fused_in_range(
             return None;
         }
         let op = bus.ram[at as usize];
-        let stack = op == if load { 0xa3 } else { 0xc3 };
+        let dp = op == if load { 0xa5 } else { 0xc5 };
+        let stack = dp || op == if load { 0xa3 } else { 0xc3 };
         if !stack && op != if load { 0xa9 } else { 0xc9 } {
             return None;
         }
@@ -183,7 +185,7 @@ pub fn fused_in_range(
         if at + size > end {
             return None;
         }
-        let value = bus.value(at + 1, (size - 1) as usize) as u16;
+        let value = bus.value(at + 1, (size - 1) as usize) as u16 + if dp { 256 } else { 0 };
         at += size;
         Some((stack, value))
     };

@@ -95,7 +95,7 @@ PROC Main() RETURN
                     .find(|r| r.name == "Echo")
                     .unwrap()
                     .fixed_frame
-                    > 0
+                    == 0
             );
             let caller = word_caller(&image, &calls);
             for value in [0u16, 1, 0xff, 0x100, 0x7fff, 0x8000, 0xffff] {

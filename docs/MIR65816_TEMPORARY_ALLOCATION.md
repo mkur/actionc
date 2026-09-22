@@ -197,3 +197,29 @@ failure: the pre-existing untracked `samples/vbxe/shared/lines.act` cannot find
 baseline compiler with the same current sample files reproduces that failure.
 The test targets after the failing target were run separately and pass. Local
 sample edits, untracked files and deletions were left intact.
+
+## Bounded scalar DP residents
+
+After verifying and coalescing the ordinary stack allocation, the emitter may
+promote complete word-home classes to D+$20..D+$3F. The pointer-leaf strategy
+still runs first. Admission examines every block, including unreachable code:
+ordinary 16-bit integer temps, compare-produced stack Booleans, native ADD/SUB,
+unsigned ordering or word equality, direct nonvolatile non-addressable word
+frame/parameter memory, word edges, and word/void returns. Calls, helpers, casts,
+address formation and unknown selectors reject the entire transaction.
+
+At most 16 aligned word classes move, in ascending original stack-offset order.
+All existing home equalities and closed-operation interference remain intact.
+Capacity failure retains the entire verified stack allocation. Fixed objects,
+parameters and Boolean offsets remain; required cyclic staging is repacked on
+the stack. Incoming displacements, exact spill extent and local peak reflect
+only retained stack storage. The mixed-location verifier independently rechecks
+admission, liveness, geometry, staging, bounds and accounting; `verify_stack`
+continues to reject any DP home.
+
+This partition belongs to selection, not a new ABI preservation promise.
+The whole 64-byte scratch remains call-clobbered and belongs to the current
+aligned task/IRQ domain. No scalar resident crosses a call or changes D. The
+nonreturning stack-fault path remains checked even for zero-frame routines.
+See the [frozen inventory](MIR65816_SCALAR_DP_INVENTORY.md) and
+[implementation plan](MIR65816_SCALAR_DP_PLAN.md).

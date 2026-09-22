@@ -748,7 +748,7 @@ fn relocated_nonempty_word_edges_preserve_cycles_and_both_conditional_arms() {
                             }
                             if h.cpu.is_instruction_boundary()
                                 && h.cpu.registers().p & 0x30 == 0
-                                && matches!(h.bus.ram[h.cpu.pc() as usize], 0xa3 | 0xa9)
+                                && matches!(h.bus.ram[h.cpu.pc() as usize], 0xa3 | 0xa5 | 0xa9)
                             {
                                 for r in &image.profile().routines {
                                     let at = image.routine_address(r);
@@ -877,8 +877,11 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                     count += 1;
                                     reached.insert((site.load, w.target));
                                     let saved = h.bus.ram[0x4000..0x6000].to_vec();
-                                    let dest = u32::from(h.cpu.registers().s)
-                                        + u32::from(site.destination);
+                                    let dest = homes::address(
+                                        h.cpu.registers().s,
+                                        h.cpu.registers().d,
+                                        site.destination,
+                                    );
                                     let cycles = h.cpu.cycles();
                                     h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
                                     while !h.cpu.is_instruction_boundary() || h.cpu.pc() != w.target
@@ -887,11 +890,16 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                     }
                                     assert_eq!(
                                         h.cpu.cycles() - cycles,
-                                        (if site.source.0 { 14 } else { 12 })
+                                        (if site.source.0 {
+                                            homes::cycles(site.source.1)
+                                        } else {
+                                            3
+                                        }) + homes::cycles(site.destination)
+                                            + 4
                                             - if site.fallthrough { 4 } else { 0 }
                                             - if site.source == (true, u16::from(site.destination))
                                             {
-                                                5
+                                                homes::cycles(site.destination)
                                             } else {
                                                 0
                                             }
@@ -980,7 +988,7 @@ fn relocated_accumulator_forwarding_keeps_words_flags_and_exact_volatile_traces(
                             let r = h.cpu.registers();
                             assert_eq!(
                                 u32::from(r.a),
-                                h.bus.value(u32::from(r.s) + u32::from(s.slot), 2)
+                                h.bus.value(homes::address(r.s, r.d, s.slot), 2)
                             );
                             assert_eq!(
                                 r.p & 0x82,

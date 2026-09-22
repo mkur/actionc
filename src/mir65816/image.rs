@@ -289,22 +289,27 @@ impl Image {
                 }
             }
             let mut temp_ids = std::collections::BTreeSet::new();
+            let mut dp_width = None;
             for temp in &r.temporaries {
                 if !temp_ids.insert(temp.id) || !(1..=4).contains(&temp.size) {
                     return Err("invalid temporary identity or width".into());
                 }
                 if let TemporaryHome::DirectPage { offset } = temp.home {
-                    if temp.size != 3
-                        || ![
+                    let pointer = temp.size == 3
+                        && [
                             abi::generated::DP_POINTER0_OFFSET as u16,
                             abi::generated::DP_POINTER1_OFFSET as u16,
                             abi::generated::DP_POINTER2_OFFSET as u16,
                         ]
-                        .contains(&offset)
+                        .contains(&offset);
+                    let scalar = temp.size == 2 && emit::scalar::word_offset(offset);
+                    if (!pointer && !scalar)
                         || !r.calls.is_empty()
+                        || dp_width.is_some_and(|w| w != temp.size)
                     {
                         return Err("invalid direct-page temporary map".into());
                     }
+                    dp_width = Some(temp.size);
                 }
             }
             for (offset, size) in r.objects.iter().map(|o| (o.displacement, o.size)).chain(

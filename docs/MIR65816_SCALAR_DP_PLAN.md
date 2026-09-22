@@ -1,8 +1,9 @@
 # Scalar DP inventory and measured implementation plan
 
-Status: planned on 2026-09-22 against qualified main `e790349`, implementation
-`12d13e1` and qualification revision `7b5a2a7`. The first delivery is a read-only
-inventory; enabling allocation follows its checked, frozen forecast. See the
+Status: slices 1–3 implemented. Inventory `3af8799` froze the forecast against
+qualified main `e790349`; prerequisite `0298e49` preserved all saved images.
+The bounded allocator matches all 28 frozen image transforms and all 264 debug
+measurement records. Full cross-profile qualification is the remaining slice. See the
 [quality plan](MIR65816_CODE_QUALITY_PLAN.md) and
 [planning evidence](benchmarks/65816-scalar-dp-plan/baseline.json).
 

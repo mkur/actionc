@@ -2,10 +2,7 @@
 //! instructions distinguish captured private words from arbitrary STA/LDA runs.
 use super::*;
 use actionc::{
-    mir65816::{
-        emit::{Location, MachineProgram},
-        *,
-    },
+    mir65816::{emit::MachineProgram, *},
     nir::{NirBinaryOp, NirCompareOp, NirStorageId, RoutineId, TempId},
 };
 use std::{collections::BTreeMap, ops::Range};
@@ -27,7 +24,7 @@ pub struct Site {
     pub start: u32,
     pub load: Option<u32>,
     pub consumer: u32,
-    pub slot: u8,
+    pub slot: u16,
     pub kind: Kind,
     /// Complete proof window. Relocatable operand bytes are checked by the
     /// linker/relocator and independent source traffic probes, not frozen here.
@@ -79,7 +76,7 @@ impl Site {
                 .iter()
                 .enumerate()
                 .all(|(i, b)| b.is_none_or(|b| bus.ram[self.producer as usize + i] == b))
-            && bus.ram[self.store as usize..self.store as usize + 2] == [0x83, self.slot]
+            && bus.ram[self.store as usize..self.store as usize + 2] == homes::store(self.slot)
     }
 }
 pub fn reached<'a>(cpu: &Machine, bus: &'a Bus) -> Option<&'a Site> {
@@ -89,7 +86,7 @@ pub fn reached<'a>(cpu: &Machine, bus: &'a Bus) -> Option<&'a Site> {
     let s = bus.forwarded_words.get(&cpu.pc())?;
     (s.forwarded() && s.valid(bus)).then_some(s)
 }
-pub fn resident_compare(bus: &Bus, pc: u32) -> Option<u8> {
+pub fn resident_compare(bus: &Bus, pc: u32) -> Option<u16> {
     let s = bus.forwarded_words.get(&pc)?;
     (s.forwarded() && s.kind == Kind::Compare && s.valid(bus)).then_some(s.slot)
 }
@@ -156,10 +153,7 @@ pub fn index(
         let base = address(r.id);
         let code = &m.code.bytes;
         let ins = instructions(code);
-        let stack = |id| match m.frame.temps.get(&id) {
-            Some(Location::Stack(s)) if s.width == 2 => Some(u8::try_from(s.offset).unwrap()),
-            _ => None,
-        };
+        let stack = |id| m.frame.temps.get(&id).and_then(|h| homes::of(*h));
         let word = |v: &Mir65816Value| match v {
             Mir65816Value::U8(_) | Mir65816Value::U16(_) => true,
             Mir65816Value::Temp(id, w) => w.get() == 2 && stack(*id).is_some(),
@@ -276,16 +270,19 @@ pub fn index(
                     .unwrap_or(p.start);
                 assert!(p.end >= proof_start + 4);
                 let store = p.end - 2;
-                assert_eq!(code[store..p.end], [0x83, slot]);
+                assert_eq!(code[store..p.end], homes::store(slot));
                 assert_eq!(ins[&store], (2, false));
                 let (&last, &(_, m8)) = ins
                     .range(proof_start..store)
                     .rev()
-                    .find(|&(at, _)| code[*at] != 0x83)
+                    .find(|&(at, _)| !matches!(code[*at], 0x83 | 0x85))
                     .unwrap();
                 assert!(!m8);
                 assert!(
-                    matches!(code[last], 0xa3 | 0xaf | 0x63 | 0x69 | 0xe3 | 0xe9),
+                    matches!(
+                        code[last],
+                        0xa3 | 0xa5 | 0xaf | 0x63 | 0x65 | 0x69 | 0xe3 | 0xe5 | 0xe9
+                    ),
                     "producer must establish full word and N/Z"
                 );
                 assert!(
@@ -295,14 +292,14 @@ pub fn index(
                         .any(|&at| store < at && at <= c.start),
                     "label breaks adjacency"
                 );
-                let loaded = code[c.start..].starts_with(&[0xa3, slot]);
+                let loaded = code[c.start..].starts_with(&homes::load((true, slot)));
                 let consumer = c.start + if loaded { 2 } else { 0 };
                 assert_eq!(ins[&consumer].1, false);
                 assert!(match kind {
                     Kind::Arithmetic => matches!(code[consumer], 0x18 | 0x38),
-                    Kind::Compare => matches!(code[consumer], 0xc3 | 0xc9),
+                    Kind::Compare => matches!(code[consumer], 0xc3 | 0xc5 | 0xc9),
                     Kind::Store => matches!(code[consumer], 0x83 | 0x8f),
-                    Kind::Return => code[consumer] == 0xa8,
+                    Kind::Return => matches!(code[consumer], 0xa8 | 0x6b),
                 });
                 let end = consumer + ins[&consumer].0;
                 let mut bytes: Vec<_> = code[proof_start..end].iter().copied().map(Some).collect();

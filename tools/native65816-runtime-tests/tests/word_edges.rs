@@ -170,15 +170,15 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                 let saved_stack = h.bus.ram[0x4000..0x6000].to_vec();
                 for &((stack, source), stage, _) in &w.moves {
                     let value = if stack {
-                        h.bus.value(s + u32::from(source), 2) as u16
+                        h.bus.value(homes::address(before.s, before.d, source), 2) as u16
                     } else {
                         source
                     };
                     values.push(value);
                     if stack && stage.is_some() {
                         expected.extend([
-                            (s + u32::from(source), Access::Read),
-                            (s + u32::from(source) + 1, Access::Read),
+                            (homes::address(before.s, before.d, source), Access::Read),
+                            (homes::address(before.s, before.d, source) + 1, Access::Read),
                         ]);
                     }
                     if stage.is_some() {
@@ -199,8 +199,8 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     let value = values[i];
                     if stage.is_none() && stack {
                         expected.extend([
-                            (s + u32::from(source), Access::Read),
-                            (s + u32::from(source) + 1, Access::Read),
+                            (homes::address(before.s, before.d, source), Access::Read),
+                            (homes::address(before.s, before.d, source) + 1, Access::Read),
                         ]);
                     }
                     if stage.is_some() {
@@ -210,14 +210,20 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         ]);
                     }
                     expected.extend([
-                        (s + u32::from(dest), Access::Write(value as u8)),
-                        (s + u32::from(dest) + 1, Access::Write((value >> 8) as u8)),
+                        (
+                            homes::address(before.s, before.d, dest),
+                            Access::Write(value as u8),
+                        ),
+                        (
+                            homes::address(before.s, before.d, dest) + 1,
+                            Access::Write((value >> 8) as u8),
+                        ),
                     ]);
                 }
                 if let Some(slot) = w.reload {
                     expected.extend([
-                        (s + u32::from(slot), Access::Read),
-                        (s + u32::from(slot) + 1, Access::Read),
+                        (homes::address(before.s, before.d, slot), Access::Read),
+                        (homes::address(before.s, before.d, slot) + 1, Access::Read),
                     ]);
                 }
                 h.bus.watched = (0x4000..0x6000).chain(0x2000..0x2040).collect();
@@ -233,7 +239,10 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                 assert_eq!(actual, expected);
                 h.bus.watched.clear();
                 for (&(_, _, dest), &value) in w.moves.iter().zip(&values) {
-                    assert_eq!(h.bus.value(s + u32::from(dest), 2), u32::from(value));
+                    assert_eq!(
+                        h.bus.value(homes::address(before.s, before.d, dest), 2),
+                        u32::from(value)
+                    );
                 }
                 // Removed reservations may now hold unrelated live bytes. Check
                 // the whole stack instead of planting canaries in former slots.
@@ -250,13 +259,15 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     }
                 }
                 let expected_cycles: u64 = (if w.fallthrough { 0 } else { 4 })
-                    + if w.reload.is_some() { 5 } else { 0 }
+                    + w.reload.map_or(0, homes::cycles)
                     + w.moves
                         .iter()
                         .enumerate()
                         .filter(|(i, _)| w.order.contains(i))
-                        .map(|(_, &((stack, _), stage, _))| {
-                            (if stack { 5 } else { 3 }) + 5 + if stage.is_some() { 10 } else { 0 }
+                        .map(|(_, &((memory, source), stage, dest))| {
+                            (if memory { homes::cycles(source) } else { 3 })
+                                + homes::cycles(dest)
+                                + if stage.is_some() { 10 } else { 0 }
                         })
                         .sum::<u64>();
                 assert_eq!(h.cpu.cycles() - cycles, expected_cycles);
@@ -510,7 +521,7 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                             jump: target - 4,
                             source: (!immediate, if immediate { 0xa55a } else { source.into() }),
                             staging: Some(16),
-                            destination,
+                            destination: destination.into(),
                             target,
                             direct: true,
                             fallthrough: false,

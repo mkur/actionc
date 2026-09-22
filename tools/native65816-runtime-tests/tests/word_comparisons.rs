@@ -335,8 +335,8 @@ RETURN
                                 .filter(|s| s.0)
                                 .flat_map(|s| {
                                     [
-                                        u32::from(r.s) + u32::from(s.1),
-                                        u32::from(r.s) + u32::from(s.1) + 1,
+                                        homes::address(r.s, r.d, s.1),
+                                        homes::address(r.s, r.d, s.1) + 1,
                                     ]
                                 })
                                 .collect();
@@ -363,12 +363,13 @@ RETURN
                                 )]
                             );
                             let reads = &h.bus.reads[start_reads..];
-                            assert!(!reads.iter().any(|p| (0x2000..0x2040).contains(p)));
+                            assert!(!reads.iter().any(|p| (0x2000..0x2020).contains(p)));
                             assert_eq!(
                                 reads
                                     .iter()
                                     .copied()
-                                    .filter(|p| (0x4000..0x6000).contains(p))
+                                    .filter(|p| (0x4000..0x6000).contains(p)
+                                        || (0x2020..0x2040).contains(p))
                                     .collect::<Vec<_>>(),
                                 stack_reads
                             );
@@ -408,7 +409,7 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 41,
                 125,
                 125,
-                6,
+                2,
             ),
             (
                 "sum-loop",
@@ -417,7 +418,7 @@ fn representative_word_comparison_kernels_keep_cycle_and_stack_budgets() {
                 91,
                 if optimize { 165 } else { 200 },
                 if optimize { 1800 } else { 2250 },
-                if optimize { 12 } else { 14 },
+                if optimize { 6 } else { 14 },
             ),
         ] {
             let (image, forwarded) = forwarding::compile(source, optimize);

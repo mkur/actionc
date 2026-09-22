@@ -1,10 +1,7 @@
 //! Independent typed MIR + final-byte proofs. Never consult emitter witnesses.
 use super::*;
 use actionc::{
-    mir65816::{
-        emit::{Location, MachineProgram},
-        *,
-    },
+    mir65816::{emit::MachineProgram, *},
     nir::{ParamId, RoutineId, TempId},
 };
 use std::ops::Range;
@@ -18,7 +15,7 @@ pub struct Site {
     pub stores: Vec<u32>,
     pub consumer: u32,
     pub source: u8,
-    pub destination: u8,
+    pub destination: u16,
     pub bridge: bool,
     pub bytes: Vec<u8>,
 }
@@ -30,7 +27,7 @@ impl Site {
                 == self.bytes
             && bus.ram[self.producer as usize..self.producer as usize + 2] == [0xa3, self.source]
             && bus.ram[self.consumer as usize..self.consumer as usize + 2]
-                == [0x83, self.destination]
+                == homes::store(self.destination)
     }
     pub fn rebase(&self, base: u32) -> Self {
         let mut s = self.clone();
@@ -70,7 +67,7 @@ fn load(
     op: &Mir65816Op,
     r: &Mir65816Routine,
     m: &actionc::mir65816::emit::MachineRoutine,
-) -> Option<(ParamId, u8, TempId, u8)> {
+) -> Option<(ParamId, u8, TempId, u16)> {
     let Mir65816Op::Load {
         dest,
         address,
@@ -130,13 +127,9 @@ fn load(
     }
     // Native argument starts one byte above the three-byte return address.
     let source = u8::try_from(u32::from(m.frame.extent) + 4 + offset.get()).unwrap();
-    let Location::Stack(home) = m.frame.temps[dest] else {
-        return None;
-    };
-    assert_eq!(home.width, 2);
-    let capture = u8::try_from(home.offset).unwrap();
-    assert!((1..=254).contains(&source) && (1..=254).contains(&capture));
-    assert!(source.abs_diff(capture) >= 2);
+    let capture = homes::of(m.frame.temps[dest])?;
+    assert!((1..=254).contains(&source));
+    assert!(u16::from(source).abs_diff(capture) >= 2);
     Some((id, source, *dest, capture))
 }
 pub fn index(
@@ -156,12 +149,13 @@ pub fn index(
                     continue;
                 };
                 let p = &m.code.mir_spans[&(b.id, i)];
-                if code[p.clone()] == [0x83, capture] {
+                if code[p.clone()] == homes::store(capture) {
                     continue;
                 } // Omitted consumer cannot rearm.
                 let start = p.start + usize::from(code[p.clone()].starts_with(&[0xc2, 0x20])) * 2;
-                assert_eq!(code[start..p.end], [0xa3, source, 0x83, capture]);
-                let mut expected = vec![0xa3, source, 0x83, capture];
+                let mut expected = vec![0xa3, source];
+                expected.extend(homes::store(capture));
+                assert_eq!(code[start..p.end], expected);
                 let mut stores = vec![base + start as u32 + 2];
                 let mut j = i + 1;
                 let mut bridge = false;
@@ -185,7 +179,7 @@ pub fn index(
                     assert!(address.displacement.get() + 2 <= o.size.get());
                     let dest =
                         u8::try_from(o.stack_offset.get() + address.displacement.get()).unwrap();
-                    if dest.abs_diff(source) < 2 || dest.abs_diff(capture) < 2 {
+                    if dest.abs_diff(source) < 2 || u16::from(dest).abs_diff(capture) < 2 {
                         continue;
                     }
                     let s = &m.code.mir_spans[&(b.id, j)];
@@ -206,7 +200,7 @@ pub fn index(
                 }
                 let c = &m.code.mir_spans[&(b.id, j)];
                 assert_eq!(c.start, start + expected.len());
-                expected.extend([0x83, destination]);
+                expected.extend(homes::store(destination));
                 assert_eq!(
                     code[start..c.end],
                     expected,

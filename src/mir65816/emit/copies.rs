@@ -68,7 +68,7 @@ pub(super) fn word_home(location: Location, delta: u32) -> Result<WordHome, Stri
     }
     match location {
         Location::Stack(s) => Ok(WordHome::Stack(word_displacement(s.offset.into(), delta)?)),
-        Location::DirectPage(s) if (32..=62).contains(&s.offset) && s.offset % 2 == 0 => {
+        Location::DirectPage(s) if super::scalar::word_offset(s.offset) => {
             Ok(WordHome::DirectPage(s.offset as u8))
         }
         Location::DirectPage(_) => Err("word home exceeds scalar DP pool or is unaligned".into()),

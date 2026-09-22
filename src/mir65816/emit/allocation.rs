@@ -31,6 +31,12 @@ impl AllocatedFrame {
         if let Some(frame) = Self::pointer_leaf(routine)? {
             return Ok(frame);
         }
+        let mut frame = Self::stack(routine)?;
+        frame.promote_scalar(routine)?;
+        Ok(frame)
+    }
+
+    pub(super) fn stack(routine: &Mir65816Routine) -> Result<Self, String> {
         let interference = super::liveness::interference(routine)?;
         let mut cursor = routine.frame.extent.get() + 1;
         let mut ordered = routine

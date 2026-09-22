@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(test)]
 #[path = "word_tests.rs"]
-mod word_tests;
+pub(super) mod word_tests;
 
 #[cfg(test)]
 #[path = "compare_tests.rs"]

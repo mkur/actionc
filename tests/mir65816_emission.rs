@@ -34,7 +34,7 @@ fn layout() -> image::LinkOptions {
 }
 
 #[test]
-fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
+fn native_word_add_sub_use_dp_without_changing_abi_costs() {
     for operation in ["+", "-"] {
         for optimize in [false, true] {
             let program = mir(
@@ -52,7 +52,7 @@ fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
             );
             assert_eq!(
                 (work.fixed_frame, work.spill_bytes, work.local_stack_peak),
-                (8, 8, 8)
+                (0, 0, 0)
             );
             assert_eq!((work.outgoing_bytes, work.result_bytes), (5, 2));
             assert_eq!(
@@ -60,7 +60,7 @@ fn native_word_add_sub_keep_frame_and_abi_costs_with_bounded_code() {
                     .iter()
                     .map(|a| (a.offset, a.body_displacement, a.size))
                     .collect::<Vec<_>>(),
-                [(0, 12, 2), (2, 14, 2)]
+                [(0, 4, 2), (2, 6, 2)]
             );
             assert!(work.calls.is_empty());
             assert!(work.objects.is_empty());
@@ -76,12 +76,12 @@ fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
             (
                 "CARD FUNC Work(CARD x,y) IF x>y THEN RETURN(x) FI RETURN(y) PROC Main() RETURN",
                 155,
-                6,
+                2,
             ),
             (
                 "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
                 220,
-                if optimize { 12 } else { 14 },
+                if optimize { 6 } else { 14 },
             ),
         ] {
             let program = mir(source, optimize);
@@ -98,7 +98,7 @@ fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
 }
 
 #[test]
-fn native_word_identity_keeps_its_frame_and_has_a_bounded_return() {
+fn native_word_identity_uses_zero_frame_and_retains_entry_guard() {
     for optimize in [false, true] {
         let program = mir(
             "CARD FUNC Echo(CARD value) RETURN(value) PROC Main() RETURN",
@@ -110,7 +110,7 @@ fn native_word_identity_keeps_its_frame_and_has_a_bounded_return() {
         assert!(echo.size <= 70, "{optimize}: {} bytes", echo.size);
         assert_eq!(
             (echo.fixed_frame, echo.spill_bytes, echo.local_stack_peak),
-            (4, 4, 4)
+            (0, 0, 0)
         );
         assert_eq!((echo.outgoing_bytes, echo.result_bytes), (3, 2));
         assert_eq!(
@@ -118,7 +118,7 @@ fn native_word_identity_keeps_its_frame_and_has_a_bounded_return() {
                 .iter()
                 .map(|a| (a.offset, a.body_displacement, a.size))
                 .collect::<Vec<_>>(),
-            [(0, 8, 2)]
+            [(0, 4, 2)]
         );
         assert!(echo.calls.is_empty());
     }
@@ -442,13 +442,13 @@ fn stack_reuse_preserves_backedge_live_ins_and_dead_parallel_destinations() {
     let machine = emit::materialize(&program).unwrap();
     let routine = &program.routines[0];
     let frame = &machine.routines[0].frame;
-    frame.verify_stack(routine).unwrap();
+    frame.verify_scalar_dp(routine).unwrap();
     for id in [1, 2, 3, 4, 5] {
         let mut corrupt = frame.clone();
         corrupt.temps.insert(TempId(id), frame.temps[&TempId(0)]);
         assert!(
             corrupt
-                .verify_stack(routine)
+                .verify_scalar_dp(routine)
                 .unwrap_err()
                 .contains("overlapping live")
         );
@@ -458,9 +458,9 @@ fn stack_reuse_preserves_backedge_live_ins_and_dead_parallel_destinations() {
     corrupt.edge_copies[0].offset = frame.temps[&TempId(0)].slot().offset;
     assert!(
         corrupt
-            .verify_stack(routine)
+            .verify_scalar_dp(routine)
             .unwrap_err()
-            .contains("edge-copy")
+            .contains("staging")
     );
 }
 
@@ -873,4 +873,51 @@ fn pointer_leaf_rechecks_incoming_last_byte_after_removing_spills() {
             .unwrap_err()
             .contains("stack-relative")
     );
+}
+
+#[test]
+fn scalar_dp_transport_rejects_unaligned_outside_mixed_and_calling_maps() {
+    let p = mir(
+        "CARD FUNC Work(CARD a,b) RETURN(a+b) PROC Main() RETURN",
+        false,
+    );
+    let m = emit::materialize(&p).unwrap();
+    m.routines[0]
+        .frame
+        .verify_scalar_dp(&p.routines[0])
+        .unwrap();
+    let original = image::link(&p, &m, &layout()).unwrap();
+    for offset in [0, 3, 30, 31, 33, 63, 64, 255] {
+        let mut bad = original.clone();
+        bad.routines[0].temporaries[0].home = image::TemporaryHome::DirectPage { offset };
+        assert!(image::Image::from_json(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+    for size in [1, 3, 4] {
+        let mut bad = original.clone();
+        bad.routines[0].temporaries[0].size = size;
+        assert!(image::Image::from_json(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+    let mut mixed = original.clone();
+    mixed.routines[0].temporaries[0].size = 3;
+    mixed.routines[0].temporaries[0].home = image::TemporaryHome::DirectPage { offset: 0 };
+    assert!(image::Image::from_json(&serde_json::to_vec(&mixed).unwrap()).is_err());
+    let p = mir(
+        "CARD FUNC Helper(CARD a) RETURN(a+1) CARD FUNC Work(CARD a) RETURN(Helper(a)+a) PROC Main() RETURN",
+        false,
+    );
+    let m = emit::materialize(&p).unwrap();
+    let mut image = image::link(&p, &m, &layout()).unwrap();
+    let work = image
+        .routines
+        .iter_mut()
+        .find(|r| r.name == "Work")
+        .unwrap();
+    assert!(!work.calls.is_empty());
+    assert!(
+        work.temporaries
+            .iter()
+            .all(|t| matches!(t.home, image::TemporaryHome::Stack { .. }))
+    );
+    work.temporaries[0].home = image::TemporaryHome::DirectPage { offset: 32 };
+    assert!(image::Image::from_json(&serde_json::to_vec(&image).unwrap()).is_err());
 }

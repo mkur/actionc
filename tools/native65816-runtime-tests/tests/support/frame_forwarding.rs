@@ -2,10 +2,7 @@
 //! No selector witness or state-tracker claims are consumed here.
 use super::*;
 use actionc::{
-    mir65816::{
-        emit::{Location, MachineProgram},
-        *,
-    },
+    mir65816::{emit::MachineProgram, *},
     nir::RoutineId,
 };
 use std::ops::Range;
@@ -18,7 +15,7 @@ pub struct Site {
     pub store: u32,
     pub consumer: u32,
     pub source: u8,
-    pub destination: u8,
+    pub destination: u16,
     pub bytes: Vec<Option<u8>>,
 }
 impl Site {
@@ -32,7 +29,7 @@ impl Site {
                 .all(|(i, b)| b.is_none_or(|b| bus.ram[self.producer as usize + i] == b))
             && bus.ram[self.store as usize..self.store as usize + 2] == [0x83, self.source]
             && bus.ram[self.consumer as usize..self.consumer as usize + 2]
-                == [0x83, self.destination]
+                == homes::store(self.destination)
     }
     pub fn rebase(&self, base: u32) -> Self {
         let mut s = self.clone();
@@ -112,17 +109,15 @@ pub fn index(
                 let source =
                     u8::try_from(object.stack_offset.get() + a.displacement.get()).unwrap();
                 assert!((1..=254).contains(&source));
-                let Location::Stack(home) = m.frame.temps[dest] else {
+                let Some(destination) = homes::of(m.frame.temps[dest]) else {
                     continue;
                 };
-                assert_eq!(home.width, 2);
-                let destination = u8::try_from(home.offset).unwrap();
                 let p = &m.code.mir_spans[&(b.id, i)];
                 let c = &m.code.mir_spans[&(b.id, i + 1)];
                 assert_eq!(p.end, c.start);
                 assert_eq!(
                     &code[c.clone()],
-                    &[0x83, destination],
+                    &homes::store(destination),
                     "eligible frame load must retain only its capture"
                 );
                 let store = p.end - 2;
@@ -132,14 +127,14 @@ pub fn index(
                 let mut producer = store;
                 loop {
                     assert_eq!(ins[&producer].1, false);
-                    if code[producer] != 0x83 {
+                    if !matches!(code[producer], 0x83 | 0x85) {
                         break;
                     }
                     producer = *ins.range(..producer).next_back().unwrap().0;
                 }
                 assert!(matches!(
                     code[producer],
-                    0xa3 | 0xaf | 0x69 | 0x63 | 0xe9 | 0xe3
+                    0xa3 | 0xa5 | 0xaf | 0x69 | 0x63 | 0x65 | 0xe9 | 0xe3 | 0xe5
                 ));
                 assert!(
                     !m.code

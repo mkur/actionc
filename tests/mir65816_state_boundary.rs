@@ -4,7 +4,8 @@
 //! conditional dispatch, remapping every position-bearing contract. Compact
 //! staging changes only the reviewed sum-loop frame and its reservation/argument
 //! operands. Parameter forwarding removes one raw-recursion LDA and remaps
-//! its later labels, fixups and spans; other reviewed sections remain unchanged.
+//! its later labels, fixups and spans. Scalar DP promotion changes admitted
+//! homes/operands and removes zero-frame teardown; guards remain present.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]
