@@ -1,7 +1,11 @@
 # Bounded loop-parameter residency in X
 
-Status: proposed implementation plan, based on the post-DP inventory at
-`d775cf6`. No production selection is enabled by this document. See the
+Status: implementation in progress. Slice 1 has frozen all 58 admission
+decisions, 28 complete images and 132 vector forecasts in the
+[implementation baseline](benchmarks/65816-loop-x/frozen.json). The current typed
+export already contains all needed facts and was reproduced against current
+images with LF/CRLF checks; its schema and historical facts remain unchanged.
+Production selection is still disabled. The plan is based on inventory `d775cf6`. See the
 [measured inventory](MIR65816_REGISTER_INVENTORY.md) and
 [frozen planning evidence](benchmarks/65816-loop-x-plan/baseline.json).
 
