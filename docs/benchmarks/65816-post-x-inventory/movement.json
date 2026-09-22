@@ -1,0 +1,7950 @@
+{
+  "schema": 1,
+  "scope": "All counted emitted word STA sites, including required stores; unconditional natural-backedge word LDA sites, including staging captures/restores. Counts do not imply redundancy.",
+  "builds": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8524",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8524",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8524",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8524",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65590,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65596,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65602,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65608,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65614,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65620,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65626,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65632,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 8
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65638,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65644,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65650,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 11
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65656,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 12
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65662,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 13
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65668,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 14
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65674,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 15
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7,
+                  9,
+                  11,
+                  13,
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65680,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 16
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6,
+                  8,
+                  10,
+                  12,
+                  14,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 17,
+          "private_temp_word_stores": 17,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 17,
+          "private_temp_word_stores": 17,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 17,
+          "private_temp_word_stores": 17,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 17,
+          "private_temp_word_stores": 17,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 17,
+          "private_temp_word_stores": 17,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 17,
+          "private_temp_word_stores": 17,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65590,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65602,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65615,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65602,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65615,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  5
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  5
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65719,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65723,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  5
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  5
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65707,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65711,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65586,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65594,
+          "bytes": "830e",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  5,
+                  10,
+                  12,
+                  14
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65596,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65612,
+          "bytes": "8308",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 3,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65616,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65644,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65646,
+          "bytes": "8306",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 2,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65650,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65652,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65656,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65662,
+          "bytes": "830e",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  5,
+                  10,
+                  12,
+                  14
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65664,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65668,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65674,
+          "bytes": "830e",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 8
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  5,
+                  10,
+                  12,
+                  14
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65676,
+          "bytes": "8308",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 3,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65684,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 3,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  3,
+                  4,
+                  7,
+                  8,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65688,
+          "bytes": "830e",
+          "scope": {
+            "kind": "load",
+            "block": 3,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  5,
+                  10,
+                  12,
+                  14
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65695,
+          "bytes": "8310",
+          "scope": {
+            "kind": "binary",
+            "block": 3,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 16,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  15
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 98,
+          "private_temp_word_stores": 63,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 98,
+          "private_temp_word_stores": 63,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 98,
+          "private_temp_word_stores": 63,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 98,
+          "private_temp_word_stores": 63,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 98,
+          "private_temp_word_stores": 63,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 98,
+          "private_temp_word_stores": 63,
+          "goto_backedge_word_loads": 0,
+          "vector": 5,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8524",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  10,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65590,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  17
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8522",
+          "scope": {
+            "kind": "goto",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  15,
+                  18
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65611,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65613,
+          "bytes": "8526",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 38,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  9,
+                  12
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65619,
+          "bytes": "8524",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  10,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65626,
+          "bytes": "8526",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 38,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  9,
+                  12
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65628,
+          "bytes": "a524",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 1,
+              "write": 0,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  10,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "goto_backedge_word_loads"
+          ]
+        },
+        {
+          "pc": 65630,
+          "bytes": "8306",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "edge_staging",
+                "slot": 0
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65632,
+          "bytes": "a520",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 1,
+              "write": 0,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  17
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "goto_backedge_word_loads"
+          ]
+        },
+        {
+          "pc": 65634,
+          "bytes": "8524",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  10,
+                  16
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65636,
+          "bytes": "a306",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 1,
+              "write": 0,
+              "owner": {
+                "kind": "edge_staging",
+                "slot": 0
+              }
+            }
+          ],
+          "groups": [
+            "goto_backedge_word_loads"
+          ]
+        },
+        {
+          "pc": 65638,
+          "bytes": "8520",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  17
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65640,
+          "bytes": "a526",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 38,
+              "width": 2,
+              "read": 1,
+              "write": 0,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  9,
+                  12
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "goto_backedge_word_loads"
+          ]
+        },
+        {
+          "pc": 65642,
+          "bytes": "8522",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  15,
+                  18
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65654,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 3,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  15,
+                  18
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 68,
+          "private_temp_word_stores": 52,
+          "goto_backedge_word_loads": 32,
+          "vector": 0,
+          "traffic": {
+            "stack:edge_staging:read": 16,
+            "stack:edge_staging:write": 16
+          }
+        },
+        {
+          "retained_word_stores": 68,
+          "private_temp_word_stores": 52,
+          "goto_backedge_word_loads": 32,
+          "vector": 1,
+          "traffic": {
+            "stack:edge_staging:read": 16,
+            "stack:edge_staging:write": 16
+          }
+        },
+        {
+          "retained_word_stores": 68,
+          "private_temp_word_stores": 52,
+          "goto_backedge_word_loads": 32,
+          "vector": 2,
+          "traffic": {
+            "stack:edge_staging:read": 16,
+            "stack:edge_staging:write": 16
+          }
+        },
+        {
+          "retained_word_stores": 68,
+          "private_temp_word_stores": 52,
+          "goto_backedge_word_loads": 32,
+          "vector": 3,
+          "traffic": {
+            "stack:edge_staging:read": 16,
+            "stack:edge_staging:write": 16
+          }
+        },
+        {
+          "retained_word_stores": 68,
+          "private_temp_word_stores": 52,
+          "goto_backedge_word_loads": 32,
+          "vector": 4,
+          "traffic": {
+            "stack:edge_staging:read": 16,
+            "stack:edge_staging:write": 16
+          }
+        },
+        {
+          "retained_word_stores": 68,
+          "private_temp_word_stores": 52,
+          "goto_backedge_word_loads": 32,
+          "vector": 5,
+          "traffic": {
+            "stack:edge_staging:read": 16,
+            "stack:edge_staging:write": 16
+          }
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65608,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65612,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65640,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65644,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  5,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65649,
+          "bytes": "830c",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65651,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65655,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65661,
+          "bytes": "830a",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  5,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65663,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65671,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 3,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {
+            "stack:mutable_parameter:read": 2,
+            "stack:mutable_parameter:write": 2
+          }
+        },
+        {
+          "retained_word_stores": 11,
+          "private_temp_word_stores": 8,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {
+            "stack:mutable_parameter:read": 8,
+            "stack:mutable_parameter:write": 4
+          }
+        },
+        {
+          "retained_word_stores": 67,
+          "private_temp_word_stores": 50,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {
+            "stack:mutable_parameter:read": 50,
+            "stack:mutable_parameter:write": 18
+          }
+        },
+        {
+          "retained_word_stores": 107,
+          "private_temp_word_stores": 80,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {
+            "stack:mutable_parameter:read": 80,
+            "stack:mutable_parameter:write": 28
+          }
+        },
+        {
+          "retained_word_stores": 251,
+          "private_temp_word_stores": 188,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {
+            "stack:mutable_parameter:read": 188,
+            "stack:mutable_parameter:write": 64
+          }
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65597,
+          "bytes": "8522",
+          "scope": {
+            "kind": "goto",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  7,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65601,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65616,
+          "bytes": "8524",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65623,
+          "bytes": "8520",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65627,
+          "bytes": "8522",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  7,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65633,
+          "bytes": "8524",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 36,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65635,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65637,
+          "bytes": "a520",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 1,
+              "write": 0,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "goto_backedge_word_loads"
+          ]
+        },
+        {
+          "pc": 65639,
+          "bytes": "8522",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  7,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {
+            "stack:mutable_parameter:read": 2,
+            "stack:mutable_parameter:write": 2
+          }
+        },
+        {
+          "retained_word_stores": 9,
+          "private_temp_word_stores": 8,
+          "goto_backedge_word_loads": 1,
+          "vector": 1,
+          "traffic": {
+            "stack:mutable_parameter:read": 8,
+            "stack:mutable_parameter:write": 4
+          }
+        },
+        {
+          "retained_word_stores": 58,
+          "private_temp_word_stores": 50,
+          "goto_backedge_word_loads": 8,
+          "vector": 2,
+          "traffic": {
+            "stack:mutable_parameter:read": 50,
+            "stack:mutable_parameter:write": 18
+          }
+        },
+        {
+          "retained_word_stores": 93,
+          "private_temp_word_stores": 80,
+          "goto_backedge_word_loads": 13,
+          "vector": 3,
+          "traffic": {
+            "stack:mutable_parameter:read": 80,
+            "stack:mutable_parameter:write": 28
+          }
+        },
+        {
+          "retained_word_stores": 219,
+          "private_temp_word_stores": 188,
+          "goto_backedge_word_loads": 31,
+          "vector": 4,
+          "traffic": {
+            "stack:mutable_parameter:read": 188,
+            "stack:mutable_parameter:write": 64
+          }
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8302",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65624,
+          "bytes": "8302",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65626,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65632,
+          "bytes": "8304",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65731,
+          "bytes": "8304",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 6,
+          "private_temp_word_stores": 6,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 41,
+          "private_temp_word_stores": 41,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 66,
+          "private_temp_word_stores": 66,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8302",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65611,
+          "bytes": "8302",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65617,
+          "bytes": "8306",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65716,
+          "bytes": "8306",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 5,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 33,
+          "private_temp_word_stores": 33,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 53,
+          "private_temp_word_stores": 53,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65590,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65641,
+          "bytes": "8304",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65737,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65836,
+          "bytes": "8306",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8520",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 32,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65590,
+          "bytes": "8522",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 34,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65641,
+          "bytes": "8304",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65737,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65836,
+          "bytes": "8306",
+          "scope": {
+            "kind": "binary",
+            "block": 0,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  4
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 7,
+          "private_temp_word_stores": 7,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65624,
+          "bytes": "8306",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 2,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65628,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  6,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65656,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  6,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65660,
+          "bytes": "830b",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 11,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65664,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65668,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65691,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  7,
+                  12
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65696,
+          "bytes": "830e",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65698,
+          "bytes": "8306",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 2,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65702,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  6,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65706,
+          "bytes": "830b",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 11,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65745,
+          "bytes": "8301",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 8
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65749,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 8
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65753,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  6,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65759,
+          "bytes": "830c",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  2,
+                  7,
+                  12
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65761,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 11
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65769,
+          "bytes": "830a",
+          "scope": {
+            "kind": "load",
+            "block": 3,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  1,
+                  4,
+                  6,
+                  9,
+                  11,
+                  13
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 3,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {
+            "stack:mutable_parameter:read": 2,
+            "stack:mutable_parameter:write": 5
+          }
+        },
+        {
+          "retained_word_stores": 18,
+          "private_temp_word_stores": 11,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {
+            "stack:mutable_parameter:read": 14,
+            "stack:mutable_parameter:write": 11
+          }
+        },
+        {
+          "retained_word_stores": 63,
+          "private_temp_word_stores": 38,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {
+            "stack:mutable_parameter:read": 50,
+            "stack:mutable_parameter:write": 29
+          }
+        },
+        {
+          "retained_word_stores": 123,
+          "private_temp_word_stores": 74,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {
+            "stack:mutable_parameter:read": 98,
+            "stack:mutable_parameter:write": 53
+          }
+        },
+        {
+          "retained_word_stores": 243,
+          "private_temp_word_stores": 146,
+          "goto_backedge_word_loads": 0,
+          "vector": 4,
+          "traffic": {
+            "stack:mutable_parameter:read": 194,
+            "stack:mutable_parameter:write": 101
+          }
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65613,
+          "bytes": "830c",
+          "scope": {
+            "kind": "goto",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  10,
+                  14
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65617,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  4,
+                  6,
+                  9,
+                  11
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65632,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  4,
+                  6,
+                  9,
+                  11
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65636,
+          "bytes": "8309",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 9,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65640,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65644,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65670,
+          "bytes": "8310",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 16,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65674,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  4,
+                  6,
+                  9,
+                  11
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65678,
+          "bytes": "8309",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 9,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65717,
+          "bytes": "8301",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65721,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65725,
+          "bytes": "8308",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  4,
+                  6,
+                  9,
+                  11
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65731,
+          "bytes": "830a",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 8
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 10,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  12
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65733,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65735,
+          "bytes": "a310",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 16,
+              "width": 2,
+              "read": 1,
+              "write": 0,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "goto_backedge_word_loads"
+          ]
+        },
+        {
+          "pc": 65737,
+          "bytes": "830c",
+          "scope": {
+            "kind": "goto",
+            "block": 2,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  10,
+                  14
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 2,
+          "private_temp_word_stores": 2,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {
+            "stack:mutable_parameter:read": 2,
+            "stack:mutable_parameter:write": 5
+          }
+        },
+        {
+          "retained_word_stores": 16,
+          "private_temp_word_stores": 11,
+          "goto_backedge_word_loads": 1,
+          "vector": 1,
+          "traffic": {
+            "stack:mutable_parameter:read": 14,
+            "stack:mutable_parameter:write": 11
+          }
+        },
+        {
+          "retained_word_stores": 58,
+          "private_temp_word_stores": 38,
+          "goto_backedge_word_loads": 4,
+          "vector": 2,
+          "traffic": {
+            "stack:mutable_parameter:read": 50,
+            "stack:mutable_parameter:write": 29
+          }
+        },
+        {
+          "retained_word_stores": 114,
+          "private_temp_word_stores": 74,
+          "goto_backedge_word_loads": 8,
+          "vector": 3,
+          "traffic": {
+            "stack:mutable_parameter:read": 98,
+            "stack:mutable_parameter:write": 53
+          }
+        },
+        {
+          "retained_word_stores": 226,
+          "private_temp_word_stores": 146,
+          "goto_backedge_word_loads": 16,
+          "vector": 4,
+          "traffic": {
+            "stack:mutable_parameter:read": 194,
+            "stack:mutable_parameter:write": 101
+          }
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8302",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8303",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65592,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65596,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65603,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8302",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8303",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65592,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65596,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65603,
+          "bytes": "8306",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {}
+        },
+        {
+          "retained_word_stores": 5,
+          "private_temp_word_stores": 3,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8503",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65610,
+          "bytes": "8301",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65614,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65618,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65622,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65629,
+          "bytes": "8503",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65644,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65648,
+          "bytes": "8305",
+          "scope": {
+            "kind": "store",
+            "block": 0,
+            "operation": 5
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 5,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "fixed_object",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65652,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65656,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65660,
+          "bytes": "8503",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65664,
+          "bytes": "8504",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65686,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65690,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  2,
+                  4,
+                  6
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65694,
+          "bytes": "8503",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65698,
+          "bytes": "8504",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  3,
+                  5,
+                  7
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 18,
+          "private_temp_word_stores": 14,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65584,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65588,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65595,
+          "bytes": "8503",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 3,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65613,
+          "bytes": "8506",
+          "scope": {
+            "kind": "load",
+            "block": 0,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 6,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 4,
+          "private_temp_word_stores": 4,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {}
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "sites": [
+        {
+          "pc": 65628,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65656,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65660,
+          "bytes": "830d",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 13,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65664,
+          "bytes": "8310",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 16,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65668,
+          "bytes": "8311",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 17,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65672,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65676,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65691,
+          "bytes": "8500",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65695,
+          "bytes": "8501",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65710,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65714,
+          "bytes": "830d",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 13,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65753,
+          "bytes": "8301",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65757,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65761,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65765,
+          "bytes": "830d",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 13,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65804,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65808,
+          "bytes": "8305",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 5,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65812,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65818,
+          "bytes": "830e",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 11
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  1,
+                  11
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65820,
+          "bytes": "8308",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 12
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 2,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 161,
+          "private_temp_word_stores": 89,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {
+            "stack:mutable_parameter:read": 162,
+            "stack:mutable_parameter:write": 88
+          }
+        },
+        {
+          "retained_word_stores": 161,
+          "private_temp_word_stores": 89,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {
+            "stack:mutable_parameter:read": 162,
+            "stack:mutable_parameter:write": 88
+          }
+        },
+        {
+          "retained_word_stores": 161,
+          "private_temp_word_stores": 89,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {
+            "stack:mutable_parameter:read": 162,
+            "stack:mutable_parameter:write": 88
+          }
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {
+            "stack:mutable_parameter:read": 2,
+            "stack:mutable_parameter:write": 8
+          }
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "sites": [
+        {
+          "pc": 65628,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 1,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65643,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65647,
+          "bytes": "830d",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 0
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 13,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65651,
+          "bytes": "8310",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 16,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65655,
+          "bytes": "8311",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 1
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 17,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  4,
+                  7,
+                  9
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65659,
+          "bytes": "8500",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65663,
+          "bytes": "8501",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 2
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65678,
+          "bytes": "8500",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 0,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65682,
+          "bytes": "8501",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 3
+          },
+          "memory": [
+            {
+              "space": "dp",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "selector_scratch"
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65697,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65701,
+          "bytes": "830d",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 4
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 13,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65740,
+          "bytes": "8301",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 1,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65744,
+          "bytes": "8302",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 6
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 2,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 0,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65748,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65752,
+          "bytes": "830d",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 7
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 13,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  3,
+                  6,
+                  8
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65791,
+          "bytes": "8304",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 4,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65795,
+          "bytes": "8305",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 9
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 5,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 1,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        },
+        {
+          "pc": 65799,
+          "bytes": "830c",
+          "scope": {
+            "kind": "load",
+            "block": 2,
+            "operation": 10
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 12,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  0,
+                  3,
+                  6,
+                  8,
+                  10
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65805,
+          "bytes": "830e",
+          "scope": {
+            "kind": "binary",
+            "block": 2,
+            "operation": 11
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 14,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "private_temp",
+                "temps": [
+                  11
+                ]
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores",
+            "private_temp_word_stores"
+          ]
+        },
+        {
+          "pc": 65807,
+          "bytes": "8308",
+          "scope": {
+            "kind": "store",
+            "block": 2,
+            "operation": 12
+          },
+          "memory": [
+            {
+              "space": "stack",
+              "offset": 8,
+              "width": 2,
+              "read": 0,
+              "write": 1,
+              "owner": {
+                "kind": "mutable_parameter",
+                "object": 2,
+                "addressable": false
+              }
+            }
+          ],
+          "groups": [
+            "retained_word_stores"
+          ]
+        }
+      ],
+      "records": [
+        {
+          "retained_word_stores": 161,
+          "private_temp_word_stores": 89,
+          "goto_backedge_word_loads": 0,
+          "vector": 0,
+          "traffic": {
+            "stack:mutable_parameter:read": 162,
+            "stack:mutable_parameter:write": 88
+          }
+        },
+        {
+          "retained_word_stores": 161,
+          "private_temp_word_stores": 89,
+          "goto_backedge_word_loads": 0,
+          "vector": 1,
+          "traffic": {
+            "stack:mutable_parameter:read": 162,
+            "stack:mutable_parameter:write": 88
+          }
+        },
+        {
+          "retained_word_stores": 161,
+          "private_temp_word_stores": 89,
+          "goto_backedge_word_loads": 0,
+          "vector": 2,
+          "traffic": {
+            "stack:mutable_parameter:read": 162,
+            "stack:mutable_parameter:write": 88
+          }
+        },
+        {
+          "retained_word_stores": 1,
+          "private_temp_word_stores": 1,
+          "goto_backedge_word_loads": 0,
+          "vector": 3,
+          "traffic": {
+            "stack:mutable_parameter:read": 2,
+            "stack:mutable_parameter:write": 8
+          }
+        }
+      ]
+    }
+  ],
+  "inventory_sha256": "17c0bf2ed9f149a6e06220ce159bfc9ffb451ac9ac8eb50f1ae005ccb7c3b872"
+}
