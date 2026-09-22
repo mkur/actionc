@@ -322,3 +322,12 @@ Reconstruct missing builds with the compiler and runner from isolated `286a332`
 Build each corpus with `--verify-crlf` and execute both host comparison commands.
 All 264 records must be retained, including the known optimized vbcc unlink
 failure. The 3c snapshot is the current baseline for later quality improvements.
+
+The [remaining-copy inventory](../../docs/MIR65816_COPY_INVENTORY.md) reuses the
+qualified 3c instruction-PC counts without changing the compiler or rerunning
+the VM. The ignored root integration test `mir65816_copy_inventory` exports typed
+physical copy facts only after reproducing all 28 saved Action images, including
+LF/CRLF source checks. `inventory_copies.py` validates the facts against final
+instructions, artifact/source hashes and both host reports, and classifies
+dependencies with per-vector forecasts. Its `--check` mode verifies the committed
+inventory without rewriting it. See the results document for exact commands.

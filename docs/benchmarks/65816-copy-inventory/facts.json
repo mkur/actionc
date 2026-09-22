@@ -1,0 +1,1132 @@
+{
+  "builds": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 4,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 59,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 4,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 59,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 70,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 70,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 70,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 70,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 155,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 65,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "false",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65613,
+              "transfer_pc": 65594
+            },
+            {
+              "arm": "true",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65600,
+              "transfer_pc": 65600
+            }
+          ],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 90,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "false",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65613,
+              "transfer_pc": 65594
+            },
+            {
+              "arm": "true",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65600,
+              "transfer_pc": 65600
+            }
+          ],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 90,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 18,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 401,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 14,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 377,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65616,
+              "transfer_pc": 65616
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65616,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65684,
+              "transfer_pc": 65638
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65616,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65644,
+              "transfer_pc": 65644
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65644,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65616,
+              "transfer_pc": 65680
+            }
+          ],
+          "frame_extent": 18,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 172,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": true,
+              "form": "staged_word",
+              "moves": [
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 10,
+                    "width": 2
+                  },
+                  "destination_temp": 16,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 6,
+                    "temp": 0,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 14,
+                    "width": 4
+                  },
+                  "width": 2
+                },
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 6,
+                    "width": 2
+                  },
+                  "destination_temp": 17,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 8,
+                    "temp": 2,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 18,
+                    "width": 4
+                  },
+                  "width": 2
+                },
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 8,
+                    "width": 2
+                  },
+                  "destination_temp": 18,
+                  "source": {
+                    "kind": "immediate",
+                    "value": 0,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 22,
+                    "width": 4
+                  },
+                  "width": 2
+                }
+              ],
+              "target_block": 1,
+              "target_pc": 65617,
+              "transfer_pc": 65617
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65617,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65680,
+              "transfer_pc": 65624
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65617,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65630,
+              "transfer_pc": 65630
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65630,
+              "fallthrough": false,
+              "form": "staged_word",
+              "moves": [
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 10,
+                    "width": 2
+                  },
+                  "destination_temp": 16,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 6,
+                    "temp": 17,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 14,
+                    "width": 4
+                  },
+                  "width": 2
+                },
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 6,
+                    "width": 2
+                  },
+                  "destination_temp": 17,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 10,
+                    "temp": 10,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 18,
+                    "width": 4
+                  },
+                  "width": 2
+                },
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 8,
+                    "width": 2
+                  },
+                  "destination_temp": 18,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 12,
+                    "temp": 12,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 22,
+                    "width": 4
+                  },
+                  "width": 2
+                }
+              ],
+              "target_block": 1,
+              "target_pc": 65617,
+              "transfer_pc": 65676
+            }
+          ],
+          "frame_extent": 26,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 160,
+          "staging_slots": [
+            {
+              "offset": 14,
+              "width": 4
+            },
+            {
+              "offset": 18,
+              "width": 4
+            },
+            {
+              "offset": 22,
+              "width": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65594,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65610,
+              "transfer_pc": 65610
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65610,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65669,
+              "transfer_pc": 65632
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65610,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65638,
+              "transfer_pc": 65638
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65638,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65610,
+              "transfer_pc": 65665
+            }
+          ],
+          "frame_extent": 14,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 146,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65594,
+              "fallthrough": true,
+              "form": "direct_word",
+              "moves": [
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 8,
+                    "width": 2
+                  },
+                  "destination_temp": 10,
+                  "source": {
+                    "kind": "immediate",
+                    "value": 0,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 12,
+                    "width": 4
+                  },
+                  "width": 2
+                }
+              ],
+              "target_block": 1,
+              "target_pc": 65599,
+              "transfer_pc": 65599
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65599,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65645,
+              "transfer_pc": 65608
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65599,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65614,
+              "transfer_pc": 65614
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65614,
+              "fallthrough": false,
+              "form": "direct_word",
+              "moves": [
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 8,
+                    "width": 2
+                  },
+                  "destination_temp": 10,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 6,
+                    "temp": 6,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 12,
+                    "width": 4
+                  },
+                  "width": 2
+                }
+              ],
+              "target_block": 1,
+              "target_pc": 65599,
+              "transfer_pc": 65641
+            }
+          ],
+          "frame_extent": 16,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 120,
+          "staging_slots": [
+            {
+              "offset": 12,
+              "width": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "false",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65622,
+              "transfer_pc": 65604
+            },
+            {
+              "arm": "true",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65610,
+              "transfer_pc": 65610
+            }
+          ],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 208,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "false",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65609,
+              "transfer_pc": 65591
+            },
+            {
+              "arm": "true",
+              "block": 0,
+              "block_pc": 65582,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65597,
+              "transfer_pc": 65597
+            }
+          ],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 191,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_HELPER_A2A32E4B",
+          "size": 65,
+          "staging_slots": []
+        },
+        {
+          "address": 65601,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 1,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 254,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_HELPER_A2A32E4B",
+          "size": 65,
+          "staging_slots": []
+        },
+        {
+          "address": 65601,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 1,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 254,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65610,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65626,
+              "transfer_pc": 65626
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65626,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65767,
+              "transfer_pc": 65648
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65626,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65654,
+              "transfer_pc": 65654
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65654,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65626,
+              "transfer_pc": 65763
+            }
+          ],
+          "frame_extent": 16,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 244,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65610,
+              "fallthrough": true,
+              "form": "direct_word",
+              "moves": [
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 12,
+                    "width": 2
+                  },
+                  "destination_temp": 14,
+                  "source": {
+                    "kind": "immediate",
+                    "value": 0,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 18,
+                    "width": 4
+                  },
+                  "width": 2
+                }
+              ],
+              "target_block": 1,
+              "target_pc": 65615,
+              "transfer_pc": 65615
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65615,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65743,
+              "transfer_pc": 65624
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65615,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65630,
+              "transfer_pc": 65630
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65630,
+              "fallthrough": false,
+              "form": "direct_word",
+              "moves": [
+                {
+                  "destination": {
+                    "kind": "stack",
+                    "offset": 12,
+                    "width": 2
+                  },
+                  "destination_temp": 14,
+                  "source": {
+                    "kind": "stack",
+                    "offset": 16,
+                    "temp": 8,
+                    "width": 2,
+                    "word_operand": true
+                  },
+                  "staging": {
+                    "kind": "stack",
+                    "offset": 18,
+                    "width": 4
+                  },
+                  "width": 2
+                }
+              ],
+              "target_block": 1,
+              "target_pc": 65615,
+              "transfer_pc": 65739
+            }
+          ],
+          "frame_extent": 22,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 218,
+          "staging_slots": [
+            {
+              "offset": 18,
+              "width": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 80,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 8,
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "size": 80,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 6,
+          "id": 0,
+          "name": "M_CORPUS_WORK_AAB5D89E",
+          "size": 189,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [],
+          "frame_extent": 0,
+          "id": 0,
+          "name": "M_CORPUS_WORK_AAB5D89E",
+          "size": 127,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65626,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65626,
+              "transfer_pc": 65626
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65626,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65826,
+              "transfer_pc": 65648
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65626,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65654,
+              "transfer_pc": 65654
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65654,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65626,
+              "transfer_pc": 65822
+            }
+          ],
+          "frame_extent": 18,
+          "id": 0,
+          "name": "M_CORPUS_WORK_AAB5D89E",
+          "size": 297,
+          "staging_slots": []
+        }
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "routines": [
+        {
+          "address": 65536,
+          "edges": [
+            {
+              "arm": "goto",
+              "block": 0,
+              "block_pc": 65626,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65626,
+              "transfer_pc": 65626
+            },
+            {
+              "arm": "false",
+              "block": 1,
+              "block_pc": 65626,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 3,
+              "target_pc": 65813,
+              "transfer_pc": 65635
+            },
+            {
+              "arm": "true",
+              "block": 1,
+              "block_pc": 65626,
+              "fallthrough": true,
+              "form": "empty",
+              "moves": [],
+              "target_block": 2,
+              "target_pc": 65641,
+              "transfer_pc": 65641
+            },
+            {
+              "arm": "goto",
+              "block": 2,
+              "block_pc": 65641,
+              "fallthrough": false,
+              "form": "empty",
+              "moves": [],
+              "target_block": 1,
+              "target_pc": 65626,
+              "transfer_pc": 65809
+            }
+          ],
+          "frame_extent": 18,
+          "id": 0,
+          "name": "M_CORPUS_WORK_AAB5D89E",
+          "size": 284,
+          "staging_slots": []
+        }
+      ]
+    }
+  ],
+  "lf_crlf_images_equal": true,
+  "schema": 1
+}

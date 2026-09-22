@@ -71,6 +71,9 @@ crowding the active reference set.
 - [MIR65816_CONTROL_FLOW.md](MIR65816_CONTROL_FLOW.md)
   - Qualified width/control-flow results, exact instruction deltas, relocation
     proofs and the current native code-quality baseline.
+- [MIR65816_COPY_INVENTORY.md](MIR65816_COPY_INVENTORY.md)
+  - Remaining edge-copy sites, physical dependencies, measured execution counts,
+    unused staging reservations and bounded selective-staging forecasts.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.

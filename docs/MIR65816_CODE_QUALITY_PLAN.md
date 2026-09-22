@@ -4,8 +4,9 @@ Status: refreshed on 2026-09-22 against main `fc43602`, after qualification of
 control-flow slices 3a–3c. Direct single-word edge copies, adjacent accumulator
 forwarding, the tracker foundation, checked MIR-entry width omission, terminal
 fallthrough and short conditional dispatch are complete. See the
-[control-flow results](MIR65816_CONTROL_FLOW.md). Next, inventory parallel-copy
-scheduling opportunities for a bounded slice 4. The
+[control-flow results](MIR65816_CONTROL_FLOW.md). The
+[remaining-copy inventory](MIR65816_COPY_INVENTORY.md) is complete. Next, plan
+selective source staging for word edges with the destination order fixed. The
 [implementation plan for slices 3a–3c](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
 defines the initial site inventory, bounded changes and separate acceptance gates.
 
@@ -86,7 +87,7 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 3a (complete) | Checked MIR-entry width omission | Omit redundant REP only with checked complete predecessor obligations; retain value/flag barriers. |
 | 3b (complete) | Jumps to adjacent blocks | Checked terminal fallthrough follows every edge assignment; earlier arms retain their jumps. |
 | 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
-| 4 (next inventory) | Parallel-copy scheduling and coalescing | Separate self-copy removal and direct scheduling from cycle staging, reservation shrinking and later home coalescing. Qualify each part independently. |
+| 4 (inventory complete) | Parallel-copy scheduling and coalescing | First candidate: stage only sources overwritten by earlier destinations on word edges. Preserve assignment order and frame reservations; qualify reservation shrinking and coalescing separately. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
@@ -111,13 +112,18 @@ entries, retaining value/flag/home barriers. Terminal fallthrough executes all
 edge copies first; short dispatch preserves arm order and long fallbacks. The
 [emission contract](MIR65816_EMISSION_CONTRACT.md) records the invariants.
 
-Start slice 4 by counting self-copies, independent multi-word assignments and
-cyclic assignments in raw and optimized final code, with dynamic counts and
-physical source/destination ranges. Choose one bounded scheduling change and
-predict its exact traffic and A/N/Z effects before implementation. Keep staging
-reservations and frame sizes fixed in that first change; reservation shrinking
-and home coalescing need separate proofs and qualification. Existing direct
-single-word copies already bypass staging and must not be counted as new savings.
+The [slice 4 inventory](MIR65816_COPY_INVENTORY.md) finds two staged word edges,
+both in optimized `loop_rotation`: an initialization chain and a cyclic backedge.
+Four single-word edges already bypass staging; no self-copies occur in the corpus.
+Selective source staging with the original destination order predicts 160 → 140
+bytes and 1,146 → 956 cycles for `loop_rotation(13)`, retaining final A/N/Z and
+the 26-byte stack peak. These are forecasts, pending implementation and native
+qualification. A whole-acyclic-edge-only slice would save just 12 bytes / 30 cycles.
+
+Use this bounded candidate for the next implementation plan. Keep every
+assignment, staging reservation and frame size in the first change. The inventory
+also identifies wholly unused four-byte staging slots in `sum_loop` and `byte_sum`;
+reservation shrinking and home coalescing require separate accounting and proofs.
 
 Freeze a fresh baseline for every later optimization. Use the qualified 3c
 snapshot for this inventory; measure intervening changes before making cumulative
