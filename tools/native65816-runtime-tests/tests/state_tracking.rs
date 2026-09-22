@@ -247,18 +247,29 @@ nop
 fn actual_raw_and_optimized_traces_survive_linking_loops_and_o65_rebasing() {
     trace_loop(
         "MODULE Probe PUBLIC CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN ENDMODULE",
-        false,
+        0,
     );
 }
 #[test]
 fn frame_forwarding_traces_preserve_generation_and_nz_claims_in_images_and_o65() {
-    trace_loop(&fixture("code_quality/loop_rotation.act"), true);
+    trace_loop(&fixture("code_quality/loop_rotation.act"), 1);
 }
-fn trace_loop(source: &str, rotation: bool) {
+#[test]
+fn incoming_parameter_traces_verify_read_and_capture_generations() {
+    trace_loop(
+        "MODULE Probe PUBLIC CARD FUNC WorkParamPair(CARD pad,x) RETURN(x+x) PROC Main() RETURN ENDMODULE",
+        2,
+    );
+}
+fn trace_loop(source: &str, kind: u8) {
     use actionc::mir65816::{emit, image, o65 as format};
     use std::collections::BTreeMap;
     for optimize in [false, true] {
-        let prepared = prepare(source, optimize);
+        let prepared = if kind == 2 {
+            parameter_forwarding::prepared(source, optimize)
+        } else {
+            prepare(source, optimize)
+        };
         let ordinary = emit::materialize(&prepared.mir).unwrap();
         let (traced, traces) = proof::materialize_with_trace(&prepared.mir).unwrap();
         let plain = image::link(&prepared.mir, &ordinary, &layout()).unwrap();
@@ -314,9 +325,9 @@ fn trace_loop(source: &str, rotation: bool) {
             } else {
                 None
             };
-            let base = relocated
-                .as_ref()
-                .map_or(work.address, |r| support::o65::routine(r, "Work"));
+            let base = relocated.as_ref().map_or(work.address, |r| {
+                support::o65::routine(r, if kind == 2 { "WorkParamPair" } else { "Work" })
+            });
             let overflow = relocated
                 .as_ref()
                 .map_or(layout().stack_overflow, |r| r.stack_overflow());
@@ -331,10 +342,16 @@ fn trace_loop(source: &str, rotation: bool) {
                 expected[fixup.offset..fixup.offset + 3]
                     .copy_from_slice(&target.to_le_bytes()[..3]);
             }
-            for n in [0u16, 1, 13] {
+            for n in if kind == 2 {
+                vec![0u16, 1, 0x7fff, 0x8000, 0xffff]
+            } else {
+                vec![0u16, 1, 13]
+            } {
+                let outgoing = if kind == 2 { 5 } else { 3 };
+                let arg = if kind == 2 { 3 } else { 1 };
                 let caller = assemble(
                     &format!(
-                        "tsc\nsec\nsbc #3\ntcs\nlda #{n}\nsta 1,s\njsl ${base:06x}\nsta $7000\ntsc\nclc\nadc #3\ntcs\nstp\nnop"
+                        "tsc\nsec\nsbc #{outgoing}\ntcs\nlda #{n}\nsta {arg},s\njsl ${base:06x}\nsta $7000\ntsc\nclc\nadc #{outgoing}\ntcs\nstp\nnop"
                     ),
                     0x40000,
                 );
@@ -360,7 +377,7 @@ fn trace_loop(source: &str, rotation: bool) {
                                 .checked_sub(base)
                                 .and_then(|pc| at.get(&(pc as usize)))
                             {
-                                check(s, h.cpu.registers(), 0x5fea, &h.bus, irq);
+                                check(s, h.cpu.registers(), 0x5ff0 - outgoing - 3, &h.bus, irq);
                                 observations += 1;
                             }
                         }
@@ -370,7 +387,9 @@ fn trace_loop(source: &str, rotation: bool) {
                     h.guards(irq);
                     assert_eq!(
                         h.bus.value(0x7000, 2),
-                        if rotation {
+                        if kind == 2 {
+                            u32::from(n.wrapping_mul(2))
+                        } else if kind == 1 {
                             u32::from(n) * 2 + 9
                         } else {
                             u32::from(n) * (u32::from(n) + 1) / 2
@@ -379,7 +398,9 @@ fn trace_loop(source: &str, rotation: bool) {
                     if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
                         let stem = std::path::Path::new(&dir).join(format!(
                             "state-{}-{optimize}-{variant}-{n}-{irq}",
-                            if rotation {
+                            if kind == 2 {
+                                "parameter-forwarding"
+                            } else if kind == 1 {
                                 "frame-forwarding"
                             } else {
                                 "tracker"

@@ -3,7 +3,8 @@
 //! 3b removes terminal JMLs to adjacent MIR blocks; 3c shortens only MIR
 //! conditional dispatch, remapping every position-bearing contract. Compact
 //! staging changes only the reviewed sum-loop frame and its reservation/argument
-//! operands; code layout and all position-bearing proof metadata remain.
+//! operands. Parameter forwarding removes one raw-recursion LDA and remaps
+//! its later labels, fixups and spans; other reviewed sections remain unchanged.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

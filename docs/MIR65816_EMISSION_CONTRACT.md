@@ -167,11 +167,31 @@ the existing temporary witness for its next eligible consumer.
 
 Frame and temporary identities are distinct even at an equal physical offset.
 No permission survives an intervening instruction, label, call/helper, other MIR
-operation, mode transition or S movement. Incoming-parameter reloads, addressable
-objects, aliases, volatile and indexed/indirect accesses retain their loads.
+operation, mode transition or S movement. Addressable objects, aliases, volatile
+and indexed/indirect accesses retain their loads.
 Interrupt qualification checks full register and invocation-frame restoration
 at both retained stores in separate task domains. Neither witness caches shared
 source memory or reorders memory effects. See [frame forwarding](MIR65816_FRAME_FORWARDING.md).
+
+Incoming parameter words have a separate bounded read witness alongside the
+ordinary Temp/Frame witness. Only a checked, actual LDA16 from a canonical,
+immutable two-byte `StackArgument` may establish it. Typed routine inspection
+rejects address escape, writes, Copy use and noncanonical parameter access, even
+if home metadata claims immutability. Final allocated incoming displacement and
+both capture bytes are checked before emission. Incoming read facts never admit
+writes to argument memory as private homes.
+
+The next Load of the same ParamId and exact home may omit LDA while retaining its
+capture STA. The sole permitted extension is one Store of the exact captured
+TempId/home to a disjoint non-addressable frame word. It must consume ordinary
+temp forwarding and emit exactly one STA. Both transitions require matching
+read/capture generations, A16 and full N/Z, zero transient S displacement and
+exact instruction/label cursors. Every other operation revokes or stales the
+permission. An omitted read does not rearm it; the retained capture still
+publishes ordinary temporary forwarding. Calls, helpers, joins and preemption
+retain the existing invocation ownership and restoration contracts. ABI, guards,
+DP use, homes and stores are unchanged. See the
+[implementation plan](MIR65816_PARAMETER_FORWARDING_PLAN.md).
 
 `Code.mir_spans` is nonserialized emission proof metadata keyed by MIR block and
 operation index (ops.len() denotes the terminator; a fused comparison includes

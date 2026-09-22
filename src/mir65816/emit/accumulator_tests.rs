@@ -401,3 +401,259 @@ fn frame_forwarding_preflights_object_and_destination_before_omission() {
         assert_eq!(b.code.position(), at);
     }
 }
+
+#[test]
+fn incoming_loads_coexist_with_temp_forwarding_and_do_not_rearm() {
+    let p = word_tests::program();
+    let r = &p.routines[0];
+    let mut b = builder(r);
+    let Mir65816Op::Load { address, dest, .. } = &r.blocks[0].ops[0] else {
+        panic!()
+    };
+    for (n, expected) in [(0, 4), (1, 2), (2, 4), (3, 2)] {
+        let at = b.code.position();
+        b.incoming_word_load(*dest, 2, address, false).unwrap();
+        let size = b.code.position() - at;
+        assert_eq!(size, expected + if n == 0 { 2 } else { 0 }); // First explicit A16 permission.
+        assert!(b.code.resident().is_some());
+    }
+}
+
+#[test]
+fn incoming_word_rejects_stale_cursors_flags_calls_and_transient_stack() {
+    let p = word_tests::program();
+    let r = &p.routines[0];
+    let op = &r.blocks[0].ops[0];
+    for case in 0..12 {
+        let mut b = builder(r);
+        b.operation(op).unwrap();
+        match case {
+            0 => b.code.op(Implied::Nop),
+            1 => b.code.op(Implied::Clc),
+            2 => b.code.word(WordOp::CmpImm, 0),
+            3 => b.code.word(WordOp::LdyImm, 0),
+            4 => b.code.byte(ByteOp::StaStack, 200),
+            5 => b.code.byte(ByteOp::StaIndirect, PTR),
+            6 => {
+                b.code.a8();
+                b.code.a16();
+            }
+            7 => {
+                let l = b.code.label();
+                b.code.mark(l);
+            }
+            8 => b.code.barrier(),
+            9 => b.code.test_delta(2),
+            10 => b
+                .code
+                .reference(ReferenceOp::Jsl, Target::Routine(r.id), 0, None),
+            11 => b.reserve(0),
+            _ => unreachable!(),
+        }
+        let at = b.code.position();
+        b.operation(op).unwrap();
+        assert!(b.code.code().bytes[at..].contains(&0xa3), "case {case}");
+    }
+}
+
+#[test]
+fn incoming_classifier_rejects_address_escape_writes_and_bad_extent_before_emission() {
+    for case in 0..8 {
+        let mut p = word_tests::program();
+        let r = &mut p.routines[0];
+        let frame = AllocatedFrame::new(r).unwrap();
+        let original = r.blocks[0].ops[0].clone();
+        let Mir65816Op::Load { address, dest, .. } = &original else {
+            panic!()
+        };
+        match case {
+            0 => r.blocks[0].ops.push(Mir65816Op::AddressOf {
+                dest: *dest,
+                address: address.clone(),
+                width: ByteSize::new(3),
+            }),
+            1 => r.blocks[0].ops.push(Mir65816Op::Store {
+                address: address.clone(),
+                value: Mir65816Value::U16(0),
+                width: ByteSize::new(2),
+                volatile: false,
+            }),
+            2 => r.blocks[0].ops.push(Mir65816Op::Copy {
+                source: address.clone(),
+                destination: address.clone(),
+                bytes: ByteSize::new(2),
+                overlap_safe: true,
+                source_volatile: false,
+                destination_volatile: false,
+            }),
+            3 => {
+                let Mir65816Op::Load { volatile, .. } = &mut r.blocks[0].ops[0] else {
+                    panic!()
+                };
+                *volatile = true;
+            }
+            4 => {
+                let Mir65816Op::Load { address, .. } = &mut r.blocks[0].ops[0] else {
+                    panic!()
+                };
+                address.displacement = ByteOffset::new(1);
+            }
+            _ => {}
+        }
+        let mut b = Builder {
+            next_block: None,
+            routine: r,
+            code: TrackedEmitter65816::for_test(&frame),
+            frame,
+            blocks: BTreeMap::new(),
+        };
+        if case < 5 {
+            assert!(!b.incoming_word_load(*dest, 2, address, false).unwrap());
+        } else {
+            let offset = if case == 5 {
+                255
+            } else if case == 6 {
+                0
+            } else {
+                b.incoming(r.frame.parameters[0].param).unwrap() as u16
+            };
+            b.frame
+                .temps
+                .insert(*dest, Location::Stack(Slot { offset, width: 2 }));
+            assert!(b.incoming_word_load(*dest, 2, address, false).is_err());
+        }
+        assert!(b.code.code().bytes.is_empty());
+    }
+}
+
+#[test]
+fn incoming_capture_crosses_exactly_one_matching_private_store() {
+    let p = frame_program();
+    let r = &p.routines[0];
+    let load = r.blocks[0]
+        .ops
+        .iter()
+        .find(|op| {
+            matches!(
+                op,
+                Mir65816Op::Load {
+                    address: Mir65816Address {
+                        base: Mir65816AddressBase::Parameter(_),
+                        ..
+                    },
+                    ..
+                }
+            )
+        })
+        .unwrap()
+        .clone();
+    let Mir65816Op::Load { dest, .. } = load else {
+        panic!()
+    };
+    let mut store = r.blocks[0]
+        .ops
+        .iter()
+        .find(|op| matches!(op, Mir65816Op::Store { .. }))
+        .unwrap()
+        .clone();
+    let Mir65816Op::Store { value, .. } = &mut store else {
+        panic!()
+    };
+    *value = Mir65816Value::Temp(dest, ByteSize::new(2));
+    for count in [0, 1, 2] {
+        let mut b = builder(r);
+        b.operation(&load).unwrap();
+        for _ in 0..count {
+            b.operation(&store).unwrap();
+        }
+        let at = b.code.position();
+        b.operation(&load).unwrap();
+        assert_eq!(b.code.position() - at, if count < 2 { 2 } else { 4 });
+    }
+}
+
+#[test]
+fn incoming_uses_final_frame_displacement_and_checks_the_last_byte() {
+    let p = word_tests::program();
+    let r = &p.routines[0];
+    let Mir65816Op::Load { address, dest, .. } = &r.blocks[0].ops[0] else {
+        panic!()
+    };
+    for extent in [250, 251, u16::MAX] {
+        let mut b = builder(r);
+        b.frame.extent = extent;
+        if extent == 250 {
+            assert!(b.incoming_word_load(*dest, 2, address, false).unwrap());
+            assert_eq!(&b.code.code().bytes[2..4], &[0xa3, 254]);
+            let at = b.code.position();
+            assert!(b.incoming_word_load(*dest, 2, address, false).unwrap());
+            assert_eq!(b.code.position() - at, 2);
+        } else {
+            assert!(b.incoming_word_load(*dest, 2, address, false).is_err());
+            assert_eq!(b.code.position(), 0);
+        }
+    }
+}
+
+#[test]
+fn incoming_metadata_and_unrelated_stores_cannot_grant_permission() {
+    for case in 0..5 {
+        let mut p = frame_program();
+        let r = &mut p.routines[0];
+        let frame = AllocatedFrame::new(r).unwrap();
+        let op = r.blocks[0].ops[0].clone();
+        let Mir65816Op::Load { address, dest, .. } = &op else {
+            panic!()
+        };
+        if case == 0 {
+            r.frame.parameters[0].frame_object = Some(r.frame.objects[0].id);
+        }
+        if case == 1 {
+            r.frame.objects[0].owner = Mir65816FrameObjectOwner::Param(r.frame.parameters[0].param);
+        }
+        if case == 2 {
+            let Mir65816AbiHome::StackArgument { size, .. } = &mut r.frame.parameters[0].incoming
+            else {
+                panic!()
+            };
+            *size = ByteSize::new(1);
+        }
+        let mut store = r.blocks[0]
+            .ops
+            .iter()
+            .find(|op| matches!(op, Mir65816Op::Store { .. }))
+            .unwrap()
+            .clone();
+        if case == 4 {
+            r.frame.objects[0].addressable = true;
+        }
+        let mut b = Builder {
+            next_block: None,
+            routine: r,
+            code: TrackedEmitter65816::for_test(&frame),
+            frame,
+            blocks: BTreeMap::new(),
+        };
+        if case < 3 {
+            assert!(!b.incoming_word_load(*dest, 2, address, false).unwrap());
+            assert_eq!(b.code.position(), 0);
+        } else {
+            b.operation(&op).unwrap();
+            let Mir65816Op::Store { value, .. } = &mut store else {
+                panic!()
+            };
+            *value = if case == 3 {
+                Mir65816Value::U16(0)
+            } else {
+                Mir65816Value::Temp(*dest, ByteSize::new(2))
+            };
+            b.operation(&store).unwrap();
+            let at = b.code.position();
+            b.operation(&op).unwrap();
+            let bytes = &b.code.code().bytes[at..];
+            let start = usize::from(bytes.starts_with(&[0xc2, 0x20])) * 2;
+            assert_eq!(bytes.len() - start, 4);
+            assert_eq!(bytes[start], 0xa3);
+        }
+    }
+}

@@ -152,6 +152,17 @@ impl Builder<'_> {
             self.code.register_home(slot);
         }
         self.code.a16();
+        if let Some((object, slot)) = frame {
+            let temp = Self::word_temp(value).unwrap();
+            if self
+                .code
+                .store_incoming_capture(temp, self.temp(temp)?.slot(), slot)
+            {
+                self.code
+                    .remember_frame_word(object, address.displacement.get(), slot);
+                return Ok(true);
+            }
+        }
         self.load_checked_word(source, Self::word_temp(value));
         self.store_memory(destination, 0)?;
         self.code.barrier();

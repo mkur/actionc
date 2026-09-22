@@ -42,6 +42,7 @@ pub struct Index {
     pub dispatches: Vec<control_flow::Dispatch>,
     pub multi_words: Vec<multi_word_edge::Site>,
     pub frame_words: Vec<frame_forwarding::Site>,
+    pub parameter_words: Vec<parameter_forwarding::Site>,
 }
 impl std::ops::Deref for Index {
     type Target = BTreeMap<u32, Site>;
@@ -146,6 +147,7 @@ pub fn index(
         words: BTreeMap::new(),
         control: control_flow::index(mir, machine, &address),
         frame_words: frame_forwarding::index(mir, machine, &address),
+        parameter_words: parameter_forwarding::index(mir, machine, &address),
         multi_words: multi_word_edge::index(mir, machine, &address),
         dispatches: control_flow::dispatches(mir, machine, &address),
     };
@@ -258,13 +260,20 @@ pub fn index(
                 let p = &m.code.mir_spans[&(block.id, pi)];
                 let c = &m.code.mir_spans[&(block.id, ci)];
                 assert_eq!(p.end, c.start, "nonadjacent MIR spans");
-                // A frame load may now consist solely of its retained capture.
+                // A frame/parameter load may consist solely of its retained capture.
                 // Its independently checked store/load proof supplies A and N/Z.
                 let proof_start = out
                     .frame_words
                     .iter()
                     .find(|s| s.consumer == base + p.start as u32)
-                    .map_or(p.start, |s| (s.producer - base) as usize);
+                    .map(|s| (s.producer - base) as usize)
+                    .or_else(|| {
+                        out.parameter_words
+                            .iter()
+                            .find(|s| s.consumer == base + p.start as u32)
+                            .map(|s| (s.producer - base) as usize)
+                    })
+                    .unwrap_or(p.start);
                 assert!(p.end >= proof_start + 4);
                 let store = p.end - 2;
                 assert_eq!(code[store..p.end], [0x83, slot]);
@@ -370,6 +379,19 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
     Index {
         words,
         control: control_flow::relocated(&templates.control, image),
+        parameter_words: templates
+            .parameter_words
+            .iter()
+            .map(|s| {
+                let r = image
+                    .profile()
+                    .routines
+                    .iter()
+                    .find(|r| r.id == s.routine.0)
+                    .unwrap();
+                s.rebase(image.routine_address(r))
+            })
+            .collect(),
         frame_words: templates
             .frame_words
             .iter()

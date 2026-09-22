@@ -343,3 +343,39 @@ fn frame_witness_requires_object_byte_generation_full_nz_and_exact_cursor() {
         assert!(!s.consume_adjacent(Some(identity), Some(slot), Some(254), Some((12, 1))));
     }
 }
+
+#[test]
+fn incoming_read_facts_require_identity_generation_and_never_admit_writes() {
+    let source = Slot {
+        offset: 254,
+        width: 2,
+    };
+    let capture = Slot {
+        offset: 2,
+        width: 2,
+    };
+    for case in 0..8 {
+        let mut e = TrackedEmitter65816::default();
+        e.test_frame(8);
+        e.register_home(capture);
+        e.capture_incoming_word(super::ParamId(0), source, TempId(1), capture);
+        let mut s = e.state_for_incoming_test();
+        let mut param = super::ParamId(0);
+        let mut home = source;
+        match case {
+            1 => param = super::ParamId(1),
+            2 => home.offset = 252,
+            3 => s.write_stack(255, Width::Byte),
+            4 => s.write_stack(254, Width::Word),
+            5 => s.write_stack(2, Width::Word),
+            6 => s.unknown_write(),
+            7 => s.compare(Value::Constant(0, Width::Word)),
+            _ => {}
+        }
+        assert_eq!(s.consume_incoming(param, home, e.word_cursor()), case == 0);
+        if case == 4 {
+            assert!(!s.homes.contains_key(&(254, 2)));
+        }
+        assert!(!s.consume_incoming(super::ParamId(0), source, e.word_cursor()));
+    }
+}

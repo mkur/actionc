@@ -28,6 +28,8 @@ use copies::acyclic_word_order;
 
 #[path = "accumulator.rs"]
 mod accumulator;
+#[path = "parameter.rs"]
+mod parameter;
 use super::tracked::*;
 
 #[cfg(test)]
@@ -1103,7 +1105,8 @@ impl Builder<'_> {
             address,
             volatile,
         } = op
-            && self.frame_word_load(*dest, width(*bytes)?, address, *volatile)?
+            && (self.incoming_word_load(*dest, width(*bytes)?, address, *volatile)?
+                || self.frame_word_load(*dest, width(*bytes)?, address, *volatile)?)
         {
             return Ok(());
         }

@@ -1,5 +1,5 @@
 //! Native machine facts. Values are immutable identities, never mutable aliases.
-use super::{Mir65816FrameObjectId, Slot, TempId};
+use super::{Mir65816FrameObjectId, ParamId, Slot, TempId};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +69,17 @@ pub(super) struct AdjacentWord {
     pub generation: u64,
     pub cursor: (usize, usize),
 }
+/// A real incoming read and its retained capture, optionally followed by one
+/// admitted frame store. Independent of adjacent Temp/Frame permission.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct IncomingWord {
+    pub param: ParamId,
+    pub source: Slot,
+    pub read_generation: u64,
+    pub capture: AdjacentWord,
+    pub cursor: (usize, usize),
+    pub stored: bool,
+}
 #[derive(Clone, Debug)]
 pub(super) struct State65816 {
     pub env: Environment,
@@ -81,6 +92,7 @@ pub(super) struct State65816 {
     /// Permission from an explicit width request; revoked at every label.
     pub mode_permission: bool,
     pub adjacent: Option<AdjacentWord>,
+    pub incoming: Option<IncomingWord>,
     pub homes: BTreeMap<(u16, u8), Home>,
     private_ranges: BTreeSet<(u16, u8)>,
     next: u64,
@@ -109,6 +121,7 @@ impl Default for State65816 {
             overflow: None,
             mode_permission: false,
             adjacent: None,
+            incoming: None,
             homes: BTreeMap::new(),
             private_ranges: BTreeSet::new(),
             next: 0,
@@ -133,6 +146,7 @@ impl State65816 {
         self.overflow = None;
         self.homes.clear();
         self.adjacent = None;
+        self.incoming = None;
     }
     pub fn delta(&self) -> u32 {
         assert_eq!(self.env.pushes, 0, "frame addressing during transfer");
@@ -282,6 +296,7 @@ impl State65816 {
     }
     pub fn push(&mut self, bytes: u8) {
         self.adjacent = None;
+        self.incoming = None;
         self.homes.clear();
         self.env.pushes += bytes;
         self.env.depth += i64::from(bytes);
@@ -343,5 +358,70 @@ impl State65816 {
                 .homes
                 .get(&(fact.slot.offset, 2))
                 .is_some_and(|h| h.generation == fact.generation && h.value.matches(fact.value))
+    }
+}
+
+impl State65816 {
+    /// Called only by the typed LDA/capture operation after its actual LDA16.
+    /// Read admission does not make this range a writable private home.
+    pub fn record_incoming_read(&mut self, slot: Slot) {
+        assert_eq!(self.delta(), 0);
+        assert_eq!(slot.width, 2);
+        assert_eq!(self.env.m, Width::Word);
+        assert!(self.a.width() == Some(Width::Word) && self.nz.matches(self.a));
+        self.next += 1;
+        self.homes.insert(
+            (slot.offset, 2),
+            Home {
+                generation: self.next,
+                value: self.a,
+            },
+        );
+    }
+    pub fn publish_incoming(&mut self, param: ParamId, source: Slot, cursor: (usize, usize)) {
+        let capture = self
+            .adjacent
+            .expect("incoming read must retain its temp capture");
+        assert!(matches!(capture.identity, WordIdentity::Temp(_)));
+        let read = self.homes[&(source.offset, 2)];
+        let fact = IncomingWord {
+            param,
+            source,
+            read_generation: read.generation,
+            capture,
+            cursor,
+            stored: false,
+        };
+        assert!(self.incoming_matches(fact, Some(cursor)));
+        self.incoming = Some(fact);
+    }
+    pub fn incoming_matches(&self, fact: IncomingWord, cursor: Option<(usize, usize)>) -> bool {
+        self.env.pushes == 0
+            && self.delta() == 0
+            && self.env.m == Width::Word
+            && fact.source.width == 2
+            && cursor == Some(fact.cursor)
+            && self.a.matches(fact.capture.value)
+            && self.nz.matches(self.a)
+            && [
+                (fact.source, fact.read_generation),
+                (fact.capture.slot, fact.capture.generation),
+            ]
+            .iter()
+            .all(|(slot, generation)| {
+                self.homes
+                    .get(&(slot.offset, 2))
+                    .is_some_and(|h| h.generation == *generation && h.value.matches(self.a))
+            })
+    }
+    pub fn consume_incoming(
+        &mut self,
+        param: ParamId,
+        source: Slot,
+        cursor: Option<(usize, usize)>,
+    ) -> bool {
+        self.incoming.take().is_some_and(|f| {
+            f.param == param && f.source == source && self.incoming_matches(f, cursor)
+        })
     }
 }

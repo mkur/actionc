@@ -122,6 +122,11 @@ impl TrackedEmitter65816 {
         }
     }
     #[cfg(test)]
+    pub fn state_for_incoming_test(&self) -> State65816 {
+        self.state.clone()
+    }
+
+    #[cfg(test)]
     pub fn resident(&self) -> Option<AdjacentWord> {
         self.state.adjacent
     }
@@ -282,6 +287,7 @@ impl TrackedEmitter65816 {
     }
     pub fn barrier(&mut self) {
         self.state.adjacent = None;
+        self.state.incoming = None;
     }
     pub fn register_home(&mut self, slot: Slot) {
         self.state.register_home(slot);
@@ -324,6 +330,66 @@ impl TrackedEmitter65816 {
             Some(offset),
             self.word_cursor(),
         )
+    }
+    /// Both homes have already passed target extent/alias checks. A real read
+    /// establishes provenance; an omitted consumer never rearms this witness.
+    pub fn capture_incoming_word(
+        &mut self,
+        param: super::ParamId,
+        source: Slot,
+        temp: TempId,
+        destination: Slot,
+    ) {
+        let forwarded = self
+            .state
+            .consume_incoming(param, source, self.word_cursor());
+        self.barrier();
+        self.a16();
+        if !forwarded {
+            self.byte(ByteOp::LdaStack, source.offset as u8);
+            self.state.record_incoming_read(source);
+            self.observe();
+        }
+        self.byte(ByteOp::StaStack, destination.offset as u8);
+        self.remember_word(temp, destination);
+        if !forwarded {
+            self.state
+                .publish_incoming(param, source, self.word_cursor().unwrap());
+        }
+    }
+    /// The sole admitted extension: consume the original capture without LDA,
+    /// emit exactly one disjoint STA16, then grant one final parameter consumer.
+    pub fn store_incoming_capture(
+        &mut self,
+        temp: TempId,
+        source: Slot,
+        destination: Slot,
+    ) -> bool {
+        let Some(mut fact) = self.state.incoming.take() else {
+            return false;
+        };
+        let disjoint = |a: Slot, b: Slot| {
+            u32::from(a.offset) + u32::from(a.width) <= u32::from(b.offset)
+                || u32::from(b.offset) + u32::from(b.width) <= u32::from(a.offset)
+        };
+        if fact.stored
+            || fact.capture.identity != WordIdentity::Temp(temp)
+            || fact.capture.slot != source
+            || destination.width != 2
+            || !disjoint(destination, fact.source)
+            || !disjoint(destination, source)
+            || !self.state.incoming_matches(fact, self.word_cursor())
+            || !self.consume_word(Some(temp), Some(source), Some(source.offset as u8))
+        {
+            return false;
+        }
+        self.byte(ByteOp::StaStack, destination.offset as u8);
+        self.barrier();
+        fact.cursor.0 += 2;
+        fact.stored = true;
+        assert!(self.state.incoming_matches(fact, self.word_cursor()));
+        self.state.incoming = Some(fact);
+        true
     }
     fn live(&self) {
         assert!(

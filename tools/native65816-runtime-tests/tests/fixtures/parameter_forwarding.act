@@ -1,0 +1,7 @@
+CARD input,pair,bridge
+CARD FUNC ParamPair(CARD pad,x) RETURN(x+x)
+CARD FUNC ParamBridge(CARD pad,x) CARD a a=x RETURN(x+a)
+PROC Main()
+  pair=ParamPair(input,input)
+  bridge=ParamBridge(input,input)
+RETURN

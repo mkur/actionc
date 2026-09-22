@@ -1204,3 +1204,96 @@ fn frame_words_survive_irq_and_nmi_at_both_retained_stores_in_both_task_domains(
         }
     }
 }
+
+fn parameter_forwarding_source(source: &str) -> String {
+    source.replace("\r\n", "\n")
+        .replace("BYTE POINTER other,buffer]", "BYTE POINTER other,buffer CARD pair,bridge,zero,negative]")
+        .replace("CARD FUNC Read", "CARD FUNC ParamPair(CARD pad,x) RETURN(x+x)\nCARD FUNC ParamBridge(CARD pad,x) CARD a a=x RETURN(x+a)\nCARD FUNC Read")
+        .replace("  work.done=1", "  work.pair=ParamPair(work.seed,work.seed)\n  work.bridge=ParamBridge(work.seed,work.seed)\n  work.zero=ParamPair(1,0)\n  work.negative=ParamBridge(2,32768)\n  work.done=1")
+}
+fn parameter_machine(source: &str, optimize: bool) -> ContextHarness {
+    initialize(ContextHarness::from_prepared(
+        source,
+        optimize,
+        "Task",
+        &[0x7100, 0x7120],
+        parameter_forwarding::prepared(source, optimize),
+    ))
+}
+fn check_parameter_forwarding(h: &ContextHarness) {
+    check(h);
+    for (at, seed) in [(0x7100, 13), (0x7120, 41)] {
+        for (offset, value) in [(12, seed * 2), (14, seed * 2), (16, 0), (18, 0)] {
+            assert_eq!(h.bus.value(at + offset, 2), value);
+        }
+    }
+}
+#[test]
+fn incoming_parameters_survive_irq_and_nmi_at_every_proof_boundary_in_both_domains() {
+    let original = fixture("preemption.act");
+    let source = parameter_forwarding_source(&original);
+    assert_eq!(
+        source,
+        parameter_forwarding_source(&original.replace('\n', "\r\n"))
+    );
+    for optimize in [false, true] {
+        let mut h = parameter_machine(&source, optimize);
+        let sites = h.bus.forwarded_words.parameter_words.clone();
+        assert!(!sites.is_empty());
+        let boundaries: BTreeSet<_> = sites
+            .iter()
+            .flat_map(|s| {
+                std::iter::once(s.producer)
+                    .chain(s.stores.iter().copied())
+                    .chain(std::iter::once(s.consumer))
+            })
+            .collect();
+        let targets: BTreeSet<_> = [0x2000, 0x2100]
+            .into_iter()
+            .flat_map(|d| boundaries.iter().map(move |&pc| (d, pc)))
+            .collect();
+        let mut seen = BTreeSet::new();
+        let mut live = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 0x34 == 0 && [0x2000, 0x2100].contains(&r.d)
+            {
+                if let Some(s) = sites.iter().find(|s| s.consumer == pc) {
+                    s.assert_live(&h.cpu, &h.bus);
+                    live.insert((r.d, pc, r.p & 0x82));
+                }
+                if targets.contains(&(r.d, pc)) && seen.insert((r.d, pc)) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    run_checked_fused_irq(&mut h);
+                    check_parameter_forwarding(&h);
+                    h.cpu = cpu.clone();
+                    h.bus = bus.clone();
+                    run_checked_frame_nmi(&mut h);
+                    check_parameter_forwarding(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_parameter_forwarding(&h);
+        assert_eq!(seen, targets);
+        assert_eq!(
+            live.iter().map(|t| t.2).collect::<BTreeSet<_>>(),
+            BTreeSet::from([0, 2, 0x80])
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = parameter_machine(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check_parameter_forwarding(&h);
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(Path::new(&directory).join(format!("parameter-forwarding-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"live_incoming_words":live,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
+        }
+    }
+}
