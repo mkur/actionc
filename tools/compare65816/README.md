@@ -375,3 +375,14 @@ immutable after enabling allocation. `check_scalar_dp.py` compares all final
 images, maps, artifacts and debug/release records to that forecast, retaining
 forwarding/copy counts and separating resident DP from selector/metadata traffic.
 See [qualification and commands](../../docs/MIR65816_SCALAR_DP.md).
+
+### Post-DP memory and register inventory
+
+`inventory_registers.py` inventories current final bytes with their qualified
+per-PC execution counts. The new `mir65816_register_inventory` exporter mode
+verifies complete current images and LF/CRLF equality without changing historical
+facts. All-vector stack/DP/metadata totals must reconcile exactly; calls retain
+explicit barriers and transient stack accesses remain separate. See the
+[measurement report and reproduction commands](../../docs/MIR65816_REGISTER_INVENTORY.md).
+This report selects a follow-up candidate; it does not forecast or enable register
+allocation. Preserve the scalar-DP baseline and the earlier pre-allocation facts.

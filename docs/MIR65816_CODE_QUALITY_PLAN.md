@@ -178,11 +178,19 @@ saves 103 cycles and eight stack bytes. The slice preserves the existing logical
 copies and forwarding. Rejected raw casts, wider values and calling routines
 retain their previous strategy.
 
-Next, inventory remaining emitted DP/stack loads and X/Y clobbers before choosing
-one bounded loop-residency slice. Count actual instructions and costs against
-this baseline. Mutable counter promotion, broader scalar admission, partial DP
-allocation and cross-call residency need separate alias/effect and profitability
-proofs; they are not implied by the current allocator.
+The [post-DP register inventory](MIR65816_REGISTER_INVENTORY.md) now measures
+all 28 builds and reconciles memory traffic for all 132 Action records. Counted
+routines contain 154 stack and 23 DP word-load sites. Optimized sum-loop and
+rotation have no explicit X/Y body use, but entry guards and return teardown
+use X/Y respectively. Rotation's private loop counter is the first candidate
+for a bounded X-residency design; its current counter-memory accesses cost 104
+cycles per call, which is not a savings forecast. Preserve the closed-operation
+conflict between its input and update result when selecting a legal strategy.
+
+Mutable counter promotion (including sum-loop's frame parameter), broader scalar
+admission, partial DP allocation and cross-call residency need separate
+alias/effect and profitability proofs; they are not implied by this inventory
+or the current allocator.
 
 ## Proof obligations for later slices
 

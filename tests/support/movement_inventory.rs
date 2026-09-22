@@ -260,7 +260,18 @@ fn operation(op: &Mir65816Op, r: &Mir65816Routine, m: &MachineRoutine) -> Value 
     out
 }
 
+#[allow(dead_code)]
 pub fn export(scalar: bool) {
+    export_mode(scalar, false);
+}
+
+#[allow(dead_code)]
+pub fn export_registers() {
+    export_mode(true, true);
+}
+
+// Preserve historical fact schemas and verifier probes in their original modes.
+fn export_mode(scalar: bool, registers: bool) {
     let sources = Sources(std::env::temp_dir().join(format!(
         "actionc-movement-inventory-{}-{}",
         std::process::id(),
@@ -377,7 +388,9 @@ pub fn export(scalar: bool) {
                             let dst = home(m.frame.temps[dest]);
                             assert_eq!(src["width"], w.get());
                             assert_eq!(dst["width"], w.get());
-                            let attempts = if let Mir65816Value::Temp(id, _) = arg {
+                            let attempts = if let Mir65816Value::Temp(id, _) = arg
+                                && !registers
+                            {
                                 [(*id, *dest), (*dest, *id)]
                                     .into_iter()
                                     .map(|(changed, onto)| {
@@ -412,7 +425,7 @@ pub fn export(scalar: bool) {
                         })
                         .collect();
                     let mut probes = vec![];
-                    if pairs.len() <= 8 {
+                    if !registers && pairs.len() <= 8 {
                         for choices in 1..3usize.pow(pairs.len() as u32) {
                             let mut choices = choices;
                             let mut changes = std::collections::BTreeMap::new();
@@ -491,6 +504,59 @@ pub fn export(scalar: bool) {
             if scalar {
                 scalar_dp_facts::enrich(&mut fact, r, m);
             }
+            if registers {
+                // Word operands now include resident DP homes. Historical scalar
+                // facts deliberately described the pre-allocation stack baseline.
+                fn current_operands(v: &mut Value) {
+                    match v {
+                        Value::Object(fields) => {
+                            if fields.get("kind") == Some(&json!("dp"))
+                                && fields.get("width") == Some(&json!(2))
+                                && fields.contains_key("word_operand")
+                            {
+                                fields.insert("word_operand".into(), json!(true));
+                            }
+                            for child in fields.values_mut() {
+                                current_operands(child);
+                            }
+                        }
+                        Value::Array(values) => {
+                            for child in values {
+                                current_operands(child);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                current_operands(&mut fact);
+                fact["calls"] = json!(placed.calls);
+                fact["counted"] = json!(
+                    a["code_ranges"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|range| range[0] == placed.address)
+                );
+                for (bi, block) in fact["blocks"]
+                    .as_array_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .enumerate()
+                {
+                    block["pc"] = json!(placed.address + m.code.labels[&Label(bi as u32)] as u32);
+                }
+                for edge in fact["edges"].as_array_mut().unwrap() {
+                    let obj = edge.as_object_mut().unwrap();
+                    obj.remove("layout_probe_complete");
+                    obj.remove("layout_probes");
+                    for movement in obj["moves"].as_array_mut().unwrap() {
+                        movement
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("coalescing_attempts");
+                    }
+                }
+            }
             routines.push(fact);
         }
         assert_eq!(
@@ -507,7 +573,7 @@ pub fn export(scalar: bool) {
     std::fs::write(
         out,
         serde_json::to_string_pretty(
-            &json!({"schema":1,"lf_crlf_images_equal":true,"builds":builds}),
+            &json!({"schema":if registers {2} else {1},"lf_crlf_images_equal":true,"builds":builds}),
         )
         .unwrap()
             + "\n",
