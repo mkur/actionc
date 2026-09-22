@@ -340,3 +340,20 @@ authenticates schedule safety and the optional final A/N/Z reload. New
 `acyclic_word_edges`, `acyclic_edge_words` and `acyclic_word_edge_sites` counters
 keep existing single-word metrics unchanged. Use `target/acyclic-edges-after`
 for subsequent forecasts; both host comparison runs retain the known vbcc failure.
+
+The [selective-staging results](../../docs/MIR65816_SELECTIVE_STAGING.md) use
+`target/staging-reservations-after` as the immutable before directory and
+`target/selective-staging-after` as the new baseline. After building and executing
+both hosts as above, run:
+
+```sh
+python3 -B tools/compare65816/check_selective_staging.py \
+  target/staging-reservations-after target/selective-staging-after \
+  --baseline docs/benchmarks/65816-selective-staging/baseline.json \
+  --output docs/benchmarks/65816-selective-staging/delta.json
+```
+
+This checks the frozen capture transform, complete serialized images (including
+uncounted driver routines), compact frame operands and every measurement. New
+Action-only counters report selective edge executions, assignments, staged/direct
+words and first-load sites; vbcc record fields remain unchanged.

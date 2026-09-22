@@ -1,0 +1,183 @@
+{
+  "records": 264,
+  "action_instruction_streams": 28,
+  "complete_action_images": 28,
+  "unchanged_action_builds": 27,
+  "changed_builds": [
+    [
+      "loop_rotation",
+      "optimized",
+      "actionc"
+    ]
+  ],
+  "results": [
+    {
+      "vector": 0,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "after": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 1,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "after": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 2,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "after": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 3,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "after": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 4,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "after": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 5,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "after": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    }
+  ],
+  "totals_per_incoming_i": {
+    "selected_static_edges": 1,
+    "selected_edge_executions": 48,
+    "staging_pairs_removed": 96,
+    "instructions_removed": 192,
+    "cycles_saved": 960,
+    "stack_reads_saved": 192,
+    "stack_writes_saved": 192,
+    "static_code_bytes_saved": 8
+  },
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}

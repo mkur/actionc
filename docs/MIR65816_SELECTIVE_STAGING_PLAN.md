@@ -1,7 +1,8 @@
 # Native 65816 selective staging implementation plan
 
-Status: planned on 2026-09-22 against main `d62f0e8`, whose qualified compiler
-implementation is `49a0aae`. No compiler changes are made by this plan.
+Status: implemented in `8af3541` and [qualified](MIR65816_SELECTIVE_STAGING.md)
+on 2026-09-22. The original plan below was frozen against main `d62f0e8`, whose
+qualified compiler implementation was `49a0aae`; its forecasts remain unchanged.
 The [frozen baseline and forecasts](benchmarks/65816-selective-staging/baseline.json)
 use the [compact-staging results](MIR65816_STAGING_RESERVATIONS.md).
 
