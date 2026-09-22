@@ -218,6 +218,48 @@ pub fn materialize_with_trace(
     Ok((machine, traces))
 }
 
+/// Independent direct path retained only for replay qualification.
+pub fn materialize_reference(
+    program: &super::Mir65816Program,
+    trace: bool,
+) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
+    materialize_replay_path(program, trace, false)
+}
+/// Shadow replay before production cutover; after cutover this is the same
+/// typed route used by ordinary builds, with optional proof observations.
+pub fn materialize_replayed(
+    program: &super::Mir65816Program,
+    trace: bool,
+) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
+    materialize_replay_path(program, trace, true)
+}
+fn materialize_replay_path(
+    program: &super::Mir65816Program,
+    trace: bool,
+    replay: bool,
+) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
+    let mut machine = super::materialize_path(program, trace, replay)?;
+    let traces = machine
+        .routines
+        .iter_mut()
+        .map(|r| RoutineTrace {
+            routine: r.id,
+            snapshots: std::mem::take(&mut r.code.state_trace),
+        })
+        .collect();
+    Ok((machine, traces))
+}
+pub fn replay_code(code: &Code, trace: bool) -> Result<(Code, Vec<Snapshot>), String> {
+    let selected = code.selected.as_ref().ok_or("missing selected routine")?;
+    selected.reconcile(code)?;
+    let mut result = super::layout::finalize(super::replay::emit(selected, trace)?, true)?;
+    let snapshots = std::mem::take(&mut result.state_trace);
+    Ok((result, snapshots))
+}
+pub fn compare_replay_output(reference: &Code, replayed: &Code) -> Result<(), String> {
+    super::replay::equivalent(reference, replayed)
+}
+
 /// Audited non-control-flow families, in both memory widths. DP contents are
 /// deliberately not tracked; private homes and immutable register copies are.
 pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
@@ -410,6 +452,8 @@ pub struct SelectedObservation {
     pub ordinal: usize,
     pub kind: &'static str,
     pub request: Option<&'static str>,
+    /// Recomputed during replay and compared, never replayed as permission.
+    pub decision: Option<bool>,
     pub parent: Option<SelectedSite>,
     pub encoded: std::ops::Range<usize>,
     pub source: Option<(super::BlockId, usize)>,
@@ -483,6 +527,7 @@ pub fn selected_site(code: &Code, site: SelectedSite) -> Result<SelectedObservat
         ordinal: n.0,
         kind,
         request,
+        decision: r.decision,
         parent: r.parent.map(|p| s.site(p)).transpose()?,
         encoded: r.encoded.clone(),
         source: r.source.map(|s| (s.block, s.index)),

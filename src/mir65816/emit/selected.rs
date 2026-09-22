@@ -29,7 +29,7 @@ instruction_set!(ReferenceOp { LdaLong=0xaf, StaLong=0x8f, LdaByte=0xa9, Jsl=0x2
 instruction_set!(Branch { Plus=0x10, CarryClear=0x90, CarrySet=0xb0, NotEqual=0xd0, Equal=0xf0 });
 
 /// Compound transfers retain their instruction-level phases and ABI summary.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Instruction {
     Implied(Implied),
     Byte(ByteOp, u8),
@@ -59,7 +59,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
 /// Request inputs only. A successful proof result is never a replay capability.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Request {
     Mode(Width),
     EstablishBody,
@@ -110,7 +110,7 @@ impl Boundary {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Action {
     Entry,
     Instruction {
@@ -130,7 +130,7 @@ pub(super) enum Action {
     ReturnExit,
     FaultExit,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Record {
     pub action: Action,
     pub parent: Option<Node>,
@@ -138,6 +138,9 @@ pub(super) struct Record {
     pub encoded: Range<usize>,
     pub before: Boundary,
     pub after: Boundary,
+    /// Observation checked against a freshly recomputed consume decision.
+    /// Never an input that grants permission during replay.
+    pub decision: Option<bool>,
 }
 #[derive(Clone, Debug)]
 pub(super) struct Recording {
@@ -173,6 +176,7 @@ impl Recording {
             after,
             parent: self.parents.last().copied(),
             source: self.source,
+            decision: None,
         });
         node
     }
@@ -193,6 +197,30 @@ impl SelectedRoutine {
         id: RoutineId,
         allocation: &AllocatedFrame,
         home_contract: Option<super::analysis::homes::HomeContract>,
+        recording: Recording,
+        code: &Code,
+    ) -> Result<Self, String> {
+        Self::build(
+            Identity::fresh(id),
+            allocation,
+            home_contract,
+            recording,
+            code,
+        )
+    }
+    pub fn replayed(&self, recording: Recording, code: &Code) -> Result<Self, String> {
+        Self::build(
+            self.identity,
+            &self.allocation,
+            self.home_contract.clone(),
+            recording,
+            code,
+        )
+    }
+    fn build(
+        identity: Identity,
+        allocation: &AllocatedFrame,
+        home_contract: Option<super::analysis::homes::HomeContract>,
         mut recording: Recording,
         code: &Code,
     ) -> Result<Self, String> {
@@ -209,7 +237,7 @@ impl SelectedRoutine {
         recording.add(Action::FaultExit, end..end, b, b);
         let cfg = SelectedCfg::build(&recording.records)?;
         let result = Self {
-            identity: Identity::fresh(id),
+            identity,
             allocation: allocation.clone(),
             home_contract,
             records: recording.records,

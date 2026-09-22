@@ -38,6 +38,9 @@ impl SelectedCfg {
             *actual.entry(target).or_default().entry(source).or_default() += 1;
         };
         for (i, r) in records.iter().enumerate() {
+            if r.decision.is_some() && !matches!(r.action, Action::EndRequest(_)) {
+                return Err("selected decision outside request end".into());
+            }
             if r.parent != parents.last().copied() {
                 return Err("selected request parent mismatch".into());
             }
@@ -78,6 +81,18 @@ impl SelectedCfg {
                 Action::EndRequest(begin) => {
                     if parents.pop() != Some(*begin) {
                         return Err("unbalanced selected request".into());
+                    }
+                    let returns_decision = matches!(
+                        records[begin.0].action,
+                        Action::Request(
+                            Request::ConsumeWord(..)
+                                | Request::ConsumeFrame(..)
+                                | Request::StoreIncoming(..)
+                                | Request::LoadX(..)
+                        )
+                    );
+                    if r.decision.is_some() != returns_decision {
+                        return Err("missing or unexpected selected consume decision".into());
                     }
                     if let Action::Request(Request::Mode(width)) = records[begin.0].action {
                         if r.after.env.m != width {

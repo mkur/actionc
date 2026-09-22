@@ -10,6 +10,7 @@ mod liveness;
 mod loop_x;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
+mod replay;
 pub(crate) mod scalar;
 mod select;
 mod selected;
@@ -37,6 +38,13 @@ pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> 
 }
 
 fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachineProgram, String> {
+    materialize_path(program, trace, true)
+}
+fn materialize_path(
+    program: &Mir65816Program,
+    trace: bool,
+    replay: bool,
+) -> Result<MachineProgram, String> {
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
     if program.call_convention != Mir65816CallConvention::Native {
         return Err(
@@ -62,8 +70,10 @@ fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachinePr
                 routine.name
             ));
         }
-        routines
-            .push(select::routine(routine, trace).map_err(|e| format!("{}: {e}", routine.name))?);
+        routines.push(
+            select::routine_with_replay(routine, trace, replay)
+                .map_err(|e| format!("{}: {e}", routine.name))?,
+        );
     }
     Ok(MachineProgram { routines })
 }

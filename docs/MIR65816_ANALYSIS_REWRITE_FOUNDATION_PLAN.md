@@ -6,7 +6,8 @@ physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md), as is slice 2
 ([physical homes and backward liveness](MIR65816_HOME_ANALYSIS.md)). Slice 4
 ([stored definitions and read attribution](MIR65816_HOME_DEFINITIONS.md)) is also
 complete, as is slice 5 ([register/flag liveness](MIR65816_MACHINE_LIVENESS.md)).
-Typed replay and checked rewrites remain planned.
+Slice 6 ([fresh typed replay](MIR65816_TYPED_REPLAY.md)) is complete and
+authoritative. Checked rewrite transactions and the pilot migration remain planned.
 This foundation takes priority over further temporary-store
 elimination, mutable-counter promotion and broader register/DP allocation.
 The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and

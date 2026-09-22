@@ -116,9 +116,11 @@ determine memory width: a `ByteOp` stack/DP operand can access a word, while LDX
 uses index width. X8 narrowing defines zero high X/Y bytes; A8 operations retain
 the hidden accumulator byte unless the instruction explicitly uses it.
 
-Memory ranges remain relative to instruction-entry S, active D or a typed
-symbol/address. Canonical home identities and alias analysis belong to later
-foundation slices. Read/modify/write reads precede writes. Indirect addressing
+Instruction memory ranges remain relative to instruction-entry S, active D or a
+typed symbol/address. Analysis normalizes these into invocation-entry-relative
+stack bytes and current-domain DP bytes with verified ownership and conservative
+aliasing; see [physical homes](MIR65816_HOME_ANALYSIS.md).
+Read/modify/write reads precede writes. Indirect addressing
 reads its three DP pointer bytes before the data access; indirect stores and
 callee clobbers are possible writes, which cannot kill a reaching definition.
 Unknown/absolute/indirect source accesses remain protected barriers.
@@ -178,6 +180,8 @@ facade calls without duplicating their emitted instructions. Requests include
 mode changes even when REP/SEP is omitted, body anchors, home registration,
 barriers, capture/consume attempts, MIR-entry obligations and X operations.
 Recorded inputs and environment observations never grant replay permission.
+Boolean request outcomes are recorded at the matching end marker solely to
+check the freshly recomputed result, including failed single-use consumption.
 
 The graph implements the shared `DataflowGraph` interface with action sites as
 nodes. It includes labels, internal compare/staging paths, both conditional
@@ -203,10 +207,30 @@ Before and after layout, typed actions reconcile with every encoded byte,
 symbolic/PER fixup, label, MIR span/transfer, conditional dispatch and optional
 effect observation. Historical state trace PCs must remain on selected
 boundaries. Proof-feature queries expose immutable observations and reject
-foreign/stale sites. Canonical home identities, backward liveness, replay and
-checked rewrites remain later work; see the
-[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md) and
-[slice 2 qualification](MIR65816_SELECTED_ACTIONS.md).
+foreign/stale sites. Immutable snapshots provide checked physical-home liveness,
+stored-definition queries, and [register/flag liveness](MIR65816_MACHINE_LIVENESS.md).
+These observations do not independently authorize an optimization. Checked
+rewrite transactions remain planned in the
+[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md).
+
+### Authoritative typed replay
+
+Selection first records the existing choices through the tracked facade.
+[Replay](MIR65816_TYPED_REPLAY.md) then executes those typed inputs through a
+fresh facade with the native entry contract. Stored state and old success
+answers are never used to seed permissions. Mode omissions, home generations,
+single-use captures and X refresh obligations are recomputed. A compound request
+regenerates its nested actions, whose inputs, effects, boundaries and outcomes
+must match the original recording; its children are not executed a second time.
+
+Label identities and source endpoints are symbolic. Replay derives fresh byte
+positions for spans, transfers, fixups and traces, preserving owner/allocation/
+generation identity for this exact replay. Rebuilt output passes reconciliation
+and the unchanged layout finalizer once before flat-image or o65 serialization.
+The direct reference path is available only to proof-feature qualification.
+No public ABI, serialization, frame, stack-guard or interrupt-reserve policy
+changes. This accepts compiler-owned verified recordings; a general checked
+edit/rollback interface is a separate slice.
 
 ## Supported operations
 

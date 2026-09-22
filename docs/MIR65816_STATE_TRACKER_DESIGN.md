@@ -83,6 +83,8 @@ Implemented foundation modules under `src/mir65816/emit/`:
 | `tracked.rs` | Concrete instruction facade; precondition checks, encoding and application of the corresponding effects. |
 | `selected.rs`, `effects.rs` | Typed forms, production action/request recording and physical effects, independent of forward-value precision. |
 | `analysis/sites.rs`, `analysis/cfg.rs` | Owner/generation-scoped sites and the selected-action CFG; no new optimization permissions. |
+| `analysis/homes.rs`, `analysis/home_liveness.rs`, `analysis/home_definitions.rs`, `analysis/machine_liveness.rs` | Canonical home bytes, stored definitions and backward home/register/flag demand, exposed through checked immutable snapshots. |
+| `replay.rs` | Fresh tracked replay of typed inputs; regenerate nested actions, permissions, bytes and metadata before final layout. |
 | `code.rs` | Byte/label/fixup storage and final proof metadata. Raw writes are available only behind the facade. |
 | `select.rs`, `accumulator.rs` | Checked target selection and producer/consumer eligibility. Request proofs and emit the chosen sequence. |
 
@@ -91,9 +93,11 @@ Finalized `Code` remains available to linking and qualification. `Code.mir_spans
 and typed fixups remain nonserialized and independent of optimization correctness.
 The later [analysis foundation](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 now retains selected actions and CFG facts independently of optional state
-traces. Its [slice 2 contract](MIR65816_SELECTED_ACTIONS.md) preserves request
-inputs, source attribution and identities across layout; backward liveness and
-checked replay remain later slices.
+traces. Its [selected-action contract](MIR65816_SELECTED_ACTIONS.md) preserves
+request inputs, source attribution and identities across layout. Home/definition
+and register/flag analyses are complete; [typed replay](MIR65816_TYPED_REPLAY.md)
+is authoritative and checks freshly recomputed permissions. The atomic checked
+rewrite driver remains a later slice.
 
 A modeled instruction has a concrete opcode/addressing form, checked operand
 extent and explicit width requirements. Its encoding and transfer function

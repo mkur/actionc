@@ -93,7 +93,15 @@ struct Builder<'a> {
     loop_x: Option<loop_x::LoopXPlan>,
 }
 
+#[cfg(test)]
 pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<MachineRoutine, String> {
+    routine_with_replay(routine, _trace, true)
+}
+pub(super) fn routine_with_replay(
+    routine: &Mir65816Routine,
+    _trace: bool,
+    replay: bool,
+) -> Result<MachineRoutine, String> {
     let frame = AllocatedFrame::new(routine)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
@@ -258,10 +266,16 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         b.code.span(block.id, block.ops.len(), start);
     }
     let homes = super::analysis::homes::HomeContract::from_verified(routine, &b.frame)?;
-    let code = super::layout::finalize(
-        b.code.finish_selected(routine.id, &b.frame, Some(homes))?,
-        true,
-    )?;
+    let direct = b.code.finish_selected(routine.id, &b.frame, Some(homes))?;
+    let code = if replay {
+        super::replay::emit(
+            direct.selected.as_ref().ok_or("missing selected routine")?,
+            _trace,
+        )?
+    } else {
+        direct
+    };
+    let code = super::layout::finalize(code, true)?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

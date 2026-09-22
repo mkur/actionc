@@ -15,7 +15,7 @@ pub enum Target {
     StackOverflow,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fixup {
     pub offset: usize,
     pub target: Target,
@@ -25,7 +25,7 @@ pub struct Fixup {
 }
 
 /// Nonserialized MIR transfer identity, retained even for a zero-byte transfer.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MirTransfer {
     pub source: Label,
     pub target: Label,

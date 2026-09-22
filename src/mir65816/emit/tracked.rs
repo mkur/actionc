@@ -25,6 +25,19 @@ struct Entry {
     stack_a: Option<i64>,
     x_word: bool,
 }
+trait RequestDecision {
+    fn decision(&self) -> Option<bool>;
+}
+impl RequestDecision for () {
+    fn decision(&self) -> Option<bool> {
+        None
+    }
+}
+impl RequestDecision for bool {
+    fn decision(&self) -> Option<bool> {
+        Some(*self)
+    }
+}
 #[derive(Clone, Debug, Default)]
 pub(super) struct TrackedEmitter65816 {
     code: Code,
@@ -97,7 +110,23 @@ impl TrackedEmitter65816 {
         )?));
         Ok(code)
     }
-    fn request<R>(&mut self, request: Request, run: impl FnOnce(&mut Self) -> R) -> R {
+    pub fn finish_replayed(mut self, original: &SelectedRoutine) -> Result<Code, String> {
+        let recording = std::mem::take(&mut self.recording);
+        let mut code = self.finish();
+        code.selected = Some(Box::new(original.replayed(recording, &code)?));
+        Ok(code)
+    }
+    pub fn recorded(&self) -> &[Record] {
+        &self.recording.records
+    }
+    pub fn boundary(&self) -> Boundary {
+        Boundary::of(&self.state)
+    }
+    fn request<R: RequestDecision>(
+        &mut self,
+        request: Request,
+        run: impl FnOnce(&mut Self) -> R,
+    ) -> R {
         let before = Boundary::of(&self.state);
         let at = self.position();
         let begin = self
@@ -108,8 +137,10 @@ impl TrackedEmitter65816 {
         let before_end = self.recording.records.last().unwrap().after;
         let after = Boundary::of(&self.state);
         let at = self.position();
-        self.recording
+        let end = self
+            .recording
             .add(Action::EndRequest(begin), at..at, before_end, after);
+        self.recording.records[end.0].decision = result.decision();
         assert_eq!(self.recording.parents.pop(), Some(begin));
         result
     }
@@ -518,7 +549,7 @@ impl TrackedEmitter65816 {
     }
     // The only instruction dispatch. Encoding and forward-state helpers cannot
     // be called by selectors without deriving the corresponding typed effects.
-    fn instruction(&mut self, instruction: Instruction) -> Result<(), String> {
+    pub(super) fn instruction(&mut self, instruction: Instruction) -> Result<(), String> {
         let effects = instruction.effects(self.state.env);
         let before = Boundary::of(&self.state);
         let continuation = if matches!(instruction, Instruction::IndirectTransfer(_)) {

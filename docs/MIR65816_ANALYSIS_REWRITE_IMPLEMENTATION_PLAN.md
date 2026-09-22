@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 through 5 complete; slices 6 onward remain planned. Based on main
+Status: slices 0 through 6 complete; slices 7 onward remain planned. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -277,6 +277,12 @@ claiming equivalence from analysis output alone.
 **Exit:** checked register/flag queries alongside the unchanged forward tracker.
 
 ## Slice 6 — Typed replay with exact encoding equality
+
+Completed: [fresh typed replay](MIR65816_TYPED_REPLAY.md) is authoritative after
+direct/replay shadow qualification. The full native debug/release and isolated
+CRLF suites pass; all [corpus artifacts and records remain equal](benchmarks/65816-analysis-rewrite/slice6-equality.json).
+Replay checks freshly recomputed request decisions and preserves symbolic sites;
+it does not supply a checked rewrite transaction API yet.
 
 Implement replay into a fresh `TrackedEmitter65816`, seeded only with verified
 entry/allocation facts. Execute recorded actions through the same dispatcher;

@@ -19,7 +19,8 @@ The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also comple
 [Canonical home bytes and backward liveness](MIR65816_HOME_ANALYSIS.md) are complete.
 [Stored definitions and read attribution](MIR65816_HOME_DEFINITIONS.md) are complete.
 [Register-lane and independent flag liveness](MIR65816_MACHINE_LIVENESS.md) is complete.
-The next slice makes typed replay authoritative with exact encoding equality.
+[Typed replay](MIR65816_TYPED_REPLAY.md) is authoritative with exact encoding
+equality. The next slice adds checked plans and atomic application.
 
 ## Objective and current baseline
 
@@ -84,6 +85,7 @@ and qualify general improvements.
 | Analysis foundation slice 3 | Canonicalize physical home bytes with verified ownership and compute ordered backward may-liveness. | [Contract and results](MIR65816_HOME_ANALYSIS.md), [equality](benchmarks/65816-analysis-rewrite/slice3-equality.json) |
 | Analysis foundation slice 4 | Attribute reads to individual physical stored definitions, preserving may-write uncertainty and possibly undefined paths. | [Contract and results](MIR65816_HOME_DEFINITIONS.md), [equality](benchmarks/65816-analysis-rewrite/slice4-equality.json) |
 | Analysis foundation slice 5 | Compute physical register-lane and independent flag liveness, preserving protected environment obligations. | [Contract and results](MIR65816_MACHINE_LIVENESS.md) |
+| Analysis foundation slice 6 | Replay typed actions through a fresh tracked emitter, recomputing permissions and regenerating all output metadata. | [Contract and results](MIR65816_TYPED_REPLAY.md), [equality](benchmarks/65816-analysis-rewrite/slice6-equality.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -118,14 +120,13 @@ They are completed work, not forecasts for the next slice.
 
 ## Ordered remaining slices
 
-The immediate sequence is the
-[foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md):
+Typed selection/effects, home and machine analyses, and authoritative replay
+are complete. The remaining sequence in the
+[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md) is:
 
-1. Record typed selected instructions, control flow and exhaustive effects.
-2. Adapt byte-range home liveness and individual stored-definition facts.
-3. Adapt register-lane and independent flag liveness with native ABI boundaries.
-4. Introduce generation-bound checked plans and atomic verified rewrites.
-5. Migrate one existing local optimization with identical eligibility and output.
+1. Introduce generation-bound checked plans and atomic verified rewrites (slice 7).
+2. Migrate adjacent temporary A16 forwarding with identical eligibility and output (slice 8).
+3. Qualify the complete migration and measure host compilation overhead (slice 9).
 
 The acceptance gate is byte-identical code and unchanged full measurements;
 these slices make no performance forecast. Temporary-store elimination,

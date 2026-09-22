@@ -1,5 +1,11 @@
 # Native 65816 selected actions and CFG
 
+This note records slice 2. Subsequent slices add
+[home analyses](MIR65816_HOME_ANALYSIS.md),
+[stored definitions](MIR65816_HOME_DEFINITIONS.md),
+[machine liveness](MIR65816_MACHINE_LIVENESS.md) and
+[authoritative typed replay](MIR65816_TYPED_REPLAY.md).
+
 Slice 2 of the [analysis implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 is complete. The compiler retains a typed selected-action stream and CFG in
 ordinary builds, independently of optional test traces. Current selection,

@@ -125,7 +125,7 @@ pub struct EffectRecord {
 }
 
 /// Constructed only from the verified MIR call plan; no caller-provided masks.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct CallContract {
     arguments: Vec<(u16, u16)>,
     result: Option<ResultLocation>,

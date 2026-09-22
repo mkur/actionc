@@ -2,7 +2,7 @@
 //! fallthrough observation or the fact that X happened to contain a value.
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct XContract {
     pub param: TempId,
     pub home: Location,
