@@ -1301,11 +1301,16 @@ fn incoming_parameters_survive_irq_and_nmi_at_every_proof_boundary_in_both_domai
 #[test]
 fn coalesced_edges_survive_irq_and_nmi_at_every_retained_instruction() {
     let original = fixture("preemption.act");
-    let source = frame_forwarding_source(&original);
-    assert_eq!(
-        source,
-        frame_forwarding_source(&original.replace('\n', "\r\n"))
-    );
+    // A distinct source key keeps ContextHarness artifacts separate from the
+    // ordinary frame probe while this test substitutes optimized worker MIR.
+    let tagged = |source: &str| {
+        format!(
+            "; Edge coalescing target probe\n{}",
+            frame_forwarding_source(source)
+        )
+    };
+    let source = tagged(&original);
+    assert_eq!(source, tagged(&original.replace('\n', "\r\n")));
     for optimize in [false, true] {
         let mut h = initialize(ContextHarness::from_prepared(
             &source,
