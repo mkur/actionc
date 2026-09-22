@@ -257,3 +257,179 @@ fn observers_reject_mutated_encodings_tails_thresholds_and_branch_polarity() {
     let cpu = Machine::start_at(r);
     assert!(std::panic::catch_unwind(|| site.assert_live(&cpu, &h.bus)).is_err());
 }
+
+#[test]
+fn final_self_copy_refresh_and_single_word_edges_keep_copy_evidence() {
+    for single in [false, true] {
+        let mut p = prepared(true, true, 1, 0, false);
+        let r = p
+            .mir
+            .routines
+            .iter_mut()
+            .find(|r| r.name == "Rotation")
+            .unwrap();
+        let hi = r
+            .blocks
+            .iter()
+            .position(|b| b.ops.len() == 1 && matches!(b.ops[0], Mir65816Op::Compare { .. }))
+            .unwrap();
+        let header = r.blocks[hi].id;
+        let (param, w) = *r.blocks[hi].params.last().unwrap();
+        let (body, q) = r
+            .blocks
+            .iter()
+            .filter_map(|b| match &b.terminator {
+                Mir65816Terminator::Goto(e) if e.target == header => match e.args.last() {
+                    Some(Mir65816Value::Temp(q, _)) => Some((b.id, *q)),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .next()
+            .unwrap();
+        let fresh = actionc::nir::TempId(r.temps.iter().map(|v| v.0.0).max().unwrap() + 1);
+        let ty = r.temps.iter().find(|v| v.0 == param).unwrap().1.clone();
+        r.temps.push((fresh, ty));
+        for b in &mut r.blocks {
+            if b.id == header {
+                if single {
+                    b.params = vec![(param, w)];
+                }
+            } else if let Mir65816Terminator::Goto(e) = &mut b.terminator {
+                if e.target != header {
+                    continue;
+                }
+                if b.id == body {
+                    if single {
+                        b.ops
+                            .retain(|op| matches!(op,Mir65816Op::Binary{dest,..} if *dest==q));
+                    }
+                } else {
+                    if single {
+                        b.ops.clear();
+                    }
+                    b.ops.push(Mir65816Op::Binary {
+                        dest: fresh,
+                        width: w,
+                        signed: false,
+                        operation: actionc::nir::NirBinaryOp::Add,
+                        left: Mir65816Value::U16(0),
+                        right: Mir65816Value::U16(0),
+                    });
+                    *e.args.last_mut().unwrap() = Mir65816Value::Temp(fresh, w);
+                }
+                if single {
+                    e.args = vec![e.args.last().unwrap().clone()];
+                }
+            } else if single {
+                b.ops.clear();
+                if let Mir65816Terminator::Return { value, .. } = &mut b.terminator {
+                    *value = Some(Mir65816Value::U16(0x5aa5));
+                }
+            }
+        }
+        if single {
+            let Mir65816Op::Compare { dest, .. } = r.blocks[hi].ops[0] else {
+                panic!()
+            };
+            r.temps
+                .retain(|(id, _)| [param, q, fresh, dest].contains(id));
+        }
+        mir65816::verify_program(&p.mir).unwrap();
+        let c = p.compile(&layout()).unwrap();
+        let mut h = Harness::new(&c.image, &caller(c.image.entry), 0);
+        h.bus.forwarded_words = forwarding::compiled(&p, &c);
+        h.bus.single_word_edges = word_edge::index(&p.mir, &c.machine, |id| {
+            c.image
+                .routines
+                .iter()
+                .find(|r| r.id == id.0)
+                .unwrap()
+                .address
+        });
+        let x = h.bus.forwarded_words.x_words[0].clone();
+        if single {
+            assert_eq!(
+                h.bus.ram[x.refresh[0] as usize - 2],
+                0xa5,
+                "final self-copy reload"
+            );
+        }
+        let mut edges = 0;
+        while !h.cpu.is_stopped() {
+            if let Some(w) = word_edge::reached(&h.cpu, &h.bus, &c.image.routines) {
+                if w.sites.iter().any(|pc| x.refresh.contains(pc)) {
+                    edges += 1;
+                }
+            }
+            if h.cpu.pc() == x.compare || h.cpu.pc() == x.load {
+                x.assert_live(&h.cpu, &h.bus);
+            }
+            step(&mut h);
+        }
+        assert_eq!(edges, 3);
+        h.guards(0);
+        assert_eq!(
+            h.bus.value(context::symbol(&c.image, "result"), 2),
+            if single { 0x5aa5 } else { 3 }
+        );
+    }
+}
+
+#[test]
+fn cpx_dispatch_short_and_long_forms_match_ca65_at_two_origins() {
+    for padding in [0, 140] {
+        for origin in [0x40000u32, 0x5ff00] {
+            for (value, k) in [
+                (0, 1),
+                (1, 1),
+                (0x7fff, 0x8000),
+                (0x8000, 0x7fff),
+                (0xffff, 0xfffe),
+            ] {
+                let c = emit::proof::x_branch_probe(value, k, padding);
+                assert_eq!(c.conditional_branches[0].short, padding == 0);
+                let mut bytes = c.bytes.clone();
+                for f in &c.fixups {
+                    let emit::Target::Label(l) = f.target else {
+                        panic!()
+                    };
+                    assert_eq!(f.byte, None);
+                    let target = origin + c.labels[&l] as u32 + f.addend;
+                    bytes[f.offset..f.offset + 3].copy_from_slice(&target.to_le_bytes()[..3]);
+                }
+                let branch = if padding == 0 {
+                    "bcc yes"
+                } else {
+                    "bcs skip\njml yes\nskip:"
+                };
+                let asm = assemble(
+                    &format!(
+                        "rep #$20\nlda #{value}\ntax\ncpx #{k}\n{branch}\nlda #0\n.repeat {padding}\nnop\n.endrepeat\njml done\nyes: rep #$20\nlda #1\ndone: nop\nstp\nnop"
+                    ),
+                    origin,
+                );
+                assert_eq!(bytes, asm[..bytes.len()]);
+                let mut bus = Bus::new();
+                bus.map(origin, &asm, false);
+                let mut cpu = Machine::start_at(actionc_vm::native65816::Registers {
+                    pc: origin as u16,
+                    pbr: (origin >> 16) as u8,
+                    s: 0x5fe0,
+                    d: 0x2000,
+                    p: 4,
+                    ..Default::default()
+                });
+                assert!(
+                    cpu.run_until(&mut bus, 1000, |_| Inputs::default(), |c| c.is_stopped())
+                        .unwrap()
+                );
+                assert_eq!(
+                    (cpu.registers().a, cpu.registers().x),
+                    (u16::from(value < k), value)
+                );
+                assert_eq!(cpu.registers().p & 1 != 0, value >= k);
+            }
+        }
+    }
+}

@@ -249,3 +249,26 @@ pub fn x_instruction_probe(value: u16, threshold: u16, byte_a: bool) -> (Code, V
     e.op(Implied::Nop);
     e.finish_traced()
 }
+
+/// Exercise the shared CPX dispatch/finalizer with both short and long reach.
+pub fn x_branch_probe(value: u16, threshold: u16, padding: usize) -> Code {
+    let mut e = TrackedEmitter65816::default();
+    let yes = e.label();
+    let end = e.label();
+    e.a16();
+    e.word(WordOp::LdaImm, value);
+    e.op(Implied::Tax);
+    e.word(WordOp::CpxImm, threshold);
+    e.dispatch(Branch::CarryClear, yes);
+    e.word(WordOp::LdaImm, 0);
+    for _ in 0..padding {
+        e.op(Implied::Nop);
+    }
+    e.jump(end);
+    e.mark(yes);
+    e.a16();
+    e.word(WordOp::LdaImm, 1);
+    e.mark(end);
+    e.op(Implied::Nop);
+    super::layout::finalize(e.finish(), true).unwrap()
+}
