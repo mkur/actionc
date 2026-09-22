@@ -300,6 +300,31 @@ impl TrackedEmitter65816 {
         self.state
             .consume_word(temp, slot, offset, self.word_cursor())
     }
+    pub fn remember_frame_word(
+        &mut self,
+        object: super::Mir65816FrameObjectId,
+        byte: u32,
+        slot: Slot,
+    ) {
+        if let Some(cursor) = self.word_cursor() {
+            self.state
+                .publish_adjacent(WordIdentity::Frame(object, byte), slot, cursor);
+        }
+    }
+    pub fn consume_frame_word(
+        &mut self,
+        object: super::Mir65816FrameObjectId,
+        byte: u32,
+        slot: Slot,
+        offset: u8,
+    ) -> bool {
+        self.state.consume_adjacent(
+            Some(WordIdentity::Frame(object, byte)),
+            Some(slot),
+            Some(offset),
+            self.word_cursor(),
+        )
+    }
     fn live(&self) {
         assert!(
             !self.unreachable,

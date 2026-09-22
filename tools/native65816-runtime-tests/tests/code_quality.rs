@@ -154,6 +154,7 @@ fn execute(
     let mut selective_sites = BTreeMap::<u32, u64>::new();
     let mut selective_words = 0u64;
     let mut selective_staged = 0u64;
+    let mut frame_forwarded_sites = BTreeMap::<u32, u64>::new();
     let mut forwarded_sites = BTreeMap::<u32, u64>::new();
     let mut guard_cycles = 0u64;
     let mut guard_instructions = 0u64;
@@ -210,6 +211,10 @@ fn execute(
                     if r.a == 0 { 2 } else { 0 } | if r.a & 0x8000 != 0 { 0x80 } else { 0 }
                 );
                 *forwarded_sites.entry(pc).or_default() += 1;
+            }
+            if let Some(site) = support::frame_forwarding::reached(&cpu, &bus) {
+                site.assert_live(&cpu, &bus);
+                *frame_forwarded_sites.entry(pc).or_default() += 1;
             }
             instructions += 1;
             *instruction_sites.entry(pc).or_default() += 1;
@@ -331,6 +336,8 @@ fn execute(
         measurement["selective_staged_words"] = json!(selective_staged);
         measurement["selective_direct_words"] = json!(selective_words - selective_staged);
         measurement["selective_word_edge_sites"] = json!(selective_sites);
+        measurement["frame_forwarded_loads"] = json!(frame_forwarded_sites.values().sum::<u64>());
+        measurement["frame_forwarded_load_sites"] = json!(frame_forwarded_sites);
         measurement["forwarded_word_loads"] = json!(forwarded_sites.values().sum::<u64>());
         measurement["forwarded_word_load_sites"] = json!(forwarded_sites);
     }

@@ -149,10 +149,29 @@ unchanged A alone is insufficient. Comparison operand swaps retain identity.
 All stores and homes remain. Calls, helpers, labels, edges, stack movement,
 other operations, intervening instructions and mode changes invalidate the
 fact. Volatile, indirect/indexed, DP, byte and wider transfers retain their
-original paths. No source-memory access is cached or reordered. Complete
+original paths. Complete
 operand/extent preflight still runs before a load is omitted. Each omission
 removes only two private stack-byte reads; ABI, allocation, guard and interrupt
 contracts are unchanged.
+
+A separate frame-word witness permits an ordinary two-byte Store of a word
+temporary followed immediately by a Load of the same `AutomaticFrame` object
+and byte displacement. The object must be non-addressable, both bytes must fit
+its extent and the stack-relative range, and the destination must be a checked
+two-byte stack temporary. Selection registers the exact object word before its
+retained STA. The tracker records immutable A/N/Z, the home generation, typed
+object identity, physical slot and instruction/label cursor. The consumer must
+match every fact with zero transient stack displacement. It removes only LDA;
+both the object store and destination capture remain. The capture may establish
+the existing temporary witness for its next eligible consumer.
+
+Frame and temporary identities are distinct even at an equal physical offset.
+No permission survives an intervening instruction, label, call/helper, other MIR
+operation, mode transition or S movement. Incoming-parameter reloads, addressable
+objects, aliases, volatile and indexed/indirect accesses retain their loads.
+Interrupt qualification checks full register and invocation-frame restoration
+at both retained stores in separate task domains. Neither witness caches shared
+source memory or reorders memory effects. See [frame forwarding](MIR65816_FRAME_FORWARDING.md).
 
 `Code.mir_spans` is nonserialized emission proof metadata keyed by MIR block and
 operation index (ops.len() denotes the terminator; a fused comparison includes

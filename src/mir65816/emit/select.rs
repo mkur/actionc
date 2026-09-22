@@ -1097,6 +1097,16 @@ impl Builder<'_> {
         {
             return Ok(());
         }
+        if let Mir65816Op::Load {
+            dest,
+            width: bytes,
+            address,
+            volatile,
+        } = op
+            && self.frame_word_load(*dest, width(*bytes)?, address, *volatile)?
+        {
+            return Ok(());
+        }
         if !matches!(op, Mir65816Op::Store { .. }) {
             self.code.barrier();
         }

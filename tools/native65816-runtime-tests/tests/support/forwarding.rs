@@ -41,6 +41,7 @@ pub struct Index {
     pub control: control_flow::Index,
     pub dispatches: Vec<control_flow::Dispatch>,
     pub multi_words: Vec<multi_word_edge::Site>,
+    pub frame_words: Vec<frame_forwarding::Site>,
 }
 impl std::ops::Deref for Index {
     type Target = BTreeMap<u32, Site>;
@@ -144,6 +145,7 @@ pub fn index(
     let mut out = Index {
         words: BTreeMap::new(),
         control: control_flow::index(mir, machine, &address),
+        frame_words: frame_forwarding::index(mir, machine, &address),
         multi_words: multi_word_edge::index(mir, machine, &address),
         dispatches: control_flow::dispatches(mir, machine, &address),
     };
@@ -256,11 +258,22 @@ pub fn index(
                 let p = &m.code.mir_spans[&(block.id, pi)];
                 let c = &m.code.mir_spans[&(block.id, ci)];
                 assert_eq!(p.end, c.start, "nonadjacent MIR spans");
-                assert!(p.end >= p.start + 4);
+                // A frame load may now consist solely of its retained capture.
+                // Its independently checked store/load proof supplies A and N/Z.
+                let proof_start = out
+                    .frame_words
+                    .iter()
+                    .find(|s| s.consumer == base + p.start as u32)
+                    .map_or(p.start, |s| (s.producer - base) as usize);
+                assert!(p.end >= proof_start + 4);
                 let store = p.end - 2;
                 assert_eq!(code[store..p.end], [0x83, slot]);
                 assert_eq!(ins[&store], (2, false));
-                let (&last, &(_, m8)) = ins.range(p.start..store).next_back().unwrap();
+                let (&last, &(_, m8)) = ins
+                    .range(proof_start..store)
+                    .rev()
+                    .find(|&(at, _)| code[*at] != 0x83)
+                    .unwrap();
                 assert!(!m8);
                 assert!(
                     matches!(code[last], 0xa3 | 0xaf | 0x63 | 0x69 | 0xe3 | 0xe9),
@@ -283,11 +296,11 @@ pub fn index(
                     Kind::Return => code[consumer] == 0xa8,
                 });
                 let end = consumer + ins[&consumer].0;
-                let mut bytes: Vec<_> = code[p.start..end].iter().copied().map(Some).collect();
+                let mut bytes: Vec<_> = code[proof_start..end].iter().copied().map(Some).collect();
                 for fix in &m.code.fixups {
                     for at in fix.offset..fix.offset + if fix.byte.is_some() { 1 } else { 3 } {
-                        if (p.start..end).contains(&at) {
-                            bytes[at - p.start] = None;
+                        if (proof_start..end).contains(&at) {
+                            bytes[at - proof_start] = None;
                         }
                     }
                 }
@@ -295,7 +308,7 @@ pub fn index(
                     routine: r.id,
                     temp: dest,
                     range: base..base + code.len() as u32,
-                    producer: base + p.start as u32,
+                    producer: base + proof_start as u32,
                     store: base + store as u32,
                     start: base + c.start as u32,
                     load: loaded.then_some(base + c.start as u32),
@@ -357,6 +370,19 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
     Index {
         words,
         control: control_flow::relocated(&templates.control, image),
+        frame_words: templates
+            .frame_words
+            .iter()
+            .map(|s| {
+                let r = image
+                    .profile()
+                    .routines
+                    .iter()
+                    .find(|r| r.id == s.routine.0)
+                    .unwrap();
+                s.rebase(image.routine_address(r))
+            })
+            .collect(),
         multi_words: templates
             .multi_words
             .iter()

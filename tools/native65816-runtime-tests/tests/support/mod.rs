@@ -347,3 +347,5 @@ pub mod word_edge;
 
 pub mod control_flow;
 pub mod forwarding;
+
+pub mod frame_forwarding;

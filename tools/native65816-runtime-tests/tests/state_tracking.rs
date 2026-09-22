@@ -245,9 +245,18 @@ nop
 
 #[test]
 fn actual_raw_and_optimized_traces_survive_linking_loops_and_o65_rebasing() {
+    trace_loop(
+        "MODULE Probe PUBLIC CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN ENDMODULE",
+        false,
+    );
+}
+#[test]
+fn frame_forwarding_traces_preserve_generation_and_nz_claims_in_images_and_o65() {
+    trace_loop(&fixture("code_quality/loop_rotation.act"), true);
+}
+fn trace_loop(source: &str, rotation: bool) {
     use actionc::mir65816::{emit, image, o65 as format};
     use std::collections::BTreeMap;
-    let source = "MODULE Probe PUBLIC CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN ENDMODULE";
     for optimize in [false, true] {
         let prepared = prepare(source, optimize);
         let ordinary = emit::materialize(&prepared.mir).unwrap();
@@ -361,11 +370,21 @@ fn actual_raw_and_optimized_traces_survive_linking_loops_and_o65_rebasing() {
                     h.guards(irq);
                     assert_eq!(
                         h.bus.value(0x7000, 2),
-                        u32::from(n) * (u32::from(n) + 1) / 2
+                        if rotation {
+                            u32::from(n) * 2 + 9
+                        } else {
+                            u32::from(n) * (u32::from(n) + 1) / 2
+                        }
                     );
                     if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
-                        let stem = std::path::Path::new(&dir)
-                            .join(format!("state-tracker-{optimize}-{variant}-{n}-{irq}"));
+                        let stem = std::path::Path::new(&dir).join(format!(
+                            "state-{}-{optimize}-{variant}-{n}-{irq}",
+                            if rotation {
+                                "frame-forwarding"
+                            } else {
+                                "tracker"
+                            }
+                        ));
                         std::fs::write(stem.with_extension("bin"), &expected).unwrap();
                         std::fs::write(
                             stem.with_extension("txt"),

@@ -1,6 +1,6 @@
 mod support;
 use actionc_vm::native65816::Inputs;
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::Path};
 use support::{context::*, *};
 
 fn machine(optimize: bool) -> ContextHarness {
@@ -1067,6 +1067,140 @@ fn forwarded_values_flags_and_return_teardown_survive_both_task_irq_domains() {
             let mut h = machine_source(&source, optimize);
             run_injected(&mut h, false, Some(seed));
             check_forwarding_results(&h);
+        }
+    }
+}
+
+fn frame_forwarding_source(source: &str) -> String {
+    source
+        .replace("\r\n", "\n")
+        .replace(
+            "BYTE POINTER other,buffer]",
+            "BYTE POINTER other,buffer CARD capture,rotation,zero,negative]",
+        )
+        .replace(
+            "CARD FUNC Read",
+            r#"
+CARD FUNC FrameCapture(CARD x) CARD v v=x+1 RETURN(v)
+CARD FUNC FrameRotation(CARD x)
+ CARD a,b,c,i
+ a=x b=x+1
+ FOR i=0 TO 7 DO c=a a=b b=c+1 OD
+RETURN(a+b)
+CARD FUNC Read"#,
+        )
+        .replace(
+            "  work.done=1",
+            r#"
+  work.capture=FrameCapture(work.seed)
+  work.rotation=FrameRotation(work.seed)
+  work.zero=FrameCapture(65535)+FrameRotation(65535)
+  work.negative=FrameCapture(32767)+FrameRotation(32768)
+  work.done=1"#,
+        )
+}
+fn check_frame_forwarding(h: &ContextHarness) {
+    check(h);
+    for (at, seed) in [(0x7100, 13), (0x7120, 41)] {
+        for (offset, value) in [(12, seed + 1), (14, seed * 2 + 9), (16, 7), (18, 0x8009)] {
+            assert_eq!(h.bus.value(at + offset, 2), value);
+        }
+    }
+}
+fn run_checked_frame_nmi(h: &mut ContextHarness) {
+    let mut reference = h.cpu.clone();
+    let mut bus = h.bus.clone();
+    reference.tick(&mut bus, Inputs::default()).unwrap();
+    while !reference.is_instruction_boundary() {
+        reference.tick(&mut bus, Inputs::default()).unwrap();
+    }
+    let expected = reference.registers();
+    let mut acknowledged = false;
+    for _ in 0..100_000 {
+        let writes = h.bus.writes.len();
+        h.tick(Inputs {
+            nmi: !acknowledged,
+            ..Default::default()
+        });
+        acknowledged |= h.bus.writes[writes..].iter().any(|&(at, _)| at == NMI_ACK);
+        if acknowledged && h.cpu.is_instruction_boundary() && h.cpu.pc() == reference.pc() {
+            assert_eq!(
+                h.cpu.registers(),
+                expected,
+                "NMI changed live frame forwarding state"
+            );
+            let ceiling = if expected.d == 0x2000 { 0x5000 } else { 0x6000 };
+            assert_eq!(
+                &h.bus.ram[usize::from(expected.s) + 1..ceiling],
+                &bus.ram[usize::from(expected.s) + 1..ceiling]
+            );
+            run_injected(h, false, None);
+            return;
+        }
+        assert!(!h.cpu.is_stopped());
+    }
+    panic!("NMI restoration budget exhausted")
+}
+
+#[test]
+fn frame_words_survive_irq_and_nmi_at_both_retained_stores_in_both_task_domains() {
+    let original = fixture("preemption.act");
+    let source = frame_forwarding_source(&original);
+    assert_eq!(
+        source,
+        frame_forwarding_source(&original.replace('\n', "\r\n"))
+    );
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let sites = h.bus.forwarded_words.frame_words.clone();
+        assert!(!sites.is_empty());
+        let boundaries: BTreeSet<_> = sites.iter().flat_map(|s| [s.store, s.consumer]).collect();
+        let targets: BTreeSet<_> = [0x2000, 0x2100]
+            .into_iter()
+            .flat_map(|d| boundaries.iter().map(move |&pc| (d, pc)))
+            .collect();
+        let mut seen = BTreeSet::new();
+        let mut live = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 0x34 == 0 && [0x2000, 0x2100].contains(&r.d)
+            {
+                if let Some(s) = sites.iter().find(|s| s.consumer == pc) {
+                    s.assert_live(&h.cpu, &h.bus);
+                    live.insert((r.d, pc, r.p & 0x82));
+                }
+                if targets.contains(&(r.d, pc)) && seen.insert((r.d, pc)) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    run_checked_fused_irq(&mut h);
+                    check_frame_forwarding(&h);
+                    h.cpu = cpu.clone();
+                    h.bus = bus.clone();
+                    run_checked_frame_nmi(&mut h);
+                    check_frame_forwarding(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_frame_forwarding(&h);
+        assert_eq!(seen, targets);
+        assert_eq!(
+            live.iter().map(|t| t.2).collect::<BTreeSet<_>>(),
+            BTreeSet::from([0, 2, 0x80])
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = machine_source(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check_frame_forwarding(&h);
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(Path::new(&directory).join(format!("frame-forwarding-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"live_frame_words":live,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
         }
     }
 }

@@ -1,5 +1,5 @@
 //! Native machine facts. Values are immutable identities, never mutable aliases.
-use super::{Slot, TempId};
+use super::{Mir65816FrameObjectId, Slot, TempId};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,8 +55,15 @@ pub(super) struct Home {
     pub value: Value,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum WordIdentity {
+    Temp(TempId),
+    /// A checked non-addressable object in the current activation, at an exact
+    /// byte displacement. Never interchangeable with a temp at the same slot.
+    Frame(Mir65816FrameObjectId, u32),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct AdjacentWord {
-    pub temp: TempId,
+    pub identity: WordIdentity,
     pub slot: Slot,
     pub value: Value,
     pub generation: u64,
@@ -281,6 +288,9 @@ impl State65816 {
         self.peak = self.peak.max(self.env.depth);
     }
     pub fn publish_word(&mut self, temp: TempId, slot: Slot, cursor: (usize, usize)) {
+        self.publish_adjacent(WordIdentity::Temp(temp), slot, cursor);
+    }
+    pub fn publish_adjacent(&mut self, identity: WordIdentity, slot: Slot, cursor: (usize, usize)) {
         self.adjacent = None;
         if self.delta() != 0 || slot.width != 2 || self.env.m != Width::Word {
             return;
@@ -295,7 +305,7 @@ impl State65816 {
             "producer must already prove A16/home/NZ"
         );
         self.adjacent = Some(AdjacentWord {
-            temp,
+            identity,
             slot,
             value: home.value,
             generation: home.generation,
@@ -309,10 +319,19 @@ impl State65816 {
         offset: Option<u8>,
         cursor: Option<(usize, usize)>,
     ) -> bool {
+        self.consume_adjacent(temp.map(WordIdentity::Temp), slot, offset, cursor)
+    }
+    pub fn consume_adjacent(
+        &mut self,
+        identity: Option<WordIdentity>,
+        slot: Option<Slot>,
+        offset: Option<u8>,
+        cursor: Option<(usize, usize)>,
+    ) -> bool {
         let Some(fact) = self.adjacent.take() else {
             return false;
         };
-        temp == Some(fact.temp)
+        identity == Some(fact.identity)
             && slot == Some(fact.slot)
             && offset.map(u16::from) == Some(fact.slot.offset)
             && self.delta() == 0

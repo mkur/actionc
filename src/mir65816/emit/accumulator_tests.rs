@@ -235,3 +235,169 @@ fn store_preflights_destination_and_preserves_only_the_original_write() {
     assert_eq!(b.code.code().bytes.len(), start);
     assert_eq!(b.code.resident(), fact);
 }
+
+fn frame_program() -> Mir65816Program {
+    let ast = crate::parser::parse(
+        &crate::lexer::tokenize(
+            "CARD FUNC Work(CARD x) CARD a,b a=x+1 b=a RETURN(b) PROC Main() RETURN",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let model = crate::semantic::analyze_with_options(
+        &ast,
+        crate::semantic::SemanticOptions::modern()
+            .with_target(crate::target::TargetId::Wdc65816Native),
+    )
+    .unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    crate::nir::verify_program(&nir).unwrap();
+    super::super::super::lower_program(&nir).unwrap()
+}
+
+#[test]
+fn frame_store_load_omits_only_the_reload_and_can_forward_the_capture() {
+    let p = frame_program();
+    let r = &p.routines[0];
+    let mut b = builder(r);
+    let homes = b.frame.temps.clone();
+    let ops = &r.blocks[0].ops;
+    let i = ops
+        .windows(2)
+        .position(|w| {
+            matches!((&w[0], &w[1]),
+        (Mir65816Op::Store { address: a, .. }, Mir65816Op::Load { address: b, .. }) if a == b)
+        })
+        .unwrap();
+    for op in &ops[..=i] {
+        b.operation(op).unwrap();
+    }
+    let Mir65816Op::Load { dest, .. } = &ops[i + 1] else {
+        panic!()
+    };
+    let at = b.code.position();
+    b.operation(&ops[i + 1]).unwrap();
+    assert_eq!(
+        &b.code.code().bytes[at..],
+        &[0x83, b.temp(*dest).unwrap().slot().offset as u8]
+    );
+    assert_eq!(b.frame.temps, homes);
+    let at = b.code.position();
+    assert!(
+        b.word_return(&Mir65816Value::Temp(*dest, ByteSize::new(2)))
+            .unwrap()
+    );
+    assert_eq!(b.code.position(), at);
+}
+
+#[test]
+fn frame_consumer_keeps_loads_for_aliases_offsets_volatile_and_intervening_effects() {
+    for case in 0..13 {
+        let mut p = frame_program();
+        let r = &mut p.routines[0];
+        let i = r.blocks[0]
+            .ops
+            .windows(2)
+            .position(|w| {
+                matches!((&w[0], &w[1]),
+            (Mir65816Op::Store { address: a, .. }, Mir65816Op::Load { address: b, .. }) if a == b)
+            })
+            .unwrap();
+        let mut consumer = r.blocks[0].ops[i + 1].clone();
+        let Mir65816Op::Load {
+            address, volatile, ..
+        } = &mut consumer
+        else {
+            panic!()
+        };
+        if case == 0 {
+            let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+                panic!()
+            };
+            r.frame
+                .objects
+                .iter_mut()
+                .find(|o| o.id == id)
+                .unwrap()
+                .addressable = true;
+        }
+        if case == 1 {
+            *volatile = true;
+        }
+        if case == 2 {
+            let other = r
+                .frame
+                .objects
+                .iter()
+                .find(|o| address.base != Mir65816AddressBase::AutomaticFrame(o.id))
+                .unwrap();
+            address.base = Mir65816AddressBase::AutomaticFrame(other.id);
+        }
+        let mut b = builder(r);
+        for op in &r.blocks[0].ops[..=i] {
+            b.operation(op).unwrap();
+        }
+        match case {
+            3 => b.code.word(WordOp::CmpImm, 0),
+            4 => b.code.word(WordOp::LdyImm, 0),
+            5 => b.code.op(Implied::Nop),
+            6 => b.code.byte(ByteOp::StaStack, 200),
+            7 => {
+                let label = b.code.label();
+                b.code.mark(label);
+            }
+            8 => {
+                b.code.a8();
+                b.code.a16();
+            }
+            9 => b.code.test_delta(2),
+            10 => b.code.barrier(),
+            11 => b
+                .code
+                .reference(ReferenceOp::Jsl, Target::Routine(r.id), 0, None),
+            12 => b.code.byte(ByteOp::StaIndirect, PTR),
+            _ => {}
+        }
+        let at = b.code.position();
+        b.operation(&consumer).unwrap();
+        assert!(b.code.code().bytes[at..].contains(&0xa3), "case {case}");
+    }
+}
+
+#[test]
+fn frame_forwarding_preflights_object_and_destination_before_omission() {
+    let p = frame_program();
+    let r = &p.routines[0];
+    let i = r.blocks[0]
+        .ops
+        .windows(2)
+        .position(|w| {
+            matches!((&w[0], &w[1]),
+        (Mir65816Op::Store { address: a, .. }, Mir65816Op::Load { address: b, .. }) if a == b)
+        })
+        .unwrap();
+    for case in 0..4 {
+        let mut consumer = r.blocks[0].ops[i + 1].clone();
+        let Mir65816Op::Load { address, dest, .. } = &mut consumer else {
+            panic!()
+        };
+        let mut b = builder(r);
+        for op in &r.blocks[0].ops[..=i] {
+            b.operation(op).unwrap();
+        }
+        if case < 2 {
+            address.displacement = ByteOffset::new(if case == 0 { 1 } else { u32::MAX });
+        } else {
+            b.frame.temps.insert(
+                *dest,
+                Location::Stack(Slot {
+                    offset: if case == 2 { 255 } else { 0 },
+                    width: 2,
+                }),
+            );
+        }
+        let at = b.code.position();
+        assert!(b.operation(&consumer).is_err());
+        assert_eq!(b.code.position(), at);
+    }
+}

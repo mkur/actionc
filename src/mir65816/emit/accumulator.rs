@@ -3,6 +3,81 @@
 use super::*;
 
 impl Builder<'_> {
+    /// This slice excludes incoming parameters, address-taken objects and all
+    /// indirect/indexed/external accesses. Both bytes belong to this object.
+    fn frame_word(
+        &self,
+        address: &Mir65816Address,
+    ) -> Result<Option<(Mir65816FrameObjectId, Slot)>, String> {
+        let Mir65816AddressBase::AutomaticFrame(id) = address.base else {
+            return Ok(None);
+        };
+        if address.index.is_some() || self.code.delta() != 0 {
+            return Ok(None);
+        }
+        let object = self
+            .routine
+            .frame
+            .objects
+            .iter()
+            .find(|o| o.id == id)
+            .ok_or("unknown frame object")?;
+        if object.addressable {
+            return Ok(None);
+        }
+        let byte = address.displacement.get();
+        if byte
+            .checked_add(2)
+            .is_none_or(|end| end > object.size.get())
+        {
+            return Err("frame word exceeds object extent".into());
+        }
+        let offset = self
+            .object(id)?
+            .checked_add(byte)
+            .ok_or("frame word offset overflow")?;
+        let offset = self.word_displacement(offset)?;
+        Ok(Some((
+            id,
+            Slot {
+                offset: u16::from(offset),
+                width: 2,
+            },
+        )))
+    }
+    pub(super) fn frame_word_load(
+        &mut self,
+        dest: TempId,
+        bytes: u8,
+        address: &Mir65816Address,
+        volatile: bool,
+    ) -> Result<bool, String> {
+        if volatile || bytes != 2 {
+            return Ok(false);
+        }
+        let Some((object, source)) = self.frame_word(address)? else {
+            return Ok(false);
+        };
+        let Location::Stack(destination) = self.temp(dest)? else {
+            return Ok(false);
+        };
+        if destination.width != 2 {
+            return Err("load temporary width mismatch".into());
+        }
+        // Preflight the retained destination store even when the load vanishes.
+        let offset = self.word_displacement(u32::from(destination.offset))?;
+        if !self.code.consume_frame_word(
+            object,
+            address.displacement.get(),
+            source,
+            source.offset as u8,
+        ) {
+            return Ok(false);
+        }
+        self.code.byte(ByteOp::StaStack, offset);
+        self.remember_word(dest);
+        Ok(true)
+    }
     pub(super) fn word_temp(value: &Mir65816Value) -> Option<TempId> {
         match value {
             Mir65816Value::Temp(id, size) if size.get() == 2 => Some(*id),
@@ -72,10 +147,18 @@ impl Builder<'_> {
         if let Memory::Stack(offset) = destination {
             self.word_displacement(offset)?;
         }
+        let frame = self.frame_word(address)?;
+        if let Some((_, slot)) = frame {
+            self.code.register_home(slot);
+        }
         self.code.a16();
         self.load_checked_word(source, Self::word_temp(value));
         self.store_memory(destination, 0)?;
         self.code.barrier();
+        if let Some((object, slot)) = frame {
+            self.code
+                .remember_frame_word(object, address.displacement.get(), slot);
+        }
         Ok(true)
     }
 }

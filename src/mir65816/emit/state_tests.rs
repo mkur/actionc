@@ -302,3 +302,44 @@ fn call_and_join_invalidate_value_and_flag_relations_without_new_mode_omissions(
     e.a16();
     assert_eq!(e.position(), before + 2);
 }
+
+#[test]
+fn frame_witness_requires_object_byte_generation_full_nz_and_exact_cursor() {
+    let slot = Slot {
+        offset: 254,
+        width: 2,
+    };
+    let identity = WordIdentity::Frame(super::Mir65816FrameObjectId(3), 4);
+    for case in 0..12 {
+        let mut s = State65816::default();
+        s.register_home(slot);
+        s.load_a(Value::Constant(0x8000, Width::Word));
+        s.write_stack(254, Width::Word);
+        s.publish_adjacent(identity, slot, (12, 1));
+        let mut requested = identity;
+        let mut home = slot;
+        let mut cursor = (12, 1);
+        match case {
+            1 => requested = WordIdentity::Temp(TempId(3)),
+            2 => requested = WordIdentity::Frame(super::Mir65816FrameObjectId(4), 4),
+            3 => requested = WordIdentity::Frame(super::Mir65816FrameObjectId(3), 5),
+            4 => home.offset = 253,
+            5 => s.write_stack(255, Width::Byte),
+            6 => s.write_stack(254, Width::Word), // Same bits, different generation.
+            7 => s.unknown_write(),
+            8 => s.compare(Value::Constant(0x8000, Width::Word)),
+            9 => cursor.0 += 1,
+            10 => cursor.1 += 1,
+            11 => {
+                s.status(0x20, true);
+                s.status(0x20, false);
+            }
+            _ => {}
+        }
+        assert_eq!(
+            s.consume_adjacent(Some(requested), Some(home), Some(254), Some(cursor)),
+            case == 0
+        );
+        assert!(!s.consume_adjacent(Some(identity), Some(slot), Some(254), Some((12, 1))));
+    }
+}
