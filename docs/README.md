@@ -74,6 +74,9 @@ crowding the active reference set.
 - [MIR65816_COPY_INVENTORY.md](MIR65816_COPY_INVENTORY.md)
   - Remaining edge-copy sites, physical dependencies, measured execution counts,
     unused staging reservations and bounded selective-staging forecasts.
+- [MIR65816_ACYCLIC_EDGES.md](MIR65816_ACYCLIC_EDGES.md)
+  - Qualified direct acyclic word-copy scheduling, final A/N/Z preservation,
+    cyclic fallback and exact instruction/traffic deltas.
 - [MIR65816_IMPLEMENTATION_PLAN.md](MIR65816_IMPLEMENTATION_PLAN.md)
   - Tracks separately committed ABI, frame, emission and context-qualification
     slices with explicit completion checks.

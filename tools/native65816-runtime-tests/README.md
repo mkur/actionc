@@ -47,6 +47,7 @@ OS, device intercept or host scheduler participates. The earlier
 
 | Target | Tests | Coverage |
 | --- | ---: | --- |
+| `acyclic_edges` | 2 | Independent direct/reordered word-copy sequences, self/repeated sources, full A/status preservation, staging canaries and unsafe schedule rejection. |
 | `state_tracking` | 4 | Independent ca65 bytes and VM facts, both widths, hidden B, full status masks, homes/NZ, loop joins, direct/indirect stack phases, PER continuations after branch shortening and o65 rebasing; trace-on/off output equality. |
 | `control_flow` | 4 | Independent REP/JML omission and short-predicate equivalence, page boundaries, generated short/long fallbacks, banked placement, edge copies and two o65 placements. |
 | `accumulator_forwarding` | 4 | Frozen full-corpus sites, typed resident-word evidence, independent ca65 register/flag/traffic equivalence, all four consumers, volatile traces, LF/CRLF and evidence rejection. |

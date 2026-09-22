@@ -5,6 +5,11 @@ Status: measured against main `c79697b` and the qualified
 on 2026-09-22. This is a read-only inventory for roadmap slice 4. Compiler
 selection, allocation, ABI and stack guards have not changed.
 
+This inventory is frozen at `94421a3`; use that historical checkout to reproduce
+its exporter/hash checks. The acyclic portion is now implemented and separately
+[qualified](MIR65816_ACYCLIC_EDGES.md). The selective-staging column below remains
+a forecast for the broader optimization, including cyclic edges.
+
 ## Scope and evidence
 
 The 14-kernel / 66-vector comparison corpus supplies 28 raw/optimized Action

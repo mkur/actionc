@@ -331,3 +331,12 @@ LF/CRLF source checks. `inventory_copies.py` validates the facts against final
 instructions, artifact/source hashes and both host reports, and classifies
 dependencies with per-vector forecasts. Its `--check` mode verifies the committed
 inventory without rewriting it. See the results document for exact commands.
+
+The [acyclic word-edge results](../../docs/MIR65816_ACYCLIC_EDGES.md) use 3c as
+their immutable baseline. `check_acyclic_edges.py` checks all retained instruction
+streams and exact predicted traffic, permitting only the frozen initialization
+edge change and address adjustments. A separate typed multi-word decoder
+authenticates schedule safety and the optional final A/N/Z reload. New
+`acyclic_word_edges`, `acyclic_edge_words` and `acyclic_word_edge_sites` counters
+keep existing single-word metrics unchanged. Use `target/acyclic-edges-after`
+for subsequent forecasts; both host comparison runs retain the known vbcc failure.
