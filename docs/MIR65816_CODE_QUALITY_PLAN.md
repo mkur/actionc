@@ -173,7 +173,10 @@ arithmetic operation; their copies remain.
 
 The next strategy is scalar DP allocation for a verified call-free subset, with
 explicit scratch reservations and per-operation clobber constraints. Begin with
-a fresh lifetime/selector inventory and implementation plan against this baseline.
+a fresh lifetime/selector inventory following the
+[scalar DP inventory and implementation plan](MIR65816_SCALAR_DP_PLAN.md).
+Its preliminary measured projections are conditional on preserving native word
+selection and forwarding; inventory and exact forecasts precede allocation.
 It addresses the repeated memory traffic in `sum_loop(13)`, which the bounded
 coalescing slice leaves unchanged. Broader coalescing, byte-lane forwarding and
 residence across calls/joins require separate measurements and designs.

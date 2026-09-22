@@ -1,0 +1,1734 @@
+{
+  "schema": 1,
+  "status": "Planning evidence only; no scalar DP frame or modified image has been emitted or executed.",
+  "revision": "e790349d4c6af65248b42896f3c323c258cc7055",
+  "qualified_revision": "7b5a2a71462fed9eb059c3ffa3ce2ba2dc32bd62",
+  "evidence": {
+    "docs/abi/action65816-edge-coalescing-qualification.json": "9302126fdffeb4e9e54d1706fc5f78be50efd84a3db17a27bf754eee238abcf4",
+    "target/scalar-dp-plan-facts.json": "bf5d426134323997bdb642acf28626c7e9bb5dc1c0c6f7e99af627ac77805cab",
+    "target/edge-coalescing-after/manifest.json": "4c268f1a924d24129922a9932f036037c37c68f07654b9621614cd5e2792de55",
+    "target/edge-coalescing-after/debug.json": "ffd0ca15a990971af5d6a9e5f166deb55f69c9a5f44e972a108c18119af6dc35",
+    "target/edge-coalescing-after/release.json": "ffd0ca15a990971af5d6a9e5f166deb55f69c9a5f44e972a108c18119af6dc35"
+  },
+  "checks": {
+    "qualified_inputs": 432,
+    "native_artifacts_per_profile": 626,
+    "comparison_artifacts": 224,
+    "comparison_records": 264,
+    "action_builds": 28,
+    "fresh_images_equal": true,
+    "fresh_lf_crlf_images_equal": true
+  },
+  "assumptions": [
+    "Reserve D+$20..$3F internally, aligned words; no ABI change.",
+    "Lift complete existing private word home classes; preserve equality and closed-operation interference.",
+    "Keep current instruction selection, edge order/staging and all existing forwarding decisions.",
+    "Each selected native word stack memory instruction costs one more VM cycle than aligned DP.",
+    "Keep remaining stack objects and Boolean homes fixed; repack staging and recompute exact frame.",
+    "A zero frame uses existing release behavior: omit six teardown instructions (8 bytes, 13 cycles).",
+    "Typed eligibility/effects exporter and exact final-image forecast are still required in inventory slice."
+  ],
+  "candidates": [
+    {
+      "case": "identity",
+      "mode": "raw",
+      "routine": 0,
+      "temp_count": 1,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        }
+      ],
+      "frame_before": 4,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13
+        ],
+        "before": {
+          "code_bytes": 59,
+          "cycles": 63,
+          "instructions": 21,
+          "peak_below_entry_s": 4,
+          "stack_reads": 5,
+          "stack_writes": 2,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 51,
+          "cycles": 49,
+          "instructions": 15,
+          "peak_below_entry_s": 0,
+          "stack_reads": 5,
+          "stack_writes": 0,
+          "dp_reads": 0,
+          "dp_writes": 2
+        },
+        "word_reads": 0,
+        "word_writes": 1,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 0,
+        "word_writes": 6,
+        "zero_frame_returns": 6
+      }
+    },
+    {
+      "case": "identity",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 1,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        }
+      ],
+      "frame_before": 4,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13
+        ],
+        "before": {
+          "code_bytes": 59,
+          "cycles": 63,
+          "instructions": 21,
+          "peak_below_entry_s": 4,
+          "stack_reads": 5,
+          "stack_writes": 2,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 51,
+          "cycles": 49,
+          "instructions": 15,
+          "peak_below_entry_s": 0,
+          "stack_reads": 5,
+          "stack_writes": 0,
+          "dp_reads": 0,
+          "dp_writes": 2
+        },
+        "word_reads": 0,
+        "word_writes": 1,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 0,
+        "word_writes": 6,
+        "zero_frame_returns": 6
+      }
+    },
+    {
+      "case": "add",
+      "mode": "raw",
+      "routine": 0,
+      "temp_count": 3,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        },
+        {
+          "stack_offset": 6,
+          "proposed_dp_offset": 36,
+          "temps": [
+            2
+          ]
+        }
+      ],
+      "frame_before": 8,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65588,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "a302",
+          "proposed": "a520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65593,
+          "before": "6304",
+          "proposed": "6522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65595,
+          "before": "8306",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 70,
+          "cycles": 90,
+          "instructions": 27,
+          "peak_below_entry_s": 8,
+          "stack_reads": 11,
+          "stack_writes": 6,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 62,
+          "cycles": 72,
+          "instructions": 21,
+          "peak_below_entry_s": 0,
+          "stack_reads": 7,
+          "stack_writes": 0,
+          "dp_reads": 4,
+          "dp_writes": 6
+        },
+        "word_reads": 2,
+        "word_writes": 3,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 10,
+        "word_writes": 15,
+        "zero_frame_returns": 5
+      }
+    },
+    {
+      "case": "add",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 3,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        },
+        {
+          "stack_offset": 6,
+          "proposed_dp_offset": 36,
+          "temps": [
+            2
+          ]
+        }
+      ],
+      "frame_before": 8,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65588,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "a302",
+          "proposed": "a520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65593,
+          "before": "6304",
+          "proposed": "6522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65595,
+          "before": "8306",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 70,
+          "cycles": 90,
+          "instructions": 27,
+          "peak_below_entry_s": 8,
+          "stack_reads": 11,
+          "stack_writes": 6,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 62,
+          "cycles": 72,
+          "instructions": 21,
+          "peak_below_entry_s": 0,
+          "stack_reads": 7,
+          "stack_writes": 0,
+          "dp_reads": 4,
+          "dp_writes": 6
+        },
+        "word_reads": 2,
+        "word_writes": 3,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 10,
+        "word_writes": 15,
+        "zero_frame_returns": 5
+      }
+    },
+    {
+      "case": "subtract",
+      "mode": "raw",
+      "routine": 0,
+      "temp_count": 3,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        },
+        {
+          "stack_offset": 6,
+          "proposed_dp_offset": 36,
+          "temps": [
+            2
+          ]
+        }
+      ],
+      "frame_before": 8,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65588,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "a302",
+          "proposed": "a520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65593,
+          "before": "e304",
+          "proposed": "e522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65595,
+          "before": "8306",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 70,
+          "cycles": 90,
+          "instructions": 27,
+          "peak_below_entry_s": 8,
+          "stack_reads": 11,
+          "stack_writes": 6,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 62,
+          "cycles": 72,
+          "instructions": 21,
+          "peak_below_entry_s": 0,
+          "stack_reads": 7,
+          "stack_writes": 0,
+          "dp_reads": 4,
+          "dp_writes": 6
+        },
+        "word_reads": 2,
+        "word_writes": 3,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 12,
+        "word_writes": 18,
+        "zero_frame_returns": 6
+      }
+    },
+    {
+      "case": "subtract",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 3,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        },
+        {
+          "stack_offset": 6,
+          "proposed_dp_offset": 36,
+          "temps": [
+            2
+          ]
+        }
+      ],
+      "frame_before": 8,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65588,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "a302",
+          "proposed": "a520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65593,
+          "before": "e304",
+          "proposed": "e522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65595,
+          "before": "8306",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 70,
+          "cycles": 90,
+          "instructions": 27,
+          "peak_below_entry_s": 8,
+          "stack_reads": 11,
+          "stack_writes": 6,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 62,
+          "cycles": 72,
+          "instructions": 21,
+          "peak_below_entry_s": 0,
+          "stack_reads": 7,
+          "stack_writes": 0,
+          "dp_reads": 4,
+          "dp_writes": 6
+        },
+        "word_reads": 2,
+        "word_writes": 3,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 12,
+        "word_writes": 18,
+        "zero_frame_returns": 6
+      }
+    },
+    {
+      "case": "constant_chain",
+      "mode": "raw",
+      "routine": 0,
+      "temp_count": 17,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            1,
+            3,
+            5,
+            7,
+            9,
+            11,
+            13,
+            15
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            0,
+            2,
+            4,
+            6,
+            8,
+            10,
+            12,
+            14,
+            16
+          ]
+        }
+      ],
+      "frame_before": 6,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65596,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65602,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65608,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65614,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65620,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65626,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65632,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65638,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65644,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65650,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65656,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65662,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65668,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65674,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65680,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13
+        ],
+        "before": {
+          "code_bytes": 155,
+          "cycles": 223,
+          "instructions": 69,
+          "peak_below_entry_s": 6,
+          "stack_reads": 5,
+          "stack_writes": 34,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 147,
+          "cycles": 193,
+          "instructions": 63,
+          "peak_below_entry_s": 0,
+          "stack_reads": 5,
+          "stack_writes": 0,
+          "dp_reads": 0,
+          "dp_writes": 34
+        },
+        "word_reads": 0,
+        "word_writes": 17,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 0,
+        "word_writes": 102,
+        "zero_frame_returns": 6
+      }
+    },
+    {
+      "case": "constant_chain",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 2,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            16
+          ]
+        }
+      ],
+      "frame_before": 6,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13
+        ],
+        "before": {
+          "code_bytes": 65,
+          "cycles": 73,
+          "instructions": 24,
+          "peak_below_entry_s": 6,
+          "stack_reads": 5,
+          "stack_writes": 4,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 57,
+          "cycles": 58,
+          "instructions": 18,
+          "peak_below_entry_s": 0,
+          "stack_reads": 5,
+          "stack_writes": 0,
+          "dp_reads": 0,
+          "dp_writes": 4
+        },
+        "word_reads": 0,
+        "word_writes": 2,
+        "zero_frame_returns": 1
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 0,
+        "word_writes": 12,
+        "zero_frame_returns": 6
+      }
+    },
+    {
+      "case": "maximum",
+      "mode": "raw",
+      "routine": 0,
+      "temp_count": 4,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0,
+            3,
+            4
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        }
+      ],
+      "frame_before": 6,
+      "frame_projection": 2,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65588,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "c302",
+          "proposed": "c520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65602,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65615,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 90,
+          "cycles": 94,
+          "instructions": 28,
+          "peak_below_entry_s": 6,
+          "stack_reads": 11,
+          "stack_writes": 6,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 90,
+          "cycles": 90,
+          "instructions": 28,
+          "peak_below_entry_s": 2,
+          "stack_reads": 9,
+          "stack_writes": 0,
+          "dp_reads": 2,
+          "dp_writes": 6
+        },
+        "word_reads": 1,
+        "word_writes": 3,
+        "zero_frame_returns": 0
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 5,
+        "word_writes": 15,
+        "zero_frame_returns": 0
+      }
+    },
+    {
+      "case": "maximum",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 4,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0,
+            3,
+            4
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        }
+      ],
+      "frame_before": 6,
+      "frame_projection": 2,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65588,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "c302",
+          "proposed": "c520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65602,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65615,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 90,
+          "cycles": 94,
+          "instructions": 28,
+          "peak_below_entry_s": 6,
+          "stack_reads": 11,
+          "stack_writes": 6,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 90,
+          "cycles": 90,
+          "instructions": 28,
+          "peak_below_entry_s": 2,
+          "stack_reads": 9,
+          "stack_writes": 0,
+          "dp_reads": 2,
+          "dp_writes": 6
+        },
+        "word_reads": 1,
+        "word_writes": 3,
+        "zero_frame_returns": 0
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 5,
+        "word_writes": 15,
+        "zero_frame_returns": 0
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 9,
+      "home_classes": [
+        {
+          "stack_offset": 6,
+          "proposed_dp_offset": 32,
+          "temps": [
+            2,
+            17
+          ]
+        },
+        {
+          "stack_offset": 8,
+          "proposed_dp_offset": 34,
+          "temps": [
+            15,
+            18
+          ]
+        },
+        {
+          "stack_offset": 10,
+          "proposed_dp_offset": 36,
+          "temps": [
+            0,
+            10,
+            16
+          ]
+        },
+        {
+          "stack_offset": 12,
+          "proposed_dp_offset": 38,
+          "temps": [
+            9,
+            12
+          ]
+        }
+      ],
+      "frame_before": 16,
+      "frame_projection": 8,
+      "staging_before": [
+        {
+          "offset": 14,
+          "width": 2
+        }
+      ],
+      "staging_projection": [
+        {
+          "offset": 6,
+          "width": 2
+        }
+      ],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "830a",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "8306",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65595,
+          "before": "8308",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65600,
+          "before": "c308",
+          "proposed": "c522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65610,
+          "before": "a30a",
+          "proposed": "a524",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65614,
+          "before": "830c",
+          "proposed": "8526",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65620,
+          "before": "830a",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65622,
+          "before": "a308",
+          "proposed": "a522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65628,
+          "before": "830c",
+          "proposed": "8526",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65630,
+          "before": "a30a",
+          "proposed": "a524",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65634,
+          "before": "a306",
+          "proposed": "a520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65636,
+          "before": "830a",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65640,
+          "before": "8306",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65642,
+          "before": "a30c",
+          "proposed": "a526",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65644,
+          "before": "8308",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65650,
+          "before": "a30a",
+          "proposed": "a524",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65653,
+          "before": "6306",
+          "proposed": "6520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65655,
+          "before": "8308",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13
+        ],
+        "before": {
+          "code_bytes": 130,
+          "cycles": 896,
+          "instructions": 218,
+          "peak_below_entry_s": 16,
+          "stack_reads": 123,
+          "stack_writes": 136,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 130,
+          "cycles": 793,
+          "instructions": 218,
+          "peak_below_entry_s": 8,
+          "stack_reads": 21,
+          "stack_writes": 32,
+          "dp_reads": 102,
+          "dp_writes": 104
+        },
+        "word_reads": 51,
+        "word_writes": 52,
+        "zero_frame_returns": 0
+      },
+      "vector_totals": {
+        "vectors": 6,
+        "word_reads": 306,
+        "word_writes": 312,
+        "zero_frame_returns": 0
+      }
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 6,
+      "home_classes": [
+        {
+          "stack_offset": 6,
+          "proposed_dp_offset": 32,
+          "temps": [
+            1,
+            6
+          ]
+        },
+        {
+          "stack_offset": 8,
+          "proposed_dp_offset": 34,
+          "temps": [
+            7,
+            10
+          ]
+        },
+        {
+          "stack_offset": 10,
+          "proposed_dp_offset": 36,
+          "temps": [
+            4,
+            8
+          ]
+        }
+      ],
+      "frame_before": 12,
+      "frame_projection": 6,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65597,
+          "before": "8308",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65601,
+          "before": "8306",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65616,
+          "before": "830a",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65618,
+          "before": "a308",
+          "proposed": "a522",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65621,
+          "before": "630a",
+          "proposed": "6524",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65623,
+          "before": "8306",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65627,
+          "before": "8308",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65633,
+          "before": "830a",
+          "proposed": "8524",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65637,
+          "before": "a306",
+          "proposed": "a520",
+          "access": "read",
+          "bytes": 2
+        },
+        {
+          "pc": 65639,
+          "before": "8308",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65645,
+          "before": "a308",
+          "proposed": "a522",
+          "access": "read",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 3,
+        "args": [
+          13
+        ],
+        "before": {
+          "code_bytes": 120,
+          "cycles": 1212,
+          "instructions": 293,
+          "peak_below_entry_s": 12,
+          "stack_reads": 165,
+          "stack_writes": 188,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 120,
+          "cycles": 1092,
+          "instructions": 293,
+          "peak_below_entry_s": 6,
+          "stack_reads": 85,
+          "stack_writes": 28,
+          "dp_reads": 80,
+          "dp_writes": 160
+        },
+        "word_reads": 40,
+        "word_writes": 80,
+        "zero_frame_returns": 0
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 164,
+        "word_writes": 328,
+        "zero_frame_returns": 0
+      }
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "routine": 0,
+      "temp_count": 2,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        }
+      ],
+      "frame_before": 6,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 319,
+          "cycles": 466,
+          "instructions": 149,
+          "peak_below_entry_s": 20,
+          "stack_reads": 25,
+          "stack_writes": 34,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 311,
+          "cycles": 436,
+          "instructions": 137,
+          "peak_below_entry_s": 14,
+          "stack_reads": 25,
+          "stack_writes": 26,
+          "dp_reads": 0,
+          "dp_writes": 8
+        },
+        "word_reads": 0,
+        "word_writes": 4,
+        "zero_frame_returns": 2
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 0,
+        "word_writes": 20,
+        "zero_frame_returns": 10
+      }
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "routine": 0,
+      "temp_count": 2,
+      "home_classes": [
+        {
+          "stack_offset": 2,
+          "proposed_dp_offset": 32,
+          "temps": [
+            0
+          ]
+        },
+        {
+          "stack_offset": 4,
+          "proposed_dp_offset": 34,
+          "temps": [
+            1
+          ]
+        }
+      ],
+      "frame_before": 6,
+      "frame_projection": 0,
+      "staging_before": [],
+      "staging_projection": [],
+      "sites": [
+        {
+          "pc": 65584,
+          "before": "8302",
+          "proposed": "8520",
+          "access": "write",
+          "bytes": 2
+        },
+        {
+          "pc": 65590,
+          "before": "8304",
+          "proposed": "8522",
+          "access": "write",
+          "bytes": 2
+        }
+      ],
+      "representative": {
+        "vector": 2,
+        "args": [
+          13,
+          41
+        ],
+        "before": {
+          "code_bytes": 319,
+          "cycles": 466,
+          "instructions": 149,
+          "peak_below_entry_s": 20,
+          "stack_reads": 25,
+          "stack_writes": 34,
+          "dp_reads": 0,
+          "dp_writes": 0
+        },
+        "conditional_projection": {
+          "code_bytes": 311,
+          "cycles": 436,
+          "instructions": 137,
+          "peak_below_entry_s": 14,
+          "stack_reads": 25,
+          "stack_writes": 26,
+          "dp_reads": 0,
+          "dp_writes": 8
+        },
+        "word_reads": 0,
+        "word_writes": 4,
+        "zero_frame_returns": 2
+      },
+      "vector_totals": {
+        "vectors": 5,
+        "word_reads": 0,
+        "word_writes": 20,
+        "zero_frame_returns": 10
+      }
+    }
+  ],
+  "rejections": [
+    {
+      "case": "wide_shift",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "cast",
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps"
+      ]
+    },
+    {
+      "case": "wide_shift",
+      "mode": "optimized",
+      "routine": 0,
+      "reasons": [
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps"
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "cast"
+      ]
+    },
+    {
+      "case": "sum_loop",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "cast"
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "call",
+        "cast"
+      ]
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "optimized",
+      "routine": 0,
+      "reasons": [
+        "call"
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "raw",
+      "routine": 1,
+      "reasons": [
+        "call"
+      ]
+    },
+    {
+      "case": "direct_calls",
+      "mode": "optimized",
+      "routine": 1,
+      "reasons": [
+        "call"
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "cast",
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps",
+        "pointer_offset"
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "routine": 0,
+      "reasons": [
+        "cast",
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps",
+        "pointer_offset"
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "indirect_external_indexed_or_volatile_memory",
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps"
+      ]
+    },
+    {
+      "case": "record_field",
+      "mode": "optimized",
+      "routine": 0,
+      "reasons": [
+        "indirect_external_indexed_or_volatile_memory",
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps"
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps"
+      ]
+    },
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "routine": 0,
+      "reasons": [
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps"
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "raw",
+      "routine": 0,
+      "reasons": [
+        "cast",
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps",
+        "pointer_offset"
+      ]
+    },
+    {
+      "case": "forward_copy",
+      "mode": "optimized",
+      "routine": 0,
+      "reasons": [
+        "non_word_operation",
+        "non_word_or_existing_pointer_dp_temps",
+        "pointer_offset"
+      ]
+    }
+  ]
+}
