@@ -1,0 +1,191 @@
+{
+  "records": 264,
+  "complete_action_images": 28,
+  "changed_builds": [
+    [
+      "loop_rotation",
+      "optimized",
+      "actionc"
+    ]
+  ],
+  "unchanged_action_builds": 27,
+  "frozen_images_and_all_vector_forecasts_exact": true,
+  "forwarding_and_copy_counters_preserved": true,
+  "guard_algorithm_and_abi_preserved": true,
+  "traffic": [
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 0,
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "after": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "x_forwarded_loads": 8
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 1,
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "after": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "x_forwarded_loads": 8
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 2,
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "after": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "x_forwarded_loads": 8
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 3,
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "after": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "x_forwarded_loads": 8
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 4,
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "after": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "x_forwarded_loads": 8
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "vector": 5,
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "after": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "peak_below_entry_s": 8
+      },
+      "x_forwarded_loads": 8
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ],
+  "rejected_counter_mutations": [
+    "cycles",
+    "dp_reads",
+    "dp_writes",
+    "x_forwarded_loads",
+    "selective_word_edges",
+    "coalesced_word_copies",
+    "correct",
+    "predicate"
+  ]
+}

@@ -1,11 +1,11 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed on 2026-09-22 after bounded scalar DP allocation `c805e48`
-and its [qualification](MIR65816_SCALAR_DP.md). Native word selection, copy
-scheduling/coalescing, compact staging, local/frame/parameter forwarding, the
-state tracker and control-flow slices 3a–3c are complete. Scalar DP now covers
-a measured call-free subset. Historical inventories remain evidence for their
-own revisions; closed-operation interference remains unchanged.
+Status: refreshed after bounded X loop residency `3f3d6e8` and its
+[qualification](MIR65816_LOOP_X_RESIDENCY.md). Native word selection, copy
+scheduling/coalescing, compact staging, local/frame/parameter forwarding,
+scalar DP and one checked X loop mirror are complete. Historical inventories
+remain evidence for their own revisions; closed-operation interference remains
+unchanged.
 
 ## Objective and current baseline
 
@@ -15,12 +15,13 @@ restricted pointer-leaf and scalar DP allocators. General lifetime-based stack
 reuse is an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
 
-Use the qualified [scalar DP snapshot](benchmarks/65816-scalar-dp/after/tables.md)
+Use the qualified [X residency snapshot](benchmarks/65816-loop-x/after/tables.md)
 as the working baseline for new forecasts. Its
-[exact delta](benchmarks/65816-scalar-dp/delta.json) checks all 28 complete Action
-images and 264 records against edge coalescing. Fourteen builds match their
-frozen scalar forecasts and fourteen remain identical. Forwarding/copy counts,
-public ABI and guard algorithms remain. Keep historical snapshots immutable.
+[exact delta](benchmarks/65816-loop-x/delta.json) checks all 28 complete Action
+images and 264 records against scalar DP. Only optimized rotation changes:
+130→129 bytes, 793→759 cycles and 102→68 DP read bytes. Its frame stays eight
+bytes; writes, existing forwarding/copy counts, public ABI and guards remain.
+The other 27 Action builds are identical. Keep historical snapshots immutable.
 
 Both compilers implement a general unsigned 16-bit sum loop; input 13 is supplied
 at runtime, and both return 91. Measurements run from function entry through RTL,
@@ -33,11 +34,11 @@ including Action's stack guards and excluding caller setup:
 | Raw actionc | 146 | 1,587 | 14 |
 | Raw vbcc | 32 | 533 | 4 |
 
-The current optimized [Action listing](benchmarks/65816-scalar-dp/after/sum_loop.optimized.actionc.lst)
+The current optimized [Action listing](benchmarks/65816-loop-x/after/sum_loop.optimized.actionc.lst)
 uses native word arithmetic, direct single-word edge copies and adjacent A16
 forwarding with checked width omission, fallthrough and short dispatch, while
 retaining temporary stores in DP and the mutable counter on the stack. The
-[vbcc listing](benchmarks/65816-scalar-dp/after/sum_loop.optimized.vbcc.lst)
+[vbcc listing](benchmarks/65816-loop-x/after/sum_loop.optimized.vbcc.lst)
 retains the counter in X and the sum in DP. This supports a measured X/Y
 residency investigation. Public argument placement and stack guards remain
 outside this work.
@@ -60,6 +61,7 @@ and qualify general improvements.
 | Incoming-parameter word forwarding | Omit a repeated immutable argument load immediately or through one checked Store; retain captures and independent temp/frame witnesses. | [Results](MIR65816_PARAMETER_FORWARDING.md), [qualification](abi/action65816-parameter-forwarding-qualification.json) |
 | Compatible edge-home coalescing | Transactional source-home affinities with fixed block-parameter anchors; omit direct self-copies and preserve final A/N/Z. | [Results](MIR65816_EDGE_COALESCING.md), [qualification](abi/action65816-edge-coalescing-qualification.json) |
 | Bounded scalar DP allocation | Promote up to 16 existing private word-home classes in verified call-free routines; preserve forwarding and shrink real stack frames. | [Results](MIR65816_SCALAR_DP.md), [qualification](abi/action65816-scalar-dp-qualification.json) |
+| Bounded X loop mirror | Keep one private unsigned loop parameter in X; use TXA/CPX and final edge TAX while retaining homes and stores. | [Results](MIR65816_LOOP_X_RESIDENCY.md), [qualification](abi/action65816-loop-x-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -80,7 +82,8 @@ progress for `sum_loop(13)` is:
 | Direct frame forwarding | 146 / 1,587 | 120 / 1,212 |
 | Incoming-parameter forwarding | 146 / 1,587 | 120 / 1,212 |
 | Compatible edge-home coalescing | 146 / 1,587 | 120 / 1,212 |
-| Scalar DP (current baseline) | 146 / 1,587 | 120 / 1,092 |
+| Scalar DP | 146 / 1,587 | 120 / 1,092 |
+| Bounded X mirror (current baseline; sum-loop unchanged) | 146 / 1,587 | 120 / 1,092 |
 
 The observed stack peak remains 14 bytes raw. It stayed 16 bytes optimized
 through acyclic scheduling, then fell to 12 with compact staging reservations
@@ -145,7 +148,7 @@ eight fewer code bytes and 160 fewer cycles per rotation call, with staging
 reduced 6→2 bytes and frame/peak reduced 20→16. Existing single-word and acyclic
 schedules are preserved. The frozen plan's forecasts all matched.
 
-Freeze a fresh baseline for every later optimization. Use the qualified scalar DP
+Freeze a fresh baseline for every later optimization. Use the qualified bounded-X
 snapshot for new forecasts. The movement inventory's edge counts
 originally had zero physical self-copies, two compatible initialization pairs
 and five interfering pairs. Both compatible pairs now share homes; the five
@@ -178,19 +181,14 @@ saves 103 cycles and eight stack bytes. The slice preserves the existing logical
 copies and forwarding. Rejected raw casts, wider values and calling routines
 retain their previous strategy.
 
-The [post-DP register inventory](MIR65816_REGISTER_INVENTORY.md) now measures
-all 28 builds and reconciles memory traffic for all 132 Action records. Counted
-routines contain 154 stack and 23 DP word-load sites. Optimized sum-loop and
-rotation have no explicit X/Y body use, but entry guards and return teardown
-use X/Y respectively. Rotation's private loop counter is the first candidate
-for a bounded X-residency design; its current counter-memory accesses cost 104
-cycles per call, which is not a savings forecast. Preserve the closed-operation
-conflict between its input and update result when selecting a legal strategy.
-The [bounded X-residency implementation plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md)
-keeps the authoritative DP home/stores, mirrors one private loop parameter in X,
-and selects TXA plus CPX immediate. Its conditional rotation forecast is
-130→129 bytes and 793→759 cycles with the eight-byte frame retained. This is
-planned work; the qualified compiler baseline remains scalar DP.
+The historical [post-DP register inventory](MIR65816_REGISTER_INVENTORY.md)
+measured all 28 builds and reconciled memory traffic for all 132 Action records.
+It identified rotation's private counter as the first bounded X candidate.
+The [implemented plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md) preserves the DP home,
+stores and input/update interference while selecting TXA and CPX immediate,
+with a final TAX on each incoming edge. Qualification matches its frozen
+130→129-byte and 793→759-cycle forecast exactly. Measure remaining traffic
+from this new baseline before choosing another residency or promotion slice.
 
 Mutable counter promotion (including sum-loop's frame parameter), broader scalar
 admission, partial DP allocation and cross-call residency need separate
