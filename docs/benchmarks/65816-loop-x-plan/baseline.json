@@ -1,0 +1,295 @@
+{
+  "schema": 1,
+  "status": "conditional planning forecast; no modified code executed",
+  "baseline_revision": "d775cf6",
+  "compiler_revision": "78d0a138ef5cc61a334ce214e1fcc03828e4baa4",
+  "inputs_sha256": {
+    "docs/benchmarks/65816-register-inventory/facts.json": "320db2d904a25fbe61f9215093e53fc7d847129ea83c4cbd9048e1584f419edb",
+    "docs/benchmarks/65816-register-inventory/inventory.json": "b248037430e58ba27e90f09cdb5d6459f23dc76e2df027bc06e5bcad93ba54f4"
+  },
+  "selected": {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "routine": 0,
+    "header": 1,
+    "latch": 2,
+    "parameter": 18,
+    "update": 12,
+    "home": 34,
+    "update_home": 38
+  },
+  "authenticated_old_sites": [
+    {
+      "pc": 65595,
+      "bytes": "8522"
+    },
+    {
+      "pc": 65597,
+      "bytes": "a90700"
+    },
+    {
+      "pc": 65600,
+      "bytes": "c522"
+    },
+    {
+      "pc": 65602,
+      "bytes": "b004"
+    },
+    {
+      "pc": 65622,
+      "bytes": "a522"
+    },
+    {
+      "pc": 65644,
+      "bytes": "8522"
+    }
+  ],
+  "transforms": [
+    {
+      "kind": "insert_after",
+      "old_pc": 65595,
+      "bytes": "aa"
+    },
+    {
+      "kind": "replace",
+      "old_range": [
+        65597,
+        65602
+      ],
+      "bytes": "e00800"
+    },
+    {
+      "kind": "predicate",
+      "old_pc": 65602,
+      "opcode": "90"
+    },
+    {
+      "kind": "replace",
+      "old_range": [
+        65622,
+        65624
+      ],
+      "bytes": "8a"
+    },
+    {
+      "kind": "insert_after",
+      "old_pc": 65644,
+      "bytes": "aa"
+    }
+  ],
+  "vectors": [
+    {
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "counts": {
+        "header": 9,
+        "update": 8,
+        "refresh": 9
+      },
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "metadata_reads": 4
+      },
+      "forecast": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "metadata_reads": 4,
+        "body_x_reads": 17,
+        "body_x_writes": 9
+      }
+    },
+    {
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "counts": {
+        "header": 9,
+        "update": 8,
+        "refresh": 9
+      },
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "metadata_reads": 4
+      },
+      "forecast": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "metadata_reads": 4,
+        "body_x_reads": 17,
+        "body_x_writes": 9
+      }
+    },
+    {
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "counts": {
+        "header": 9,
+        "update": 8,
+        "refresh": 9
+      },
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "metadata_reads": 4
+      },
+      "forecast": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "metadata_reads": 4,
+        "body_x_reads": 17,
+        "body_x_writes": 9
+      }
+    },
+    {
+      "vector": 3,
+      "args": [
+        32767
+      ],
+      "counts": {
+        "header": 9,
+        "update": 8,
+        "refresh": 9
+      },
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "metadata_reads": 4
+      },
+      "forecast": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "metadata_reads": 4,
+        "body_x_reads": 17,
+        "body_x_writes": 9
+      }
+    },
+    {
+      "vector": 4,
+      "args": [
+        32768
+      ],
+      "counts": {
+        "header": 9,
+        "update": 8,
+        "refresh": 9
+      },
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "metadata_reads": 4
+      },
+      "forecast": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "metadata_reads": 4,
+        "body_x_reads": 17,
+        "body_x_writes": 9
+      }
+    },
+    {
+      "vector": 5,
+      "args": [
+        65535
+      ],
+      "counts": {
+        "header": 9,
+        "update": 8,
+        "refresh": 9
+      },
+      "before": {
+        "code_bytes": 130,
+        "cycles": 793,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 102,
+        "dp_writes": 104,
+        "metadata_reads": 4
+      },
+      "forecast": {
+        "code_bytes": 129,
+        "cycles": 759,
+        "instructions": 218,
+        "stack_peak": 8,
+        "stack_reads": 21,
+        "stack_writes": 32,
+        "dp_reads": 68,
+        "dp_writes": 104,
+        "metadata_reads": 4,
+        "body_x_reads": 17,
+        "body_x_writes": 9
+      }
+    }
+  ],
+  "unchanged_action_builds": 27,
+  "unchanged_vbcc_builds": 28,
+  "caveat": "Whole-image relocation and typed admission proof must be frozen before enabled production changes."
+}

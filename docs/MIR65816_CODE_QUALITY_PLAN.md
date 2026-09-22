@@ -186,6 +186,11 @@ use X/Y respectively. Rotation's private loop counter is the first candidate
 for a bounded X-residency design; its current counter-memory accesses cost 104
 cycles per call, which is not a savings forecast. Preserve the closed-operation
 conflict between its input and update result when selecting a legal strategy.
+The [bounded X-residency implementation plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md)
+keeps the authoritative DP home/stores, mirrors one private loop parameter in X,
+and selects TXA plus CPX immediate. Its conditional rotation forecast is
+130→129 bytes and 793→759 cycles with the eight-byte frame retained. This is
+planned work; the qualified compiler baseline remains scalar DP.
 
 Mutable counter promotion (including sum-loop's frame parameter), broader scalar
 admission, partial DP allocation and cross-call residency need separate
