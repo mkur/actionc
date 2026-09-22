@@ -366,3 +366,12 @@ preserves the older inventory. Its separate native `movement_inventory` observer
 executes unchanged saved bytes and checks each proposed reload against full CPU
 state and exact cycles/accesses in both host builds. See the linked document for
 commands, rejected candidates and conditional forecasts.
+
+### Scalar DP forecasts
+
+`inventory_scalar_dp.py` freezes typed admission, complete image transforms and
+all-vector counters from the pre-allocation baseline. Keep the committed facts
+immutable after enabling allocation. `check_scalar_dp.py` compares all final
+images, maps, artifacts and debug/release records to that forecast, retaining
+forwarding/copy counts and separating resident DP from selector/metadata traffic.
+See [qualification and commands](../../docs/MIR65816_SCALAR_DP.md).

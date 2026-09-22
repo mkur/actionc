@@ -1,30 +1,26 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed on 2026-09-22 after implementation `12d13e1` and qualification
-of [compatible edge-home coalescing](MIR65816_EDGE_COALESCING.md). Single-word
-and acyclic edge copies, compact reservations, selective cyclic staging, adjacent
-temporary forwarding, the tracker foundation and control-flow slices 3a–3c are
-complete. The [copy inventory](MIR65816_COPY_INVENTORY.md) and
-[movement inventory](MIR65816_MOVEMENT_INVENTORY.md) remain historical evidence.
-All three measured frame/parameter reload candidates and both compatible
-edge-home pairs are implemented. The closed-operation interference rule remains.
+Status: refreshed on 2026-09-22 after bounded scalar DP allocation `c805e48`
+and its [qualification](MIR65816_SCALAR_DP.md). Native word selection, copy
+scheduling/coalescing, compact staging, local/frame/parameter forwarding, the
+state tracker and control-flow slices 3a–3c are complete. Scalar DP now covers
+a measured call-free subset. Historical inventories remain evidence for their
+own revisions; closed-operation interference remains unchanged.
 
 ## Objective and current baseline
 
 Preserve the public ABI and reduce internal data movement, then improve control
 flow and register use. Current main already has CFG-aware stack-slot reuse and
-a restricted pointer-leaf DP allocator. General lifetime-based stack reuse is
-an existing capability. See the
+restricted pointer-leaf and scalar DP allocators. General lifetime-based stack
+reuse is an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
 
-Use the qualified [edge-coalescing snapshot](benchmarks/65816-edge-coalescing/after/tables.md)
+Use the qualified [scalar DP snapshot](benchmarks/65816-scalar-dp/after/tables.md)
 as the working baseline for new forecasts. Its
-[exact delta](benchmarks/65816-edge-coalescing/delta.json) checks all 28 complete
-Action images and 264 records against parameter forwarding. Only optimized
-rotation changes: at input 13, 138→130 bytes, 916→896 cycles, 127→123 stack-byte
-reads and 140→136 writes. Its frame/peak remains 16 bytes. All other builds,
-non-edge stores, DP traffic, forwarding counts and guards remain unchanged.
-Keep historical snapshots immutable.
+[exact delta](benchmarks/65816-scalar-dp/delta.json) checks all 28 complete Action
+images and 264 records against edge coalescing. Fourteen builds match their
+frozen scalar forecasts and fourteen remain identical. Forwarding/copy counts,
+public ABI and guard algorithms remain. Keep historical snapshots immutable.
 
 Both compilers implement a general unsigned 16-bit sum loop; input 13 is supplied
 at runtime, and both return 91. Measurements run from function entry through RTL,
@@ -32,18 +28,19 @@ including Action's stack guards and excluding caller setup:
 
 | Mode / compiler | Code bytes | VM cycles | Additional stack bytes |
 | --- | ---: | ---: | ---: |
-| Optimized actionc | 120 | 1,212 | 12 |
+| Optimized actionc | 120 | 1,092 | 6 |
 | Optimized vbcc | 22 | 344 | 0 |
 | Raw actionc | 146 | 1,587 | 14 |
 | Raw vbcc | 32 | 533 | 4 |
 
-The current optimized [Action listing](benchmarks/65816-edge-coalescing/after/sum_loop.optimized.actionc.lst)
+The current optimized [Action listing](benchmarks/65816-scalar-dp/after/sum_loop.optimized.actionc.lst)
 uses native word arithmetic, direct single-word edge copies and adjacent A16
 forwarding with checked width omission, fallthrough and short dispatch, while
-retaining stack homes and stores. The
-[vbcc listing](benchmarks/65816-edge-coalescing/after/sum_loop.optimized.vbcc.lst)
-retains the counter in X and the sum in DP. This supports later allocation work;
-it does not justify changing public argument placement or removing stack guards.
+retaining temporary stores in DP and the mutable counter on the stack. The
+[vbcc listing](benchmarks/65816-scalar-dp/after/sum_loop.optimized.vbcc.lst)
+retains the counter in X and the sum in DP. This supports a measured X/Y
+residency investigation. Public argument placement and stack guards remain
+outside this work.
 Use the full corpus, including calls, pointer traffic and wider values, to choose
 and qualify general improvements.
 
@@ -62,6 +59,7 @@ and qualify general improvements.
 | Direct frame store/load forwarding | Omit only an immediately redundant word reload from a non-addressable frame object; preserve both stores, homes and A/N/Z. | [Results](MIR65816_FRAME_FORWARDING.md), [qualification](abi/action65816-frame-forwarding-qualification.json) |
 | Incoming-parameter word forwarding | Omit a repeated immutable argument load immediately or through one checked Store; retain captures and independent temp/frame witnesses. | [Results](MIR65816_PARAMETER_FORWARDING.md), [qualification](abi/action65816-parameter-forwarding-qualification.json) |
 | Compatible edge-home coalescing | Transactional source-home affinities with fixed block-parameter anchors; omit direct self-copies and preserve final A/N/Z. | [Results](MIR65816_EDGE_COALESCING.md), [qualification](abi/action65816-edge-coalescing-qualification.json) |
+| Bounded scalar DP allocation | Promote up to 16 existing private word-home classes in verified call-free routines; preserve forwarding and shrink real stack frames. | [Results](MIR65816_SCALAR_DP.md), [qualification](abi/action65816-scalar-dp-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -81,10 +79,13 @@ progress for `sum_loop(13)` is:
 | Selective cyclic staging | 146 / 1,587 | 120 / 1,212 |
 | Direct frame forwarding | 146 / 1,587 | 120 / 1,212 |
 | Incoming-parameter forwarding | 146 / 1,587 | 120 / 1,212 |
-| Compatible edge-home coalescing (current baseline) | 146 / 1,587 | 120 / 1,212 |
+| Compatible edge-home coalescing | 146 / 1,587 | 120 / 1,212 |
+| Scalar DP (current baseline) | 146 / 1,587 | 120 / 1,092 |
 
 The observed stack peak remains 14 bytes raw. It stayed 16 bytes optimized
-through acyclic scheduling, then fell to 12 with compact staging reservations. The original direct-copy forecasts and selection details remain in its
+through acyclic scheduling, then fell to 12 with compact staging reservations
+and six with scalar DP. The original direct-copy forecasts and selection details
+remain in its
 [detailed plan](MIR65816_SINGLE_WORD_EDGE_COPIES_PLAN.md); the
 [measured results](MIR65816_SINGLE_WORD_EDGE_COPIES.md) confirmed those forecasts.
 They are completed work, not forecasts for the next slice.
@@ -102,7 +103,7 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 4 (bounded slice complete) | Parallel-copy scheduling and coalescing | Both compatible initialization pairs now share anchored destinations; retain closed-operation interference and frame accounting. |
 | Frame forwarding (complete) | Direct frame store/load forwarding | Typed object/displacement/home witness, exact A/N/Z and one omitted load; both stores and all frame contracts remain. |
 | Parameter forwarding (complete) | Repeated incoming-parameter loads | Separate checked read witness, immediate reload or one admitted Store; both measured raw-code reloads removed. |
-| 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
+| 5 (bounded slice complete) | Scalar DP allocation | Up to 16 word-home classes; call-free whitelist, explicit scratch partition, mixed-location verification and exact stack accounting. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
 The [movement inventory](MIR65816_MOVEMENT_INVENTORY.md) found no additional
@@ -144,7 +145,7 @@ eight fewer code bytes and 160 fewer cycles per rotation call, with staging
 reduced 6→2 bytes and frame/peak reduced 20→16. Existing single-word and acyclic
 schedules are preserved. The frozen plan's forecasts all matched.
 
-Freeze a fresh baseline for every later optimization. Use the qualified edge-coalescing
+Freeze a fresh baseline for every later optimization. Use the qualified scalar DP
 snapshot for new forecasts. The movement inventory's edge counts
 originally had zero physical self-copies, two compatible initialization pairs
 and five interfering pairs. Both compatible pairs now share homes; the five
@@ -167,19 +168,21 @@ The optimized rotation's two compatible initialization pairs are now coalesced.
 Moving both source homes together passes full frame verification while retaining
 all block-parameter anchors. Exactly two producer operands change and four edge
 instructions disappear: eight bytes and 20 cycles saved per call, with four
-fewer stack-byte reads and writes. The frame remains 16 bytes. The five other
+fewer stack-byte reads and writes. That slice left the frame at 16 bytes. The five other
 pairs interfere, including the sum-loop result and its input during their shared
 arithmetic operation; their copies remain.
 
-The next strategy is scalar DP allocation for a verified call-free subset, with
-explicit scratch reservations and per-operation clobber constraints. Begin with
-a fresh lifetime/selector inventory following the
-[scalar DP inventory and implementation plan](MIR65816_SCALAR_DP_PLAN.md).
-Its preliminary measured projections are conditional on preserving native word
-selection and forwarding; inventory and exact forecasts precede allocation.
-It addresses the repeated memory traffic in `sum_loop(13)`, which the bounded
-coalescing slice leaves unchanged. Broader coalescing, byte-lane forwarding and
-residence across calls/joins require separate measurements and designs.
+The [scalar DP inventory and plan](MIR65816_SCALAR_DP_PLAN.md) are implemented.
+At input 13 the sum loop now saves 120 cycles and six stack bytes; rotation
+saves 103 cycles and eight stack bytes. The slice preserves the existing logical
+copies and forwarding. Rejected raw casts, wider values and calling routines
+retain their previous strategy.
+
+Next, inventory remaining emitted DP/stack loads and X/Y clobbers before choosing
+one bounded loop-residency slice. Count actual instructions and costs against
+this baseline. Mutable counter promotion, broader scalar admission, partial DP
+allocation and cross-call residency need separate alias/effect and profitability
+proofs; they are not implied by the current allocator.
 
 ## Proof obligations for later slices
 

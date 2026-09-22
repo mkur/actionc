@@ -1,9 +1,9 @@
 # Scalar DP inventory and measured implementation plan
 
-Status: slices 1–3 implemented. Inventory `3af8799` froze the forecast against
-qualified main `e790349`; prerequisite `0298e49` preserved all saved images.
-The bounded allocator matches all 28 frozen image transforms and all 264 debug
-measurement records. Full cross-profile qualification is the remaining slice. See the
+Status: complete on 2026-09-22. Inventory `3af8799`, byte-identical prerequisite
+`0298e49`, allocator `c805e48` and qualification probes `78d0a13` implement the
+four slices. All frozen images and forecasts match measured output in both host
+profiles. See [results and qualification](MIR65816_SCALAR_DP.md), the
 [quality plan](MIR65816_CODE_QUALITY_PLAN.md) and
 [planning evidence](benchmarks/65816-scalar-dp-plan/baseline.json).
 

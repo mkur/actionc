@@ -92,3 +92,8 @@ saved corpus images, maps and historical movement facts are byte-identical,
 including LF/CRLF compilation. Validation covers 97 compiler unit tests, 60
 integration tests and seven native state tests, including independent ca65
 encodings, boundary arithmetic and same-offset stack/DP generation checks.
+
+The [scalar allocation slice](MIR65816_SCALAR_DP.md) now enables these checked
+homes for a bounded whole-routine whitelist. Final qualification includes 100
+emitter/proof unit tests and 111 native tests per host profile. Loop residency
+comes from CFG liveness; tracker permissions still stop at labels and calls.
