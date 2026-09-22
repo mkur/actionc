@@ -1,0 +1,17 @@
+{
+  "records": 264,
+  "builds": 56,
+  "artifact_files": 224,
+  "complete_records_equal": true,
+  "artifacts_equal": true,
+  "external_failures": [
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "compiler": "vbcc",
+      "vector": 0
+    }
+  ],
+  "complete_control_and_observer_records_equal": true,
+  "frozen_comparison_authenticated": true
+}

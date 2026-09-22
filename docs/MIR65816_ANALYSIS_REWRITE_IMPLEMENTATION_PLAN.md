@@ -1,9 +1,10 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: ready for implementation, based on main `6711670`. This implements the
-[foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Compiler changes
-have not started. Commit each completed slice separately, retaining existing
-local changes and all current selection policies.
+Status: slice 0 complete; compiler slices remain planned. Based on main
+`6711670`, this implements the
+[foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
+completed slice separately, retaining existing local changes and all current
+selection policies.
 
 ## Deliverable and acceptance contract
 
@@ -73,6 +74,13 @@ Use the following contract vocabulary:
   Matchers cannot attach an arbitrary proof or caller-authored effect summary.
 
 ## Slice 0 — Preserve the baseline and prepare the gate
+
+Completed: [checker](../tools/compare65816/check_analysis_rewrite.py),
+[negative controls](../tools/compare65816/test_analysis_rewrite.py) and
+[baseline self-comparison](benchmarks/65816-analysis-rewrite/slice0-equality.json).
+All 82 comparison-tool tests pass. The gate authenticates the actual input
+against the frozen files, compares every observer field outside build provenance,
+and requires exactly the known external failure.
 
 The baseline record is delivered with this plan. Before compiler edits, verify
 it against the retained `target/loop-inx-after` directory. Missing artifacts
