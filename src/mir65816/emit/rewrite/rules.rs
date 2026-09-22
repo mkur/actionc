@@ -1,3 +1,9 @@
+use super::super::{
+    Location, TempId,
+    analysis::sites::Node,
+    copies::WordHome,
+    selected::{ByteOp, Instruction, Request},
+};
 use super::super::{analysis::sites::SelectedSite, selected::Action};
 use super::{
     context::{Context, Proof},
@@ -36,5 +42,81 @@ pub(in crate::mir65816::emit) fn identity(
             })
         })(),
         Some(first),
+    )
+}
+
+pub(super) fn prove_adjacent(
+    context: &Context<'_>,
+    load: SelectedSite,
+    request: SelectedSite,
+    temp: TempId,
+    home: Location,
+) -> Result<(), String> {
+    let load_node = context.facts.validate(load)?;
+    let request_node = context.facts.validate(request)?;
+    if request_node.0.checked_add(2) != Some(load_node.0) {
+        return Err("load is not adjacent to its consume request".into());
+    }
+    let records = context.selected.records();
+    let Action::Instruction { form, .. } = &records[load_node.0].action else {
+        return Err("missing original load".into());
+    };
+    let offset = match form {
+        Instruction::Byte(ByteOp::LdaStack, n) => WordHome::Stack(*n),
+        Instruction::Byte(ByteOp::LdaDp, n) => WordHome::DirectPage(*n),
+        _ => return Err("not a temporary word LDA".into()),
+    };
+    if records[request_node.0].action
+        != Action::Request(Request::ConsumeWord(Some(temp), Some(home), Some(offset)))
+        || records[request_node.0].parent.is_some()
+        || records[request_node.0 + 1].action != Action::EndRequest(request_node)
+        || records[request_node.0 + 1].decision != Some(true)
+    {
+        return Err("candidate consume attribution mismatch".into());
+    }
+    context
+        .adjacent_load(request, Some(temp), Some(home), form)
+        .into_result()
+        .map_err(|b| b.reason)
+}
+
+pub(in crate::mir65816::emit) fn adjacent(
+    context: &Context<'_>,
+    load: SelectedSite,
+) -> Proof<Plan> {
+    Proof::checked(
+        (|| {
+            let node = context.facts.validate(load)?;
+            let request_node = Node(node.0.checked_sub(2).ok_or("missing candidate request")?);
+            let request = context.selected.site(request_node)?;
+            let Action::Request(Request::ConsumeWord(Some(temp), Some(home), _)) =
+                context.selected.records()[request_node.0].action
+            else {
+                return Err("missing typed temporary candidate".into());
+            };
+            prove_adjacent(context, load, request, temp, home)?;
+            let record = context.selected.records()[node.0].clone();
+            let Action::Instruction { effects, .. } = &record.action else {
+                return Err("missing candidate LDA".into());
+            };
+            let delta = Delta {
+                registers: effects.writes,
+                flags: effects.flag_writes,
+            };
+            Ok(Plan {
+                rule: Rule::Adjacent {
+                    request,
+                    temp,
+                    home,
+                },
+                first: load,
+                last: load,
+                original: vec![record],
+                replacement: vec![],
+                removed_definitions: vec![],
+                delta,
+            })
+        })(),
+        Some(load),
     )
 }

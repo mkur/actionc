@@ -43,6 +43,7 @@ pub(super) struct TrackedEmitter65816 {
     code: Code,
     state: State65816,
     recording: Recording,
+    planned_loads: Vec<super::rewrite::pilot::Candidate>,
     x_contract: Option<XContract>,
     x_reserved: bool,
     x_valid: bool,
@@ -491,6 +492,29 @@ impl TrackedEmitter65816 {
             this.state
                 .consume_word(temp, slot, offset, this.word_cursor())
         })
+    }
+    pub fn plan_word_load(
+        &mut self,
+        temp: Option<TempId>,
+        home: Option<Location>,
+        load: Instruction,
+    ) -> bool {
+        let offset = match load {
+            Instruction::Byte(ByteOp::LdaStack, n) => Some(WordHome::Stack(n)),
+            Instruction::Byte(ByteOp::LdaDp, n) => Some(WordHome::DirectPage(n)),
+            _ => None,
+        };
+        // Capture the real original instruction before asking for omission.
+        self.planned_loads.push(super::rewrite::pilot::Candidate {
+            request: super::analysis::sites::Node(self.recording.records.len()),
+            temp,
+            home,
+            load,
+        });
+        self.consume_word(temp, home, offset)
+    }
+    pub fn take_planned_loads(&mut self) -> Vec<super::rewrite::pilot::Candidate> {
+        std::mem::take(&mut self.planned_loads)
     }
     pub fn remember_frame_word(
         &mut self,

@@ -61,6 +61,8 @@ pub struct Code {
     pub(in super::super) instruction_effects: Vec<super::super::effects::EffectRecord>,
     #[cfg(feature = "native65816-state-proof")]
     pub(in super::super) state_trace: Vec<super::super::proof::Snapshot>,
+    #[cfg(feature = "native65816-state-proof")]
+    pub(in super::super) rewrite_observations: Vec<super::super::rewrite::pilot::Observation>,
 }
 
 impl Code {

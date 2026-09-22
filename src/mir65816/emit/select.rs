@@ -266,7 +266,9 @@ pub(super) fn routine_with_replay(
         b.code.span(block.id, block.ops.len(), start);
     }
     let homes = super::analysis::homes::HomeContract::from_verified(routine, &b.frame)?;
+    let candidates = b.code.take_planned_loads();
     let direct = b.code.finish_selected(routine.id, &b.frame, Some(homes))?;
+    let observations = super::rewrite::pilot::shadow(&direct, &candidates, _trace)?;
     let code = if replay {
         super::replay::emit(
             direct.selected.as_ref().ok_or("missing selected routine")?,
@@ -276,6 +278,14 @@ pub(super) fn routine_with_replay(
         direct
     };
     let code = super::layout::finalize(code, true)?;
+    #[cfg(feature = "native65816-state-proof")]
+    let code = {
+        let mut code = code;
+        code.rewrite_observations = observations;
+        code
+    };
+    #[cfg(not(feature = "native65816-state-proof"))]
+    let _ = observations;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

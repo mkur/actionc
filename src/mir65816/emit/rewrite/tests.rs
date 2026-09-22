@@ -43,7 +43,10 @@ fn fixture(nops: usize, consume: bool) -> Code {
         e.op(Implied::Nop);
     }
     if consume {
-        assert!(!e.consume_word(Some(temp), Some(home), Some(word)));
+        assert_eq!(
+            e.consume_word(Some(temp), Some(home), Some(word)),
+            nops == 0
+        );
     }
     match word {
         copies::WordHome::Stack(offset) => e.byte(ByteOp::LdaStack, offset),
@@ -348,4 +351,87 @@ fn declared_store_removal_is_still_blocked_by_its_outside_read() {
         }
     }
     assert!(checked > 0);
+}
+
+fn adjacent_plan(code: &Code) -> Plan {
+    let s = code.selected.as_ref().unwrap();
+    let i = s
+        .records()
+        .iter()
+        .position(|r| matches!(r.action, Action::Request(Request::ConsumeWord(..))))
+        .unwrap()
+        + 2;
+    rules::adjacent(&Context::new(s).unwrap(), s.site(Node(i)).unwrap())
+        .into_result()
+        .unwrap()
+}
+#[test]
+fn actual_load_candidate_is_removed_only_after_checked_replay() {
+    let mut code = fixture(0, true);
+    let old = code.clone();
+    let p = adjacent_plan(&code);
+    assert_eq!(
+        Driver::new(1).apply(&mut code, &p, false),
+        Proof::Proven(())
+    );
+    assert_eq!(code.bytes.len() + 2, old.bytes.len());
+    assert!(code.selected.as_ref().unwrap().validate(p.first).is_err());
+    assert_eq!(
+        Context::new(code.selected.as_ref().unwrap())
+            .unwrap()
+            .facts
+            .undefined_private_reads()
+            .len(),
+        0
+    );
+}
+#[test]
+fn pilot_rejects_partial_home_stale_capture_and_undeclared_changes() {
+    let code = fixture(0, true);
+    let p = adjacent_plan(&code);
+    let Rule::Adjacent {
+        request,
+        temp,
+        home,
+    } = p.rule
+    else {
+        unreachable!()
+    };
+    let mut bad = p.clone();
+    bad.delta.flags = 0;
+    assert!(reject(&code, &bad).contains("undeclared"));
+    bad = p.clone();
+    bad.rule = Rule::Adjacent {
+        request,
+        temp: TempId(u32::MAX),
+        home,
+    };
+    assert!(reject(&code, &bad).contains("attribution"));
+    let partial = match home {
+        Location::Stack(mut s) => {
+            s.offset += 1;
+            Location::Stack(s)
+        }
+        Location::DirectPage(mut s) => {
+            s.offset += 1;
+            Location::DirectPage(s)
+        }
+    };
+    bad = p.clone();
+    bad.rule = Rule::Adjacent {
+        request,
+        temp,
+        home: partial,
+    };
+    assert!(reject(&code, &bad).contains("attribution"));
+    bad = p.clone();
+    bad.rule = Rule::Adjacent {
+        request: adjacent_plan(&fixture(0, true)).first,
+        temp,
+        home,
+    };
+    assert!(reject(&code, &bad).contains("stale"));
+    bad = p;
+    bad.replacement = vec![Instruction::Implied(Implied::Clc)];
+    reject(&code, &bad);
 }

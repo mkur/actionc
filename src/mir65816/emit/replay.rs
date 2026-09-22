@@ -182,7 +182,6 @@ impl Request {
 
 /// Exact output check for the direct reference path and replay qualification.
 /// Selected identities are checked separately; no semantic field is normalized.
-#[cfg(any(test, feature = "native65816-state-proof"))]
 pub(super) fn equivalent(a: &Code, b: &Code) -> Result<(), String> {
     if a.bytes != b.bytes
         || a.fixups != b.fixups

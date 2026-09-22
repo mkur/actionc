@@ -103,8 +103,12 @@ impl Builder<'_> {
     /// Complete operand/home preflight remains the selector's responsibility.
     pub(super) fn load_checked_word(&mut self, operand: WordOperand, temp: Option<TempId>) {
         let slot = temp.and_then(|id| self.frame.temps.get(&id).copied());
-        let offset = operand.home();
-        if self.code.consume_word(temp, slot, offset) || self.code.load_x_word(temp, slot) {
+        let load = match operand {
+            WordOperand::Immediate(n) => Instruction::Word(WordOp::LdaImm, n),
+            WordOperand::Stack(n) => Instruction::Byte(ByteOp::LdaStack, n),
+            WordOperand::DirectPage(n) => Instruction::Byte(ByteOp::LdaDp, n),
+        };
+        if self.code.plan_word_load(temp, slot, load) || self.code.load_x_word(temp, slot) {
             return;
         }
         match operand {

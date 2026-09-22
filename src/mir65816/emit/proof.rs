@@ -259,6 +259,10 @@ pub fn replay_code(code: &Code, trace: bool) -> Result<(Code, Vec<Snapshot>), St
 pub fn compare_replay_output(reference: &Code, replayed: &Code) -> Result<(), String> {
     super::replay::equivalent(reference, replayed)
 }
+pub use super::rewrite::pilot::Observation as RewriteObservation;
+pub fn rewrite_observations(code: &Code) -> &[RewriteObservation] {
+    &code.rewrite_observations
+}
 
 /// Audited non-control-flow families, in both memory widths. DP contents are
 /// deliberately not tracked; private homes and immutable register copies are.

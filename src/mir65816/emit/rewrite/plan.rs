@@ -9,6 +9,11 @@ use super::super::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Rule {
     Identity,
+    Adjacent {
+        request: SelectedSite,
+        temp: super::super::TempId,
+        home: super::super::Location,
+    },
     #[cfg(test)]
     RemoveNop,
     #[cfg(test)]

@@ -138,6 +138,16 @@ impl Driver {
         // equivalence. No arbitrary replacement wins through deadness alone.
         match plan.rule {
             Rule::Identity if original == plan.replacement => {}
+            Rule::Adjacent {
+                request,
+                temp,
+                home,
+            } if plan.replacement.is_empty() => {
+                super::rules::prove_adjacent(&context, plan.first, request, temp, home)?;
+                if records.len() != 1 {
+                    return Err("adjacent rule requires one load".into());
+                }
+            }
             #[cfg(test)]
             Rule::NonDecreasingControl if original == plan.replacement => {}
             #[cfg(test)]
@@ -212,4 +222,24 @@ fn replace(
         }
     }
     selected.edited(records)
+}
+
+/// Materialize a previously recorded load candidate for analysis. No arbitrary
+/// instruction insertion is exposed; publication still requires driver replay.
+pub(super) fn insert_load(
+    selected: &SelectedRoutine,
+    before: Node,
+    load: &Instruction,
+) -> Result<SelectedRoutine, String> {
+    selected.site(before)?;
+    if !matches!(
+        load,
+        Instruction::Byte(
+            super::super::selected::ByteOp::LdaStack | super::super::selected::ByteOp::LdaDp,
+            _
+        )
+    ) {
+        return Err("candidate is not a physical word LDA".into());
+    }
+    replace(selected, before.0, before.0, std::slice::from_ref(load))
 }
