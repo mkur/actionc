@@ -1,7 +1,9 @@
 //! Reviewed emitted output and nonserialized proof boundaries. The original
 //! pre-tracker snapshot remains in history; 3a removes MIR-entry REP and
 //! 3b removes terminal JMLs to adjacent MIR blocks; 3c shortens only MIR
-//! conditional dispatch, remapping every position-bearing contract.
+//! conditional dispatch, remapping every position-bearing contract. Compact
+//! staging changes only the reviewed sum-loop frame and its reservation/argument
+//! operands; code layout and all position-bearing proof metadata remain.
 use actionc::{compiler::native65816, includes::ModuleLoadOptions, mir65816};
 
 #[test]

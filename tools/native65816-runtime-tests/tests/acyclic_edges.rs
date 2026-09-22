@@ -87,7 +87,7 @@ fn independent_acyclic_encodings_preserve_words_full_a_flags_and_staging() {
 
 #[test]
 fn direct_multi_copy_evidence_rejects_unsafe_orders_and_stale_restore() {
-    let moves = [((true, 6), 32, 2), ((true, 2), 36, 4)];
+    let moves = [((true, 6), None, 2), ((true, 2), None, 4)];
     let valid = [0xa3, 2, 0x83, 4, 0xa3, 6, 0x83, 2, 0xa3, 4];
     assert_eq!(
         multi_word_edge::schedule(&valid, &moves, true),
@@ -100,6 +100,6 @@ fn direct_multi_copy_evidence_rejects_unsafe_orders_and_stale_restore() {
     ] {
         assert!(multi_word_edge::schedule(&bytes, &moves, true).is_none());
     }
-    let cyclic = [((true, 4), 32, 2), ((true, 2), 36, 4)];
+    let cyclic = [((true, 4), None, 2), ((true, 2), None, 4)];
     assert!(multi_word_edge::schedule(&valid, &cyclic, true).is_none());
 }

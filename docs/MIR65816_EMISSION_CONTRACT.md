@@ -192,22 +192,25 @@ to execute code or publish it in image/o65 formats.
 
 Nonempty edges whose arguments and parameters are all exactly two bytes may use
 native A16 LDA/STA. Complete preflight checks stack sources, authoritative mutable
-parameter homes, destinations, the target label and the two accessed bytes of
-each existing four-byte staging slot, including transient S movement. A single
-word assignment loads its entire source into A before storing directly to the
-destination; its staging reservation and validation remain, without any staging
-access. Self-copies still load and store. Multi-word edges with disjoint word
+parameter homes, destinations and the target label, including transient S
+movement. Staged paths also check capacity and the entire accessed byte range
+of each required slot. A single word assignment loads its entire source into A
+before storing directly to the destination; it needs no staging reservation. Self-copies still load and store. Multi-word edges with disjoint word
 destinations and no partial source/destination overlap use direct copies when
 their dependency graph is acyclic. A stable topological schedule consumes each
 source before another assignment overwrites it, preferring the original final
 assignment last. If that assignment must move earlier, a final LDA from its
 destination restores the original full A and N/Z. Cycles and unproved overlaps
 retain complete two-phase staging; no partial scheduling is emitted on failure.
-All staging reservations and their preflight checks remain. Mixed-width and legal
-unsupported nonempty edges retain bytewise emission. Internal labels reset mode
+Allocation and selection share this copy planner. Only staged edges contribute
+to reservation requirements; slot index i reserves the maximum actual argument
+width at i across those edges. Mixed-width and legal unsupported nonempty edges
+retain bytewise emission and reserve their full widths. Internal labels reset mode
 permission; proved MIR entries use the contract above. Word edges restore A16
 when needed. No DP traffic, pushes, calls or wider
-external memory accesses are introduced. Frame allocation and guard costs remain.
+external memory accesses are introduced. Final frame extent, incoming parameter
+displacements, spill bytes and local peak reflect compact staging. Guard logic
+and public ABI placement remain unchanged.
 Each directly scheduled word removes a staging store/reload pair: two private
 stack-byte reads and two writes, two instructions and ten cycles. A necessary
 final A/N/Z reload adds two stack-byte reads, one instruction and five cycles.
@@ -359,9 +362,14 @@ call targets/arguments/results, returns, edge arguments and block parameters.
 All inputs, outputs and values live across an operation interfere for its entire
 instruction sequence, including dead outputs that selection still writes. Block
 parameters, even unused ones, interfere with each other and successor live-ins.
-Parallel-edge staging slots remain separate and fully reserved. Acyclic word
-edges schedule direct copies as described above; other parallel edges save every
-source before writing destinations. Cycles cannot destroy successor live-ins.
+Required parallel-edge staging slots remain separate from all temporary homes
+and frame objects. Empty/direct edges contribute no staging; staged edges save
+every source before writing destinations. Each shared slot has the maximum
+actual width needed at that argument index, with multi-byte slots aligned evenly.
+The allocator plans from a frame containing all private homes: immutable incoming
+arguments lie above it, and adding staging only moves them farther from any
+destination. The final allocation independently rechecks every plan, required
+capacity, physical overlap, incoming last-byte bound and frame accounting. Cycles cannot destroy successor live-ins.
 
 Only MIR value temporaries share storage. Frame objects, addressed locals and
 mutable parameters retain their dedicated homes. No temporary address escapes,

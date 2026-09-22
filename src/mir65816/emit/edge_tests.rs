@@ -53,10 +53,11 @@ fn edge() -> Mir65816Edge {
 }
 
 #[test]
-fn checked_acyclic_word_edges_emit_direct_copies_and_one_typed_jump_in_every_mode() {
+fn checked_acyclic_word_edges_emit_direct_copies_without_staging_in_every_mode() {
     let p = program();
     for mode in [None, Some(true), Some(false)] {
         let mut b = builder(&p.routines[0]);
+        b.frame.edge_copies.clear();
         match mode {
             Some(true) => b.code.a8(),
             Some(false) => b.code.a16(),
@@ -209,7 +210,7 @@ fn word_edge_preflight_checks_every_entry_without_mutation() {
             5 => {
                 b.frame.edge_copies.pop();
             }
-            6 => b.frame.edge_copies[1].width = 2,
+            6 => b.frame.edge_copies[1].width = 1,
             7 => b.frame.edge_copies[1].offset = 255,
             8 => {
                 b.blocks.clear();
@@ -321,7 +322,10 @@ fn only_accessed_word_extent_matters_after_transient_stack_movement() {
                         .temps
                         .insert(TempId(2), Location::Stack(Slot { offset, width: 2 }));
                 }
-                1 => b.frame.edge_copies[1].offset = offset,
+                1 => {
+                    e.args[1] = Mir65816Value::Temp(TempId(0), ByteSize::new(2));
+                    b.frame.edge_copies[1].offset = offset;
+                }
                 2 => {
                     b.frame
                         .temps
@@ -420,6 +424,7 @@ fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
             Mir65816Value::Param(r.frame.parameters[0].param),
         ] {
             let mut b = builder(r);
+            b.frame.edge_copies.clear();
             match mode {
                 Some(true) => b.code.a8(),
                 Some(false) => b.code.a16(),
@@ -463,10 +468,10 @@ fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
 }
 
 #[test]
-fn single_word_edges_retain_full_preflight_including_unused_staging() {
+fn single_word_edges_validate_operands_without_requiring_unused_staging() {
     let mut p = program();
     p.routines[0].blocks.last_mut().unwrap().params.truncate(1);
-    for problem in 0..12 {
+    for problem in (0..12).filter(|p| !(5..=7).contains(p)) {
         let mut b = builder(&p.routines[0]);
         let mut e = Mir65816Edge {
             target: BlockId(99),
@@ -510,7 +515,7 @@ fn single_word_edges_retain_full_preflight_including_unused_staging() {
         assert!(b.edge(&e).is_err(), "{problem}");
         assert_eq!(format!("{:?}", b.code), before);
     }
-    for field in 0..3 {
+    for field in 0..2 {
         for (offset, delta, ok) in [
             (254, 0, true),
             (255, 0, false),

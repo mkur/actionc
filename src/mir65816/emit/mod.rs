@@ -1,8 +1,9 @@
 //! Conservative native instruction selection. Every live value has invocation
 //! storage or a verified per-domain pointer home; scratch is dead at calls.
 mod allocation;
-mod liveness;
+mod copies;
 pub(super) mod layout;
+mod liveness;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod select;

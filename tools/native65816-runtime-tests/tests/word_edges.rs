@@ -134,6 +134,7 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                 let s = u32::from(before.s);
                 let mut expected = vec![];
                 let mut values = vec![];
+                let saved_stack = h.bus.ram[0x4000..0x6000].to_vec();
                 for &((stack, source), stage, _) in &w.moves {
                     let value = if stack {
                         h.bus.value(s + u32::from(source), 2) as u16
@@ -149,19 +150,16 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     }
                     if !w.direct {
                         expected.extend([
-                            (s + u32::from(stage), Access::Write(value as u8)),
-                            (s + u32::from(stage) + 1, Access::Write((value >> 8) as u8)),
+                            (
+                                s + u32::from(stage.expect("staged edge")),
+                                Access::Write(value as u8),
+                            ),
+                            (
+                                s + u32::from(stage.expect("staged edge")) + 1,
+                                Access::Write((value >> 8) as u8),
+                            ),
                         ]);
                     }
-                    if w.direct {
-                        h.bus.ram
-                            [(s + u32::from(stage)) as usize..(s + u32::from(stage) + 2) as usize]
-                            .copy_from_slice(&[0xbe, 0xef]);
-                    }
-                    // All four bytes belong to staging; the upper two must stay untouched.
-                    h.bus.ram
-                        [(s + u32::from(stage) + 2) as usize..(s + u32::from(stage) + 4) as usize]
-                        .copy_from_slice(&[0xde, 0xad]);
                 }
                 for &i in &w.order {
                     let ((stack, source), stage, dest) = w.moves[i];
@@ -174,8 +172,8 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     }
                     if !w.direct {
                         expected.extend([
-                            (s + u32::from(stage), Access::Read),
-                            (s + u32::from(stage) + 1, Access::Read),
+                            (s + u32::from(stage.expect("staged edge")), Access::Read),
+                            (s + u32::from(stage.expect("staged edge")) + 1, Access::Read),
                         ]);
                     }
                     expected.extend([
@@ -201,11 +199,21 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                 let actual: Vec<_> = h.bus.trace.iter().map(|&(_, a, v)| (a, v)).collect();
                 assert_eq!(actual, expected);
                 h.bus.watched.clear();
-                for (&(_, stage, dest), &value) in w.moves.iter().zip(&values) {
+                for (&(_, _, dest), &value) in w.moves.iter().zip(&values) {
                     assert_eq!(h.bus.value(s + u32::from(dest), 2), u32::from(value));
-                    assert_eq!(h.bus.value(s + u32::from(stage) + 2, 2), 0xadde);
-                    if w.direct {
-                        assert_eq!(h.bus.value(s + u32::from(stage), 2), 0xefbe);
+                }
+                // Removed reservations may now hold unrelated live bytes. Check
+                // the whole stack instead of planting canaries in former slots.
+                for (i, &byte) in saved_stack.iter().enumerate() {
+                    let address = 0x4000 + i as u32;
+                    if !expected
+                        .iter()
+                        .any(|&(a, v)| a == address && matches!(v, Access::Write(_)))
+                    {
+                        assert_eq!(
+                            h.bus.ram[address as usize], byte,
+                            "unexpected stack write at {address:04x}"
+                        );
                     }
                 }
                 let expected_cycles: u64 = (if w.fallthrough { 0 } else { 4 })
@@ -276,7 +284,10 @@ fn independent_assembler_and_decoder_check_complete_word_copy_shape() {
     let mut bus = Bus::new();
     bus.map(start, &code, false);
     let w = word_edge::decode(&bus, start, start..end).unwrap();
-    assert_eq!(w.moves, vec![((true, 4), 8, 2), ((false, 0xa55a), 12, 4)]);
+    assert_eq!(
+        w.moves,
+        vec![((true, 4), Some(8), 2), ((false, 0xa55a), Some(12), 4)]
+    );
     assert_eq!(
         word_edge::decode(&bus, start + 2, start..end)
             .unwrap()
@@ -446,7 +457,7 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                             load: load_pc,
                             jump: target - 4,
                             source: (!immediate, if immediate { 0xa55a } else { source.into() }),
-                            staging: 16,
+                            staging: Some(16),
                             destination,
                             target,
                             direct: true,

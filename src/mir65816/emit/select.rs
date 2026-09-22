@@ -1,4 +1,8 @@
-use super::{allocation::width, *};
+use super::{
+    allocation::width,
+    copies::{self, WordOperand},
+    *,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(test)]
@@ -16,6 +20,11 @@ mod branch_tests;
 #[cfg(test)]
 #[path = "edge_tests.rs"]
 mod edge_tests;
+#[cfg(test)]
+#[path = "staging_tests.rs"]
+mod staging_tests;
+#[cfg(test)]
+use copies::acyclic_word_order;
 
 #[path = "accumulator.rs"]
 mod accumulator;
@@ -44,14 +53,6 @@ enum Memory {
     },
 }
 
-/// Fully checked operands for one native word operation. These never refer to
-/// external memory or carry a value across MIR operations.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum WordOperand {
-    Immediate(u16),
-    Stack(u8),
-}
-
 /// A complete preflight, shared by materialized and branch-only comparisons.
 struct WordCondition {
     left: WordOperand,
@@ -61,47 +62,10 @@ struct WordCondition {
     predicate: Branch,
 }
 
-/// Complete immutable preflight for a two-phase parallel assignment. Staging
-/// capacity remains four bytes; only its checked low word is accessed here.
+/// Checked word copies, with staging only when the shared plan requires it.
 struct WordEdge {
     target: Label,
-    moves: Vec<(WordOperand, u8, u8)>, // source, staging, destination
-}
-
-/// Private word homes are disjoint destinations. Capture each source before
-/// another assignment overwrites it; retain every assignment, including self-copies.
-/// A cycle or partial byte overlap keeps the complete staged path.
-fn acyclic_word_order(moves: &[(WordOperand, u8, u8)]) -> Option<Vec<usize>> {
-    for (i, &(source, _, destination)) in moves.iter().enumerate() {
-        if moves[..i]
-            .iter()
-            .any(|&(_, _, d)| destination.abs_diff(d) < 2)
-        {
-            return None;
-        }
-        if let WordOperand::Stack(s) = source {
-            if moves.iter().any(|&(_, _, d)| s.abs_diff(d) == 1) {
-                return None;
-            }
-        }
-    }
-    let mut pending: BTreeSet<_> = (0..moves.len()).collect();
-    let mut order = Vec::with_capacity(moves.len());
-    while !pending.is_empty() {
-        let ready = |i: usize| {
-            pending.iter().all(|&j| {
-                i == j || !matches!(moves[j].0, WordOperand::Stack(s) if s.abs_diff(moves[i].2) < 2)
-            })
-        };
-        let i = pending
-            .iter()
-            .copied()
-            .find(|&i| i + 1 != moves.len() && ready(i))
-            .or_else(|| pending.iter().copied().find(|&i| ready(i)))?;
-        pending.remove(&i);
-        order.push(i);
-    }
-    Some(order)
+    copies: copies::WordCopies,
 }
 
 impl From<Location> for Memory {
@@ -277,19 +241,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
 
 impl Builder<'_> {
     fn incoming(&self, id: ParamId) -> Result<u32, String> {
-        let param = self
-            .routine
-            .frame
-            .parameters
-            .iter()
-            .find(|p| p.param == id)
-            .ok_or("unknown parameter")?;
-        let Mir65816AbiHome::StackArgument { offset, size, .. } = param.incoming else {
-            return Err("invalid parameter home".into());
-        };
-        abi::stack::incoming_displacement(ByteSize::new(self.frame.extent.into()), offset, size)
-            .map(|d| d.get())
-            .map_err(|e| e.to_string())
+        self.frame.incoming_home(self.routine, id)
     }
     fn object(&self, id: Mir65816FrameObjectId) -> Result<u32, String> {
         self.routine
@@ -301,24 +253,7 @@ impl Builder<'_> {
             .ok_or("unknown frame object".into())
     }
     fn parameter(&self, id: ParamId) -> Result<(u32, u8), String> {
-        let param = self
-            .routine
-            .frame
-            .parameters
-            .iter()
-            .find(|p| p.param == id)
-            .ok_or("unknown parameter")?;
-        let Mir65816AbiHome::StackArgument { size, .. } = param.incoming else {
-            return Err("invalid parameter home".into());
-        };
-        Ok((
-            if let Some(object) = param.frame_object {
-                self.object(object)?
-            } else {
-                self.incoming(id)?
-            },
-            width(size)?,
-        ))
+        self.frame.parameter_home(self.routine, id)
     }
     fn temp(&self, id: TempId) -> Result<Location, String> {
         self.frame
@@ -347,31 +282,8 @@ impl Builder<'_> {
         u8::try_from(offset.get()).map_err(|_| "word stack displacement overflow".into())
     }
     fn word_operand(&self, value: &Mir65816Value) -> Result<Option<WordOperand>, String> {
-        let offset = match value {
-            Mir65816Value::U8(value) => {
-                return Ok(Some(WordOperand::Immediate(u16::from(*value))));
-            }
-            Mir65816Value::U16(value) => return Ok(Some(WordOperand::Immediate(*value))),
-            Mir65816Value::Temp(id, bytes) => {
-                let location = self.temp(*id)?;
-                if location.slot().width != width(*bytes)? {
-                    return Err("temporary width mismatch".into());
-                }
-                match location {
-                    Location::Stack(slot) if slot.width == 2 => u32::from(slot.offset),
-                    _ => return Ok(None),
-                }
-            }
-            Mir65816Value::Param(id) => {
-                let (offset, bytes) = self.parameter(*id)?;
-                if bytes != 2 {
-                    return Ok(None);
-                }
-                offset
-            }
-            _ => return Ok(None),
-        };
-        Ok(Some(WordOperand::Stack(self.word_displacement(offset)?)))
+        self.frame
+            .word_operand(self.routine, self.code.delta(), value)
     }
     fn word_binary(
         &mut self,
@@ -704,19 +616,7 @@ impl Builder<'_> {
         })
     }
     fn value_width(&self, value: &Mir65816Value) -> Result<u8, String> {
-        Ok(match value {
-            Mir65816Value::U8(_) => 1,
-            Mir65816Value::U16(_) => 2,
-            Mir65816Value::U24(_) => 3,
-            Mir65816Value::U32(_) => 4,
-            Mir65816Value::Param(id) => self.parameter(*id)?.1,
-            Mir65816Value::Null(w)
-            | Mir65816Value::Address(_, w)
-            | Mir65816Value::StaticAddress(_, w)
-            | Mir65816Value::Temp(_, w)
-            | Mir65816Value::GlobalAddress(_, w)
-            | Mir65816Value::RoutineAddress(_, w) => width(*w)?,
-        })
+        self.frame.value_width(self.routine, value)
     }
     /// A8 byte load, leaving carry intact for multi-byte arithmetic.
     fn value_byte(&mut self, value: &Mir65816Value, byte: u8) -> Result<(), String> {
@@ -1014,100 +914,82 @@ impl Builder<'_> {
             }
         }
     }
+    fn staging(&self, n: usize, bytes: u8) -> Result<u8, String> {
+        let slot = self
+            .frame
+            .edge_copies
+            .get(n)
+            .ok_or("missing edge staging slot")?;
+        if !(bytes..=4).contains(&slot.width) {
+            return Err("invalid edge staging slot width".into());
+        }
+        abi::stack::access_displacement(
+            ByteOffset::new(slot.offset.into()),
+            ByteSize::new(bytes.into()),
+            ByteSize::new(self.code.delta()),
+        )
+        .map(|d| d.get() as u8)
+        .map_err(|e| e.to_string())
+    }
     fn word_edge(&self, edge: &Mir65816Edge) -> Result<Option<WordEdge>, String> {
-        let block = self
-            .routine
-            .blocks
-            .iter()
-            .find(|b| b.id == edge.target)
-            .ok_or("unknown branch target")?;
-        if edge.args.len() != block.params.len() {
-            return Err("edge argument count mismatch".into());
-        }
-        if block.params.is_empty() || block.params.iter().any(|(_, w)| w.get() != 2) {
-            return Ok(None);
-        }
+        let copies = self
+            .frame
+            .word_copies(self.routine, edge, self.code.delta())?;
         let target = *self
             .blocks
             .get(&edge.target)
             .ok_or("missing branch target label")?;
-        let mut moves = Vec::with_capacity(edge.args.len());
-        let mut supported = true;
-        for (n, (value, &(dest, _))) in edge.args.iter().zip(&block.params).enumerate() {
-            // word_operand deliberately widens U8 for arithmetic, but edges
-            // require exact physical argument widths.
-            if self.value_width(value)? != 2 {
-                return Err("edge argument width mismatch".into());
-            }
-            let source = self.word_operand(value)?;
-            let home = self.temp(dest)?;
-            if home.slot().width != 2 {
-                return Err("edge destination temporary width mismatch".into());
-            }
-            let destination = match home {
-                Location::Stack(slot) => Some(self.word_displacement(slot.offset.into())?),
-                Location::DirectPage(_) => None,
-            };
-            let staging = self
+        // Preflight fallback capacity as well, before any prefix or copy writes.
+        let Some(mut copies) = copies else {
+            for (i, bytes) in self
                 .frame
-                .edge_copies
-                .get(n)
-                .ok_or("missing edge staging slot")?;
-            if staging.width != 4 {
-                return Err("invalid edge staging slot width".into());
+                .edge_widths(self.routine, edge)?
+                .into_iter()
+                .enumerate()
+            {
+                self.staging(i, bytes)?;
             }
-            let staging = self.word_displacement(staging.offset.into())?;
-            if let (Some(source), Some(destination)) = (source, destination) {
-                moves.push((source, staging, destination));
-            } else {
-                // Continue checking: a legal fallback must not mask malformed
-                // later entries, nor emit a prefix before discovering them.
-                supported = false;
+            return Ok(None);
+        };
+        if copies.order.is_none() {
+            for (i, m) in copies.moves.iter_mut().enumerate() {
+                m.1 = Some(self.staging(i, 2)?);
             }
         }
-        Ok(supported.then_some(WordEdge { target, moves }))
+        Ok(Some(WordEdge { target, copies }))
     }
     fn emit_word_edge(&mut self, edge: WordEdge, fallthrough: bool) {
         self.code.barrier();
         self.code.a16();
-        if let &[(source, _, destination)] = edge.moves.as_slice() {
-            // One assignment needs no staging: capture the complete word in A
-            // before writing either destination byte, even for a self-copy.
-            match source {
-                WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
-                WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
-            }
-            self.code.byte(ByteOp::StaStack, destination);
-            self.finish_edge(edge.target, fallthrough);
-            return;
-        }
-        if let Some(order) = acyclic_word_order(&edge.moves) {
-            for &i in &order {
-                let (source, _, destination) = edge.moves[i];
+        if let Some(order) = &edge.copies.order {
+            for &i in order {
+                let (source, _, destination) = edge.copies.moves[i];
                 match source {
                     WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
                     WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
                 }
                 self.code.byte(ByteOp::StaStack, destination);
             }
-            if order.last().copied() != Some(edge.moves.len() - 1) {
+            if order.last().copied() != Some(edge.copies.moves.len() - 1) {
                 // The old final staged load established full A and N/Z. The
                 // destination retains that value even when its assignment moved.
                 self.code
-                    .byte(ByteOp::LdaStack, edge.moves.last().unwrap().2);
+                    .byte(ByteOp::LdaStack, edge.copies.moves.last().unwrap().2);
             }
             self.finish_edge(edge.target, fallthrough);
             return;
         }
-        for &(source, staging, _) in &edge.moves {
+        for &(source, staging, _) in &edge.copies.moves {
             match source {
                 WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
                 WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
             }
-            self.code.byte(ByteOp::StaStack, staging);
+            self.code
+                .byte(ByteOp::StaStack, staging.expect("checked staged copy"));
         }
-        for &(_, staging, destination) in &edge.moves {
-            self.code.byte(ByteOp::LdaStack, staging);
+        for &(_, staging, destination) in &edge.copies.moves {
+            self.code
+                .byte(ByteOp::LdaStack, staging.expect("checked staged copy"));
             self.code.byte(ByteOp::StaStack, destination);
         }
         self.finish_edge(edge.target, fallthrough);

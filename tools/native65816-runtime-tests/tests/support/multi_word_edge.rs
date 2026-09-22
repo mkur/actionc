@@ -11,7 +11,7 @@ pub struct Site {
     pub jump: u32,
     pub target: u32,
     pub fallthrough: bool,
-    pub moves: Vec<((bool, u16), u8, u8)>,
+    pub moves: Vec<((bool, u16), Option<u8>, u8)>,
     pub order: Vec<usize>,
     pub reload: Option<u8>,
     pub bytes: Vec<u8>,
@@ -64,7 +64,11 @@ fn load(v: (bool, u16)) -> Vec<u8> {
 
 /// Decode a direct schedule, then check the parallel-copy dependency rule.
 /// No compiler scheduling decision is used as the expected result.
-pub fn schedule(bytes: &[u8], moves: &[((bool, u16), u8, u8)], reload: bool) -> Option<Vec<usize>> {
+pub fn schedule(
+    bytes: &[u8],
+    moves: &[((bool, u16), Option<u8>, u8)],
+    reload: bool,
+) -> Option<Vec<usize>> {
     let mut order = vec![];
     let mut pc = 0;
     let mut pending: BTreeSet<_> = (0..moves.len()).collect();
@@ -157,25 +161,31 @@ pub fn index(
                         };
                         Some((
                             source(v, r, m)?,
-                            m.frame.edge_copies[i].offset.try_into().unwrap(),
+                            m.frame
+                                .edge_copies
+                                .get(i)
+                                .filter(|s| s.width >= 2)
+                                .map(|s| s.offset.try_into().unwrap()),
                             d.offset.try_into().unwrap(),
                         ))
                     })
                     .collect();
                 let Some(moves) = moves else { continue };
-                let mut staged = vec![];
-                for &(s, stage, _) in &moves {
-                    staged.extend(load(s));
-                    staged.extend([0x83, stage]);
-                }
-                for &(_, stage, d) in &moves {
-                    staged.extend([0xa3, stage, 0x83, d]);
-                }
                 let lo = m.code.labels[&t.source];
-                if t.offset >= lo + staged.len()
-                    && m.code.bytes[t.offset - staged.len()..t.offset] == staged
-                {
-                    continue;
+                if moves.iter().all(|m| m.1.is_some()) {
+                    let mut staged = vec![];
+                    for &(s, stage, _) in &moves {
+                        staged.extend(load(s));
+                        staged.extend([0x83, stage.unwrap()]);
+                    }
+                    for &(_, stage, d) in &moves {
+                        staged.extend([0xa3, stage.unwrap(), 0x83, d]);
+                    }
+                    if t.offset >= lo + staged.len()
+                        && m.code.bytes[t.offset - staged.len()..t.offset] == staged
+                    {
+                        continue;
+                    }
                 }
                 let length: usize = moves.iter().map(|m| load(m.0).len() + 2).sum();
                 let mut found = None;

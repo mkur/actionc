@@ -7,7 +7,7 @@ pub struct Window {
     pub direct: bool,
     pub fallthrough: bool,
     pub sites: Vec<u32>,
-    pub moves: Vec<((bool, u16), u8, u8)>, // source, staging, destination
+    pub moves: Vec<((bool, u16), Option<u8>, u8)>, // source, staging, destination
     pub order: Vec<usize>,
     pub reload: Option<u8>,
     pub target: u32,
@@ -81,9 +81,11 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         if staged != (true, u16::from(stage)) {
             return None;
         }
-        // Current allocation reserves distinct four-byte staging slots and
-        // disjoint destinations. Never mistake arbitrary LDA/STA runs for edges.
-        if i > 0 && u16::from(stage) != u16::from(pairs[i - 1].1) + 4 {
+        // Actual staging widths may differ across edges; word starts remain
+        // aligned and separated by two or four bytes.
+        if stage % 2 != 0
+            || (i > 0 && ![2, 4].contains(&(i16::from(stage) - i16::from(pairs[i - 1].1))))
+        {
             return None;
         }
         if pairs[..n]
@@ -95,7 +97,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         if pairs[n..n + i].iter().any(|&(_, d)| overlap(dest, d)) {
             return None;
         }
-        moves.push((source, stage, dest));
+        moves.push((source, Some(stage), dest));
     }
     if !fallthrough {
         sites.push(pc);
@@ -136,7 +138,7 @@ pub struct Site {
     pub load: u32,
     pub jump: u32,
     pub source: (bool, u16),
-    pub staging: u8,
+    pub staging: Option<u8>,
     pub destination: u8,
     pub target: u32,
     pub direct: bool,
@@ -244,9 +246,12 @@ pub fn index(
                         && f.addend == 0
                         && f.byte.is_none()));
                 }
-                let stage = m.frame.edge_copies[0];
-                assert_eq!(stage.width, 4);
-                let staging: u8 = stage.offset.try_into().unwrap();
+                let staging: Option<u8> = m
+                    .frame
+                    .edge_copies
+                    .first()
+                    .filter(|s| s.width >= 2)
+                    .map(|s| s.offset.try_into().unwrap());
                 let jump = transfer.offset;
                 let mut matched = None;
                 for &(_, source, destination) in expected.iter().filter(|e| e.0 == label.0) {
@@ -260,7 +265,8 @@ pub fn index(
                     for direct in [false, true] {
                         let mut bytes = load.clone();
                         if !direct {
-                            bytes.extend([0x83, staging, 0xa3, staging]);
+                            let Some(stage) = staging else { continue };
+                            bytes.extend([0x83, stage, 0xa3, stage]);
                         }
                         bytes.extend([0x83, destination]);
                         if jump >= lo + bytes.len()

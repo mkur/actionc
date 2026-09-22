@@ -80,7 +80,21 @@ impl AllocatedFrame {
                 offset += 1;
             }
         }
-        let mut reserve = |width: u8| -> Result<Slot, String> {
+        // Plan with the smallest frame containing all private homes. Incoming
+        // arguments are above this extent and cannot alias a destination. Adding
+        // staging moves them farther away, so eligibility/order cannot change;
+        // the final frame independently rechecks all argument bounds and plans.
+        let mut frame = Self {
+            extent: abi::stack::fixed_extent(ByteSize::new(cursor - 1))
+                .map_err(|e| e.to_string())?
+                .get() as u16,
+            spill_bytes: 0,
+            peak_below_entry: 0,
+            temps,
+            edge_copies: vec![],
+        };
+        let required = frame.staging_widths(routine)?;
+        let reserve = |width: u8| -> Result<Slot, String> {
             if width > 1 {
                 cursor = (cursor + 1) & !1;
             }
@@ -97,14 +111,9 @@ impl AllocatedFrame {
                 width,
             })
         };
-        let count = routine
-            .blocks
-            .iter()
-            .map(|b| b.params.len())
-            .max()
-            .unwrap_or(0);
-        let edge_copies = (0..count)
-            .map(|_| reserve(4))
+        let edge_copies = required
+            .into_iter()
+            .map(reserve)
             .collect::<Result<Vec<_>, _>>()?;
         let extent = abi::stack::fixed_extent(ByteSize::new(cursor - 1))
             .map_err(|e| e.to_string())?
@@ -116,13 +125,10 @@ impl AllocatedFrame {
             abi::stack::incoming_displacement(ByteSize::new(extent.into()), offset, size)
                 .map_err(|e| e.to_string())?;
         }
-        let frame = Self {
-            extent,
-            spill_bytes: extent - routine.frame.extent.get() as u16,
-            peak_below_entry: local_peak(routine, extent)?,
-            temps,
-            edge_copies,
-        };
+        frame.extent = extent;
+        frame.spill_bytes = extent - routine.frame.extent.get() as u16;
+        frame.peak_below_entry = local_peak(routine, extent)?;
+        frame.edge_copies = edge_copies;
         frame.verify_stack(routine)?;
         Ok(frame)
     }
@@ -174,19 +180,13 @@ impl AllocatedFrame {
                 }
             }
         }
-        if self.edge_copies.len()
-            != routine
-                .blocks
-                .iter()
-                .map(|b| b.params.len())
-                .max()
-                .unwrap_or(0)
-        {
+        let required = self.staging_widths(routine)?;
+        if self.edge_copies.len() != required.len() {
             return Err("invalid edge-copy slot count".into());
         }
         for (index, &slot) in self.edge_copies.iter().enumerate() {
             check_slot(slot)?;
-            if slot.width != 4
+            if slot.width != required[index]
                 || self.temps.values().any(|home| overlap(slot, home.slot()))
                 || self.edge_copies[..index]
                     .iter()

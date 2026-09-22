@@ -66,6 +66,31 @@ boundaries, including an assembly callee destroying all scratch and registers
 while the caller has a live value. The existing two-task IRQ-at-each-site and
 seeded IRQ/NMI suites cover suspension during reused-slot operations.
 
+## Compact edge staging
+
+The [staging-reservation slice](MIR65816_STAGING_RESERVATIONS.md) makes allocation
+and emission share the existing word-copy planner. Empty, single-word and
+acyclic word edges require no staging. Cyclic word edges still save every source;
+mixed-width and unsupported word forms still use their complete bytewise path.
+For each argument index, allocation reserves the maximum width among staged
+edges only. There are no holes: every staged edge saves its complete argument
+prefix. Multi-byte slots keep even alignment, and final frame extent stays even.
+
+The planner first uses the minimum frame containing all fixed objects and temp
+homes. Immutable incoming parameters are above that extent; adding staging cannot
+create an overlap with a destination. Mutable parameters use their fixed object
+homes. Final allocation recomputes staging requirements and validates slot count,
+exact capacities, disjointness, incoming last-byte access, spill bytes and local
+peak. This avoids rejecting a legal direct edge because a provisional unused
+reservation would exceed the addressing limit. Required reservations and the
+254-byte frame limit remain checked.
+
+Temp homes and their closed-operation interference rule do not change. Staging
+remains invocation-owned memory, separate from all live values and addressable
+objects. Helper/call clobbers, aliasing and task preemption retain their existing
+contracts. The public ABI and stack guards are unchanged; guard reservation
+immediates and incoming displacements derive from the new final extent.
+
 ## CPU register and DP opportunities
 
 The 64-byte scratch area is per execution domain, but all of it and A/X/Y are

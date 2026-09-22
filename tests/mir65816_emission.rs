@@ -81,7 +81,7 @@ fn native_word_comparisons_keep_byte_result_homes_frames_and_guard_budgets() {
             (
                 "CARD FUNC Work(CARD n) CARD total total=0 WHILE n#0 DO total==+n n==-1 OD RETURN(total) PROC Main() RETURN",
                 220,
-                if optimize { 16 } else { 14 },
+                if optimize { 12 } else { 14 },
             ),
         ] {
             let program = mir(source, optimize);

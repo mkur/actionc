@@ -872,10 +872,9 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                     );
                                     count += 1;
                                     reached.insert((site.load, w.target));
-                                    let stage =
-                                        u32::from(h.cpu.registers().s) + u32::from(site.staging);
-                                    h.bus.ram[stage as usize..stage as usize + 4]
-                                        .copy_from_slice(&[0x12, 0x34, 0x56, 0x78]);
+                                    let saved = h.bus.ram[0x4000..0x6000].to_vec();
+                                    let dest = u32::from(h.cpu.registers().s)
+                                        + u32::from(site.destination);
                                     let cycles = h.cpu.cycles();
                                     h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
                                     while !h.cpu.is_instruction_boundary() || h.cpu.pc() != w.target
@@ -887,10 +886,12 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                         (if site.source.0 { 14 } else { 12 })
                                             - if site.fallthrough { 4 } else { 0 }
                                     );
-                                    assert_eq!(
-                                        &h.bus.ram[stage as usize..stage as usize + 4],
-                                        &[0x12, 0x34, 0x56, 0x78]
-                                    );
+                                    for (i, &byte) in saved.iter().enumerate() {
+                                        let at = 0x4000 + i as u32;
+                                        if !(dest..dest + 2).contains(&at) {
+                                            assert_eq!(h.bus.ram[at as usize], byte);
+                                        }
+                                    }
                                     continue;
                                 }
                             }
