@@ -1389,3 +1389,157 @@ fn coalesced_edges_survive_irq_and_nmi_at_every_retained_instruction() {
         }
     }
 }
+
+fn scalar_domain_source(source: &str) -> String {
+    format!(
+        "; Scalar DP task and IRQ domain probe\n{}",
+        frame_forwarding_source(source).replace(
+            "irqAck=1 dispatches==+1",
+            "irqAck=1 dispatches==+FrameRotation(3)"
+        )
+    )
+}
+
+/// Step independently, interrupt, and compare all CPU state plus live frame and
+/// the entire suspended domain. The dispatcher executes the same scalar leaf
+/// on IRQ_DP while both tasks can have different values resident in that leaf.
+fn scalar_interrupt(
+    h: &mut ContextHarness,
+    nmi: bool,
+    range: std::ops::Range<u32>,
+) -> (bool, bool) {
+    let mut reference = h.cpu.clone();
+    let mut bus = h.bus.clone();
+    reference.tick(&mut bus, Inputs::default()).unwrap();
+    while !reference.is_instruction_boundary() {
+        reference.tick(&mut bus, Inputs::default()).unwrap();
+    }
+    let expected = reference.registers();
+    let mut ack = false;
+    let mut irq_leaf = false;
+    let mut other_live = false;
+    for _ in 0..2_000_000 {
+        let writes = h.bus.writes.len();
+        h.tick(Inputs {
+            irq: !nmi && !ack,
+            nmi: nmi && !ack,
+            ..Default::default()
+        });
+        ack |= h.bus.writes[writes..]
+            .iter()
+            .any(|&(at, _)| at == if nmi { NMI_ACK } else { IRQ_ACK });
+        if h.cpu.is_instruction_boundary() {
+            let r = h.cpu.registers();
+            if range.contains(&h.cpu.pc()) {
+                irq_leaf |= r.d == IRQ_DP;
+                if [0x2000, 0x2100].contains(&r.d) && r.d != expected.d {
+                    let suspended = usize::from(expected.d) + 32;
+                    let running = usize::from(r.d) + 32;
+                    other_live |=
+                        h.bus.ram[suspended..suspended + 32] != h.bus.ram[running..running + 32];
+                    assert_eq!(
+                        &h.bus.ram[suspended..suspended + 32],
+                        &bus.ram[suspended..suspended + 32]
+                    );
+                }
+            }
+            if ack && h.cpu.pc() == reference.pc() && r.d == expected.d {
+                assert_eq!(r, expected);
+                let dp = usize::from(expected.d);
+                assert_eq!(
+                    &h.bus.ram[dp..dp + 256],
+                    &bus.ram[dp..dp + 256],
+                    "suspended scalar DP domain changed"
+                );
+                let ceiling = if expected.d == 0x2000 { 0x5000 } else { 0x6000 };
+                assert_eq!(
+                    &h.bus.ram[usize::from(expected.s) + 1..ceiling],
+                    &bus.ram[usize::from(expected.s) + 1..ceiling]
+                );
+                run_injected(h, false, None);
+                return (irq_leaf, other_live);
+            }
+        }
+        assert!(
+            !h.cpu.is_stopped(),
+            "scalar interrupted task did not resume"
+        );
+    }
+    panic!("scalar domain restoration budget")
+}
+
+#[test]
+fn scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls() {
+    let original = fixture("preemption.act");
+    let source = scalar_domain_source(&original);
+    assert_eq!(
+        source,
+        scalar_domain_source(&original.replace('\n', "\r\n"))
+    );
+    for optimize in [false, true] {
+        let make = || {
+            initialize(ContextHarness::from_prepared(
+                &source,
+                optimize,
+                "Task",
+                &[0x7100, 0x7120],
+                coalescing::prepared(&source, optimize),
+            ))
+        };
+        let mut h = make();
+        let leaf = h
+            .image
+            .routines
+            .iter()
+            .find(|r| r.name.to_ascii_lowercase().contains("framerotation"))
+            .unwrap();
+        assert!(leaf.temporaries.iter().any(|t| matches!(
+            t.home,
+            actionc::mir65816::image::TemporaryHome::DirectPage { offset: 32..=62 }
+        )));
+        let range = leaf.address..leaf.address + leaf.size;
+        let mut seen = BTreeSet::new();
+        let mut irq_live = false;
+        let mut simultaneous = false;
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            if h.cpu.is_instruction_boundary()
+                && r.p & 4 == 0
+                && [0x2000, 0x2100].contains(&r.d)
+                && range.contains(&h.cpu.pc())
+                && seen.insert((r.d, h.cpu.pc()))
+            {
+                let cpu = h.cpu.clone();
+                let bus = h.bus.clone();
+                let (irq, other) = scalar_interrupt(&mut h, false, range.clone());
+                irq_live |= irq;
+                simultaneous |= other;
+                check_frame_forwarding(&h);
+                h.cpu = cpu.clone();
+                h.bus = bus.clone();
+                scalar_interrupt(&mut h, true, range.clone());
+                check_frame_forwarding(&h);
+                h.cpu = cpu;
+                h.bus = bus;
+            }
+            h.tick(Inputs::default());
+        }
+        check_frame_forwarding(&h);
+        assert!(irq_live && simultaneous);
+        let a: BTreeSet<_> = seen.iter().filter(|v| v.0 == 0x2000).map(|v| v.1).collect();
+        let b: BTreeSet<_> = seen.iter().filter(|v| v.0 == 0x2100).map(|v| v.1).collect();
+        assert_eq!(a, b);
+        assert!(a.len() > 30);
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = make();
+            run_injected(&mut h, false, Some(seed));
+            check_frame_forwarding(&h);
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(Path::new(&directory).join(format!("scalar-dp-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"irq_domain_scalar_execution":irq_live,"different_simultaneous_task_residents":simultaneous,"full_cpu_frame_and_domain_restored":true,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
+        }
+    }
+}
