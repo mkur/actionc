@@ -1,7 +1,8 @@
 # Native incoming-parameter word forwarding implementation plan
 
-Status: planned on 2026-09-22 against main `5972915`, with qualified compiler
-implementation `55f1061`. No compiler change is made by this plan. The
+Status: implemented in `4d7fcb3` and qualified on 2026-09-22. See the
+[measured results](MIR65816_PARAMETER_FORWARDING.md). The original plan below
+was prepared against main `5972915`, with qualified compiler `55f1061`. Its
 [frozen baseline and forecasts](benchmarks/65816-parameter-forwarding/baseline.json)
 use the [frame-forwarding results](MIR65816_FRAME_FORWARDING.md).
 

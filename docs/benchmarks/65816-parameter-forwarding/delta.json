@@ -1,0 +1,282 @@
+{
+  "records": 264,
+  "complete_action_images": 28,
+  "unchanged_action_builds": 26,
+  "changed_builds": [
+    [
+      "loop_rotation",
+      "raw",
+      "actionc"
+    ],
+    [
+      "recursive_sum",
+      "raw",
+      "actionc"
+    ]
+  ],
+  "removed_static_bytes": 4,
+  "forwarded_loads_per_incoming_i": 28,
+  "saved_cycles_per_incoming_i": 140,
+  "saved_stack_reads_per_incoming_i": 56,
+  "stores_frames_abi_and_guards_unchanged": true,
+  "forecasts": [
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 3,
+      "args": [
+        32767
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 4,
+      "args": [
+        32768
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 5,
+      "args": [
+        65535
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "reload_executions": 0,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 100,
+        "instructions": 32,
+        "stack_reads": 9,
+        "stack_writes": 4,
+        "peak_below_entry_s": 8
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 100,
+        "instructions": 32,
+        "stack_reads": 9,
+        "stack_writes": 4,
+        "peak_below_entry_s": 8
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 359,
+        "instructions": 111,
+        "stack_reads": 28,
+        "stack_writes": 26,
+        "peak_below_entry_s": 22
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 354,
+        "instructions": 110,
+        "stack_reads": 26,
+        "stack_writes": 26,
+        "peak_below_entry_s": 22
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 2,
+      "args": [
+        8
+      ],
+      "reload_executions": 8,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 2172,
+        "instructions": 664,
+        "stack_reads": 161,
+        "stack_writes": 180,
+        "peak_below_entry_s": 120
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 2132,
+        "instructions": 656,
+        "stack_reads": 145,
+        "stack_writes": 180,
+        "peak_below_entry_s": 120
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 3,
+      "args": [
+        13
+      ],
+      "reload_executions": 13,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 3467,
+        "instructions": 1059,
+        "stack_reads": 256,
+        "stack_writes": 290,
+        "peak_below_entry_s": 190
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 3402,
+        "instructions": 1046,
+        "stack_reads": 230,
+        "stack_writes": 290,
+        "peak_below_entry_s": 190
+      }
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}

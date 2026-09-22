@@ -1,0 +1,2 @@
+[Site { routine: RoutineId(0), parameter: ParamId(1), range: 98304..98372, producer: 98350, stores: [98352], consumer: 98354, source: 14, destination: 4, bridge: false, bytes: [163, 14, 131, 2, 131, 4] }, Site { routine: RoutineId(1), parameter: ParamId(1), range: 98372..98446, producer: 98418, stores: [98420, 98422], consumer: 98424, source: 18, destination: 6, bridge: true, bytes: [163, 18, 131, 6, 131, 2, 131, 6] }]
+inputs=0,1,32767,32768,65535; I=0,4; CV=0,1,64,65; placements=flat,o65-0,o65-1
