@@ -68,5 +68,6 @@ loads. Existing selected-site tests cover allocation/routine/bounds rejection.
 The replay-failure control deletes a NOP which previously made a capture stale.
 The later consume decision would change; fresh replay rejects it and the
 original output remains intact. Existing native replay, CFG and machine-liveness
-observations remain identical. Full execution/corpus/CRLF qualification follows
-when the pilot becomes authoritative, as required by the implementation plan.
+observations remain identical. The authoritative pilot passes
+[full execution/corpus/CRLF qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md),
+including 13 rewrite tests and the final-load fallback controls.

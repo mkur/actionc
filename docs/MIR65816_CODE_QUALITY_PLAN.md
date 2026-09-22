@@ -1,18 +1,19 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed after bounded X loop increments `1ce9624` and their
-[qualification](MIR65816_LOOP_INX.md). Native word selection, copy
+Status: refreshed after the
+[analysis and checked-rewrite qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md),
+preserving bounded X loop increments `1ce9624` and their output. Native word selection, copy
 scheduling/coalescing, compact staging, local/frame/parameter forwarding,
 scalar DP, one checked X loop mirror and native INX updates are complete.
 Historical inventories remain evidence for their own revisions;
 closed-operation interference remains unchanged.
 
-Next priority is the [analysis and checked-rewrite foundation](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md),
-adapting MIR6502's home/definition liveness, register/flag liveness and checked
-rewrite workflow. Complete that foundation with unchanged output before
-enabling further store elimination or broadening register/DP allocation.
-Follow the [implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
-for module changes, commit boundaries and qualification gates.
+The [analysis and checked-rewrite foundation](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md)
+is complete, adapting MIR6502's home/definition liveness, register/flag liveness
+and checked rewrite workflow. Next, reduce its measured host compilation cost
+before enabling further store elimination or broadening register/DP allocation.
+The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
+records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
 [complete](MIR65816_ANALYSIS_EFFECTS.md), with unchanged raw and optimized output.
 The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also complete.
@@ -22,8 +23,10 @@ The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also comple
 [Typed replay](MIR65816_TYPED_REPLAY.md) is authoritative with exact encoding
 equality. [Checked plans and atomic application](MIR65816_CHECKED_REWRITES.md)
 now own [adjacent temporary A16 forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md)
-with unchanged eligibility and output. Final reporting and host compile-time/
-memory measurements remain in slice 9.
+with unchanged eligibility and output. Full native debug/release/CRLF qualification
+passes. Median host time for 28 corpus builds rises from 0.147 to 0.361 seconds;
+median per-process peak RSS rises from 5.70 to 6.92 MiB. These are costs of the
+whole foundation relative to `1ce9624`, measured separately from target-code quality.
 
 ## Objective and current baseline
 
@@ -91,6 +94,7 @@ and qualify general improvements.
 | Analysis foundation slice 6 | Replay typed actions through a fresh tracked emitter, recomputing permissions and regenerating all output metadata. | [Contract and results](MIR65816_TYPED_REPLAY.md), [equality](benchmarks/65816-analysis-rewrite/slice6-equality.json) |
 | Analysis foundation slice 7 | Validate sealed plans against immutable facts and publish only after scratch replay, layout and rebuilt analyses. | [Contract and qualification](MIR65816_CHECKED_REWRITES.md) |
 | Analysis foundation slice 8 | Retain original load candidates and migrate adjacent temporary forwarding through the checked driver with identical decisions. | [Contract and qualification](MIR65816_ADJACENT_CHECKED_FORWARDING.md), [equality](benchmarks/65816-analysis-rewrite/slice8-equality.json) |
+| Analysis foundation slice 9 | Qualify full native debug/release and CRLF runs, frozen corpus equality, mutation controls and host compilation costs. | [Results and next priorities](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -127,14 +131,21 @@ They are completed work, not forecasts for the next slice.
 
 Typed selection/effects, home and machine analyses, authoritative replay,
 checked transactions and the adjacent temporary forwarding migration are
-complete. Slice 9 of the
-[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
-finishes qualification/reporting and measures host compilation overhead.
+complete and qualified. The next sequence is:
 
-The acceptance gate is byte-identical code and unchanged full measurements;
-these slices make no performance forecast. Temporary-store elimination,
-mutable-counter promotion, broader residency and selective DP extensions follow
-as separately measured consumers of the foundation.
+1. Profile and reduce analysis/replay cost with unchanged proof obligations,
+   output and generation invalidation. Measure both the 28-build corpus and
+   growing routines; the raw constant-chain build currently takes 8.12 times
+   baseline wall time. Start with representation and redundant work within one
+   generation. Cross-generation reuse requires a separate invalidation design.
+2. Inventory removable temporary stores through the new stored-definition,
+   home and register/flag queries. Record blocked cases and predict exact traffic
+   changes before choosing one bounded checked rewrite.
+3. Consider mutable-counter promotion, broader residency and selective DP
+   extensions as separately measured consumers of the foundation.
+
+Efficiency refactors retain the strict byte/full-record equality gate. Each new
+optimization needs its own measured delta and must use the checked proof API.
 
 The table below retains the original roadmap's completed scopes and deferred
 extensions, including the former combined control-flow step split into 3a–3c:

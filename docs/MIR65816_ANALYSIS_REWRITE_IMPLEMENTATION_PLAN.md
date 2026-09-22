@@ -1,7 +1,7 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 through 8 complete; final qualification/reporting in slice 9
-remains in progress. Based on main
+Status: slices 0 through 9 complete; see the
+[final qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md). Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -354,7 +354,7 @@ transactions and identity replays.
 
 ## Slice 8 — Migrate adjacent temporary A16 forwarding
 
-Completed: [typed candidates and authoritative checked forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md).
+Completed in `e4fd88b5`: [typed candidates and authoritative checked forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md).
 Shadow comparison was committed separately in `4130d858`; the authoritative
 qualification preserves all 102 decisions (75 accepted, 27 blocked) and the
 [full frozen corpus](benchmarks/65816-analysis-rewrite/slice8-equality.json).
@@ -402,6 +402,15 @@ forwarding counts. IRQ/NMI, relocation and frame guards must still pass.
 **Exit:** one production consumer uses the foundation; eligibility is unchanged.
 
 ## Slice 9 — Final qualification and documentation
+
+Completed in the final qualification/report commit following `e4fd88b5`:
+[results and host costs](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md),
+[qualification record](abi/action65816-analysis-rewrite-qualification.json) and
+[host measurements](benchmarks/65816-analysis-rewrite/host-compilation.json).
+All 658 native artifacts agree across debug, release and CRLF; all 224 corpus
+files and 264 records preserve the frozen baseline. The host corpus takes
+2.46 times the baseline wall time, with median per-process peak RSS rising
+from 5.70 to 6.92 MiB. This completes the foundation, not its performance tuning.
 
 Save new analysis observations separately in
 `docs/benchmarks/65816-analysis-rewrite/`, with compiler/tool/source hashes and

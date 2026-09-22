@@ -386,3 +386,28 @@ explicit barriers and transient stack accesses remain separate. See the
 [measurement report and reproduction commands](../../docs/MIR65816_REGISTER_INVENTORY.md).
 This report selects a follow-up candidate; it does not forecast or enable register
 allocation. Preserve the scalar-DP baseline and the earlier pre-allocation facts.
+
+### Host compilation measurements
+
+`measure_host.py` measures two already-built release CLIs on the 28 Action
+raw/optimized builds in a comparison manifest. It requires Darwin or Linux
+`wait4`; peak RSS is per child, not the cumulative child-process maximum.
+Build both compilers with the same Rust toolchain, features and release settings,
+then stop other build/qualification jobs before measuring:
+
+```sh
+python3 -B tools/compare65816/measure_host.py \
+  --before target/analysis-rewrite-host-baseline/actionc-65816 \
+  --after target/release/actionc-65816 \
+  --manifest target/checked-rewrite-after/manifest.json \
+  --output target/host-compilation.json
+```
+
+The default seven rounds follow one warm-up per compiler/input, alternate
+compiler/build order and verify every generated image hash. The report retains
+all wall/CPU/RSS samples, per-build medians, platform information and binary,
+script and manifest hashes. Wall time includes process launch and JSON output;
+these small warm-cache builds do not establish large-program scaling. Keep
+committed reports immutable. See the
+[foundation qualification](../../docs/MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md)
+for the baseline build provenance and measured overhead.

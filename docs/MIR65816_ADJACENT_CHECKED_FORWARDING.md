@@ -69,5 +69,5 @@ Code. Modes, captures and X obligations are freshly recomputed during replay.
 
 The [authoritative qualification](abi/action65816-adjacent-checked-qualification.json)
 records full native execution, corpus equality and an isolated CRLF rebuild.
-Final foundation qualification in slice 9 adds mutation controls and measured
-host compile-time/memory overhead.
+The [final foundation qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md)
+adds mutation controls and measured host compile-time/memory overhead.

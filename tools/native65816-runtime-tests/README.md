@@ -32,6 +32,11 @@ available, otherwise fetches that exact base into a private temporary checkout.
 It checks/applies the patch and verifies cached CPU file hashes on reuse.
 It never edits the sibling VM's working tree.
 
+For native qualification, the runner hashes compiler/fixture/tool inputs before
+starting Cargo and rejects changes, additions or deletions before publishing the
+manifest. Keep those inputs stable for the full run. The provenance guard's five
+mutation controls run with `python3 -B tools/native65816-runtime-tests/test_qualify.py`.
+
 Use this runner instead of bare `cargo test`: the lockfile expects the corrected
 CPU path override supplied by the runner. The published VM dependency remains
 pinned; the independent VM commit need not already be published. `--prepare-only`
@@ -283,3 +288,11 @@ never drive VM execution; ordinary compiler builds leave tracing disabled. Run
 `--test state_tracking` for the four focused tests. The separate external corpus
 runs retain the known optimized vbcc `unlink` failure while requiring complete
 before/after equality for every record.
+
+The [analysis and checked-rewrite qualification](../../docs/MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md)
+passes **131 native tests in each of debug, release and isolated CRLF debug**,
+with **658 identical artifacts**. It preserves the prior 657 artifacts and adds
+the adjacent-rewrite inventory. Run `--test checked_rewrites --test replay` for
+the focused migration checks. The full qualification retains IRQ/NMI, helper/call
+clobber, alias/volatile, relocated o65 and stack-guard coverage. Host compilation
+cost is measured separately from unchanged generated-code quality.

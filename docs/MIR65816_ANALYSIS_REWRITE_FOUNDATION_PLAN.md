@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite foundation
 
-Status: in progress. Implementation slices 0 and 1 (baseline gate and typed
+Status: complete. Implementation slices 0 and 1 (baseline gate and typed
 physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md), as is slice 2
 ([selected actions and CFG](MIR65816_SELECTED_ACTIONS.md)) and slice 3
 ([physical homes and backward liveness](MIR65816_HOME_ANALYSIS.md)). Slice 4
@@ -10,9 +10,11 @@ Slice 6 ([fresh typed replay](MIR65816_TYPED_REPLAY.md)) is complete and
 authoritative. Slice 7 ([checked rewrite transactions](MIR65816_CHECKED_REWRITES.md))
 is complete, and slice 8 migrates
 [adjacent temporary forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md) with
-identical decisions and output. Final qualification/reporting remains in progress.
-This foundation takes priority over further temporary-store
-elimination, mutable-counter promotion and broader register/DP allocation.
+identical decisions and output. Slice 9 records
+[final qualification and measured host costs](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
+Later temporary-store elimination, mutable-counter promotion and broader
+register/DP allocation must use these proof interfaces. Reduce the measured
+analysis cost before expanding the production rewrite families.
 The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and
 [saved INX results](MIR65816_LOOP_INX.md). The foundation must preserve that
 output; it makes no code-size or cycle-saving forecast.
@@ -37,11 +39,11 @@ contract. A dead register value does not release a selector's reservation.
 
 Native MIR contains typed computation but leaves many register uses and flag
 dependencies implicit until selection. The
-[tracked emitter](../src/mir65816/emit/tracked.rs) writes bytes immediately,
-while [Code](../src/mir65816/emit/code.rs) retains fixups and proof metadata.
-Instruction boundaries and optional state traces are insufficient as the input
-to general machine-state rewrites. Establish a compiler-owned typed view of
-selected instructions, effects and control flow first.
+[tracked emitter](../src/mir65816/emit/tracked.rs) records typed selected actions
+alongside provisional bytes. Fresh replay and checked transactions produce the
+published [Code](../src/mir65816/emit/code.rs), including fixups and proof metadata.
+Analyses consume the compiler-owned actions, effects and CFG; instruction
+boundaries and optional state traces alone never authorize a rewrite.
 
 ## What to adapt from MIR6502
 
