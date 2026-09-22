@@ -7,7 +7,8 @@ foundation, checked MIR-entry width omission, terminal fallthrough and short
 conditional dispatch are complete. The
 [remaining-copy inventory](MIR65816_COPY_INVENTORY.md) established the completed
 copy slices. Selective staging within cyclic edges and home coalescing remain
-separate candidates; measure each before implementation.
+separate candidates. The [selective-staging implementation plan](MIR65816_SELECTIVE_STAGING_PLAN.md)
+freezes the next slice against this qualified baseline.
 
 ## Objective and current baseline
 
@@ -89,7 +90,7 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 3a (complete) | Checked MIR-entry width omission | Omit redundant REP only with checked complete predecessor obligations; retain value/flag barriers. |
 | 3b (complete) | Jumps to adjacent blocks | Checked terminal fallthrough follows every edge assignment; earlier arms retain their jumps. |
 | 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
-| 4 (acyclic scheduling and compact reservations complete) | Parallel-copy scheduling and coalescing | Next, measure and plan selective staging within cycles. Home coalescing remains separate work. |
+| 4 (acyclic scheduling and compact reservations complete) | Parallel-copy scheduling and coalescing | Implement [selective staging within cycles](MIR65816_SELECTIVE_STAGING_PLAN.md), including checked capture-slot mapping. Home coalescing remains separate work. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
@@ -125,8 +126,10 @@ Compact staging removes the wholly unused four-byte slots in `sum_loop` and
 `byte_sum`, plus the unused upper halves in `loop_rotation`. Measured frames
 fall 16→12, 22→18 and 26→20 bytes respectively, with independently checked
 operand changes, alignment, incoming offsets, frame bounds and guards. Selective staging within the cyclic backedge
-is still a separate candidate, with a conditional further saving of eight bytes
-and 160 cycles per rotation call; it was not included in the acyclic slice.
+is the [next planned slice](MIR65816_SELECTIVE_STAGING_PLAN.md): the forecast is
+eight fewer code bytes and 160 fewer cycles per rotation call, with staging
+reduced 6→2 bytes and frame/peak reduced 20→16. These are unimplemented forecasts;
+existing single-word and acyclic schedules remain in scope for preservation.
 
 Freeze a fresh baseline for every later optimization. Use the qualified compact
 staging snapshot for new forecasts; measure intervening changes before making cumulative

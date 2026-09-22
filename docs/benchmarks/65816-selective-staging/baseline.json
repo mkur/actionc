@@ -1,0 +1,261 @@
+{
+  "status": "implementation forecast, not post-change measurements",
+  "baseline_commit": "d62f0e8",
+  "compiler_commit": "49a0aae",
+  "baseline_directory": "target/staging-reservations-after",
+  "qualification": "docs/abi/action65816-staging-reservations-qualification.json",
+  "qualification_sha256": "ab3e3381f6b8fff50fd235a3023c39850f527a6df00ad59c7384602af36d2d6d",
+  "comparison_hashes": {
+    "manifest.json": "866688e6f330cc87865f6c9bfbd91371ab4e8330bb0cf4df06390e6aeb5186a2",
+    "debug.json": "7294bdbc22a2e02a8476b6220b4fc27ffc98adfd1dedd42b259dbee974b28579",
+    "release.json": "7294bdbc22a2e02a8476b6220b4fc27ffc98adfd1dedd42b259dbee974b28579"
+  },
+  "scope": "Preserve single/acyclic selection. For proven whole-word cyclic edges, pre-capture each source overwritten by an earlier destination, then assign in original order. Pack captured values by capture ordinal in the existing checked staging pool.",
+  "selected_site": {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "routine": 0,
+    "first_copy_pc": 65640,
+    "old_transfer_pc": 65664,
+    "new_transfer_pc": 65656,
+    "target_pc": 65605,
+    "source_offsets": [
+      6,
+      10,
+      12
+    ],
+    "destination_offsets": [
+      10,
+      6,
+      8
+    ],
+    "old_staging_offsets": [
+      14,
+      16,
+      18
+    ],
+    "captured_move_indices": [
+      1
+    ],
+    "new_capture_slots": [
+      {
+        "index": 0,
+        "offset": 14,
+        "width": 2
+      }
+    ],
+    "before_copy_bytes": "a306830ea30a8310a30c8312a30e830aa3108306a3128308",
+    "forecast_copy_bytes": "a30a830ea306830aa30e8306a30c8308",
+    "old_reservation_bytes": 6,
+    "new_reservation_bytes": 2,
+    "old_frame": {
+      "extent": 20,
+      "spill_bytes": 16,
+      "peak": 20,
+      "argument_body_displacements": [
+        24
+      ]
+    },
+    "forecast_frame": {
+      "extent": 16,
+      "spill_bytes": 12,
+      "peak": 16,
+      "argument_body_displacements": [
+        20
+      ]
+    }
+  },
+  "forecasts": [
+    {
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "edge_executions": 8,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "forecast": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "expected_selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "edge_executions": 8,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "forecast": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "expected_selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "edge_executions": 8,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "forecast": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "expected_selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 3,
+      "args": [
+        32767
+      ],
+      "edge_executions": 8,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "forecast": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "expected_selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 4,
+      "args": [
+        32768
+      ],
+      "edge_executions": 8,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "forecast": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "expected_selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    },
+    {
+      "vector": 5,
+      "args": [
+        65535
+      ],
+      "edge_executions": 8,
+      "before": {
+        "code_bytes": 148,
+        "cycles": 1116,
+        "instructions": 262,
+        "stack_reads": 175,
+        "stack_writes": 172,
+        "peak_below_entry_s": 20
+      },
+      "forecast": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "expected_selective_counters": {
+        "selective_word_edges": 8,
+        "selective_edge_words": 24,
+        "selective_staged_words": 8,
+        "selective_direct_words": 16
+      }
+    }
+  ],
+  "corpus_totals_per_incoming_i": {
+    "selected_static_edges": 1,
+    "selected_edge_executions": 48,
+    "staging_pairs_removed": 96,
+    "instructions_removed": 192,
+    "cycles_saved": 960,
+    "stack_reads_saved": 192,
+    "stack_writes_saved": 192,
+    "static_code_bytes_saved": 8
+  },
+  "preserved": "27 other Action raw/optimized artifacts, all vbcc artifacts/results, ABI/guard logic and costs, temp/object homes, incoming ABI offsets, results, DP/source-memory traffic and all existing logical copy/fusion/forwarding counts (site addresses remapped only where needed).",
+  "known_external_failure": [
+    "unlink",
+    "optimized",
+    "vbcc",
+    0
+  ]
+}
