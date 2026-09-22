@@ -1,0 +1,215 @@
+use super::super::{
+    Code,
+    analysis::sites::Node,
+    effects::{Access, Control},
+    layout, replay,
+    selected::{Action, Instruction, Record, SelectedRoutine},
+};
+use super::{
+    context::{Context, Proof},
+    plan::{Delta, Plan, Rule},
+};
+use crate::analysis::graph::DataflowGraph;
+use std::collections::BTreeMap;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(in crate::mir65816::emit) struct Statistics {
+    pub attempted: usize,
+    pub applied: usize,
+    pub blocked: BTreeMap<String, usize>,
+}
+pub(in crate::mir65816::emit) struct Driver {
+    pub statistics: Statistics,
+    remaining: usize,
+    identity_used: bool,
+}
+impl Driver {
+    pub fn new(limit: usize) -> Self {
+        Self {
+            statistics: Statistics::default(),
+            remaining: limit,
+            identity_used: false,
+        }
+    }
+    pub fn apply(&mut self, output: &mut Code, plan: &Plan, trace: bool) -> Proof<()> {
+        self.statistics.attempted += 1;
+        let result: Result<(), String> = (|| {
+            if self.remaining == 0 {
+                return Err("rewrite iteration limit".into());
+            }
+            if plan.rule == Rule::Identity && self.identity_used {
+                return Err("identity transaction is one-shot".into());
+            }
+            let scratch = self.prepare(output, plan, trace)?;
+            // This is the sole publication point. All validation, replay, layout
+            // and analysis construction have completed before any mutation.
+            *output = scratch;
+            self.remaining -= 1;
+            self.identity_used |= plan.rule == Rule::Identity;
+            self.statistics.applied += 1;
+            Ok(())
+        })();
+        if let Err(reason) = &result {
+            *self.statistics.blocked.entry(reason.clone()).or_default() += 1;
+        }
+        Proof::checked(result, Some(plan.first))
+    }
+    fn prepare(&self, output: &Code, plan: &Plan, trace: bool) -> Result<Code, String> {
+        let selected = output.selected.as_ref().ok_or("missing selected routine")?;
+        selected.reconcile(output)?;
+        let context = Context::new(selected)?;
+        let start = context.facts.validate(plan.first)?.0;
+        let end = context.facts.validate(plan.last)?.0;
+        if start > end || selected.records()[start..=end] != plan.original {
+            return Err("rewrite window/content mismatch".into());
+        }
+        let records = &selected.records()[start..=end];
+        let mut original = Vec::new();
+        for (i, record) in (start..=end).zip(records) {
+            let Action::Instruction { form, effects, .. } = &record.action else {
+                return Err("protected compiler event in rewrite window".into());
+            };
+            if record.parent.is_some()
+                || effects.control != Control::Next
+                || effects.environment_writes != 0
+                || effects.barrier
+                || record.before != record.after
+            {
+                return Err("protected instruction/environment in rewrite window".into());
+            }
+            if i > start
+                && (selected.cfg().predecessors(Node(i)) != &[Node(i - 1)].into()
+                    || selected.cfg().successors(Node(i - 1)) != &[Node(i)].into())
+            {
+                return Err("rewrite window crosses selected blocks".into());
+            }
+            original.push(form.clone());
+        }
+        // Recompute declarations; authored deltas cannot waive proof checks.
+        let changed = original != plan.replacement;
+        let mut removed = Vec::new();
+        let mut delta = Delta::default();
+        if changed {
+            for (i, record) in (start..=end).zip(records) {
+                for access in &context.facts.homes.accesses[&Node(i)] {
+                    if access.access != Access::Read {
+                        if access.uncertain {
+                            return Err("uncertain removed definition".into());
+                        }
+                        for &home in &access.homes {
+                            removed.push((home, selected.site(Node(i))?));
+                        }
+                    }
+                }
+                let Action::Instruction { effects, .. } = &record.action else {
+                    unreachable!()
+                };
+                delta.registers.a |= effects.writes.a | effects.clobbers.a;
+                delta.registers.x |= effects.writes.x | effects.clobbers.x;
+                delta.registers.y |= effects.writes.y | effects.clobbers.y;
+                delta.flags |= effects.flag_writes | effects.flag_clobbers;
+            }
+            for instruction in &plan.replacement {
+                let effects = instruction.effects(records[0].before.env);
+                if effects.environment_writes != 0
+                    || effects.control != Control::Next
+                    || effects.barrier
+                {
+                    return Err("protected replacement effects".into());
+                }
+                delta.registers.a |= effects.writes.a | effects.clobbers.a;
+                delta.registers.x |= effects.writes.x | effects.clobbers.x;
+                delta.registers.y |= effects.writes.y | effects.clobbers.y;
+                delta.flags |= effects.flag_writes | effects.flag_clobbers;
+            }
+        }
+        if removed != plan.removed_definitions || delta != plan.delta {
+            return Err("undeclared definitions or register/flag effects".into());
+        }
+        for &(home, store) in &removed {
+            if !context
+                .facts
+                .definition_dead_outside_window(home, store, plan.last)?
+            {
+                return Err("removed definition has a live outside use".into());
+            }
+        }
+        // Closed rules also validate replacement reads and live-state
+        // equivalence. No arbitrary replacement wins through deadness alone.
+        match plan.rule {
+            Rule::Identity if original == plan.replacement => {}
+            #[cfg(test)]
+            Rule::NonDecreasingControl if original == plan.replacement => {}
+            #[cfg(test)]
+            Rule::RemoveNop
+                if original == [Instruction::Implied(super::super::selected::Implied::Nop)]
+                    && plan.replacement.is_empty() => {}
+            _ => return Err("rule does not prove replacement equivalence".into()),
+        }
+        let edited = replace(selected, start, end + 1, &plan.replacement)?;
+        // New owner generation and all facts are constructed before replay.
+        Context::new(&edited)?;
+        let scratch = layout::finalize(replay::emit(&edited, trace)?, true)?;
+        if plan.rule != Rule::Identity && scratch.bytes.len() >= output.bytes.len() {
+            return Err("rewrite metric did not decrease".into());
+        }
+        let rebuilt = Context::new(
+            scratch
+                .selected
+                .as_ref()
+                .ok_or("missing rewritten selection")?,
+        )?;
+        if rebuilt.facts.undefined_private_reads().len()
+            > context.facts.undefined_private_reads().len()
+        {
+            return Err("rewrite introduced undefined private reads".into());
+        }
+        Ok(scratch)
+    }
+}
+
+/// Reindex symbolic parent links; encoded positions are deliberately discarded
+/// by fresh replay. Only the checked driver can reach this edit operation.
+fn replace(
+    selected: &SelectedRoutine,
+    start: usize,
+    end: usize,
+    replacement: &[Instruction],
+) -> Result<SelectedRoutine, String> {
+    let old = selected.records();
+    let mut records = Vec::new();
+    let mut map = BTreeMap::new();
+    for (i, record) in old.iter().enumerate() {
+        if i == start {
+            for form in replacement {
+                records.push(Record {
+                    action: Action::Instruction {
+                        form: form.clone(),
+                        effects: form.effects(record.before.env),
+                        continuation: None,
+                    },
+                    parent: None,
+                    source: record.source,
+                    encoded: record.encoded.start..record.encoded.start,
+                    before: record.before,
+                    after: record.before,
+                    decision: None,
+                });
+            }
+        }
+        if (start..end).contains(&i) {
+            continue;
+        }
+        map.insert(Node(i), Node(records.len()));
+        records.push(record.clone());
+    }
+    for record in &mut records {
+        if let Some(parent) = record.parent {
+            record.parent = Some(*map.get(&parent).ok_or("removed request parent")?);
+        }
+        if let Action::EndRequest(parent) = &mut record.action {
+            *parent = *map.get(parent).ok_or("removed request start")?;
+        }
+    }
+    selected.edited(records)
+}

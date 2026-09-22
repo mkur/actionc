@@ -166,7 +166,11 @@ impl HomeContract {
             })
             .or_insert_with(|| HomeInfo::new(owner, private, entry_defined));
     }
-    fn range(&self, memory: Memory, env: Environment) -> Option<BTreeSet<HomeByte>> {
+    pub(in crate::mir65816::emit) fn range(
+        &self,
+        memory: Memory,
+        env: Environment,
+    ) -> Option<BTreeSet<HomeByte>> {
         if !env.native {
             return None;
         }

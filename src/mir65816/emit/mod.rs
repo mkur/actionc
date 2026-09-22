@@ -11,6 +11,7 @@ mod loop_x;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod replay;
+mod rewrite;
 pub(crate) mod scalar;
 mod select;
 mod selected;

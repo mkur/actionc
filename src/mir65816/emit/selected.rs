@@ -193,6 +193,17 @@ pub(super) struct SelectedRoutine {
     cfg: SelectedCfg,
 }
 impl SelectedRoutine {
+    /// Scratch actions are never published without fresh replay/reconciliation.
+    pub fn edited(&self, records: Vec<Record>) -> Result<Self, String> {
+        let cfg = SelectedCfg::build(&records)?;
+        Ok(Self {
+            identity: self.identity.checked_next_selection()?,
+            allocation: self.allocation.clone(),
+            home_contract: self.home_contract.clone(),
+            records,
+            cfg,
+        })
+    }
     pub fn new(
         id: RoutineId,
         allocation: &AllocatedFrame,

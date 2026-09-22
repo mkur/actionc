@@ -7,7 +7,9 @@ physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md), as is slice 2
 ([stored definitions and read attribution](MIR65816_HOME_DEFINITIONS.md)) is also
 complete, as is slice 5 ([register/flag liveness](MIR65816_MACHINE_LIVENESS.md)).
 Slice 6 ([fresh typed replay](MIR65816_TYPED_REPLAY.md)) is complete and
-authoritative. Checked rewrite transactions and the pilot migration remain planned.
+authoritative. Slice 7 ([checked rewrite transactions](MIR65816_CHECKED_REWRITES.md))
+is complete on identity/test rules. The pilot migration and final qualification
+remain planned.
 This foundation takes priority over further temporary-store
 elimination, mutable-counter promotion and broader register/DP allocation.
 The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and

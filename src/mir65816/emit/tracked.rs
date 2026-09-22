@@ -373,6 +373,63 @@ impl TrackedEmitter65816 {
         (self.state.env.m == Width::Word && self.state.mode_permission)
             .then_some((self.position(), self.code.labels.len()))
     }
+    /// Narrow local equivalence proof for the adjacent-load rule. The caller
+    /// supplies the real proposed LDA, not a stored success answer. Both paths
+    /// consume the compiler witness; only the original path executes the load.
+    pub fn prove_adjacent_load(
+        &self,
+        temp: Option<TempId>,
+        home: Option<Location>,
+        load: &Instruction,
+    ) -> Result<(), String> {
+        let expected = match load {
+            Instruction::Byte(ByteOp::LdaStack, offset) => Location::from(WordHome::Stack(*offset)),
+            Instruction::Byte(ByteOp::LdaDp, offset) => {
+                Location::from(WordHome::DirectPage(*offset))
+            }
+            _ => return Err("not a private word load".into()),
+        };
+        let fact = self.state.adjacent.ok_or("no adjacent capture")?;
+        if temp.map(WordIdentity::Temp) != Some(fact.identity)
+            || home != Some(expected)
+            || fact.slot != expected
+            || self.state.delta() != 0
+            || self.word_cursor() != Some(fact.cursor)
+            || self.state.env.m != Width::Word
+            || self.state.a.width() != Some(Width::Word)
+            || !self.state.a.matches(fact.value)
+            || !self.state.nz.matches(fact.value)
+            || !self
+                .state
+                .homes
+                .get(&expected)
+                .is_some_and(|h| h.generation == fact.generation && h.value.matches(fact.value))
+        {
+            return Err("adjacent A16/home/NZ identity is unavailable".into());
+        }
+        // The only admitted forms neither modify X nor its reservation. The
+        // existing facade executes the actual instruction and derives effects.
+        let mut original = self.clone();
+        original.state.adjacent = None;
+        original.instruction(load.clone())?;
+        let a = &original.state;
+        let b = &self.state;
+        if a.a != b.a
+            || a.nz != b.nz
+            || a.x != b.x
+            || a.y != b.y
+            || a.carry != b.carry
+            || a.overflow != b.overflow
+            || a.env != b.env
+            || a.homes != b.homes
+            || original.x_reserved != self.x_reserved
+            || original.x_valid != self.x_valid
+            || original.x_refreshed != self.x_refreshed
+        {
+            return Err("original load and omission have different exit facts".into());
+        }
+        Ok(())
+    }
     pub fn a8(&mut self) {
         self.accumulator_width(Width::Byte);
     }

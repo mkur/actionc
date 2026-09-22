@@ -18,6 +18,34 @@ fn same_action(a: &Record, b: &Record) -> bool {
 }
 
 pub(super) fn emit(selected: &SelectedRoutine, _trace: bool) -> Result<Code, String> {
+    let emitter = walk(selected, _trace, None)?;
+    let code = emitter.finish_replayed(selected)?;
+    let fresh = code.selected.as_ref().ok_or("missing replay selection")?;
+    if fresh.records().len() != selected.records().len()
+        || selected
+            .records()
+            .iter()
+            .zip(fresh.records())
+            .any(|(a, b)| !same_action(a, b))
+    {
+        return Err("replayed selection differs from its typed contract".into());
+    }
+    Ok(code)
+}
+
+pub(super) fn prefix(
+    selected: &SelectedRoutine,
+    stop: Node,
+) -> Result<TrackedEmitter65816, String> {
+    selected.site(stop)?;
+    walk(selected, false, Some(stop))
+}
+
+fn walk(
+    selected: &SelectedRoutine,
+    _trace: bool,
+    stop: Option<Node>,
+) -> Result<TrackedEmitter65816, String> {
     SelectedCfg::build(selected.records())?;
     let mut emitter = TrackedEmitter65816::default();
     #[cfg(feature = "native65816-state-proof")]
@@ -31,6 +59,9 @@ pub(super) fn emit(selected: &SelectedRoutine, _trace: bool) -> Result<Code, Str
     let mut source = None;
     let mut index = 1;
     while index < records.len() {
+        if stop == Some(Node(index)) {
+            return Ok(emitter);
+        }
         let record = &records[index];
         if matches!(record.action, Action::ReturnExit | Action::FaultExit) {
             index += 1;
@@ -104,17 +135,10 @@ pub(super) fn emit(selected: &SelectedRoutine, _trace: bool) -> Result<Code, Str
     if source.is_some() {
         return Err("unfinished replay source".into());
     }
-    let code = emitter.finish_replayed(selected)?;
-    let fresh = code.selected.as_ref().ok_or("missing replay selection")?;
-    if fresh.records().len() != records.len()
-        || records
-            .iter()
-            .zip(fresh.records())
-            .any(|(a, b)| !same_action(a, b))
-    {
-        return Err("replayed selection differs from its typed contract".into());
+    if stop.is_some() {
+        return Err("replay prefix is not a top-level action".into());
     }
-    Ok(code)
+    Ok(emitter)
 }
 
 impl Request {

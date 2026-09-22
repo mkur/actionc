@@ -13,6 +13,15 @@ pub(crate) struct Identity {
     generation: u64,
 }
 impl Identity {
+    pub fn checked_next_selection(self) -> Result<Self, String> {
+        Ok(Self {
+            generation: self
+                .generation
+                .checked_add(1)
+                .ok_or("selection generation overflow")?,
+            ..self
+        })
+    }
     pub fn fresh(routine: RoutineId) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(1);
         let owner = NEXT
