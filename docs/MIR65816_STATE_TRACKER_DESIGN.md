@@ -81,12 +81,19 @@ Implemented foundation modules under `src/mir65816/emit/`:
 | --- | --- |
 | `state.rs` | State facts, invalidation, instruction transfer functions and proof predicates; no bytes or source semantics. |
 | `tracked.rs` | Concrete instruction facade; precondition checks, encoding and application of the corresponding effects. |
+| `selected.rs`, `effects.rs` | Typed forms, production action/request recording and physical effects, independent of forward-value precision. |
+| `analysis/sites.rs`, `analysis/cfg.rs` | Owner/generation-scoped sites and the selected-action CFG; no new optimization permissions. |
 | `code.rs` | Byte/label/fixup storage and final proof metadata. Raw writes are available only behind the facade. |
 | `select.rs`, `accumulator.rs` | Checked target selection and producer/consumer eligibility. Request proofs and emit the chosen sequence. |
 
 The facade owns `Code` and `State65816`; all width knowledge has one state owner.
 Finalized `Code` remains available to linking and qualification. `Code.mir_spans`
 and typed fixups remain nonserialized and independent of optimization correctness.
+The later [analysis foundation](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
+now retains selected actions and CFG facts independently of optional state
+traces. Its [slice 2 contract](MIR65816_SELECTED_ACTIONS.md) preserves request
+inputs, source attribution and identities across layout; backward liveness and
+checked replay remain later slices.
 
 A modeled instruction has a concrete opcode/addressing form, checked operand
 extent and explicit width requirements. Its encoding and transfer function

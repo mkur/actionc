@@ -1,8 +1,9 @@
 # Native 65816 analysis and checked-rewrite foundation
 
 Status: in progress. Implementation slices 0 and 1 (baseline gate and typed
-physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md); selected-action
-recording, liveness and checked rewrites remain planned.
+physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md), as is slice 2
+([selected actions and CFG](MIR65816_SELECTED_ACTIONS.md)). Canonical home bytes,
+liveness and checked rewrites remain planned.
 This foundation takes priority over further temporary-store
 elimination, mutable-counter promotion and broader register/DP allocation.
 The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and

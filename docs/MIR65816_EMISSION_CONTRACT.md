@@ -158,13 +158,54 @@ The default-off `native65816-state-proof` feature exposes only immutable snapsho
 and checked probes through `emit::proof`. Ordinary compilation collects no trace.
 The separate `instruction_effects` observer exposes physical effects and encoded
 ranges, remapped after branch relaxation, without changing historical snapshots
-or executable formats. This is not yet a selected-action stream or analysis CFG;
-the [analysis implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
-defines those later slices. No new optimization consumes the physical effects.
+or executable formats. Production compilation independently retains a selected
+action stream and CFG as described below. No new optimization consumes these
+physical effects or graph facts.
 Qualification compares known values and simultaneous register/home/NZ relations
 against independent VM execution and ca65 encodings, including rebased o65 code.
 See the [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) and
 [design](MIR65816_STATE_TRACKER_DESIGN.md) for the foundation and deferred work.
+
+### Selected actions and CFG
+
+Every production routine retains a private `SelectedRoutine` containing the
+allocation snapshot, typed actions, source attribution and selected CFG.
+Recording is independent of optional traces and does not direct selection.
+Instructions occur once, including the indivisible inverse-branch/JML form.
+Nested request/end markers preserve the inputs and ownership of compound
+facade calls without duplicating their emitted instructions. Requests include
+mode changes even when REP/SEP is omitted, body anchors, home registration,
+barriers, capture/consume attempts, MIR-entry obligations and X operations.
+Recorded inputs and environment observations never grant replay permission.
+
+The graph implements the shared `DataflowGraph` interface with action sites as
+nodes. It includes labels, internal compare/staging paths, both conditional
+successors, zero-byte fallthrough, return exits and stack-overflow exits. Calls
+are intraprocedural summaries. An indirect RTL resumes at the exact label named
+by its PER; labels sharing a PC do not become the same site. Native return and
+indirect transfer retain distinct stack and control contracts.
+
+Construction validates label ownership, request nesting, instruction widths,
+stack changes, body anchors, reachable environment joins and MIR predecessor
+multiplicities/reachability. Unreachable metadata following a terminal transfer
+does not create a physical path. Joins may discard environment facts but cannot
+invent them. Unsupported or inconsistent boundaries reject construction.
+
+Sites carry an owner token, RoutineId, allocation generation and selection
+generation. A site from another compilation or generation is invalid even if
+its routine and ordinal match. Byte offsets are a derived map; branch relaxation
+remaps only this map and preserves identities and graph edges. MIR source spans
+remain separate: a fused compare explicitly records its terminator attribution,
+and empty spans retain their zero-byte events.
+
+Before and after layout, typed actions reconcile with every encoded byte,
+symbolic/PER fixup, label, MIR span/transfer, conditional dispatch and optional
+effect observation. Historical state trace PCs must remain on selected
+boundaries. Proof-feature queries expose immutable observations and reject
+foreign/stale sites. Canonical home identities, backward liveness, replay and
+checked rewrites remain later work; see the
+[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md) and
+[slice 2 qualification](MIR65816_SELECTED_ACTIONS.md).
 
 ## Supported operations
 

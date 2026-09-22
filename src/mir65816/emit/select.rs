@@ -202,15 +202,18 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         if let Some((last, prefix)) = block.ops.split_last() {
             for (op_index, op) in prefix.iter().enumerate() {
                 let start = b.code.code().bytes.len();
+                b.code.begin_source(block.id, op_index);
                 b.operation(op)
                     .map_err(|e| format!("b{}: {e}", block.id.0))?;
                 b.code.span(block.id, op_index, start);
             }
             let start = b.code.code().bytes.len();
+            b.code.begin_source(block.id, prefix.len());
             if b.compare_branch(last, &block.terminator, &sole_conditions)
                 .map_err(|e| format!("b{}: {e}", block.id.0))?
             {
-                b.code.span(block.id, prefix.len(), start);
+                b.code
+                    .fused_span(block.id, prefix.len(), start, block.ops.len());
                 continue;
             }
             b.operation(last)
@@ -218,6 +221,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
             b.code.span(block.id, prefix.len(), start);
         }
         let start = b.code.code().bytes.len();
+        b.code.begin_source(block.id, block.ops.len());
         b.code.a16(); // Every MIR control-flow boundary has the ABI width.
         match &block.terminator {
             Mir65816Terminator::Goto(edge) => b.edge_last(edge)?,
@@ -253,10 +257,11 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         }
         b.code.span(block.id, block.ops.len(), start);
     }
+    let code = super::layout::finalize(b.code.finish_selected(routine.id, &b.frame)?, true)?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,
-        code: super::layout::finalize(b.code.finish(), true)?,
+        code,
     })
 }
 

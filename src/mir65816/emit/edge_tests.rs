@@ -410,9 +410,13 @@ fn malformed_empty_edges_fail_without_emission_or_mode_changes() {
             _ => unreachable!(),
         };
         b.code.a8();
-        let before = format!("{:?}", b.code);
+        // Failed preflight records its barrier request, but code and execution state stay unchanged.
+        let before = format!("{:?}", (b.code.code(), b.code.state_for_incoming_test()));
         assert_eq!(b.edge(&e), Err(message.into()));
-        assert_eq!(format!("{:?}", b.code), before);
+        assert_eq!(
+            format!("{:?}", (b.code.code(), b.code.state_for_incoming_test())),
+            before
+        );
     }
 }
 
@@ -520,9 +524,13 @@ fn single_word_edges_validate_operands_without_requiring_unused_staging() {
             _ => unreachable!(),
         }
         b.code.a8();
-        let before = format!("{:?}", b.code);
+        // Failed preflight records its barrier request, but code and execution state stay unchanged.
+        let before = format!("{:?}", (b.code.code(), b.code.state_for_incoming_test()));
         assert!(b.edge(&e).is_err(), "{problem}");
-        assert_eq!(format!("{:?}", b.code), before);
+        assert_eq!(
+            format!("{:?}", (b.code.code(), b.code.state_for_incoming_test())),
+            before
+        );
     }
     for field in 0..2 {
         for (offset, delta, ok) in [

@@ -56,6 +56,7 @@ pub struct Code {
     /// Boundaries of typed emissions. Compound dispatch is indivisible here.
     pub(in super::super) boundaries: BTreeSet<usize>,
     next_label: u32,
+    pub(in super::super) selected: Option<Box<super::super::selected::SelectedRoutine>>,
     #[cfg(feature = "native65816-state-proof")]
     pub(in super::super) instruction_effects: Vec<super::super::effects::EffectRecord>,
     #[cfg(feature = "native65816-state-proof")]

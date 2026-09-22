@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 and 1 complete; slices 2 onward remain planned. Based on main
+Status: slices 0 through 2 complete; slices 3 onward remain planned. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -103,7 +103,7 @@ mutation. Commit the checker and its focused tests before compiler changes.
 
 ## Slice 1 — Centralize typed instructions and effects
 
-Completed: [typed forms](../src/mir65816/emit/selected.rs),
+Completed in `0bc371af`: [typed forms](../src/mir65816/emit/selected.rs),
 [physical effects](../src/mir65816/emit/effects.rs), verified native call/return
 annotations, independent effect probes and
 [exact corpus equality](benchmarks/65816-analysis-rewrite/slice1-equality.json).
@@ -140,6 +140,14 @@ existing independent encoding/VM probes for changed effect boundaries.
 **Exit:** current library/emission tests and exact corpus equality pass.
 
 ## Slice 2 — Record selected actions and build their CFG
+
+Completed: production action/request recording, immutable selected routines,
+[scoped sites](../src/mir65816/emit/analysis/sites.rs),
+[selected CFG](../src/mir65816/emit/analysis/cfg.rs), and reconciliation before
+and after layout. See [results](MIR65816_SELECTED_ACTIONS.md) and
+[exact equality](benchmarks/65816-analysis-rewrite/slice2-equality.json).
+All selection decisions still come from the existing emitter; this slice
+provides no liveness queries, replay driver or additional omissions.
 
 Record instruction actions and zero-byte compiler events while the existing
 emitter remains authoritative. Use the same semantic dispatcher; the sidecar

@@ -1,4 +1,5 @@
 //! Admitted native instruction forms; operand encoding size is not CPU width.
+#![allow(dead_code)] // Recorded request inputs and immutable queries feed later replay/analysis slices.
 use super::super::abi::ResultLocation;
 use super::effects::CallContract;
 use super::{Label, Target};
@@ -41,3 +42,204 @@ pub(super) enum Instruction {
     NativeCall(Target, CallContract),
     NativeReturn(Option<ResultLocation>),
 }
+
+use super::analysis::{
+    cfg::SelectedCfg,
+    sites::{Identity, Node, SelectedSite},
+};
+use super::copies::WordHome;
+use super::effects::InstructionEffects;
+use super::state::{Environment, State65816, Value, Width};
+use super::tracked::XContract;
+use super::{
+    AllocatedFrame, BlockId, Code, Location, Mir65816FrameObjectId, ParamId, RoutineId, Slot,
+    TempId,
+};
+use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Range;
+
+/// Request inputs only. A successful proof result is never a replay capability.
+#[derive(Clone, Debug)]
+pub(super) enum Request {
+    Mode(Width),
+    EstablishBody,
+    Barrier,
+    RegisterHome(Location),
+    DeclareBlocks(Vec<Label>),
+    ProveEntries {
+        predecessors: BTreeMap<Label, BTreeMap<Option<Label>, usize>>,
+        reachable: BTreeSet<Label>,
+    },
+    RememberWord(TempId, Location),
+    ConsumeWord(Option<TempId>, Option<Location>, Option<WordHome>),
+    RememberFrame(Mir65816FrameObjectId, u32, Slot),
+    ConsumeFrame(Mir65816FrameObjectId, u32, Slot, u8),
+    CaptureIncoming(ParamId, Slot, TempId, Location),
+    StoreIncoming(TempId, Location, Slot),
+    ProveX(XContract),
+    RefreshX,
+    LoadX(Option<TempId>, Option<Location>),
+    CompareX(TempId, Location, u16),
+    IncrementX(TempId, Location, TempId, Location),
+    Jump(Label),
+    Fallthrough(Label),
+    Dispatch(Branch, Label),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Source {
+    pub block: BlockId,
+    /// Operation index, or ops.len() for the terminator. Fused spans also name
+    /// their terminator through SourceEnd; selected sites remain independent.
+    pub index: usize,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Boundary {
+    pub env: Environment,
+    pub stack_a: Option<i64>,
+}
+impl Boundary {
+    pub fn of(state: &State65816) -> Self {
+        Self {
+            env: state.env,
+            stack_a: match state.a {
+                Value::StackAddress(s) => Some(s),
+                _ => None,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(super) enum Action {
+    Entry,
+    Instruction {
+        form: Instruction,
+        effects: InstructionEffects,
+        continuation: Option<Label>,
+    },
+    Request(Request),
+    EndRequest(Node),
+    Allocate(Label),
+    Bind(Label),
+    SourceStart(Source),
+    SourceEnd {
+        source: Source,
+        fused_terminator: Option<usize>,
+    },
+    ReturnExit,
+    FaultExit,
+}
+#[derive(Clone, Debug)]
+pub(super) struct Record {
+    pub action: Action,
+    pub parent: Option<Node>,
+    pub source: Option<Source>,
+    pub encoded: Range<usize>,
+    pub before: Boundary,
+    pub after: Boundary,
+}
+#[derive(Clone, Debug)]
+pub(super) struct Recording {
+    pub records: Vec<Record>,
+    pub parents: Vec<Node>,
+    pub source: Option<Source>,
+}
+impl Default for Recording {
+    fn default() -> Self {
+        let mut r = Self {
+            records: Vec::new(),
+            parents: Vec::new(),
+            source: None,
+        };
+        let b = Boundary::of(&State65816::default());
+        r.add(Action::Entry, 0..0, b, b);
+        r
+    }
+}
+impl Recording {
+    pub fn add(
+        &mut self,
+        action: Action,
+        encoded: Range<usize>,
+        before: Boundary,
+        after: Boundary,
+    ) -> Node {
+        let node = Node(self.records.len());
+        self.records.push(Record {
+            action,
+            encoded,
+            before,
+            after,
+            parent: self.parents.last().copied(),
+            source: self.source,
+        });
+        node
+    }
+}
+
+/// Compiler-owned immutable sequence and graph. Layout may only remap the
+/// derived encoded ranges, never identities, actions, effects or graph edges.
+#[derive(Clone, Debug)]
+pub(super) struct SelectedRoutine {
+    identity: Identity,
+    pub(super) allocation: AllocatedFrame,
+    records: Vec<Record>,
+    cfg: SelectedCfg,
+}
+impl SelectedRoutine {
+    pub fn new(
+        id: RoutineId,
+        allocation: &AllocatedFrame,
+        mut recording: Recording,
+        code: &Code,
+    ) -> Result<Self, String> {
+        if !recording.parents.is_empty() || recording.source.is_some() {
+            return Err("unfinished selected request/source".into());
+        }
+        let end = code.bytes.len();
+        let b = recording
+            .records
+            .last()
+            .ok_or("missing selected entry")?
+            .after;
+        recording.add(Action::ReturnExit, end..end, b, b);
+        recording.add(Action::FaultExit, end..end, b, b);
+        let cfg = SelectedCfg::build(&recording.records)?;
+        let result = Self {
+            identity: Identity::fresh(id),
+            allocation: allocation.clone(),
+            records: recording.records,
+            cfg,
+        };
+        result.reconcile(code)?;
+        Ok(result)
+    }
+    pub fn records(&self) -> &[Record] {
+        &self.records
+    }
+    pub fn cfg(&self) -> &SelectedCfg {
+        &self.cfg
+    }
+    pub fn site(&self, node: Node) -> Result<SelectedSite, String> {
+        let site = self.identity.site(node);
+        self.validate(site)?;
+        Ok(site)
+    }
+    pub fn validate(&self, site: SelectedSite) -> Result<Node, String> {
+        self.identity.validate(site, self.records.len())
+    }
+    pub fn remap(&mut self, map: impl Fn(usize) -> Result<usize, String>) -> Result<(), String> {
+        for r in &mut self.records {
+            r.encoded = map(r.encoded.start)?..map(r.encoded.end)?;
+        }
+        Ok(())
+    }
+    pub fn reconcile(&self, code: &Code) -> Result<(), String> {
+        super::analysis::cfg::reconcile(&self.records, code)
+    }
+}
+
+#[cfg(test)]
+#[path = "selected_tests.rs"]
+mod tests;

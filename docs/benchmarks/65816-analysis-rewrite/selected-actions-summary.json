@@ -1,0 +1,251 @@
+{
+  "builds": [
+    {
+      "case": "identity",
+      "image_equal": true,
+      "instructions": 32,
+      "optimized": false,
+      "reachable_sites": 98,
+      "sites": 102
+    },
+    {
+      "case": "identity",
+      "image_equal": true,
+      "instructions": 32,
+      "optimized": true,
+      "reachable_sites": 98,
+      "sites": 102
+    },
+    {
+      "case": "add",
+      "image_equal": true,
+      "instructions": 38,
+      "optimized": false,
+      "reachable_sites": 130,
+      "sites": 134
+    },
+    {
+      "case": "add",
+      "image_equal": true,
+      "instructions": 38,
+      "optimized": true,
+      "reachable_sites": 130,
+      "sites": 134
+    },
+    {
+      "case": "subtract",
+      "image_equal": true,
+      "instructions": 38,
+      "optimized": false,
+      "reachable_sites": 130,
+      "sites": 134
+    },
+    {
+      "case": "subtract",
+      "image_equal": true,
+      "instructions": 38,
+      "optimized": true,
+      "reachable_sites": 130,
+      "sites": 134
+    },
+    {
+      "case": "constant_chain",
+      "image_equal": true,
+      "instructions": 80,
+      "optimized": false,
+      "reachable_sites": 338,
+      "sites": 342
+    },
+    {
+      "case": "constant_chain",
+      "image_equal": true,
+      "instructions": 35,
+      "optimized": true,
+      "reachable_sites": 113,
+      "sites": 117
+    },
+    {
+      "case": "maximum",
+      "image_equal": true,
+      "instructions": 55,
+      "optimized": false,
+      "reachable_sites": 191,
+      "sites": 199
+    },
+    {
+      "case": "maximum",
+      "image_equal": true,
+      "instructions": 55,
+      "optimized": true,
+      "reachable_sites": 191,
+      "sites": 199
+    },
+    {
+      "case": "wide_shift",
+      "image_equal": true,
+      "instructions": 184,
+      "optimized": false,
+      "reachable_sites": 320,
+      "sites": 326
+    },
+    {
+      "case": "wide_shift",
+      "image_equal": true,
+      "instructions": 172,
+      "optimized": true,
+      "reachable_sites": 292,
+      "sites": 298
+    },
+    {
+      "case": "loop_rotation",
+      "image_equal": true,
+      "instructions": 92,
+      "optimized": false,
+      "reachable_sites": 479,
+      "sites": 490
+    },
+    {
+      "case": "loop_rotation",
+      "image_equal": true,
+      "instructions": 71,
+      "optimized": true,
+      "reachable_sites": 272,
+      "sites": 283
+    },
+    {
+      "case": "sum_loop",
+      "image_equal": true,
+      "instructions": 80,
+      "optimized": false,
+      "reachable_sites": 337,
+      "sites": 348
+    },
+    {
+      "case": "sum_loop",
+      "image_equal": true,
+      "instructions": 66,
+      "optimized": true,
+      "reachable_sites": 257,
+      "sites": 268
+    },
+    {
+      "case": "recursive_sum",
+      "image_equal": true,
+      "instructions": 106,
+      "optimized": false,
+      "reachable_sites": 297,
+      "sites": 306
+    },
+    {
+      "case": "recursive_sum",
+      "image_equal": true,
+      "instructions": 98,
+      "optimized": true,
+      "reachable_sites": 267,
+      "sites": 276
+    },
+    {
+      "case": "direct_calls",
+      "image_equal": true,
+      "instructions": 142,
+      "optimized": false,
+      "reachable_sites": 345,
+      "sites": 353
+    },
+    {
+      "case": "direct_calls",
+      "image_equal": true,
+      "instructions": 142,
+      "optimized": true,
+      "reachable_sites": 345,
+      "sites": 353
+    },
+    {
+      "case": "byte_sum",
+      "image_equal": true,
+      "instructions": 129,
+      "optimized": false,
+      "reachable_sites": 424,
+      "sites": 435
+    },
+    {
+      "case": "byte_sum",
+      "image_equal": true,
+      "instructions": 115,
+      "optimized": true,
+      "reachable_sites": 344,
+      "sites": 355
+    },
+    {
+      "case": "record_field",
+      "image_equal": true,
+      "instructions": 48,
+      "optimized": false,
+      "reachable_sites": 122,
+      "sites": 126
+    },
+    {
+      "case": "record_field",
+      "image_equal": true,
+      "instructions": 48,
+      "optimized": true,
+      "reachable_sites": 122,
+      "sites": 126
+    },
+    {
+      "case": "unlink",
+      "image_equal": true,
+      "instructions": 98,
+      "optimized": false,
+      "reachable_sites": 228,
+      "sites": 232
+    },
+    {
+      "case": "unlink",
+      "image_equal": true,
+      "instructions": 66,
+      "optimized": true,
+      "reachable_sites": 154,
+      "sites": 158
+    },
+    {
+      "case": "forward_copy",
+      "image_equal": true,
+      "instructions": 154,
+      "optimized": false,
+      "reachable_sites": 401,
+      "sites": 412
+    },
+    {
+      "case": "forward_copy",
+      "image_equal": true,
+      "instructions": 147,
+      "optimized": true,
+      "reachable_sites": 384,
+      "sites": 395
+    }
+  ],
+  "fused_sources": 12,
+  "requests": [
+    "barrier",
+    "blocks",
+    "body-anchor",
+    "capture-incoming",
+    "compare-x",
+    "consume-frame",
+    "consume-word",
+    "dispatch",
+    "entry-obligations",
+    "fallthrough",
+    "home",
+    "increment-x",
+    "jump",
+    "load-x",
+    "mode",
+    "refresh-x",
+    "remember-frame",
+    "remember-word",
+    "store-incoming",
+    "x-obligations"
+  ]
+}

@@ -99,6 +99,9 @@ pub(crate) fn validate_branches(code: &Code, base: Option<u32>) -> Result<(), St
 
 pub(super) fn finalize(mut code: Code, relax: bool) -> Result<Code, String> {
     validate_branches(&code, None)?;
+    if let Some(selected) = &code.selected {
+        selected.reconcile(&code)?;
+    }
     if !relax {
         return Ok(code);
     }
@@ -188,6 +191,9 @@ pub(super) fn finalize(mut code: Code, relax: bool) -> Result<Code, String> {
         effect.start = boundary(effect.start)?;
         effect.end = boundary(effect.end)?;
     }
+    if let Some(selected) = &mut code.selected {
+        selected.remap(boundary)?;
+    }
     code.boundaries = code
         .boundaries
         .iter()
@@ -196,6 +202,9 @@ pub(super) fn finalize(mut code: Code, relax: bool) -> Result<Code, String> {
     code.conditional_branches = sites;
     code.bytes = bytes;
     validate_branches(&code, None)?;
+    if let Some(selected) = &code.selected {
+        selected.reconcile(&code)?;
+    }
     Ok(code)
 }
 

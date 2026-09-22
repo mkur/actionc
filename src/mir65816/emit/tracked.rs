@@ -29,6 +29,7 @@ struct Entry {
 pub(super) struct TrackedEmitter65816 {
     code: Code,
     state: State65816,
+    recording: Recording,
     x_contract: Option<XContract>,
     x_reserved: bool,
     x_valid: bool,
@@ -79,6 +80,43 @@ impl TrackedEmitter65816 {
         self.state.env.anchor = Some(i64::from(bytes));
     }
 
+    pub fn finish_selected(
+        mut self,
+        id: super::RoutineId,
+        allocation: &super::AllocatedFrame,
+    ) -> Result<Code, String> {
+        let recording = std::mem::take(&mut self.recording);
+        let mut code = self.finish();
+        code.selected = Some(Box::new(SelectedRoutine::new(
+            id, allocation, recording, &code,
+        )?));
+        Ok(code)
+    }
+    fn request<R>(&mut self, request: Request, run: impl FnOnce(&mut Self) -> R) -> R {
+        let before = Boundary::of(&self.state);
+        let at = self.position();
+        let begin = self
+            .recording
+            .add(Action::Request(request), at..at, before, before);
+        self.recording.parents.push(begin);
+        let result = run(self);
+        let before_end = self.recording.records.last().unwrap().after;
+        let after = Boundary::of(&self.state);
+        let at = self.position();
+        self.recording
+            .add(Action::EndRequest(begin), at..at, before_end, after);
+        assert_eq!(self.recording.parents.pop(), Some(begin));
+        result
+    }
+    pub fn begin_source(&mut self, block: BlockId, index: usize) {
+        assert!(self.recording.source.is_none());
+        let source = Source { block, index };
+        self.recording.source = Some(source);
+        let b = Boundary::of(&self.state);
+        let at = self.position();
+        self.recording
+            .add(Action::SourceStart(source), at..at, b, b);
+    }
     pub fn code(&self) -> &Code {
         &self.code
     }
@@ -126,26 +164,59 @@ impl TrackedEmitter65816 {
         self.code.bytes.len()
     }
     pub fn span(&mut self, block: BlockId, index: usize, start: usize) {
+        self.end_source(block, index, start, None);
+    }
+    pub fn fused_span(&mut self, block: BlockId, index: usize, start: usize, terminator: usize) {
+        self.end_source(block, index, start, Some(terminator));
+    }
+    fn end_source(
+        &mut self,
+        block: BlockId,
+        index: usize,
+        start: usize,
+        fused_terminator: Option<usize>,
+    ) {
         self.code
             .mir_spans
             .insert((block, index), start..self.position());
+        let source = Source { block, index };
+        assert_eq!(self.recording.source, Some(source));
+        let b = Boundary::of(&self.state);
+        let at = self.position();
+        self.recording.add(
+            Action::SourceEnd {
+                source,
+                fused_terminator,
+            },
+            at..at,
+            b,
+            b,
+        );
+        self.recording.source = None;
     }
     pub fn label(&mut self) -> Label {
-        self.code.label()
+        let label = self.code.label();
+        let b = Boundary::of(&self.state);
+        let at = self.position();
+        self.recording.add(Action::Allocate(label), at..at, b, b);
+        label
     }
     pub fn declare_blocks(&mut self, labels: impl Iterator<Item = Label>) {
-        assert_eq!(self.state.env.m, Width::Word);
-        for label in labels {
-            self.blocks.insert(label);
-            self.entries.insert(
-                label,
-                Entry {
-                    env: self.state.env,
-                    stack_a: None,
-                    x_word: false,
-                },
-            );
-        }
+        let labels: Vec<_> = labels.collect();
+        self.request(Request::DeclareBlocks(labels.clone()), |this| {
+            assert_eq!(this.state.env.m, Width::Word);
+            for label in labels {
+                this.blocks.insert(label);
+                this.entries.insert(
+                    label,
+                    Entry {
+                        env: this.state.env,
+                        stack_a: None,
+                        x_word: false,
+                    },
+                );
+            }
+        })
     }
     /// Expected CFG transfers are obligations, not observations. Every actual
     /// exit is checked, including backedges emitted after an eligible binding.
@@ -154,25 +225,33 @@ impl TrackedEmitter65816 {
         predecessors: BTreeMap<Label, BTreeMap<Option<Label>, usize>>,
         reachable: BTreeSet<Label>,
     ) {
-        let e = self.state.env;
-        assert!(e.native && e.m == Width::Word && e.index == Width::Word);
-        assert!(
-            e.anchor == Some(e.depth) && e.pushes == 0,
-            "MIR body stack contract"
-        );
-        assert_eq!(
-            predecessors.keys().copied().collect::<BTreeSet<_>>(),
-            self.blocks
-        );
-        assert!(reachable.is_subset(&self.blocks));
-        assert!(
-            reachable
-                .iter()
-                .all(|l| predecessors[l].values().any(|&n| n > 0))
-        );
-        assert!(self.remaining_edges.is_none() && self.active_block.is_none());
-        self.remaining_edges = Some(predecessors);
-        self.proved_blocks = reachable;
+        self.request(
+            Request::ProveEntries {
+                predecessors: predecessors.clone(),
+                reachable: reachable.clone(),
+            },
+            |this| {
+                let e = this.state.env;
+                assert!(e.native && e.m == Width::Word && e.index == Width::Word);
+                assert!(
+                    e.anchor == Some(e.depth) && e.pushes == 0,
+                    "MIR body stack contract"
+                );
+                assert_eq!(
+                    predecessors.keys().copied().collect::<BTreeSet<_>>(),
+                    this.blocks
+                );
+                assert!(reachable.is_subset(&this.blocks));
+                assert!(
+                    reachable
+                        .iter()
+                        .all(|l| predecessors[l].values().any(|&n| n > 0))
+                );
+                assert!(this.remaining_edges.is_none() && this.active_block.is_none());
+                this.remaining_edges = Some(predecessors);
+                this.proved_blocks = reachable;
+            },
+        )
     }
     fn entry(&self) -> Entry {
         Entry {
@@ -218,6 +297,7 @@ impl TrackedEmitter65816 {
         }
     }
     pub fn mark(&mut self, label: Label) {
+        let before = Boundary::of(&self.state);
         if let Some(target) = self.pending_fallthrough.take() {
             assert_eq!(target, label, "fallthrough must bind the next MIR block");
         }
@@ -245,6 +325,13 @@ impl TrackedEmitter65816 {
         self.bound.insert(label);
         self.unreachable = false;
         self.observe_event(Event::Join);
+        let at = self.position();
+        self.recording.add(
+            Action::Bind(label),
+            at..at,
+            before,
+            Boundary::of(&self.state),
+        );
     }
     pub fn word_cursor(&self) -> Option<(usize, usize)> {
         (self.state.env.m == Width::Word && self.state.mode_permission)
@@ -257,37 +344,49 @@ impl TrackedEmitter65816 {
         self.accumulator_width(Width::Word);
     }
     fn accumulator_width(&mut self, width: Width) {
-        if !self.state.mode_permission || self.state.env.m != width {
-            self.byte(
-                if width == Width::Byte {
-                    ByteOp::Sep
-                } else {
-                    ByteOp::Rep
-                },
-                0x20,
-            );
-            self.state.mode_permission = true;
-        }
+        self.request(Request::Mode(width), |this| {
+            if !this.state.mode_permission || this.state.env.m != width {
+                this.byte(
+                    if width == Width::Byte {
+                        ByteOp::Sep
+                    } else {
+                        ByteOp::Rep
+                    },
+                    0x20,
+                );
+                this.state.mode_permission = true;
+            }
+        })
     }
     pub fn delta(&self) -> u32 {
         self.state.delta()
     }
     pub fn establish_body(&mut self) {
-        assert!(self.state.env.anchor.is_none() && self.state.env.pushes == 0);
-        assert!(matches!(self.state.a,Value::StackAddress(s) if -s == self.state.env.depth));
-        self.state.env.anchor = Some(self.state.env.depth);
+        self.request(Request::EstablishBody, |this| {
+            assert!(this.state.env.anchor.is_none() && this.state.env.pushes == 0);
+            assert!(matches!(this.state.a,Value::StackAddress(s) if -s == this.state.env.depth));
+            this.state.env.anchor = Some(this.state.env.depth);
+        })
     }
     pub fn barrier(&mut self) {
-        self.state.adjacent = None;
-        self.state.incoming = None;
+        self.request(Request::Barrier, |this| {
+            this.state.adjacent = None;
+            this.state.incoming = None;
+        })
     }
     pub fn register_home(&mut self, slot: impl Into<Location>) {
-        self.state.register_home(slot);
+        let slot = slot.into();
+        self.request(Request::RegisterHome(slot), |this| {
+            this.state.register_home(slot);
+        })
     }
     pub fn remember_word(&mut self, temp: TempId, slot: impl Into<Location>) {
-        if let Some(cursor) = self.word_cursor() {
-            self.state.publish_word(temp, slot, cursor);
-        }
+        let slot = slot.into();
+        self.request(Request::RememberWord(temp, slot), |this| {
+            if let Some(cursor) = this.word_cursor() {
+                this.state.publish_word(temp, slot, cursor);
+            }
+        })
     }
     pub fn consume_word(
         &mut self,
@@ -295,8 +394,10 @@ impl TrackedEmitter65816 {
         slot: Option<Location>,
         offset: Option<WordHome>,
     ) -> bool {
-        self.state
-            .consume_word(temp, slot, offset, self.word_cursor())
+        self.request(Request::ConsumeWord(temp, slot, offset), |this| {
+            this.state
+                .consume_word(temp, slot, offset, this.word_cursor())
+        })
     }
     pub fn remember_frame_word(
         &mut self,
@@ -304,10 +405,12 @@ impl TrackedEmitter65816 {
         byte: u32,
         slot: Slot,
     ) {
-        if let Some(cursor) = self.word_cursor() {
-            self.state
-                .publish_adjacent(WordIdentity::Frame(object, byte), slot, cursor);
-        }
+        self.request(Request::RememberFrame(object, byte, slot), |this| {
+            if let Some(cursor) = this.word_cursor() {
+                this.state
+                    .publish_adjacent(WordIdentity::Frame(object, byte), slot, cursor);
+            }
+        })
     }
     pub fn consume_frame_word(
         &mut self,
@@ -316,12 +419,14 @@ impl TrackedEmitter65816 {
         slot: Slot,
         offset: u8,
     ) -> bool {
-        self.state.consume_adjacent(
-            Some(WordIdentity::Frame(object, byte)),
-            Some(Location::Stack(slot)),
-            Some(WordHome::Stack(offset)),
-            self.word_cursor(),
-        )
+        self.request(Request::ConsumeFrame(object, byte, slot, offset), |this| {
+            this.state.consume_adjacent(
+                Some(WordIdentity::Frame(object, byte)),
+                Some(Location::Stack(slot)),
+                Some(WordHome::Stack(offset)),
+                this.word_cursor(),
+            )
+        })
     }
     /// Both homes have already passed target extent/alias checks. A real read
     /// establishes provenance; an omitted consumer never rearms this witness.
@@ -332,22 +437,29 @@ impl TrackedEmitter65816 {
         temp: TempId,
         destination: Location,
     ) {
-        let forwarded = self
-            .state
-            .consume_incoming(param, source, self.word_cursor());
-        self.barrier();
-        self.a16();
-        if !forwarded {
-            self.byte(ByteOp::LdaStack, source.offset as u8);
-            self.state.record_incoming_read(source);
-            self.observe();
-        }
-        self.store_word(super::copies::word_home(destination, 0).expect("preflighted capture"));
-        self.remember_word(temp, destination);
-        if !forwarded {
-            self.state
-                .publish_incoming(param, source, self.word_cursor().unwrap());
-        }
+        self.request(
+            Request::CaptureIncoming(param, source, temp, destination),
+            |this| {
+                let forwarded = this
+                    .state
+                    .consume_incoming(param, source, this.word_cursor());
+                this.barrier();
+                this.a16();
+                if !forwarded {
+                    this.byte(ByteOp::LdaStack, source.offset as u8);
+                    this.state.record_incoming_read(source);
+                    this.observe();
+                }
+                this.store_word(
+                    super::copies::word_home(destination, 0).expect("preflighted capture"),
+                );
+                this.remember_word(temp, destination);
+                if !forwarded {
+                    this.state
+                        .publish_incoming(param, source, this.word_cursor().unwrap());
+                }
+            },
+        )
     }
     /// The sole admitted extension: consume the original capture without LDA,
     /// emit exactly one disjoint STA16, then grant one final parameter consumer.
@@ -357,35 +469,37 @@ impl TrackedEmitter65816 {
         source: Location,
         destination: Slot,
     ) -> bool {
-        let Some(mut fact) = self.state.incoming.take() else {
-            return false;
-        };
-        let disjoint = |a: Slot, b: Slot| {
-            u32::from(a.offset) + u32::from(a.width) <= u32::from(b.offset)
-                || u32::from(b.offset) + u32::from(b.width) <= u32::from(a.offset)
-        };
-        if fact.stored
-            || fact.capture.identity != WordIdentity::Temp(temp)
-            || fact.capture.slot != source
-            || destination.width != 2
-            || !disjoint(destination, fact.source)
-            || Location::Stack(destination).overlaps(source)
-            || !self.state.incoming_matches(fact, self.word_cursor())
-            || !self.consume_word(
-                Some(temp),
-                Some(source),
-                Some(super::copies::word_home(source, 0).expect("preflighted source")),
-            )
-        {
-            return false;
-        }
-        self.byte(ByteOp::StaStack, destination.offset as u8);
-        self.barrier();
-        fact.cursor.0 += 2;
-        fact.stored = true;
-        assert!(self.state.incoming_matches(fact, self.word_cursor()));
-        self.state.incoming = Some(fact);
-        true
+        self.request(Request::StoreIncoming(temp, source, destination), |this| {
+            let Some(mut fact) = this.state.incoming.take() else {
+                return false;
+            };
+            let disjoint = |a: Slot, b: Slot| {
+                u32::from(a.offset) + u32::from(a.width) <= u32::from(b.offset)
+                    || u32::from(b.offset) + u32::from(b.width) <= u32::from(a.offset)
+            };
+            if fact.stored
+                || fact.capture.identity != WordIdentity::Temp(temp)
+                || fact.capture.slot != source
+                || destination.width != 2
+                || !disjoint(destination, fact.source)
+                || Location::Stack(destination).overlaps(source)
+                || !this.state.incoming_matches(fact, this.word_cursor())
+                || !this.consume_word(
+                    Some(temp),
+                    Some(source),
+                    Some(super::copies::word_home(source, 0).expect("preflighted source")),
+                )
+            {
+                return false;
+            }
+            this.byte(ByteOp::StaStack, destination.offset as u8);
+            this.barrier();
+            fact.cursor.0 += 2;
+            fact.stored = true;
+            assert!(this.state.incoming_matches(fact, this.word_cursor()));
+            this.state.incoming = Some(fact);
+            true
+        })
     }
     fn live(&self) {
         assert!(
@@ -401,9 +515,14 @@ impl TrackedEmitter65816 {
     // be called by selectors without deriving the corresponding typed effects.
     fn instruction(&mut self, instruction: Instruction) -> Result<(), String> {
         let effects = instruction.effects(self.state.env);
-        #[cfg(feature = "native65816-state-proof")]
+        let before = Boundary::of(&self.state);
+        let continuation = if matches!(instruction, Instruction::IndirectTransfer(_)) {
+            self.indirect_resume.map(|(label, _)| label)
+        } else {
+            None
+        };
         let start = self.position();
-        match instruction {
+        match instruction.clone() {
             Instruction::Implied(op) => self.emit_implied(op),
             Instruction::Byte(op, value) => self.emit_byte(op, value),
             Instruction::Word(op, value) => self.emit_word(op, value),
@@ -419,6 +538,16 @@ impl TrackedEmitter65816 {
             }
             Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),
         }
+        self.recording.add(
+            Action::Instruction {
+                form: instruction,
+                effects: effects.clone(),
+                continuation,
+            },
+            start..self.position(),
+            before,
+            Boundary::of(&self.state),
+        );
         #[cfg(feature = "native65816-state-proof")]
         if self.trace.is_some() {
             self.code
@@ -501,7 +630,8 @@ impl TrackedEmitter65816 {
                 self.state.homes.clear();
                 self.state.env.depth = -s;
                 self.state.peak = self.state.peak.max(-s);
-                self.barrier();
+                self.state.adjacent = None;
+                self.state.incoming = None;
             }
             Tax | Tay => {
                 let value = self.state.narrow(self.state.a, self.state.env.index);
@@ -746,19 +876,23 @@ impl TrackedEmitter65816 {
         }
     }
     pub fn jump(&mut self, label: Label) {
-        self.record_transfer(label, false);
-        self.reference(ReferenceOp::Jml, Target::Label(label), 0, None);
+        self.request(Request::Jump(label), |this| {
+            this.record_transfer(label, false);
+            this.reference(ReferenceOp::Jml, Target::Label(label), 0, None);
+        })
     }
     pub fn fallthrough(&mut self, label: Label) {
-        self.live();
-        assert!(
-            self.blocks.contains(&label),
-            "fallthrough requires a MIR block"
-        );
-        self.edge(label);
-        self.record_transfer(label, true);
-        self.unreachable = true;
-        self.pending_fallthrough = Some(label);
+        self.request(Request::Fallthrough(label), |this| {
+            this.live();
+            assert!(
+                this.blocks.contains(&label),
+                "fallthrough requires a MIR block"
+            );
+            this.edge(label);
+            this.record_transfer(label, true);
+            this.unreachable = true;
+            this.pending_fallthrough = Some(label);
+        })
     }
     fn emit_branch(&mut self, op: Branch, label: Label) {
         self.live();
@@ -769,14 +903,16 @@ impl TrackedEmitter65816 {
         self.observe();
     }
     pub fn dispatch(&mut self, op: Branch, label: Label) {
-        let offset = self.position();
-        self.branch(op, label);
-        self.code.conditional_branches.push(ConditionalBranch {
-            offset,
-            predicate: op.opcode(),
-            target: label,
-            short: false,
-        });
+        self.request(Request::Dispatch(op, label), |this| {
+            let offset = this.position();
+            this.branch(op, label);
+            this.code.conditional_branches.push(ConditionalBranch {
+                offset,
+                predicate: op.opcode(),
+                target: label,
+                short: false,
+            });
+        })
     }
     fn emit_push_return(&mut self, label: Label) {
         self.live();

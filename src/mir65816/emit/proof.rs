@@ -307,3 +307,113 @@ pub fn increment_instruction_probe(
     e.op(Implied::Nop);
     e.finish_traced()
 }
+
+pub use super::analysis::sites::SelectedSite;
+/// Read-only view of a site. Request names are display metadata, never semantics.
+#[derive(Clone, Debug)]
+pub struct SelectedObservation {
+    pub site: SelectedSite,
+    pub ordinal: usize,
+    pub kind: &'static str,
+    pub request: Option<&'static str>,
+    pub parent: Option<SelectedSite>,
+    pub encoded: std::ops::Range<usize>,
+    pub source: Option<(super::BlockId, usize)>,
+    pub fused_terminator: Option<usize>,
+    pub control: Option<EffectControl>,
+    pub successors: Vec<SelectedSite>,
+    pub reachable: bool,
+    pub depth_before: i64,
+    pub depth_after: i64,
+}
+
+pub fn selected_site(code: &Code, site: SelectedSite) -> Result<SelectedObservation, String> {
+    use super::selected::{Action, Request};
+    use crate::analysis::graph::DataflowGraph;
+    let s = code
+        .selected
+        .as_ref()
+        .ok_or("code has no selected routine")?;
+    let n = s.validate(site)?;
+    let r = &s.records()[n.0];
+    let mut request = None;
+    let mut control = None;
+    let mut fused_terminator = None;
+    let kind = match &r.action {
+        Action::Entry => "entry",
+        Action::Instruction { effects, .. } => {
+            control = Some(effects.control);
+            "instruction"
+        }
+        Action::Request(q) => {
+            request = Some(match q {
+                Request::Mode(_) => "mode",
+                Request::EstablishBody => "body-anchor",
+                Request::Barrier => "barrier",
+                Request::RegisterHome(_) => "home",
+                Request::DeclareBlocks(_) => "blocks",
+                Request::ProveEntries { .. } => "entry-obligations",
+                Request::RememberWord(..) => "remember-word",
+                Request::ConsumeWord(..) => "consume-word",
+                Request::RememberFrame(..) => "remember-frame",
+                Request::ConsumeFrame(..) => "consume-frame",
+                Request::CaptureIncoming(..) => "capture-incoming",
+                Request::StoreIncoming(..) => "store-incoming",
+                Request::ProveX(_) => "x-obligations",
+                Request::RefreshX => "refresh-x",
+                Request::LoadX(..) => "load-x",
+                Request::CompareX(..) => "compare-x",
+                Request::IncrementX(..) => "increment-x",
+                Request::Jump(_) => "jump",
+                Request::Fallthrough(_) => "fallthrough",
+                Request::Dispatch(..) => "dispatch",
+            });
+            "request"
+        }
+        Action::EndRequest(_) => "end-request",
+        Action::Allocate(_) => "allocate-label",
+        Action::Bind(_) => "bind-label",
+        Action::SourceStart(_) => "source-start",
+        Action::SourceEnd {
+            fused_terminator: fused,
+            ..
+        } => {
+            fused_terminator = *fused;
+            "source-end"
+        }
+        Action::ReturnExit => "return-exit",
+        Action::FaultExit => "fault-exit",
+    };
+    Ok(SelectedObservation {
+        site,
+        ordinal: n.0,
+        kind,
+        request,
+        parent: r.parent.map(|p| s.site(p)).transpose()?,
+        encoded: r.encoded.clone(),
+        source: r.source.map(|s| (s.block, s.index)),
+        fused_terminator,
+        control,
+        successors: s
+            .cfg()
+            .successors(n)
+            .iter()
+            .map(|&n| s.site(n))
+            .collect::<Result<_, _>>()?,
+        reachable: s.cfg().reachable().contains(&n),
+        depth_before: r.before.env.depth,
+        depth_after: r.after.env.depth,
+    })
+}
+
+pub fn selected_actions(code: &Code) -> Result<Vec<SelectedObservation>, String> {
+    use super::analysis::sites::Node;
+    let s = code
+        .selected
+        .as_ref()
+        .ok_or("code has no selected routine")?;
+    s.reconcile(code)?;
+    (0..s.records().len())
+        .map(|n| selected_site(code, s.site(Node(n))?))
+        .collect()
+}

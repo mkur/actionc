@@ -15,7 +15,8 @@ pub struct XContract {
 impl TrackedEmitter65816 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn prove_x(&mut self, contract: XContract) {
-        assert!(self.x_contract.is_none() && self.blocks.is_disjoint(&self.bound));
+        self.request(Request::ProveX(contract.clone()), |this| {
+        assert!(this.x_contract.is_none() && this.blocks.is_disjoint(&this.bound));
         assert!(
             matches!(contract.home, Location::DirectPage(s) if s.width == 2 && super::super::scalar::word_offset(s.offset))
         );
@@ -29,7 +30,7 @@ impl TrackedEmitter65816 {
         assert_ne!(contract.header, contract.body);
         assert_eq!(contract.predecessors.len(), 2);
         assert!(contract.predecessors.contains(&contract.body));
-        let edges = self.remaining_edges.as_ref().expect("X needs checked CFG");
+        let edges = this.remaining_edges.as_ref().expect("X needs checked CFG");
         assert_eq!(
             edges[&contract.header],
             contract
@@ -40,10 +41,11 @@ impl TrackedEmitter65816 {
         );
         assert_eq!(edges[&contract.body], [(Some(contract.header), 1)].into());
         for label in [contract.header, contract.body] {
-            assert!(self.proved_blocks.contains(&label));
-            self.entries.get_mut(&label).unwrap().x_word = true;
+            assert!(this.proved_blocks.contains(&label));
+            this.entries.get_mut(&label).unwrap().x_word = true;
         }
-        self.x_contract = Some(contract);
+        this.x_contract = Some(contract);
+            })
     }
 
     pub(super) fn x_edge(&mut self, label: Label) -> bool {
@@ -96,62 +98,70 @@ impl TrackedEmitter65816 {
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn refresh_x(&mut self) {
-        let c = self.x_contract.as_ref().expect("unplanned X refresh");
-        assert!(
-            c.predecessors
-                .contains(&self.active_block.expect("X edge source"))
-        );
-        assert!(!self.x_refreshed, "duplicate X refresh");
-        assert_eq!(
-            (self.state.env.m, self.state.env.index),
-            (Width::Word, Width::Word)
-        );
-        let at = self.position().checked_sub(2).expect("missing X copy tail");
-        let offset = c.home.slot().offset as u8;
-        assert!(self.code.boundaries.contains(&at));
-        assert!(
-            self.code.bytes[at..] == [0x85, offset] || self.code.bytes[at..] == [0xa5, offset],
-            "X refresh needs final home store/read"
-        );
-        assert!(self.state.a.width() == Some(Width::Word) && self.state.nz.matches(self.state.a));
-        let home = c.home;
-        self.x_access = true;
-        self.op(Implied::Tax);
-        self.x_access = false;
-        // A real checked read or retained store supplies this observation.
-        self.state.bind_home(home, self.state.x);
-        self.x_reserved = true;
-        self.x_valid = true;
-        self.x_refreshed = true;
-        self.observe();
+        self.request(Request::RefreshX, |this| {
+            let c = this.x_contract.as_ref().expect("unplanned X refresh");
+            assert!(
+                c.predecessors
+                    .contains(&this.active_block.expect("X edge source"))
+            );
+            assert!(!this.x_refreshed, "duplicate X refresh");
+            assert_eq!(
+                (this.state.env.m, this.state.env.index),
+                (Width::Word, Width::Word)
+            );
+            let at = this.position().checked_sub(2).expect("missing X copy tail");
+            let offset = c.home.slot().offset as u8;
+            assert!(this.code.boundaries.contains(&at));
+            assert!(
+                this.code.bytes[at..] == [0x85, offset] || this.code.bytes[at..] == [0xa5, offset],
+                "X refresh needs final home store/read"
+            );
+            assert!(
+                this.state.a.width() == Some(Width::Word) && this.state.nz.matches(this.state.a)
+            );
+            let home = c.home;
+            this.x_access = true;
+            this.op(Implied::Tax);
+            this.x_access = false;
+            // A real checked read or retained store supplies this observation.
+            this.state.bind_home(home, this.state.x);
+            this.x_reserved = true;
+            this.x_valid = true;
+            this.x_refreshed = true;
+            this.observe();
+        })
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn load_x_word(&mut self, param: Option<TempId>, home: Option<Location>) -> bool {
-        if !self.x_reserved
-            || !self
-                .x_contract
-                .as_ref()
-                .is_some_and(|c| Some(c.param) == param && Some(c.home) == home)
-        {
-            return false;
-        }
-        self.require_x();
-        assert_eq!(self.state.env.m, Width::Word);
-        self.x_access = true;
-        self.op(Implied::Txa);
-        self.x_access = false;
-        true
+        self.request(Request::LoadX(param, home), |this| {
+            if !this.x_reserved
+                || !this
+                    .x_contract
+                    .as_ref()
+                    .is_some_and(|c| Some(c.param) == param && Some(c.home) == home)
+            {
+                return false;
+            }
+            this.require_x();
+            assert_eq!(this.state.env.m, Width::Word);
+            this.x_access = true;
+            this.op(Implied::Txa);
+            this.x_access = false;
+            true
+        })
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn compare_x_word(&mut self, param: TempId, home: Location, threshold: u16) {
-        let c = self.x_contract.as_ref().expect("unplanned X compare");
-        assert_eq!((param, home), (c.param, c.home));
-        self.require_x();
-        self.x_access = true;
-        self.word(WordOp::CpxImm, threshold);
-        self.x_access = false;
+        self.request(Request::CompareX(param, home, threshold), |this| {
+            let c = this.x_contract.as_ref().expect("unplanned X compare");
+            assert_eq!((param, home), (c.param, c.home));
+            this.require_x();
+            this.x_access = true;
+            this.word(WordOp::CpxImm, threshold);
+            this.x_access = false;
+        })
     }
 
     /// The checked ADD's only MIR output is its word value; C/V are dead.
@@ -163,17 +173,22 @@ impl TrackedEmitter65816 {
         update: TempId,
         destination: Location,
     ) {
-        let c = self.x_contract.as_ref().expect("unplanned X increment");
-        assert_eq!((param, home), (c.param, c.home));
-        assert_eq!(c.increment, Some((update, destination)));
-        assert_eq!(self.active_block, Some(c.body));
-        self.require_x();
-        assert_eq!(self.state.env.m, Width::Word);
-        self.x_valid = false;
-        self.x_access = true;
-        self.op(Implied::Inx);
-        self.op(Implied::Txa);
-        self.x_access = false;
+        self.request(
+            Request::IncrementX(param, home, update, destination),
+            |this| {
+                let c = this.x_contract.as_ref().expect("unplanned X increment");
+                assert_eq!((param, home), (c.param, c.home));
+                assert_eq!(c.increment, Some((update, destination)));
+                assert_eq!(this.active_block, Some(c.body));
+                this.require_x();
+                assert_eq!(this.state.env.m, Width::Word);
+                this.x_valid = false;
+                this.x_access = true;
+                this.op(Implied::Inx);
+                this.op(Implied::Txa);
+                this.x_access = false;
+            },
+        )
     }
 
     pub(super) fn x_implied(&self, op: Implied) {
