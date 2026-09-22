@@ -12,7 +12,7 @@ fn frame() -> AllocatedFrame {
     }
 }
 fn finish(e: TrackedEmitter65816) -> Code {
-    e.finish_selected(RoutineId(7), &frame()).unwrap()
+    e.finish_selected(RoutineId(7), &frame(), None).unwrap()
 }
 fn simple() -> Code {
     let mut e = TrackedEmitter65816::default();

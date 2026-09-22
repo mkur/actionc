@@ -169,7 +169,8 @@ See the [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) and
 ### Selected actions and CFG
 
 Every production routine retains a private `SelectedRoutine` containing the
-allocation snapshot, typed actions, source attribution and selected CFG.
+allocation snapshot, verified home ownership, typed actions, source attribution
+and selected CFG.
 Recording is independent of optional traces and does not direct selection.
 Instructions occur once, including the indivisible inverse-branch/JML form.
 Nested request/end markers preserve the inputs and ownership of compound
@@ -683,3 +684,12 @@ operands. Public arguments/results, stack-guard algorithms, interrupt reserves
 and physical ABI v1 are unchanged. Scalar frame shrinkage changes reservation
 and incoming-argument operands, and zero-frame routines use the existing short
 return. Exec816 adoption and its pinned compiler remain a separate task.
+
+### Read-only physical home analysis
+
+The selected snapshot retains native entry/ownership facts for canonical
+invocation-entry-relative stack bytes and current-domain DP bytes. Backward
+may-liveness composes ordered accesses; unresolved aliases and calls remain
+conservative. Queries validate owner, generation and reachability. These facts
+do not change selection or grant rewrite permission. See the
+[home analysis contract](MIR65816_HOME_ANALYSIS.md).

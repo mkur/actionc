@@ -9,6 +9,40 @@ pub use super::effects::{
 };
 pub use super::tracked::Event;
 
+pub use super::analysis::homes::{HomeAccess, HomeByte, HomeInfo, HomeOwner};
+/// Read-only analyses tied to this immutable selection/allocation snapshot.
+pub struct HomeAnalysis<'a>(super::analysis::AnalysisSnapshot<'a>);
+pub fn home_analysis(code: &Code) -> Result<HomeAnalysis<'_>, String> {
+    let selected = code
+        .selected
+        .as_ref()
+        .ok_or("code has no selected routine")?;
+    selected.reconcile(code)?;
+    Ok(HomeAnalysis(super::analysis::AnalysisSnapshot::new(
+        selected,
+    )?))
+}
+impl HomeAnalysis<'_> {
+    pub fn homes(&self) -> &std::collections::BTreeMap<HomeByte, HomeInfo> {
+        &self.0.homes.info
+    }
+    pub fn accesses(&self, site: SelectedSite) -> Result<&[HomeAccess], String> {
+        Ok(&self.0.homes.accesses[&self.0.validate(site)?])
+    }
+    pub fn home_live_before(
+        &self,
+        site: SelectedSite,
+    ) -> Result<&std::collections::BTreeSet<HomeByte>, String> {
+        self.0.home_live_before(site)
+    }
+    pub fn home_live_after(
+        &self,
+        site: SelectedSite,
+    ) -> Result<&std::collections::BTreeSet<HomeByte>, String> {
+        self.0.home_live_after(site)
+    }
+}
+
 /// Immutable instruction effects, separate from the historical value snapshots.
 pub fn instruction_effects(code: &Code) -> &[EffectRecord] {
     &code.instruction_effects

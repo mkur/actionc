@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 through 2 complete; slices 3 onward remain planned. Based on main
+Status: slices 0 through 3 complete; slices 4 onward remain planned. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -184,6 +184,11 @@ complete code/fixup/trace reconciliation before and after branch relaxation.
 equal, and there are no unclassified production paths.
 
 ## Slice 3 — Canonical home bytes and backward liveness
+
+Completed: [physical homes and read-only liveness](MIR65816_HOME_ANALYSIS.md),
+verified ownership provenance and ordered alias-aware transfers through the shared
+solver. [Exact output equality](benchmarks/65816-analysis-rewrite/slice3-equality.json)
+passes. No new omissions or allocation changes are enabled.
 
 Implement `homes.rs` from the verified allocation, ABI and entry-S equations.
 Use signed offsets relative to invocation entry, including outgoing/transfer

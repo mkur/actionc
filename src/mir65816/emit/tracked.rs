@@ -84,11 +84,16 @@ impl TrackedEmitter65816 {
         mut self,
         id: super::RoutineId,
         allocation: &super::AllocatedFrame,
+        home_contract: Option<super::analysis::homes::HomeContract>,
     ) -> Result<Code, String> {
         let recording = std::mem::take(&mut self.recording);
         let mut code = self.finish();
         code.selected = Some(Box::new(SelectedRoutine::new(
-            id, allocation, recording, &code,
+            id,
+            allocation,
+            home_contract,
+            recording,
+            &code,
         )?));
         Ok(code)
     }

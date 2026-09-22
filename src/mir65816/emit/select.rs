@@ -257,7 +257,11 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         }
         b.code.span(block.id, block.ops.len(), start);
     }
-    let code = super::layout::finalize(b.code.finish_selected(routine.id, &b.frame)?, true)?;
+    let homes = super::analysis::homes::HomeContract::from_verified(routine, &b.frame)?;
+    let code = super::layout::finalize(
+        b.code.finish_selected(routine.id, &b.frame, Some(homes))?,
+        true,
+    )?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

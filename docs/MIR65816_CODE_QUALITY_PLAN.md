@@ -16,7 +16,8 @@ for module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
 [complete](MIR65816_ANALYSIS_EFFECTS.md), with unchanged raw and optimized output.
 The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also complete.
-The next slice establishes canonical home bytes and backward home liveness.
+[Canonical home bytes and backward liveness](MIR65816_HOME_ANALYSIS.md) are complete.
+The next slice adds stored definitions and read attribution.
 
 ## Objective and current baseline
 
@@ -78,6 +79,7 @@ and qualify general improvements.
 | Bounded native INX updates | Advance the reserved loop parameter with checked INX/TXA; invalidate its mirror relation until the retained final TAX. | [Results](MIR65816_LOOP_INX.md), [qualification](abi/action65816-loop-inx-qualification.json) |
 | Analysis foundation slices 0–1 | Authenticate the unchanged-output baseline and centralize typed physical effects, including verified native call/return summaries. | [Results](MIR65816_ANALYSIS_EFFECTS.md), [equality](benchmarks/65816-analysis-rewrite/slice1-equality.json) |
 | Analysis foundation slice 2 | Record typed instructions and compiler requests, with scoped sites, selected CFG and unchanged emission. | [Results](MIR65816_SELECTED_ACTIONS.md), [equality](benchmarks/65816-analysis-rewrite/slice2-equality.json) |
+| Analysis foundation slice 3 | Canonicalize physical home bytes with verified ownership and compute ordered backward may-liveness. | [Contract and results](MIR65816_HOME_ANALYSIS.md), [equality](benchmarks/65816-analysis-rewrite/slice3-equality.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured

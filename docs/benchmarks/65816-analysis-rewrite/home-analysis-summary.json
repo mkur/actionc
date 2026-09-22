@@ -1,0 +1,203 @@
+{
+  "builds": [
+    {
+      "case": "identity",
+      "home_bytes": 520,
+      "optimized": false,
+      "reachable_sites": 98,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "identity",
+      "home_bytes": 520,
+      "optimized": true,
+      "reachable_sites": 98,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "add",
+      "home_bytes": 522,
+      "optimized": false,
+      "reachable_sites": 130,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "add",
+      "home_bytes": 522,
+      "optimized": true,
+      "reachable_sites": 130,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "subtract",
+      "home_bytes": 522,
+      "optimized": false,
+      "reachable_sites": 130,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "subtract",
+      "home_bytes": 522,
+      "optimized": true,
+      "reachable_sites": 130,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "constant_chain",
+      "home_bytes": 520,
+      "optimized": false,
+      "reachable_sites": 338,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "constant_chain",
+      "home_bytes": 520,
+      "optimized": true,
+      "reachable_sites": 113,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "maximum",
+      "home_bytes": 523,
+      "optimized": false,
+      "reachable_sites": 191,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "maximum",
+      "home_bytes": 523,
+      "optimized": true,
+      "reachable_sites": 191,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "wide_shift",
+      "home_bytes": 538,
+      "optimized": false,
+      "reachable_sites": 320,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "wide_shift",
+      "home_bytes": 534,
+      "optimized": true,
+      "reachable_sites": 292,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "loop_rotation",
+      "home_bytes": 535,
+      "optimized": false,
+      "reachable_sites": 479,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "loop_rotation",
+      "home_bytes": 525,
+      "optimized": true,
+      "reachable_sites": 272,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "sum_loop",
+      "home_bytes": 531,
+      "optimized": false,
+      "reachable_sites": 337,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "sum_loop",
+      "home_bytes": 523,
+      "optimized": true,
+      "reachable_sites": 257,
+      "uncertain_accesses": 2
+    },
+    {
+      "case": "recursive_sum",
+      "home_bytes": 533,
+      "optimized": false,
+      "reachable_sites": 297,
+      "uncertain_accesses": 4
+    },
+    {
+      "case": "recursive_sum",
+      "home_bytes": 533,
+      "optimized": true,
+      "reachable_sites": 267,
+      "uncertain_accesses": 4
+    },
+    {
+      "case": "direct_calls",
+      "home_bytes": 795,
+      "optimized": false,
+      "reachable_sites": 345,
+      "uncertain_accesses": 7
+    },
+    {
+      "case": "direct_calls",
+      "home_bytes": 795,
+      "optimized": true,
+      "reachable_sites": 345,
+      "uncertain_accesses": 7
+    },
+    {
+      "case": "byte_sum",
+      "home_bytes": 538,
+      "optimized": false,
+      "reachable_sites": 424,
+      "uncertain_accesses": 3
+    },
+    {
+      "case": "byte_sum",
+      "home_bytes": 538,
+      "optimized": true,
+      "reachable_sites": 344,
+      "uncertain_accesses": 3
+    },
+    {
+      "case": "record_field",
+      "home_bytes": 526,
+      "optimized": false,
+      "reachable_sites": 122,
+      "uncertain_accesses": 3
+    },
+    {
+      "case": "record_field",
+      "home_bytes": 526,
+      "optimized": true,
+      "reachable_sites": 122,
+      "uncertain_accesses": 3
+    },
+    {
+      "case": "unlink",
+      "home_bytes": 527,
+      "optimized": false,
+      "reachable_sites": 228,
+      "uncertain_accesses": 10
+    },
+    {
+      "case": "unlink",
+      "home_bytes": 521,
+      "optimized": true,
+      "reachable_sites": 154,
+      "uncertain_accesses": 10
+    },
+    {
+      "case": "forward_copy",
+      "home_bytes": 542,
+      "optimized": false,
+      "reachable_sites": 401,
+      "uncertain_accesses": 4
+    },
+    {
+      "case": "forward_copy",
+      "home_bytes": 542,
+      "optimized": true,
+      "reachable_sites": 384,
+      "uncertain_accesses": 4
+    }
+  ],
+  "calls": 6,
+  "indirect_accesses": 24,
+  "reused_bytes": 98
+}

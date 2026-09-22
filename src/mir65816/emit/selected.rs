@@ -184,6 +184,7 @@ impl Recording {
 pub(super) struct SelectedRoutine {
     identity: Identity,
     pub(super) allocation: AllocatedFrame,
+    pub(super) home_contract: Option<super::analysis::homes::HomeContract>,
     records: Vec<Record>,
     cfg: SelectedCfg,
 }
@@ -191,6 +192,7 @@ impl SelectedRoutine {
     pub fn new(
         id: RoutineId,
         allocation: &AllocatedFrame,
+        home_contract: Option<super::analysis::homes::HomeContract>,
         mut recording: Recording,
         code: &Code,
     ) -> Result<Self, String> {
@@ -209,6 +211,7 @@ impl SelectedRoutine {
         let result = Self {
             identity: Identity::fresh(id),
             allocation: allocation.clone(),
+            home_contract,
             records: recording.records,
             cfg,
         };
