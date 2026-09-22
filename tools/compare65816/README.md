@@ -357,3 +357,12 @@ This checks the frozen capture transform, complete serialized images (including
 uncounted driver routines), compact frame operands and every measurement. New
 Action-only counters report selective edge executions, assignments, staged/direct
 words and first-load sites; vbcc record fields remain unchanged.
+
+The [post-selective-staging movement inventory](../../docs/MIR65816_MOVEMENT_INVENTORY.md)
+uses `inventory_movements.py` and `mir65816_movement_inventory` to measure
+remaining word reloads and edge coalescing constraints. It verifies complete image
+equality and baseline hashes, checks LF/CRLF through source compilation, and
+preserves the older inventory. Its separate native `movement_inventory` observer
+executes unchanged saved bytes and checks each proposed reload against full CPU
+state and exact cycles/accesses in both host builds. See the linked document for
+commands, rejected candidates and conditional forecasts.

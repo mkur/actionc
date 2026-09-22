@@ -6,8 +6,10 @@ copies, compact capture reservations, selective cyclic staging, adjacent
 accumulator forwarding, the tracker foundation, checked MIR-entry width
 omission, terminal fallthrough and short conditional dispatch are complete.
 The [remaining-copy inventory](MIR65816_COPY_INVENTORY.md) is historical evidence
-for those copy slices. Home coalescing and broader forwarding need fresh
-measurements before the next implementation slice.
+for those copy slices. The [fresh movement inventory](MIR65816_MOVEMENT_INVENTORY.md) is complete.
+It recommends a narrow direct frame-store/load forwarding slice before
+edge-home coalescing; the current temp-forwarding classes have no further
+qualified opportunities in this corpus.
 
 ## Objective and current baseline
 
@@ -91,23 +93,24 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 3a (complete) | Checked MIR-entry width omission | Omit redundant REP only with checked complete predecessor obligations; retain value/flag barriers. |
 | 3b (complete) | Jumps to adjacent blocks | Checked terminal fallthrough follows every edge assignment; earlier arms retain their jumps. |
 | 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
-| 4 (scheduling and selective staging complete) | Parallel-copy scheduling and coalescing | Inventory remaining self/redundant copies and interference before a separate home-coalescing slice. |
+| 4 (scheduling, selective staging and inventory complete) | Parallel-copy scheduling and coalescing | Two compatible rotation-initialization pairs admit a combined verifier-only recoloring; implement coalescing separately if selected. |
+| Next focused slice | Direct frame store/load forwarding | Plan a new typed consumer/witness for the measured redundant frame load; retain stores, homes and A/N/Z. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
-Broader local private-word forwarding is a **measurement candidate**, described
-below. Count useful sites and executions before promoting it ahead of the next
-copy slice. The
-[tracker design's stages](MIR65816_STATE_TRACKER_DESIGN.md#staged-implementation-and-acceptance)
-describe the additional capabilities. Compare remaining-copy/coalescing savings
-with broader local forwarding before promoting a larger allocation change.
+The [movement inventory](MIR65816_MOVEMENT_INVENTORY.md) found no additional
+opportunities within the existing temp-producer/consumer classes. Three reached
+reloads instead require new frame/parameter load consumers. Start with the direct
+frame store/load case: optimized `loop_rotation(13)` has a conditional saving of
+two bytes and 40 cycles. Repeated incoming-parameter loads and coalescing have
+separate proofs; do not add their forecasts without measuring a combined change.
 
 These are native MIR65816 strategy and emission changes. Consume verified typed
 facts; do not recover semantics from source strings or SemIR. If a later slice
 needs stronger NIR facts, introduce and verify those in a separate boundary
 change before relying on them.
 
-## Completed control-flow scope and next inventory
+## Completed control-flow scope and inventories
 
 The [3a–3c implementation plan](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
 is qualified. The tracker grants width-omission permission only at checked MIR
@@ -134,28 +137,39 @@ reduced 6→2 bytes and frame/peak reduced 20→16. Existing single-word and acy
 schedules are preserved. The frozen plan's forecasts all matched.
 
 Freeze a fresh baseline for every later optimization. Use the qualified selective
-staging snapshot for new forecasts; measure remaining self-copies, physical-home
-interference and useful forwarding sites before choosing between coalescing and
-broader forwarding. Neither candidate changes the public ABI by default.
+staging snapshot for new forecasts. The new inventory counts zero existing edge
+self-copies, two compatible initialization pairs, five interfering pairs and
+three redundant frame/parameter loads. These observations do not change the
+baseline or public ABI; the forecasts remain unimplemented.
 
-## Measurement candidate: broader local forwarding
+## Measured forwarding and coalescing candidates
 
-The state tracker can describe more than the current adjacency policy permits.
-Inventory private-word reloads separated by reviewed effects that preserve the
-exact A16/home relation and required N/Z, such as CLC/SEC or a proved disjoint
-private store. Classify barriers and count reached sites across the full corpus;
-a plausible instruction pattern alone is not evidence of a useful saving.
+The [fresh inventory](MIR65816_MOVEMENT_INVENTORY.md) covers 172 word stack-load
+sites and 10 nonempty edge assignments across 28 builds. It binds observations
+to final bytes, verified MIR, complete image equality and saved runtime counts.
+An independent VM observer rechecks all three reload claims in both hosts and
+I states. Byte-width forwarding and cross-call/join residence remain outside
+this inventory's proof policy.
 
-A first implementation would keep the current producer/consumer classes, stores,
-homes and zero stack displacement. Calls, helpers, joins, source-memory barriers,
-volatile accesses and possibly aliasing writes stay conservative. No flag-dead
-exceptions or source-memory caching belong to this candidate. Qualify any newly
-extended live-register/flag interval under IRQ/NMI suspension.
+The three conditional reload savings total 76 instructions, 380 cycles and 152
+stack-byte reads across all vectors per incoming I state. They are one frame
+load in optimized rotation and two repeated incoming-parameter loads in raw
+rotation/recursion. They require new consumer/home facts; extending the existing
+temp-forwarding permission alone yields zero additional qualified sites.
 
-Give broader forwarding its own proof index and exact traffic accounting. Keep
-the existing adjacent-span index's meaning unchanged; neither tracker decisions
-nor the compiler's candidate list may serve as the expected-result oracle. If
-there are no useful qualified opportunities, leave the candidate deferred.
+The optimized rotation's two initialization pairs are compatible under current
+interference. A combined diagnostic recoloring passes the frame verifier, with
+an isolated copy-removal ceiling of eight bytes and 20 cycles per call. No
+modified frame was emitted. The five remaining pairs interfere, including the
+sum-loop result and its input during their shared arithmetic operation.
+
+Plan the direct frame store/load case first, retaining stores, frame homes,
+zero transient S displacement and complete A/N/Z equivalence. Calls, helpers,
+labels, volatile/possibly aliased accesses and unsupported effects remain
+barriers. Use a distinct typed proof index and qualify the extended live interval
+under IRQ/NMI. Preserve the meaning of existing adjacent-temp metrics. Coalescing
+and repeated parameter-load forwarding remain separate choices; their estimates
+are not additive with this slice without a new combined measurement.
 
 ## Proof obligations for later slices
 
