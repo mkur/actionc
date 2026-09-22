@@ -1,0 +1,187 @@
+{
+  "baseline_commit": "25eaef7",
+  "baseline_directory": "target/acyclic-edges-after",
+  "comparison_hashes": {
+    "manifest.json": "85078317ad33bc199ca093aa0ef6142a3cba7d3515102a1ed08b57b85cd4d1e7",
+    "debug.json": "d1459e7efb38e555ee886615d48306e893fc0bb07845e713b32795e6e8f3c0a3",
+    "release.json": "d1459e7efb38e555ee886615d48306e893fc0bb07845e713b32795e6e8f3c0a3"
+  },
+  "scope": "Reserve only actual staged edges, by maximum argument width per index. Keep all copy schedules, homes, calls, ABI and guard logic. No self-copy elimination or selective cycle staging.",
+  "expected_changes": [
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "routine": 0,
+      "old_extent": 16,
+      "new_extent": 12,
+      "old_staging": [
+        {
+          "offset": 12,
+          "width": 4
+        }
+      ],
+      "new_staging": [],
+      "instruction_patches": [
+        {
+          "pc": 65557,
+          "before": "e91000",
+          "after": "e90c00"
+        },
+        {
+          "pc": 65574,
+          "before": "a91000",
+          "after": "a90c00"
+        },
+        {
+          "pc": 65584,
+          "before": "a314",
+          "after": "a310"
+        },
+        {
+          "pc": 65588,
+          "before": "a315",
+          "after": "a311"
+        },
+        {
+          "pc": 65650,
+          "before": "691000",
+          "after": "690c00"
+        }
+      ]
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "routine": 0,
+      "old_extent": 22,
+      "new_extent": 18,
+      "old_staging": [
+        {
+          "offset": 18,
+          "width": 4
+        }
+      ],
+      "new_staging": [],
+      "instruction_patches": [
+        {
+          "pc": 65557,
+          "before": "e91600",
+          "after": "e91200"
+        },
+        {
+          "pc": 65574,
+          "before": "a91600",
+          "after": "a91200"
+        },
+        {
+          "pc": 65584,
+          "before": "a31a",
+          "after": "a316"
+        },
+        {
+          "pc": 65588,
+          "before": "a31b",
+          "after": "a317"
+        },
+        {
+          "pc": 65592,
+          "before": "a31c",
+          "after": "a318"
+        },
+        {
+          "pc": 65600,
+          "before": "a31e",
+          "after": "a31a"
+        },
+        {
+          "pc": 65604,
+          "before": "a31f",
+          "after": "a31b"
+        },
+        {
+          "pc": 65748,
+          "before": "691600",
+          "after": "691200"
+        }
+      ]
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "old_extent": 26,
+      "new_extent": 20,
+      "old_staging": [
+        {
+          "offset": 14,
+          "width": 4
+        },
+        {
+          "offset": 18,
+          "width": 4
+        },
+        {
+          "offset": 22,
+          "width": 4
+        }
+      ],
+      "new_staging": [
+        {
+          "offset": 14,
+          "width": 2
+        },
+        {
+          "offset": 16,
+          "width": 2
+        },
+        {
+          "offset": 18,
+          "width": 2
+        }
+      ],
+      "instruction_patches": [
+        {
+          "pc": 65557,
+          "before": "e91a00",
+          "after": "e91400"
+        },
+        {
+          "pc": 65574,
+          "before": "a91a00",
+          "after": "a91400"
+        },
+        {
+          "pc": 65582,
+          "before": "a31e",
+          "after": "a318"
+        },
+        {
+          "pc": 65646,
+          "before": "8312",
+          "after": "8310"
+        },
+        {
+          "pc": 65650,
+          "before": "8316",
+          "after": "8312"
+        },
+        {
+          "pc": 65656,
+          "before": "a312",
+          "after": "a310"
+        },
+        {
+          "pc": 65660,
+          "before": "a316",
+          "after": "a312"
+        },
+        {
+          "pc": 65678,
+          "before": "691a00",
+          "after": "691400"
+        }
+      ]
+    }
+  ],
+  "expected_preserved": "All 28 instruction streams and every measurement field except the listed operand patches, frame/spill/local peak and incoming displacements, and peak_below_entry_s. All other 25 Action builds and all vbcc artifacts are unchanged."
+}
