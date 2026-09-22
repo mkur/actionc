@@ -11,6 +11,10 @@ def listing(code):
 
 
 class WordArithmetic(unittest.TestCase):
+    def test_inx_remains_one_byte_across_accumulator_and_index_width_changes(self):
+        text=listing(bytes.fromhex('e8 e2 20 e8 e2 10 e8 c2 30 e8'))
+        self.assertEqual([line.split()[0] for line in text.splitlines() if line.endswith('INX')], ['018000','018003','018006','018009'])
+
     def test_stack_operands_remain_one_encoded_byte_in_both_modes(self):
         result = listing(bytes.fromhex('63 fe e3 04 e2 20 63 02 e3 ff c2 20 a9 34 12 6b'))
         self.assertEqual(result.splitlines(), [

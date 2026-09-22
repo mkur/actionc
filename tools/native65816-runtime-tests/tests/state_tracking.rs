@@ -643,3 +643,78 @@ fn x_compare_and_transfer_encodings_flags_widths_and_cycles_match_vm() {
         }
     }
 }
+
+#[test]
+fn inx_width_wrap_flags_and_cycles_match_ca65_and_vm() {
+    for value in [0, 0x7f, 0xff, 0x7fff, 0x8000, 0xfffe, 0xffff] {
+        for byte_a in [false, true] {
+            for byte_x in [false, true] {
+                let (code, trace) = proof::increment_instruction_probe(value, byte_a, byte_x);
+                let index = if byte_x { "sep #$10\n.i8\n" } else { "" };
+                let accumulator = if byte_a {
+                    "sep #$20\n.a8\nlda #$5a"
+                } else {
+                    "lda #$1234"
+                };
+                let independent = assemble(
+                    &format!(
+                        "rep #$20\nlda #{value}\ntax\n{index}{accumulator}\ninx\ntxa\nnop\nstp\nnop"
+                    ),
+                    0x40000,
+                );
+                assert_eq!(code.bytes, independent[..code.bytes.len()]);
+                for irq in [0, 4] {
+                    for cv in [0, 1, 0x40, 0x41] {
+                        let mut bus = Bus::new();
+                        bus.map(0x40000, &independent, false);
+                        let mut cpu = Machine::start_at(Registers {
+                            a: 0x1234,
+                            x: 0x5678,
+                            y: 0x9abc,
+                            s: 0x5fe0,
+                            d: 0x2000,
+                            pbr: 4,
+                            p: irq | cv,
+                            ..Default::default()
+                        });
+                        let mut seen = 0;
+                        for snapshot in &trace {
+                            let before = cpu.registers();
+                            let pc = cpu.pc();
+                            let cycles = cpu.cycles();
+                            let boundary = cpu.is_instruction_boundary();
+                            assert!(
+                                cpu.run_until(
+                                    &mut bus,
+                                    1000,
+                                    |_| Inputs::default(),
+                                    |c| c.is_instruction_boundary()
+                                        && c.pc() == 0x40000 + snapshot.pc as u32
+                                )
+                                .unwrap()
+                            );
+                            check(snapshot, cpu.registers(), 0x5fe0, &bus, irq);
+                            if boundary && pc != cpu.pc() && bus.ram[pc as usize] == 0xe8 {
+                                seen += 1;
+                                let after = cpu.registers();
+                                let x =
+                                    before.x.wrapping_add(1) & if byte_x { 0xff } else { 0xffff };
+                                assert_eq!(cpu.cycles() - cycles, 2);
+                                assert_eq!(
+                                    (after.a, after.x, after.y, after.s, after.d, after.p & 0x7d),
+                                    (before.a, x, before.y, before.s, before.d, before.p & 0x7d)
+                                );
+                                assert_eq!(after.p & 2 != 0, x == 0);
+                                assert_eq!(
+                                    after.p & 0x80 != 0,
+                                    x & if byte_x { 0x80 } else { 0x8000 } != 0
+                                );
+                            }
+                        }
+                        assert_eq!(seen, 1);
+                    }
+                }
+            }
+        }
+    }
+}

@@ -234,3 +234,9 @@ the relation with a final TAX; overwriting the home invalidates it immediately
 until that refresh. Calls, helpers, unknown aliasing and unsupported CFG shapes
 cannot enter the reserved region. Interrupts and task switches preserve both
 the CPU register and the suspended domain, including the pending-refresh state.
+
+The [bounded INX slice](MIR65816_POST_X_INVENTORY.md) advances that reserved X
+for its sole unsigned `p + 1` update, while retaining the separate update home
+and every store. It invalidates the mirror until the same final TAX. A body
+with later internal comparison dispatch retains the previous TXA/ADC selector.
+This changes instruction selection, not liveness or storage interference.

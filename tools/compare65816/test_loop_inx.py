@@ -39,6 +39,8 @@ class Inx(unittest.TestCase):
             with self.assertRaises(AssertionError):select(self.r,bad)
         r=copy.deepcopy(self.r);r['blocks'][2]['ops'][3]['values'][1]['value']=2
         self.assertTrue(select(r,self.ins)['rejections'])
+        r=copy.deepcopy(self.r);o=copy.deepcopy(r['blocks'][1]['ops'][0]);o['index']=4;o['uses']=[];o['values'][0]={'kind':'immediate','value':0,'width':2,'word_operand':True};r['blocks'][2]['ops'].append(o)
+        self.assertEqual(select(r,self.ins)['rejections'],['pending_internal_dispatch'])
 
     def test_all_build_movement_rollup_preserves_required_traffic(self):
         result=movement(self.inventory)

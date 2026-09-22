@@ -484,6 +484,13 @@ fn x_loop() -> (TrackedEmitter65816, [super::Label; 4]) {
     );
     e.prove_x(XContract {
         param: TempId(0),
+        increment: Some((
+            TempId(1),
+            super::Location::DirectPage(Slot {
+                offset: 34,
+                width: 2,
+            }),
+        )),
         home: super::Location::DirectPage(Slot {
             offset: 32,
             width: 2,
@@ -610,5 +617,89 @@ fn cpx_uses_index_width_preserves_a_x_and_v() {
         assert_eq!(after.carry, Some(true));
         assert_eq!(after.nz, Value::Constant(1, Width::Word));
         assert!(e.code().bytes.ends_with(&[0xe0, 0xff, 0x7f]));
+    }
+}
+
+fn x_body() -> (TrackedEmitter65816, [super::Label; 4]) {
+    let (mut e, labels) = x_loop();
+    let [_, head, body, end] = labels;
+    e.refresh_x();
+    e.jump(head);
+    e.mark(head);
+    let yes = e.label();
+    e.dispatch(Branch::CarryClear, yes);
+    e.jump(end);
+    e.mark(yes);
+    e.fallthrough(body);
+    e.mark(body);
+    (e, labels)
+}
+#[test]
+fn increment_keeps_distinct_home_values_and_requires_final_refresh() {
+    let (mut e, [_, head, _, end]) = x_body();
+    let p = super::Location::DirectPage(Slot {
+        offset: 32,
+        width: 2,
+    });
+    let q = super::Location::DirectPage(Slot {
+        offset: 34,
+        width: 2,
+    });
+    let old = e.state_for_incoming_test().x;
+    let at = e.position();
+    e.increment_x_word(TempId(0), p, TempId(1), q);
+    assert_eq!(&e.code().bytes[at..], &[0xe8, 0x8a]);
+    let s = e.state_for_incoming_test();
+    assert_eq!(s.homes[&p].value, old);
+    assert_ne!(s.x, old);
+    assert_eq!(s.a, s.x);
+    assert_eq!(s.nz, s.x);
+    e.byte(ByteOp::StaDp, 34);
+    e.byte(ByteOp::LdaDp, 34);
+    e.byte(ByteOp::StaDp, 32);
+    e.refresh_x();
+    e.jump(head);
+    e.mark(end);
+    e.op(Implied::Rtl);
+    e.finish();
+}
+#[test]
+fn increment_pending_relation_rejects_consumers_even_after_home_store() {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+    let p = super::Location::DirectPage(Slot {
+        offset: 32,
+        width: 2,
+    });
+    let q = super::Location::DirectPage(Slot {
+        offset: 34,
+        width: 2,
+    });
+    for kind in 0..8 {
+        let (mut e, [_, head, _, _]) = x_body();
+        if kind < 6 {
+            e.increment_x_word(TempId(0), p, TempId(1), q);
+        }
+        assert!(
+            catch_unwind(AssertUnwindSafe(|| match kind {
+                0 => e.compare_x_word(TempId(0), p, 8),
+                1 => {
+                    e.load_x_word(Some(TempId(0)), Some(p));
+                }
+                2 => e.increment_x_word(TempId(0), p, TempId(1), q),
+                3 => {
+                    let internal = e.label();
+                    e.jump(internal);
+                }
+                4 => e.jump(head),
+                5 => {
+                    e.byte(ByteOp::StaDp, 32);
+                    e.compare_x_word(TempId(0), p, 8);
+                }
+                6 => e.increment_x_word(TempId(0), p, TempId(2), q),
+                _ => e.op(Implied::Inx),
+            }))
+            .is_err(),
+            "kind {kind}"
+        );
     }
 }

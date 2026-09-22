@@ -19,7 +19,7 @@ macro_rules! instruction_set {
 }
 instruction_set!(Implied { Clc=0x18, Sec=0x38, Tcs=0x1b, Tsc=0x3b, Tax=0xaa,
     Tay=0xa8, Tya=0x98, Txa=0x8a, Xba=0xeb, Phk=0x4b, Pha=0x48,
-    DecA=0x3a, Rtl=0x6b, Dex=0xca, Nop=0xea });
+    DecA=0x3a, Rtl=0x6b, Dex=0xca, Inx=0xe8, Nop=0xea });
 instruction_set!(ByteOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
     EorImm=0x49, LdaStack=0xa3, StaStack=0x83, AdcStack=0x63, SbcStack=0xe3,
     CmpStack=0xc3, LdaDp=0xa5, StaDp=0x85, LdxDp=0xa6, AdcDp=0x65,
@@ -475,17 +475,24 @@ impl TrackedEmitter65816 {
                 };
                 self.state.nz = low;
             }
-            DecA | Dex => {
-                let (value, width) = if op == Dex {
+            DecA | Dex | Inx => {
+                let (value, width) = if matches!(op, Dex | Inx) {
                     (self.state.x, self.state.env.index)
                 } else {
                     (self.state.a, self.state.env.m)
                 };
                 let value = match value {
-                    Value::Constant(v, _) => State65816::constant(v.wrapping_sub(1), width),
+                    Value::Constant(v, _) => State65816::constant(
+                        if op == Inx {
+                            v.wrapping_add(1)
+                        } else {
+                            v.wrapping_sub(1)
+                        },
+                        width,
+                    ),
                     _ => self.state.fresh(width),
                 };
-                if op == Dex {
+                if matches!(op, Dex | Inx) {
                     self.state.x = value;
                 } else {
                     self.state.a = value;

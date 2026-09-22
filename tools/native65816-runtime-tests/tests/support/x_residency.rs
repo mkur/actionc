@@ -9,6 +9,7 @@ pub struct Site {
     pub range: Range<u32>,
     pub compare: u32,
     pub load: u32,
+    pub increment: Option<u32>,
     pub home: u16,
     pub threshold: u16,
     pub refresh: Vec<u32>,
@@ -91,18 +92,33 @@ pub fn index(
                             if m.code.bytes.get(lo..lo + 2) == Some(&[0xc2, 0x20]) {
                                 lo += 2;
                             }
-                            let mut expected = vec![0x8a, 0x18, 0x69, 1, 0];
+                            let increment = m.code.bytes[lo] == 0xe8;
+                            if increment {
+                                assert!(
+                                    block.ops[j + 1..]
+                                        .iter()
+                                        .all(|o| !matches!(o, Mir65816Op::Compare { .. }))
+                                );
+                                assert!(!m.frame.temps[dest].overlaps(m.frame.temps[param]));
+                            }
+                            let mut expected = if increment {
+                                vec![0xe8, 0x8a]
+                            } else {
+                                vec![0x8a, 0x18, 0x69, 1, 0]
+                            };
                             expected.extend(homes::store(homes::of(m.frame.temps[dest]).unwrap()));
                             assert_eq!(m.code.bytes[lo..s.end], expected);
                             assert!(
                                 matches!(&block.terminator,Mir65816Terminator::Goto(e) if e.target==b.id && matches!(e.args.last(),Some(Mir65816Value::Temp(id,_)) if id==dest))
                             );
-                            updates.push((base + lo as u32, expected));
+                            updates.push((base + lo as u32, expected, increment));
                         }
                     }
                 }
                 assert_eq!(updates.len(), 1);
-                let (load, load_bytes) = updates.pop().unwrap();
+                let (start, load_bytes, increment) = updates.pop().unwrap();
+                let load = start + u32::from(increment);
+                let increment = increment.then_some(start);
                 let mut refresh = vec![];
                 for t in &m.code.mir_transfers {
                     if t.target == Label(bi as u32) {
@@ -121,6 +137,7 @@ pub fn index(
                     range: base..base + m.code.bytes.len() as u32,
                     compare: base + at as u32,
                     load,
+                    increment,
                     home,
                     threshold,
                     refresh,
@@ -138,19 +155,29 @@ impl Site {
         s.range = base..base + s.range.end - old;
         s.compare = base + s.compare - old;
         s.load = base + s.load - old;
+        s.increment = s.increment.map(|p| base + p - old);
         s.refresh = s.refresh.iter().map(|p| base + p - old).collect();
         s
     }
     pub fn valid(&self, bus: &Bus) -> bool {
         let at = self.compare as usize;
-        bus.ram[at..at + 3] == [0xe0, self.threshold as u8, (self.threshold >> 8) as u8]
-            && bus.ram[self.load as usize..self.load as usize + self.load_bytes.len()]
-                == self.load_bytes
+        let start = self.increment.unwrap_or(self.load) as usize;
+        self.increment.is_none_or(|p| self.load == p + 1)
+            && bus.ram[at..at + 3] == [0xe0, self.threshold as u8, (self.threshold >> 8) as u8]
+            && bus.ram[start..start + self.load_bytes.len()] == self.load_bytes
             && self.refresh.iter().all(|&p| {
                 bus.ram[p as usize] == 0xaa
                     && (bus.ram[p as usize - 2..p as usize] == homes::store(self.home)
                         || bus.ram[p as usize - 2..p as usize] == homes::load((true, self.home)))
             })
+    }
+    pub fn assert_transfer(&self, cpu: &Machine, bus: &Bus) {
+        assert_eq!(cpu.pc(), self.load);
+        assert!(self.valid(bus));
+        let r = cpu.registers();
+        assert_eq!(r.p & 0x30, 0);
+        let p = bus.value(homes::address(r.s, r.d, self.home), 2) as u16;
+        assert_eq!(r.x, p.wrapping_add(u16::from(self.increment.is_some())));
     }
     pub fn assert_live(&self, cpu: &Machine, bus: &Bus) {
         assert!(self.valid(bus));
@@ -168,7 +195,7 @@ pub fn reached<'a>(cpu: &Machine, bus: &'a Bus) -> Option<&'a Site> {
         .forwarded_words
         .x_words
         .iter()
-        .find(|s| s.load == cpu.pc())?;
+        .find(|s| s.increment.is_none() && s.load == cpu.pc())?;
     s.valid(bus).then_some(s)
 }
 pub fn compare<'a>(cpu: &Machine, bus: &'a Bus) -> Option<&'a Site> {
@@ -182,4 +209,13 @@ pub fn compare<'a>(cpu: &Machine, bus: &'a Bus) -> Option<&'a Site> {
     }
     s.assert_live(cpu, bus);
     Some(s)
+}
+
+pub fn increment<'a>(cpu: &Machine, bus: &'a Bus) -> Option<&'a Site> {
+    let s = bus
+        .forwarded_words
+        .x_words
+        .iter()
+        .find(|s| s.increment == Some(cpu.pc()))?;
+    s.valid(bus).then_some(s)
 }

@@ -147,8 +147,27 @@ fn selected_words_bounds_wrap_and_relocated_images_execute_with_checked_relation
                             break;
                         }
                         let pc = h.cpu.pc();
-                        if pc == site.compare || pc == site.load {
+                        if site.increment == Some(pc) {
                             site.assert_live(&h.cpu, &h.bus);
+                            let r = h.cpu.registers();
+                            let cycles = h.cpu.cycles();
+                            step(&mut h);
+                            let a = h.cpu.registers();
+                            assert_eq!(h.cpu.cycles() - cycles, 2);
+                            assert_eq!(
+                                (a.a, a.x, a.y, a.p & 0x45),
+                                (r.a, r.x.wrapping_add(1), r.y, r.p & 0x45)
+                            );
+                            assert_eq!(a.p & 2 != 0, a.x == 0);
+                            assert_eq!(a.p & 0x80 != 0, a.x & 0x8000 != 0);
+                            continue;
+                        }
+                        if pc == site.compare || pc == site.load {
+                            if pc == site.load {
+                                site.assert_transfer(&h.cpu, &h.bus);
+                            } else {
+                                site.assert_live(&h.cpu, &h.bus);
+                            }
                             let r = h.cpu.registers();
                             let cycles = h.cpu.cycles();
                             step(&mut h);
@@ -233,7 +252,8 @@ fn observers_reject_mutated_encodings_tails_thresholds_and_branch_polarity() {
         site.compare + 1,
         site.compare + 2,
         site.load,
-        site.load + 3,
+        site.load + 2,
+        site.increment.unwrap(),
         site.refresh[0],
         site.refresh[1],
         site.refresh[1] - 1,
@@ -246,6 +266,9 @@ fn observers_reject_mutated_encodings_tails_thresholds_and_branch_polarity() {
     let mut bus = h.bus.clone();
     bus.ram[site.compare as usize + 3] ^= 0x20;
     assert!(comparison::fused_window(&h.cpu, &bus, &c.image.routines).is_none());
+    let mut bad = site.clone();
+    bad.load += 1;
+    assert!(!bad.valid(&h.bus));
     let mut bad = site.clone();
     bad.home += 2;
     assert!(!bad.valid(&h.bus));
@@ -362,8 +385,11 @@ fn final_self_copy_refresh_and_single_word_edges_keep_copy_evidence() {
                     edges += 1;
                 }
             }
-            if h.cpu.pc() == x.compare || h.cpu.pc() == x.load {
+            if h.cpu.pc() == x.compare || x.increment == Some(h.cpu.pc()) {
                 x.assert_live(&h.cpu, &h.bus);
+            }
+            if h.cpu.pc() == x.load {
+                x.assert_transfer(&h.cpu, &h.bus);
             }
             step(&mut h);
         }

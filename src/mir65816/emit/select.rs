@@ -188,6 +188,7 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
     if let Some(x) = &b.loop_x {
         b.code.prove_x(XContract {
             param: x.param,
+            increment: x.increment.map(|id| (id, b.frame.temps[&id])),
             home: x.home,
             header: b.blocks[&x.header],
             body: b.blocks[&x.body],
@@ -330,6 +331,19 @@ impl Builder<'_> {
             return Ok(false);
         };
         self.code.a16();
+        if let Some(x) = &self.loop_x {
+            if x.increment == Some(dest) {
+                assert_eq!(operation, NirBinaryOp::Add);
+                assert_eq!(left_temp, Some(x.param));
+                assert!(matches!(right, WordOperand::Immediate(1)));
+                assert_eq!(left.home().map(Location::from), Some(x.home));
+                self.code
+                    .increment_x_word(x.param, x.home, dest, destination.into());
+                self.code.store_word(destination);
+                self.remember_word(dest);
+                return Ok(true);
+            }
+        }
         self.load_checked_word(left, left_temp);
         let subtract = operation == NirBinaryOp::Sub;
         self.code

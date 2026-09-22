@@ -6,6 +6,7 @@ use super::*;
 pub struct XContract {
     pub param: TempId,
     pub home: Location,
+    pub increment: Option<(TempId, Location)>,
     pub header: Label,
     pub body: Label,
     pub predecessors: BTreeSet<Label>,
@@ -18,6 +19,13 @@ impl TrackedEmitter65816 {
         assert!(
             matches!(contract.home, Location::DirectPage(s) if s.width == 2 && super::super::scalar::word_offset(s.offset))
         );
+        if let Some((update, home)) = contract.increment {
+            assert_ne!(update, contract.param);
+            assert!(!home.overlaps(contract.home));
+            assert!(
+                matches!(home,Location::DirectPage(s) if s.width==2 && super::super::scalar::word_offset(s.offset))
+            );
+        }
         assert_ne!(contract.header, contract.body);
         assert_eq!(contract.predecessors.len(), 2);
         assert!(contract.predecessors.contains(&contract.body));
@@ -39,6 +47,10 @@ impl TrackedEmitter65816 {
     }
 
     pub(super) fn x_edge(&mut self, label: Label) -> bool {
+        assert!(
+            !self.x_reserved || self.x_valid,
+            "pending X relation at control-flow boundary"
+        );
         if self.blocks.contains(&label) {
             if let Some(c) = &self.x_contract {
                 if label == c.header || label == c.body {
@@ -142,11 +154,33 @@ impl TrackedEmitter65816 {
         self.x_access = false;
     }
 
+    /// The checked ADD's only MIR output is its word value; C/V are dead.
+    /// Keep X reserved while it contains q and the authoritative p home is old.
+    pub fn increment_x_word(
+        &mut self,
+        param: TempId,
+        home: Location,
+        update: TempId,
+        destination: Location,
+    ) {
+        let c = self.x_contract.as_ref().expect("unplanned X increment");
+        assert_eq!((param, home), (c.param, c.home));
+        assert_eq!(c.increment, Some((update, destination)));
+        assert_eq!(self.active_block, Some(c.body));
+        self.require_x();
+        assert_eq!(self.state.env.m, Width::Word);
+        self.x_valid = false;
+        self.x_access = true;
+        self.op(Implied::Inx);
+        self.op(Implied::Txa);
+        self.x_access = false;
+    }
+
     pub(super) fn x_implied(&self, op: Implied) {
         if self.x_reserved {
             assert!(
                 matches!(op, Implied::Clc | Implied::Sec)
-                    || self.x_access && matches!(op, Implied::Tax | Implied::Txa),
+                    || self.x_access && matches!(op, Implied::Tax | Implied::Txa | Implied::Inx),
                 "instruction clobbers X reservation"
             );
         }

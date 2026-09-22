@@ -11,6 +11,7 @@ pub(super) struct LoopXPlan {
     pub preheader: BlockId,
     pub param: TempId,
     pub condition: TempId,
+    pub increment: Option<TempId>,
     pub home: Location,
     pub threshold: u16,
 }
@@ -309,13 +310,22 @@ impl LoopXPlan {
             // Header saves four cycles; refresh costs two. Each body TXA saves
             // two more, paying its own backedge refresh. Zero trips save two.
             // The two TAX bytes fit within the header's two-byte reduction;
-            // TXA can only reduce size further. All existing A forwarding wins.
+            // TXA can only reduce size further. The bounded INX extension saves
+            // three additional cycles and bytes when a TXA input was required.
+            // Pending X/p equality may not cross internal compare dispatches.
+            // Ordinary word loads/stores and ADD/SUB are straight-line and do
+            // not consume incoming C/V. Keep the old mirror path otherwise.
+            let increment = b.ops[updates[0] + 1..]
+                .iter()
+                .all(|op| !matches!(op, Mir65816Op::Compare { .. }))
+                .then_some(update);
             return Ok(Some(Self {
                 header,
                 body,
                 preheader,
                 param,
                 condition: *condition,
+                increment,
                 home,
                 threshold,
             }));
@@ -340,6 +350,59 @@ mod tests {
     }
     fn plan(r: &Mir65816Routine) -> Option<LoopXPlan> {
         LoopXPlan::new(r, &AllocatedFrame::new(r).unwrap()).unwrap()
+    }
+    #[test]
+    fn pending_internal_dispatch_keeps_the_existing_x_mirror_fallback() {
+        let p = program(true);
+        let mut r = p
+            .routines
+            .iter()
+            .find(|r| plan(r).is_some())
+            .unwrap()
+            .clone();
+        let x = plan(&r).unwrap();
+        let q = x.increment.unwrap();
+        let mut cmp = r.blocks.iter().find(|b| b.id == x.header).unwrap().ops[0].clone();
+        let id = TempId(r.temps.iter().map(|v| v.0.0).max().unwrap() + 1);
+        let ty = r
+            .temps
+            .iter()
+            .find(|v| v.0 == x.condition)
+            .unwrap()
+            .1
+            .clone();
+        r.temps.push((id, ty));
+        let Mir65816Op::Compare {
+            dest, left, right, ..
+        } = &mut cmp
+        else {
+            panic!()
+        };
+        *dest = id;
+        *left = Mir65816Value::U16(0);
+        *right = Mir65816Value::U16(1);
+        r.blocks
+            .iter_mut()
+            .find(|b| b.id == x.body)
+            .unwrap()
+            .ops
+            .push(cmp);
+        assert!(plan(&r).unwrap().increment.is_none());
+        let m = select::routine(&r, false).unwrap();
+        let i = r
+            .blocks
+            .iter()
+            .find(|b| b.id == x.body)
+            .unwrap()
+            .ops
+            .iter()
+            .position(|op| matches!(op,Mir65816Op::Binary{dest,..} if *dest==q))
+            .unwrap();
+        let span = &m.code.mir_spans[&(x.body, i)];
+        assert_eq!(
+            &m.code.bytes[span.start..span.start + 5],
+            &[0x8a, 0x18, 0x69, 1, 0]
+        );
     }
     #[test]
     fn loop_admission_is_typed_bounded_and_preserves_interference() {

@@ -1507,6 +1507,7 @@ fn scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls(
             .unwrap()
             .clone();
         let mut stale_refresh = BTreeSet::new();
+        let mut pending_increment = BTreeSet::new();
         let mut seen = BTreeSet::new();
         let mut irq_live = false;
         let mut simultaneous = false;
@@ -1521,8 +1522,16 @@ fn scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls(
                 && range.contains(&h.cpu.pc())
                 && seen.insert((r.d, h.cpu.pc()))
             {
-                if h.cpu.pc() == x.compare || h.cpu.pc() == x.load {
+                if h.cpu.pc() == x.compare || x.increment == Some(h.cpu.pc()) {
                     x.assert_live(&h.cpu, &h.bus);
+                }
+                if h.cpu.pc() == x.load {
+                    x.assert_transfer(&h.cpu, &h.bus);
+                    assert_ne!(
+                        u32::from(r.x),
+                        h.bus.value(homes::address(r.s, r.d, x.home), 2)
+                    );
+                    pending_increment.insert((r.d, h.cpu.pc()));
                 }
                 if x.refresh.contains(&h.cpu.pc()) {
                     let home = h.bus.value(homes::address(r.s, r.d, x.home), 2) as u16;
@@ -1552,17 +1561,26 @@ fn scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls(
         let b: BTreeSet<_> = seen.iter().filter(|v| v.0 == 0x2100).map(|v| v.1).collect();
         assert_eq!(a, b);
         assert!(a.len() > 30);
-        for pc in [x.compare, x.compare + 3, x.load, x.refresh[0], x.refresh[1]] {
+        for pc in [
+            x.compare,
+            x.compare + 3,
+            x.increment.unwrap(),
+            x.load,
+            x.load + 1,
+            x.refresh[0],
+            x.refresh[1],
+        ] {
             assert!(a.contains(&pc));
         }
-        assert_eq!(stale_refresh.len(), 4);
+        assert_eq!(stale_refresh.len(), 2);
+        assert_eq!(pending_increment.len(), 2);
         for seed in [0x81620260916, 0x5eedcafe] {
             let mut h = make();
             run_injected(&mut h, false, Some(seed));
             check_frame_forwarding(&h);
         }
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
-            std::fs::write(Path::new(&directory).join(format!("scalar-dp-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"irq_domain_scalar_execution":irq_live,"different_simultaneous_task_residents":simultaneous,"full_cpu_frame_and_domain_restored":true,"x_compare":x.compare,"x_load":x.load,"x_refresh":x.refresh,"stale_mirror_at_refresh":stale_refresh,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
+            std::fs::write(Path::new(&directory).join(format!("scalar-dp-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"irq_domain_scalar_execution":irq_live,"different_simultaneous_task_residents":simultaneous,"full_cpu_frame_and_domain_restored":true,"x_compare":x.compare,"x_load":x.load,"x_refresh":x.refresh,"stale_mirror_at_refresh":stale_refresh,"pending_after_inx":pending_increment,"x_increment":x.increment,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
         }
     }
 }

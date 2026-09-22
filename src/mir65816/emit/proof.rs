@@ -272,3 +272,29 @@ pub fn x_branch_probe(value: u16, threshold: u16, padding: usize) -> Code {
     e.op(Implied::Nop);
     super::layout::finalize(e.finish(), true).unwrap()
 }
+
+/// Independent width/flag qualification of INX; no reservation is enabled here.
+pub fn increment_instruction_probe(
+    value: u16,
+    byte_a: bool,
+    byte_x: bool,
+) -> (Code, Vec<Snapshot>) {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    e.a16();
+    e.word(WordOp::LdaImm, value);
+    e.op(Implied::Tax);
+    if byte_x {
+        e.byte(ByteOp::Sep, 0x10);
+    }
+    if byte_a {
+        e.a8();
+        e.byte(ByteOp::LdaImm, 0x5a);
+    } else {
+        e.word(WordOp::LdaImm, 0x1234);
+    }
+    e.op(Implied::Inx);
+    e.op(Implied::Txa);
+    e.op(Implied::Nop);
+    e.finish_traced()
+}

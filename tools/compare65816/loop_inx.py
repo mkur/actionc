@@ -17,6 +17,10 @@ def select(r, ins):
     t = candidate(r)
     if t['rejections']:
         return t
+    body = next(b for b in r['blocks'] if b['id'] == t['body'])
+    update = next(o for o in body['ops'] if o['definition'] == t['update'])
+    if any(o['kind'] == 'compare' for o in body['ops'] if o['index'] > update['index']):
+        return dict(routine=r['id'], rejections=['pending_internal_dispatch'])
     lo, hi = t['update_range']
     if ins[lo] == b'\xc2\x20': lo += 2
     expected = {lo: b'\x8a', lo+1: b'\x18', lo+2: b'\x69\x01\x00'}

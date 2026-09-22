@@ -440,14 +440,22 @@ X16. An immutable typed plan requires a call-free scalar-DP routine, one simple
 loop, a sole-use immediate unsigned comparison, one `p + 1` update, and `p` as
 the final assignment on both incoming word-copy edges. The parameter and update
 retain separate interfering memory homes. Every store remains authoritative.
-TAX follows each completed incoming schedule; TXA can replace the update input
-load; CPX immediate consumes the mirror in the fused branch. A checked `<= K`
+TAX follows each completed incoming schedule; CPX immediate consumes the mirror
+in the fused branch. The bounded `p + 1` update uses INX/TXA when the rest of
+the body has no internal comparison dispatch; otherwise TXA can replace only
+the input load. INX keeps the distinct result store and all edge copies. A checked `<= K`
 normalization uses `K+1` and rejects `$FFFF`. Unsupported candidates retain the
 ordinary selector before any bytes are emitted.
 
 The tracker carries only the declared X/home relation across checked CFG joins;
 ordinary A/Y/flag/home witnesses still stop at labels. A store overlapping the
-home invalidates the relation until the final TAX. Every emitted instruction
+home invalidates the relation until the final TAX. INX also invalidates it
+immediately, before memory changes: X then holds the update result. Only the
+checked following TXA can consume that result; no pending relation may cross
+a label or authorize CPX, another INX or a load of the old parameter. The
+whole-routine scalar whitelist proves C/V are not MIR outputs of this ADD and
+that admitted flag consumers establish their inputs. Actual INX effects still
+preserve C/V; TXA supplies the result with word N/Z. Every emitted instruction
 must preserve the reservation or fail its proof. Region exit releases it; no
 binding crosses a call, helper, unknown write, D/S change or index narrowing.
 CPX updates C/N/Z using index width and leaves A/X/Y/V intact. Its flags need
