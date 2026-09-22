@@ -1,16 +1,13 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed on 2026-09-22 against main `84a265f`, after qualification of
-direct acyclic word copies. Direct single-word edge copies, adjacent accumulator
-forwarding, the tracker foundation, checked MIR-entry width omission, terminal
-fallthrough and short conditional dispatch are complete. See the
-[control-flow results](MIR65816_CONTROL_FLOW.md). The
-[remaining-copy inventory](MIR65816_COPY_INVENTORY.md) is complete. Next, plan
-unused staging reservation removal. Direct acyclic scheduling is
-[implemented and qualified](MIR65816_ACYCLIC_EDGES.md); selective staging within
-cyclic edges and home coalescing remain separate candidates. The
-[implementation plan for slices 3a–3c](MIR65816_CONTROL_FLOW_IMPLEMENTATION_PLAN.md)
-defines the initial site inventory, bounded changes and separate acceptance gates.
+Status: refreshed on 2026-09-22 against main `49a0aae`, after qualification of
+[compact staging reservations](MIR65816_STAGING_RESERVATIONS.md). Direct
+single-word and acyclic edge copies, adjacent accumulator forwarding, the tracker
+foundation, checked MIR-entry width omission, terminal fallthrough and short
+conditional dispatch are complete. The
+[remaining-copy inventory](MIR65816_COPY_INVENTORY.md) established the completed
+copy slices. Selective staging within cyclic edges and home coalescing remain
+separate candidates; measure each before implementation.
 
 ## Objective and current baseline
 
@@ -20,12 +17,12 @@ a restricted pointer-leaf DP allocator. General lifetime-based stack reuse is
 an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
 
-Use the qualified [acyclic-edge snapshot](benchmarks/65816-acyclic-edges/after/tables.md)
+Use the qualified [compact-staging snapshot](benchmarks/65816-staging-reservations/after/tables.md)
 as the working baseline for new forecasts. Its
-[exact delta](benchmarks/65816-acyclic-edges/delta.json) accounts for the direct
-multi-word initialization edge in `loop_rotation` and all 264 records against
-3c. Other builds are byte-identical; stack peaks, frames, guards and existing
-copy/forwarding counts remain. Keep each historical snapshot immutable.
+[exact delta](benchmarks/65816-staging-reservations/delta.json) checks all 28
+Action instruction streams and all 264 records against the acyclic baseline.
+Only three optimized frames shrink; code size, cycles and access counts remain
+unchanged. Keep each historical snapshot immutable.
 
 Both compilers implement a general unsigned 16-bit sum loop; input 13 is supplied
 at runtime, and both return 91. Measurements run from function entry through RTL,
@@ -33,16 +30,16 @@ including Action's stack guards and excluding caller setup:
 
 | Mode / compiler | Code bytes | VM cycles | Additional stack bytes |
 | --- | ---: | ---: | ---: |
-| Optimized actionc | 120 | 1,212 | 16 |
+| Optimized actionc | 120 | 1,212 | 12 |
 | Optimized vbcc | 22 | 344 | 0 |
 | Raw actionc | 146 | 1,587 | 14 |
 | Raw vbcc | 32 | 533 | 4 |
 
-The current optimized [Action listing](benchmarks/65816-acyclic-edges/after/sum_loop.optimized.actionc.lst)
+The current optimized [Action listing](benchmarks/65816-staging-reservations/after/sum_loop.optimized.actionc.lst)
 uses native word arithmetic, direct single-word edge copies and adjacent A16
 forwarding with checked width omission, fallthrough and short dispatch, while
 retaining stack homes and stores. The
-[vbcc listing](benchmarks/65816-acyclic-edges/after/sum_loop.optimized.vbcc.lst)
+[vbcc listing](benchmarks/65816-staging-reservations/after/sum_loop.optimized.vbcc.lst)
 retains the counter in X and the sum in DP. This supports later allocation work;
 it does not justify changing public argument placement or removing stack guards.
 Use the full corpus, including calls, pointer traffic and wider values, to choose
@@ -58,6 +55,7 @@ and qualify general improvements.
 | State-tracker foundation | One typed emission boundary owns instruction effects, execution modes, stack equations and the existing forwarding witness. No additional optimization. | [Results](MIR65816_STATE_TRACKER.md), [qualification](abi/action65816-state-tracker-qualification.json) |
 | Control-flow slices 3a–3c | Checked MIR-entry REP omission, terminal fallthrough after copies and bounded short dispatch with final offset/relocation checks. | [Results](MIR65816_CONTROL_FLOW.md), [qualification](abi/action65816-control-flow-3c-qualification.json) |
 | Direct acyclic word copies | Topological copy scheduling preserves sources and final A/N/Z; cycles retain staging and all frame reservations remain. | [Results](MIR65816_ACYCLIC_EDGES.md), [qualification](abi/action65816-acyclic-edges-qualification.json) |
+| Compact staging reservations | Reserve only staged edges and actual per-index widths; recheck incoming offsets, frame accounting and guards. | [Results](MIR65816_STAGING_RESERVATIONS.md), [qualification](abi/action65816-staging-reservations-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -72,10 +70,11 @@ progress for `sum_loop(13)` is:
 | Checked MIR-entry width omission (3a) | 158 / 1,683 | 132 / 1,308 |
 | Terminal fallthrough (3b) | 150 / 1,627 | 124 / 1,252 |
 | Short conditional dispatch (3c) | 146 / 1,587 | 120 / 1,212 |
-| Direct acyclic word copies (current baseline) | 146 / 1,587 | 120 / 1,212 |
+| Direct acyclic word copies | 146 / 1,587 | 120 / 1,212 |
+| Compact staging reservations (current baseline) | 146 / 1,587 | 120 / 1,212 |
 
-The observed stack peak remains 14 bytes raw and 16 bytes optimized through these
-stages. The original direct-copy forecasts and selection details remain in its
+The observed stack peak remains 14 bytes raw. It stayed 16 bytes optimized
+through acyclic scheduling, then fell to 12 with compact staging reservations. The original direct-copy forecasts and selection details remain in its
 [detailed plan](MIR65816_SINGLE_WORD_EDGE_COPIES_PLAN.md); the
 [measured results](MIR65816_SINGLE_WORD_EDGE_COPIES.md) confirmed those forecasts.
 They are completed work, not forecasts for the next slice.
@@ -90,7 +89,7 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 3a (complete) | Checked MIR-entry width omission | Omit redundant REP only with checked complete predecessor obligations; retain value/flag barriers. |
 | 3b (complete) | Jumps to adjacent blocks | Checked terminal fallthrough follows every edge assignment; earlier arms retain their jumps. |
 | 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
-| 4 (acyclic scheduling complete) | Parallel-copy scheduling and coalescing | Next, plan removal of unused staging reservations with checked frame/guard accounting. Selective staging within cycles and home coalescing remain separate work. |
+| 4 (acyclic scheduling and compact reservations complete) | Parallel-copy scheduling and coalescing | Next, measure and plan selective staging within cycles. Home coalescing remains separate work. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
@@ -98,9 +97,8 @@ Broader local private-word forwarding is a **measurement candidate**, described
 below. Count useful sites and executions before promoting it ahead of the next
 copy slice. The
 [tracker design's stages](MIR65816_STATE_TRACKER_DESIGN.md#staged-implementation-and-acceptance)
-describe the additional capabilities; this roadmap prioritizes staging-reservation removal
-for the next measured plan. Revisit that priority if the inventory shows little
-benefit or a materially stronger candidate.
+describe the additional capabilities. Compare the remaining cyclic-copy savings
+with broader local forwarding before promoting a larger allocation change.
 
 These are native MIR65816 strategy and emission changes. Consume verified typed
 facts; do not recover semantics from source strings or SemIR. If a later slice
@@ -118,19 +116,20 @@ edge copies first; short dispatch preserves arm order and long fallbacks. The
 The historical [slice 4 inventory](MIR65816_COPY_INVENTORY.md) found two staged
 word edges in optimized `loop_rotation`. Its initialization chain now copies
 directly: measured code falls from 160 to 148 bytes and cycles from 1,146 to 1,116,
-with the 26-byte peak retained. The cyclic backedge stays staged. General
+with the 26-byte peak retained at that stage. Compact staging now reduces it to
+20 bytes. The cyclic backedge stays staged. General
 acyclic scheduling also handles reordered copies and restores final A/N/Z when
 needed; all four existing single-word corpus edges retain their behavior.
 
-The inventory identifies wholly unused four-byte staging slots in `sum_loop`
-and `byte_sum`, plus unused upper halves of word staging slots in `loop_rotation`.
-Plan reservation removal with fresh checks of actual writes, alignment, incoming
-offsets, frame bounds and guards. Selective staging within the cyclic backedge
+Compact staging removes the wholly unused four-byte slots in `sum_loop` and
+`byte_sum`, plus the unused upper halves in `loop_rotation`. Measured frames
+fall 16→12, 22→18 and 26→20 bytes respectively, with independently checked
+operand changes, alignment, incoming offsets, frame bounds and guards. Selective staging within the cyclic backedge
 is still a separate candidate, with a conditional further saving of eight bytes
 and 160 cycles per rotation call; it was not included in the acyclic slice.
 
-Freeze a fresh baseline for every later optimization. Use the qualified acyclic
-snapshot for this inventory; measure intervening changes before making cumulative
+Freeze a fresh baseline for every later optimization. Use the qualified compact
+staging snapshot for new forecasts; measure intervening changes before making cumulative
 forecasts.
 
 ## Measurement candidate: broader local forwarding
@@ -164,9 +163,9 @@ and branch relaxation have separate acceptance gates.
 preserve swaps, cycles, repeated sources, mutable parameter homes and successor
 live-ins. Account for A/N/Z effects when eliminating edge loads, as well as their
 memory traffic. Retain a checked staging fallback. Do not globally weaken the
-current closed-operation interference rule. Remove reservations only after
-selection no longer writes them, then recompute frame extent, incoming
-displacements and stack-guard accounting.
+current closed-operation interference rule. Further reservation removals require
+proof that selection no longer writes those bytes; then recompute frame extent,
+incoming displacements and stack-guard accounting.
 
 **DP and register allocation.** Use the tracker's explicit instruction effects,
 then define the allocator's lifetime and scratch reservations. Observing a value

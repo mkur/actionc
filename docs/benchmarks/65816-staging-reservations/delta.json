@@ -1,0 +1,34 @@
+{
+  "records": 264,
+  "instruction_streams": 28,
+  "changed_builds": 3,
+  "operand_patches": 21,
+  "frames": [
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "old_extent": 16,
+      "new_extent": 12
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "old_extent": 22,
+      "new_extent": 18
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "old_extent": 26,
+      "new_extent": 20
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}
