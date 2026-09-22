@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "purpose": "Unchanged-output baseline for the native analysis and checked-rewrite foundation",
+  "planned_at_revision": "6711670",
+  "compiler_revision": "1ce96247d1af7b6ba10a90e68f4a644683b254f8",
+  "qualified_baseline_revision": "a73dab7",
+  "comparison_directory": "target/loop-inx-after",
+  "qualification_record": {
+    "docs/abi/action65816-loop-inx-qualification.json": "9d4201b52659e9347b7a2cc8626c0de79b4e146e7e43af51bb932573ff0b4b10"
+  },
+  "measurements": {
+    "target/loop-inx-after/manifest.json": "0b45eb0007125fe5a7ce6c9ae75bb191555e3026af20ec359df882a40c950f0f",
+    "target/loop-inx-after/debug.json": "263c2ac2cb82c22fc0bd535c2fbe98f1adce363d369c6224891fefca0baa631f",
+    "target/loop-inx-after/release.json": "263c2ac2cb82c22fc0bd535c2fbe98f1adce363d369c6224891fefca0baa631f"
+  },
+  "snapshot_hashes": {
+    "docs/benchmarks/65816-loop-inx/after/add.optimized.actionc.lst": "54416d5e7c69da7d35c0ca4d737f385fac87310a64df52ba1fa44b6986312f95",
+    "docs/benchmarks/65816-loop-inx/after/add.optimized.vbcc.lst": "a6a31b653903b8a4dad92038133375f77b42d09510dc64040ba59a706b17db59",
+    "docs/benchmarks/65816-loop-inx/after/add.raw.actionc.lst": "54416d5e7c69da7d35c0ca4d737f385fac87310a64df52ba1fa44b6986312f95",
+    "docs/benchmarks/65816-loop-inx/after/add.raw.vbcc.lst": "3d1162b76d07981f148877e2db408a8729dd1ae1986e4d74d5f11b7915b0a0d3",
+    "docs/benchmarks/65816-loop-inx/after/byte_sum.optimized.actionc.lst": "e600c1923230ea880f0a33badb29a53847b81f72f1703ec0ed5b1acf397f805e",
+    "docs/benchmarks/65816-loop-inx/after/byte_sum.optimized.vbcc.lst": "7ccc39ea5d269cc58f565fbc8747f516e4f13bdacc40cdcb8ba606d6d4ae8136",
+    "docs/benchmarks/65816-loop-inx/after/byte_sum.raw.actionc.lst": "f7ab13f6cb83bf95ba6c35c846de3cb2c1246a2d1a27b1e11d30e4247e993c7b",
+    "docs/benchmarks/65816-loop-inx/after/byte_sum.raw.vbcc.lst": "fc3615ab52354e91cad4f842e357c05b74483f245aedfadccd8a01b06f454b1e",
+    "docs/benchmarks/65816-loop-inx/after/identity.optimized.actionc.lst": "0edafd4358d1a706f183eddd981f2c3ab9f12f24e78ab5b4331a89fe7eb94ec0",
+    "docs/benchmarks/65816-loop-inx/after/identity.optimized.vbcc.lst": "c9bc17ff0146371d133bffb6ed413154853444d124b58444991f90a3bfe0dcf4",
+    "docs/benchmarks/65816-loop-inx/after/identity.raw.actionc.lst": "0edafd4358d1a706f183eddd981f2c3ab9f12f24e78ab5b4331a89fe7eb94ec0",
+    "docs/benchmarks/65816-loop-inx/after/identity.raw.vbcc.lst": "38854f681ec13958d2e8e8c567b5965f802de08558d25e89c7012c7e34036279",
+    "docs/benchmarks/65816-loop-inx/after/loop_rotation.optimized.actionc.lst": "301f02114d8473794b2d3d1fad13119913f583ac5924c423e662aeb6c04d7842",
+    "docs/benchmarks/65816-loop-inx/after/loop_rotation.optimized.vbcc.lst": "a8a9879d093ef16b96c6cc47f32e7663b1e9bddad694a3ab9a917b866f28cf65",
+    "docs/benchmarks/65816-loop-inx/after/loop_rotation.raw.actionc.lst": "43d6abf7e76ce126348f21c6a079f349d0f0c2b18cff65e4745245ffc41c75c3",
+    "docs/benchmarks/65816-loop-inx/after/loop_rotation.raw.vbcc.lst": "0648bc3815f35ccc8bf42a86ec95c3e0f928f58a0f4edf35ca4338a39e792ed5",
+    "docs/benchmarks/65816-loop-inx/after/maximum.optimized.actionc.lst": "324f66e4302cacb36504b1e05a21200da32ecfce3d75a27efc2f4a96b54699bb",
+    "docs/benchmarks/65816-loop-inx/after/maximum.optimized.vbcc.lst": "4ceed1282e1cda6c8025908fb55551d4722ab9b9215efd50848f65b8b9a899f0",
+    "docs/benchmarks/65816-loop-inx/after/maximum.raw.actionc.lst": "324f66e4302cacb36504b1e05a21200da32ecfce3d75a27efc2f4a96b54699bb",
+    "docs/benchmarks/65816-loop-inx/after/maximum.raw.vbcc.lst": "81ccb67c6c1de29d27aad7a0f5505784580d958cfe48115971aaefbea3540999",
+    "docs/benchmarks/65816-loop-inx/after/provenance.json": "03b6c2174303e632af258e73afbba09eb866ef674e68a27e5e4116550122d31a",
+    "docs/benchmarks/65816-loop-inx/after/results.csv": "400cb52f949f368bf9921bf34d5b6f4827d3a445df6d38c463ab4bcb4087a943",
+    "docs/benchmarks/65816-loop-inx/after/subtract.optimized.actionc.lst": "93de664bdb35c748c349968946b66aef5f2a6f5e1e20f5eb4d499f46b2f38048",
+    "docs/benchmarks/65816-loop-inx/after/subtract.optimized.vbcc.lst": "1a8bc692c064d71c4269761cd6db7230ebeeef473ab8ff39627d39833656be7f",
+    "docs/benchmarks/65816-loop-inx/after/subtract.raw.actionc.lst": "93de664bdb35c748c349968946b66aef5f2a6f5e1e20f5eb4d499f46b2f38048",
+    "docs/benchmarks/65816-loop-inx/after/subtract.raw.vbcc.lst": "d6a5435f8e18f2e10db98ccfd9d9a800671ba7262326cb01cda1517d74531696",
+    "docs/benchmarks/65816-loop-inx/after/sum_loop.optimized.actionc.lst": "65bfbb1b86162abe75b3e931a6a5540e5b5e2e55b3546ee582b71d0a10894106",
+    "docs/benchmarks/65816-loop-inx/after/sum_loop.optimized.vbcc.lst": "392255a7ab06b8e73b45f3dc1055938416cb59529e04c7e1b36b9c2464be43b9",
+    "docs/benchmarks/65816-loop-inx/after/sum_loop.raw.actionc.lst": "18aa0f75aa04f8092ad3f282d2199622c68d9b805d55b12d0e9ac846cac0cc2a",
+    "docs/benchmarks/65816-loop-inx/after/sum_loop.raw.vbcc.lst": "e1d15e75e85e8e6f512cce5dd267b4b55a9df6c1dc8a2d6e53a47a28459b1665",
+    "docs/benchmarks/65816-loop-inx/after/tables.md": "e184f5dbf5f92706117208154d38857c0adbf1ff6c47adddeb49355e4a0a59e3",
+    "docs/benchmarks/65816-loop-inx/after/unlink.optimized.actionc.lst": "0601a0e89964504e9f3c0d04688308df2949d6ec4cebc07139db5db6a927f53c",
+    "docs/benchmarks/65816-loop-inx/after/unlink.optimized.vbcc.lst": "0a0142489657e539ff3aab995882114bf5585d5ff60a6264268c568a25831e51",
+    "docs/benchmarks/65816-loop-inx/after/unlink.raw.actionc.lst": "77d1079e1ac869ee0a773eb6a5e20b0b0d0d294150454a3d57a4f1d06dc5b87d",
+    "docs/benchmarks/65816-loop-inx/after/unlink.raw.vbcc.lst": "45fa89399d465d6af01c5522c39f1418896c063e28c0a075edb4677948a9a1a8",
+    "docs/benchmarks/65816-loop-inx/delta.json": "30dcef6bc555b2ef59bd714371f58a82e88f209c3372a8e472543e93a8e7ecc1",
+    "docs/benchmarks/65816-loop-inx/frozen.json": "2dae6abe27b3c7000e6f2b0d4c8035706b5a329cd9a99632c36ede99bf4597dd",
+    "docs/benchmarks/65816-loop-inx/loop-x-boundaries.json": "7386e4a8b076fc1af0dac115b171ba28bfb180d5dd09e2047e71d9190b2a5d84",
+    "docs/benchmarks/65816-loop-inx/scalar-dp-preemption-false.json": "b228bf052a5d22295244c27411055a9d9058fbb96620746998f2a7e17cafcaaf",
+    "docs/benchmarks/65816-loop-inx/scalar-dp-preemption-true.json": "2f9b38b3e467cb2035cedde39527ae0939a20bb17cf9e1e0bef4fa8473a31e5a"
+  },
+  "authenticated_existing_evidence": {
+    "compiler_and_fixture_inputs": 440,
+    "comparison_builds": 56,
+    "action_builds": 28,
+    "comparison_artifact_files": 224,
+    "comparison_records": 264,
+    "action_correct_records": 132,
+    "native_artifacts_per_host_profile": 649,
+    "new_test_execution": false
+  },
+  "required_external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}

@@ -11,6 +11,8 @@ Next priority is the [analysis and checked-rewrite foundation](MIR65816_ANALYSIS
 adapting MIR6502's home/definition liveness, register/flag liveness and checked
 rewrite workflow. Complete that foundation with unchanged output before
 enabling further store elimination or broadening register/DP allocation.
+Follow the [implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
+for module changes, commit boundaries and qualification gates.
 
 ## Objective and current baseline
 

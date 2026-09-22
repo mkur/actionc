@@ -6,6 +6,10 @@ The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and
 [saved INX results](MIR65816_LOOP_INX.md). The foundation must preserve that
 output; it makes no code-size or cycle-saving forecast.
 
+The [implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
+defines module ownership, commit-sized delivery slices, the unchanged-output
+baseline, replay integration and the first production consumer.
+
 ## Purpose and existing contracts
 
 Provide shared answers to three questions: which stored definitions can still
