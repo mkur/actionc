@@ -1,0 +1,836 @@
+{
+  "status": "frozen preimplementation forecast",
+  "date": "2026-09-22",
+  "baseline_commit": "49ecf77",
+  "compiler_commit": "4d7fcb3",
+  "baseline_directory": "target/parameter-forwarding-after",
+  "qualification": "docs/abi/action65816-parameter-forwarding-qualification.json",
+  "qualification_sha256": "1d4a652f1fd25aae5de63d8c2f833cd26ddeaad5b915ed24f080f18605b7419e",
+  "comparison_hashes": {
+    "manifest.json": "21c171ab95d3e8ff667a0e045d9ff6048b28440581fed8687549a6525c92234b",
+    "debug.json": "b02f4f8a62b37f0247d8e962619dfe1612967dbeb3ea014c58de770ca9bcb3e2",
+    "release.json": "b02f4f8a62b37f0247d8e962619dfe1612967dbeb3ea014c58de770ca9bcb3e2"
+  },
+  "planning_facts_sha256": "31b36ab620368c6ebc184388b24f5a40fc654604ad922a55e1c1a90ef311dd9d",
+  "planning_validation": {
+    "action_images": 28,
+    "lf_crlf_compilations": 56,
+    "qualified_inputs": 429,
+    "native_artifacts_per_profile": 610
+  },
+  "pairs": [
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "classification": "compatible_pair",
+      "source_temp": 0,
+      "destination_temp": 16,
+      "witnesses": [],
+      "directions": [
+        {
+          "changed": 0,
+          "onto": 16,
+          "verifier_error": null,
+          "blocking_temps": []
+        },
+        {
+          "changed": 16,
+          "onto": 0,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            17
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "classification": "compatible_pair",
+      "source_temp": 2,
+      "destination_temp": 17,
+      "witnesses": [],
+      "directions": [
+        {
+          "changed": 2,
+          "onto": 17,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            0
+          ]
+        },
+        {
+          "changed": 17,
+          "onto": 2,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            15,
+            18
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 2,
+      "arm": "goto",
+      "classification": "interfering_pair",
+      "source_temp": 17,
+      "destination_temp": 16,
+      "witnesses": [
+        {
+          "block": 1,
+          "point": "exit"
+        },
+        {
+          "block": 1,
+          "operation": 0,
+          "point": "closed_operation"
+        },
+        {
+          "block": 1,
+          "point": "parameters_and_live_ins"
+        },
+        {
+          "block": 2,
+          "operation": 0,
+          "point": "closed_operation"
+        },
+        {
+          "block": 2,
+          "point": "parameters_and_live_ins"
+        },
+        {
+          "block": 3,
+          "operation": 0,
+          "point": "closed_operation"
+        },
+        {
+          "block": 3,
+          "point": "parameters_and_live_ins"
+        }
+      ],
+      "directions": [
+        {
+          "changed": 17,
+          "onto": 16,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            10,
+            16
+          ]
+        },
+        {
+          "changed": 16,
+          "onto": 17,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            17
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 2,
+      "arm": "goto",
+      "classification": "interfering_pair",
+      "source_temp": 10,
+      "destination_temp": 17,
+      "witnesses": [
+        {
+          "block": 2,
+          "point": "exit"
+        },
+        {
+          "block": 2,
+          "operation": 3,
+          "point": "closed_operation"
+        },
+        {
+          "block": 2,
+          "operation": 2,
+          "point": "closed_operation"
+        }
+      ],
+      "directions": [
+        {
+          "changed": 10,
+          "onto": 17,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            17
+          ]
+        },
+        {
+          "changed": 17,
+          "onto": 10,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            10,
+            16
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 2,
+      "arm": "goto",
+      "classification": "interfering_pair",
+      "source_temp": 12,
+      "destination_temp": 18,
+      "witnesses": [
+        {
+          "block": 2,
+          "operation": 3,
+          "point": "closed_operation"
+        }
+      ],
+      "directions": [
+        {
+          "changed": 12,
+          "onto": 18,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            18
+          ]
+        },
+        {
+          "changed": 18,
+          "onto": 12,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            9,
+            12
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    },
+    {
+      "case": "sum_loop",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 2,
+      "arm": "goto",
+      "classification": "interfering_pair",
+      "source_temp": 6,
+      "destination_temp": 10,
+      "witnesses": [
+        {
+          "block": 2,
+          "operation": 1,
+          "point": "closed_operation"
+        }
+      ],
+      "directions": [
+        {
+          "changed": 6,
+          "onto": 10,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            7,
+            10
+          ]
+        },
+        {
+          "changed": 10,
+          "onto": 6,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            1,
+            6
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    },
+    {
+      "case": "byte_sum",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 2,
+      "arm": "goto",
+      "classification": "interfering_pair",
+      "source_temp": 8,
+      "destination_temp": 14,
+      "witnesses": [
+        {
+          "block": 2,
+          "operation": 3,
+          "point": "closed_operation"
+        }
+      ],
+      "directions": [
+        {
+          "changed": 8,
+          "onto": 14,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            10,
+            14
+          ]
+        },
+        {
+          "changed": 14,
+          "onto": 8,
+          "verifier_error": "overlapping live stack temporaries",
+          "blocking_temps": [
+            8
+          ]
+        }
+      ],
+      "note": "Compatibility is not a committed layout or additive saving. Recheck every edge, A/N/Z, scratch and frame after recoloring."
+    }
+  ],
+  "selected_site": {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "routine": 0,
+    "block": 0,
+    "edge": {
+      "arm": "goto",
+      "block": 0,
+      "block_pc": 65582,
+      "fallthrough": true,
+      "layout_probe_complete": true,
+      "layout_probes": [
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 10,
+                "width": 2
+              },
+              "temp": 0
+            }
+          ],
+          "verifier_error": null
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 6,
+                "width": 2
+              },
+              "temp": 16
+            }
+          ],
+          "verifier_error": "overlapping live stack temporaries"
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 6,
+                "width": 2
+              },
+              "temp": 2
+            }
+          ],
+          "verifier_error": "overlapping live stack temporaries"
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 10,
+                "width": 2
+              },
+              "temp": 0
+            },
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 6,
+                "width": 2
+              },
+              "temp": 2
+            }
+          ],
+          "verifier_error": null
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 6,
+                "width": 2
+              },
+              "temp": 2
+            },
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 6,
+                "width": 2
+              },
+              "temp": 16
+            }
+          ],
+          "verifier_error": "overlapping live stack temporaries"
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 8,
+                "width": 2
+              },
+              "temp": 17
+            }
+          ],
+          "verifier_error": "overlapping live stack temporaries"
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 10,
+                "width": 2
+              },
+              "temp": 0
+            },
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 8,
+                "width": 2
+              },
+              "temp": 17
+            }
+          ],
+          "verifier_error": "overlapping live stack temporaries"
+        },
+        {
+          "changes": [
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 6,
+                "width": 2
+              },
+              "temp": 16
+            },
+            {
+              "home": {
+                "kind": "stack",
+                "offset": 8,
+                "width": 2
+              },
+              "temp": 17
+            }
+          ],
+          "verifier_error": "overlapping live stack temporaries"
+        }
+      ],
+      "moves": [
+        {
+          "coalescing_attempts": [
+            {
+              "changed": 0,
+              "onto": 16,
+              "verifier_error": null
+            },
+            {
+              "changed": 16,
+              "onto": 0,
+              "verifier_error": "overlapping live stack temporaries"
+            }
+          ],
+          "destination": {
+            "kind": "stack",
+            "offset": 10,
+            "width": 2
+          },
+          "destination_temp": 16,
+          "source": {
+            "kind": "stack",
+            "offset": 6,
+            "temp": 0,
+            "width": 2,
+            "word_operand": true
+          },
+          "width": 2
+        },
+        {
+          "coalescing_attempts": [
+            {
+              "changed": 2,
+              "onto": 17,
+              "verifier_error": "overlapping live stack temporaries"
+            },
+            {
+              "changed": 17,
+              "onto": 2,
+              "verifier_error": "overlapping live stack temporaries"
+            }
+          ],
+          "destination": {
+            "kind": "stack",
+            "offset": 6,
+            "width": 2
+          },
+          "destination_temp": 17,
+          "source": {
+            "kind": "stack",
+            "offset": 8,
+            "temp": 2,
+            "width": 2,
+            "word_operand": true
+          },
+          "width": 2
+        },
+        {
+          "coalescing_attempts": [],
+          "destination": {
+            "kind": "stack",
+            "offset": 8,
+            "width": 2
+          },
+          "destination_temp": 18,
+          "source": {
+            "kind": "immediate",
+            "value": 0,
+            "width": 2,
+            "word_operand": true
+          },
+          "width": 2
+        }
+      ],
+      "target_block": 1,
+      "target_pc": 65605,
+      "transfer_pc": 65605
+    },
+    "home_changes": [
+      {
+        "temp": 0,
+        "old_offset": 6,
+        "new_offset": 10
+      },
+      {
+        "temp": 2,
+        "old_offset": 8,
+        "new_offset": 6
+      }
+    ],
+    "operand_patches": [
+      {
+        "pc": 65584,
+        "before": "8306",
+        "after": "830a"
+      },
+      {
+        "pc": 65590,
+        "before": "8308",
+        "after": "8306"
+      }
+    ],
+    "removed_pcs": [
+      65592,
+      65594,
+      65596,
+      65598
+    ],
+    "before_copy_bytes": "a306830aa3088306a900008308",
+    "after_copy_bytes": "a900008308",
+    "old_transfer_pc": 65605,
+    "new_transfer_pc": 65597,
+    "routines": [
+      {
+        "id": 0,
+        "name": "M_CORPUS_WORK_53769E54",
+        "signature": 707038200,
+        "address": 65536,
+        "size": 138,
+        "arguments": [
+          {
+            "offset": 0,
+            "body_displacement": 20,
+            "size": 2,
+            "alignment": 2
+          }
+        ],
+        "outgoing_bytes": 3,
+        "result_bytes": 2,
+        "fixed_frame": 16,
+        "spill_bytes": 12,
+        "local_stack_peak": 16,
+        "objects": [
+          {
+            "id": 0,
+            "owner_kind": "local",
+            "owner_id": 2,
+            "displacement": 2,
+            "size": 2,
+            "alignment": 2
+          }
+        ],
+        "temporaries": [
+          {
+            "id": 0,
+            "home": {
+              "kind": "stack",
+              "displacement": 6
+            },
+            "size": 2
+          },
+          {
+            "id": 2,
+            "home": {
+              "kind": "stack",
+              "displacement": 8
+            },
+            "size": 2
+          },
+          {
+            "id": 6,
+            "home": {
+              "kind": "stack",
+              "displacement": 5
+            },
+            "size": 1
+          },
+          {
+            "id": 9,
+            "home": {
+              "kind": "stack",
+              "displacement": 12
+            },
+            "size": 2
+          },
+          {
+            "id": 10,
+            "home": {
+              "kind": "stack",
+              "displacement": 10
+            },
+            "size": 2
+          },
+          {
+            "id": 12,
+            "home": {
+              "kind": "stack",
+              "displacement": 12
+            },
+            "size": 2
+          },
+          {
+            "id": 15,
+            "home": {
+              "kind": "stack",
+              "displacement": 8
+            },
+            "size": 2
+          },
+          {
+            "id": 16,
+            "home": {
+              "kind": "stack",
+              "displacement": 10
+            },
+            "size": 2
+          },
+          {
+            "id": 17,
+            "home": {
+              "kind": "stack",
+              "displacement": 6
+            },
+            "size": 2
+          },
+          {
+            "id": 18,
+            "home": {
+              "kind": "stack",
+              "displacement": 8
+            },
+            "size": 2
+          }
+        ],
+        "calls": [],
+        "whole_task_stack_bound": null
+      }
+    ],
+    "image_sha256": "7b63151216ee650d2ac5156ac5ae0d23f0a420d8ee5c732571d2b86ae711c9ba"
+  },
+  "forecasts": [
+    {
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 3,
+      "args": [
+        32767
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 4,
+      "args": [
+        32768
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 5,
+      "args": [
+        65535
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    }
+  ],
+  "totals_per_incoming_i": {
+    "coalesced_copies": 12,
+    "saved_instructions": 24,
+    "saved_cycles": 120,
+    "saved_stack_reads": 24,
+    "saved_stack_writes": 24
+  },
+  "unchanged_action_builds": 27,
+  "known_external_failure": [
+    "unlink",
+    "optimized",
+    "vbcc",
+    0
+  ]
+}
