@@ -96,7 +96,7 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
 | 4 (scheduling, selective staging and inventory complete) | Parallel-copy scheduling and coalescing | Two compatible rotation-initialization pairs admit a combined verifier-only recoloring; implement coalescing separately if selected. |
 | Frame forwarding (complete) | Direct frame store/load forwarding | Typed object/displacement/home witness, exact A/N/Z and one omitted load; both stores and all frame contracts remain. |
-| Next forwarding candidate | Repeated incoming-parameter loads | Design a separate immutable-parameter home/consumer proof for the two measured raw-code reloads. |
+| Next forwarding slice (planned) | Repeated incoming-parameter loads | [Implementation plan](MIR65816_PARAMETER_FORWARDING_PLAN.md): separate read witness, immediate reload or one checked intervening Store; both measured raw-code reloads. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
@@ -164,9 +164,10 @@ an isolated copy-removal ceiling of eight bytes and 20 cycles per call. No
 modified frame was emitted. The other five pairs interfere, including the
 sum-loop result and its input during their shared arithmetic operation.
 
-Choose repeated parameter-load forwarding or edge coalescing as a separate next
-slice. Freeze its candidates against the new baseline and validate complete
-machine images and dynamic counts again. Neither improves `sum_loop(13)`;
+The next [planned slice](MIR65816_PARAMETER_FORWARDING_PLAN.md) is repeated
+parameter-load forwarding. Its two candidates and per-vector forecasts are frozen
+against the frame-forwarding baseline. Validate complete machine images and
+dynamic counts again; edge coalescing remains separate. Neither improves `sum_loop(13)`;
 scalar DP allocation remains the later step for its repeated memory traffic.
 Byte-lane forwarding and residence across calls/joins require separate designs.
 

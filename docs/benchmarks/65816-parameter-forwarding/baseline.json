@@ -1,0 +1,744 @@
+{
+  "status": "Frozen implementation forecast; no compiler change or post-change measurement",
+  "date": "2026-09-22",
+  "baseline_commit": "5972915",
+  "compiler_commit": "55f1061",
+  "baseline_directory": "target/frame-forwarding-after",
+  "qualification": "docs/abi/action65816-frame-forwarding-qualification.json",
+  "qualification_sha256": "cb4147eb4a12f4c9d99bf93a8c33f5ae5a0968f5fdd9a764ffa428a70c41bfb4",
+  "comparison_hashes": {
+    "manifest.json": "667c1af9e79f0e049df3e1b6e7b3537f64597488a85e29dd2b947ebea9be98e3",
+    "debug.json": "0ae0baaba3811c85c4d4c71878bdebc83483c976430095b361d170b00c8b34d8",
+    "release.json": "0ae0baaba3811c85c4d4c71878bdebc83483c976430095b361d170b00c8b34d8"
+  },
+  "historical_inventory": {
+    "path": "docs/benchmarks/65816-movement-inventory/inventory.json",
+    "sha256": "f7b69cbb5f0d592484169bc763a1e912b86ac05b2b063576c2884518d5fd8468",
+    "selected_raw_images_unchanged": true
+  },
+  "planning_validation": {
+    "qualified_inputs": 425,
+    "qualified_artifacts_per_host": 474,
+    "comparison_artifacts": 224,
+    "comparison_records": 264,
+    "verified_current_action_images": 28,
+    "lf_crlf_compilations": 56,
+    "typed_export": "target/parameter-forwarding-plan-facts.json",
+    "typed_export_sha256": "dc89a66d16a6e7b0ff1896f3b62fc1cca5e74862d4855da8b0afd6e5e768047e",
+    "exporter_sha256": "78035f6afebcd59c2bf396539c0a3db31457649e79a47b425c5aa7561d75225f"
+  },
+  "selected_sites": [
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "routine": 0,
+      "block": 0,
+      "consumer_operation": 2,
+      "parameter_ordinal": 0,
+      "parameter_body_displacement": 22,
+      "producer_pc": 65582,
+      "reload_pc": 65588,
+      "consumer_store_pc": 65590,
+      "new_consumer_store_pc": 65588,
+      "window_end": 65592,
+      "before_bytes": "a316830c8302a316830c",
+      "forecast_bytes": "a316830c8302830c",
+      "typed_operations": [
+        {
+          "address": {
+            "indexed": false,
+            "kind": "parameter",
+            "offset": 22
+          },
+          "consumer": null,
+          "definition": 0,
+          "index": 0,
+          "kind": "load",
+          "producer": 0,
+          "range": [
+            65582,
+            65586
+          ],
+          "uses": [],
+          "volatile": false,
+          "width": 2
+        },
+        {
+          "address": {
+            "indexed": false,
+            "kind": "frame",
+            "offset": 2
+          },
+          "consumer": {
+            "kind": "stack",
+            "offset": 12,
+            "temp": 0,
+            "width": 2,
+            "word_operand": true
+          },
+          "definition": null,
+          "index": 1,
+          "kind": "store",
+          "producer": null,
+          "range": [
+            65586,
+            65588
+          ],
+          "uses": [
+            0
+          ],
+          "volatile": false,
+          "width": 2
+        },
+        {
+          "address": {
+            "indexed": false,
+            "kind": "parameter",
+            "offset": 22
+          },
+          "consumer": null,
+          "definition": 1,
+          "index": 2,
+          "kind": "load",
+          "producer": 1,
+          "range": [
+            65588,
+            65592
+          ],
+          "uses": [],
+          "volatile": false,
+          "width": 2
+        }
+      ],
+      "arguments": [
+        {
+          "alignment": 2,
+          "body_displacement": 22,
+          "offset": 0,
+          "size": 2
+        }
+      ],
+      "frame_extent": 18,
+      "routines": [
+        {
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "signature": 707038200,
+          "address": 65536,
+          "size": 172,
+          "arguments": [
+            {
+              "offset": 0,
+              "body_displacement": 22,
+              "size": 2,
+              "alignment": 2
+            }
+          ],
+          "outgoing_bytes": 3,
+          "result_bytes": 2,
+          "fixed_frame": 18,
+          "spill_bytes": 8,
+          "local_stack_peak": 18,
+          "objects": [
+            {
+              "id": 0,
+              "owner_kind": "local",
+              "owner_id": 0,
+              "displacement": 2,
+              "size": 2,
+              "alignment": 2
+            },
+            {
+              "id": 1,
+              "owner_kind": "local",
+              "owner_id": 1,
+              "displacement": 4,
+              "size": 2,
+              "alignment": 2
+            },
+            {
+              "id": 2,
+              "owner_kind": "local",
+              "owner_id": 2,
+              "displacement": 6,
+              "size": 2,
+              "alignment": 2
+            },
+            {
+              "id": 3,
+              "owner_kind": "local",
+              "owner_id": 3,
+              "displacement": 8,
+              "size": 2,
+              "alignment": 2
+            }
+          ],
+          "temporaries": [
+            {
+              "id": 0,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 1,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 2,
+              "home": {
+                "kind": "stack",
+                "displacement": 14
+              },
+              "size": 2
+            },
+            {
+              "id": 3,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 4,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 5,
+              "home": {
+                "kind": "stack",
+                "displacement": 14
+              },
+              "size": 2
+            },
+            {
+              "id": 6,
+              "home": {
+                "kind": "stack",
+                "displacement": 11
+              },
+              "size": 1
+            },
+            {
+              "id": 7,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 8,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 9,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 10,
+              "home": {
+                "kind": "stack",
+                "displacement": 14
+              },
+              "size": 2
+            },
+            {
+              "id": 11,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 12,
+              "home": {
+                "kind": "stack",
+                "displacement": 14
+              },
+              "size": 2
+            },
+            {
+              "id": 13,
+              "home": {
+                "kind": "stack",
+                "displacement": 12
+              },
+              "size": 2
+            },
+            {
+              "id": 14,
+              "home": {
+                "kind": "stack",
+                "displacement": 14
+              },
+              "size": 2
+            },
+            {
+              "id": 15,
+              "home": {
+                "kind": "stack",
+                "displacement": 16
+              },
+              "size": 2
+            }
+          ],
+          "calls": [],
+          "whole_task_stack_bound": null
+        }
+      ],
+      "image_sha256": "0174cb51226e90a3e21cc3c5e393c0972a12fa913a479efbe4874edfa975f596",
+      "instruction_listing_sha256": "dd70a7da7dff37af7ff5570093efddf58ed014d0fd0d19b567555bb0800826bd"
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "routine": 0,
+      "block": 2,
+      "consumer_operation": 1,
+      "parameter_ordinal": 0,
+      "parameter_body_displacement": 12,
+      "producer_pc": 65622,
+      "reload_pc": 65626,
+      "consumer_store_pc": 65628,
+      "new_consumer_store_pc": 65626,
+      "window_end": 65630,
+      "before_bytes": "a30c8302a30c8306",
+      "forecast_bytes": "a30c83028306",
+      "typed_operations": [
+        {
+          "address": {
+            "indexed": false,
+            "kind": "parameter",
+            "offset": 12
+          },
+          "consumer": null,
+          "definition": 3,
+          "index": 0,
+          "kind": "load",
+          "producer": 3,
+          "range": [
+            65622,
+            65626
+          ],
+          "uses": [],
+          "volatile": false,
+          "width": 2
+        },
+        {
+          "address": {
+            "indexed": false,
+            "kind": "parameter",
+            "offset": 12
+          },
+          "consumer": null,
+          "definition": 4,
+          "index": 1,
+          "kind": "load",
+          "producer": 4,
+          "range": [
+            65626,
+            65630
+          ],
+          "uses": [],
+          "volatile": false,
+          "width": 2
+        }
+      ],
+      "arguments": [
+        {
+          "alignment": 2,
+          "body_displacement": 12,
+          "offset": 0,
+          "size": 2
+        }
+      ],
+      "frame_extent": 8,
+      "routines": [
+        {
+          "id": 0,
+          "name": "M_CORPUS_WORK_53769E54",
+          "signature": 707038200,
+          "address": 65536,
+          "size": 208,
+          "arguments": [
+            {
+              "offset": 0,
+              "body_displacement": 12,
+              "size": 2,
+              "alignment": 2
+            }
+          ],
+          "outgoing_bytes": 3,
+          "result_bytes": 2,
+          "fixed_frame": 8,
+          "spill_bytes": 8,
+          "local_stack_peak": 14,
+          "objects": [],
+          "temporaries": [
+            {
+              "id": 0,
+              "home": {
+                "kind": "stack",
+                "displacement": 2
+              },
+              "size": 2
+            },
+            {
+              "id": 1,
+              "home": {
+                "kind": "stack",
+                "displacement": 4
+              },
+              "size": 2
+            },
+            {
+              "id": 2,
+              "home": {
+                "kind": "stack",
+                "displacement": 1
+              },
+              "size": 1
+            },
+            {
+              "id": 3,
+              "home": {
+                "kind": "stack",
+                "displacement": 2
+              },
+              "size": 2
+            },
+            {
+              "id": 4,
+              "home": {
+                "kind": "stack",
+                "displacement": 6
+              },
+              "size": 2
+            },
+            {
+              "id": 5,
+              "home": {
+                "kind": "stack",
+                "displacement": 4
+              },
+              "size": 2
+            },
+            {
+              "id": 6,
+              "home": {
+                "kind": "stack",
+                "displacement": 6
+              },
+              "size": 2
+            },
+            {
+              "id": 7,
+              "home": {
+                "kind": "stack",
+                "displacement": 4
+              },
+              "size": 2
+            }
+          ],
+          "calls": [
+            {
+              "outgoing": 3,
+              "transfer_peak": 3
+            }
+          ],
+          "whole_task_stack_bound": null
+        }
+      ],
+      "image_sha256": "96288e208968d4ddda50c7b7bb12bc04cb07bc8dc0ec1cea63c471e6f768b4e3",
+      "instruction_listing_sha256": "4b9a032fcdaec01a3fa4a93dd15ad72718457ea3c2028786bd66a789b94770f6"
+    }
+  ],
+  "forecasts": [
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 3,
+      "args": [
+        32767
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 4,
+      "args": [
+        32768
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "raw",
+      "vector": 5,
+      "args": [
+        65535
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 172,
+        "cycles": 1226,
+        "instructions": 304,
+        "stack_reads": 135,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      },
+      "forecast": {
+        "code_bytes": 170,
+        "cycles": 1221,
+        "instructions": 303,
+        "stack_reads": 133,
+        "stack_writes": 216,
+        "peak_below_entry_s": 18
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "reload_executions": 0,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 100,
+        "instructions": 32,
+        "stack_reads": 9,
+        "stack_writes": 4,
+        "peak_below_entry_s": 8
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 100,
+        "instructions": 32,
+        "stack_reads": 9,
+        "stack_writes": 4,
+        "peak_below_entry_s": 8
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "reload_executions": 1,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 359,
+        "instructions": 111,
+        "stack_reads": 28,
+        "stack_writes": 26,
+        "peak_below_entry_s": 22
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 354,
+        "instructions": 110,
+        "stack_reads": 26,
+        "stack_writes": 26,
+        "peak_below_entry_s": 22
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 2,
+      "args": [
+        8
+      ],
+      "reload_executions": 8,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 2172,
+        "instructions": 664,
+        "stack_reads": 161,
+        "stack_writes": 180,
+        "peak_below_entry_s": 120
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 2132,
+        "instructions": 656,
+        "stack_reads": 145,
+        "stack_writes": 180,
+        "peak_below_entry_s": 120
+      }
+    },
+    {
+      "case": "recursive_sum",
+      "mode": "raw",
+      "vector": 3,
+      "args": [
+        13
+      ],
+      "reload_executions": 13,
+      "before": {
+        "code_bytes": 208,
+        "cycles": 3467,
+        "instructions": 1059,
+        "stack_reads": 256,
+        "stack_writes": 290,
+        "peak_below_entry_s": 190
+      },
+      "forecast": {
+        "code_bytes": 206,
+        "cycles": 3402,
+        "instructions": 1046,
+        "stack_reads": 230,
+        "stack_writes": 290,
+        "peak_below_entry_s": 190
+      }
+    }
+  ],
+  "corpus_totals_per_incoming_i": {
+    "removed_static_loads": 2,
+    "removed_static_bytes": 4,
+    "removed_instructions": 28,
+    "saved_cycles": 140,
+    "saved_stack_reads": 56,
+    "saved_stack_writes": 0
+  },
+  "unchanged_action_builds": 26,
+  "known_external_failure": [
+    "unlink",
+    "optimized",
+    "vbcc",
+    0
+  ]
+}
