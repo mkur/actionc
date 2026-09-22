@@ -7,6 +7,11 @@ scalar DP, one checked X loop mirror and native INX updates are complete.
 Historical inventories remain evidence for their own revisions;
 closed-operation interference remains unchanged.
 
+Next priority is the [analysis and checked-rewrite foundation](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md),
+adapting MIR6502's home/definition liveness, register/flag liveness and checked
+rewrite workflow. Complete that foundation with unchanged output before
+enabling further store elimination or broadening register/DP allocation.
+
 ## Objective and current baseline
 
 Preserve the public ABI and reduce internal data movement, then improve control
@@ -41,9 +46,9 @@ uses native word arithmetic, direct single-word edge copies and adjacent A16
 forwarding with checked width omission, fallthrough and short dispatch, while
 retaining temporary stores in DP and the mutable counter on the stack. The
 [vbcc listing](benchmarks/65816-loop-inx/after/sum_loop.optimized.vbcc.lst)
-retains the counter in X and the sum in DP. This supports a measured X/Y
-residency investigation. Public argument placement and stack guards remain
-outside this work.
+retains the counter in X and the sum in DP. This remains evidence for future
+residency work after the shared analysis foundation. Public argument placement
+and stack guards remain outside this work.
 Use the full corpus, including calls, pointer traffic and wider values, to choose
 and qualify general improvements.
 
@@ -99,8 +104,22 @@ They are completed work, not forecasts for the next slice.
 
 ## Ordered remaining slices
 
-Implement and measure each slice separately. Keep the original roadmap's later
-step numbers, splitting its former combined control-flow step into 3a–3c:
+The immediate sequence is the
+[foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md):
+
+1. Record typed selected instructions, control flow and exhaustive effects.
+2. Adapt byte-range home liveness and individual stored-definition facts.
+3. Adapt register-lane and independent flag liveness with native ABI boundaries.
+4. Introduce generation-bound checked plans and atomic verified rewrites.
+5. Migrate one existing local optimization with identical eligibility and output.
+
+The acceptance gate is byte-identical code and unchanged full measurements;
+these slices make no performance forecast. Temporary-store elimination,
+mutable-counter promotion, broader residency and selective DP extensions follow
+as separately measured consumers of the foundation.
+
+The table below retains the original roadmap's completed scopes and deferred
+extensions, including the former combined control-flow step split into 3a–3c:
 
 | Order | Improvement | Initial scope |
 | --- | --- | --- |
@@ -200,7 +219,9 @@ retained stores, backedge loads, staging and mutable-frame traffic. The resultin
 759→735-cycle forecast, keeping all memory traffic unchanged. Rotation retains
 16 staging-byte reads/writes per call; sum-loop retains 80 mutable-parameter
 byte reads and 28 writes at input 13. These are remaining costs, not forecasts
-of removable work. Use the new baseline for the next storage or copy proof.
+of removable work. Keep these measurements as candidate evidence while building
+the shared analysis and rewrite foundation; do not add another store-elimination
+or residency rule ahead of it.
 
 Mutable counter promotion (including sum-loop's frame parameter), broader scalar
 admission, partial DP allocation and cross-call residency need separate
@@ -208,6 +229,15 @@ alias/effect and profitability proofs; they are not implied by this inventory
 or the current allocator.
 
 ## Proof obligations for later slices
+
+**Shared analyses and checked rewrites.** The forward state tracker does not
+replace backward liveness. Base physical home and register/flag proofs on the
+actual typed selected sequence, including internal branches and helper/copy
+effects. Separate a particular stored definition from the home it occupies;
+may-write aliases cannot kill a live definition. Bind plans to immutable
+routine/allocation generations, verify replacement effects, and rebuild facts
+after mutation. Adapt MIR6502's existing contracts and tests while preserving
+native widths, stack equations and preemption guarantees.
 
 **Control flow.** Remove jumps only when control reaches the intended successor
 directly, including any required edge assignments. Short branches need range and
