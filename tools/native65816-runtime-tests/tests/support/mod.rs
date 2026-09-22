@@ -342,7 +342,8 @@ pub mod o65;
 
 pub mod edges;
 
+pub mod multi_word_edge;
 pub mod word_edge;
 
-pub mod forwarding;
 pub mod control_flow;
+pub mod forwarding;

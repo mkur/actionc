@@ -53,7 +53,7 @@ fn edge() -> Mir65816Edge {
 }
 
 #[test]
-fn checked_word_edges_emit_two_phases_and_one_typed_jump_in_every_mode() {
+fn checked_acyclic_word_edges_emit_direct_copies_and_one_typed_jump_in_every_mode() {
     let p = program();
     for mode in [None, Some(true), Some(false)] {
         let mut b = builder(&p.routines[0]);
@@ -68,10 +68,7 @@ fn checked_word_edges_emit_two_phases_and_one_typed_jump_in_every_mode() {
         if mode != Some(false) {
             expected.extend([0xc2, 0x20]);
         }
-        expected.extend([
-            0xa3, 4, 0x83, 8, 0xa9, 0x5a, 0xa5, 0x83, 12, 0xa3, 8, 0x83, 2, 0xa3, 12, 0x83, 4,
-            0x5c, 0, 0, 0,
-        ]);
+        expected.extend([0xa3, 4, 0x83, 2, 0xa9, 0x5a, 0xa5, 0x83, 4, 0x5c, 0, 0, 0]);
         assert_eq!(b.code.code().bytes[start..], expected);
         assert_eq!(b.code.code().fixups.len(), 1);
         let f = &b.code.code().fixups[0];
@@ -84,6 +81,97 @@ fn checked_word_edges_emit_two_phases_and_one_typed_jump_in_every_mode() {
         b.code.a16();
         assert_eq!(b.code.code().bytes.len(), end);
     }
+}
+
+#[test]
+fn acyclic_order_preserves_sources_and_rejects_cycles_and_partial_overlap() {
+    use WordOperand::{Immediate as I, Stack as S};
+    for (moves, expected) in [
+        (vec![(S(6), 8, 2), (S(2), 12, 4)], Some(vec![1, 0])),
+        (vec![(S(4), 8, 2), (I(0), 12, 4)], Some(vec![0, 1])),
+        (vec![(S(2), 8, 2), (S(2), 12, 4)], Some(vec![1, 0])),
+        (
+            vec![(S(6), 12, 2), (S(6), 16, 4), (I(7), 20, 8)],
+            Some(vec![0, 1, 2]),
+        ),
+        (vec![(S(4), 8, 2), (S(2), 12, 4)], None),
+        (vec![(S(4), 12, 2), (S(6), 16, 4), (S(2), 20, 6)], None),
+        (vec![(S(3), 8, 6), (I(0), 12, 4)], None),
+        (vec![(S(8), 12, 2), (S(10), 16, 3)], None),
+    ] {
+        assert_eq!(acyclic_word_order(&moves), expected);
+    }
+    // Independent simultaneous-copy oracle, including self/repeated sources.
+    for a in [2, 4, 6, 8] {
+        for b in [2, 4, 6, 8] {
+            for c in [2, 4, 6, 8] {
+                let moves = [(S(a), 12, 2), (S(b), 16, 4), (S(c), 20, 6)];
+                if let Some(order) = acyclic_word_order(&moves) {
+                    let initial: Vec<u8> = (0..32).collect();
+                    let mut expected = initial.clone();
+                    for &(source, _, d) in &moves {
+                        let S(s) = source else { unreachable!() };
+                        expected[d as usize..d as usize + 2]
+                            .copy_from_slice(&initial[s as usize..s as usize + 2]);
+                    }
+                    let mut actual = initial;
+                    for i in order {
+                        let (S(s), _, d) = moves[i] else {
+                            unreachable!()
+                        };
+                        let value = [actual[s as usize], actual[s as usize + 1]];
+                        actual[d as usize..d as usize + 2].copy_from_slice(&value);
+                    }
+                    assert_eq!(actual, expected);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn reordered_word_edges_restore_original_final_a_and_keep_frame() {
+    let p = program();
+    let mut b = builder(&p.routines[0]);
+    b.frame.temps.insert(
+        TempId(2),
+        Location::Stack(Slot {
+            offset: 6,
+            width: 2,
+        }),
+    );
+    let frame = format!("{:?}", b.frame);
+    let e = Mir65816Edge {
+        target: BlockId(99),
+        args: vec![
+            Mir65816Value::Temp(TempId(2), ByteSize::new(2)),
+            Mir65816Value::Temp(TempId(0), ByteSize::new(2)),
+        ],
+    };
+    b.edge(&e).unwrap();
+    assert_eq!(
+        b.code.code().bytes,
+        [
+            0xc2, 0x20, 0xa3, 2, 0x83, 4, 0xa3, 6, 0x83, 2, 0xa3, 4, 0x5c, 0, 0, 0
+        ]
+    );
+    assert_eq!(format!("{:?}", b.frame), frame);
+}
+
+#[test]
+fn cyclic_word_edges_retain_both_staging_phases() {
+    let p = program();
+    let mut b = builder(&p.routines[0]);
+    let mut e = edge();
+    e.args[1] = Mir65816Value::Temp(TempId(0), ByteSize::new(2));
+    b.edge(&e).unwrap();
+    assert_eq!(
+        b.code.code().bytes,
+        [
+            0xc2, 0x20, 0xa3, 4, 0x83, 8, 0xa3, 2, 0x83, 12, 0xa3, 8, 0x83, 2, 0xa3, 12, 0x83, 4,
+            0x5c, 0, 0, 0
+        ]
+    );
 }
 
 #[test]

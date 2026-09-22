@@ -143,7 +143,9 @@ fn generated_short_and_long_dispatch_execute_copies_at_banked_image_and_o65_plac
         target::ByteSize,
     };
     for optimize in [false, true] {
-        for count in [2u32, 16] {
+        // Direct copies shorten the old 16-word probe into branch range.
+        // Keep a genuine long fallback with a larger legal frame.
+        for count in [2u32, 32] {
             let mut p = edges::program(optimize, false);
             let r = p
                 .mir

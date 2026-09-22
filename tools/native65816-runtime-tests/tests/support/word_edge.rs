@@ -8,11 +8,25 @@ pub struct Window {
     pub fallthrough: bool,
     pub sites: Vec<u32>,
     pub moves: Vec<((bool, u16), u8, u8)>, // source, staging, destination
+    pub order: Vec<usize>,
+    pub reload: Option<u8>,
     pub target: u32,
     pub end: u32,
 }
 
 pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
+    if let Some(w) = multi_word_edge::decode(bus, pc, &range) {
+        return Some(w);
+    }
+    // An interior LDA/STA suffix must not masquerade as another edge.
+    if bus
+        .forwarded_words
+        .multi_words
+        .iter()
+        .any(|s| s.range == range && (s.load..s.jump).contains(&pc))
+    {
+        return None;
+    }
     if let Some(w) = direct(bus, pc, &range) {
         return Some(w);
     }
@@ -90,6 +104,8 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
         direct: false,
         fallthrough,
         sites,
+        order: (0..moves.len()).collect(),
+        reload: None,
         moves,
         target,
         end: transfer_end,
@@ -328,6 +344,8 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         fallthrough: s.fallthrough,
         sites,
         moves: vec![(s.source, s.staging, s.destination)],
+        order: vec![0],
+        reload: None,
         target: s.target,
         end: s.jump + if s.fallthrough { 0 } else { 4 },
     })

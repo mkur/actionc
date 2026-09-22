@@ -185,7 +185,8 @@ to execute code or publish it in image/o65 formats.
   `Clear(BYTE POINTER destination SIZE length)`. Move handles overlap; both
   operate on ordinary contiguous memory and use invocation storage.
 - Branches, loops, direct/mutual recursion and block-parameter transfers are supported.
-  Parallel edge copies first save all sources, so loops can swap live values.
+  Parallel edge copies preserve every source until consumed; cyclic edges save
+  all sources before assigning destinations.
 - Volatile accesses remain ordered byte accesses. A byte operation does not
   touch its neighbor. Wider volatile operations are not claimed to be atomic.
 
@@ -195,15 +196,23 @@ parameter homes, destinations, the target label and the two accessed bytes of
 each existing four-byte staging slot, including transient S movement. A single
 word assignment loads its entire source into A before storing directly to the
 destination; its staging reservation and validation remain, without any staging
-access. Self-copies still load and store. For multi-word edges, all sources are
-captured in staging before any destination is assigned. Mixed-width and legal
+access. Self-copies still load and store. Multi-word edges with disjoint word
+destinations and no partial source/destination overlap use direct copies when
+their dependency graph is acyclic. A stable topological schedule consumes each
+source before another assignment overwrites it, preferring the original final
+assignment last. If that assignment must move earlier, a final LDA from its
+destination restores the original full A and N/Z. Cycles and unproved overlaps
+retain complete two-phase staging; no partial scheduling is emitted on failure.
+All staging reservations and their preflight checks remain. Mixed-width and legal
 unsupported nonempty edges retain bytewise emission. Internal labels reset mode
 permission; proved MIR entries use the contract above. Word edges restore A16
 when needed. No DP traffic, pushes, calls or wider
-external memory accesses are introduced. Frame allocation, guard costs and
-multi-word per-byte private stack traffic are unchanged. Each direct single-word
-copy removes two private stack byte reads and two writes; word loads read both
-bytes before the corresponding store.
+external memory accesses are introduced. Frame allocation and guard costs remain.
+Each directly scheduled word removes a staging store/reload pair: two private
+stack-byte reads and two writes, two instructions and ten cycles. A necessary
+final A/N/Z reload adds two stack-byte reads, one instruction and five cycles.
+Word loads read both bytes before the corresponding store. Private edge-copy
+access order may change; source-language memory access order remains unchanged.
 
 Empty edges validate the target and arity and restore A16 only when local mode
 knowledge requires it. They never select A8.
@@ -350,8 +359,9 @@ call targets/arguments/results, returns, edge arguments and block parameters.
 All inputs, outputs and values live across an operation interfere for its entire
 instruction sequence, including dead outputs that selection still writes. Block
 parameters, even unused ones, interfere with each other and successor live-ins.
-Parallel-edge staging slots remain separate: selection saves every source before
-writing any destination. This permits cyclic copies without destroying live-ins.
+Parallel-edge staging slots remain separate and fully reserved. Acyclic word
+edges schedule direct copies as described above; other parallel edges save every
+source before writing destinations. Cycles cannot destroy successor live-ins.
 
 Only MIR value temporaries share storage. Frame objects, addressed locals and
 mutable parameters retain their dedicated homes. No temporary address escapes,

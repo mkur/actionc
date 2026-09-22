@@ -141,7 +141,7 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         source
                     };
                     values.push(value);
-                    if stack {
+                    if stack && !w.direct {
                         expected.extend([
                             (s + u32::from(source), Access::Read),
                             (s + u32::from(source) + 1, Access::Read),
@@ -163,7 +163,15 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         [(s + u32::from(stage) + 2) as usize..(s + u32::from(stage) + 4) as usize]
                         .copy_from_slice(&[0xde, 0xad]);
                 }
-                for (&(_, stage, dest), &value) in w.moves.iter().zip(&values) {
+                for &i in &w.order {
+                    let ((stack, source), stage, dest) = w.moves[i];
+                    let value = values[i];
+                    if w.direct && stack {
+                        expected.extend([
+                            (s + u32::from(source), Access::Read),
+                            (s + u32::from(source) + 1, Access::Read),
+                        ]);
+                    }
                     if !w.direct {
                         expected.extend([
                             (s + u32::from(stage), Access::Read),
@@ -173,6 +181,12 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     expected.extend([
                         (s + u32::from(dest), Access::Write(value as u8)),
                         (s + u32::from(dest) + 1, Access::Write((value >> 8) as u8)),
+                    ]);
+                }
+                if let Some(slot) = w.reload {
+                    expected.extend([
+                        (s + u32::from(slot), Access::Read),
+                        (s + u32::from(slot) + 1, Access::Read),
                     ]);
                 }
                 h.bus.watched = (0x4000..0x6000).chain(0x2000..0x2040).collect();
@@ -195,6 +209,7 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     }
                 }
                 let expected_cycles: u64 = (if w.fallthrough { 0 } else { 4 })
+                    + if w.reload.is_some() { 5 } else { 0 }
                     + w.moves
                         .iter()
                         .map(|&((stack, _), _, _)| {

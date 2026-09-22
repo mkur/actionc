@@ -40,6 +40,7 @@ pub struct Index {
     words: BTreeMap<u32, Site>,
     pub control: control_flow::Index,
     pub dispatches: Vec<control_flow::Dispatch>,
+    pub multi_words: Vec<multi_word_edge::Site>,
 }
 impl std::ops::Deref for Index {
     type Target = BTreeMap<u32, Site>;
@@ -143,6 +144,7 @@ pub fn index(
     let mut out = Index {
         words: BTreeMap::new(),
         control: control_flow::index(mir, machine, &address),
+        multi_words: multi_word_edge::index(mir, machine, &address),
         dispatches: control_flow::dispatches(mir, machine, &address),
     };
     for m in &machine.routines {
@@ -355,6 +357,19 @@ pub fn relocated(templates: &Index, image: &actionc::mir65816::o65::RelocatedIma
     Index {
         words,
         control: control_flow::relocated(&templates.control, image),
+        multi_words: templates
+            .multi_words
+            .iter()
+            .map(|s| {
+                let r = image
+                    .profile()
+                    .routines
+                    .iter()
+                    .find(|r| r.id == s.routine.0)
+                    .unwrap();
+                s.rebase(image.routine_address(r))
+            })
+            .collect(),
         dispatches: control_flow::relocated_dispatches(&templates.dispatches, image),
     }
 }

@@ -68,6 +68,42 @@ struct WordEdge {
     moves: Vec<(WordOperand, u8, u8)>, // source, staging, destination
 }
 
+/// Private word homes are disjoint destinations. Capture each source before
+/// another assignment overwrites it; retain every assignment, including self-copies.
+/// A cycle or partial byte overlap keeps the complete staged path.
+fn acyclic_word_order(moves: &[(WordOperand, u8, u8)]) -> Option<Vec<usize>> {
+    for (i, &(source, _, destination)) in moves.iter().enumerate() {
+        if moves[..i]
+            .iter()
+            .any(|&(_, _, d)| destination.abs_diff(d) < 2)
+        {
+            return None;
+        }
+        if let WordOperand::Stack(s) = source {
+            if moves.iter().any(|&(_, _, d)| s.abs_diff(d) == 1) {
+                return None;
+            }
+        }
+    }
+    let mut pending: BTreeSet<_> = (0..moves.len()).collect();
+    let mut order = Vec::with_capacity(moves.len());
+    while !pending.is_empty() {
+        let ready = |i: usize| {
+            pending.iter().all(|&j| {
+                i == j || !matches!(moves[j].0, WordOperand::Stack(s) if s.abs_diff(moves[i].2) < 2)
+            })
+        };
+        let i = pending
+            .iter()
+            .copied()
+            .find(|&i| i + 1 != moves.len() && ready(i))
+            .or_else(|| pending.iter().copied().find(|&i| ready(i)))?;
+        pending.remove(&i);
+        order.push(i);
+    }
+    Some(order)
+}
+
 impl From<Location> for Memory {
     fn from(location: Location) -> Self {
         match location {
@@ -1042,6 +1078,24 @@ impl Builder<'_> {
                 WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
             }
             self.code.byte(ByteOp::StaStack, destination);
+            self.finish_edge(edge.target, fallthrough);
+            return;
+        }
+        if let Some(order) = acyclic_word_order(&edge.moves) {
+            for &i in &order {
+                let (source, _, destination) = edge.moves[i];
+                match source {
+                    WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
+                    WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
+                }
+                self.code.byte(ByteOp::StaStack, destination);
+            }
+            if order.last().copied() != Some(edge.moves.len() - 1) {
+                // The old final staged load established full A and N/Z. The
+                // destination retains that value even when its assignment moved.
+                self.code
+                    .byte(ByteOp::LdaStack, edge.moves.last().unwrap().2);
+            }
             self.finish_edge(edge.target, fallthrough);
             return;
         }
