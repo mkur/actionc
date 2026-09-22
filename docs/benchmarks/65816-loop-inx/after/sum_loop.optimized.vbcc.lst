@@ -1,0 +1,14 @@
+010000  AA          tax
+010001  64 00       stz	r0
+010003  8A          txa
+010004  F0 0D       beq	l8
+010006  A5 00       lda	r0
+010008  18          clc
+010009  86 3E       stx	r31
+01000B  65 3E       adc	r31
+01000D  85 00       sta	r0
+01000F  CA          dex
+010010  8A          txa
+010011  D0 F3       bne	l7
+010013  A5 00       lda	r0
+010015  6B          rtl

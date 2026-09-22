@@ -1,8 +1,10 @@
 # Post-X memory traffic and bounded INX forecast
 
 Measured against qualified loop-X output at `7a73fca`, with identical compiler
-selection at `e1baff3`. This inventory changes no compiler output. It preserves
-all historical reports and Exec816's independently maintained compiler pin.
+selection at `e1baff3`. Inventory and forecasts were frozen at `81b5ac4` before
+the INX implementation `1ce9624`. The [qualified result](MIR65816_LOOP_INX.md)
+matches every forecast below. This historical inventory preserves its original
+measurements and Exec816's independently maintained compiler pin.
 
 The [typed facts](benchmarks/65816-post-x-inventory/facts.json),
 [complete instruction inventory](benchmarks/65816-post-x-inventory/inventory.json),
@@ -42,6 +44,10 @@ current typed X candidate and its actual `TXA; CLC; ADC #1; STA q` encoding.
 Select `INX; TXA; STA q` only for the already admitted unsigned `q = p + 1`
 operation in its reserved loop body. Keep separate interfering homes for p/q,
 every store, the backedge load and final TAX, frame maps, ABI and guards.
+
+The implemented admission also requires no materialized comparison after the
+update: its internal labels would cross the pending relation. Those bodies
+retain the previous X-mirror update sequence. No corpus forecast changes.
 
 INX changes X from p to q immediately. The tracker must invalidate the X/p
 relation before that instruction and keep the reservation pending until the
@@ -89,7 +95,7 @@ meaning; all other forwarding/copy counts remain equal.
    comparison/disassembler tests and an isolated CRLF rebuild. Save a new
    baseline and update the quality plan in a final qualification commit.
 
-Reproduce the inventory using the pre-INX compiler/tool revision:
+Reproduce the inventory using the pre-INX compiler/tool revision `81b5ac4`:
 
 ```sh
 A816_COMPARISON_MANIFEST="$PWD/target/loop-x-after/manifest.json" \

@@ -1,11 +1,11 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed after bounded X loop residency `3f3d6e8` and its
-[qualification](MIR65816_LOOP_X_RESIDENCY.md). Native word selection, copy
+Status: refreshed after bounded X loop increments `1ce9624` and their
+[qualification](MIR65816_LOOP_INX.md). Native word selection, copy
 scheduling/coalescing, compact staging, local/frame/parameter forwarding,
-scalar DP and one checked X loop mirror are complete. Historical inventories
-remain evidence for their own revisions; closed-operation interference remains
-unchanged.
+scalar DP, one checked X loop mirror and native INX updates are complete.
+Historical inventories remain evidence for their own revisions;
+closed-operation interference remains unchanged.
 
 ## Objective and current baseline
 
@@ -15,13 +15,15 @@ restricted pointer-leaf and scalar DP allocators. General lifetime-based stack
 reuse is an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
 
-Use the qualified [X residency snapshot](benchmarks/65816-loop-x/after/tables.md)
+Use the qualified [INX snapshot](benchmarks/65816-loop-inx/after/tables.md)
 as the working baseline for new forecasts. Its
-[exact delta](benchmarks/65816-loop-x/delta.json) checks all 28 complete Action
-images and 264 records against scalar DP. Only optimized rotation changes:
-130→129 bytes, 793→759 cycles and 102→68 DP read bytes. Its frame stays eight
-bytes; writes, existing forwarding/copy counts, public ABI and guards remain.
-The other 27 Action builds are identical. Keep historical snapshots immutable.
+[exact delta](benchmarks/65816-loop-inx/delta.json) checks all 28 complete Action
+images and 264 records against the X-mirror baseline. Only optimized rotation
+changes: 129→126 bytes, 759→735 cycles and 218→210 instructions. Its frame stays
+eight bytes, and stack/DP traffic, copies, public ABI and guards remain. Eight
+X-forwarded input loads become eight separately counted INX updates. Other
+forwarding counts and the remaining 27 Action builds are unchanged. Keep
+historical snapshots immutable.
 
 Both compilers implement a general unsigned 16-bit sum loop; input 13 is supplied
 at runtime, and both return 91. Measurements run from function entry through RTL,
@@ -34,11 +36,11 @@ including Action's stack guards and excluding caller setup:
 | Raw actionc | 146 | 1,587 | 14 |
 | Raw vbcc | 32 | 533 | 4 |
 
-The current optimized [Action listing](benchmarks/65816-loop-x/after/sum_loop.optimized.actionc.lst)
+The current optimized [Action listing](benchmarks/65816-loop-inx/after/sum_loop.optimized.actionc.lst)
 uses native word arithmetic, direct single-word edge copies and adjacent A16
 forwarding with checked width omission, fallthrough and short dispatch, while
 retaining temporary stores in DP and the mutable counter on the stack. The
-[vbcc listing](benchmarks/65816-loop-x/after/sum_loop.optimized.vbcc.lst)
+[vbcc listing](benchmarks/65816-loop-inx/after/sum_loop.optimized.vbcc.lst)
 retains the counter in X and the sum in DP. This supports a measured X/Y
 residency investigation. Public argument placement and stack guards remain
 outside this work.
@@ -62,6 +64,7 @@ and qualify general improvements.
 | Compatible edge-home coalescing | Transactional source-home affinities with fixed block-parameter anchors; omit direct self-copies and preserve final A/N/Z. | [Results](MIR65816_EDGE_COALESCING.md), [qualification](abi/action65816-edge-coalescing-qualification.json) |
 | Bounded scalar DP allocation | Promote up to 16 existing private word-home classes in verified call-free routines; preserve forwarding and shrink real stack frames. | [Results](MIR65816_SCALAR_DP.md), [qualification](abi/action65816-scalar-dp-qualification.json) |
 | Bounded X loop mirror | Keep one private unsigned loop parameter in X; use TXA/CPX and final edge TAX while retaining homes and stores. | [Results](MIR65816_LOOP_X_RESIDENCY.md), [qualification](abi/action65816-loop-x-qualification.json) |
+| Bounded native INX updates | Advance the reserved loop parameter with checked INX/TXA; invalidate its mirror relation until the retained final TAX. | [Results](MIR65816_LOOP_INX.md), [qualification](abi/action65816-loop-inx-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -83,7 +86,8 @@ progress for `sum_loop(13)` is:
 | Incoming-parameter forwarding | 146 / 1,587 | 120 / 1,212 |
 | Compatible edge-home coalescing | 146 / 1,587 | 120 / 1,212 |
 | Scalar DP | 146 / 1,587 | 120 / 1,092 |
-| Bounded X mirror (current baseline; sum-loop unchanged) | 146 / 1,587 | 120 / 1,092 |
+| Bounded X mirror | 146 / 1,587 | 120 / 1,092 |
+| Bounded native INX (current baseline; sum-loop unchanged) | 146 / 1,587 | 120 / 1,092 |
 
 The observed stack peak remains 14 bytes raw. It stayed 16 bytes optimized
 through acyclic scheduling, then fell to 12 with compact staging reservations
@@ -107,7 +111,7 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | Frame forwarding (complete) | Direct frame store/load forwarding | Typed object/displacement/home witness, exact A/N/Z and one omitted load; both stores and all frame contracts remain. |
 | Parameter forwarding (complete) | Repeated incoming-parameter loads | Separate checked read witness, immediate reload or one admitted Store; both measured raw-code reloads removed. |
 | 5 (bounded slice complete) | Scalar DP allocation | Up to 16 word-home classes; call-free whitelist, explicit scratch partition, mixed-location verification and exact stack accounting. |
-| 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
+| 6 (bounded X slice complete) | X/Y residency across loops | One private unsigned loop parameter has checked X16 tests and increments. Mutable-counter promotion, broader loops and Y allocation require separate proofs. |
 
 The [movement inventory](MIR65816_MOVEMENT_INVENTORY.md) found no additional
 opportunities within the existing temp-producer/consumer classes. Three reached
@@ -148,7 +152,7 @@ eight fewer code bytes and 160 fewer cycles per rotation call, with staging
 reduced 6→2 bytes and frame/peak reduced 20→16. Existing single-word and acyclic
 schedules are preserved. The frozen plan's forecasts all matched.
 
-Freeze a fresh baseline for every later optimization. Use the qualified bounded-X
+Freeze a fresh baseline for every later optimization. Use the qualified native-INX
 snapshot for new forecasts. The movement inventory's edge counts
 originally had zero physical self-copies, two compatible initialization pairs
 and five interfering pairs. Both compatible pairs now share homes; the five
@@ -187,8 +191,16 @@ It identified rotation's private counter as the first bounded X candidate.
 The [implemented plan](MIR65816_LOOP_X_RESIDENCY_PLAN.md) preserves the DP home,
 stores and input/update interference while selecting TXA and CPX immediate,
 with a final TAX on each incoming edge. Qualification matches its frozen
-130→129-byte and 793→759-cycle forecast exactly. Measure remaining traffic
-from this new baseline before choosing another residency or promotion slice.
+130→129-byte and 793→759-cycle forecast exactly.
+
+The [post-X inventory](MIR65816_POST_X_INVENTORY.md) classifies 2,148 instruction
+sites and 176 word memory-load sites across the same 28 builds. It measures
+retained stores, backedge loads, staging and mutable-frame traffic. The resulting
+[native INX slice](MIR65816_LOOP_INX.md) matches its 129→126-byte and
+759→735-cycle forecast, keeping all memory traffic unchanged. Rotation retains
+16 staging-byte reads/writes per call; sum-loop retains 80 mutable-parameter
+byte reads and 28 writes at input 13. These are remaining costs, not forecasts
+of removable work. Use the new baseline for the next storage or copy proof.
 
 Mutable counter promotion (including sum-loop's frame parameter), broader scalar
 admission, partial DP allocation and cross-call residency need separate

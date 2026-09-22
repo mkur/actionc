@@ -1,0 +1,20 @@
+010000  85 00       sta	r0
+010002  86 02       stx	r0+2
+010004  A3 04       lda	4,s
+010006  AA          tax
+010007  64 04       stz	r2
+010009  8A          txa
+01000A  F0 14       beq	l9
+01000C  A7 00       lda	[r0]
+01000E  29 FF 00    and	#255
+010011  E6 00       inc	r0
+010013  D0 02       bne	l11
+010015  E6 02       inc	r0+2
+010017  18          clc
+010018  65 04       adc	r2
+01001A  85 04       sta	r2
+01001C  CA          dex
+01001D  8A          txa
+01001E  D0 EC       bne	l8
+010020  A5 04       lda	r2
+010022  6B          rtl
