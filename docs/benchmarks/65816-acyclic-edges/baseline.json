@@ -1,0 +1,257 @@
+{
+  "baseline_directory": "target/control-3c-after",
+  "inventory_sha256": "5faa09d64c967784dcd3951f781f1a7b2eeeb8d2020d10731eea58b176c0f262",
+  "inventory_commit": "94421a3",
+  "scope": "All acyclic word edges; retain assignments and staging reservations. Stable topological order prefers original final assignment last; reload its destination if necessary. Cycles and partial overlaps retain full staging.",
+  "expected_sites": [
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "arm": "goto",
+      "block": 0,
+      "block_pc": 65582,
+      "fallthrough": true,
+      "form": "staged_word",
+      "moves": [
+        {
+          "destination": {
+            "kind": "stack",
+            "offset": 10,
+            "width": 2
+          },
+          "destination_temp": 16,
+          "source": {
+            "kind": "stack",
+            "offset": 6,
+            "temp": 0,
+            "width": 2,
+            "word_operand": true
+          },
+          "staging": {
+            "kind": "stack",
+            "offset": 14,
+            "width": 4
+          },
+          "width": 2
+        },
+        {
+          "destination": {
+            "kind": "stack",
+            "offset": 6,
+            "width": 2
+          },
+          "destination_temp": 17,
+          "source": {
+            "kind": "stack",
+            "offset": 8,
+            "temp": 2,
+            "width": 2,
+            "word_operand": true
+          },
+          "staging": {
+            "kind": "stack",
+            "offset": 18,
+            "width": 4
+          },
+          "width": 2
+        },
+        {
+          "destination": {
+            "kind": "stack",
+            "offset": 8,
+            "width": 2
+          },
+          "destination_temp": 18,
+          "source": {
+            "kind": "immediate",
+            "value": 0,
+            "width": 2,
+            "word_operand": true
+          },
+          "staging": {
+            "kind": "stack",
+            "offset": 22,
+            "width": 4
+          },
+          "width": 2
+        }
+      ],
+      "target_block": 1,
+      "target_pc": 65617,
+      "transfer_pc": 65617,
+      "copy_pcs": [
+        65592,
+        65594,
+        65596,
+        65598,
+        65600,
+        65603,
+        65605,
+        65607,
+        65609,
+        65611,
+        65613,
+        65615
+      ],
+      "analysis": {
+        "graph": "ordered_acyclic",
+        "dependencies": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "self_copies": [],
+        "partial_overlaps": [],
+        "repeated_sources": [],
+        "schedule": [
+          0,
+          1,
+          2
+        ],
+        "blocked_moves": [],
+        "in_order_staged_moves": [],
+        "in_order_direct_moves": [
+          0,
+          1,
+          2
+        ],
+        "preserves_final_a_nz": true
+      },
+      "executions": [
+        {
+          "vector": 0,
+          "count": 1
+        },
+        {
+          "vector": 1,
+          "count": 1
+        },
+        {
+          "vector": 2,
+          "count": 1
+        },
+        {
+          "vector": 3,
+          "count": 1
+        },
+        {
+          "vector": 4,
+          "count": 1
+        },
+        {
+          "vector": 5,
+          "count": 1
+        }
+      ],
+      "in_order_word_candidate": true,
+      "selective_staging_candidate_moves": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "forecasts": [
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "vector": 0,
+      "executions": 1,
+      "words": 3,
+      "bytes": 12,
+      "instructions": 6,
+      "cycles": 30,
+      "stack_reads": 6,
+      "stack_writes": 6
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "vector": 1,
+      "executions": 1,
+      "words": 3,
+      "bytes": 12,
+      "instructions": 6,
+      "cycles": 30,
+      "stack_reads": 6,
+      "stack_writes": 6
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "vector": 2,
+      "executions": 1,
+      "words": 3,
+      "bytes": 12,
+      "instructions": 6,
+      "cycles": 30,
+      "stack_reads": 6,
+      "stack_writes": 6
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "vector": 3,
+      "executions": 1,
+      "words": 3,
+      "bytes": 12,
+      "instructions": 6,
+      "cycles": 30,
+      "stack_reads": 6,
+      "stack_writes": 6
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "vector": 4,
+      "executions": 1,
+      "words": 3,
+      "bytes": 12,
+      "instructions": 6,
+      "cycles": 30,
+      "stack_reads": 6,
+      "stack_writes": 6
+    },
+    {
+      "case": "loop_rotation",
+      "mode": "optimized",
+      "routine": 0,
+      "block": 0,
+      "arm": "goto",
+      "vector": 5,
+      "executions": 1,
+      "words": 3,
+      "bytes": 12,
+      "instructions": 6,
+      "cycles": 30,
+      "stack_reads": 6,
+      "stack_writes": 6
+    }
+  ],
+  "comparison_hashes": {
+    "manifest.json": "3c0d5d3993dc70d717f2ec4806097b64c172442bb62dcc215130cceaac97d3e4",
+    "debug.json": "7031983bf6483234e4cbf709acc9e54e915a4062b4a944d873b367494c9e9a87",
+    "release.json": "7031983bf6483234e4cbf709acc9e54e915a4062b4a944d873b367494c9e9a87"
+  }
+}
