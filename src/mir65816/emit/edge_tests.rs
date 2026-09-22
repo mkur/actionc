@@ -440,7 +440,10 @@ fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
                 WordOperand::Immediate(v) => expected.extend([0xa9, v as u8, (v >> 8) as u8]),
                 WordOperand::Stack(offset) => expected.extend([0xa3, offset]),
             }
-            expected.extend([0x83, 2, 0x5c, 0, 0, 0]);
+            if b.word_operand(&source).unwrap() != Some(WordOperand::Stack(2)) {
+                expected.extend([0x83, 2]);
+            }
+            expected.extend([0x5c, 0, 0, 0]);
             b.edge(&Mir65816Edge {
                 target: BlockId(99),
                 args: vec![source],
@@ -666,4 +669,81 @@ fn partial_word_overlap_keeps_complete_word_staging() {
             0x83, 4, 0x5c, 0, 0, 0
         ]
     );
+}
+
+#[test]
+fn direct_identities_preserve_last_word_flags_without_writing_self_homes() {
+    use WordOperand::{Immediate as I, Stack as S};
+    for (moves, expected, repair, cost) in [
+        (vec![(S(2), 2)], vec![], true, (2, 5)),
+        (vec![(S(2), 2), (S(4), 4)], vec![], true, (2, 5)),
+        (vec![(S(2), 2), (I(0), 4)], vec![1], false, (5, 8)),
+        (vec![(I(0), 2), (S(4), 4)], vec![0], true, (7, 13)),
+        (vec![(S(2), 2), (S(2), 4)], vec![1], false, (4, 10)),
+    ] {
+        let plan = copies::WordCopies::plan(moves);
+        assert_eq!(plan.direct_emission(), Some((expected, repair)));
+        assert_eq!(plan.cost(), cost);
+    }
+    let p = program();
+    for mode in [None, Some(true), Some(false)] {
+        let mut b = builder(&p.routines[0]);
+        if mode == Some(true) {
+            b.code.a8();
+        } else if mode == Some(false) {
+            b.code.a16();
+        }
+        let at = b.code.position();
+        b.edge(&Mir65816Edge {
+            target: BlockId(99),
+            args: vec![
+                Mir65816Value::Temp(TempId(0), ByteSize::new(2)),
+                Mir65816Value::Temp(TempId(1), ByteSize::new(2)),
+            ],
+        })
+        .unwrap();
+        let mut expected = if mode == Some(false) {
+            vec![]
+        } else {
+            vec![0xc2, 0x20]
+        };
+        expected.extend([0xa3, 4, 0x5c, 0, 0, 0]);
+        assert_eq!(b.code.code().bytes[at..], expected);
+    }
+}
+
+#[test]
+fn direct_identity_omission_obeys_a_parallel_byte_oracle() {
+    use WordOperand::Stack as S;
+    for a in [2, 4, 6, 8] {
+        for b in [2, 4, 6, 8] {
+            for c in [2, 4, 6, 8] {
+                let moves = vec![(S(a), 2), (S(b), 4), (S(c), 6)];
+                let plan = copies::WordCopies::plan(moves.clone());
+                let Some((order, repair)) = plan.direct_emission() else {
+                    continue;
+                };
+                let initial: Vec<u8> = (0..32).collect();
+                let mut expected = initial.clone();
+                let mut actual = initial.clone();
+                for &(source, d) in &moves {
+                    let S(s) = source else { panic!() };
+                    expected[d as usize..d as usize + 2]
+                        .copy_from_slice(&initial[s as usize..s as usize + 2]);
+                }
+                let mut accumulator = None;
+                for i in order {
+                    let (S(s), d) = moves[i] else { panic!() };
+                    let word = [actual[s as usize], actual[s as usize + 1]];
+                    actual[d as usize..d as usize + 2].copy_from_slice(&word);
+                    accumulator = Some(word);
+                }
+                if repair {
+                    accumulator = Some([actual[6], actual[7]]);
+                }
+                assert_eq!(actual, expected);
+                assert_eq!(accumulator, Some([expected[6], expected[7]]));
+            }
+        }
+    }
 }

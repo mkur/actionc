@@ -275,7 +275,9 @@ pub fn index(
                             let Some(stage) = staging else { continue };
                             bytes.extend([0x83, stage, 0xa3, stage]);
                         }
-                        bytes.extend([0x83, destination]);
+                        if !direct || source != (true, u16::from(destination)) {
+                            bytes.extend([0x83, destination]);
+                        }
                         if jump >= lo + bytes.len()
                             && m.code.bytes[jump - bytes.len()..jump] == bytes
                         {
@@ -298,6 +300,13 @@ pub fn index(
                     }
                 }
                 let site = matched.expect("typed single-word edge has an unexpected encoding");
+                assert!(
+                    !m.code
+                        .labels
+                        .values()
+                        .any(|&at| site.load < base + at as u32 && base + (at as u32) < site.jump),
+                    "alternate entry inside copy proof"
+                );
                 assert!(result.insert(site.load, site).is_none());
                 found += 1;
             }
@@ -336,19 +345,25 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         vec![0xa9, s.source.1 as u8, (s.source.1 >> 8) as u8]
     };
     let store = load + bytes.len() as u32;
-    bytes.extend([0x83, s.destination]);
+    let identity = s.source == (true, u16::from(s.destination));
+    if !identity {
+        bytes.extend([0x83, s.destination]);
+    }
     if !s.fallthrough {
         bytes.push(0x5c);
         bytes.extend(&s.target.to_le_bytes()[..3]);
     }
-    if store + 2 != s.jump
+    if store + if identity { 0 } else { 2 } != s.jump
         || load + bytes.len() as u32 > range.end
         || bus.ram[load as usize..load as usize + bytes.len()] != bytes
     {
         return None;
     }
     let mut sites = if prefix { vec![pc] } else { vec![] };
-    sites.extend([load, store]);
+    sites.push(load);
+    if !identity {
+        sites.push(store);
+    }
     if !s.fallthrough {
         sites.push(s.jump);
     }
@@ -357,8 +372,8 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         fallthrough: s.fallthrough,
         sites,
         moves: vec![(s.source, None, s.destination)],
-        order: vec![0],
-        reload: None,
+        order: if identity { vec![] } else { vec![0] },
+        reload: identity.then_some(s.destination),
         target: s.target,
         end: s.jump + if s.fallthrough { 0 } else { 4 },
     })

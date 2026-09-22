@@ -100,6 +100,23 @@ objects. Helper/call clobbers, aliasing and task preemption retain their existin
 contracts. The public ABI and stack guards are unchanged; guard reservation
 immediates and incoming displacements derive from the new final extent.
 
+## Compatible edge homes
+
+A bounded pass follows the verified first-fit allocation. It keeps every block
+parameter as a fixed anchor and tries each direct word edge's noninterfering
+source-temp affinities together, in stable block/arm order. A trial must pass
+whole-routine stack verification, retain exact frame/spill/peak and staging
+accounting, and reduce copy cost without increasing bytes or cycles on any edge.
+Third-party conflicts, repeated-source ambiguity or accounting changes reject
+the whole trial. The closed-operation interference rule is unchanged.
+
+Emission omits direct physical self-copy stores and unnecessary loads while
+retaining full A/N/Z of the final logical assignment. A final self-copy needs an
+LDA; an all-self edge therefore still has a real instruction boundary. This
+changes only private temporary homes and edge traffic, preserving non-edge
+captures, addressable objects, ABI parameter placement, guards and preemption.
+See the [implementation plan](MIR65816_EDGE_COALESCING_PLAN.md).
+
 ## CPU register and DP opportunities
 
 The 64-byte scratch area is per execution domain, but all of it and A/X/Y are

@@ -868,7 +868,11 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                         w.form == word_edge::Form::Direct
                                             && w.moves.len() == 1
                                             && w.sites.len()
-                                                == if site.fallthrough { 2 } else { 3 }
+                                                == (if site.fallthrough { 2 } else { 3 })
+                                                    - usize::from(
+                                                        site.source
+                                                            == (true, u16::from(site.destination))
+                                                    )
                                     );
                                     count += 1;
                                     reached.insert((site.load, w.target));
@@ -885,6 +889,12 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                         h.cpu.cycles() - cycles,
                                         (if site.source.0 { 14 } else { 12 })
                                             - if site.fallthrough { 4 } else { 0 }
+                                            - if site.source == (true, u16::from(site.destination))
+                                            {
+                                                5
+                                            } else {
+                                                0
+                                            }
                                     );
                                     for (i, &byte) in saved.iter().enumerate() {
                                         let at = 0x4000 + i as u32;

@@ -72,7 +72,17 @@ pub fn schedule(
 ) -> Option<Vec<usize>> {
     let mut order = vec![];
     let mut pc = 0;
-    let mut pending: BTreeSet<_> = (0..moves.len()).collect();
+    let mut pending: BTreeSet<_> = (0..moves.len())
+        .filter(|&i| moves[i].0 != (true, u16::from(moves[i].2)))
+        .collect();
+    // Identity destinations still need distinct whole-word geometry.
+    if moves
+        .iter()
+        .enumerate()
+        .any(|(i, m)| moves[..i].iter().any(|d| m.2.abs_diff(d.2) < 2))
+    {
+        return None;
+    }
     while !pending.is_empty() {
         let op = *bytes.get(pc)?;
         let n = if op == 0xa3 {
@@ -256,7 +266,11 @@ pub fn index(
                 let length: usize = moves.iter().map(|m| load(m.0).len() + 2).sum();
                 let mut found = None;
                 for reload in [false, true] {
-                    let length = length + if reload { 2 } else { 0 };
+                    let omitted = moves
+                        .iter()
+                        .filter(|m| m.0 == (true, u16::from(m.2)))
+                        .count();
+                    let length = length - omitted * 4 + if reload { 2 } else { 0 };
                     if t.offset < lo + length {
                         continue;
                     }
@@ -314,7 +328,15 @@ pub fn index(
                         }
                     }
                 }
-                out.push(found.expect("typed multi-word edge has an unsafe or unknown encoding"));
+                let site = found.expect("typed multi-word edge has an unsafe or unknown encoding");
+                assert!(
+                    !m.code
+                        .labels
+                        .values()
+                        .any(|&at| site.load < base + at as u32 && base + (at as u32) < site.jump),
+                    "alternate entry inside copy proof"
+                );
+                out.push(site);
             }
         }
         assert!(transfers.next().is_none());

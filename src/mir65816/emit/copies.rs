@@ -54,6 +54,61 @@ impl WordCopies {
         Self { moves, strategy }
     }
 
+    /// Actual direct assignments plus an explicit final A/N/Z repair. Keep
+    /// logical moves intact for preflight and simultaneous-copy semantics.
+    pub(super) fn direct_emission(&self) -> Option<(Vec<usize>, bool)> {
+        let WordStrategy::Direct(order) = &self.strategy else {
+            return None;
+        };
+        let emitted: Vec<_> = order
+            .iter()
+            .copied()
+            .filter(|&i| {
+                let (source, dest) = self.moves[i];
+                source != WordOperand::Stack(dest)
+            })
+            .collect();
+        let repair = emitted.last().copied() != self.moves.len().checked_sub(1);
+        Some((emitted, repair))
+    }
+
+    /// Exact copy bytes/cycles, excluding the unchanged mode/transfer prefix.
+    pub(super) fn cost(&self) -> (usize, usize) {
+        let load = |s| match s {
+            WordOperand::Stack(_) => (2, 5),
+            WordOperand::Immediate(_) => (3, 3),
+        };
+        let mut cost = (0, 0);
+        let mut add = |b, c| {
+            cost.0 += b;
+            cost.1 += c;
+        };
+        if let Some((order, repair)) = self.direct_emission() {
+            for i in order {
+                let (b, c) = load(self.moves[i].0);
+                add(b + 2, c + 5);
+            }
+            if repair {
+                add(2, 5);
+            }
+        } else {
+            let captures = self.captures().expect("checked copy plan");
+            for &i in &captures {
+                let (b, c) = load(self.moves[i].0);
+                add(b + 2, c + 5);
+            }
+            for (i, &(s, _)) in self.moves.iter().enumerate() {
+                let (b, c) = load(if captures.contains(&i) {
+                    WordOperand::Stack(1)
+                } else {
+                    s
+                });
+                add(b + 2, c + 5);
+            }
+        }
+        cost
+    }
+
     pub(super) fn captures(&self) -> Result<Vec<usize>, String> {
         // Validate the entire logical mapping before indexing it. Missing, extra,
         // repeated, out-of-order and out-of-range captures are all malformed.

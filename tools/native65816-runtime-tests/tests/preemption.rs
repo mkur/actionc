@@ -1297,3 +1297,90 @@ fn incoming_parameters_survive_irq_and_nmi_at_every_proof_boundary_in_both_domai
         }
     }
 }
+
+#[test]
+fn coalesced_edges_survive_irq_and_nmi_at_every_retained_instruction() {
+    let original = fixture("preemption.act");
+    let source = frame_forwarding_source(&original);
+    assert_eq!(
+        source,
+        frame_forwarding_source(&original.replace('\n', "\r\n"))
+    );
+    for optimize in [false, true] {
+        let mut h = initialize(ContextHarness::from_prepared(
+            &source,
+            optimize,
+            "Task",
+            &[0x7100, 0x7120],
+            coalescing::prepared(&source, optimize),
+        ));
+        let sites: Vec<_> = h
+            .bus
+            .forwarded_words
+            .multi_words
+            .iter()
+            .filter(|s| s.form == word_edge::Form::Direct && s.order.len() < s.moves.len())
+            .cloned()
+            .collect();
+        assert!(!sites.is_empty());
+        let boundaries: BTreeSet<_> = sites
+            .iter()
+            .flat_map(|s| {
+                let w = word_edge::decode(&h.bus, s.load, s.range.clone()).unwrap();
+                w.sites.into_iter().chain([w.target])
+            })
+            .collect();
+        let targets: BTreeSet<_> = [0x2000, 0x2100]
+            .into_iter()
+            .flat_map(|d| boundaries.iter().map(move |&pc| (d, pc)))
+            .collect();
+        let mut seen = BTreeSet::new();
+        let mut live = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary() && r.p & 0x34 == 0 && [0x2000, 0x2100].contains(&r.d)
+            {
+                if sites.iter().any(|s| s.target == pc) {
+                    live.insert((r.d, pc, r.p & 0x82));
+                }
+                if targets.contains(&(r.d, pc)) && seen.insert((r.d, pc)) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    run_checked_fused_irq(&mut h);
+                    check_frame_forwarding(&h);
+                    h.cpu = cpu.clone();
+                    h.bus = bus.clone();
+                    run_checked_frame_nmi(&mut h);
+                    check_frame_forwarding(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check_frame_forwarding(&h);
+        assert_eq!(seen, targets);
+        assert_eq!(
+            live.iter().map(|t| t.2).collect::<BTreeSet<_>>(),
+            BTreeSet::from([0, 2]) // The same header also receives nonzero loop backedges.
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = initialize(ContextHarness::from_prepared(
+                &source,
+                optimize,
+                "Task",
+                &[0x7100, 0x7120],
+                coalescing::prepared(&source, optimize),
+            ));
+            run_injected(&mut h, false, Some(seed));
+            check_frame_forwarding(&h);
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(Path::new(&directory).join(format!("edge-coalescing-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"successor_word_flags":live,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
+        }
+    }
+}

@@ -234,12 +234,17 @@ native A16 LDA/STA. Complete preflight checks stack sources, authoritative mutab
 parameter homes, destinations and the target label, including transient S
 movement. Staged paths also check capacity and the entire accessed byte range
 of each required slot. A single word assignment loads its entire source into A
-before storing directly to the destination; it needs no staging reservation. Self-copies still load and store. Multi-word edges with disjoint word
+before storing directly to the destination; it needs no staging reservation.
+Direct full-word self-copies omit their stores. Multi-word edges with disjoint word
 destinations and no partial source/destination overlap use direct copies when
 their dependency graph is acyclic. A stable topological schedule consumes each
 source before another assignment overwrites it, preferring the original final
-assignment last. If that assignment must move earlier, a final LDA from its
-destination restores the original full A and N/Z. For cyclic whole-word geometry,
+assignment last. Direct self-copies omit their LDA/STA pairs after all logical
+operands pass preflight. If the last actually emitted assignment is not the
+original final one, a final LDA from its destination restores full A and N/Z.
+Thus a last-self or all-self edge, including a single self-copy, retains a final
+LDA. Logical edge arity remains unchanged; staged fallbacks retain all stores.
+For cyclic whole-word geometry,
 selective staging captures each stack source overlapping an earlier destination,
 then performs all assignments in original argument order. Captures precede every
 destination write and use distinct invocation-owned words; repeated endangered
@@ -417,6 +422,18 @@ The allocator plans from a frame containing all private homes: immutable incomin
 arguments lie above it, and adding staging only moves them farther from any
 destination. The final allocation independently rechecks every plan, required
 capacity, physical overlap, incoming last-byte bound and frame accounting. Cycles cannot destroy successor live-ins.
+
+After the initial verified stack allocation, one deterministic affinity pass may
+move non-parameter word temporaries onto compatible edge destination homes.
+All block-parameter homes stay fixed. Each directly scheduled word edge proposes
+its compatible source changes simultaneously; conflicting repeated-source
+proposals reject the transaction. The unchanged whole-routine closed-operation
+verifier must accept every resulting home and exact frame/staging accounting.
+Only transactions reducing copy cost without increasing any edge's bytes or
+cycles are accepted. Profitability includes final A/N/Z repair. Rejected trials
+leave the original allocation intact. Frame compaction, DP/register promotion
+and relaxed arithmetic interference are separate work. See the
+[coalescing plan](MIR65816_EDGE_COALESCING_PLAN.md).
 
 Only MIR value temporaries share storage. Frame objects, addressed locals and
 mutable parameters retain their dedicated homes. No temporary address escapes,

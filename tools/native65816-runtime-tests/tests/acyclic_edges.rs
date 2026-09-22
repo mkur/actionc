@@ -7,10 +7,12 @@ fn independent_acyclic_encodings_preserve_words_full_a_flags_and_staging() {
     // Explicit schedules: independent, forward chain, reordered chain, and
     // a self-copy plus a repeated source. Reordering retains original final A.
     for (sources, destinations, order, reload) in [
-        ([6, 8], [2, 4], [0, 1], None),
-        ([4, 6], [2, 4], [0, 1], None),
-        ([6, 2], [2, 4], [1, 0], Some(4)),
-        ([2, 2], [2, 4], [1, 0], Some(4)),
+        ([6, 8], [2, 4], vec![0, 1], None),
+        ([4, 6], [2, 4], vec![0, 1], None),
+        ([6, 2], [2, 4], vec![1, 0], Some(4)),
+        ([2, 2], [2, 4], vec![1], None),
+        ([2, 4], [2, 4], vec![], Some(4)),
+        ([2, 4], [6, 4], vec![0], Some(4)),
     ] {
         let before = assemble(
             &format!(
@@ -20,6 +22,7 @@ fn independent_acyclic_encodings_preserve_words_full_a_flags_and_staging() {
             0x040000,
         );
         let mut text = String::new();
+        let omitted = 2 - order.len();
         for i in order {
             text.push_str(&format!(
                 "lda {},s\nsta {},s\n",
@@ -72,7 +75,10 @@ fn independent_acyclic_encodings_preserve_words_full_a_flags_and_staging() {
                     (b.a, b.x, b.y, b.s, b.d, b.dbr, b.p, b.emulation_mode)
                 );
                 assert_eq!(a.p & 0x7d, p & 0x7d);
-                assert_eq!(bc - ac, 20 - if reload.is_some() { 5 } else { 0 });
+                assert_eq!(
+                    bc - ac,
+                    20 + 10 * omitted as u64 - if reload.is_some() { 5 } else { 0 }
+                );
                 for i in 0..amem.len() {
                     if [0x1fa0, 0x1fa1, 0x1fa4, 0x1fa5].contains(&i) {
                         assert_eq!(amem[i], 0xa5);
@@ -102,4 +108,29 @@ fn direct_multi_copy_evidence_rejects_unsafe_orders_and_stale_restore() {
     }
     let cyclic = [((true, 4), None, 2), ((true, 2), None, 4)];
     assert!(multi_word_edge::schedule(&valid, &cyclic, true).is_none());
+}
+
+#[test]
+fn identity_evidence_requires_whole_homes_and_exact_final_flag_repair() {
+    let all = [((true, 2), None, 2), ((true, 4), None, 4)];
+    assert_eq!(
+        multi_word_edge::schedule(&[0xa3, 4], &all, true),
+        Some(vec![])
+    );
+    for bytes in [vec![], vec![0xa3, 2], vec![0xa3, 4, 0x83, 4]] {
+        assert!(multi_word_edge::schedule(&bytes, &all, true).is_none());
+    }
+    let tail = [((false, 7), None, 2), ((true, 4), None, 4)];
+    let bytes = [0xa9, 7, 0, 0x83, 2, 0xa3, 4];
+    assert_eq!(
+        multi_word_edge::schedule(&bytes, &tail, true),
+        Some(vec![0])
+    );
+    for i in 0..bytes.len() {
+        let mut bad = bytes;
+        bad[i] ^= 0x80;
+        assert!(multi_word_edge::schedule(&bad, &tail, true).is_none());
+    }
+    let partial = [((true, 2), None, 2), ((true, 3), None, 4)];
+    assert!(multi_word_edge::schedule(&[0xa3, 3, 0x83, 4], &partial, false).is_none());
 }

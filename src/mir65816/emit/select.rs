@@ -970,13 +970,13 @@ impl Builder<'_> {
     fn emit_word_edge(&mut self, edge: WordEdge, fallthrough: bool) {
         self.code.barrier();
         self.code.a16();
-        if let copies::WordStrategy::Direct(order) = &edge.copies.strategy {
-            for &i in order {
+        if let Some((order, repair)) = edge.copies.direct_emission() {
+            for i in order {
                 let (source, destination) = edge.copies.moves[i];
                 self.edge_load(source);
                 self.code.byte(ByteOp::StaStack, destination);
             }
-            if order.last().copied() != Some(edge.copies.moves.len() - 1) {
+            if repair {
                 // Retain full A and N/Z of the original final assignment.
                 self.code
                     .byte(ByteOp::LdaStack, edge.copies.moves.last().unwrap().1);

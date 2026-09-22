@@ -151,6 +151,7 @@ fn execute(
     let mut direct_sites = BTreeMap::<u32, u64>::new();
     let mut acyclic_sites = BTreeMap::<u32, u64>::new();
     let mut acyclic_words = 0u64;
+    let mut coalesced_sites = BTreeMap::<u32, u64>::new();
     let mut selective_sites = BTreeMap::<u32, u64>::new();
     let mut selective_words = 0u64;
     let mut selective_staged = 0u64;
@@ -187,6 +188,12 @@ fn execute(
             if let Some(window) = support::word_edge::reached(&cpu, &bus, &native_routines) {
                 *word_edge_sites.entry(cpu.pc()).or_default() += 1;
                 edge_words += window.moves.len() as u64;
+                if window.form == word_edge::Form::Direct {
+                    let count = window.moves.len() - window.order.len();
+                    if count > 0 {
+                        *coalesced_sites.entry(pc).or_default() += count as u64;
+                    }
+                }
                 if window.form == word_edge::Form::Direct && window.moves.len() == 1 {
                     *direct_sites.entry(cpu.pc()).or_default() += 1;
                 }
@@ -335,6 +342,8 @@ fn execute(
         measurement["direct_word_edge_sites"] = json!(direct_sites);
         measurement["acyclic_word_edges"] = json!(acyclic_sites.values().sum::<u64>());
         measurement["acyclic_edge_words"] = json!(acyclic_words);
+        measurement["coalesced_word_copies"] = json!(coalesced_sites.values().sum::<u64>());
+        measurement["coalesced_word_copy_sites"] = json!(coalesced_sites);
         measurement["acyclic_word_edge_sites"] = json!(acyclic_sites);
         measurement["selective_word_edges"] = json!(selective_sites.values().sum::<u64>());
         measurement["selective_edge_words"] = json!(selective_words);

@@ -351,3 +351,5 @@ pub mod forwarding;
 pub mod frame_forwarding;
 
 pub mod parameter_forwarding;
+
+pub mod coalescing;

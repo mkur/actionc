@@ -131,6 +131,7 @@ impl AllocatedFrame {
         frame.peak_below_entry = local_peak(routine, extent)?;
         frame.edge_copies = edge_copies;
         frame.verify_stack(routine)?;
+        frame.coalesce_edges(routine, &interference)?;
         Ok(frame)
     }
 

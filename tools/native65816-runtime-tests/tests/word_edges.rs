@@ -253,7 +253,9 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                     + if w.reload.is_some() { 5 } else { 0 }
                     + w.moves
                         .iter()
-                        .map(|&((stack, _), stage, _)| {
+                        .enumerate()
+                        .filter(|(i, _)| w.order.contains(i))
+                        .map(|(_, &((stack, _), stage, _))| {
                             (if stack { 5 } else { 3 }) + 5 + if stage.is_some() { 10 } else { 0 }
                         })
                         .sum::<u64>();
@@ -408,8 +410,14 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                 } else {
                     format!("lda {source},s")
                 };
+                let identity = !immediate && source == destination;
+                let store = if identity {
+                    String::new()
+                } else {
+                    format!("sta {destination},s\n")
+                };
                 let code = assemble(
-                    &format!("{prefix}{load}\nsta {destination},s\njml done\ndone: stp\nnop"),
+                    &format!("{prefix}{load}\n{store}jml done\ndone: stp\nnop"),
                     0x040000,
                 );
                 let target = 0x040000 + code.len() as u32 - 2;
@@ -420,7 +428,10 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                 } else {
                     vec![0xa3, source]
                 });
-                expected.extend([0x83, destination, 0x5c]);
+                if !identity {
+                    expected.extend([0x83, destination]);
+                }
+                expected.push(0x5c);
                 expected.extend(&target.to_le_bytes()[..3]);
                 expected.extend([0xdb, 0xea]);
                 assert_eq!(code, expected);
@@ -458,7 +469,13 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                     assert_eq!(cpu.registers(), after);
                     assert_eq!(
                         cpu.cycles(),
-                        (if immediate { 12 } else { 14 }) + if a8 { 3 } else { 0 }
+                        (if immediate {
+                            12
+                        } else if identity {
+                            9
+                        } else {
+                            14
+                        }) + if a8 { 3 } else { 0 }
                     );
                     let mut trace = vec![];
                     if !immediate {
@@ -467,13 +484,15 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                             (0x5001 + u32::from(source), Access::Read),
                         ]);
                     }
-                    trace.extend([
-                        (0x5000 + u32::from(destination), Access::Write(value as u8)),
-                        (
-                            0x5001 + u32::from(destination),
-                            Access::Write((value >> 8) as u8),
-                        ),
-                    ]);
+                    if !identity {
+                        trace.extend([
+                            (0x5000 + u32::from(destination), Access::Write(value as u8)),
+                            (
+                                0x5001 + u32::from(destination),
+                                Access::Write((value >> 8) as u8),
+                            ),
+                        ]);
+                    }
                     assert_eq!(
                         bus.trace
                             .iter()
@@ -499,7 +518,10 @@ fn independent_direct_word_copies_preserve_flags_even_with_overlapping_homes() {
                     );
                     let w = word_edge::decode(&bus, 0x040000, 0x040000..target + 2).unwrap();
                     assert_eq!(w.form, word_edge::Form::Direct);
-                    assert_eq!(w.sites.len(), if a8 { 4 } else { 3 });
+                    assert_eq!(
+                        w.sites.len(),
+                        (if a8 { 4 } else { 3 }) - usize::from(identity)
+                    );
                     for at in [load_pc, target - 6, target - 5, target - 4, target - 3] {
                         let mut bad = bus.clone();
                         bad.ram[at as usize] ^= 1;
