@@ -10,8 +10,10 @@ closed-operation interference remains unchanged.
 
 The [analysis and checked-rewrite foundation](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md)
 is complete, adapting MIR6502's home/definition liveness, register/flag liveness
-and checked rewrite workflow. Next, reduce its measured host compilation cost
-before enabling further store elimination or broadening register/DP allocation.
+and checked rewrite workflow. Next, follow the
+[emission simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md) to remove
+duplicate orchestration and unused analysis work before enabling further store
+elimination or broadening register/DP allocation.
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
@@ -133,11 +135,13 @@ Typed selection/effects, home and machine analyses, authoritative replay,
 checked transactions and the adjacent temporary forwarding migration are
 complete and qualified. The next sequence is:
 
-1. Profile and reduce analysis/replay cost with unchanged proof obligations,
-   output and generation invalidation. Measure both the 28-build corpus and
-   growing routines; the raw constant-chain build currently takes 8.12 times
-   baseline wall time. Start with representation and redundant work within one
-   generation. Cross-generation reuse requires a separate invalidation design.
+1. Implement the [emission simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md):
+   freeze current output/work counts, remove obsolete migration code, compute
+   analyses on demand, reconstruct the original stream once and use the
+   immutable input's verified CFG during replay. Preserve projection semantics,
+   proof obligations and generation invalidation. Measure absolute host costs
+   on the corpus and growing routines. Per-edit full replay remains;
+   cross-generation caching and edit batching are deferred.
 2. Inventory removable temporary stores through the new stored-definition,
    home and register/flag queries. Record blocked cases and predict exact traffic
    changes before choosing one bounded checked rewrite.
