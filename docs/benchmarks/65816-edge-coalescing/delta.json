@@ -1,0 +1,166 @@
+{
+  "records": 264,
+  "complete_action_images": 28,
+  "unchanged_action_builds": 27,
+  "changed_builds": [
+    [
+      "loop_rotation",
+      "optimized",
+      "actionc"
+    ]
+  ],
+  "removed_static_bytes": 8,
+  "coalesced_copies_per_incoming_i": 12,
+  "saved_cycles_per_incoming_i": 120,
+  "saved_stack_reads_per_incoming_i": 24,
+  "saved_stack_writes_per_incoming_i": 24,
+  "nonedge_stores_frames_abi_and_guards_unchanged": true,
+  "forecasts": [
+    {
+      "vector": 0,
+      "args": [
+        0
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 1,
+      "args": [
+        1
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 2,
+      "args": [
+        13
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 3,
+      "args": [
+        32767
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 4,
+      "args": [
+        32768
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    },
+    {
+      "vector": 5,
+      "args": [
+        65535
+      ],
+      "executions": 1,
+      "before": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140,
+        "peak_below_entry_s": 16
+      },
+      "forecast": {
+        "code_bytes": 130,
+        "cycles": 896,
+        "instructions": 218,
+        "stack_reads": 123,
+        "stack_writes": 136,
+        "peak_below_entry_s": 16
+      }
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}

@@ -1,7 +1,9 @@
 # Compatible native edge-home coalescing implementation plan
 
-Status: planned on 2026-09-22 against qualified main `49ecf77`, compiler
-`4d7fcb3`. Commit this plan before implementation. The
+Status: implemented in `12d13e1`, with qualification artifact isolation in
+`7b5a2a7`, and qualified on 2026-09-22. See the
+[measured results](MIR65816_EDGE_COALESCING.md). This original plan was committed
+as `bfc058e` against qualified main `49ecf77`, compiler `4d7fcb3`. The
 [frozen baseline](benchmarks/65816-edge-coalescing/baseline.json) refreshes the
 historical [movement inventory](MIR65816_MOVEMENT_INVENTORY.md) against
 [incoming-parameter forwarding](MIR65816_PARAMETER_FORWARDING.md).

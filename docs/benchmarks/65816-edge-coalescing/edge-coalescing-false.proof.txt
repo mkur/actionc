@@ -1,0 +1,51 @@
+[
+    Site {
+        form: Direct,
+        routine: RoutineId(
+            1,
+        ),
+        range: 98373..98503,
+        load: 98429,
+        jump: 98434,
+        target: 98434,
+        fallthrough: true,
+        moves: [
+            (
+                (
+                    true,
+                    10,
+                ),
+                None,
+                10,
+            ),
+            (
+                (
+                    true,
+                    6,
+                ),
+                None,
+                6,
+            ),
+            (
+                (
+                    false,
+                    0,
+                ),
+                None,
+                8,
+            ),
+        ],
+        order: [
+            2,
+        ],
+        reload: None,
+        bytes: [
+            169,
+            0,
+            0,
+            131,
+            8,
+        ],
+    },
+]
+values=0,1,32767,32768,65535; I=0,4; CV=0,1,64,65; placements=flat,o65-0,o65-1
