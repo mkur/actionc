@@ -4,6 +4,7 @@ pub(super) mod cfg;
 mod home_definitions;
 mod home_liveness;
 pub(super) mod homes;
+pub(super) mod machine_liveness;
 pub(super) mod sites;
 
 use super::selected::SelectedRoutine;
@@ -11,6 +12,7 @@ use crate::analysis::graph::DataflowGraph;
 use home_definitions::{Definition, HomeDefinitions, ReadUse, UndefinedRead};
 use home_liveness::HomeLiveness;
 use homes::{HomeByte, Homes};
+use machine_liveness::{MachineLive, MachineLiveness};
 use sites::{Node, SelectedSite};
 use std::collections::BTreeSet;
 
@@ -19,17 +21,20 @@ pub(super) struct AnalysisSnapshot<'a> {
     pub homes: Homes,
     live: HomeLiveness,
     definitions: HomeDefinitions,
+    machine: MachineLiveness,
 }
 impl<'a> AnalysisSnapshot<'a> {
     pub fn new(selected: &'a SelectedRoutine) -> Result<Self, String> {
         let homes = Homes::analyze(selected)?;
         let live = HomeLiveness::analyze(selected.cfg(), &homes);
         let definitions = HomeDefinitions::analyze(selected.cfg(), &homes);
+        let machine = MachineLiveness::analyze(selected);
         Ok(Self {
             selected,
             homes,
             live,
             definitions,
+            machine,
         })
     }
     pub fn validate(&self, site: SelectedSite) -> Result<Node, String> {
@@ -79,6 +84,12 @@ impl<'a> AnalysisSnapshot<'a> {
     }
     pub fn undefined_private_reads(&self) -> &[UndefinedRead] {
         self.definitions.undefined_private_reads()
+    }
+    pub fn machine_live_before(&self, site: SelectedSite) -> Result<MachineLive, String> {
+        self.machine.before(self.validate(site)?)
+    }
+    pub fn machine_live_after(&self, site: SelectedSite) -> Result<MachineLive, String> {
+        self.machine.after(self.validate(site)?)
     }
 }
 

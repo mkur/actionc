@@ -1,0 +1,478 @@
+[
+  {
+    "case": "identity",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      98,
+      44,
+      44,
+      30,
+      30,
+      50,
+      50,
+      4,
+      8,
+      22,
+      44
+    ]
+  },
+  {
+    "case": "identity",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      98,
+      44,
+      44,
+      30,
+      30,
+      50,
+      50,
+      4,
+      8,
+      22,
+      44
+    ]
+  },
+  {
+    "case": "add",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      130,
+      49,
+      49,
+      30,
+      30,
+      54,
+      54,
+      4,
+      8,
+      23,
+      48
+    ]
+  },
+  {
+    "case": "add",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      130,
+      49,
+      49,
+      30,
+      30,
+      54,
+      54,
+      4,
+      8,
+      23,
+      48
+    ]
+  },
+  {
+    "case": "subtract",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      130,
+      49,
+      49,
+      30,
+      30,
+      54,
+      54,
+      4,
+      8,
+      23,
+      48
+    ]
+  },
+  {
+    "case": "subtract",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      130,
+      49,
+      49,
+      30,
+      30,
+      54,
+      54,
+      4,
+      8,
+      23,
+      48
+    ]
+  },
+  {
+    "case": "constant_chain",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      338,
+      252,
+      252,
+      30,
+      30,
+      82,
+      82,
+      4,
+      8,
+      38,
+      76
+    ]
+  },
+  {
+    "case": "constant_chain",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      113,
+      57,
+      57,
+      30,
+      30,
+      52,
+      52,
+      4,
+      8,
+      23,
+      46
+    ]
+  },
+  {
+    "case": "maximum",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      191,
+      80,
+      80,
+      30,
+      30,
+      70,
+      70,
+      4,
+      8,
+      26,
+      54
+    ]
+  },
+  {
+    "case": "maximum",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      191,
+      80,
+      80,
+      30,
+      30,
+      70,
+      70,
+      4,
+      8,
+      26,
+      54
+    ]
+  },
+  {
+    "case": "wide_shift",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      320,
+      111,
+      133,
+      60,
+      60,
+      67,
+      67,
+      4,
+      18,
+      31,
+      56
+    ]
+  },
+  {
+    "case": "wide_shift",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      292,
+      103,
+      109,
+      60,
+      60,
+      63,
+      63,
+      4,
+      18,
+      31,
+      52
+    ]
+  },
+  {
+    "case": "loop_rotation",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      479,
+      204,
+      200,
+      30,
+      30,
+      88,
+      88,
+      4,
+      8,
+      29,
+      77
+    ]
+  },
+  {
+    "case": "loop_rotation",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      272,
+      98,
+      98,
+      99,
+      99,
+      76,
+      76,
+      4,
+      8,
+      29,
+      65
+    ]
+  },
+  {
+    "case": "sum_loop",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      337,
+      117,
+      111,
+      30,
+      30,
+      76,
+      76,
+      4,
+      10,
+      25,
+      65
+    ]
+  },
+  {
+    "case": "sum_loop",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      257,
+      86,
+      84,
+      30,
+      30,
+      70,
+      70,
+      4,
+      10,
+      25,
+      59
+    ]
+  },
+  {
+    "case": "recursive_sum",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      297,
+      116,
+      108,
+      44,
+      44,
+      196,
+      196,
+      5,
+      13,
+      38,
+      89
+    ]
+  },
+  {
+    "case": "recursive_sum",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      267,
+      113,
+      107,
+      44,
+      44,
+      166,
+      166,
+      5,
+      13,
+      38,
+      85
+    ]
+  },
+  {
+    "case": "direct_calls",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      345,
+      156,
+      144,
+      73,
+      73,
+      196,
+      196,
+      8,
+      18,
+      60,
+      168
+    ]
+  },
+  {
+    "case": "direct_calls",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      345,
+      156,
+      144,
+      73,
+      73,
+      196,
+      196,
+      8,
+      18,
+      60,
+      168
+    ]
+  },
+  {
+    "case": "byte_sum",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      424,
+      139,
+      118,
+      30,
+      30,
+      85,
+      85,
+      4,
+      10,
+      39,
+      73
+    ]
+  },
+  {
+    "case": "byte_sum",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      344,
+      108,
+      91,
+      30,
+      30,
+      79,
+      79,
+      4,
+      10,
+      39,
+      67
+    ]
+  },
+  {
+    "case": "record_field",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      122,
+      41,
+      41,
+      30,
+      30,
+      58,
+      58,
+      4,
+      8,
+      23,
+      46
+    ]
+  },
+  {
+    "case": "record_field",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      122,
+      41,
+      41,
+      30,
+      30,
+      58,
+      58,
+      4,
+      8,
+      23,
+      46
+    ]
+  },
+  {
+    "case": "unlink",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      228,
+      59,
+      53,
+      30,
+      30,
+      56,
+      56,
+      4,
+      8,
+      23,
+      42
+    ]
+  },
+  {
+    "case": "unlink",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      154,
+      42,
+      36,
+      30,
+      30,
+      56,
+      56,
+      4,
+      8,
+      22,
+      42
+    ]
+  },
+  {
+    "case": "forward_copy",
+    "optimized": false,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      401,
+      109,
+      78,
+      30,
+      30,
+      77,
+      77,
+      4,
+      10,
+      52,
+      69
+    ]
+  },
+  {
+    "case": "forward_copy",
+    "optimized": true,
+    "reachable_then_live_al_ah_xl_xh_yl_yh_n_z_c_v": [
+      384,
+      118,
+      89,
+      30,
+      30,
+      75,
+      75,
+      4,
+      10,
+      52,
+      67
+    ]
+  }
+]

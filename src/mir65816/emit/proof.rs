@@ -10,6 +10,7 @@ pub use super::effects::{
 pub use super::tracked::Event;
 
 pub use super::analysis::homes::{HomeAccess, HomeByte, HomeInfo, HomeOwner};
+pub use super::analysis::machine_liveness::{ConditionFlag, MachineLive, RegisterLane};
 /// Read-only analyses tied to this immutable selection/allocation snapshot.
 pub struct HomeAnalysis<'a>(super::analysis::AnalysisSnapshot<'a>);
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,6 +35,12 @@ pub fn home_analysis(code: &Code) -> Result<HomeAnalysis<'_>, String> {
     )?))
 }
 impl HomeAnalysis<'_> {
+    pub fn machine_live_before(&self, site: SelectedSite) -> Result<MachineLive, String> {
+        self.0.machine_live_before(site)
+    }
+    pub fn machine_live_after(&self, site: SelectedSite) -> Result<MachineLive, String> {
+        self.0.machine_live_after(site)
+    }
     pub fn uses_of_definition(
         &self,
         home: HomeByte,

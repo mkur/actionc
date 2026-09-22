@@ -18,7 +18,8 @@ Its baseline gate and typed physical-effects slices are
 The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also complete.
 [Canonical home bytes and backward liveness](MIR65816_HOME_ANALYSIS.md) are complete.
 [Stored definitions and read attribution](MIR65816_HOME_DEFINITIONS.md) are complete.
-The next slice adds register-lane and independent flag liveness.
+[Register-lane and independent flag liveness](MIR65816_MACHINE_LIVENESS.md) is complete.
+The next slice makes typed replay authoritative with exact encoding equality.
 
 ## Objective and current baseline
 
@@ -82,6 +83,7 @@ and qualify general improvements.
 | Analysis foundation slice 2 | Record typed instructions and compiler requests, with scoped sites, selected CFG and unchanged emission. | [Results](MIR65816_SELECTED_ACTIONS.md), [equality](benchmarks/65816-analysis-rewrite/slice2-equality.json) |
 | Analysis foundation slice 3 | Canonicalize physical home bytes with verified ownership and compute ordered backward may-liveness. | [Contract and results](MIR65816_HOME_ANALYSIS.md), [equality](benchmarks/65816-analysis-rewrite/slice3-equality.json) |
 | Analysis foundation slice 4 | Attribute reads to individual physical stored definitions, preserving may-write uncertainty and possibly undefined paths. | [Contract and results](MIR65816_HOME_DEFINITIONS.md), [equality](benchmarks/65816-analysis-rewrite/slice4-equality.json) |
+| Analysis foundation slice 5 | Compute physical register-lane and independent flag liveness, preserving protected environment obligations. | [Contract and results](MIR65816_MACHINE_LIVENESS.md) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured

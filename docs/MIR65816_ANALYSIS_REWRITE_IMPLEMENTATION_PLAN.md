@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 through 4 complete; slices 5 onward remain planned. Based on main
+Status: slices 0 through 5 complete; slices 6 onward remain planned. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -247,6 +247,10 @@ memory definedness policy conservative rather than changing accepted programs.
 **Exit:** exact store queries distinguish cases whole-home liveness cannot.
 
 ## Slice 5 — Register-lane and independent flag liveness
+
+Completed: [checked physical machine liveness](MIR65816_MACHINE_LIVENESS.md),
+independent graph tests and VM perturbations. Environment effects and compiler
+witnesses remain protected. No selection or emission policy changed.
 
 Adapt [MIR6502 machine liveness](../src/mir6502/analysis/machine_liveness.rs)
 using the selected CFG and central effects. Track A-low/A-high, X-low/X-high,

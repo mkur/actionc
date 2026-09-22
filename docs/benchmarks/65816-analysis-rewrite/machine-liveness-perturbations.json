@@ -1,0 +1,66 @@
+[
+  {
+    "dead_perturbations": 10,
+    "equality": false,
+    "i": 0,
+    "live_perturbations": 3,
+    "memory_events_compared": true,
+    "optimized": false
+  },
+  {
+    "dead_perturbations": 0,
+    "equality": true,
+    "i": 0,
+    "live_perturbations": 1,
+    "memory_events_compared": false,
+    "optimized": false
+  },
+  {
+    "dead_perturbations": 10,
+    "equality": false,
+    "i": 4,
+    "live_perturbations": 3,
+    "memory_events_compared": true,
+    "optimized": false
+  },
+  {
+    "dead_perturbations": 0,
+    "equality": true,
+    "i": 4,
+    "live_perturbations": 1,
+    "memory_events_compared": false,
+    "optimized": false
+  },
+  {
+    "dead_perturbations": 10,
+    "equality": false,
+    "i": 0,
+    "live_perturbations": 3,
+    "memory_events_compared": true,
+    "optimized": true
+  },
+  {
+    "dead_perturbations": 0,
+    "equality": true,
+    "i": 0,
+    "live_perturbations": 1,
+    "memory_events_compared": false,
+    "optimized": true
+  },
+  {
+    "dead_perturbations": 10,
+    "equality": false,
+    "i": 4,
+    "live_perturbations": 3,
+    "memory_events_compared": true,
+    "optimized": true
+  },
+  {
+    "dead_perturbations": 0,
+    "equality": true,
+    "i": 4,
+    "live_perturbations": 1,
+    "memory_events_compared": false,
+    "optimized": true
+  }
+]

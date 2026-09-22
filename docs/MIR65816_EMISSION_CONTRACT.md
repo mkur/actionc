@@ -699,3 +699,11 @@ ordered reads and preserve undefined paths and may-write uncertainty. Their
 outside-window proof is restricted to private homes and checked straight-line
 windows; replacements still require independent validation of local reads and
 machine effects. See the [stored-definition contract](MIR65816_HOME_DEFINITIONS.md).
+
+### Read-only machine liveness
+
+The same selected snapshot computes backward A/X/Y lane and independent N/Z/C/V
+liveness, using central effects and native result boundaries. Queries validate
+site ownership and reachability. Environment operations, X reservations and
+forward witnesses remain separate protected obligations; deadness does not
+authorize their removal. See [machine liveness](MIR65816_MACHINE_LIVENESS.md).
