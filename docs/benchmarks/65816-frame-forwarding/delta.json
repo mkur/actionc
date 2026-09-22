@@ -1,0 +1,135 @@
+{
+  "records": 264,
+  "complete_action_images": 28,
+  "unchanged_action_builds": 27,
+  "changed_builds": [
+    [
+      "loop_rotation",
+      "optimized",
+      "actionc"
+    ]
+  ],
+  "removed_static_bytes": 2,
+  "forwarded_loads_per_incoming_i": 48,
+  "saved_cycles_per_incoming_i": 240,
+  "saved_stack_reads_per_incoming_i": 96,
+  "stores_frames_abi_and_guards_unchanged": true,
+  "forecasts": [
+    {
+      "vector": 0,
+      "executions": 8,
+      "before": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140
+      },
+      "forecast": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140
+      }
+    },
+    {
+      "vector": 1,
+      "executions": 8,
+      "before": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140
+      },
+      "forecast": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140
+      }
+    },
+    {
+      "vector": 2,
+      "executions": 8,
+      "before": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140
+      },
+      "forecast": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140
+      }
+    },
+    {
+      "vector": 3,
+      "executions": 8,
+      "before": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140
+      },
+      "forecast": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140
+      }
+    },
+    {
+      "vector": 4,
+      "executions": 8,
+      "before": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140
+      },
+      "forecast": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140
+      }
+    },
+    {
+      "vector": 5,
+      "executions": 8,
+      "before": {
+        "code_bytes": 140,
+        "cycles": 956,
+        "instructions": 230,
+        "stack_reads": 143,
+        "stack_writes": 140
+      },
+      "forecast": {
+        "code_bytes": 138,
+        "cycles": 916,
+        "instructions": 222,
+        "stack_reads": 127,
+        "stack_writes": 140
+      }
+    }
+  ],
+  "external_failures": [
+    [
+      "unlink",
+      "optimized",
+      "vbcc",
+      0
+    ]
+  ]
+}

@@ -64,3 +64,60 @@ flags, mode, labels, calls, transient S and source/destination extents.
 
 The historical movement inventory remains frozen; its incoming-parameter
 candidates and edge coalescing are separate future slices.
+
+## Measured result
+
+The [saved comparison](benchmarks/65816-frame-forwarding/after/tables.md) and
+[exact delta](benchmarks/65816-frame-forwarding/delta.json) confirm the forecast.
+Only optimized `loop_rotation` changes; all 27 other Action builds and all vbcc
+artifacts retain their code. For input 13:
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Code bytes | 140 | 138 |
+| Cycles | 956 | 916 |
+| Instructions | 230 | 222 |
+| Stack-byte reads | 143 | 127 |
+| Stack-byte writes | 140 | 140 |
+| Frame / stack peak | 16 | 16 |
+
+Each of the six vectors executes the site eight times: 48 fewer instructions,
+240 fewer cycles and 96 fewer stack-byte reads per incoming I state. Existing
+temp forwarding counts, guard costs, DP traffic, frames and results remain.
+Optimized `sum_loop(13)` stays 120 bytes / 1,212 cycles / 12 stack bytes. The
+known optimized vbcc `unlink` vector-0 failure remains visible.
+
+[Qualification](abi/action65816-frame-forwarding-qualification.json) records
+80 root emitter/proof tests, 60 affected integration tests, 50 comparison-tool
+tests and the 14-kernel generator check. All 101 native tests pass in each host
+profile, with 425 identical compiler/fixture inputs and 474 identical artifacts.
+Debug/release corpus records agree exactly. Actual LF/CRLF corpus compilation
+covers 28 Action builds. A separate CRLF checkout passes the emission snapshot
+and 14 forwarding/state/preemption tests; all 230 emitted artifacts match LF.
+The existing reviewed emission snapshot remains unchanged. No NIR contract or
+NIR fixture changed, so the full root suite and NIR sweep were not required.
+
+Reproduce after building `actionc-65816` in release mode:
+
+```sh
+python3 -B tools/compare65816/build.py --output target/frame-forwarding-after --verify-crlf
+A816_COMPARISON_MANIFEST="$PWD/target/frame-forwarding-after/manifest.json" \
+A816_COMPARISON_RESULTS="$PWD/target/frame-forwarding-after/debug.json" \
+CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
+  python3 -B tools/native65816-runtime-tests/qualify.py --test code_quality -- --ignored
+```
+
+Repeat the observer with `--release` and `release.json`. Both runs save all 264
+records before reporting the known vbcc failure. Then run:
+
+```sh
+python3 -B tools/compare65816/check_frame_forwarding.py \
+  target/selective-staging-after target/frame-forwarding-after \
+  --baseline docs/benchmarks/65816-frame-forwarding/baseline.json \
+  --output docs/benchmarks/65816-frame-forwarding/delta.json
+python3 -B tools/native65816-runtime-tests/qualify.py
+python3 -B tools/native65816-runtime-tests/qualify.py --release
+```
+
+The exact checker requires the preserved selective-staging baseline artifacts.
+Keep the historical inventory and snapshots frozen when measuring later slices.

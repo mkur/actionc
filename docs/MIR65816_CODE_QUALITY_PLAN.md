@@ -1,15 +1,13 @@
 # Native 65816 code-quality improvement plan
 
-Status: refreshed on 2026-09-22 against main `8af3541`, after qualification of
-[selective staging](MIR65816_SELECTIVE_STAGING.md). Single-word and acyclic edge
-copies, compact capture reservations, selective cyclic staging, adjacent
-accumulator forwarding, the tracker foundation, checked MIR-entry width
-omission, terminal fallthrough and short conditional dispatch are complete.
-The [remaining-copy inventory](MIR65816_COPY_INVENTORY.md) is historical evidence
-for those copy slices. The [fresh movement inventory](MIR65816_MOVEMENT_INVENTORY.md) is complete.
-It recommends a narrow direct frame-store/load forwarding slice before
-edge-home coalescing; the current temp-forwarding classes have no further
-qualified opportunities in this corpus.
+Status: refreshed on 2026-09-22 after implementation `55f1061` and qualification
+of [direct frame store/load forwarding](MIR65816_FRAME_FORWARDING.md). Single-word
+and acyclic edge copies, compact reservations, selective cyclic staging, adjacent
+temporary forwarding, the tracker foundation and control-flow slices 3a–3c are
+complete. The [copy inventory](MIR65816_COPY_INVENTORY.md) and
+[movement inventory](MIR65816_MOVEMENT_INVENTORY.md) remain historical evidence.
+The latter's direct frame-load candidate is now implemented; two repeated
+incoming-parameter loads and two compatible edge-home pairs remain candidates.
 
 ## Objective and current baseline
 
@@ -19,12 +17,13 @@ a restricted pointer-leaf DP allocator. General lifetime-based stack reuse is
 an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
 
-Use the qualified [selective-staging snapshot](benchmarks/65816-selective-staging/after/tables.md)
+Use the qualified [frame-forwarding snapshot](benchmarks/65816-frame-forwarding/after/tables.md)
 as the working baseline for new forecasts. Its
-[exact delta](benchmarks/65816-selective-staging/delta.json) checks all 28 complete
-Action images and all 264 records against the compact-staging baseline. Only
-optimized `loop_rotation` changes: 148→140 bytes, 1,116→956 cycles and 20→16
-stack bytes. Keep each historical snapshot immutable.
+[exact delta](benchmarks/65816-frame-forwarding/delta.json) checks all 28 complete
+Action images and all 264 records against selective staging. Only optimized
+`loop_rotation` changes: 140→138 bytes, 956→916 cycles and 143→127 stack-byte
+reads. Its 16-byte frame/peak and 140 writes remain unchanged. Keep historical
+snapshots immutable.
 
 Both compilers implement a general unsigned 16-bit sum loop; input 13 is supplied
 at runtime, and both return 91. Measurements run from function entry through RTL,
@@ -37,11 +36,11 @@ including Action's stack guards and excluding caller setup:
 | Raw actionc | 146 | 1,587 | 14 |
 | Raw vbcc | 32 | 533 | 4 |
 
-The current optimized [Action listing](benchmarks/65816-selective-staging/after/sum_loop.optimized.actionc.lst)
+The current optimized [Action listing](benchmarks/65816-frame-forwarding/after/sum_loop.optimized.actionc.lst)
 uses native word arithmetic, direct single-word edge copies and adjacent A16
 forwarding with checked width omission, fallthrough and short dispatch, while
 retaining stack homes and stores. The
-[vbcc listing](benchmarks/65816-selective-staging/after/sum_loop.optimized.vbcc.lst)
+[vbcc listing](benchmarks/65816-frame-forwarding/after/sum_loop.optimized.vbcc.lst)
 retains the counter in X and the sum in DP. This supports later allocation work;
 it does not justify changing public argument placement or removing stack guards.
 Use the full corpus, including calls, pointer traffic and wider values, to choose
@@ -59,6 +58,7 @@ and qualify general improvements.
 | Direct acyclic word copies | Topological copy scheduling preserves sources and final A/N/Z; cycles retain staging and all frame reservations remain. | [Results](MIR65816_ACYCLIC_EDGES.md), [qualification](abi/action65816-acyclic-edges-qualification.json) |
 | Compact staging reservations | Reserve only staged edges and actual per-index widths; recheck incoming offsets, frame accounting and guards. | [Results](MIR65816_STAGING_RESERVATIONS.md), [qualification](abi/action65816-staging-reservations-qualification.json) |
 | Selective cyclic staging | Capture only sources endangered by earlier assignments, preserve original destination order, and reserve compact capture slots. | [Results](MIR65816_SELECTIVE_STAGING.md), [qualification](abi/action65816-selective-staging-qualification.json) |
+| Direct frame store/load forwarding | Omit only an immediately redundant word reload from a non-addressable frame object; preserve both stores, homes and A/N/Z. | [Results](MIR65816_FRAME_FORWARDING.md), [qualification](abi/action65816-frame-forwarding-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -75,7 +75,8 @@ progress for `sum_loop(13)` is:
 | Short conditional dispatch (3c) | 146 / 1,587 | 120 / 1,212 |
 | Direct acyclic word copies | 146 / 1,587 | 120 / 1,212 |
 | Compact staging reservations | 146 / 1,587 | 120 / 1,212 |
-| Selective cyclic staging (current baseline) | 146 / 1,587 | 120 / 1,212 |
+| Selective cyclic staging | 146 / 1,587 | 120 / 1,212 |
+| Direct frame forwarding (current baseline) | 146 / 1,587 | 120 / 1,212 |
 
 The observed stack peak remains 14 bytes raw. It stayed 16 bytes optimized
 through acyclic scheduling, then fell to 12 with compact staging reservations. The original direct-copy forecasts and selection details remain in its
@@ -94,16 +95,17 @@ step numbers, splitting its former combined control-flow step into 3a–3c:
 | 3b (complete) | Jumps to adjacent blocks | Checked terminal fallthrough follows every edge assignment; earlier arms retain their jumps. |
 | 3c (complete) | Short-branch selection | Checked routine finalization and bank placement preserve fixups, PER, traces and o65 relocation, with a long-transfer fallback. |
 | 4 (scheduling, selective staging and inventory complete) | Parallel-copy scheduling and coalescing | Two compatible rotation-initialization pairs admit a combined verifier-only recoloring; implement coalescing separately if selected. |
-| Next focused slice | Direct frame store/load forwarding | Plan a new typed consumer/witness for the measured redundant frame load; retain stores, homes and A/N/Z. |
+| Frame forwarding (complete) | Direct frame store/load forwarding | Typed object/displacement/home witness, exact A/N/Z and one omitted load; both stores and all frame contracts remain. |
+| Next forwarding candidate | Repeated incoming-parameter loads | Design a separate immutable-parameter home/consumer proof for the two measured raw-code reloads. |
 | 5 | Scalar DP allocation | Extend allocation to a verified, call-free scalar subset with loops and explicit scratch/lifetime constraints. |
 | 6 | X/Y residency across loops | Retain suitable scalar values across basic blocks only when selection honors their live-register, width and clobber constraints. |
 
 The [movement inventory](MIR65816_MOVEMENT_INVENTORY.md) found no additional
 opportunities within the existing temp-producer/consumer classes. Three reached
-reloads instead require new frame/parameter load consumers. Start with the direct
-frame store/load case: optimized `loop_rotation(13)` has a conditional saving of
-two bytes and 40 cycles. Repeated incoming-parameter loads and coalescing have
-separate proofs; do not add their forecasts without measuring a combined change.
+reloads required new frame/parameter load consumers. The direct frame case now
+saves two bytes and 40 cycles in optimized `loop_rotation(13)`. Repeated
+incoming-parameter loads and coalescing require separate proofs; do not add their
+forecasts without measuring a combined change.
 
 These are native MIR65816 strategy and emission changes. Consume verified typed
 facts; do not recover semantics from source strings or SemIR. If a later slice
@@ -136,40 +138,37 @@ eight fewer code bytes and 160 fewer cycles per rotation call, with staging
 reduced 6→2 bytes and frame/peak reduced 20→16. Existing single-word and acyclic
 schedules are preserved. The frozen plan's forecasts all matched.
 
-Freeze a fresh baseline for every later optimization. Use the qualified selective
-staging snapshot for new forecasts. The new inventory counts zero existing edge
-self-copies, two compatible initialization pairs, five interfering pairs and
-three redundant frame/parameter loads. These observations do not change the
-baseline or public ABI; the forecasts remain unimplemented.
+Freeze a fresh baseline for every later optimization. Use the qualified frame
+forwarding snapshot for new forecasts. The movement inventory's edge counts
+remain unchanged: zero existing self-copies, two compatible initialization pairs
+and five interfering pairs. Its frame-load candidate is complete.
 
-## Measured forwarding and coalescing candidates
+## Remaining forwarding and coalescing candidates
 
-The [fresh inventory](MIR65816_MOVEMENT_INVENTORY.md) covers 172 word stack-load
-sites and 10 nonempty edge assignments across 28 builds. It binds observations
-to final bytes, verified MIR, complete image equality and saved runtime counts.
-An independent VM observer rechecks all three reload claims in both hosts and
-I states. Byte-width forwarding and cross-call/join residence remain outside
-this inventory's proof policy.
+The [movement inventory](MIR65816_MOVEMENT_INVENTORY.md) covered 172 word stack-load
+sites and 10 nonempty edge assignments across 28 builds before frame forwarding.
+The new slice removes one static load executed 48 times per incoming I state,
+saving 240 cycles and 96 stack-byte reads across the six rotation vectors.
+Existing adjacent-temp forwarding counts retain their meaning and counts;
+a separate proof family records these 48 executions.
 
-The three conditional reload savings total 76 instructions, 380 cycles and 152
-stack-byte reads across all vectors per incoming I state. They are one frame
-load in optimized rotation and two repeated incoming-parameter loads in raw
-rotation/recursion. They require new consumer/home facts; extending the existing
-temp-forwarding permission alone yields zero additional qualified sites.
+The two repeated incoming-parameter loads in raw rotation/recursion remain.
+Their isolated forecast is 28 instructions, 140 cycles and 56 stack-byte reads
+across vectors per incoming I state. They require immutable incoming-home facts
+and new load consumers; extending temp-forwarding permission alone supplies no
+additional qualified site. The current slice deliberately excludes these loads.
 
-The optimized rotation's two initialization pairs are compatible under current
-interference. A combined diagnostic recoloring passes the frame verifier, with
+The optimized rotation's two initialization pairs remain compatible under current
+interference. A combined diagnostic recoloring passed the frame verifier, with
 an isolated copy-removal ceiling of eight bytes and 20 cycles per call. No
-modified frame was emitted. The five remaining pairs interfere, including the
+modified frame was emitted. The other five pairs interfere, including the
 sum-loop result and its input during their shared arithmetic operation.
 
-Plan the direct frame store/load case first, retaining stores, frame homes,
-zero transient S displacement and complete A/N/Z equivalence. Calls, helpers,
-labels, volatile/possibly aliased accesses and unsupported effects remain
-barriers. Use a distinct typed proof index and qualify the extended live interval
-under IRQ/NMI. Preserve the meaning of existing adjacent-temp metrics. Coalescing
-and repeated parameter-load forwarding remain separate choices; their estimates
-are not additive with this slice without a new combined measurement.
+Choose repeated parameter-load forwarding or edge coalescing as a separate next
+slice. Freeze its candidates against the new baseline and validate complete
+machine images and dynamic counts again. Neither improves `sum_loop(13)`;
+scalar DP allocation remains the later step for its repeated memory traffic.
+Byte-lane forwarding and residence across calls/joins require separate designs.
 
 ## Proof obligations for later slices
 
