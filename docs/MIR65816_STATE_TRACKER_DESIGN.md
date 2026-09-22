@@ -85,6 +85,7 @@ Implemented foundation modules under `src/mir65816/emit/`:
 | `analysis/sites.rs`, `analysis/cfg.rs` | Owner/generation-scoped sites and the selected-action CFG; no new optimization permissions. |
 | `analysis/homes.rs`, `analysis/home_liveness.rs`, `analysis/home_definitions.rs`, `analysis/machine_liveness.rs` | Canonical home bytes, stored definitions and backward home/register/flag demand, exposed through checked immutable snapshots. |
 | `replay.rs` | Fresh tracked replay of typed inputs; regenerate nested actions, permissions, bytes and metadata before final layout. |
+| `rewrite/context.rs`, `rewrite/plan.rs`, `rewrite/driver.rs`, `rewrite/rules.rs`, `rewrite/pilot.rs` | Checked immutable queries, sealed plans, atomic publication and the existing adjacent temporary LDA omission. |
 | `code.rs` | Byte/label/fixup storage and final proof metadata. Raw writes are available only behind the facade. |
 | `select.rs`, `accumulator.rs` | Checked target selection and producer/consumer eligibility. Request proofs and emit the chosen sequence. |
 
@@ -96,8 +97,11 @@ now retains selected actions and CFG facts independently of optional state
 traces. Its [selected-action contract](MIR65816_SELECTED_ACTIONS.md) preserves
 request inputs, source attribution and identities across layout. Home/definition
 and register/flag analyses are complete; [typed replay](MIR65816_TYPED_REPLAY.md)
-is authoritative and checks freshly recomputed permissions. The atomic checked
-rewrite driver remains a later slice.
+is authoritative and checks freshly recomputed permissions. The
+[atomic checked driver](MIR65816_CHECKED_REWRITES.md) now owns the existing
+adjacent temporary-load omission, using explicit original load candidates and
+fresh analyses after each accepted edit. Other forwarding mechanisms retain
+their existing paths and eligibility.
 
 A modeled instruction has a concrete opcode/addressing form, checked operand
 extent and explicit width requirements. Its encoding and transfer function

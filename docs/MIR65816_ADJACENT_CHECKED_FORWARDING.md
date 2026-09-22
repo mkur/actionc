@@ -2,8 +2,10 @@
 
 Slice 8 of the [implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 migrates the temporary-home choice in `Builder::load_checked_word` to the
-[checked transaction driver](MIR65816_CHECKED_REWRITES.md). This first commit
-qualifies shadow decisions; the historical predicate still controls selection.
+[checked transaction driver](MIR65816_CHECKED_REWRITES.md). Shadow qualification
+was committed separately as `4130d858`; checked transactions now control production
+load removal. The historical predicate remains only on the proof-feature direct
+reference path and in the unchanged frame/incoming mechanisms.
 
 ## Candidate and proof
 
@@ -42,5 +44,30 @@ mismatch. All direct/replay bytes, metadata and traces remain identical.
 Additional raw/optimized forwarding, frame, parameter, call/alias and preemption
 fixtures retain exact output; the existing deterministic replay suite passes.
 
-Authoritative integration, full VM execution, the frozen corpus gate and isolated
-CRLF qualification remain required before slice 8 is complete.
+## Authoritative planning and publication
+
+The planner first retains each candidate, then tests local A16/home/NZ
+equivalence independently of the old temporary predicate. It consumes the
+single-use witness even on failure. A proved-equivalent projection may guide
+subsequent selection, including the existing X fallback priority, but its
+provisional bytes cannot be published.
+
+Before final emission, the complete original planned stream restores every
+projected-away LDA. Candidates must match the exact original consume inputs,
+occur once in order and retain their actual addressing forms. Fresh replay
+validates the original continuation. Each load then goes through the sealed
+adjacent rule and atomic driver. The driver rebuilds all facts and rediscovery
+uses the new generation after every accepted edit. The number of candidates
+bounds application; each accepted edit reduces finalized bytes.
+
+A blocked final ownership/equivalence proof retains the actual load and its
+already-verified continuation. No old success token authorizes omission. The
+fallback is tested by withholding temporary allocation identity after planning;
+the emitted load is restored and the original routine's bytes/metadata match.
+Other controls reject altered load operands, duplicated candidates and corrupted
+Code. Modes, captures and X obligations are freshly recomputed during replay.
+
+The [authoritative qualification](abi/action65816-adjacent-checked-qualification.json)
+records full native execution, corpus equality and an isolated CRLF rebuild.
+Final foundation qualification in slice 9 adds mutation controls and measured
+host compile-time/memory overhead.

@@ -157,8 +157,8 @@ impl Driver {
             _ => return Err("rule does not prove replacement equivalence".into()),
         }
         let edited = replace(selected, start, end + 1, &plan.replacement)?;
-        // New owner generation and all facts are constructed before replay.
-        Context::new(&edited)?;
+        // CFG/generation were rebuilt by edited(). Rebuild dataflow once on
+        // the fresh finalized selection below; positions are not proof facts.
         let scratch = layout::finalize(replay::emit(&edited, trace)?, true)?;
         if plan.rule != Rule::Identity && scratch.bytes.len() >= output.bytes.len() {
             return Err("rewrite metric did not decrease".into());

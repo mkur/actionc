@@ -8,8 +8,9 @@ physical effects) are [complete](MIR65816_ANALYSIS_EFFECTS.md), as is slice 2
 complete, as is slice 5 ([register/flag liveness](MIR65816_MACHINE_LIVENESS.md)).
 Slice 6 ([fresh typed replay](MIR65816_TYPED_REPLAY.md)) is complete and
 authoritative. Slice 7 ([checked rewrite transactions](MIR65816_CHECKED_REWRITES.md))
-is complete on identity/test rules. The pilot migration and final qualification
-remain planned.
+is complete, and slice 8 migrates
+[adjacent temporary forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md) with
+identical decisions and output. Final qualification/reporting remains in progress.
 This foundation takes priority over further temporary-store
 elimination, mutable-counter promotion and broader register/DP allocation.
 The qualified baseline is `a73dab7`, with compiler selection at `1ce9624` and

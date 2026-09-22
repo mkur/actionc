@@ -161,8 +161,9 @@ and checked probes through `emit::proof`. Ordinary compilation collects no trace
 The separate `instruction_effects` observer exposes physical effects and encoded
 ranges, remapped after branch relaxation, without changing historical snapshots
 or executable formats. Production compilation independently retains a selected
-action stream and CFG as described below. No new optimization consumes these
-physical effects or graph facts.
+action stream and CFG as described below. Existing adjacent temporary forwarding
+now consumes these facts through the checked rewrite driver, without broader
+eligibility or new optimizations.
 Qualification compares known values and simultaneous register/home/NZ relations
 against independent VM execution and ca65 encodings, including rebased o65 code.
 See the [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) and
@@ -209,9 +210,11 @@ effect observation. Historical state trace PCs must remain on selected
 boundaries. Proof-feature queries expose immutable observations and reject
 foreign/stale sites. Immutable snapshots provide checked physical-home liveness,
 stored-definition queries, and [register/flag liveness](MIR65816_MACHINE_LIVENESS.md).
-These observations do not independently authorize an optimization. Checked
-rewrite transactions remain planned in the
-[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md).
+These observations do not independently authorize an optimization. The
+[checked driver](MIR65816_CHECKED_REWRITES.md) also requires sealed rule-specific
+equivalence, exact original actions, declared effects, protected event checks
+and fresh replay before atomic publication. Every accepted edit advances the
+selection generation and rebuilds analyses; old sites and plans become invalid.
 
 ### Authoritative typed replay
 
@@ -229,8 +232,9 @@ generation identity for this exact replay. Rebuilt output passes reconciliation
 and the unchanged layout finalizer once before flat-image or o65 serialization.
 The direct reference path is available only to proof-feature qualification.
 No public ABI, serialization, frame, stack-guard or interrupt-reserve policy
-changes. This accepts compiler-owned verified recordings; a general checked
-edit/rollback interface is a separate slice.
+changes. The closed checked driver constructs scratch edits from compiler-owned
+verified recordings and publishes only their regenerated output. Malformed
+plans return blockers; rollback does not rely on catching facade assertions.
 
 ## Supported operations
 
@@ -242,6 +246,13 @@ Store may omit that same temporary's LDA. Selection checks TempId, the exact
 allocated slot, zero transient stack displacement, known A16 and an unchanged
 instruction/label cursor. The producer's full-word N/Z must still match A;
 unchanged A alone is insufficient. Comparison operand swaps retain identity.
+
+The [checked adjacent rule](MIR65816_ADJACENT_CHECKED_FORWARDING.md) retains the
+actual typed load candidate before omission. Its original planned stream includes
+that LDA for home/definition/register analysis. The planning projection may guide
+existing selection only with equivalent A/N/Z facts; the driver authorizes each
+final removal and preserves single-use consumption even for failed attempts.
+Rejected final proofs retain the ordinary load and revalidated continuation.
 
 All stores and homes remain. Calls, helpers, labels, edges, stack movement,
 other operations, intervening instructions and mode changes invalidate the

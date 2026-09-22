@@ -215,8 +215,6 @@ fn abi_entry_values_seed_definedness_and_do_not_invent_stores() {
     h.info.get_mut(&HIGH).unwrap().private = false;
     h.info.get_mut(&DP).unwrap().entry_defined = true;
     let defs = HomeDefinitions::analyze(&graph, &h);
-    let input = defs.result.in_state(Node(0)).unwrap().as_ref().unwrap();
-    assert_eq!(input.entry_values, [HIGH, DP].into());
     assert_eq!(
         defs.undefined_private_reads()
             .iter()
@@ -225,6 +223,7 @@ fn abi_entry_values_seed_definedness_and_do_not_invent_stores() {
         [LOW]
     );
     assert!(defs.uses_of_definition(&h, definition(HIGH, 0)).is_err());
+    assert!(defs.uses_of_definition(&h, definition(DP, 0)).is_err());
 }
 #[test]
 fn invalid_unreachable_protected_and_nonlinear_windows_block() {

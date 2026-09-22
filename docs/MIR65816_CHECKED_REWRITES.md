@@ -2,8 +2,9 @@
 
 Slice 7 of the [implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 adds a private transaction driver adapted from MIR6502's immutable proof contexts,
-generation-bound plans and effect declarations. It introduces no production
-optimization. Adjacent temporary-load forwarding is the next consumer.
+generation-bound plans and effect declarations. Slice 8 migrates
+[adjacent temporary-load forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md)
+as its sole production consumer, preserving existing eligibility and output.
 
 ## Transaction contract
 
@@ -19,9 +20,10 @@ No unknown value is treated as proof of accumulator equality.
 Plans are sealed within the rewrite module tree. They identify an exact original
 window and its records, replacement instructions, removed physical definitions
 and register/flag deltas. The driver recomputes effects and declarations; a
-declared change never grants permission. The initial production rule set is
-empty. Identity replay and a test-only NOP deletion exercise transactions; they
-do not add an optimizer switch or alter ordinary output.
+declared change never grants permission. The production rule removes one
+original private temporary LDA after proving full A/N/Z equivalence. Identity
+replay and test-only controls exercise transactions; they do not add an
+optimizer switch or broaden eligibility.
 
 Windows contain contiguous top-level instructions in one selected block.
 Compiler events, nested request instructions, calls, control transfers, barriers,
@@ -31,9 +33,9 @@ declarations or dead destinations cannot authorize an arbitrary replacement.
 
 Application validates the original Code, plan and analyses before constructing
 scratch actions. Symbolic request links are reindexed and the selection
-generation advances. All analyses are rebuilt, fresh typed replay regenerates
-bytes and metadata, and layout/reconciliation run before the single publication
-point. A blocker leaves the original Code, actions, sites and observations
+generation advances. Fresh typed replay regenerates bytes and metadata, and
+layout/reconciliation and rebuilt dataflow facts complete before the single
+publication point. A blocker leaves the original Code, actions, sites and observations
 unchanged. No panic-catching implements rollback. Existing assertions remain
 inside the tracked facade, behind the closed admitted rules.
 
@@ -43,6 +45,14 @@ have an explicit application limit; non-identity edits must reduce finalized
 byte length. Identity is one-shot and is never iterated to a fixed point.
 Attempted/applied counts and deterministic blocker reasons are separate from
 historical executable measurements.
+
+Home analyses share immutable states across unchanged sites within one solver
+run and copy on writes/joins that change facts. ABI-defined inputs begin outside
+the possibly-undefined set; they never create synthetic store definitions. This
+avoids duplicating unchanged sets at every compiler event. Each generation still
+gets entirely rebuilt analyses; no fact survives an edit through a cache.
+Structural candidate discovery leaves the driver responsible for the full proof,
+avoiding a second identical analysis build merely to author the proposal.
 
 ## Slice 7 qualification
 

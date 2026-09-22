@@ -1,6 +1,7 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slices 0 through 7 complete; slices 8 onward remain planned. Based on main
+Status: slices 0 through 8 complete; final qualification/reporting in slice 9
+remains in progress. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -311,7 +312,7 @@ route by which later accepted typed edits become machine bytes.
 
 ## Slice 7 — Checked plans and atomic application
 
-Completed: [checked contexts, sealed plans and atomic transactions](MIR65816_CHECKED_REWRITES.md)
+Completed in `883b5f51`: [checked contexts, sealed plans and atomic transactions](MIR65816_CHECKED_REWRITES.md)
 are qualified on identity/test rules. No production optimization has migrated yet.
 
 Add `Proof<T> = Proven(T) | Blocked(reason, site)` and an immutable context.
@@ -352,6 +353,13 @@ interacting plans, non-decreasing rule, replay failure and complete rollback.
 transactions and identity replays.
 
 ## Slice 8 — Migrate adjacent temporary A16 forwarding
+
+Completed: [typed candidates and authoritative checked forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md).
+Shadow comparison was committed separately in `4130d858`; the authoritative
+qualification preserves all 102 decisions (75 accepted, 27 blocked) and the
+[full frozen corpus](benchmarks/65816-analysis-rewrite/slice8-equality.json).
+No eligibility or ABI change is enabled. Each edit still rebuilds all analyses;
+immutable sharing within one solver run avoids copying unchanged facts.
 
 Choose only the temporary-home case in
 [`Builder::load_checked_word`](../src/mir65816/emit/accumulator.rs), whose current

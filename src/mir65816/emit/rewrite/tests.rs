@@ -435,3 +435,62 @@ fn pilot_rejects_partial_home_stale_capture_and_undeclared_changes() {
     bad.replacement = vec![Instruction::Implied(Implied::Clc)];
     reject(&code, &bad);
 }
+
+fn projected_candidate() -> (Code, super::pilot::Candidate) {
+    let mut code = fixture(0, true);
+    let plan = adjacent_plan(&code);
+    let Rule::Adjacent {
+        request,
+        temp,
+        home,
+    } = plan.rule
+    else {
+        unreachable!()
+    };
+    let node = code.selected.as_ref().unwrap().validate(request).unwrap();
+    let Action::Instruction { form, .. } = &plan.original[0].action else {
+        unreachable!()
+    };
+    let candidate = super::pilot::Candidate {
+        request: node,
+        temp: Some(temp),
+        home: Some(home),
+        load: form.clone(),
+    };
+    assert_eq!(
+        Driver::new(1).apply(&mut code, &plan, false),
+        Proof::Proven(())
+    );
+    (code, candidate)
+}
+#[test]
+fn malformed_planned_candidates_cannot_change_the_actual_load() {
+    let (code, candidate) = projected_candidate();
+    let original = code.clone();
+    let mut bad = candidate.clone();
+    bad.load = Instruction::Byte(ByteOp::LdaStack, 255);
+    assert!(
+        super::pilot::apply(&code, &[bad], false)
+            .unwrap_err()
+            .contains("original consume inputs")
+    );
+    assert!(
+        super::pilot::apply(&code, &[candidate.clone(), candidate.clone()], false)
+            .unwrap_err()
+            .contains("duplicated")
+    );
+    let mut changed = code.clone();
+    changed.bytes[0] ^= 1;
+    assert!(super::pilot::apply(&changed, &[candidate], false).is_err());
+    unchanged(&code, &original);
+}
+#[test]
+fn blocked_final_ownership_proof_retains_the_actual_load_and_continuation() {
+    let (mut code, candidate) = projected_candidate();
+    code.selected.as_mut().unwrap().allocation.temps.clear();
+    let result = super::pilot::apply(&code, &[candidate], false).unwrap();
+    assert_eq!(result.bytes.len(), code.bytes.len() + 2);
+    replay::equivalent(&result, &fixture(0, true)).unwrap();
+    #[cfg(feature = "native65816-state-proof")]
+    assert!(!result.rewrite_observations[0].accepted);
+}

@@ -44,6 +44,7 @@ pub(super) struct TrackedEmitter65816 {
     state: State65816,
     recording: Recording,
     planned_loads: Vec<super::rewrite::pilot::Candidate>,
+    reference_planning: bool,
     x_contract: Option<XContract>,
     x_reserved: bool,
     x_valid: bool,
@@ -511,7 +512,23 @@ impl TrackedEmitter65816 {
             home,
             load,
         });
-        self.consume_word(temp, home, offset)
+        if self.reference_planning {
+            return self.consume_word(temp, home, offset);
+        }
+        // Only a proved-equivalent projection may guide subsequent selection.
+        // The retained candidate must still pass the final checked transaction.
+        let candidate = self.planned_loads.last().unwrap();
+        let equivalent = self
+            .prove_adjacent_load(temp, home, &candidate.load)
+            .is_ok();
+        self.request(Request::ConsumeWord(temp, home, offset), |this| {
+            // Failed attempts also consume the one-use witness.
+            this.state.adjacent = None;
+            equivalent
+        })
+    }
+    pub fn use_reference_planning(&mut self, reference: bool) {
+        self.reference_planning = reference;
     }
     pub fn take_planned_loads(&mut self) -> Vec<super::rewrite::pilot::Candidate> {
         std::mem::take(&mut self.planned_loads)

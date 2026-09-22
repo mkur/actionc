@@ -84,18 +84,42 @@ pub(in crate::mir65816::emit) fn adjacent(
     context: &Context<'_>,
     load: SelectedSite,
 ) -> Proof<Plan> {
+    match candidate(context.selected, load) {
+        Proof::Proven(plan) => {
+            let Rule::Adjacent {
+                request,
+                temp,
+                home,
+            } = plan.rule
+            else {
+                unreachable!()
+            };
+            Proof::checked(
+                prove_adjacent(context, load, request, temp, home).map(|()| plan),
+                Some(load),
+            )
+        }
+        blocked => blocked,
+    }
+}
+
+/// Structural discovery authors a proposal, never a permission. The driver
+/// builds the generation's full context and recomputes its equivalence proof.
+pub(super) fn candidate(
+    selected: &super::super::selected::SelectedRoutine,
+    load: SelectedSite,
+) -> Proof<Plan> {
     Proof::checked(
         (|| {
-            let node = context.facts.validate(load)?;
+            let node = selected.validate(load)?;
             let request_node = Node(node.0.checked_sub(2).ok_or("missing candidate request")?);
-            let request = context.selected.site(request_node)?;
+            let request = selected.site(request_node)?;
             let Action::Request(Request::ConsumeWord(Some(temp), Some(home), _)) =
-                context.selected.records()[request_node.0].action
+                selected.records()[request_node.0].action
             else {
                 return Err("missing typed temporary candidate".into());
             };
-            prove_adjacent(context, load, request, temp, home)?;
-            let record = context.selected.records()[node.0].clone();
+            let record = selected.records()[node.0].clone();
             let Action::Instruction { effects, .. } = &record.action else {
                 return Err("missing candidate LDA".into());
             };

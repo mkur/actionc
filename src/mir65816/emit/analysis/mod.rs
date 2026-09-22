@@ -1,5 +1,5 @@
-//! Native selected-code analyses. No optimization consumes these facts yet.
-#![allow(dead_code)] // Query surface is consumed by the following foundation slices.
+//! Native selected-code analyses consumed through the checked rewrite context.
+#![allow(dead_code)] // Additional queries support subsequent measured rules.
 pub(super) mod cfg;
 mod home_definitions;
 mod home_liveness;

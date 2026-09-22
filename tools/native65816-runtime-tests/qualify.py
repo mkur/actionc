@@ -62,6 +62,26 @@ def prepare():
     return CACHE
 
 
+def input_hashes():
+    inputs = (list((ROOT / 'src').rglob('*.rs'))
+              + list((ROOT / 'runtime/65816').glob('*'))
+              + list((HERE / 'tests').rglob('*'))
+              + list((ROOT / 'fixtures/o65').glob('*'))
+              + [ROOT / 'tools/inspect_o65.py',
+                 ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', HERE / 'Cargo.toml',
+                 HERE / 'Cargo.lock', Path(__file__), ROOT / 'tools/disassemble65816.py'])
+    return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in inputs if p.is_file()}
+
+
+def require_stable_inputs(expected):
+    actual = input_hashes()
+    changed = sorted(name for name in expected.keys() | actual.keys()
+                     if expected.get(name) != actual.get(name))
+    if changed:
+        raise RuntimeError('Qualification inputs changed during execution: ' + ', '.join(changed))
+
+
 def main():
     checkout = prepare()
     args = sys.argv[1:]
@@ -79,22 +99,16 @@ def main():
         artifacts = Path(tempfile.mkdtemp(prefix='run-', dir=output))
         command = ['cargo', 'test', '--locked', '--config', patch,
                    '--manifest-path', str(HERE / 'Cargo.toml'), *args]
+        qualified_inputs = input_hashes()
+        qualified_revision = subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         run(command, cwd=ROOT, env=dict(os.environ, A816_QUALIFICATION_DIR=str(artifacts)))
+        require_stable_inputs(qualified_inputs)
         artifact_hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                            for p in artifacts.iterdir() if p.is_file()}
-        inputs = (list((ROOT / 'src').rglob('*.rs'))
-                  + list((ROOT / 'runtime/65816').glob('*'))
-                  + list((HERE / 'tests').rglob('*'))
-                  + list((ROOT / 'fixtures/o65').glob('*'))
-                  + [ROOT / 'tools/inspect_o65.py',
-                     ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', HERE / 'Cargo.toml',
-                     HERE / 'Cargo.lock', Path(__file__), ROOT / 'tools/disassemble65816.py'])
-        input_hashes = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                        for p in inputs if p.is_file()}
         manifest = {
-            'compiler_revision': subprocess.check_output(
-                ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-            'compiler_and_fixture_inputs': input_hashes,
+            'compiler_revision': qualified_revision,
+            'compiler_and_fixture_inputs': qualified_inputs,
             'vm_base': BASE,
             'vm_patch_sha256': DIGEST,
             'rust': subprocess.check_output(['rustc', '--version'], text=True).strip(),

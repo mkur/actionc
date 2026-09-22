@@ -8,6 +8,7 @@ use crate::analysis::{
     graph::DataflowGraph,
 };
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct Definition {
@@ -29,12 +30,17 @@ pub(in crate::mir65816::emit) struct UndefinedRead {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct State {
     definitions: BTreeMap<HomeByte, BTreeSet<Definition>>,
-    /// ABI entry values are initialized, but are not compiler store sites.
-    entry_values: BTreeSet<HomeByte>,
     possibly_undefined: BTreeSet<HomeByte>,
     uncertain: BTreeSet<HomeByte>,
 }
 impl State {
+    /// Compiler events and pure reads share immutable facts within one solver
+    /// run. Copy on write prevents a transfer from changing predecessor facts.
+    fn transfer(state: &mut Rc<Self>, node: Node, effect: &HomeAccess) {
+        if effect.access != Access::Read && !effect.homes.is_empty() {
+            Rc::make_mut(state).apply(node, effect);
+        }
+    }
     fn join(&mut self, other: &Self) {
         for (&home, definitions) in &other.definitions {
             self.definitions
@@ -42,7 +48,6 @@ impl State {
                 .or_default()
                 .extend(definitions);
         }
-        self.entry_values.extend(&other.entry_values);
         self.possibly_undefined.extend(&other.possibly_undefined);
         self.uncertain.extend(&other.uncertain);
     }
@@ -53,7 +58,6 @@ impl State {
                 for &home in &effect.homes {
                     self.definitions
                         .insert(home, [Definition { home, store: node }].into());
-                    self.entry_values.remove(&home);
                     self.possibly_undefined.remove(&home);
                     self.uncertain.remove(&home);
                 }
@@ -71,7 +75,7 @@ struct Problem<'a> {
     entry: Option<Node>,
 }
 impl<G: DataflowGraph<Node = Node>> DataflowProblem<G> for Problem<'_> {
-    type State = Option<State>;
+    type State = Option<Rc<State>>;
     fn direction(&self) -> DataflowDirection {
         DataflowDirection::Forward
     }
@@ -80,13 +84,10 @@ impl<G: DataflowGraph<Node = Node>> DataflowProblem<G> for Problem<'_> {
     }
     fn boundary(&self, node: Node) -> Option<Self::State> {
         (Some(node) == self.entry).then(|| {
-            Some(State {
-                entry_values: self
-                    .homes
-                    .info
-                    .iter()
-                    .filter_map(|(&h, i)| i.entry_defined.then_some(h))
-                    .collect(),
+            Some(Rc::new(State {
+                // ABI-defined inputs start outside possibly_undefined. They
+                // are not store sites; no per-site copy of their byte set is
+                // needed to answer reaching-definition/undefined-read queries.
                 possibly_undefined: self
                     .homes
                     .info
@@ -94,13 +95,15 @@ impl<G: DataflowGraph<Node = Node>> DataflowProblem<G> for Problem<'_> {
                     .filter_map(|(&h, i)| (i.private && !i.entry_defined).then_some(h))
                     .collect(),
                 ..State::default()
-            })
+            }))
         })
     }
     fn join(&self, into: &mut Self::State, other: &Self::State) {
         if let Some(other) = other {
             if let Some(into) = into {
-                into.join(other);
+                if !Rc::ptr_eq(into, other) && into.as_ref() != other.as_ref() {
+                    Rc::make_mut(into).join(other);
+                }
             } else {
                 *into = Some(other.clone());
             }
@@ -109,14 +112,14 @@ impl<G: DataflowGraph<Node = Node>> DataflowProblem<G> for Problem<'_> {
     fn transfer(&self, node: Node, state: &Self::State) -> Self::State {
         let mut state = state.clone()?;
         for effect in &self.homes.accesses[&node] {
-            state.apply(node, effect);
+            State::transfer(&mut state, node, effect);
         }
         Some(state)
     }
 }
 
 pub(super) struct HomeDefinitions {
-    result: DataflowResult<Node, Option<State>>,
+    result: DataflowResult<Node, Option<Rc<State>>>,
     uses: BTreeMap<Definition, BTreeSet<ReadUse>>,
     undefined: Vec<UndefinedRead>,
 }
@@ -157,7 +160,7 @@ impl HomeDefinitions {
                 }
                 // Reads in an RMW/summary see the incoming definitions; later
                 // internal reads see earlier writes in that same summary.
-                state.apply(node, effect);
+                State::transfer(&mut state, node, effect);
             }
         }
         Self {

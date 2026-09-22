@@ -21,8 +21,9 @@ The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also comple
 [Register-lane and independent flag liveness](MIR65816_MACHINE_LIVENESS.md) is complete.
 [Typed replay](MIR65816_TYPED_REPLAY.md) is authoritative with exact encoding
 equality. [Checked plans and atomic application](MIR65816_CHECKED_REWRITES.md)
-are complete on identity/test rules; the next slice migrates adjacent temporary
-A16 forwarding without changing eligibility.
+now own [adjacent temporary A16 forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md)
+with unchanged eligibility and output. Final reporting and host compile-time/
+memory measurements remain in slice 9.
 
 ## Objective and current baseline
 
@@ -89,6 +90,7 @@ and qualify general improvements.
 | Analysis foundation slice 5 | Compute physical register-lane and independent flag liveness, preserving protected environment obligations. | [Contract and results](MIR65816_MACHINE_LIVENESS.md) |
 | Analysis foundation slice 6 | Replay typed actions through a fresh tracked emitter, recomputing permissions and regenerating all output metadata. | [Contract and results](MIR65816_TYPED_REPLAY.md), [equality](benchmarks/65816-analysis-rewrite/slice6-equality.json) |
 | Analysis foundation slice 7 | Validate sealed plans against immutable facts and publish only after scratch replay, layout and rebuilt analyses. | [Contract and qualification](MIR65816_CHECKED_REWRITES.md) |
+| Analysis foundation slice 8 | Retain original load candidates and migrate adjacent temporary forwarding through the checked driver with identical decisions. | [Contract and qualification](MIR65816_ADJACENT_CHECKED_FORWARDING.md), [equality](benchmarks/65816-analysis-rewrite/slice8-equality.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -123,13 +125,11 @@ They are completed work, not forecasts for the next slice.
 
 ## Ordered remaining slices
 
-Typed selection/effects, home and machine analyses, authoritative replay and
-checked transactions
-are complete. The remaining sequence in the
-[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md) is:
-
-1. Migrate adjacent temporary A16 forwarding with identical eligibility and output (slice 8).
-2. Qualify the complete migration and measure host compilation overhead (slice 9).
+Typed selection/effects, home and machine analyses, authoritative replay,
+checked transactions and the adjacent temporary forwarding migration are
+complete. Slice 9 of the
+[implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
+finishes qualification/reporting and measures host compilation overhead.
 
 The acceptance gate is byte-identical code and unchanged full measurements;
 these slices make no performance forecast. Temporary-store elimination,

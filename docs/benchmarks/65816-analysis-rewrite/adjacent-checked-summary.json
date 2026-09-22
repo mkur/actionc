@@ -1,0 +1,1020 @@
+{
+  "accepted": 75,
+  "blocked": 27,
+  "blockers": {
+    "adjacent A16/home/NZ identity is unavailable": 6,
+    "no adjacent capture": 19,
+    "not a temporary home": 2
+  },
+  "builds": [
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 52,
+          "routine": 0
+        }
+      ],
+      "case": "identity",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 52,
+          "routine": 0
+        }
+      ],
+      "case": "identity",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "adjacent A16/home/NZ identity is unavailable",
+          "request": 66,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 84,
+          "routine": 0
+        }
+      ],
+      "case": "add",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "adjacent A16/home/NZ identity is unavailable",
+          "request": 66,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 84,
+          "routine": 0
+        }
+      ],
+      "case": "add",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "adjacent A16/home/NZ identity is unavailable",
+          "request": 66,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 84,
+          "routine": 0
+        }
+      ],
+      "case": "subtract",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "adjacent A16/home/NZ identity is unavailable",
+          "request": 66,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 84,
+          "routine": 0
+        }
+      ],
+      "case": "subtract",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 82,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 95,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 108,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 121,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 134,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 147,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 160,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 173,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 186,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 199,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 212,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 225,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 238,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 251,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 264,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 277,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 292,
+          "routine": 0
+        }
+      ],
+      "case": "constant_chain",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 52,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 67,
+          "routine": 0
+        }
+      ],
+      "case": "constant_chain",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 73,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 113,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 143,
+          "routine": 0
+        }
+      ],
+      "case": "maximum",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 73,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 113,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 143,
+          "routine": 0
+        }
+      ],
+      "case": "maximum",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [],
+      "case": "wide_shift",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [],
+      "case": "wide_shift",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 109,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 126,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 153,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 205,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 252,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 281,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 306,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 323,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 348,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 365,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "adjacent A16/home/NZ identity is unavailable",
+          "request": 416,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 434,
+          "routine": 0
+        }
+      ],
+      "case": "loop_rotation",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 73,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 135,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 158,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 209,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 227,
+          "routine": 0
+        }
+      ],
+      "case": "loop_rotation",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 85,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 137,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 194,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 211,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 236,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 253,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 292,
+          "routine": 0
+        }
+      ],
+      "case": "sum_loop",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 93,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "adjacent A16/home/NZ identity is unavailable",
+          "request": 133,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 163,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 180,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "dp-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 209,
+          "routine": 0
+        }
+      ],
+      "case": "sum_loop",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 79,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "immediate-word",
+          "read_bytes_removed": 0,
+          "reason": "not a temporary home",
+          "request": 110,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 152,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 232,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 250,
+          "routine": 0
+        }
+      ],
+      "case": "recursive_sum",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 63,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "immediate-word",
+          "read_bytes_removed": 0,
+          "reason": "not a temporary home",
+          "request": 91,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 122,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 202,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 220,
+          "routine": 0
+        }
+      ],
+      "case": "recursive_sum",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 52,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 67,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 204,
+          "routine": 1
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 222,
+          "routine": 1
+        }
+      ],
+      "case": "direct_calls",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 52,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "dp-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 67,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 204,
+          "routine": 1
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 222,
+          "routine": 1
+        }
+      ],
+      "case": "direct_calls",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 105,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 157,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 237,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 254,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 323,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 340,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 379,
+          "routine": 0
+        }
+      ],
+      "case": "byte_sum",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 113,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 176,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 250,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 267,
+          "routine": 0
+        },
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 296,
+          "routine": 0
+        }
+      ],
+      "case": "byte_sum",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 67,
+          "routine": 0
+        }
+      ],
+      "case": "record_field",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 67,
+          "routine": 0
+        }
+      ],
+      "case": "record_field",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [],
+      "case": "unlink",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [],
+      "case": "unlink",
+      "optimized": true,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": false,
+          "original_load": "stack-word",
+          "read_bytes_removed": 0,
+          "reason": "no adjacent capture",
+          "request": 135,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 320,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 337,
+          "routine": 0
+        }
+      ],
+      "case": "forward_copy",
+      "optimized": false,
+      "output_and_trace_equal": true
+    },
+    {
+      "candidates": [
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 121,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 303,
+          "routine": 0
+        },
+        {
+          "accepted": true,
+          "original_load": "stack-word",
+          "read_bytes_removed": 2,
+          "reason": "proven A16/home/NZ equivalence",
+          "request": 320,
+          "routine": 0
+        }
+      ],
+      "case": "forward_copy",
+      "optimized": true,
+      "output_and_trace_equal": true
+    }
+  ],
+  "classified": 102
+}
