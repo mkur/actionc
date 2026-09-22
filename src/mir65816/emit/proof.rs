@@ -3,7 +3,16 @@
 pub use super::state::{Value, Width};
 use super::{Code, state::State65816, tracked::*};
 
+pub use super::effects::{
+    Access as EffectAccess, Control as EffectControl, EffectRecord, InstructionEffects,
+    Memory as EffectMemory, Registers as EffectRegisters, env as effect_env,
+};
 pub use super::tracked::Event;
+
+/// Immutable instruction effects, separate from the historical value snapshots.
+pub fn instruction_effects(code: &Code) -> &[EffectRecord] {
+    &code.instruction_effects
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HomeSnapshot {
     pub offset: u16,

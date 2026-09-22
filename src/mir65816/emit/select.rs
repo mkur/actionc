@@ -1631,7 +1631,7 @@ impl Builder<'_> {
         }
         if let Some(target) = direct {
             self.code.a16();
-            self.code.reference(ReferenceOp::Jsl, target, 0, None); // JSL
+            self.code.native_call(target, plan)?; // JSL
         } else {
             let Mir65816CallTarget::Indirect(value, bytes) = target else {
                 unreachable!()
@@ -1658,7 +1658,7 @@ impl Builder<'_> {
             self.code.op(Implied::Txa); // TXA
             self.code.op(Implied::DecA); // DEC A: wrap only the low word, never borrow from bank
             self.code.op(Implied::Pha); // PHA: target PC minus one
-            self.code.indirect_transfer(); // RTL: enter callee with ordinary three-byte return frame
+            self.code.native_indirect_transfer(plan)?; // RTL: enter callee with ordinary three-byte return frame
             self.code.mark(resume);
         }
         self.release(outgoing, true);
@@ -1729,7 +1729,7 @@ impl Builder<'_> {
             return Err("function returns without a value".into());
         }
         self.release(self.frame.extent, value.is_some());
-        self.code.op(Implied::Rtl); // RTL
+        self.code.native_return(self.routine.result_home)?; // RTL
         Ok(())
     }
 }

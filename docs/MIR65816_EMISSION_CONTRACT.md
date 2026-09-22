@@ -100,11 +100,37 @@ generated stack checks are unchanged.
 ## Instruction state boundary
 
 Native selection uses the private `TrackedEmitter65816` in
-[tracked.rs](../src/mir65816/emit/tracked.rs). Its closed instruction forms select
-both encoding and effects. The mutable encoder and `State65816` are private to
+[tracked.rs](../src/mir65816/emit/tracked.rs). The admitted forms live in
+[selected.rs](../src/mir65816/emit/selected.rs); one exhaustive dispatch derives
+[physical effects](../src/mir65816/emit/effects.rs) from the pre-instruction
+environment and invokes the existing encoding/state update. The mutable encoder
+and `State65816` are private to
 the facade; selection can inspect finalized bytes and metadata but cannot write
 raw instructions or attach caller-supplied effects. Linking retains its existing
 ability to patch finalized `Code` buffers.
+
+Physical effects describe A/X/Y bit lanes, independent N/Z/C/V reads and writes,
+protected environment changes, control flow and ordered memory accesses. Their
+precision is independent of forward value facts. Operand encoding size does not
+determine memory width: a `ByteOp` stack/DP operand can access a word, while LDX
+uses index width. X8 narrowing defines zero high X/Y bytes; A8 operations retain
+the hidden accumulator byte unless the instruction explicitly uses it.
+
+Memory ranges remain relative to instruction-entry S, active D or a typed
+symbol/address. Canonical home identities and alias analysis belong to later
+foundation slices. Read/modify/write reads precede writes. Indirect addressing
+reads its three DP pointer bytes before the data access; indirect stores and
+callee clobbers are possible writes, which cannot kill a reaching definition.
+Unknown/absolute/indirect source accesses remain protected barriers.
+
+Production calls carry a summary constructed from the verified native call plan:
+logical stack arguments are read before conservative callee memory effects,
+declared result lanes include ABI zero extension, and other A/X/Y lanes, flags
+and all 64 scratch bytes are call-clobbered. A discarded result still has its
+declared ABI effects. Logical argument extent is distinct from padded outgoing
+reservation. Direct JSL and indirect RTL entry retain distinct transfer and
+return-stack phases; the indirect RTL is a call, not a routine return. Unannotated
+probe calls retain all register/flag inputs and unknown memory effects.
 
 The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
 execution modes and environment, exact private stack-home generations, stack
@@ -130,6 +156,11 @@ removes only redundant REP instructions and shifts code positions accordingly.
 
 The default-off `native65816-state-proof` feature exposes only immutable snapshots
 and checked probes through `emit::proof`. Ordinary compilation collects no trace.
+The separate `instruction_effects` observer exposes physical effects and encoded
+ranges, remapped after branch relaxation, without changing historical snapshots
+or executable formats. This is not yet a selected-action stream or analysis CFG;
+the [analysis implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
+defines those later slices. No new optimization consumes the physical effects.
 Qualification compares known values and simultaneous register/home/NZ relations
 against independent VM execution and ca65 encodings, including rebased o65 code.
 See the [implementation plan](MIR65816_STATE_TRACKER_IMPLEMENTATION_PLAN.md) and

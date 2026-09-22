@@ -1,6 +1,6 @@
 # Native 65816 analysis and checked-rewrite implementation plan
 
-Status: slice 0 complete; compiler slices remain planned. Based on main
+Status: slices 0 and 1 complete; slices 2 onward remain planned. Based on main
 `6711670`, this implements the
 [foundation plan](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md). Commit each
 completed slice separately, retaining existing local changes and all current
@@ -75,7 +75,7 @@ Use the following contract vocabulary:
 
 ## Slice 0 — Preserve the baseline and prepare the gate
 
-Completed: [checker](../tools/compare65816/check_analysis_rewrite.py),
+Completed in `51a5499`: [checker](../tools/compare65816/check_analysis_rewrite.py),
 [negative controls](../tools/compare65816/test_analysis_rewrite.py) and
 [baseline self-comparison](benchmarks/65816-analysis-rewrite/slice0-equality.json).
 All 82 comparison-tool tests pass. The gate authenticates the actual input
@@ -102,6 +102,14 @@ The checker must reject altered baseline hashes and unexpected failures.
 mutation. Commit the checker and its focused tests before compiler changes.
 
 ## Slice 1 — Centralize typed instructions and effects
+
+Completed: [typed forms](../src/mir65816/emit/selected.rs),
+[physical effects](../src/mir65816/emit/effects.rs), verified native call/return
+annotations, independent effect probes and
+[exact corpus equality](benchmarks/65816-analysis-rewrite/slice1-equality.json).
+See [results and qualification](MIR65816_ANALYSIS_EFFECTS.md). The optional effect
+observer is separate from historical snapshots; selected-action recording and
+CFG construction remain slice 2. No selection or allocation policy changed.
 
 Move the admitted instruction enums from
 [tracked.rs](../src/mir65816/emit/tracked.rs) into `selected.rs`, keeping the

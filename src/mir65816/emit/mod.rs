@@ -3,6 +3,7 @@
 mod allocation;
 mod coalescing;
 mod copies;
+mod effects;
 pub(super) mod layout;
 mod liveness;
 mod loop_x;
@@ -10,6 +11,7 @@ mod loop_x;
 pub mod proof;
 pub(crate) mod scalar;
 mod select;
+mod selected;
 mod state;
 mod tracked;
 

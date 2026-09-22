@@ -9,30 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 mod x_state;
 pub(super) use x_state::XContract;
 
-macro_rules! instruction_set {
-    ($name:ident { $($variant:ident = $byte:literal),* $(,)? }) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        #[cfg_attr(not(any(test, feature = "native65816-state-proof")), allow(dead_code))]
-        pub(super) enum $name { $($variant),* }
-        impl $name { fn opcode(self) -> u8 { match self { $(Self::$variant => $byte),* } } }
-    };
-}
-instruction_set!(Implied { Clc=0x18, Sec=0x38, Tcs=0x1b, Tsc=0x3b, Tax=0xaa,
-    Tay=0xa8, Tya=0x98, Txa=0x8a, Xba=0xeb, Phk=0x4b, Pha=0x48,
-    DecA=0x3a, Rtl=0x6b, Dex=0xca, Inx=0xe8, Nop=0xea });
-instruction_set!(ByteOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
-    EorImm=0x49, LdaStack=0xa3, StaStack=0x83, AdcStack=0x63, SbcStack=0xe3,
-    CmpStack=0xc3, LdaDp=0xa5, StaDp=0x85, LdxDp=0xa6, AdcDp=0x65,
-    SbcDp=0xe5, CmpDp=0xc5, AndDp=0x25, OraDp=0x05, EorDp=0x45,
-    AslDp=0x06, RolDp=0x26, LsrDp=0x46, RorDp=0x66,
-    LdaIndirect=0xa7, StaIndirect=0x87, LdaIndirectY=0xb7, StaIndirectY=0x97,
-    Rep=0xc2, Sep=0xe2 });
-instruction_set!(WordOp { LdaImm=0xa9, AdcImm=0x69, SbcImm=0xe9, CmpImm=0xc9,
-    AndImm=0x29, LdyImm=0xa0, CpxImm=0xe0 });
-instruction_set!(LongOp { Lda=0xaf, Sta=0x8f });
-instruction_set!(ReferenceOp { LdaLong=0xaf, StaLong=0x8f, LdaByte=0xa9, Jsl=0x22, Jml=0x5c });
-instruction_set!(Branch { Plus=0x10, CarryClear=0x90, CarrySet=0xb0, NotEqual=0xd0, Equal=0xf0 });
-
+use super::effects::CallContract;
+pub(super) use super::selected::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Event {
     Instruction,
@@ -419,7 +397,93 @@ impl TrackedEmitter65816 {
         self.live();
         assert_eq!(self.state.env.m, expected, "immediate width");
     }
+    // The only instruction dispatch. Encoding and forward-state helpers cannot
+    // be called by selectors without deriving the corresponding typed effects.
+    fn instruction(&mut self, instruction: Instruction) -> Result<(), String> {
+        let effects = instruction.effects(self.state.env);
+        #[cfg(feature = "native65816-state-proof")]
+        let start = self.position();
+        match instruction {
+            Instruction::Implied(op) => self.emit_implied(op),
+            Instruction::Byte(op, value) => self.emit_byte(op, value),
+            Instruction::Word(op, value) => self.emit_word(op, value),
+            Instruction::Long(op, value) => self.emit_long(op, value)?,
+            Instruction::Reference(op, target, addend, byte) => {
+                self.emit_reference(op, target, addend, byte)
+            }
+            Instruction::Branch(op, label) => self.emit_branch(op, label),
+            Instruction::PushReturn(label) => self.emit_push_return(label),
+            Instruction::IndirectTransfer(_) => self.emit_indirect_transfer(),
+            Instruction::NativeCall(target, _) => {
+                self.emit_reference(ReferenceOp::Jsl, target, 0, None)
+            }
+            Instruction::NativeReturn(_) => self.emit_implied(Implied::Rtl),
+        }
+        #[cfg(feature = "native65816-state-proof")]
+        if self.trace.is_some() {
+            self.code
+                .instruction_effects
+                .push(super::effects::EffectRecord {
+                    start,
+                    end: self.position(),
+                    effects,
+                });
+            return Ok(());
+        }
+        let _ = effects;
+        Ok(())
+    }
     pub fn op(&mut self, op: Implied) {
+        self.instruction(Instruction::Implied(op))
+            .expect("infallible implied instruction");
+    }
+    pub fn byte(&mut self, op: ByteOp, value: u8) {
+        self.instruction(Instruction::Byte(op, value))
+            .expect("infallible byte operand");
+    }
+    pub fn word(&mut self, op: WordOp, value: u16) {
+        self.instruction(Instruction::Word(op, value))
+            .expect("infallible word operand");
+    }
+    pub fn long(&mut self, op: LongOp, value: u32) -> Result<(), String> {
+        self.instruction(Instruction::Long(op, value))
+    }
+    pub fn reference(&mut self, op: ReferenceOp, target: Target, addend: u32, byte: Option<u8>) {
+        self.instruction(Instruction::Reference(op, target, addend, byte))
+            .expect("infallible reference");
+    }
+    pub fn branch(&mut self, op: Branch, label: Label) {
+        self.instruction(Instruction::Branch(op, label))
+            .expect("infallible branch");
+    }
+    pub fn push_return(&mut self, label: Label) {
+        self.instruction(Instruction::PushReturn(label))
+            .expect("infallible PER");
+    }
+    #[cfg(test)]
+    pub fn indirect_transfer(&mut self) {
+        self.instruction(Instruction::IndirectTransfer(None))
+            .expect("infallible indirect transfer");
+    }
+    pub fn native_call(
+        &mut self,
+        target: Target,
+        plan: &super::Mir65816CallPlan,
+    ) -> Result<(), String> {
+        let contract = CallContract::from_plan(plan, super::super::abi::FarTransfer::Jsl)?;
+        self.instruction(Instruction::NativeCall(target, contract))
+    }
+    pub fn native_indirect_transfer(
+        &mut self,
+        plan: &super::Mir65816CallPlan,
+    ) -> Result<(), String> {
+        let contract = CallContract::from_plan(plan, super::super::abi::FarTransfer::StackRtl)?;
+        self.instruction(Instruction::IndirectTransfer(Some(contract)))
+    }
+    pub fn native_return(&mut self, home: Option<super::Mir65816AbiHome>) -> Result<(), String> {
+        self.instruction(Instruction::NativeReturn(CallContract::result(home)?))
+    }
+    fn emit_implied(&mut self, op: Implied) {
         use Implied::*;
         self.live();
         self.x_implied(op);
@@ -518,7 +582,7 @@ impl TrackedEmitter65816 {
             WordHome::DirectPage(offset) => self.byte(ByteOp::StaDp, offset),
         }
     }
-    pub fn byte(&mut self, op: ByteOp, value: u8) {
+    fn emit_byte(&mut self, op: ByteOp, value: u8) {
         use ByteOp::*;
         self.live();
         self.x_byte(op, value);
@@ -572,7 +636,7 @@ impl TrackedEmitter65816 {
         self.code.byte(op.opcode(), value);
         self.observe();
     }
-    pub fn word(&mut self, op: WordOp, value: u16) {
+    fn emit_word(&mut self, op: WordOp, value: u16) {
         use WordOp::*;
         self.live();
         if self.x_reserved {
@@ -608,7 +672,7 @@ impl TrackedEmitter65816 {
         self.code.word(op.opcode(), value);
         self.observe();
     }
-    pub fn long(&mut self, op: LongOp, address: u32) -> Result<(), String> {
+    fn emit_long(&mut self, op: LongOp, address: u32) -> Result<(), String> {
         assert!(!self.x_reserved, "unmodelled X-region memory access");
         if address >= 0x1000000 {
             return Err("24-bit instruction address overflow".into());
@@ -625,7 +689,7 @@ impl TrackedEmitter65816 {
         self.observe();
         Ok(())
     }
-    pub fn reference(&mut self, op: ReferenceOp, target: Target, addend: u32, byte: Option<u8>) {
+    fn emit_reference(&mut self, op: ReferenceOp, target: Target, addend: u32, byte: Option<u8>) {
         assert!(
             !self.x_reserved || matches!((&op, &target), (ReferenceOp::Jml, Target::Label(_))),
             "X-region call or reference"
@@ -696,7 +760,7 @@ impl TrackedEmitter65816 {
         self.unreachable = true;
         self.pending_fallthrough = Some(label);
     }
-    pub fn branch(&mut self, op: Branch, label: Label) {
+    fn emit_branch(&mut self, op: Branch, label: Label) {
         self.live();
         self.edge(label);
         // Inverse skip is an implicit continuation, not an unconditional exit.
@@ -714,7 +778,7 @@ impl TrackedEmitter65816 {
             short: false,
         });
     }
-    pub fn push_return(&mut self, label: Label) {
+    fn emit_push_return(&mut self, label: Label) {
         self.live();
         assert!(!self.x_reserved, "X-region indirect call");
         assert_eq!(self.state.env.pushes, 1);
@@ -726,7 +790,7 @@ impl TrackedEmitter65816 {
         self.code.push_return(label);
         self.observe();
     }
-    pub fn indirect_transfer(&mut self) {
+    fn emit_indirect_transfer(&mut self) {
         self.live();
         assert_eq!(self.state.env.pushes, 6);
         assert_eq!(self.state.env.m, Width::Word);

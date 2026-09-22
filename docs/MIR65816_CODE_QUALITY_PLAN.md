@@ -13,6 +13,9 @@ rewrite workflow. Complete that foundation with unchanged output before
 enabling further store elimination or broadening register/DP allocation.
 Follow the [implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 for module changes, commit boundaries and qualification gates.
+Its baseline gate and typed physical-effects slices are
+[complete](MIR65816_ANALYSIS_EFFECTS.md), with unchanged raw and optimized output.
+The next slice records selected actions and constructs their CFG.
 
 ## Objective and current baseline
 
@@ -72,6 +75,7 @@ and qualify general improvements.
 | Bounded scalar DP allocation | Promote up to 16 existing private word-home classes in verified call-free routines; preserve forwarding and shrink real stack frames. | [Results](MIR65816_SCALAR_DP.md), [qualification](abi/action65816-scalar-dp-qualification.json) |
 | Bounded X loop mirror | Keep one private unsigned loop parameter in X; use TXA/CPX and final edge TAX while retaining homes and stores. | [Results](MIR65816_LOOP_X_RESIDENCY.md), [qualification](abi/action65816-loop-x-qualification.json) |
 | Bounded native INX updates | Advance the reserved loop parameter with checked INX/TXA; invalidate its mirror relation until the retained final TAX. | [Results](MIR65816_LOOP_INX.md), [qualification](abi/action65816-loop-inx-qualification.json) |
+| Analysis foundation slices 0–1 | Authenticate the unchanged-output baseline and centralize typed physical effects, including verified native call/return summaries. | [Results](MIR65816_ANALYSIS_EFFECTS.md), [equality](benchmarks/65816-analysis-rewrite/slice1-equality.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured

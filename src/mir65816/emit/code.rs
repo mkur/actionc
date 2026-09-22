@@ -57,6 +57,8 @@ pub struct Code {
     pub(in super::super) boundaries: BTreeSet<usize>,
     next_label: u32,
     #[cfg(feature = "native65816-state-proof")]
+    pub(in super::super) instruction_effects: Vec<super::super::effects::EffectRecord>,
+    #[cfg(feature = "native65816-state-proof")]
     pub(in super::super) state_trace: Vec<super::super::proof::Snapshot>,
 }
 

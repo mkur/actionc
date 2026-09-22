@@ -183,6 +183,11 @@ pub(super) fn finalize(mut code: Code, relax: bool) -> Result<Code, String> {
     for snapshot in &mut code.state_trace {
         snapshot.pc = boundary(snapshot.pc)?;
     }
+    #[cfg(feature = "native65816-state-proof")]
+    for effect in &mut code.instruction_effects {
+        effect.start = boundary(effect.start)?;
+        effect.end = boundary(effect.end)?;
+    }
     code.boundaries = code
         .boundaries
         .iter()
