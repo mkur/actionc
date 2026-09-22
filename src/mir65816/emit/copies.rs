@@ -8,6 +8,71 @@ use std::collections::BTreeSet;
 pub(super) enum WordOperand {
     Immediate(u16),
     Stack(u8),
+    DirectPage(u8),
+}
+
+/// A checked word destination, including its address space.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum WordHome {
+    Stack(u8),
+    DirectPage(u8),
+}
+impl From<WordHome> for Location {
+    fn from(home: WordHome) -> Self {
+        match home {
+            WordHome::Stack(offset) => Self::Stack(Slot {
+                offset: offset.into(),
+                width: 2,
+            }),
+            WordHome::DirectPage(offset) => Self::DirectPage(Slot {
+                offset: offset.into(),
+                width: 2,
+            }),
+        }
+    }
+}
+impl WordHome {
+    pub fn operand(self) -> WordOperand {
+        match self {
+            Self::Stack(v) => WordOperand::Stack(v),
+            Self::DirectPage(v) => WordOperand::DirectPage(v),
+        }
+    }
+    pub fn distance(self, other: Self) -> Option<u8> {
+        match (self, other) {
+            (Self::Stack(a), Self::Stack(b)) | (Self::DirectPage(a), Self::DirectPage(b)) => {
+                Some(a.abs_diff(b))
+            }
+            _ => None,
+        }
+    }
+    pub fn cycles(self) -> usize {
+        match self {
+            Self::Stack(_) => 5,
+            Self::DirectPage(_) => 4,
+        }
+    }
+}
+impl WordOperand {
+    pub fn home(self) -> Option<WordHome> {
+        match self {
+            Self::Immediate(_) => None,
+            Self::Stack(v) => Some(WordHome::Stack(v)),
+            Self::DirectPage(v) => Some(WordHome::DirectPage(v)),
+        }
+    }
+}
+pub(super) fn word_home(location: Location, delta: u32) -> Result<WordHome, String> {
+    if location.slot().width != 2 {
+        return Err("word home width mismatch".into());
+    }
+    match location {
+        Location::Stack(s) => Ok(WordHome::Stack(word_displacement(s.offset.into(), delta)?)),
+        Location::DirectPage(s) if (32..=62).contains(&s.offset) && s.offset % 2 == 0 => {
+            Ok(WordHome::DirectPage(s.offset as u8))
+        }
+        Location::DirectPage(_) => Err("word home exceeds scalar DP pool or is unaligned".into()),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -18,36 +83,63 @@ pub(super) enum WordStrategy {
 }
 
 pub(super) struct WordCopies {
-    pub moves: Vec<(WordOperand, u8)>,
+    pub moves: Vec<(WordOperand, WordHome)>,
     pub strategy: WordStrategy,
 }
 
-fn whole_words<T>(moves: &[(WordOperand, T, u8)]) -> bool {
+fn whole_words<T>(moves: &[(WordOperand, T, WordHome)]) -> bool {
     moves
         .iter()
         .enumerate()
         .all(|(i, &(source, _, destination))| {
             !moves[..i]
                 .iter()
-                .any(|&(_, _, d)| destination.abs_diff(d) < 2)
-                && !matches!(source, WordOperand::Stack(s)
-                if moves.iter().any(|&(_, _, d)| s.abs_diff(d) == 1))
+                .any(|&(_, _, d)| destination.distance(d).is_some_and(|n| n < 2))
+                && !source
+                    .home()
+                    .is_some_and(|s| moves.iter().any(|&(_, _, d)| s.distance(d) == Some(1)))
         })
 }
 
+#[cfg(test)]
+pub(super) fn acyclic_word_order<T: Copy>(moves: &[(WordOperand, T, u8)]) -> Option<Vec<usize>> {
+    acyclic_home_order(
+        &moves
+            .iter()
+            .map(|&(s, t, d)| (s, t, WordHome::Stack(d)))
+            .collect::<Vec<_>>(),
+    )
+}
 impl WordCopies {
+    #[cfg(test)]
     pub(super) fn plan(moves: Vec<(WordOperand, u8)>) -> Self {
+        Self::plan_homes(
+            moves
+                .into_iter()
+                .map(|(s, d)| (s, WordHome::Stack(d)))
+                .collect(),
+        )
+    }
+
+    pub(super) fn plan_homes(moves: Vec<(WordOperand, WordHome)>) -> Self {
         let geometry: Vec<_> = moves.iter().map(|&(s, d)| (s, (), d)).collect();
         let strategy = if moves.len() == 1 {
             // Own-source partial overlap is safe: the whole load precedes its store.
             WordStrategy::Direct(vec![0])
-        } else if let Some(order) = acyclic_word_order(&geometry) {
+        } else if let Some(order) = acyclic_home_order(&geometry) {
             WordStrategy::Direct(order)
         } else if whole_words(&geometry) {
-            WordStrategy::Selective(moves.iter().enumerate().filter_map(|(i, &(s, _))| {
-                matches!(s, WordOperand::Stack(s) if moves[..i].iter().any(|&(_, d)| s == d))
-                    .then_some(i)
-            }).collect())
+            WordStrategy::Selective(
+                moves
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, &(s, _))| {
+                        s.home()
+                            .is_some_and(|s| moves[..i].iter().any(|&(_, d)| s == d))
+                            .then_some(i)
+                    })
+                    .collect(),
+            )
         } else {
             WordStrategy::Complete
         };
@@ -65,7 +157,7 @@ impl WordCopies {
             .copied()
             .filter(|&i| {
                 let (source, dest) = self.moves[i];
-                source != WordOperand::Stack(dest)
+                source != dest.operand()
             })
             .collect();
         let repair = emitted.last().copied() != self.moves.len().checked_sub(1);
@@ -76,6 +168,7 @@ impl WordCopies {
     pub(super) fn cost(&self) -> (usize, usize) {
         let load = |s| match s {
             WordOperand::Stack(_) => (2, 5),
+            WordOperand::DirectPage(_) => (2, 4),
             WordOperand::Immediate(_) => (3, 3),
         };
         let mut cost = (0, 0);
@@ -86,10 +179,10 @@ impl WordCopies {
         if let Some((order, repair)) = self.direct_emission() {
             for i in order {
                 let (b, c) = load(self.moves[i].0);
-                add(b + 2, c + 5);
+                add(b + 2, c + self.moves[i].1.cycles());
             }
             if repair {
-                add(2, 5);
+                add(2, self.moves.last().unwrap().1.cycles());
             }
         } else {
             let captures = self.captures().expect("checked copy plan");
@@ -97,13 +190,13 @@ impl WordCopies {
                 let (b, c) = load(self.moves[i].0);
                 add(b + 2, c + 5);
             }
-            for (i, &(s, _)) in self.moves.iter().enumerate() {
+            for (i, &(s, d)) in self.moves.iter().enumerate() {
                 let (b, c) = load(if captures.contains(&i) {
                     WordOperand::Stack(1)
                 } else {
                     s
                 });
-                add(b + 2, c + 5);
+                add(b + 2, c + d.cycles());
             }
         }
         cost
@@ -112,7 +205,7 @@ impl WordCopies {
     pub(super) fn captures(&self) -> Result<Vec<usize>, String> {
         // Validate the entire logical mapping before indexing it. Missing, extra,
         // repeated, out-of-order and out-of-range captures are all malformed.
-        if self.moves.is_empty() || Self::plan(self.moves.clone()).strategy != self.strategy {
+        if self.moves.is_empty() || Self::plan_homes(self.moves.clone()).strategy != self.strategy {
             return Err("invalid word edge strategy or capture mapping".into());
         }
         Ok(match &self.strategy {
@@ -125,7 +218,7 @@ impl WordCopies {
 
 /// Preserve the existing direct order and final-A reload policy. A failed
 /// schedule alone does not distinguish a cycle from partial overlap.
-pub(super) fn acyclic_word_order<T>(moves: &[(WordOperand, T, u8)]) -> Option<Vec<usize>> {
+fn acyclic_home_order<T>(moves: &[(WordOperand, T, WordHome)]) -> Option<Vec<usize>> {
     if !whole_words(moves) {
         return None;
     }
@@ -134,7 +227,11 @@ pub(super) fn acyclic_word_order<T>(moves: &[(WordOperand, T, u8)]) -> Option<Ve
     while !pending.is_empty() {
         let ready = |i: usize| {
             pending.iter().all(|&j| {
-                i == j || !matches!(moves[j].0, WordOperand::Stack(s) if s.abs_diff(moves[i].2) < 2)
+                i == j
+                    || !moves[j]
+                        .0
+                        .home()
+                        .is_some_and(|s| s.distance(moves[i].2).is_some_and(|n| n < 2))
             })
         };
         let i = pending
@@ -228,7 +325,9 @@ impl AllocatedFrame {
                     return Err("temporary width mismatch".into());
                 }
                 match location {
-                    Location::Stack(slot) if slot.width == 2 => u32::from(slot.offset),
+                    home if home.slot().width == 2 => {
+                        return Ok(Some(word_home(home, delta)?.operand()));
+                    }
                     _ => return Ok(None),
                 }
             }
@@ -311,10 +410,7 @@ impl AllocatedFrame {
         let mut supported = true;
         for (value, (dest, _)) in edge.args.iter().zip(&block.params) {
             let source = self.word_operand(routine, delta, value)?;
-            let destination = match self.temps[dest] {
-                Location::Stack(slot) => Some(word_displacement(slot.offset.into(), delta)?),
-                Location::DirectPage(_) => None,
-            };
+            let destination = Some(word_home(self.temps[dest], delta)?);
             if let (Some(source), Some(destination)) = (source, destination) {
                 moves.push((source, destination));
             } else {
@@ -325,7 +421,7 @@ impl AllocatedFrame {
         if !supported {
             return Ok(None);
         }
-        Ok(Some(WordCopies::plan(moves)))
+        Ok(Some(WordCopies::plan_homes(moves)))
     }
 
     /// Resolve logical captures to physical slots only after checking the whole
@@ -347,7 +443,9 @@ impl AllocatedFrame {
             let at = word_displacement(slot.offset.into(), delta)?;
             if resolved.iter().any(|&(_, s)| at.abs_diff(s) < 2)
                 || copies.moves.iter().any(|&(s, d)| {
-                    at.abs_diff(d) < 2 || matches!(s, WordOperand::Stack(s) if at.abs_diff(s) < 2)
+                    WordHome::Stack(at).distance(d).is_some_and(|n| n < 2)
+                        || s.home()
+                            .is_some_and(|s| WordHome::Stack(at).distance(s).is_some_and(|n| n < 2))
                 })
             {
                 return Err("edge capture overlaps source, destination or another capture".into());

@@ -7,6 +7,7 @@ pub use super::tracked::Event;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HomeSnapshot {
     pub offset: u16,
+    pub direct_page: bool,
     pub width: u8,
     pub generation: u64,
     pub value: Value,
@@ -57,9 +58,10 @@ impl Snapshot {
             homes: s
                 .homes
                 .iter()
-                .map(|(&(offset, width), h)| HomeSnapshot {
-                    offset,
-                    width,
+                .map(|(&location, h)| HomeSnapshot {
+                    offset: location.slot().offset,
+                    width: location.slot().width,
+                    direct_page: matches!(location, super::Location::DirectPage(_)),
                     generation: h.generation,
                     value: h.value,
                 })
@@ -181,4 +183,51 @@ pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
     e.a16();
     e.op(Implied::Nop);
     e.finish_traced()
+}
+
+/// Independent assembly/VM probe for scalar homes in both address spaces.
+pub fn scalar_dp_probe(left: u16, right: u16) -> (Code, Vec<Snapshot>) {
+    use super::{Location, Slot, copies::WordHome};
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    for offset in [32, 34, 36] {
+        e.register_home(Location::DirectPage(Slot { offset, width: 2 }));
+    }
+    e.register_home(Slot {
+        offset: 32,
+        width: 2,
+    });
+    e.a16();
+    e.word(WordOp::LdaImm, left);
+    e.byte(ByteOp::StaDp, 32);
+    e.word(WordOp::LdaImm, right);
+    e.byte(ByteOp::StaStack, 32);
+    e.byte(ByteOp::LdaDp, 32);
+    e.op(Implied::Clc);
+    e.byte(ByteOp::AdcStack, 32);
+    e.byte(ByteOp::StaDp, 34);
+    let home = Location::DirectPage(Slot {
+        offset: 34,
+        width: 2,
+    });
+    e.remember_word(super::TempId(0), home);
+    assert!(e.consume_word(
+        Some(super::TempId(0)),
+        Some(home),
+        Some(WordHome::DirectPage(34))
+    ));
+    e.byte(ByteOp::CmpDp, 34);
+    e.op(Implied::Sec);
+    e.byte(ByteOp::SbcDp, 32);
+    e.byte(ByteOp::StaDp, 36);
+    e.a8();
+    e.byte(ByteOp::LdaImm, 0xff);
+    e.byte(ByteOp::StaDp, 33);
+    e.a16();
+    e.byte(ByteOp::LdaDp, 34);
+    e.byte(ByteOp::CmpDp, 36);
+    e.op(Implied::Nop);
+    let code = e.finish();
+    let trace = code.state_trace.clone();
+    (code, trace)
 }

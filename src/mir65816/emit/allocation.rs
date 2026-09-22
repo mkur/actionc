@@ -1,7 +1,7 @@
 use super::super::*;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Slot {
     pub offset: u16,
     pub width: u8,
@@ -258,13 +258,25 @@ fn local_peak(routine: &Mir65816Routine, extent: u16) -> Result<u16, String> {
 
 /// A physical home for a typed MIR value. Offsets are relative to S or D,
 /// respectively; they must never be interpreted interchangeably.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Location {
     Stack(Slot),
     DirectPage(Slot),
 }
 
+impl From<Slot> for Location {
+    fn from(slot: Slot) -> Self {
+        Self::Stack(slot)
+    }
+}
 impl Location {
+    pub fn overlaps(self, other: Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::Stack(_), Self::Stack(_)) | (Self::DirectPage(_), Self::DirectPage(_))
+        ) && overlap(self.slot(), other.slot())
+    }
+
     pub fn slot(self) -> Slot {
         match self {
             Self::Stack(slot) | Self::DirectPage(slot) => slot,

@@ -1,6 +1,6 @@
 use super::{
     allocation::width,
-    copies::{self, WordOperand},
+    copies::{self, WordOperand, word_home},
     *,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -35,6 +35,10 @@ use super::tracked::*;
 #[cfg(test)]
 #[path = "accumulator_tests.rs"]
 mod accumulator_tests;
+
+#[cfg(test)]
+#[path = "scalar_word_tests.rs"]
+mod scalar_word_tests;
 
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
@@ -109,8 +113,8 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
         }
     }
     for home in b.frame.temps.values() {
-        if let Location::Stack(slot) = home {
-            b.code.register_home(*slot);
+        if matches!(home, Location::Stack(_)) || home.slot().width == 2 {
+            b.code.register_home(*home);
         }
     }
     b.check_stack(b.frame.extent);
@@ -305,10 +309,7 @@ impl Builder<'_> {
         if destination.slot().width != 2 {
             return Err("word result temporary width mismatch".into());
         }
-        let destination = match destination {
-            Location::Stack(slot) => Some(self.word_displacement(slot.offset.into())?),
-            Location::DirectPage(_) => None,
-        };
+        let destination = Some(word_home(destination, self.code.delta())?);
         let left_temp = Self::word_temp(left);
         let left = self.word_operand(left)?;
         let right = self.word_operand(right)?;
@@ -329,6 +330,14 @@ impl Builder<'_> {
                 },
                 value,
             ),
+            WordOperand::DirectPage(offset) => self.code.byte(
+                if subtract {
+                    ByteOp::SbcDp
+                } else {
+                    ByteOp::AdcDp
+                },
+                offset,
+            ),
             WordOperand::Stack(offset) => self.code.byte(
                 if subtract {
                     ByteOp::SbcStack
@@ -338,7 +347,7 @@ impl Builder<'_> {
                 offset,
             ),
         }
-        self.code.byte(ByteOp::StaStack, destination); // STA d,S: result has its existing home.
+        self.code.store_word(destination); // Capture into the verified private home.
         self.remember_word(dest);
         Ok(true)
     }
@@ -403,6 +412,7 @@ impl Builder<'_> {
         match condition.right {
             WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
             WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
+            WordOperand::DirectPage(offset) => self.code.byte(ByteOp::CmpDp, offset),
         }
         if dispatch {
             self.code.dispatch(condition.predicate, yes);
@@ -965,6 +975,7 @@ impl Builder<'_> {
         match source {
             WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
             WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
+            WordOperand::DirectPage(offset) => self.code.byte(ByteOp::LdaDp, offset),
         }
     }
     fn emit_word_edge(&mut self, edge: WordEdge, fallthrough: bool) {
@@ -974,12 +985,11 @@ impl Builder<'_> {
             for i in order {
                 let (source, destination) = edge.copies.moves[i];
                 self.edge_load(source);
-                self.code.byte(ByteOp::StaStack, destination);
+                self.code.store_word(destination);
             }
             if repair {
                 // Retain full A and N/Z of the original final assignment.
-                self.code
-                    .byte(ByteOp::LdaStack, edge.copies.moves.last().unwrap().1);
+                self.edge_load(edge.copies.moves.last().unwrap().1.operand());
             }
         } else {
             for &(i, at) in &edge.captures {
@@ -994,7 +1004,7 @@ impl Builder<'_> {
                     source
                 };
                 self.edge_load(source);
-                self.code.byte(ByteOp::StaStack, destination);
+                self.code.store_word(destination);
             }
         }
         self.finish_edge(edge.target, fallthrough);

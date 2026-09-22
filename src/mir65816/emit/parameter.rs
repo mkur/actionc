@@ -84,16 +84,12 @@ impl Builder<'_> {
         let Some((id, source)) = self.incoming_word(address)? else {
             return Ok(false);
         };
-        let Location::Stack(capture) = self.temp(dest)? else {
-            return Ok(false);
-        };
-        if capture.width != 2 {
+        let capture = self.temp(dest)?;
+        if capture.slot().width != 2 {
             return Err("load temporary width mismatch".into());
         }
-        self.word_displacement(capture.offset.into())?;
-        if u32::from(capture.offset) < u32::from(source.offset) + 2
-            && u32::from(source.offset) < u32::from(capture.offset) + 2
-        {
+        word_home(capture, self.code.delta())?;
+        if capture.overlaps(Location::Stack(source)) {
             return Err("parameter capture overlaps incoming word".into());
         }
         self.code.capture_incoming_word(id, source, dest, capture);

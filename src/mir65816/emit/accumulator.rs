@@ -58,14 +58,12 @@ impl Builder<'_> {
         let Some((object, source)) = self.frame_word(address)? else {
             return Ok(false);
         };
-        let Location::Stack(destination) = self.temp(dest)? else {
-            return Ok(false);
-        };
-        if destination.width != 2 {
+        let destination = self.temp(dest)?;
+        if destination.slot().width != 2 {
             return Err("load temporary width mismatch".into());
         }
         // Preflight the retained destination store even when the load vanishes.
-        let offset = self.word_displacement(u32::from(destination.offset))?;
+        let offset = word_home(destination, self.code.delta())?;
         if !self.code.consume_frame_word(
             object,
             address.displacement.get(),
@@ -74,7 +72,7 @@ impl Builder<'_> {
         ) {
             return Ok(false);
         }
-        self.code.byte(ByteOp::StaStack, offset);
+        self.code.store_word(offset);
         self.remember_word(dest);
         Ok(true)
     }
@@ -98,28 +96,21 @@ impl Builder<'_> {
     /// retained private STA. STA leaves the full-word N/Z proof intact.
     pub(super) fn remember_word(&mut self, temp: TempId) {
         self.code.barrier();
-        if let Some(&Location::Stack(slot)) = self.frame.temps.get(&temp) {
-            self.code.remember_word(temp, slot);
+        if let Some(&home) = self.frame.temps.get(&temp) {
+            self.code.remember_word(temp, home);
         }
     }
     /// Complete operand/home preflight remains the selector's responsibility.
     pub(super) fn load_checked_word(&mut self, operand: WordOperand, temp: Option<TempId>) {
-        let slot = temp
-            .and_then(|id| self.frame.temps.get(&id))
-            .and_then(|home| match home {
-                Location::Stack(slot) => Some(*slot),
-                _ => None,
-            });
-        let offset = match operand {
-            WordOperand::Stack(offset) => Some(offset),
-            _ => None,
-        };
+        let slot = temp.and_then(|id| self.frame.temps.get(&id).copied());
+        let offset = operand.home();
         if self.code.consume_word(temp, slot, offset) {
             return;
         }
         match operand {
             WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
             WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
+            WordOperand::DirectPage(offset) => self.code.byte(ByteOp::LdaDp, offset),
         }
     }
     pub(super) fn word_store(
@@ -137,13 +128,16 @@ impl Builder<'_> {
         {
             return Ok(false);
         }
-        let Some(source @ WordOperand::Stack(offset)) = self.word_operand(value)? else {
+        let Some(source) = self.word_operand(value)? else {
             return Ok(false);
         };
         // Direct address resolution emits no instructions. All extent checks
         // still run even if a resident source makes its LDA unnecessary.
         let destination = self.prepare_address(address)?;
-        self.check_transfer(Memory::Stack(u32::from(offset)), destination, 2)?;
+        let Some(home) = source.home() else {
+            return Ok(false);
+        };
+        self.check_transfer(Location::from(home).into(), destination, 2)?;
         if let Memory::Stack(offset) = destination {
             self.word_displacement(offset)?;
         }
@@ -156,7 +150,7 @@ impl Builder<'_> {
             let temp = Self::word_temp(value).unwrap();
             if self
                 .code
-                .store_incoming_capture(temp, self.temp(temp)?.slot(), slot)
+                .store_incoming_capture(temp, self.temp(temp)?, slot)
             {
                 self.code
                     .remember_frame_word(object, address.displacement.get(), slot);

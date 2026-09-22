@@ -271,6 +271,11 @@ fn unsupported_edges_fall_back_without_prefix_and_keep_byte_encodings() {
         }
         b.code.a16();
         let before = format!("{:?}", b.code);
+        if form == 1 {
+            assert!(b.word_edge(&e).is_err());
+            assert_eq!(format!("{:?}", b.code), before);
+            continue;
+        }
         assert!(b.word_edge(&e).unwrap().is_none());
         assert_eq!(format!("{:?}", b.code), before);
         let start = b.code.code().bytes.len();
@@ -439,6 +444,7 @@ fn single_word_edges_bypass_staging_and_keep_modes_fixups_and_frame() {
             match b.word_operand(&source).unwrap().unwrap() {
                 WordOperand::Immediate(v) => expected.extend([0xa9, v as u8, (v >> 8) as u8]),
                 WordOperand::Stack(offset) => expected.extend([0xa3, offset]),
+                WordOperand::DirectPage(offset) => expected.extend([0xa5, offset]),
             }
             if b.word_operand(&source).unwrap() != Some(WordOperand::Stack(2)) {
                 expected.extend([0x83, 2]);
@@ -572,6 +578,7 @@ fn selective_plans_match_simultaneous_byte_copies_exhaustively() {
                 let load = |mem: &[u8], s| match s {
                     I(v) => v.to_le_bytes(),
                     S(s) => [mem[s as usize], mem[s as usize + 1]],
+                    WordOperand::DirectPage(_) => unreachable!(),
                 };
                 let mut expected = initial.clone();
                 for &(s, d) in &moves {

@@ -38,9 +38,13 @@ fn check(s: &Snapshot, r: Registers, entry_s: u16, bus: &Bus, irq: u8) {
     // Compare simultaneous facts, never values from different loop iterations.
     let mut observed = vec![(s.a, r.a), (s.x, r.x), (s.y, r.y)];
     for h in &s.homes {
-        let at = entry_s
-            .wrapping_sub(s.anchor.unwrap_or(0) as u16)
-            .wrapping_add(h.offset);
+        let at = if h.direct_page {
+            r.d.wrapping_add(h.offset)
+        } else {
+            entry_s
+                .wrapping_sub(s.anchor.unwrap_or(0) as u16)
+                .wrapping_add(h.offset)
+        };
         observed.push((
             h.value,
             bus.value(u32::from(at), usize::from(h.width)) as u16,
@@ -504,6 +508,60 @@ fn direct_return_and_indirect_transfer_events_have_distinct_stack_phases() {
                     if choose == 0 { 0x8001 } else { 0x9001 }
                 );
             }
+        }
+    }
+}
+
+#[test]
+fn scalar_dp_word_encoding_generations_and_flags_match_ca65_and_vm() {
+    for (left, right) in [
+        (0, 0),
+        (0xffff, 1),
+        (0x7fff, 1),
+        (0x8000, 0xffff),
+        (0x100, 0xff),
+    ] {
+        let (code, trace) = proof::scalar_dp_probe(left, right);
+        let independent = assemble(
+            &format!(
+                "rep #$20\nlda #{left}\nsta $20\nlda #{right}\nsta 32,s\nlda $20\nclc\nadc 32,s\nsta $22\ncmp $22\nsec\nsbc $20\nsta $24\nsep #$20\n.a8\nlda #$ff\nsta $21\nrep #$20\n.a16\nlda $22\ncmp $24\nnop\nstp\nnop"
+            ),
+            0x40000,
+        );
+        assert_eq!(code.bytes, independent[..code.bytes.len()]);
+        for irq in [0, 4] {
+            let mut bus = Bus::new();
+            bus.map(0x40000, &independent, false);
+            bus.map(0x4000, &[0; 0x2000], true);
+            bus.map(0x2000, &[0; 256], true);
+            let entry_s = 0x5fc0;
+            let mut cpu = Machine::start_at(Registers {
+                a: 0xabcd,
+                x: 0x1234,
+                y: 0x5678,
+                s: entry_s,
+                d: 0x2000,
+                dbr: 0,
+                pbr: 4,
+                pc: 0,
+                p: irq,
+                emulation_mode: false,
+            });
+            for snapshot in &trace {
+                assert!(
+                    cpu.run_until(
+                        &mut bus,
+                        2000,
+                        |_| Inputs::default(),
+                        |c| c.is_instruction_boundary() && c.pc() == 0x40000 + snapshot.pc as u32
+                    )
+                    .unwrap()
+                );
+                check(snapshot, cpu.registers(), entry_s, &bus, irq);
+            }
+            assert_eq!(bus.value(0x2022, 2), u32::from(left.wrapping_add(right)));
+            assert_eq!(bus.value(0x2024, 2), u32::from(right));
+            assert_eq!(bus.value(u32::from(entry_s) + 32, 2), u32::from(right));
         }
     }
 }

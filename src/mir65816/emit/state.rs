@@ -1,5 +1,5 @@
 //! Native machine facts. Values are immutable identities, never mutable aliases.
-use super::{Mir65816FrameObjectId, ParamId, Slot, TempId};
+use super::{Location, Mir65816FrameObjectId, ParamId, Slot, TempId, copies::WordHome};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,7 +64,7 @@ pub(super) enum WordIdentity {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct AdjacentWord {
     pub identity: WordIdentity,
-    pub slot: Slot,
+    pub slot: Location,
     pub value: Value,
     pub generation: u64,
     pub cursor: (usize, usize),
@@ -93,8 +93,8 @@ pub(super) struct State65816 {
     pub mode_permission: bool,
     pub adjacent: Option<AdjacentWord>,
     pub incoming: Option<IncomingWord>,
-    pub homes: BTreeMap<(u16, u8), Home>,
-    private_ranges: BTreeSet<(u16, u8)>,
+    pub homes: BTreeMap<Location, Home>,
+    private_ranges: BTreeSet<Location>,
     next: u64,
     pub peak: i64,
 }
@@ -154,37 +154,74 @@ impl State65816 {
             u32::try_from(self.env.depth - anchor).expect("frame already released")
         })
     }
-    pub fn register_home(&mut self, slot: Slot) {
-        self.private_ranges.insert((slot.offset, slot.width));
+    pub fn register_home(&mut self, slot: impl Into<Location>) {
+        self.private_ranges.insert(slot.into());
     }
-    pub fn stack_key(&self, offset: u8, width: Width) -> Option<(u16, u8)> {
-        let offset = i64::from(offset) - i64::try_from(self.delta()).unwrap();
-        u16::try_from(offset).ok().map(|o| (o, width.bytes()))
+    pub fn stack_key(&self, offset: u8, width: Width) -> Option<Location> {
+        let offset = i64::from(offset) - i64::from(self.delta());
+        u16::try_from(offset).ok().map(|offset| {
+            Location::Stack(Slot {
+                offset,
+                width: width.bytes(),
+            })
+        })
     }
-    pub fn read_stack(&mut self, offset: u8, width: Width) -> Value {
-        self.stack_key(offset, width)
-            .and_then(|k| self.homes.get(&k))
+    fn read_home(&mut self, key: Location, width: Width) -> Value {
+        self.homes
+            .get(&key)
             .map(|h| h.value)
             .unwrap_or_else(|| self.fresh(width))
     }
+    pub fn read_stack(&mut self, offset: u8, width: Width) -> Value {
+        if let Some(key) = self.stack_key(offset, width) {
+            self.read_home(key, width)
+        } else {
+            self.fresh(width)
+        }
+    }
+    pub fn read_dp(&mut self, offset: u8, width: Width) -> Value {
+        if !self.env.current_domain {
+            return self.fresh(width);
+        }
+        self.read_home(
+            Location::DirectPage(Slot {
+                offset: offset.into(),
+                width: width.bytes(),
+            }),
+            width,
+        )
+    }
+    fn write_home(&mut self, key: Location, width: Width) {
+        self.homes.retain(|&h, _| !h.overlaps(key));
+        if self.private_ranges.contains(&key) && self.a.width() == Some(width) {
+            self.next += 1;
+            self.homes.insert(
+                key,
+                Home {
+                    generation: self.next,
+                    value: self.a,
+                },
+            );
+        }
+    }
     pub fn write_stack(&mut self, offset: u8, width: Width) {
         if let Some(key) = self.stack_key(offset, width) {
-            self.homes.retain(|&(start, len), _| {
-                u32::from(start) + u32::from(len) <= u32::from(key.0)
-                    || u32::from(key.0) + u32::from(key.1) <= u32::from(start)
-            });
-            if self.private_ranges.contains(&key) && self.a.width() == Some(width) {
-                self.next += 1;
-                self.homes.insert(
-                    key,
-                    Home {
-                        generation: self.next,
-                        value: self.a,
-                    },
-                );
-            }
+            self.write_home(key, width);
         } else {
-            self.homes.clear();
+            self.unknown_write();
+        }
+    }
+    pub fn write_dp(&mut self, offset: u8, width: Width) {
+        let key = Location::DirectPage(Slot {
+            offset: offset.into(),
+            width: width.bytes(),
+        });
+        // Only explicitly registered scalar resident ranges authorize narrower
+        // effects. Keep the old conservative behavior for selector scratch.
+        if self.env.current_domain && self.private_ranges.iter().any(|&h| h.overlaps(key)) {
+            self.write_home(key, width);
+        } else {
+            self.unknown_write();
         }
     }
     pub fn unknown_write(&mut self) {
@@ -302,15 +339,26 @@ impl State65816 {
         self.env.depth += i64::from(bytes);
         self.peak = self.peak.max(self.env.depth);
     }
-    pub fn publish_word(&mut self, temp: TempId, slot: Slot, cursor: (usize, usize)) {
-        self.publish_adjacent(WordIdentity::Temp(temp), slot, cursor);
+    pub fn publish_word(
+        &mut self,
+        temp: TempId,
+        slot: impl Into<Location>,
+        cursor: (usize, usize),
+    ) {
+        self.publish_adjacent(WordIdentity::Temp(temp), slot.into(), cursor);
     }
-    pub fn publish_adjacent(&mut self, identity: WordIdentity, slot: Slot, cursor: (usize, usize)) {
+    pub fn publish_adjacent(
+        &mut self,
+        identity: WordIdentity,
+        slot: impl Into<Location>,
+        cursor: (usize, usize),
+    ) {
+        let slot = slot.into();
         self.adjacent = None;
-        if self.delta() != 0 || slot.width != 2 || self.env.m != Width::Word {
+        if self.delta() != 0 || slot.slot().width != 2 || self.env.m != Width::Word {
             return;
         }
-        let Some(home) = self.homes.get(&(slot.offset, slot.width)) else {
+        let Some(home) = self.homes.get(&slot) else {
             return;
         };
         assert!(
@@ -330,8 +378,8 @@ impl State65816 {
     pub fn consume_word(
         &mut self,
         temp: Option<TempId>,
-        slot: Option<Slot>,
-        offset: Option<u8>,
+        slot: Option<Location>,
+        offset: Option<WordHome>,
         cursor: Option<(usize, usize)>,
     ) -> bool {
         self.consume_adjacent(temp.map(WordIdentity::Temp), slot, offset, cursor)
@@ -339,8 +387,8 @@ impl State65816 {
     pub fn consume_adjacent(
         &mut self,
         identity: Option<WordIdentity>,
-        slot: Option<Slot>,
-        offset: Option<u8>,
+        slot: Option<Location>,
+        offset: Option<WordHome>,
         cursor: Option<(usize, usize)>,
     ) -> bool {
         let Some(fact) = self.adjacent.take() else {
@@ -348,7 +396,7 @@ impl State65816 {
         };
         identity == Some(fact.identity)
             && slot == Some(fact.slot)
-            && offset.map(u16::from) == Some(fact.slot.offset)
+            && offset.map(Location::from) == Some(fact.slot)
             && self.delta() == 0
             && cursor == Some(fact.cursor)
             && self.env.m == Width::Word
@@ -356,7 +404,7 @@ impl State65816 {
             && self.nz.matches(fact.value)
             && self
                 .homes
-                .get(&(fact.slot.offset, 2))
+                .get(&fact.slot)
                 .is_some_and(|h| h.generation == fact.generation && h.value.matches(fact.value))
     }
 }
@@ -371,7 +419,7 @@ impl State65816 {
         assert!(self.a.width() == Some(Width::Word) && self.nz.matches(self.a));
         self.next += 1;
         self.homes.insert(
-            (slot.offset, 2),
+            Location::Stack(slot),
             Home {
                 generation: self.next,
                 value: self.a,
@@ -383,7 +431,7 @@ impl State65816 {
             .adjacent
             .expect("incoming read must retain its temp capture");
         assert!(matches!(capture.identity, WordIdentity::Temp(_)));
-        let read = self.homes[&(source.offset, 2)];
+        let read = self.homes[&Location::Stack(source)];
         let fact = IncomingWord {
             param,
             source,
@@ -404,13 +452,13 @@ impl State65816 {
             && self.a.matches(fact.capture.value)
             && self.nz.matches(self.a)
             && [
-                (fact.source, fact.read_generation),
+                (Location::Stack(fact.source), fact.read_generation),
                 (fact.capture.slot, fact.capture.generation),
             ]
             .iter()
             .all(|(slot, generation)| {
                 self.homes
-                    .get(&(slot.offset, 2))
+                    .get(slot)
                     .is_some_and(|h| h.generation == *generation && h.value.matches(self.a))
             })
     }

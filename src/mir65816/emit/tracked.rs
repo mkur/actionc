@@ -1,6 +1,6 @@
 //! The only native instruction-writing boundary: each admitted form owns bytes
 //! and effects together. Finalized Code remains patchable by the linker.
-use super::{BlockId, Slot, TempId, state::*};
+use super::{BlockId, Location, Slot, TempId, copies::WordHome, state::*};
 #[path = "code.rs"]
 mod encoding;
 pub use encoding::{Code, ConditionalBranch, Fixup, Label, MirTransfer, Target};
@@ -289,10 +289,10 @@ impl TrackedEmitter65816 {
         self.state.adjacent = None;
         self.state.incoming = None;
     }
-    pub fn register_home(&mut self, slot: Slot) {
+    pub fn register_home(&mut self, slot: impl Into<Location>) {
         self.state.register_home(slot);
     }
-    pub fn remember_word(&mut self, temp: TempId, slot: Slot) {
+    pub fn remember_word(&mut self, temp: TempId, slot: impl Into<Location>) {
         if let Some(cursor) = self.word_cursor() {
             self.state.publish_word(temp, slot, cursor);
         }
@@ -300,8 +300,8 @@ impl TrackedEmitter65816 {
     pub fn consume_word(
         &mut self,
         temp: Option<TempId>,
-        slot: Option<Slot>,
-        offset: Option<u8>,
+        slot: Option<Location>,
+        offset: Option<WordHome>,
     ) -> bool {
         self.state
             .consume_word(temp, slot, offset, self.word_cursor())
@@ -326,8 +326,8 @@ impl TrackedEmitter65816 {
     ) -> bool {
         self.state.consume_adjacent(
             Some(WordIdentity::Frame(object, byte)),
-            Some(slot),
-            Some(offset),
+            Some(Location::Stack(slot)),
+            Some(WordHome::Stack(offset)),
             self.word_cursor(),
         )
     }
@@ -338,7 +338,7 @@ impl TrackedEmitter65816 {
         param: super::ParamId,
         source: Slot,
         temp: TempId,
-        destination: Slot,
+        destination: Location,
     ) {
         let forwarded = self
             .state
@@ -350,7 +350,7 @@ impl TrackedEmitter65816 {
             self.state.record_incoming_read(source);
             self.observe();
         }
-        self.byte(ByteOp::StaStack, destination.offset as u8);
+        self.store_word(super::copies::word_home(destination, 0).expect("preflighted capture"));
         self.remember_word(temp, destination);
         if !forwarded {
             self.state
@@ -362,7 +362,7 @@ impl TrackedEmitter65816 {
     pub fn store_incoming_capture(
         &mut self,
         temp: TempId,
-        source: Slot,
+        source: Location,
         destination: Slot,
     ) -> bool {
         let Some(mut fact) = self.state.incoming.take() else {
@@ -377,9 +377,13 @@ impl TrackedEmitter65816 {
             || fact.capture.slot != source
             || destination.width != 2
             || !disjoint(destination, fact.source)
-            || !disjoint(destination, source)
+            || Location::Stack(destination).overlaps(source)
             || !self.state.incoming_matches(fact, self.word_cursor())
-            || !self.consume_word(Some(temp), Some(source), Some(source.offset as u8))
+            || !self.consume_word(
+                Some(temp),
+                Some(source),
+                Some(super::copies::word_home(source, 0).expect("preflighted source")),
+            )
         {
             return false;
         }
@@ -486,6 +490,12 @@ impl TrackedEmitter65816 {
         self.code.op(op.opcode());
         self.observe();
     }
+    pub fn store_word(&mut self, home: WordHome) {
+        match home {
+            WordHome::Stack(offset) => self.byte(ByteOp::StaStack, offset),
+            WordHome::DirectPage(offset) => self.byte(ByteOp::StaDp, offset),
+        }
+    }
     pub fn byte(&mut self, op: ByteOp, value: u8) {
         use ByteOp::*;
         self.live();
@@ -498,6 +508,8 @@ impl TrackedEmitter65816 {
             State65816::constant(value.into(), width)
         } else if matches!(op, LdaStack | AdcStack | SbcStack | CmpStack) {
             self.state.read_stack(value, width)
+        } else if matches!(op, LdaDp | AdcDp | SbcDp | CmpDp) {
+            self.state.read_dp(value, width)
         } else if op == LdxDp {
             self.state.fresh(self.state.env.index)
         } else {
@@ -506,7 +518,8 @@ impl TrackedEmitter65816 {
         match op {
             LdaImm | LdaStack | LdaDp | LdaIndirect | LdaIndirectY => self.state.load_a(rhs),
             StaStack => self.state.write_stack(value, width),
-            StaDp | StaIndirect | StaIndirectY => self.state.unknown_write(),
+            StaDp => self.state.write_dp(value, width),
+            StaIndirect | StaIndirectY => self.state.unknown_write(),
             LdxDp => {
                 self.state.x = rhs;
                 self.state.nz = rhs;

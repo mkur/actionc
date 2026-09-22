@@ -67,6 +67,7 @@ fn fused_selection_uses_one_dispatch_and_retains_both_edges_and_frame() {
             let (a, c) = if swap { (c, a) } else { (a, c) };
             let encode = |operand, load| match operand {
                 WordOperand::Stack(d) => vec![if load { 0xa3 } else { 0xc3 }, d],
+                WordOperand::DirectPage(d) => vec![if load { 0xa5 } else { 0xc5 }, d],
                 WordOperand::Immediate(n) => {
                     vec![if load { 0xa9 } else { 0xc9 }, n as u8, (n >> 8) as u8]
                 }

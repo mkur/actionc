@@ -41,6 +41,7 @@ fn encode(operand: WordOperand, load: bool) -> Vec<u8> {
     match operand {
         WordOperand::Immediate(n) => vec![if load { 0xa9 } else { 0xc9 }, n as u8, (n >> 8) as u8],
         WordOperand::Stack(d) => vec![if load { 0xa3 } else { 0xc3 }, d],
+        WordOperand::DirectPage(d) => vec![if load { 0xa5 } else { 0xc5 }, d],
     }
 }
 
@@ -192,10 +193,12 @@ fn comparison_fallback_is_nonmutating_for_signed_order_and_unsupported_homes() {
         }
         b.code.a8();
         let before = format!("{:?}", b.code);
-        assert!(
-            !b.word_compare(dest, bytes, signed, op, &left, &right)
-                .unwrap()
-        );
+        let result = b.word_compare(dest, bytes, signed, op, &left, &right);
+        if problem == 8 {
+            assert!(result.is_err());
+        } else {
+            assert!(!result.unwrap());
+        }
         assert_eq!(format!("{:?}", b.code), before, "problem {problem}");
     }
 }

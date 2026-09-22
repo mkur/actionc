@@ -77,7 +77,11 @@ fn proved_mir_entry_omits_rep_but_clears_values_and_keeps_byte_transition() {
     let at = e.position();
     e.a16();
     assert_eq!(e.position(), at);
-    assert!(!e.consume_word(Some(TempId(0)), Some(slot), Some(2)));
+    assert!(!e.consume_word(
+        Some(TempId(0)),
+        Some(slot.into()),
+        Some(super::copies::WordHome::Stack(2))
+    ));
     e.a8();
     assert_eq!(&e.code().bytes[at..], &[0xe2, 0x20]);
     e.a16();
@@ -155,7 +159,12 @@ fn immutable_values_unknowns_and_overlapping_home_generations() {
     s.write_stack(2, Width::Word);
     s.publish_word(TempId(0), slot, (1, 0));
     s.unknown_write();
-    assert!(!s.consume_word(Some(TempId(0)), Some(slot), Some(2), Some((1, 0))));
+    assert!(!s.consume_word(
+        Some(TempId(0)),
+        Some(slot.into()),
+        Some(super::copies::WordHome::Stack(2)),
+        Some((1, 0))
+    ));
 }
 #[test]
 fn flags_partial_lanes_calls_and_status_masks() {
@@ -234,10 +243,18 @@ fn observed_facts_never_extend_adjacency_permission() {
     e.byte(ByteOp::StaStack, 254);
     e.remember_word(TempId(0), slot);
     e.op(Implied::Clc);
-    assert!(!e.consume_word(Some(TempId(0)), Some(slot), Some(254)));
+    assert!(!e.consume_word(
+        Some(TempId(0)),
+        Some(slot.into()),
+        Some(super::copies::WordHome::Stack(254))
+    ));
     e.remember_word(TempId(0), slot);
     e.barrier();
-    assert!(!e.consume_word(Some(TempId(0)), Some(slot), Some(254)));
+    assert!(!e.consume_word(
+        Some(TempId(0)),
+        Some(slot.into()),
+        Some(super::copies::WordHome::Stack(254))
+    ));
 }
 #[test]
 fn stack_equations_and_transfer_peak_are_separate_from_body_addresses() {
@@ -293,7 +310,11 @@ fn call_and_join_invalidate_value_and_flag_relations_without_new_mode_omissions(
         0,
         None,
     );
-    assert!(!e.consume_word(Some(TempId(0)), Some(slot), Some(2)));
+    assert!(!e.consume_word(
+        Some(TempId(0)),
+        Some(slot.into()),
+        Some(super::copies::WordHome::Stack(2))
+    ));
     let before = e.position();
     e.a16();
     assert_eq!(e.position(), before);
@@ -337,10 +358,20 @@ fn frame_witness_requires_object_byte_generation_full_nz_and_exact_cursor() {
             _ => {}
         }
         assert_eq!(
-            s.consume_adjacent(Some(requested), Some(home), Some(254), Some(cursor)),
+            s.consume_adjacent(
+                Some(requested),
+                Some(home.into()),
+                Some(super::copies::WordHome::Stack(254)),
+                Some(cursor)
+            ),
             case == 0
         );
-        assert!(!s.consume_adjacent(Some(identity), Some(slot), Some(254), Some((12, 1))));
+        assert!(!s.consume_adjacent(
+            Some(identity),
+            Some(slot.into()),
+            Some(super::copies::WordHome::Stack(254)),
+            Some((12, 1))
+        ));
     }
 }
 
@@ -358,7 +389,7 @@ fn incoming_read_facts_require_identity_generation_and_never_admit_writes() {
         let mut e = TrackedEmitter65816::default();
         e.test_frame(8);
         e.register_home(capture);
-        e.capture_incoming_word(super::ParamId(0), source, TempId(1), capture);
+        e.capture_incoming_word(super::ParamId(0), source, TempId(1), capture.into());
         let mut s = e.state_for_incoming_test();
         let mut param = super::ParamId(0);
         let mut home = source;
@@ -374,8 +405,55 @@ fn incoming_read_facts_require_identity_generation_and_never_admit_writes() {
         }
         assert_eq!(s.consume_incoming(param, home, e.word_cursor()), case == 0);
         if case == 4 {
-            assert!(!s.homes.contains_key(&(254, 2)));
+            assert!(!s.homes.contains_key(&super::Location::Stack(Slot {
+                offset: 254,
+                width: 2
+            })));
         }
         assert!(!s.consume_incoming(super::ParamId(0), source, e.word_cursor()));
     }
+}
+
+#[test]
+fn dp_generations_are_separate_and_partial_writes_invalidate_the_word() {
+    use super::{Location, copies::WordHome};
+    let mut s = State65816::default();
+    let slot = Slot {
+        offset: 32,
+        width: 2,
+    };
+    let dp = Location::DirectPage(slot);
+    s.register_home(slot);
+    s.register_home(dp);
+    s.load_a(Value::Constant(17, Width::Word));
+    s.write_stack(32, Width::Word);
+    s.load_a(Value::Constant(23, Width::Word));
+    s.write_dp(32, Width::Word);
+    assert_eq!(
+        s.read_stack(32, Width::Word),
+        Value::Constant(17, Width::Word)
+    );
+    assert_eq!(s.read_dp(32, Width::Word), Value::Constant(23, Width::Word));
+    s.publish_word(TempId(0), dp, (1, 0));
+    assert!(!s.consume_word(
+        Some(TempId(0)),
+        Some(slot.into()),
+        Some(WordHome::Stack(32)),
+        Some((1, 0))
+    ));
+    s.publish_word(TempId(0), dp, (1, 0));
+    assert!(s.consume_word(
+        Some(TempId(0)),
+        Some(dp),
+        Some(WordHome::DirectPage(32)),
+        Some((1, 0))
+    ));
+    s.write_dp(33, Width::Byte);
+    assert!(!s.homes.contains_key(&dp));
+    assert_eq!(
+        s.read_stack(32, Width::Word),
+        Value::Constant(17, Width::Word)
+    );
+    s.write_dp(8, Width::Word);
+    assert!(s.homes.is_empty());
 }

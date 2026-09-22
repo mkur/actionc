@@ -73,3 +73,22 @@ Physical ABI v1, image v3, experimental o65, allocation and Exec816's pin are
 unchanged. Wider forwarding, block-entry width omission and X/Y/DP allocation
 remain future measured slices. The first slice supplies proofs without changing
 code quality or increasing register lifetimes.
+
+## Scalar DP word prerequisite
+
+Private word identities now include the address space: S+$20 and D+$20 are
+distinct homes. Explicitly registered scalar DP words in D+$20..D+$3F use the
+same contents generations and adjacent producer permissions as stack words.
+Partial writes invalidate overlapping homes; selector scratch writes outside
+registered residents, unknown writes, calls and joins retain their conservative
+barriers. DP identities require the current fixed domain. Incoming reads and
+frame witnesses remain stack based, while their captures may use either space.
+
+Native word selection and parallel copies accept checked DP sources and
+destinations, retaining stack staging and final A/N/Z repair. Proof snapshots
+identify their address space and the native oracle reads them relative to D or
+the frame anchor. Allocation remains disabled in this prerequisite: all 28
+saved corpus images, maps and historical movement facts are byte-identical,
+including LF/CRLF compilation. Validation covers 97 compiler unit tests, 60
+integration tests and seven native state tests, including independent ca65
+encodings, boundary arithmetic and same-offset stack/DP generation checks.

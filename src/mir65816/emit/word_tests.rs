@@ -136,16 +136,18 @@ fn unsupported_operands_do_not_emit_a_prefix_or_change_mode_knowledge() {
         }
         b.code.a8();
         let before = b.code.code().bytes.clone();
-        assert!(
-            !b.word_binary(
-                dest,
-                2,
-                NirBinaryOp::Add,
-                &Mir65816Value::U16(1),
-                &unsupported
-            )
-            .unwrap()
+        let result = b.word_binary(
+            dest,
+            2,
+            NirBinaryOp::Add,
+            &Mir65816Value::U16(1),
+            &unsupported,
         );
+        if matches!(unsupported,Mir65816Value::Temp(_,w) if w.get()==2) {
+            assert!(result.is_err());
+        } else {
+            assert!(!result.unwrap());
+        }
         assert_eq!(b.code.code().bytes, before);
         b.code.a8();
         assert_eq!(
@@ -293,6 +295,7 @@ fn word_returns_select_checked_sources_and_share_frame_teardown() {
         let load = match operand {
             WordOperand::Immediate(v) => vec![0xa9, v as u8, (v >> 8) as u8],
             WordOperand::Stack(d) => vec![0xa3, d],
+            WordOperand::DirectPage(d) => vec![0xa5, d],
         };
         b.code.a8();
         let prefix = b.code.code().bytes.len();
@@ -383,7 +386,12 @@ fn word_return_gate_uses_the_abi_home_and_fallback_does_not_emit() {
         }
         b.code.a8();
         let before = b.code.code().bytes.clone();
-        assert!(!b.word_return(&value).unwrap());
+        let result = b.word_return(&value);
+        if matches!(value,Mir65816Value::Temp(_,w) if w.get()==2) {
+            assert!(result.is_err());
+        } else {
+            assert!(!result.unwrap());
+        }
         b.code.a8();
         assert_eq!(b.code.code().bytes, before);
         assert!(b.code.code().fixups.is_empty());
