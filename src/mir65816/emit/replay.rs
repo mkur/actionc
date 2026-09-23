@@ -1,12 +1,7 @@
 //! Replay compiler-owned typed actions through a fresh tracked boundary.
 //! Compound requests regenerate their children; those children are checked,
 //! never submitted a second time. Stored states/decisions are observations only.
-use super::{
-    Code,
-    analysis::{cfg::SelectedCfg, sites::Node},
-    selected::*,
-    tracked::TrackedEmitter65816,
-};
+use super::{Code, analysis::sites::Node, selected::*, tracked::TrackedEmitter65816};
 
 fn same_action(a: &Record, b: &Record) -> bool {
     a.action == b.action
@@ -50,7 +45,8 @@ fn walk(
     _trace: bool,
     stop: Option<Node>,
 ) -> Result<TrackedEmitter65816, String> {
-    SelectedCfg::build(selected.records())?;
+    // Private actions and CFG are validated together by every constructor.
+    // Edits and replayed output still construct and verify their own graph.
     let mut emitter = TrackedEmitter65816::default();
     #[cfg(feature = "native65816-state-proof")]
     if _trace {

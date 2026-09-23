@@ -255,6 +255,19 @@ fn malformed_labels_requests_modes_and_stack_equations_block_the_graph() {
             _ => unreachable!(),
         }
         assert!(SelectedCfg::build(&records).is_err(), "{mutation}");
+        assert!(s.edited(records.clone()).is_err(), "edited/{mutation}");
+        // Both entry constructors and replay publication reject the same bad
+        // graph; callers cannot manufacture a prevalidated selected routine.
+        let recording = Recording {
+            records: records[..records.len() - 2].to_vec(),
+            parents: vec![],
+            source: None,
+        };
+        assert!(
+            SelectedRoutine::new(RoutineId(7), &frame(), None, recording.clone(), &c).is_err(),
+            "new/{mutation}"
+        );
+        assert!(s.replayed(recording, &c).is_err(), "replayed/{mutation}");
     }
 }
 #[test]

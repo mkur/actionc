@@ -207,6 +207,26 @@ fn decision_observations_have_a_checked_structural_location() {
                 .unwrap()
                 .decision = None;
         }
-        assert!(SelectedCfg::build(&records).is_err());
+        assert!(s.edited(records).is_err());
     }
+}
+
+#[test]
+fn replay_uses_verified_input_cfg_but_validates_its_new_output() {
+    let code = captures(false);
+    let selected = code.selected.as_ref().unwrap();
+    let stop = Node(
+        selected
+            .records()
+            .iter()
+            .position(|r| matches!(r.action, Action::Request(Request::ConsumeWord(..))))
+            .unwrap(),
+    );
+    let (_, prefix_work) = super::super::work::measure(|| prefix(selected, stop).unwrap());
+    assert_eq!(prefix_work.get("prefix_replay"), Some(&1));
+    assert_eq!(prefix_work.get("cfg"), None);
+    let (output, full_work) = super::super::work::measure(|| emit(selected, false).unwrap());
+    assert_eq!(full_work.get("full_replay"), Some(&1));
+    assert_eq!(full_work.get("cfg"), Some(&1));
+    equivalent(&code, &output).unwrap();
 }

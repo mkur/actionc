@@ -104,3 +104,18 @@ site for the current generation. Planning diagnostics cannot authorize removal;
 a withheld final allocation identity still keeps the actual load. Selection's
 projection remains necessary because instruction cursors and X fallback choices
 influence later selection.
+
+## Replay validation boundary
+
+Every initial, edited and replayed selected routine constructs its graph from
+private actions. Public-to-the-emitter queries expose shared immutable slices;
+layout only remaps encoded ranges. The constructor audit found no action/graph
+mutation escape. Prefix and full replay now use that verified input directly.
+They retain fresh decision, action, child and environment checks, and full replay
+still constructs and verifies its own output graph. Code reconciliation remains
+at transaction entry and publication because byte metadata is separately owned.
+
+Mutation controls exercise all constructors with malformed labels, request ends,
+parents, modes and stack equations. Measured controls require zero graph builds
+for prefix replay and exactly one output graph build for full replay. No caller
+flag, persistent validation cache or skipped output check implements this change.

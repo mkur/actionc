@@ -1,6 +1,6 @@
 # Native 65816 emission simplification implementation plan
 
-Status: slices 0–3 complete; slices 4–5 pending. See the
+Status: slices 0–4 complete; slice 5 pending. See the
 [implementation record](MIR65816_EMISSION_SIMPLIFICATION.md). Based on
 main `9640df19`, whose qualified compiler source is `e4fd88b5`. This follows the
 [completed analysis foundation](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
@@ -222,6 +222,8 @@ edits, and one authoritative removal path. The one necessary projection bridge
 remains documented rather than hidden behind another representation.
 
 ## Slice 4 — Use the immutable input's verified CFG during replay
+
+Completed: [qualification](benchmarks/65816-emission-simplification/s4.json).
 
 Audit every way a `SelectedRoutine` can be constructed or edited. Its private
 records and CFG must only be published together after successful validation.

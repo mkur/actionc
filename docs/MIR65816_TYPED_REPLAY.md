@@ -29,7 +29,12 @@ traces. Exact replay retains the routine owner/allocation/generation identity.
 Old encoded ranges are not inputs to regeneration, so a finalized short branch
 can be replayed and finalized again without stale offsets.
 
-The fresh recording passes selected-CFG validation and reconciliation. The
+The immutable input already owns its verified CFG: initial construction,
+`edited` and replay publication all validate private actions and graph together.
+Layout can only remap derived encoded positions. Full and prefix replay therefore
+do not rebuild the input graph. They still recompute all compiler decisions and
+compare exact action/child/environment observations. The fresh output recording
+passes its own selected-CFG validation and reconciliation. The
 unchanged layout finalizer then runs once on that output. Both flat-image and
 o65 serialization consume the same finalized result. A feature-gated direct
 reference path remains available for qualification.
@@ -42,8 +47,8 @@ assertions are unchanged; this slice does not use panic-catching as validation.
 
 Selection still creates private provisional bytes while making its existing
 choices, and replay regenerates the published bytes. Host compile-time and peak
-memory overhead have not been measured. The final foundation qualification
-retains that measurement requirement.
+memory overhead are recorded in the [foundation qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md)
+and [emission simplification](MIR65816_EMISSION_SIMPLIFICATION.md).
 
 ## Qualification
 
