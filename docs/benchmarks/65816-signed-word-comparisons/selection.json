@@ -1,0 +1,219 @@
+{
+  "stage": "native signed selection and adjacent branch fusion",
+  "root_unit_tests": 193,
+  "focused_vm_checks": [
+    "31 tests: signed, compare_branch, word_comparisons, preemption",
+    "13 tests after extra traffic and fusion exclusion cases"
+  ],
+  "manifests": {
+    "tools/native65816-runtime-tests/target/qualification/run-cwdcudrj/manifest.json": "872bf55bef49318c7e8fcc61dee24002bd43d4cf32c806daab7c6e6536f332ec",
+    "tools/native65816-runtime-tests/target/qualification/run-a0o1i940/manifest.json": "e82bab26067c25e316f5660afbe89deb4efccde71b7a16c061259a2136627dd3"
+  },
+  "probes": [
+    {
+      "name": "signed-size-probes-false",
+      "metrics": {
+        "code_bytes": 1230,
+        "cycles": 84,
+        "dp_reads": 0,
+        "dp_writes": 0,
+        "routines": [
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetLt"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchLt"
+          },
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetLe"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchLe"
+          },
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetGt"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchGt"
+          },
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetGe"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchGe"
+          },
+          {
+            "bytes": 131,
+            "frame": 6,
+            "name": "Imm"
+          },
+          {
+            "bytes": 47,
+            "frame": 0,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 3,
+        "stack_writes": 4
+      },
+      "image_sha256": "74310d4b694a86b51746c371f4af355c2ade8fa896233af0b0f6ff5154adb0db",
+      "source_sha256": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+      "listing_sha256": "df42b725975d9c3bb5b6868c73496d4844e00f03c5ecc0dc8221ba778780a1af"
+    },
+    {
+      "name": "signed-size-probes-true",
+      "metrics": {
+        "code_bytes": 1219,
+        "cycles": 84,
+        "dp_reads": 0,
+        "dp_writes": 0,
+        "routines": [
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetLt"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchLt"
+          },
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetLe"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchLe"
+          },
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetGt"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchGt"
+          },
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "RetGe"
+          },
+          {
+            "bytes": 140,
+            "frame": 6,
+            "name": "BranchGe"
+          },
+          {
+            "bytes": 120,
+            "frame": 4,
+            "name": "Imm"
+          },
+          {
+            "bytes": 47,
+            "frame": 0,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 3,
+        "stack_writes": 4
+      },
+      "image_sha256": "4ede095227135a20aed4d6465540c5334cb5e3a289a912be79d91402c4216d4c",
+      "source_sha256": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+      "listing_sha256": "da5329f850f15e95a0d37e0582207302d293f628bc5c0a308f56cc96b7984363"
+    },
+    {
+      "name": "signed-word-comparisons-false",
+      "metrics": {
+        "code_bytes": 2471,
+        "cycles": 2955,
+        "dp_reads": 196,
+        "dp_writes": 197,
+        "routines": [
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "Ret"
+          },
+          {
+            "bytes": 117,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2071,
+            "frame": 10,
+            "name": "Work"
+          },
+          {
+            "bytes": 160,
+            "frame": 6,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 146,
+        "stack_writes": 117
+      },
+      "image_sha256": "d6e545854e9df81d47b930dffeb2429a3b4def2438b8a7981e36fdeb5ea01013",
+      "source_sha256": "a72afaf1255ce92ff41215c376a49adae0eeaeff75daf918f822a70a1c7862d6",
+      "listing_sha256": "c098f0fb789c595759d8ba56a005ebeeff95eea4f47b81246537954b6e2e613c"
+    },
+    {
+      "name": "signed-word-comparisons-true",
+      "metrics": {
+        "code_bytes": 2451,
+        "cycles": 2916,
+        "dp_reads": 196,
+        "dp_writes": 197,
+        "routines": [
+          {
+            "bytes": 123,
+            "frame": 6,
+            "name": "Ret"
+          },
+          {
+            "bytes": 117,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2051,
+            "frame": 10,
+            "name": "Work"
+          },
+          {
+            "bytes": 160,
+            "frame": 6,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 142,
+        "stack_writes": 111
+      },
+      "image_sha256": "c2132fd4d93e9bb69d46f862f2ed39adaacc7ff8ef4f8b81a55f5a7aa759ca3b",
+      "source_sha256": "a72afaf1255ce92ff41215c376a49adae0eeaeff75daf918f822a70a1c7862d6",
+      "listing_sha256": "1aaae38fcb60c10f795555d35a1f15327751acbb212adeee405e55153dd6745b"
+    }
+  ],
+  "preemption_sites_per_mode": 590
+}

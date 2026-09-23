@@ -436,7 +436,7 @@ Two-byte comparisons may use one native CMP for equality/inequality (signed or
 unsigned) and unsigned ordering, using the same checked word sources. The result
 must have an exact one-byte stack home. Materialized results are stored as 0 or 1
 in A8. Selection checks the destination and both inputs before changing code, labels or mode
-knowledge. Signed ordering and legal unsupported sources/destinations retain
+knowledge. Legal unsupported sources/destinations retain
 bytewise emission; malformed homes remain errors. CMP flags are consumed within
 the operation before loading the Boolean, except for the adjacent branch fusion
 described below. Both inputs are read before the result store, allowing
@@ -444,6 +444,18 @@ existing dead-input slot reuse. Complete-word reads may increase private stack
 read traffic compared with the old high-byte early exit; original volatile or
 aliased source accesses remain separate and unchanged. No DP scratch, pushes,
 helpers, X/Y use, allocation change or ABI change is introduced.
+
+Signed two-byte ordering uses A16 SEC/SBC over the same checked word sources,
+then a typed long BVC skips EOR #$8000 when there is no overflow. Corrected N
+encodes the signed relation: Lt/Ge subtract left minus right and use BMI/BPL;
+Gt/Le swap the captured inputs and use BMI/BPL. Corrected Z is never used for
+inclusive ordering: overflowing unequal inputs can correct to zero. SEC makes
+incoming C irrelevant; SBC establishes V. Binary arithmetic relies on the
+existing decimal-clear ABI. The correction join has conservative value facts,
+and the signed path retains the operation barrier, with no new forwarding,
+DP allocation, source-memory reordering, I changes or persistent flag facts.
+The internal BVC remains an ordinary long branch, distinct from MIR dispatch.
+Word EOR writes A/N/Z while preserving C/V; BMI reads N and BVC reads V.
 
 Exact-width BYTE comparisons use A8 CMP for unsigned relations and signed
 Eq/Ne. Greater-than and less-or-equal swap captured operands; they never reorder
@@ -459,13 +471,13 @@ literal/null/absolute-address values. Full preflight validates both inputs and
 the BYTE result home, including stack delta and the final bank-byte extent,
 before emitting or changing state. Mutable parameters use their authoritative
 frame homes. Direct symbolic addresses, DP-resident narrow operands, mixed
-widths, signed ordering, pointer ordering and four-byte comparisons retain
+widths, signed BYTE ordering, pointer ordering and four-byte comparisons retain
 their prior paths. New materialized predicates write exactly one canonical
 0/1 through two outcome arms. Allocation, ABI return extension, source-memory
 ordering, all 64 clobberable DP scratch bytes and every guard remain unchanged.
 
 A final eligible byte, word or pointer Compare followed immediately by Branch may consume
-C/Z flags directly when a routine-wide use proof establishes exactly one use:
+C/Z flags (or corrected N for signed words) directly when a routine-wide use proof establishes exactly one use:
 that Branch condition. Other block conditions, edge arguments, returns and all
 operation inputs (including addresses and indirect calls) disqualify fusion.
 No flags cross an intervening operation or block. Both edge trampolines retain
@@ -477,7 +489,9 @@ storage maps and stack guards, but no 0/1 is written for an eliminated branch-on
 value. Each executed fusion removes exactly one Boolean stack write and reload;
 word reads and edge-copy traffic are unchanged. No value resides in flags or DP
 across a call or another MIR operation. Preemption must preserve live A/P through
-the adjacent load, CMP and conditional/JML sequence. Fused pointer inequality
+the adjacent load, comparison/correction and conditional/JML sequence. A signed
+fused pair records exactly one final BMI/BPL dispatch in its MIR span; the
+internal overflow branch remains part of the selected CFG and relocation map. Fused pointer inequality
 can record two conditional dispatches to the same true edge, one after each
 part; both belong to the fused MIR span and use the existing layout/fixup rules.
 Pointer equality's early low-word mismatch skips the bank decision. The

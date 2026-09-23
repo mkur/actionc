@@ -700,6 +700,19 @@ fn pointer_comparisons_restore_each_low_word_and_bank_path_under_irq_and_nmi() {
     check_narrow_preemption(&source, ["POINTEREQUAL", "POINTERBRANCH"], "pointer");
 }
 
+#[test]
+fn signed_word_overflow_and_sign_decisions_restore_full_irq_nmi_state() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+        "BYTE FUNC SignedLess(INT a,b) RETURN(a<b)\nCARD FUNC SignedBranch(INT a,b) BYTE saved\nsaved=SignedLess(a,b)\nIF a<b THEN RETURN(CARD(saved)+3) FI RETURN(CARD(saved)+7)\nCARD FUNC Read(")
+        .replace("  work.done=1", "  work.result==+SignedBranch(INT($7FFF),INT($FFFF))+SignedBranch(INT($8000),1)+SignedBranch(INT($8000),INT($7FFF))+SignedBranch(INT($7FFF),INT($8000))+SignedBranch(0,0)-29\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["SIGNEDLESS", "SIGNEDBRANCH"], "signed");
+}
+
 fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
     for optimize in [false, true] {
         let mut h = machine_source(source, optimize);
@@ -713,6 +726,7 @@ fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
         assert_eq!(ranges.len(), 2);
         let mut seen = BTreeSet::new();
         let mut widths = BTreeSet::new();
+        let mut signed_instructions = BTreeSet::new();
         for _ in 0..2_000_000 {
             if h.cpu.is_stopped() {
                 break;
@@ -725,7 +739,8 @@ fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
                 && ranges.iter().any(|range| range.contains(&pc))
             {
                 widths.insert(r.p & 0x20);
-                if seen.insert((r.d, pc, r.p & 0x83)) {
+                signed_instructions.insert((h.bus.ram[pc as usize], r.p & 0x40));
+                if seen.insert((r.d, pc, r.p & 0xc3)) {
                     let cpu = h.cpu.clone();
                     let bus = h.bus.clone();
                     run_checked_fused_irq(&mut h);
@@ -734,6 +749,13 @@ fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
                     h.bus = bus.clone();
                     run_checked_frame_nmi(&mut h);
                     check(&h);
+                    if kind == "signed" {
+                        h.bus = bus.clone();
+                        let mut masked = cpu.registers();
+                        masked.p |= 4;
+                        h.cpu = actionc_vm::native65816::Machine::start_at(masked);
+                        restore_frame_nmi(&mut h);
+                    }
                     h.cpu = cpu;
                     h.bus = bus;
                 }
@@ -741,6 +763,16 @@ fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
             h.tick(Inputs::default());
         }
         check(&h);
+        if kind == "signed" {
+            for op in [0x38, 0xe3, 0x70, 0x49, 0x10, 0x30] {
+                assert!(
+                    signed_instructions.iter().any(|&(o, _)| o == op),
+                    "missing {op:02x}"
+                );
+            }
+            assert!(signed_instructions.contains(&(0x70, 0)));
+            assert!(signed_instructions.contains(&(0x70, 0x40)));
+        }
         assert_eq!(widths, BTreeSet::from([0, 0x20]));
         assert!(seen.len() > 50);
         for seed in [0x81620260916, 0x5eedcafe] {
@@ -1195,6 +1227,10 @@ fn check_frame_forwarding(h: &ContextHarness) {
     }
 }
 fn run_checked_frame_nmi(h: &mut ContextHarness) {
+    restore_frame_nmi(h);
+    run_injected(h, false, None);
+}
+fn restore_frame_nmi(h: &mut ContextHarness) {
     let mut reference = h.cpu.clone();
     let mut bus = h.bus.clone();
     reference.tick(&mut bus, Inputs::default()).unwrap();
@@ -1221,7 +1257,6 @@ fn run_checked_frame_nmi(h: &mut ContextHarness) {
                 &h.bus.ram[usize::from(expected.s) + 1..ceiling],
                 &bus.ram[usize::from(expected.s) + 1..ceiling]
             );
-            run_injected(h, false, None);
             return;
         }
         assert!(!h.cpu.is_stopped());

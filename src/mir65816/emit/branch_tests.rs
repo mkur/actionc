@@ -113,9 +113,12 @@ fn pair_gates_and_checked_homes_fail_without_partial_comparison_emission() {
     let p = program();
     let r = &p.routines[0];
     let block = &r.blocks[0];
-    for problem in 0..12 {
+    for (problem, signed_order) in (0..12).flat_map(|p| [false, true].map(|s| (p, s))) {
         let mut b = builder(r);
         let mut op = block.ops.last().unwrap().clone();
+        if let Mir65816Op::Compare { signed, .. } = &mut op {
+            *signed = signed_order;
+        }
         let mut term = block.terminator.clone();
         let mut sole = liveness::sole_branch_conditions(r);
         let Mir65816Op::Compare {
@@ -146,6 +149,7 @@ fn pair_gates_and_checked_homes_fail_without_partial_comparison_emission() {
             3 => *width = ByteSize::ONE,
             4 => {
                 *signed = true;
+                *width = ByteSize::new(4);
                 *operation = NirCompareOp::Lt;
             }
             5 => {

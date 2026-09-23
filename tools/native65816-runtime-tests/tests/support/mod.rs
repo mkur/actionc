@@ -338,6 +338,7 @@ pub mod context;
 
 pub mod comparison;
 pub mod narrow_comparison;
+pub mod signed_comparison;
 
 pub mod o65;
 

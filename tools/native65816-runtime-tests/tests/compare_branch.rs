@@ -379,7 +379,10 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
     use actionc::target::{AddressValue, ByteOffset};
     use actionc_vm::native65816::Inputs;
     for optimize in [false, true] {
-        for variant in 0..4 {
+        for (signed, variant) in [false, true]
+            .into_iter()
+            .flat_map(|s| (0..6).map(move |v| (s, v)))
+        {
             let mut p = edge_program(optimize, false);
             let r = p
                 .mir
@@ -387,6 +390,9 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
                 .iter_mut()
                 .find(|r| r.name == "Work")
                 .unwrap();
+            if let Mir65816Op::Compare { signed: s, .. } = r.blocks[0].ops.last_mut().unwrap() {
+                *s = signed;
+            }
             let flag = Mir65816Value::Temp(TempId(8), ByteSize::ONE);
             let address = Mir65816Address {
                 base: Mir65816AddressBase::External(Mir65816ExternalAddress::Absolute(
@@ -403,7 +409,7 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
                 volatile: true,
             };
             match variant {
-                0 => {
+                0 | 4 | 5 => {
                     let ty = r.temps.iter().find(|(id, _)| id.0 == 8).unwrap().1.clone();
                     r.temps.push((TempId(10), ty));
                     let Mir65816Terminator::Branch {
@@ -414,8 +420,16 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
                     else {
                         panic!()
                     };
-                    then_edge.args.push(flag.clone());
-                    else_edge.args.push(flag.clone());
+                    then_edge.args.push(if variant == 5 {
+                        Mir65816Value::U8(0)
+                    } else {
+                        flag.clone()
+                    });
+                    else_edge.args.push(if variant == 4 {
+                        Mir65816Value::U8(0)
+                    } else {
+                        flag.clone()
+                    });
                     r.blocks[1].params.push((TempId(10), ByteSize::ONE));
                     r.blocks[1]
                         .ops
@@ -456,10 +470,39 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
             }
             mir65816::verify_program(&p.mir).unwrap();
             let compiled = p.compile(&layout()).unwrap();
+            let work = p.mir.routines.iter().find(|r| r.name == "Work").unwrap();
+            let machine = compiled
+                .machine
+                .routines
+                .iter()
+                .find(|m| m.id == work.id)
+                .unwrap();
+            let linked = compiled
+                .image
+                .routines
+                .iter()
+                .find(|r| r.id == work.id.0)
+                .unwrap();
+            let index = work.blocks[0]
+                .ops
+                .iter()
+                .position(|o| matches!(o, Mir65816Op::Compare { .. }))
+                .unwrap();
+            let start =
+                linked.address + machine.code.mir_spans[&(work.blocks[0].id, index)].start as u32;
+            assert!(
+                machine
+                    .code
+                    .mir_spans
+                    .contains_key(&(work.blocks[0].id, work.blocks[0].ops.len()))
+            );
+            if signed {
+                assert_eq!(signed_comparison::check(&p, &compiled), 1);
+            }
             let image = Image::from_json(&compiled.image.to_json().unwrap()).unwrap();
             let forwarded = forwarding::compiled(&p, &compiled);
             let caller = caller(image.entry);
-            for (a, b) in [(1u16, 2u16), (2, 1)] {
+            for (a, b) in [(1u16, 2u16), (2, 1), (0xffff, 1), (1, 0xffff)] {
                 for mask in [0, 4] {
                     let mut h = Harness::new(&image, &caller, mask);
                     h.bus.forwarded_words = forwarded.clone();
@@ -474,7 +517,11 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
                             assert!(
                                 comparison::fused_window(&h.cpu, &h.bus, &image.routines).is_none()
                             );
-                            if comparison::window(&h.cpu, &h.bus, &image.routines).is_some() {
+                            if (signed && h.cpu.pc() == start)
+                                || (!signed
+                                    && comparison::window(&h.cpu, &h.bus, &image.routines)
+                                        .is_some())
+                            {
                                 materialized += 1;
                             }
                         }
@@ -483,9 +530,21 @@ fn reused_conditions_and_intervening_operations_keep_materialized_booleans() {
                     assert!(h.cpu.is_stopped());
                     h.guards(mask);
                     assert_eq!(materialized, 1);
-                    assert_eq!(h.bus.value(0x7200, 2), 1);
-                    if variant < 2 {
-                        assert_eq!(h.bus.value(0x7210, 1), u32::from(a < b));
+                    let truth = if signed {
+                        (a as i16) < (b as i16)
+                    } else {
+                        a < b
+                    };
+                    assert_eq!(
+                        h.bus.value(0x7200, 2),
+                        u32::from(if truth {
+                            b.wrapping_sub(a)
+                        } else {
+                            a.wrapping_sub(b)
+                        })
+                    );
+                    if variant < 2 || variant >= 4 {
+                        assert_eq!(h.bus.value(0x7210, 1), u32::from(truth && variant != 5));
                     }
                 }
             }

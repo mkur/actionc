@@ -136,7 +136,7 @@ fn word_comparison_predicates_use_checked_operands_and_byte_results() {
 }
 
 #[test]
-fn comparison_fallback_is_nonmutating_for_signed_order_and_unsupported_homes() {
+fn comparison_fallback_is_nonmutating_for_unsupported_homes() {
     let p = program();
     let r = &p.routines[0];
     let (dest, left, right) = operands(r);
@@ -150,6 +150,7 @@ fn comparison_fallback_is_nonmutating_for_signed_order_and_unsupported_homes() {
         match problem {
             0..=3 => {
                 signed = true;
+                bytes = 4;
                 op = [
                     NirCompareOp::Lt,
                     NirCompareOp::Le,
@@ -212,83 +213,85 @@ fn comparison_preflight_reports_malformed_later_operands_without_emission() {
     let Mir65816Value::Temp(input, _) = right else {
         panic!()
     };
-    for problem in 0..9 {
-        let mut routine = r.clone();
-        let mut b = builder(r);
-        let mut right = right.clone();
-        match problem {
-            0 => {
-                b.frame.temps.remove(&dest);
-            }
-            1 => {
-                b.frame.temps.insert(
-                    dest,
-                    Location::Stack(Slot {
-                        offset: 1,
-                        width: 2,
-                    }),
-                );
-            }
-            2 => {
-                b.frame.temps.remove(&input);
-            }
-            3 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::Stack(Slot {
-                        offset: 2,
-                        width: 1,
-                    }),
-                );
-            }
-            4 => {
-                b.frame.temps.insert(
-                    input,
-                    Location::DirectPage(Slot {
-                        offset: 2,
-                        width: 1,
-                    }),
-                );
-            }
-            5..=8 => {
-                right = Mir65816Value::Param(r.frame.parameters[0].param);
-                match problem {
-                    5 => routine.frame.parameters.clear(),
-                    6 => routine.frame.parameters[0].incoming = Mir65816AbiHome::Accumulator,
-                    7 => {
-                        routine.frame.objects.clear();
-                    }
-                    8 => {
-                        routine.frame.parameters[0].frame_object =
-                            Some(Mir65816FrameObjectId(u32::MAX))
-                    }
-                    _ => unreachable!(),
+    for signed in [false, true] {
+        for problem in 0..9 {
+            let mut routine = r.clone();
+            let mut b = builder(r);
+            let mut right = right.clone();
+            match problem {
+                0 => {
+                    b.frame.temps.remove(&dest);
                 }
+                1 => {
+                    b.frame.temps.insert(
+                        dest,
+                        Location::Stack(Slot {
+                            offset: 1,
+                            width: 2,
+                        }),
+                    );
+                }
+                2 => {
+                    b.frame.temps.remove(&input);
+                }
+                3 => {
+                    b.frame.temps.insert(
+                        input,
+                        Location::Stack(Slot {
+                            offset: 2,
+                            width: 1,
+                        }),
+                    );
+                }
+                4 => {
+                    b.frame.temps.insert(
+                        input,
+                        Location::DirectPage(Slot {
+                            offset: 2,
+                            width: 1,
+                        }),
+                    );
+                }
+                5..=8 => {
+                    right = Mir65816Value::Param(r.frame.parameters[0].param);
+                    match problem {
+                        5 => routine.frame.parameters.clear(),
+                        6 => routine.frame.parameters[0].incoming = Mir65816AbiHome::Accumulator,
+                        7 => {
+                            routine.frame.objects.clear();
+                        }
+                        8 => {
+                            routine.frame.parameters[0].frame_object =
+                                Some(Mir65816FrameObjectId(u32::MAX))
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                _ => unreachable!(),
             }
-            _ => unreachable!(),
-        }
-        b.routine = &routine;
-        b.code.a16();
-        let before = format!("{:?}", b.code);
-        assert!(
-            b.native_compare(dest, 2, false, NirCompareOp::Eq, &left, &right)
-                .is_err(),
-            "problem {problem}"
-        );
-        assert_eq!(format!("{:?}", b.code), before);
-        if problem >= 2 {
+            b.routine = &routine;
+            b.code.a16();
+            let before = format!("{:?}", b.code);
             assert!(
-                b.native_compare(
-                    dest,
-                    2,
-                    false,
-                    NirCompareOp::Eq,
-                    &Mir65816Value::U24(1),
-                    &right
-                )
-                .is_err()
+                b.native_compare(dest, 2, signed, NirCompareOp::Lt, &left, &right)
+                    .is_err(),
+                "problem {problem}"
             );
             assert_eq!(format!("{:?}", b.code), before);
+            if problem >= 2 {
+                assert!(
+                    b.native_compare(
+                        dest,
+                        2,
+                        signed,
+                        NirCompareOp::Lt,
+                        &Mir65816Value::U24(1),
+                        &right
+                    )
+                    .is_err()
+                );
+                assert_eq!(format!("{:?}", b.code), before);
+            }
         }
     }
 }
@@ -301,56 +304,159 @@ fn comparison_extent_checks_distinguish_the_byte_result_and_word_inputs() {
     let Mir65816Value::Temp(input, _) = left else {
         panic!()
     };
-    for (source, result, delta, valid) in [
-        (254, 255, 0, true),
-        (255, 254, 0, false),
-        (253, 254, 1, true),
-        (254, 254, 1, false),
-        (253, 255, 1, false),
-        (0, 1, 0, false),
-        (1, 0, 0, false),
-        (2, 1, u32::MAX, false),
-        (2, 2, 0, true),
-        (2, 3, 0, true),
+    for signed in [false, true] {
+        for (source, result, delta, valid) in [
+            (254, 255, 0, true),
+            (255, 254, 0, false),
+            (253, 254, 1, true),
+            (254, 254, 1, false),
+            (253, 255, 1, false),
+            (0, 1, 0, false),
+            (1, 0, 0, false),
+            (2, 1, u32::MAX, false),
+            (2, 2, 0, true),
+            (2, 3, 0, true),
+        ] {
+            let mut b = builder(r);
+            b.frame.temps.insert(
+                input,
+                Location::Stack(Slot {
+                    offset: source,
+                    width: 2,
+                }),
+            );
+            b.frame.temps.insert(
+                dest,
+                Location::Stack(Slot {
+                    offset: result,
+                    width: 1,
+                }),
+            );
+            b.code.test_delta(delta);
+            b.code.a8();
+            let before = format!("{:?}", b.code);
+            assert_eq!(
+                b.native_compare(
+                    dest,
+                    2,
+                    signed,
+                    NirCompareOp::Le,
+                    &left,
+                    &Mir65816Value::U8(255)
+                )
+                .is_ok(),
+                valid,
+                "{source}/{result}/{delta}"
+            );
+            if !valid {
+                assert_eq!(format!("{:?}", b.code), before);
+            } else {
+                assert_eq!(
+                    &b.code.code().bytes[b.code.code().bytes.len() - 2..],
+                    [0x83, (u32::from(result) + delta) as u8]
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn signed_predicates_use_subtraction_correction_and_never_corrected_zero() {
+    let p = program();
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    for (op, predicate, swap) in [
+        (NirCompareOp::Lt, Branch::Minus, false),
+        (NirCompareOp::Ge, Branch::Plus, false),
+        (NirCompareOp::Gt, Branch::Minus, true),
+        (NirCompareOp::Le, Branch::Plus, true),
+    ] {
+        for pair in [
+            (left.clone(), right.clone()),
+            (left.clone(), Mir65816Value::U16(0xffff)),
+            (Mir65816Value::U8(255), right.clone()),
+            (left.clone(), left.clone()),
+            (
+                Mir65816Value::Param(r.frame.parameters[0].param),
+                Mir65816Value::Param(r.frame.parameters[1].param),
+            ),
+        ] {
+            for dp in [false, true] {
+                let mut b = builder(r);
+                if dp {
+                    for (i, v) in [&left, &right].into_iter().enumerate() {
+                        let Mir65816Value::Temp(id, _) = v else {
+                            panic!()
+                        };
+                        let home = Location::DirectPage(Slot {
+                            offset: 32 + 2 * i as u16,
+                            width: 2,
+                        });
+                        b.frame.temps.insert(*id, home);
+                        b.code.register_home(home);
+                    }
+                }
+                let a = b.word_operand(&pair.0).unwrap().unwrap();
+                let c = b.word_operand(&pair.1).unwrap().unwrap();
+                let (a, c) = if swap { (c, a) } else { (a, c) };
+                b.code.a16();
+                let start = b.code.position();
+                assert!(
+                    b.native_compare(dest, 2, true, op, &pair.0, &pair.1)
+                        .unwrap()
+                );
+                let mut expected = encode(a, true);
+                expected.push(0x38);
+                let mut sub = encode(c, false);
+                sub[0] += 0x20;
+                expected.extend(sub);
+                expected.extend([
+                    0x70,
+                    4,
+                    0x5c,
+                    0,
+                    0,
+                    0,
+                    0x49,
+                    0,
+                    0x80,
+                    predicate.opcode() ^ 0x20,
+                    4,
+                    0x5c,
+                    0,
+                    0,
+                    0,
+                ]);
+                assert_eq!(
+                    &b.code.code().bytes[start..start + expected.len()],
+                    expected
+                );
+                assert_eq!(b.code.code().fixups.len(), 3);
+                assert_eq!(b.code.code().labels[&Label(2)], start + expected.len() - 6);
+                assert!(b.code.resident().is_none());
+            }
+        }
+    }
+}
+
+#[test]
+fn signed_unsupported_operands_fall_back_without_mutating_state() {
+    let p = program();
+    let r = &p.routines[0];
+    let (dest, left, _) = operands(r);
+    for unsupported in [
+        Mir65816Value::U24(1),
+        Mir65816Value::U32(1),
+        Mir65816Value::Null(ByteSize::new(2)),
+        Mir65816Value::RoutineAddress(0, ByteSize::new(3)),
     ] {
         let mut b = builder(r);
-        b.frame.temps.insert(
-            input,
-            Location::Stack(Slot {
-                offset: source,
-                width: 2,
-            }),
-        );
-        b.frame.temps.insert(
-            dest,
-            Location::Stack(Slot {
-                offset: result,
-                width: 1,
-            }),
-        );
-        b.code.test_delta(delta);
         b.code.a8();
         let before = format!("{:?}", b.code);
-        assert_eq!(
-            b.native_compare(
-                dest,
-                2,
-                false,
-                NirCompareOp::Le,
-                &left,
-                &Mir65816Value::U8(255)
-            )
-            .is_ok(),
-            valid,
-            "{source}/{result}/{delta}"
+        assert!(
+            !b.native_compare(dest, 2, true, NirCompareOp::Le, &left, &unsupported)
+                .unwrap()
         );
-        if !valid {
-            assert_eq!(format!("{:?}", b.code), before);
-        } else {
-            assert_eq!(
-                &b.code.code().bytes[b.code.code().bytes.len() - 2..],
-                [0x83, (u32::from(result) + delta) as u8]
-            );
-        }
+        assert_eq!(format!("{:?}", b.code), before);
     }
 }

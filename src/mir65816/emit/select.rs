@@ -64,7 +64,14 @@ enum Memory {
 }
 
 /// A complete preflight, shared by materialized and branch-only comparisons.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum WordComparison {
+    UnsignedOrEquality,
+    SignedOrder,
+}
+
 struct WordCondition {
+    kind: WordComparison,
     left: WordOperand,
     left_temp: Option<TempId>,
     right: WordOperand,
@@ -473,9 +480,14 @@ impl Builder<'_> {
         left: &Mir65816Value,
         right: &Mir65816Value,
     ) -> Result<Option<WordCondition>, String> {
-        if bytes != 2 || (signed && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)) {
+        if bytes != 2 {
             return Ok(None);
         }
+        let kind = if signed && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne) {
+            WordComparison::SignedOrder
+        } else {
+            WordComparison::UnsignedOrEquality
+        };
         // Compare's width describes its inputs; the result is one Boolean byte.
         // Preflight everything before changing bytes, labels or mode knowledge.
         let destination = self.temp(dest)?;
@@ -495,8 +507,7 @@ impl Builder<'_> {
             return Ok(None);
         };
         // Swapping captured values changes no source memory access or ordering.
-        // CMP does not set V, so signed ordering stays on the bytewise path.
-        let predicate = match operation {
+        let mut predicate = match operation {
             NirCompareOp::Eq => Branch::Equal,      // BEQ
             NirCompareOp::Ne => Branch::NotEqual,   // BNE
             NirCompareOp::Lt => Branch::CarryClear, // BCC
@@ -511,7 +522,17 @@ impl Builder<'_> {
                 }
             }
         };
+        if kind == WordComparison::SignedOrder {
+            // Inclusive predicates use the opposite strict ordering, never Z:
+            // overflow correction can produce zero for unequal inputs.
+            predicate = if matches!(operation, NirCompareOp::Lt | NirCompareOp::Gt) {
+                Branch::Minus
+            } else {
+                Branch::Plus
+            };
+        }
         Ok(Some(WordCondition {
+            kind,
             left,
             left_temp,
             right,
@@ -742,18 +763,35 @@ impl Builder<'_> {
         }
     }
     fn branch_on_word(&mut self, condition: &WordCondition, yes: Label, dispatch: bool) {
+        if condition.kind == WordComparison::SignedOrder {
+            self.code.barrier(); // Retain the fallback's forwarding boundary.
+        }
         self.code.a16();
         self.load_checked_word(condition.left, condition.left_temp);
-        match condition.right {
-            WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
-            WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
-            WordOperand::DirectPage(offset) => self.code.byte(ByteOp::CmpDp, offset),
+        match condition.kind {
+            WordComparison::UnsignedOrEquality => match condition.right {
+                WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
+                WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
+                WordOperand::DirectPage(offset) => self.code.byte(ByteOp::CmpDp, offset),
+            },
+            WordComparison::SignedOrder => {
+                self.code.op(Implied::Sec);
+                match condition.right {
+                    WordOperand::Immediate(value) => self.code.word(WordOp::SbcImm, value),
+                    WordOperand::Stack(offset) => self.code.byte(ByteOp::SbcStack, offset),
+                    WordOperand::DirectPage(offset) => self.code.byte(ByteOp::SbcDp, offset),
+                }
+                let corrected = self.code.label();
+                self.code.branch(Branch::OverflowClear, corrected);
+                self.code.word(WordOp::EorImm, 0x8000);
+                self.code.mark(corrected);
+            }
         }
         if dispatch {
             self.code.dispatch(condition.predicate, yes);
         } else {
             self.code.branch(condition.predicate, yes);
-        } // Consume C/Z immediately.
+        } // Consume CMP's C/Z or the corrected subtraction's N immediately.
     }
     fn compare_branch(
         &mut self,
