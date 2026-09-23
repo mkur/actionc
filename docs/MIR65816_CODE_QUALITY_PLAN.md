@@ -28,6 +28,13 @@ with all 547 routine contracts and 2,279 guards intact. Optimized Dijkstra falls
 6,197→5,779 bytes; the small corpus's 28 Action images are byte-identical.
 See [measurements and qualification](benchmarks/65816-byte-pointer-comparisons/README.md).
 
+The next selected planning scope is
+[native signed word comparisons and branch fusion](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md).
+The proposed plan adapts MIR6502's overflow correction to A16 and the existing
+condition selector. Current Dijkstra has eight signed-ordering branch sites;
+the frozen Exec shell has none. Implementation has not started, and allocation,
+broader branch relaxation and the other backlog items remain deferred.
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
@@ -158,7 +165,9 @@ checked transactions and the adjacent temporary forwarding migration are
 complete and qualified. The
 [BYTE and pointer comparison plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md),
 prepared from the Exec816 measurements, is also complete. Other work remains
-backlogged; do not start implementation for now. The earlier
+backlogged, with a
+[signed-word implementation plan](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md)
+now prepared for item 1; implementation has not started. The earlier
 [code-size backlog](BACKLOG.md#native-65816-code-size-reduction) orders native
 signed word comparisons/direct branches, broader local branch relaxation,
 compact address construction and compact guard encoding ahead of further

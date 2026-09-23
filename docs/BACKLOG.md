@@ -5,8 +5,9 @@ backend follow-ups linked to their design and measurement documents.
 
 ## Native 65816 Code-Size Reduction
 
-Status: backlogged at user request; do not implement for now. When resumed,
-prioritize emitted code size, with execution cycles as a secondary constraint.
+Status: signed word comparisons are selected for planning below; implementation
+has not started. Other items remain backlogged at user request. Prioritize
+emitted code size, with execution cycles as a secondary constraint.
 This ordering supersedes the earlier throughput-first recommendation in the
 [Dijkstra comparison](benchmarks/65816-dijkstra/README.md) and the remaining
 allocation work in the [65816 quality plan](MIR65816_CODE_QUALITY_PLAN.md).
@@ -44,7 +45,11 @@ Prioritized candidates, each requiring a focused implementation plan when resume
    therefore expand into bytewise comparisons, multiple jumps and materialized
    Booleans. Add compact signed 16-bit relational selection and branch-only
    forms where eligible; preserve overflow semantics and materialized Boolean
-   results when they are actually consumed.
+   results when they are actually consumed. The
+   [implementation plan](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md) is proposed:
+   current Dijkstra has eight adjacent signed-ordering sites, four in `Find`;
+   the frozen Exec shell has none and serves as an output-equality control.
+   This planning selection does not authorize implementation of other items.
 2. **Broader local branch relaxation.** Extend the existing
    [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch
    sites to eligible local conditional transfers and unconditional jumps.

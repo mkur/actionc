@@ -1,0 +1,235 @@
+{
+  "status": "planning baseline only; no signed-selector implementation or new VM qualification",
+  "compiler_revision": "f27218bc242ab65e114b4509118833748805047c",
+  "emission_revision": "ba74391e",
+  "compiler_executable_sha256": "020876959f5ed6f77b548fc37c9f375f12776f2aeb22914ca859ef24f088cfe4",
+  "probe_source_sha256": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+  "probe_layout": {
+    "code_origin": 65536,
+    "data_origin": 1179648,
+    "stack_overflow": 262144,
+    "nmi_extra_stack": 12,
+    "imports": []
+  },
+  "crlf_images_equal": true,
+  "probe_results": [
+    {
+      "mode": "raw",
+      "image_sha256": "6864e72eebd19fdd1dda6753e696c4dbf5850bdbd130d50c4cd65d7cea9e37ed",
+      "listing_sha256": "2f16097998da17ad1bc78f5e3aca1700c4ddaaf1e613dfd1bcb406c82ee61663",
+      "code_bytes": 1644,
+      "routines": [
+        {
+          "name": "RetLt",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchLt",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "RetLe",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchLe",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "RetGt",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchGt",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "RetGe",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchGe",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "Imm",
+          "size": 161,
+          "fixed_frame": 6
+        },
+        {
+          "name": "Main",
+          "size": 47,
+          "fixed_frame": 0
+        }
+      ]
+    },
+    {
+      "mode": "optimized",
+      "image_sha256": "dcca1486377ef40c38347cb719a0d06d02712a909abb673e3c0f88d12f72dadd",
+      "listing_sha256": "e72756e6a3364979296cacb5902d9c7ecb850908f6d648d09c0272fb868f2225",
+      "code_bytes": 1636,
+      "routines": [
+        {
+          "name": "RetLt",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchLt",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "RetLe",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchLe",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "RetGt",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchGt",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "RetGe",
+          "size": 157,
+          "fixed_frame": 6
+        },
+        {
+          "name": "BranchGe",
+          "size": 202,
+          "fixed_frame": 6
+        },
+        {
+          "name": "Imm",
+          "size": 153,
+          "fixed_frame": 4
+        },
+        {
+          "name": "Main",
+          "size": 47,
+          "fixed_frame": 0
+        }
+      ]
+    }
+  ],
+  "typed_mir_inventory": {
+    "dijkstra": [
+      {
+        "optimize": false,
+        "signed_word_ordering_sites": 8,
+        "groups": {
+          "width=2/signed=true/Eq/sole-branch/word-selector/Benchmark": 1,
+          "width=2/signed=true/Eq/sole-branch/word-selector/ChecksumResult": 1,
+          "width=2/signed=true/Eq/sole-branch/word-selector/Find": 3,
+          "width=2/signed=true/Ge/sole-branch/generic/Enqueue": 1,
+          "width=2/signed=true/Gt/sole-branch/generic/Find": 2,
+          "width=2/signed=true/Le/sole-branch/generic/Benchmark": 1,
+          "width=2/signed=true/Le/sole-branch/generic/Find": 2,
+          "width=2/signed=true/Le/sole-branch/generic/Init": 2,
+          "width=2/signed=true/Ne/sole-branch/word-selector/Find": 2
+        }
+      },
+      {
+        "optimize": true,
+        "signed_word_ordering_sites": 8,
+        "groups": {
+          "width=2/signed=true/Eq/sole-branch/word-selector/Benchmark": 1,
+          "width=2/signed=true/Eq/sole-branch/word-selector/ChecksumResult": 1,
+          "width=2/signed=true/Eq/sole-branch/word-selector/Find": 3,
+          "width=2/signed=true/Ge/sole-branch/generic/Enqueue": 1,
+          "width=2/signed=true/Gt/sole-branch/generic/Find": 2,
+          "width=2/signed=true/Le/sole-branch/generic/Benchmark": 1,
+          "width=2/signed=true/Le/sole-branch/generic/Find": 2,
+          "width=2/signed=true/Le/sole-branch/generic/Init": 2,
+          "width=2/signed=true/Ne/sole-branch/word-selector/Find": 2
+        }
+      }
+    ],
+    "exec": [
+      {
+        "optimize": false,
+        "signed_word_ordering_sites": 0,
+        "groups": {
+          "width=2/signed=true/Eq/sole-branch/word-selector/DOSRAW": 5,
+          "width=2/signed=true/Eq/sole-branch/word-selector/SHELLAPP": 1,
+          "width=2/signed=true/Ne/sole-branch/word-selector/BLOCKIO": 1,
+          "width=2/signed=true/Ne/sole-branch/word-selector/DOSRAW": 1,
+          "width=2/signed=true/Ne/sole-branch/word-selector/SHELLAPP": 1
+        }
+      },
+      {
+        "optimize": true,
+        "signed_word_ordering_sites": 0,
+        "groups": {
+          "width=2/signed=true/Eq/sole-branch/word-selector/DOSRAW": 5,
+          "width=2/signed=true/Eq/sole-branch/word-selector/SHELLAPP": 1,
+          "width=2/signed=true/Ne/sole-branch/word-selector/BLOCKIO": 1,
+          "width=2/signed=true/Ne/sole-branch/word-selector/DOSRAW": 1,
+          "width=2/signed=true/Ne/sole-branch/word-selector/SHELLAPP": 1
+        }
+      }
+    ]
+  },
+  "dijkstra": {
+    "source_sha256": "a1dd03214195363c4f6538c695ad08f0eada93ccdf8b60d31bafa23861842a7b",
+    "source_kernel_sha256": "fe07119d8429f15cea0492321b6b02446020809d14ce3b51618aa5b4c6a26890",
+    "baseline_manifest_sha256": "9ad47a2cee7836c953da30e6e4f578c0b9d723d0c5551d6981225e8228915e8c",
+    "raw_code_bytes": 6365,
+    "optimized_code_bytes": 5779,
+    "optimized_Find_bytes": 2132
+  },
+  "exec": {
+    "revision": "8e1ff57",
+    "compiler_pin": "ae1f555e77d0ae6caffbfc7453cbf06e3d098bee",
+    "source_sha256": "72c8becb4b0863f4df67ce5d8f5a859ac21d9ffd6b447513aaae60056ee9c5b6",
+    "optimized_code_bytes": 502845,
+    "optimized_xex_bytes": 519393
+  },
+  "inventory_test": "mir65816::emit::select::narrow_compare_tests::external_comparison_inventory",
+  "inventory_logs_sha256": {
+    "dijkstra": "f685052224758f199f2f64037dcc7a8b259a1f98ef63ca9002fc2f14efd2782c",
+    "exec": "019b999052216555ed6dec7209e0e450db1d684d660cbd39a7431176abd4ac57"
+  },
+  "arithmetic_model_validation": {
+    "method": "Host signed integer comparisons versus wrapped subtraction plus sign-bit correction; no future emitted code executed",
+    "lhs_values": "all 65536 signed 16-bit values",
+    "rhs_values": [
+      -32768,
+      -32767,
+      -257,
+      -256,
+      -1,
+      0,
+      1,
+      255,
+      256,
+      32766,
+      32767
+    ],
+    "predicates": [
+      "Lt",
+      "Ge",
+      "Gt",
+      "Le"
+    ],
+    "checks": 2883584
+  }
+}
