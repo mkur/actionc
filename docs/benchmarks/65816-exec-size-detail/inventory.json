@@ -1,0 +1,1765 @@
+{
+  "opt": {
+    "mode": "opt",
+    "routine_bytes": 503453,
+    "routines": 551,
+    "guards": 2320,
+    "modules": {
+      "TASKPOLICY": 123201,
+      "SHELLAPP": 66063,
+      "DOSCALLS": 27950,
+      "MYDOSFILE": 19848,
+      "MYDOS": 18655,
+      "HEAPPOLICY": 18087,
+      "BLOCKIO": 17671,
+      "HEAPCORE": 17134,
+      "FSHANDLER": 16895,
+      "FSINIT": 16033,
+      "DOSRAW": 15972,
+      "CONSOLEDRIVER": 13916,
+      "SIODRIVER": 13331,
+      "FSDIRECTORY": 12359,
+      "FSRELATIVE": 11945,
+      "CONSOLEDISPLAY": 7725,
+      "DOSCLIENT": 7412,
+      "FSNAMES": 6761,
+      "FSPACKET": 5341,
+      "CONSOLECORE": 5208,
+      "FSLOCKS": 5065,
+      "FSMOUNT": 4596,
+      "EXECMEMORY": 4333,
+      "DOS": 4238,
+      "EXECLISTS": 4208,
+      "FSREGISTRY": 4190,
+      "CONSOLEINPUT": 4017,
+      "FSBOOT": 3778,
+      "MYDOSNAMES": 3496,
+      "DOSSTREAMS": 3342,
+      "FSINFO": 3100,
+      "IOCORE": 2951,
+      "FSWORKER": 2294,
+      "FSIO": 2235,
+      "DOSOBJECTS": 1769,
+      "FSINSPECT": 1632,
+      "TASKINSPECT": 1606,
+      "PORTCORE": 1499,
+      "FSMUX": 1125,
+      "DEVICEINSPECT": 1064,
+      "FSPORTS": 909,
+      "DOSWIRE": 322,
+      "BLOCKWIRE": 177
+    },
+    "categories": {
+      "guards": 104400,
+      "other": 88251,
+      "stack relative": 142922,
+      "DP operations": 58546,
+      "conditional branches": 11088,
+      "JML": 30344,
+      "mode changes": 46486,
+      "absolute long memory": 2484,
+      "indirect memory": 11860,
+      "JSL": 7072
+    },
+    "mir": {
+      "Call/Direct": {
+        "count": 1768,
+        "bytes": 179419,
+        "guard_bytes": 79560
+      },
+      "Terminator/Return": {
+        "count": 1504,
+        "bytes": 37894,
+        "guard_bytes": 0
+      },
+      "Load/3/LongIndirect": {
+        "count": 861,
+        "bytes": 20928,
+        "guard_bytes": 0
+      },
+      "Load/3/Parameter": {
+        "count": 2187,
+        "bytes": 18420,
+        "guard_bytes": 0
+      },
+      "Load/3/AutomaticFrame": {
+        "count": 1374,
+        "bytes": 11842,
+        "guard_bytes": 0
+      },
+      "AddressOf/3": {
+        "count": 262,
+        "bytes": 10880,
+        "guard_bytes": 0
+      },
+      "Load/1/LongIndexed": {
+        "count": 159,
+        "bytes": 8889,
+        "guard_bytes": 0
+      },
+      "Store/4/LongIndirect": {
+        "count": 274,
+        "bytes": 8874,
+        "guard_bytes": 0
+      },
+      "Store/3/LongIndirect": {
+        "count": 314,
+        "bytes": 8787,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Eq": {
+        "count": 554,
+        "bytes": 8726,
+        "guard_bytes": 0
+      },
+      "Load/1/LongIndirect": {
+        "count": 447,
+        "bytes": 7827,
+        "guard_bytes": 0
+      },
+      "Load/4/LongIndirect": {
+        "count": 323,
+        "bytes": 7350,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Eq": {
+        "count": 66,
+        "bytes": 7260,
+        "guard_bytes": 0
+      },
+      "Store/1/LongIndirect": {
+        "count": 405,
+        "bytes": 7113,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Eq": {
+        "count": 66,
+        "bytes": 6980,
+        "guard_bytes": 0
+      },
+      "Terminator/Goto": {
+        "count": 869,
+        "bytes": 6535,
+        "guard_bytes": 0
+      },
+      "Store/1/LongIndexed": {
+        "count": 116,
+        "bytes": 6465,
+        "guard_bytes": 0
+      },
+      "Terminator/Branch": {
+        "count": 343,
+        "bytes": 5872,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Eq": {
+        "count": 214,
+        "bytes": 5713,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Ne": {
+        "count": 48,
+        "bytes": 5278,
+        "guard_bytes": 0
+      },
+      "Load/2/LongIndirect": {
+        "count": 343,
+        "bytes": 5271,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Ne": {
+        "count": 321,
+        "bytes": 5189,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Ne": {
+        "count": 48,
+        "bytes": 5050,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Gt": {
+        "count": 45,
+        "bytes": 4732,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/Pointer": {
+        "count": 318,
+        "bytes": 4256,
+        "guard_bytes": 0
+      },
+      "Store/3/AutomaticFrame": {
+        "count": 427,
+        "bytes": 4104,
+        "guard_bytes": 0
+      },
+      "Load/3/Static": {
+        "count": 276,
+        "bytes": 3966,
+        "guard_bytes": 0
+      },
+      "Store/2/LongIndirect": {
+        "count": 187,
+        "bytes": 3562,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Ne": {
+        "count": 147,
+        "bytes": 3267,
+        "guard_bytes": 0
+      },
+      "Load/2/LongIndexed": {
+        "count": 38,
+        "bytes": 2738,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Lt": {
+        "count": 26,
+        "bytes": 2736,
+        "guard_bytes": 0
+      },
+      "Store/2/LongIndexed": {
+        "count": 41,
+        "bytes": 2708,
+        "guard_bytes": 0
+      },
+      "Binary/4/Add": {
+        "count": 51,
+        "bytes": 2179,
+        "guard_bytes": 0
+      },
+      "Binary/4/Sub": {
+        "count": 49,
+        "bytes": 2071,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/IntegerToPointer": {
+        "count": 157,
+        "bytes": 2038,
+        "guard_bytes": 0
+      },
+      "Load/2/Parameter": {
+        "count": 431,
+        "bytes": 1830,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Ge": {
+        "count": 15,
+        "bytes": 1580,
+        "guard_bytes": 0
+      },
+      "Load/3/LongIndexed": {
+        "count": 17,
+        "bytes": 1560,
+        "guard_bytes": 0
+      },
+      "Load/4/Parameter": {
+        "count": 178,
+        "bytes": 1482,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Eq": {
+        "count": 103,
+        "bytes": 1443,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Ne": {
+        "count": 102,
+        "bytes": 1422,
+        "guard_bytes": 0
+      },
+      "Binary/2/Add": {
+        "count": 177,
+        "bytes": 1408,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/PointerToInteger": {
+        "count": 101,
+        "bytes": 1356,
+        "guard_bytes": 0
+      },
+      "Binary/4/Rsh": {
+        "count": 12,
+        "bytes": 1346,
+        "guard_bytes": 0
+      },
+      "Binary/4/And": {
+        "count": 32,
+        "bytes": 1330,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Le": {
+        "count": 12,
+        "bytes": 1256,
+        "guard_bytes": 0
+      },
+      "Binary/4/Lsh": {
+        "count": 11,
+        "bytes": 1223,
+        "guard_bytes": 0
+      },
+      "Load/4/AutomaticFrame": {
+        "count": 148,
+        "bytes": 1216,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Le": {
+        "count": 66,
+        "bytes": 1074,
+        "guard_bytes": 0
+      },
+      "Load/1/Parameter": {
+        "count": 176,
+        "bytes": 1026,
+        "guard_bytes": 0
+      },
+      "Store/4/AutomaticFrame": {
+        "count": 99,
+        "bytes": 1010,
+        "guard_bytes": 0
+      },
+      "Cast/3->4/Integer": {
+        "count": 62,
+        "bytes": 1000,
+        "guard_bytes": 0
+      },
+      "Binary/1/Add": {
+        "count": 81,
+        "bytes": 983,
+        "guard_bytes": 0
+      },
+      "Cast/2->4/Integer": {
+        "count": 54,
+        "bytes": 948,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Lt": {
+        "count": 8,
+        "bytes": 878,
+        "guard_bytes": 0
+      },
+      "Binary/3/Add": {
+        "count": 27,
+        "bytes": 855,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Gt": {
+        "count": 54,
+        "bytes": 816,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Gt": {
+        "count": 7,
+        "bytes": 764,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Lt": {
+        "count": 9,
+        "bytes": 758,
+        "guard_bytes": 0
+      },
+      "Binary/1/And": {
+        "count": 70,
+        "bytes": 736,
+        "guard_bytes": 0
+      },
+      "Load/1/AutomaticFrame": {
+        "count": 123,
+        "bytes": 718,
+        "guard_bytes": 0
+      },
+      "Cast/2->3/Integer": {
+        "count": 46,
+        "bytes": 636,
+        "guard_bytes": 0
+      },
+      "Binary/2/Lsh": {
+        "count": 10,
+        "bytes": 636,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Ge": {
+        "count": 39,
+        "bytes": 612,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Gt": {
+        "count": 30,
+        "bytes": 602,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Lt": {
+        "count": 45,
+        "bytes": 595,
+        "guard_bytes": 0
+      },
+      "Load/4/LongIndexed": {
+        "count": 6,
+        "bytes": 558,
+        "guard_bytes": 0
+      },
+      "Binary/3/Lsh": {
+        "count": 7,
+        "bytes": 525,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Le": {
+        "count": 41,
+        "bytes": 509,
+        "guard_bytes": 0
+      },
+      "Load/2/AutomaticFrame": {
+        "count": 120,
+        "bytes": 508,
+        "guard_bytes": 0
+      },
+      "Binary/3/Rsh": {
+        "count": 6,
+        "bytes": 450,
+        "guard_bytes": 0
+      },
+      "Store/1/AutomaticFrame": {
+        "count": 81,
+        "bytes": 440,
+        "guard_bytes": 0
+      },
+      "Store/2/AutomaticFrame": {
+        "count": 77,
+        "bytes": 422,
+        "guard_bytes": 0
+      },
+      "Binary/2/Sub": {
+        "count": 51,
+        "bytes": 393,
+        "guard_bytes": 0
+      },
+      "Cast/4->3/Integer": {
+        "count": 27,
+        "bytes": 372,
+        "guard_bytes": 0
+      },
+      "Store/3/LongIndexed": {
+        "count": 4,
+        "bytes": 372,
+        "guard_bytes": 0
+      },
+      "Cast/1->2/Integer": {
+        "count": 42,
+        "bytes": 354,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Le": {
+        "count": 3,
+        "bytes": 330,
+        "guard_bytes": 0
+      },
+      "Binary/2/Rsh": {
+        "count": 5,
+        "bytes": 325,
+        "guard_bytes": 0
+      },
+      "Cast/1->4/Integer": {
+        "count": 23,
+        "bytes": 284,
+        "guard_bytes": 0
+      },
+      "PointerOffset/3": {
+        "count": 8,
+        "bytes": 256,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Ge": {
+        "count": 3,
+        "bytes": 254,
+        "guard_bytes": 0
+      },
+      "Binary/2/And": {
+        "count": 11,
+        "bytes": 242,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Lt": {
+        "count": 14,
+        "bytes": 242,
+        "guard_bytes": 0
+      },
+      "Cast/4->4/Integer": {
+        "count": 13,
+        "bytes": 232,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Ge": {
+        "count": 2,
+        "bytes": 218,
+        "guard_bytes": 0
+      },
+      "Binary/1/Sub": {
+        "count": 18,
+        "bytes": 204,
+        "guard_bytes": 0
+      },
+      "Binary/1/Rsh": {
+        "count": 4,
+        "bytes": 204,
+        "guard_bytes": 0
+      },
+      "Binary/3/Sub": {
+        "count": 6,
+        "bytes": 190,
+        "guard_bytes": 0
+      },
+      "Cast/4->2/Integer": {
+        "count": 19,
+        "bytes": 184,
+        "guard_bytes": 0
+      },
+      "Load/1/External": {
+        "count": 22,
+        "bytes": 168,
+        "guard_bytes": 0
+      },
+      "Load/2/External": {
+        "count": 24,
+        "bytes": 168,
+        "guard_bytes": 0
+      },
+      "Binary/4/Or": {
+        "count": 4,
+        "bytes": 166,
+        "guard_bytes": 0
+      },
+      "Call/Indirect": {
+        "count": 1,
+        "bytes": 121,
+        "guard_bytes": 45
+      },
+      "Compare/2/false/Ge": {
+        "count": 9,
+        "bytes": 117,
+        "guard_bytes": 0
+      },
+      "Binary/1/Or": {
+        "count": 9,
+        "bytes": 96,
+        "guard_bytes": 0
+      },
+      "Binary/3/And": {
+        "count": 3,
+        "bytes": 90,
+        "guard_bytes": 0
+      },
+      "Binary/4/Xor": {
+        "count": 2,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Le": {
+        "count": 1,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Gt": {
+        "count": 1,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Unary/4/Neg": {
+        "count": 2,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Store/3/Static": {
+        "count": 4,
+        "bytes": 68,
+        "guard_bytes": 0
+      },
+      "Compare/2/true/Eq": {
+        "count": 6,
+        "bytes": 68,
+        "guard_bytes": 0
+      },
+      "Cast/3->2/Integer": {
+        "count": 7,
+        "bytes": 66,
+        "guard_bytes": 0
+      },
+      "Cast/2->1/Integer": {
+        "count": 11,
+        "bytes": 66,
+        "guard_bytes": 0
+      },
+      "Cast/4->1/Integer": {
+        "count": 9,
+        "bytes": 54,
+        "guard_bytes": 0
+      },
+      "Binary/1/Xor": {
+        "count": 5,
+        "bytes": 50,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/Integer": {
+        "count": 4,
+        "bytes": 48,
+        "guard_bytes": 0
+      },
+      "Binary/2/Or": {
+        "count": 2,
+        "bytes": 44,
+        "guard_bytes": 0
+      },
+      "Cast/1->3/Integer": {
+        "count": 4,
+        "bytes": 44,
+        "guard_bytes": 0
+      },
+      "Compare/2/true/Ne": {
+        "count": 3,
+        "bytes": 37,
+        "guard_bytes": 0
+      },
+      "Store/1/External": {
+        "count": 6,
+        "bytes": 36,
+        "guard_bytes": 0
+      },
+      "Store/2/External": {
+        "count": 2,
+        "bytes": 18,
+        "guard_bytes": 0
+      },
+      "Cast/2->2/Integer": {
+        "count": 2,
+        "bytes": 16,
+        "guard_bytes": 0
+      },
+      "Store/4/Static": {
+        "count": 1,
+        "bytes": 12,
+        "guard_bytes": 0
+      }
+    },
+    "branch_candidate_counts": {
+      "conditional/guard": 9280,
+      "unconditional/guard": 2320,
+      "unconditional/body": 3163,
+      "conditional/body": 3382
+    },
+    "branch_candidate_encoding_savings": {
+      "conditional/guard": 37120,
+      "unconditional/guard": 4640,
+      "unconditional/body": 6326,
+      "conditional/body": 13528
+    },
+    "zero_incoming_typed_reference_count": 30,
+    "zero_incoming_typed_reference_bytes": 24828,
+    "zero_incoming_typed_references": [
+      {
+        "name": "M_EXECMEMORY_RESERVEEXACT_88D3D2C8",
+        "size": 909,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_EXECMEMORY_INIT_F4EA07E3",
+        "size": 137,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_EXECLISTS_REMTAIL_292EAA27",
+        "size": 319,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_HEAPCORE_ALLOCATE_E39F1AF5",
+        "size": 236,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_INIT_57A5FAC8",
+        "size": 2793,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_INITIONAMES_D8642B1E",
+        "size": 1301,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_IOWORKERCONTROL_3D43EE5B",
+        "size": 948,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_IOCLAIM_E59988BA",
+        "size": 592,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_IOTESTFINISH_35E02F77",
+        "size": 734,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_DISPATCH_2D7B283C",
+        "size": 2475,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_CONSOLEDRIVER_START_3E6AAC44",
+        "size": 918,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_CONSOLEDRIVER_STOP_093D3500",
+        "size": 676,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_PORTCORE_CREATEMSGPORT_A47550A3",
+        "size": 1092,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_PORTCORE_DELETEMSGPORT_9136F7C6",
+        "size": 407,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_SIODRIVER_STOP_B26AF28A",
+        "size": 521,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_OPENDEVICE_A2787528",
+        "size": 451,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_CREATEIOREQUEST_DE10015D",
+        "size": 867,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_DELETEIOREQUEST_93A87E78",
+        "size": 361,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_DOIO_173DC4A1",
+        "size": 484,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_BLOCKIO_ATTACH_A1159825",
+        "size": 1508,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_BLOCKIO_READSECTOR_D918C668",
+        "size": 1546,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_FSREGISTRY_SERVICE_31663004",
+        "size": 210,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOS_MOUNT_2B42A118",
+        "size": 508,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOS_GETENTRY_7D00AFBD",
+        "size": 567,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOS_RESOLVE_25FA7BCB",
+        "size": 693,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOSFILE_RUN_01B89F42",
+        "size": 675,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_FSBOOT_STOP_AD5246E2",
+        "size": 1791,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_DOS_SEEK_DE9F46FB",
+        "size": 287,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_SHELLAPP_SHELLSTART_D37857EA",
+        "size": 452,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_SHELLAPP_MAIN_168A375D",
+        "size": 370,
+        "entry": "NirRoutineEntry { program: true, external: false, external_symbol: None, placement: Relocatable }"
+      }
+    ],
+    "calls": 1769,
+    "argument_payload_bytes": 6878,
+    "outgoing_bytes": 8343,
+    "zero_store_encoding_bytes": 16686,
+    "overwritten_zero_store_encoding_bytes": 13756,
+    "argument_width_counts": {
+      "2": 411,
+      "3": 1315,
+      "4": 464,
+      "1": 255
+    },
+    "adjacent_32bit_compare_branch_candidates": {
+      "EqNe/sole occurrence": 215,
+      "ordering/sole occurrence": 114
+    },
+    "index_strides": {
+      "1": 237,
+      "4": 26,
+      "3": 21,
+      "2": 81,
+      "44": 14,
+      "26": 9,
+      "33": 6
+    },
+    "byte_constant_returns": {
+      "count": 496,
+      "current_bytes": 15594,
+      "estimated_savings_at_19_bytes_per_site": 9424,
+      "span_size_histogram": {
+        "31": 387,
+        "33": 109
+      }
+    },
+    "wide_comparisons": {
+      "count": 346,
+      "bytes": 37062,
+      "equality_count": 228,
+      "equality_bytes": 24568
+    },
+    "shifts": {
+      "count": 55,
+      "bytes": 4709,
+      "constant_count": 52
+    },
+    "non_guard_conditional_candidates_by_MIR": {
+      "Compare/3/false/Eq": 229,
+      "Compare/4/false/Eq": 528,
+      "Compare/4/false/Gt": 360,
+      "Compare/4/false/Ge": 120,
+      "Compare/4/false/Ne": 384,
+      "Compare/4/false/Lt": 208,
+      "Compare/4/false/Le": 96,
+      "Binary/3/Lsh": 21,
+      "Binary/4/Lsh": 66,
+      "Compare/2/false/Eq": 5,
+      "Binary/3/Rsh": 18,
+      "Compare/2/false/Ne": 4,
+      "Compare/1/false/Ne": 16,
+      "Compare/3/false/Lt": 54,
+      "Compare/3/false/Ge": 18,
+      "Compare/3/false/Le": 6,
+      "Compare/3/false/Gt": 6,
+      "Binary/2/Rsh": 15,
+      "Compare/1/false/Eq": 17,
+      "Binary/4/Rsh": 72,
+      "Compare/1/false/Ge": 4,
+      "Compare/1/false/Le": 4,
+      "Compare/2/false/Le": 2,
+      "Compare/1/false/Lt": 1,
+      "Binary/1/Rsh": 12,
+      "Binary/2/Lsh": 30,
+      "Compare/4/true/Ne": 384,
+      "Compare/4/true/Eq": 528,
+      "Cast/2->4/Integer": 6,
+      "Compare/4/true/Lt": 64,
+      "Compare/3/false/Ne": 8,
+      "Compare/4/true/Gt": 56,
+      "Compare/4/true/Le": 24,
+      "Compare/4/true/Ge": 16
+    }
+  },
+  "raw": {
+    "mode": "raw",
+    "routine_bytes": 534815,
+    "routines": 551,
+    "guards": 2328,
+    "modules": {
+      "TASKPOLICY": 133922,
+      "SHELLAPP": 69596,
+      "DOSCALLS": 29984,
+      "MYDOSFILE": 20709,
+      "HEAPPOLICY": 19186,
+      "MYDOS": 19183,
+      "BLOCKIO": 18849,
+      "FSHANDLER": 17747,
+      "HEAPCORE": 17614,
+      "FSINIT": 17018,
+      "DOSRAW": 16777,
+      "CONSOLEDRIVER": 14902,
+      "SIODRIVER": 14541,
+      "FSDIRECTORY": 12996,
+      "FSRELATIVE": 12674,
+      "CONSOLEDISPLAY": 8049,
+      "DOSCLIENT": 7774,
+      "FSNAMES": 6979,
+      "FSPACKET": 5521,
+      "CONSOLECORE": 5466,
+      "FSLOCKS": 5321,
+      "FSMOUNT": 4921,
+      "EXECMEMORY": 4678,
+      "CONSOLEINPUT": 4407,
+      "EXECLISTS": 4286,
+      "DOS": 4262,
+      "FSREGISTRY": 4216,
+      "FSBOOT": 4216,
+      "DOSSTREAMS": 3706,
+      "MYDOSNAMES": 3505,
+      "FSINFO": 3215,
+      "IOCORE": 3122,
+      "FSWORKER": 2500,
+      "FSIO": 2252,
+      "DOSOBJECTS": 1804,
+      "TASKINSPECT": 1719,
+      "FSINSPECT": 1695,
+      "PORTCORE": 1615,
+      "DEVICEINSPECT": 1227,
+      "FSMUX": 1141,
+      "FSPORTS": 997,
+      "DOSWIRE": 346,
+      "BLOCKWIRE": 177
+    },
+    "categories": {
+      "guards": 104760,
+      "other": 85729,
+      "stack relative": 171966,
+      "mode changes": 48814,
+      "conditional branches": 11424,
+      "JML": 31500,
+      "absolute long memory": 2568,
+      "DP operations": 59860,
+      "indirect memory": 11090,
+      "JSL": 7104
+    },
+    "mir": {
+      "Call/Direct": {
+        "count": 1776,
+        "bytes": 180681,
+        "guard_bytes": 79920
+      },
+      "Terminator/Return": {
+        "count": 1485,
+        "bytes": 37081,
+        "guard_bytes": 0
+      },
+      "Load/3/LongIndirect": {
+        "count": 869,
+        "bytes": 21048,
+        "guard_bytes": 0
+      },
+      "Load/3/Parameter": {
+        "count": 2321,
+        "bytes": 19412,
+        "guard_bytes": 0
+      },
+      "Load/3/AutomaticFrame": {
+        "count": 2126,
+        "bytes": 17916,
+        "guard_bytes": 0
+      },
+      "AddressOf/3": {
+        "count": 264,
+        "bytes": 10970,
+        "guard_bytes": 0
+      },
+      "Cast/1->4/Integer": {
+        "count": 693,
+        "bytes": 9378,
+        "guard_bytes": 0
+      },
+      "Load/1/LongIndexed": {
+        "count": 159,
+        "bytes": 8883,
+        "guard_bytes": 0
+      },
+      "Store/3/LongIndirect": {
+        "count": 316,
+        "bytes": 8782,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Eq": {
+        "count": 563,
+        "bytes": 8610,
+        "guard_bytes": 0
+      },
+      "Load/1/LongIndirect": {
+        "count": 450,
+        "bytes": 7788,
+        "guard_bytes": 0
+      },
+      "Load/4/LongIndirect": {
+        "count": 325,
+        "bytes": 7386,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Eq": {
+        "count": 66,
+        "bytes": 7158,
+        "guard_bytes": 0
+      },
+      "Store/1/LongIndirect": {
+        "count": 407,
+        "bytes": 7157,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Eq": {
+        "count": 68,
+        "bytes": 7080,
+        "guard_bytes": 0
+      },
+      "Store/4/LongIndirect": {
+        "count": 274,
+        "bytes": 6452,
+        "guard_bytes": 0
+      },
+      "Store/1/LongIndexed": {
+        "count": 116,
+        "bytes": 6429,
+        "guard_bytes": 0
+      },
+      "Store/3/AutomaticFrame": {
+        "count": 594,
+        "bytes": 5758,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Eq": {
+        "count": 215,
+        "bytes": 5757,
+        "guard_bytes": 0
+      },
+      "Terminator/Branch": {
+        "count": 346,
+        "bytes": 5732,
+        "guard_bytes": 0
+      },
+      "Load/2/LongIndirect": {
+        "count": 347,
+        "bytes": 5299,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Ne": {
+        "count": 48,
+        "bytes": 5194,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Ne": {
+        "count": 331,
+        "bytes": 5156,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Ne": {
+        "count": 49,
+        "bytes": 5120,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Gt": {
+        "count": 45,
+        "bytes": 4706,
+        "guard_bytes": 0
+      },
+      "Cast/1->2/Integer": {
+        "count": 459,
+        "bytes": 4478,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/Pointer": {
+        "count": 320,
+        "bytes": 4286,
+        "guard_bytes": 0
+      },
+      "Binary/4/Add": {
+        "count": 102,
+        "bytes": 4250,
+        "guard_bytes": 0
+      },
+      "Load/3/Static": {
+        "count": 287,
+        "bytes": 4112,
+        "guard_bytes": 0
+      },
+      "Cast/2->4/Integer": {
+        "count": 160,
+        "bytes": 3840,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Ne": {
+        "count": 154,
+        "bytes": 3422,
+        "guard_bytes": 0
+      },
+      "Store/2/LongIndirect": {
+        "count": 188,
+        "bytes": 3037,
+        "guard_bytes": 0
+      },
+      "Load/2/LongIndexed": {
+        "count": 38,
+        "bytes": 2748,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Lt": {
+        "count": 26,
+        "bytes": 2720,
+        "guard_bytes": 0
+      },
+      "Store/2/LongIndexed": {
+        "count": 41,
+        "bytes": 2696,
+        "guard_bytes": 0
+      },
+      "Load/1/AutomaticFrame": {
+        "count": 475,
+        "bytes": 2584,
+        "guard_bytes": 0
+      },
+      "Load/4/AutomaticFrame": {
+        "count": 260,
+        "bytes": 2136,
+        "guard_bytes": 0
+      },
+      "Binary/4/Sub": {
+        "count": 50,
+        "bytes": 2104,
+        "guard_bytes": 0
+      },
+      "Load/2/AutomaticFrame": {
+        "count": 494,
+        "bytes": 2074,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/IntegerToPointer": {
+        "count": 165,
+        "bytes": 2020,
+        "guard_bytes": 0
+      },
+      "Load/2/Parameter": {
+        "count": 442,
+        "bytes": 1868,
+        "guard_bytes": 0
+      },
+      "Terminator/Goto": {
+        "count": 910,
+        "bytes": 1800,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Ge": {
+        "count": 15,
+        "bytes": 1578,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Ne": {
+        "count": 105,
+        "bytes": 1561,
+        "guard_bytes": 0
+      },
+      "Load/3/LongIndexed": {
+        "count": 17,
+        "bytes": 1550,
+        "guard_bytes": 0
+      },
+      "Store/4/AutomaticFrame": {
+        "count": 175,
+        "bytes": 1546,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Eq": {
+        "count": 103,
+        "bytes": 1526,
+        "guard_bytes": 0
+      },
+      "Cast/4->3/Integer": {
+        "count": 116,
+        "bytes": 1514,
+        "guard_bytes": 0
+      },
+      "Load/4/Parameter": {
+        "count": 179,
+        "bytes": 1486,
+        "guard_bytes": 0
+      },
+      "Cast/4->4/Integer": {
+        "count": 78,
+        "bytes": 1370,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/PointerToInteger": {
+        "count": 101,
+        "bytes": 1358,
+        "guard_bytes": 0
+      },
+      "Binary/4/Lsh": {
+        "count": 12,
+        "bytes": 1332,
+        "guard_bytes": 0
+      },
+      "Binary/4/Rsh": {
+        "count": 12,
+        "bytes": 1332,
+        "guard_bytes": 0
+      },
+      "Binary/4/And": {
+        "count": 32,
+        "bytes": 1300,
+        "guard_bytes": 0
+      },
+      "Compare/4/false/Le": {
+        "count": 12,
+        "bytes": 1252,
+        "guard_bytes": 0
+      },
+      "Binary/2/Add": {
+        "count": 180,
+        "bytes": 1219,
+        "guard_bytes": 0
+      },
+      "Cast/3->4/Integer": {
+        "count": 75,
+        "bytes": 1214,
+        "guard_bytes": 0
+      },
+      "Store/1/AutomaticFrame": {
+        "count": 240,
+        "bytes": 1202,
+        "guard_bytes": 0
+      },
+      "Load/1/Parameter": {
+        "count": 182,
+        "bytes": 1068,
+        "guard_bytes": 0
+      },
+      "Store/2/AutomaticFrame": {
+        "count": 253,
+        "bytes": 1014,
+        "guard_bytes": 0
+      },
+      "Binary/3/Add": {
+        "count": 31,
+        "bytes": 981,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Le": {
+        "count": 66,
+        "bytes": 964,
+        "guard_bytes": 0
+      },
+      "Binary/4/Or": {
+        "count": 23,
+        "bytes": 928,
+        "guard_bytes": 0
+      },
+      "Binary/1/Add": {
+        "count": 81,
+        "bytes": 907,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Lt": {
+        "count": 8,
+        "bytes": 864,
+        "guard_bytes": 0
+      },
+      "Cast/2->3/Integer": {
+        "count": 56,
+        "bytes": 826,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Gt": {
+        "count": 54,
+        "bytes": 791,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Gt": {
+        "count": 7,
+        "bytes": 762,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Lt": {
+        "count": 9,
+        "bytes": 756,
+        "guard_bytes": 0
+      },
+      "Binary/1/And": {
+        "count": 70,
+        "bytes": 736,
+        "guard_bytes": 0
+      },
+      "Unary/2/Neg": {
+        "count": 33,
+        "bytes": 693,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Lt": {
+        "count": 46,
+        "bytes": 636,
+        "guard_bytes": 0
+      },
+      "Binary/2/Lsh": {
+        "count": 10,
+        "bytes": 636,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Ge": {
+        "count": 39,
+        "bytes": 594,
+        "guard_bytes": 0
+      },
+      "Load/4/LongIndexed": {
+        "count": 6,
+        "bytes": 558,
+        "guard_bytes": 0
+      },
+      "Binary/3/Lsh": {
+        "count": 7,
+        "bytes": 525,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Gt": {
+        "count": 30,
+        "bytes": 496,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Le": {
+        "count": 41,
+        "bytes": 488,
+        "guard_bytes": 0
+      },
+      "Binary/3/Rsh": {
+        "count": 6,
+        "bytes": 450,
+        "guard_bytes": 0
+      },
+      "Binary/2/Sub": {
+        "count": 58,
+        "bytes": 438,
+        "guard_bytes": 0
+      },
+      "Cast/1->3/Integer": {
+        "count": 40,
+        "bytes": 430,
+        "guard_bytes": 0
+      },
+      "Binary/1/Sub": {
+        "count": 34,
+        "bytes": 374,
+        "guard_bytes": 0
+      },
+      "Store/3/LongIndexed": {
+        "count": 4,
+        "bytes": 372,
+        "guard_bytes": 0
+      },
+      "Cast/2->1/Integer": {
+        "count": 57,
+        "bytes": 340,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Le": {
+        "count": 3,
+        "bytes": 326,
+        "guard_bytes": 0
+      },
+      "Binary/2/Rsh": {
+        "count": 5,
+        "bytes": 325,
+        "guard_bytes": 0
+      },
+      "PointerOffset/3": {
+        "count": 8,
+        "bytes": 256,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Ge": {
+        "count": 3,
+        "bytes": 252,
+        "guard_bytes": 0
+      },
+      "Binary/2/And": {
+        "count": 11,
+        "bytes": 242,
+        "guard_bytes": 0
+      },
+      "Compare/1/false/Lt": {
+        "count": 14,
+        "bytes": 230,
+        "guard_bytes": 0
+      },
+      "Binary/3/Sub": {
+        "count": 7,
+        "bytes": 219,
+        "guard_bytes": 0
+      },
+      "Compare/4/true/Ge": {
+        "count": 2,
+        "bytes": 218,
+        "guard_bytes": 0
+      },
+      "Binary/1/Rsh": {
+        "count": 4,
+        "bytes": 204,
+        "guard_bytes": 0
+      },
+      "Cast/2->2/Integer": {
+        "count": 19,
+        "bytes": 186,
+        "guard_bytes": 0
+      },
+      "Cast/4->2/Integer": {
+        "count": 19,
+        "bytes": 184,
+        "guard_bytes": 0
+      },
+      "Load/1/External": {
+        "count": 22,
+        "bytes": 168,
+        "guard_bytes": 0
+      },
+      "Load/2/External": {
+        "count": 24,
+        "bytes": 168,
+        "guard_bytes": 0
+      },
+      "Compare/2/false/Ge": {
+        "count": 9,
+        "bytes": 122,
+        "guard_bytes": 0
+      },
+      "Call/Indirect": {
+        "count": 1,
+        "bytes": 121,
+        "guard_bytes": 45
+      },
+      "Binary/1/Or": {
+        "count": 10,
+        "bytes": 108,
+        "guard_bytes": 0
+      },
+      "Binary/3/And": {
+        "count": 3,
+        "bytes": 90,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Le": {
+        "count": 1,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Compare/3/false/Gt": {
+        "count": 1,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Unary/4/Neg": {
+        "count": 2,
+        "bytes": 84,
+        "guard_bytes": 0
+      },
+      "Binary/4/Xor": {
+        "count": 2,
+        "bytes": 80,
+        "guard_bytes": 0
+      },
+      "Compare/2/true/Eq": {
+        "count": 6,
+        "bytes": 75,
+        "guard_bytes": 0
+      },
+      "Store/3/Static": {
+        "count": 4,
+        "bytes": 68,
+        "guard_bytes": 0
+      },
+      "Cast/3->2/Integer": {
+        "count": 7,
+        "bytes": 66,
+        "guard_bytes": 0
+      },
+      "Cast/4->1/Integer": {
+        "count": 9,
+        "bytes": 54,
+        "guard_bytes": 0
+      },
+      "Binary/1/Xor": {
+        "count": 5,
+        "bytes": 50,
+        "guard_bytes": 0
+      },
+      "Cast/3->3/Integer": {
+        "count": 4,
+        "bytes": 48,
+        "guard_bytes": 0
+      },
+      "Binary/2/Or": {
+        "count": 2,
+        "bytes": 44,
+        "guard_bytes": 0
+      },
+      "Compare/2/true/Ne": {
+        "count": 3,
+        "bytes": 42,
+        "guard_bytes": 0
+      },
+      "Store/1/External": {
+        "count": 6,
+        "bytes": 36,
+        "guard_bytes": 0
+      },
+      "Store/2/External": {
+        "count": 2,
+        "bytes": 12,
+        "guard_bytes": 0
+      },
+      "Store/4/Static": {
+        "count": 1,
+        "bytes": 12,
+        "guard_bytes": 0
+      },
+      "Cast/3->1/Integer": {
+        "count": 1,
+        "bytes": 4,
+        "guard_bytes": 0
+      }
+    },
+    "branch_candidate_counts": {
+      "conditional/guard": 9312,
+      "unconditional/guard": 2328,
+      "unconditional/body": 3270,
+      "conditional/body": 3510
+    },
+    "branch_candidate_encoding_savings": {
+      "conditional/guard": 37248,
+      "unconditional/guard": 4656,
+      "unconditional/body": 6540,
+      "conditional/body": 14040
+    },
+    "zero_incoming_typed_reference_count": 26,
+    "zero_incoming_typed_reference_bytes": 22469,
+    "zero_incoming_typed_references": [
+      {
+        "name": "M_EXECMEMORY_RESERVEEXACT_88D3D2C8",
+        "size": 944,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_EXECMEMORY_INIT_F4EA07E3",
+        "size": 137,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_EXECLISTS_REMTAIL_292EAA27",
+        "size": 327,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_HEAPCORE_ALLOCATE_E39F1AF5",
+        "size": 236,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_INIT_57A5FAC8",
+        "size": 2987,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_TASKPOLICY_DISPATCH_2D7B283C",
+        "size": 2539,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_CONSOLEDRIVER_START_3E6AAC44",
+        "size": 1030,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_CONSOLEDRIVER_STOP_093D3500",
+        "size": 732,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_PORTCORE_CREATEMSGPORT_A47550A3",
+        "size": 1184,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_PORTCORE_DELETEMSGPORT_9136F7C6",
+        "size": 431,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_SIODRIVER_STOP_B26AF28A",
+        "size": 549,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_OPENDEVICE_A2787528",
+        "size": 459,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_CREATEIOREQUEST_DE10015D",
+        "size": 974,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_DELETEIOREQUEST_93A87E78",
+        "size": 361,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_IOCORE_DOIO_173DC4A1",
+        "size": 520,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_BLOCKIO_ATTACH_A1159825",
+        "size": 1604,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_BLOCKIO_READSECTOR_D918C668",
+        "size": 1648,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_FSREGISTRY_SERVICE_31663004",
+        "size": 226,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOS_MOUNT_2B42A118",
+        "size": 520,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOS_GETENTRY_7D00AFBD",
+        "size": 579,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOS_RESOLVE_25FA7BCB",
+        "size": 693,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_MYDOSFILE_RUN_01B89F42",
+        "size": 683,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_FSBOOT_STOP_AD5246E2",
+        "size": 1997,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_DOS_SEEK_DE9F46FB",
+        "size": 287,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_SHELLAPP_SHELLSTART_D37857EA",
+        "size": 452,
+        "entry": "NirRoutineEntry { program: false, external: false, external_symbol: None, placement: Relocatable }"
+      },
+      {
+        "name": "M_SHELLAPP_MAIN_168A375D",
+        "size": 370,
+        "entry": "NirRoutineEntry { program: true, external: false, external_symbol: None, placement: Relocatable }"
+      }
+    ],
+    "calls": 1777,
+    "argument_payload_bytes": 6923,
+    "outgoing_bytes": 8397,
+    "zero_store_encoding_bytes": 16794,
+    "overwritten_zero_store_encoding_bytes": 13846,
+    "argument_width_counts": {
+      "2": 416,
+      "3": 1325,
+      "4": 465,
+      "1": 256
+    },
+    "adjacent_32bit_compare_branch_candidates": {
+      "EqNe/sole occurrence": 218,
+      "ordering/sole occurrence": 114
+    },
+    "index_strides": {
+      "1": 237,
+      "4": 26,
+      "3": 21,
+      "2": 81,
+      "44": 14,
+      "26": 9,
+      "33": 6
+    },
+    "byte_constant_returns": {
+      "count": 454,
+      "current_bytes": 14202,
+      "estimated_savings_at_19_bytes_per_site": 8626,
+      "span_size_histogram": {
+        "31": 390,
+        "33": 64
+      }
+    },
+    "wide_comparisons": {
+      "count": 349,
+      "bytes": 36978,
+      "equality_count": 231,
+      "equality_bytes": 24552
+    },
+    "shifts": {
+      "count": 56,
+      "bytes": 4804,
+      "constant_count": 32
+    },
+    "non_guard_conditional_candidates_by_MIR": {
+      "Compare/3/false/Eq": 230,
+      "Compare/4/false/Eq": 544,
+      "Compare/4/false/Gt": 360,
+      "Compare/4/false/Ge": 120,
+      "Compare/4/false/Ne": 392,
+      "Compare/4/false/Lt": 208,
+      "Compare/4/false/Le": 96,
+      "Binary/3/Lsh": 21,
+      "Binary/4/Lsh": 72,
+      "Compare/2/false/Eq": 5,
+      "Binary/3/Rsh": 18,
+      "Compare/2/false/Ne": 5,
+      "Compare/1/false/Ne": 16,
+      "Compare/3/false/Lt": 54,
+      "Compare/3/false/Ge": 18,
+      "Compare/3/false/Le": 6,
+      "Compare/3/false/Gt": 6,
+      "Binary/2/Rsh": 15,
+      "Compare/1/false/Eq": 17,
+      "Binary/4/Rsh": 72,
+      "Compare/1/false/Ge": 4,
+      "Compare/1/false/Le": 4,
+      "Compare/2/false/Le": 2,
+      "Compare/1/false/Lt": 1,
+      "Binary/1/Rsh": 12,
+      "Binary/2/Lsh": 30,
+      "Cast/2->4/Integer": 98,
+      "Compare/4/true/Ne": 384,
+      "Compare/4/true/Eq": 528,
+      "Compare/4/true/Lt": 64,
+      "Compare/3/false/Ne": 8,
+      "Compare/4/true/Gt": 56,
+      "Compare/4/true/Le": 24,
+      "Compare/4/true/Ge": 16,
+      "Cast/2->3/Integer": 4
+    }
+  }
+}

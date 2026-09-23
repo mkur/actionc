@@ -36,6 +36,12 @@ The small corpus and frozen Exec shell are byte-identical. See the
 [measured results](benchmarks/65816-signed-word-comparisons/README.md).
 Allocation, broader branch relaxation and the other backlog items remain deferred.
 
+The [current-source Exec size audit](benchmarks/65816-exec-size-detail/README.md)
+adds a guarded raw/optimized baseline for Exec `c3500c8`. It identifies repeated
+call payload initialization, compact guard encoding, four-byte equality and BYTE
+returns as focused selection/layout opportunities. No new allocation machinery
+or public ABI change is proposed; these candidates are not yet implemented.
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are

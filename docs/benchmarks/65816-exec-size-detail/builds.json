@@ -1,0 +1,203 @@
+{
+  "date": "2026-09-23",
+  "exec_source_root": "/Users/michalkurcewicz/action/exec816/build/code-size-detail-20260923/exec",
+  "inventory_root": "/Users/michalkurcewicz/action/actionc-public-release/target/exec-code-size-detail",
+  "configuration": {
+    "source": "examples/shell.act",
+    "task_capacity": 8,
+    "console": true,
+    "stack_checks": true,
+    "dos_mounts": "config/shell-mydos.json",
+    "version_banner": "c3500c8-dirty"
+  },
+  "main_compatibility": "Remove only stack_checks:true from the compiler layout input; current main always emits the same mandatory guards. Original layouts/build manifests retained. No unchecked builds accepted.",
+  "checks": {
+    "generated_Action_sources_equal_after_build_directory_normalization": true,
+    "all_551_routine_contracts_equal_excluding_address_and_size_per_mode": true,
+    "main_full_build_compiler_segments_equal_typed_inventory_per_mode": true,
+    "source_platform_ABI_and_memory_inputs_equal_per_mode": true,
+    "hosted_execution_run": false,
+    "guard_count_amount_and_order_equal_per_routine_in_both_modes": true,
+    "preexisting_actionc_local_paths_preserved": 140,
+    "preexisting_exec_local_paths_preserved": 2
+  },
+  "builds": [
+    {
+      "build": "shell-pin-opt",
+      "compiler": "2d73c03a0cb02e1f9d5b54d49679d6c2c4d8d78d",
+      "exec_revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+      "optimize": true,
+      "stack_checks": true,
+      "compiler_override": false,
+      "routine_bytes": 576958,
+      "executable_bytes": 584523,
+      "initialized_data_bytes": 2315,
+      "xex_bytes": 602751,
+      "routines": 551,
+      "bank_zero_budget": {
+        "fixed_runtime": 10560,
+        "public": [
+          2080,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568
+        ],
+        "idle": 1056,
+        "runtime_excluding_os": 24672,
+        "loading_excluding_os": 20368,
+        "runtime_including_os": 61536,
+        "loading_including_os": 57232
+      },
+      "hashes": {
+        "program.a816.json": "59a7eaea81d6e2942392a04cb4870e97a1ca112895010d39bd44b1e4ae60b476",
+        "program.xex": "d63b819159d7f7f2c9412ab3ccb4e3c94a38c649f9353b4b86550745e4e45492",
+        "build.json": "1d37004350f47b27e0cc4d3b2baf806c6ba8ee05b37fee2123516e5b848a2e33",
+        "layout.json": "c1475d28d44952e2c93f9e7432a1c12751c9f90f7a3c306f37971d064e3044a9",
+        "kernel-program.act": "22ceb026bc64de968f4f3e2542dfee9fcddf5f3f95265d404d6d0a38c8f6a105"
+      },
+      "compiler_binary_sha256": "0d1cdf46a829329faef68c8c69213889e949b9bd000b25e64da17dcf4840f307",
+      "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175",
+      "abi_assembly_sha256": "ba00a5bfa74d656f5d6d7f1fe566d399c6788ed745ba6a58c99fb336fc95afdb",
+      "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b"
+    },
+    {
+      "build": "shell-pin-raw",
+      "compiler": "2d73c03a0cb02e1f9d5b54d49679d6c2c4d8d78d",
+      "exec_revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+      "optimize": false,
+      "stack_checks": true,
+      "compiler_override": false,
+      "routine_bytes": 609790,
+      "executable_bytes": 617355,
+      "initialized_data_bytes": 2315,
+      "xex_bytes": 636175,
+      "routines": 551,
+      "bank_zero_budget": {
+        "fixed_runtime": 10560,
+        "public": [
+          2080,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568
+        ],
+        "idle": 1056,
+        "runtime_excluding_os": 24672,
+        "loading_excluding_os": 20368,
+        "runtime_including_os": 61536,
+        "loading_including_os": 57232
+      },
+      "hashes": {
+        "program.a816.json": "ffaedc457cf5a9a4c228d034e1c6ea6eb4ff99b776e2c39a0c38cd03342de869",
+        "program.xex": "5553be3014ae2505becbecf27aa19d761803ff77ce8f6186144454c028f930c1",
+        "build.json": "db49141f81c6acc501fa0cd9854e5fcab9af012873522841086f4d856fb4e9c6",
+        "layout.json": "c1475d28d44952e2c93f9e7432a1c12751c9f90f7a3c306f37971d064e3044a9",
+        "kernel-program.act": "22ceb026bc64de968f4f3e2542dfee9fcddf5f3f95265d404d6d0a38c8f6a105"
+      },
+      "compiler_binary_sha256": "0d1cdf46a829329faef68c8c69213889e949b9bd000b25e64da17dcf4840f307",
+      "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175",
+      "abi_assembly_sha256": "ba00a5bfa74d656f5d6d7f1fe566d399c6788ed745ba6a58c99fb336fc95afdb",
+      "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b"
+    },
+    {
+      "build": "shell-main-compat-opt",
+      "compiler": "9f16e08b39308a1b2e9d9d1981f7410f84dbacc1",
+      "exec_revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+      "optimize": true,
+      "stack_checks": true,
+      "compiler_override": true,
+      "routine_bytes": 503453,
+      "executable_bytes": 511018,
+      "initialized_data_bytes": 2315,
+      "xex_bytes": 527916,
+      "routines": 551,
+      "bank_zero_budget": {
+        "fixed_runtime": 10560,
+        "public": [
+          2080,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568
+        ],
+        "idle": 1056,
+        "runtime_excluding_os": 24672,
+        "loading_excluding_os": 20368,
+        "runtime_including_os": 61536,
+        "loading_including_os": 57232
+      },
+      "hashes": {
+        "program.a816.json": "d1379fff9ddbb0689d7ee537c4041291e368cddf7aed50f2c2ee382716cc8021",
+        "program.xex": "51067f5ae604f0133432e85aeb55d5221ff621f764f8e17e6a1a2ad4cfd2f1b2",
+        "build.json": "5a9a4c6ceeb5e4e1f550a1217070fd6d1f3c88f638b0aaad9978984a1ede1dfc",
+        "layout.json": "c1475d28d44952e2c93f9e7432a1c12751c9f90f7a3c306f37971d064e3044a9",
+        "kernel-program.act": "22ceb026bc64de968f4f3e2542dfee9fcddf5f3f95265d404d6d0a38c8f6a105"
+      },
+      "compiler_binary_sha256": "afa644f159cec1e3dbd27100b0b9be5b38472926ef6dbb622ac5f424ac2c2812",
+      "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175",
+      "abi_assembly_sha256": "ba00a5bfa74d656f5d6d7f1fe566d399c6788ed745ba6a58c99fb336fc95afdb",
+      "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b"
+    },
+    {
+      "build": "shell-main-compat-raw",
+      "compiler": "9f16e08b39308a1b2e9d9d1981f7410f84dbacc1",
+      "exec_revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+      "optimize": false,
+      "stack_checks": true,
+      "compiler_override": true,
+      "routine_bytes": 534815,
+      "executable_bytes": 542380,
+      "initialized_data_bytes": 2315,
+      "xex_bytes": 559888,
+      "routines": 551,
+      "bank_zero_budget": {
+        "fixed_runtime": 10560,
+        "public": [
+          2080,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568
+        ],
+        "idle": 1056,
+        "runtime_excluding_os": 24672,
+        "loading_excluding_os": 20368,
+        "runtime_including_os": 61536,
+        "loading_including_os": 57232
+      },
+      "hashes": {
+        "program.a816.json": "31d14a6f9395ccb2e7a3386237300e956a4ff671819675007999101fafafdec8",
+        "program.xex": "61a6feec9d93e127015d6ede343f706ad810d11299dfd23cc164aeee87cbdb91",
+        "build.json": "eaee3db71cc6d8c859d18cd0ae061a2bda0c0c5c9a8c62ca0b7910188655bd73",
+        "layout.json": "c1475d28d44952e2c93f9e7432a1c12751c9f90f7a3c306f37971d064e3044a9",
+        "kernel-program.act": "22ceb026bc64de968f4f3e2542dfee9fcddf5f3f95265d404d6d0a38c8f6a105"
+      },
+      "compiler_binary_sha256": "afa644f159cec1e3dbd27100b0b9be5b38472926ef6dbb622ac5f424ac2c2812",
+      "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175",
+      "abi_assembly_sha256": "ba00a5bfa74d656f5d6d7f1fe566d399c6788ed745ba6a58c99fb336fc95afdb",
+      "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b"
+    }
+  ],
+  "inventory_artifact_sha256": {
+    "main-opt.image.json": "18cddcc38eb42b4dd8ea86873ffea22b65fbde59d3d55dadc722f3daaa3d8546",
+    "main-raw.image.json": "89113f97d7cad70c6a7e4d5ec7ef5ef4b66c9d3e458d2c8a63916e3813343961",
+    "main-opt.inventory.json": "c85211b461e84db05e1fffe58e0c663bf3a94518996ce6f6e8e59eae9ef6c925",
+    "main-raw.inventory.json": "691e3034bf6ebf3a2adce1cee5be55f2fc5e19dc1634984439011f70821b4d3a",
+    "analyze.py": "6ed1eaadfba7f015e516bc9427e77e504de39ee38f751e9753e89a6080af080e",
+    "build_main.py": "de606eb8cabb2a3cfa9c91c471dbac1156dd125cb395f114cfb38367534a0eab",
+    "probe/src/main.rs": "019940e07bf214c0c24790bd467b496458547e7af0a590d56745d006d2d91343"
+  }
+}

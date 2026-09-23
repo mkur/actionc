@@ -46,6 +46,17 @@ The historical table above remains the original baseline.
 
 Remaining candidates, each requiring a focused implementation plan when resumed:
 
+The [current-source Exec audit](benchmarks/65816-exec-size-detail/README.md)
+measures Exec `c3500c8` with guards enabled on pin `2d73c03a` and main `9f16e08b`.
+Main already saves 73,505 optimized executable bytes; pin integration still
+requires reconciling the stack-check layout field and Exec qualification.
+The audit recommends outgoing-padding-only initialization as the next small
+slice: 13,756 bytes of payload zero stores are immediately overwritten by
+argument writes. It also inventories compact guard branches, native 32-bit
+Eq/Ne, direct BYTE constant returns and unused final index shifts. These remain
+unimplemented; their forecasts overlap where they replace the same code.
+The older candidates below retain their original measurements.
+
 1. **Broader local branch relaxation.** Extend the existing
    [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch
    sites to eligible local conditional transfers and unconditional jumps.

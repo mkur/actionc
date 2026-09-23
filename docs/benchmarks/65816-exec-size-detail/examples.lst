@@ -1,0 +1,143 @@
+; BYTE constant return
+; M_HEAPPOLICY_FLAGSVALID_4BF22F96
+; Return { value: Some(U8(0)), release_frame_bytes: ByteSize(6), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }
+017C76  E2 20       SEP #$20
+017C78  A9 00       LDA #$00
+017C7A  85 08       STA $08
+017C7C  85 09       STA $09
+017C7E  85 0A       STA $0A
+017C80  85 0B       STA $0B
+017C82  A9 00       LDA #$00
+017C84  85 08       STA $08
+017C86  C2 20       REP #$20
+017C88  A5 08       LDA $08
+017C8A  A6 0A       LDX $0A
+017C8C  A8          TAY
+017C8D  3B          TSC
+017C8E  18          CLC
+017C8F  69 14 00    ADC #$0014
+017C92  1B          TCS
+017C93  98          TYA
+017C94  6B          RTL
+
+; CARD argument call
+; M_EXECMEMORY_QUERY_D2E34F9F
+; Call { target: Direct(0), signature: Some(SignatureId(707038200)), args: [Temp(TempId(3), ByteSize(2))], result: Some((TempId(4), ByteSize(2))), convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(2), transfer: Jsl, caller_cleanup_bytes: ByteSize(3) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(2), alignment: ByteSize(2) }], result: Some(NativeResult(A16)), outgoing_bytes: ByteSize(3), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }
+0109E8  3B          TSC
+0109E9  AA          TAX
+0109EA  C5 46       CMP $46
+0109EC  B0 04       BCS $0109F2
+0109EE  5C FC 09 01 JML $0109FC
+0109F2  D0 04       BNE $0109F8
+0109F4  5C FC 09 01 JML $0109FC
+0109F8  5C 0E 0A 01 JML $010A0E
+0109FC  38          SEC
+0109FD  E9 06 00    SBC #$0006
+010A00  B0 04       BCS $010A06
+010A02  5C 0E 0A 01 JML $010A0E
+010A06  C5 44       CMP $44
+010A08  90 04       BCC $010A0E
+010A0A  5C 15 0A 01 JML $010A15
+010A0E  A9 06 00    LDA #$0006
+010A11  5C 05 3C 00 JML $003C05
+010A15  3B          TSC
+010A16  38          SEC
+010A17  E9 03 00    SBC #$0003
+010A1A  1B          TCS
+010A1B  E2 20       SEP #$20
+010A1D  A9 00       LDA #$00
+010A1F  83 01       STA $01,S
+010A21  83 02       STA $02,S
+010A23  83 03       STA $03,S
+010A25  A3 07       LDA $07,S
+010A27  83 01       STA $01,S
+010A29  A3 08       LDA $08,S
+010A2B  83 02       STA $02,S
+010A2D  C2 20       REP #$20
+010A2F  22 40 05 01 JSL $010540
+010A33  A8          TAY
+010A34  3B          TSC
+010A35  18          CLC
+010A36  69 03 00    ADC #$0003
+010A39  1B          TCS
+010A3A  98          TYA
+010A3B  E2 20       SEP #$20
+010A3D  83 02       STA $02,S
+010A3F  EB          XBA
+010A40  83 03       STA $03,S
+010A42  C2 20       REP #$20
+
+; LONGCARD zero equality
+; M_HEAPCORE_ROUNDED_9D79FA03
+; Compare { dest: TempId(2), width: ByteSize(4), signed: false, operation: Eq, left: Temp(TempId(0), ByteSize(4)), right: U32(0) }
+0126D3  E2 20       SEP #$20
+0126D5  A9 00       LDA #$00
+0126D7  85 10       STA $10
+0126D9  A3 05       LDA $05,S
+0126DB  C5 10       CMP $10
+0126DD  B0 04       BCS $0126E3
+0126DF  5C 29 27 01 JML $012729
+0126E3  F0 04       BEQ $0126E9
+0126E5  5C 2F 27 01 JML $01272F
+0126E9  A9 00       LDA #$00
+0126EB  85 10       STA $10
+0126ED  A3 04       LDA $04,S
+0126EF  C5 10       CMP $10
+0126F1  B0 04       BCS $0126F7
+0126F3  5C 29 27 01 JML $012729
+0126F7  F0 04       BEQ $0126FD
+0126F9  5C 2F 27 01 JML $01272F
+0126FD  A9 00       LDA #$00
+0126FF  85 10       STA $10
+012701  A3 03       LDA $03,S
+012703  C5 10       CMP $10
+012705  B0 04       BCS $01270B
+012707  5C 29 27 01 JML $012729
+01270B  F0 04       BEQ $012711
+01270D  5C 2F 27 01 JML $01272F
+012711  A9 00       LDA #$00
+012713  85 10       STA $10
+012715  A3 02       LDA $02,S
+012717  C5 10       CMP $10
+012719  B0 04       BCS $01271F
+01271B  5C 29 27 01 JML $012729
+01271F  F0 04       BEQ $012725
+012721  5C 2F 27 01 JML $01272F
+012725  5C 35 27 01 JML $012735
+012729  A9 00       LDA #$00
+01272B  5C 3B 27 01 JML $01273B
+01272F  A9 00       LDA #$00
+012731  5C 3B 27 01 JML $01273B
+012735  A9 01       LDA #$01
+012737  5C 3B 27 01 JML $01273B
+01273B  83 01       STA $01,S
+
+; Stride-one indexed load
+; M_EXECMEMORY_ADOPT_494D3B99
+; Load { dest: TempId(26), width: ByteSize(1), address: Mir65816Address { base: Indirect(Temp(TempId(24), ByteSize(3))), displacement: ByteOffset(0), index: Some(Mir65816Index { value: Temp(TempId(53), ByteSize(2)), stride: ByteSize(1) }), mode: LongIndexed }, volatile: false }
+010738  C2 20       REP #$20
+01073A  A3 02       LDA $02,S
+01073C  85 00       STA $00
+01073E  A3 03       LDA $03,S
+010740  85 01       STA $01
+010742  A3 06       LDA $06,S
+010744  85 14       STA $14
+010746  E2 20       SEP #$20
+010748  A9 00       LDA #$00
+01074A  85 16       STA $16
+01074C  18          CLC
+01074D  A5 00       LDA $00
+01074F  65 14       ADC $14
+010751  85 00       STA $00
+010753  A5 01       LDA $01
+010755  65 15       ADC $15
+010757  85 01       STA $01
+010759  A5 02       LDA $02
+01075B  65 16       ADC $16
+01075D  85 02       STA $02
+01075F  06 14       ASL $14
+010761  26 15       ROL $15
+010763  26 16       ROL $16
+010765  A0 00 00    LDY #$0000
+010768  B7 00       LDA [$00],Y
+01076A  83 01       STA $01,S
