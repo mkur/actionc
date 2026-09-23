@@ -1697,9 +1697,9 @@ impl Generator {
                 }
                 let right_slot = StorageSlot::zero_page(runtime_zp::ADDR.address(), slot.size);
                 if self.profile.enables_modern_optimizations()
+                    || expr_contains_routine_call(left, &self.routines)
                     || (*op == BinaryOp::Add
-                        && (expr_contains_routine_call(left, &self.routines)
-                            || Self::expr_uses_runtime_arithmetic_helper(left)))
+                        && Self::expr_uses_runtime_arithmetic_helper(left))
                 {
                     let left_slot =
                         StorageSlot::zero_page(runtime_zp::ELEMENT_ADDR.address(), slot.size);

@@ -44,16 +44,30 @@ side effects that are not yet fully reproduced. When preserving old source
 matters, keep the original source and libraries available as fixtures and add a
 focused compatibility test or probe before changing semantics or codegen.
 
-The legacy profile intentionally rejects some expression shapes that are legal
-to parse but awkward to lower compatibly:
+The legacy profile rejects these expression shapes:
 
-- function calls as arguments in standalone routine-call statements;
-- most function calls inside arithmetic expressions;
+- function calls nested inside routine-call arguments;
+- arithmetic that reaches another function call while an earlier raw function
+  result is still pending;
 - compound assignments where the target contains a function call;
 - indexed assignments where both sides contain function calls.
 
-Those restrictions keep the compatibility path conservative and make accidental
-divergence easier to spot.
+The arithmetic rule follows source precedence and grouping. The original
+compiler uses `$A0/$A1` for function results and rejects a new call while that
+return area is occupied. An arithmetic operation consumes the result into a
+temporary that survives later calls. Thus `F()+G()` and `F()+(G()+1)` are
+rejected, while `(F()+1)+G()` and `F()+1+G()` are accepted. Parentheses around a
+call alone do not consume its result. A BYTE shift by zero also leaves it
+pending; a CARD/INT shift by zero consumes it through the word-shift helper.
+
+Single-call arithmetic is allowed on either side of an operator. In particular,
+puLse's `(Rand(2)*2-1)*(Rand(3)+1)` is accepted: the left-hand multiplication
+and subtraction consume the first return value before the second call.
+Accepted call-bearing operands execute left to right and each call executes
+once. The existing support for calls on both sides of a conditional comparison
+remains a compatibility extension. See the
+[original compiler probes](../surveys/probes/original-compiler/EVALUATION_ORDER.md)
+for the evidence and boundaries.
 
 ## Modern Profile
 

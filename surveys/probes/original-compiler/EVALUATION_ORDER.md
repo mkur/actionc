@@ -10,24 +10,24 @@ side-effect tests are not valid original Action! source at all.
   - Intentionally original-invalid.
   - Original Action! rejects direct function calls as `PROC` arguments, e.g.
     `Take(F(),G(),H())`, with error 11.
-  - `actionc` currently accepts this as an extension, so extension semantics must
+  - `actionc` modern accepts this as an extension, so extension semantics must
     be defined by `actionc`; left-to-right evaluation is the safest rule.
 
 - `eval_order_arith.act` / `EVALARI.COM`
   - Intentionally original-invalid.
-  - Original Action! rejects function-call operands in compound arithmetic, e.g.
-    `outB = FB() + GB()`, with error 11.
-  - `actionc` currently accepts this as an extension. Any optimizer/codegen path
-    for these expressions should preserve left-to-right evaluation.
+  - Original Action! rejects `outB = FB() + GB()` because the raw result of
+    `FB()` is still pending when `GB()` is reached. Targeted Action! 3.6 ROM
+    probes report error 17. This is not a general ban on calls in arithmetic.
+  - `actionc` compat enforces this pending-result rule; modern accepts the
+    overlapping-call form as an extension. Both must preserve call order.
 
 - `eval_order_compare.act` / `EVALCMP.COM`
   - Original Action! accepts function-call-vs-constant condition forms, including
     boolean and signed cases in this probe.
   - Original Action! rejects two function calls in one comparison, e.g.
     `IF FB() = GB() THEN ...`, with error 11.
-  - Current `actionc` rejects part of the broad original-accepted probe with
-    `codegen only supports scalar IF conditions and unsigned comparisons`; this
-    covers the boolean/signed tail and should be treated as a real coverage gap.
+  - `actionc` now accepts the boolean/signed tail, and also accepts calls on
+    both sides of a conditional comparison as an extension in both profiles.
 
 - `eval_order_cmpu.act` / `EVALCMPU.COM`
   - Narrow unsigned function-call-vs-constant comparison subset.
@@ -47,14 +47,52 @@ side-effect tests are not valid original Action! source at all.
 
 ## Conclusions
 
-For original-compatible source, Action! avoids most ambiguous side-effecting
-binary evaluation cases by rejecting them. The compiler still needs correct
-order for accepted function-call indexes and single-call condition forms; the
-current supported index paths are exact.
+Original Action! permits multiple calls in one arithmetic expression when
+each earlier return value is consumed before the next call. Calls, indexes,
+and intermediate arithmetic therefore still need correct evaluation order.
 
-Compat policy: these original-invalid forms are rejected by the `compat`
-profile. `modern` may keep them as extensions, but any retained extension should
-use strict left-to-right evaluation as its semantic rule.
+Compat rejects overlapping raw arithmetic results and nested call arguments.
+The separately supported two-call conditional comparison remains an extension.
+Modern may accept further original-invalid forms, with left-to-right evaluation.
+
+## Arithmetic result lifetime
+
+The original source's `COMPILER.asm`, at `??expfunc`, checks `temps[0]` before
+calling `pf.pf_` and reports an expression error when occupied. The call result
+then occupies `args` (`$A0/$A1`). The same routine saves and restores occupied
+ordinary temporaries at `$A2..$AF`; `AMPL.CGU.asm`'s `gettemps` excludes the
+return area, and consuming an operand releases its temporary flag.
+
+Action! 3.6 ROM probes confirm these distinctions (`F` returns a BYTE):
+
+| Expression | Original result |
+| --- | --- |
+| `F(2)+F(3)` | Rejected |
+| `(F(2))+(F(3))` | Rejected |
+| `F(2)+(F(3)+1)` | Rejected |
+| `F(2)+1*F(3)` | Rejected |
+| `F(2)+1+F(3)` | Accepted, 6 |
+| `F(2)+0+F(3)` | Accepted, 5 |
+| `(F(2)*2-1)*(F(3)+1)` | Accepted, 12 |
+| `(-F(2))+F(3)` | Accepted, 1 |
+| `7-F(2)` | Accepted, 5 |
+| `12/F(3)` | Accepted, 4 |
+| `7 MOD F(3)` | Accepted, 1 |
+| `8 RSH F(2)` | Accepted, 2 |
+| `(F(2) LSH 0)+F(3)` | Rejected |
+| `(F(2) LSH 1)+F(3)` | Accepted, 7 |
+| `F(F(2)+1)` | Rejected |
+
+A BYTE shift by zero is elided without consuming the result; a word shift
+uses a helper, so `(W(256) LSH 0)+W(3)` is accepted and returns 259 for a CARD
+function `W`. This source validation precedes optimization: folding an identity
+operation must not change whether the source passes the compatibility check.
+
+The original compiler also accepts the complete ANALOG #26 puLse source with
+`xd(i)=(Rand(2)*2-1)*(Rand(3)+1)` unchanged. Both the ROM in `actionc-vm` and
+`action-sandbox` produced the same 2,651-byte object in the investigation.
+Regression tests in `src/codegen/tests/compat_calls.rs` cover acceptance,
+rejection, runtime values, call counts, and call order under both runtimes.
 
 Follow-up status:
 

@@ -18,6 +18,9 @@ mod arithmetic;
 #[path = "tests/call_arguments.rs"]
 mod call_arguments;
 
+#[path = "tests/compat_calls.rs"]
+mod compat_calls;
+
 #[test]
 fn indexed_addressing_invalidates_previous_constant_store_y_hint() {
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
@@ -7736,10 +7739,10 @@ fn compatible_profile_rejects_function_calls_as_call_arguments() {
 }
 
 #[test]
-fn compatible_profile_rejects_function_calls_in_arithmetic() {
+fn compatible_profile_rejects_overlapping_function_results_in_arithmetic() {
     assert_compatible_diagnostic_contains(
         "BYTE out BYTE FUNC F() RETURN(1) BYTE FUNC G() RETURN(2) PROC Main() out=F()+G() RETURN",
-        "function calls in arithmetic expressions",
+        "earlier function result is still pending",
     );
 }
 
@@ -11571,6 +11574,13 @@ fn check_classic_nested_call_arguments(shape: &str) {
          PROC Main() captured=Capture({first}) captured=Capture({second}) RETURN"
     );
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+        if profile == CodegenProfile::Compat {
+            assert_compatible_diagnostic_contains(
+                &source,
+                "function calls as routine call arguments",
+            );
+            continue;
+        }
         let output = generate_profile_source_with_origin(&source, 0x3000, profile).unwrap();
         for values in [
             [0u16, 0, 255, 0xFFFF],
@@ -15935,7 +15945,17 @@ fn classic_word_return_consumers_preserve_distinct_result_bytes() {
                   PROC Main() p=base calls=0 direct=Difference() branch=Multiple() \
                   argument=Id(Difference()) p=base indexed=p(Difference()) updated=p RETURN";
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
-        let output = generate_profile_source_with_origin(source, 0x3000, profile).unwrap();
+        let source = if profile == CodegenProfile::Compat {
+            // Original Action! requires staging function results before using
+            // them as routine arguments; array indexes remain valid.
+            source.replace(
+                "argument=Id(Difference())",
+                "argument=Difference() argument=Id(argument)",
+            )
+        } else {
+            source.to_string()
+        };
+        let output = generate_profile_source_with_origin(&source, 0x3000, profile).unwrap();
         for (n, i) in [
             (129u16, 1u16),
             (0x2345, 0x2222),

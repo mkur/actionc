@@ -230,17 +230,23 @@ pub(super) fn validate_compatible_stmt(
             validate_compatible_expr(value, routines, diagnostics);
         }
         Stmt::Call { expr, span } => {
-            if let ExprKind::Call { args, .. } = &expr.kind
-                && args
+            if let ExprKind::Call { callee, args } = &expr.kind {
+                if args
                     .iter()
                     .any(|arg| expr_contains_routine_call(arg, routines))
-            {
-                diagnostics.push(Diagnostic::new(
-                    *span,
-                    "compat profile rejects function calls as routine call arguments",
-                ));
+                {
+                    diagnostics.push(Diagnostic::new(
+                        *span,
+                        "compat profile rejects function calls as routine call arguments",
+                    ));
+                }
+                validate_compatible_expr(callee, routines, diagnostics);
+                for arg in args {
+                    validate_compatible_expr(arg, routines, diagnostics);
+                }
+            } else {
+                validate_compatible_expr(expr, routines, diagnostics);
             }
-            validate_compatible_expr(expr, routines, diagnostics);
         }
         Stmt::If {
             branches,
@@ -302,96 +308,124 @@ pub(super) fn validate_compatible_expr(
     routines: &HashMap<String, RoutineInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    compatible_expr_calls(expr, routines, diagnostics);
+}
+
+#[derive(Default)]
+struct CompatibleExprCalls {
+    contains_call: bool,
+    /// Width of an unconsumed result in the original $A0/$A1 return area.
+    pending_result: Option<u16>,
+}
+
+fn compatible_expr_calls(
+    expr: &Expr,
+    routines: &HashMap<String, RoutineInfo>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> CompatibleExprCalls {
     match &expr.kind {
-        ExprKind::Unary { expr, .. } => validate_compatible_expr(expr, routines, diagnostics),
+        ExprKind::Cast { expr, .. }
+        | ExprKind::Unary {
+            op: UnaryOp::Plus,
+            expr,
+        } => compatible_expr_calls(expr, routines, diagnostics),
+        ExprKind::Unary { expr, .. } => {
+            let operand = compatible_expr_calls(expr, routines, diagnostics);
+            CompatibleExprCalls {
+                contains_call: operand.contains_call,
+                pending_result: None,
+            }
+        }
         ExprKind::Binary { op, left, right } => {
-            if compatible_binary_rejects_call_operands(*op)
-                && (expr_contains_routine_call(left, routines)
-                    || expr_contains_routine_call(right, routines))
-                && !compatible_binary_call_operand_is_identity(*op, left, right)
-                && !compatible_binary_call_operand_is_supported_runtime_op(
-                    *op, left, right, routines,
-                )
-                && !compatible_binary_call_operand_is_supported_single_call_op(
-                    *op, left, right, routines,
-                )
+            let left_calls = compatible_expr_calls(left, routines, diagnostics);
+            let right_calls = compatible_expr_calls(right, routines, diagnostics);
+            // Source AST order already expresses precedence and grouping. The
+            // original compiler saves ordinary arithmetic temporaries across
+            // calls, but rejects a call while a raw return value is still live.
+            // Keep the existing separately supported comparison surface.
+            if !matches!(
+                op,
+                BinaryOp::Eq
+                    | BinaryOp::Ne
+                    | BinaryOp::Lt
+                    | BinaryOp::Le
+                    | BinaryOp::Gt
+                    | BinaryOp::Ge
+            ) && left_calls.pending_result.is_some()
+                && right_calls.contains_call
             {
                 diagnostics.push(Diagnostic::new(
                     expr.span,
-                    "compat profile rejects function calls in arithmetic expressions",
+                    "compat profile rejects a function call while an earlier function result is still pending; compute the earlier result into a variable or an arithmetic intermediate first",
                 ));
             }
-            validate_compatible_expr(left, routines, diagnostics);
-            validate_compatible_expr(right, routines, diagnostics);
+            CompatibleExprCalls {
+                contains_call: left_calls.contains_call || right_calls.contains_call,
+                // Action! elides a BYTE shift by zero without consuming its
+                // operand. Word shifts use a helper and produce a new temp.
+                pending_result: if matches!(op, BinaryOp::Lsh | BinaryOp::Rsh)
+                    && constant_u16(right) == Some(0)
+                    && left_calls.pending_result == Some(1)
+                {
+                    left_calls.pending_result
+                } else {
+                    None
+                },
+            }
         }
         ExprKind::Call { callee, args } => {
-            validate_compatible_expr(callee, routines, diagnostics);
+            let mut contains_call =
+                compatible_expr_calls(callee, routines, diagnostics).contains_call;
             for arg in args {
-                validate_compatible_expr(arg, routines, diagnostics);
+                contains_call |= compatible_expr_calls(arg, routines, diagnostics).contains_call;
+            }
+            let routine = if let ExprKind::Name(name) = &callee.kind {
+                routines.get(&normalize_name(name))
+            } else {
+                None
+            };
+            if let Some(routine) = routine {
+                if contains_call {
+                    diagnostics.push(Diagnostic::new(
+                        expr.span,
+                        "compat profile rejects function calls as routine call arguments",
+                    ));
+                }
+                CompatibleExprCalls {
+                    contains_call: true,
+                    pending_result: routine.return_slot.map(|slot| slot.size),
+                }
+            } else {
+                // Array-call syntax is an indexed load, not a function return.
+                CompatibleExprCalls {
+                    contains_call,
+                    pending_result: None,
+                }
             }
         }
         ExprKind::Index { base, index } => {
-            validate_compatible_expr(base, routines, diagnostics);
-            validate_compatible_expr(index, routines, diagnostics);
+            let base = compatible_expr_calls(base, routines, diagnostics);
+            let index = compatible_expr_calls(index, routines, diagnostics);
+            CompatibleExprCalls {
+                contains_call: base.contains_call || index.contains_call,
+                pending_result: None,
+            }
         }
-        ExprKind::Field { base, .. } => validate_compatible_expr(base, routines, diagnostics),
-        _ => {}
-    }
-}
-
-pub(super) fn compatible_binary_rejects_call_operands(op: BinaryOp) -> bool {
-    matches!(
-        op,
-        BinaryOp::Add
-            | BinaryOp::Sub
-            | BinaryOp::Mul
-            | BinaryOp::Div
-            | BinaryOp::Mod
-            | BinaryOp::Lsh
-            | BinaryOp::Rsh
-    )
-}
-
-pub(super) fn compatible_binary_call_operand_is_identity(
-    op: BinaryOp,
-    left: &Expr,
-    right: &Expr,
-) -> bool {
-    match op {
-        BinaryOp::Add | BinaryOp::Or | BinaryOp::Xor => {
-            constant_u16(left) == Some(0) || constant_u16(right) == Some(0)
+        ExprKind::Field { base, .. } => {
+            let base = compatible_expr_calls(base, routines, diagnostics);
+            CompatibleExprCalls {
+                contains_call: base.contains_call,
+                pending_result: None,
+            }
         }
-        BinaryOp::Sub | BinaryOp::Lsh | BinaryOp::Rsh => constant_u16(right) == Some(0),
-        _ => false,
-    }
-}
-
-pub(super) fn compatible_binary_call_operand_is_supported_runtime_op(
-    op: BinaryOp,
-    left: &Expr,
-    right: &Expr,
-    routines: &HashMap<String, RoutineInfo>,
-) -> bool {
-    if !matches!(op, BinaryOp::Mul) {
-        return false;
-    }
-    let left_call = expr_contains_routine_call(left, routines);
-    let right_call = expr_contains_routine_call(right, routines);
-    left_call ^ right_call
-}
-
-pub(super) fn compatible_binary_call_operand_is_supported_single_call_op(
-    op: BinaryOp,
-    left: &Expr,
-    right: &Expr,
-    routines: &HashMap<String, RoutineInfo>,
-) -> bool {
-    let left_call = expr_contains_routine_call(left, routines);
-    let right_call = expr_contains_routine_call(right, routines);
-    match op {
-        BinaryOp::Add => left_call ^ right_call,
-        BinaryOp::Sub => left_call && !right_call,
-        BinaryOp::Lsh | BinaryOp::Rsh => left_call && !right_call && constant_u16(right).is_some(),
-        _ => false,
+        ExprKind::Prepared { statements, value } => {
+            for stmt in statements {
+                validate_compatible_stmt(stmt, routines, diagnostics);
+            }
+            let mut calls = compatible_expr_calls(value, routines, diagnostics);
+            calls.contains_call = true;
+            calls
+        }
+        _ => CompatibleExprCalls::default(),
     }
 }

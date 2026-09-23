@@ -946,7 +946,18 @@ impl Generator {
         expr: &Expr,
         target: StorageSlot,
     ) -> Option<StorageSlot> {
-        let source = self.lvalue_slot(expr)?;
+        let source = if let Some(source) = self.lvalue_slot(expr) {
+            source
+        } else if expr_contains_routine_call(expr, &self.routines) {
+            // A call-bearing operand must be evaluated once, before starting
+            // the subtraction. The destination also holds the widened value.
+            if !self.emit_expr_to_slot(expr, target) {
+                return None;
+            }
+            target
+        } else {
+            return None;
+        };
         debug_assert_negation_source_slot(expr, source, target);
         Some(source)
     }
