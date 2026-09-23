@@ -307,8 +307,13 @@ impl Generator {
                     if register_plan.is_staged(arg_offset) {
                         continue;
                     }
-                    let defer_modern_first_byte_arg =
-                        self.can_defer_modern_first_byte_staged_register_arg(arg, slot, arg_offset);
+                    let defer_modern_first_byte_arg = self
+                        .can_defer_modern_first_byte_staged_register_arg(
+                            arg,
+                            slot,
+                            arg_offset,
+                            staged_args.total_bytes,
+                        );
                     let deferred_literal_address =
                         self.staged_string_literal_register_arg(arg, slot, arg_offset);
                     if arg_offset == 1
@@ -750,6 +755,7 @@ impl Generator {
         arg: &Expr,
         slot: StorageSlot,
         arg_offset: u8,
+        arg_bytes: u16,
     ) -> bool {
         if !self.profile.enables_modern_optimizations()
             || slot.size != 1
@@ -767,12 +773,18 @@ impl Generator {
             {
                 true
             }
-            ExprKind::Call { callee, args } => self.array_call_slot_size(callee, args).is_some(),
+            // Deferred A is loaded after X/Y. Address calculation for an
+            // indexed/indirect value can overwrite those argument registers
+            // (for example, an absolute,Y byte-array load overwrites Y).
+            // Keep these values staged unless A is the only argument byte.
+            ExprKind::Call { callee, args } => {
+                arg_bytes == 1 && self.array_call_slot_size(callee, args).is_some()
+            }
             ExprKind::Index { .. }
             | ExprKind::Field { .. }
             | ExprKind::Unary {
                 op: UnaryOp::Deref, ..
-            } => true,
+            } => arg_bytes == 1,
             _ => false,
         }
     }

@@ -15,6 +15,9 @@ mod record_array_decay;
 #[path = "tests/arithmetic.rs"]
 mod arithmetic;
 
+#[path = "tests/call_arguments.rs"]
+mod call_arguments;
+
 #[test]
 fn indexed_addressing_invalidates_previous_constant_store_y_hint() {
     for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
