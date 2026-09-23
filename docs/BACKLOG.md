@@ -55,6 +55,9 @@ slice: 13,756 bytes of payload zero stores are immediately overwritten by
 argument writes. It also inventories compact guard branches, native 32-bit
 Eq/Ne, direct BYTE constant returns and unused final index shifts. These remain
 unimplemented; their forecasts overlap where they replace the same code.
+The user-selected [outgoing argument padding plan](MIR65816_CALL_PADDING_PLAN.md)
+is now proposed; it preserves ABI v1, all guards and the existing payload-copy
+loop while removing only duplicate payload clears. Implementation is pending.
 The older candidates below retain their original measurements.
 
 1. **Broader local branch relaxation.** Extend the existing
