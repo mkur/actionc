@@ -234,6 +234,178 @@ fn byte_fusion_restores_a16_and_omits_boolean_home_traffic() {
     assert_eq!(b.code.position(), end);
 }
 
+#[test]
+fn pointer_preflight_checks_the_third_byte_and_keeps_unsupported_forms_atomic() {
+    let p = program("BYTE FUNC Work(BYTE POINTER a,b) a=BYTE POINTER(0) RETURN(a=b)");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    let Mir65816Value::Temp(input, _) = left else {
+        panic!()
+    };
+    for problem in 0..11 {
+        let mut b = builder(r);
+        let mut a = left.clone();
+        let mut c = right.clone();
+        let mut op = NirCompareOp::Eq;
+        match problem {
+            0 => op = NirCompareOp::Lt,
+            1 => a = Mir65816Value::U32(0),
+            2 => a = Mir65816Value::RoutineAddress(0, ByteSize::new(3)),
+            3 => {
+                b.frame.temps.insert(
+                    input,
+                    Location::DirectPage(Slot {
+                        offset: 0,
+                        width: 3,
+                    }),
+                );
+            }
+            4 => {
+                b.frame.temps.insert(
+                    dest,
+                    Location::DirectPage(Slot {
+                        offset: 0,
+                        width: 1,
+                    }),
+                );
+            }
+            5 => a = Mir65816Value::U24(0x1000000),
+            6 => {
+                b.frame.temps.insert(
+                    input,
+                    Location::Stack(Slot {
+                        offset: 253,
+                        width: 3,
+                    }),
+                );
+                b.code.test_delta(1);
+            }
+            7 => {
+                b.frame.temps.remove(&input);
+            }
+            8 => {
+                b.frame.temps.insert(
+                    input,
+                    Location::Stack(Slot {
+                        offset: 2,
+                        width: 2,
+                    }),
+                );
+            }
+            9 => {
+                a = Mir65816Value::U32(0);
+                c = Mir65816Value::Temp(TempId(9999), ByteSize::new(3));
+            }
+            10 => {
+                b.frame.temps.insert(
+                    dest,
+                    Location::Stack(Slot {
+                        offset: 255,
+                        width: 1,
+                    }),
+                );
+                b.code.test_delta(1);
+            }
+            _ => unreachable!(),
+        }
+        let before = format!("{:?}", b.code);
+        let result = b.native_compare(dest, 3, false, op, &a, &c);
+        if problem < 5 {
+            assert_eq!(result, Ok(false));
+        } else {
+            assert!(result.is_err(), "{problem}");
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+    let mut b = builder(r);
+    b.frame.temps.insert(
+        input,
+        Location::Stack(Slot {
+            offset: 252,
+            width: 3,
+        }),
+    );
+    b.code.test_delta(1);
+    assert_eq!(
+        b.pointer_operand(&left).unwrap(),
+        Some(PointerOperand::Stack {
+            low: 253,
+            bank: 255
+        })
+    );
+    assert!(r.frame.parameters[0].frame_object.is_some());
+    assert!(
+        b.pointer_operand(&Mir65816Value::Param(r.frame.parameters[0].param))
+            .unwrap()
+            .is_some()
+    );
+}
+
+#[test]
+fn pointer_conditions_compare_a_word_and_one_bank_byte_and_normalize_null() {
+    let p = program("BYTE FUNC Work(BYTE POINTER a,b) RETURN(a=b)");
+    let r = &p.routines[0];
+    let (dest, left, right) = operands(r);
+    for signed in [false, true] {
+        for op in [NirCompareOp::Eq, NirCompareOp::Ne] {
+            for null in [false, true] {
+                let mut b = builder(r);
+                b.code.a16();
+                let start = b.code.position();
+                let a = b
+                    .temp(match left {
+                        Mir65816Value::Temp(id, _) => id,
+                        _ => panic!(),
+                    })
+                    .unwrap()
+                    .slot()
+                    .offset as u8;
+                let rhs = if null {
+                    Mir65816Value::Null(ByteSize::new(3))
+                } else {
+                    right.clone()
+                };
+                let Some(Condition::Pointer(condition)) =
+                    b.condition(dest, 3, signed, op, &left, &rhs).unwrap()
+                else {
+                    panic!()
+                };
+                assert_eq!(
+                    condition.left,
+                    PointerOperand::Stack {
+                        low: a,
+                        bank: a + 2
+                    }
+                );
+                if null {
+                    let Some(Condition::Pointer(reverse)) =
+                        b.condition(dest, 3, signed, op, &rhs, &left).unwrap()
+                    else {
+                        panic!()
+                    };
+                    assert_eq!(condition.left, reverse.left);
+                    assert_eq!(reverse.right, PointerOperand::Immediate(0));
+                }
+                assert!(b.native_compare(dest, 3, signed, op, &left, &rhs).unwrap());
+                let bytes = &b.code.code().bytes[start..];
+                assert_eq!(&bytes[..2], &[0xa3, a]);
+                let mut bank = vec![0xe2, 0x20, 0xa3, a + 2];
+                if !null {
+                    let PointerOperand::Stack { low, bank: high } = condition.right else {
+                        panic!()
+                    };
+                    assert_eq!(&bytes[2..4], &[0xc3, low]);
+                    bank.extend([0xc3, high]);
+                } else {
+                    assert_eq!(bytes[2], 0xf0);
+                }
+                bank.extend([0xc2, 0x20]);
+                assert!(bytes.windows(bank.len()).any(|w| w == bank));
+            }
+        }
+    }
+}
+
 /// A repeatable inventory of verified MIR, not a count inferred from opcode bytes.
 #[test]
 #[ignore = "set A816_COMPARE_SOURCE, A816_COMPARE_MODULES and A816_COMPARE_INVENTORY"]

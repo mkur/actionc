@@ -86,3 +86,28 @@ and all 2,279 guards remain unchanged. The live Exec checkout advanced to
 `d788d44` while the first measurement ran; that mixed-input result was excluded.
 An isolated `8e1ff57` worktree reproduced the original baseline XEX exactly
 before producing this comparison. No Exec pin or live source was changed.
+
+## Pointer slice
+
+The [pointer qualification and measurements](pointer-after.json) record 34
+passing native tests covering pointer comparisons, control flow, state tracking,
+preemption and stack faults. The pointer interrupt sweep restores full state at
+630 reached instruction/status/domain sites per mode, separately with IRQ and
+NMI, including low-word mismatch and bank-byte decisions. Relocated o65 probes
+execute at two placements. Exact private-frame traces check that no fourth
+pointer byte is read, with no comparison scratch traffic.
+
+The pointer matrix falls from 2,909 to 2,204 bytes raw and 2,901 to 2,192 optimized.
+`Equal` shrinks from 181 to 135 bytes with its eight-byte frame intact. Measured
+cycles fall from 2,993 to 2,854 raw and 2,967 to 2,825 optimized. Stack reads
+increase from 155 to 182 raw (148 to 175 optimized): the low-word-first comparison
+reads both private low words before the bank mismatch, while the former generic
+comparison could stop on the high byte. Writes fall by four and DP reads/writes
+by sixteen in each mode. Observable source accesses remain unchanged.
+
+The optimized frozen Exec shell now contains **502,845 executable bytes**, an
+additional **27,127-byte reduction** after BYTE selection, or **72,039 bytes
+(12.5%)** against baseline. XEX size is 519,393 bytes. All 547 routine contracts
+and all 2,279 guards still match baseline. `EXECLISTS.IsListEmpty` falls from 262
+to 220 bytes; `SHELLAPP.ShellParse` falls from 7,793 to 5,539 bytes. No frame or
+DP/bank-zero reservation changes accompany these reductions.

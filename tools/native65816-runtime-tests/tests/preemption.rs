@@ -684,17 +684,30 @@ fn byte_comparisons_restore_full_state_at_each_reached_task_instruction() {
     };
     let source = modify(&original);
     assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["BYTELESS", "BYTEBRANCH"], "byte");
+}
+
+#[test]
+fn pointer_comparisons_restore_each_low_word_and_bank_path_under_irq_and_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(",
+        "BYTE FUNC PointerEqual(BYTE POINTER a,b) RETURN(a=b)\nCARD FUNC PointerBranch(BYTE POINTER a,b) BYTE saved\nsaved=PointerEqual(a,b)\nIF a#b THEN RETURN(CARD(saved)+7) FI\nIF a=b THEN RETURN(CARD(saved)+3) FI RETURN(0)\nCARD FUNC Read(")
+        .replace("  work.done=1", "  work.result==+PointerBranch(work.buffer,work.buffer)+PointerBranch(BYTE POINTER(0),BYTE POINTER(0))+PointerBranch(work.buffer,work.buffer+1)+PointerBranch(work.buffer,BYTE POINTER(ADDRESS(work.buffer)+SIZE($10000)))+PointerBranch(BYTE POINTER($010000),BYTE POINTER(0))-29\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["POINTEREQUAL", "POINTERBRANCH"], "pointer");
+}
+
+fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
     for optimize in [false, true] {
-        let mut h = machine_source(&source, optimize);
+        let mut h = machine_source(source, optimize);
         let ranges: Vec<_> = h
             .image
             .routines
             .iter()
-            .filter(|r| {
-                ["BYTELESS", "BYTEBRANCH"]
-                    .iter()
-                    .any(|n| r.name.to_uppercase().contains(n))
-            })
+            .filter(|r| names.iter().any(|n| r.name.to_uppercase().contains(n)))
             .map(|r| r.address..r.address + r.size)
             .collect();
         assert_eq!(ranges.len(), 2);
@@ -731,13 +744,13 @@ fn byte_comparisons_restore_full_state_at_each_reached_task_instruction() {
         assert_eq!(widths, BTreeSet::from([0, 0x20]));
         assert!(seen.len() > 50);
         for seed in [0x81620260916, 0x5eedcafe] {
-            let mut h = machine_source(&source, optimize);
+            let mut h = machine_source(source, optimize);
             run_injected(&mut h, false, Some(seed));
             check(&h);
         }
         if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
             std::fs::write(
-                Path::new(&dir).join(format!("byte-comparison-preemption-{optimize}.json")),
+                Path::new(&dir).join(format!("{kind}-comparison-preemption-{optimize}.json")),
                 serde_json::to_vec_pretty(
                     &serde_json::json!({"restored_irq_nmi_sites":seen,"widths":widths}),
                 )

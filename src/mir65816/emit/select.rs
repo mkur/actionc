@@ -85,9 +85,32 @@ struct ByteCondition {
     predicate: Branch,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PointerOperand {
+    Immediate(u32),
+    Stack { low: u8, bank: u8 },
+}
+
+impl PointerOperand {
+    fn bank(self) -> ByteOperand {
+        match self {
+            Self::Immediate(value) => ByteOperand::Immediate((value >> 16) as u8),
+            Self::Stack { bank, .. } => ByteOperand::Stack(bank),
+        }
+    }
+}
+
+struct PointerCondition {
+    left: PointerOperand,
+    right: PointerOperand,
+    destination: u8,
+    predicate: Branch,
+}
+
 enum Condition {
     Word(WordCondition),
     Byte(ByteCondition),
+    Pointer(PointerCondition),
 }
 
 impl Condition {
@@ -95,6 +118,7 @@ impl Condition {
         match self {
             Self::Word(c) => c.destination,
             Self::Byte(c) => c.destination,
+            Self::Pointer(c) => c.destination,
         }
     }
 }
@@ -542,7 +566,8 @@ impl Builder<'_> {
                 .word_condition(dest, bytes, signed, operation, left, right)
                 .map(|c| c.map(Condition::Word));
         }
-        if bytes != 1 || (signed && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)) {
+        let equality = matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne);
+        if !((bytes == 1 && (!signed || equality)) || (bytes == 3 && equality)) {
             return Ok(None);
         }
         let location = self.temp(dest)?;
@@ -553,6 +578,27 @@ impl Builder<'_> {
             Location::Stack(slot) => Some(self.displacement(slot.offset.into(), 0)?),
             Location::DirectPage(_) => None,
         };
+        if bytes == 3 {
+            let left = self.pointer_operand(left)?;
+            let right = self.pointer_operand(right)?;
+            let (Some(destination), Some(mut left), Some(mut right)) = (destination, left, right)
+            else {
+                return Ok(None);
+            };
+            if left == PointerOperand::Immediate(0) {
+                std::mem::swap(&mut left, &mut right);
+            }
+            return Ok(Some(Condition::Pointer(PointerCondition {
+                left,
+                right,
+                destination,
+                predicate: if operation == NirCompareOp::Eq {
+                    Branch::Equal
+                } else {
+                    Branch::NotEqual
+                },
+            })));
+        }
         // Check both operands even when the first is a legal unsupported form.
         let left = self.byte_operand(left)?;
         let right = self.byte_operand(right)?;
@@ -581,6 +627,90 @@ impl Builder<'_> {
             predicate,
         })))
     }
+    fn pointer_operand(&self, value: &Mir65816Value) -> Result<Option<PointerOperand>, String> {
+        let offset = match value {
+            Mir65816Value::U24(value) => {
+                if *value > 0xffffff {
+                    return Err("24-bit comparison constant overflow".into());
+                }
+                return Ok(Some(PointerOperand::Immediate(*value)));
+            }
+            Mir65816Value::Null(size) if size.get() == 3 => {
+                return Ok(Some(PointerOperand::Immediate(0)));
+            }
+            Mir65816Value::Address(value, size) if size.get() == 3 && value.value <= 0xffffff => {
+                return Ok(Some(PointerOperand::Immediate(value.value as u32)));
+            }
+            Mir65816Value::Temp(id, size) => {
+                let location = self.temp(*id)?;
+                if location.slot().width != width(*size)? {
+                    return Err("temporary width mismatch".into());
+                }
+                if size.get() != 3 {
+                    return Ok(None);
+                }
+                match location {
+                    Location::Stack(slot) => u32::from(slot.offset),
+                    Location::DirectPage(_) => return Ok(None),
+                }
+            }
+            Mir65816Value::Param(id) => {
+                let (offset, bytes) = self.parameter(*id)?;
+                if bytes != 3 {
+                    return Ok(None);
+                }
+                offset
+            }
+            _ => return Ok(None),
+        };
+        // Validate both subranges before emitting anything, using the actual S delta.
+        Ok(Some(PointerOperand::Stack {
+            low: self.word_displacement(offset)?,
+            bank: self.displacement(offset, 2)?,
+        }))
+    }
+    fn branch_on_pointer(&mut self, condition: &PointerCondition, yes: Label, dispatch: bool) {
+        self.code.barrier();
+        self.code.a16();
+        match condition.left {
+            PointerOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value as u16),
+            PointerOperand::Stack { low, .. } => self.code.byte(ByteOp::LdaStack, low),
+        }
+        let null = condition.right == PointerOperand::Immediate(0);
+        if !null {
+            match condition.right {
+                PointerOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value as u16),
+                PointerOperand::Stack { low, .. } => self.code.byte(ByteOp::CmpStack, low),
+            }
+        }
+        // A low-word mismatch decides the result before reading the private bank byte.
+        let unequal = if condition.predicate == Branch::Equal {
+            let no = self.code.label();
+            self.code.branch(Branch::NotEqual, no);
+            Some(no)
+        } else {
+            if dispatch {
+                self.code.dispatch(Branch::NotEqual, yes);
+            } else {
+                self.code.branch(Branch::NotEqual, yes);
+            }
+            None
+        };
+        self.code.a8();
+        self.load_byte_operand(condition.left.bank());
+        if !null {
+            self.compare_byte_operand(condition.right.bank());
+        }
+        self.code.a16(); // Preserve bank-byte Z and give every outcome A16.
+        if dispatch {
+            self.code.dispatch(condition.predicate, yes);
+        } else {
+            self.code.branch(condition.predicate, yes);
+        }
+        if let Some(no) = unequal {
+            self.code.mark(no);
+        }
+    }
     fn load_byte_operand(&mut self, operand: ByteOperand) {
         match operand {
             ByteOperand::Immediate(value) => self.code.byte(ByteOp::LdaImm, value),
@@ -596,6 +726,7 @@ impl Builder<'_> {
     fn branch_on_condition(&mut self, condition: &Condition, yes: Label, dispatch: bool) {
         match condition {
             Condition::Word(condition) => self.branch_on_word(condition, yes, dispatch),
+            Condition::Pointer(condition) => self.branch_on_pointer(condition, yes, dispatch),
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();

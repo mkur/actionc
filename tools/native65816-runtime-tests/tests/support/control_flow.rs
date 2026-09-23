@@ -41,42 +41,63 @@ pub fn dispatches(
             .iter()
             .filter(|b| matches!(b.terminator, Mir65816Terminator::Branch { .. }))
             .collect();
-        assert_eq!(blocks.len(), m.code.conditional_branches.len());
-        for (b, s) in blocks.iter().zip(&m.code.conditional_branches) {
+        let mut seen = BTreeSet::new();
+        for b in blocks {
+            let ordinary = m.code.mir_spans.contains_key(&(b.id, b.ops.len()));
             let span = m
                 .code
                 .mir_spans
                 .get(&(b.id, b.ops.len()))
                 .unwrap_or_else(|| &m.code.mir_spans[&(b.id, b.ops.len() - 1)]);
-            assert!(span.contains(&s.offset));
-            let target = m.code.labels[&s.target];
-            if s.short {
-                assert_eq!(m.code.bytes[s.offset], s.predicate);
-                assert_eq!(
-                    s.offset as i64 + 2 + i64::from(m.code.bytes[s.offset + 1] as i8),
-                    target as i64
-                );
-            } else {
-                assert_eq!(
-                    &m.code.bytes[s.offset..s.offset + 3],
-                    &[s.predicate ^ 0x20, 4, 0x5c]
-                );
-                assert!(
-                    m.code
-                        .fixups
-                        .iter()
-                        .any(|f| f.offset == s.offset + 3 && f.target == Target::Label(s.target))
-                );
+            let sites: Vec<_> = m
+                .code
+                .conditional_branches
+                .iter()
+                .filter(|s| span.contains(&s.offset))
+                .collect();
+            // Fused 24-bit inequality can take the true edge after either part.
+            // All other selected predicates still have exactly one dispatch.
+            let pointer_ne = !ordinary
+                && matches!(b.ops.last(), Some(Mir65816Op::Compare {
+                width, operation: actionc::nir::NirCompareOp::Ne, ..
+            }) if width.get() == 3);
+            assert_eq!(sites.len(), if pointer_ne { 2 } else { 1 });
+            if pointer_ne {
+                assert_eq!(sites[0].target, sites[1].target);
+                assert!(sites.iter().all(|s| s.predicate == 0xd0));
             }
-            out.push(Dispatch {
-                routine: r.id,
-                range: base..base + m.code.bytes.len() as u32,
-                at: base + s.offset as u32,
-                target: base + target as u32,
-                predicate: s.predicate,
-                short: s.short,
-            });
+            for s in sites {
+                assert!(seen.insert(s.offset));
+                assert!(span.contains(&s.offset));
+                let target = m.code.labels[&s.target];
+                if s.short {
+                    assert_eq!(m.code.bytes[s.offset], s.predicate);
+                    assert_eq!(
+                        s.offset as i64 + 2 + i64::from(m.code.bytes[s.offset + 1] as i8),
+                        target as i64
+                    );
+                } else {
+                    assert_eq!(
+                        &m.code.bytes[s.offset..s.offset + 3],
+                        &[s.predicate ^ 0x20, 4, 0x5c]
+                    );
+                    assert!(
+                        m.code.fixups.iter().any(
+                            |f| f.offset == s.offset + 3 && f.target == Target::Label(s.target)
+                        )
+                    );
+                }
+                out.push(Dispatch {
+                    routine: r.id,
+                    range: base..base + m.code.bytes.len() as u32,
+                    at: base + s.offset as u32,
+                    target: base + target as u32,
+                    predicate: s.predicate,
+                    short: s.short,
+                });
+            }
         }
+        assert_eq!(seen.len(), m.code.conditional_branches.len());
     }
     out
 }
