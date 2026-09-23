@@ -69,3 +69,17 @@ The [full corpus gate](benchmarks/65816-emission-simplification/s1-equality.json
 preserves all 224 comparison artifacts and 264 records in both host profiles,
 including only the known optimized vbcc unlink vector-0 failure. Four scoped
 native checked-rewrite/replay tests retain their two historical artifacts.
+
+## Analysis demand
+
+Each immutable snapshot owns private `OnceCell` results for home liveness,
+stored definitions and machine liveness. Fallible home resolution remains eager.
+Queries validate sites before demanding a solver; repeated queries share only
+that snapshot's result. New generations construct empty cells. No global cache,
+analysis registry or cross-generation reuse is introduced.
+
+The driver's stored-definition and undefined-read postconditions remain in
+place. Adjacent-load transactions no longer run the unused home/machine liveness
+solvers. New controls compare every exposed query with eagerly computed results
+across calls, loops and pointer accesses, reject stale sites without triggering
+analysis, and check exactly one solver run per demanded result.

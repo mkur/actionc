@@ -41,7 +41,12 @@ contract, so its exit conservatively reads the universe. Unknown accesses expand
 to that universe and carry uncertainty; an unresolved write becomes a may-write.
 This policy deliberately overestimates liveness around calls and pointer access.
 
-`AnalysisSnapshot` borrows an immutable selection and computes facts on demand.
+`AnalysisSnapshot` borrows an immutable selection. Construction resolves the
+fallible home-access model; private per-snapshot cells compute home liveness,
+stored definitions and machine liveness only when queried, once each. Site
+validation precedes solver demand. An uncomputed result never means dead, empty
+or safe, and a new selection generation begins with empty cells. No result is
+transferred across an edit.
 `home_live_before/after` and the proof-feature observations validate snapshot
 ownership, generation, bounds and reachability. No optimizer consumes them yet.
 Synthetic selected probes without a verified storage contract cannot claim home

@@ -50,7 +50,10 @@ Home analyses share immutable states across unchanged sites within one solver
 run and copy on writes/joins that change facts. ABI-defined inputs begin outside
 the possibly-undefined set; they never create synthetic store definitions. This
 avoids duplicating unchanged sets at every compiler event. Each generation still
-gets entirely rebuilt analyses; no fact survives an edit through a cache.
+starts with fresh analysis cells; each queried analysis is rebuilt before use.
+No fact survives an edit through a cache. The driver retains its removed-definition
+and post-replay undefined-read checks, while the adjacent rule does not construct
+unused home/machine liveness results. A missing result is never a proof answer.
 Structural candidate discovery leaves the driver responsible for the full proof,
 avoiding a second identical analysis build merely to author the proposal.
 

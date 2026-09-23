@@ -1,6 +1,6 @@
 # Native 65816 emission simplification implementation plan
 
-Status: slices 0–1 complete; slices 2–5 pending. See the
+Status: slices 0–2 complete; slices 3–5 pending. See the
 [implementation record](MIR65816_EMISSION_SIMPLIFICATION.md). Based on
 main `9640df19`, whose qualified compiler source is `e4fd88b5`. This follows the
 [completed analysis foundation](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
@@ -132,6 +132,8 @@ reference/replay tests; ordinary release CLI build and frozen corpus equality.
 **Exit:** removed shadow orchestration and no ordinary runtime reference switch.
 
 ## Slice 2 — Compute analyses on demand within each immutable snapshot
+
+Completed: [qualification](benchmarks/65816-emission-simplification/slice2.json).
 
 Keep the borrowed immutable `SelectedRoutine` and current fallible home-access
 construction. Replace eagerly constructed home-liveness, stored-definition and

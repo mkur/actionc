@@ -14,28 +14,39 @@ use home_liveness::HomeLiveness;
 use homes::{HomeByte, Homes};
 use machine_liveness::{MachineLive, MachineLiveness};
 use sites::{Node, SelectedSite};
-use std::collections::BTreeSet;
+use std::{cell::OnceCell, collections::BTreeSet};
 
 pub(super) struct AnalysisSnapshot<'a> {
     selected: &'a SelectedRoutine,
     pub homes: Homes,
-    live: HomeLiveness,
-    definitions: HomeDefinitions,
-    machine: MachineLiveness,
+    live: OnceCell<HomeLiveness>,
+    definitions: OnceCell<HomeDefinitions>,
+    machine: OnceCell<MachineLiveness>,
 }
 impl<'a> AnalysisSnapshot<'a> {
     pub fn new(selected: &'a SelectedRoutine) -> Result<Self, String> {
         let homes = Homes::analyze(selected)?;
-        let live = HomeLiveness::analyze(selected.cfg(), &homes);
-        let definitions = HomeDefinitions::analyze(selected.cfg(), &homes);
-        let machine = MachineLiveness::analyze(selected);
         Ok(Self {
             selected,
             homes,
-            live,
-            definitions,
-            machine,
+            live: OnceCell::new(),
+            definitions: OnceCell::new(),
+            machine: OnceCell::new(),
         })
+    }
+    // Each cell belongs to this immutable selection only. Edits construct a
+    // new snapshot; a missing result never means dead or safe.
+    fn live(&self) -> &HomeLiveness {
+        self.live
+            .get_or_init(|| HomeLiveness::analyze(self.selected.cfg(), &self.homes))
+    }
+    fn definitions(&self) -> &HomeDefinitions {
+        self.definitions
+            .get_or_init(|| HomeDefinitions::analyze(self.selected.cfg(), &self.homes))
+    }
+    fn machine(&self) -> &MachineLiveness {
+        self.machine
+            .get_or_init(|| MachineLiveness::analyze(self.selected))
     }
     pub fn validate(&self, site: SelectedSite) -> Result<Node, String> {
         let node = self.selected.validate(site)?;
@@ -45,10 +56,12 @@ impl<'a> AnalysisSnapshot<'a> {
         Ok(node)
     }
     pub fn home_live_before(&self, site: SelectedSite) -> Result<&BTreeSet<HomeByte>, String> {
-        self.live.before(self.validate(site)?)
+        let node = self.validate(site)?;
+        self.live().before(node)
     }
     pub fn home_live_after(&self, site: SelectedSite) -> Result<&BTreeSet<HomeByte>, String> {
-        self.live.after(self.validate(site)?)
+        let node = self.validate(site)?;
+        self.live().after(node)
     }
     pub fn site(&self, node: Node) -> Result<SelectedSite, String> {
         self.selected.site(node)
@@ -58,13 +71,9 @@ impl<'a> AnalysisSnapshot<'a> {
         home: HomeByte,
         site: SelectedSite,
     ) -> Result<BTreeSet<ReadUse>, String> {
-        self.definitions.uses_of_definition(
-            &self.homes,
-            Definition {
-                home,
-                store: self.validate(site)?,
-            },
-        )
+        let store = self.validate(site)?;
+        self.definitions()
+            .uses_of_definition(&self.homes, Definition { home, store })
     }
     pub fn definition_dead_outside_window(
         &self,
@@ -72,26 +81,30 @@ impl<'a> AnalysisSnapshot<'a> {
         store: SelectedSite,
         end: SelectedSite,
     ) -> Result<bool, String> {
-        self.definitions.definition_dead_outside_window(
+        let store = self.validate(store)?;
+        let end = self.validate(end)?;
+        self.definitions().definition_dead_outside_window(
             self.selected.cfg(),
             &self.homes,
-            Definition {
-                home,
-                store: self.validate(store)?,
-            },
-            self.validate(end)?,
+            Definition { home, store },
+            end,
         )
     }
     pub fn undefined_private_reads(&self) -> &[UndefinedRead] {
-        self.definitions.undefined_private_reads()
+        self.definitions().undefined_private_reads()
     }
     pub fn machine_live_before(&self, site: SelectedSite) -> Result<MachineLive, String> {
-        self.machine.before(self.validate(site)?)
+        let node = self.validate(site)?;
+        self.machine().before(node)
     }
     pub fn machine_live_after(&self, site: SelectedSite) -> Result<MachineLive, String> {
-        self.machine.after(self.validate(site)?)
+        let node = self.validate(site)?;
+        self.machine().after(node)
     }
 }
 
 #[cfg(test)]
 mod home_tests;
+
+#[cfg(test)]
+mod demand_tests;
