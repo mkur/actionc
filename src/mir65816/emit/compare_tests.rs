@@ -194,7 +194,7 @@ fn comparison_fallback_is_nonmutating_for_signed_order_and_unsupported_homes() {
         }
         b.code.a8();
         let before = format!("{:?}", b.code);
-        let result = b.word_compare(dest, bytes, signed, op, &left, &right);
+        let result = b.native_compare(dest, bytes, signed, op, &left, &right);
         if problem == 8 {
             assert!(result.is_err());
         } else {
@@ -271,14 +271,14 @@ fn comparison_preflight_reports_malformed_later_operands_without_emission() {
         b.code.a16();
         let before = format!("{:?}", b.code);
         assert!(
-            b.word_compare(dest, 2, false, NirCompareOp::Eq, &left, &right)
+            b.native_compare(dest, 2, false, NirCompareOp::Eq, &left, &right)
                 .is_err(),
             "problem {problem}"
         );
         assert_eq!(format!("{:?}", b.code), before);
         if problem >= 2 {
             assert!(
-                b.word_compare(
+                b.native_compare(
                     dest,
                     2,
                     false,
@@ -332,7 +332,7 @@ fn comparison_extent_checks_distinguish_the_byte_result_and_word_inputs() {
         b.code.a8();
         let before = format!("{:?}", b.code);
         assert_eq!(
-            b.word_compare(
+            b.native_compare(
                 dest,
                 2,
                 false,

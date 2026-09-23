@@ -35,6 +35,18 @@ fn byte_predicates_and_boolean_consumers_cover_runtime_boundary_pairs() {
     for optimize in [false, true] {
         narrow_comparison::check_shape(&s, optimize, 1);
         let image = compile(&s, optimize);
+        assert!(
+            image
+                .routines
+                .iter()
+                .find(|r| r.name == "Ret")
+                .unwrap()
+                .size
+                <= 120
+        );
+        assert!(
+            image.routines.iter().map(|r| r.size).sum::<u32>() < if optimize { 2986 } else { 2998 }
+        );
         assert_eq!(
             image.to_json().unwrap(),
             compile(&s.replace('\n', "\r\n"), optimize)
@@ -70,6 +82,75 @@ fn byte_predicates_and_boolean_consumers_cover_runtime_boundary_pairs() {
                     if a == 0x80 && b == 0x7f && mask == 0 {
                         narrow_comparison::record("byte-comparisons", optimize, &s, &image, &h);
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn independent_a8_cmp_preserves_hidden_b_and_flags_through_a16_restoration() {
+    use actionc_vm::native65816::{Inputs, Machine, Registers};
+    for immediate in [false, true] {
+        let code = assemble(
+            &format!(
+                "sep #$20\n.a8\nlda 2,s\n{}\nrep #$20\n.a16\nstp\nnop",
+                if immediate { "cmp #$80" } else { "cmp 4,s" }
+            ),
+            0x040000,
+        );
+        assert_eq!(
+            code,
+            vec![
+                0xe2,
+                0x20,
+                0xa3,
+                2,
+                if immediate { 0xc9 } else { 0xc3 },
+                if immediate { 0x80 } else { 4 },
+                0xc2,
+                0x20,
+                0xdb,
+                0xea
+            ]
+        );
+        for a in [0u8, 1, 0x7f, 0x80, 0xff] {
+            for b in [0u8, 1, 0x7f, 0x80, 0xff] {
+                let b = if immediate { 0x80 } else { b };
+                for p in [0, 1, 0x40, 0x41] {
+                    let mut bus = Bus::new();
+                    bus.map(0x040000, &code, false);
+                    bus.map(0x4000, &[0xa5; 0x2000], true);
+                    bus.ram[0x5fe2] = a;
+                    bus.ram[0x5fe4] = b;
+                    let mut cpu = Machine::start_at(Registers {
+                        a: 0xabcd,
+                        x: 0x1234,
+                        y: 0x5678,
+                        s: 0x5fe0,
+                        d: 0x2000,
+                        dbr: 0,
+                        pbr: 4,
+                        pc: 0,
+                        p,
+                        emulation_mode: false,
+                    });
+                    assert!(
+                        cpu.run_until(&mut bus, 100, |_| Inputs::default(), |c| c.is_stopped())
+                            .unwrap()
+                    );
+                    let r = cpu.registers();
+                    assert_eq!(r.a, 0xab00 | u16::from(a));
+                    assert_eq!(
+                        r.p & 0xc3,
+                        (p & 0x40)
+                            | (a.wrapping_sub(b) & 0x80)
+                            | u8::from(a >= b)
+                            | (u8::from(a == b) << 1)
+                    );
+                    assert_eq!(r.p & 0x30, 0);
+                    assert_eq!(r.x, 0x1234);
+                    assert_eq!(r.y, 0x5678);
                 }
             }
         }

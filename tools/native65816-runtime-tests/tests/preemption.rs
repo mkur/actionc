@@ -675,6 +675,80 @@ fn run_checked_fused_irq(h: &mut ContextHarness) -> (u32, u8) {
 }
 
 #[test]
+fn byte_comparisons_restore_full_state_at_each_reached_task_instruction() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n","\n").replace("CARD FUNC Read(",
+        "BYTE FUNC ByteLess(BYTE a,b) RETURN(a<b)\nCARD FUNC ByteBranch(BYTE a,b) BYTE saved\nsaved=ByteLess(a,b)\nIF a<b THEN RETURN(CARD(saved)+3) FI RETURN(CARD(saved)+7)\nCARD FUNC Read(")
+        .replace("  work.done=1","  work.result==+ByteBranch(BYTE(work.seed),20)+ByteBranch(20,BYTE(work.seed))-11\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let ranges: Vec<_> = h
+            .image
+            .routines
+            .iter()
+            .filter(|r| {
+                ["BYTELESS", "BYTEBRANCH"]
+                    .iter()
+                    .any(|n| r.name.to_uppercase().contains(n))
+            })
+            .map(|r| r.address..r.address + r.size)
+            .collect();
+        assert_eq!(ranges.len(), 2);
+        let mut seen = BTreeSet::new();
+        let mut widths = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            let pc = h.cpu.pc();
+            if h.cpu.is_instruction_boundary()
+                && r.p & 4 == 0
+                && [0x2000, 0x2100].contains(&r.d)
+                && ranges.iter().any(|range| range.contains(&pc))
+            {
+                widths.insert(r.p & 0x20);
+                if seen.insert((r.d, pc, r.p & 0x83)) {
+                    let cpu = h.cpu.clone();
+                    let bus = h.bus.clone();
+                    run_checked_fused_irq(&mut h);
+                    check(&h);
+                    h.cpu = cpu.clone();
+                    h.bus = bus.clone();
+                    run_checked_frame_nmi(&mut h);
+                    check(&h);
+                    h.cpu = cpu;
+                    h.bus = bus;
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check(&h);
+        assert_eq!(widths, BTreeSet::from([0, 0x20]));
+        assert!(seen.len() > 50);
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = machine_source(&source, optimize);
+            run_injected(&mut h, false, Some(seed));
+            check(&h);
+        }
+        if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(
+                Path::new(&dir).join(format!("byte-comparison-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(
+                    &serde_json::json!({"restored_irq_nmi_sites":seen,"widths":widths}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        }
+    }
+}
+
+#[test]
 fn fused_flags_and_edge_copies_survive_both_task_irq_outcomes_and_seeded_nmi() {
     let fixture = fixture("preemption.act");
     let source = fused_source(&fixture);

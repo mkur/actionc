@@ -64,3 +64,25 @@ with `tools/compare65816/build.py --verify-crlf`; its manifest and bytes are in
 `target/byte-pointer-comparisons/corpus-before`. Historical corpus and Dijkstra
 snapshots remain unchanged. No hosted Exec execution qualification is claimed
 by these compiler baseline tests.
+
+## BYTE slice
+
+The [BYTE qualification and measurements](byte-after.json) record 52 passing
+native tests, including existing word comparisons, o65, stack faults and task
+preemption. New byte probes exercise 360 reached instruction/status/domain
+sites per mode with both IRQ and NMI, plus two seeded schedules. Focused
+selector tests check exact byte sequences, all predicates, atomic preflight and
+the omitted fused Boolean store/reload; the existing 182 native library tests
+also pass before the three new selector checks are added.
+
+The BYTE matrix shrinks by 516 bytes in each mode: 2,998 to 2,482 raw and 2,986
+to 2,470 optimized. Its measured execution drops by 331 cycles. `Ret` falls
+from 133 to 113 bytes with its four-byte frame intact. Pointer probes retain
+their original sizes and execution measurements in this slice.
+
+On the fixed Exec `8e1ff57` workload, executable segments fall from **574,884 to
+529,972 bytes**, a **44,912-byte reduction**. All 547 routine contracts/homes
+and all 2,279 guards remain unchanged. The live Exec checkout advanced to
+`d788d44` while the first measurement ran; that mixed-input result was excluded.
+An isolated `8e1ff57` worktree reproduced the original baseline XEX exactly
+before producing this comparison. No Exec pin or live source was changed.

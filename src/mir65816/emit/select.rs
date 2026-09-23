@@ -72,6 +72,33 @@ struct WordCondition {
     predicate: Branch,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ByteOperand {
+    Immediate(u8),
+    Stack(u8),
+}
+
+struct ByteCondition {
+    left: ByteOperand,
+    right: ByteOperand,
+    destination: u8,
+    predicate: Branch,
+}
+
+enum Condition {
+    Word(WordCondition),
+    Byte(ByteCondition),
+}
+
+impl Condition {
+    fn destination(&self) -> u8 {
+        match self {
+            Self::Word(c) => c.destination,
+            Self::Byte(c) => c.destination,
+        }
+    }
+}
+
 /// Checked word copies, with staging only when the shared plan requires it.
 struct WordEdge {
     target: Label,
@@ -468,6 +495,121 @@ impl Builder<'_> {
             predicate,
         }))
     }
+    fn byte_operand(&self, value: &Mir65816Value) -> Result<Option<ByteOperand>, String> {
+        let offset = match value {
+            Mir65816Value::U8(value) => return Ok(Some(ByteOperand::Immediate(*value))),
+            Mir65816Value::Null(size) if *size == ByteSize::ONE => {
+                return Ok(Some(ByteOperand::Immediate(0)));
+            }
+            Mir65816Value::Address(value, size) if *size == ByteSize::ONE && value.value <= 255 => {
+                return Ok(Some(ByteOperand::Immediate(value.value as u8)));
+            }
+            Mir65816Value::Temp(id, size) => {
+                let location = self.temp(*id)?;
+                if location.slot().width != width(*size)? {
+                    return Err("temporary width mismatch".into());
+                }
+                if *size != ByteSize::ONE {
+                    return Ok(None);
+                }
+                match location {
+                    Location::Stack(slot) => u32::from(slot.offset),
+                    Location::DirectPage(_) => return Ok(None),
+                }
+            }
+            Mir65816Value::Param(id) => {
+                let (offset, bytes) = self.parameter(*id)?;
+                if bytes != 1 {
+                    return Ok(None);
+                }
+                offset
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(ByteOperand::Stack(self.displacement(offset, 0)?)))
+    }
+    fn condition(
+        &self,
+        dest: TempId,
+        bytes: u8,
+        signed: bool,
+        operation: NirCompareOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<Option<Condition>, String> {
+        if bytes == 2 {
+            return self
+                .word_condition(dest, bytes, signed, operation, left, right)
+                .map(|c| c.map(Condition::Word));
+        }
+        if bytes != 1 || (signed && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)) {
+            return Ok(None);
+        }
+        let location = self.temp(dest)?;
+        if location.slot().width != 1 {
+            return Err("comparison result temporary width mismatch".into());
+        }
+        let destination = match location {
+            Location::Stack(slot) => Some(self.displacement(slot.offset.into(), 0)?),
+            Location::DirectPage(_) => None,
+        };
+        // Check both operands even when the first is a legal unsupported form.
+        let left = self.byte_operand(left)?;
+        let right = self.byte_operand(right)?;
+        let (Some(destination), Some(mut left), Some(mut right)) = (destination, left, right)
+        else {
+            return Ok(None);
+        };
+        let predicate = match operation {
+            NirCompareOp::Eq => Branch::Equal,
+            NirCompareOp::Ne => Branch::NotEqual,
+            NirCompareOp::Lt => Branch::CarryClear,
+            NirCompareOp::Ge => Branch::CarrySet,
+            NirCompareOp::Gt | NirCompareOp::Le => {
+                std::mem::swap(&mut left, &mut right);
+                if operation == NirCompareOp::Gt {
+                    Branch::CarryClear
+                } else {
+                    Branch::CarrySet
+                }
+            }
+        };
+        Ok(Some(Condition::Byte(ByteCondition {
+            left,
+            right,
+            destination,
+            predicate,
+        })))
+    }
+    fn load_byte_operand(&mut self, operand: ByteOperand) {
+        match operand {
+            ByteOperand::Immediate(value) => self.code.byte(ByteOp::LdaImm, value),
+            ByteOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
+        }
+    }
+    fn compare_byte_operand(&mut self, operand: ByteOperand) {
+        match operand {
+            ByteOperand::Immediate(value) => self.code.byte(ByteOp::CmpImm, value),
+            ByteOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
+        }
+    }
+    fn branch_on_condition(&mut self, condition: &Condition, yes: Label, dispatch: bool) {
+        match condition {
+            Condition::Word(condition) => self.branch_on_word(condition, yes, dispatch),
+            Condition::Byte(condition) => {
+                self.code.barrier(); // Retain the original operation's value/flag barrier.
+                self.code.a8();
+                self.load_byte_operand(condition.left);
+                self.compare_byte_operand(condition.right);
+                if dispatch {
+                    self.code.a16(); // REP preserves the A8 CMP's C/Z.
+                    self.code.dispatch(condition.predicate, yes);
+                } else {
+                    self.code.branch(condition.predicate, yes);
+                }
+            }
+        }
+    }
     fn branch_on_word(&mut self, condition: &WordCondition, yes: Label, dispatch: bool) {
         self.code.a16();
         self.load_checked_word(condition.left, condition.left_temp);
@@ -510,7 +652,7 @@ impl Builder<'_> {
             return Ok(false);
         }
         let Some(condition) =
-            self.word_condition(*dest, width(*bytes)?, *signed, *operation, left, right)?
+            self.condition(*dest, width(*bytes)?, *signed, *operation, left, right)?
         else {
             return Ok(false);
         };
@@ -522,7 +664,7 @@ impl Builder<'_> {
             self.code.compare_x_word(x.param, x.home, x.threshold);
             self.code.dispatch(Branch::CarryClear, yes);
         } else {
-            self.branch_on_word(&condition, yes, true);
+            self.branch_on_condition(&condition, yes, true);
         }
         // Each edge still stages parallel arguments before writing destinations.
         self.edge(else_edge)?;
@@ -530,7 +672,7 @@ impl Builder<'_> {
         self.edge_last(then_edge)?;
         Ok(true)
     }
-    fn word_compare(
+    fn native_compare(
         &mut self,
         dest: TempId,
         bytes: u8,
@@ -539,13 +681,12 @@ impl Builder<'_> {
         left: &Mir65816Value,
         right: &Mir65816Value,
     ) -> Result<bool, String> {
-        let Some(condition) = self.word_condition(dest, bytes, signed, operation, left, right)?
-        else {
+        let Some(condition) = self.condition(dest, bytes, signed, operation, left, right)? else {
             return Ok(false);
         };
         let yes = self.code.label();
         let done = self.code.label();
-        self.branch_on_word(&condition, yes, false);
+        self.branch_on_condition(&condition, yes, false);
         self.code.a8();
         self.code.byte(ByteOp::LdaImm, 0);
         self.code.jump(done);
@@ -554,7 +695,7 @@ impl Builder<'_> {
         self.code.byte(ByteOp::LdaImm, 1);
         self.code.mark(done);
         self.code.a8(); // Joins never inherit the fallthrough mode knowledge.
-        self.code.byte(ByteOp::StaStack, condition.destination);
+        self.code.byte(ByteOp::StaStack, condition.destination());
         Ok(true)
     }
     fn load_memory(&mut self, memory: Memory, byte: u32) -> Result<(), String> {
@@ -1182,7 +1323,7 @@ impl Builder<'_> {
             left,
             right,
         } = op
-            && self.word_compare(*dest, width(*bytes)?, *signed, *operation, left, right)?
+            && self.native_compare(*dest, width(*bytes)?, *signed, *operation, left, right)?
         {
             return Ok(());
         }
