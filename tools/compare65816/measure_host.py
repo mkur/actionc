@@ -39,6 +39,8 @@ def main():
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--rounds', type=int, default=7)
+    parser.add_argument('--expected-builds', type=int, default=28,
+                        help='Exact Action build count (use the generated ladder count for scaling probes)')
     args = parser.parse_args()
     if sys.platform not in ('darwin', 'linux') or not hasattr(os, 'wait4'):
         parser.error('per-child peak RSS accounting requires Darwin or Linux wait4')
@@ -50,7 +52,9 @@ def main():
             parser.error(f'missing compiler: {binary}')
     manifest = json.loads(args.manifest.read_text())
     builds = [a for a in manifest['artifacts'] if a['compiler'] == 'actionc']
-    assert len(builds) == 28 and len({(a['case'], a['mode']) for a in builds}) == 28
+    assert args.expected_builds > 0
+    assert len(builds) == args.expected_builds
+    assert len({(a['case'], a['mode']) for a in builds}) == args.expected_builds
     samples = []
     with tempfile.TemporaryDirectory(prefix='actionc-host-measurement-') as directory:
         directory = Path(directory)

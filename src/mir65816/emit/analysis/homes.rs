@@ -224,6 +224,8 @@ pub(in crate::mir65816::emit) struct Homes {
 }
 impl Homes {
     pub fn analyze(selected: &SelectedRoutine) -> Result<Self, String> {
+        #[cfg(any(test, feature = "native65816-state-proof"))]
+        crate::mir65816::emit::work::add("homes", 1);
         let contract = selected
             .home_contract
             .as_ref()

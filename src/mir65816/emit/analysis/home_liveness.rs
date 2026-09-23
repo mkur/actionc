@@ -14,6 +14,8 @@ pub(in crate::mir65816::emit) struct HomeLiveness {
 }
 impl HomeLiveness {
     pub fn analyze(graph: &impl DataflowGraph<Node = Node>, homes: &Homes) -> Self {
+        #[cfg(any(test, feature = "native65816-state-proof"))]
+        crate::mir65816::emit::work::add("home_liveness", 1);
         Self {
             result: solve_dataflow(graph, &Problem(&homes.accesses)),
         }

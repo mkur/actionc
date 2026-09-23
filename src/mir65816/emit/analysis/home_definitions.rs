@@ -125,6 +125,8 @@ pub(super) struct HomeDefinitions {
 }
 impl HomeDefinitions {
     pub fn analyze(graph: &impl DataflowGraph<Node = Node>, homes: &Homes) -> Self {
+        #[cfg(any(test, feature = "native65816-state-proof"))]
+        crate::mir65816::emit::work::add("home_definitions", 1);
         let result = solve_dataflow(
             graph,
             &Problem {

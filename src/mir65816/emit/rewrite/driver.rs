@@ -231,6 +231,8 @@ pub(super) fn insert_load(
     before: Node,
     load: &Instruction,
 ) -> Result<SelectedRoutine, String> {
+    #[cfg(any(test, feature = "native65816-state-proof"))]
+    super::super::work::add("original_expansion", 1);
     selected.site(before)?;
     if !matches!(
         load,

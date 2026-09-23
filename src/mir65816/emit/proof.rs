@@ -8,6 +8,7 @@ pub use super::effects::{
     Memory as EffectMemory, Registers as EffectRegisters, env as effect_env,
 };
 pub use super::tracked::Event;
+pub use super::work::{Counts as WorkCounts, measure as measure_work};
 
 pub use super::analysis::homes::{HomeAccess, HomeByte, HomeInfo, HomeOwner};
 pub use super::analysis::machine_liveness::{ConditionFlag, MachineLive, RegisterLane};

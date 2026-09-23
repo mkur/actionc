@@ -1,6 +1,7 @@
 # Native 65816 emission simplification implementation plan
 
-Status: proposed; no compiler changes implemented by this document. Based on
+Status: slice 0 complete; slices 1–5 pending. See the
+[implementation record](MIR65816_EMISSION_SIMPLIFICATION.md). Based on
 main `9640df19`, whose qualified compiler source is `e4fd88b5`. This follows the
 [completed analysis foundation](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
 Implement and commit the slices separately, preserving existing local changes.
@@ -75,6 +76,8 @@ helpers must replace existing duplicated work, with the old path removed in the
 same completed slice.
 
 ## Slice 0 — Freeze the baseline and expose work counts
+
+Completed: [baseline/work qualification](benchmarks/65816-emission-simplification/slice0.json).
 
 Authenticate the [final foundation record](abi/action65816-analysis-rewrite-qualification.json)
 against current compiler/fixture hashes. Retain the existing 658 native artifacts,

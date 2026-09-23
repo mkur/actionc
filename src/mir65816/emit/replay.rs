@@ -18,6 +18,8 @@ fn same_action(a: &Record, b: &Record) -> bool {
 }
 
 pub(super) fn emit(selected: &SelectedRoutine, _trace: bool) -> Result<Code, String> {
+    #[cfg(any(test, feature = "native65816-state-proof"))]
+    crate::mir65816::emit::work::add("full_replay", 1);
     let emitter = walk(selected, _trace, None)?;
     let code = emitter.finish_replayed(selected)?;
     let fresh = code.selected.as_ref().ok_or("missing replay selection")?;
@@ -37,6 +39,8 @@ pub(super) fn prefix(
     selected: &SelectedRoutine,
     stop: Node,
 ) -> Result<TrackedEmitter65816, String> {
+    #[cfg(any(test, feature = "native65816-state-proof"))]
+    super::work::add("prefix_replay", 1);
     selected.site(stop)?;
     walk(selected, false, Some(stop))
 }
@@ -62,6 +66,15 @@ fn walk(
         if stop == Some(Node(index)) {
             return Ok(emitter);
         }
+        #[cfg(any(test, feature = "native65816-state-proof"))]
+        super::work::add(
+            if stop.is_some() {
+                "prefix_actions"
+            } else {
+                "full_actions"
+            },
+            1,
+        );
         let record = &records[index];
         if matches!(record.action, Action::ReturnExit | Action::FaultExit) {
             index += 1;

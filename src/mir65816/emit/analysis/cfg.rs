@@ -19,6 +19,8 @@ pub(in crate::mir65816::emit) struct SelectedCfg {
 }
 impl SelectedCfg {
     pub fn build(records: &[Record]) -> Result<Self, String> {
+        #[cfg(any(test, feature = "native65816-state-proof"))]
+        crate::mir65816::emit::work::add("cfg", 1);
         if !matches!(records.first().map(|r| &r.action), Some(Action::Entry)) {
             return Err("missing selected entry".into());
         }

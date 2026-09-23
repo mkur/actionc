@@ -98,6 +98,8 @@ pub(crate) fn validate_branches(code: &Code, base: Option<u32>) -> Result<(), St
 }
 
 pub(super) fn finalize(mut code: Code, relax: bool) -> Result<Code, String> {
+    #[cfg(any(test, feature = "native65816-state-proof"))]
+    crate::mir65816::emit::work::add("layout", 1);
     validate_branches(&code, None)?;
     if let Some(selected) = &code.selected {
         selected.reconcile(&code)?;

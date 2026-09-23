@@ -83,6 +83,8 @@ pub(super) struct MachineLiveness {
 }
 impl MachineLiveness {
     pub fn analyze(selected: &SelectedRoutine) -> Self {
+        #[cfg(any(test, feature = "native65816-state-proof"))]
+        crate::mir65816::emit::work::add("machine_liveness", 1);
         let mut effects = BTreeMap::new();
         let mut result = MachineLive {
             environment: env::ALL,

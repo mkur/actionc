@@ -17,6 +17,8 @@ mod select;
 mod selected;
 mod state;
 mod tracked;
+#[cfg(any(test, feature = "native65816-state-proof"))]
+mod work;
 
 use super::*;
 pub use allocation::{AllocatedFrame, Location, Slot};
