@@ -1,0 +1,65 @@
+{
+  "debug-enqueue": {
+    "manifest_sha256": "a141ee32fd9726ecd31993c20919c60f52e71d0b32928bcf8fa0b7180c1251cd",
+    "execution_manifest_sha256": "a141ee32fd9726ecd31993c20919c60f52e71d0b32928bcf8fa0b7180c1251cd",
+    "results_sha256": "29cbcafd98d6b3ffe000b30269a97326c283bbf2664b001c831bd402646592c1",
+    "profile": "debug",
+    "filter": "enqueue",
+    "crlf_vectors": false,
+    "log_sha256": "b77c6a19bfc107bffe8865d76767b1e2d7de8d89b29b24cea3be84506d840880",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--config",
+      "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+      "--manifest-path",
+      "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+      "--test",
+      "dijkstra",
+      "--",
+      "--include-ignored",
+      "--nocapture"
+    ],
+    "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+    "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+    "harness_sha256": "638a5d19e1a1d2746a0b33d5284b5d25de393a51e1502e70ccb70d0f31cbbddc",
+    "executions": 88,
+    "identical_to_release": true
+  },
+  "debug-crlf-dequeue": {
+    "manifest_sha256": "a141ee32fd9726ecd31993c20919c60f52e71d0b32928bcf8fa0b7180c1251cd",
+    "execution_manifest_sha256": "88bc05b3c5d823b0382ca9187fe707f83c48c233185214aef2c254c56f304419",
+    "results_sha256": "93a21ec8c243a707ac45585bbcdc2bfa3ff1106c1aaca737645875d24ba40d92",
+    "profile": "debug",
+    "filter": "dequeue",
+    "crlf_vectors": true,
+    "log_sha256": "7a3fd91ee3a2e19d681ac3d860a954eadb14fcb2898f67472e87e6a5a091733a",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--config",
+      "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+      "--manifest-path",
+      "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+      "--test",
+      "dijkstra",
+      "--",
+      "--include-ignored",
+      "--nocapture"
+    ],
+    "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+    "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+    "harness_sha256": "638a5d19e1a1d2746a0b33d5284b5d25de393a51e1502e70ccb70d0f31cbbddc",
+    "executions": 32,
+    "identical_to_release": true
+  },
+  "comparison_sources": {
+    "tools/compare65816/dijkstra.py": "694827a94e8cde66e4c3ebdcc1eac03bd6f030ec26997e0bf3fac91c10ebb9af",
+    "tools/compare65816/run_dijkstra.py": "df5a1bf85547d98cdd48d9305cba859506683a2ea263bbfde9a523eb70e8d8b2",
+    "tools/compare65816/test_dijkstra.py": "2ffcad99deeab9f1f72eb6889fc31016de85d5dd8af0ca2f6dd274bfb40235da",
+    "tools/compare65816/dijkstra_wrapper.c": "8400a08c9c698e5605c03396445754eae5ab37a0b317d6d854680c7f597ce113",
+    "tools/compare65816/report_dijkstra.py": "b4bf0e243d85bfc4590fd2c3ff1cb373446e7f1c91108a88040689214d94fd99"
+  }
+}

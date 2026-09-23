@@ -1,0 +1,624 @@
+010000  5A          phy
+010001  A9 00 00    lda	#0
+010004  83 01       sta	1,s
+010006  AA          tax
+010007  A9 00 00    lda	#<_matrix
+01000A  85 08       sta	r4
+01000C  A9 18 00    lda	#^(_matrix)
+01000F  85 0A       sta	r4+2
+010011  64 04       stz	r2
+010013  A5 08       lda	r4
+010015  85 00       sta	r0
+010017  A5 0A       lda	r4+2
+010019  85 02       sta	r0+2
+01001B  A3 01       lda	1,s
+01001D  E2 20       sep	#32
+01001F  47 00       eor	[r0]
+010021  87 00       sta	[r0]
+010023  C2 20       rep	#32
+010025  E6 04       inc	r2
+010027  E6 00       inc	r0
+010029  D0 02       bne	l29
+01002B  E6 02       inc	r0+2
+01002D  A5 04       lda	r2
+01002F  38          sec
+010030  E9 64 00    sbc	#100
+010033  50 03       bvc	l30
+010035  49 00 80    eor	#32768
+010038  30 E1       bmi	l22
+01003A  E8          inx
+01003B  18          clc
+01003C  A5 08       lda	r4
+01003E  69 64 00    adc	#100
+010041  85 08       sta	r4
+010043  90 02       bcc	l31
+010045  E6 0A       inc	r4+2
+010047  8A          txa
+010048  38          sec
+010049  E9 64 00    sbc	#100
+01004C  50 03       bvc	l32
+01004E  49 00 80    eor	#32768
+010051  30 BE       bmi	l21
+010053  A9 00 00    lda	#0
+010056  8F A0 28 18 sta	>_queueCount
+01005A  8F A2 28 18 sta	>_queueNext
+01005E  8F A4 28 18 sta	>_head
+010062  E2 20       sep	#32
+010064  A9 00       lda	#0
+010066  8F A6 28 18 sta	>2+_head
+01006A  C2 20       rep	#32
+01006C  A9 00 00    lda	#0
+01006F  8F CF 4B 18 sta	>_checksum
+010073  7A          ply
+010074  6B          rtl
+010075  AF CF 4B 18 lda	>_checksum
+010079  C9 19 00    cmp	#25
+01007C  D0 04       bne	l36
+01007E  64 00       stz	r0
+010080  80 05       bra	l37
+010082  A9 FF FF    lda	#65535
+010085  85 00       sta	r0
+010087  A5 00       lda	r0
+010089  6B          rtl
+01008A  D4 20       pei	(r16)
+01008C  85 20       sta	r16
+01008E  A9 09 00    lda	#9
+010091  85 02       sta	r1
+010093  AF A2 28 18 lda	>_queueNext
+010097  85 00       sta	r0
+010099  22 AD 05 01 jsl	>___mulint16
+01009D  85 3E       sta	r31
+01009F  18          clc
+0100A0  A9 A7 28    lda	#<_items
+0100A3  65 3E       adc	r31
+0100A5  85 04       sta	r2
+0100A7  A9 18 00    lda	#^(_items)
+0100AA  69 00 00    adc	#0
+0100AD  85 06       sta	r2+2
+0100AF  AF A4 28 18 lda	>_head
+0100B3  85 08       sta	r4
+0100B5  AF A6 28 18 lda	>2+_head
+0100B9  85 0A       sta	r4+2
+0100BB  AF A2 28 18 lda	>_queueNext
+0100BF  1A          ina
+0100C0  8F A2 28 18 sta	>_queueNext
+0100C4  38          sec
+0100C5  E9 E8 03    sbc	#1000
+0100C8  50 03       bvc	l56
+0100CA  49 00 80    eor	#32768
+0100CD  30 06       bmi	l41
+0100CF  A9 FF FF    lda	#65535
+0100D2  4C 77 01    bra	l38
+0100D5  A5 20       lda	r16
+0100D7  87 04       sta	[r2]
+0100D9  A3 06       lda	6,s
+0100DB  A0 02 00    ldy	#2
+0100DE  97 04       sta	[r2],y ;am(2)
+0100E0  A3 08       lda	8,s
+0100E2  A0 04 00    ldy	#4
+0100E5  97 04       sta	[r2],y ;am(4)
+0100E7  18          clc
+0100E8  A5 04       lda	r2
+0100EA  69 06 00    adc	#6
+0100ED  85 00       sta	r0
+0100EF  A5 06       lda	r2+2
+0100F1  69 00 00    adc	#0
+0100F4  85 02       sta	r0+2
+0100F6  A9 00 00    lda	#0
+0100F9  87 00       sta	[r0]
+0100FB  E2 20       sep	#32
+0100FD  A9 00       lda	#0
+0100FF  A0 02 00    ldy	#2
+010102  97 00       sta	[r0],y
+010104  C2 20       rep	#32
+010106  A5 08       lda	r4
+010108  E2 20       sep	#32
+01010A  05 0A       ora	r4+2
+01010C  C2 20       rep	#32
+01010E  D0 12       bne	l43
+010110  A5 04       lda	r2
+010112  8F A4 28 18 sta	>_head
+010116  E2 20       sep	#32
+010118  A5 06       lda	r2+2
+01011A  8F A6 28 18 sta	>2+_head
+01011E  C2 20       rep	#32
+010120  80 49       bra	l44
+010122  18          clc
+010123  A5 08       lda	r4
+010125  69 06 00    adc	#6
+010128  85 00       sta	r0
+01012A  A5 0A       lda	r4+2
+01012C  69 00 00    adc	#0
+01012F  85 02       sta	r0+2
+010131  A7 00       lda	[r0]
+010133  E2 20       sep	#32
+010135  A0 02 00    ldy	#2
+010138  17 00       ora	[r0],y
+01013A  C2 20       rep	#32
+01013C  F0 1E       beq	l54
+01013E  A0 02 00    ldy	#2
+010141  B7 00       lda	[r0],y
+010143  AA          tax
+010144  A7 00       lda	[r0]
+010146  18          clc
+010147  69 06 00    adc	#6
+01014A  85 00       sta	r0
+01014C  8A          txa
+01014D  69 00 00    adc	#0
+010150  85 02       sta	r0+2
+010152  A7 00       lda	[r0]
+010154  E2 20       sep	#32
+010156  17 00       ora	[r0],y
+010158  C2 20       rep	#32
+01015A  D0 E2       bne	l53
+01015C  A5 04       lda	r2
+01015E  87 00       sta	[r0]
+010160  E2 20       sep	#32
+010162  A5 06       lda	r2+2
+010164  A0 02 00    ldy	#2
+010167  97 00       sta	[r0],y
+010169  C2 20       rep	#32
+01016B  AF A0 28 18 lda	>_queueCount
+01016F  1A          ina
+010170  8F A0 28 18 sta	>_queueCount
+010174  A9 00 00    lda	#0
+010177  FA          plx
+010178  86 20       stx	r16
+01017A  6B          rtl
+01017B  85 04       sta	r2
+01017D  86 06       stx	r2+2
+01017F  A3 04       lda	4,s
+010181  85 0C       sta	r6
+010183  A3 06       lda	6,s
+010185  85 0E       sta	r6+2
+010187  A3 08       lda	8,s
+010189  85 08       sta	r4
+01018B  A3 0A       lda	10,s
+01018D  85 0A       sta	r4+2
+01018F  AF A4 28 18 lda	>_head
+010193  E2 20       sep	#32
+010195  0F A6 28 18 ora	>2+_head
+010199  C2 20       rep	#32
+01019B  F0 65       beq	l60
+01019D  AF A4 28 18 lda	>_head
+0101A1  85 4C       sta	btmp3
+0101A3  AF A6 28 18 lda	>2+_head
+0101A7  85 4E       sta	btmp3+2
+0101A9  A7 4C       lda	[btmp3]
+0101AB  87 04       sta	[r2]
+0101AD  AF A4 28 18 lda	>_head
+0101B1  85 00       sta	r0
+0101B3  AF A6 28 18 lda	>2+_head
+0101B7  85 02       sta	r0+2
+0101B9  A0 02 00    ldy	#2
+0101BC  B7 00       lda	[r0],y ;am(2)
+0101BE  87 0C       sta	[r6]
+0101C0  AF A4 28 18 lda	>_head
+0101C4  85 00       sta	r0
+0101C6  AF A6 28 18 lda	>2+_head
+0101CA  85 02       sta	r0+2
+0101CC  A0 04 00    ldy	#4
+0101CF  B7 00       lda	[r0],y ;am(4)
+0101D1  87 08       sta	[r4]
+0101D3  18          clc
+0101D4  AF A4 28 18 lda	>_head
+0101D8  69 06 00    adc	#6
+0101DB  85 00       sta	r0
+0101DD  AF A6 28 18 lda	>2+_head
+0101E1  69 00 00    adc	#0
+0101E4  85 02       sta	r0+2
+0101E6  A7 00       lda	[r0]
+0101E8  8F A4 28 18 sta	>_head
+0101EC  E2 20       sep	#32
+0101EE  A0 02 00    ldy	#2
+0101F1  B7 00       lda	[r0],y
+0101F3  8F A6 28 18 sta	>2+_head
+0101F7  C2 20       rep	#32
+0101F9  AF A0 28 18 lda	>_queueCount
+0101FD  3A          dea
+0101FE  8F A0 28 18 sta	>_queueCount
+010202  6B          rtl
+010203  AF A0 28 18 lda	>_queueCount
+010207  6B          rtl
+010208  D4 20       pei	(r16)
+01020A  D4 22       pei	(r17)
+01020C  D4 24       pei	(r18)
+01020E  D4 28       pei	(r20)
+010210  D4 2A       pei	(r21)
+010212  D4 2C       pei	(r22)
+010214  D4 2E       pei	(r23)
+010216  D4 30       pei	(r24)
+010218  D4 32       pei	(r25)
+01021A  D4 34       pei	(r26)
+01021C  D4 36       pei	(r27)
+01021E  5A          phy
+01021F  5A          phy
+010220  5A          phy
+010221  85 0C       sta	r6
+010223  A9 00 00    lda	#0
+010226  83 01       sta	1,s
+010228  83 03       sta	3,s
+01022A  AA          tax
+01022B  A9 12 27    lda	#<2+_nodes
+01022E  85 00       sta	r0
+010230  A9 18 00    lda	#^(2+_nodes)
+010233  85 02       sta	r0+2
+010235  A9 10 27    lda	#<_nodes
+010238  85 08       sta	r4
+01023A  A9 18 00    lda	#^(_nodes)
+01023D  85 0A       sta	r4+2
+01023F  A9 0F 27    lda	#9999
+010242  87 08       sta	[r4]
+010244  87 00       sta	[r0]
+010246  E8          inx
+010247  18          clc
+010248  A5 08       lda	r4
+01024A  69 04 00    adc	#4
+01024D  85 08       sta	r4
+01024F  90 02       bcc	l130
+010251  E6 0A       inc	r4+2
+010253  18          clc
+010254  A5 00       lda	r0
+010256  69 04 00    adc	#4
+010259  85 00       sta	r0
+01025B  90 02       bcc	l131
+01025D  E6 02       inc	r0+2
+01025F  8A          txa
+010260  38          sec
+010261  E9 64 00    sbc	#100
+010264  50 03       bvc	l132
+010266  49 00 80    eor	#32768
+010269  30 D4       bmi	l112
+01026B  A5 0C       lda	r6
+01026D  C3 20       cmp	32,s
+01026F  D0 03 4C AC 03 beq	l116
+010274  A5 0C       lda	r6
+010276  0A          asl
+010277  0A          asl
+010278  85 3E       sta	r31
+01027A  A9 00 00    lda	#0
+01027D  9B          txy
+01027E  A6 3E       ldx	r31
+010280  9F 10 27 18 sta	>0+_nodes,x ;am(r31)
+010284  BB          tyx
+010285  A9 0F 27    lda	#9999
+010288  9B          txy
+010289  A6 3E       ldx	r31
+01028B  9F 12 27 18 sta	>2+_nodes,x ;am(r31)
+01028F  BB          tyx
+010290  F4 0F 27    pea	#9999
+010293  F4 00 00    pea	#0
+010296  A5 0C       lda	r6
+010298  22 8A 00 01 jsl	>_Enqueue
+01029C  7A          ply
+01029D  7A          ply
+01029E  C9 FF FF    cmp	#65535
+0102A1  D0 06       bne	l73
+0102A3  A9 FF FF    lda	#65535
+0102A6  4C AF 03    bra	l63
+0102A9  22 03 02 01 jsl	>_QueueLength
+0102AD  48          pha
+0102AE  18          clc
+0102AF  E9 00 00    sbc	#0
+0102B2  50 03       bvc	l134
+0102B4  49 00 80    eor	#32768
+0102B7  10 03 4C DB 03 bmi	l133
+0102BC  68          pla
+0102BD  3B          tsc
+0102BE  18          clc
+0102BF  69 05 00    adc	#5
+0102C2  85 30       sta	r24
+0102C4  64 32       stz	r24+2
+0102C6  3B          tsc
+0102C7  1A          ina
+0102C8  1A          ina
+0102C9  1A          ina
+0102CA  85 2C       sta	r22
+0102CC  64 2E       stz	r22+2
+0102CE  3B          tsc
+0102CF  1A          ina
+0102D0  85 34       sta	r26
+0102D2  64 36       stz	r26+2
+0102D4  D4 32       pei	(r24+2)
+0102D6  D4 30       pei	(r24)
+0102D8  D4 2E       pei	(r22+2)
+0102DA  D4 2C       pei	(r22)
+0102DC  A6 36       ldx	r26+2
+0102DE  A5 34       lda	r26
+0102E0  22 7B 01 01 jsl	>_Dequeue
+0102E4  64 24       stz	r18
+0102E6  A9 12 27    lda	#<2+_nodes
+0102E9  85 28       sta	r20
+0102EB  A9 18 00    lda	#^(2+_nodes)
+0102EE  85 2A       sta	r20+2
+0102F0  A9 10 27    lda	#<_nodes
+0102F3  85 20       sta	r16
+0102F5  A9 18 00    lda	#^(_nodes)
+0102F8  85 22       sta	r16+2
+0102FA  7A          ply
+0102FB  7A          ply
+0102FC  7A          ply
+0102FD  7A          ply
+0102FE  A9 64 00    lda	#100
+010301  85 02       sta	r1
+010303  A3 01       lda	1,s
+010305  85 00       sta	r0
+010307  22 AD 05 01 jsl	>___mulint16
+01030B  85 00       sta	r0
+01030D  18          clc
+01030E  A9 00 00    lda	#<_matrix
+010311  65 00       adc	r0
+010313  48          pha
+010314  A9 18 00    lda	#^(_matrix)
+010317  69 00 00    adc	#0
+01031A  AA          tax
+01031B  68          pla
+01031C  85 00       sta	r0
+01031E  86 02       stx	r0+2
+010320  A4 24       ldy	r18
+010322  B7 00       lda	[r0],y ;am(r18)
+010324  29 FF 00    and	#255
+010327  85 04       sta	r2
+010329  C9 0F 27    cmp	#9999
+01032C  F0 43       beq	l87
+01032E  A7 20       lda	[r16]
+010330  85 00       sta	r0
+010332  C9 0F 27    cmp	#9999
+010335  F0 14       beq	l83
+010337  A5 04       lda	r2
+010339  18          clc
+01033A  63 03       adc	3,s
+01033C  48          pha
+01033D  38          sec
+01033E  E5 00       sbc	r0
+010340  50 03       bvc	l136
+010342  49 00 80    eor	#32768
+010345  30 03 4C D8 03 bpl	l135
+01034A  68          pla
+01034B  A5 04       lda	r2
+01034D  18          clc
+01034E  63 03       adc	3,s
+010350  87 20       sta	[r16]
+010352  A3 01       lda	1,s
+010354  87 28       sta	[r20]
+010356  A3 01       lda	1,s
+010358  48          pha
+010359  A5 04       lda	r2
+01035B  18          clc
+01035C  63 05       adc	5,s
+01035E  48          pha
+01035F  A5 24       lda	r18
+010361  22 8A 00 01 jsl	>_Enqueue
+010365  7A          ply
+010366  7A          ply
+010367  C9 FF FF    cmp	#65535
+01036A  D0 05       bne	l87
+01036C  A9 FF FF    lda	#65535
+01036F  80 3E       bra	l63
+010371  E6 24       inc	r18
+010373  18          clc
+010374  A5 20       lda	r16
+010376  69 04 00    adc	#4
+010379  85 20       sta	r16
+01037B  90 02       bcc	l137
+01037D  E6 22       inc	r16+2
+01037F  18          clc
+010380  A5 28       lda	r20
+010382  69 04 00    adc	#4
+010385  85 28       sta	r20
+010387  90 02       bcc	l138
+010389  E6 2A       inc	r20+2
+01038B  A5 24       lda	r18
+01038D  38          sec
+01038E  E9 64 00    sbc	#100
+010391  50 03       bvc	l139
+010393  49 00 80    eor	#32768
+010396  10 03 4C FE 02 bmi	l114
+01039B  22 03 02 01 jsl	>_QueueLength
+01039F  48          pha
+0103A0  18          clc
+0103A1  E9 00 00    sbc	#0
+0103A4  50 03       bvc	l141
+0103A6  49 00 80    eor	#32768
+0103A9  10 29       bpl	l140
+0103AB  68          pla
+0103AC  A9 00 00    lda	#0
+0103AF  7A          ply
+0103B0  7A          ply
+0103B1  7A          ply
+0103B2  FA          plx
+0103B3  86 36       stx	r27
+0103B5  FA          plx
+0103B6  86 34       stx	r26
+0103B8  FA          plx
+0103B9  86 32       stx	r25
+0103BB  FA          plx
+0103BC  86 30       stx	r24
+0103BE  FA          plx
+0103BF  86 2E       stx	r23
+0103C1  FA          plx
+0103C2  86 2C       stx	r22
+0103C4  FA          plx
+0103C5  86 2A       stx	r21
+0103C7  FA          plx
+0103C8  86 28       stx	r20
+0103CA  FA          plx
+0103CB  86 24       stx	r18
+0103CD  FA          plx
+0103CE  86 22       stx	r17
+0103D0  FA          plx
+0103D1  86 20       stx	r16
+0103D3  6B          rtl
+0103D4  68          pla
+0103D5  4C D4 02    bra	l113
+0103D8  68          pla
+0103D9  80 96       bra	l87
+0103DB  68          pla
+0103DC  80 CE       bra	l116
+0103DE  D4 20       pei	(r16)
+0103E0  D4 22       pei	(r17)
+0103E2  D4 24       pei	(r18)
+0103E4  D4 26       pei	(r19)
+0103E6  64 24       stz	r18
+0103E8  A9 32 00    lda	#50
+0103EB  85 26       sta	r19
+0103ED  A9 D8 27    lda	#<200+_nodes
+0103F0  85 20       sta	r16
+0103F2  A9 18 00    lda	#^(200+_nodes)
+0103F5  85 22       sta	r16+2
+0103F7  D4 26       pei	(r19)
+0103F9  A5 24       lda	r18
+0103FB  22 08 02 01 jsl	>_Find
+0103FF  7A          ply
+010400  C9 FF FF    cmp	#65535
+010403  D0 0B       bne	l149
+010405  AF CF 4B 18 lda	>_checksum
+010409  3A          dea
+01040A  8F CF 4B 18 sta	>_checksum
+01040E  80 2F       bra	l156
+010410  AF CF 4B 18 lda	>_checksum
+010414  18          clc
+010415  67 20       adc	[r16]
+010417  8F CF 4B 18 sta	>_checksum
+01041B  A9 00 00    lda	#0
+01041E  8F A2 28 18 sta	>_queueNext
+010422  E6 24       inc	r18
+010424  E6 26       inc	r19
+010426  18          clc
+010427  A5 20       lda	r16
+010429  69 04 00    adc	#4
+01042C  85 20       sta	r16
+01042E  90 02       bcc	l159
+010430  E6 22       inc	r16+2
+010432  A5 24       lda	r18
+010434  38          sec
+010435  E9 14 00    sbc	#20
+010438  50 03       bvc	l160
+01043A  49 00 80    eor	#32768
+01043D  30 B8       bmi	l155
+01043F  FA          plx
+010440  86 26       stx	r19
+010442  FA          plx
+010443  86 24       stx	r18
+010445  FA          plx
+010446  86 22       stx	r17
+010448  FA          plx
+010449  86 20       stx	r16
+01044B  6B          rtl
+01044C  A9 04 00    lda	#4
+01044F  8F EA 4B 18 sta	>_layoutNodeSize
+010453  A9 00 00    lda	#0
+010456  8F EC 4B 18 sta	>2+_layoutNodeSize
+01045A  8F EE 4B 18 sta	>_layoutNodeDist
+01045E  8F F0 4B 18 sta	>2+_layoutNodeDist
+010462  A9 02 00    lda	#2
+010465  8F F2 4B 18 sta	>_layoutNodePrev
+010469  A9 00 00    lda	#0
+01046C  8F F4 4B 18 sta	>2+_layoutNodePrev
+010470  A9 09 00    lda	#9
+010473  8F F6 4B 18 sta	>_layoutQueueSize
+010477  A9 00 00    lda	#0
+01047A  8F F8 4B 18 sta	>2+_layoutQueueSize
+01047E  8F FA 4B 18 sta	>_layoutQueueNode
+010482  8F FC 4B 18 sta	>2+_layoutQueueNode
+010486  A9 02 00    lda	#2
+010489  8F FE 4B 18 sta	>_layoutQueueDist
+01048D  A9 00 00    lda	#0
+010490  8F 00 4C 18 sta	>2+_layoutQueueDist
+010494  A9 04 00    lda	#4
+010497  8F 02 4C 18 sta	>_layoutQueuePrev
+01049B  A9 00 00    lda	#0
+01049E  8F 04 4C 18 sta	>2+_layoutQueuePrev
+0104A2  A9 06 00    lda	#6
+0104A5  8F 06 4C 18 sta	>_layoutQueueNext
+0104A9  A9 00 00    lda	#0
+0104AC  8F 08 4C 18 sta	>2+_layoutQueueNext
+0104B0  A9 64 00    lda	#100
+0104B3  8F 0A 4C 18 sta	>_layoutRowSize
+0104B7  A9 00 00    lda	#0
+0104BA  8F 0C 4C 18 sta	>2+_layoutRowSize
+0104BE  8F 0E 4C 18 sta	>_layoutRowCost
+0104C2  8F 10 4C 18 sta	>2+_layoutRowCost
+0104C6  A9 02 00    lda	#2
+0104C9  8F 12 4C 18 sta	>_layoutIntSize
+0104CD  A9 00 00    lda	#0
+0104D0  8F 14 4C 18 sta	>2+_layoutIntSize
+0104D4  A9 03 00    lda	#3
+0104D7  8F 16 4C 18 sta	>_layoutPointerSize
+0104DB  A9 00 00    lda	#0
+0104DE  8F 18 4C 18 sta	>2+_layoutPointerSize
+0104E2  6B          rtl
+0104E3  E2 20       sep	#32
+0104E5  AF D1 4B 18 lda	>_command
+0104E9  C9 FF       cmp	#255
+0104EB  C2 20       rep	#32
+0104ED  D0 04       bne	l166
+0104EF  5C 4C 04 01 jml	>_QueryLayout
+0104F3  AF D9 4B 18 lda	>_headAddress
+0104F7  8F A4 28 18 sta	>_head
+0104FB  E2 20       sep	#32
+0104FD  AF DB 4B 18 lda	>2+_headAddress
+010501  8F A6 28 18 sta	>2+_head
+010505  AF D1 4B 18 lda	>_command
+010509  C2 20       rep	#32
+01050B  D0 12       bne	l168
+01050D  22 00 00 01 jsl	>_Init
+010511  22 DE 03 01 jsl	>_Benchmark
+010515  22 75 00 01 jsl	>_ChecksumResult
+010519  8F D7 4B 18 sta	>_result
+01051D  80 73       bra	l175
+01051F  E2 20       sep	#32
+010521  AF D1 4B 18 lda	>_command
+010525  C9 01       cmp	#1
+010527  C2 20       rep	#32
+010529  D0 20       bne	l171
+01052B  22 00 00 01 jsl	>_Init
+01052F  AF E8 4B 18 lda	>_seedNext
+010533  8F A2 28 18 sta	>_queueNext
+010537  AF D5 4B 18 lda	>_endNode
+01053B  48          pha
+01053C  AF D3 4B 18 lda	>_startNode
+010540  22 08 02 01 jsl	>_Find
+010544  8F D7 4B 18 sta	>_result
+010548  7A          ply
+010549  80 47       bra	l175
+01054B  E2 20       sep	#32
+01054D  AF D1 4B 18 lda	>_command
+010551  C9 02       cmp	#2
+010553  C2 20       rep	#32
+010555  D0 1A       bne	l174
+010557  AF E0 4B 18 lda	>_argPrev
+01055B  48          pha
+01055C  AF DE 4B 18 lda	>_argDist
+010560  48          pha
+010561  AF DC 4B 18 lda	>_argNode
+010565  22 8A 00 01 jsl	>_Enqueue
+010569  8F D7 4B 18 sta	>_result
+01056D  7A          ply
+01056E  7A          ply
+01056F  80 21       bra	l175
+010571  F4 18 00    pea	#^(_outPrev)
+010574  F4 E6 4B    pea	#<_outPrev
+010577  F4 18 00    pea	#^(_outDist)
+01057A  F4 E4 4B    pea	#<_outDist
+01057D  A2 18 00    ldx	#^(_outNode)
+010580  A9 E2 4B    lda	#<_outNode
+010583  22 7B 01 01 jsl	>_Dequeue
+010587  A9 00 00    lda	#0
+01058A  8F D7 4B 18 sta	>_result
+01058E  7A          ply
+01058F  7A          ply
+010590  7A          ply
+010591  7A          ply
+010592  AF A4 28 18 lda	>_head
+010596  8F D9 4B 18 sta	>_headAddress
+01059A  E2 20       sep	#32
+01059C  AF A6 28 18 lda	>2+_head
+0105A0  8F DB 4B 18 sta	>2+_headAddress
+0105A4  A9 A5       lda	#165
+0105A6  8F D2 4B 18 sta	>_done
+0105AA  C2 20       rep	#32
+0105AC  6B          rtl
+0105AD  64 04 A2 0F 00 06 04 06 ; mul library bytes (not disassembled)
+0105B5  00 90 07 A5 02 18 65 04 ; mul library bytes (not disassembled)
+0105BD  85 04 CA 10 F0 A5 04 6B ; mul library bytes (not disassembled)

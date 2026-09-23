@@ -296,3 +296,13 @@ the adjacent-rewrite inventory. Run `--test checked_rewrites --test replay` for
 the focused migration checks. The full qualification retains IRQ/NMI, helper/call
 clobber, alias/volatile, relocated o65 and stack-guard coverage. Host compilation
 cost is measured separately from unchanged generated-code quality.
+
+The opt-in [Dijkstra comparison](../../docs/benchmarks/65816-dijkstra/README.md)
+executes public Action CLI images and linked vbcc binaries through the same
+qualified CPU. Build with `tools/compare65816/dijkstra.py`, then use
+`tools/compare65816/run_dijkstra.py target/dijkstra-65816/manifest.json` to verify
+artifact hashes and run `--release --test dijkstra -- --include-ignored`.
+All 33 reference vectors run in raw/optimized modes with I clear and set. No
+interrupts are injected in this measurement; the existing preemption suite owns
+IRQ/NMI qualification. Only this affected backend target is needed when changing
+the comparison harness.

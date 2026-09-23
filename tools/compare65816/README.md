@@ -411,3 +411,17 @@ these small warm-cache builds do not establish large-program scaling. Keep
 committed reports immutable. See the
 [foundation qualification](../../docs/MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md)
 for the baseline build provenance and measured overhead.
+
+### Larger Dijkstra comparison
+
+`dijkstra.py` builds a separate parallel Action/C workload from the pinned
+TACLeBench sources. It keeps the small kernel corpus unchanged, uses vbcc's
+pinned standard far-call runtime, and checks actual LF/CRLF compiler inputs.
+`run_dijkstra.py` authenticates artifacts before and after qualified execution;
+`report_dijkstra.py` archives only complete, passing results.
+
+See the [measurements, limitations and reproduction commands](../../docs/benchmarks/65816-dijkstra/README.md).
+The opt-in native `dijkstra` test checks all 33 existing C-derived vectors,
+including complete node/queue state, native pointer layouts, ABI restoration,
+stack canaries and protected record padding. It uses aggregate counters so the
+full 20-search benchmark does not retain billions of individual bus events.
