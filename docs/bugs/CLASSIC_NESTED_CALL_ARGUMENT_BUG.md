@@ -4,6 +4,12 @@ Status: nested-argument regression fixed, 2026-09-05. Exposed by the stage 3
 Oscar64 port against compiler `590ef47`. The separate word-return accumulator
 fact regression below is also fixed.
 
+Current profile boundary (2026-09-23): Compatibility rejects nested routine-call
+arguments in both statement and function-value contexts. The preservation repair
+below is historical; the active regression executes 1,024 modern cases and
+checks Compatibility rejection under both runtimes. See
+[Codegen Profiles](../CODEGEN_PROFILES.md#legacy-profile).
+
 ## Trigger and regression coverage
 
 `fixtures/runtime/oscar64/fastcalltest.act` retains the original expression:
@@ -15,7 +21,7 @@ original=P1(5,P2(C2(2),C2(4)))-13
 `P1` adds, `P2` multiplies, and `C2` calls the identity function `C1`.
 Compatibility formerly produced 8 instead of 0 under both ActionCart and
 Standalone. All 512 Compatibility VM cases failed this original residual;
-Optimized and MIR6502 passed the same port. The repaired path passes all
+Optimized and MIR6502 passed the same port. The repaired path initially passed all
 1,536 cases, including runtime word/byte inputs, repeated calls, exactly-once
 counters, unchanged inputs, and full host-page guards.
 
@@ -25,9 +31,9 @@ From `tools/vm-runtime-tests`:
 cargo test --locked --test oscar64_conformance oscar64_nested_calls
 ```
 
-This remains an active test, with its original expression and oracle, no
-ignored mode, and no expected panic. Root tests verify the fixture's NIR but
-do not execute the isolated VM crate.
+This remains an active test, with its original expression and oracle in modern
+modes, explicit Compatibility diagnostics, and no expected panic. Root tests
+verify the fixture's NIR but do not execute the isolated VM crate.
 
 ## Cause and repair
 
@@ -70,19 +76,19 @@ word return from `$A0/$A1` into an argument at `$A1/$A2` with low-byte-first
 accumulator forwarding overwrites the still-needed high byte. There is no
 need for that overlapping copy while earlier arguments are already stacked.
 
-Three focused emitted-execution tests cover both profiles, BYTE/INT/CARD and
+Three focused emitted-execution tests cover modern BYTE/INT/CARD and
 mixed-width arguments, nonzero high bytes, nested/repeated calls, cast-wrapped
 byte-to-word results, exactly-once producer counts, full result/input guards,
 and a stack canary around the caller. Opaque ABI producers/capture routines
 isolate caller behavior from helper linking and inferred return facts; the
 unchanged Oscar64 port additionally covers real Action! callees and both
-runtime linkings. Legacy call-statement diagnostics remain in place.
+runtime linkings. The same tests check Compatibility rejection of these shapes.
 
 To inspect the listing, from the repository root:
 
 ```sh
-cargo run --bin actionc -- --mode compatibility --runtime standalone \
-  --listing /tmp/fastcall-compat.asm -o /tmp/fastcall-compat.xex \
+cargo run --bin actionc -- --mode optimized --runtime standalone \
+  --listing /tmp/fastcall-modern.asm -o /tmp/fastcall-modern.xex \
   fixtures/runtime/oscar64/fastcalltest.act
 ```
 

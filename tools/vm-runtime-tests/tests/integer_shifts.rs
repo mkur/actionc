@@ -1,4 +1,4 @@
-use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
+use actionc::compiler::{CompileMode, CompileOptions, CompilerPhase, Runtime, compile_file};
 use actionc::includes::{ModuleLoadOptions, load_compilation};
 use actionc_vm::{CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE};
 use std::path::{Path, PathBuf};
@@ -15,10 +15,6 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 
 struct Source(PathBuf);
 impl Source {
-    fn new(text: &str, runtime: Runtime) -> Self {
-        Self::create(text, runtime, false)
-    }
-
     fn create(text: &str, runtime: Runtime, module_copy: bool) -> Self {
         let path = std::env::temp_dir().join(format!(
             "actionc-integer-shifts-vm-{}-{}",
@@ -193,18 +189,64 @@ fn execute(image: &[u8], runtime: Runtime, initial: &[u8], expected: &[u8], labe
     }
 }
 
+fn call_source(
+    nested: &str,
+    staged: &str,
+    mode: CompileMode,
+    runtime: Runtime,
+    module_copy: bool,
+) -> Source {
+    let source = Source::create(nested, runtime, module_copy);
+    if mode != CompileMode::Compatibility {
+        return source;
+    }
+    let error = compile_file(
+        source.0.join("main.act"),
+        &CompileOptions::for_mode(mode)
+            .with_runtime(runtime)
+            .with_origin(0x2000),
+    )
+    .expect_err("compat must reject nested routine-call arguments");
+    assert_eq!(error.diagnostics().len(), 2, "{runtime:?}: {error}");
+    assert!(
+        error
+            .diagnostics()
+            .iter()
+            .all(|diagnostic| diagnostic.phase == CompilerPhase::Codegen
+                && diagnostic.message
+                    == "compat profile rejects function calls as routine call arguments"),
+        "{runtime:?}: {error}"
+    );
+    // Keep the same arithmetic, call counts and memory oracle in compat by
+    // spelling out its required argument temporaries in the source.
+    Source::create(staged, runtime, module_copy)
+}
+
 fn check_dynamic(module_copy: bool) {
-    let text = "MODULE TEST USE MATH.INTEGER AS BITS\n\
+    let text = |calls: &str| {
+        format!(
+            "MODULE TEST USE MATH.INTEGER AS BITS\n\
         BYTE size=$0600,done=$06FF,current\nCARD calls=$0601\n\
         LONGINT ARRAY values(64)=$07FF\nBYTE ARRAY counts(64)=$09FF\n\
         INT ARRAY outI(64)=$0BFF\nLONGINT ARRAY outLI(64)=$0DFF\n\
         LONGINT FUNC ReadValue() calls==+1 RETURN(values(current))\n\
         BYTE FUNC ReadCount() calls==+1 RETURN(counts(current))\n\
-        PROC Main() calls=0\n\
+        PROC Main() LONGINT stagedValue BYTE stagedCount\n calls=0\n\
           FOR current=0 TO size-1 DO\n\
-            outI(current)=BITS.AsrI(INT(ReadValue()),ReadCount())\n\
-            outLI(current)=BITS.AsrLI(ReadValue(),ReadCount())\n\
-          OD done=$A5 RETURN ENDMODULE\n";
+            {calls}\n\
+          OD done=$A5 RETURN ENDMODULE\n"
+        )
+    };
+    let nested = text(
+        "outI(current)=BITS.AsrI(INT(ReadValue()),ReadCount())\n\
+         outLI(current)=BITS.AsrLI(ReadValue(),ReadCount())",
+    );
+    let staged = text(
+        "stagedValue=ReadValue() stagedCount=ReadCount()\n\
+         outI(current)=BITS.AsrI(INT(stagedValue),stagedCount)\n\
+         stagedValue=ReadValue() stagedCount=ReadCount()\n\
+         outLI(current)=BITS.AsrLI(stagedValue,stagedCount)",
+    );
     let mut cases: Vec<_> = boundaries()
         .into_iter()
         .flat_map(|v| counts().into_iter().map(move |c| (v, c)))
@@ -231,7 +273,7 @@ fn check_dynamic(module_copy: bool) {
         ];
     }
     for (mode, runtime) in lanes() {
-        let source = Source::create(text, runtime, module_copy);
+        let source = call_source(&nested, &staged, mode, runtime, module_copy);
         let compiled = compile_file(
             source.0.join("main.act"),
             &CompileOptions::for_mode(mode)
@@ -282,20 +324,26 @@ fn integer_shifts_constant_counts_and_nested_calls_match_floor_division() {
     assert!(counts.len() < 64, "reserve an output slot for nested calls");
     let mut text = "MODULE TEST USE MATH.INTEGER AS BITS\n\
         LONGINT value=$07FF BYTE done=$06FF\n\
-        INT ARRAY outI(64)=$0BFF LONGINT ARRAY outLI(64)=$0DFF\nPROC Main()\n"
+        INT ARRAY outI(64)=$0BFF LONGINT ARRAY outLI(64)=$0DFF\n\
+        PROC Main() INT stagedI LONGINT stagedLI\n"
         .to_owned();
     for (i, count) in counts.iter().enumerate() {
         text.push_str(&format!(
             "outI({i})=BITS.AsrI(INT(value),${count:X}) outLI({i})=BITS.AsrLI(value,${count:X})\n"
         ));
     }
-    let nested = counts.len();
-    text.push_str(&format!(
-        "outI({nested})=BITS.AsrI(BITS.AsrI(INT(value),1),2)\n\
-        outLI({nested})=BITS.AsrLI(BITS.AsrLI(value,1),2)\ndone=$A5 RETURN ENDMODULE\n"
-    ));
+    let composed = counts.len();
+    let nested = format!(
+        "{text}outI({composed})=BITS.AsrI(BITS.AsrI(INT(value),1),2)\n\
+        outLI({composed})=BITS.AsrLI(BITS.AsrLI(value,1),2)\ndone=$A5 RETURN ENDMODULE\n"
+    );
+    let staged = format!(
+        "{text}stagedI=BITS.AsrI(INT(value),1) outI({composed})=BITS.AsrI(stagedI,2)\n\
+        stagedLI=BITS.AsrLI(value,1) outLI({composed})=BITS.AsrLI(stagedLI,2)\n\
+        done=$A5 RETURN ENDMODULE\n"
+    );
     for (mode, runtime) in lanes() {
-        let source = Source::new(&text, runtime);
+        let source = call_source(&nested, &staged, mode, runtime, false);
         let compiled = compile_file(
             source.0.join("main.act"),
             &CompileOptions::for_mode(mode)

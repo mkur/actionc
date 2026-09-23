@@ -9,16 +9,30 @@ use actionc_vm::{
 use std::path::Path;
 
 fn check(source: &str, inputs: &[(u32, u32)], expected: impl Fn(u32, u32, &mut [u8])) {
+    check_profiles(
+        source,
+        &[CodegenProfile::Compat, CodegenProfile::Modern],
+        inputs,
+        expected,
+    );
+}
+
+fn check_profiles(
+    source: &str,
+    profiles: &[CodegenProfile],
+    inputs: &[(u32, u32)],
+    expected: impl Fn(u32, u32, &mut [u8]),
+) {
     let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
     let model =
         actionc::semantic::analyze_with_options(&ast, actionc::semantic::SemanticOptions::modern())
             .unwrap();
     let semir = actionc::semantic::ir::lower_program(&ast, &model);
-    for profile in [CodegenProfile::Compat, CodegenProfile::Modern] {
+    for &profile in profiles {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             let output =
                 generate_semir_profile_at_origin_with_runtime(&semir, 0x3000, profile, runtime)
-                    .unwrap();
+                    .unwrap_or_else(|errors| panic!("{profile:?}/{runtime:?}: {errors:?}"));
             let image = format_load_file(&output);
             for &(a, b) in inputs {
                 let mut vm = CompilerVm::default();
@@ -177,7 +191,9 @@ RETURN
 
 #[test]
 fn classic_long_calls_stage_all_bytes_and_preserve_nested_results() {
-    let source = r#"
+    let source = |body: &str| {
+        format!(
+            r#"
 LONGCARD a=$6E0,b=$6E4,result=$601,repeated=$605
 BYTE calls=$609,done=$6FF
 LONGCARD FUNC Echo(LONGCARD value)
@@ -187,26 +203,55 @@ LONGCARD FUNC Combine(LONGCARD left,right BYTE bias)
 RETURN(left+right+LONGCARD(bias))
 LONGCARD FUNC POINTER callback(LONGCARD value)
 PROC Main()
+ LONGCARD first,second
  calls=0 callback=@Echo
- result=Combine(callback(a),Echo(b),7)
- repeated=Combine(Echo(b),callback(a),9)
+ {body}
  done=$A5 DO OD
 RETURN
-"#;
-    check(
-        source,
-        &[
-            (0, 0),
-            (0x12345678, 0x87654321),
-            (0xFFFFFFFF, 1),
-            (0x7FFFFFFF, 0x10002),
-        ],
-        |a, b, page| {
-            word(page, 1, a.wrapping_add(b).wrapping_add(7));
-            word(page, 5, a.wrapping_add(b).wrapping_add(9));
-            page[9] = 4;
-        },
+"#
+        )
+    };
+    let nested =
+        source("result=Combine(callback(a),Echo(b),7) repeated=Combine(Echo(b),callback(a),9)");
+    let ast = actionc::parser::parse(&actionc::lexer::tokenize(&nested).unwrap()).unwrap();
+    let model =
+        actionc::semantic::analyze_with_options(&ast, actionc::semantic::SemanticOptions::modern())
+            .unwrap();
+    let semir = actionc::semantic::ir::lower_program(&ast, &model);
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let errors = generate_semir_profile_at_origin_with_runtime(
+            &semir,
+            0x3000,
+            CodegenProfile::Compat,
+            runtime,
+        )
+        .expect_err("compat must reject nested routine-call arguments");
+        assert_eq!(errors.len(), 2, "{runtime:?}: {errors:?}");
+        assert!(
+            errors.iter().all(|error| error.message
+                == "compat profile rejects function calls as routine call arguments"),
+            "{runtime:?}: {errors:?}"
+        );
+    }
+    // Explicit source temporaries preserve full-width call coverage in both
+    // classic profiles; nested arguments remain a modern-only source shape.
+    let staged = source(
+        "first=callback(a) second=Echo(b) result=Combine(first,second,7) \
+         first=Echo(b) second=callback(a) repeated=Combine(first,second,9)",
     );
+    let inputs = [
+        (0, 0),
+        (0x12345678, 0x87654321),
+        (0xFFFFFFFF, 1),
+        (0x7FFFFFFF, 0x10002),
+    ];
+    let expected = |a: u32, b: u32, page: &mut [u8]| {
+        word(page, 1, a.wrapping_add(b).wrapping_add(7));
+        word(page, 5, a.wrapping_add(b).wrapping_add(9));
+        page[9] = 4;
+    };
+    check(&staged, &inputs, expected);
+    check_profiles(&nested, &[CodegenProfile::Modern], &inputs, expected);
 }
 
 #[test]

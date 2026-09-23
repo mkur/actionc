@@ -997,6 +997,23 @@ fn oscar64_mir_reverse_and_copy_check_every_word_and_guard() {
 
 #[test]
 fn oscar64_nested_calls_preserve_arguments_and_evaluate_each_once() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let error = compile_file(
+            repository_root().join("fixtures/runtime/oscar64/fastcalltest.act"),
+            &CompileOptions::for_mode(CompileMode::Compatibility).with_runtime(runtime),
+        )
+        .expect_err("compat must reject nested routine-call arguments");
+        assert!(!error.diagnostics().is_empty());
+        assert!(
+            error
+                .diagnostics()
+                .iter()
+                .all(|diagnostic| diagnostic.phase == CompilerPhase::Codegen
+                    && diagnostic.message
+                        == "compat profile rejects function calls as routine call arguments"),
+            "{runtime:?}: {error}"
+        );
+    }
     // Keep every mathematical word result representable as INT. These
     // triples exercise signs, carry and nonzero high bytes; byte inputs
     // cover all 256 values, but this is not an exhaustive word-input grid.
@@ -1064,7 +1081,7 @@ fn oscar64_nested_calls_preserve_arguments_and_evaluate_each_once() {
             case
         })
         .collect();
-    run_cases("fastcalltest", 25_000, &cases);
+    run_cases_in_modes("fastcalltest", 25_000, &cases, MODERN_MODES);
 }
 
 fn host_page_after_setup(case: &Case) -> Vec<u8> {

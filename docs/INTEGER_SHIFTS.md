@@ -53,8 +53,10 @@ execution is not yet covered by a VM.
 VM tests compare against mathematical floor division, covering 35 signed value
 boundaries with 37 representative counts, every BYTE count (0–255) for positive
 and negative inputs, and 256 deterministic random pairs. They also cover
-constant counts, nested calls and side-effecting arguments, and verify
+constant counts, composed calls and side-effecting arguments, and verify
 both return widths, argument call counts, unchanged inputs and memory guards.
+Compatibility uses explicit temporaries and checks that nested argument calls
+are rejected; both modern backends execute the nested forms.
 Every mode/runtime uses the embedded module. The loader also compiles and runs
 a CRLF copy of its body under a test module name, since embedded module names
 are reserved; application files exercise both LF and CRLF.

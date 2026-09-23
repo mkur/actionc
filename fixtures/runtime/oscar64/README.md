@@ -72,7 +72,7 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `shiftbyteaddconst` | 256 | 1,536 | All pass |
 | `testsigned16mul` | 33 | 198 | All pass |
 | `arraytest` | 30 | 180 | All pass |
-| `fastcalltest` | 256 | 1,536 | All pass |
+| `fastcalltest` | 256 | 1,024 | Both modern backends/runtimes; Compatibility rejection checked separately |
 | `testinterval` | 41 | 246 | All pass |
 | `mixsigncmptest` | 27 | 162 | All pass |
 | `testinterval_values` | 40 | 160 | Both modern backends/runtimes |
@@ -86,10 +86,14 @@ The [second-batch plan](../../../docs/OSCAR64_TEST_PORTING_PLAN.md) has stages
 | `rolrortest` (BYTE/CARD rotations) | 257 | 1,542 | All six mode/runtime combinations |
 | `rolrortest_wide` (LONGCARD rotations) | 76 | 456 | All six mode/runtime combinations |
 
-The conformance target covers **16,438 VM cases in 32 active tests**: the previous 14,440 cases plus
-1,542 BYTE/CARD and 456 LONGCARD rotation executions. Profile/backend rejection
-checks for member arrays, enums and selection expressions are
-not VM cases.
+The conformance target covers **15,926 VM cases in 32 active tests**, including
+1,542 BYTE/CARD and 456 LONGCARD rotation executions. The 512 former
+Compatibility nested-call executions are now rejection checks, following the
+[profile contract](../../../docs/CODEGEN_PROFILES.md#legacy-profile).
+Profile/backend rejection checks for nested calls, member arrays, enums and
+selection expressions are not VM cases.
+Rotation fixtures stage inverse-call results explicitly so their complete
+8/16/32-bit rotation oracles still execute in all six mode/runtime combinations.
 No test is ignored
 or expects a panic. Both the nested-call and classic reverse-copy regressions were repaired
 without changing fixture expressions or oracles. See
@@ -343,8 +347,10 @@ Compatibility formerly failed `fastcalltest` under both runtimes. The second
 computed `5+4*4-13=8`, not zero. Protective stack staging is now shared across
 classic profiles, and call detection traverses casts. Each argument is staged
 at the ABI base before being pushed, avoiding an overlapping word-result copy
-for mixed-width signatures. All 1,536 cases now pass with the original nested
-expressions and independent oracle. Focused compiler tests check both profiles,
+for mixed-width signatures. Compatibility now rejects nested call arguments in
+both statement and function-value contexts. The 1,024 modern cases retain the
+original nested expressions and independent oracle; both Compatibility runtimes
+check the diagnostic. Focused compiler tests check this profile boundary,
 BYTE/INT/CARD and mixed-width arguments, casts, repeated calls, counts, guards,
 and stack balance. See the
 [diagnosis and repair](../../../docs/bugs/CLASSIC_NESTED_CALL_ARGUMENT_BUG.md).

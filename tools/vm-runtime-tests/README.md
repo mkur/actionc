@@ -75,7 +75,14 @@ The [signed integer shift library](../../docs/INTEGER_SHIFTS.md) is checked by
 `cargo test --locked --test integer_shifts`. Arithmetic right shifts of INT and
 LONGINT are compared against floor division for dynamic and constant counts,
 covering the BYTE range 0–255. All three modes and both runtimes cover
-nested calls, argument side effects, guards, and actual LF/CRLF module loading.
+composition, argument side effects, guards, and actual LF/CRLF module loading.
+Compatibility uses explicit argument temporaries and checks rejection of the
+nested source; both modern backends execute the original nested calls.
+
+`cargo test --locked --test classic_long_integers --test wide_integers` checks
+four-byte arithmetic and calls. Explicitly staged LONG arguments execute in
+both classic profiles; nested direct/indirect arguments execute in modern
+mode, with Compatibility rejection checked separately under both runtimes.
 
 The [TACLeBench ADPCM decoder port](../../fixtures/runtime/tacle/adpcm_dec/README.md)
 is checked by `cargo test --locked --test adpcm_dec`: 15 C-reference streams
@@ -181,8 +188,9 @@ cargo test --locked --test oscar64_conformance
 The original 14 Oscar64 tests retain 258 passing VM cases, including the
 formerly failing MIR6502 word-vector initialization checks. The second batch
 and focused IF/CASE and rotation ports bring the total to 32 active tests and
-16,438 VM cases, including the 512 repaired Compatibility nested-call cases and 120 repaired
-classic reverse-copy cases. Stage 4 adds 408 branch/count cases across all modes
+15,926 VM cases, including 1,024 modern nested-call cases and 120 repaired
+classic reverse-copy cases. Nested-call Compatibility rejection is checked
+separately under both runtimes. Stage 4 adds 408 branch/count cases across all modes
 and 264 numeric comparison-value cases across modern classic and MIR6502.
 Compatibility's semantic rejection of the extension is checked separately.
 Stage 5's first port adds 198 record-array copy cases with observable calls,

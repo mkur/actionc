@@ -186,15 +186,17 @@ cells, no parameter address may escape, and the routine may not contain machine
 blocks, effect annotations, current-location expressions, locals, or hidden
 storage. Otherwise the normal parameter cells and entry stores remain.
 
-Nested calls accepted inside function-value expressions use the same protected
-argument staging in both classic profiles. Arguments are evaluated once, from
+The classic emitter shares protected argument staging across profiles, but
+compatibility validation rejects nested routine-call arguments in both statement
+and function-value contexts. Modern nested arguments are evaluated once, from
 left to right, at the public ABI base and immediately saved on the stack. Only
 after evaluation are they restored to their final argument slots and A/X/Y.
 Using the ABI base avoids an overlapping word-return copy when a word argument
 follows a byte argument. Call detection traverses casts as well as other
 expression wrappers. This is a correctness contract, not a modern optimization;
-the single-result forwarding shortcut remains modern-only. It does not relax
-the legacy call-statement restrictions above or alter no-call staging paths.
+the single-result forwarding shortcut remains modern-only. Legacy source must
+stage nested results in explicit variables before the outer call. Ordinary
+no-call staging paths are unchanged.
 
 Inferred accumulator return-byte facts require a proven equality at every
 value return. Memory-content aliases use the processor tracker's equality

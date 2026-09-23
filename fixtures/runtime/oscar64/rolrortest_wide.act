@@ -25,7 +25,9 @@ PROC Main()
   failures=0
   val=input32
   right32(0)=val
-  round32=RollLeft32(RollRight32(val))
+  ; Explicit intermediate keeps the inverse rotation valid in Compatibility.
+  round32=RollRight32(val)
+  round32=RollLeft32(round32)
   IF round32#val THEN failures==+1 FI
   i=0
   WHILE i<32 DO

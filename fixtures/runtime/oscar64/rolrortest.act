@@ -40,8 +40,11 @@ PROC Main()
   failures=0
   c=input8 val=input16
   right8(0)=c right16(0)=val
-  round8=RollLeft8(RollRight8(c))
-  round16=RollLeft16(RollRight16(val))
+  ; Explicit intermediates keep inverse rotations valid in Compatibility.
+  round8=RollRight8(c)
+  round8=RollLeft8(round8)
+  round16=RollRight16(val)
+  round16=RollLeft16(round16)
   IF round8#c THEN failures==+1 FI
   IF round16#val THEN failures==+1 FI
   i=0

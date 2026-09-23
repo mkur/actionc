@@ -1,4 +1,4 @@
-use actionc::compiler::{CompileMode, CompileOptions, Runtime, compile_file};
+use actionc::compiler::{CompileMode, CompileOptions, CompilerPhase, Runtime, compile_file};
 use actionc_vm::{
     CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
     StopReason, VmRunner,
@@ -674,11 +674,25 @@ fn wide_nested_direct_and_typed_indirect_calls_preserve_all_result_bytes() {
         "LONGCARD a=$6E0,b=$6E4,result=$600\nBYTE count=$604,done=$6FF\nLONGCARD FUNC Echo(LONGCARD value) count==+1 RETURN(value)\nLONGCARD FUNC Combine(LONGCARD left,right BYTE bias) RETURN(left+right+LONGCARD(bias))\nLONGCARD FUNC POINTER callback(LONGCARD value)\nPROC Main() count=0 callback=@Echo result=Combine(callback(a),Echo(b),7) done=$A5 RETURN",
     );
     for (mode, runtime) in modes_and_runtimes() {
-        let compiled = compile_file(
+        let result = compile_file(
             &source.0,
             &CompileOptions::for_mode(mode).with_runtime(runtime),
-        )
-        .unwrap();
+        );
+        if mode == CompileMode::Compatibility {
+            let error = result.expect_err("compat must reject nested routine-call arguments");
+            assert_eq!(error.diagnostics().len(), 1, "{runtime:?}: {error}");
+            assert!(
+                error
+                    .diagnostics()
+                    .iter()
+                    .all(|diagnostic| diagnostic.phase == CompilerPhase::Codegen
+                        && diagnostic.message
+                            == "compat profile rejects function calls as routine call arguments"),
+                "{runtime:?}: {error}"
+            );
+            continue;
+        }
+        let compiled = result.unwrap();
         for (a, b) in [
             (0, 0),
             (0x12345678, 0x87654321),
