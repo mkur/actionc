@@ -330,3 +330,29 @@ fn native_return_boundaries_keep_all_defined_result_bits_including_zero_extensio
         }
     }
 }
+
+#[test]
+fn signed_correction_keeps_independent_c_v_and_n_lifetimes_through_join() {
+    // SEC -> SBC -> BVC --skip--> BMI
+    //                   `-> EOR -> BMI
+    let graph = Graph::new(5, &[(0, 1), (1, 2), (2, 3), (2, 4), (3, 4)]);
+    let forms = [
+        Instruction::Implied(Implied::Sec),
+        Instruction::Word(WordOp::SbcImm, 1),
+        Instruction::Branch(Branch::OverflowClear, super::super::super::Label(0)),
+        Instruction::Word(WordOp::EorImm, 0x8000),
+        Instruction::Branch(Branch::Minus, super::super::super::Label(1)),
+    ];
+    let effects = forms
+        .into_iter()
+        .enumerate()
+        .map(|(n, f)| (Node(n), f.effects(State65816::default().env)))
+        .collect();
+    let live = MachineLiveness::solve(&graph, &effects, &BTreeMap::new());
+    assert_eq!(live.before(Node(0)).unwrap().flags, 0);
+    assert_eq!(live.after(Node(0)).unwrap().flags, C);
+    assert_eq!(live.after(Node(1)).unwrap().flags, N | V);
+    assert_eq!(live.before(Node(2)).unwrap().flags, N | V);
+    assert_eq!(live.after(Node(3)).unwrap().flags, N);
+    assert_eq!(live.before(Node(4)).unwrap().flags, N);
+}

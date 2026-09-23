@@ -114,3 +114,65 @@ fn signed_size_probes_keep_frames_and_source_newlines_stable() {
         narrow_comparison::record("signed-size-probes", optimize, &source, &image, &h);
     }
 }
+
+#[test]
+fn independent_a16_signed_subtraction_corrects_overflow_before_testing_sign() {
+    use actionc_vm::native65816::{Inputs, Machine, Registers};
+    for immediate in [false, true] {
+        let code = assemble(
+            &format!(
+                "lda 2,s\nsec\n{}\nbvs overflow\njml corrected\noverflow: eor #$8000\ncorrected: bmi yes\nlda #0\nstp\nyes: lda #1\nstp\nnop",
+                if immediate { "sbc #$ffff" } else { "sbc 4,s" }
+            ),
+            0x040000,
+        );
+        let n = usize::from(immediate);
+        assert_eq!(&code[..3], &[0xa3, 2, 0x38]);
+        assert_eq!(
+            &code[3..5 + n],
+            if immediate {
+                &[0xe9, 0xff, 0xff][..]
+            } else {
+                &[0xe3, 4][..]
+            }
+        );
+        assert_eq!(
+            &code[5 + n..14 + n],
+            &[0x70, 4, 0x5c, (14 + n) as u8, 0, 4, 0x49, 0, 0x80]
+        );
+        assert_eq!(code[14 + n], 0x30);
+        for (a, b) in pairs() {
+            let b = if immediate { -1 } else { b };
+            for p in [0, 1, 0x40, 0x41, 4, 5, 0x44, 0x45] {
+                let mut bus = Bus::new();
+                bus.map(0x040000, &code, false);
+                bus.map(0x4000, &[0xa5; 0x2000], true);
+                bus.ram[0x5fe2..0x5fe4].copy_from_slice(&a.to_le_bytes());
+                bus.ram[0x5fe4..0x5fe6].copy_from_slice(&b.to_le_bytes());
+                let mut cpu = Machine::start_at(Registers {
+                    a: 0xabcd,
+                    x: 0x1234,
+                    y: 0x5678,
+                    s: 0x5fe0,
+                    d: 0x2000,
+                    dbr: 0,
+                    pbr: 4,
+                    pc: 0,
+                    p,
+                    emulation_mode: false,
+                });
+                assert!(
+                    cpu.run_until(&mut bus, 100, |_| Inputs::default(), |c| c.is_stopped())
+                        .unwrap()
+                );
+                let r = cpu.registers();
+                assert_eq!(r.a, u16::from(a < b), "{a}/{b}/{p}");
+                assert_eq!(
+                    (r.x, r.y, r.s, r.d, r.dbr, r.p & 0x3c),
+                    (0x1234, 0x5678, 0x5fe0, 0x2000, 0, p & 4)
+                );
+                assert!(bus.writes.is_empty());
+            }
+        }
+    }
+}

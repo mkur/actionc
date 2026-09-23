@@ -1,0 +1,21 @@
+{
+  "stage": "typed forms only; all four baseline images byte-identical",
+  "root_unit_tests": 191,
+  "python_decoder_tests": 8,
+  "native_tests": 3,
+  "qualification_manifest_sha256": "4d8125a7e8dbe1e76aaa8ca5e2856c866f3ad4ec6291eb4fe6891618bf82df72",
+  "artifacts": {
+    "signed-size-probes-false.metrics.json": "1ce89aea203ee4d6de3111268e70930e552ffd7568aef8e1431547db520d341f",
+    "signed-word-comparisons-false.metrics.json": "0b51eaf9512f4fe5951a448d0271b22b3f38c00672a9bb6ba703238246e02463",
+    "signed-size-probes-true.metrics.json": "7f3e868968f44ddf48c01d19de14898f08275cdbeeb53cb0f269057c50b4f8ce",
+    "signed-word-comparisons-true.act": "a72afaf1255ce92ff41215c376a49adae0eeaeff75daf918f822a70a1c7862d6",
+    "signed-size-probes-true.act": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+    "signed-size-probes-false.act": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+    "signed-word-comparisons-false.act": "a72afaf1255ce92ff41215c376a49adae0eeaeff75daf918f822a70a1c7862d6",
+    "signed-word-comparisons-true.image.json": "2968f17ac0a78e5c5df73e275934212f6226d746fe1bb046c4f0fac49043b472",
+    "signed-size-probes-false.image.json": "728593a164ee770dc27108027e820f8fa2eab20bf1e3fc7e6babe1c10657cdc6",
+    "signed-word-comparisons-false.image.json": "7685e6c30b476311afb28018a137fe81e8bacb5c49be7552a19ed0f905a60043",
+    "signed-word-comparisons-true.metrics.json": "acea7765bb87ee26d382e12235fb1c804543f5078f2948b25a462afbfcdddadf",
+    "signed-size-probes-true.image.json": "3c99417bee023fd08ecac476457a8a6a6c8a612b31663b808d18d269198422af"
+  }
+}

@@ -64,6 +64,16 @@ class WordComparisons(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'truncated'):
             listing(bytes.fromhex('e2 20 e0 ff'))
 
+    def test_signed_correction_branches_and_eor_width(self):
+        text = listing(bytes.fromhex('38 e3 04 70 04 5c 0c 80 01 49 00 80 30 02 50 fe e2 20 49 80'))
+        for fragment in ('018003  70 04       BVS $018009', '018009  49 00 80    EOR #$8000',
+                         '01800C  30 02       BMI $018010', '01800E  50 FE       BVC $01800E',
+                         '018012  49 80       EOR #$80'):
+            self.assertIn(fragment, text)
+        for code in ('50', '70', '49 00'):
+            with self.assertRaisesRegex(ValueError, 'truncated'):
+                listing(bytes.fromhex(code))
+
     def test_truncated_cmp_is_rejected(self):
         for code in ('c3', 'c9 ff', 'e2 20 c3', 'e2 20 c9', 'e2 20 c9 ff c2 20 c9 00'):
             with self.subTest(code=code), self.assertRaisesRegex(ValueError, 'truncated'):

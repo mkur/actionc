@@ -230,3 +230,38 @@ fn replay_uses_verified_input_cfg_but_validates_its_new_output() {
     assert_eq!(full_work.get("cfg"), Some(&1));
     equivalent(&code, &output).unwrap();
 }
+
+#[test]
+fn signed_correction_replays_internal_long_branch_and_short_or_long_sign_dispatch() {
+    for count in [0, 200] {
+        let mut e = TrackedEmitter65816::default();
+        let corrected = e.label();
+        let dest = e.label();
+        e.begin_source(crate::nir::BlockId(0), 0);
+        let start = e.position();
+        e.word(WordOp::LdaImm, 0x7fff);
+        e.op(Implied::Sec);
+        e.word(WordOp::SbcImm, 0xffff);
+        e.branch(Branch::OverflowClear, corrected);
+        e.word(WordOp::EorImm, 0x8000);
+        e.mark(corrected);
+        e.dispatch(Branch::Minus, dest);
+        for _ in 0..count {
+            e.op(Implied::Nop);
+        }
+        e.mark(dest);
+        e.native_return(None).unwrap();
+        e.fused_span(crate::nir::BlockId(0), 0, start, 1);
+        let raw = finish(e);
+        assert_eq!(&raw.bytes[7..16], &[0x70, 4, 0x5c, 0, 0, 0, 0x49, 0, 0x80]);
+        let finalized = layout::finalize(raw, true).unwrap();
+        assert_eq!(finalized.conditional_branches.len(), 1);
+        assert_eq!(finalized.conditional_branches[0].short, count == 0);
+        let replayed = layout::finalize(
+            emit(finalized.selected.as_ref().unwrap(), false).unwrap(),
+            true,
+        )
+        .unwrap();
+        equivalent(&finalized, &replayed).unwrap();
+    }
+}

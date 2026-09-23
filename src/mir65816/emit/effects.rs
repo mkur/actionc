@@ -445,7 +445,7 @@ impl Instruction {
                         e.alu(Width::Word, false, false);
                         e.flag_writes |= C;
                     }
-                    AndImm => e.alu(Width::Word, false, true),
+                    AndImm | EorImm => e.alu(Width::Word, false, true),
                     LdyImm => {
                         e.environment_reads |= env::X;
                         e.writes.y = 0xffff;
@@ -510,7 +510,8 @@ impl Instruction {
             },
             Self::Branch(op, target) => {
                 e.flag_reads = match op {
-                    Branch::Plus => N,
+                    Branch::Plus | Branch::Minus => N,
+                    Branch::OverflowClear => V,
                     Branch::CarryClear | Branch::CarrySet => C,
                     Branch::NotEqual | Branch::Equal => Z,
                 };

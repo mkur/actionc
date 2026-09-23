@@ -703,3 +703,44 @@ fn increment_pending_relation_rejects_consumers_even_after_home_store() {
         );
     }
 }
+
+#[test]
+fn word_eor_preserves_carry_and_overflow_but_replaces_a_and_nz() {
+    for known in [false, true] {
+        let mut e = TrackedEmitter65816::default();
+        e.a16();
+        if known {
+            e.word(WordOp::LdaImm, 0x7fff);
+        }
+        e.op(Implied::Sec);
+        e.word(WordOp::SbcImm, 0xffff);
+        let before = e.state_for_incoming_test();
+        e.word(WordOp::EorImm, 0x8000);
+        let after = e.state_for_incoming_test();
+        assert_eq!(
+            (after.carry, after.overflow),
+            (before.carry, before.overflow)
+        );
+        assert_eq!(after.a, after.nz);
+        assert!(!after.a.matches(before.a));
+        if known {
+            assert_eq!(after.a, Value::Constant(0, Width::Word));
+            assert_eq!(after.overflow, Some(true));
+        } else {
+            assert!(matches!(after.a, Value::Opaque(_, Width::Word)));
+        }
+        let join = e.label();
+        e.branch(Branch::OverflowClear, join);
+        e.word(WordOp::EorImm, 0x8000);
+        e.mark(join);
+        assert_eq!(e.state_for_incoming_test().a, Value::Unknown);
+        assert!(e.resident().is_none());
+    }
+}
+#[test]
+#[should_panic]
+fn word_eor_requires_a16() {
+    let mut e = TrackedEmitter65816::default();
+    e.a8();
+    e.word(WordOp::EorImm, 0x8000);
+}

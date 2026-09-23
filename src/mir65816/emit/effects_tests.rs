@@ -162,6 +162,7 @@ fn immediate_forms_and_index_comparison_do_not_invent_memory_reads() {
         (WordOp::SbcImm, 0xffff, 0xffff, C, NZCV),
         (WordOp::CmpImm, 0xffff, 0, 0, NZ | C),
         (WordOp::AndImm, 0xffff, 0xffff, 0, NZ),
+        (WordOp::EorImm, 0xffff, 0xffff, 0, NZ),
     ] {
         let e = fx(Instruction::Word(op, 7), Width::Word, Width::Word);
         assert_eq!(
@@ -540,6 +541,8 @@ fn call_summaries_read_arguments_before_clobbers_and_preserve_result_contracts()
 fn branches_and_unannotated_transfers_are_never_empty_effects() {
     for (op, flag) in [
         (Branch::Plus, N),
+        (Branch::Minus, N),
+        (Branch::OverflowClear, V),
         (Branch::CarryClear, C),
         (Branch::CarrySet, C),
         (Branch::NotEqual, Z),

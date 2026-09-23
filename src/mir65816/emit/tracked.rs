@@ -930,9 +930,12 @@ impl TrackedEmitter65816 {
             CpxImm => self
                 .state
                 .compare_value(self.state.x, rhs, self.state.env.index),
-            AndImm => {
+            AndImm | EorImm => {
                 let result = match self.state.a {
-                    Value::Constant(a, Width::Word) => State65816::constant(a & value, Width::Word),
+                    Value::Constant(a, Width::Word) => State65816::constant(
+                        if op == EorImm { a ^ value } else { a & value },
+                        Width::Word,
+                    ),
                     _ => self.state.fresh(Width::Word),
                 };
                 self.state.load_a(result);
