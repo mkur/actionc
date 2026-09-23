@@ -29,26 +29,44 @@ def run(command, log=None):
     return result.stdout
 
 
-def check_ranges(code, base):
-    """Recognize complete current stack-check sequences, including local targets.
+def check_ranges(code, base, fault=0x048000):
+    """Recognize complete legacy/compact guards for accounting, never rewriting.
 
-    These ranges only classify existing bytes for accounting; no code is changed.
-    Unknown entry sequences fail rather than assuming a fixed overhead.
+    Check every target and both amount operands. Callers must also check the
+    expected guard count; an unknown encoding must not silently lose overhead.
     """
     def long(value):
         return value.to_bytes(3, 'little')
     ranges = []
-    for at in range(len(code)-44):
-        amount = code[at+22:at+24]
+    for at in range(max(0, len(code)-28)):
         address = base+at
-        pattern = (bytes.fromhex('3b aa c5 46 b0 04 5c')+long(address+20)
-                   +bytes.fromhex('d0 04 5c')+long(address+20)
-                   +b'\x5c'+long(address+38)+bytes.fromhex('38 e9')+amount
-                   +bytes.fromhex('b0 04 5c')+long(address+38)
-                   +bytes.fromhex('c5 44 90 04 5c')+long(address+45)
-                   +b'\xa9'+amount+bytes.fromhex('5c 00 80 04'))
-        if code[at:at+45] == pattern:
-            ranges.append([address, address+45])
+        for size, immediate in [(45, 22), (29, 14)]:
+            if at+size > len(code) or address >> 16 != (address+size) >> 16:
+                continue
+            amount = code[at+immediate:at+immediate+2]
+            if size == 45:
+                pattern = (bytes.fromhex('3b aa c5 46 b0 04 5c')+long(address+20)
+                           +bytes.fromhex('d0 04 5c')+long(address+20)
+                           +b'\x5c'+long(address+38)+bytes.fromhex('38 e9')+amount
+                           +bytes.fromhex('b0 04 5c')+long(address+38)
+                           +bytes.fromhex('c5 44 90 04 5c')+long(address+45)
+                           +b'\xa9'+amount+b'\x5c'+long(fault))
+            else:
+                pattern = (bytes.fromhex('3b aa c5 46 90 06 f0 04 5c')+long(address+22)
+                           +bytes.fromhex('38 e9')+amount+bytes.fromhex('90 04 c5 44 b0 07 a9')
+                           +amount+b'\x5c'+long(fault))
+            if code[at:at+size] == pattern:
+                assert not ranges or ranges[-1][1] <= address, 'overlapping guards'
+                ranges.append([address, address+size])
+                break
+    return ranges
+
+
+def image_guard_ranges(image, segment):
+    ranges = check_ranges(bytes(segment['bytes']), segment['address'], image['stack_overflow'])
+    routine = next(r for r in image['routines'] if r['address'] == segment['address'])
+    assert len(ranges) == 1+len(routine['calls']), 'unrecognized entry/call guard'
+    assert ranges[0][0] == routine['address'], 'missing entry guard'
     return ranges
 
 
@@ -175,13 +193,13 @@ def main():
                     listing = disassembler.disassemble(filtered)
                     (directory/'code.asm').write_text(listing)
                     for segment in filtered['segments']:
-                        guards = check_ranges(bytes(segment['bytes']), segment['address'])
+                        guards = image_guard_ranges(image, segment)
                         assert any(lo == segment['address'] for lo, hi in guards)
                         artifact['guard_ranges'].extend(guards)
                     artifact.update(image=str(directory/'image.json'), entry=worker['address'],
                                     code_ranges=ranges, code_bytes=sum(r['size'] for r in routines),
                                     arguments=worker['arguments'], routines=routines,
-                                    static_stack_check_bytes=45*len(artifact['guard_ranges']))
+                                    static_stack_check_bytes=sum(hi-lo for lo, hi in artifact['guard_ranges']))
                 else:
                     symbols = {name: int(value, 16) for value, name in re.findall(
                         r'^\s+0x([0-9a-fA-F]+) (\S+): global (?:reloc|abs),',

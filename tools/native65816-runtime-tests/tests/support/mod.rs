@@ -358,3 +358,5 @@ pub mod parameter_forwarding;
 pub mod coalescing;
 
 pub mod x_residency;
+
+pub mod guard;

@@ -13,7 +13,7 @@ import urllib.request
 import zipfile
 
 sys.dont_write_bytecode = True
-from build import ROOT, check_ranges, digest, run
+from build import ROOT, image_guard_ranges, digest, run
 
 HERE = Path(__file__).resolve().parent
 FIXTURE = ROOT / 'fixtures/runtime/tacle/dijkstra'
@@ -166,7 +166,7 @@ def main():
                 routines = image['routines']
                 for s in image['segments']:
                     if s['executable']:
-                        guards = check_ranges(bytes(s['bytes']), s['address'])
+                        guards = image_guard_ranges(image, s)
                         assert any(lo == s['address'] for lo, _ in guards)
                         artifact['guard_ranges'].extend(guards)
                 artifact.update(image=str(path), entry=image['entry'], routines=routines,
