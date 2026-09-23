@@ -19,6 +19,12 @@ Dijkstra comparison establishes emitted code size as the next priority; the
 [ordered code-size backlog](BACKLOG.md#native-65816-code-size-reduction) is
 deferred at user request, with no implementation authorized for now. Broader
 allocation and further replay machinery remain deferred.
+
+Following the Exec816 size audit, the next user-selected task is the proposed
+[BYTE and pointer comparison plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md).
+It extends basic comparison selection and adjacent branch consumption using
+the existing checked emission machinery; implementation has not started.
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
@@ -146,14 +152,17 @@ They are completed work, not forecasts for the next slice.
 
 Typed selection/effects, home and machine analyses, authoritative replay,
 checked transactions and the adjacent temporary forwarding migration are
-complete and qualified. Remaining work is backlogged; do not start implementation
-for now. When resumed, the
+complete and qualified. The next selected scope is the proposed
+[BYTE and pointer comparison plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md),
+prepared from the Exec816 measurements. Other work remains backlogged; do not
+start implementation for now. The earlier
 [code-size backlog](BACKLOG.md#native-65816-code-size-reduction) orders native
 signed word comparisons/direct branches, broader local branch relaxation,
 compact address construction and compact guard encoding ahead of further
 allocation work. Its Dijkstra measurements and acceptance criteria govern that
-priority; the earlier address-generation-first throughput recommendation is
-superseded.
+ordering among those deferred candidates; the user-selected byte/pointer scope
+takes precedence for the next task. The earlier address-generation-first
+throughput recommendation remains superseded.
 
 Removable-store inventory, mutable-counter promotion, broader residency and
 selective DP extensions remain later candidates. Use the existing stored-definition,

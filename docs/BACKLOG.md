@@ -11,6 +11,14 @@ This ordering supersedes the earlier throughput-first recommendation in the
 [Dijkstra comparison](benchmarks/65816-dijkstra/README.md) and the remaining
 allocation work in the [65816 quality plan](MIR65816_CODE_QUALITY_PLAN.md).
 
+The subsequent Exec816 audit selected **BYTE and native pointer comparisons**
+for planning first. The
+[implementation plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md) covers native
+BYTE predicates, three-byte Eq/Ne/null tests, compact Boolean materialization
+and adjacent branch consumption. It is proposed, not implemented; the other
+candidates below remain deferred. This selection takes precedence over their
+earlier Dijkstra-based ordering for the next task.
+
 The optimized Dijkstra baseline from `d84a27eb` contains 6,197 Action code bytes
 versus 1,477 for vbcc, a 4.20× gap. The difference affects ordinary routines:
 
