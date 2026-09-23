@@ -1,0 +1,11 @@
+{
+  "cases": 33,
+  "records": 132,
+  "executions": 264,
+  "all_passed": true,
+  "only_guard_cycles_saved": true,
+  "all_stack_and_DP_traffic_peaks_and_noncycle_routine_counters_unchanged": true,
+  "attestation": "/Users/michalkurcewicz/action/actionc-public-release/target/guard-branches/dijkstra/release-qualification.json",
+  "attestation_sha256": "60bc94e59e3d5177cf72ca5ba2050aa743cd3510872e16cacdffdda568c61c8d",
+  "results_sha256": "d6f4301a29dbb67a0b929f54cf22affac7002721d6e20459034dd09f15d7f0d8"
+}

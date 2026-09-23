@@ -56,13 +56,15 @@ optimized executable bytes on the frozen workload. Optimized executable size
 is now 497,262 bytes and XEX size 513,926. ABI v1, all guards, frame/home
 allocation and the existing payload-copy loop are preserved; added bank-zero
 reservation is zero. See the [measured results](benchmarks/65816-call-padding/README.md).
-Compact guard branches, native 32-bit Eq/Ne, direct BYTE constant returns and
+Native 32-bit Eq/Ne, direct BYTE constant returns and
 unused final index shifts remain unimplemented; their forecasts overlap where
 they replace the same code.
-The selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md) is proposed:
-reuse existing typed relaxation for the four conditionals in each guard, keeping
-both unconditional JMLs. The forecast is 37,120 optimized executable bytes saved
-from the call-padding baseline; implementation and qualification are pending.
+The selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md) is complete:
+existing typed relaxation shortens the four conditionals in each guard, keeping
+both unconditional JMLs. It saves 37,248 raw / 37,120 optimized executable bytes
+from the call-padding baseline. Optimized Exec is now 460,142 executable /
+476,142 XEX bytes; optimized Dijkstra is 4,850 bytes. All guards, allocation and
+ABI contracts remain. See the [measured results](benchmarks/65816-guard-branches/README.md).
 The older candidates below retain their original measurements.
 
 1. **Broader local branch relaxation.** Extend the existing
@@ -83,6 +85,8 @@ The older candidates below retain their original measurements.
 3. **Compact stack-guard encoding.** Retain every required check, its position
    before stack mutation and its failure behavior. Reduce encoding overhead
    without changing the public ABI, stack bounds or preemption guarantees.
+   Conditional branch compaction is now complete; shortening the retained local
+   unconditional JML remains a separate deferred slice.
 
 Prefer improvements to basic selection and the existing checked emission/layout
 machinery. Broader register allocation and ABI changes remain separate work.

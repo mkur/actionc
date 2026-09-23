@@ -17,7 +17,7 @@ on demand, original loads are reconstructed once and replay uses verified input
 CFGs. The checked driver remains the sole removal authority. The subsequent
 Dijkstra comparison establishes emitted code size as the next priority; the
 [ordered code-size backlog](BACKLOG.md#native-65816-code-size-reduction) is
-deferred at user request except for the completed comparison slices below. Broader
+deferred at user request except for the completed selected slices below. Broader
 allocation and further replay machinery remain deferred.
 
 The user-selected [BYTE and pointer comparison plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md)
@@ -48,9 +48,12 @@ Four-byte equality and BYTE returns remain deferred. No new allocation
 machinery or public ABI change is proposed.
 
 The user-selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md)
-now scopes guard compaction to the four existing conditional transfers. It reuses
-typed dispatch/layout and preserves every check and both JMLs; the other guard
-and branch opportunities remain deferred. Implementation has not started.
+is complete. Reusing typed dispatch/layout for four conditionals shrinks each
+guard from 45 to 29 bytes while preserving every check and both JMLs. Frozen Exec
+saves 37,248 raw / 37,120 optimized executable bytes, and Dijkstra saves 352 bytes
+in each mode. Native debug/release, fault, IRQ/NMI, relocation and CRLF checks
+pass. See the [results](benchmarks/65816-guard-branches/README.md). Other guard
+and branch opportunities remain deferred.
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.

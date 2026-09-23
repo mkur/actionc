@@ -1,0 +1,96 @@
+[
+  {
+    "mode": "raw",
+    "routines": 551,
+    "guards": 2328,
+    "routine_bytes_before": 520969,
+    "routine_bytes_after": 483721,
+    "executable_before": 528534,
+    "executable_after": 491286,
+    "code_bytes_saved": 37248,
+    "secondary_layout_savings": 0,
+    "xex_before": 545790,
+    "xex_after": 507860,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "typed_metadata_and_instruction_rebasing_verified": true,
+    "proof_and_ordinary_images_equal": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "before_hashes": {
+      "program.a816.json": "24b322b87bc92aca13549b151f1826bdbadea9f2263f0d4b28b4591ce903fcf7",
+      "program.xex": "957d311230021424c20dd67c651c26da99f66e75d6eee3dc440cfb2b08535fc9",
+      "build.json": "6a7cf7f5167f9c89f20d2496bbdf0e29e34463f79ea08736080bcb7f73c6d6e6"
+    },
+    "after_hashes": {
+      "program.a816.json": "cbc3a969af11c6190c3acd888e1abc11478c8d3b5149320e016df8eb7ce70fd5",
+      "program.xex": "b03da65db0052b395feac2f382ae3bf178626773fc73768f5b85f08ede0a7a0d",
+      "build.json": "d1ca7c3148a94a1d6c77b1d242eacb430c8e6bedbbc87cf41a4094ca68fbef94"
+    },
+    "audit_compatibility": "Removed only stack_checks:true; mandatory guards retained on main"
+  },
+  {
+    "mode": "opt",
+    "routines": 551,
+    "guards": 2320,
+    "routine_bytes_before": 489697,
+    "routine_bytes_after": 452577,
+    "executable_before": 497262,
+    "executable_after": 460142,
+    "code_bytes_saved": 37120,
+    "secondary_layout_savings": 0,
+    "xex_before": 513926,
+    "xex_after": 476142,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "typed_metadata_and_instruction_rebasing_verified": true,
+    "proof_and_ordinary_images_equal": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "before_hashes": {
+      "program.a816.json": "6eb40c51c4c21235f758b0ec170fd5ad9650608217bb925f9abbabe23613a2bc",
+      "program.xex": "a1a547ec6dd743afe8d589c8b788c339e432154b330fa9ae9272c5659c613bd0",
+      "build.json": "663ae57711929cf86c1c193c563ebe7609f3a87890770da390acdb179fc84148"
+    },
+    "after_hashes": {
+      "program.a816.json": "33e8ca1cf7ccc622079e79eec44e2d0836331b70b1d7c9f45701fe95c476394a",
+      "program.xex": "f0d859f7531d9694ac45cd0aecf4248c0d7c794692ae726d530bdec3dcf280c9",
+      "build.json": "92cb4bd99fdbc4955a99349a8abf8fcf03825285242e772f1cf8499d88e907ae"
+    },
+    "audit_compatibility": "Removed only stack_checks:true; mandatory guards retained on main"
+  }
+]

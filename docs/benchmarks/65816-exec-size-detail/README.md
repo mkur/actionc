@@ -124,6 +124,11 @@ metadata rebuilt; it must not patch arbitrary byte patterns. Guard semantics
 and asynchronous stack transitions require focused execution qualification.
 No guard removal, hoisting or unchecked-build comparison is proposed.
 
+The subsequent [guard-branch slice](../65816-guard-branches/README.md) is complete:
+all four conditionals now use existing typed relaxation, saving exactly 37,248
+raw / 37,120 optimized executable bytes from the call-padding baseline. Both
+unconditional JMLs remain. The measurements above remain the original audit.
+
 ### 3. Select native 32-bit equality and consume branch-only results
 
 There are **346 four-byte comparisons occupying 37,062 bytes**. Eq/Ne accounts

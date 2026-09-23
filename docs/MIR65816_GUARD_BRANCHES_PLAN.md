@@ -1,7 +1,11 @@
 # Native 65816 short branches inside stack guards
 
-Status: proposed against main `183c7a5d` on 2026-09-23. Implementation has not
-started. This follows the completed
+Status: completed on 2026-09-23. Baseline/accounting `74d7c660`, implementation
+`dc8106be`, and [qualification/results](benchmarks/65816-guard-branches/README.md)
+complete all three slices. Frozen Exec saves 37,248 raw / 37,120 optimized
+executable bytes, exactly the direct forecast, with every guard retained.
+See the [qualification manifest](abi/action65816-guard-branches-qualification.json).
+The original plan follows. This follows the completed
 [outgoing argument padding slice](benchmarks/65816-call-padding/README.md)
 and selects the guard opportunity from the
 [Exec size audit](benchmarks/65816-exec-size-detail/README.md).
