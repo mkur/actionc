@@ -1,6 +1,6 @@
 # Native 65816 emission simplification implementation plan
 
-Status: slices 0–2 complete; slices 3–5 pending. See the
+Status: slices 0–3 complete; slices 4–5 pending. See the
 [implementation record](MIR65816_EMISSION_SIMPLIFICATION.md). Based on
 main `9640df19`, whose qualified compiler source is `e4fd88b5`. This follows the
 [completed analysis foundation](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
@@ -167,6 +167,9 @@ native analysis/replay/forwarding tests.
 home/machine liveness solves for the sole production rule.
 
 ## Slice 3 — One original-stream reconstruction and one final authorizer
+
+Completed: [qualification](benchmarks/65816-emission-simplification/s3.json) and
+[corpus equality](benchmarks/65816-emission-simplification/s3-equality.json).
 
 Keep the current projected selection semantics. Simplify `pilot::apply` into
 three explicit operations using existing typed records:

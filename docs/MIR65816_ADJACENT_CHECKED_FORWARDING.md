@@ -21,13 +21,12 @@ replayed prefix and checks equal machine/home/environment/X facts. Independent
 flag deadness cannot relax the existing full N/Z requirement. The consume event
 remains in both windows, preserving successful and failed single-use semantics.
 
-For each successful shadow candidate, the original typed LDA is materialized in
-a scratch selected routine. Home/definition/machine analysis therefore sees the
-actual read. The sealed rule removes exactly that load; its declared A/N/Z
-effects are recomputed and justified by equivalence. The driver replays and
-finalizes the replacement, and compares every existing output field and trace
-with the historical path. Neither a saved success token nor an already-omitted
-stream constitutes proof of read removal.
+For every successful projection, the original typed LDA is materialized in a
+scratch selected routine before the checked rule runs. The sealed rule removes
+exactly that load; its declared A/N/Z effects are recomputed and justified by
+equivalence. The driver replays and finalizes the replacement; qualification
+compares every existing output field and trace with the historical path.
+Neither a saved success token nor an already-omitted stream proves read removal.
 
 No stores, homes, preflight, X fallback priority, stack guards, call/alias rules,
 ABI or preemption contract change. The additional observations are separate
@@ -53,11 +52,15 @@ subsequent selection, including the existing X fallback priority, but its
 provisional bytes cannot be published.
 
 Before final emission, the complete original planned stream restores every
-projected-away LDA. Candidates must match the exact original consume inputs,
+projected-away LDA in one traversal. One ordinal map reindexes request/end/parent
+links, and one constructor verifies the resulting CFG. Candidates must match the exact original consume inputs,
 occur once in order and retain their actual addressing forms. Fresh replay
 validates the original continuation. Each load then goes through the sealed
-adjacent rule and atomic driver. The driver rebuilds all facts and rediscovery
-uses the new generation after every accepted edit. The number of candidates
+adjacent rule and atomic driver. The adapter does not repeat the selector's
+local proof. Failed-selection diagnostics are retained solely for observations.
+The driver builds fresh required facts; rediscovery validates the exact consume
+inputs and actual load before minting a site in the current generation after
+every accepted edit. The number of candidates
 bounds application; each accepted edit reduces finalized bytes.
 
 A blocked final ownership/equivalence proof retains the actual load and its
@@ -71,3 +74,8 @@ The [authoritative qualification](abi/action65816-adjacent-checked-qualification
 records full native execution, corpus equality and an isolated CRLF rebuild.
 The [final foundation qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md)
 adds mutation controls and measured host compile-time/memory overhead.
+
+The [simplification record](MIR65816_EMISSION_SIMPLIFICATION.md) documents the
+single-pass reconstruction and removal of duplicate adapter proofs. The old
+incremental reconstruction exists only as a test oracle. Full per-edit replay,
+layout and definition postconditions remain in the production driver.

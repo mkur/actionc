@@ -202,19 +202,7 @@ fn replace(
     for (i, record) in old.iter().enumerate() {
         if i == start {
             for form in replacement {
-                records.push(Record {
-                    action: Action::Instruction {
-                        form: form.clone(),
-                        effects: form.effects(record.before.env),
-                        continuation: None,
-                    },
-                    parent: None,
-                    source: record.source,
-                    encoded: record.encoded.start..record.encoded.start,
-                    before: record.before,
-                    after: record.before,
-                    decision: None,
-                });
+                records.push(instruction_record(form, record));
             }
         }
         if (start..end).contains(&i) {
@@ -223,6 +211,30 @@ fn replace(
         map.insert(Node(i), Node(records.len()));
         records.push(record.clone());
     }
+    reindex(selected, records, &map)
+}
+
+fn instruction_record(form: &Instruction, at: &Record) -> Record {
+    Record {
+        action: Action::Instruction {
+            form: form.clone(),
+            effects: form.effects(at.before.env),
+            continuation: None,
+        },
+        parent: None,
+        source: at.source,
+        encoded: at.encoded.start..at.encoded.start,
+        before: at.before,
+        after: at.before,
+        decision: None,
+    }
+}
+
+fn reindex(
+    selected: &SelectedRoutine,
+    mut records: Vec<Record>,
+    map: &BTreeMap<Node, Node>,
+) -> Result<SelectedRoutine, String> {
     for record in &mut records {
         if let Some(parent) = record.parent {
             record.parent = Some(*map.get(&parent).ok_or("removed request parent")?);
@@ -236,13 +248,12 @@ fn replace(
 
 /// Materialize a previously recorded load candidate for analysis. No arbitrary
 /// instruction insertion is exposed; publication still requires driver replay.
+#[cfg(test)]
 pub(super) fn insert_load(
     selected: &SelectedRoutine,
     before: Node,
     load: &Instruction,
 ) -> Result<SelectedRoutine, String> {
-    #[cfg(any(test, feature = "native65816-state-proof"))]
-    super::super::work::add("original_expansion", 1);
     selected.site(before)?;
     if !matches!(
         load,
@@ -254,4 +265,49 @@ pub(super) fn insert_load(
         return Err("candidate is not a physical word LDA".into());
     }
     replace(selected, before.0, before.0, std::slice::from_ref(load))
+}
+
+/// Reconstruct the original stream once, reusing the driver's symbolic edits.
+/// Only physical load insertion is admitted; fresh replay still gates use.
+pub(super) fn expand_loads(
+    selected: &SelectedRoutine,
+    loads: &[(Node, &Instruction)],
+) -> Result<SelectedRoutine, String> {
+    if loads.is_empty() {
+        return Ok(selected.clone());
+    }
+    if loads.windows(2).any(|p| p[0].0 >= p[1].0) {
+        return Err("load expansion sites are duplicated or out of order".into());
+    }
+    for &(node, load) in loads {
+        selected.site(node)?;
+        if selected.records()[node.0].parent.is_some()
+            || !matches!(
+                load,
+                Instruction::Byte(
+                    super::super::selected::ByteOp::LdaStack
+                        | super::super::selected::ByteOp::LdaDp,
+                    _
+                )
+            )
+        {
+            return Err("expansion requires a top-level physical word LDA".into());
+        }
+    }
+    #[cfg(any(test, feature = "native65816-state-proof"))]
+    super::super::work::add("original_expansion", 1);
+    let mut records = Vec::with_capacity(selected.records().len() + loads.len());
+    let mut map = BTreeMap::new();
+    let mut pending = loads.iter().peekable();
+    for (i, record) in selected.records().iter().enumerate() {
+        if let Some(&&(node, load)) = pending.peek() {
+            if node == Node(i) {
+                records.push(instruction_record(load, record));
+                pending.next();
+            }
+        }
+        map.insert(Node(i), Node(records.len()));
+        records.push(record.clone());
+    }
+    reindex(selected, records, &map)
 }

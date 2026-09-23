@@ -7,7 +7,6 @@ use super::super::{
     selected::{Action, Instruction},
 };
 use super::{
-    context::Context,
     driver::{self, Driver},
     rules,
 };
@@ -18,6 +17,8 @@ pub(in crate::mir65816::emit) struct Candidate {
     pub temp: Option<TempId>,
     pub home: Option<Location>,
     pub load: Instruction,
+    /// Diagnostic from selection only; never a permission to delete a load.
+    pub planning_blocker: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Observation {
@@ -83,37 +84,31 @@ pub(in crate::mir65816::emit) fn apply(
     }
     let mut observations = Vec::new();
     let mut pending = Vec::new();
-    if !candidates.is_empty() {
-        let context = Context::new(selected)?;
-        for (index, candidate) in candidates.iter().enumerate() {
-            let request = selected.site(candidate.request)?;
-            let projected = decision(selected, candidate)?;
-            let proof = context
-                .adjacent_load(request, candidate.temp, candidate.home, &candidate.load)
-                .into_result();
-            if projected {
-                pending.push(index);
-            } else if proof.is_ok() {
-                return Err("planning rejected a proved adjacent load".into());
-            }
-            observations.push(Observation {
-                request_ordinal: candidate.request.0,
-                accepted: false,
-                reason: proof
-                    .err()
-                    .map_or_else(|| "awaiting checked transaction".into(), |b| b.reason),
-                original_load: kind(&candidate.load),
-                private_read_bytes_removed: 0,
-            });
+    for (index, candidate) in candidates.iter().enumerate() {
+        if decision(selected, candidate)? {
+            pending.push(index);
         }
+        observations.push(Observation {
+            request_ordinal: candidate.request.0,
+            accepted: false,
+            reason: candidate
+                .planning_blocker
+                .clone()
+                .unwrap_or_else(|| "awaiting checked transaction".into()),
+            original_load: kind(&candidate.load),
+            private_read_bytes_removed: 0,
+        });
     }
-    // The complete original planned stream includes every projected-away LDA.
-    // Insert backwards so its existing symbolic request ordinals remain usable.
-    let mut original = (**selected).clone();
-    for &index in pending.iter().rev() {
-        let candidate = &candidates[index];
-        original = driver::insert_load(&original, Node(candidate.request.0 + 2), &candidate.load)?;
-    }
+    // Restore all actual loads in one traversal. The projection supplies no
+    // final permission: each removal below needs a fresh checked transaction.
+    let loads = pending
+        .iter()
+        .map(|&index| {
+            let candidate = &candidates[index];
+            (Node(candidate.request.0 + 2), &candidate.load)
+        })
+        .collect::<Vec<_>>();
+    let original = driver::expand_loads(selected, &loads)?;
     let mut scratch = layout::finalize(replay::emit(&original, trace)?, true)?;
     let mut driver = Driver::new(pending.len());
     let mut retained = 0;
@@ -123,7 +118,7 @@ pub(in crate::mir65816::emit) fn apply(
             .selected
             .as_ref()
             .ok_or("missing original candidate selection")?;
-        let load = s.site(Node(candidate.request.0 + 2 + retained))?;
+        let load = rediscover(s, candidate, retained)?;
         // Rebuild context and rediscover after every accepted transaction; no
         // earlier generation's plan can authorize a later edit.
         let outcome = rules::candidate(s, load)
@@ -151,4 +146,36 @@ pub(in crate::mir65816::emit) fn apply(
     #[cfg(not(feature = "native65816-state-proof"))]
     let _ = observations;
     Ok(scratch)
+}
+
+/// Projected ordinals locate requests only. Check their exact correspondence
+/// and mint a site from the current generation before proposing any removal.
+fn rediscover(
+    selected: &super::super::selected::SelectedRoutine,
+    candidate: &Candidate,
+    retained: usize,
+) -> Result<super::super::analysis::sites::SelectedSite, String> {
+    let request = candidate
+        .request
+        .0
+        .checked_add(retained)
+        .ok_or("candidate ordinal overflow")?;
+    let current = Candidate {
+        request: Node(request),
+        ..candidate.clone()
+    };
+    if !decision(selected, &current)? {
+        return Err("restored candidate lost its projected consume".into());
+    }
+    let node = Node(request + 2);
+    let site = selected.site(node)?;
+    let record = &selected.records()[node.0];
+    if record.parent.is_some()
+        || !matches!(
+            &record.action, Action::Instruction { form, .. } if form == &candidate.load
+        )
+    {
+        return Err("restored candidate does not match its actual load".into());
+    }
+    Ok(site)
 }

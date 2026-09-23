@@ -385,6 +385,7 @@ impl TrackedEmitter65816 {
         home: Option<Location>,
         load: &Instruction,
     ) -> Result<(), String> {
+        temp.zip(home).ok_or("not a temporary home")?;
         let expected = match load {
             Instruction::Byte(ByteOp::LdaStack, offset) => Location::from(WordHome::Stack(*offset)),
             Instruction::Byte(ByteOp::LdaDp, offset) => {
@@ -512,6 +513,7 @@ impl TrackedEmitter65816 {
             temp,
             home,
             load,
+            planning_blocker: None,
         });
         #[cfg(feature = "native65816-state-proof")]
         if self.reference_planning {
@@ -520,9 +522,9 @@ impl TrackedEmitter65816 {
         // Only a proved-equivalent projection may guide subsequent selection.
         // The retained candidate must still pass the final checked transaction.
         let candidate = self.planned_loads.last().unwrap();
-        let equivalent = self
-            .prove_adjacent_load(temp, home, &candidate.load)
-            .is_ok();
+        let blocker = self.prove_adjacent_load(temp, home, &candidate.load).err();
+        let equivalent = blocker.is_none();
+        self.planned_loads.last_mut().unwrap().planning_blocker = blocker;
         self.request(Request::ConsumeWord(temp, home, offset), |this| {
             // Failed attempts also consume the one-use witness.
             this.state.adjacent = None;

@@ -456,6 +456,7 @@ fn projected_candidate() -> (Code, super::pilot::Candidate) {
         temp: Some(temp),
         home: Some(home),
         load: form.clone(),
+        planning_blocker: None,
     };
     assert_eq!(
         Driver::new(1).apply(&mut code, &plan, false),
@@ -493,4 +494,80 @@ fn blocked_final_ownership_proof_retains_the_actual_load_and_continuation() {
     replay::equivalent(&result, &fixture(0, true)).unwrap();
     #[cfg(feature = "native65816-state-proof")]
     assert!(!result.rewrite_observations[0].accepted);
+}
+
+#[test]
+fn single_expansion_matches_incremental_oracle_and_reindexes_nested_requests() {
+    for case in [
+        "add",
+        "sum_loop",
+        "direct_calls",
+        "forward_copy",
+        "loop_rotation",
+    ] {
+        let p = crate::compiler::native65816::prepare_file(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tools/native65816-runtime-tests/tests/fixtures/code_quality/{case}.act"
+            )),
+            false,
+            &Default::default(),
+        )
+        .unwrap();
+        let machine = materialize(&p.mir).unwrap();
+        for routine in machine.routines {
+            let selected = routine.code.selected.as_ref().unwrap();
+            let load = Instruction::Byte(ByteOp::LdaStack, 1);
+            let sites = selected
+                .records()
+                .iter()
+                .enumerate()
+                .filter(|(i, r)| *i > 0 && r.parent.is_none())
+                .map(|(i, _)| (Node(i), &load))
+                .collect::<Vec<_>>();
+            for count in [0, 1, sites.len()] {
+                let loads = &sites[..count];
+                let mut oracle = (**selected).clone();
+                for &(node, load) in loads.iter().rev() {
+                    oracle = insert_load(&oracle, node, load).unwrap();
+                }
+                let (expanded, work) =
+                    super::super::work::measure(|| expand_loads(selected, loads).unwrap());
+                assert_eq!(expanded.records(), oracle.records(), "{case}/{count}");
+                assert_eq!(
+                    work.get("original_expansion").copied().unwrap_or(0),
+                    u64::from(count > 0)
+                );
+                assert_eq!(work.get("cfg").copied().unwrap_or(0), u64::from(count > 0));
+                let old = selected.site(Node(0)).unwrap();
+                assert_eq!(expanded.validate(old).is_ok(), count == 0);
+            }
+        }
+    }
+}
+
+#[test]
+fn expansion_rejects_wrong_order_forms_bounds_and_nested_sites() {
+    let code = fixture(0, true);
+    let selected = code.selected.as_ref().unwrap();
+    let load = Instruction::Byte(ByteOp::LdaStack, 1);
+    for loads in [
+        vec![(Node(1), &load), (Node(1), &load)],
+        vec![(Node(2), &load), (Node(1), &load)],
+        vec![(Node(selected.records().len()), &load)],
+    ] {
+        assert!(expand_loads(selected, &loads).is_err());
+    }
+    let wrong = Instruction::Word(WordOp::LdaImm, 7);
+    assert!(expand_loads(selected, &[(Node(1), &wrong)]).is_err());
+    let nested = selected
+        .records()
+        .iter()
+        .position(|r| r.parent.is_some())
+        .unwrap();
+    assert!(expand_loads(selected, &[(Node(nested), &load)]).is_err());
+    let (projected, candidate) = projected_candidate();
+    let mut misleading = candidate.clone();
+    misleading.planning_blocker = Some("diagnostic cannot authorize".into());
+    let result = super::pilot::apply(&projected, &[misleading], false).unwrap();
+    replay::equivalent(&result, &projected).unwrap();
 }

@@ -83,3 +83,24 @@ place. Adjacent-load transactions no longer run the unused home/machine liveness
 solvers. New controls compare every exposed query with eagerly computed results
 across calls, loops and pointer accesses, reject stale sites without triggering
 analysis, and check exactly one solver run per demanded result.
+
+## Original-stream reconstruction
+
+Selection retains each actual load before computing the local projection, and
+keeps its blocker diagnostic for observations. The adapter validates candidate
+order, exact consume inputs and complete request records. It does not construct
+another analysis context or repeat the local equivalence proof.
+
+All projected-away loads are inserted in one traversal; one ordinal map updates
+parent and request-end links, and one selected constructor checks the expanded
+CFG. Empty expansions keep the existing generation. Record creation and symbolic
+reindexing are shared with the driver's replacement operation. The former
+per-load reconstruction is test-only and serves as an independent ordering oracle.
+
+Fresh replay verifies the complete original continuation. Each removal still
+requires the sealed rule and driver transaction. Rediscovery treats original
+ordinals only as locators, checks exact request/load correspondence and mints a
+site for the current generation. Planning diagnostics cannot authorize removal;
+a withheld final allocation identity still keeps the actual load. Selection's
+projection remains necessary because instruction cursors and X fallback choices
+influence later selection.
