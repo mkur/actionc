@@ -1,7 +1,65 @@
 # Backlog
 
-This file tracks cross-cutting compiler work that does not naturally belong to a
-single backend or survey note.
+This file tracks deferred compiler work, including cross-cutting issues and
+backend follow-ups linked to their design and measurement documents.
+
+## Native 65816 Code-Size Reduction
+
+Status: backlogged at user request; do not implement for now. When resumed,
+prioritize emitted code size, with execution cycles as a secondary constraint.
+This ordering supersedes the earlier throughput-first recommendation in the
+[Dijkstra comparison](benchmarks/65816-dijkstra/README.md) and the remaining
+allocation work in the [65816 quality plan](MIR65816_CODE_QUALITY_PLAN.md).
+
+The optimized Dijkstra baseline from `d84a27eb` contains 6,197 Action code bytes
+versus 1,477 for vbcc, a 4.20× gap. The difference affects ordinary routines:
+
+| Routine | actionc bytes | vbcc bytes |
+| --- | ---: | ---: |
+| Find | 2,132 | 470 |
+| Enqueue | 836 | 241 |
+| Main | 1,267 | 202 |
+
+The 22 stack-check sequences occupy 990 bytes, or 16% of the Action module.
+Their low dynamic cost (0.151% of benchmark cycles) does not make them cheap in
+code size. Excluding those bytes only for accounting leaves 5,207 bytes, still
+3.53× vbcc's entire module; guard removal is not proposed.
+
+Prioritized candidates, each requiring a focused implementation plan when resumed:
+
+1. **Native signed word comparisons with direct branching.** The current
+   [word selector](../src/mir65816/emit/select.rs) admits equality and unsigned
+   ordering but excludes signed ordered comparisons. Ordinary INT loop tests
+   therefore expand into bytewise comparisons, multiple jumps and materialized
+   Booleans. Add compact signed 16-bit relational selection and branch-only
+   forms where eligible; preserve overflow semantics and materialized Boolean
+   results when they are actually consumed.
+2. **Broader local branch relaxation.** Extend the existing
+   [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch
+   sites to eligible local conditional transfers and unconditional jumps.
+   Inspection of the optimized Dijkstra listing finds 67 non-guard six-byte
+   conditional sequences whose destinations fit two-byte branches in the
+   current layout: 268 bytes of encoding opportunity. This is an inventory,
+   not an implemented or qualified saving; overlapping jump savings must not
+   be counted twice. Preserve bank/range checks, labels, fixups, PER continuations,
+   proof metadata and o65 relocation.
+3. **Compact address construction.** Reduce repeated pointer materialization,
+   temporary copies and bytewise scaled-index expansion through ordinary
+   lowering. Use native-width operations where justified while retaining full
+   24-bit results and bank carries. Calls, helper clobbers, aliasing and volatile
+   effects remain barriers unless existing facts prove a narrower effect.
+4. **Compact stack-guard encoding.** Retain every required check, its position
+   before stack mutation and its failure behavior. Reduce encoding overhead
+   without changing the public ABI, stack bounds or preemption guarantees.
+
+Prefer improvements to basic selection and the existing checked emission/layout
+machinery. Broader register allocation and ABI changes remain separate work.
+For each resumed slice, report actual raw/optimized byte reductions by routine
+and whole program across both the small corpus and Dijkstra; track cycles and
+stack/DP traffic as secondary checks. Preserve correctness, ABI and guards, and
+validate final machine bytes, relocation and relevant IRQ/NMI behavior through
+the affected 65816 tests. Keep the original comparison immutable; its equivalent
+driver simplification for unsupported DIV/MOD remains part of that baseline.
 
 ## Archived TN Compatibility Return Diagnostic
 

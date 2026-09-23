@@ -14,10 +14,11 @@ and checked rewrite workflow. The
 [emission simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md) is complete:
 unused shadow/reference paths are removed or test-scoped, analyses are computed
 on demand, original loads are reconstructed once and replay uses verified input
-CFGs. The checked driver remains the sole removal authority. Next, use these
-existing facts to inventory remaining stores and reloads before selecting one
-measured code-quality rule. Broader allocation and further replay machinery
-remain deferred.
+CFGs. The checked driver remains the sole removal authority. The subsequent
+Dijkstra comparison establishes emitted code size as the next priority; the
+[ordered code-size backlog](BACKLOG.md#native-65816-code-size-reduction) is
+deferred at user request, with no implementation authorized for now. Broader
+allocation and further replay machinery remain deferred.
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
@@ -40,8 +41,11 @@ for scaling and remaining per-edit replay/definition costs.
 
 ## Objective and current baseline
 
-Preserve the public ABI and reduce internal data movement, then improve control
-flow and register use. Current main already has CFG-aware stack-slot reuse and
+Reduce emitted code size while preserving the public ABI and stack guards;
+track execution cycles as a secondary constraint. The
+[Dijkstra baseline](benchmarks/65816-dijkstra/README.md) complements the small
+corpus below and motivates the deferred code-size priorities. Current main
+already has CFG-aware stack-slot reuse and
 restricted pointer-leaf and scalar DP allocators. General lifetime-based stack
 reuse is an existing capability. See the
 [temporary-allocation contract](MIR65816_TEMPORARY_ALLOCATION.md).
@@ -142,13 +146,18 @@ They are completed work, not forecasts for the next slice.
 
 Typed selection/effects, home and machine analyses, authoritative replay,
 checked transactions and the adjacent temporary forwarding migration are
-complete and qualified. The next sequence is:
+complete and qualified. Remaining work is backlogged; do not start implementation
+for now. When resumed, the
+[code-size backlog](BACKLOG.md#native-65816-code-size-reduction) orders native
+signed word comparisons/direct branches, broader local branch relaxation,
+compact address construction and compact guard encoding ahead of further
+allocation work. Its Dijkstra measurements and acceptance criteria govern that
+priority; the earlier address-generation-first throughput recommendation is
+superseded.
 
-1. Inventory removable temporary stores through the stored-definition, home
-   and register/flag queries. Record blocked cases and predict exact traffic
-   changes before choosing one bounded checked rewrite.
-2. Consider mutable-counter promotion, broader residency and selective DP
-   extensions as separately measured consumers of the foundation.
+Removable-store inventory, mutable-counter promotion, broader residency and
+selective DP extensions remain later candidates. Use the existing stored-definition,
+home and register/flag queries to measure them before selecting a bounded rule.
 
 The [completed simplification](MIR65816_EMISSION_SIMPLIFICATION.md) retains
 projection semantics, proof obligations and generation invalidation. Per-edit
