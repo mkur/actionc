@@ -1,6 +1,6 @@
 # Native 65816 emission simplification implementation plan
 
-Status: slices 0–4 complete; slice 5 pending. See the
+Status: slices 0–5 complete. See the
 [implementation record](MIR65816_EMISSION_SIMPLIFICATION.md). Based on
 main `9640df19`, whose qualified compiler source is `e4fd88b5`. This follows the
 [completed analysis foundation](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
@@ -250,6 +250,9 @@ root/native replay, control-flow, o65 and preemption coverage.
 with no duplicate input-CFG build on each replay.
 
 ## Slice 5 — Final qualification and architecture report
+
+Completed: [qualification](abi/action65816-emission-simplification-qualification.json)
+and [measurements](benchmarks/65816-emission-simplification/measurements.md).
 
 Qualify the final compiler in native debug/release and an isolated CRLF rebuild.
 Require all existing 658 artifacts and full historical corpus records to remain

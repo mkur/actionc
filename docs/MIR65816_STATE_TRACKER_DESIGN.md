@@ -100,8 +100,14 @@ and register/flag analyses are complete; [typed replay](MIR65816_TYPED_REPLAY.md
 is authoritative and checks freshly recomputed permissions. The
 [atomic checked driver](MIR65816_CHECKED_REWRITES.md) now owns the existing
 adjacent temporary-load omission, using explicit original load candidates and
-fresh analyses after each accepted edit. Other forwarding mechanisms retain
-their existing paths and eligibility.
+fresh required analyses after each accepted edit. Per-snapshot cells compute
+home liveness, stored definitions and machine liveness only when queried; no
+facts cross a selection generation. The adapter restores all projected-away
+loads once, while the driver remains the sole removal authority. Replay consumes
+the immutable input's constructor-verified CFG and validates its own output.
+The [simplification record](MIR65816_EMISSION_SIMPLIFICATION.md) gives measured
+work and host costs. Other forwarding mechanisms retain their existing paths
+and eligibility.
 
 A modeled instruction has a concrete opcode/addressing form, checked operand
 extent and explicit width requirements. Its encoding and transfer function

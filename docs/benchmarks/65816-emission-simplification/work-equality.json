@@ -1,0 +1,52 @@
+{
+  "builds_equal": 44,
+  "ladder_executions": 160,
+  "lf_crlf_images_equal": 16,
+  "all_non_work_observations_equal": true,
+  "corpus_work": {
+    "cfg": {
+      "before": 649,
+      "after": 290
+    },
+    "full_actions": {
+      "before": 18580,
+      "after": 18580
+    },
+    "full_replay": {
+      "before": 133,
+      "after": 133
+    },
+    "home_definitions": {
+      "before": 176,
+      "after": 150
+    },
+    "home_liveness": {
+      "before": 176,
+      "after": 0
+    },
+    "homes": {
+      "before": 176,
+      "after": 150
+    },
+    "layout": {
+      "before": 133,
+      "after": 133
+    },
+    "machine_liveness": {
+      "before": 176,
+      "after": 0
+    },
+    "original_expansion": {
+      "before": 75,
+      "after": 24
+    },
+    "prefix_actions": {
+      "before": 20497,
+      "after": 9002
+    },
+    "prefix_replay": {
+      "before": 175,
+      "after": 75
+    }
+  }
+}

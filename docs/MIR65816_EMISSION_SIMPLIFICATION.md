@@ -1,6 +1,6 @@
 # Native 65816 emission simplification
 
-Implementation follows the [simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md).
+All six slices are complete. Implementation follows the [simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md).
 The qualified foundation compiler is `e4fd88b5`; main `902a7848` adds only planning
 documentation. Historical machine-code and foundation evidence remain immutable.
 
@@ -119,3 +119,28 @@ Mutation controls exercise all constructors with malformed labels, request ends,
 parents, modes and stack equations. Measured controls require zero graph builds
 for prefix replay and exactly one output graph build for full replay. No caller
 flag, persistent validation cache or skipped output check implements this change.
+
+## Final qualification and measured costs
+
+Compiler source `29bfda5f` passes 182 native library tests, 61 root integration
+tests, and 131 native tests in each of debug, release and the isolated CRLF
+rebuild. All 658 native artifacts and all 224 corpus artifacts / 264 records
+remain exact. The only external failure is the recorded optimized vbcc unlink
+vector-0 case. The 83 comparison-tool tests and five source-stability mutations
+also pass. [Qualification and input hashes](abi/action65816-emission-simplification-qualification.json)
+record the exact sources, tools and artifacts.
+
+The [paired measurements](benchmarks/65816-emission-simplification/measurements.md)
+show 28 small builds at 0.395→0.275 seconds and the 16-build size ladder at
+47.17→19.68 seconds. Corpus median peak RSS is 7.52→7.13 MiB. Most ladder cases
+use less peak memory, but the largest raw chain rises 95.77→100.56 MiB at the
+median; the report preserves that limitation and the full sample distribution.
+These are host costs of unchanged generated code, not target speedups.
+
+Across the corpus, CFG construction falls 649→290, prefix replay 175→75,
+original expansion 75→24, and unused home/machine liveness solves 176→0 each.
+Home resolution/definition solves fall 176→150 by removing adapter contexts.
+All 133 full replays/layouts and all required definition postconditions remain.
+The size ladder still has superlinear host cost from those per-edit operations.
+No cross-generation cache, batching, broader optimization or new framework is
+introduced. Selection's one projection/original bridge remains explicit.

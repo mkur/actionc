@@ -1,7 +1,7 @@
 # Native 65816 code-quality improvement plan
 
 Status: refreshed after the
-[analysis and checked-rewrite qualification](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md),
+[emission simplification](MIR65816_EMISSION_SIMPLIFICATION.md),
 preserving bounded X loop increments `1ce9624` and their output. Native word selection, copy
 scheduling/coalescing, compact staging, local/frame/parameter forwarding,
 scalar DP, one checked X loop mirror and native INX updates are complete.
@@ -10,10 +10,14 @@ closed-operation interference remains unchanged.
 
 The [analysis and checked-rewrite foundation](MIR65816_ANALYSIS_REWRITE_FOUNDATION_PLAN.md)
 is complete, adapting MIR6502's home/definition liveness, register/flag liveness
-and checked rewrite workflow. Next, follow the
-[emission simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md) to remove
-duplicate orchestration and unused analysis work before enabling further store
-elimination or broadening register/DP allocation.
+and checked rewrite workflow. The
+[emission simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md) is complete:
+unused shadow/reference paths are removed or test-scoped, analyses are computed
+on demand, original loads are reconstructed once and replay uses verified input
+CFGs. The checked driver remains the sole removal authority. Next, use these
+existing facts to inventory remaining stores and reloads before selecting one
+measured code-quality rule. Broader allocation and further replay machinery
+remain deferred.
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
@@ -26,9 +30,13 @@ The [selected-action and CFG slice](MIR65816_SELECTED_ACTIONS.md) is also comple
 equality. [Checked plans and atomic application](MIR65816_CHECKED_REWRITES.md)
 now own [adjacent temporary A16 forwarding](MIR65816_ADJACENT_CHECKED_FORWARDING.md)
 with unchanged eligibility and output. Full native debug/release/CRLF qualification
-passes. Median host time for 28 corpus builds rises from 0.147 to 0.361 seconds;
-median per-process peak RSS rises from 5.70 to 6.92 MiB. These are costs of the
-whole foundation relative to `1ce9624`, measured separately from target-code quality.
+passes. The historical foundation measurement was 0.147→0.361 seconds for 28
+builds and 5.70→6.92 MiB median per-process peak RSS relative to `1ce9624`.
+The simplification's new paired measurement is 0.395→0.275 seconds and
+7.52→7.13 MiB against its frozen foundation compiler. These are separate host
+runs; target-code bytes and execution measurements remain unchanged. See the
+[full corpus and size-ladder measurements](benchmarks/65816-emission-simplification/measurements.md)
+for scaling and remaining per-edit replay/definition costs.
 
 ## Objective and current baseline
 
@@ -97,6 +105,7 @@ and qualify general improvements.
 | Analysis foundation slice 7 | Validate sealed plans against immutable facts and publish only after scratch replay, layout and rebuilt analyses. | [Contract and qualification](MIR65816_CHECKED_REWRITES.md) |
 | Analysis foundation slice 8 | Retain original load candidates and migrate adjacent temporary forwarding through the checked driver with identical decisions. | [Contract and qualification](MIR65816_ADJACENT_CHECKED_FORWARDING.md), [equality](benchmarks/65816-analysis-rewrite/slice8-equality.json) |
 | Analysis foundation slice 9 | Qualify full native debug/release and CRLF runs, frozen corpus equality, mutation controls and host compilation costs. | [Results and next priorities](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md) |
+| Emission simplification | Demand-driven analyses, one original-load reconstruction, immutable input CFG reuse and test-scoped migration machinery; unchanged generated code and checked publication. | [Results](MIR65816_EMISSION_SIMPLIFICATION.md), [qualification](abi/action65816-emission-simplification-qualification.json) |
 
 The original roadmap used the
 [empty-edge snapshot](benchmarks/65816-empty-edges/after/tables.md). The measured
@@ -135,18 +144,16 @@ Typed selection/effects, home and machine analyses, authoritative replay,
 checked transactions and the adjacent temporary forwarding migration are
 complete and qualified. The next sequence is:
 
-1. Implement the [emission simplification plan](MIR65816_EMISSION_SIMPLIFICATION_PLAN.md):
-   freeze current output/work counts, remove obsolete migration code, compute
-   analyses on demand, reconstruct the original stream once and use the
-   immutable input's verified CFG during replay. Preserve projection semantics,
-   proof obligations and generation invalidation. Measure absolute host costs
-   on the corpus and growing routines. Per-edit full replay remains;
-   cross-generation caching and edit batching are deferred.
-2. Inventory removable temporary stores through the new stored-definition,
-   home and register/flag queries. Record blocked cases and predict exact traffic
+1. Inventory removable temporary stores through the stored-definition, home
+   and register/flag queries. Record blocked cases and predict exact traffic
    changes before choosing one bounded checked rewrite.
-3. Consider mutable-counter promotion, broader residency and selective DP
+2. Consider mutable-counter promotion, broader residency and selective DP
    extensions as separately measured consumers of the foundation.
+
+The [completed simplification](MIR65816_EMISSION_SIMPLIFICATION.md) retains
+projection semantics, proof obligations and generation invalidation. Per-edit
+full replay and definition postconditions remain; cross-generation caching and
+edit batching are deferred. Its measurements do not justify another abstraction.
 
 Efficiency refactors retain the strict byte/full-record equality gate. Each new
 optimization needs its own measured delta and must use the checked proof API.
@@ -252,9 +259,9 @@ retained stores, backedge loads, staging and mutable-frame traffic. The resultin
 759→735-cycle forecast, keeping all memory traffic unchanged. Rotation retains
 16 staging-byte reads/writes per call; sum-loop retains 80 mutable-parameter
 byte reads and 28 writes at input 13. These are remaining costs, not forecasts
-of removable work. Keep these measurements as candidate evidence while building
-the shared analysis and rewrite foundation; do not add another store-elimination
-or residency rule ahead of it.
+of removable work. Keep these measurements as candidate evidence and use the
+completed analysis/rewrite foundation to establish removal safety before
+selecting a store-elimination or residency rule.
 
 Mutable counter promotion (including sum-loop's frame parameter), broader scalar
 admission, partial DP allocation and cross-call residency need separate

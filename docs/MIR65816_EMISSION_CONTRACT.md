@@ -214,13 +214,19 @@ These observations do not independently authorize an optimization. The
 [checked driver](MIR65816_CHECKED_REWRITES.md) also requires sealed rule-specific
 equivalence, exact original actions, declared effects, protected event checks
 and fresh replay before atomic publication. Every accepted edit advances the
-selection generation and rebuilds analyses; old sites and plans become invalid.
+selection generation and invalidates all prior facts, sites and plans. Each new
+immutable snapshot constructs fallible home access facts, then computes home
+liveness, stored definitions and machine liveness once when their queries demand
+them. Queries validate sites first; an uncomputed result never means safe or dead.
+Removed-definition and post-replay undefined-read checks remain mandatory.
 
 ### Authoritative typed replay
 
 Selection first records the existing choices through the tracked facade.
 [Replay](MIR65816_TYPED_REPLAY.md) then executes those typed inputs through a
-fresh facade with the native entry contract. Stored state and old success
+fresh facade with the native entry contract. Its immutable input owns a CFG
+verified at construction; replay does not rebuild that input graph. Edited and
+replayed outputs must pass their own constructor validation. Stored state and old success
 answers are never used to seed permissions. Mode omissions, home generations,
 single-use captures and X refresh obligations are recomputed. A compound request
 regenerates its nested actions, whose inputs, effects, boundaries and outcomes
@@ -248,8 +254,11 @@ instruction/label cursor. The producer's full-word N/Z must still match A;
 unchanged A alone is insufficient. Comparison operand swaps retain identity.
 
 The [checked adjacent rule](MIR65816_ADJACENT_CHECKED_FORWARDING.md) retains the
-actual typed load candidate before omission. Its original planned stream includes
-that LDA for home/definition/register analysis. The planning projection may guide
+actual typed load candidate before omission. The adapter reconstructs all
+projected-away loads in one traversal, reindexes symbolic links once and verifies
+the original continuation. It retains planning blocker diagnostics without
+repeating the local proof. Current-generation rediscovery checks exact consume
+inputs and actual load correspondence. The planning projection may guide
 existing selection only with equivalent A/N/Z facts; the driver authorizes each
 final removal and preserves single-use consumption even for failed attempts.
 Rejected final proofs retain the ordinary load and revalidated continuation.
