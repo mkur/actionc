@@ -43,9 +43,14 @@ returns as focused selection/layout opportunities. The
 [padding-only call initialization slice](benchmarks/65816-call-padding/README.md)
 is complete: 13,846 raw / 13,756 optimized executable bytes saved, with ABI v1,
 all guards, stack peaks and bank-zero reservations unchanged. Full native
-debug/release qualification, relocation, IRQ/NMI and CRLF checks pass. Compact
-guards, four-byte equality and BYTE returns remain deferred. No new allocation
+debug/release qualification, relocation, IRQ/NMI and CRLF checks pass.
+Four-byte equality and BYTE returns remain deferred. No new allocation
 machinery or public ABI change is proposed.
+
+The user-selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md)
+now scopes guard compaction to the four existing conditional transfers. It reuses
+typed dispatch/layout and preserves every check and both JMLs; the other guard
+and branch opportunities remain deferred. Implementation has not started.
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.

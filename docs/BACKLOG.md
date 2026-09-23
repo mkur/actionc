@@ -59,6 +59,10 @@ reservation is zero. See the [measured results](benchmarks/65816-call-padding/RE
 Compact guard branches, native 32-bit Eq/Ne, direct BYTE constant returns and
 unused final index shifts remain unimplemented; their forecasts overlap where
 they replace the same code.
+The selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md) is proposed:
+reuse existing typed relaxation for the four conditionals in each guard, keeping
+both unconditional JMLs. The forecast is 37,120 optimized executable bytes saved
+from the call-padding baseline; implementation and qualification are pending.
 The older candidates below retain their original measurements.
 
 1. **Broader local branch relaxation.** Extend the existing
