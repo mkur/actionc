@@ -670,6 +670,13 @@ impl Generator {
             self.emit_return_rts(*span);
             return true;
         }
+        self.record_source_range(
+            stmt_source_range_kind(tail_stmt),
+            Some(stmt_source_range_name(tail_stmt).to_string()),
+            *span,
+            start,
+            self.current_absolute_address(),
+        );
         self.record_modern_optimization(
             CodegenOptimizationKind::TailCall,
             1,
@@ -799,6 +806,13 @@ impl Generator {
         if !self.emit_tail_call(callee, args, *span) {
             return false;
         }
+        self.record_source_range(
+            stmt_source_range_kind(stmt),
+            Some(stmt_source_range_name(stmt).to_string()),
+            *span,
+            start,
+            self.current_absolute_address(),
+        );
         self.record_modern_optimization(
             CodegenOptimizationKind::TailCall,
             1,

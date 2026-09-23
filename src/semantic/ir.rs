@@ -3460,15 +3460,15 @@ impl<'a> IrBuilder<'a> {
                     span: *span,
                 }]
             }
-            Stmt::Return(expr) => {
+            Stmt::Return { value: expr, span } => {
                 if let (Some(value), Some(ty)) = (expr, self.routine_result.clone())
                     && ty.is_record()
                 {
-                    return self.lower_aggregate_return(scope, &ty, value);
+                    return self.lower_aggregate_return(scope, &ty, value, *span);
                 }
                 vec![SemStmt::Return {
                     value: expr.as_ref().map(|expr| self.lower_expr(scope, expr)),
-                    span: expr.as_ref().map_or(Span::new(0, 0), |expr| expr.span),
+                    span: *span,
                 }]
             }
             Stmt::Exit { span } => vec![SemStmt::Exit { span: *span }],
@@ -5143,7 +5143,7 @@ impl<'a> IrBuilder<'a> {
                 }
             }
             Stmt::UseVariant { .. } | Stmt::Let { .. }
-            | Stmt::Return(_)
+            | Stmt::Return { .. }
             | Stmt::Exit { .. }
             | Stmt::Assign { .. }
             | Stmt::CompoundAssign { .. }

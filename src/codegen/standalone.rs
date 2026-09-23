@@ -769,7 +769,7 @@ fn rewrite_stmt_names(stmt: &mut Stmt, replacements: &BTreeMap<String, String>) 
             }
             rewrite_stmt_list_names(body, replacements);
         }
-        Stmt::Return(value) => {
+        Stmt::Return { value, .. } => {
             if let Some(value) = value {
                 rewrite_expr_names(value, replacements);
             }
@@ -995,7 +995,7 @@ fn collect_stmt_names(stmt: &Stmt, candidates: &BTreeSet<String>, output: &mut B
             }
             collect_stmt_list_names(body, candidates, output);
         }
-        Stmt::Return(value) => {
+        Stmt::Return { value, .. } => {
             if let Some(value) = value {
                 collect_expr_names(value, candidates, output);
             }

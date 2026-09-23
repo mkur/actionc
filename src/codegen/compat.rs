@@ -197,7 +197,7 @@ pub(super) fn validate_compatible_stmt(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match stmt {
-        Stmt::Return(Some(expr)) => validate_compatible_expr(expr, routines, diagnostics),
+        Stmt::Return { value: Some(expr), .. } => validate_compatible_expr(expr, routines, diagnostics),
         Stmt::Assign {
             target,
             value,

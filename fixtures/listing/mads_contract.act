@@ -4,7 +4,7 @@ CARD ptr=$80
 BYTE ARRAY payload=[$02 $00 $FF]
 
 PROC Helper()
-RETURN
+RETURN ; café: non-ASCII comments belong to an emitted source statement.
 
 PROC Main()
   PrintE("MADS")

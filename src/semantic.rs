@@ -1626,7 +1626,7 @@ impl Analyzer {
                 span,
             } => self.analyze_lexical_block(scope, *syntax_id, declarations, body, *span, context),
             Stmt::Define(define) => self.analyze_define(scope, define),
-            Stmt::Return(expr) => self.validate_return(scope, expr.as_ref(), context.routine_kind),
+            Stmt::Return { value: expr, .. } => self.validate_return(scope, expr.as_ref(), context.routine_kind),
             Stmt::Exit { span } if context.loop_depth == 0 => {
                 self.diagnostics
                     .push(Diagnostic::new(*span, "EXIT outside loop"));
@@ -6374,7 +6374,7 @@ fn stmt_flow_facts(stmt: &Stmt, loop_depth: usize, exhaustive: &dyn Fn(Span) -> 
             exhaustive(*span) || arms.iter().any(|arm| arm.labels.is_none()), loop_depth,
         ),
         Stmt::LexicalBlock { body, .. } => statement_list_flow_with_cases(body, loop_depth, exhaustive),
-        Stmt::Return(_) => StmtFlowFacts {
+        Stmt::Return { .. } => StmtFlowFacts {
             may_continue: false,
             may_return: true,
             always_returns: true,

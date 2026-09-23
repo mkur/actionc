@@ -495,7 +495,10 @@ pub enum Stmt {
         span: Span,
     },
     Define(DefineDecl),
-    Return(Option<Expr>),
+    Return {
+        value: Option<Expr>,
+        span: Span,
+    },
     Exit {
         span: Span,
     },

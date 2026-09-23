@@ -179,7 +179,7 @@ impl Materializer<'_> {
                     self.statement(block_scope, statement);
                 }
             }
-            Stmt::Return(value) => {
+            Stmt::Return { value, .. } => {
                 if let Some(value) = value {
                     self.expr(scope, value);
                 }

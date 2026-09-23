@@ -603,8 +603,8 @@ impl Generator {
                 self.collect_modern_hidden_expr(value);
             }
             Stmt::UseVariant { .. } | Stmt::Define(_) | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => {}
-            Stmt::Return(Some(expr)) => self.collect_modern_hidden_expr(expr),
-            Stmt::Return(None)
+            Stmt::Return { value: Some(expr), .. } => self.collect_modern_hidden_expr(expr),
+            Stmt::Return { value: None, .. }
             | Stmt::Exit { .. }
             | Stmt::MachineBlock { .. }
             | Stmt::InlineAsm { .. } => {}
@@ -895,7 +895,7 @@ fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
         Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
             expr_contains_string_literal(target) || expr_contains_string_literal(value)
         }
-        Stmt::Return(Some(expr)) | Stmt::Call { expr, .. } => expr_contains_string_literal(expr),
+        Stmt::Return { value: Some(expr), .. } | Stmt::Call { expr, .. } => expr_contains_string_literal(expr),
         Stmt::If {
             branches,
             else_body,
@@ -930,7 +930,7 @@ fn stmt_contains_string_literal(stmt: &Stmt) -> bool {
                 || stmt_list_contains_string_literal(body)
         }
         Stmt::UseVariant { .. } | Stmt::Define(_)
-        | Stmt::Return(None)
+        | Stmt::Return { value: None, .. }
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }
         | Stmt::InlineAsm { .. }

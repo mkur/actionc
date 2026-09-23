@@ -95,6 +95,17 @@ fn for_guard_constant(value: u16, width: u16, span: Span) -> Expr {
 impl Generator {
     pub(super) fn generate_stmt(&mut self, stmt: &Stmt) {
         let start = self.current_absolute_address();
+        // Keep the start in the relocation-aware map while emitting. Return
+        // cleanup can delete earlier bytes and move this statement backwards.
+        // Append the completed range after its children to preserve map priority.
+        let source_index = self.source_ranges.len();
+        self.source_ranges.push(CodegenSourceRange {
+            kind: stmt_source_range_kind(stmt),
+            name: Some(stmt_source_range_name(stmt).to_string()),
+            source_span: stmt_span(stmt),
+            start,
+            end: start,
+        });
         let has_volatile_access = self.stmt_has_direct_volatile_access(stmt);
         if has_volatile_access {
             self.invalidate_volatile_access_state();
@@ -117,7 +128,7 @@ impl Generator {
                 }
                 self.invalidate_volatile_access_state();
             }
-            Stmt::Return(expr) => self.generate_return(expr.as_ref()),
+            Stmt::Return { value, span } => self.generate_return(value.as_ref(), *span),
             Stmt::Assign {
                 target,
                 value,
@@ -180,11 +191,12 @@ impl Generator {
         if has_volatile_access {
             self.invalidate_volatile_access_state();
         }
+        let source = self.source_ranges.remove(source_index);
         self.record_source_range(
-            stmt_source_range_kind(stmt),
-            Some(stmt_source_range_name(stmt).to_string()),
-            stmt_span(stmt),
-            start,
+            source.kind,
+            source.name,
+            source.source_span,
+            source.start,
             self.current_absolute_address(),
         );
     }
@@ -205,7 +217,7 @@ impl Generator {
             Stmt::LexicalBlock { body, .. } => body
                 .iter()
                 .any(|stmt| self.stmt_has_direct_volatile_access(stmt)),
-            Stmt::Return(value) => value.as_ref().is_some_and(reads_volatile),
+            Stmt::Return { value, .. } => value.as_ref().is_some_and(reads_volatile),
             Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
                 reads_volatile(target) || reads_volatile(value)
             }
@@ -305,7 +317,7 @@ impl Generator {
             }
             _ => return false,
         };
-        let Some(Stmt::Return(Some(return_expr))) = next else {
+        let Some(Stmt::Return { value: Some(return_expr), .. }) = next else {
             return false;
         };
         let ExprKind::Name(name) = &target.kind else {
@@ -489,7 +501,7 @@ impl Generator {
                 | Stmt::DoUntil { .. }
                 | Stmt::For { .. }
                 | Stmt::Exit { .. }
-                | Stmt::Return(_)
+                | Stmt::Return { .. }
                 | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => return None,
             }
         }
@@ -521,7 +533,7 @@ impl Generator {
         self.emit_jmp_label(label.clone(), span);
     }
 
-    pub(super) fn generate_return(&mut self, expr: Option<&Expr>) {
+    pub(super) fn generate_return(&mut self, expr: Option<&Expr>, span: Span) {
         if let Some(expr) = expr {
             let Some(slot) = self.current_return_slot else {
                 self.diagnostics.push(Diagnostic::new(
@@ -542,7 +554,7 @@ impl Generator {
             facts.returns_a_equals_a0_candidate = false;
             facts.returns_a_equals_a1_candidate = false;
         }
-        self.emit_return_rts(expr.map_or(Span::new(0, 0), |expr| expr.span));
+        self.emit_return_rts(span);
     }
 
     pub(super) fn emit_return_rts(&mut self, span: Span) {

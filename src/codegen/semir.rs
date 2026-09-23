@@ -757,9 +757,10 @@ impl SemIrAstLowerer<'_> {
                     span: define.span,
                 }],
             })),
-            SemStmt::Return { value, .. } => Some(Stmt::Return(
-                value.as_ref().and_then(|expr| self.expr(expr)),
-            )),
+            SemStmt::Return { value, span } => Some(Stmt::Return {
+                value: value.as_ref().and_then(|expr| self.expr(expr)),
+                span: *span,
+            }),
             SemStmt::Exit { span } => Some(Stmt::Exit { span: *span }),
             SemStmt::Assign {
                 target,
@@ -949,7 +950,7 @@ impl SemIrAstLowerer<'_> {
             match statement {
                 SemStmt::Return { value: Some(value), span } if self.aggregate_result.is_some() => {
                     if let Some(copy) = self.aggregate_return(value, *span) { output.push(copy); }
-                    output.push(Stmt::Return(None));
+                    output.push(Stmt::Return { value: None, span: *span });
                 }
                 SemStmt::Case { selector, arms, span } => output.extend(self.case_statement(selector, arms, *span)),
                 SemStmt::LexicalBlock { body, .. } => output.extend(self.stmt_list(body)),

@@ -1542,9 +1542,8 @@ fn stmt_span(stmt: &Stmt) -> Span {
             .first()
             .map(|entry| entry.span)
             .unwrap_or_else(|| Span::new(0, 0)),
-        Stmt::Return(Some(expr)) => expr.span,
-        Stmt::Return(None) => Span::new(0, 0),
-        Stmt::Exit { span }
+        Stmt::Return { span, .. }
+        | Stmt::Exit { span }
         | Stmt::Assign { span, .. }
         | Stmt::CompoundAssign { span, .. }
         | Stmt::Call { span, .. }
@@ -1572,7 +1571,7 @@ fn stmt_source_range_name(stmt: &Stmt) -> &'static str {
         Stmt::Case { .. } => "case",
         Stmt::LexicalBlock { .. } => "lexical block",
         Stmt::Define(_) => "define",
-        Stmt::Return(_) => "return",
+        Stmt::Return { .. } => "return",
         Stmt::Exit { .. } => "exit",
         Stmt::Assign { .. } => "assignment",
         Stmt::CompoundAssign { .. } => "compound assignment",

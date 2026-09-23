@@ -1171,7 +1171,10 @@ impl<'a> Parser<'a> {
             } else {
                 None
             };
-            Stmt::Return(expr)
+            Stmt::Return {
+                value: expr,
+                span: Span::new(start, self.previous_end()),
+            }
         } else if self.eat_keyword(Keyword::Exit) {
             Stmt::Exit {
                 span: Span::new(start, self.previous_end()),
@@ -3690,6 +3693,13 @@ mod tests {
         let program = parse(&tokens).unwrap();
         assert_eq!(program.modules.len(), 1);
         assert_eq!(program.modules[0].items.len(), 1);
+        let Item::Routine(routine) = &program.modules[0].items[0] else {
+            panic!("expected routine");
+        };
+        let Stmt::Return { value: None, span } = &routine.body[0] else {
+            panic!("expected bare return");
+        };
+        assert_eq!(*span, Span::new(12, 18));
     }
 
     #[test]
@@ -4572,14 +4582,17 @@ mod tests {
 
     #[test]
     fn parses_expression_precedence_into_ast() {
-        let tokens = tokenize("BYTE FUNC F() RETURN(1+2*3)").unwrap();
+        let source = "BYTE FUNC F() RETURN(1+2*3)";
+        let tokens = tokenize(source).unwrap();
         let program = parse(&tokens).unwrap();
         let Item::Routine(routine) = &program.modules[0].items[0] else {
             panic!("expected routine");
         };
-        let Stmt::Return(Some(expr)) = &routine.body[0] else {
+        let Stmt::Return { value: Some(expr), span } = &routine.body[0] else {
             panic!("expected return expression");
         };
+        assert_eq!(&source[span.start..span.end], "RETURN(1+2*3)");
+        assert_eq!(&source[expr.span.start..expr.span.end], "1+2*3");
 
         let ExprKind::Binary {
             op: BinaryOp::Add,
@@ -4688,7 +4701,7 @@ mod tests {
         let Item::Routine(routine) = &program.modules[0].items[0] else {
             panic!("expected routine");
         };
-        let Stmt::Return(Some(expr)) = &routine.body[0] else {
+        let Stmt::Return { value: Some(expr), .. } = &routine.body[0] else {
             panic!("expected return expression");
         };
 
@@ -4714,7 +4727,7 @@ mod tests {
         let Item::Routine(routine) = &program.modules[0].items[0] else {
             panic!("expected routine");
         };
-        let Stmt::Return(Some(expr)) = &routine.body[0] else {
+        let Stmt::Return { value: Some(expr), .. } = &routine.body[0] else {
             panic!("expected return expression");
         };
 
@@ -4924,7 +4937,7 @@ mod tests {
         let Item::Routine(routine) = &program.modules[0].items[0] else {
             panic!("expected routine");
         };
-        let Stmt::Return(Some(expr)) = &routine.body[0] else {
+        let Stmt::Return { value: Some(expr), .. } = &routine.body[0] else {
             panic!("expected return expression");
         };
         let ExprKind::Binary { left, right, .. } = &expr.kind else {
@@ -5207,7 +5220,7 @@ mod tests {
         assert_eq!(*syntax_id, LexicalBlockSyntaxId(1));
         assert_eq!(declarations.len(), 1);
         assert_eq!(body.len(), 1);
-        assert!(matches!(routine.body[1], Stmt::Return(None)));
+        assert!(matches!(routine.body[1], Stmt::Return { value: None, .. }));
     }
 
     #[test]
@@ -5246,7 +5259,7 @@ mod tests {
         assert!(matches!(routine.body[0], Stmt::Assign { .. }));
         assert!(matches!(routine.body[1], Stmt::CompoundAssign { .. }));
         assert!(matches!(routine.body[2], Stmt::Call { .. }));
-        assert!(matches!(routine.body[3], Stmt::Return(None)));
+        assert!(matches!(routine.body[3], Stmt::Return { value: None, .. }));
     }
 
     #[test]
@@ -5300,7 +5313,7 @@ mod tests {
         assert_eq!(branches[0].body.len(), 1);
         assert_eq!(branches[1].body.len(), 1);
         assert_eq!(else_body.len(), 1);
-        assert!(matches!(routine.body[1], Stmt::Return(None)));
+        assert!(matches!(routine.body[1], Stmt::Return { value: None, .. }));
     }
 
     #[test]
@@ -5317,7 +5330,7 @@ mod tests {
         assert_eq!(body.len(), 1);
         assert_eq!(routine.body.len(), 3);
         assert!(matches!(routine.body[1], Stmt::Assign { .. }));
-        assert!(matches!(routine.body[2], Stmt::Return(None)));
+        assert!(matches!(routine.body[2], Stmt::Return { value: None, .. }));
     }
 
     #[test]
@@ -5339,7 +5352,7 @@ mod tests {
         assert_eq!(branches[0].body.len(), 1);
         assert_eq!(else_body.len(), 1);
         assert_eq!(routine.body.len(), 2);
-        assert!(matches!(routine.body[1], Stmt::Return(None)));
+        assert!(matches!(routine.body[1], Stmt::Return { value: None, .. }));
     }
 
     #[test]
@@ -5504,6 +5517,6 @@ mod tests {
         assert!(matches!(routine.body[1], Stmt::Call { .. }));
         assert!(matches!(routine.body[4], Stmt::Call { .. }));
         assert!(matches!(routine.body[5], Stmt::Call { .. }));
-        assert!(matches!(routine.body[6], Stmt::Return(_)));
+        assert!(matches!(routine.body[6], Stmt::Return { .. }));
     }
 }

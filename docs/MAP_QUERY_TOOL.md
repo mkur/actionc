@@ -44,3 +44,20 @@ Supported commands:
 The current renderer is plain text. Internally the tool builds structured
 `QueryResult` values first, so a JSON renderer can be added later without
 parsing text output or changing the query execution model.
+
+## Source correspondence
+
+Statement locations originate in the parser and survive SemIR lowering and
+classic projection. A `RETURN` statement carries its own span, from the keyword
+through the optional closing parenthesis; its returned expression keeps its
+separate expression span. Bare returns must not use the start of the source
+file as a substitute location.
+
+Classic tail-call lowering records the call's source range over argument setup
+and the final jump. A return merged into that jump has no separate instruction
+to annotate. Byte-deleting optimizations relocate source ranges, including the
+start of the statement currently being emitted. Completed parent ranges follow
+their children so equally sized ranges retain the more specific source match.
+
+The listing and map query use this metadata from the final code map. Repairing
+source correspondence must not change the emitted executable.

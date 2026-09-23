@@ -98,7 +98,7 @@ fn stmt_contains_machine_block(stmt: &Stmt) -> bool {
         | Stmt::UseVariant { .. } | Stmt::Define(_)
         | Stmt::Assign { .. }
         | Stmt::CompoundAssign { .. }
-        | Stmt::Return(_)
+        | Stmt::Return { .. }
         | Stmt::Exit { .. }
         | Stmt::Call { .. }
         | Stmt::Unsupported { .. } | Stmt::RuntimeFault { .. } => false,
@@ -136,7 +136,7 @@ fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
         Stmt::Assign { target, value, .. } | Stmt::CompoundAssign { target, value, .. } => {
             expr_tree_any(target, predicate) || expr_tree_any(value, predicate)
         }
-        Stmt::Return(Some(expr)) | Stmt::Call { expr, .. } => expr_tree_any(expr, predicate),
+        Stmt::Return { value: Some(expr), .. } | Stmt::Call { expr, .. } => expr_tree_any(expr, predicate),
         Stmt::If {
             branches,
             else_body,
@@ -175,7 +175,7 @@ fn stmt_exprs_any(stmt: &Stmt, predicate: &impl Fn(&Expr) -> bool) -> bool {
                 || stmt_list_exprs_any(body, predicate)
         }
         Stmt::UseVariant { .. } | Stmt::Define(_)
-        | Stmt::Return(None)
+        | Stmt::Return { value: None, .. }
         | Stmt::Exit { .. }
         | Stmt::MachineBlock { .. }
         | Stmt::InlineAsm { .. }
@@ -279,7 +279,7 @@ pub(super) fn routine_body_is_abs_return(body: &[Stmt], param_name: &str) -> boo
             else_body,
             ..
         },
-        Stmt::Return(Some(fallback)),
+        Stmt::Return { value: Some(fallback), .. },
     ] = body
     else {
         return false;
@@ -290,7 +290,7 @@ pub(super) fn routine_body_is_abs_return(body: &[Stmt], param_name: &str) -> boo
     let [branch] = branches.as_slice() else {
         return false;
     };
-    let [Stmt::Return(Some(negative))] = branch.body.as_slice() else {
+    let [Stmt::Return { value: Some(negative), .. }] = branch.body.as_slice() else {
         return false;
     };
     expr_is_signed_name_zero_compare(&branch.condition, BinaryOp::Lt, param_name)
@@ -320,7 +320,7 @@ pub(super) fn expr_is_name(expr: &Expr, name: &str) -> bool {
 pub(super) fn routine_body_ends_explicitly(routine: &Routine) -> bool {
     matches!(
         routine.body.last(),
-        Some(Stmt::Return(_)) | Some(Stmt::MachineBlock { .. })
+        Some(Stmt::Return { .. }) | Some(Stmt::MachineBlock { .. })
     ) || matches!(
         routine.body.last(),
         Some(Stmt::InlineAsm { program, .. })
@@ -336,7 +336,7 @@ pub(super) fn routine_body_ends_explicitly(routine: &Routine) -> bool {
 }
 
 pub(super) fn is_bare_return(stmt: Option<&Stmt>) -> bool {
-    matches!(stmt, Some(Stmt::Return(None)))
+    matches!(stmt, Some(Stmt::Return { value: None, .. }))
 }
 
 pub(super) fn stmt_list_ends_with_terminal_flow(body: &[Stmt]) -> bool {
@@ -349,7 +349,7 @@ pub(super) fn stmt_list_ends_with_value_return(body: &[Stmt]) -> bool {
 
 pub(super) fn stmt_ends_with_value_return(stmt: &Stmt) -> bool {
     match stmt {
-        Stmt::Return(Some(_)) => true,
+        Stmt::Return { value: Some(_), .. } => true,
         Stmt::If {
             branches,
             else_body,
@@ -367,7 +367,7 @@ pub(super) fn stmt_ends_with_value_return(stmt: &Stmt) -> bool {
 
 pub(super) fn stmt_ends_with_terminal_flow(stmt: &Stmt) -> bool {
     match stmt {
-        Stmt::Return(_) | Stmt::MachineBlock { .. } => true,
+        Stmt::Return { .. } | Stmt::MachineBlock { .. } => true,
         Stmt::InlineAsm { program, .. } => {
             crate::asm6502::ends_in_terminal_instruction(&program.bytes)
         }

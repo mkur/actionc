@@ -289,6 +289,63 @@ fn compiled_program_formats_a_mads_compatible_source_listing() {
 }
 
 #[test]
+fn classic_listing_keeps_tail_calls_and_bare_returns_on_their_source_lines() {
+    let temp = TestDir::new();
+    let source = concat!(
+        "BYTE out=$0600\n",
+        "PROC Plot(BYTE a,b,c)\n",
+        " out=c\n",
+        "RETURN\n",
+        "PROC Mirror(BYTE n,c)\n",
+        " Plot(n,n,c)\n",
+        " Plot(n,191-n,c)\n",
+        "RETURN\n",
+        "PROC Pause(CARD n)\n",
+        " CARD i\n",
+        " FOR i=0 TO n*2 DO OD\n",
+        "RETURN\n",
+        "PROC Implicit(BYTE c)\n",
+        " Plot(1,2,c)\n",
+        "PROC Main()\n",
+        " Mirror(9,6)\n",
+        " Pause(1)\n",
+        " Implicit(9)\n",
+        "RETURN\n",
+    );
+    for newline in ["\n", "\r\n"] {
+        let source = source.replace('\n', newline);
+        let path = write_source(&temp, "tail-listing.act", &source);
+        for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let compiled = compile_file(
+                    &path,
+                    &CompileOptions::for_mode(mode).with_runtime(runtime),
+                )
+                .unwrap();
+                let listing = compiled.source_listing();
+                for expected in [
+                    "; 7:2 statement call | Plot(n,191-n,c)",
+                    "; 12:1 statement return | RETURN",
+                    "; 14:2 statement call | Plot(1,2,c)",
+                ] {
+                    assert!(
+                        listing.contains(expected),
+                        "{mode:?}/{runtime:?}/{newline:?} missing {expected}:\n{listing}"
+                    );
+                }
+                for name in ["Mirror", "Pause"] {
+                    assert_eq!(
+                        listing.matches(&format!("routine {name} |")).count(),
+                        1,
+                        "{mode:?}/{runtime:?}/{newline:?}: duplicated routine header for {name}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn all_public_modes_match_the_existing_pipelines() {
     let source = hello_world();
     for mode in [

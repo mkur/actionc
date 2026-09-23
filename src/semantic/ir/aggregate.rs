@@ -921,12 +921,12 @@ impl IrBuilder<'_> {
     }
 
     pub(super) fn lower_aggregate_return(
-        &mut self, scope: ScopeId, ty: &ValueType, value: &Expr,
+        &mut self, scope: ScopeId, ty: &ValueType, value: &Expr, span: Span,
     ) -> Vec<SemStmt> {
         let captured = self.capture_aggregate_value(scope, ty, value);
         let mut body = captured.preparation;
         body.push(SemStmt::Return {
-            value: Some(Self::value_expr(&captured.place)), span: value.span,
+            value: Some(Self::value_expr(&captured.place)), span,
         });
         body
     }
