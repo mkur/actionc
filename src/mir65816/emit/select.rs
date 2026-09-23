@@ -85,6 +85,7 @@ impl From<Location> for Memory {
 }
 
 struct Builder<'a> {
+    stack_checks: bool,
     routine: &'a Mir65816Routine,
     frame: AllocatedFrame,
     code: TrackedEmitter65816,
@@ -92,8 +93,13 @@ struct Builder<'a> {
     next_block: Option<BlockId>,
 }
 
-pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<MachineRoutine, String> {
+pub(super) fn routine(
+    routine: &Mir65816Routine,
+    _trace: bool,
+    stack_checks: bool,
+) -> Result<MachineRoutine, String> {
     let mut b = Builder {
+        stack_checks,
         routine,
         frame: AllocatedFrame::new(routine)?,
         code: TrackedEmitter65816::for_entry(routine.prologue.required_mode),
@@ -117,8 +123,12 @@ pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<Machine
             b.code.register_home(*home);
         }
     }
-    b.check_stack(b.frame.extent);
-    b.code.op(Implied::Tcs); // TCS: checked new S in A, no write/push before the check.
+    if stack_checks {
+        b.check_stack(b.frame.extent);
+        b.code.op(Implied::Tcs); // Checked new S in A; no earlier write/push.
+    } else {
+        b.reserve(b.frame.extent);
+    }
     b.code.establish_body();
     for parameter in &routine.frame.parameters {
         if let Some(object) = parameter.frame_object {
@@ -878,6 +888,9 @@ impl Builder<'_> {
         Ok(())
     }
     fn check_stack(&mut self, bytes: u16) {
+        if !self.stack_checks {
+            return;
+        }
         self.code.barrier();
         // A/X/Y are caller-clobbered. X retains the unchanged S for the raw
         // overflow adapter. Neither branch changes I, D, DBR or the stack.

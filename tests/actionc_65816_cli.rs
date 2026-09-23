@@ -35,6 +35,51 @@ impl Drop for Directory {
 }
 
 #[test]
+fn native_cli_stack_checks_default_on_and_explicit_off() {
+    let dir = Directory::new(
+        "CARD result CARD FUNC Work(CARD n) RETURN(n+1) PROC Main() result=Work(41) RETURN",
+    );
+    let path = dir.0.join("layout.json");
+    let mut layout: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    for optimize in [false, true] {
+        for checks in [true, false] {
+            if checks {
+                layout.as_object_mut().unwrap().remove("stack_checks");
+            } else {
+                layout["stack_checks"] = false.into();
+            }
+            std::fs::write(&path, serde_json::to_vec(&layout).unwrap()).unwrap();
+            let mut args = vec!["--layout", "layout.json"];
+            if !optimize {
+                args.push("--no-opt");
+            }
+            let result = dir.run(&args);
+            assert!(
+                result.status.success(),
+                "{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            let bytes = std::fs::read(dir.0.join("source.a816.json")).unwrap();
+            let image = Image::from_json(&bytes).unwrap();
+            assert_eq!(image.stack_checks, checks);
+            let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                json.get("stack_checks"),
+                if checks {
+                    None
+                } else {
+                    Some(&serde_json::Value::Bool(false))
+                }
+            );
+        }
+    }
+    layout["stack_checks"] = "false".into();
+    std::fs::write(&path, serde_json::to_vec(&layout).unwrap()).unwrap();
+    assert!(!dir.run(&["--layout", "layout.json"]).status.success());
+}
+
+#[test]
 fn native_cli_writes_a_valid_image_and_preserves_inputs() {
     let dir = Directory::new("CARD value PROC Main() value=42 RETURN");
     let result = dir.run(&["--layout", "layout.json"]);

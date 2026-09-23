@@ -26,13 +26,25 @@ pub struct MachineRoutine {
 #[derive(Debug, Clone)]
 pub struct MachineProgram {
     pub routines: Vec<MachineRoutine>,
+    pub stack_checks: bool,
 }
 
 pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> {
-    materialize_inner(program, false)
+    materialize_with_stack_checks(program, true)
 }
 
-fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachineProgram, String> {
+pub fn materialize_with_stack_checks(
+    program: &Mir65816Program,
+    stack_checks: bool,
+) -> Result<MachineProgram, String> {
+    materialize_inner(program, false, stack_checks)
+}
+
+fn materialize_inner(
+    program: &Mir65816Program,
+    trace: bool,
+    stack_checks: bool,
+) -> Result<MachineProgram, String> {
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
     if program.call_convention != Mir65816CallConvention::Native {
         return Err(
@@ -58,10 +70,15 @@ fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachinePr
                 routine.name
             ));
         }
-        routines
-            .push(select::routine(routine, trace).map_err(|e| format!("{}: {e}", routine.name))?);
+        routines.push(
+            select::routine(routine, trace, stack_checks)
+                .map_err(|e| format!("{}: {e}", routine.name))?,
+        );
     }
-    Ok(MachineProgram { routines })
+    Ok(MachineProgram {
+        routines,
+        stack_checks,
+    })
 }
 
 #[cfg(test)]

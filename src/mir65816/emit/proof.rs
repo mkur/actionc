@@ -103,7 +103,7 @@ pub struct RoutineTrace {
 pub fn materialize_with_trace(
     program: &super::Mir65816Program,
 ) -> Result<(super::MachineProgram, Vec<RoutineTrace>), String> {
-    let mut machine = super::materialize_inner(program, true)?;
+    let mut machine = super::materialize_inner(program, true, true)?;
     let traces = machine
         .routines
         .iter_mut()
