@@ -120,12 +120,36 @@ suite by default as the repository grows.
   change. A full `cargo test` or repository-wide NIR sweep is not required.
 - For documentation-only changes, check the edited content and links; run code
   checks only when executable examples or their documented behavior change.
-- Broaden testing when compiler behavior, shared runtime code, or shared test/build
-  infrastructure changes, when a failure suggests wider impact, or when the user
-  requests it. Keep full CI coverage; these rules scope local validation.
+- Broaden testing when changed behavior or a failure suggests wider impact, or
+  when the user requests it. For backend-only changes, broaden within that
+  backend first. Keep full CI coverage; these rules scope local validation.
 - Batch related cases and focus large test matrices on distinct behaviors and
   boundaries. Do not repeat passing suites unless further changes or unresolved
   failures justify it. Report which checks ran and their scope.
+
+### Backend test scope
+
+- Changes confined to one backend should run that backend's affected unit,
+  integration, and VM/runtime test targets. For MIR65816-only work, run the
+  relevant 65816 tests; do not run the 6502 or 68k suites by default. Apply the
+  same rule to changes confined to MIR6502 or MIR68K.
+- Use filtered library tests and explicit integration targets or backend test
+  crates. Compiling a shared crate does not require executing every backend's
+  tests. Reading or borrowing a test design from another backend does not by
+  itself require running that backend's suite.
+- Use focused targets during development. Substantial emission changes or final
+  backend qualification should run the full affected backend suite, including
+  its required modes, runtime/ABI checks, and cross-platform fixture checks.
+  Backend scoping does not waive those checks or require repeating a passing
+  suite after documentation-only changes.
+- Include other affected backends when changing shared frontend/IR contracts,
+  generic analyses, shared runtime code, or shared test/build infrastructure,
+  or when failures indicate an impact beyond the original backend. Choose
+  coverage from actual consumers rather than the directory name alone.
+
+### Shared compiler contract checks
+
+Backend scoping does not override the following required shared-contract checks.
 
 After changing compiler NIR, semantic lowering, verifier, printer, or code that
 affects those contracts, run these checks before submitting the change:
