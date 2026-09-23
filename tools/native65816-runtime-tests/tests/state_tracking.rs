@@ -452,9 +452,19 @@ fn direct_return_and_indirect_transfer_events_have_distinct_stack_phases() {
             .unwrap()
             .code;
         assert!(
-            code.conditional_branches
+            control_flow::dispatches(&prepared.mir, &machine, |id| image
+                .routines
                 .iter()
-                .any(|s| s.short && code.return_fixups.iter().any(|(at, _)| s.offset < *at))
+                .find(|r| r.id == id.0)
+                .unwrap()
+                .address)
+            .iter()
+            .any(|s| s.routine.0 == main.id
+                && s.short
+                && code
+                    .return_fixups
+                    .iter()
+                    .any(|(at, _)| s.at < main.address + *at as u32))
         );
         let trace = &traces
             .iter()

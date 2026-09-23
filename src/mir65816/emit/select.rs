@@ -1313,16 +1313,16 @@ impl Builder<'_> {
         self.code.op(Implied::Tax); // TSC / TAX
         self.code
             .byte(ByteOp::CmpDp, abi::generated::DP_STACK_CEILING_OFFSET as u8);
-        self.code.branch(Branch::CarryClear, within);
-        self.code.branch(Branch::Equal, within);
+        self.code.dispatch(Branch::CarryClear, within);
+        self.code.dispatch(Branch::Equal, within);
         self.code.jump(fault);
         self.code.mark(within);
         self.code.op(Implied::Sec);
         self.code.word(WordOp::SbcImm, bytes); // SEC / SBC
-        self.code.branch(Branch::CarryClear, fault);
+        self.code.dispatch(Branch::CarryClear, fault);
         self.code
             .byte(ByteOp::CmpDp, abi::generated::DP_STACK_FLOOR_OFFSET as u8);
-        self.code.branch(Branch::CarrySet, done);
+        self.code.dispatch(Branch::CarrySet, done);
         self.code.mark(fault);
         self.code.word(WordOp::LdaImm, bytes);
         self.code

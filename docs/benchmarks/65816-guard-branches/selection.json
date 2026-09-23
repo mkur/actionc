@@ -1,0 +1,4111 @@
+{
+  "qualification": "tools/native65816-runtime-tests/target/qualification/run-w95durt0/manifest.json",
+  "manifest_sha256": "c6df3771f17371577bc3aab96ad789208878b75d524ae50bf21302009e8dabfc",
+  "observations": [
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 3,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 7,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 2,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 6,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 0
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 0
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 3,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 7,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 2,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 6,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 0
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 0
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24298,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24298,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24298,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24298,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24298,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24298,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24299,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24299,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24297,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24297,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 21
+    },
+    {
+      "amount": 22,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 21
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24314,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24314,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24315,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24315,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24313,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24313,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 5
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 5
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24311,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24311,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24312,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24312,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24310,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24310,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 8
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 8
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24316,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24316,
+      "legacy_cycles": 25,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24317,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24317,
+      "legacy_cycles": 36,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24315,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24315,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 3
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": false,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 3
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 3,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 7,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 2,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 6,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 0
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Work",
+      "s": 0
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24320,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 3,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 7,
+      "failed": true,
+      "floor": 24320,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 2,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 6,
+      "failed": true,
+      "floor": 24321,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24319,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 24320
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 32768
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 65535
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 0
+    },
+    {
+      "amount": 0,
+      "bytes": 29,
+      "ceiling": 0,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Empty",
+      "s": 0
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24312,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24312,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24312,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24312,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24312,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24312,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24313,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24313,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 7
+    },
+    {
+      "amount": 8,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 7
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24314,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24314,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24314,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24315,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24315,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24313,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24313,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 5
+    },
+    {
+      "amount": 6,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 5
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24311,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24311,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24311,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24312,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24312,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24310,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24310,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 8
+    },
+    {
+      "amount": 9,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 8
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 3,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24320,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 7,
+      "failed": false,
+      "floor": 24316,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 1,
+      "failed": true,
+      "floor": 24316,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24319,
+      "compact_cycles": 23,
+      "cycles": 23,
+      "exit_p": 5,
+      "failed": true,
+      "floor": 24316,
+      "legacy_cycles": 25,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 24317,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 31,
+      "cycles": 31,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 24317,
+      "legacy_cycles": 36,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 1,
+      "failed": false,
+      "floor": 24315,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 24321,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 5,
+      "failed": false,
+      "floor": 24315,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 24320
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 65,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 25,
+      "cycles": 25,
+      "exit_p": 69,
+      "failed": false,
+      "floor": 1,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 32768
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 129,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 27,
+      "cycles": 27,
+      "exit_p": 133,
+      "failed": false,
+      "floor": 0,
+      "legacy_cycles": 35,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263,
+        8260,
+        8261
+      ],
+      "routine": "Main",
+      "s": 65535
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 0,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 0,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 3
+    },
+    {
+      "amount": 4,
+      "bytes": 29,
+      "ceiling": 65535,
+      "compact_cycles": 26,
+      "cycles": 26,
+      "exit_p": 4,
+      "failed": true,
+      "floor": 0,
+      "legacy_cycles": 32,
+      "optimize": true,
+      "p": 4,
+      "reads": [
+        8262,
+        8263
+      ],
+      "routine": "Main",
+      "s": 3
+    }
+  ],
+  "interrupt_probes": 1440,
+  "delivered_interrupts": 1080,
+  "masked_irq_controls": 360,
+  "interrupts_sha256": "69c99366f9e1b551dc3fdb03ca14d680094ff0624f5d262c176d4b5623f79f2b",
+  "focused_runtime_passed": 53,
+  "root_unit_passed": 196,
+  "root_integrations_passed": 63,
+  "snapshot_deltas": [
+    {
+      "routine": "accumulator_forwarding.act/false/RoutineId(0)",
+      "guards": 1,
+      "before": 75,
+      "after": 59
+    },
+    {
+      "routine": "accumulator_forwarding.act/false/RoutineId(1)",
+      "guards": 1,
+      "before": 90,
+      "after": 74
+    },
+    {
+      "routine": "accumulator_forwarding.act/false/RoutineId(2)",
+      "guards": 1,
+      "before": 67,
+      "after": 51
+    },
+    {
+      "routine": "accumulator_forwarding.act/false/RoutineId(3)",
+      "guards": 4,
+      "before": 420,
+      "after": 356
+    },
+    {
+      "routine": "accumulator_forwarding.act/true/RoutineId(0)",
+      "guards": 1,
+      "before": 57,
+      "after": 41
+    },
+    {
+      "routine": "accumulator_forwarding.act/true/RoutineId(1)",
+      "guards": 1,
+      "before": 90,
+      "after": 74
+    },
+    {
+      "routine": "accumulator_forwarding.act/true/RoutineId(2)",
+      "guards": 1,
+      "before": 67,
+      "after": 51
+    },
+    {
+      "routine": "accumulator_forwarding.act/true/RoutineId(3)",
+      "guards": 4,
+      "before": 416,
+      "after": 352
+    },
+    {
+      "routine": "code_quality/sum_loop.act/false/RoutineId(0)",
+      "guards": 1,
+      "before": 146,
+      "after": 130
+    },
+    {
+      "routine": "code_quality/sum_loop.act/false/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/sum_loop.act/true/RoutineId(0)",
+      "guards": 1,
+      "before": 120,
+      "after": 104
+    },
+    {
+      "routine": "code_quality/sum_loop.act/true/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/wide_shift.act/false/RoutineId(0)",
+      "guards": 1,
+      "before": 401,
+      "after": 385
+    },
+    {
+      "routine": "code_quality/wide_shift.act/false/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/wide_shift.act/true/RoutineId(0)",
+      "guards": 1,
+      "before": 377,
+      "after": 361
+    },
+    {
+      "routine": "code_quality/wide_shift.act/true/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/forward_copy.act/false/RoutineId(0)",
+      "guards": 1,
+      "before": 297,
+      "after": 281
+    },
+    {
+      "routine": "code_quality/forward_copy.act/false/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/forward_copy.act/true/RoutineId(0)",
+      "guards": 1,
+      "before": 284,
+      "after": 268
+    },
+    {
+      "routine": "code_quality/forward_copy.act/true/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/recursive_sum.act/false/RoutineId(0)",
+      "guards": 2,
+      "before": 202,
+      "after": 170
+    },
+    {
+      "routine": "code_quality/recursive_sum.act/false/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    },
+    {
+      "routine": "code_quality/recursive_sum.act/true/RoutineId(0)",
+      "guards": 2,
+      "before": 187,
+      "after": 155
+    },
+    {
+      "routine": "code_quality/recursive_sum.act/true/RoutineId(1)",
+      "guards": 1,
+      "before": 47,
+      "after": 31
+    }
+  ]
+}

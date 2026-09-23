@@ -97,6 +97,26 @@ pub fn dispatches(
                 });
             }
         }
+        // Guard conditionals now share layout metadata, but are not MIR dispatches.
+        for fixup in m
+            .code
+            .fixups
+            .iter()
+            .filter(|f| f.target == Target::StackOverflow)
+        {
+            let start = fixup.offset.checked_sub(26).unwrap();
+            for (offset, predicate) in [(4, 0x90), (6, 0xf0), (16, 0x90), (20, 0xb0)] {
+                let site = m
+                    .code
+                    .conditional_branches
+                    .iter()
+                    .find(|s| s.offset == start + offset)
+                    .unwrap();
+                assert!(site.short);
+                assert_eq!(site.predicate, predicate);
+                assert!(seen.insert(site.offset));
+            }
+        }
         assert_eq!(seen.len(), m.code.conditional_branches.len());
     }
     out

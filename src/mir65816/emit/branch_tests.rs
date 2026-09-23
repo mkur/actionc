@@ -257,3 +257,42 @@ fn fusion_obeys_byte_and_word_limits_after_transient_stack_movement() {
         &[0xc2, 0x20, 0xa3, 254, 0xc9, 255, 0]
     );
 }
+
+#[test]
+fn guard_conditionals_use_existing_layout_without_changing_the_two_jumps() {
+    let p = program();
+    for amount in [0, 6, 9, 255, 65535] {
+        let mut b = builder(&p.routines[0]);
+        b.code.a16();
+        let start = b.code.position();
+        b.check_stack(amount);
+        b.code.op(Implied::Nop); // done remains an actual emission boundary
+        let long = b.code.finish();
+        assert_eq!(long.bytes.len() - start, 46);
+        assert_eq!(long.conditional_branches.len(), 4);
+        assert_eq!(long.fixups.len(), 6);
+        let short = super::super::layout::finalize(long.clone(), true).unwrap();
+        assert_eq!(long.bytes.len() - short.bytes.len(), 16);
+        assert_eq!(short.fixups.len(), 2);
+        assert_eq!(short.fixups[1].target, Target::StackOverflow);
+        assert_eq!(short.fixups[0].offset, start + 9);
+        assert_eq!(short.fixups[1].offset, start + 26);
+        for (site, (offset, predicate, delta)) in short.conditional_branches.iter().zip([
+            (4, 0x90, 6),
+            (6, 0xf0, 4),
+            (16, 0x90, 4),
+            (20, 0xb0, 7),
+        ]) {
+            assert!(site.short);
+            assert_eq!((site.offset, site.predicate), (start + offset, predicate));
+            assert_eq!(
+                &short.bytes[site.offset..site.offset + 2],
+                &[predicate, delta]
+            );
+        }
+        assert_eq!(&short.bytes[start + 14..start + 16], &amount.to_le_bytes());
+        assert_eq!(&short.bytes[start + 23..start + 25], &amount.to_le_bytes());
+        super::super::layout::validate_branches(&short, Some(0x01ff00)).unwrap();
+        assert!(super::super::layout::validate_branches(&short, Some(0x01fff8)).is_err());
+    }
+}

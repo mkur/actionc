@@ -1044,6 +1044,7 @@ impl TrackedEmitter65816 {
         self.code.reference(0x5c, Target::Label(label), 0, None);
         self.observe();
     }
+    /// Admit this local conditional to layout relaxation (MIR dispatch or guard).
     pub fn dispatch(&mut self, op: Branch, label: Label) {
         self.request(Request::Dispatch(op, label), |this| {
             let offset = this.position();

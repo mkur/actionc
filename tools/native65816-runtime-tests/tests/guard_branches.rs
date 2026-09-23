@@ -99,8 +99,8 @@ fn emitted_entry_and_call_guards_match_independent_reference_on_all_boundary_pat
             let old = reference(site.amount, site.start, fault, false);
             let short = reference(site.amount, site.start, fault, true);
             assert_eq!(old.len() - short.len(), 16);
-            let expected = if bytes.len() == 45 { &old } else { &short };
-            assert_eq!(bytes, &expected[..expected.len() - 1]);
+            assert_eq!(bytes.len(), 29);
+            assert_eq!(bytes, &short[..short.len() - 1]);
             let candidate = 0x5f00 - site.amount;
             let mut cases = vec![
                 (0x5f00, candidate, 0x5f01),
@@ -173,6 +173,228 @@ fn emitted_entry_and_call_guards_match_independent_reference_on_all_boundary_pat
     if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
         std::fs::write(
             std::path::Path::new(&dir).join("guard-observations.json"),
+            serde_json::to_vec_pretty(&records).unwrap(),
+        )
+        .unwrap();
+    }
+}
+
+#[test]
+fn relocated_guards_reach_both_success_and_moved_fault_exits() {
+    use actionc::mir65816::o65 as format;
+    for optimize in [false, true] {
+        let bytes = o65::compile(SOURCE, optimize, vec![]);
+        for variant in 0..2 {
+            let placement = o65::placement(&bytes, variant, vec![o65::fault(variant)]);
+            let image = format::relocate(&bytes, &placement).unwrap();
+            let entry = image.entry();
+            let main = image
+                .profile()
+                .routines
+                .iter()
+                .find(|r| r.name == "Main")
+                .unwrap();
+            let amount = main.frame;
+            for mask in [0, 4] {
+                let mut h = Harness::new_o65(&image, &caller(entry), mask);
+                h.run();
+                h.guards(mask);
+                assert_eq!(h.bus.value(o65::object(&image, "result"), 2), 2);
+                for failed in [false, true] {
+                    let mut h = Harness::new_o65(&image, &caller(entry), mask);
+                    let mut r = h.cpu.registers();
+                    r.pc = entry as u16;
+                    r.pbr = (entry >> 16) as u8;
+                    h.cpu = Machine::start_at(r);
+                    let floor = r.s - amount + u16::from(failed);
+                    h.bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
+                    let dest = if failed {
+                        image.stack_overflow()
+                    } else {
+                        entry + 29
+                    };
+                    assert!(
+                        h.cpu
+                            .run_until(
+                                &mut h.bus,
+                                100,
+                                |_| Inputs::default(),
+                                |c| c.is_instruction_boundary() && c.pc() == dest
+                            )
+                            .unwrap()
+                    );
+                    let out = h.cpu.registers();
+                    assert_eq!(
+                        (out.a, out.x, out.s),
+                        (if failed { amount } else { floor }, r.s, r.s)
+                    );
+                    assert_eq!(out.p & 0x3c, mask);
+                    assert!(h.bus.writes.is_empty());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn every_reached_guard_boundary_restores_flags_under_irq_and_nmi_in_both_domains() {
+    use support::context::*;
+    // The existing bridge owns saving/restoring both domains. This dispatch
+    // resumes the interrupted task; the full preemption suite covers switching.
+    let source = "MODULE TEST VOLATILE BYTE irqAck=$7800 CARD result CARD FUNC Dispatch(CARD saved BYTE reason) irqAck=1 RETURN(saved) CARD FUNC Work(CARD n) RETURN(n+1) PROC Task(BYTE POINTER ignored) CARD FUNC POINTER cb(CARD n) cb=@Work result=Work(7)+cb(9) RETURN PROC Main() RETURN ENDMODULE";
+    let mut records = vec![];
+    for optimize in [false, true] {
+        let prepared = prepare(source, optimize);
+        let compiled = prepared.compile(&layout()).unwrap();
+        let entry = routine(&compiled.image, "Task");
+        let task = compiled
+            .image
+            .routines
+            .iter()
+            .find(|r| r.address == entry)
+            .unwrap();
+        let sites: Vec<_> = guard::sites(&compiled)
+            .into_iter()
+            .filter(|s| s.routine == task.name)
+            .collect();
+        assert_eq!(sites.len(), 3); // entry, direct call, indirect call
+        for domain in 0..2 {
+            let mut h =
+                ContextHarness::from_prepared(source, optimize, "Task", &[0, 0], prepared.clone());
+            let mut r = h.cpu.registers();
+            r.a = h.first[domain].saved_s;
+            h.cpu = Machine::start_at(r);
+            for site in &sites {
+                assert!(
+                    h.cpu
+                        .run_until(
+                            &mut h.bus,
+                            10000,
+                            |_| Inputs::default(),
+                            |c| c.is_instruction_boundary() && c.pc() == site.start
+                        )
+                        .unwrap()
+                );
+                assert_eq!(h.cpu.registers().d, 0x2000 + domain as u16 * 0x100);
+                let checkpoint = h.cpu.clone();
+                let memory = h.bus.clone();
+                for scenario in 0..3 {
+                    for mask in [0, 4] {
+                        h.cpu = checkpoint.clone();
+                        h.bus = memory.clone();
+                        let mut r = h.cpu.registers();
+                        r.p = (r.p & !4) | mask;
+                        h.cpu = Machine::start_at(r);
+                        let floor = r.s - site.amount + u16::from(scenario == 2);
+                        let ceiling = r.s + u16::from(scenario != 0);
+                        let dp = r.d as usize;
+                        h.bus.ram[dp + 0x44..dp + 0x46].copy_from_slice(&floor.to_le_bytes());
+                        h.bus.ram[dp + 0x46..dp + 0x48].copy_from_slice(&ceiling.to_le_bytes());
+                        let exit = if scenario == 2 {
+                            h.image.stack_overflow
+                        } else {
+                            site.end
+                        };
+                        let mut final_cpu = h.cpu.clone();
+                        let mut final_bus = h.bus.clone();
+                        assert!(
+                            final_cpu
+                                .run_until(
+                                    &mut final_bus,
+                                    100,
+                                    |_| Inputs::default(),
+                                    |c| c.is_instruction_boundary() && c.pc() == exit
+                                )
+                                .unwrap()
+                        );
+                        loop {
+                            if h.cpu.pc() == exit && h.cpu.is_instruction_boundary() {
+                                break;
+                            }
+                            assert!(h.cpu.is_instruction_boundary());
+                            let at = h.cpu.clone();
+                            let bus = h.bus.clone();
+                            // Interrupt sampling finishes this instruction first.
+                            let mut reference = at.clone();
+                            let mut rb = bus.clone();
+                            reference.tick(&mut rb, Inputs::default()).unwrap();
+                            while !reference.is_instruction_boundary() {
+                                reference.tick(&mut rb, Inputs::default()).unwrap();
+                            }
+                            for nmi in [false, true] {
+                                h.cpu = at.clone();
+                                h.bus = bus.clone();
+                                let mut acknowledged = false;
+                                let mut restored = false;
+                                let ack = if nmi { NMI_ACK } else { IRQ_ACK };
+                                for _ in 0..10000 {
+                                    let writes = h.bus.writes.len();
+                                    h.tick(Inputs {
+                                        irq: !nmi && !acknowledged,
+                                        nmi: nmi && !acknowledged,
+                                        ..Default::default()
+                                    });
+                                    acknowledged |=
+                                        h.bus.writes[writes..].iter().any(|&(a, _)| a == ack);
+                                    if h.cpu.is_instruction_boundary()
+                                        && h.cpu.pc() == reference.pc()
+                                        && h.cpu.registers().d == r.d
+                                        && (acknowledged || !nmi && mask == 4)
+                                    {
+                                        assert_eq!(h.cpu.registers(), reference.registers());
+                                        assert_eq!(
+                                            &h.bus.ram
+                                                [usize::from(r.s) + 1..0x5000 + domain * 0x1000],
+                                            &rb.ram[usize::from(r.s) + 1..0x5000 + domain * 0x1000]
+                                        );
+                                        assert_eq!(&h.bus.ram[dp..dp + 256], &rb.ram[dp..dp + 256]);
+                                        assert_eq!(acknowledged, nmi || mask == 0);
+                                        restored = true;
+                                        break;
+                                    }
+                                    assert!(!h.cpu.is_stopped());
+                                }
+                                assert!(restored, "interrupt restoration at {:06x}", at.pc());
+                                assert!(
+                                    h.cpu
+                                        .run_until(
+                                            &mut h.bus,
+                                            100,
+                                            |_| Inputs::default(),
+                                            |c| c.is_instruction_boundary() && c.pc() == exit
+                                        )
+                                        .unwrap()
+                                );
+                                assert_eq!(h.cpu.registers(), final_cpu.registers());
+                                records.push(serde_json::json!({"optimize":optimize,"domain":domain,"guard":site.start,
+                                    "scenario":scenario,"mask":mask,"pc":at.pc(),"nmi":nmi,"delivered":acknowledged}));
+                            }
+                            h.cpu = reference;
+                            h.bus = rb;
+                        }
+                    }
+                }
+                h.cpu = checkpoint;
+                h.bus = memory;
+                // Leave this guard so the next search cannot rediscover it.
+                assert!(
+                    h.cpu
+                        .run_until(
+                            &mut h.bus,
+                            100,
+                            |_| Inputs::default(),
+                            |c| c.is_instruction_boundary() && c.pc() == site.end
+                        )
+                        .unwrap()
+                );
+            }
+            h.run();
+            assert_eq!(h.bus.value(symbol(&h.image, "result"), 2), 18);
+        }
+    }
+    if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
+        std::fs::write(
+            std::path::Path::new(&dir).join("guard-interrupts.json"),
             serde_json::to_vec_pretty(&records).unwrap(),
         )
         .unwrap();

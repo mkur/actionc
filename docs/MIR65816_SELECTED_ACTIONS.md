@@ -45,6 +45,10 @@ compiler metadata after terminal transfers from executable paths. Invalid
 boundaries reject construction. Current forward-state observations remain
 observations; backward home/register liveness and checked rewrites are deferred.
 
+Eligible conditional requests include MIR dispatch and the four internal guard
+branches. Both replay through the same `Dispatch` request and branch instruction;
+only their final encoding may shrink. Guards retain both unconditional JMLs.
+
 Before and after branch relaxation, records reconcile with the entire code,
 symbolic and PER fixups, labels, MIR source spans and transfers, conditional
 dispatch metadata and optional effect observations. Historical state snapshots

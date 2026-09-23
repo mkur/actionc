@@ -411,13 +411,17 @@ normal barriers and width contract. Earlier false arms, internal labels, calls,
 fault transfers and backedges retain JML. Block order, copy scheduling and staging
 reservations are unchanged; no jump threading occurs.
 
-Conditional MIR dispatch (ordinary Branch and compare-to-branch fusion) has a
-typed predicate and local target. After selection, routine-local finalization
+Conditional MIR dispatch (ordinary Branch and compare-to-branch fusion) and the
+four conditional transfers in each stack guard have typed predicates and local
+targets. After selection, routine-local finalization
 may replace inverse-branch/JML with the original short predicate. It starts from
 long forms and shrinks to a fixed point, requiring signed-byte displacement in
 the candidate's own shortened layout. Out-of-range sites retain the long form.
-Materialized comparisons, guard/fault paths, shifts, casts and helper loops keep
-their existing encodings. No flags, values, widths or copy decisions change.
+Materialized comparisons, shifts, casts and helper loops keep their existing
+encodings. Guard conditionals shrink from six to two bytes; each guard retains
+its local fault-arm JML and external overflow JML, all checks and their order,
+amount and success/fault register/flag behavior. No flags, values, widths or
+copy decisions change.
 
 One checked position mapping updates labels, retained absolute fixups, PER sites,
 MIR spans, logical transfers, conditional records and immutable trace PCs together.
@@ -647,7 +651,7 @@ outgoing space. No displacement is truncated.
 
 At entry, emitted code checks the frame reservation against the current
 domain's stack floor and ceiling. Before a call it checks `O + 3` (direct) or `O + 6` (indirect), then
-reserves O, zeroes the entire outgoing area and writes arguments. There are no
+reserves O, zeroes only padding and writes each argument payload byte once. There are no
 additional temporary pushes beyond the declared transfer in emitted operations.
 The source memory helpers use ordinary checked calls. Indirect calls capture the callable before PHK/PER and the
 stack-synthesized RTL transfer; decrementing the target PC does not borrow

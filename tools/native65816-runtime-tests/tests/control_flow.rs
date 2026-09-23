@@ -175,6 +175,8 @@ fn generated_short_and_long_dispatch_execute_copies_at_banked_image_and_o65_plac
                 then_edge.args.push(Mir65816Value::U16(0xa500 + n as u16));
                 else_edge.args.push(Mir65816Value::U16(0x5a00 + n as u16));
             }
+            let dispatch_block = r.blocks[0].id;
+            let dispatch_index = r.blocks[0].ops.len();
             mir65816::verify_program(&p.mir).unwrap();
             let mut options = layout();
             options.code_origin = 0x01fff0;
@@ -188,8 +190,19 @@ fn generated_short_and_long_dispatch_execute_copies_at_banked_image_and_o65_plac
                 .iter()
                 .find(|m| m.id.0 == work.id)
                 .unwrap();
-            assert_eq!(m.code.conditional_branches.len(), 1);
-            assert_eq!(m.code.conditional_branches[0].short, count == 2);
+            let span = m
+                .code
+                .mir_spans
+                .get(&(dispatch_block, dispatch_index))
+                .unwrap_or_else(|| &m.code.mir_spans[&(dispatch_block, dispatch_index - 1)]);
+            let dispatches: Vec<_> = m
+                .code
+                .conditional_branches
+                .iter()
+                .filter(|b| span.contains(&b.offset))
+                .collect();
+            assert_eq!(dispatches.len(), 1);
+            assert_eq!(dispatches[0].short, count == 2);
             let templates = forwarding::compiled(&p, &c);
             let bytes = p.compile_o65(&Default::default()).unwrap().bytes;
             for variant in 0..2 {
