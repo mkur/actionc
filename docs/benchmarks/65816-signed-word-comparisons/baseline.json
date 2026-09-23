@@ -1,0 +1,375 @@
+{
+  "stage": "fallback baseline; production selection unchanged",
+  "compiler_revision": "0272cc22ff3700acaa75d8eb1822a22615c12a33",
+  "compiler_executable_sha256": "020876959f5ed6f77b548fc37c9f375f12776f2aeb22914ca859ef24f088cfe4",
+  "qualification_manifest_sha256": "6a1863cd554195a8842d631e1df0db012cc95c35f16806f3aade3f11934f31e2",
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "probes": [
+    {
+      "name": "signed-size-probes-false",
+      "metrics": {
+        "code_bytes": 1644,
+        "cycles": 84,
+        "dp_reads": 0,
+        "dp_writes": 0,
+        "routines": [
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetLt"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchLt"
+          },
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetLe"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchLe"
+          },
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetGt"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchGt"
+          },
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetGe"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchGe"
+          },
+          {
+            "bytes": 161,
+            "frame": 6,
+            "name": "Imm"
+          },
+          {
+            "bytes": 47,
+            "frame": 0,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 3,
+        "stack_writes": 4
+      },
+      "image_sha256": "728593a164ee770dc27108027e820f8fa2eab20bf1e3fc7e6babe1c10657cdc6",
+      "source_sha256": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+      "listing_sha256": "f251c7bb888789bd997cacf5d1e343e813d649b116ed49cba650cde75cfd6c49"
+    },
+    {
+      "name": "signed-size-probes-true",
+      "metrics": {
+        "code_bytes": 1636,
+        "cycles": 84,
+        "dp_reads": 0,
+        "dp_writes": 0,
+        "routines": [
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetLt"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchLt"
+          },
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetLe"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchLe"
+          },
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetGt"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchGt"
+          },
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "RetGe"
+          },
+          {
+            "bytes": 202,
+            "frame": 6,
+            "name": "BranchGe"
+          },
+          {
+            "bytes": 153,
+            "frame": 4,
+            "name": "Imm"
+          },
+          {
+            "bytes": 47,
+            "frame": 0,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 3,
+        "stack_writes": 4
+      },
+      "image_sha256": "3c99417bee023fd08ecac476457a8a6a6c8a612b31663b808d18d269198422af",
+      "source_sha256": "d326d0eb994862d5b7edec526fb4058574d18e712e824e7d3fc8de68111c2da3",
+      "listing_sha256": "7d85e5d7bf50f42a7bf3150301686ec21e8c250a1eaed59378c89668533dedf6"
+    },
+    {
+      "name": "signed-word-comparisons-false",
+      "metrics": {
+        "code_bytes": 3037,
+        "cycles": 3132,
+        "dp_reads": 209,
+        "dp_writes": 210,
+        "routines": [
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "Ret"
+          },
+          {
+            "bytes": 117,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2603,
+            "frame": 10,
+            "name": "Work"
+          },
+          {
+            "bytes": 160,
+            "frame": 6,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 124,
+        "stack_writes": 121
+      },
+      "image_sha256": "7685e6c30b476311afb28018a137fe81e8bacb5c49be7552a19ed0f905a60043",
+      "source_sha256": "a72afaf1255ce92ff41215c376a49adae0eeaeff75daf918f822a70a1c7862d6",
+      "listing_sha256": "271df4da512f1263d2c62c0413074ed71ea7f4015ec10c93eb8d26495ce762c4"
+    },
+    {
+      "name": "signed-word-comparisons-true",
+      "metrics": {
+        "code_bytes": 3019,
+        "cycles": 3099,
+        "dp_reads": 209,
+        "dp_writes": 210,
+        "routines": [
+          {
+            "bytes": 157,
+            "frame": 6,
+            "name": "Ret"
+          },
+          {
+            "bytes": 117,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2585,
+            "frame": 10,
+            "name": "Work"
+          },
+          {
+            "bytes": 160,
+            "frame": 6,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 122,
+        "stack_writes": 115
+      },
+      "image_sha256": "2968f17ac0a78e5c5df73e275934212f6226d746fe1bb046c4f0fac49043b472",
+      "source_sha256": "a72afaf1255ce92ff41215c376a49adae0eeaeff75daf918f822a70a1c7862d6",
+      "listing_sha256": "e5de690748b7159e76def6079b05420bde373fcf898892475143ac09cc1a8049"
+    }
+  ],
+  "dijkstra_physical_homes": [
+    {
+      "optimize": false,
+      "signed_word_homes": [
+        {
+          "block": 1,
+          "destination": 9,
+          "left": "Stack(10)",
+          "operation": "Le",
+          "right": "Stack(12)",
+          "routine": "Init",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 4,
+          "destination": 9,
+          "left": "Stack(10)",
+          "operation": "Le",
+          "right": "Stack(12)",
+          "routine": "Init",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 0,
+          "destination": 7,
+          "left": "Stack(8)",
+          "operation": "Ge",
+          "right": "Immediate(1000)",
+          "routine": "Enqueue",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 1,
+          "destination": 15,
+          "left": "Stack(16)",
+          "operation": "Le",
+          "right": "Stack(18)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 8,
+          "destination": 15,
+          "left": "Stack(16)",
+          "operation": "Gt",
+          "right": "Stack(18)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 11,
+          "destination": 15,
+          "left": "Stack(16)",
+          "operation": "Le",
+          "right": "Stack(18)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 17,
+          "destination": 15,
+          "left": "Stack(20)",
+          "operation": "Gt",
+          "right": "Stack(16)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 1,
+          "destination": 7,
+          "left": "Stack(8)",
+          "operation": "Le",
+          "right": "Stack(10)",
+          "routine": "Benchmark",
+          "sole_adjacent_branch": true
+        }
+      ]
+    },
+    {
+      "optimize": true,
+      "signed_word_homes": [
+        {
+          "block": 1,
+          "destination": 5,
+          "left": "Stack(14)",
+          "operation": "Le",
+          "right": "Immediate(99)",
+          "routine": "Init",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 4,
+          "destination": 5,
+          "left": "Stack(16)",
+          "operation": "Le",
+          "right": "Immediate(99)",
+          "routine": "Init",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 0,
+          "destination": 5,
+          "left": "Stack(10)",
+          "operation": "Ge",
+          "right": "Immediate(1000)",
+          "routine": "Enqueue",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 1,
+          "destination": 9,
+          "left": "Stack(14)",
+          "operation": "Le",
+          "right": "Immediate(99)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 8,
+          "destination": 9,
+          "left": "Stack(10)",
+          "operation": "Gt",
+          "right": "Immediate(0)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 11,
+          "destination": 9,
+          "left": "Stack(18)",
+          "operation": "Le",
+          "right": "Immediate(99)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 17,
+          "destination": 9,
+          "left": "Stack(16)",
+          "operation": "Gt",
+          "right": "Stack(10)",
+          "routine": "Find",
+          "sole_adjacent_branch": true
+        },
+        {
+          "block": 1,
+          "destination": 1,
+          "left": "Stack(6)",
+          "operation": "Le",
+          "right": "Immediate(19)",
+          "routine": "Benchmark",
+          "sole_adjacent_branch": true
+        }
+      ]
+    }
+  ],
+  "equality_controls": {
+    "target/byte-pointer-comparisons/corpus-after/manifest.json": "dfae5abda000f6905aed4048eeb0d132cbe9480d08c0a6bf4d04debf4fd88d5d",
+    "target/byte-pointer-comparisons/dijkstra-final/manifest.json": "9ad47a2cee7836c953da30e6e4f578c0b9d723d0c5551d6981225e8228915e8c",
+    "docs/benchmarks/65816-byte-pointer-comparisons/exec-final.json": "3a5e93403802a6c3bdd595e26ac36cfee4b6254467a2d3bdd903941c5ab26ba7"
+  }
+}

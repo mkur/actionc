@@ -418,6 +418,7 @@ fn external_comparison_inventory() {
     for optimize in [false, true] {
         let p = crate::compiler::native65816::prepare_file(&source, optimize, &modules).unwrap();
         let mut groups = BTreeMap::<String, usize>::new();
+        let mut signed_homes = Vec::new();
         for r in p
             .mir
             .routines
@@ -444,6 +445,27 @@ fn external_comparison_inventory() {
                         && matches!(
                         &block.terminator,Mir65816Terminator::Branch{condition:Mir65816Value::Temp(id,w),..}
                         if id==dest && *w==ByteSize::ONE);
+                    if width.get() == 2
+                        && *signed
+                        && !matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne)
+                    {
+                        let destination = b.temp(*dest).unwrap().stack().unwrap();
+                        assert_eq!(destination.width, 1);
+                        b.displacement(destination.offset.into(), 0).unwrap();
+                        let a = b
+                            .word_operand(left)
+                            .unwrap()
+                            .expect("signed left word home");
+                        let c = b
+                            .word_operand(right)
+                            .unwrap()
+                            .expect("signed right word home");
+                        signed_homes.push(serde_json::json!({
+                            "routine":r.name,"block":block.id.0,"operation":format!("{operation:?}"),
+                            "left":format!("{a:?}"),"right":format!("{c:?}"),
+                            "destination":destination.offset,"sole_adjacent_branch":adjacent
+                        }));
+                    }
                     let native_word = b
                         .word_condition(*dest, width.get() as u8, *signed, *operation, left, right)
                         .unwrap()
@@ -467,7 +489,7 @@ fn external_comparison_inventory() {
                 }
             }
         }
-        results.push(serde_json::json!({"optimize":optimize,"groups":groups}));
+        results.push(serde_json::json!({"optimize":optimize,"groups":groups,"signed_word_homes":signed_homes}));
     }
     std::fs::write(
         std::env::var_os("A816_COMPARE_INVENTORY").unwrap(),
