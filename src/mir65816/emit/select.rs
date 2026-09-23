@@ -44,11 +44,56 @@ mod accumulator_tests;
 #[path = "scalar_word_tests.rs"]
 mod scalar_word_tests;
 
+#[cfg(test)]
+#[path = "call_tests.rs"]
+mod call_tests;
+
 // ABI call-clobbered domain scratch. Nothing here survives a call.
 const PTR: u8 = abi::generated::DP_POINTER0_OFFSET as u8;
 const RESULT: u8 = 8;
 const RIGHT: u8 = 16;
 const INDEX: u8 = 20;
+
+/// The verified ABI homes define payload; their intervening and trailing gaps
+/// still need explicit zero stores. Preflight before emitting a call guard.
+fn outgoing_padding(homes: &[Mir65816AbiHome], outgoing: ByteSize) -> Result<Vec<u8>, String> {
+    abi::stack::access_displacement(
+        ByteOffset::new(outgoing.get()),
+        ByteSize::ONE,
+        ByteSize::ZERO,
+    )
+    .map_err(|e| e.to_string())?;
+    let mut padding = Vec::new();
+    let mut gap = |start, end| -> Result<(), String> {
+        for offset in start..end {
+            let displacement = abi::stack::access_displacement(
+                ByteOffset::new(offset + 1), // bounded by the checked outgoing extent
+                ByteSize::ONE,
+                ByteSize::ZERO,
+            )
+            .map_err(|e| e.to_string())?;
+            padding.push(u8::try_from(displacement.get()).map_err(|_| "padding overflow")?);
+        }
+        Ok(())
+    };
+    let mut cursor = 0;
+    for home in homes {
+        let Mir65816AbiHome::StackArgument { offset, size, .. } = home else {
+            return Err("invalid outgoing home".into());
+        };
+        let end = offset
+            .get()
+            .checked_add(size.get())
+            .ok_or("argument extent overflow")?;
+        if size.is_zero() || offset.get() < cursor || end > outgoing.get() {
+            return Err("invalid outgoing argument range".into());
+        }
+        gap(cursor, offset.get())?;
+        cursor = end;
+    }
+    gap(cursor, outgoing.get())?;
+    Ok(padding)
+}
 
 #[derive(Clone, Copy)]
 enum Memory {
@@ -1928,6 +1973,7 @@ impl Builder<'_> {
         result: Option<(TempId, ByteSize)>,
         plan: &Mir65816CallPlan,
     ) -> Result<(), String> {
+        let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
             Mir65816CallTarget::Runtime(id) => Some(Target::Runtime(*id)),
@@ -1953,11 +1999,8 @@ impl Builder<'_> {
         assert_eq!(self.code.delta(), u32::from(outgoing));
         self.code.a8();
         self.code.byte(ByteOp::LdaImm, 0);
-        for i in 1..=outgoing {
-            self.code.byte(
-                ByteOp::StaStack,
-                u8::try_from(i).map_err(|_| "outgoing displacement overflow")?,
-            );
+        for displacement in padding {
+            self.code.byte(ByteOp::StaStack, displacement);
         }
         for (value, home) in args.iter().zip(&plan.arguments) {
             let Mir65816AbiHome::StackArgument { offset, size, .. } = home else {

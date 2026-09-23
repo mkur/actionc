@@ -214,7 +214,12 @@ fn assembly_observes_complete_arguments_and_zero_padding_in_both_modes() {
                     for &pad in &case.padding {
                         assert_eq!(writes[pad], 1);
                     }
-                    assert!(writes.iter().all(|&n| n >= 1));
+                    assert_eq!(
+                        writes,
+                        vec![1; outgoing],
+                        "{} indirect={indirect} optimized={optimize}",
+                        case.name
+                    );
                     h.run();
                     h.guards(mask);
                     assert_eq!(&h.bus.ram[RECORD..RECORD + outgoing], case.expected);
@@ -233,5 +238,154 @@ fn assembly_observes_complete_arguments_and_zero_padding_in_both_modes() {
             serde_json::to_vec_pretty(&records).unwrap(),
         )
         .unwrap();
+    }
+}
+
+#[test]
+fn captures_and_nested_calls_preserve_source_evaluation_and_caller_storage() {
+    let source = "MODULE TEST\n\
+        PUBLIC EXTERNAL LONGCARD FUNC Observe(BYTE a CARD b BYTE POINTER p LONGINT c)\n\
+        VOLATILE BYTE input=$7000\nLONGCARD result\nCARD calls,retained\n\
+        BYTE FUNC Capture() calls==+1 RETURN(input)\n\
+        CARD FUNC Mutate() input=$99 RETURN($3456)\n\
+        LONGCARD FUNC Forward(CARD value)\nCARD saved\nsaved=value value==+1\n\
+          result=Observe(Capture(),Mutate(),@input,LONGINT($BCDEF012))\n\
+          retained=saved+value\nRETURN(result)\n\
+        PROC Main() result=Forward($1234) RETURN\nENDMODULE\n";
+    for optimize in [false, true] {
+        let (compiled, _, _) = compile_case(source, optimize);
+        let image = &compiled.image;
+        for mask in [0, 4] {
+            let mut h = Harness::new(image, &caller(image.entry), mask);
+            h.bus.map(OBSERVE, &observer(13), false);
+            h.bus.ram[0x7000] = 0x12;
+            h.run();
+            h.guards(mask);
+            assert_eq!(
+                &h.bus.ram[RECORD..RECORD + 13],
+                &[
+                    0x12, 0, 0x56, 0x34, 0, 0x70, 0, 0, 0x12, 0xf0, 0xde, 0xbc, 0
+                ]
+            );
+            assert_eq!(h.global(image, "result", 4), 0x89abcdef);
+            assert_eq!(h.global(image, "calls", 2), 1);
+            assert_eq!(h.global(image, "retained", 2), 0x2469);
+            assert_eq!(h.bus.ram[0x7000], 0x99);
+        }
+    }
+}
+
+#[test]
+fn mixed_padding_and_indirect_continuations_execute_at_both_o65_placements() {
+    use actionc::mir65816::o65::{self as format, profile::Binding};
+    use support::o65 as native;
+    let case = cases().into_iter().find(|c| c.name == "mixed").unwrap();
+    for optimize in [false, true] {
+        for indirect in [false, true] {
+            let source = source(&case, indirect)
+                .replace("LONGCARD result", "BYTE payload\nLONGCARD result")
+                .replace("BYTE POINTER($AB789A)", "@payload");
+            let bytes = native::compile(
+                &source,
+                optimize,
+                vec![Binding {
+                    symbol: runtime_symbol_id("TEST.Observe").0,
+                    name: "Observe".into(),
+                    stack_peak: 0,
+                    checks_stack: true,
+                    irq_effect: Default::default(),
+                    domains: 3,
+                }],
+            );
+            let contract = format::inspect(&bytes)
+                .unwrap()
+                .imports
+                .iter()
+                .find(|i| i.name == "Observe")
+                .unwrap()
+                .contract
+                .clone();
+            for variant in 0..2 {
+                let provider = OBSERVE + variant as u32 * 0x20000;
+                let placement = native::placement(
+                    &bytes,
+                    variant,
+                    vec![
+                        native::fault(variant),
+                        format::Provider {
+                            name: "Observe".into(),
+                            address: provider,
+                            size: 0x1000,
+                            contract: contract.clone(),
+                        },
+                    ],
+                );
+                let image = format::relocate(&bytes, &placement).unwrap();
+                let mut expected = case.expected.clone();
+                expected[4..7]
+                    .copy_from_slice(&native::object(&image, "payload").to_le_bytes()[..3]);
+                for mask in [0, 4] {
+                    let mut h = Harness::new_o65(&image, &caller(image.entry()), mask);
+                    h.bus.map(provider, &observer(13), false);
+                    h.run();
+                    h.guards(mask);
+                    assert_eq!(&h.bus.ram[RECORD..RECORD + 13], expected);
+                    assert_eq!(h.bus.value(native::object(&image, "result"), 4), 0x89abcdef);
+                    native::record(
+                        &format!("call-padding-{indirect}-{mask}"),
+                        optimize,
+                        &bytes,
+                        &placement,
+                        &image,
+                        h.cpu.cycles(),
+                        None,
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn checked_outgoing_extents_fault_before_any_payload_or_transfer_write() {
+    use actionc_vm::native65816::Machine;
+    let case = cases().into_iter().find(|c| c.name == "mixed").unwrap();
+    for optimize in [false, true] {
+        for indirect in [false, true] {
+            let (compiled, start, outgoing) = compile_case(&source(&case, indirect), optimize);
+            let image = &compiled.image;
+            let need = outgoing as u16 + if indirect { 6 } else { 3 };
+            for (s, floor, ceiling) in [
+                (0x4100u16, 0x4100 - need + 1, 0x5ff0u16),
+                (0x4100, 0x4019, 0x40ff),
+                (need - 1, 0, 0x5ff0),
+            ] {
+                let mut h = Harness::new(image, &caller(image.entry), 0);
+                reach(&mut h, start);
+                let mut r = h.cpu.registers();
+                r.s = s;
+                h.cpu = Machine::start_at(r);
+                h.bus.ram[0x2044..0x2046].copy_from_slice(&floor.to_le_bytes());
+                h.bus.ram[0x2046..0x2048].copy_from_slice(&ceiling.to_le_bytes());
+                let before = h.bus.writes.len();
+                reach(&mut h, image.stack_overflow);
+                let r = h.cpu.registers();
+                assert_eq!((r.a, r.x, r.s), (need, s, s));
+                assert_eq!(h.bus.writes.len(), before);
+            }
+            // Exact guard floor is admitted. Stop at callee entry, before it
+            // can add an independent frame reservation of its own.
+            let mut h = Harness::new(image, &caller(image.entry), 0);
+            h.bus.map(OBSERVE, &observer(13), false);
+            reach(&mut h, start);
+            let s = h.cpu.registers().s;
+            h.bus.ram[0x2044..0x2046].copy_from_slice(&(s - need).to_le_bytes());
+            reach(&mut h, OBSERVE);
+            assert_eq!(h.cpu.registers().s, s - outgoing as u16 - 3);
+            assert_eq!(
+                &h.bus.ram[usize::from(s) - outgoing + 1..=usize::from(s)],
+                case.expected
+            );
+        }
     }
 }

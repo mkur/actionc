@@ -441,3 +441,51 @@ fn verifier_rejects_corrupt_boundaries_homes_and_premature_final_stack_claims() 
         );
     }
 }
+
+#[test]
+fn materialization_rejects_malformed_outgoing_payload_ranges() {
+    let source = "PROC Sink(BYTE a CARD b BYTE POINTER p) RETURN PROC Main() Sink(1,2,BYTE POINTER(0)) RETURN";
+    for nir in variants(source, TargetId::Wdc65816Native) {
+        let original = mir65816::lower_program(&nir).unwrap();
+        for mutation in 0..7 {
+            let mut changed = original.clone();
+            let (args, plan) = changed
+                .routines
+                .iter_mut()
+                .flat_map(|r| &mut r.blocks)
+                .flat_map(|b| &mut b.ops)
+                .find_map(|op| match op {
+                    Mir65816Op::Call { args, plan, .. } => Some((args, plan)),
+                    _ => None,
+                })
+                .unwrap();
+            match mutation {
+                0 => args.clear(),
+                1 => plan.arguments[0] = Mir65816AbiHome::NativeResult(abi::ResultLocation::A16),
+                2 => plan.arguments.swap(0, 1),
+                3 => {
+                    let Mir65816AbiHome::StackArgument { offset, .. } = &mut plan.arguments[1]
+                    else {
+                        unreachable!()
+                    };
+                    *offset = ByteOffset::ZERO;
+                }
+                4 => {
+                    let Mir65816AbiHome::StackArgument { size, .. } = &mut plan.arguments[1] else {
+                        unreachable!()
+                    };
+                    *size = ByteSize::ZERO;
+                }
+                5 => plan.outgoing_bytes = ByteSize::new(256),
+                6 => plan.outgoing_bytes = ByteSize::new(5),
+                _ => unreachable!(),
+            }
+            assert!(
+                mir65816::emit::materialize(&changed)
+                    .unwrap_err()
+                    .starts_with("invalid MIR65816:"),
+                "mutation {mutation}"
+            );
+        }
+    }
+}

@@ -134,6 +134,17 @@ reservation. Direct JSL and indirect RTL entry retain distinct transfer and
 return-stack phases; the indirect RTL is a call, not a routine return. Unannotated
 probe calls retain all register/flag inputs and unknown memory effects.
 
+Call construction checks the complete outgoing and transfer reservation before
+changing S, clears only alignment/tail padding, then defines each argument byte
+once through the existing value-byte writer. The verified stack argument homes,
+not their aggregate extent, identify payload: holes within that extent remain
+zero. No-argument calls retain their one-byte zero area. The A8 setup/zero load,
+source order and extension, indirect target capture, transfer, cleanup and
+result capture are unchanged. All bytes are initialized before transfer.
+Caller home accesses retain the outgoing S delta and cannot overlap the fresh
+outgoing area. Context restoration may resume partially constructed arguments;
+no new helper, persistent scratch or interrupt-masking assumption is introduced.
+
 The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
 execution modes and environment, exact private stack-home generations, stack
 movement and the existing single-use adjacent-word permission. DP and unknown

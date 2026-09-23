@@ -6,6 +6,117 @@ use support::{context::*, *};
 fn machine(optimize: bool) -> ContextHarness {
     machine_source(&fixture("preemption.act"), optimize)
 }
+
+#[test]
+fn outgoing_padding_and_payload_resume_at_every_direct_and_indirect_call_boundary() {
+    use actionc::mir65816::{Mir65816CallTarget, Mir65816Op, emit};
+    let source = fixture("preemption.act")
+        .replace("PROC Task(Job POINTER work)", "CARD ARRAY paddingDirect(42),paddingIndirect(42)\nCARD FUNC PaddingMixed(BYTE tag CARD value BYTE POINTER ptr LONGCARD wide)\nRETURN(CARD(tag)+value+CARD(ptr^)+CARD(wide))\nPROC Task(Job POINTER work)")
+        .replace("  BYTE outer,inner", "  CARD FUNC POINTER paddingCallback(BYTE tag CARD value BYTE POINTER ptr LONGCARD wide)\n  BYTE outer,inner")
+        .replace("  peer=work.other", "  peer=work.other\n  paddingDirect(work.seed)=PaddingMixed($12,work.seed,work.buffer,LONGCARD($12345678))\n  paddingCallback=@PaddingMixed\n  paddingIndirect(work.seed)=paddingCallback($12,work.seed,work.buffer,LONGCARD($12345678))");
+    let mut records = vec![];
+    for optimize in [false, true] {
+        let p = prepare(&source, optimize);
+        let callee = p
+            .mir
+            .routines
+            .iter()
+            .find(|r| r.name.to_ascii_uppercase().contains("_PADDINGMIXED_"))
+            .unwrap()
+            .id;
+        let task = p
+            .mir
+            .routines
+            .iter()
+            .find(|r| r.name.to_ascii_uppercase().contains("_TASK_"))
+            .unwrap();
+        let m = emit::materialize(&p.mir).unwrap();
+        let code = &m.routines.iter().find(|r| r.id == task.id).unwrap().code;
+        let mut h = initialize(ContextHarness::from_prepared(
+            &source,
+            optimize,
+            "Task",
+            &[0x7100, 0x7120],
+            p.clone(),
+        ));
+        let base = routine(&h.image, "Task");
+        let ranges: Vec<_> = task
+            .blocks
+            .iter()
+            .flat_map(|b| {
+                b.ops.iter().enumerate().filter_map(|(i, op)| match op {
+                    Mir65816Op::Call { target, args, .. }
+                        if matches!(target, Mir65816CallTarget::Direct(id) if *id == callee.0)
+                            || matches!(target, Mir65816CallTarget::Indirect(..))
+                                && args.len() == 4 =>
+                    {
+                        let r = &code.mir_spans[&(b.id, i)];
+                        Some((
+                            base + r.start as u32..base + r.end as u32,
+                            matches!(target, Mir65816CallTarget::Indirect(..)),
+                        ))
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
+        assert_eq!(ranges.len(), 2);
+        let check_padding = |h: &ContextHarness| {
+            for seed in [13u32, 41] {
+                for name in ["paddingDirect", "paddingIndirect"] {
+                    assert_eq!(
+                        h.bus.value(symbol(&h.image, name) + 2 * seed, 2),
+                        0x5678 + 0x12 + seed + 10
+                    );
+                }
+            }
+        };
+        let mut seen = BTreeSet::new();
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            if h.cpu.is_instruction_boundary()
+                && r.p & 4 == 0
+                && [0x2000, 0x2100].contains(&r.d)
+                && let Some((_, indirect)) =
+                    ranges.iter().find(|(range, _)| range.contains(&h.cpu.pc()))
+                && seen.insert((r.d, h.cpu.pc()))
+            {
+                let cpu = h.cpu.clone();
+                let bus = h.bus.clone();
+                for nmi in [false, true] {
+                    if nmi {
+                        restore_frame_nmi(&mut h);
+                        run_injected(&mut h, false, None);
+                    } else {
+                        run_checked_fused_irq(&mut h);
+                    }
+                    check_padding(&h);
+                    records.push(serde_json::json!({"optimize":optimize,"domain":r.d,"pc":cpu.pc(),"indirect":indirect,"nmi":nmi}));
+                    h.cpu = cpu.clone();
+                    h.bus = bus.clone();
+                }
+            }
+            h.tick(Inputs::default());
+        }
+        check(&h);
+        check_padding(&h);
+        assert!(
+            seen.len() > 100,
+            "only {} reached call boundaries",
+            seen.len()
+        );
+    }
+    if let Ok(dir) = std::env::var("A816_QUALIFICATION_DIR") {
+        std::fs::write(
+            Path::new(&dir).join("call-padding-preemption.json"),
+            serde_json::to_vec_pretty(&records).unwrap(),
+        )
+        .unwrap();
+    }
+}
 fn machine_source(source: &str, optimize: bool) -> ContextHarness {
     initialize(ContextHarness::new(
         source,

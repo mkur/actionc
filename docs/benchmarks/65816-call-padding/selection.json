@@ -1,0 +1,70 @@
+{
+  "root_unit_passed": 195,
+  "root_unit_ignored": 1,
+  "root_integration_passed": 31,
+  "focused_native_passed": 29,
+  "focused_manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-ekpg3qrl/manifest.json",
+  "focused_manifest_sha256": "6767b2ce755778ba60b92229b9f20ed3d0486264b8882f98539db6e3ef90736c",
+  "final_call_padding_manifest": "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/target/qualification/run-v5g_iox_/manifest.json",
+  "final_call_padding_manifest_sha256": "34d5683028b3d666d858595198f0d8173122e5a54f46861a690db9a8e589e8aa",
+  "observations_sha256": "4e00dcaff74d99b597486f98390e101f117be090b8f869730d1b7519d5238321",
+  "executions": 68,
+  "each_outgoing_byte_written_once": true,
+  "preemption_injections": 1016,
+  "preemption_matrix": [
+    {
+      "optimized": false,
+      "indirect": false,
+      "nmi": false,
+      "injections": 108
+    },
+    {
+      "optimized": false,
+      "indirect": false,
+      "nmi": true,
+      "injections": 108
+    },
+    {
+      "optimized": false,
+      "indirect": true,
+      "nmi": false,
+      "injections": 144
+    },
+    {
+      "optimized": false,
+      "indirect": true,
+      "nmi": true,
+      "injections": 144
+    },
+    {
+      "optimized": true,
+      "indirect": false,
+      "nmi": false,
+      "injections": 108
+    },
+    {
+      "optimized": true,
+      "indirect": false,
+      "nmi": true,
+      "injections": 108
+    },
+    {
+      "optimized": true,
+      "indirect": true,
+      "nmi": false,
+      "injections": 148
+    },
+    {
+      "optimized": true,
+      "indirect": true,
+      "nmi": true,
+      "injections": 148
+    }
+  ],
+  "maximum_source_signature": {
+    "payload": 252,
+    "outgoing": 253,
+    "last_incoming_parameter_displacement": 255
+  },
+  "bank_zero_reserved_bytes_delta": 0
+}

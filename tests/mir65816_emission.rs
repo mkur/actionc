@@ -34,6 +34,50 @@ fn layout() -> image::LinkOptions {
 }
 
 #[test]
+fn native_calls_clear_internal_and_tail_padding_before_unchanged_payload_writes() {
+    for optimize in [false, true] {
+        let p = mir(
+            "PROC Sink(BYTE a CARD b BYTE POINTER p LONGINT c) RETURN PROC Main() Sink($12,$3456,BYTE POINTER($AB789A),LONGINT($BCDEF012)) RETURN",
+            optimize,
+        );
+        let machine = emit::materialize(&p).unwrap();
+        let main = p.routines.iter().find(|r| r.name == "Main").unwrap();
+        let code = &machine
+            .routines
+            .iter()
+            .find(|r| r.id == main.id)
+            .unwrap()
+            .code;
+        let (block, index, plan) = main
+            .blocks
+            .iter()
+            .find_map(|b| {
+                b.ops.iter().enumerate().find_map(|(i, op)| match op {
+                    mir65816::Mir65816Op::Call { plan, .. } => Some((b.id, i, plan)),
+                    _ => None,
+                })
+            })
+            .unwrap();
+        assert_eq!(plan.outgoing_bytes.get(), 13);
+        let bytes = &code.bytes[code.mir_spans[&(block, index)].clone()];
+        // A8/zero setup, only the three padding bytes, then the first payload.
+        let expected = [
+            0xe2, 0x20, 0xa9, 0, 0x83, 2, 0x83, 8, 0x83, 13, 0xa9, 0x12, 0x83, 1,
+        ];
+        assert_eq!(
+            bytes
+                .windows(expected.len())
+                .filter(|w| *w == expected)
+                .count(),
+            1
+        );
+        let linked = image::link(&p, &machine, &layout()).unwrap();
+        let main = linked.routines.iter().find(|r| r.name == "Main").unwrap();
+        assert_eq!(main.local_stack_peak, main.fixed_frame + 13 + 3);
+    }
+}
+
+#[test]
 fn native_word_add_sub_use_dp_without_changing_abi_costs() {
     for operation in ["+", "-"] {
         for optimize in [false, true] {
