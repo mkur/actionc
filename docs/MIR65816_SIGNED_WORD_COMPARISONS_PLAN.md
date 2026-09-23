@@ -1,10 +1,13 @@
 # Native signed 16-bit comparisons and branch fusion
 
-Status: proposed on 2026-09-23 against main `f27218bc`, following the completed
-[BYTE/pointer comparisons](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md). Planning
-only; implementation has not started. This selects item 1 of the
-[size backlog](BACKLOG.md#native-65816-code-size-reduction); the other items
-remain deferred.
+Status: completed on 2026-09-23. The baseline, typed forms and selection slices
+are committed as `bfa740b0`, `18fd7bd4` and `7afa719f`; final qualification and
+measurements are recorded in the [results](benchmarks/65816-signed-word-comparisons/README.md)
+and [qualification record](abi/action65816-signed-word-comparisons-qualification.json).
+The plan was proposed against main `f27218bc`, following the completed
+[BYTE/pointer comparisons](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md). Its original
+scope and forecasts below remain for comparison with the measured outcome.
+Other [size backlog](BACKLOG.md#native-65816-code-size-reduction) items remain deferred.
 
 ## Objective and scope
 
@@ -25,10 +28,10 @@ new forwarding/residency rules, scalar DP admission changes, broader branch
 relaxation, guard compaction and Exec compiler-pin changes. No SemIR/NIR or
 public MIR shape changes and no new optimizer pass belong here.
 
-## Current output and baseline
+## Frozen planning baseline
 
-[`word_condition`](../src/mir65816/emit/select.rs) explicitly excludes signed
-ordering. The fallback compares high bytes after XOR `$80`, then low bytes,
+[`word_condition`](../src/mir65816/emit/select.rs) at the planning revision excluded signed
+ordering. That fallback compares high bytes after XOR `$80`, then low bytes,
 stages through DP `RIGHT`, emits three result arms and stores a Boolean. A
 following Branch reloads that Boolean. The existing `Condition`, `native_compare`,
 `compare_branch` and `sole_branch_conditions` already provide the integration
@@ -37,7 +40,7 @@ points; use them rather than creating another comparison/use-analysis framework.
 Planning measurements and source are frozen in
 [planning.json](benchmarks/65816-signed-word-comparisons/planning.json) and
 [planning-probes.act](benchmarks/65816-signed-word-comparisons/planning-probes.act).
-The current compiler emitted both modes, with identical LF/CRLF images. Routine
+The planning compiler emitted both modes, with identical LF/CRLF images. Routine
 sizes include entry guard, argument captures and return code:
 
 | Probe | Raw bytes / frame | Optimized bytes / frame |
@@ -223,6 +226,14 @@ sites. Keep all 28 current small-corpus Action images and frozen Exec shell
 images/XEX byte-identical; explain any unexpected change before accepting it.
 
 ## Commit-sized implementation slices
+
+All four slices are complete. The returned probes measure 123 bytes; branch
+probes measure 140, both below their ceilings with six-byte frames retained.
+Dijkstra shrinks 487 bytes raw and 489 optimized; all 22 guards and frame/home
+contracts are unchanged. The 28 small-corpus images and both frozen Exec shell
+images/XEX files are byte-identical. Full native debug/release qualification
+passes; the unchanged external vbcc `unlink` failure remains visible in corpus
+reports. See the results linked above for counters, provenance and limits.
 
 ### 0. Freeze semantic and machine-code baselines
 

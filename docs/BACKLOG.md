@@ -5,8 +5,8 @@ backend follow-ups linked to their design and measurement documents.
 
 ## Native 65816 Code-Size Reduction
 
-Status: signed word comparisons are selected for planning below; implementation
-has not started. Other items remain backlogged at user request. Prioritize
+Status: signed word comparisons and direct branch fusion are implemented.
+Other items remain backlogged at user request. Prioritize
 emitted code size, with execution cycles as a secondary constraint.
 This ordering supersedes the earlier throughput-first recommendation in the
 [Dijkstra comparison](benchmarks/65816-dijkstra/README.md) and the remaining
@@ -37,34 +37,31 @@ Their low dynamic cost (0.151% of benchmark cycles) does not make them cheap in
 code size. Excluding those bytes only for accounting leaves 5,207 bytes, still
 3.53× vbcc's entire module; guard removal is not proposed.
 
-Prioritized candidates, each requiring a focused implementation plan when resumed:
+The [signed word comparison plan](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md)
+is implemented. Its eight Dijkstra branch sites reduce raw code 6,365→5,878
+bytes and optimized code 5,779→5,290 bytes, with unchanged homes and all 22
+guards. Optimized `Find` is now 1,887 bytes. The small corpus and frozen Exec
+shell remain byte-identical. See the [results](benchmarks/65816-signed-word-comparisons/README.md).
+The historical table above remains the original baseline.
 
-1. **Native signed word comparisons with direct branching.** The current
-   [word selector](../src/mir65816/emit/select.rs) admits equality and unsigned
-   ordering but excludes signed ordered comparisons. Ordinary INT loop tests
-   therefore expand into bytewise comparisons, multiple jumps and materialized
-   Booleans. Add compact signed 16-bit relational selection and branch-only
-   forms where eligible; preserve overflow semantics and materialized Boolean
-   results when they are actually consumed. The
-   [implementation plan](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md) is proposed:
-   current Dijkstra has eight adjacent signed-ordering sites, four in `Find`;
-   the frozen Exec shell has none and serves as an output-equality control.
-   This planning selection does not authorize implementation of other items.
-2. **Broader local branch relaxation.** Extend the existing
+Remaining candidates, each requiring a focused implementation plan when resumed:
+
+1. **Broader local branch relaxation.** Extend the existing
    [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch
    sites to eligible local conditional transfers and unconditional jumps.
-   Inspection of the optimized Dijkstra listing finds 67 non-guard six-byte
+   The original optimized Dijkstra inventory found 67 non-guard six-byte
    conditional sequences whose destinations fit two-byte branches in the
-   current layout: 268 bytes of encoding opportunity. This is an inventory,
+   then-current layout: 268 bytes of encoding opportunity. Re-inventory current
+   output before planning; signed selection changed those sites. This is an inventory,
    not an implemented or qualified saving; overlapping jump savings must not
    be counted twice. Preserve bank/range checks, labels, fixups, PER continuations,
    proof metadata and o65 relocation.
-3. **Compact address construction.** Reduce repeated pointer materialization,
+2. **Compact address construction.** Reduce repeated pointer materialization,
    temporary copies and bytewise scaled-index expansion through ordinary
    lowering. Use native-width operations where justified while retaining full
    24-bit results and bank carries. Calls, helper clobbers, aliasing and volatile
    effects remain barriers unless existing facts prove a narrower effect.
-4. **Compact stack-guard encoding.** Retain every required check, its position
+3. **Compact stack-guard encoding.** Retain every required check, its position
    before stack mutation and its failure behavior. Reduce encoding overhead
    without changing the public ABI, stack bounds or preemption guarantees.
 

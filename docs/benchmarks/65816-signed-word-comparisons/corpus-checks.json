@@ -1,0 +1,28 @@
+{
+  "records_per_profile": 264,
+  "profiles_equal": true,
+  "all_measurements_equal_to_baseline": true,
+  "action_records_passed": 132,
+  "expected_existing_external_failures": [
+    {
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "case": "unlink",
+      "vector": 0,
+      "errors": [
+        "memory $12ffff: expected $00, got $fc; last store PC $010030"
+      ]
+    }
+  ],
+  "exit_codes": {
+    "debug": 101,
+    "release": 101
+  },
+  "report_validated": true,
+  "hashes": {
+    "target/signed-word-comparisons/corpus/manifest.json": "e50789d2648400dccf14d94d491bb1a54a2daf5c02fb786ba4b43d6066d4b28c",
+    "target/signed-word-comparisons/corpus/debug.json": "00246c040b0b4c510b9fa096389c325fe094e56b4c4e6c1ff5ddbcb9aafa78e2",
+    "target/signed-word-comparisons/corpus/release.json": "00246c040b0b4c510b9fa096389c325fe094e56b4c4e6c1ff5ddbcb9aafa78e2",
+    "target/signed-word-comparisons/corpus-report/provenance.json": "8599e099717b35be2c2e2d2ff46f097ba8ded7e3baca0247c7ec7c0ace06fa60"
+  }
+}

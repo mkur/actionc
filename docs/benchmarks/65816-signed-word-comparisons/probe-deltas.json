@@ -1,0 +1,382 @@
+[
+  {
+    "probe": "signed-size-probes-false",
+    "before": {
+      "code_bytes": 1644,
+      "cycles": 84,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "routines": [
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetLt"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchLt"
+        },
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetLe"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchLe"
+        },
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetGt"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchGt"
+        },
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetGe"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchGe"
+        },
+        {
+          "bytes": 161,
+          "frame": 6,
+          "name": "Imm"
+        },
+        {
+          "bytes": 47,
+          "frame": 0,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 3,
+      "stack_writes": 4
+    },
+    "after": {
+      "code_bytes": 1230,
+      "cycles": 84,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "routines": [
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetLt"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchLt"
+        },
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetLe"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchLe"
+        },
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetGt"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchGt"
+        },
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetGe"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchGe"
+        },
+        {
+          "bytes": 131,
+          "frame": 6,
+          "name": "Imm"
+        },
+        {
+          "bytes": 47,
+          "frame": 0,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 3,
+      "stack_writes": 4
+    },
+    "guards": 10,
+    "routine_contracts_unchanged": true
+  },
+  {
+    "probe": "signed-size-probes-true",
+    "before": {
+      "code_bytes": 1636,
+      "cycles": 84,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "routines": [
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetLt"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchLt"
+        },
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetLe"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchLe"
+        },
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetGt"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchGt"
+        },
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "RetGe"
+        },
+        {
+          "bytes": 202,
+          "frame": 6,
+          "name": "BranchGe"
+        },
+        {
+          "bytes": 153,
+          "frame": 4,
+          "name": "Imm"
+        },
+        {
+          "bytes": 47,
+          "frame": 0,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 3,
+      "stack_writes": 4
+    },
+    "after": {
+      "code_bytes": 1219,
+      "cycles": 84,
+      "dp_reads": 0,
+      "dp_writes": 0,
+      "routines": [
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetLt"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchLt"
+        },
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetLe"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchLe"
+        },
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetGt"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchGt"
+        },
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "RetGe"
+        },
+        {
+          "bytes": 140,
+          "frame": 6,
+          "name": "BranchGe"
+        },
+        {
+          "bytes": 120,
+          "frame": 4,
+          "name": "Imm"
+        },
+        {
+          "bytes": 47,
+          "frame": 0,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 3,
+      "stack_writes": 4
+    },
+    "guards": 10,
+    "routine_contracts_unchanged": true
+  },
+  {
+    "probe": "signed-word-comparisons-false",
+    "before": {
+      "code_bytes": 3037,
+      "cycles": 3132,
+      "dp_reads": 209,
+      "dp_writes": 210,
+      "routines": [
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "Ret"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 2603,
+          "frame": 10,
+          "name": "Work"
+        },
+        {
+          "bytes": 160,
+          "frame": 6,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 124,
+      "stack_writes": 121
+    },
+    "after": {
+      "code_bytes": 2471,
+      "cycles": 2955,
+      "dp_reads": 196,
+      "dp_writes": 197,
+      "routines": [
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "Ret"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 2071,
+          "frame": 10,
+          "name": "Work"
+        },
+        {
+          "bytes": 160,
+          "frame": 6,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 146,
+      "stack_writes": 117
+    },
+    "guards": 7,
+    "routine_contracts_unchanged": true
+  },
+  {
+    "probe": "signed-word-comparisons-true",
+    "before": {
+      "code_bytes": 3019,
+      "cycles": 3099,
+      "dp_reads": 209,
+      "dp_writes": 210,
+      "routines": [
+        {
+          "bytes": 157,
+          "frame": 6,
+          "name": "Ret"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 2585,
+          "frame": 10,
+          "name": "Work"
+        },
+        {
+          "bytes": 160,
+          "frame": 6,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 122,
+      "stack_writes": 115
+    },
+    "after": {
+      "code_bytes": 2451,
+      "cycles": 2916,
+      "dp_reads": 196,
+      "dp_writes": 197,
+      "routines": [
+        {
+          "bytes": 123,
+          "frame": 6,
+          "name": "Ret"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 2051,
+          "frame": 10,
+          "name": "Work"
+        },
+        {
+          "bytes": 160,
+          "frame": 6,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 142,
+      "stack_writes": 111
+    },
+    "guards": 7,
+    "routine_contracts_unchanged": true
+  }
+]

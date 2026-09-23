@@ -17,7 +17,7 @@ on demand, original loads are reconstructed once and replay uses verified input
 CFGs. The checked driver remains the sole removal authority. The subsequent
 Dijkstra comparison establishes emitted code size as the next priority; the
 [ordered code-size backlog](BACKLOG.md#native-65816-code-size-reduction) is
-deferred at user request, with no implementation authorized for now. Broader
+deferred at user request except for the completed comparison slices below. Broader
 allocation and further replay machinery remain deferred.
 
 The user-selected [BYTE and pointer comparison plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md)
@@ -28,12 +28,13 @@ with all 547 routine contracts and 2,279 guards intact. Optimized Dijkstra falls
 6,197→5,779 bytes; the small corpus's 28 Action images are byte-identical.
 See [measurements and qualification](benchmarks/65816-byte-pointer-comparisons/README.md).
 
-The next selected planning scope is
-[native signed word comparisons and branch fusion](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md).
-The proposed plan adapts MIR6502's overflow correction to A16 and the existing
-condition selector. Current Dijkstra has eight signed-ordering branch sites;
-the frozen Exec shell has none. Implementation has not started, and allocation,
-broader branch relaxation and the other backlog items remain deferred.
+The [native signed word comparison and branch-fusion plan](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md)
+is implemented. A16 subtraction and overflow correction replace eight Dijkstra
+branch sites: raw code falls 6,365→5,878 bytes and optimized code 5,779→5,290;
+optimized `Find` falls 2,132→1,887. All homes and guards remain unchanged.
+The small corpus and frozen Exec shell are byte-identical. See the
+[measured results](benchmarks/65816-signed-word-comparisons/README.md).
+Allocation, broader branch relaxation and the other backlog items remain deferred.
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
@@ -164,16 +165,15 @@ Typed selection/effects, home and machine analyses, authoritative replay,
 checked transactions and the adjacent temporary forwarding migration are
 complete and qualified. The
 [BYTE and pointer comparison plan](MIR65816_BYTE_POINTER_COMPARISONS_PLAN.md),
-prepared from the Exec816 measurements, is also complete. Other work remains
-backlogged, with a
+prepared from the Exec816 measurements, and the
 [signed-word implementation plan](MIR65816_SIGNED_WORD_COMPARISONS_PLAN.md)
-now prepared for item 1; implementation has not started. The earlier
-[code-size backlog](BACKLOG.md#native-65816-code-size-reduction) orders native
-signed word comparisons/direct branches, broader local branch relaxation,
-compact address construction and compact guard encoding ahead of further
-allocation work. Its Dijkstra measurements and acceptance criteria govern that
-ordering among those deferred candidates. The earlier address-generation-first
-throughput recommendation remains superseded.
+are also implemented. The remaining
+[code-size backlog](BACKLOG.md#native-65816-code-size-reduction) orders broader
+local branch relaxation, compact address construction and compact guard encoding
+ahead of further allocation work. Re-inventory the current output before planning
+branch relaxation; the earlier candidate counts describe older comparison
+sequences. The address-generation-first throughput recommendation remains
+superseded. Other work remains backlogged pending a focused scope.
 
 Removable-store inventory, mutable-counter promotion, broader residency and
 selective DP extensions remain later candidates. Use the existing stored-definition,

@@ -1,0 +1,133 @@
+{
+  "records": 132,
+  "executions": 264,
+  "cases": 33,
+  "all_correct": true,
+  "profile": "release",
+  "modes": [
+    "raw",
+    "optimized"
+  ],
+  "interrupt_masks": [
+    0,
+    4
+  ],
+  "all_stack_peaks_unchanged": true,
+  "vbcc_measurements_unchanged": true,
+  "benchmark": [
+    {
+      "compiler": "actionc",
+      "mode": "raw",
+      "case": "benchmark-original",
+      "before": {
+        "cycles": 1971316896,
+        "instructions": 523684235,
+        "peak_below_entry_s": 96,
+        "stack_reads": 132160393,
+        "stack_writes": 109633598,
+        "dp_reads": 178966047,
+        "dp_writes": 168630333,
+        "mode_switches": 49339783,
+        "stack_check_cycles": 2877984
+      },
+      "after": {
+        "cycles": 1817441150,
+        "instructions": 473404692,
+        "peak_below_entry_s": 96,
+        "stack_reads": 129127035,
+        "stack_writes": 106583391,
+        "dp_reads": 172881247,
+        "dp_writes": 162545533,
+        "mode_switches": 38681624,
+        "stack_check_cycles": 2877984
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "case": "benchmark-original",
+      "before": {
+        "cycles": 1841244249,
+        "instructions": 502470639,
+        "peak_below_entry_s": 86,
+        "stack_reads": 105676000,
+        "stack_writes": 71149282,
+        "dp_reads": 178936117,
+        "dp_writes": 168600343,
+        "mode_switches": 52904755,
+        "stack_check_cycles": 2877984
+      },
+      "after": {
+        "cycles": 1690355361,
+        "instructions": 452161064,
+        "peak_below_entry_s": 86,
+        "stack_reads": 102641407,
+        "stack_writes": 68099075,
+        "dp_reads": 172851317,
+        "dp_writes": 162515543,
+        "mode_switches": 42216564,
+        "stack_check_cycles": 2877984
+      }
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "raw",
+      "case": "benchmark-original",
+      "before": {
+        "cycles": 1198440309,
+        "instructions": 302475886,
+        "peak_below_entry_s": 44,
+        "stack_reads": 44686414,
+        "stack_writes": 16829156,
+        "dp_reads": 167014005,
+        "dp_writes": 165222422,
+        "mode_switches": 7530466,
+        "stack_check_cycles": 0
+      },
+      "after": {
+        "cycles": 1198440309,
+        "instructions": 302475886,
+        "peak_below_entry_s": 44,
+        "stack_reads": 44686414,
+        "stack_writes": 16829156,
+        "dp_reads": 167014005,
+        "dp_writes": 165222422,
+        "mode_switches": 7530466,
+        "stack_check_cycles": 0
+      }
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "case": "benchmark-original",
+      "before": {
+        "cycles": 1029379326,
+        "instructions": 257272716,
+        "peak_below_entry_s": 56,
+        "stack_reads": 17204042,
+        "stack_writes": 10988551,
+        "dp_reads": 175411177,
+        "dp_writes": 147689760,
+        "mode_switches": 3835080,
+        "stack_check_cycles": 0
+      },
+      "after": {
+        "cycles": 1029379326,
+        "instructions": 257272716,
+        "peak_below_entry_s": 56,
+        "stack_reads": 17204042,
+        "stack_writes": 10988551,
+        "dp_reads": 175411177,
+        "dp_writes": 147689760,
+        "mode_switches": 3835080,
+        "stack_check_cycles": 0
+      }
+    }
+  ],
+  "hashes": {
+    "target/signed-word-comparisons/dijkstra/manifest.json": "5e768b583e2a90b60a358309107242253c7c74a1d9f0f5c284d5ac5a76356cf9",
+    "target/signed-word-comparisons/dijkstra/release-results.json": "b7e589deb2d88b41892a24610df9318787432dea199d66525feff77f301246f3",
+    "target/signed-word-comparisons/dijkstra/release-qualification.json": "feaf208e92736de48f354f941dcb92dc46652b67236bb76b8452ed5494cee319",
+    "target/signed-word-comparisons/dijkstra-report/provenance.json": "71b12c8aff2564ec6da23aed135fa5db045ff5e0ab585919e7714d625af20361"
+  }
+}

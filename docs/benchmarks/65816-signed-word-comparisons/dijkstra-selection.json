@@ -1,0 +1,170 @@
+[
+  {
+    "groups": {
+      "width=2/signed=true/Ge/sole-branch/word-selector/Enqueue": 1,
+      "width=2/signed=true/Gt/sole-branch/word-selector/Find": 2,
+      "width=2/signed=true/Le/sole-branch/word-selector/Benchmark": 1,
+      "width=2/signed=true/Le/sole-branch/word-selector/Find": 2,
+      "width=2/signed=true/Le/sole-branch/word-selector/Init": 2
+    },
+    "optimize": false,
+    "signed_word_homes": [
+      {
+        "block": 1,
+        "destination": 9,
+        "left": "Stack(10)",
+        "operation": "Le",
+        "right": "Stack(12)",
+        "routine": "Init",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 4,
+        "destination": 9,
+        "left": "Stack(10)",
+        "operation": "Le",
+        "right": "Stack(12)",
+        "routine": "Init",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 0,
+        "destination": 7,
+        "left": "Stack(8)",
+        "operation": "Ge",
+        "right": "Immediate(1000)",
+        "routine": "Enqueue",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 1,
+        "destination": 15,
+        "left": "Stack(16)",
+        "operation": "Le",
+        "right": "Stack(18)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 8,
+        "destination": 15,
+        "left": "Stack(16)",
+        "operation": "Gt",
+        "right": "Stack(18)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 11,
+        "destination": 15,
+        "left": "Stack(16)",
+        "operation": "Le",
+        "right": "Stack(18)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 17,
+        "destination": 15,
+        "left": "Stack(20)",
+        "operation": "Gt",
+        "right": "Stack(16)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 1,
+        "destination": 7,
+        "left": "Stack(8)",
+        "operation": "Le",
+        "right": "Stack(10)",
+        "routine": "Benchmark",
+        "sole_adjacent_branch": true
+      }
+    ]
+  },
+  {
+    "groups": {
+      "width=2/signed=true/Ge/sole-branch/word-selector/Enqueue": 1,
+      "width=2/signed=true/Gt/sole-branch/word-selector/Find": 2,
+      "width=2/signed=true/Le/sole-branch/word-selector/Benchmark": 1,
+      "width=2/signed=true/Le/sole-branch/word-selector/Find": 2,
+      "width=2/signed=true/Le/sole-branch/word-selector/Init": 2
+    },
+    "optimize": true,
+    "signed_word_homes": [
+      {
+        "block": 1,
+        "destination": 5,
+        "left": "Stack(14)",
+        "operation": "Le",
+        "right": "Immediate(99)",
+        "routine": "Init",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 4,
+        "destination": 5,
+        "left": "Stack(16)",
+        "operation": "Le",
+        "right": "Immediate(99)",
+        "routine": "Init",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 0,
+        "destination": 5,
+        "left": "Stack(10)",
+        "operation": "Ge",
+        "right": "Immediate(1000)",
+        "routine": "Enqueue",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 1,
+        "destination": 9,
+        "left": "Stack(14)",
+        "operation": "Le",
+        "right": "Immediate(99)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 8,
+        "destination": 9,
+        "left": "Stack(10)",
+        "operation": "Gt",
+        "right": "Immediate(0)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 11,
+        "destination": 9,
+        "left": "Stack(18)",
+        "operation": "Le",
+        "right": "Immediate(99)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 17,
+        "destination": 9,
+        "left": "Stack(16)",
+        "operation": "Gt",
+        "right": "Stack(10)",
+        "routine": "Find",
+        "sole_adjacent_branch": true
+      },
+      {
+        "block": 1,
+        "destination": 1,
+        "left": "Stack(6)",
+        "operation": "Le",
+        "right": "Immediate(19)",
+        "routine": "Benchmark",
+        "sole_adjacent_branch": true
+      }
+    ]
+  }
+]

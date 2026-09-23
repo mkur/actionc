@@ -1,0 +1,279 @@
+{
+  "date": "2026-09-23",
+  "scope": "MIR65816 signed 16-bit ordering and adjacent branch fusion; no frontend, NIR, ABI, allocation or guard changes",
+  "implementation_commits": [
+    "bfa740b0",
+    "18fd7bd4",
+    "7afa719f"
+  ],
+  "native_profiles": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-_y5xgouf/manifest.json",
+      "manifest_sha256": "78143f043f784e9829f70325c5295daff29d9a1f85c127fbac2bda34457bcef5",
+      "log_sha256": "43651cfd70499957155c604cd89c6f6a7c0153077dbb69c520836ae1bc73cf9c",
+      "tests_passed": 150,
+      "tests_ignored": 4,
+      "compiler_revision": "7afa719f10f8a12cc1f001e31163c3adb65daa6f",
+      "inputs_sha256": "645e782ab2dbee3af2d2161a8b05ae6d2dd614b59c788f3c72625447d3bf3003",
+      "artifacts": 736,
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-tdo2f338/manifest.json",
+      "manifest_sha256": "34153ef0864990aa42f84bc9e1ba939561ece7fe65dcf7566db9da51155fa85b",
+      "log_sha256": "757aa7c525e3f9e57b70953ca3e2954b6a501fb85b773b6e71ce3176f4156c97",
+      "tests_passed": 150,
+      "tests_ignored": 4,
+      "compiler_revision": "7afa719f10f8a12cc1f001e31163c3adb65daa6f",
+      "inputs_sha256": "645e782ab2dbee3af2d2161a8b05ae6d2dd614b59c788f3c72625447d3bf3003",
+      "artifacts": 736,
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A"
+    }
+  },
+  "native_profile_inputs_identical": true,
+  "native_profile_artifact_differences": [],
+  "root_checks": {
+    "unit": {
+      "passed": 193,
+      "ignored": 1,
+      "command": "cargo test --lib --features native65816-state-proof mir65816::",
+      "log_sha256": "d2f27a1afe70150cd0c72458fc04d22e75b115e5f834145c7bcc5fda74e64757"
+    },
+    "integration": {
+      "passed": 61,
+      "targets": [
+        "mir65816_emission",
+        "mir65816_contract",
+        "mir65816_abi",
+        "mir65816_state_boundary",
+        "mir65816_o65",
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli"
+      ],
+      "log_sha256": "990951423a8da10db93674f34742ebe83f015d0c1463f96ccaae226af7512ae6"
+    },
+    "python_decoder_tests": 8
+  },
+  "crlf": "Actual signed-probe, corpus and Dijkstra LF/CRLF source compilation; preemption source instrumentation checks LF and CRLF",
+  "interrupt_sweep_sites_per_mode": 590,
+  "masked_nmi_sweep": true,
+  "small_corpus": {
+    "records_per_profile": 264,
+    "profiles_equal": true,
+    "all_measurements_equal_to_baseline": true,
+    "action_records_passed": 132,
+    "expected_existing_external_failures": [
+      {
+        "compiler": "vbcc",
+        "mode": "optimized",
+        "case": "unlink",
+        "vector": 0,
+        "errors": [
+          "memory $12ffff: expected $00, got $fc; last store PC $010030"
+        ]
+      }
+    ],
+    "exit_codes": {
+      "debug": 101,
+      "release": 101
+    },
+    "report_validated": true,
+    "hashes": {
+      "target/signed-word-comparisons/corpus/manifest.json": "e50789d2648400dccf14d94d491bb1a54a2daf5c02fb786ba4b43d6066d4b28c",
+      "target/signed-word-comparisons/corpus/debug.json": "00246c040b0b4c510b9fa096389c325fe094e56b4c4e6c1ff5ddbcb9aafa78e2",
+      "target/signed-word-comparisons/corpus/release.json": "00246c040b0b4c510b9fa096389c325fe094e56b4c4e6c1ff5ddbcb9aafa78e2",
+      "target/signed-word-comparisons/corpus-report/provenance.json": "8599e099717b35be2c2e2d2ff46f097ba8ded7e3baca0247c7ec7c0ace06fa60"
+    }
+  },
+  "exec": [
+    {
+      "mode": "raw",
+      "source_revision": "8e1ff57",
+      "code_bytes": 533672,
+      "xex_bytes": 550794,
+      "routines": 547,
+      "guards": 2287,
+      "images_and_xex_byte_identical": true,
+      "sha256": {
+        "program.a816.json": "f1d60af63c1bf7fdf38adfd5c2eb243e1a19c0b87fc2f2b3a17f4827693777ce",
+        "program.xex": "1bd9ea001186cba2a83d9572718eeabcdff73a3fad9b8c1cf1d3f39c18997bb8",
+        "kernel-program.act": "72c8becb4b0863f4df67ce5d8f5a859ac21d9ffd6b447513aaae60056ee9c5b6",
+        "build.json": "d1e292af940702d5caec48e9c9c04f630515aa525dda5a49798c27709db6e1b6"
+      }
+    },
+    {
+      "mode": "optimized",
+      "source_revision": "8e1ff57",
+      "code_bytes": 502845,
+      "xex_bytes": 519393,
+      "routines": 547,
+      "guards": 2279,
+      "images_and_xex_byte_identical": true,
+      "sha256": {
+        "program.a816.json": "09b9cfd0d4ac57b22bf44e523486ca785b19e111cfb2db20ba301e6b9dd2350f",
+        "program.xex": "99355a275f4245592febed87188f619de041f03f4a8d06defbbec52177360303",
+        "kernel-program.act": "72c8becb4b0863f4df67ce5d8f5a859ac21d9ffd6b447513aaae60056ee9c5b6",
+        "build.json": "4e983e759a47096446b5a64a5a8706215120c5af9909ed80f337b2c7923a0086"
+      }
+    }
+  ],
+  "unrelated_suites_run": [],
+  "dijkstra": {
+    "records": 132,
+    "executions": 264,
+    "cases": 33,
+    "all_correct": true,
+    "profile": "release",
+    "modes": [
+      "raw",
+      "optimized"
+    ],
+    "interrupt_masks": [
+      0,
+      4
+    ],
+    "all_stack_peaks_unchanged": true,
+    "vbcc_measurements_unchanged": true,
+    "benchmark": [
+      {
+        "compiler": "actionc",
+        "mode": "raw",
+        "case": "benchmark-original",
+        "before": {
+          "cycles": 1971316896,
+          "instructions": 523684235,
+          "peak_below_entry_s": 96,
+          "stack_reads": 132160393,
+          "stack_writes": 109633598,
+          "dp_reads": 178966047,
+          "dp_writes": 168630333,
+          "mode_switches": 49339783,
+          "stack_check_cycles": 2877984
+        },
+        "after": {
+          "cycles": 1817441150,
+          "instructions": 473404692,
+          "peak_below_entry_s": 96,
+          "stack_reads": 129127035,
+          "stack_writes": 106583391,
+          "dp_reads": 172881247,
+          "dp_writes": 162545533,
+          "mode_switches": 38681624,
+          "stack_check_cycles": 2877984
+        }
+      },
+      {
+        "compiler": "actionc",
+        "mode": "optimized",
+        "case": "benchmark-original",
+        "before": {
+          "cycles": 1841244249,
+          "instructions": 502470639,
+          "peak_below_entry_s": 86,
+          "stack_reads": 105676000,
+          "stack_writes": 71149282,
+          "dp_reads": 178936117,
+          "dp_writes": 168600343,
+          "mode_switches": 52904755,
+          "stack_check_cycles": 2877984
+        },
+        "after": {
+          "cycles": 1690355361,
+          "instructions": 452161064,
+          "peak_below_entry_s": 86,
+          "stack_reads": 102641407,
+          "stack_writes": 68099075,
+          "dp_reads": 172851317,
+          "dp_writes": 162515543,
+          "mode_switches": 42216564,
+          "stack_check_cycles": 2877984
+        }
+      },
+      {
+        "compiler": "vbcc",
+        "mode": "raw",
+        "case": "benchmark-original",
+        "before": {
+          "cycles": 1198440309,
+          "instructions": 302475886,
+          "peak_below_entry_s": 44,
+          "stack_reads": 44686414,
+          "stack_writes": 16829156,
+          "dp_reads": 167014005,
+          "dp_writes": 165222422,
+          "mode_switches": 7530466,
+          "stack_check_cycles": 0
+        },
+        "after": {
+          "cycles": 1198440309,
+          "instructions": 302475886,
+          "peak_below_entry_s": 44,
+          "stack_reads": 44686414,
+          "stack_writes": 16829156,
+          "dp_reads": 167014005,
+          "dp_writes": 165222422,
+          "mode_switches": 7530466,
+          "stack_check_cycles": 0
+        }
+      },
+      {
+        "compiler": "vbcc",
+        "mode": "optimized",
+        "case": "benchmark-original",
+        "before": {
+          "cycles": 1029379326,
+          "instructions": 257272716,
+          "peak_below_entry_s": 56,
+          "stack_reads": 17204042,
+          "stack_writes": 10988551,
+          "dp_reads": 175411177,
+          "dp_writes": 147689760,
+          "mode_switches": 3835080,
+          "stack_check_cycles": 0
+        },
+        "after": {
+          "cycles": 1029379326,
+          "instructions": 257272716,
+          "peak_below_entry_s": 56,
+          "stack_reads": 17204042,
+          "stack_writes": 10988551,
+          "dp_reads": 175411177,
+          "dp_writes": 147689760,
+          "mode_switches": 3835080,
+          "stack_check_cycles": 0
+        }
+      }
+    ],
+    "hashes": {
+      "target/signed-word-comparisons/dijkstra/manifest.json": "5e768b583e2a90b60a358309107242253c7c74a1d9f0f5c284d5ac5a76356cf9",
+      "target/signed-word-comparisons/dijkstra/release-results.json": "b7e589deb2d88b41892a24610df9318787432dea199d66525feff77f301246f3",
+      "target/signed-word-comparisons/dijkstra/release-qualification.json": "feaf208e92736de48f354f941dcb92dc46652b67236bb76b8452ed5494cee319",
+      "target/signed-word-comparisons/dijkstra-report/provenance.json": "71b12c8aff2564ec6da23aed135fa5db045ff5e0ab585919e7714d625af20361"
+    }
+  },
+  "evidence_sha256": {
+    "docs/benchmarks/65816-signed-word-comparisons/baseline.json": "2603ffc31fbcb26226f6a9520214f1f3fa320d86120317d6e97b6ec8ba6e5cf8",
+    "docs/benchmarks/65816-signed-word-comparisons/corpus-checks.json": "ab80e686b198e504dcdb9ab963c43bd8d0316542f81a06959688306c9c8672eb",
+    "docs/benchmarks/65816-signed-word-comparisons/corpus-images.json": "5d1098fc49b5b078b39bf5d8efb3944aa9c0e64d295100b0e2366ecbfbb8cf1a",
+    "docs/benchmarks/65816-signed-word-comparisons/corpus-results.csv": "0d569a83f06d33579e759056423bd4901121dda9282ef3f09f374123a7b0baf8",
+    "docs/benchmarks/65816-signed-word-comparisons/dijkstra-execution.json": "b60a1f375dbc26556f1e6504efb587472fd06aa8ae1bf7493505092dffff4152",
+    "docs/benchmarks/65816-signed-word-comparisons/dijkstra-results.csv": "98c4608db7748286135744a9a3a4e32af37aaabda95bdadb0ca4ca8b6d1f49cc",
+    "docs/benchmarks/65816-signed-word-comparisons/dijkstra-routine-profile.csv": "a771e05e79a326a460e0d4dd5ed0fe427271c1989a235158720bc04223d7e804",
+    "docs/benchmarks/65816-signed-word-comparisons/dijkstra-routine-sizes.csv": "53df2bf9902b44b0a43f89c88241f5ef09403449069c0ad0166bb4481107aaa7",
+    "docs/benchmarks/65816-signed-word-comparisons/dijkstra-selection.json": "241af676e983682fa58c9edb2c59d350ca03b7fa144d0a99cff72e012ba04809",
+    "docs/benchmarks/65816-signed-word-comparisons/dijkstra-sizes.json": "1f61f0fd03f0682230b68e651f7714a65eceda847ded4423a0b2ba742c373c5a",
+    "docs/benchmarks/65816-signed-word-comparisons/exec-control.json": "f8331ec90b32e0fafdbff07bec7c769c1f149ceded0268363c21b38722a794d1",
+    "docs/benchmarks/65816-signed-word-comparisons/forms.json": "c2c647638d2a041bc3703be7e7ef7dfba08bfef70a4650b7fde526b21831b89b",
+    "docs/benchmarks/65816-signed-word-comparisons/planning.json": "490042c31e75711ab2c46f8af22ff1bb96ac019a18387560a704fdb56cf8727a",
+    "docs/benchmarks/65816-signed-word-comparisons/probe-deltas.json": "e88a7d7ff549d137e41bed459584d0c3586069e1046a60868ddbc7946edd21d2",
+    "docs/benchmarks/65816-signed-word-comparisons/selection.json": "4c8d6ce9f1ce9ec1c76ff2ecff30668d64a95c0cdaa266d59c08e472049490ca"
+  }
+}

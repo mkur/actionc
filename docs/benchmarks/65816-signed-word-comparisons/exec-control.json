@@ -1,0 +1,32 @@
+[
+  {
+    "mode": "raw",
+    "source_revision": "8e1ff57",
+    "code_bytes": 533672,
+    "xex_bytes": 550794,
+    "routines": 547,
+    "guards": 2287,
+    "images_and_xex_byte_identical": true,
+    "sha256": {
+      "program.a816.json": "f1d60af63c1bf7fdf38adfd5c2eb243e1a19c0b87fc2f2b3a17f4827693777ce",
+      "program.xex": "1bd9ea001186cba2a83d9572718eeabcdff73a3fad9b8c1cf1d3f39c18997bb8",
+      "kernel-program.act": "72c8becb4b0863f4df67ce5d8f5a859ac21d9ffd6b447513aaae60056ee9c5b6",
+      "build.json": "d1e292af940702d5caec48e9c9c04f630515aa525dda5a49798c27709db6e1b6"
+    }
+  },
+  {
+    "mode": "optimized",
+    "source_revision": "8e1ff57",
+    "code_bytes": 502845,
+    "xex_bytes": 519393,
+    "routines": 547,
+    "guards": 2279,
+    "images_and_xex_byte_identical": true,
+    "sha256": {
+      "program.a816.json": "09b9cfd0d4ac57b22bf44e523486ca785b19e111cfb2db20ba301e6b9dd2350f",
+      "program.xex": "99355a275f4245592febed87188f619de041f03f4a8d06defbbec52177360303",
+      "kernel-program.act": "72c8becb4b0863f4df67ce5d8f5a859ac21d9ffd6b447513aaae60056ee9c5b6",
+      "build.json": "4e983e759a47096446b5a64a5a8706215120c5af9909ed80f337b2c7923a0086"
+    }
+  }
+]

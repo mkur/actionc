@@ -1,0 +1,38 @@
+[
+  {
+    "mode": "raw",
+    "compiler": "actionc",
+    "before": 6365,
+    "after": 5878,
+    "saved": 487,
+    "guards": 22,
+    "contracts_unchanged": true,
+    "before_image_sha256": "bfbda9caa2576091dcc93a9cc57a7d044e01c27e8589341da77928a41b4c8ead",
+    "after_image_sha256": "0aec4eb7d6b7315ee013911885c90d7ac751f721fdee23dd8fa6e80ee2ee3211"
+  },
+  {
+    "mode": "optimized",
+    "compiler": "actionc",
+    "before": 5779,
+    "after": 5290,
+    "saved": 489,
+    "guards": 22,
+    "contracts_unchanged": true,
+    "before_image_sha256": "9d4ba09e7b0c57b1cbadb9af355d3cb8f10c22da5f85573b5805a7789b5b12f4",
+    "after_image_sha256": "5ef8bcd8657e404d26ab36d88c025bea2ca0d9c4424d0575c265dcff2ae1034d"
+  },
+  {
+    "mode": "raw",
+    "compiler": "vbcc",
+    "before": 1697,
+    "after": 1697,
+    "saved": 0
+  },
+  {
+    "mode": "optimized",
+    "compiler": "vbcc",
+    "before": 1477,
+    "after": 1477,
+    "saved": 0
+  }
+]
