@@ -44,6 +44,7 @@ pub(super) struct TrackedEmitter65816 {
     state: State65816,
     recording: Recording,
     planned_loads: Vec<super::rewrite::pilot::Candidate>,
+    #[cfg(feature = "native65816-state-proof")]
     reference_planning: bool,
     x_contract: Option<XContract>,
     x_reserved: bool,
@@ -512,6 +513,7 @@ impl TrackedEmitter65816 {
             home,
             load,
         });
+        #[cfg(feature = "native65816-state-proof")]
         if self.reference_planning {
             return self.consume_word(temp, home, offset);
         }
@@ -527,6 +529,7 @@ impl TrackedEmitter65816 {
             equivalent
         })
     }
+    #[cfg(feature = "native65816-state-proof")]
     pub fn use_reference_planning(&mut self, reference: bool) {
         self.reference_planning = reference;
     }

@@ -11,6 +11,7 @@ use super::{
 };
 
 /// One-shot test transaction; never a fixed-point production rule.
+#[cfg(test)]
 pub(in crate::mir65816::emit) fn identity(
     context: &Context<'_>,
     first: SelectedSite,
@@ -80,6 +81,7 @@ pub(super) fn prove_adjacent(
         .map_err(|b| b.reason)
 }
 
+#[cfg(test)]
 pub(in crate::mir65816::emit) fn adjacent(
     context: &Context<'_>,
     load: SelectedSite,

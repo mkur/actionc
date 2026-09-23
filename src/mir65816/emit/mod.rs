@@ -41,12 +41,17 @@ pub fn materialize(program: &Mir65816Program) -> Result<MachineProgram, String> 
 }
 
 fn materialize_inner(program: &Mir65816Program, trace: bool) -> Result<MachineProgram, String> {
-    materialize_path(program, trace, true)
+    materialize_path(
+        program,
+        trace,
+        #[cfg(feature = "native65816-state-proof")]
+        true,
+    )
 }
 fn materialize_path(
     program: &Mir65816Program,
     trace: bool,
-    replay: bool,
+    #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineProgram, String> {
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
     if program.call_convention != Mir65816CallConvention::Native {
@@ -74,8 +79,13 @@ fn materialize_path(
             ));
         }
         routines.push(
-            select::routine_with_replay(routine, trace, replay)
-                .map_err(|e| format!("{}: {e}", routine.name))?,
+            select::routine_with_replay(
+                routine,
+                trace,
+                #[cfg(feature = "native65816-state-proof")]
+                replay,
+            )
+            .map_err(|e| format!("{}: {e}", routine.name))?,
         );
     }
     Ok(MachineProgram { routines })

@@ -21,6 +21,7 @@ pub(in crate::mir65816::emit) struct Statistics {
 pub(in crate::mir65816::emit) struct Driver {
     pub statistics: Statistics,
     remaining: usize,
+    #[cfg(test)]
     identity_used: bool,
 }
 impl Driver {
@@ -28,6 +29,7 @@ impl Driver {
         Self {
             statistics: Statistics::default(),
             remaining: limit,
+            #[cfg(test)]
             identity_used: false,
         }
     }
@@ -37,6 +39,7 @@ impl Driver {
             if self.remaining == 0 {
                 return Err("rewrite iteration limit".into());
             }
+            #[cfg(test)]
             if plan.rule == Rule::Identity && self.identity_used {
                 return Err("identity transaction is one-shot".into());
             }
@@ -45,7 +48,10 @@ impl Driver {
             // and analysis construction have completed before any mutation.
             *output = scratch;
             self.remaining -= 1;
-            self.identity_used |= plan.rule == Rule::Identity;
+            #[cfg(test)]
+            {
+                self.identity_used |= plan.rule == Rule::Identity;
+            }
             self.statistics.applied += 1;
             Ok(())
         })();
@@ -137,6 +143,7 @@ impl Driver {
         // Closed rules also validate replacement reads and live-state
         // equivalence. No arbitrary replacement wins through deadness alone.
         match plan.rule {
+            #[cfg(test)]
             Rule::Identity if original == plan.replacement => {}
             Rule::Adjacent {
                 request,
@@ -160,7 +167,10 @@ impl Driver {
         // CFG/generation were rebuilt by edited(). Rebuild dataflow once on
         // the fresh finalized selection below; positions are not proof facts.
         let scratch = layout::finalize(replay::emit(&edited, trace)?, true)?;
-        if plan.rule != Rule::Identity && scratch.bytes.len() >= output.bytes.len() {
+        let decreasing = true;
+        #[cfg(test)]
+        let decreasing = decreasing && plan.rule != Rule::Identity;
+        if decreasing && scratch.bytes.len() >= output.bytes.len() {
             return Err("rewrite metric did not decrease".into());
         }
         let rebuilt = Context::new(

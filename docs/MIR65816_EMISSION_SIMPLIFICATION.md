@@ -54,3 +54,18 @@ The host-tool controls use real child processes to verify per-child accounting
 and reject changed output hashes or incorrect build cardinality. Timing values
 are observations, not CI thresholds. Saved before/after reports include all
 samples, binary/tool/source hashes and the exact methodology.
+
+## Removed migration scaffolding
+
+The unused shadow runner is deleted. Synthetic identity transactions and their
+one-shot bookkeeping exist only in unit tests. Reference-selection arguments,
+the tracked reference flag and exact reference-output comparison exist only in
+qualification builds; ordinary emission has one checked route. The active
+independent reference/replay tests and the frame/incoming witness implementation
+remain. Dead-code allowances are confined to the retained proof query surface.
+
+The ordinary CLI reproduces all 28 Action images, including CRLF compilation.
+The [full corpus gate](benchmarks/65816-emission-simplification/s1-equality.json)
+preserves all 224 comparison artifacts and 264 records in both host profiles,
+including only the known optimized vbcc unlink vector-0 failure. Four scoped
+native checked-rewrite/replay tests retain their two historical artifacts.

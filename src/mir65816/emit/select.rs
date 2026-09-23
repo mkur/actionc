@@ -95,12 +95,17 @@ struct Builder<'a> {
 
 #[cfg(test)]
 pub(super) fn routine(routine: &Mir65816Routine, _trace: bool) -> Result<MachineRoutine, String> {
-    routine_with_replay(routine, _trace, true)
+    routine_with_replay(
+        routine,
+        _trace,
+        #[cfg(feature = "native65816-state-proof")]
+        true,
+    )
 }
 pub(super) fn routine_with_replay(
     routine: &Mir65816Routine,
     _trace: bool,
-    replay: bool,
+    #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineRoutine, String> {
     let frame = AllocatedFrame::new(routine)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
@@ -112,6 +117,7 @@ pub(super) fn routine_with_replay(
         blocks: BTreeMap::new(),
         next_block: None,
     };
+    #[cfg(feature = "native65816-state-proof")]
     b.code.use_reference_planning(!replay);
     #[cfg(feature = "native65816-state-proof")]
     if _trace {
@@ -269,11 +275,15 @@ pub(super) fn routine_with_replay(
     let homes = super::analysis::homes::HomeContract::from_verified(routine, &b.frame)?;
     let candidates = b.code.take_planned_loads();
     let direct = b.code.finish_selected(routine.id, &b.frame, Some(homes))?;
-    let code = if replay {
-        super::rewrite::pilot::apply(&direct, &candidates, _trace)?
-    } else {
-        super::layout::finalize(direct, true)?
-    };
+    #[cfg(feature = "native65816-state-proof")]
+    if !replay {
+        return Ok(MachineRoutine {
+            id: routine.id,
+            frame: b.frame,
+            code: super::layout::finalize(direct, true)?,
+        });
+    }
+    let code = super::rewrite::pilot::apply(&direct, &candidates, _trace)?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

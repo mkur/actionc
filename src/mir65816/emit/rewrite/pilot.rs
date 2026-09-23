@@ -68,59 +68,6 @@ fn decision(
     end.decision
         .ok_or_else(|| "missing projected consume observation".into())
 }
-pub(in crate::mir65816::emit) fn shadow(
-    code: &Code,
-    candidates: &[Candidate],
-    trace: bool,
-) -> Result<Vec<Observation>, String> {
-    let selected = code.selected.as_ref().ok_or("missing planned selection")?;
-    let context = Context::new(selected)?;
-    let reference = layout::finalize(code.clone(), true)?;
-    let mut observations = Vec::new();
-    for candidate in candidates {
-        let request = selected.site(candidate.request)?;
-        let old = decision(selected, candidate)?;
-        let proof = context
-            .adjacent_load(request, candidate.temp, candidate.home, &candidate.load)
-            .into_result();
-        if old != proof.is_ok() {
-            return Err(format!(
-                "adjacent shadow mismatch at {}: old={old}, checked={proof:?}",
-                candidate.request.0
-            ));
-        }
-        if old {
-            // Analyze an actual original LDA, never infer read removability from
-            // the projection in which the old predicate already omitted it.
-            let load_node = Node(candidate.request.0 + 2);
-            let original = driver::insert_load(selected, load_node, &candidate.load)?;
-            let mut scratch = layout::finalize(replay::emit(&original, trace)?, true)?;
-            let s = scratch
-                .selected
-                .as_ref()
-                .ok_or("missing original candidate")?;
-            let plan = rules::adjacent(&Context::new(s)?, s.site(load_node)?)
-                .into_result()
-                .map_err(|b| b.reason)?;
-            Driver::new(1)
-                .apply(&mut scratch, &plan, trace)
-                .into_result()
-                .map_err(|b| b.reason)?;
-            replay::equivalent(&reference, &scratch)?;
-        }
-        observations.push(Observation {
-            request_ordinal: candidate.request.0,
-            accepted: old,
-            reason: proof
-                .err()
-                .map_or_else(|| "proven A16/home/NZ equivalence".into(), |b| b.reason),
-            original_load: kind(&candidate.load),
-            private_read_bytes_removed: if old { 2 } else { 0 },
-        });
-    }
-    Ok(observations)
-}
-
 pub(in crate::mir65816::emit) fn apply(
     code: &Code,
     candidates: &[Candidate],

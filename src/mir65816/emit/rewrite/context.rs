@@ -39,6 +39,7 @@ pub(in crate::mir65816::emit) struct Context<'a> {
     pub selected: &'a SelectedRoutine,
     pub facts: AnalysisSnapshot<'a>,
 }
+#[allow(dead_code)] // Tested liveness queries are retained for subsequent rules.
 impl<'a> Context<'a> {
     pub fn adjacent_load(
         &self,

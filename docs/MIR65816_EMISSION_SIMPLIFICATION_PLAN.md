@@ -1,6 +1,6 @@
 # Native 65816 emission simplification implementation plan
 
-Status: slice 0 complete; slices 1–5 pending. See the
+Status: slices 0–1 complete; slices 2–5 pending. See the
 [implementation record](MIR65816_EMISSION_SIMPLIFICATION.md). Based on
 main `9640df19`, whose qualified compiler source is `e4fd88b5`. This follows the
 [completed analysis foundation](MIR65816_ANALYSIS_REWRITE_QUALIFICATION.md).
@@ -109,6 +109,8 @@ timing observation is not a flaky CI threshold.
 of duplicated work. No compiler policy change or permanent profiling subsystem.
 
 ## Slice 1 — Remove obsolete migration scaffolding
+
+Completed: [qualification](benchmarks/65816-emission-simplification/slice1.json).
 
 Audit call sites, then remove the unreferenced `pilot::shadow` runner. The saved
 shadow qualification remains immutable evidence. Keep the active independent
