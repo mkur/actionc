@@ -1,0 +1,198 @@
+[
+  {
+    "case": "identity",
+    "mode": "raw",
+    "before": 51,
+    "after": 51,
+    "image_equal": true
+  },
+  {
+    "case": "identity",
+    "mode": "optimized",
+    "before": 51,
+    "after": 51,
+    "image_equal": true
+  },
+  {
+    "case": "add",
+    "mode": "raw",
+    "before": 62,
+    "after": 62,
+    "image_equal": true
+  },
+  {
+    "case": "add",
+    "mode": "optimized",
+    "before": 62,
+    "after": 62,
+    "image_equal": true
+  },
+  {
+    "case": "subtract",
+    "mode": "raw",
+    "before": 62,
+    "after": 62,
+    "image_equal": true
+  },
+  {
+    "case": "subtract",
+    "mode": "optimized",
+    "before": 62,
+    "after": 62,
+    "image_equal": true
+  },
+  {
+    "case": "constant_chain",
+    "mode": "raw",
+    "before": 147,
+    "after": 147,
+    "image_equal": true
+  },
+  {
+    "case": "constant_chain",
+    "mode": "optimized",
+    "before": 57,
+    "after": 57,
+    "image_equal": true
+  },
+  {
+    "case": "maximum",
+    "mode": "raw",
+    "before": 90,
+    "after": 90,
+    "image_equal": true
+  },
+  {
+    "case": "maximum",
+    "mode": "optimized",
+    "before": 90,
+    "after": 90,
+    "image_equal": true
+  },
+  {
+    "case": "wide_shift",
+    "mode": "raw",
+    "before": 401,
+    "after": 401,
+    "image_equal": true
+  },
+  {
+    "case": "wide_shift",
+    "mode": "optimized",
+    "before": 377,
+    "after": 377,
+    "image_equal": true
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "raw",
+    "before": 170,
+    "after": 170,
+    "image_equal": true
+  },
+  {
+    "case": "loop_rotation",
+    "mode": "optimized",
+    "before": 126,
+    "after": 126,
+    "image_equal": true
+  },
+  {
+    "case": "sum_loop",
+    "mode": "raw",
+    "before": 146,
+    "after": 146,
+    "image_equal": true
+  },
+  {
+    "case": "sum_loop",
+    "mode": "optimized",
+    "before": 120,
+    "after": 120,
+    "image_equal": true
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "raw",
+    "before": 206,
+    "after": 206,
+    "image_equal": true
+  },
+  {
+    "case": "recursive_sum",
+    "mode": "optimized",
+    "before": 191,
+    "after": 191,
+    "image_equal": true
+  },
+  {
+    "case": "direct_calls",
+    "mode": "raw",
+    "before": 311,
+    "after": 311,
+    "image_equal": true
+  },
+  {
+    "case": "direct_calls",
+    "mode": "optimized",
+    "before": 311,
+    "after": 311,
+    "image_equal": true
+  },
+  {
+    "case": "byte_sum",
+    "mode": "raw",
+    "before": 244,
+    "after": 244,
+    "image_equal": true
+  },
+  {
+    "case": "byte_sum",
+    "mode": "optimized",
+    "before": 218,
+    "after": 218,
+    "image_equal": true
+  },
+  {
+    "case": "record_field",
+    "mode": "raw",
+    "before": 80,
+    "after": 80,
+    "image_equal": true
+  },
+  {
+    "case": "record_field",
+    "mode": "optimized",
+    "before": 80,
+    "after": 80,
+    "image_equal": true
+  },
+  {
+    "case": "unlink",
+    "mode": "raw",
+    "before": 189,
+    "after": 189,
+    "image_equal": true
+  },
+  {
+    "case": "unlink",
+    "mode": "optimized",
+    "before": 127,
+    "after": 127,
+    "image_equal": true
+  },
+  {
+    "case": "forward_copy",
+    "mode": "raw",
+    "before": 297,
+    "after": 297,
+    "image_equal": true
+  },
+  {
+    "case": "forward_copy",
+    "mode": "optimized",
+    "before": 284,
+    "after": 284,
+    "image_equal": true
+  }
+]

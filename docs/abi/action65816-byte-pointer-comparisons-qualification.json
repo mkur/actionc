@@ -1,0 +1,132 @@
+{
+  "date": "2026-09-23",
+  "scope": "MIR65816 emission only; no NIR, frontend, ABI or guard changes",
+  "implementation_commits": [
+    "8dc2a8cc",
+    "8df14962",
+    "ba74391e"
+  ],
+  "native_profiles": {
+    "debug": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-xftnkm7i/manifest.json",
+      "manifest_sha256": "2a9d6adc5cdfac9470e08191f464fbe29b5bdc25e0de4b3d7462af3db29b69d9",
+      "log_sha256": "675a5b00d8b6a259880966eca60d34aa728718e081fcddd2cd6fbb9993085189",
+      "tests_passed": 142,
+      "tests_ignored": 4,
+      "compiler_revision": "ba74391e355631bf50e1da619f4f797541ef1268",
+      "inputs_sha256": "f091408e4de2d9bc854dcb623caa9ef523441a83a32635cb1757cbfaf3302ce6",
+      "artifacts": 702,
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A"
+    },
+    "release": {
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-0u5df4o3/manifest.json",
+      "manifest_sha256": "f0c83b536db8e89b05a6bb0a4d2bee4766d25d18415e80e71763f842cc06ef36",
+      "log_sha256": "8d3640ff30e2149cf7acfac66fdcaff68365f25a450999eb1620ccbe6cfa2419",
+      "tests_passed": 142,
+      "tests_ignored": 4,
+      "compiler_revision": "ba74391e355631bf50e1da619f4f797541ef1268",
+      "inputs_sha256": "f091408e4de2d9bc854dcb623caa9ef523441a83a32635cb1757cbfaf3302ce6",
+      "artifacts": 702,
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "ca65": "ca65 V2.18 - N/A",
+      "ld65": "ld65 V2.18 - N/A"
+    }
+  },
+  "native_profile_inputs_identical": true,
+  "native_profile_artifact_differences": [],
+  "root_checks": {
+    "unit": {
+      "command": "cargo test --lib --features native65816-state-proof mir65816::",
+      "passed": 187,
+      "ignored": 1,
+      "log_sha256": "ce7a816506de5745992e32516ec6cdd6293ed46975b5c88db983f354a547e04f"
+    },
+    "integration": {
+      "targets": [
+        "mir65816_emission",
+        "mir65816_contract",
+        "mir65816_abi",
+        "mir65816_state_boundary",
+        "mir65816_o65",
+        "actionc_65816_cli",
+        "actionc_65816_o65_cli"
+      ],
+      "passed": 61,
+      "log_sha256": "04e3ddb2d02512900997dc1e363fc7d0f5e25b3a11df407be5dd7b94410e8e37"
+    }
+  },
+  "crlf": "Actual LF/CRLF compilation: byte/pointer probes and the small corpus/Dijkstra builders; preemption fixture transformation checks normalized LF/CRLF text. Exact binary and trace bytes retained.",
+  "interrupt_sweep_sites_per_mode": {
+    "byte": 360,
+    "pointer": 630
+  },
+  "small_corpus": {
+    "records_per_profile": 264,
+    "debug_release_identical": true,
+    "raw_optimized_action_images_unchanged": 28,
+    "action_records_correct": 132,
+    "known_failure": {
+      "compiler": "vbcc",
+      "case": "unlink",
+      "mode": "optimized",
+      "vector": 0,
+      "retained": true
+    },
+    "debug_exit": 101,
+    "release_exit": 101
+  },
+  "exec": {
+    "source": "8e1ff57",
+    "compiler_pin": "ae1f555e77d0ae6caffbfc7453cbf06e3d098bee",
+    "pin_changed": false,
+    "profiles": [
+      "core",
+      "console",
+      "shell"
+    ],
+    "modes": [
+      "raw",
+      "optimized"
+    ],
+    "frame_contracts_checked": 2038,
+    "same_guards": true,
+    "same_bank_zero_budgets": true,
+    "hosted_acceptance_run": false
+  },
+  "unrelated_suites_run": false,
+  "dijkstra": {
+    "profile": "release",
+    "cases": 33,
+    "records": 132,
+    "executions": 264,
+    "both_interrupt_masks": true,
+    "errors": [],
+    "manifest_sha256": "9ad47a2cee7836c953da30e6e4f578c0b9d723d0c5551d6981225e8228915e8c",
+    "results_sha256": "ba3cdabcbecb129fce5ae16c838696e17be7ace0da4d4248c527859ab67bcc4c",
+    "qualification_sha256": "090e602e834844e21b6569c33674cb69d9a106ae3ee2c78fafeb0c0db60c3fd9"
+  },
+  "evidence_sha256": {
+    "docs/benchmarks/65816-byte-pointer-comparisons/before.json": "58bb5fc78dffe28ace7f182a39c2b24aa009860bba0adcf8ad9dff935d6218aa",
+    "docs/benchmarks/65816-byte-pointer-comparisons/byte-after.json": "21c6d153bb3c0d45dc0dfa8dc3b5a414f9b45751797f35cf028f06f87f985c69",
+    "docs/benchmarks/65816-byte-pointer-comparisons/dijkstra-routine-sizes.csv": "79a36b5f1070319b331cc07cc6921dd836682892b38131d76d77156b5363326b",
+    "docs/benchmarks/65816-byte-pointer-comparisons/dijkstra-routine-profile.csv": "49db008d323765d4dc5326301c19001c4656fcda5e28e59e0a8d1f0e6ea48331",
+    "docs/benchmarks/65816-byte-pointer-comparisons/exec-routine-sizes.csv": "c500c8c0ffbefbe86f5103624b638635622c44fed32c4faf7de94308e59a518e",
+    "docs/benchmarks/65816-byte-pointer-comparisons/dijkstra-checks.json": "ce3fdc7e1378c6f1ed53013358b136b2601c7942859a177be8115cc3ec46c7d5",
+    "docs/benchmarks/65816-byte-pointer-comparisons/final-probes.json": "2291db965424c6a9f5325d5f3435b0f0f380562f22d9b53afead23d0e5a20a0b",
+    "docs/benchmarks/65816-byte-pointer-comparisons/dijkstra-sizes.json": "b518050dbdd2d70bead05be5b3216db2613161c003a1509180c7cbbc3aafaecb",
+    "docs/benchmarks/65816-byte-pointer-comparisons/exec-comparisons-before.json": "901e902a208ca31f82ae833b490703fb5ac11bb6eb49f585231fd171f01ca477",
+    "docs/benchmarks/65816-byte-pointer-comparisons/dijkstra-results.csv": "24054be3aeddbf9cbc3c11439883f4e6013380031b4db0332dda9265125861f8",
+    "docs/benchmarks/65816-byte-pointer-comparisons/pointer-after.json": "10ffeaf67a1fecd3ca391b4eeac54e4c6757a124a641d3d313d83dcd11165fca",
+    "docs/benchmarks/65816-byte-pointer-comparisons/corpus-size-delta.json": "da4d7584c69d8208776a5327efcfeb93fdeac3ad3df12136973243db565894d7",
+    "docs/benchmarks/65816-byte-pointer-comparisons/corpus-checks.json": "be3fb580f557e3cf3099dd93322dfda751ee0f88eb68209bcae5e6e8dddc0bef",
+    "docs/benchmarks/65816-byte-pointer-comparisons/exec-final.json": "3a5e93403802a6c3bdd595e26ac36cfee4b6254467a2d3bdd903941c5ab26ba7",
+    "docs/benchmarks/65816-byte-pointer-comparisons/exec-before.json": "b672d9953d9505943d7acb36411a74179cbb1dbb380f2d952e2bff7b6ff5d20f",
+    "docs/benchmarks/65816-byte-pointer-comparisons/corpus-results.csv": "e5fe2520afa540eb7259eb283da5ee5e4599694bdcc0bd9b5c781bc10036f282"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "raw_optimized_action_images_equal_to_frozen_baseline": 28,
+  "debug_release_records_equal": 264,
+  "interrupt_masks": [
+    0,
+    4
+  ],
+  "incorrect": [
+    {
+      "compiler": "vbcc",
+      "case": "unlink",
+      "mode": "optimized",
+      "vector": 0,
+      "errors": [
+        "memory $12ffff: expected $00, got $fc; last store PC $010030"
+      ]
+    }
+  ],
+  "manifests": {
+    "corpus-before": {
+      "sha256": "06d3324141d46fd2129d25e381c72e0eced896c35ccd5c7ec49426afad412077",
+      "compiler": {
+        "path": "/Users/michalkurcewicz/action/actionc-public-release/target/byte-pointer-comparisons/actionc-before",
+        "sha256": "c892a0c272001fc8adb832b2454c1f06f2b041d765530fe296d8dee755c61307"
+      },
+      "crlf_checked": true
+    },
+    "corpus-after": {
+      "sha256": "dfae5abda000f6905aed4048eeb0d132cbe9480d08c0a6bf4d04debf4fd88d5d",
+      "compiler": {
+        "path": "/Users/michalkurcewicz/action/actionc-public-release/target/debug/actionc-65816",
+        "sha256": "020876959f5ed6f77b548fc37c9f375f12776f2aeb22914ca859ef24f088cfe4"
+      },
+      "crlf_checked": true
+    }
+  },
+  "result_hashes": {
+    "debug.json": "359e8680c7e4d7eb941984d526e964830f7d0ddfe5feae71ef7b2e6353e6622b",
+    "release.json": "359e8680c7e4d7eb941984d526e964830f7d0ddfe5feae71ef7b2e6353e6622b"
+  }
+}

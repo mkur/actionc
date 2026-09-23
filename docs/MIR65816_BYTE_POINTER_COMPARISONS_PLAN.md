@@ -1,9 +1,13 @@
 # Native 65816 BYTE and pointer comparisons implementation plan
 
-Status: proposed on 2026-09-23 against actionc main `f96b9b76`. Planning only;
-implementation has not started. This is item 3 from the Exec816 size audit and
-the next user-selected code-size task. It does not activate the other
-[code-size backlog](BACKLOG.md#native-65816-code-size-reduction) items.
+Status: completed on 2026-09-23. Proposed against main `f96b9b76`, with production
+baseline frozen at `c6484952`. Slice 0 is `8dc2a8cc`, native BYTE selection is
+`8df14962`, and native pointer equality is `ba74391e`. Final measurements and
+qualification are committed with this status update. See the
+[results](benchmarks/65816-byte-pointer-comparisons/README.md) and
+[qualification record](abi/action65816-byte-pointer-comparisons-qualification.json).
+This implements item 3 from the Exec816 size audit; the other
+[code-size backlog](BACKLOG.md#native-65816-code-size-reduction) items remain deferred.
 
 ## Objective and limits
 
@@ -52,7 +56,7 @@ available locally in Exec's `build/size-audit-20260923/`; freeze the relevant
 evidence in the baseline commit rather than making permanent documentation
 depend on that ignored directory.
 
-Relevant existing code:
+Relevant code at the planning baseline:
 
 - [`select.rs`](../src/mir65816/emit/select.rs): `word_condition` checks operands
   and the Boolean destination; `word_compare` materializes two outcomes;
@@ -254,7 +258,7 @@ representative byte/pointer probes, not the entire value cross-product. Normaliz
 host fixture text where appropriate and exercise LF/CRLF through compilation;
 preserve exact binary and memory-trace bytes.
 
-Focused implementation commands, once the proposed test targets exist:
+Focused implementation commands (the test targets now exist):
 
 ```sh
 cargo test --lib --features native65816-state-proof mir65816::

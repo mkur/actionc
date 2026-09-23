@@ -1,0 +1,39 @@
+{
+  "baseline_listings_equal_historical_snapshot": true,
+  "raw_optimized_frame_contracts_equal": true,
+  "crlf_checked": true,
+  "artifacts": [
+    {
+      "compiler": "actionc",
+      "mode": "raw",
+      "before_code": 6787,
+      "after_code": 6365,
+      "before_listing_sha256": "81515fc7eb20dbe9ba70e609a561f81d10e3cd59b1bd9f9fcb63aacca8e43e35",
+      "after_listing_sha256": "ff3c7e42ea7a7c84780e478069946ae8060565062b465df76a5f962a0c6ed877"
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "before_code": 6197,
+      "after_code": 5779,
+      "before_listing_sha256": "949b744ec323dd50ea7c7b5d7b9d4ffb1cc78a3cca287073204c9cffbdc46e38",
+      "after_listing_sha256": "c30f3405382566b9ad63065f869b9917db11f226b8f01f6c4328ee40c7d81064"
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "raw",
+      "before_code": 1697,
+      "after_code": 1697,
+      "before_listing_sha256": "c54976d724f410df76948aaf2e48935bc31ba093bb28343e297c95bb5a6bbe0a",
+      "after_listing_sha256": "c54976d724f410df76948aaf2e48935bc31ba093bb28343e297c95bb5a6bbe0a"
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "before_code": 1477,
+      "after_code": 1477,
+      "before_listing_sha256": "f0601d65cb87c8a67b1a9a771798f8ed275b659e485ef53c31f93c71e864246d",
+      "after_listing_sha256": "f0601d65cb87c8a67b1a9a771798f8ed275b659e485ef53c31f93c71e864246d"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "debug_release_equal": true,
+  "probes": {
+    "byte-comparisons-false.metrics.json": {
+      "code_bytes": 2482,
+      "cycles": 2981,
+      "dp_reads": 221,
+      "dp_writes": 222,
+      "routines": [
+        {
+          "bytes": 113,
+          "frame": 4,
+          "name": "Ret"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 2100,
+          "frame": 6,
+          "name": "Work"
+        },
+        {
+          "bytes": 152,
+          "frame": 2,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 106,
+      "stack_writes": 83
+    },
+    "byte-comparisons-true.metrics.json": {
+      "code_bytes": 2470,
+      "cycles": 2957,
+      "dp_reads": 221,
+      "dp_writes": 222,
+      "routines": [
+        {
+          "bytes": 113,
+          "frame": 4,
+          "name": "Ret"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 2088,
+          "frame": 6,
+          "name": "Work"
+        },
+        {
+          "bytes": 152,
+          "frame": 2,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 103,
+      "stack_writes": 80
+    },
+    "pointer-comparisons-false.metrics.json": {
+      "code_bytes": 2204,
+      "cycles": 2854,
+      "dp_reads": 160,
+      "dp_writes": 161,
+      "routines": [
+        {
+          "bytes": 135,
+          "frame": 8,
+          "name": "Equal"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 1760,
+          "frame": 12,
+          "name": "Work"
+        },
+        {
+          "bytes": 192,
+          "frame": 8,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 182,
+      "stack_writes": 150
+    },
+    "pointer-comparisons-true.metrics.json": {
+      "code_bytes": 2192,
+      "cycles": 2825,
+      "dp_reads": 160,
+      "dp_writes": 161,
+      "routines": [
+        {
+          "bytes": 135,
+          "frame": 8,
+          "name": "Equal"
+        },
+        {
+          "bytes": 117,
+          "frame": 2,
+          "name": "Save"
+        },
+        {
+          "bytes": 1748,
+          "frame": 12,
+          "name": "Work"
+        },
+        {
+          "bytes": 192,
+          "frame": 8,
+          "name": "Main"
+        }
+      ],
+      "stack_reads": 175,
+      "stack_writes": 146
+    }
+  },
+  "artifacts": {
+    "pointer-comparisons-true.image.json": "cf6bb7fb674d6ea24fa28cb93c703d5214dc0129f9e165ce074d5d9191930464",
+    "byte-comparisons-true.act": "3d8b4a1be1aeea84143c387c63ae3c3cb2b7378980448348666615349c336b6d",
+    "byte-comparisons-false.metrics.json": "d4ebceb8570762471df85b4551f84a98f3e296383851d0f170b97e087514eeb0",
+    "byte-comparisons-false.act": "3d8b4a1be1aeea84143c387c63ae3c3cb2b7378980448348666615349c336b6d",
+    "pointer-comparisons-true.act": "c3fd6282d33413305e795b6a1128310f83efe40f15ecaa84d1bc8ce4882c0da2",
+    "pointer-comparisons-false.act": "c3fd6282d33413305e795b6a1128310f83efe40f15ecaa84d1bc8ce4882c0da2",
+    "pointer-comparisons-true.metrics.json": "40e8f08b345b23c5d565933b2f5a09eadc829e55bcf1453b6c2579d9bf43a7ec",
+    "pointer-comparisons-false.metrics.json": "ae41f68f3d54c0b49aea1e0ca53ea49b05f846383209414cae4cb03ecee9d0de",
+    "pointer-comparisons-false.image.json": "fd71ae5b47aacf506b5c07c05b884710e1a9c4ef7321fba6ff8ca5cecb570e6e",
+    "byte-comparisons-true.metrics.json": "84224a00892e67da1c3da455e8ad6bd0af364a375434b8c0d41ae6c405d88965",
+    "byte-comparisons-true.image.json": "1d8e1cf8c1715ae77448534f80852b3a23d391f9e14451313e9d396ed1239ad8",
+    "byte-comparisons-false.image.json": "1441ea75a7592e9f11884393d6e01333c86a4988ca74bbbd911a64a06e99b495"
+  }
+}

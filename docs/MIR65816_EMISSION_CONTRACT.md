@@ -445,7 +445,26 @@ read traffic compared with the old high-byte early exit; original volatile or
 aliased source accesses remain separate and unchanged. No DP scratch, pushes,
 helpers, X/Y use, allocation change or ABI change is introduced.
 
-A final eligible word Compare followed immediately by Branch may consume CMP's
+Exact-width BYTE comparisons use A8 CMP for unsigned relations and signed
+Eq/Ne. Greater-than and less-or-equal swap captured operands; they never reorder
+source-memory accesses. Exact-width three-byte Eq/Ne compares the low word in
+A16, then the bank byte in A8 if needed. Null on either side is normalized to
+the right, using the loads' Z flags without CMP-zero instructions. Only bytes
+0–1 and byte 2 are read, never a fourth byte. Both pointer decision paths
+restore A16. These forms retain the operation barrier and introduce no A8
+forwarding or persistent flag facts.
+
+Byte and pointer inputs may be captured stack temps/parameters or representable
+literal/null/absolute-address values. Full preflight validates both inputs and
+the BYTE result home, including stack delta and the final bank-byte extent,
+before emitting or changing state. Mutable parameters use their authoritative
+frame homes. Direct symbolic addresses, DP-resident narrow operands, mixed
+widths, signed ordering, pointer ordering and four-byte comparisons retain
+their prior paths. New materialized predicates write exactly one canonical
+0/1 through two outcome arms. Allocation, ABI return extension, source-memory
+ordering, all 64 clobberable DP scratch bytes and every guard remain unchanged.
+
+A final eligible byte, word or pointer Compare followed immediately by Branch may consume
 C/Z flags directly when a routine-wide use proof establishes exactly one use:
 that Branch condition. Other block conditions, edge arguments, returns and all
 operation inputs (including addresses and indirect calls) disqualify fusion.
@@ -458,7 +477,12 @@ storage maps and stack guards, but no 0/1 is written for an eliminated branch-on
 value. Each executed fusion removes exactly one Boolean stack write and reload;
 word reads and edge-copy traffic are unchanged. No value resides in flags or DP
 across a call or another MIR operation. Preemption must preserve live A/P through
-the adjacent load, CMP and conditional/JML sequence.
+the adjacent load, CMP and conditional/JML sequence. Fused pointer inequality
+can record two conditional dispatches to the same true edge, one after each
+part; both belong to the fused MIR span and use the existing layout/fixup rules.
+Pointer equality's early low-word mismatch skips the bank decision. The
+[byte/pointer measurements](benchmarks/65816-byte-pointer-comparisons/README.md)
+record raw/optimized execution, exact access traces and interrupt qualification.
 
 An A16 ABI return may load a U8/U16 immediate or an exact two-byte stack
 temp/parameter directly into A16. It reuses the complete-word displacement

@@ -1,0 +1,86 @@
+{
+  "manifest_sha256": "9ad47a2cee7836c953da30e6e4f578c0b9d723d0c5551d6981225e8228915e8c",
+  "results_sha256": "ba3cdabcbecb129fce5ae16c838696e17be7ace0da4d4248c527859ab67bcc4c",
+  "qualification_sha256": "090e602e834844e21b6569c33674cb69d9a106ae3ee2c78fafeb0c0db60c3fd9",
+  "vm_manifest_sha256": "d75267d86ad6581901908a92658bdae23effe2cbf3ffcb68292c9d0313b87d41",
+  "compiler_revision": "ba74391e355631bf50e1da619f4f797541ef1268",
+  "profile": "release",
+  "cases": 33,
+  "records": 132,
+  "executions": 264,
+  "both_interrupt_masks": true,
+  "errors": [],
+  "crlf_source_compilation": true,
+  "tools": {
+    "actionc": {
+      "binary": "actionc-final",
+      "sha256": "020876959f5ed6f77b548fc37c9f375f12776f2aeb22914ca859ef24f088cfe4"
+    },
+    "vbcc": {
+      "binary": "vbcc65816",
+      "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+    },
+    "vasm": {
+      "binary": "vasm6502_oldstyle",
+      "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+    },
+    "vlink": {
+      "binary": "vlink",
+      "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+    }
+  },
+  "benchmark_original": [
+    {
+      "compiler": "actionc",
+      "mode": "raw",
+      "cycles": 1971316896,
+      "instructions": 523684235,
+      "peak_below_entry_s": 96,
+      "stack_reads": 132160393,
+      "stack_writes": 109633598,
+      "dp_reads": 178966047,
+      "dp_writes": 168630333,
+      "mode_switches": 49339783,
+      "stack_check_cycles": 2877984
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "cycles": 1841244249,
+      "instructions": 502470639,
+      "peak_below_entry_s": 86,
+      "stack_reads": 105676000,
+      "stack_writes": 71149282,
+      "dp_reads": 178936117,
+      "dp_writes": 168600343,
+      "mode_switches": 52904755,
+      "stack_check_cycles": 2877984
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "raw",
+      "cycles": 1198440309,
+      "instructions": 302475886,
+      "peak_below_entry_s": 44,
+      "stack_reads": 44686414,
+      "stack_writes": 16829156,
+      "dp_reads": 167014005,
+      "dp_writes": 165222422,
+      "mode_switches": 7530466,
+      "stack_check_cycles": 0
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "cycles": 1029379326,
+      "instructions": 257272716,
+      "peak_below_entry_s": 56,
+      "stack_reads": 17204042,
+      "stack_writes": 10988551,
+      "dp_reads": 175411177,
+      "dp_writes": 147689760,
+      "mode_switches": 3835080,
+      "stack_check_cycles": 0
+    }
+  ]
+}
