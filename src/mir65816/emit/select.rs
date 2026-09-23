@@ -14,6 +14,10 @@ pub(super) mod word_tests;
 mod compare_tests;
 
 #[cfg(test)]
+#[path = "narrow_compare_tests.rs"]
+mod narrow_compare_tests;
+
+#[cfg(test)]
 #[path = "branch_tests.rs"]
 mod branch_tests;
 
