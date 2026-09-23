@@ -1,0 +1,19 @@
+{
+  "records": 264,
+  "action_records": 132,
+  "debug_release_equal": true,
+  "external_failures": [
+    {
+      "case": "unlink",
+      "mode": "optimized",
+      "compiler": "vbcc",
+      "vector": 0,
+      "errors": [
+        "memory $12ffff: expected $00, got $fc; last store PC $010030"
+      ]
+    }
+  ],
+  "debug_exit": 101,
+  "release_exit": 101,
+  "source_and_build_CRLF_checked": true
+}

@@ -1,7 +1,11 @@
 # Native 65816 outgoing argument padding
 
-Status: proposed against main `07d7afb8` on 2026-09-23. Implementation has not
-started. This is the first selected follow-up to the
+Status: completed on 2026-09-23. Baseline `ea422df3`, implementation `835f0cb0`,
+and [qualification/results](benchmarks/65816-call-padding/README.md) complete
+all three slices. The frozen Exec shell saves 13,846 raw / 13,756 optimized
+executable bytes, exactly the forecast below, with unchanged ABI and guards.
+See the [qualification manifest](abi/action65816-call-padding-qualification.json).
+The original plan follows. This is the first selected follow-up to the
 [current-source Exec size audit](benchmarks/65816-exec-size-detail/README.md).
 
 ## Objective and scope

@@ -96,8 +96,11 @@ guard placement, transfer peak, source capture and caller cleanup unchanged.
 Prove that captured argument sources cannot overlap the fresh outgoing area;
 retain conservative call/helper and preemption contracts.
 
-The selected slice now has a proposed
-[implementation plan](../../MIR65816_CALL_PADDING_PLAN.md); implementation is pending.
+The selected slice's
+[implementation plan](../../MIR65816_CALL_PADDING_PLAN.md) is now complete:
+the [follow-up measurements](../65816-call-padding/README.md) confirm exactly
+13,846 raw / 13,756 optimized executable bytes removed with every guard retained.
+The original audit and forecasts here remain the baseline.
 
 Native-width argument copies are a separate follow-up. There are 411 word,
 1,315 three-byte and 464 four-byte arguments, plus 255 BYTE arguments. The

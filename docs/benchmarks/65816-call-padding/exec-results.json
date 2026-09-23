@@ -1,0 +1,100 @@
+[
+  {
+    "mode": "raw",
+    "routines": 551,
+    "calls": 1777,
+    "payload_bytes": 6923,
+    "padding_bytes": 1474,
+    "guards": 2328,
+    "routine_bytes_before": 534815,
+    "routine_bytes_after": 520969,
+    "executable_before": 542380,
+    "executable_after": 528534,
+    "code_bytes_saved": 13846,
+    "secondary_layout_savings": 0,
+    "xex_before": 559888,
+    "xex_after": 545790,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "generated_sources_equal_after_build_directory_normalization": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "before_hashes": {
+      "program.a816.json": "31d14a6f9395ccb2e7a3386237300e956a4ff671819675007999101fafafdec8",
+      "program.xex": "61a6feec9d93e127015d6ede343f706ad810d11299dfd23cc164aeee87cbdb91",
+      "build.json": "eaee3db71cc6d8c859d18cd0ae061a2bda0c0c5c9a8c62ca0b7910188655bd73"
+    },
+    "after_hashes": {
+      "program.a816.json": "24b322b87bc92aca13549b151f1826bdbadea9f2263f0d4b28b4591ce903fcf7",
+      "program.xex": "957d311230021424c20dd67c651c26da99f66e75d6eee3dc440cfb2b08535fc9",
+      "build.json": "6a7cf7f5167f9c89f20d2496bbdf0e29e34463f79ea08736080bcb7f73c6d6e6"
+    },
+    "audit_compatibility": "Removed only stack_checks:true; guards retained as mandatory on main"
+  },
+  {
+    "mode": "opt",
+    "routines": 551,
+    "calls": 1769,
+    "payload_bytes": 6878,
+    "padding_bytes": 1465,
+    "guards": 2320,
+    "routine_bytes_before": 503453,
+    "routine_bytes_after": 489697,
+    "executable_before": 511018,
+    "executable_after": 497262,
+    "code_bytes_saved": 13756,
+    "secondary_layout_savings": 0,
+    "xex_before": 527916,
+    "xex_after": 513926,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "generated_sources_equal_after_build_directory_normalization": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "before_hashes": {
+      "program.a816.json": "d1379fff9ddbb0689d7ee537c4041291e368cddf7aed50f2c2ee382716cc8021",
+      "program.xex": "51067f5ae604f0133432e85aeb55d5221ff621f764f8e17e6a1a2ad4cfd2f1b2",
+      "build.json": "5a9a4c6ceeb5e4e1f550a1217070fd6d1f3c88f638b0aaad9978984a1ede1dfc"
+    },
+    "after_hashes": {
+      "program.a816.json": "6eb40c51c4c21235f758b0ec170fd5ad9650608217bb925f9abbabe23613a2bc",
+      "program.xex": "a1a547ec6dd743afe8d589c8b788c339e432154b330fa9ae9272c5659c613bd0",
+      "build.json": "663ae57711929cf86c1c193c563ebe7609f3a87890770da390acdb179fc84148"
+    },
+    "audit_compatibility": "Removed only stack_checks:true; guards retained as mandatory on main"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "cases": 33,
+  "records": 132,
+  "executions_including_both_incoming_I_states": 264,
+  "all_passed": true,
+  "all_DP_reads_writes_stack_reads_peaks_and_guard_cycles_unchanged": true,
+  "cycles_saved_per_removed_stack_write": 4,
+  "attestation": "/Users/michalkurcewicz/action/actionc-public-release/target/call-padding/dijkstra/release-qualification.json",
+  "attestation_sha256": "3ccfa7e9201ee749bdc52881eede3be77f0bf80d8d2fa077766005e53e09dbb4",
+  "results_sha256": "cce6390c2a7b3940e3bdbbc1c11d0dc4f0b9909e1f74d4403338d80bfd9ebe7e"
+}

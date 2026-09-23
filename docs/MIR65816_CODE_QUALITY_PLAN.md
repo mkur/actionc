@@ -39,8 +39,13 @@ Allocation, broader branch relaxation and the other backlog items remain deferre
 The [current-source Exec size audit](benchmarks/65816-exec-size-detail/README.md)
 adds a guarded raw/optimized baseline for Exec `c3500c8`. It identifies repeated
 call payload initialization, compact guard encoding, four-byte equality and BYTE
-returns as focused selection/layout opportunities. No new allocation machinery
-or public ABI change is proposed; these candidates are not yet implemented.
+returns as focused selection/layout opportunities. The
+[padding-only call initialization slice](benchmarks/65816-call-padding/README.md)
+is complete: 13,846 raw / 13,756 optimized executable bytes saved, with ABI v1,
+all guards, stack peaks and bank-zero reservations unchanged. Full native
+debug/release qualification, relocation, IRQ/NMI and CRLF checks pass. Compact
+guards, four-byte equality and BYTE returns remain deferred. No new allocation
+machinery or public ABI change is proposed.
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
