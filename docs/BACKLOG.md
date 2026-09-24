@@ -3,6 +3,42 @@
 This file tracks deferred compiler work, including cross-cutting issues and
 backend follow-ups linked to their design and measurement documents.
 
+## FOR End-Bound Evaluation Semantics
+
+Status: backlogged at user request; semantic decision pending, implementation
+has not started.
+
+Decide whether MIR6502 should capture the `FOR ... TO` end bound once on loop
+entry, restoring the behavior of classic's cached compound bounds, instead of
+reevaluating it on every loop test. This affects observable behavior when the
+body changes a bound operand or evaluation has side effects, as well as the
+cost of repeatedly computing expressions such as `n*2` in puLse's pause loop.
+
+Existing mutable-bound probes used CARD `n` and `i`, initially `n=3`, with
+`FOR i=0 TO <end>` and a body that increments a counter and sets `n=0`:
+
+| End expression | Original Action! 3.6 iterations | Compatibility | Optimized classic | MIR6502 |
+| --- | ---: | ---: | ---: | ---: |
+| `n` | 4 | 1 | 1 | 1 |
+| `n*2` | 7 | 7 | 7 | 1 |
+| `n+1` | 5 | 5 | 5 | 2 |
+
+Classic currently caches compound expressions but rereads the plain variable;
+original Action! captured all three tested bounds. The decision must therefore
+distinguish matching current classic from adopting a uniform capture-once rule.
+These probes do not establish every type, STEP form or effectful bound.
+
+- Specify the evaluation rule in shared language semantics and preserve it
+  through NIR and each affected backend; do not treat it as a MIR-only
+  loop-invariant-code optimization.
+- Cover mutable plain and compound bounds, calls and volatile reads, nested
+  loops, zero-trip loops, signed/unsigned counters and ascending/descending
+  STEP forms. Compare classic and MIR6502 under both runtimes, and audit other
+  consumers of the shared NIR lowering.
+- Reconcile the [IF/CASE expression tutorial](tutorials/IF_CASE_EXPRESSIONS.md#evaluation-and-support-limits),
+  which currently says the end is evaluated on each test, with the selected
+  contract and regression expectations. Record compatibility and timing impact.
+
 ## Native 65816 Code-Size Reduction
 
 Status: signed word comparisons and direct branch fusion are implemented.
