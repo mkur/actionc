@@ -32,6 +32,8 @@ use copies::acyclic_word_order;
 
 #[path = "accumulator.rs"]
 mod accumulator;
+#[path = "arithmetic.rs"]
+mod arithmetic;
 #[path = "parameter.rs"]
 mod parameter;
 use super::tracked::*;
@@ -214,6 +216,9 @@ pub(super) fn routine_with_replay(
     _trace: bool,
     #[cfg(feature = "native65816-state-proof")] replay: bool,
 ) -> Result<MachineRoutine, String> {
+    if let Some(helper) = routine.helper {
+        return arithmetic::emit(routine, helper, _trace);
+    }
     let frame = AllocatedFrame::new(routine)?;
     let loop_x = loop_x::LoopXPlan::new(routine, &frame)?;
     let mut b = Builder {
@@ -373,6 +378,7 @@ pub(super) fn routine_with_replay(
                     args: vec![],
                 })?;
             }
+            Mir65816Terminator::ArithmeticFault => b.arithmetic_fault(),
             Mir65816Terminator::Exit => {
                 return Err("terminal exit requires a native runtime adapter".into());
             }
@@ -1976,6 +1982,7 @@ impl Builder<'_> {
         let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
+            Mir65816CallTarget::Helper(id) => Some(Target::Routine(*id)),
             Mir65816CallTarget::Runtime(id) => Some(Target::Runtime(*id)),
             Mir65816CallTarget::Indirect(..) => None,
             Mir65816CallTarget::Builtin(_) => {

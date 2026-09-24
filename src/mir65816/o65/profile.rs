@@ -1,6 +1,9 @@
 //! Public contracts are independent of compiler IR and fixed-image JSON.
 use serde::{Deserialize, Serialize};
 
+pub const ID_V2: &str = "actionc.o65.experimental.v2";
+pub const DESCRIPTOR_V2: &str = "__a816_o65_profile_v2";
+pub const ARITHMETIC_FAULT: &str = "__a816_arithmetic_fault_v1";
 pub const ID: &str = "actionc.o65.experimental.v1";
 pub const ENTRY: &str = "__a816_entry_v1";
 pub const DESCRIPTOR: &str = "__a816_o65_profile_v1";
@@ -20,7 +23,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            profile: ID.into(),
+            profile: ID_V2.into(),
             nmi_extra_stack: 0,
             imports: vec![],
         }
@@ -127,7 +130,7 @@ pub struct Contract {
     pub incoming: u32,
     pub stack_peak: u16,
     pub irq_effect: u8,
-    /// 0 = returning checked task/IRQ scalar routine; 1 = raw overflow entry.
+    /// 0 = returning checked task/IRQ scalar routine; 1 = raw overflow entry; 2 = raw arithmetic fault.
     pub kind: u8,
     pub domains: u8,
 }
@@ -145,18 +148,30 @@ impl Contract {
             domains: 3,
         }
     }
+    pub fn arithmetic_fault() -> Self {
+        Self {
+            kind: 2,
+            ..Self::overflow()
+        }
+    }
     pub fn verify(&self) -> Result<(), String> {
         if self.abi != super::super::abi::generated::ABI_NAME
-            || self.kind > 1
+            || self.kind > 2
             || self.result > 4
             || self.irq_effect > 2
             || !(1..=3).contains(&self.domains)
         {
             return Err("invalid native import contract".into());
         }
-        if self.kind == 1 {
-            if self != &Self::overflow() {
-                return Err("invalid raw overflow contract".into());
+        if self.kind != 0 {
+            if self
+                != &(if self.kind == 1 {
+                    Self::overflow()
+                } else {
+                    Self::arithmetic_fault()
+                })
+            {
+                return Err("invalid raw terminal fault contract".into());
             }
             return Ok(());
         }
@@ -217,6 +232,7 @@ pub struct Object {
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Profile {
+    pub version: u16,
     pub nmi_extra_stack: u16,
     pub entry: u32,
     pub routines: Vec<Routine>,

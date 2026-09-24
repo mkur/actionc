@@ -479,6 +479,7 @@ fn export_mode(scalar: bool, registers: bool) {
                     }
                     Mir65816Terminator::Fallthrough => ("fallthrough",vec![r.blocks[bi+1].id.0],None),
                     Mir65816Terminator::Exit => ("exit",vec![],None),
+                    Mir65816Terminator::ArithmeticFault => ("arithmetic_fault",vec![],None),
                 };
                 let mut ops: Vec<_> = b.ops.iter().enumerate().map(|(i,op)| {
                     let mut fact = operation(op,r,m);

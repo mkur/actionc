@@ -208,7 +208,7 @@ fn invalid_layout_addresses_leave_existing_output_intact() {
 #[test]
 fn unsupported_source_leaves_existing_output_intact() {
     for (source, message) in [
-        ("CARD a,b,c PROC Main() c=a*b RETURN", "Mul"),
+        ("CARD a,b,c PROC Main() c=a/b RETURN", "arithmetic_fault"),
         (
             "VOLATILE BYTE io=$F00000 PROC Main() io=1 RETURN",
             "above bank zero",

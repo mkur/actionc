@@ -48,7 +48,7 @@ fn contract(w: &mut Writer, c: &Contract) -> Result<(), String> {
 pub(crate) fn encode(p: &Profile) -> Result<Vec<u8>, String> {
     let mut w = Writer(b"A8O1".to_vec());
     w.long(0);
-    w.word(1);
+    w.word(p.version);
     w.word(0);
     w.byte(3);
     w.byte(0);

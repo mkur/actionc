@@ -995,7 +995,10 @@ impl TrackedEmitter65816 {
                 if let Target::Label(label) = target {
                     self.edge(label);
                 } else {
-                    assert_eq!(target, Target::StackOverflow);
+                    assert!(matches!(
+                        target,
+                        Target::StackOverflow | Target::ArithmeticFault
+                    ));
                 }
                 self.unreachable = true;
             }

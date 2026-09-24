@@ -3,6 +3,17 @@
 This file tracks deferred compiler work, including cross-cutting issues and
 backend follow-ups linked to their design and measurement documents.
 
+## Native 65816 Integer Arithmetic Helpers
+
+Status: implemented and qualified on 2026-09-24.
+
+The [implementation plan](MIR65816_ARITHMETIC_HELPERS_PLAN.md) covers native
+MUL/DIV/MOD helpers, typed width and signedness, ordinary ABI calls and per-domain
+scratch, non-returning division-by-zero handling, fixed-image/o65 integration,
+power-of-two reductions and interrupt/runtime qualification. Executable core
+sharing, DIV/MOD fusion and general constant-multiply addition chains remain
+optional measured follow-ups.
+
 ## FOR End-Bound Evaluation Semantics
 
 Status: backlogged at user request; semantic decision pending, implementation

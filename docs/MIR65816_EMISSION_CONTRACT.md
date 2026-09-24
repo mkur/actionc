@@ -9,6 +9,9 @@ The compiler emits freestanding machine code for `wdc-65816-native` under
 [Initial Exec acceptance](MIR65816_EXEC_ACCEPTANCE.md) covers the subset below
 on the VM's independent 24-bit bus, including context switching and interrupts.
 
+Native integer MUL/DIV/MOD support and its qualification contract are recorded
+in the [arithmetic helper plan](MIR65816_ARITHMETIC_HELPERS_PLAN.md).
+
 ## Compile an image
 
 The initial driver is `actionc-65816`. It has separate platform options from
@@ -29,11 +32,20 @@ quoted hexadecimal strings with a `0x`, `0X` or `$` prefix:
 ```
 
 The same syntax applies to optional `read_only_origin`, `zero_fill_origin`,
-and each assembly import's `address`. For example, `98304`, `"0x018000"` and
+`arithmetic_fault`, and each assembly import's `address`. For example, `98304`, `"0x018000"` and
 `"$018000"` specify the same address. Hex digits are case-insensitive; bare
 `0x018000` is invalid JSON. Addresses must fit in 24 bits. Sizes, stack budgets
 and symbol/signature IDs remain decimal JSON numbers. Emitted image JSON
 continues to use numeric addresses.
+
+For runtime DIV/MOD, add `"arithmetic_fault": "0x049000"` and provide the raw
+`__a816_arithmetic_fault_v1` adapter at that address. It receives A16=1
+(DivisionByZero), X16=S and transfers by JML without a push or return. D, I,
+DBR=0, native mode and M=X=0 are preserved. Its address must be distinct from
+the overflow adapter and outside image/import storage. The dependency is
+required only after constant reductions; multiplication alone does not need it.
+Images using it serialize as v4. Other images retain v3, and the reader accepts
+both versions with their matching dependency contracts.
 
 The example places code from `$018000`, data from `$120000`, and expects the
 platform's raw stack-overflow adapter at `$048000`. These are explicit layout
@@ -340,6 +352,18 @@ to execute code or publish it in image/o65 formats.
   the retained typed facts. Arithmetic follows the NIR operation's width;
   notably, Action! unary minus on SIZE currently produces INT. Use a SIZE
   subtraction when the intended operation is modular 24-bit subtraction.
+- MUL16/MUL32 use modular shift/add helpers. Unsigned DIV/MOD support 8, 16,
+  24 and 32 bits; signed DIV/MOD support 16 and 32 bits. Signed division
+  truncates toward zero, remainder follows the dividend, and MIN/-1 wraps.
+  Helpers use ordinary checked JSL/RTL calls, a zero-byte frame and D+$00..$13
+  scratch at most. The core runs with M=X=0; byte/24-bit argument tails use
+  brief A8 copies and results zero unused lanes. The restoring divider retains
+  the extra carry bit above its remainder. All instructions pass through the
+  tracked emitter and selected-action replay.
+- Typed constants select MUL by zero/one/powers of two and unsigned DIV/MOD
+  by nonzero powers of two before helper collection, in both raw and optimized
+  modes. Signed DIV/MOD retain their helpers. Source loads and calls remain in
+  order and execute once, including when a reduced result is zero.
 - Logical left/right shifts operate at the typed width, including signed
   integer operands. A count at least the bit width produces zero, following NIR
   semantics. The bounded shift loop uses only current-domain scratch.
@@ -543,7 +567,7 @@ does not preserve an unused accumulator result. These choices change neither
 the public ABI nor NIR memory effects, and do not allocate persistent values in
 call-clobbered scratch.
 
-Multiply, divide, remainder, by-value aggregate interfaces, REAL, foreign code,
+By-value aggregate interfaces, REAL, foreign code,
 unresolved runtime/builtin calls and source terminal exits have explicit
 diagnostics. Volatile aggregate copies are rejected: use a deliberate scalar
 byte-access protocol for such hardware. Freestanding terminal faults are supplied

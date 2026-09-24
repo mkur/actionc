@@ -261,13 +261,11 @@ fn contract(r: &mut Reader<'_>) -> Result<Contract, String> {
 }
 pub(crate) fn descriptor(bytes: &[u8]) -> Result<Profile, String> {
     let mut r = Reader::new(bytes);
-    if r.take(4)? != b"A8O1"
-        || r.long()? as usize != bytes.len()
-        || r.word()? != 1
-        || r.word()? != 0
-        || r.byte()? != 3
-        || r.byte()? != 0
-    {
+    if r.take(4)? != b"A8O1" || r.long()? as usize != bytes.len() {
+        return Err("unsupported o65 profile descriptor".into());
+    }
+    let version = r.word()?;
+    if ![1, 2].contains(&version) || r.word()? != 0 || r.byte()? != 3 || r.byte()? != 0 {
         return Err("unsupported o65 profile descriptor".into());
     }
     let nmi_extra_stack = r.word()?;
@@ -346,7 +344,11 @@ pub(crate) fn descriptor(bytes: &[u8]) -> Result<Profile, String> {
         });
     }
     r.done()?;
+    if (version == 2) != imports.iter().any(|i| i.contract.kind == 2) {
+        return Err("fault contract/profile version mismatch".into());
+    }
     Ok(Profile {
+        version,
         nmi_extra_stack,
         entry,
         routines,

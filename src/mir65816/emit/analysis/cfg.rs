@@ -239,7 +239,7 @@ impl SelectedCfg {
                     }
                     Control::Branch { target, .. } => vec![label(target)?, next],
                     Control::Jump(Target::Label(l)) => vec![label(l)?],
-                    Control::Jump(Target::StackOverflow) => vec![faults],
+                    Control::Jump(Target::StackOverflow | Target::ArithmeticFault) => vec![faults],
                     Control::Return => vec![returns],
                     Control::Jump(_) => return Err("unsupported selected transfer boundary".into()),
                 },

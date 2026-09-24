@@ -76,14 +76,19 @@ fn extent(base: u32, size: u32) -> Result<u32, String> {
 }
 
 pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact, String> {
-    if options.profile != ID {
+    if options.profile != ID && options.profile != ID_V2 {
         return Err("unsupported experimental o65 profile".into());
     }
     if u32::from(options.nmi_extra_stack) + 26 > 65535 {
         return Err("invalid platform stack contract".into());
     }
     let machine = emit::materialize(program)?;
+    let program = &machine.prepared;
     let fixups = relocation::collect(program, &machine)?;
+    let arithmetic_fault = fixups.iter().any(|f| f.target == Target::ArithmeticFault);
+    if arithmetic_fault && options.profile == ID {
+        return Err("arithmetic fault requires experimental o65 profile v2".into());
+    }
     let mut bindings = BTreeMap::new();
     let mut names = BTreeSet::new();
     for b in &options.imports {
@@ -91,6 +96,7 @@ pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact,
             || b.name.starts_with("__a816_o65_")
             || b.name == ENTRY
             || b.name == OVERFLOW
+            || b.name == ARITHMETIC_FAULT
             || !b.checks_stack
         {
             return Err("invalid o65 binding name or unchecked import".into());
@@ -103,6 +109,12 @@ pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact,
         name: OVERFLOW.into(),
         contract: Contract::overflow(),
     }];
+    if arithmetic_fault {
+        imports.push(Import {
+            name: ARITHMETIC_FAULT.into(),
+            contract: Contract::arithmetic_fault(),
+        });
+    }
     let mut targets = BTreeMap::<Owner, (Reference, u32)>::new();
     let mut runtime = BTreeMap::new();
     let mut used = BTreeSet::new();
@@ -150,6 +162,7 @@ pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact,
         data: vec![],
         bss: 0,
         profile: Profile {
+            version: if arithmetic_fault { 2 } else { 1 },
             nmi_extra_stack: options.nmi_extra_stack,
             entry: 0,
             routines: vec![],
@@ -324,6 +337,7 @@ pub fn prepare(program: &Mir65816Program, options: &Options) -> Result<Artifact,
                 0,
             ),
             Target::StackOverflow => (Some(Reference::Import(0)), 0),
+            Target::ArithmeticFault => (Some(Reference::Import(1)), 0),
             Target::Data(id) => {
                 let l = *locations.get(&id).ok_or("unresolved data relocation")?;
                 (l.section.map(Reference::Section), i64::from(l.offset))

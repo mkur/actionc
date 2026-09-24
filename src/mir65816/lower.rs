@@ -46,9 +46,9 @@ pub(super) fn lower_program(
                 matches!(
                     op,
                     NirOp::Call {
-                        callee: NirCallee::Fault(_),
+                        callee: NirCallee::Fault(fault),
                         ..
-                    }
+                    } if convention != Mir65816CallConvention::Native || *fault != crate::runtime_fault::RuntimeFault::DivisionByZero
                 )
             })
         }) {
@@ -148,17 +148,32 @@ fn lower_routine(
                     )
                 })
                 .collect();
-            let terminator = lower_terminator(
-                &block.terminator,
-                layout.data_pointer.size_bytes,
-                code_pointer_width,
-                &routine.name,
-                &block.label,
-                frame.extent,
-                return_form,
-                mode,
-                diagnostics,
-            );
+            let terminator = if convention == Mir65816CallConvention::Native
+                && block.ops.iter().any(|op| {
+                    matches!(
+                        op,
+                        NirOp::Call {
+                            callee: NirCallee::Fault(
+                                crate::runtime_fault::RuntimeFault::DivisionByZero
+                            ),
+                            ..
+                        }
+                    )
+                }) {
+                Mir65816Terminator::ArithmeticFault
+            } else {
+                lower_terminator(
+                    &block.terminator,
+                    layout.data_pointer.size_bytes,
+                    code_pointer_width,
+                    &routine.name,
+                    &block.label,
+                    frame.extent,
+                    return_form,
+                    mode,
+                    diagnostics,
+                )
+            };
             Mir65816Block {
                 id: block.id,
                 params: block
@@ -191,6 +206,7 @@ fn lower_routine(
         return_form,
     };
     let lowered = Mir65816Routine {
+        helper: None,
         id: routine.id,
         signature: routine.signature.id,
         entry: routine.entry,
@@ -546,18 +562,24 @@ fn max_outgoing_bytes(
     let mut maximum = ByteSize::ZERO;
     for op in routine.blocks.iter().flat_map(|block| &block.ops) {
         let NirOp::Call {
-            args, signature, ..
+            callee,
+            args,
+            signature,
+            ..
         } = op
         else {
             continue;
         };
+        if matches!(callee, NirCallee::Fault(_)) {
+            continue;
+        }
         let signature = signature.as_ref().ok_or("65816 call has no signature")?;
         maximum = maximum.max(signature_homes(signature, args.len(), convention)?.2);
     }
     Ok(maximum)
 }
 
-fn call_plan(
+pub(super) fn call_plan(
     signature: &crate::nir::NirCallableSignature,
     argument_count: usize,
     result: Option<&crate::nir::NirCallResult>,
@@ -1012,7 +1034,10 @@ fn lower_op(
         } => Some(Mir65816Op::Compare {
             dest: *dest,
             width: width(operand_ty),
-            signed: operand_ty.kind.integer().is_some_and(|integer| integer.signed),
+            signed: operand_ty
+                .kind
+                .integer()
+                .is_some_and(|integer| integer.signed),
             operation: *op,
             left: lower_value(left, data_pointer_width, code_pointer_width),
             right: lower_value(right, data_pointer_width, code_pointer_width),
@@ -1024,9 +1049,20 @@ fn lower_op(
             signature,
             ..
         } => {
+            if convention == Mir65816CallConvention::Native
+                && matches!(
+                    callee,
+                    NirCallee::Fault(crate::runtime_fault::RuntimeFault::DivisionByZero)
+                )
+            {
+                return None;
+            }
             if matches!(callee, NirCallee::Fault(_)) {
-                diagnostics.push(diagnostic(Some(routine), Some(block),
-                    "runtime fault requires a native target Error adapter"));
+                diagnostics.push(diagnostic(
+                    Some(routine),
+                    Some(block),
+                    "runtime fault requires a native target Error adapter",
+                ));
                 return None;
             }
             let Some(signature) = signature.as_ref() else {
@@ -1253,7 +1289,9 @@ fn lower_value(
     code_pointer_width: ByteSize,
 ) -> Mir65816Value {
     match value {
-        NirValue::Aggregate { .. } => unreachable!("aggregate ABI expansion precedes scalar MIR selection"),
+        NirValue::Aggregate { .. } => {
+            unreachable!("aggregate ABI expansion precedes scalar MIR selection")
+        }
         NirValue::IntegerConst { bits, ty } if ty.storage_width() == ByteSize::ONE => {
             Mir65816Value::U8(*bits as u8)
         }

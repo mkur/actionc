@@ -212,7 +212,15 @@ fn check(h: &ContextHarness) {
     }
     assert!(h.bus.value(symbol(&h.image, "dispatches"), 2) >= 2);
 }
-fn run_injected(h: &mut ContextHarness, mut pending: bool, seed: Option<u64>) {
+fn run_injected(h: &mut ContextHarness, pending: bool, seed: Option<u64>) {
+    run_injected_period(h, pending, seed, 31);
+}
+fn run_injected_period(
+    h: &mut ContextHarness,
+    mut pending: bool,
+    seed: Option<u64>,
+    irq_mask: u64,
+) {
     let mut rng = seed.unwrap_or(1);
     let mut nmi_cooldown = 0u64;
     let start = h.cpu.cycles();
@@ -226,10 +234,10 @@ fn run_injected(h: &mut ContextHarness, mut pending: bool, seed: Option<u64>) {
             rng ^= rng << 13;
             rng ^= rng >> 7;
             rng ^= rng << 17;
-            if rng & 31 == 0 && h.cpu.registers().p & 4 == 0 {
+            if rng & irq_mask == 0 && h.cpu.registers().p & 4 == 0 {
                 pending = true;
             }
-            if rng & 127 == 1 && h.cpu.cycles() >= nmi_cooldown {
+            if rng & (irq_mask * 4 + 3) == 1 && h.cpu.cycles() >= nmi_cooldown {
                 nmi = true;
                 nmi_cooldown = h.cpu.cycles() + 250;
             }
@@ -1814,6 +1822,144 @@ fn scalar_dp_words_and_staged_cycles_survive_task_switches_and_irq_scalar_calls(
         }
         if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
             std::fs::write(Path::new(&directory).join(format!("scalar-dp-preemption-{optimize}.json")),serde_json::to_vec_pretty(&serde_json::json!({"irq_and_nmi_restored_sites":seen,"irq_domain_scalar_execution":irq_live,"different_simultaneous_task_residents":simultaneous,"full_cpu_frame_and_domain_restored":true,"x_compare":x.compare,"x_load":x.load,"x_refresh":x.refresh,"stale_mirror_at_refresh":stale_refresh,"pending_after_inx":pending_increment,"x_increment":x.increment,"seeds":[0x81620260916u64,0x5eedcafe]})).unwrap()).unwrap();
+        }
+    }
+}
+
+fn arithmetic_domain_source(original: &str) -> String {
+    let source = original.replace("\r\n", "\n");
+    source.replace("CARD FUNC Dispatch(CARD saved BYTE reason)",r#"
+CARD ARRAY arithmeticResults(42)
+CARD irqArithmetic,irqArithmeticSeed
+CARD FUNC Arithmetic(CARD seed)
+  LONGCARD a,b,p,q,r
+  LONGINT s,t,sq,sr
+  CARD c,d,cq,cr,cp
+  INT x,y,xq,xr
+  SIZE z,v,zq,zr
+  BYTE e,f,eq,er
+  a=LONGCARD(seed)+LONGCARD($81234567) b=LONGCARD(seed)+LONGCARD(3)
+  p=a*b q=a/b r=a MOD b
+  s=LONGINT(a) t=LONGINT(seed)-LONGINT(20) sq=s/t sr=s MOD t
+  c=seed+12345 d=seed+3 cq=c/d cr=c MOD d cp=CARD(c*d)
+  x=INT(seed)-30000 y=INT(seed)-20 xq=x/y xr=x MOD y
+  z=SIZE(a) v=SIZE(b) zq=z/v zr=z MOD v
+  e=BYTE(seed)+127 f=BYTE(seed) % 1 eq=e/f er=e MOD f
+RETURN(CARD(p) XOR CARD(q) XOR CARD(r) XOR CARD(sq) XOR CARD(sr) XOR cq XOR cr XOR cp XOR CARD(xq) XOR CARD(xr) XOR CARD(zq) XOR CARD(zr) XOR CARD(eq) XOR CARD(er))
+CARD FUNC Dispatch(CARD saved BYTE reason)"#)
+        .replace("irqAck=1 dispatches==+1","irqAck=1 dispatches==+1 irqArithmeticSeed=saved irqArithmetic=Arithmetic(saved)")
+        .replace("  work.done=1","  arithmeticResults(work.seed)=Arithmetic(work.seed)\n  work.done=1")
+}
+fn arithmetic_expected(seed: u32) -> u32 {
+    let a = seed + 0x81234567;
+    let b = seed + 3;
+    let s = i64::from(a as i32);
+    let t = i64::from(seed) - 20;
+    let c = (seed + 12345) & 65535;
+    let d = (seed + 3) & 65535;
+    let x = i64::from((seed as i16).wrapping_sub(30000));
+    let y = i64::from((seed as i16).wrapping_sub(20));
+    let z = a & 0xffffff;
+    let v = b & 0xffffff;
+    let e = (seed + 127) & 255;
+    let f = (seed & 255) | 1;
+    (a.wrapping_mul(b)
+        ^ (a / b)
+        ^ (a % b)
+        ^ ((s / t) as u32)
+        ^ ((s % t) as u32)
+        ^ (c / d)
+        ^ (c % d)
+        ^ c.wrapping_mul(d)
+        ^ ((x / y) as u32)
+        ^ ((x % y) as u32)
+        ^ (z / v)
+        ^ (z % v)
+        ^ (e / f)
+        ^ (e % f))
+        & 65535
+}
+fn check_arithmetic(h: &ContextHarness) {
+    check(h);
+    for seed in [13, 41] {
+        assert_eq!(
+            h.bus
+                .value(symbol(&h.image, "arithmeticResults") + seed * 2, 2),
+            arithmetic_expected(seed)
+        );
+    }
+    let seed = h.bus.value(symbol(&h.image, "irqArithmeticSeed"), 2);
+    assert_eq!(
+        h.bus.value(symbol(&h.image, "irqArithmetic"), 2),
+        arithmetic_expected(seed)
+    );
+}
+#[test]
+fn arithmetic_helpers_reenter_from_two_tasks_and_irq_at_every_reached_instruction() {
+    let original = fixture("preemption.act");
+    let source = arithmetic_domain_source(&original);
+    assert_eq!(
+        source,
+        arithmetic_domain_source(&original.replace('\n', "\r\n"))
+    );
+    for optimize in [false, true] {
+        let mut h = machine_source(&source, optimize);
+        let helpers: Vec<_> = h
+            .image
+            .routines
+            .iter()
+            .filter(|r| r.name.starts_with("__a816_"))
+            .map(|r| r.address..r.address + r.size)
+            .collect();
+        assert_eq!(helpers.len(), 14);
+        let range = helpers.iter().map(|r| r.start).min().unwrap()
+            ..helpers.iter().map(|r| r.end).max().unwrap();
+        let mut seen = BTreeSet::new();
+        let mut irq_reentry = false;
+        for _ in 0..2_000_000 {
+            if h.cpu.is_stopped() {
+                break;
+            }
+            let r = h.cpu.registers();
+            if h.cpu.is_instruction_boundary()
+                && r.p & 4 == 0
+                && [0x2000, 0x2100].contains(&r.d)
+                && helpers.iter().any(|range| range.contains(&h.cpu.pc()))
+                && seen.insert((r.d, h.cpu.pc()))
+            {
+                let cpu = h.cpu.clone();
+                let bus = h.bus.clone();
+                irq_reentry |= scalar_interrupt(&mut h, false, range.clone()).0;
+                check_arithmetic(&h);
+                h.cpu = cpu.clone();
+                h.bus = bus.clone();
+                scalar_interrupt(&mut h, true, range.clone());
+                check_arithmetic(&h);
+                h.cpu = cpu;
+                h.bus = bus;
+            }
+            h.tick(Inputs::default());
+        }
+        check_arithmetic(&h);
+        assert!(irq_reentry);
+        assert!(
+            seen.len() > 500,
+            "only {} helper/domain boundaries",
+            seen.len()
+        );
+        for seed in [0x81620260916, 0x5eedcafe] {
+            let mut h = machine_source(&source, optimize);
+            // The dispatcher itself runs all arithmetic families. Space seeded
+            // IRQs so tasks progress; exhaustive injection above covers every site.
+            run_injected_period(&mut h, false, Some(seed), 1023);
+            check_arithmetic(&h);
+        }
+        if let Ok(directory) = std::env::var("A816_QUALIFICATION_DIR") {
+            std::fs::write(
+                Path::new(&directory).join(format!("arithmetic-preemption-{optimize}.json")),
+                serde_json::to_vec_pretty(&seen).unwrap(),
+            )
+            .unwrap();
         }
     }
 }

@@ -112,7 +112,9 @@ Local toolchain: Rust 1.95.0, ca65/ld65 2.18, macOS ARM64. Original acceptance r
 
 - Use explicit pointer accesses for banked MMIO. Numeric bare declaration
   aliases above bank zero are diagnosed; the legacy resolver is still 16-bit.
-- Multiplication/division/remainder, REAL, by-value aggregate interfaces,
+- Integer multiplication/division/remainder are now covered by the separate
+  [native arithmetic qualification](MIR65816_ARITHMETIC_HELPERS_PLAN.md#qualification-checkpoint).
+  REAL, by-value aggregate interfaces,
   small-model emission and unsupported foreign/runtime operations remain
   diagnosed. Record address scaling does not require a multiplication helper.
 - Whole volatile aggregates require an explicit byte protocol and are rejected.

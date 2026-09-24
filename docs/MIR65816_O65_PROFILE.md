@@ -1,9 +1,15 @@
-# Experimental Action native o65 profile v1
+# Experimental Action native o65 profiles v1 and v2
 
-Identity: `actionc.o65.experimental.v1`. Native ABI: `action65816.native.v1`.
+Identities: `actionc.o65.experimental.v1` and `.v2`. Native ABI: `action65816.native.v1`.
 This is an experimental application container; it does not change the ABI or
-JSON image v3. See the [implementation plan](MIR65816_O65_IMPLEMENTATION_PLAN.md)
+JSON image contracts. See the [implementation plan](MIR65816_O65_IMPLEMENTATION_PLAN.md)
 and [format/tool assessment](MIR65816_O65_ASSESSMENT.md).
+
+Options default to `actionc.o65.experimental.v2`, permitting the arithmetic
+fault extension. The writer chooses the minimum required format: v2 only when
+`__a816_arithmetic_fault_v1` is imported, otherwise byte-compatible v1.
+Explicit v1 options reject programs requiring that extension. Old readers
+reject the new descriptor export/version before interpreting its contract.
 
 ## Wire contract
 
@@ -41,7 +47,7 @@ offset inside the target section or one-past, with no 24-bit overflow at load.
 ## Descriptor
 
 Two text exports are required: `__a816_entry_v1` and
-`__a816_o65_profile_v1`. The latter locates this packed descriptor (no implicit
+`__a816_o65_profile_v1` (version 1) or `__a816_o65_profile_v2` (version 2). The latter locates this packed descriptor (no implicit
 padding). All numeric fields are unsigned little-endian except byte tags.
 Vectors have a u32 count; strings have a u32 byte length followed by UTF-8,
 without a terminator. Strings are at most 4096 bytes, vectors at most 1,000,000
@@ -51,7 +57,7 @@ case-sensitive ASCII `[A-Za-z_][A-Za-z0-9_]*`.
 
 | Record | Fields in wire order |
 | --- | --- |
-| Descriptor header | `A8O1` (4 bytes), total descriptor length u32, version u16=1, required features u16=0, pointer bytes u8=3, endian u8=0, NMI extra stack u16, entry text offset u32 |
+| Descriptor header | `A8O1` (4 bytes), total descriptor length u32, version u16=1 or 2, required features u16=0, pointer bytes u8=3, endian u8=0, NMI extra stack u16, entry text offset u32 |
 | Descriptor body | routine vector, object vector, import vector, relocation-check vector |
 | Contract | ABI string, signature u32, argument vector, result u8, incoming extent u32, stack peak u16, IRQ effect u8, kind u8, domains u8 |
 | Argument | offset u32, size u32, alignment u32 |
@@ -69,7 +75,9 @@ save-disable=1, restore=2. Domains are task=1, IRQ=2, both=3; never NMI.
 Kind 0 denotes an ordinary returning checked scalar interface. Kind 1 is the
 raw, nonreturning overflow adapter, with its specified register inputs rather
 than stack arguments. Its signature/argument/result/incoming/peak/effect fields
-are zero and domains=3. Unknown tags/features are rejected.
+are zero and domains=3. Kind 2 is the raw terminal arithmetic-fault adapter
+with the same zero fields and domains=3, admitted only in profile v2; its A/X
+register meanings differ from overflow. Unknown tags/features are rejected.
 
 Complete effective offsets in the relocation-check vector preserve the bounds
 information missing from split-byte relocations. They are independently checked
@@ -94,7 +102,22 @@ boundary. Check all allocation, import and reserved extents for overlaps and
 including one-past bounds, before writing a private output copy. A failure
 publishes nothing and writes no guest memory. BSS is cleared explicitly.
 
-`__a816_stack_overflow_v1` is always a named raw import. Ordinary providers
+`__a816_stack_overflow_v1` is always the first named raw import. Version 2
+also imports `__a816_arithmetic_fault_v1`, with contract kind=2, signature=0,
+no ordinary arguments/result/incoming area, stack peak=0, preserved IRQ effect
+and task/IRQ domains=3. `Contract::arithmetic_fault()` constructs this exact raw
+contract. At transfer A16=1 denotes DivisionByZero, X16=S, native M=X=0,
+decimal clear, DBR=0, D/I unchanged; JML adds no return address. The entry is
+terminal, with no unwind or result store. It cannot be supplied as an ordinary
+returning routine or the stack-overflow provider. Providers must match the
+entire named contract and supply nonoverlapping, valid address/size extents.
+The relocated image exposes `arithmetic_fault()` as an optional address.
+
+Compiler-owned arithmetic helpers occupy ordinary routine records and text
+fixups; their stable typed identities drive dependency selection. Only needed
+helpers are emitted, once each, and each body stays in one program bank.
+
+ Ordinary providers
 must implement checked reservations and the declared IRQ effect/domain rules.
 No application scratch is allocated through o65's zero segment. The host owns
 DP, stack, vectors, task lifetime and scheduling; it initializes D and stack

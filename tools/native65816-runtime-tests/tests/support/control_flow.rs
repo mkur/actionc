@@ -41,6 +41,32 @@ pub fn dispatches(
             .iter()
             .filter(|b| matches!(b.terminator, Mir65816Terminator::Branch { .. }))
             .collect();
+        // Compiler-owned arithmetic bodies have physical control flow without
+        // fabricated MIR source spans. Check their branch encodings directly.
+        if r.helper.is_some() {
+            assert!(m.code.mir_spans.is_empty());
+            assert!(m.code.mir_transfers.is_empty());
+            for site in &m.code.conditional_branches {
+                let target = m.code.labels[&site.target];
+                if site.short {
+                    assert_eq!(m.code.bytes[site.offset], site.predicate);
+                    assert_eq!(
+                        site.offset as i64 + 2 + i64::from(m.code.bytes[site.offset + 1] as i8),
+                        target as i64
+                    );
+                } else {
+                    assert_eq!(
+                        &m.code.bytes[site.offset..site.offset + 3],
+                        &[site.predicate ^ 0x20, 4, 0x5c]
+                    );
+                    assert!(
+                        m.code.fixups.iter().any(|f| f.offset == site.offset + 3
+                            && f.target == Target::Label(site.target))
+                    );
+                }
+            }
+            continue;
+        }
         let mut seen = BTreeSet::new();
         for b in blocks {
             let ordinary = m.code.mir_spans.contains_key(&(b.id, b.ops.len()));

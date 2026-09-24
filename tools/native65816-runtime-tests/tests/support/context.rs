@@ -78,6 +78,7 @@ impl ContextHarness {
         // exported assembly identities first, then assemble with the image map.
         let provisional = runtime(0x018000);
         let mut options = layout();
+        options.arithmetic_fault = Some(0x049000);
         for r in prepared.mir.routines.iter().filter(|r| r.entry.external) {
             let symbol = r.entry.external_symbol.unwrap();
             let (name, peak) = if symbol == actionc::nir::runtime_symbol_id("TEST.Yield") {

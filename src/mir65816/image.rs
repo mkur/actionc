@@ -50,6 +50,12 @@ pub struct LinkOptions {
     /// Raw nonreturning __a816_stack_overflow_v1 adapter, supplied by the platform.
     #[serde(deserialize_with = "json_address::deserialize")]
     pub stack_overflow: u32,
+    #[serde(
+        default,
+        deserialize_with = "json_address::optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub arithmetic_fault: Option<u32>,
     pub nmi_extra_stack: u16,
     pub imports: Vec<AssemblyImport>,
 }
@@ -200,6 +206,8 @@ pub struct Image {
     pub abi: String,
     pub entry: u32,
     pub stack_overflow: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arithmetic_fault: Option<u32>,
     pub task_headroom: u32,
     pub irq_headroom: u32,
     pub segments: Vec<Segment>,
@@ -212,13 +220,21 @@ pub struct Image {
 impl Image {
     pub fn verify(&self) -> Result<(), String> {
         if self.format != "actionc-65816-image"
-            || self.version != 3
+            || !matches!(
+                (self.version, self.arithmetic_fault),
+                (3, None) | (4, Some(_))
+            )
             || self.target != "wdc-65816-native"
             || self.abi != abi::generated::ABI_NAME
         {
-            return Err("unsupported native image identity; recompile for image version 3".into());
+            return Err(
+                "unsupported native image identity; recompile for image version 3 or 4".into(),
+            );
         }
         if self.stack_overflow >= LIMIT
+            || self
+                .arithmetic_fault
+                .is_some_and(|a| a >= LIMIT || a == self.stack_overflow)
             || self.task_headroom < 26
             || self.task_headroom - 26
                 != self
@@ -264,6 +280,12 @@ impl Image {
             .any(|s| self.stack_overflow >= s.address && self.stack_overflow < s.address + s.size)
         {
             return Err("platform stack-overflow adapter overlaps emitted storage".into());
+        }
+        if self
+            .arithmetic_fault
+            .is_some_and(|a| extents.iter().any(|&(start, end)| a >= start && a < end))
+        {
+            return Err("platform arithmetic-fault adapter overlaps image/import storage".into());
         }
         let mut routine_ids = BTreeSet::new();
         for r in &self.routines {
@@ -360,8 +382,13 @@ impl Image {
     pub fn from_json(bytes: &[u8]) -> Result<Self, String> {
         let envelope: serde_json::Value =
             serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
-        if envelope.get("version").and_then(|v| v.as_u64()) != Some(3) {
-            return Err("unsupported native image version; recompile for image version 3".into());
+        if !matches!(
+            envelope.get("version").and_then(|v| v.as_u64()),
+            Some(3 | 4)
+        ) {
+            return Err(
+                "unsupported native image version; recompile for image version 3 or 4".into(),
+            );
         }
         let image: Self = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         image.verify()?;
@@ -394,6 +421,24 @@ pub fn link(
     machine: &emit::MachineProgram,
     options: &LinkOptions,
 ) -> Result<Image, String> {
+    if arithmetic::prepare(program)? != machine.prepared {
+        return Err("machine code belongs to a different prepared program".into());
+    }
+    let program = &machine.prepared;
+    let arithmetic_fault = if machine.routines.iter().any(|r| {
+        r.code
+            .fixups
+            .iter()
+            .any(|f| f.target == Target::ArithmeticFault)
+    }) {
+        Some(
+            options
+                .arithmetic_fault
+                .ok_or("arithmetic requires __a816_arithmetic_fault_v1 in the image layout")?,
+        )
+    } else {
+        None
+    };
     super::relocation::collect(program, machine)?;
     verify_program(program).map_err(|e| format!("invalid MIR65816: {e:?}"))?;
     if program.call_convention != Mir65816CallConvention::Native {
@@ -601,11 +646,12 @@ pub fn link(
     }
     let mut image = Image {
         format: "actionc-65816-image".into(),
-        version: 3,
+        version: if arithmetic_fault.is_some() { 4 } else { 3 },
         target: "wdc-65816-native".into(),
         abi: abi::generated::ABI_NAME.into(),
         entry: routines[&entries[0].id],
         stack_overflow: options.stack_overflow,
+        arithmetic_fault,
         task_headroom: abi::generated::INTERRUPT_TASK_OR_BOOTSTRAP_HEADROOM_BASE_BYTES
             + u32::from(options.nmi_extra_stack),
         irq_headroom: abi::generated::INTERRUPT_IRQ_HEADROOM_BASE_BYTES
@@ -633,6 +679,9 @@ pub fn link(
                 Target::Runtime(id) => *runtime.get(&id).ok_or("unresolved runtime relocation")?,
                 Target::Data(id) => *data.get(&id).ok_or("unresolved data relocation")?,
                 Target::StackOverflow => options.stack_overflow,
+                Target::ArithmeticFault => {
+                    arithmetic_fault.ok_or("missing arithmetic fault adapter")?
+                }
             };
             patch(
                 &mut bytes,

@@ -33,7 +33,9 @@ pub(super) fn sole_branch_conditions(routine: &Mir65816Routine) -> Live {
                 }
                 vec![]
             }
-            Mir65816Terminator::Fallthrough | Mir65816Terminator::Exit => vec![],
+            Mir65816Terminator::Fallthrough
+            | Mir65816Terminator::Exit
+            | Mir65816Terminator::ArithmeticFault => vec![],
         };
         for edge in edges {
             for value in &edge.args {
@@ -125,6 +127,7 @@ impl Uses {
                 match target {
                     Mir65816CallTarget::Indirect(value, _) => uses.value(value),
                     Mir65816CallTarget::Direct(_)
+                    | Mir65816CallTarget::Helper(_)
                     | Mir65816CallTarget::Builtin(_)
                     | Mir65816CallTarget::Runtime(_) => {}
                 }
@@ -183,7 +186,7 @@ pub(super) fn interference(routine: &Mir65816Routine) -> Result<Interference, St
                 successors.push(index + 1);
                 vec![]
             }
-            Mir65816Terminator::Exit => vec![],
+            Mir65816Terminator::Exit | Mir65816Terminator::ArithmeticFault => vec![],
         };
         for edge in edges {
             successors.push(

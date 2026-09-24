@@ -469,7 +469,8 @@ impl AllocatedFrame {
                 } => vec![then_edge, else_edge],
                 Mir65816Terminator::Return { .. }
                 | Mir65816Terminator::Fallthrough
-                | Mir65816Terminator::Exit => vec![],
+                | Mir65816Terminator::Exit
+                | Mir65816Terminator::ArithmeticFault => vec![],
             };
             for edge in edges {
                 let widths = if let Some(plan) = self.word_copies(routine, edge, 0)? {

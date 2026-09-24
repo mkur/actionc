@@ -525,4 +525,7 @@ for the advertised subset:
 The [CPU checkpoint](MIR65816_CPU_EXECUTION_CHECKPOINT.md) records the required
 status-timing correction. Custom-board bootstrap, vectors, acknowledgement and
 interrupt smoke testing remain platform work. ABI v1's physical layout is
-unchanged by image format version 3.
+unchanged by image formats 3/4 and o65 profiles 1/2. Native arithmetic helpers
+use ordinary scalar calls and per-domain scratch. Their separate terminal
+[arithmetic-fault adapter](MIR65816_ARITHMETIC_HELPERS_PLAN.md#division-by-zero-adapter-and-artifact-compatibility)
+is not an ordinary returning entry and does not change physical ABI v1.

@@ -1,6 +1,7 @@
 //! WDC 65816 lowering, native ABI planning and freestanding scalar emission.
 
 pub mod abi;
+pub mod arithmetic;
 pub mod context;
 mod data;
 pub mod emit;
@@ -104,6 +105,8 @@ pub struct Mir65816RuntimeBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mir65816Routine {
+    /// Compiler-owned body; names and source locations do not select behavior.
+    pub helper: Option<arithmetic::Helper>,
     pub id: RoutineId,
     pub signature: SignatureId,
     pub entry: crate::nir::NirRoutineEntry,
@@ -449,6 +452,7 @@ pub enum Mir65816Value {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Mir65816CallTarget {
     Direct(u32),
+    Helper(RoutineId),
     Builtin(String),
     Runtime(RuntimeSymbolId),
     Indirect(Mir65816Value, ByteSize),
@@ -470,6 +474,7 @@ pub enum Mir65816Terminator {
         restored_mode: Mir65816ModeState,
     },
     Exit,
+    ArithmeticFault,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -547,6 +552,20 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
             message: "65816 program does not match its ABI/model state contract".into(),
         });
     }
+    let mut helper_kinds = std::collections::BTreeSet::new();
+    let helper_calls = program
+        .routines
+        .iter()
+        .flat_map(|r| &r.blocks)
+        .flat_map(|b| &b.ops)
+        .filter_map(|op| match op {
+            Mir65816Op::Call {
+                target: Mir65816CallTarget::Helper(id),
+                ..
+            } => Some(*id),
+            _ => None,
+        })
+        .collect::<std::collections::BTreeSet<_>>();
     let mut routine_ids = std::collections::BTreeSet::new();
     for routine in &program.routines {
         if !routine_ids.insert(routine.id) {
@@ -565,6 +584,19 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
                 message,
             });
         }
+        if let Some(helper) = routine.helper {
+            if !native
+                || !helper_kinds.insert(helper)
+                || !helper_calls.contains(&routine.id)
+                || helper.routine(routine.id, routine.signature).as_ref() != Ok(routine)
+            {
+                errors.push(Mir65816Diagnostic {
+                    routine: Some(routine.name.clone()),
+                    block: None,
+                    message: "invalid native arithmetic helper descriptor".into(),
+                });
+            }
+        }
         if let Err(message) = verify_control_flow(routine) {
             errors.push(Mir65816Diagnostic {
                 routine: Some(routine.name.clone()),
@@ -575,6 +607,39 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
         if native {
             for block in &routine.blocks {
                 for op in &block.ops {
+                    if let Mir65816Op::Call {
+                        target: Mir65816CallTarget::Helper(id),
+                        signature,
+                        args,
+                        result,
+                        plan,
+                        convention,
+                    } = op
+                    {
+                        let valid = program
+                            .routines
+                            .iter()
+                            .find(|r| r.id == *id)
+                            .and_then(|r| r.helper.map(|h| (r, h)))
+                            .is_some_and(|(callee, h)| {
+                                *signature == Some(callee.signature)
+                                    && h.plan(callee.signature).as_ref() == Ok(plan)
+                                    && *convention == Mir65816CallConvention::Native
+                                    && args.len() == 2
+                                    && args.iter().all(|v| {
+                                        value_width(routine, v)
+                                            == Some(ByteSize::new(h.bytes.into()))
+                                    })
+                                    && result.is_none_or(|(_, w)| w.get() == u32::from(h.bytes))
+                            });
+                        if !valid {
+                            errors.push(Mir65816Diagnostic {
+                                routine: Some(routine.name.clone()),
+                                block: Some(format!("b{}", block.id.0)),
+                                message: "invalid native arithmetic helper call".into(),
+                            });
+                        }
+                    }
                     if let Mir65816Op::Call {
                         target: Mir65816CallTarget::Direct(id),
                         plan,
@@ -591,6 +656,7 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
                                     .map(|p| p.incoming)
                                     .collect::<Vec<_>>()
                                 || plan.result != callee.result_home
+                                || callee.helper.is_some()
                         }) {
                             errors.push(Mir65816Diagnostic {
                                 routine: Some(routine.name.clone()),
@@ -610,6 +676,33 @@ pub fn verify_program(program: &Mir65816Program) -> Result<(), Vec<Mir65816Diagn
     }
 }
 
+fn value_width(routine: &Mir65816Routine, value: &Mir65816Value) -> Option<ByteSize> {
+    match value {
+        Mir65816Value::U8(_) => Some(ByteSize::ONE),
+        Mir65816Value::U16(_) => Some(ByteSize::new(2)),
+        Mir65816Value::U24(_) => Some(ByteSize::new(3)),
+        Mir65816Value::U32(_) => Some(ByteSize::new(4)),
+        Mir65816Value::Temp(id, w) => routine
+            .temps
+            .iter()
+            .find(|(t, _)| t == id)
+            .and_then(|(_, ty)| (ty.width == Some(*w)).then_some(*w)),
+        Mir65816Value::Param(id) => routine
+            .frame
+            .parameters
+            .iter()
+            .find(|p| p.param == *id)
+            .and_then(|p| match p.incoming {
+                Mir65816AbiHome::StackArgument { size, .. } => Some(size),
+                _ => None,
+            }),
+        Mir65816Value::Null(w)
+        | Mir65816Value::Address(_, w)
+        | Mir65816Value::StaticAddress(_, w)
+        | Mir65816Value::GlobalAddress(_, w)
+        | Mir65816Value::RoutineAddress(_, w) => Some(*w),
+    }
+}
 fn verify_control_flow(routine: &Mir65816Routine) -> Result<(), String> {
     use std::collections::{BTreeMap, BTreeSet};
     let temps = routine

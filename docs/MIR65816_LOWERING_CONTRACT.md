@@ -18,8 +18,24 @@ native emitter consumes this contract; small-model lowering remains separate.
 - `Mir65816Op::Compare.signed` comes from `operand_ty`, alongside the operand
   width and comparison operator. The boolean result type does not determine
   signedness. Pointer and address comparisons remain unsigned.
-- These are instruction-selection facts. Preserving a division operation does
-  not establish an executable division helper.
+- Before native allocation, `arithmetic::prepare` converts MUL/DIV/MOD into
+  constant reductions or typed `CallTarget::Helper` calls. Helper descriptors
+  live on compiler-owned routines in the ordinary routine identity space;
+  display names do not select behavior. Each descriptor and call plan is
+  verified, including exact argument/result widths and dependency closure.
+  Preparation is idempotent. `MachineProgram.prepared` is the graph consumed
+  by emission and linking; linking rejects a mismatched original program.
+- NIR's narrow binary operands are explicitly zero-extended before helper
+  calls. Multiplication uses the resolved product width, including INT products
+  from BYTE/CARD/SIZE and LONG products from LONGINT/LONGCARD. Upper operand
+  bits may be truncated for a modular product. Later consumer casts keep their
+  original semantics. Existing signed widening remains explicit.
+- Helper calls precede DP promotion, X residency, forwarding and stack-peak
+  allocation. Nothing live across them depends on caller-clobbered scratch.
+  Generated entries have no source span or fabricated source-MIR operations.
+- Native DivisionByZero NIR faults become terminal `ArithmeticFault` exits;
+  other fault kinds keep their unsupported diagnostic. The terminal adapter
+  contract is described in the [arithmetic plan](MIR65816_ARITHMETIC_HELPERS_PLAN.md).
 - Casts retain `from_signed` independently of widths and conversion kind, so
   signed widening does not need to recover the source type after lowering.
 

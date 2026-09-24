@@ -15,6 +15,7 @@ pub enum Target {
     Absolute(u32),
     ImageEnd,
     StackOverflow,
+    ArithmeticFault,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fixup {
@@ -61,6 +62,7 @@ pub fn collect(
                 emit::Target::Runtime(id) => Target::Runtime(id),
                 emit::Target::Data(id) => Target::Data(id),
                 emit::Target::StackOverflow => Target::StackOverflow,
+                emit::Target::ArithmeticFault => Target::ArithmeticFault,
             };
             result.push(Fixup {
                 owner,

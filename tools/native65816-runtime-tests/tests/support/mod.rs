@@ -37,6 +37,7 @@ pub fn layout() -> LinkOptions {
         read_only_origin: None,
         zero_fill_origin: None,
         stack_overflow: 0x048000,
+        arithmetic_fault: None,
         nmi_extra_stack: 0,
         imports: vec![],
     }

@@ -33,7 +33,12 @@ pub fn write(artifact: &Artifact) -> Result<Vec<u8>, String> {
                 value: artifact.profile.entry,
             },
             wire::Export {
-                name: DESCRIPTOR.into(),
+                name: if artifact.profile.version == 2 {
+                    DESCRIPTOR_V2
+                } else {
+                    DESCRIPTOR
+                }
+                .into(),
                 segment: 2,
                 value: descriptor_offset,
             },

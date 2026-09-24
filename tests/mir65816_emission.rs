@@ -28,6 +28,7 @@ fn layout() -> image::LinkOptions {
         read_only_origin: None,
         zero_fill_origin: None,
         stack_overflow: 0x48000,
+        arithmetic_fault: None,
         nmi_extra_stack: 7,
         imports: vec![],
     }
@@ -249,13 +250,10 @@ fn emits_checked_frames_and_round_trips_a_freestanding_image() {
 
 #[test]
 fn unsupported_operations_and_unbound_assembly_fail_before_an_image_exists() {
-    for (source, error) in [
-        ("CARD a,b,result PROC Main() result=a*b RETURN", "Mul"),
-        (
-            "TYPE Pair=[BYTE tag CARD value] VOLATILE Pair source,target PROC Main() target=source RETURN",
-            "volatile aggregate copy",
-        ),
-    ] {
+    for (source, error) in [(
+        "TYPE Pair=[BYTE tag CARD value] VOLATILE Pair source,target PROC Main() target=source RETURN",
+        "volatile aggregate copy",
+    )] {
         for optimize in [false, true] {
             let program = mir(source, optimize);
             assert!(emit::materialize(&program).unwrap_err().contains(error));
@@ -570,6 +568,12 @@ fn image_relocations_select_bytes_after_the_addend_and_reject_address_wrap() {
     program.data[0].relocations[0].target =
         Mir65816RelocationTarget::Absolute(AddressValue::code(0xffffff));
     program.data[0].relocations[0].addend = 1;
+    assert!(
+        image::link(&program, &machine, &layout())
+            .unwrap_err()
+            .contains("different prepared program")
+    );
+    let machine = emit::materialize(&program).unwrap();
     assert!(
         image::link(&program, &machine, &layout())
             .unwrap_err()

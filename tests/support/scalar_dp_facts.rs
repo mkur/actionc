@@ -57,6 +57,7 @@ pub fn enrich(f: &mut Value, r: &Mir65816Routine, m: &MachineRoutine) {
             Mir65816Terminator::Return { .. } => "return",
             Mir65816Terminator::Fallthrough => "fallthrough",
             Mir65816Terminator::Exit => "exit",
+            Mir65816Terminator::ArithmeticFault => "arithmetic_fault",
         });
         for (op, row) in b.ops.iter().zip(block["ops"].as_array_mut().unwrap()) {
             let mut values = vec![];

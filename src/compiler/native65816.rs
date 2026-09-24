@@ -110,6 +110,7 @@ pub fn prepare_file(
             d.into_iter().map(|d| (d.routine, d.block, d.message)),
         ),
     })?;
+    let mir = mir65816::arithmetic::prepare(&mir).map_err(codegen)?;
     let source_paths = loaded
         .source_map
         .source_origins()

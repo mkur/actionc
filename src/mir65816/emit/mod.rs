@@ -33,6 +33,8 @@ pub struct MachineRoutine {
 
 #[derive(Debug, Clone)]
 pub struct MachineProgram {
+    /// The verified, legalized graph used by allocation, emission and linking.
+    pub prepared: Mir65816Program,
     pub routines: Vec<MachineRoutine>,
 }
 
@@ -66,6 +68,8 @@ fn materialize_path(
             contract.unsupported_signatures
         ));
     }
+    let prepared = arithmetic::prepare(program)?;
+    let program = &prepared;
     let mut routines = Vec::new();
     for routine in &program.routines {
         // External Action! interfaces are linked to explicitly described assembly.
@@ -88,7 +92,7 @@ fn materialize_path(
             .map_err(|e| format!("{}: {e}", routine.name))?,
         );
     }
-    Ok(MachineProgram { routines })
+    Ok(MachineProgram { prepared, routines })
 }
 
 #[cfg(test)]

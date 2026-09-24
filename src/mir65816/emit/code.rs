@@ -13,6 +13,7 @@ pub enum Target {
     Runtime(RuntimeSymbolId),
     Data(Mir65816DataId),
     StackOverflow,
+    ArithmeticFault,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

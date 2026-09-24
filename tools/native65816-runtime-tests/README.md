@@ -48,6 +48,23 @@ The assembler is invoked directly; missing tools fail the tests. No Atari ROM,
 OS, device intercept or host scheduler participates. The earlier
 `vm65816-runtime-tests` workspace remains the jgenesis comparison experiment.
 
+## Arithmetic helpers
+
+`arithmetic_helpers.rs` checks all 256² unsigned byte pairs, boundary cross
+products and deterministic random wider inputs against independent host
+integer arithmetic. Inputs are written after compilation. It also exercises
+signed MIN/-1, zero faults, all unsigned power-of-two reductions, side effects,
+compound and bank-crossing stores, exact ca65 argument/result lanes, helper
+entry stack bounds and rebased serialized o65 files. `preemption.rs` reenters
+the same helper bodies from two tasks and the IRQ dispatcher, checking every
+reached helper instruction and seeded IRQ/NMI schedules. NMI calls no helper.
+
+`arithmetic-metrics.json` records emitted body bytes, zero-frame stack costs,
+DP usage, body cycles and cycles including the independent assembly caller.
+`arithmetic-range-*.json` records observed kernel timing ranges and maximizing
+inputs over the numerical corpus. Profile v2 and
+image v4 are used only when the raw arithmetic-fault dependency survives.
+
 ## Corpus
 
 | Target | Tests | Coverage |

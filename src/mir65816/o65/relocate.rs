@@ -146,6 +146,7 @@ pub struct RelocatedImage {
     bases: [u32; 3],
     entry: u32,
     stack_overflow: u32,
+    arithmetic_fault: Option<u32>,
 }
 impl RelocatedImage {
     pub fn segments(&self) -> &[Segment] {
@@ -159,6 +160,9 @@ impl RelocatedImage {
     }
     pub fn entry(&self) -> u32 {
         self.entry
+    }
+    pub fn arithmetic_fault(&self) -> Option<u32> {
+        self.arithmetic_fault
     }
     pub fn stack_overflow(&self) -> u32 {
         self.stack_overflow
@@ -306,8 +310,13 @@ fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), St
     for (i, name) in p.imports.iter().zip(&file.imports) {
         if i.name != *name
             || !valid_name(name)
-            || (name != OVERFLOW
-                && (i.contract.kind != 0 || name == ENTRY || name.starts_with("__a816_o65_")))
+            || (if name == OVERFLOW {
+                i.contract != Contract::overflow()
+            } else if name == ARITHMETIC_FAULT {
+                p.version != 2 || i.contract != Contract::arithmetic_fault()
+            } else {
+                i.contract.kind != 0 || name == ENTRY || name.starts_with("__a816_o65_")
+            })
         {
             return Err("import descriptor mismatch".into());
         }
@@ -367,12 +376,16 @@ fn validate_profile(file: &wire::File, p: &Profile, start: u32) -> Result<(), St
 
 fn application(bytes: &[u8]) -> Result<(wire::File, Profile), String> {
     let file = read::decode(bytes)?;
-    let start = export(&file, DESCRIPTOR)?;
+    let v2 = file.exports.iter().any(|e| e.name == DESCRIPTOR_V2);
+    let start = export(&file, if v2 { DESCRIPTOR_V2 } else { DESCRIPTOR })?;
     let raw = file
         .text
         .get(start as usize..)
         .ok_or("descriptor outside text")?;
     let p = read::descriptor(raw)?;
+    if v2 != (p.version == 2) {
+        return Err("o65 descriptor export/version mismatch".into());
+    }
     validate_profile(&file, &p, start)?;
     Ok((file, p))
 }
@@ -534,6 +547,11 @@ pub fn relocate(bytes: &[u8], placement: &Placement) -> Result<RelocatedImage, S
         segments,
         zero_fill,
         entry: placement.bases[0] + p.entry,
+        arithmetic_fault: p
+            .imports
+            .iter()
+            .position(|i| i.name == ARITHMETIC_FAULT)
+            .map(|i| addresses[i]),
         stack_overflow: addresses[0],
         profile: p,
         bases: placement.bases,
