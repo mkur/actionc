@@ -226,4 +226,11 @@ for origin_pair in '$3000:$41C7' '$2B40:$52D3'; do
     "fixtures/listing/mads_reorigin_contract.act" "$origin_a" "$origin_b"
 done
 
-echo "MADS listing oracle passed: 10 compiler cases, 32 assembled listings"
+run_reorigin_case "arithmetic-compatibility" "compatibility" "legacy" "classic" \
+  "fixtures/listing/mads_arithmetic_helpers.act" '$3000' '$41C7'
+run_reorigin_case "arithmetic-optimized" "optimized" "modern" "classic" \
+  "fixtures/listing/mads_arithmetic_helpers.act" '$3000' '$41C7'
+run_reorigin_case "arithmetic-mir6502" "mir6502" "modern" "mir6502" \
+  "fixtures/listing/mads_arithmetic_helpers.act" '$3000' '$41C7'
+
+echo "MADS listing oracle passed: 13 compiler cases, 44 assembled listings"

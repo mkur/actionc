@@ -592,6 +592,9 @@ pub struct NirRoutine {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NirRoutineEntry {
+    /// Debug location of the source routine; absent for generated entries.
+    /// This does not participate in ABI or placement decisions.
+    pub source_span: Option<Span>,
     pub program: bool,
     pub external: bool,
     /// Resolved external interface identity; names remain display metadata.
@@ -602,6 +605,7 @@ pub struct NirRoutineEntry {
 impl Default for NirRoutineEntry {
     fn default() -> Self {
         Self {
+            source_span: None,
             program: false,
             external: false,
             external_symbol: None,

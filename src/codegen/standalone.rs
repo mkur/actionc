@@ -147,6 +147,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         }
     }
     let runtime_routine_names = item_routine_names(&runtime_items);
+    let runtime_declaration_names = item_declaration_names(&runtime_items);
 
     let mut modules = Vec::new();
     if !helper_sets.is_empty() {
@@ -181,6 +182,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &local_helper_overrides,
     );
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
+    suppress_source_ranges_for_declarations(&mut output, &runtime_declaration_names);
     if let Some(program_entry) = program_entry {
         let address = output
             .routine_addresses
@@ -296,6 +298,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         .flat_map(|module| module.items.iter().cloned())
         .collect::<Vec<_>>();
     let runtime_routine_names = item_routine_names(&runtime_items);
+    let runtime_declaration_names = item_declaration_names(&runtime_items);
     application.modules =
         insert_runtime_after_application_layout(application.modules, runtime_items);
 
@@ -312,6 +315,7 @@ pub(crate) fn generate_semir_cart_profile_at_origin(
         RuntimeTarget::Cartridge,
     )?;
     suppress_source_ranges_for_routines(&mut output, &runtime_routine_names);
+    suppress_source_ranges_for_declarations(&mut output, &runtime_declaration_names);
     if let Some(program_entry) = program_entry {
         let address = output
             .routine_addresses
@@ -504,6 +508,32 @@ fn item_routine_names(items: &[Item]) -> BTreeSet<String> {
             _ => None,
         })
         .collect()
+}
+
+fn item_declaration_names(items: &[Item]) -> BTreeSet<String> {
+    items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Declaration(Decl::Var(decl)) => Some(var_decl_source_name(decl)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn suppress_source_ranges_for_declarations(output: &mut CodegenOutput, names: &BTreeSet<String>) {
+    output.map.source_ranges.retain_mut(|range| {
+        if !range.name.as_ref().is_some_and(|name| names.contains(name)) {
+            return true;
+        }
+        match range.kind {
+            CodegenSourceRangeKind::Declaration => false,
+            CodegenSourceRangeKind::StorageInitializer => {
+                range.source_span = Span::new(0, 0);
+                true
+            }
+            _ => true,
+        }
+    });
 }
 
 fn reject_absolute_helper_overrides(program: &Program) -> Result<(), Vec<Diagnostic>> {

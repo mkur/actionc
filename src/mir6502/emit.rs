@@ -3015,7 +3015,7 @@ fn emit_op(
                         .iter()
                         .find(|candidate| candidate.id == routine)
                         .map(|routine| routine.name.clone()),
-                    source_span: SYNTHETIC_SPAN,
+                    source_span: machine_block.source_span.unwrap_or(SYNTHETIC_SPAN),
                     address,
                     trusted: true,
                     summary: format!("{} structured item(s)", machine_block.items.len()),
@@ -3023,7 +3023,7 @@ fn emit_op(
             ctx.summary.source_ranges.push(CodegenSourceRange {
                 kind: CodegenSourceRangeKind::MachineBlock,
                 name: Some(format!("m{}", id.0)),
-                source_span: SYNTHETIC_SPAN,
+                source_span: machine_block.source_span.unwrap_or(SYNTHETIC_SPAN),
                 start: address,
                 end,
             });

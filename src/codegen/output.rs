@@ -16,6 +16,7 @@ impl Generator {
         }
 
         for helper in self.used_default_runtime_helpers.iter().copied().filter(|helper| helper.is_owned_division()) {
+            let start = self.current_absolute_address();
             self.emitter.bind_label(helper.owned_label(), Span::new(0, 0))
                 .map_err(|error| vec![error])?;
             let body = crate::integer6502::division_body(
@@ -37,9 +38,19 @@ impl Generator {
                 }
             }
             self.emitter.emit_u8(0x60);
+            self.routine_addresses.push(RoutineAddress {
+                name: helper.owned_label(),
+                address: start,
+            });
+            self.routine_ranges.push(RoutineRange {
+                name: helper.owned_label(),
+                start,
+                end: self.current_absolute_address(),
+            });
         }
 
         for helper in &self.used_wide_helpers {
+            let start = self.current_absolute_address();
             self.emitter.bind_label(helper.label(), Span::new(0, 0)).map_err(|error| vec![error])?;
             let (bytes, error_operand) = helper.body();
             for (offset, byte) in bytes.into_iter().enumerate() {
@@ -53,6 +64,15 @@ impl Generator {
                 }
             }
             self.emitter.emit_u8(0x60);
+            self.routine_addresses.push(RoutineAddress {
+                name: helper.label(),
+                address: start,
+            });
+            self.routine_ranges.push(RoutineRange {
+                name: helper.label(),
+                start,
+                end: self.current_absolute_address(),
+            });
         }
 
         // Uninitialized array homes follow every executable helper. Binding

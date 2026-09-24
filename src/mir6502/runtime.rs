@@ -272,6 +272,7 @@ fn bind_generated_helper(
     // cartridge or standalone runtime without depending on a private ROM
     // entry point.
     program.machine_blocks.push(MirMachineBlock {
+        source_span: None,
         id: machine_id,
         items,
     });

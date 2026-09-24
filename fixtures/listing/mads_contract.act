@@ -3,7 +3,7 @@ BYTE source=$58
 CARD ptr=$80
 BYTE ARRAY payload=[$02 $00 $FF]
 
-PROC Helper()
+PROC Helper() ; café: routine source locations must escape non-ASCII too.
 RETURN ; café: non-ASCII comments belong to an emitted source statement.
 
 PROC Main()

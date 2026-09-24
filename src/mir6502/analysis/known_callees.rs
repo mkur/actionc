@@ -1852,6 +1852,7 @@ mod tests {
     #[test]
     fn machine_summary_tracks_index_register_writes() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0xA2),
@@ -1879,6 +1880,7 @@ mod tests {
     #[test]
     fn machine_summary_resolves_symbolic_fixed_zero_page_operands() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0xA6),
@@ -1958,6 +1960,7 @@ mod tests {
     #[test]
     fn machine_summary_unions_forward_branch_effects_and_preservation() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0xA6),
@@ -2005,6 +2008,7 @@ mod tests {
     #[test]
     fn machine_summary_rejects_backward_branch_effect_walks() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0xD0),
@@ -2094,6 +2098,7 @@ mod tests {
     #[test]
     fn summarizes_supported_machine_return_without_routine_name_special_case() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0x20),
@@ -2130,6 +2135,7 @@ mod tests {
     #[test]
     fn summarizes_machine_indirect_result_stored_to_return_slot() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0x85),
@@ -2165,6 +2171,7 @@ mod tests {
     #[test]
     fn unsupported_machine_call_keeps_write_summary_unknown() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0x20),
@@ -2198,6 +2205,7 @@ mod tests {
     #[test]
     fn later_machine_write_invalidates_accumulator_memory_equality() {
         let machine = MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(0),
             items: vec![
                 MirMachineItem::Byte(0xA9),

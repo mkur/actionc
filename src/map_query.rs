@@ -114,6 +114,7 @@ impl<'a> MapQuery<'a> {
             .map
             .source_ranges
             .iter()
+            .filter(|range| range.source_span.start < range.source_span.end)
             .filter(|range| range.start <= address && address < range.end)
             .min_by_key(|range| range.end.wrapping_sub(range.start))?;
         Some(SourceMatch {
@@ -389,6 +390,24 @@ mod tests {
             })
         ));
         assert!(owner.storage.is_none());
+    }
+
+    #[test]
+    fn generated_storage_ranges_do_not_claim_source_locations() {
+        let mut map = sample_map();
+        map.source_ranges = vec![CodegenSourceRange {
+            kind: CodegenSourceRangeKind::StorageInitializer,
+            name: Some("runtime data".into()),
+            source_span: Span::new(0, 0),
+            start: 0x3000,
+            end: 0x3004,
+        }];
+        let query = MapQuery::with_source(&map, "BYTE A\nPROC Main()\nRETURN");
+        assert!(query.source_at(0x3000).is_none());
+        assert!(matches!(
+            query.range(0x3000, 0x3004).last().unwrap().item,
+            RangeItem::Source(_)
+        ));
     }
 
     #[test]

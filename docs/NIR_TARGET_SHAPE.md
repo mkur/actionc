@@ -15,6 +15,13 @@ representable internally. The verifier rejects those variants from executable
 NIR, and `fixtures/nir` is the optimizer-facing snapshot contract. There is no
 separate TAC module or TAC fixture contract.
 
+`NirRoutineEntry::source_span` carries the optional routine source location as
+debug metadata. It survives optimization and has no effect on placement, ABI,
+or printed executable IR. MIR6502 output associates retained routine ranges
+with these NIR locations after final layout; foreign-code locations travel
+with their machine-block payloads. Generated entries have no source location.
+These are routine and machine-block mappings, not statement-level provenance.
+
 Routine `inline` metadata carries a typed `Auto` / `Prefer` optimization
 preference keyed by the routine's stable ID. AST and SemIR own declaration
 validation and preserve the diagnostic source span through imports and classic

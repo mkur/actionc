@@ -225,7 +225,24 @@ pub fn generate_output_with_config_and_runtime(
             })
             .collect::<Vec<_>>()
     })?;
-    Ok(codegen_output(emission, origin, summary, runtime, &mir))
+    let mut output = codegen_output(emission, origin, summary, runtime, &mir);
+    // Routine identity survives MIR layout and inlining. Resolve its debug
+    // location from verified NIR only after final address ranges are known.
+    output.map.source_ranges.retain_mut(|range| {
+        if range.kind != crate::codegen::CodegenSourceRangeKind::Routine {
+            return true;
+        }
+        let span = nir
+            .routines
+            .iter()
+            .find(|routine| Some(&routine.name) == range.name.as_ref())
+            .and_then(|routine| routine.entry.source_span);
+        if let Some(span) = span {
+            range.source_span = span;
+        }
+        span.is_some()
+    });
+    Ok(output)
 }
 
 fn codegen_output(
@@ -235,15 +252,12 @@ fn codegen_output(
     runtime: crate::runtime::Runtime,
     mir: &MirProgram,
 ) -> crate::codegen::CodegenOutput {
-    let linked_runtime_routines = if runtime == crate::runtime::Runtime::Standalone {
-        mir.routines
-            .iter()
-            .filter(|routine| routine.name.starts_with("ACTION.RUNTIME."))
-            .map(|routine| routine.name.clone())
-            .collect::<BTreeSet<_>>()
-    } else {
-        BTreeSet::new()
-    };
+    let linked_runtime_routines = mir
+        .routines
+        .iter()
+        .filter(|routine| routine.name.starts_with("ACTION.RUNTIME."))
+        .map(|routine| routine.name.clone())
+        .collect::<BTreeSet<_>>();
     let skipped_ranges = summary.skipped_ranges;
     let routine_addresses = summary.routine_addresses;
     let optimizations = Vec::new();
@@ -7873,6 +7887,7 @@ mod tests {
                 },
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![MirMachineItem::Byte(0xEA), MirMachineItem::Word(0x1234)],
             }],
@@ -7941,6 +7956,7 @@ mod tests {
                 },
             ],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![
                     MirMachineItem::AddressExpr {
@@ -8004,6 +8020,7 @@ mod tests {
                 },
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![
                     MirMachineItem::StringLiteral("AB".to_string()),
@@ -8271,6 +8288,7 @@ mod tests {
                 effects: MirEffects::default(),
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![MirMachineItem::Byte(0xEA); 127],
             }],
@@ -8329,6 +8347,7 @@ mod tests {
                 effects: MirEffects::default(),
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![MirMachineItem::Byte(0xEA); 125],
             }],
@@ -8394,6 +8413,7 @@ mod tests {
                 effects: MirEffects::default(),
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![MirMachineItem::Byte(0xEA); 140],
             }],
@@ -8440,6 +8460,7 @@ mod tests {
                 effects: MirEffects::default(),
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![
                     MirMachineItem::Byte(0x34),
@@ -8573,6 +8594,7 @@ mod tests {
                 effects: MirEffects::default(),
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![MirMachineItem::Name("TARGET".to_string())],
             }],
@@ -8614,6 +8636,7 @@ mod tests {
                 effects: MirEffects::default(),
             }],
             machine_blocks: vec![MirMachineBlock {
+                source_span: None,
                 id: MirMachineBlockId(0),
                 items: vec![MirMachineItem::AddressExpr {
                     selector: None,

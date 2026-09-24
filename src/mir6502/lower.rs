@@ -2002,7 +2002,11 @@ fn lower_ops(
                     continue;
                 };
                 let id = MirMachineBlockId(machine_blocks.len() as u32);
-                machine_blocks.push(MirMachineBlock { id, items });
+                machine_blocks.push(MirMachineBlock {
+                    id,
+                    items,
+                    source_span: Some(code.span),
+                });
                 lowered.push(MirOp::MachineBlock { id, effects });
             }
             NirOpKind::Real(real) => lower_real_op(

@@ -187,6 +187,8 @@ pub struct CodegenStorageSymbol {
 pub struct CodegenSourceRange {
     pub kind: CodegenSourceRangeKind,
     pub name: Option<String>,
+    /// Location in the application's expanded source. An empty span has no
+    /// source location; storage ranges may still describe code/data boundaries.
     pub source_span: Span,
     pub start: u16,
     pub end: u16,
@@ -214,10 +216,18 @@ pub(crate) fn suppress_source_ranges_for_routines(
         .map(|routine| (routine.start, routine.end))
         .collect::<Vec<_>>();
 
-    output.map.source_ranges.retain(|source| {
-        !suppressed_ranges
+    output.map.source_ranges.retain_mut(|source| {
+        let suppressed = suppressed_ranges
             .iter()
-            .any(|&(start, end)| source.start < end && start < source.end)
+            .any(|&(start, end)| source.start < end && start < source.end);
+        if suppressed && source.kind == CodegenSourceRangeKind::StorageInitializer {
+            // Keep the code/data boundary, but this span belongs to a separate
+            // runtime source file, not the application's expanded source.
+            source.source_span = Span::new(0, 0);
+            true
+        } else {
+            !suppressed
+        }
     });
 }
 

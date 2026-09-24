@@ -21731,6 +21731,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
     ]);
     program.machine_blocks = vec![
         MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(3),
             items: vec![
                 MirMachineItem::Byte(0x6C),
@@ -21738,6 +21739,7 @@ fn exact_terminal_indirect_jump_gets_structured_machine_effects() {
             ],
         },
         MirMachineBlock {
+            source_span: None,
             id: MirMachineBlockId(4),
             items: vec![
                 MirMachineItem::AddressByte {

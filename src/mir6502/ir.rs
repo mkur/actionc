@@ -179,6 +179,8 @@ pub struct MirHelperResult {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirMachineBlock {
     pub id: MirMachineBlockId,
+    /// Debug location, absent for compiler-generated machine code.
+    pub source_span: Option<Span>,
     pub items: Vec<MirMachineItem>,
 }
 

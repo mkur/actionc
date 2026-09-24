@@ -1,0 +1,11 @@
+; Compiler-owned signed and unsigned DIV/MOD helpers must remain executable
+; instructions in listings, including when the listing origin is changed.
+INT left=$0600,right=$0602,quotient=$0604,remainder=$0606
+CARD uleft=$0608,uright=$060A,uquotient=$060C,uremainder=$060E
+
+PROC Main()
+  quotient=left/right
+  remainder=left MOD right
+  uquotient=uleft/uright
+  uremainder=uleft MOD uright
+RETURN

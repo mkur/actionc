@@ -728,6 +728,7 @@ fn action_abi_sargs_param_prologue(
     helpers.push(MirRuntimeHelper::SArgs);
     let id = MirMachineBlockId(machine_blocks.len() as u32);
     machine_blocks.push(MirMachineBlock {
+        source_span: None,
         id,
         items: vec![
             MirMachineItem::AddressByte {

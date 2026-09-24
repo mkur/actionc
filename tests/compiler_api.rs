@@ -289,6 +289,145 @@ fn compiled_program_formats_a_mads_compatible_source_listing() {
 }
 
 #[test]
+fn mir6502_listing_uses_real_routine_and_machine_source_locations() {
+    let temp = TestDir::new();
+    let source = concat!(
+        "; source locations must not fall back to this first line\n",
+        "BYTE out=$0600\n",
+        "PROC Helper()\n",
+        " [ $EA ]\n",
+        "RETURN\n",
+        "PROC Main()\n",
+        " Helper()\n",
+        " ASM\n",
+        "  lda #7\n",
+        "  sta out\n",
+        " ENDASM\n",
+        "RETURN\n",
+    );
+    for newline in ["\n", "\r\n"] {
+        let path = write_source(&temp, "mir-locations.act", &source.replace('\n', newline));
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let compiled = compile_file(
+                &path,
+                &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime),
+            )
+            .unwrap();
+            let listing = compiled.source_listing();
+            for expected in [
+                "; 3:1 routine Helper | PROC Helper()",
+                "; 4:2 machine ",
+                "; 6:1 routine Main | PROC Main()",
+                "; 8:2 machine ",
+            ] {
+                assert!(
+                    listing.contains(expected),
+                    "{runtime:?}/{newline:?}: missing {expected}\n{listing}"
+                );
+            }
+            assert!(!listing.contains("; 1:1 "), "{listing}");
+        }
+    }
+}
+
+#[test]
+fn linked_runtime_listing_does_not_borrow_application_source_lines() {
+    let temp = TestDir::new();
+    let source = concat!(
+        "CARD value=[1234]\n",
+        "PROC Main()\n",
+        " Graphics(0)\n",
+        " PrintCE(value)\n",
+        "RETURN\n",
+    );
+    for newline in ["\n", "\r\n"] {
+        let path = write_source(
+            &temp,
+            "runtime-locations.act",
+            &source.replace('\n', newline),
+        );
+        for mode in [
+            CompileMode::Compatibility,
+            CompileMode::Optimized,
+            CompileMode::Mir6502,
+        ] {
+            let compiled = compile_file(
+                &path,
+                &CompileOptions::for_mode(mode).with_runtime(Runtime::Standalone),
+            )
+            .unwrap();
+            let listing = compiled.source_listing();
+            assert!(
+                listing
+                    .to_ascii_lowercase()
+                    .contains("global_resident_dev_s"),
+                "fixture must link runtime storage: {listing}"
+            );
+            assert!(
+                !listing.lines().any(|line| {
+                    line.strip_prefix("; ").is_some_and(|comment| {
+                        comment.starts_with(|c: char| c.is_ascii_digit())
+                            && (comment.contains("M_ACTION_RUNTIME_")
+                                || comment.contains("ACTION.RUNTIME."))
+                    })
+                }),
+                "{mode:?}/{newline:?}: runtime borrowed application source locations\n{listing}"
+            );
+            assert!(listing.contains("proc_main:"));
+        }
+    }
+}
+
+#[test]
+fn classic_listing_renders_arithmetic_helpers_as_code() {
+    let temp = TestDir::new();
+    for (types, names) in [
+        ("INT", ["divi", "remi"].as_slice()),
+        ("CARD", ["divu16", "remu16"].as_slice()),
+        ("LONGINT", ["div32", "mod32"].as_slice()),
+        ("LONGCARD", ["udiv32", "umod32"].as_slice()),
+    ] {
+        let path = write_source(
+            &temp,
+            "arithmetic-listing.act",
+            &format!(
+                "{types} a=$0600,b=$0604,q=$0608,r=$060C\nPROC Main()\n q=a/b\n r=a MOD b\nRETURN\n"
+            ),
+        );
+        for mode in [CompileMode::Compatibility, CompileMode::Optimized] {
+            if types.starts_with("LONG") && mode == CompileMode::Compatibility {
+                continue;
+            }
+            for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+                let compiled =
+                    compile_file(&path, &CompileOptions::for_mode(mode).with_runtime(runtime))
+                        .unwrap();
+                let listing = compiled.source_listing();
+                for name in names {
+                    let label = format!("proc_actionc_{name}:");
+                    let helper = listing
+                        .split_once(&label)
+                        .unwrap_or_else(|| {
+                            panic!("{types}/{mode:?}/{runtime:?}: missing {label}\n{listing}")
+                        })
+                        .1;
+                    let body = helper.split("; =====").next().unwrap();
+                    assert!(body.contains("RTS"), "{body}");
+                    assert!(
+                        !body.contains(".BYTE"),
+                        "{types}/{mode:?}/{runtime:?}: helper is data\n{body}"
+                    );
+                    assert!(
+                        !body.lines().any(|line| line.starts_with("; 1:1 ")),
+                        "{body}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn classic_listing_keeps_tail_calls_and_bare_returns_on_their_source_lines() {
     let temp = TestDir::new();
     let source = concat!(

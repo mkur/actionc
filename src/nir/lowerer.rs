@@ -215,6 +215,7 @@ impl NirLowerer {
                             None => NirRoutinePlacement::Relocatable,
                         };
                         let entry = NirRoutineEntry {
+                            source_span: Some(routine.span),
                             program: program_entry == Some(routine.symbol.id),
                             external: routine.is_external,
                             external_symbol: routine.is_external.then(|| {

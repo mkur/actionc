@@ -719,6 +719,7 @@ fn runtime_symbol_component(name: &str) -> Option<String> {
         ("m_action_runtime_resident_", "resident_", true),
         ("action_runtime_syslib_", "syslib_", false),
         ("action_runtime_resident_", "resident_", false),
+        ("action_runtime_actionc_", "actionc_", false),
     ] {
         let Some(routine) = name.strip_prefix(prefix) else {
             continue;
