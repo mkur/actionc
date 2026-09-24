@@ -78,6 +78,7 @@ image v4 are used only when the raw arithmetic-fault dependency survives.
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
 | `byte_returns` | 2 | All 256 constants with full A16 zero extension, both I states and compiler modes, fixed images and two o65 placements, framed/branch returns, captured/direct/indirect fallbacks, independent ca65 tails, exact RTL reads and no tail writes or DP traffic. |
 | `word_comparisons` | 5 | All signed/unsigned word relations, stored/returned Boolean bytes, canaries, casts and operand orders, clobbering calls, exact volatile/stack traces, independent CMP encodings, and code/cycle/stack budgets. |
+| `long_equality` | 5 | LONGCARD/LONGINT Eq/Ne and zero tests, all individual bits and boundary/random pairs, every Boolean consumer, mutable parameters, unchanged volatile/bank-crossing loads, full call clobbers, exact ca65 encodings and private word traffic, same-target edges/backedges, and two o65 placements. |
 | `empty_edges` | 3 | Compact Goto/Fallthrough/ordinary/fused transfers, both arms and widths, exact cycles, ca65 encodings, full register/flag preservation, no data traffic and decoder rejection cases. |
 | `word_edges` | 5 | Direct single-word and staged cyclic copies, typed edge-site evidence, repeated/unused arguments, live-ins, fallback, mutable parameters, ca65 encodings, overlapping homes, exact cycles/flags/traces and staging canaries. |
 | `compare_branch` | 6 | Boundary relations and fallbacks, exact fused source traffic, reused conditions, nonempty same-target edges/backedges, volatile/alias/call barriers and decoder rejection cases. |
@@ -90,7 +91,7 @@ image v4 are used only when the raw arithmetic-fault dependency survives.
 | `pointer_preemption` | 2 | Both tasks and IRQ dispatch use the same three-slot leaf; IRQ at 164 raw / 100 optimized task/instruction sites, plus seeded IRQ/NMI. |
 | `memory` | 8 | Pointer results and bank-crossing unlink, field offsets around the Y limit, exact volatile three-byte traces, absolute array indices, logical shifts, record/overlap copies and signed/wide pointer offsets. |
 | `effects` | 1 | Nested IRQ tokens, pending IRQ, protected multiword writes, polling/reloads and exact volatile traces under optimization. |
-| `preemption` | 7 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, comparison flag outcomes, direct-copy and forwarded live A in both tasks, and seeded IRQ/NMI schedules. |
+| `preemption` | 18 | Two live recursive contexts and shared memory helpers; every reached enabled instruction address, arithmetic/return/comparison windows, zero-frame returns, BYTE constants, long Eq/Ne and zero tests, comparison flag outcomes, direct-copy and forwarded live A in both tasks, and seeded IRQ/NMI schedules. |
 | `stack_allocation` | 3 | Measured scalar/loop/recursive/indirect call chains with stack ceilings; a long sequence beyond the old allocation limit; live wide values across direct/indirect assembly calls clobbering all DP scratch and A/X/Y. |
 | `stack_faults` | 2 | Floor/ceiling/underflow and call transients, with raw fault A/X/S state verified before prohibited writes. |
 | `o65` | 12 | Serialized files loaded at two placements; bank carries, BSS, aliases, initialized split/full addresses, moved imports/faults, mixed ABI, resident comparisons/returns, direct/staged edges, multi-bank code and preempted tasks. |
@@ -173,6 +174,11 @@ The BYTE constant return probe in `preemption.rs` checks full IRQ and NMI
 restoration at each reached instruction of a zero-frame constant leaf and a
 framed conditional return in both task domains. It also runs the existing seeded
 IRQ/NMI schedules. Source instrumentation normalizes and checks LF/CRLF inputs.
+
+The long-equality probe exercises both signednesses in two task domains, checking
+full resumed state after IRQ and NMI at every reached instruction of materialized
+and fused comparisons. Inputs cover both matching halves, low-word mismatch,
+high-word mismatch and zero tests. Both seeded IRQ/NMI schedules also run.
 
 The two-task fixture uses task domains `$2000`/`$2100`, task stacks
 `$4000..$4FFF`/`$5000..$5FFF`, IRQ domain `$2300` and IRQ stack `$6000..$6FFF`.

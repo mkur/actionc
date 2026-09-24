@@ -44,8 +44,8 @@ returns as focused selection/layout opportunities. The
 is complete: 13,846 raw / 13,756 optimized executable bytes saved, with ABI v1,
 all guards, stack peaks and bank-zero reservations unchanged. Full native
 debug/release qualification, relocation, IRQ/NMI and CRLF checks pass.
-Four-byte equality and captured BYTE returns remain deferred. No new allocation
-machinery or public ABI change is proposed.
+Captured BYTE returns remain deferred. No new allocation machinery or public
+ABI change is proposed.
 
 The user-selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md)
 is complete. Reusing typed dispatch/layout for four conditionals shrinks each
@@ -59,6 +59,14 @@ Direct BYTE constant returns now use A16 `LDA #$00xx`, followed by the shared
 frame teardown and RTL. This removes 19 bytes per eligible return: 8,626 raw /
 9,424 optimized bytes on frozen Exec, with unchanged allocation and guards.
 See the [results and qualification](benchmarks/65816-byte-returns/README.md).
+
+Native LONGCARD/LONGINT Eq/Ne, including zero on either side, now compares
+captured low/high words in A16 and reuses canonical Boolean materialization or
+adjacent branch fusion. Frozen Exec saves 22,502 raw / 23,364 optimized code
+bytes from the BYTE-return baseline, with unchanged homes, guards and ABI.
+Long ordering keeps its existing path. See the
+[plan](MIR65816_LONG_EQUALITY_PLAN.md) and
+[results and qualification](benchmarks/65816-long-equality/README.md).
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.

@@ -81,14 +81,14 @@ pub fn dispatches(
                 .iter()
                 .filter(|s| span.contains(&s.offset))
                 .collect();
-            // Fused 24-bit inequality can take the true edge after either part.
+            // Fused 24/32-bit inequality can take the true edge after either part.
             // All other selected predicates still have exactly one dispatch.
-            let pointer_ne = !ordinary
+            let two_part_ne = !ordinary
                 && matches!(b.ops.last(), Some(Mir65816Op::Compare {
                 width, operation: actionc::nir::NirCompareOp::Ne, ..
-            }) if width.get() == 3);
-            assert_eq!(sites.len(), if pointer_ne { 2 } else { 1 });
-            if pointer_ne {
+            }) if matches!(width.get(), 3 | 4));
+            assert_eq!(sites.len(), if two_part_ne { 2 } else { 1 });
+            if two_part_ne {
                 assert_eq!(sites[0].target, sites[1].target);
                 assert!(sites.iter().all(|s| s.predicate == 0xd0));
             }

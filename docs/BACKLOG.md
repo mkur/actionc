@@ -118,9 +118,8 @@ optimized executable bytes on the frozen workload. Optimized executable size
 is now 497,262 bytes and XEX size 513,926. ABI v1, all guards, frame/home
 allocation and the existing payload-copy loop are preserved; added bank-zero
 reservation is zero. See the [measured results](benchmarks/65816-call-padding/README.md).
-Native 32-bit Eq/Ne and unused final index shifts remain unimplemented;
-their forecasts overlap where
-they replace the same code.
+Unused final index shifts remain unimplemented. Audit forecasts can overlap
+where they replace the same code.
 The selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md) is complete:
 existing typed relaxation shortens the four conditionals in each guard, keeping
 both unconditional JMLs. It saves 37,248 raw / 37,120 optimized executable bytes
@@ -135,6 +134,15 @@ teardown. Frozen Exec saves 8,626 raw / 9,424 optimized code bytes, reaching
 450,718 optimized executable bytes. Frames, guards, ABI and bank-zero storage
 are unchanged. Captured BYTE returns and native-width call copies remain
 separate work. See the [measured results](benchmarks/65816-byte-returns/README.md).
+
+Native LONGCARD/LONGINT Eq/Ne and zero tests are now implemented. Captured
+low/high words compare in A16, with canonical BYTE results or sole-use branch
+fusion. Frozen Exec saves another 22,502 raw / 23,364 optimized code bytes;
+optimized executable size is 427,354 bytes and XEX size is 442,778. All homes,
+guards and ABI contracts remain unchanged, with no added bank-zero reservation.
+Long ordering retains its existing implementation. See the
+[plan](MIR65816_LONG_EQUALITY_PLAN.md) and
+[measured results](benchmarks/65816-long-equality/README.md).
 
 1. **Broader local branch relaxation.** Extend the existing
    [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch

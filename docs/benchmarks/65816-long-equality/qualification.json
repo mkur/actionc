@@ -1,0 +1,83 @@
+{
+  "compiler_base_revision": "26146332228b8eda9f1cfa95ee165525699becba",
+  "implementation_state": "working tree; source hashes bind the qualified change",
+  "scope": "MIR65816 selection and its tests only; no NIR, semantic, printer, ABI or other backend changes",
+  "root_checks": {
+    "unit": {
+      "passed": 201,
+      "ignored": 1,
+      "log_sha256": "65a9d6a176dd6a56fb81f8eda5ed1afc8e68166bc54a816ba326e8e9992d5d04"
+    },
+    "root": {
+      "passed": 69,
+      "ignored": 0,
+      "log_sha256": "bb6d02f9817d059ee6c0816524b0ff59ce66f8751fc497d86fa37314ecd10e9f"
+    }
+  },
+  "native_runs": {
+    "baseline": {
+      "passed": 3,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-dxcs7e49/manifest.json",
+      "manifest_sha256": "e6b83be2453fb91a92acae688139d32af19537543f3261695a9bb653b121a308",
+      "artifact_count": 36
+    },
+    "focused": {
+      "passed": 6,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-zik3a3oi/manifest.json",
+      "manifest_sha256": "15ea0479ab5fb8fdbcdd30fd2b003a75aa0a6a16fe7c02ba53f1315221a54c1c",
+      "artifact_count": 56
+    },
+    "word_harness": {
+      "passed": 6,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-0i99uoar/manifest.json",
+      "manifest_sha256": "a7c5f5ca2e3901c977226b9dc8d138185a434c6ce599300786b0a96b6d950b77",
+      "artifact_count": 2
+    },
+    "debug": {
+      "passed": 178,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-bufgl3ya/manifest.json",
+      "manifest_sha256": "333e9924d78e1c2ea68e19f9ec3990655963061bef706730fde3d621e89693fc",
+      "artifact_count": 917
+    },
+    "release": {
+      "passed": 178,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-412wcmww/manifest.json",
+      "manifest_sha256": "6141d51e63a44b09c8c2f4697db43678293c29635f57066eb42c081bc3568dcf",
+      "artifact_count": 917
+    }
+  },
+  "changed_source_inputs": {
+    "src/mir65816/emit/select.rs": "38f878087e4e717f2795404b86af63cc63753bf4804205415b9c7a4c8382fd7d",
+    "src/mir65816/emit/long_compare_tests.rs": "bea7a9ac10e98913c6176924e51cdfc881248b009150e7af24a5f1668d73017c",
+    "tools/native65816-runtime-tests/tests/long_equality.rs": "f0ea3ac3baf429aa0d6d57679bec15010ddecb3caf5e711d198a00fe025242c7",
+    "tools/native65816-runtime-tests/tests/compare_branch.rs": "0a8f0e3019a9d2b86d2ed27bd564880781acabc416f58c8185b757d313e0f99d",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "0939c0f9047339c1d144b83e6fe37e5590be33152e2e5374c5a188d90e431c57",
+    "tools/native65816-runtime-tests/tests/support/control_flow.rs": "aca318ac53aa4ea5bb3cd3704b0ea26e49a54da09c82937ac07b307cebf6a0ae"
+  },
+  "measurement_tools": {
+    "target/long-equality/measure.py": "1a05b09923e4f950ee5b418ba90bf58559fd57b0ac3e8e43c4a13fe8f93dcdf4",
+    "target/long-equality/finalize_exec.py": "ccfc2fc22dfd43bbcb9f8182dbf21b920dcff5244e76894b24b586a8b2ecdca0",
+    "target/long-equality/summarize.py": "fc912f7b53f69344081dae3f280912f401e10a5b03f747d4e1b1d538757a0e52",
+    "target/long-equality/qualification.py": "efc549701274a03a480c59e1a880e14f75ac824d58c36220e67504dc4f688ca2",
+    "target/exec-code-size-detail/probe/src/main.rs": "019940e07bf214c0c24790bd467b496458547e7af0a590d56745d006d2d91343",
+    "target/guard-branches/build_exec.py": "c78f9795426eca90b4cbda022e172cdf3aff2cbdbfc664691bfe9d107c319af7"
+  },
+  "compiler_binaries": {
+    "actionc-before": "20a948246e3140ed74e0483e9a3b21816c1d46e6b3e2dfc08bcaa9b9db899628",
+    "actionc-final": "1c6d1c80aed5952e344e2c2e5e45a1fff304d61e49dc773c6b551d91be8203e7",
+    "probe-before": "9be9dee72380b7abcd653f4f8c59dbd4c4c3e8759542820c845b20a3fb0d369a",
+    "probe-final": "695b4df753c055203fc605fe98be861a00f7aaf4f1585589af6daa857b3932a2"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "debug_release_inputs_identical": true,
+  "debug_release_input_count": 493,
+  "debug_release_artifacts_identical": true,
+  "focused_long_artifacts_identical_to_final": true,
+  "baseline_selector_matches_base_revision": true
+}

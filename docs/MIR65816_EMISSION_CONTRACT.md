@@ -510,14 +510,29 @@ literal/null/absolute-address values. Full preflight validates both inputs and
 the BYTE result home, including stack delta and the final bank-byte extent,
 before emitting or changing state. Mutable parameters use their authoritative
 frame homes. Direct symbolic addresses, DP-resident narrow operands, mixed
-widths, signed BYTE ordering, pointer ordering and four-byte comparisons retain
-their prior paths. New materialized predicates write exactly one canonical
+widths, signed BYTE ordering and pointer ordering retain their prior paths.
+New materialized predicates write exactly one canonical
 0/1 through two outcome arms. Allocation, ABI return extension, source-memory
 ordering, all 64 clobberable DP scratch bytes and every guard remain unchanged.
 
-A final eligible byte, word or pointer Compare followed immediately by Branch may consume
-C/Z flags (or corrected N for signed words) directly when a routine-wide use proof establishes exactly one use:
-that Branch condition. Other block conditions, edge arguments, returns and all
+Four-byte LONGCARD/LONGINT Eq/Ne compares captured low words in A16, then high
+words only if the low words match. Signedness does not affect equality and adds
+no sign bias. U32 zero on either side is normalized to the right; both word
+loads use Z directly without CMP-zero. Both halves are checked independently,
+including byte 3 and transient S movement. Exact four-byte stack temps and
+authoritative parameter homes, plus U32 constants, are eligible. Narrower
+constants/homes, direct symbolic addresses, DP operands and four-byte ordering
+retain their previous paths. Preflight checks both operands and the one-byte
+destination before any emission or state change. No half-word temp identity or
+persistent forwarding witness is introduced. The existing operation barrier,
+source-memory accesses, allocation and guards remain intact. A materialized
+result uses the existing two canonical BYTE outcomes; source reads still capture
+all four bytes before private-home comparisons can short-circuit.
+
+A final eligible byte, word, pointer or long Compare followed immediately by
+Branch may consume C/Z flags (or corrected N for signed words) directly when a
+routine-wide use proof establishes exactly one use: that Branch condition.
+Other block conditions, edge arguments, returns and all
 operation inputs (including addresses and indirect calls) disqualify fusion.
 No flags cross an intervening operation or block. Both edge trampolines retain
 parallel copies, typed JML fixups and A16 successor state, even for equal
@@ -530,12 +545,14 @@ word reads and edge-copy traffic are unchanged. No value resides in flags or DP
 across a call or another MIR operation. Preemption must preserve live A/P through
 the adjacent load, comparison/correction and conditional/JML sequence. A signed
 fused pair records exactly one final BMI/BPL dispatch in its MIR span; the
-internal overflow branch remains part of the selected CFG and relocation map. Fused pointer inequality
-can record two conditional dispatches to the same true edge, one after each
+internal overflow branch remains part of the selected CFG and relocation map.
+Fused pointer or long inequality can record two conditional dispatches to the
+same true edge, one after each
 part; both belong to the fused MIR span and use the existing layout/fixup rules.
-Pointer equality's early low-word mismatch skips the bank decision. The
+Pointer/long equality's early low-word mismatch skips the bank/high-word decision. The
 [byte/pointer measurements](benchmarks/65816-byte-pointer-comparisons/README.md)
-record raw/optimized execution, exact access traces and interrupt qualification.
+and [long measurements](benchmarks/65816-long-equality/README.md) record
+raw/optimized execution, exact access traces and interrupt qualification.
 
 An A16 ABI return may load a U8/U16 immediate or an exact two-byte stack
 temp/parameter directly into A16. It reuses the complete-word displacement

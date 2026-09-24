@@ -1,0 +1,336 @@
+{
+  "baseline_manifest": "tools/native65816-runtime-tests/target/qualification/run-dxcs7e49/manifest.json",
+  "baseline_manifest_sha256": "e6b83be2453fb91a92acae688139d32af19537543f3261695a9bb653b121a308",
+  "selected_manifest": "tools/native65816-runtime-tests/target/qualification/run-zik3a3oi/manifest.json",
+  "selected_manifest_sha256": "15ea0479ab5fb8fdbcdd30fd2b003a75aa0a6a16fe7c02ba53f1315221a54c1c",
+  "cases": [
+    {
+      "type": "LONGCARD",
+      "mode": "raw",
+      "input": {
+        "a": "0x00010000",
+        "b": "0x00000000",
+        "i": 0
+      },
+      "before": {
+        "code_bytes": 4189,
+        "cycles": 4457,
+        "dp_reads": 259,
+        "dp_writes": 261,
+        "routines": [
+          {
+            "bytes": 185,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 185,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 3570,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 266,
+        "stack_writes": 239
+      },
+      "after": {
+        "code_bytes": 3013,
+        "cycles": 4095,
+        "dp_reads": 228,
+        "dp_writes": 230,
+        "routines": [
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2534,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 316,
+        "stack_writes": 235
+      },
+      "source_sha256": "ab4d1a3b3ba673757f6c032e50fdae12d2b4397a64688bf61f0a82a742b59ea1",
+      "before_image_sha256": "8359d1d56851e89eb45e7618fed9f1c7b781a86de67e733b6f91fdb635ea47f3",
+      "after_image_sha256": "b9df76b46b48c3f6e990483074a354819a824862a8280405af9c6dca8f655962"
+    },
+    {
+      "type": "LONGCARD",
+      "mode": "opt",
+      "input": {
+        "a": "0x00010000",
+        "b": "0x00000000",
+        "i": 0
+      },
+      "before": {
+        "code_bytes": 4085,
+        "cycles": 4237,
+        "dp_reads": 259,
+        "dp_writes": 261,
+        "routines": [
+          {
+            "bytes": 185,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 185,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 3466,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 241,
+        "stack_writes": 203
+      },
+      "after": {
+        "code_bytes": 2867,
+        "cycles": 3813,
+        "dp_reads": 228,
+        "dp_writes": 230,
+        "routines": [
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2388,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 278,
+        "stack_writes": 199
+      },
+      "source_sha256": "ab4d1a3b3ba673757f6c032e50fdae12d2b4397a64688bf61f0a82a742b59ea1",
+      "before_image_sha256": "ba5ec4e4743050fa571d723a9578bcfeeae26284d8a21b1c6676220c3ed8ac15",
+      "after_image_sha256": "5304abd73a616e9b513d37b72812841843848efbc66f5528621ed882760b67f5"
+    },
+    {
+      "type": "LONGINT",
+      "mode": "raw",
+      "input": {
+        "a": "0x00010000",
+        "b": "0x00000000",
+        "i": 0
+      },
+      "before": {
+        "code_bytes": 4257,
+        "cycles": 4528,
+        "dp_reads": 259,
+        "dp_writes": 261,
+        "routines": [
+          {
+            "bytes": 189,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 189,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 3630,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 266,
+        "stack_writes": 239
+      },
+      "after": {
+        "code_bytes": 3021,
+        "cycles": 4103,
+        "dp_reads": 228,
+        "dp_writes": 230,
+        "routines": [
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2542,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 316,
+        "stack_writes": 235
+      },
+      "source_sha256": "ccb67ba1c596b34d433bccb7df8d4588ea7d917d05a179e17529baf6d5d2253a",
+      "before_image_sha256": "a363d0bc87a5909511d21b55807f9bcd20fbff2712bb94fcfa4234005ac62324",
+      "after_image_sha256": "ba13fb436ffc0737d10bb4ad378f62671508de0678bfb4dde94a4f29fa76347f"
+    },
+    {
+      "type": "LONGINT",
+      "mode": "opt",
+      "input": {
+        "a": "0x00010000",
+        "b": "0x00000000",
+        "i": 0
+      },
+      "before": {
+        "code_bytes": 4153,
+        "cycles": 4308,
+        "dp_reads": 259,
+        "dp_writes": 261,
+        "routines": [
+          {
+            "bytes": 189,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 189,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 3526,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 241,
+        "stack_writes": 203
+      },
+      "after": {
+        "code_bytes": 2875,
+        "cycles": 3821,
+        "dp_reads": 228,
+        "dp_writes": 230,
+        "routines": [
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "Equal"
+          },
+          {
+            "bytes": 115,
+            "frame": 10,
+            "name": "NotEqual"
+          },
+          {
+            "bytes": 101,
+            "frame": 2,
+            "name": "Save"
+          },
+          {
+            "bytes": 2396,
+            "frame": 16,
+            "name": "Work"
+          },
+          {
+            "bytes": 148,
+            "frame": 10,
+            "name": "Main"
+          }
+        ],
+        "stack_reads": 278,
+        "stack_writes": 199
+      },
+      "source_sha256": "ccb67ba1c596b34d433bccb7df8d4588ea7d917d05a179e17529baf6d5d2253a",
+      "before_image_sha256": "78e7a5e89dfbf71cbf70fffc9360b692e2cb14302c7b9976f7f94462e8776718",
+      "after_image_sha256": "0fd5ef2f503ca4e0830d0e7be84b9c3ab02b34e3dd8bdfc1951a3acd5a0ea4bf"
+    }
+  ]
+}

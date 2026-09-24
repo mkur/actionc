@@ -839,6 +839,26 @@ fn pointer_comparisons_restore_each_low_word_and_bank_path_under_irq_and_nmi() {
 }
 
 #[test]
+fn long_equality_restores_both_word_decisions_and_zero_tests_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    for ty in ["LONGCARD", "LONGINT"] {
+        let modify = |s: &str| {
+            s.replace("\r\n","\n").replace("CARD FUNC Read(",&format!(
+                "BYTE FUNC LongEqual({ty} a,b) RETURN(a=b)\nCARD FUNC LongBranch({ty} a,b) BYTE saved\nsaved=LongEqual(a,b)\nIF a={ty}(0) THEN RETURN(CARD(saved)+1) FI\nIF a#b THEN RETURN(CARD(saved)+7) FI\nIF a=b THEN RETURN(CARD(saved)+3) FI RETURN(0)\nCARD FUNC Read("))
+            .replace("  work.done=1",&format!(
+                "  work.result==+LongBranch({ty}(0),{ty}(0))+LongBranch({ty}(0),{ty}($10000))+LongBranch({ty}($80000000),{ty}(0))+LongBranch({ty}($80000000),{ty}($80000000))+LongBranch({ty}($80000001),{ty}($80000000))-21\n  work.done=1"))
+        };
+        let source = modify(&original);
+        assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+        check_narrow_preemption(
+            &source,
+            ["LONGEQUAL", "LONGBRANCH"],
+            &format!("long-equality-{ty}"),
+        );
+    }
+}
+
+#[test]
 fn signed_word_overflow_and_sign_decisions_restore_full_irq_nmi_state() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

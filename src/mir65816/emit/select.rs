@@ -18,6 +18,10 @@ mod compare_tests;
 mod narrow_compare_tests;
 
 #[cfg(test)]
+#[path = "long_compare_tests.rs"]
+mod long_compare_tests;
+
+#[cfg(test)]
 #[path = "branch_tests.rs"]
 mod branch_tests;
 
@@ -161,10 +165,35 @@ struct PointerCondition {
     predicate: Branch,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LongOperand {
+    Immediate(u32),
+    Stack { low: u8, high: u8 },
+}
+
+impl LongOperand {
+    fn word(self, high: bool) -> WordOperand {
+        match self {
+            Self::Immediate(value) => {
+                WordOperand::Immediate((value >> if high { 16 } else { 0 }) as u16)
+            }
+            Self::Stack { low, high: upper } => WordOperand::Stack(if high { upper } else { low }),
+        }
+    }
+}
+
+struct LongCondition {
+    left: LongOperand,
+    right: LongOperand,
+    destination: u8,
+    predicate: Branch,
+}
+
 enum Condition {
     Word(WordCondition),
     Byte(ByteCondition),
     Pointer(PointerCondition),
+    Long(LongCondition),
 }
 
 impl Condition {
@@ -173,6 +202,7 @@ impl Condition {
             Self::Word(c) => c.destination,
             Self::Byte(c) => c.destination,
             Self::Pointer(c) => c.destination,
+            Self::Long(c) => c.destination,
         }
     }
 }
@@ -639,7 +669,7 @@ impl Builder<'_> {
                 .map(|c| c.map(Condition::Word));
         }
         let equality = matches!(operation, NirCompareOp::Eq | NirCompareOp::Ne);
-        if !((bytes == 1 && (!signed || equality)) || (bytes == 3 && equality)) {
+        if !((bytes == 1 && (!signed || equality)) || (matches!(bytes, 3 | 4) && equality)) {
             return Ok(None);
         }
         let location = self.temp(dest)?;
@@ -650,6 +680,27 @@ impl Builder<'_> {
             Location::Stack(slot) => Some(self.displacement(slot.offset.into(), 0)?),
             Location::DirectPage(_) => None,
         };
+        if bytes == 4 {
+            let left = self.long_operand(left)?;
+            let right = self.long_operand(right)?;
+            let (Some(destination), Some(mut left), Some(mut right)) = (destination, left, right)
+            else {
+                return Ok(None);
+            };
+            if left == LongOperand::Immediate(0) {
+                std::mem::swap(&mut left, &mut right);
+            }
+            return Ok(Some(Condition::Long(LongCondition {
+                left,
+                right,
+                destination,
+                predicate: if operation == NirCompareOp::Eq {
+                    Branch::Equal
+                } else {
+                    Branch::NotEqual
+                },
+            })));
+        }
         if bytes == 3 {
             let left = self.pointer_operand(left)?;
             let right = self.pointer_operand(right)?;
@@ -698,6 +749,77 @@ impl Builder<'_> {
             destination,
             predicate,
         })))
+    }
+    fn long_operand(&self, value: &Mir65816Value) -> Result<Option<LongOperand>, String> {
+        let offset = match value {
+            Mir65816Value::U32(value) => return Ok(Some(LongOperand::Immediate(*value))),
+            Mir65816Value::Temp(id, size) => {
+                let location = self.temp(*id)?;
+                if location.slot().width != width(*size)? {
+                    return Err("temporary width mismatch".into());
+                }
+                if size.get() != 4 {
+                    return Ok(None);
+                }
+                match location {
+                    Location::Stack(slot) => u32::from(slot.offset),
+                    Location::DirectPage(_) => return Ok(None),
+                }
+            }
+            Mir65816Value::Param(id) => {
+                let (offset, bytes) = self.parameter(*id)?;
+                if bytes != 4 {
+                    return Ok(None);
+                }
+                offset
+            }
+            _ => return Ok(None),
+        };
+        // Each word must fit completely, including byte 3 after transient S movement.
+        Ok(Some(LongOperand::Stack {
+            low: self.word_displacement(offset)?,
+            high: self.word_displacement(offset.checked_add(2).ok_or("long offset overflow")?)?,
+        }))
+    }
+    fn branch_on_long(&mut self, condition: &LongCondition, yes: Label, dispatch: bool) {
+        self.code.barrier();
+        self.code.a16();
+        let zero = condition.right == LongOperand::Immediate(0);
+        let no = (condition.predicate == Branch::Equal).then(|| self.code.label());
+        for high in [false, true] {
+            // A half is not the complete long temporary: retain no temp identity.
+            match condition.left.word(high) {
+                WordOperand::Immediate(value) => self.code.word(WordOp::LdaImm, value),
+                WordOperand::Stack(offset) => self.code.byte(ByteOp::LdaStack, offset),
+                WordOperand::DirectPage(_) => unreachable!("long operands are stack or immediate"),
+            }
+            if !zero {
+                match condition.right.word(high) {
+                    WordOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value),
+                    WordOperand::Stack(offset) => self.code.byte(ByteOp::CmpStack, offset),
+                    WordOperand::DirectPage(_) => {
+                        unreachable!("long operands are stack or immediate")
+                    }
+                }
+            }
+            if !high && let Some(no) = no {
+                self.code.branch(Branch::NotEqual, no);
+            } else {
+                let predicate = if high {
+                    condition.predicate
+                } else {
+                    Branch::NotEqual
+                };
+                if dispatch {
+                    self.code.dispatch(predicate, yes);
+                } else {
+                    self.code.branch(predicate, yes);
+                }
+            }
+        }
+        if let Some(no) = no {
+            self.code.mark(no);
+        }
     }
     fn pointer_operand(&self, value: &Mir65816Value) -> Result<Option<PointerOperand>, String> {
         let offset = match value {
@@ -799,6 +921,7 @@ impl Builder<'_> {
         match condition {
             Condition::Word(condition) => self.branch_on_word(condition, yes, dispatch),
             Condition::Pointer(condition) => self.branch_on_pointer(condition, yes, dispatch),
+            Condition::Long(condition) => self.branch_on_long(condition, yes, dispatch),
             Condition::Byte(condition) => {
                 self.code.barrier(); // Retain the original operation's value/flag barrier.
                 self.code.a8();

@@ -1,0 +1,25 @@
+{
+  "baseline": "target/byte-constant-returns/dijkstra/manifest.json",
+  "baseline_sha256": "896179b8f9722bd6b7ef48346b111957c61e01e8dccff4c0ed310bbe07aaa70d",
+  "current": "target/long-equality/dijkstra/manifest.json",
+  "current_sha256": "58c6a17635f44dd6f765e6f7857d778338843cb4144fa25a136513c5b2455ff7",
+  "crlf_checked": true,
+  "artifacts": [
+    {
+      "case": "dijkstra",
+      "mode": "raw",
+      "code_bytes": 5438,
+      "image_sha256": "c2e70a7b93b8c0aa9936080ca3faba88bd94edaa47248af21db4eaeb5c171f89",
+      "image_unchanged": true,
+      "static_stack_check_bytes": 638
+    },
+    {
+      "case": "dijkstra",
+      "mode": "optimized",
+      "code_bytes": 4850,
+      "image_sha256": "5efebb04c2c99c8405892721440a0d7dcd1a5079300b553a6a1cbdc4266e7c60",
+      "image_unchanged": true,
+      "static_stack_check_bytes": 638
+    }
+  ]
+}

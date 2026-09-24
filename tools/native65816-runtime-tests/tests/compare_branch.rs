@@ -38,6 +38,22 @@ fn conditional_word_results_distinguish_all_relations_and_boundary_pairs() {
                     (Some(Mir65816Op::Compare { dest, .. }), Mir65816Terminator::Branch { condition: Mir65816Value::Temp(id, _), .. }) if dest == id)));
             }
             let (image, forwarded) = forwarding::compile(&source, optimize);
+            // Each generated F routine has one comparison. Restrict this word
+            // decoder to its MIR width: a long comparison's high half can have
+            // the same encoding without being a complete word decision.
+            let word_routines: Vec<_> = image
+                .routines
+                .iter()
+                .filter(|r| {
+                    prepared.mir.routines.iter().any(|mir| {
+                        mir.id.0 == r.id
+                            && mir.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+                                matches!(op, Mir65816Op::Compare { width, .. } if width.get() == 2)
+                            })
+                    })
+                })
+                .cloned()
+                .collect();
             assert_eq!(
                 image.to_json().unwrap(),
                 compile(&source.replace('\n', "\r\n"), optimize)
@@ -57,7 +73,7 @@ fn conditional_word_results_distinguish_all_relations_and_boundary_pairs() {
                         h.bus.forwarded_words = forwarded.clone();
                         h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                         h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
-                        let windows = run_checked_fusions(&mut h, &image);
+                        let windows = run_checked_fusions(&mut h, &word_routines);
                         assert_eq!(
                             windows.len(),
                             match ty {
@@ -258,7 +274,7 @@ ENDMODULE
     }
 }
 
-fn run_checked_fusions(h: &mut Harness, image: &Image) -> Vec<serde_json::Value> {
+fn run_checked_fusions(h: &mut Harness, routines: &[image::Routine]) -> Vec<serde_json::Value> {
     use actionc_vm::native65816::Inputs;
     let mut records = vec![];
     for _ in 0..200_000 {
@@ -266,7 +282,7 @@ fn run_checked_fusions(h: &mut Harness, image: &Image) -> Vec<serde_json::Value>
             break;
         }
         if h.cpu.is_instruction_boundary() {
-            if let Some(w) = comparison::fused_window(&h.cpu, &h.bus, &image.routines) {
+            if let Some(w) = comparison::fused_window(&h.cpu, &h.bus, routines) {
                 let r = h.cpu.registers();
                 let reads = h.bus.reads.len();
                 let writes = h.bus.writes.len();
@@ -350,7 +366,7 @@ fn fused_decisions_read_only_the_words_and_keep_parallel_edge_traffic_separate()
                     h.bus.forwarded_words = forwarded.clone();
                     h.bus.ram[0x7100..0x7102].copy_from_slice(&a.to_le_bytes());
                     h.bus.ram[0x7102..0x7104].copy_from_slice(&b.to_le_bytes());
-                    let reached = run_checked_fusions(&mut h, &image);
+                    let reached = run_checked_fusions(&mut h, &image.routines);
                     assert_eq!(reached.len(), if backedge { 4 } else { 1 });
                     h.guards(mask);
                     let expected = if backedge || a < b {
