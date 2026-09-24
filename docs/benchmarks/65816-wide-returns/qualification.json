@@ -1,0 +1,143 @@
+{
+  "compiler_base_revision": "aaf37d5160875936eb4b5dce1f5162ced6acd933",
+  "implementation_state": "working tree; source hashes bind the qualified implementation",
+  "scope": "MIR65816 return selection and typed LDX immediate effects only; no shared IR or ABI changes",
+  "root_checks": {
+    "unit": {
+      "passed": 220,
+      "ignored": 1,
+      "log_sha256": "a211a676cb01774f58e87fb8b8178b5becddcb761034d36065576c0b0c53a6db"
+    },
+    "integration": {
+      "passed": 69,
+      "targets": 8,
+      "initial_log_sha256": "4264692a33bcf921a8096ac75b423c22a48f4d0863a3e46963ab58deb6011778",
+      "snapshot_log_sha256": "1a9409692b2e268442a0d93acae9b9e310ed696da72ff577b46c687d1731db7f",
+      "snapshot": "Two wide_shift tails and their span ends intentionally updated; no frame, guard or IR contract change."
+    }
+  },
+  "native_runs": {
+    "focused": {
+      "passed": 3,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-tbxb_wwi/manifest.json",
+      "manifest_sha256": "afee005dc583b330e23998578a034e7ccd51e37758ed760b2c4eac2a26e14cd2",
+      "artifact_count": 324,
+      "input_differences_from_final": [
+        "tools/native65816-runtime-tests/tests/preemption.rs"
+      ]
+    },
+    "preemption": {
+      "passed": 1,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-1oj64ezk/manifest.json",
+      "manifest_sha256": "726a88a476fb51faecc6e0feed93949c5732369ac8bd98bd4ea012dfe270561c",
+      "artifact_count": 20,
+      "targeted_irq_nmi_sites": {
+        "ADDRESS": {
+          "false": 172,
+          "true": 118
+        },
+        "LONGCARD": {
+          "false": 140,
+          "true": 98
+        }
+      },
+      "input_differences_from_final": []
+    },
+    "debug": {
+      "passed": 194,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-71c80m_c/manifest.json",
+      "manifest_sha256": "0b7cdec0b558ab63be2de9d4d7c5d210b7863bb57ba61abfff93f5b7f36eb221",
+      "artifact_count": 1457,
+      "targeted_irq_nmi_sites": {
+        "ADDRESS": {
+          "false": 172,
+          "true": 118
+        },
+        "LONGCARD": {
+          "false": 140,
+          "true": 98
+        }
+      }
+    },
+    "release": {
+      "passed": 194,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-3xfovyq0/manifest.json",
+      "manifest_sha256": "fff3ac0169c5e3a25ff02e2c25558ef7a3ff48c2e80b42d0ebfcf47ba10dd83b",
+      "artifact_count": 1457,
+      "targeted_irq_nmi_sites": {
+        "ADDRESS": {
+          "false": 172,
+          "true": 118
+        },
+        "LONGCARD": {
+          "false": 140,
+          "true": 98
+        }
+      }
+    },
+    "corpus-debug": {
+      "passed": 1,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-_4auosqe/manifest.json",
+      "manifest_sha256": "f2b58383547c77bb10261ba808d7cc9b1c95598713c61be911a374f7a88740b1",
+      "artifact_count": 0
+    },
+    "corpus-release": {
+      "passed": 1,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-tt3xgv0l/manifest.json",
+      "manifest_sha256": "32865ee194703f8c3a7e0e63336417d84d87b84231e7caf22a4b18d1d7b88708",
+      "artifact_count": 0
+    }
+  },
+  "debug_release_inputs_identical": true,
+  "debug_release_input_count": 504,
+  "debug_release_artifacts_identical": true,
+  "focused_artifacts_identical_to_final": true,
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "changed_source_inputs": {
+    "src/mir65816/emit/select.rs": "3c7208bf1b5a9914def22061f74c944505677e81a23151871e43b2ada4b43ef1",
+    "src/mir65816/emit/wide_returns.rs": "b5e5337f363dcc0325b191cba8cb3dfa6ebc1c37585f182c47d02391dc21beba",
+    "src/mir65816/emit/wide_return_tests.rs": "0d22b449092fd8ca19c2eca0fbb05fc5e3ea4cf2b6eaafc9697abbf8fa197c3c",
+    "src/mir65816/emit/selected.rs": "a72e26af32bcc4fac99a5bb4f9322d7ae7a36c42de48e2547fc6a6cdb6e93f42",
+    "src/mir65816/emit/tracked.rs": "5dbf4c9169639eac73a997300b70800228491081b3995ece1cf1f8f4e00c825f",
+    "src/mir65816/emit/effects.rs": "6d2938cf122ce850a495664a9d5faae979018ae3f03247bebcf326f4003852a8",
+    "src/mir65816/emit/effects_tests.rs": "1bdf3f2864c734699489423910026aa83defb501f385c54f52854248366787cb",
+    "src/mir65816/emit/analysis/cfg.rs": "ffe490a60575d5c5c537a4c78d0cc8972ecc3f7bc1065cc4ba836b8ef316531e",
+    "tools/native65816-runtime-tests/tests/wide_returns.rs": "c847bec0ab0415e1edf4d4f3834e10019579d1bc3fee4a4d77f55f78bd3813d4",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "f32998c2c1f688b00fbbf702479f85a128cd91b3b5e79233020e11a8757dd64d",
+    "tests/fixtures/mir65816-state-boundary.txt": "ecb258cb13d6271d79c8a5fddad08132d4bbe2484b01a6c82467bcc1f2bf2da3"
+  },
+  "measurement_tools": {
+    "target/wide-returns/measure.py": "67356622b77e5e020a18457ee00e132b2382f34ee12990ef9dd6d07816cfc5ad",
+    "target/wide-returns/finalize_exec.py": "bd6af0c451716f8a8d9f248af63c6ce02b80a8568f49320ff44f3d60f7d15920",
+    "target/wide-returns/equality.py": "d41f4e144f6cc2cca78e68eaf9a86b2b01cafad18e909709f4b10e4856a20938",
+    "target/wide-returns/qualification.py": "1fdfed76fbf00f100f668124d1ae92d26226a78b6844831aacd58a4888ad0d31",
+    "target/exec-code-size-detail/probe/src/main.rs": "2d2e10ece9e94fc5a58cdf95af6328439a693567d16751b519432b8f8bacf635",
+    "target/guard-branches/build_exec.py": "c78f9795426eca90b4cbda022e172cdf3aff2cbdbfc664691bfe9d107c319af7"
+  },
+  "compiler_binaries": {
+    "actionc-after": "fa82955e787ab8db1133a60546479b8188dcaf2229c42714abf253d5e3fb4120",
+    "probe-after": "b9496f2158674f7b787f188e0e0e5741de889d1abc0fbeb5949ce0b84e492eaf"
+  },
+  "measurements": {
+    "exec-results.json": {
+      "record_sha256": "c6636a5ddf8f4662d18612e2fa05a92a845638f99e47c7e608744178a7f0bbca"
+    },
+    "corpus-comparison.json": {
+      "record_sha256": "5a4c3978ba51c2b602c7d822f1a0644c5769ea7ca17aeec5cb9fe67ce6220d41"
+    },
+    "corpus-execution.json": {
+      "record_sha256": "be1b001f4a9ca66b3f209beb4f3e76acc6b390ec258473be1d964ad2f2eb069b"
+    },
+    "dijkstra-equality.json": {
+      "record_sha256": "2d33af83934d9ba1e8d5b829d0bc4c22b2437056a78b6195d8e0d64be95c9d15"
+    }
+  },
+  "benchmark_execution": "Changed wide_shift only: both compilers/modes, all five vectors, both I states, debug/release. Remaining 26 Action corpus images and both Dijkstra Action images are byte-identical to aaf37d51; prior execution results, including the known external vbcc unlink failure, remain applicable."
+}

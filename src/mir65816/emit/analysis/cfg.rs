@@ -355,11 +355,14 @@ fn validate_instruction(r: &Record, form: &Instruction) -> Result<(), String> {
         {
             return Err("selected byte immediate in A16".into());
         }
-        Instruction::Word(WordOp::LdyImm | WordOp::CpxImm, _) if before.index != Width::Word => {
+        Instruction::Word(WordOp::LdyImm | WordOp::LdxImm | WordOp::CpxImm, _)
+            if before.index != Width::Word =>
+        {
             return Err("selected word index immediate in X8".into());
         }
         Instruction::Word(op, _)
-            if !matches!(op, WordOp::LdyImm | WordOp::CpxImm) && before.m != Width::Word =>
+            if !matches!(op, WordOp::LdyImm | WordOp::LdxImm | WordOp::CpxImm)
+                && before.m != Width::Word =>
         {
             return Err("selected word immediate in A8".into());
         }

@@ -912,9 +912,12 @@ impl TrackedEmitter65816 {
         self.live();
         if self.x_reserved {
             assert!(op != CpxImm || self.x_access, "unplanned X compare");
-            assert!(!matches!(op, LdyImm), "instruction clobbers X reservation");
+            assert!(
+                !matches!(op, LdyImm | LdxImm),
+                "instruction clobbers X reservation"
+            );
         }
-        if matches!(op, LdyImm | CpxImm) {
+        if matches!(op, LdyImm | LdxImm | CpxImm) {
             assert_eq!(self.state.env.index, Width::Word);
         } else {
             self.width(Width::Word);
@@ -922,6 +925,10 @@ impl TrackedEmitter65816 {
         let rhs = State65816::constant(value, Width::Word);
         match op {
             LdaImm => self.state.load_a(rhs),
+            LdxImm => {
+                self.state.x = rhs;
+                self.state.nz = rhs;
+            }
             LdyImm => {
                 self.state.y = rhs;
                 self.state.nz = rhs;

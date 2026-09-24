@@ -176,6 +176,15 @@ unchanged. Corpus and Dijkstra executable artifacts are byte-identical. See the
 [contract](MIR65816_CAPTURED_BYTE_RETURNS.md) and
 [qualification](benchmarks/65816-captured-byte-returns/README.md).
 
+Native 24/32-bit returns now prepare A/X directly from exact-width numeric
+constants and captured private homes. The slice saves 7,040 raw / 7,123 optimized
+executable bytes, including secondary relaxation; optimized Exec is 385,834
+executable bytes and a 400,504-byte XEX. Frames, guards, ABI homes and bank-zero
+reservations are unchanged. `wide_shift` saves 29 bytes and 44 cycles per call;
+Dijkstra executable artifacts are unchanged. See the
+[contract](MIR65816_WIDE_RETURNS.md) and
+[qualification](benchmarks/65816-wide-returns/README.md).
+
 1. **Compact address construction.** Reduce repeated pointer materialization,
    temporary copies and bytewise scaled-index expansion through ordinary
    lowering. Use native-width operations where justified while retaining full

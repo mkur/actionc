@@ -356,3 +356,8 @@ checks exact one-byte return reads, zero-extended A16, zero/framed and mutable
 parameter homes, full scratch clobbers, relocated o65 and IRQ/NMI restoration.
 Run `--test captured_byte_returns` and
 `--test preemption captured_byte_returns` for the focused probes.
+
+The [native wide return qualification](../../docs/benchmarks/65816-wide-returns/README.md)
+checks full A/X lanes, exact private reads, recursion, direct/indirect calls,
+relocation, volatile ordering and interrupt restoration. Run `--test wide_returns`
+and `--test preemption wide_returns_restore` through the qualified wrapper.

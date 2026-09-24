@@ -100,6 +100,14 @@ The small corpus and Dijkstra executable artifacts are unchanged. See the
 [contract](MIR65816_CAPTURED_BYTE_RETURNS.md) and
 [qualification](benchmarks/65816-captured-byte-returns/README.md).
 
+Native 24/32-bit returns now construct A/X directly from constants or captured
+private homes, preserving the 24-bit result's zero-extended bank byte. Frozen
+Exec saves 7,040 raw / 7,123 optimized executable bytes, reaching 385,834
+optimized bytes. Frames, guards, ABI homes and bank-zero reservations remain
+unchanged. `wide_shift` saves 29 bytes and 44 cycles in each mode; Dijkstra is
+byte-identical. See the [contract](MIR65816_WIDE_RETURNS.md) and
+[qualification](benchmarks/65816-wide-returns/README.md).
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are

@@ -614,6 +614,18 @@ writes result scratch and does not initialize X. Unsupported operands/homes
 retain generic preparation. Source loads and call/alias/volatile ordering remain
 separate MIR operations. See the
 [captured BYTE return contract](MIR65816_CAPTURED_BYTE_RETURNS.md).
+An authoritative `A16X8ZeroExtended` or `A16X16` return may prepare exact-width
+numeric constants/null/addresses with X16/A16 immediates, or load a captured
+private temp/parameter directly into A/X. Validate the complete home and stack
+delta before emission. Mutable parameters use their current frame home.
+The 32-bit path loads the high word into X and then the low word into A. The
+24-bit path reads words at home+1 and home, using XBA/AND to zero-extend the bank
+byte in X; both reads stay inside the three-byte home. No result-scratch writes
+are needed. Source-memory reads and their ordering remain separate operations.
+Symbolic addresses and width mismatches retain existing preparation. Shared
+frame release preserves both result registers. See the
+[native wide return contract](MIR65816_WIDE_RETURNS.md).
+
 MIR65816 owns these target-specific preparations; the public ABI, guards and
 SemIR/NIR contracts are unchanged.
 

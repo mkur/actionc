@@ -183,6 +183,19 @@ fn immediate_forms_and_index_comparison_do_not_invent_memory_reads() {
         );
         assert_eq!((e.flag_reads, e.flag_writes), (0, NZ | C));
         assert_eq!(e.environment_reads & (env::M | env::X), env::X);
+        let e = fx(Instruction::Word(WordOp::LdxImm, 0x8000), m, Width::Word);
+        assert_eq!(
+            e.writes,
+            Registers {
+                x: 0xffff,
+                a: 0,
+                y: 0
+            }
+        );
+        assert_eq!(e.reads, Registers::default());
+        assert_eq!((e.flag_reads, e.flag_writes), (0, NZ));
+        assert_eq!(e.environment_reads & (env::M | env::X), env::X);
+        assert!(e.memory.is_empty());
         let e = fx(Instruction::Word(WordOp::LdyImm, 2), m, Width::Word);
         assert_eq!(
             e.writes,

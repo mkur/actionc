@@ -794,6 +794,25 @@ fn run_checked_fused_irq(h: &mut ContextHarness) -> (u32, u8) {
 }
 
 #[test]
+fn wide_returns_restore_a_x_and_teardown_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    for (ty, value) in [("ADDRESS", "$ABCDEF"), ("LONGCARD", "$89ABCDEF")] {
+        let modify = |s: &str| {
+            s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+                &format!("{ty} FUNC WideCapture({ty} value) BYTE marker marker=BYTE(value) IF marker=0 THEN RETURN({ty}(0)) FI RETURN(value)\n{ty} FUNC WideConstant() RETURN({ty}({value}))\nCARD FUNC Read("))
+                .replace("  work.done=1", &format!("  IF WideCapture({ty}({value}))#{ty}({value}) OR WideConstant()#{ty}({value}) THEN work.result==+1 FI\n  work.done=1"))
+        };
+        let source = modify(&original);
+        assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+        check_narrow_preemption(
+            &source,
+            ["WIDECAPTURE", "WIDECONSTANT"],
+            &format!("wide-return-{ty}"),
+        );
+    }
+}
+
+#[test]
 fn captured_byte_returns_restore_hidden_b_and_frame_teardown_under_irq_nmi() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

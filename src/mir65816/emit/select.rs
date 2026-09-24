@@ -48,6 +48,8 @@ mod call_copies;
 mod parameter;
 #[path = "shifts.rs"]
 mod shifts;
+#[path = "wide_returns.rs"]
+mod wide_returns;
 use super::tracked::*;
 
 #[cfg(test)]
@@ -2263,6 +2265,7 @@ impl Builder<'_> {
             if !self.byte_constant_return(value)
                 && !self.captured_byte_return(value)?
                 && !self.word_return(value)?
+                && !self.wide_return(value)?
             {
                 self.code.a8();
                 self.code.byte(ByteOp::LdaImm, 0);

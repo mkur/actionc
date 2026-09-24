@@ -446,6 +446,11 @@ impl Instruction {
                         e.flag_writes |= C;
                     }
                     AndImm | EorImm => e.alu(Width::Word, false, true),
+                    LdxImm => {
+                        e.environment_reads |= env::X;
+                        e.writes.x = 0xffff;
+                        e.flag_writes = NZ;
+                    }
                     LdyImm => {
                         e.environment_reads |= env::X;
                         e.writes.y = 0xffff;
