@@ -11,6 +11,7 @@ a correctness oracle.
 | Baseline | 3,635 | 3,557 | — | 82 / 154 |
 | 1: zero-offset indirect accesses | 3,566 | 3,488 | −69 in each mode | 76 / 148 |
 | 2: captured pointer null reduction | 3,524 | 3,446 | −42 in each mode | 76 / 148 |
+| 3: native three-byte casts | 3,464 | 3,390 | −60 raw / −56 optimized | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -59,6 +60,25 @@ same-target edges/backedges and relocated execution. The assembler/CPU probe
 checks ORA-stack encoding and effects in both A widths. Both list oracle host
 runs pass all 270 paired-mask records with identical results and LF/CRLF builds.
 The disassembler and physical dispatch observer now recognize the new form.
+
+Slice 3 uses overlapping word transfers for representation-preserving casts
+between complete, identical/disjoint private homes. Optimized bodies total
+2,850 bytes; guards remain 540. Per-vector cycles improve by up to 80 raw / 50
+optimized, with no regressions. Private stack reads/writes increase by up to
+twenty bytes per vector because the middle byte is repeated; DP traffic, stack
+peaks, frames and reservations are unchanged. [Sizes](slice3/sizes.csv),
+[measurements](slice3/measurements.csv), [deltas](slice3/delta.csv),
+[raw code](slice3/actionc-raw.lst), [optimized code](slice3/actionc-optimized.lst)
+and [provenance](slice3/provenance.json) record the complete results.
+
+Qualification passed 214 emitter unit tests (one inventory ignored), 22 emission
+and 11 o65 integration tests, and 14 qualified VM tests in `pointer_values`,
+`memory`, `wide_returns` and `checked_rewrites`. Focused tests cover identity and
+disjoint copies, stack/DP boundaries, A8/A16 entry, mutable parameters, partial
+overlap fallback and atomic rejection. Runtime probes cover every pointer bit,
+neighboring canaries, volatile/alias ordering, calls and relocated wide returns.
+The list oracle passes all 270 paired-mask records in both host builds with
+identical results and LF/CRLF artifacts.
 
 Reproduce a slice from its commit by building and copying the CLI to a stable
 path, then using the existing comparison builder:

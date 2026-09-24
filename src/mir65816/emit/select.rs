@@ -46,6 +46,8 @@ mod arithmetic;
 mod call_copies;
 #[path = "parameter.rs"]
 mod parameter;
+#[path = "pointer_values.rs"]
+mod pointer_values;
 #[path = "shifts.rs"]
 mod shifts;
 #[path = "wide_returns.rs"]
@@ -1162,18 +1164,7 @@ impl Builder<'_> {
         // Private frame transfers can stay in A16 for a three-byte value by
         // overlapping the two words. Never touch a fourth byte, and never
         // duplicate a read/write through an external or indirect address.
-        if wide
-            && bytes == 3
-            && match (source, destination) {
-                (Memory::Stack(src), Memory::Stack(dst)) => src == dst || src.abs_diff(dst) >= 3,
-                (Memory::DirectPage(src), Memory::DirectPage(dst)) => {
-                    src == dst || src.abs_diff(dst) >= 3
-                }
-                (Memory::Stack(_), Memory::DirectPage(_))
-                | (Memory::DirectPage(_), Memory::Stack(_)) => true,
-                _ => false,
-            }
-        {
+        if wide && bytes == 3 && Self::private_pointer_geometry(source, destination) {
             self.code.a16();
             for byte in [0, 1] {
                 self.load_memory(source, byte)?;
@@ -1665,6 +1656,19 @@ impl Builder<'_> {
         Ok(())
     }
     fn operation(&mut self, op: &Mir65816Op) -> Result<(), String> {
+        if let Mir65816Op::Cast {
+            dest,
+            from,
+            to,
+            value,
+            ..
+        } = op
+            && from.get() == 3
+            && to.get() == 3
+            && self.pointer_cast(*dest, value)?
+        {
+            return Ok(());
+        }
         if let Mir65816Op::Call {
             target,
             args,

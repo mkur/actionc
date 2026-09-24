@@ -664,6 +664,15 @@ does not preserve an unused accumulator result. These choices change neither
 the public ABI nor NIR memory effects, and do not allocate persistent values in
 call-clobbered scratch.
 
+Same-width three-byte casts from captured temps or parameter homes use the
+existing private overlapping-word transfer when source and destination are
+identical or disjoint. Both complete homes are checked before emission,
+including the current stack delta and the owned DP extent. The selector keeps
+the semantic cast and allocated result, retains the operation barrier, and
+selects A16 without an intervening A8 excursion. Partial overlaps, constants,
+symbolic values and width changes retain their prior cast paths. No external
+access is repeated, no fourth byte is touched, and allocation is unchanged.
+
 By-value aggregate interfaces, REAL, foreign code,
 unresolved runtime/builtin calls and source terminal exits have explicit
 diagnostics. Volatile aggregate copies are rejected: use a deliberate scalar

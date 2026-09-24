@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-2 implemented and qualified; slices 3-12 pending. Baseline:
+Status: slices 1-3 implemented and qualified; slices 4-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -108,6 +108,12 @@ consumers and nonempty/same-target edges. Switching to A8 before OR-ing the bank
 is not a valid reduction: it loses the middle byte's contribution to Z.
 
 ### 3. Native three-byte representation-preserving casts
+
+Implemented and qualified. Raw list code saves 60 bytes and optimized code
+saves 56 (3,390 optimized bytes). All list vectors pass in both modes and host
+builds; cycles improve or stay equal. The repeated private middle byte adds
+reads/writes without changing frames, DP traffic or reservations. See
+[slice 3](benchmarks/65816-pointer-micro/slice3/delta.csv).
 
 Route bit-preserving three-byte pointer/address casts through the existing
 native private-transfer machinery. Admit identical or disjoint checked homes
