@@ -3,6 +3,21 @@
 This file tracks deferred compiler work, including cross-cutting issues and
 backend follow-ups linked to their design and measurement documents.
 
+## 68k Integer Arithmetic Review
+
+Status: backlogged at user request; review and implementation have not started.
+
+Revisit the current state of 68k MUL/DIV/MOD lowering before choosing the next
+implementation slice:
+
+- Inventory arithmetic helpers and native instruction selection across
+  supported widths, signedness and CPU targets; identify gaps and unnecessary
+  helper calls.
+- Audit power-of-two multiplication, division and modulo reductions, including
+  constants wrapped in casts, signed rounding and remainder semantics.
+- Check helper ABI and division-by-zero/overflow behavior, and use focused
+  execution tests plus code-size/cycle measurements to prioritize improvements.
+
 ## Native 65816 Integer Arithmetic Helpers
 
 Status: implemented and qualified on 2026-09-24.
