@@ -32,28 +32,76 @@ impl Builder<'_> {
         if offset == 0 {
             self.transfer(source, destination, 3, true)?;
         } else {
-            self.pointer_add_constant(source, destination, offset)?;
+            self.pointer_constant_arithmetic(source, destination, offset, false)?;
         }
         Ok(true)
     }
     /// Caller preflights both complete homes and their geometry. The low-word
     /// store and mode change preserve carry into the bank-byte operation.
-    fn pointer_add_constant(
+    fn pointer_constant_arithmetic(
         &mut self,
         source: Memory,
         destination: Memory,
         offset: u16,
+        subtract: bool,
     ) -> Result<(), String> {
         self.code.a16();
         self.load_memory(source, 0)?;
-        self.code.op(Implied::Clc);
-        self.code.word(WordOp::AdcImm, offset);
+        self.code
+            .op(if subtract { Implied::Sec } else { Implied::Clc });
+        self.code.word(
+            if subtract {
+                WordOp::SbcImm
+            } else {
+                WordOp::AdcImm
+            },
+            offset,
+        );
         self.store_memory(destination, 0)?;
         self.code.a8();
         self.load_memory(source, 2)?;
-        self.code.byte(ByteOp::AdcImm, 0);
+        self.code.byte(
+            if subtract {
+                ByteOp::SbcImm
+            } else {
+                ByteOp::AdcImm
+            },
+            0,
+        );
         self.store_memory(destination, 2)?;
         Ok(())
+    }
+    pub(super) fn captured_pointer_step(
+        &mut self,
+        dest: TempId,
+        bytes: u8,
+        operation: NirBinaryOp,
+        left: &Mir65816Value,
+        right: &Mir65816Value,
+    ) -> Result<bool, String> {
+        if bytes != 3 {
+            return Ok(false);
+        }
+        let one = |v: &Mir65816Value| {
+            matches!(
+                v,
+                Mir65816Value::U8(1)
+                    | Mir65816Value::U16(1)
+                    | Mir65816Value::U24(1)
+                    | Mir65816Value::U32(1)
+            )
+        };
+        let value = match operation {
+            NirBinaryOp::Add | NirBinaryOp::Sub if one(right) => left,
+            NirBinaryOp::Add if one(left) => right,
+            _ => return Ok(false),
+        };
+        let Some((source, destination)) = self.pointer_copy_homes(dest, value)? else {
+            return Ok(false);
+        };
+        self.code.barrier();
+        self.pointer_constant_arithmetic(source, destination, 1, operation == NirBinaryOp::Sub)?;
+        Ok(true)
     }
     /// Shared with transfer(): overlapping word pieces are safe only for a
     /// whole identity or disjoint private homes, never a partial overlap.

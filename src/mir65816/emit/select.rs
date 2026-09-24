@@ -1701,7 +1701,30 @@ impl Builder<'_> {
             ..
         } = op
             && (self.constant_shift(*dest, width(*bytes)?, *operation, left, right)?
+                || self.captured_pointer_step(*dest, width(*bytes)?, *operation, left, right)?
                 || self.word_binary(*dest, width(*bytes)?, *operation, left, right)?)
+        {
+            return Ok(());
+        }
+        if let Mir65816Op::PointerOffset {
+            dest,
+            width: bytes,
+            base,
+            offset,
+            subtract,
+            ..
+        } = op
+            && self.captured_pointer_step(
+                *dest,
+                width(*bytes)?,
+                if *subtract {
+                    NirBinaryOp::Sub
+                } else {
+                    NirBinaryOp::Add
+                },
+                base,
+                offset,
+            )?
         {
             return Ok(());
         }

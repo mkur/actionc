@@ -494,3 +494,97 @@ fn multiple_pointer_edges_preflight_every_home_before_mutation() {
         assert_eq!(format!("{:?}", b.code), before);
     }
 }
+
+#[test]
+fn pointer_steps_use_native_carry_and_borrow_between_complete_private_homes() {
+    let r = program().routines.remove(0);
+    for (src, dst) in [
+        (stack(250), stack(253)),
+        (stack(10), stack(10)),
+        (dp(0), dp(61)),
+        (dp(3), stack(20)),
+        (stack(10), dp(3)),
+    ] {
+        for (operation, commuted) in [
+            (NirBinaryOp::Add, false),
+            (NirBinaryOp::Add, true),
+            (NirBinaryOp::Sub, false),
+        ] {
+            for byte in [false, true] {
+                let mut b = builder(&r);
+                let value = input(&mut b, src, dst);
+                if byte {
+                    b.code.a8();
+                } else {
+                    b.code.a16();
+                }
+                let at = b.code.position();
+                let one = Mir65816Value::U24(1);
+                let (left, right) = if commuted {
+                    (&one, &value)
+                } else {
+                    (&value, &one)
+                };
+                assert!(
+                    b.captured_pointer_step(TempId(999), 3, operation, left, right)
+                        .unwrap()
+                );
+                let sub = operation == NirBinaryOp::Sub;
+                let mut expected = if byte { vec![0xc2, 0x20] } else { vec![] };
+                expected.extend(encoding(src.into(), true, 0));
+                expected.extend([
+                    if sub { 0x38 } else { 0x18 },
+                    if sub { 0xe9 } else { 0x69 },
+                    1,
+                    0,
+                ]);
+                expected.extend(encoding(dst.into(), false, 0));
+                expected.extend([0xe2, 0x20]);
+                expected.extend(encoding(src.into(), true, 2));
+                expected.extend([if sub { 0xe9 } else { 0x69 }, 0]);
+                expected.extend(encoding(dst.into(), false, 2));
+                assert_eq!(&b.code.code().bytes[at..], expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn pointer_steps_keep_unsupported_operands_and_partial_overlap_on_the_fallback() {
+    let r = program().routines.remove(0);
+    for problem in 0..8 {
+        let mut b = builder(&r);
+        let value = input(&mut b, stack(10), stack(20));
+        let (mut left, mut right, mut op, mut bytes) =
+            (value.clone(), Mir65816Value::U24(1), NirBinaryOp::Add, 3);
+        match problem {
+            0 => right = Mir65816Value::U24(2),
+            1 => right = value.clone(),
+            2 => {
+                left = Mir65816Value::U24(1);
+                right = value;
+                op = NirBinaryOp::Sub;
+            }
+            3 => {
+                b.frame.temps.insert(TempId(999), stack(11));
+            }
+            4 => {
+                b.frame.temps.insert(TempId(998), stack(254));
+            }
+            5 => {
+                b.frame.temps.insert(TempId(999), dp(62));
+            }
+            6 => bytes = 4,
+            7 => op = NirBinaryOp::Xor,
+            _ => unreachable!(),
+        }
+        let before = format!("{:?}", b.code);
+        let result = b.captured_pointer_step(TempId(999), bytes, op, &left, &right);
+        if [4, 5].contains(&problem) {
+            assert!(result.is_err());
+        } else {
+            assert_eq!(result, Ok(false));
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}

@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-7 implemented and qualified; slices 8-12 pending. Baseline:
+Status: slices 1-8 implemented and qualified; slices 9-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -196,6 +196,12 @@ These are baseline costs, not promised savings. Cover permutations, repeated
 sources, identities, cycles, partial overlaps and successor live-ins.
 
 ### 8. Captured pointer increment/decrement
+
+Implemented and qualified for typed Binary and PointerOffset forms. Optimized
+FindName saves another 34 bytes (3,106 total list bytes) and up to 250 cycles per
+vector, without regressions; raw list output is unchanged. Both directions of
+24-bit wrap, exact volatile captures, mutable parameters, IRQ/NMI re-entry and
+o65 relocation pass. See [slice 8](benchmarks/65816-pointer-micro/slice8/delta.csv).
 
 Specialize typed 24-bit pointer `+1` and `-1` with native low-word arithmetic and
 bank carry/borrow. Reuse slice 5's checked arithmetic where appropriate, while

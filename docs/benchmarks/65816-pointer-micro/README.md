@@ -16,6 +16,7 @@ a correctness oracle.
 | 5: constant-offset captured addresses | 3,288 | 3,214 | −116 in each mode | 76 / 148 |
 | 6: single captured-pointer edges | 3,288 | 3,174 | unchanged raw / −40 optimized | 76 / 148 |
 | 7: acyclic captured-pointer edges | 3,288 | 3,140 | unchanged raw / −34 optimized | 76 / 148 |
+| 8: captured pointer increment/decrement | 3,288 | 3,106 | unchanged raw / −34 optimized | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -167,6 +168,29 @@ emission. Independent ca65 sequences compare complete registers, flags and
 non-staging memory with the bytewise fallback. Compiled multi-pointer backedges,
 two-task IRQ/NMI re-entry and two o65 placements pass. Both list oracle host runs
 pass all 270 paired-mask records with matching results and LF/CRLF artifacts.
+
+Slice 8 handles typed Binary and PointerOffset increment/decrement with native
+low-word arithmetic and one bank carry/borrow. Both complete homes are checked;
+identities are safe, while partial overlaps and unsupported operands keep the
+fallback. Only optimized FindName changes: 477→443 bytes. Optimized bodies total
+2,566 bytes, with guards still 540. Per-vector cycles fall by up to 250 and DP
+reads/writes by thirty each. Stack traffic, frames, peaks and guard costs are
+unchanged; raw list output is unchanged. See [sizes](slice8/sizes.csv),
+[measurements](slice8/measurements.csv), [deltas](slice8/delta.csv),
+[raw code](slice8/actionc-raw.lst), [optimized code](slice8/actionc-optimized.lst)
+and [provenance](slice8/provenance.json).
+
+Qualification passed 235 native unit tests (one inventory ignored), 69 integration/
+CLI tests (four opt-in inventories ignored), and 21 focused qualified VM tests in
+`pointer_values`, `pointer_edges`, `memory` and `checked_rewrites`. Tests cover
+bank carry/borrow, full 24-bit wrap, mutable parameters, fallback offsets,
+private-home bounds, exact volatile capture traces, two o65 placements and
+two-task IRQ/NMI re-entry. ADDRESS arithmetic fixtures use the required SIZE
+offsets. Both list oracle host runs pass all 270 paired-mask records with
+identical results and LF/CRLF artifacts. The emission snapshot changes only
+`forward_copy`: the slice 1 indirect-access simplification and two native pointer
+steps save forty bytes per mode, with labels/spans rebased and frame/fixup/return
+contracts unchanged. The actual snapshot reader passes both LF and CRLF inputs.
 
 Reproduce a slice from its commit by building and copying the CLI to a stable
 path, then using the existing comparison builder:

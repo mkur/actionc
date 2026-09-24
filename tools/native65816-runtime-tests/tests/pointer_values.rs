@@ -98,38 +98,43 @@ fn constant_field_addresses_carry_through_the_bank_and_wrap_at_24_bits() {
     }
 }
 
-#[test]
-fn constant_address_carry_survives_irq_and_nmi_with_reentrant_computation() {
+fn check_pointer_computation_irqs(expression: &str, inputs: [u32; 3], expected: [u32; 3]) {
     use actionc_vm::native65816::Inputs;
     use std::collections::BTreeSet;
     use support::context::*;
-    let source = "MODULE TEST PUBLIC EXTERNAL PROC Yield() \
+    let source = format!(
+        "MODULE TEST PUBLIC EXTERNAL PROC Yield() \
         VOLATILE BYTE irqAck=$7800 CARD taskA=$7000,taskB=$7002 BYTE current \
         TYPE Box=[BYTE ARRAY padding(3) BYTE last] \
         TYPE Job=[Box POINTER item BYTE done ADDRESS result BYTE POINTER peer] \
         ADDRESS irqResult \
-        ADDRESS FUNC Form(Box POINTER p) RETURN(ADDRESS(@p.last)) \
+        ADDRESS FUNC Form(Box POINTER p) RETURN({expression}) \
         CARD FUNC Dispatch(CARD saved BYTE reason) \
-        irqAck=1 irqResult=Form(Box POINTER($FFFFFF)) \
+        irqAck=1 irqResult=Form(Box POINTER({} )) \
         IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI \
         taskB=saved current=0 RETURN(taskA) \
         PROC Task(Job POINTER work) work.result=Form(work.item) work.done=1 \
         WHILE work.peer^=0 DO Yield() OD RETURN \
-        PROC Main() RETURN ENDMODULE";
+        PROC Main() RETURN ENDMODULE",
+        inputs[2]
+    );
     let check = |h: &ContextHarness| {
         h.guards();
         assert_eq!(h.bus.value(DONE, 2), 1);
         assert_eq!(h.bus.value(0x7103, 1), 1);
         assert_eq!(h.bus.value(0x7123, 1), 1);
-        assert_eq!(h.bus.value(0x7104, 3), 1);
-        assert_eq!(h.bus.value(0x7124, 3), 0x130002);
-        assert_eq!(h.bus.value(context::symbol(&h.image, "irqResult"), 3), 2);
+        assert_eq!(h.bus.value(0x7104, 3), expected[0]);
+        assert_eq!(h.bus.value(0x7124, 3), expected[1]);
+        assert_eq!(
+            h.bus.value(context::symbol(&h.image, "irqResult"), 3),
+            expected[2]
+        );
     };
     for optimize in [false, true] {
-        let mut h = ContextHarness::new(source, optimize, "Task", &[0x7100, 0x7120]);
+        let mut h = ContextHarness::new(&source, optimize, "Task", &[0x7100, 0x7120]);
         for (job, value, peer) in [
-            (0x7100usize, 0xfffffeu32, 0x7123u32),
-            (0x7120, 0x12ffff, 0x7103),
+            (0x7100usize, inputs[0], 0x7123u32),
+            (0x7120, inputs[1], 0x7103),
         ] {
             h.bus.ram[job..job + 3].copy_from_slice(&value.to_le_bytes()[..3]);
             h.bus.ram[job + 7..job + 10].copy_from_slice(&peer.to_le_bytes()[..3]);
@@ -185,5 +190,97 @@ fn constant_address_carry_survives_irq_and_nmi_with_reentrant_computation() {
             "only {} address-forming interrupt sites",
             seen.len()
         );
+    }
+}
+
+#[test]
+fn constant_address_carry_survives_irq_and_nmi_with_reentrant_computation() {
+    check_pointer_computation_irqs(
+        "ADDRESS(@p.last)",
+        [0xfffffe, 0x12ffff, 0xffffff],
+        [1, 0x130002, 2],
+    );
+}
+#[test]
+fn pointer_step_carry_and_borrow_survive_irq_nmi_and_reentrant_computation() {
+    check_pointer_computation_irqs(
+        "ADDRESS(p)+SIZE(1)",
+        [0xffffff, 0x12ffff, 0xffff],
+        [0, 0x130000, 0x10000],
+    );
+    check_pointer_computation_irqs(
+        "ADDRESS(p)-SIZE(1)",
+        [0, 0x130000, 0x10000],
+        [0xffffff, 0x12ffff, 0xffff],
+    );
+}
+
+#[test]
+fn pointer_steps_wrap_in_both_directions_with_exact_external_capture_traces() {
+    use actionc_vm::native65816::Access;
+    let source = "VOLATILE ADDRESS input=$7100 ADDRESS ARRAY output=$7200 \
+        ADDRESS FUNC Up(ADDRESS p) RETURN(p+SIZE(1)) \
+        ADDRESS FUNC Down(ADDRESS p) RETURN(p-SIZE(1)) \
+        ADDRESS FUNC Mutable(ADDRESS p) p=p+SIZE(1) RETURN(p-SIZE(1)) \
+        ADDRESS FUNC Fallback(ADDRESS p) RETURN(p+SIZE(2)) \
+        BYTE POINTER FUNC Inc(BYTE POINTER p) p==+1 RETURN(p) \
+        BYTE POINTER FUNC Dec(BYTE POINTER p) p==-1 RETURN(p) \
+        PROC Main() output(0)=Up(input) output(1)=Down(input) \
+        output(2)=Mutable(input) output(3)=Fallback(input) \
+        output(4)=ADDRESS(Inc(BYTE POINTER(input))) \
+        output(5)=ADDRESS(Dec(BYTE POINTER(input))) RETURN";
+    for optimize in [false, true] {
+        let image = compile(source, optimize);
+        let object = o65::compile(source, optimize, vec![]);
+        let mut relocated = vec![];
+        for variant in 0..2 {
+            relocated.push(
+                actionc::mir65816::o65::relocate(
+                    &object,
+                    &o65::placement(&object, variant, vec![o65::fault(variant)]),
+                )
+                .unwrap(),
+            );
+        }
+        for value in [
+            0u32, 1, 0xff, 0x100, 0xffff, 0x10000, 0x7fffff, 0x800000, 0xfffffe, 0xffffff,
+        ]
+        .into_iter()
+        .chain((0..24).map(|n| 1 << n))
+        {
+            for mask in [0, 4] {
+                for h in std::iter::once(Harness::new(&image, &caller(image.entry), mask)).chain(
+                    relocated
+                        .iter()
+                        .map(|r| Harness::new_o65(r, &caller(r.entry()), mask)),
+                ) {
+                    let mut h = h;
+                    h.bus.ram[0x7100..0x7103].copy_from_slice(&value.to_le_bytes()[..3]);
+                    h.bus.ram[0x71ff..0x7213].fill(0xa5);
+                    h.bus.watched = (0x7100..0x7103).collect();
+                    h.run();
+                    h.guards(mask);
+                    let up = (value + 1) & 0xffffff;
+                    let down = value.wrapping_sub(1) & 0xffffff;
+                    for (i, expected) in [up, down, value, (value + 2) & 0xffffff, up, down]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        assert_eq!(h.bus.value(0x7200 + 3 * i as u32, 3), expected);
+                    }
+                    assert_eq!((h.bus.ram[0x71ff], h.bus.ram[0x7212]), (0xa5, 0xa5));
+                    assert_eq!(
+                        h.bus
+                            .trace
+                            .iter()
+                            .map(|&(_, at, op)| (at, op))
+                            .collect::<Vec<_>>(),
+                        (0..6)
+                            .flat_map(|_| (0x7100..0x7103).map(|at| (at, Access::Read)))
+                            .collect::<Vec<_>>()
+                    );
+                }
+            }
+        }
     }
 }

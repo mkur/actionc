@@ -704,6 +704,16 @@ addresses, larger offsets and overlapping homes retain the general path. These
 forms change neither address meaning nor the closed-operation allocation
 contract, and make no atomic-update claim.
 
+Typed three-byte Add/Sub by numeric one uses the same captured-home preflight
+and native low-word arithmetic, followed by A8 bank carry/borrow. Addition also
+admits one on the left. Complete identical homes are safe because the low-word
+store cannot touch the bank source; partial overlaps retain the bytewise path.
+Other constants, noncaptured operands and other widths keep their existing
+selection. The result wraps modulo 24 bits. This is value computation, with no
+dereference, new scratch reservation, external access reordering or change to
+whole-operation interference. Normal tracked arithmetic effects invalidate the
+accumulator and flags; calls and control-flow boundaries restore A16 as usual.
+
 By-value aggregate interfaces, REAL, foreign code,
 unresolved runtime/builtin calls and source terminal exits have explicit
 diagnostics. Volatile aggregate copies are rejected: use a deliberate scalar
