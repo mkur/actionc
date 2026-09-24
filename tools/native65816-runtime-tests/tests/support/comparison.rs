@@ -1,5 +1,5 @@
 //! Decode only a candidate reached at a real A16 instruction boundary. This
-//! recognizes the complete emitted comparison, including relocated JML targets.
+//! recognizes the complete emitted comparison, including local transfer targets.
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -23,9 +23,8 @@ impl Window {
             self.cmp,
             self.branch,
             self.branch + 2,
+            self.branch + 4,
             self.branch + 6,
-            self.branch + 8,
-            self.branch + 10,
             self.yes,
             self.yes + 2,
             self.done,
@@ -79,7 +78,7 @@ pub fn window(
         };
     let right = operand(false)?;
     let branch = at;
-    let end = branch + 22;
+    let end = branch + 16;
     if end > routine.address + routine.size {
         return None;
     }
@@ -87,13 +86,11 @@ pub fn window(
     if !matches!(code[0], 0x90 | 0xb0 | 0xd0 | 0xf0) {
         return None;
     }
-    let yes = branch + 14;
-    let done = branch + 18;
-    let mut expected = vec![code[0], 4, 0x5c];
-    expected.extend(&yes.to_le_bytes()[..3]);
-    expected.extend([0xe2, 0x20, 0xa9, 0, 0x5c]);
-    expected.extend(&done.to_le_bytes()[..3]);
-    expected.extend([0xe2, 0x20, 0xa9, 1, 0xe2, 0x20, 0x83, code[21]]);
+    let yes = branch + 8;
+    let done = branch + 12;
+    let expected = [
+        code[0], 6, 0xe2, 0x20, 0xa9, 0, 0x80, 4, 0xe2, 0x20, 0xa9, 1, 0xe2, 0x20, 0x83, code[15],
+    ];
     if code != expected {
         return None;
     }
@@ -106,8 +103,8 @@ pub fn window(
         done,
         end,
         sources: [left, right],
-        dest: code[21],
-        predicate: code[0] ^ 0x20,
+        dest: code[15],
+        predicate: code[0],
     })
 }
 
@@ -316,13 +313,7 @@ pub fn empty_edge(
         }
         return Some((sites, target, end));
     }
-    if pc + 4 > range.end || bus.ram[pc as usize] != 0x5c {
-        return None;
-    }
-    let target = bus.value(pc + 1, 3);
-    if !range.contains(&target) {
-        return None;
-    }
+    let (target, end) = control_flow::jump(bus, pc, &range)?;
     sites.push(pc);
-    Some((sites, target, pc + 4))
+    Some((sites, target, end))
 }

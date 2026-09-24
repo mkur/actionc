@@ -415,7 +415,7 @@ fn signed_windows_read_both_private_words_and_fusion_omits_the_boolean_store() {
                     m.code
                         .conditional_branches
                         .iter()
-                        .find(|s| span.contains(&s.offset))
+                        .find(|s| s.dispatch && span.contains(&s.offset))
                         .unwrap()
                         .offset as u32
                 } else {

@@ -79,7 +79,7 @@ pub fn dispatches(
                 .code
                 .conditional_branches
                 .iter()
-                .filter(|s| span.contains(&s.offset))
+                .filter(|s| s.dispatch && span.contains(&s.offset))
                 .collect();
             // Fused 24/32-bit inequality can take the true edge after either part.
             // All other selected predicates still have exactly one dispatch.
@@ -130,8 +130,8 @@ pub fn dispatches(
             .iter()
             .filter(|f| f.target == Target::StackOverflow)
         {
-            let start = fixup.offset.checked_sub(26).unwrap();
-            for (offset, predicate) in [(4, 0x90), (6, 0xf0), (16, 0x90), (20, 0xb0)] {
+            let start = fixup.offset.checked_sub(24).unwrap();
+            for (offset, predicate) in [(4, 0x90), (6, 0xf0), (14, 0x90), (18, 0xb0)] {
                 let site = m
                     .code
                     .conditional_branches
@@ -143,7 +143,14 @@ pub fn dispatches(
                 assert!(seen.insert(site.offset));
             }
         }
-        assert_eq!(seen.len(), m.code.conditional_branches.len());
+        assert_eq!(
+            seen.len(),
+            m.code
+                .conditional_branches
+                .iter()
+                .filter(|s| s.dispatch)
+                .count()
+        );
     }
     out
 }
@@ -215,11 +222,7 @@ pub fn index(
                 // The next block may itself start with a relocated instruction;
                 // a zero-byte transfer owns no operand range to exclude.
             } else {
-                assert_eq!(m.code.bytes[e.offset], 0x5c);
-                assert!(m.code.fixups.iter().any(|f| f.offset == e.offset + 1
-                    && f.target == Target::Label(e.target)
-                    && f.addend == 0
-                    && f.byte.is_none()));
+                check_jump(&m.code, e.offset, e.target);
             }
             out.push(Transfer {
                 routine: r.id,
@@ -271,8 +274,8 @@ pub fn transfer(
     if site.fallthrough {
         (site.target == at).then_some((at, at, true))
     } else {
-        (at + 4 <= range.end && bus.ram[at as usize] == 0x5c && bus.value(at + 1, 3) == site.target)
-            .then_some((site.target, at + 4, false))
+        let (target, end) = jump(bus, at, range)?;
+        (target == site.target).then_some((target, end, false))
     }
 }
 
@@ -343,7 +346,7 @@ pub fn inventory(p: &Mir65816Program, machine: &MachineProgram, image: &Image) -
                 let mut found = 0;
                 for branch in &m.code.conditional_branches {
                     let pc = branch.offset;
-                    if !span.contains(&pc) {
+                    if !branch.dispatch || !span.contains(&pc) {
                         continue;
                     }
                     let target = m.code.labels[&branch.target];
@@ -363,4 +366,50 @@ pub fn inventory(p: &Mir65816Program, machine: &MachineProgram, image: &Image) -
         }
     }
     out
+}
+
+/// Independent decoding at a known transfer boundary, with checked bank/range.
+pub fn jump(bus: &super::Bus, at: u32, range: &std::ops::Range<u32>) -> Option<(u32, u32)> {
+    if !range.contains(&at) {
+        return None;
+    }
+    let size = match bus.ram[at as usize] {
+        0x80 => 2,
+        0x82 => 3,
+        0x5c => 4,
+        _ => return None,
+    };
+    let end = at.checked_add(size)?;
+    if end > range.end || at >> 16 != end >> 16 {
+        return None;
+    }
+    let target = match size {
+        2 => i64::from(end) + i64::from(bus.ram[at as usize + 1] as i8),
+        3 => i64::from(end) + i64::from(bus.value(at + 1, 2) as u16 as i16),
+        _ => i64::from(bus.value(at + 1, 3)),
+    };
+    let target = u32::try_from(target).ok()?;
+    (range.contains(&target) && target >> 16 == at >> 16).then_some((target, end))
+}
+pub fn check_jump(code: &actionc::mir65816::emit::Code, at: usize, label: Label) {
+    use actionc::mir65816::emit::JumpEncoding;
+    let site = code.local_jumps.iter().find(|s| s.offset == at).unwrap();
+    assert_eq!(site.target, label);
+    let end = at + site.encoding.size();
+    let delta = code.labels[&label] as i64 - end as i64;
+    let expected = match site.encoding {
+        JumpEncoding::Relative8 => vec![0x80, i8::try_from(delta).unwrap() as u8],
+        JumpEncoding::Relative16 => {
+            let [lo, hi] = i16::try_from(delta).unwrap().to_le_bytes();
+            vec![0x82, lo, hi]
+        }
+        JumpEncoding::Long => {
+            assert!(code.fixups.iter().any(|f| f.offset == at + 1
+                && f.target == Target::Label(label)
+                && f.addend == 0
+                && f.byte.is_none()));
+            vec![0x5c, 0, 0, 0]
+        }
+    };
+    assert_eq!(&code.bytes[at..end], expected);
 }

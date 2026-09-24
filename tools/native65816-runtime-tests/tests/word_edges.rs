@@ -258,8 +258,15 @@ fn run_edges(h: &mut Harness, image: &Image) -> (usize, usize) {
                         );
                     }
                 }
-                let expected_cycles: u64 = (if w.fallthrough { 0 } else { 4 })
-                    + w.reload.map_or(0, homes::cycles)
+                let expected_cycles: u64 = (if w.fallthrough {
+                    0
+                } else {
+                    match h.bus.ram[*w.sites.last().unwrap() as usize] {
+                        0x80 => 3,
+                        0x82 | 0x5c => 4,
+                        _ => panic!("unexpected transfer"),
+                    }
+                }) + w.reload.map_or(0, homes::cycles)
                     + w.moves
                         .iter()
                         .enumerate()

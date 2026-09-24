@@ -3,7 +3,9 @@
 use super::{BlockId, Location, Slot, TempId, copies::WordHome, state::*};
 #[path = "code.rs"]
 mod encoding;
-pub use encoding::{Code, ConditionalBranch, Fixup, Label, MirTransfer, Target};
+pub use encoding::{
+    Code, ConditionalBranch, Fixup, JumpEncoding, Label, LocalJump, MirTransfer, Target,
+};
 use std::collections::{BTreeMap, BTreeSet};
 #[path = "x_state.rs"]
 mod x_state;
@@ -1003,6 +1005,13 @@ impl TrackedEmitter65816 {
                 self.unreachable = true;
             }
         }
+        if let (ReferenceOp::Jml, Target::Label(label), 0, None) = (op, target, addend, byte) {
+            self.code.local_jumps.push(LocalJump {
+                offset: self.position(),
+                target: label,
+                encoding: JumpEncoding::Long,
+            });
+        }
         self.code.reference(op.opcode(), target, addend, byte);
         self.observe_event(if op == ReferenceOp::Jsl {
             Event::CallReturn
@@ -1042,22 +1051,23 @@ impl TrackedEmitter65816 {
     fn emit_branch(&mut self, op: Branch, label: Label) {
         self.live();
         self.edge(label);
+        self.code.conditional_branches.push(ConditionalBranch {
+            offset: self.position(),
+            predicate: op.opcode(),
+            target: label,
+            short: false,
+            dispatch: false,
+        });
         // Inverse skip is an implicit continuation, not an unconditional exit.
         self.code.byte(op.opcode() ^ 0x20, 4);
         self.code.reference(0x5c, Target::Label(label), 0, None);
         self.observe();
     }
-    /// Admit this local conditional to layout relaxation (MIR dispatch or guard).
+    /// Retain MIR/guard dispatch provenance on the local conditional.
     pub fn dispatch(&mut self, op: Branch, label: Label) {
         self.request(Request::Dispatch(op, label), |this| {
-            let offset = this.position();
             this.branch(op, label);
-            this.code.conditional_branches.push(ConditionalBranch {
-                offset,
-                predicate: op.opcode(),
-                target: label,
-                short: false,
-            });
+            this.code.conditional_branches.last_mut().unwrap().dispatch = true;
         })
     }
     fn emit_push_return(&mut self, label: Label) {

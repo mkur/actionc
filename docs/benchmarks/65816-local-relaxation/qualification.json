@@ -1,0 +1,108 @@
+{
+  "compiler_base_revision": "7a627e58095aacd1622b400b89e8134063cabf4a",
+  "implementation_state": "working tree; final source hashes bind the qualified change",
+  "scope": "MIR65816 local layout, metadata validation, backend tests and native measurement decoders; no shared IR/ABI changes",
+  "root_checks": {
+    "unit": {
+      "passed": 210,
+      "ignored": 1,
+      "log_sha256": "57e9c12362bbc9f02539c06749d747b64e47698f5a9d6e0cbeeee1176ceb0e3b"
+    },
+    "integration": {
+      "passed": 69,
+      "ignored": 0,
+      "log_sha256": "89567b85a2bebf86d04ffbc68ab011ab3278317d572be5825c888d772b573f86",
+      "snapshot_followup_sha256": "847221e3d7776a2ef2d0afc26246a72f899d564b5aa3d36375cb22d8aa43b80d",
+      "note": "Reviewed encoding snapshot intentionally rebased; focused rerun passes. All seven other targets passed initially."
+    },
+    "guard_inventory": {
+      "passed": 3,
+      "command": "python3 -m unittest discover -s tools/compare65816 -p 'test_guard_ranges.py'"
+    }
+  },
+  "native_runs": {
+    "focused": {
+      "passed": 29,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-dthoasi4/manifest.json",
+      "manifest_sha256": "610a8a32b83e4f83fb96b8e9dfaf727edbdf028ec050afd26f9f95826ca38b1e",
+      "artifact_count": 237
+    },
+    "debug": {
+      "passed": 182,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-31luf5gu/manifest.json",
+      "manifest_sha256": "272300b8dcf5aebb64c2f071cc4b16e1c8479ff6080353835ad50c62e25b5ce4",
+      "artifact_count": 1033
+    },
+    "release": {
+      "passed": 182,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-227i_xrm/manifest.json",
+      "manifest_sha256": "044f9a2be3d8fdaed91aa528a730395c1a0608ceed25d7ff7c0b89d3171d1a3b",
+      "artifact_count": 1033
+    }
+  },
+  "debug_release_inputs_identical": true,
+  "debug_release_input_count": 496,
+  "debug_release_artifacts_identical": true,
+  "focused_artifacts_identical_to_final": true,
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "changed_source_inputs": {
+    "src/mir65816/emit/analysis/cfg.rs": "23ce95aca506c833221d7e172591d6fd9c74eb4088126b2252b72c597b292e43",
+    "src/mir65816/emit/branch_tests.rs": "8c9217d54b9fe1550c8a5e40616e8556cd0cc6b53e6ca95c220086b27ad4561b",
+    "src/mir65816/emit/code.rs": "079e6cc3276ef7d6511fe5fe511d0f8b4cf5ac1e68df1b439110884d4cf72ab0",
+    "src/mir65816/emit/layout.rs": "76f9c77b607f560e7de4420766c1857cf6130cb96f9081a373fe02b4f6d2961e",
+    "src/mir65816/emit/layout_tests.rs": "dd3a73e9865b7b14d72b4c859990dcd28b652cb2555f6761e841d105a6433bcd",
+    "src/mir65816/emit/long_compare_tests.rs": "53e94e2560cb4fd4c085ae01f0c11fe0fcd62e9314ea18435d5ac7b2a4449210",
+    "src/mir65816/emit/mod.rs": "be37c18c0ce7beed1349019683fbf0ea102f6f53d36af591975d26aa869b03db",
+    "src/mir65816/emit/proof.rs": "7cce234f87a2bc1ef92bb559db03fa5c7e743e61fa300bd27a36062d5014610d",
+    "src/mir65816/emit/replay.rs": "bb729c6c096f5c9e7eeb374a1d839f592788b57d6686731ea5e52c537a316098",
+    "src/mir65816/emit/replay_tests.rs": "a3c6599fe49dbfb1e67e85ff7662617bfd4b110dddb33058db2784b82934d389",
+    "src/mir65816/emit/selected_tests.rs": "7a42be149f2bd1ec6038d3d9e1412c940a316a27c40938d25d2dd539e9d1e0b5",
+    "src/mir65816/emit/tracked.rs": "7855d53b6b17966feed348d79fe245e67544b25e707142985586275114517f29",
+    "src/mir65816/relocation.rs": "53f1651e607a3faabfbea8414ec7b30e267c07a74b45bb564b4f18857f8d3e19",
+    "tests/fixtures/mir65816-state-boundary.txt": "2e684ce89ca7900cabea551b0344a11ee4ca9d1c9b7ad7bbc0fb0bb917523b97",
+    "tools/compare65816/build.py": "70f01c1c83edcdc5c2489c72f2a700c3e01cd94a1515753815eb571cafccaa2f",
+    "tools/compare65816/test_guard_ranges.py": "b2abfbe31ac64111f74f85844c67f374fdb863d6e002f42c21cbc7feb56d224a",
+    "tools/disassemble65816.py": "cc2370c6bfe0304887328d3372e256eaf920ae9cb4a28b6569814ac1dd2d94d4",
+    "tools/native65816-runtime-tests/tests/control_flow.rs": "9a64ffbc8fb516f47f4c9d990011290e97149be26242bd620fe6415fb47a8d0d",
+    "tools/native65816-runtime-tests/tests/empty_edges.rs": "448dd9a66a2279bc640df28bf87ac72dedfce05b83fcdef7f3282d29c5f9da9e",
+    "tools/native65816-runtime-tests/tests/guard_branches.rs": "87d4c882e36dc44fe4b32b01a3e4ae7e62b63eeafc12d189843bfa12c1eb7a8f",
+    "tools/native65816-runtime-tests/tests/long_equality.rs": "8c8a2ddd7e87818039c1de1ce50a99b28cd06872ce12c67ca0e122ad34852a27",
+    "tools/native65816-runtime-tests/tests/loop_x.rs": "6f56b9adecc13349f8ce78437c79b9df0412bb470f9f98e3208b3f9d6b946811",
+    "tools/native65816-runtime-tests/tests/o65.rs": "e208c3dd3a8e74dfa0d8e932545d4d2c10bf12e4ee416c88ddb3721cc2bed584",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "d25ce1b668e50b8fb8ee8c4b70d2fa02cb29d4d8f60325f1cc6c70668da8af89",
+    "tools/native65816-runtime-tests/tests/signed_word_comparisons.rs": "8e3e8b9db2fdb81e9e8a924c4c37b2a8824a3c720fc11b77bc7fc813a60b7dc6",
+    "tools/native65816-runtime-tests/tests/support/comparison.rs": "5cfa13debf2a341373de2a0c31c5c117ef839aec9489a509ade36b08752ce470",
+    "tools/native65816-runtime-tests/tests/support/control_flow.rs": "ec6450567c138b9db5787af13c2c5ad88bf8d32164826cf43e17d2bb2176fef3",
+    "tools/native65816-runtime-tests/tests/support/forwarding.rs": "7c921d787466ed8420fccddac4feea4672e39da2298af6542d5bd38dcd3f51fb",
+    "tools/native65816-runtime-tests/tests/support/guard.rs": "f1cb86c6e167cc43d4e1fac7c5c7f67fdde39da0ba9c7884c45633f06befb635",
+    "tools/native65816-runtime-tests/tests/support/multi_word_edge.rs": "f5be7a5b2089398869f38d4c5111a7a08ce7f357c31fc3819a7118cac650a7c3",
+    "tools/native65816-runtime-tests/tests/support/signed_comparison.rs": "b55d8f89f0861be6df763762719f3bea2217d6c4c740d73f5d08780f95d18f26",
+    "tools/native65816-runtime-tests/tests/support/word_edge.rs": "00ad4e3f17ce0453499d00577c9defdb129dd2559ae726fbefdb6a99be598462",
+    "tools/native65816-runtime-tests/tests/word_edges.rs": "fc8ea0c96ae6b50a7cb7d075e7a7d1d59a563ba1a1df1603abf79601440d95e2"
+  },
+  "measurement_tools": {
+    "target/local-relax/measure.py": "efc8dcf9c4d4fbfd261fffa4c402b6818300e6e3931b341662cd22761b542030",
+    "target/local-relax/finalize_exec.py": "fa5b73887007d12d1b54bef75dae1c960192d6b98ea53bdab1ad0d8e5fcd8a45",
+    "target/local-relax/summarize.py": "46a2a1eae62343abccf975de1ad19c39bdb6b40f8069c8c58654969c4f985d9f",
+    "target/local-relax/qualification.py": "15e95782dc6ab01ee9d4b28946c768b6fbd6e31654f1a869e7ceb58643b4638c",
+    "target/exec-code-size-detail/probe/src/main.rs": "2d2e10ece9e94fc5a58cdf95af6328439a693567d16751b519432b8f8bacf635",
+    "target/guard-branches/build_exec.py": "c78f9795426eca90b4cbda022e172cdf3aff2cbdbfc664691bfe9d107c319af7"
+  },
+  "compiler_binaries": {
+    "actionc-before": "9321c4026a5a6cd9fa478d8eea3ea2611955e69826445037805fec86aa8a71be",
+    "actionc-after": "5c069fb59b299de8e7bc869ce00890f462d0e5a50dbc66e6a5ad3704839de5ff",
+    "probe-before": "340de9142969504a67087c0427d99058fe4e056864ef9efe1a2961e0013d3e91",
+    "probe-after": "819c54c9f604e69427a6bded1ed60c49ff020f85a208ede2a92f481530cdd24d"
+  },
+  "extra_execution_checks": {
+    "corpus": "132 Action records pass both debug/release and incoming I states; existing vbcc unlink failure unchanged (comparison exit 101)",
+    "dijkstra": "original-0-50 passes for both compilers, target modes and I states; remaining vectors not rerun",
+    "corpus_results_sha256": "137b7fa564c72e61c9481254a5266c73c19c22e2ed3cdc1966858994c73bfed8",
+    "dijkstra_results_sha256": "f7d0c8a6cfdea0f7be3fe7f6765391c8b06985963e425630014134c2a5f2bab1",
+    "dijkstra_qualification_sha256": "5aefe28d2f9577b64dcaf48801435a4387f9b2bd79215dfe2fe0432102140135"
+  }
+}

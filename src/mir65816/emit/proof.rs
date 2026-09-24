@@ -561,3 +561,29 @@ pub fn selected_actions(code: &Code) -> Result<Vec<SelectedObservation>, String>
         .map(|n| selected_site(code, s.site(Node(n))?))
         .collect()
 }
+
+/// Exercise local jump layout at exact reach limits; callers execute the jump
+/// itself with arbitrary register/flag state and check independently assembled bytes.
+pub fn local_jump_probe(padding: usize, backward: bool) -> Code {
+    let mut e = TrackedEmitter65816::default();
+    e.trace();
+    let target = e.label();
+    if backward {
+        e.mark(target);
+        for _ in 0..padding {
+            e.op(Implied::Nop);
+        }
+        e.jump(target);
+    } else {
+        let gap = e.label();
+        e.branch(Branch::Equal, gap);
+        e.jump(target);
+        e.mark(gap);
+        for _ in 0..padding {
+            e.op(Implied::Nop);
+        }
+        e.mark(target);
+        e.op(Implied::Nop);
+    }
+    super::layout::finalize(e.finish(), true).unwrap()
+}

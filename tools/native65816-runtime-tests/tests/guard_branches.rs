@@ -14,11 +14,12 @@ fn reference(amount: u16, origin: u32, fault: u32, short: bool) -> Vec<u8> {
     };
     assemble(
         &format!(
-            "tsc\ntax\ncmp $46\n{}{}jml fault\nwithin: sec\nsbc #{amount}\n{}cmp $44\n{}fault: lda #{amount}\njml ${fault:06x}\ndone: nop\n",
+            "tsc\ntax\ncmp $46\n{}{}{jump} fault\nwithin: sec\nsbc #{amount}\n{}cmp $44\n{}fault: lda #{amount}\njml ${fault:06x}\ndone: nop\n",
             branch("bcc", "bcs", "within"),
             branch("beq", "bne", "within"),
             branch("bcc", "bcs", "fault"),
-            branch("bcs", "bcc", "done")
+            branch("bcs", "bcc", "done"),
+            jump = if short { "bra" } else { "jml" }
         ),
         origin,
     )
@@ -98,8 +99,8 @@ fn emitted_entry_and_call_guards_match_independent_reference_on_all_boundary_pat
             let fault = compiled.image.stack_overflow;
             let old = reference(site.amount, site.start, fault, false);
             let short = reference(site.amount, site.start, fault, true);
-            assert_eq!(old.len() - short.len(), 16);
-            assert_eq!(bytes.len(), 29);
+            assert_eq!(old.len() - short.len(), 18);
+            assert_eq!(bytes.len(), 27);
             assert_eq!(bytes, &short[..short.len() - 1]);
             let candidate = 0x5f00 - site.amount;
             let mut cases = vec![
@@ -132,7 +133,7 @@ fn emitted_entry_and_call_guards_match_independent_reference_on_all_boundary_pat
                     let compact = run(
                         &short,
                         site.start,
-                        site.start + 29,
+                        site.start + 27,
                         fault,
                         s,
                         floor,
@@ -211,7 +212,7 @@ fn relocated_guards_reach_both_success_and_moved_fault_exits() {
                     let dest = if failed {
                         image.stack_overflow()
                     } else {
-                        entry + 29
+                        entry + 27
                     };
                     assert!(
                         h.cpu
@@ -278,7 +279,7 @@ fn every_reached_guard_boundary_restores_flags_under_irq_and_nmi_in_both_domains
                 assert_eq!(h.cpu.registers().d, 0x2000 + domain as u16 * 0x100);
                 let checkpoint = h.cpu.clone();
                 let memory = h.bus.clone();
-                for scenario in 0..3 {
+                for scenario in 0..4 {
                     for mask in [0, 4] {
                         h.cpu = checkpoint.clone();
                         h.bus = memory.clone();
@@ -286,11 +287,15 @@ fn every_reached_guard_boundary_restores_flags_under_irq_and_nmi_in_both_domains
                         r.p = (r.p & !4) | mask;
                         h.cpu = Machine::start_at(r);
                         let floor = r.s - site.amount + u16::from(scenario == 2);
-                        let ceiling = r.s + u16::from(scenario != 0);
+                        let ceiling = if scenario == 3 {
+                            r.s - 1
+                        } else {
+                            r.s + u16::from(scenario != 0)
+                        };
                         let dp = r.d as usize;
                         h.bus.ram[dp + 0x44..dp + 0x46].copy_from_slice(&floor.to_le_bytes());
                         h.bus.ram[dp + 0x46..dp + 0x48].copy_from_slice(&ceiling.to_le_bytes());
-                        let exit = if scenario == 2 {
+                        let exit = if scenario >= 2 {
                             h.image.stack_overflow
                         } else {
                             site.end

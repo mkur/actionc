@@ -152,6 +152,9 @@ fn layout_changes_only_offsets_and_keeps_sites_and_graph() {
         assert_eq!(new.validate(site), Ok(Node(i)));
         assert_eq!(s.cfg.successors(Node(i)), new.cfg.successors(Node(i)));
         assert_eq!(s.records[i].parent, new.records[i].parent);
+        assert_eq!(s.records[i].action, new.records[i].action);
+        assert_eq!(s.records[i].before, new.records[i].before);
+        assert_eq!(s.records[i].after, new.records[i].after);
     }
     new.reconcile(&after).unwrap();
 }

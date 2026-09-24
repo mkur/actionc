@@ -40,6 +40,30 @@ pub struct ConditionalBranch {
     pub predicate: u8,
     pub target: Label,
     pub short: bool,
+    /// MIR/guard dispatch provenance, independent of encoding choice.
+    pub dispatch: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JumpEncoding {
+    Long,
+    Relative8,
+    Relative16,
+}
+impl JumpEncoding {
+    pub fn size(self) -> usize {
+        match self {
+            Self::Long => 4,
+            Self::Relative8 => 2,
+            Self::Relative16 => 3,
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LocalJump {
+    pub offset: usize,
+    pub target: Label,
+    pub encoding: JumpEncoding,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -54,6 +78,7 @@ pub struct Code {
     pub mir_spans: BTreeMap<(BlockId, usize), std::ops::Range<usize>>,
     pub mir_transfers: Vec<MirTransfer>,
     pub conditional_branches: Vec<ConditionalBranch>,
+    pub local_jumps: Vec<LocalJump>,
     /// Boundaries of typed emissions. Compound dispatch is indivisible here.
     pub(in super::super) boundaries: BTreeSet<usize>,
     next_label: u32,

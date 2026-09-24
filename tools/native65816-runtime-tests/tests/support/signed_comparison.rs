@@ -76,10 +76,8 @@ pub fn check(p: &native65816::Prepared, c: &native65816::Compiled) -> usize {
                 let b = operand(right, false);
                 assert_eq!(&bytes[at..at + b.len()], b);
                 at += b.len();
-                assert_eq!(&bytes[at..at + 3], &[0x70, 4, 0x5c]);
-                assert_eq!(long(at + 3), linked.address + at as u32 + 9);
-                assert_eq!(&bytes[at + 6..at + 9], &[0x49, 0, 0x80]);
-                at += 9;
+                assert_eq!(&bytes[at..at + 5], &[0x50, 3, 0x49, 0, 0x80]);
+                at += 5;
                 let predicate = if matches!(operation, NirCompareOp::Lt | NirCompareOp::Gt) {
                     0x30
                 } else {
@@ -104,13 +102,13 @@ pub fn check(p: &native65816::Prepared, c: &native65816::Compiled) -> usize {
                     }
                 } else {
                     assert!(sites.is_empty());
-                    assert_eq!(&bytes[at..at + 3], &[predicate ^ 0x20, 4, 0x5c]);
-                    assert_eq!(long(at + 3), linked.address + at as u32 + 14);
-                    assert_eq!(&bytes[at + 6..at + 11], &[0xe2, 0x20, 0xa9, 0, 0x5c]);
-                    assert_eq!(long(at + 11), linked.address + at as u32 + 18);
+                    assert_eq!(
+                        &bytes[at..at + 8],
+                        &[predicate, 6, 0xe2, 0x20, 0xa9, 0, 0x80, 4]
+                    );
                     let destination = m.frame.temps[dest].stack().unwrap().offset as u8;
                     assert_eq!(
-                        &bytes[at + 14..span.end],
+                        &bytes[at + 8..span.end],
                         &[0xe2, 0x20, 0xa9, 1, 0xe2, 0x20, 0x83, destination]
                     );
                 }

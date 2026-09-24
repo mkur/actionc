@@ -232,7 +232,7 @@ fn replay_uses_verified_input_cfg_but_validates_its_new_output() {
 }
 
 #[test]
-fn signed_correction_replays_internal_long_branch_and_short_or_long_sign_dispatch() {
+fn signed_correction_replays_relaxed_internal_branch_and_short_or_long_sign_dispatch() {
     for count in [0, 200] {
         let mut e = TrackedEmitter65816::default();
         let corrected = e.label();
@@ -255,8 +255,10 @@ fn signed_correction_replays_internal_long_branch_and_short_or_long_sign_dispatc
         let raw = finish(e);
         assert_eq!(&raw.bytes[7..16], &[0x70, 4, 0x5c, 0, 0, 0, 0x49, 0, 0x80]);
         let finalized = layout::finalize(raw, true).unwrap();
-        assert_eq!(finalized.conditional_branches.len(), 1);
-        assert_eq!(finalized.conditional_branches[0].short, count == 0);
+        assert_eq!(finalized.conditional_branches.len(), 2);
+        assert!(finalized.conditional_branches[0].short);
+        assert_eq!(&finalized.bytes[7..12], &[0x50, 3, 0x49, 0, 0x80]);
+        assert_eq!(finalized.conditional_branches[1].short, count == 0);
         let replayed = layout::finalize(
             emit(finalized.selected.as_ref().unwrap(), false).unwrap(),
             true,

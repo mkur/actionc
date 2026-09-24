@@ -1,0 +1,38 @@
+[
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "original-0-50",
+    "cycles_before": 114485364,
+    "cycles_after": 113703790,
+    "cycles_saved": 781574,
+    "memory_traffic_and_stack_peak_unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "original-0-50",
+    "cycles_before": 106290482,
+    "cycles_after": 105508809,
+    "cycles_saved": 781673,
+    "memory_traffic_and_stack_peak_unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "original-0-50",
+    "cycles_before": 76854481,
+    "cycles_after": 76854481,
+    "cycles_saved": 0,
+    "memory_traffic_and_stack_peak_unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "original-0-50",
+    "cycles_before": 62446761,
+    "cycles_after": 62446761,
+    "cycles_saved": 0,
+    "memory_traffic_and_stack_peak_unchanged": true
+  }
+]

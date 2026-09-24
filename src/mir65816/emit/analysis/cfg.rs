@@ -476,6 +476,7 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
     let mut spans = BTreeMap::new();
     let mut source = None;
     let mut branches = Vec::new();
+    let mut jumps = Vec::new();
     let mut blocks: BTreeSet<Label> = BTreeSet::new();
     let mut active = None;
     let mut transfers = Vec::new();
@@ -513,6 +514,34 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                     b.extend(&value.to_le_bytes()[..3]);
                     b
                 }
+                Instruction::Reference(ReferenceOp::Jml, Target::Label(label), 0, None) => {
+                    use super::super::JumpEncoding;
+                    let encoding = match r.encoded.len() {
+                        2 => JumpEncoding::Relative8,
+                        3 => JumpEncoding::Relative16,
+                        4 => JumpEncoding::Long,
+                        _ => return Err("invalid selected local jump size".into()),
+                    };
+                    jumps.push((at, *label, encoding));
+                    let target = *code
+                        .labels
+                        .get(label)
+                        .ok_or("unbound selected local jump")?;
+                    let delta = target as i64 - r.encoded.end as i64;
+                    match encoding {
+                        JumpEncoding::Long => reference(0x5c, Target::Label(*label), 0, None),
+                        JumpEncoding::Relative8 => vec![
+                            0x80,
+                            i8::try_from(delta).map_err(|_| "selected BRA out of range")? as u8,
+                        ],
+                        JumpEncoding::Relative16 => {
+                            let [lo, hi] = i16::try_from(delta)
+                                .map_err(|_| "selected BRL out of range")?
+                                .to_le_bytes();
+                            vec![0x82, lo, hi]
+                        }
+                    }
+                }
                 Instruction::Reference(op, target, addend, byte) => {
                     reference(op.opcode(), *target, *addend, *byte)
                 }
@@ -523,6 +552,17 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                     vec![0x62, 0, 0]
                 }
                 Instruction::Branch(op, label) => {
+                    let dispatch = match r.parent.and_then(|n| records.get(n.0)).map(|r| &r.action)
+                    {
+                        Some(Action::Request(Request::Dispatch(pred, dest))) => {
+                            if pred != op || dest != label {
+                                return Err("selected dispatch/branch mismatch".into());
+                            }
+                            true
+                        }
+                        _ => false,
+                    };
+                    branches.push((at, op.opcode(), *label, r.encoded.len() == 2, dispatch));
                     if r.encoded.len() == 2 {
                         let target = *code
                             .labels
@@ -588,7 +628,6 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
                         matches!(r.action, Action::Request(Request::Fallthrough(_))),
                     ));
                 }
-                Action::Request(Request::Dispatch(op, l)) => branches.push((at, op.opcode(), *l)),
                 _ => {}
             }
         }
@@ -609,7 +648,13 @@ pub(in crate::mir65816::emit) fn reconcile(records: &[Record], code: &Code) -> R
             != code
                 .conditional_branches
                 .iter()
-                .map(|b| (b.offset, b.predicate, b.target))
+                .map(|b| (b.offset, b.predicate, b.target, b.short, b.dispatch))
+                .collect::<Vec<_>>()
+        || jumps
+            != code
+                .local_jumps
+                .iter()
+                .map(|s| (s.offset, s.target, s.encoding))
                 .collect::<Vec<_>>()
         || transfers
             != code

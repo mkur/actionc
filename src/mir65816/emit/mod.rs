@@ -22,7 +22,9 @@ mod work;
 
 use super::*;
 pub use allocation::{AllocatedFrame, Location, Slot};
-pub use tracked::{Code, ConditionalBranch, Fixup, Label, MirTransfer, Target};
+pub use tracked::{
+    Code, ConditionalBranch, Fixup, JumpEncoding, Label, LocalJump, MirTransfer, Target,
+};
 
 #[derive(Debug, Clone)]
 pub struct MachineRoutine {

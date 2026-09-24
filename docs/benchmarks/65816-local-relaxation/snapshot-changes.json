@@ -1,0 +1,146 @@
+[
+  {
+    "routine": "accumulator_forwarding.act/false/RoutineId(0)",
+    "before": 59,
+    "after": 57,
+    "saved": 2
+  },
+  {
+    "routine": "accumulator_forwarding.act/false/RoutineId(1)",
+    "before": 74,
+    "after": 70,
+    "saved": 4
+  },
+  {
+    "routine": "accumulator_forwarding.act/false/RoutineId(2)",
+    "before": 51,
+    "after": 49,
+    "saved": 2
+  },
+  {
+    "routine": "accumulator_forwarding.act/false/RoutineId(3)",
+    "before": 326,
+    "after": 318,
+    "saved": 8
+  },
+  {
+    "routine": "accumulator_forwarding.act/true/RoutineId(0)",
+    "before": 41,
+    "after": 39,
+    "saved": 2
+  },
+  {
+    "routine": "accumulator_forwarding.act/true/RoutineId(1)",
+    "before": 74,
+    "after": 70,
+    "saved": 4
+  },
+  {
+    "routine": "accumulator_forwarding.act/true/RoutineId(2)",
+    "before": 51,
+    "after": 49,
+    "saved": 2
+  },
+  {
+    "routine": "accumulator_forwarding.act/true/RoutineId(3)",
+    "before": 322,
+    "after": 314,
+    "saved": 8
+  },
+  {
+    "routine": "code_quality/sum_loop.act/false/RoutineId(0)",
+    "before": 130,
+    "after": 124,
+    "saved": 6
+  },
+  {
+    "routine": "code_quality/sum_loop.act/false/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/sum_loop.act/true/RoutineId(0)",
+    "before": 104,
+    "after": 98,
+    "saved": 6
+  },
+  {
+    "routine": "code_quality/sum_loop.act/true/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/wide_shift.act/false/RoutineId(0)",
+    "before": 385,
+    "after": 331,
+    "saved": 54
+  },
+  {
+    "routine": "code_quality/wide_shift.act/false/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/wide_shift.act/true/RoutineId(0)",
+    "before": 361,
+    "after": 307,
+    "saved": 54
+  },
+  {
+    "routine": "code_quality/wide_shift.act/true/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/forward_copy.act/false/RoutineId(0)",
+    "before": 281,
+    "after": 277,
+    "saved": 4
+  },
+  {
+    "routine": "code_quality/forward_copy.act/false/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/forward_copy.act/true/RoutineId(0)",
+    "before": 268,
+    "after": 264,
+    "saved": 4
+  },
+  {
+    "routine": "code_quality/forward_copy.act/true/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/recursive_sum.act/false/RoutineId(0)",
+    "before": 159,
+    "after": 153,
+    "saved": 6
+  },
+  {
+    "routine": "code_quality/recursive_sum.act/false/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  },
+  {
+    "routine": "code_quality/recursive_sum.act/true/RoutineId(0)",
+    "before": 144,
+    "after": 138,
+    "saved": 6
+  },
+  {
+    "routine": "code_quality/recursive_sum.act/true/RoutineId(1)",
+    "before": 31,
+    "after": 29,
+    "saved": 2
+  }
+]

@@ -373,7 +373,6 @@ pub fn decode(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<word_edge::Windo
         .find(|s| s.load == start && &s.range == range)?;
     if s.jump != s.load + s.bytes.len() as u32
         || !range.contains(&s.target)
-        || s.jump + if s.fallthrough { 0 } else { 4 } > range.end
         || bus.ram[s.load as usize..s.jump as usize] != s.bytes
     {
         return None;
@@ -402,13 +401,18 @@ pub fn decode(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<word_edge::Windo
         }
         word_edge::Form::Complete => return None,
     }
-    if s.fallthrough {
+    let end = if s.fallthrough {
         if s.jump != s.target {
             return None;
         }
-    } else if bus.ram[s.jump as usize] != 0x5c || bus.value(s.jump + 1, 3) != s.target {
-        return None;
-    }
+        s.jump
+    } else {
+        let (target, end) = control_flow::jump(bus, s.jump, range)?;
+        if target != s.target {
+            return None;
+        }
+        end
+    };
     let mut sites = if prefix { vec![pc] } else { vec![] };
     let mut at = s.load;
     for &(src, stage, _) in &s.moves {
@@ -445,6 +449,6 @@ pub fn decode(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<word_edge::Windo
         order: s.order.clone(),
         reload: s.reload,
         target: s.target,
-        end: s.jump + if s.fallthrough { 0 } else { 4 },
+        end,
     })
 }

@@ -431,7 +431,7 @@ fn cpx_dispatch_short_and_long_forms_match_ca65_at_two_origins() {
                 };
                 let asm = assemble(
                     &format!(
-                        "rep #$20\nlda #{value}\ntax\ncpx #{k}\n{branch}\nlda #0\n.repeat {padding}\nnop\n.endrepeat\njml done\nyes: rep #$20\nlda #1\ndone: nop\nstp\nnop"
+                        "rep #$20\nlda #{value}\ntax\ncpx #{k}\n{branch}\nlda #0\n.repeat {padding}\nnop\n.endrepeat\nbra done\nyes: rep #$20\nlda #1\ndone: nop\nstp\nnop"
                     ),
                     origin,
                 );

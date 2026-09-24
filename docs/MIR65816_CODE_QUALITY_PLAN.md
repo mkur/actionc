@@ -34,7 +34,8 @@ branch sites: raw code falls 6,365→5,878 bytes and optimized code 5,779→5,29
 optimized `Find` falls 2,132→1,887. All homes and guards remain unchanged.
 The small corpus and frozen Exec shell are byte-identical. See the
 [measured results](benchmarks/65816-signed-word-comparisons/README.md).
-Allocation, broader branch relaxation and the other backlog items remain deferred.
+Allocation and the other backlog items remain separate work; local transfer
+relaxation is completed below.
 
 The [current-source Exec size audit](benchmarks/65816-exec-size-detail/README.md)
 adds a guarded raw/optimized baseline for Exec `c3500c8`. It identifies repeated
@@ -75,6 +76,14 @@ keeping bytewise paths when widening would not save code. Frozen Exec saves
 Dijkstra saves 100 / 99 bytes. Layouts, frames, scratch reservations and guards
 are unchanged. See the [plan](MIR65816_NATIVE_CALL_COPIES_PLAN.md) and
 [measurements](benchmarks/65816-native-calls/README.md).
+
+Remaining local jump and branch relaxation is complete. All typed internal
+conditionals use the checked short-branch layout; local jumps select BRA or BRL
+when in range. Frozen Exec saves another 17,902 raw / 17,257 optimized bytes,
+reaching 399,816 optimized executable bytes. Dijkstra saves 125 / 126 bytes.
+Frames, guards, ABI and bank-zero budgets are unchanged. See the
+[plan](MIR65816_LOCAL_RELAXATION_PLAN.md) and
+[measurements](benchmarks/65816-local-relaxation/README.md).
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.

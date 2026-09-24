@@ -941,14 +941,14 @@ fn check_narrow_preemption(source: &str, names: [&str; 2], kind: &str) {
         }
         check(&h);
         if kind == "signed" {
-            for op in [0x38, 0xe3, 0x70, 0x49, 0x10, 0x30] {
+            for op in [0x38, 0xe3, 0x50, 0x49, 0x30] {
                 assert!(
                     signed_instructions.iter().any(|&(o, _)| o == op),
                     "missing {op:02x}"
                 );
             }
-            assert!(signed_instructions.contains(&(0x70, 0)));
-            assert!(signed_instructions.contains(&(0x70, 0x40)));
+            assert!(signed_instructions.contains(&(0x50, 0)));
+            assert!(signed_instructions.contains(&(0x50, 0x40)));
         }
         assert_eq!(widths, BTreeSet::from([0, 0x20]));
         assert!(seen.len() > 50);

@@ -71,7 +71,8 @@ image v4 are used only when the raw arithmetic-fault dependency survives.
 | --- | ---: | --- |
 | `acyclic_edges` | 2 | Independent direct/reordered word-copy sequences, self/repeated sources, full A/status preservation, staging canaries and unsafe schedule rejection. |
 | `state_tracking` | 4 | Independent ca65 bytes and VM facts, both widths, hidden B, full status masks, homes/NZ, loop joins, direct/indirect stack phases, PER continuations after branch shortening and o65 rebasing; trace-on/off output equality. |
-| `control_flow` | 4 | Independent REP/JML omission and short-predicate equivalence, page boundaries, generated short/long fallbacks, banked placement, edge copies and two o65 placements. |
+| `control_flow` | 5 | Independent REP/JML omission, all short predicates, emitted BRA/BRL/JML reach limits against ca65 with every status byte, page/bank boundaries, edge copies and two o65 placements. |
+| `guard_branches` | 3 | Exact compact guards against ca65, floor/ceiling/underflow paths, moved fault exits, and IRQ/NMI restoration at every reached guard instruction in both task domains, including the local BRA fault arm. |
 | `accumulator_forwarding` | 4 | Frozen full-corpus sites, typed resident-word evidence, independent ca65 register/flag/traffic equivalence, all four consumers, volatile traces, LF/CRLF and evidence rejection. |
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |

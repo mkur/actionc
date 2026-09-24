@@ -108,12 +108,22 @@ fn empty_goto_fallthrough_and_both_branch_forms_execute_without_data_traffic() {
                         .iter()
                         .any(|(l, &at)| l.0 >= n && at == jump - 2);
                 let start = jump - if prefix { 2 } else { 0 };
+                let (jump_cost, jump_size) = if t.fallthrough {
+                    (0, 0)
+                } else {
+                    match machine.code.bytes[jump] {
+                        0x80 => (3, 2),
+                        0x82 => (4, 3),
+                        0x5c => (4, 4),
+                        _ => panic!("unexpected transfer"),
+                    }
+                };
                 edges.entry(work.address + start as u32).or_default().push((
                     id,
                     work.address + machine.code.labels[&t.target] as u32,
                     usize::from(prefix) + usize::from(!t.fallthrough),
-                    u64::from(prefix) * 3 + u64::from(!t.fallthrough) * 4,
-                    u32::from(prefix) * 2 + u32::from(!t.fallthrough) * 4,
+                    u64::from(prefix) * 3 + jump_cost,
+                    u32::from(prefix) * 2 + jump_size,
                 ));
             }
             assert_eq!(edges.values().map(Vec::len).sum::<usize>(), 4);

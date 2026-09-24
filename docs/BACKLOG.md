@@ -152,26 +152,19 @@ Arguments, padding, allocation, ABI and all guards remain unchanged. See the
 [plan](MIR65816_NATIVE_CALL_COPIES_PLAN.md) and
 [measurements](benchmarks/65816-native-calls/README.md).
 
-1. **Broader local branch relaxation.** Extend the existing
-   [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch
-   sites to eligible local conditional transfers and unconditional jumps.
-   The original optimized Dijkstra inventory found 67 non-guard six-byte
-   conditional sequences whose destinations fit two-byte branches in the
-   then-current layout: 268 bytes of encoding opportunity. Re-inventory current
-   output before planning; signed selection changed those sites. This is an inventory,
-   not an implemented or qualified saving; overlapping jump savings must not
-   be counted twice. Preserve bank/range checks, labels, fixups, PER continuations,
-   proof metadata and o65 relocation.
-2. **Compact address construction.** Reduce repeated pointer materialization,
+Remaining local jump and branch relaxation is implemented. Internal conditionals
+join MIR/guard dispatch in the checked layout pass; local JMLs use BRA or BRL
+when their signed displacements fit. Frozen Exec saves another 17,902 raw /
+17,257 optimized code bytes, reaching 399,816 optimized executable bytes and a
+414,736-byte XEX. All 551 routine contracts and every guard remain intact. See
+the [plan](MIR65816_LOCAL_RELAXATION_PLAN.md) and
+[measurements](benchmarks/65816-local-relaxation/README.md).
+
+1. **Compact address construction.** Reduce repeated pointer materialization,
    temporary copies and bytewise scaled-index expansion through ordinary
    lowering. Use native-width operations where justified while retaining full
    24-bit results and bank carries. Calls, helper clobbers, aliasing and volatile
    effects remain barriers unless existing facts prove a narrower effect.
-3. **Compact stack-guard encoding.** Retain every required check, its position
-   before stack mutation and its failure behavior. Reduce encoding overhead
-   without changing the public ABI, stack bounds or preemption guarantees.
-   Conditional branch compaction is now complete; shortening the retained local
-   unconditional JML remains a separate deferred slice.
 
 Prefer improvements to basic selection and the existing checked emission/layout
 machinery. Broader register allocation and ABI changes remain separate work.

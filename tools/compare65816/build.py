@@ -38,9 +38,9 @@ def check_ranges(code, base, fault=0x048000):
     def long(value):
         return value.to_bytes(3, 'little')
     ranges = []
-    for at in range(max(0, len(code)-28)):
+    for at in range(max(0, len(code)-26)):
         address = base+at
-        for size, immediate in [(45, 22), (29, 14)]:
+        for size, immediate in [(45, 22), (29, 14), (27, 12)]:
             if at+size > len(code) or address >> 16 != (address+size) >> 16:
                 continue
             amount = code[at+immediate:at+immediate+2]
@@ -51,10 +51,13 @@ def check_ranges(code, base, fault=0x048000):
                            +bytes.fromhex('b0 04 5c')+long(address+38)
                            +bytes.fromhex('c5 44 90 04 5c')+long(address+45)
                            +b'\xa9'+amount+b'\x5c'+long(fault))
-            else:
+            elif size == 29:
                 pattern = (bytes.fromhex('3b aa c5 46 90 06 f0 04 5c')+long(address+22)
                            +bytes.fromhex('38 e9')+amount+bytes.fromhex('90 04 c5 44 b0 07 a9')
                            +amount+b'\x5c'+long(fault))
+            else:
+                pattern = (bytes.fromhex('3b aa c5 46 90 04 f0 02 80 0a 38 e9')
+                           +amount+bytes.fromhex('90 04 c5 44 b0 07 a9')+amount+b'\x5c'+long(fault))
             if code[at:at+size] == pattern:
                 assert not ranges or ranges[-1][1] <= address, 'overlapping guards'
                 ranges.append([address, address+size])

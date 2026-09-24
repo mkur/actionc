@@ -27,7 +27,7 @@ pub fn sites(c: &Compiled) -> Vec<Guard> {
             }
             assert_eq!((f.addend, f.byte), (0, None));
             let end = f.offset + 3;
-            let start = [45, 29]
+            let start = [45, 29, 27]
                 .into_iter()
                 .filter_map(|size| end.checked_sub(size))
                 .find(|&start| code[start..].starts_with(&[0x3b, 0xaa, 0xc5, 0x46]))

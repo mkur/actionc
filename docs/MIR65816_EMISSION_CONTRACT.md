@@ -450,31 +450,38 @@ or final true arm may omit JML when the intended successor is the physically
 next MIR block, after all required assignments. The pending target must be the
 next binding; intervening instructions, other labels and unfinished fallthrough
 are rejected. The path remains logically closed and the successor retains its
-normal barriers and width contract. Earlier false arms, internal labels, calls,
-fault transfers and backedges retain JML. Block order, copy scheduling and staging
+normal barriers and width contract. Other local transfers retain their logical edges and use the layout encodings
+below; calls and external fault transfers remain long. Block order, copy scheduling and staging
 reservations are unchanged; no jump threading occurs.
 
-Conditional MIR dispatch (ordinary Branch and compare-to-branch fusion) and the
-four conditional transfers in each stack guard have typed predicates and local
-targets. After selection, routine-local finalization
-may replace inverse-branch/JML with the original short predicate. It starts from
-long forms and shrinks to a fixed point, requiring signed-byte displacement in
-the candidate's own shortened layout. Out-of-range sites retain the long form.
-Materialized comparisons, shifts, casts and helper loops keep their existing
-encodings. Guard conditionals shrink from six to two bytes; each guard retains
-its local fault-arm JML and external overflow JML, all checks and their order,
-amount and success/fault register/flag behavior. No flags, values, widths or
-copy decisions change.
+Every selected local conditional, including materialized comparisons, signed
+correction, shifts, casts and helper loops, retains a typed predicate and label.
+MIR/guard dispatch provenance remains separate from encoding choice. Exact
+local JML references retain their label and final encoding. Routine-local
+finalization jointly shortens conditionals to their two-byte predicate and
+local jumps to BRA (two bytes) or BRL (three bytes). It starts from long forms
+and shrinks to a fixed point, checking signed-byte/word displacement in each
+candidate's own shortened layout. Out-of-range transfers retain their original
+long forms; conditional compounds without short reach remain six bytes.
+Calls and external fault transfers keep their original encodings.
+
+Each stack guard retains every check, its order and amount, and its success/fault
+register and flag behavior. Its local fault-arm JML becomes BRA; its external
+overflow JML remains. No values, widths, copies, frame/home allocation or
+source-memory accesses change.
 
 One checked position mapping updates labels, retained absolute fixups, PER sites,
-MIR spans, logical transfers, conditional records and immutable trace PCs together.
-Labels or unrelated metadata inside removed instruction bytes are rejected;
-coincident labels, empty spans and trace event ordering remain valid. Short
-operands are finalized constants, validated against their targets and protected
-from overlapping relocations. Both writers pack final routine sizes; placed
-instruction/next-PC/target addresses must share PBR without low-word wrap.
+MIR spans, logical transfers, local transfer records, selected instruction ranges,
+effect ranges and immutable trace PCs together. Selected actions, CFG and effects
+remain unchanged. Labels or unrelated metadata inside removed instruction bytes
+are rejected; coincident labels, empty spans and trace event ordering remain
+valid. Reconciliation checks actual final encodings and relocation ownership.
+Relative operands are finalized constants, validated against their targets and
+protected from overlapping relocations. Both writers pack final routine sizes;
+placed instruction/next-PC/target addresses must share PBR without low-word wrap.
 Existing bank-contained routines and o65's aligned text relocation preserve
 local displacement bytes. No image/o65 profile or loader extension is required.
+See the [local transfer plan](MIR65816_LOCAL_RELAXATION_PLAN.md).
 
 ### Scalar instruction selection
 
@@ -504,7 +511,7 @@ aliased source accesses remain separate and unchanged. No DP scratch, pushes,
 helpers, X/Y use, allocation change or ABI change is introduced.
 
 Signed two-byte ordering uses A16 SEC/SBC over the same checked word sources,
-then a typed long BVC skips EOR #$8000 when there is no overflow. Corrected N
+then a typed BVC skips EOR #$8000 when there is no overflow. Corrected N
 encodes the signed relation: Lt/Ge subtract left minus right and use BMI/BPL;
 Gt/Le swap the captured inputs and use BMI/BPL. Corrected Z is never used for
 inclusive ordering: overflowing unequal inputs can correct to zero. SEC makes
@@ -512,7 +519,8 @@ incoming C irrelevant; SBC establishes V. Binary arithmetic relies on the
 existing decimal-clear ABI. The correction join has conservative value facts,
 and the signed path retains the operation barrier, with no new forwarding,
 DP allocation, source-memory reordering, I changes or persistent flag facts.
-The internal BVC remains an ordinary long branch, distinct from MIR dispatch.
+The internal BVC relaxes like other local branches, retaining its distinct
+provenance from MIR dispatch.
 Word EOR writes A/N/Z while preserving C/V; BMI reads N and BVC reads V.
 
 Exact-width BYTE comparisons use A8 CMP for unsigned relations and signed

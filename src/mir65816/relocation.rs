@@ -45,6 +45,17 @@ pub fn collect(
             let off = u32::try_from(s.offset + 1).map_err(|_| "branch offset overflow")?;
             ranges.push((off, off.checked_add(1).ok_or("branch offset overflow")?));
         }
+        for s in r
+            .code
+            .local_jumps
+            .iter()
+            .filter(|s| s.encoding != emit::JumpEncoding::Long)
+        {
+            let off = u32::try_from(s.offset + 1).map_err(|_| "jump offset overflow")?;
+            let end =
+                u32::try_from(s.offset + s.encoding.size()).map_err(|_| "jump offset overflow")?;
+            ranges.push((off, end));
+        }
         for &(offset, _) in &r.code.return_fixups {
             let off = u32::try_from(offset).map_err(|_| "PER offset overflow")?;
             ranges.push((off, off.checked_add(2).ok_or("PER offset overflow")?));

@@ -315,7 +315,12 @@ fn long_fusion_uses_existing_sole_use_proof_and_keeps_both_edges() {
                 .unwrap()
         );
         assert_eq!(
-            b.code.code().conditional_branches.len(),
+            b.code
+                .code()
+                .conditional_branches
+                .iter()
+                .filter(|s| s.dispatch)
+                .count(),
             if op == NirCompareOp::Eq { 1 } else { 2 }
         );
         let Mir65816Terminator::Branch {

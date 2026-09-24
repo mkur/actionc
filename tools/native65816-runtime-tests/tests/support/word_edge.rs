@@ -48,7 +48,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
     }
     let mut pairs = vec![];
     while pc + 2 <= end
-        && bus.ram[pc as usize] != 0x5c
+        && !matches!(bus.ram[pc as usize], 0x5c | 0x80 | 0x82)
         && (pairs.is_empty() || control_flow::transfer(bus, pc, &range).is_none())
     {
         let stack = bus.ram[pc as usize] == 0xa3;
@@ -73,8 +73,7 @@ pub fn decode(bus: &Bus, mut pc: u32, range: Range<u32>) -> Option<Window> {
     }
     let (target, transfer_end, fallthrough) =
         control_flow::transfer(bus, pc, &range).or_else(|| {
-            (pc + 4 <= end && bus.ram[pc as usize] == 0x5c)
-                .then(|| (bus.value(pc + 1, 3), pc + 4, false))
+            control_flow::jump(bus, pc, &range).map(|(target, end)| (target, end, false))
         })?;
     if !range.contains(&target) {
         return None;
@@ -159,10 +158,7 @@ pub fn index(
     machine: &actionc::mir65816::emit::MachineProgram,
     address: impl Fn(actionc::nir::RoutineId) -> u32,
 ) -> Index {
-    use actionc::mir65816::{
-        emit::{Label, Target},
-        *,
-    };
+    use actionc::mir65816::{emit::Label, *};
     actionc::mir65816::verify_program(mir).unwrap();
     let x_proofs = x_residency::index(mir, machine, &address);
     let mut result = Index::new();
@@ -246,11 +242,7 @@ pub fn index(
                 if transfer.fallthrough {
                     assert_eq!(m.code.labels[&label], transfer.offset);
                 } else {
-                    assert_eq!(m.code.bytes[transfer.offset], 0x5c);
-                    assert!(m.code.fixups.iter().any(|f| f.offset == transfer.offset + 1
-                        && f.target == Target::Label(label)
-                        && f.addend == 0
-                        && f.byte.is_none()));
+                    control_flow::check_jump(&m.code, transfer.offset, label);
                 }
                 let staging: Option<u8> = m
                     .frame
@@ -334,7 +326,6 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         || s.load != load
         || !range.contains(&s.target)
         || !range.contains(&pc)
-        || s.jump + if s.fallthrough { 0 } else { 4 } > range.end
         || (s.fallthrough && s.target != s.jump)
         || !homes::valid(s.destination)
         || (s.source.0 && !homes::valid(s.source.1))
@@ -358,10 +349,15 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         }
         bytes.push(0xaa);
     }
-    if !s.fallthrough {
-        bytes.push(0x5c);
-        bytes.extend(&s.target.to_le_bytes()[..3]);
-    }
+    let end = if s.fallthrough {
+        s.jump
+    } else {
+        let (target, end) = control_flow::jump(bus, s.jump, range)?;
+        if target != s.target {
+            return None;
+        }
+        end
+    };
     if store + if identity { 0 } else { 2 } + u32::from(s.x_tail) != s.jump
         || load + bytes.len() as u32 > range.end
         || bus.ram[load as usize..load as usize + bytes.len()] != bytes
@@ -387,6 +383,6 @@ fn direct(bus: &Bus, pc: u32, range: &Range<u32>) -> Option<Window> {
         order: if identity { vec![] } else { vec![0] },
         reload: identity.then_some(s.destination),
         target: s.target,
-        end: s.jump + if s.fallthrough { 0 } else { 4 },
+        end,
     })
 }

@@ -415,12 +415,12 @@ fn native_long_comparisons_match_ca65_and_touch_only_captured_word_parts() {
                     let before = h.cpu.registers();
                     assert_eq!(before.p & 0x20, 0);
                     let unequal = if name == "Equal" { "no" } else { "yes" };
-                    let branch = if name == "Equal" { "bne" } else { "beq" };
-                    // Independently assembled long conditional transfers, including
+                    let branch = if name == "Equal" { "beq" } else { "bne" };
+                    // Independently assembled relaxed conditional transfers, including
                     // the conservative mode setup at each materialization join.
                     let reference = assemble(
                         &format!(
-                            "lda {left},s\ncmp {right},s\nbeq :+\njml {unequal}\n:\nlda {},s\ncmp {},s\n{branch} :+\njml yes\n:\n{}sep #$20\n.a8\nlda #0\njml done\nyes:\nsep #$20\nlda #1\ndone:\nsep #$20\nsta {dest},s\n",
+                            "lda {left},s\ncmp {right},s\nbne {unequal}\nlda {},s\ncmp {},s\n{branch} yes\n{}sep #$20\n.a8\nlda #0\nbra done\nyes:\nsep #$20\nlda #1\ndone:\nsep #$20\nsta {dest},s\n",
                             left + 2,
                             right + 2,
                             if name == "Equal" { "no:\n" } else { "" }

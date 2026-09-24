@@ -895,8 +895,15 @@ fn relocated_direct_word_edges_cover_immediates_branches_and_backedges() {
                                         } else {
                                             3
                                         }) + homes::cycles(site.destination)
-                                            + 4
-                                            - if site.fallthrough { 4 } else { 0 }
+                                            + if site.fallthrough {
+                                                0
+                                            } else {
+                                                match h.bus.ram[site.jump as usize] {
+                                                    0x80 => 3,
+                                                    0x82 | 0x5c => 4,
+                                                    _ => panic!("unexpected transfer"),
+                                                }
+                                            }
                                             - if site.source == (true, u16::from(site.destination))
                                             {
                                                 homes::cycles(site.destination)

@@ -200,6 +200,7 @@ pub(super) fn equivalent(a: &Code, b: &Code) -> Result<(), String> {
         || a.mir_spans != b.mir_spans
         || a.mir_transfers != b.mir_transfers
         || a.conditional_branches != b.conditional_branches
+        || a.local_jumps != b.local_jumps
         || a.boundaries != b.boundaries
     {
         return Err("replay encoding or position metadata differs".into());

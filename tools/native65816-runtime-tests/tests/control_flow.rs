@@ -75,6 +75,10 @@ fn short_dispatch_encodings_preserve_flags_and_exact_taken_costs() {
         ("beq", "bne", 0xf0, 2, true),
         ("bcc", "bcs", 0x90, 1, false),
         ("bcs", "bcc", 0xb0, 1, true),
+        ("bpl", "bmi", 0x10, 0x80, false),
+        ("bmi", "bpl", 0x30, 0x80, true),
+        ("bvc", "bvs", 0x50, 0x40, false),
+        ("bvs", "bvc", 0x70, 0x40, true),
     ] {
         // Force taken branches across a page while remaining in the same bank.
         let base = 0x0400fc;
@@ -199,7 +203,7 @@ fn generated_short_and_long_dispatch_execute_copies_at_banked_image_and_o65_plac
                 .code
                 .conditional_branches
                 .iter()
-                .filter(|b| span.contains(&b.offset))
+                .filter(|b| b.dispatch && span.contains(&b.offset))
                 .collect();
             assert_eq!(dispatches.len(), 1);
             assert_eq!(dispatches[0].short, count == 2);
@@ -243,6 +247,78 @@ fn generated_short_and_long_dispatch_execute_copies_at_banked_image_and_o65_plac
                             assert_eq!(h.bus.value(0x7200, 2), u32::from(a.abs_diff(b)));
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn emitted_local_jumps_match_ca65_and_preserve_all_registers_flags_and_memory() {
+    use actionc::mir65816::emit::{JumpEncoding, proof::local_jump_probe};
+    for backward in [false, true] {
+        for padding in [1, 125, 126, 127, 128, 32764, 32765, 32767, 32768] {
+            let code = local_jump_probe(padding, backward);
+            let site = code.local_jumps[0];
+            let target = code.labels[&site.target];
+            for base in [0x010100u32, 0xff0100] {
+                let at = base + site.offset as u32;
+                let dest = base + target as u32;
+                let expression = i64::from(dest) - i64::from(at);
+                let asm = match site.encoding {
+                    JumpEncoding::Relative8 => format!("bra *{expression:+}"),
+                    JumpEncoding::Relative16 => format!("brl *{expression:+}"),
+                    JumpEncoding::Long => format!("jml ${dest:06x}"),
+                };
+                let expected = assemble(&asm, at);
+                let mut actual =
+                    code.bytes[site.offset..site.offset + site.encoding.size()].to_vec();
+                if site.encoding == JumpEncoding::Long {
+                    actual[1..].copy_from_slice(&dest.to_le_bytes()[..3]);
+                }
+                assert_eq!(actual, expected, "{backward}/{padding}/{asm}");
+                for p in 0..=255u8 {
+                    let initial = Registers {
+                        a: 0xab80,
+                        x: if p & 0x10 == 0 { 0x5678 } else { 0x78 },
+                        y: if p & 0x10 == 0 { 0x9abc } else { 0xbc },
+                        s: 0x5fe0,
+                        d: 0x2000,
+                        dbr: 0x35,
+                        pbr: (at >> 16) as u8,
+                        pc: at as u16,
+                        p,
+                        emulation_mode: false,
+                    };
+                    let mut bus = Bus::new();
+                    bus.map(at, &actual, false);
+                    let mut cpu = Machine::start_at(initial);
+                    assert!(
+                        cpu.run_until(
+                            &mut bus,
+                            10,
+                            |_| Inputs::default(),
+                            |c| c.is_instruction_boundary() && c.pc() == dest
+                        )
+                        .unwrap()
+                    );
+                    assert_eq!(
+                        cpu.registers(),
+                        Registers {
+                            pc: dest as u16,
+                            pbr: (dest >> 16) as u8,
+                            ..initial
+                        }
+                    );
+                    assert!(bus.writes.is_empty());
+                    assert_eq!(
+                        cpu.cycles(),
+                        if site.encoding == JumpEncoding::Relative8 {
+                            3
+                        } else {
+                            4
+                        }
+                    );
                 }
             }
         }

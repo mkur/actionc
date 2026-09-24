@@ -5,6 +5,9 @@ from build import check_ranges, image_guard_ranges
 def guard(base, amount, fault, short):
     word = amount.to_bytes(2, 'little')
     long = lambda n: n.to_bytes(3, 'little')
+    if short == 'local':
+        return (bytes.fromhex('3b aa c5 46 90 04 f0 02 80 0a 38 e9')
+                +word+bytes.fromhex('90 04 c5 44 b0 07 a9')+word+b'\x5c'+long(fault))
     if short:
         return (bytes.fromhex('3b aa c5 46 90 06 f0 04 5c')+long(base+22)
                 +bytes.fromhex('38 e9')+word+bytes.fromhex('90 04 c5 44 b0 07 a9')
@@ -21,18 +24,19 @@ class GuardRanges(unittest.TestCase):
             for amount in [0, 4, 19, 255, 65535]:
                 a = guard(base, amount, fault, False)
                 b = guard(base+len(a), amount, fault, True)
-                self.assertEqual(check_ranges(a+b, base, fault), [[base, base+45], [base+45, base+74]])
-                self.assertEqual(sum(hi-lo for lo, hi in check_ranges(a+b, base, fault)), 74)
+                c = guard(base+len(a)+len(b), amount, fault, 'local')
+                self.assertEqual(check_ranges(a+b+c, base, fault), [[base, base+45], [base+45, base+74], [base+74, base+101]])
+                self.assertEqual(sum(hi-lo for lo, hi in check_ranges(a+b+c, base, fault)), 101)
 
     def test_every_mutated_byte_and_truncation_is_rejected(self):
-        for short in [False, True]:
+        for short in [False, True, 'local']:
             code = guard(0x10000, 19, 0x48000, short)
             for at in range(len(code)):
                 changed = bytearray(code); changed[at] ^= 1
                 self.assertEqual(check_ranges(changed, 0x10000), [], (short, at))
             for end in range(len(code)):
                 self.assertEqual(check_ranges(code[:end], 0x10000), [])
-            self.assertEqual(check_ranges(code, 0x10001), [])
+            self.assertEqual(check_ranges(code, 0x10001), [[0x10001,0x10001+len(code)]] if short == 'local' else [])
             self.assertEqual(check_ranges(code, 0x10000, 0x48001), [])
             # Overwriting one guard with another admits only the complete one.
             overlap = code[:4]+guard(0x10004, 7, 0x48000, short)
