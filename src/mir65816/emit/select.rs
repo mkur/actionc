@@ -1606,6 +1606,9 @@ impl Builder<'_> {
         }
     }
     fn edge_transfer(&mut self, edge: &Mir65816Edge, fallthrough: bool) -> Result<(), String> {
+        if self.pointer_edge(edge, fallthrough)? {
+            return Ok(());
+        }
         self.code.barrier();
         if let Some(word) = self.word_edge(edge)? {
             self.emit_word_edge(word, fallthrough);

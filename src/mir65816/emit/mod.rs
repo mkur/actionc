@@ -8,6 +8,7 @@ mod effects;
 pub(super) mod layout;
 mod liveness;
 mod loop_x;
+mod pointer_copies;
 #[cfg(feature = "native65816-state-proof")]
 pub mod proof;
 mod replay;

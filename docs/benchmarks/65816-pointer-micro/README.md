@@ -14,6 +14,7 @@ a correctness oracle.
 | 3: native three-byte casts | 3,464 | 3,390 | −60 raw / −56 optimized | 76 / 148 |
 | 4: zero-offset captured addresses | 3,404 | 3,330 | −60 in each mode | 76 / 148 |
 | 5: constant-offset captured addresses | 3,288 | 3,214 | −116 in each mode | 76 / 148 |
+| 6: single captured-pointer edges | 3,288 | 3,174 | unchanged raw / −40 optimized | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -120,6 +121,30 @@ enabled instruction in address formation, runs the same computation in the IRQ
 dispatcher and also injects NMI, checking complete results and domain guards.
 Both list oracle host runs pass all 270 paired-mask records with matching
 results and LF/CRLF artifacts.
+
+Slice 6 copies a single captured three-byte edge argument with overlapping
+native words. One private two-byte staging word preserves the original full A;
+the final bank-byte load restores the bytewise fallback's exact A/N/Z state.
+Identities omit both staging and copies but retain that state repair. Optimized
+Enqueue and FindName each save twenty bytes; optimized bodies total 2,634 bytes,
+with guards still 540. Per-vector cycles improve by up to 56, without regressions.
+Stack reads increase by up to four bytes; writes, DP traffic, measured frames,
+peaks and guard costs are unchanged. Other edges still require the existing
+shared staging capacity in these routines. Raw output is unchanged. See
+[sizes](slice6/sizes.csv), [measurements](slice6/measurements.csv),
+[deltas](slice6/delta.csv), [raw code](slice6/actionc-raw.lst),
+[optimized code](slice6/actionc-optimized.lst) and [provenance](slice6/provenance.json).
+
+Qualification passed 220 emitter unit tests (one inventory ignored), 33 emission/
+o65 integration tests and 20 qualified VM tests in `pointer_edges`,
+`selective_staging`, `state_tracking` and `word_edges`. Focused checks cover
+exact full-register state at backedges, identity repair, authoritative mutable
+parameter homes, stack/DP geometry, staging bounds and atomic preflight failure.
+The new loop executes across 24-bit wrap and both I states, including relocated
+o65 placements. A two-task probe injects IRQ at every reached enabled loop
+instruction, re-enters the same routine in the dispatcher and injects NMI,
+checking results and domain guards. Both list oracle host runs pass all 270
+paired-mask records with identical results and actual LF/CRLF build equality.
 
 Reproduce a slice from its commit by building and copying the CLI to a stable
 path, then using the existing comparison builder:

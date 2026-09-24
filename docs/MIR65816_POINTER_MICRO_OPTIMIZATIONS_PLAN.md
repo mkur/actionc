@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-5 implemented and qualified; slices 6-12 pending. Baseline:
+Status: slices 1-6 implemented and qualified; slices 7-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -158,6 +158,14 @@ Four measured `+3` sites cost 45 bytes each; an A16-entry candidate suggests
 boundaries, neighboring canaries and unchanged nonconstant/unsupported forms.
 
 ### 6. Single three-byte edge copy
+
+Implemented and qualified. Optimized lists save 40 bytes (3,174 total) and up to
+56 cycles per vector, with no regressions; raw output is unchanged. Direct
+copies retain one two-byte A-save word to preserve hidden B, while identities
+need only final bank-byte state repair. Shared allocation/verification preflight,
+full-register backedge checks, relocated execution and IRQ/NMI re-entry pass.
+All list oracle vectors pass in both host builds. See
+[slice 6](benchmarks/65816-pointer-micro/slice6/delta.csv).
 
 Select one native private pointer transfer for an eligible edge assignment
 instead of complete byte staging. Start with disjoint homes and handle an

@@ -119,3 +119,48 @@ impl Builder<'_> {
         Ok(true)
     }
 }
+
+impl Builder<'_> {
+    pub(super) fn pointer_edge(
+        &mut self,
+        edge: &Mir65816Edge,
+        fallthrough: bool,
+    ) -> Result<bool, String> {
+        use super::super::pointer_copies::PointerHome;
+        let Some(plan) = self
+            .frame
+            .pointer_copies(self.routine, edge, self.code.delta())?
+        else {
+            return Ok(false);
+        };
+        let stage = self.frame.pointer_staging(&plan, self.code.delta())?;
+        let target = *self
+            .blocks
+            .get(&edge.target)
+            .ok_or("missing pointer edge target")?;
+        let load = |b: &mut Self, home, byte| match home {
+            PointerHome::Stack(at) => b.code.byte(ByteOp::LdaStack, at + byte),
+            PointerHome::DirectPage(at) => b.code.byte(ByteOp::LdaDp, at + byte),
+        };
+        self.code.barrier();
+        self.code.a16();
+        if let Some(stage) = stage {
+            self.code.byte(ByteOp::StaStack, stage);
+            for byte in [0, 1] {
+                load(self, plan.source, byte);
+                match plan.destination {
+                    PointerHome::Stack(at) => self.code.byte(ByteOp::StaStack, at + byte),
+                    PointerHome::DirectPage(at) => self.code.byte(ByteOp::StaDp, at + byte),
+                }
+            }
+            self.code.byte(ByteOp::LdaStack, stage);
+        }
+        // Match the byte fallback's complete A and N/Z, including hidden B.
+        // C/V, X/Y and all environment state are preserved by these forms.
+        self.code.a8();
+        load(self, plan.destination, 2);
+        self.code.a16();
+        self.finish_edge(target, fallthrough);
+        Ok(true)
+    }
+}

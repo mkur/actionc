@@ -475,6 +475,8 @@ impl AllocatedFrame {
             for edge in edges {
                 let widths = if let Some(plan) = self.word_copies(routine, edge, 0)? {
                     vec![2; plan.captures()?.len()]
+                } else if let Some(plan) = self.pointer_copies(routine, edge, 0)? {
+                    vec![2; usize::from(plan.preserve_a())]
                 } else {
                     self.edge_widths(routine, edge)?
                 };

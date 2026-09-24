@@ -234,6 +234,8 @@ impl AllocatedFrame {
             for edge in edges {
                 if let Some(plan) = self.word_copies(routine, edge, 0)? {
                     self.word_staging(&plan, 0)?;
+                } else if let Some(plan) = self.pointer_copies(routine, edge, 0)? {
+                    self.pointer_staging(&plan, 0)?;
                 }
             }
         }

@@ -245,3 +245,142 @@ fn constant_captured_addresses_select_a_word_and_one_bank_byte() {
         }
     }
 }
+
+fn edge_routine() -> Mir65816Routine {
+    let mut r = program().routines.remove(0);
+    r.temps.push((TempId(999), r.temps[0].1.clone()));
+    r.blocks.push(Mir65816Block {
+        id: BlockId(99),
+        params: vec![(TempId(999), ByteSize::new(3))],
+        ops: vec![],
+        terminator: r.blocks[0].terminator.clone(),
+    });
+    r
+}
+#[test]
+fn single_pointer_edges_preserve_hidden_b_and_repair_identity_flags() {
+    let r = edge_routine();
+    for (src, dst) in [
+        (stack(10), stack(20)),
+        (dp(0), dp(3)),
+        (stack(10), stack(10)),
+    ] {
+        let mut b = builder(&r);
+        let value = input(&mut b, src, dst);
+        b.frame.edge_copies = vec![Slot {
+            offset: 80,
+            width: 2,
+        }];
+        b.blocks.insert(BlockId(99), b.code.label());
+        let edge = Mir65816Edge {
+            target: BlockId(99),
+            args: vec![value],
+        };
+        b.code.a16();
+        let at = b.code.position();
+        let plan = b.frame.pointer_copies(&r, &edge, 0).unwrap().unwrap();
+        assert_eq!(
+            b.frame.pointer_staging(&plan, 0).unwrap(),
+            if src == dst { None } else { Some(80) }
+        );
+        assert!(b.pointer_edge(&edge, false).unwrap());
+        let mut expected = vec![];
+        if src != dst {
+            expected.extend([0x83, 80]);
+            for i in [0, 1] {
+                expected.extend(encoding(src.into(), true, i));
+                expected.extend(encoding(dst.into(), false, i));
+            }
+            expected.extend([0xa3, 80]);
+        }
+        expected.extend([0xe2, 0x20]);
+        expected.extend(encoding(dst.into(), true, 2));
+        expected.extend([0xc2, 0x20, 0x5c, 0, 0, 0]);
+        assert_eq!(&b.code.code().bytes[at..], expected);
+    }
+}
+#[test]
+fn single_pointer_edge_preflight_checks_geometry_and_exact_state_staging() {
+    let r = edge_routine();
+    for problem in 0..8 {
+        let mut b = builder(&r);
+        let value = input(&mut b, stack(10), stack(20));
+        b.blocks.insert(BlockId(99), b.code.label());
+        b.frame.edge_copies = vec![Slot {
+            offset: 80,
+            width: 2,
+        }];
+        let mut edge = Mir65816Edge {
+            target: BlockId(99),
+            args: vec![value],
+        };
+        match problem {
+            0 => {
+                b.frame.temps.insert(TempId(999), stack(11));
+            }
+            1 => edge.args[0] = Mir65816Value::Null(ByteSize::new(3)),
+            2 => b.frame.edge_copies.clear(),
+            3 => b.frame.edge_copies[0].offset = 12,
+            4 => b.frame.edge_copies[0].offset = 19,
+            5 => b.frame.edge_copies[0].width = 1,
+            6 => b.frame.edge_copies[0].offset = 255,
+            7 => {
+                b.frame.temps.insert(TempId(998), stack(254));
+            }
+            _ => unreachable!(),
+        }
+        let before = format!("{:?}", b.code);
+        let result = b.pointer_edge(&edge, false);
+        if problem < 2 {
+            assert_eq!(result, Ok(false));
+        } else {
+            assert!(result.is_err(), "{problem}");
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}
+
+#[test]
+fn captured_parameter_edges_share_exact_staging_between_allocation_and_emission() {
+    for mut r in program().routines.into_iter().take(2) {
+        let ty = r
+            .temps
+            .iter()
+            .find(|(_, t)| t.width == Some(ByteSize::new(3)))
+            .unwrap()
+            .1
+            .clone();
+        r.temps.push((TempId(999), ty));
+        let parameter = r.frame.parameters[0].param;
+        let last = r.blocks.last_mut().unwrap();
+        let mut ret = last.terminator.clone();
+        let Mir65816Terminator::Return { value, .. } = &mut ret else {
+            panic!()
+        };
+        *value = Some(Mir65816Value::Temp(TempId(999), ByteSize::new(3)));
+        last.terminator = Mir65816Terminator::Goto(Mir65816Edge {
+            target: BlockId(99),
+            args: vec![Mir65816Value::Param(parameter)],
+        });
+        r.blocks.push(Mir65816Block {
+            id: BlockId(99),
+            params: vec![(TempId(999), ByteSize::new(3))],
+            ops: vec![],
+            terminator: ret,
+        });
+        let frame = AllocatedFrame::stack(&r).unwrap();
+        assert_eq!(frame.edge_copies.len(), 1);
+        assert_eq!(frame.edge_copies[0].width, 2);
+        frame.verify_stack(&r).unwrap();
+        for problem in 0..3 {
+            let mut bad = frame.clone();
+            match problem {
+                0 => bad.edge_copies.clear(),
+                1 => bad.edge_copies[0].width = 3,
+                2 => bad.edge_copies[0].offset = bad.temps[&TempId(999)].slot().offset,
+                _ => unreachable!(),
+            }
+            assert!(bad.verify_stack(&r).is_err());
+        }
+    }
+}
