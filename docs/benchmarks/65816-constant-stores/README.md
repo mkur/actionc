@@ -81,6 +81,10 @@ public release cap remains 256 KiB of loaded code plus initialized data with
 guards disabled; subtracting guard bytes here is an estimate, not an actual
 qualified release artifact.
 
+The [component breakdown](component-breakdown.md) attributes the current code
+and initialized data to Exec, DOS, console, MyDOS and the remaining components,
+including their shares of both recent optimization savings.
+
 ## Validation
 
 - 243 native 65816 library tests passed, with one existing ignored test. The

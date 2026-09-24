@@ -1,0 +1,63 @@
+component,module,routines,code_bytes,guard_bytes,code_without_guards,initialized_data,footprint,add_sub_saved,constant_stores_saved
+Shell,SHELLAPP,42,46270,10665,35605,660,36265,80,253
+Exec core,TASKPOLICY/taskpolicy.act,42,28265,5616,22649,84,22733,0,276
+Console and windows,TASKPOLICY/task-console.inc,41,24157,4158,19999,0,19999,22,248
+DOS and generic filesystem,DOSCALLS,28,19902,4320,15582,0,15582,0,417
+MyDOS filesystem,MYDOSFILE,20,14727,1701,13026,0,13026,437,428
+MyDOS filesystem,MYDOS,24,13005,1566,11439,0,11439,282,456
+Exec core,TASKPOLICY/task-io.inc,23,13731,2457,11274,0,11274,46,298
+DOS and generic filesystem,FSINIT,17,13100,1944,11156,0,11156,30,194
+DOS and generic filesystem,DOSRAW,17,13317,2592,10725,0,10725,30,251
+DOS and generic filesystem,FSHANDLER,18,12332,1917,10415,0,10415,0,157
+SIO and block I/O,TASKPOLICY/task-sio.inc,19,12175,1836,10339,0,10339,52,92
+SIO and block I/O,BLOCKIO,19,11900,1647,10253,0,10253,106,319
+Exec core,HEAPCORE,16,11045,1431,9614,0,9614,978,10
+Exec core,HEAPPOLICY,19,11587,2106,9481,0,9481,230,82
+Console and windows,CONSOLEDRIVER,13,11389,2511,8878,0,8878,166,79
+DOS and generic filesystem,FSRELATIVE,6,8818,1026,7792,0,7792,56,0
+DOS and generic filesystem,FSDIRECTORY,15,9088,1404,7684,0,7684,0,38
+DOS and generic filesystem,DOSCOOKED,7,8632,1620,7012,0,7012,0,246
+SIO and block I/O,SIODRIVER,13,8571,1836,6735,0,6735,112,91
+Console and windows,CONSOLEFOREGROUND,11,7510,972,6538,0,6538,30,69
+Console and windows,CONSOLEDISPLAY,13,6999,783,6216,0,6216,0,90
+DOS and generic filesystem,FSOPERATION,12,6992,1188,5804,0,5804,30,126
+DOS and generic filesystem,DOSCLIENT,8,6468,999,5469,0,5469,0,212
+Exec core,TASKPOLICY/task-ports.inc,11,6333,1242,5091,0,5091,44,29
+DOS and generic filesystem,TASKPOLICY/task-dos.inc,11,5394,729,4665,0,4665,60,59
+DOS and generic filesystem,FSNAMES,6,5143,837,4306,0,4306,26,7
+DOS and generic filesystem,FSPACKET,5,4460,621,3839,0,3839,0,118
+Console and windows,CONSOLECORE,7,4065,405,3660,0,3660,58,128
+DOS and generic filesystem,COOKEDLINE,7,3882,297,3585,0,3585,0,153
+Console and windows,CONSOLEINPUT,8,4088,594,3494,0,3494,0,97
+Exec core,EXECMEMORY,8,3664,405,3259,0,3259,0,15
+DOS and generic filesystem,FSLOCKS,7,3576,405,3171,0,3171,0,19
+Console and windows,CONSOLEWINDOWS,8,3604,459,3145,0,3145,30,70
+DOS and generic filesystem,DOSBREAK,5,3749,1026,2723,0,2723,0,8
+DOS and generic filesystem,FSMOUNT,5,3211,540,2671,0,2671,0,134
+Exec core,EXECLISTS,12,3098,540,2558,0,2558,0,8
+MyDOS filesystem,MYDOSNAMES,5,2638,270,2368,0,2368,0,64
+DOS and generic filesystem,FSBOOT,3,2786,540,2246,0,2246,0,73
+DOS and generic filesystem,FSREGISTRY,9,2917,675,2242,0,2242,30,33
+DOS and generic filesystem,FSINFO,5,2316,162,2154,0,2154,0,99
+Exec core,TASKPOLICY/task-wakes.inc,5,2784,702,2082,0,2082,0,38
+DOS and generic filesystem,DOS,22,2942,1188,1754,0,1754,0,0
+DOS and generic filesystem,FSIO,3,1828,189,1639,0,1639,30,48
+DOS and generic filesystem,FSWORKER,2,2059,486,1573,18,1591,0,23
+Exec core,TASKPOLICY/task-memory.inc,3,2013,432,1581,0,1581,0,17
+DOS and generic filesystem,DOSSTREAMS,5,2060,486,1574,0,1574,0,35
+DOS and generic filesystem,FSABORT,1,1709,162,1547,0,1547,0,46
+Exec core,IOCORE,5,1961,459,1502,0,1502,0,0
+Inspection utilities,TASKINSPECT,1,1393,81,1312,0,1312,0,0
+Inspection utilities,FSINSPECT,1,1393,108,1285,0,1285,0,0
+Exec core,TASKPOLICY/task-signals.inc,4,1713,486,1227,0,1227,0,0
+DOS and generic filesystem,DOSOBJECTS,3,1350,135,1215,0,1215,0,21
+SIO and block I/O,BLOCKWIRE,1,1177,297,880,0,880,0,0
+Exec core,PORTCORE,2,1058,270,788,0,788,0,8
+DOS and generic filesystem,DOSCANCEL,1,964,189,775,0,775,0,0
+Inspection utilities,DEVICEINSPECT,1,876,135,741,0,741,0,7
+DOS and generic filesystem,FSMUX,2,833,162,671,0,671,0,8
+DOS and generic filesystem,FSPORTS,2,618,162,456,0,456,0,0
+DOS and generic filesystem,FSACTIVE,1,509,54,455,0,455,0,0
+"Platform assembly, tables and build info",EXECBUILD,0,0,0,0,189,189,0,0
+DOS and generic filesystem,DOSWIRE,1,117,27,90,0,90,0,0
+"Platform assembly, tables and build info",<packager additions>,0,8300,0,8300,1356,9656,0,0
