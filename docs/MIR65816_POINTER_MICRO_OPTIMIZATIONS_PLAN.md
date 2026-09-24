@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slice 1 implemented and qualified; slices 2-12 pending. Baseline:
+Status: slices 1-2 implemented and qualified; slices 3-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -74,6 +74,12 @@ including six bytes in Remove. Check both load and store paths, live Y/N/Z
 rejection, bank crossings and exact volatile access traces.
 
 ### 2. Captured three-byte null reduction
+
+Implemented and qualified. The list module saves another 42 bytes in each
+mode (3,446 optimized). Per-vector cycle changes range from −7 to +30; the
+additional stack reads and the nonzero-value slowdown are retained explicitly
+in the [slice 2 measurements](benchmarks/65816-pointer-micro/slice2/delta.csv).
+All 135 list vectors pass in both modes, both I states and both host builds.
 
 For Eq/Ne against null on either side, reduce a captured pointer in A16 with
 two overlapping words. For a three-byte incoming pointer at `4,S`:

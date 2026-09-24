@@ -154,6 +154,7 @@ adc 2,s
 sec
 sbc 2,s
 cmp 2,s
+ora 2,s
 sta $08
 lda $08
 clc

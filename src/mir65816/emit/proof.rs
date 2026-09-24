@@ -289,6 +289,7 @@ pub fn memory_probe(byte: bool) -> (Code, Vec<Snapshot>) {
     e.op(Implied::Sec);
     e.byte(ByteOp::SbcStack, 2);
     e.byte(ByteOp::CmpStack, 2);
+    e.byte(ByteOp::OraStack, 2);
     e.byte(ByteOp::StaDp, 8);
     e.byte(ByteOp::LdaDp, 8);
     e.op(Implied::Clc);

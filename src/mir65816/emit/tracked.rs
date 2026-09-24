@@ -864,7 +864,7 @@ impl TrackedEmitter65816 {
         }
         let rhs = if immediate {
             State65816::constant(value.into(), width)
-        } else if matches!(op, LdaStack | AdcStack | SbcStack | CmpStack) {
+        } else if matches!(op, LdaStack | AdcStack | SbcStack | CmpStack | OraStack) {
             self.state.read_stack(value, width)
         } else if matches!(op, LdaDp | AdcDp | SbcDp | CmpDp) {
             self.state.read_dp(value, width)
@@ -885,7 +885,7 @@ impl TrackedEmitter65816 {
             AdcImm | AdcStack | AdcDp => self.state.arithmetic(rhs, false),
             SbcImm | SbcStack | SbcDp => self.state.arithmetic(rhs, true),
             CmpImm | CmpStack | CmpDp => self.state.compare(rhs),
-            AndDp | OraDp | EorDp | EorImm => {
+            AndDp | OraDp | OraStack | EorDp | EorImm => {
                 let result = match (op, self.state.a, rhs) {
                     (EorImm, Value::Constant(a, w), Value::Constant(b, _)) => {
                         State65816::constant(a ^ b, w)

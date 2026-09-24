@@ -81,9 +81,28 @@ pub fn dispatches(
                 .iter()
                 .filter(|s| s.dispatch && span.contains(&s.offset))
                 .collect();
-            // Fused 24/32-bit inequality can take the true edge after either part.
-            // All other selected predicates still have exactly one dispatch.
+            // Captured three-byte null predicates reduce two overlapping words
+            // with ORA and have one dispatch. Other fused wide inequalities can
+            // take the true edge after either independently compared part.
+            let null = |value: &Mir65816Value| match value {
+                Mir65816Value::U24(0) => true,
+                Mir65816Value::Null(bytes) => bytes.get() == 3,
+                Mir65816Value::Address(address, bytes) => bytes.get() == 3 && address.value == 0,
+                _ => false,
+            };
+            let captured = |value: &Mir65816Value| match value {
+                Mir65816Value::Temp(id, bytes) => {
+                    bytes.get() == 3 && m.frame.temps[id].stack().is_ok()
+                }
+                Mir65816Value::Param(_) => true,
+                _ => false,
+            };
+            let reduced_null = !ordinary
+                && matches!(b.ops.last(), Some(Mir65816Op::Compare {
+                width, left, right, ..
+            }) if width.get() == 3 && ((null(left) && captured(right)) || (null(right) && captured(left))));
             let two_part_ne = !ordinary
+                && !reduced_null
                 && matches!(b.ops.last(), Some(Mir65816Op::Compare {
                 width, operation: actionc::nir::NirCompareOp::Ne, ..
             }) if matches!(width.get(), 3 | 4));

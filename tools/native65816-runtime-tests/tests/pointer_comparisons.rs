@@ -369,3 +369,88 @@ fn byte_and_pointer_conditions_preserve_same_target_parallel_edges_and_backedges
         }
     }
 }
+
+#[test]
+fn captured_null_reduction_reads_two_overlapping_words_and_no_fourth_byte() {
+    use actionc::mir65816::{Mir65816Op, Mir65816Value};
+    use actionc_vm::native65816::Inputs;
+    let source = "BYTE POINTER input=$7100 BYTE output=$7200 \
+        BYTE FUNC IsNull(BYTE POINTER p) RETURN(p=BYTE POINTER(0)) \
+        PROC Main() output=IsNull(input) RETURN";
+    for optimize in [false, true] {
+        let p = prepare(source, optimize);
+        let compiled = p.compile(&layout()).unwrap();
+        let r = p.mir.routines.iter().find(|r| r.name == "IsNull").unwrap();
+        let machine = compiled
+            .machine
+            .routines
+            .iter()
+            .find(|m| m.id == r.id)
+            .unwrap();
+        let linked = compiled
+            .image
+            .routines
+            .iter()
+            .find(|m| m.id == r.id.0)
+            .unwrap();
+        let (block, index, left) = r
+            .blocks
+            .iter()
+            .find_map(|b| {
+                b.ops.iter().enumerate().find_map(|(i, op)| match op {
+                    Mir65816Op::Compare {
+                        left: Mir65816Value::Temp(left, _),
+                        ..
+                    } => Some((b.id, i, *left)),
+                    _ => None,
+                })
+            })
+            .unwrap();
+        let span = &machine.code.mir_spans[&(block, index)];
+        let start = linked.address + span.start as u32;
+        let end = linked.address + span.end as u32;
+        let home = machine.frame.temps[&left].stack().unwrap().offset;
+        assert!(
+            machine.code.bytes[span.clone()]
+                .windows(4)
+                .any(|b| b == [0xa3, home as u8, 0x03, home as u8 + 1])
+        );
+        let caller = caller(compiled.image.entry);
+        for value in [0u32, 0xffffff]
+            .into_iter()
+            .chain((0..24).map(|bit| 1 << bit))
+        {
+            for mask in [0, 4] {
+                let mut h = Harness::new(&compiled.image, &caller, mask);
+                h.bus.ram[0x7100..0x7103].copy_from_slice(&value.to_le_bytes()[..3]);
+                for _ in 0..100_000 {
+                    if h.cpu.is_instruction_boundary() && h.cpu.pc() == start {
+                        break;
+                    }
+                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                }
+                assert_eq!(h.cpu.pc(), start);
+                let at = u32::from(h.cpu.registers().s) + u32::from(home);
+                let reads = h.bus.reads.len();
+                for _ in 0..1_000 {
+                    h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
+                    if h.cpu.is_instruction_boundary() && h.cpu.pc() == end {
+                        break;
+                    }
+                }
+                assert_eq!(h.cpu.pc(), end);
+                assert_eq!(
+                    h.bus.reads[reads..]
+                        .iter()
+                        .copied()
+                        .filter(|a| (0x4000..0x6000).contains(a))
+                        .collect::<Vec<_>>(),
+                    [at, at + 1, at + 1, at + 2]
+                );
+                h.run();
+                h.guards(mask);
+                assert_eq!(h.bus.ram[0x7200], u8::from(value == 0));
+            }
+        }
+    }
+}

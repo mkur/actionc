@@ -359,7 +359,7 @@ impl Instruction {
                 let bytes = u16::from(width.bytes());
                 match op {
                     LdaImm | AdcImm | SbcImm | CmpImm | EorImm | Rep | Sep => {}
-                    LdaStack | AdcStack | SbcStack | CmpStack => {
+                    LdaStack | AdcStack | SbcStack | CmpStack | OraStack => {
                         e.stack(Access::Read, value.into(), bytes)
                     }
                     StaStack => e.stack(Access::Write, value.into(), bytes),
@@ -408,7 +408,7 @@ impl Instruction {
                         e.alu(m, false, false);
                         e.flag_writes |= C;
                     }
-                    AndDp | OraDp | EorDp | EorImm => e.alu(m, false, true),
+                    AndDp | OraDp | OraStack | EorDp | EorImm => e.alu(m, false, true),
                     AslDp | RolDp | LsrDp | RorDp => {
                         e.environment_reads |= env::M;
                         e.flag_writes = NZ | C;

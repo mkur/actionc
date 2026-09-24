@@ -885,6 +885,18 @@ impl Builder<'_> {
             PointerOperand::Stack { low, .. } => self.code.byte(ByteOp::LdaStack, low),
         }
         let null = condition.right == PointerOperand::Immediate(0);
+        if null && let PointerOperand::Stack { low, .. } = condition.left {
+            // The classifier checked all three owned bytes, including the
+            // actual stack delta. Words at 0 and 1 stay inside that extent.
+            // Only Z is consumed; the operation barrier owns A/N/Z here.
+            self.code.byte(ByteOp::OraStack, low + 1);
+            if dispatch {
+                self.code.dispatch(condition.predicate, yes);
+            } else {
+                self.code.branch(condition.predicate, yes);
+            }
+            return;
+        }
         if !null {
             match condition.right {
                 PointerOperand::Immediate(value) => self.code.word(WordOp::CmpImm, value as u16),

@@ -102,10 +102,25 @@ fn memory_arithmetic_and_rmw_have_exact_carry_and_ordered_accesses() {
             assert_eq!((e.flag_reads, e.flag_writes), (0, NZ | C));
             assert_eq!(e.writes, Registers::default());
         }
-        for op in [ByteOp::AndDp, ByteOp::OraDp, ByteOp::EorDp] {
+        for op in [
+            ByteOp::AndDp,
+            ByteOp::OraDp,
+            ByteOp::OraStack,
+            ByteOp::EorDp,
+        ] {
             let e = fx(Instruction::Byte(op, 8), width, Width::Word);
             assert_eq!((e.flag_reads, e.flag_writes), (0, NZ));
             assert_eq!(e.memory[0].access, Access::Read);
+            if op == ByteOp::OraStack {
+                assert_eq!(
+                    e.memory[0].memory,
+                    Memory::Stack {
+                        displacement: 8,
+                        bytes: width.bytes().into(),
+                    }
+                );
+                assert_eq!((e.reads.a, e.writes.a), (mask(width), mask(width)));
+            }
         }
         for (op, carry) in [
             (ByteOp::AslDp, 0),

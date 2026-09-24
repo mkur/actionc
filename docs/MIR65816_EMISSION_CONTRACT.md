@@ -533,12 +533,17 @@ Word EOR writes A/N/Z while preserving C/V; BMI reads N and BVC reads V.
 
 Exact-width BYTE comparisons use A8 CMP for unsigned relations and signed
 Eq/Ne. Greater-than and less-or-equal swap captured operands; they never reorder
-source-memory accesses. Exact-width three-byte Eq/Ne compares the low word in
-A16, then the bank byte in A8 if needed. Null on either side is normalized to
-the right, using the loads' Z flags without CMP-zero instructions. Only bytes
-0–1 and byte 2 are read, never a fourth byte. Both pointer decision paths
-restore A16. These forms retain the operation barrier and introduce no A8
-forwarding or persistent flag facts.
+source-memory accesses. Exact-width three-byte Eq/Ne normally compares the low
+word in A16, then the bank byte in A8 if needed. Null on either side is normalized
+to the right. Captured stack temps and parameters use A16 `LDA home; ORA home+1`
+against null: Z tests all three bytes, repeating the owned middle byte and never
+reading a fourth byte. Other forms keep the low-word/bank short circuit. Both
+paths finish in A16. The two-word reduction may cost more cycles for nonzero low
+words; it saves code and mode changes. Full preflight checks the three-byte
+extent before either word is emitted. ORA writes A/N/Z, preserves C/V, and reads
+only its declared stack width. The operation barrier and the sole-Z consumer
+make the changed A/N values private to selection. No source-memory access is
+duplicated and no DP allocator eligibility is added.
 
 Byte and pointer inputs may be captured stack temps/parameters or representable
 literal/null/absolute-address values. Full preflight validates both inputs and

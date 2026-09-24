@@ -342,7 +342,7 @@ fn pointer_preflight_checks_the_third_byte_and_keeps_unsupported_forms_atomic() 
 }
 
 #[test]
-fn pointer_conditions_compare_a_word_and_one_bank_byte_and_normalize_null() {
+fn pointer_conditions_compare_all_bytes_and_reduce_captured_nulls_in_a16() {
     let p = program("BYTE FUNC Work(BYTE POINTER a,b) RETURN(a=b)");
     let r = &p.routines[0];
     let (dest, left, right) = operands(r);
@@ -389,16 +389,19 @@ fn pointer_conditions_compare_a_word_and_one_bank_byte_and_normalize_null() {
                 assert!(b.native_compare(dest, 3, signed, op, &left, &rhs).unwrap());
                 let bytes = &b.code.code().bytes[start..];
                 assert_eq!(&bytes[..2], &[0xa3, a]);
-                let mut bank = vec![0xe2, 0x20, 0xa3, a + 2];
-                if !null {
-                    let PointerOperand::Stack { low, bank: high } = condition.right else {
-                        panic!()
-                    };
-                    assert_eq!(&bytes[2..4], &[0xc3, low]);
-                    bank.extend([0xc3, high]);
-                } else {
-                    assert_eq!(bytes[2], 0xf0);
+                if null {
+                    assert_eq!(&bytes[..4], &[0xa3, a, 0x03, a + 1]);
+                    assert_eq!(bytes[4], if op == NirCompareOp::Eq { 0xd0 } else { 0xf0 });
+                    // No bank-byte mode switch precedes the Boolean arms.
+                    assert_eq!(&bytes[6..10], &[0x5c, 0, 0, 0]);
+                    continue;
                 }
+                let mut bank = vec![0xe2, 0x20, 0xa3, a + 2];
+                let PointerOperand::Stack { low, bank: high } = condition.right else {
+                    panic!()
+                };
+                assert_eq!(&bytes[2..4], &[0xc3, low]);
+                bank.extend([0xc3, high]);
                 bank.extend([0xc2, 0x20]);
                 assert!(bytes.windows(bank.len()).any(|w| w == bank));
             }
