@@ -5,6 +5,7 @@ use super::dataflow::{
     NirDataflowDirection, NirDataflowProblem, NirDataflowResult, solve_dataflow,
 };
 use super::storage::NirRoutineStorageAnalysis;
+use super::use_def::NirUseDef;
 use crate::nir::facts::{NirStorageId, direct_storage_id};
 use crate::nir::{
     BlockId, NirBlock, NirCompareOp, NirOp, NirRoutine, NirTerminator, NirValue, TempId,
@@ -410,6 +411,7 @@ pub(in crate::nir) fn predicate_threading_candidates(
     analysis: &NirPredicateAnalysis,
     storage: &NirRoutineStorageAnalysis,
 ) -> BTreeSet<BlockId> {
+    let use_def = NirUseDef::from_routine(routine);
     routine
         .blocks
         .iter()
@@ -435,6 +437,14 @@ pub(in crate::nir) fn predicate_threading_candidates(
                                     .is_some_and(|facts| facts.is_promotable())
                             })
                     ) || matches!(op, NirOp::Compare { .. })
+                })
+                // Bypassing a pure block also bypasses its definitions. CASE
+                // lowering, for example, reuses the first arm's selector load
+                // in later arms. Those uses still need the defining block.
+                && block.ops.iter().all(|op| match op {
+                    NirOp::Load { dest, .. } | NirOp::Compare { dest, .. } =>
+                        use_def.uses(*dest).iter().all(|site| site.block() == block.id),
+                    _ => false,
                 })
         })
         .map(|block| block.id)

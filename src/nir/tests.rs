@@ -80,6 +80,24 @@ fn lower_modern_source_for_target(source: &str, target: crate::target::TargetId)
     lower_program(&semir)
 }
 
+#[test]
+fn predicate_threading_preserves_case_selector_used_by_later_arms() {
+    let source = "BYTE output\nPROC Pick(BYTE selector,amount)\n\
+        IF (selector=0 AND amount>20) OR (selector<>0 AND amount>10) THEN RETURN FI\n\
+        CASE selector OF\nWHEN 0 THEN\noutput=1\nWHEN 1 THEN\noutput=2\n\
+        WHEN 2 THEN\noutput=3\nESAC\nRETURN\nPROC Main() Pick(1,5) RETURN";
+    for target in [crate::target::TargetId::Atari6502,
+                   crate::target::TargetId::Wdc65816Native,
+                   crate::target::TargetId::Motorola68000] {
+        let program = lower_modern_source_for_target(source, target);
+        verify_program(&program).unwrap();
+        let optimized = optimize_program(&program).unwrap();
+        verify_program(&optimized).unwrap();
+        let again = optimize_program(&optimized).unwrap();
+        assert_eq!(optimized, again);
+    }
+}
+
 fn foreign_relocations(op: &NirOp) -> Option<&[NirForeignRelocation]> {
     let NirOp::ForeignCode { code, .. } = op else {
         return None;
