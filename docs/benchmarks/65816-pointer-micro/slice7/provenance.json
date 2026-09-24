@@ -1,0 +1,85 @@
+{
+  "compiler_revision": "4226cacf7cf46bf17fdd2711c64343510de011bd",
+  "compiler_worktree_status": " M src/mir65816/emit/pointer_copies.rs\n M src/mir65816/emit/pointer_value_tests.rs\n M src/mir65816/emit/pointer_values.rs\n",
+  "tools": {
+    "actionc": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/pointer-micro/slice7/actionc-65816",
+      "sha256": "7470a51eb356ec11ad5437574930afe89a3ede14722b04a00a66fe12bec3eb24"
+    },
+    "vbcc": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vbcc65816",
+      "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+    },
+    "vasm": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vasm6502_oldstyle",
+      "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+    },
+    "vlink": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vlink",
+      "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+    },
+    "calypsi": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+      "sha256": "32581974d919226e9e7054d890a39e934461806905b3ebc32b6002f32d3c2ee7"
+    },
+    "calypsi_as": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+      "sha256": "348e8f8485d4dfc92e04ea295bdc2f2fb18169658ab64e20158e03b5745fa594"
+    },
+    "calypsi_link": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+      "sha256": "74738fc80ff249c726a6c19b7122969dbcbaf7fdb2579bca80440eea6152fb31"
+    }
+  },
+  "inputs": {
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/execlists/execlists.act": "db35ebcf7ce26ccb6d0aa1d5e9e024a21c5007b1683622eb6daacebcbc8fa0d4",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/execlists/main.act": "5649feb2b2a8c93c12c955c34d54b226eb36ea5b3bd4d628ca0c502826b4edf3",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/execlists/execlists.c": "50e0837b621fd332ecbded9931aa425e17d8ecc5d8e2d9305cafcd0d6f861ad6",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/execlists.py": "5bebb8bc45bc806c2e8e725b77e3bdec68c65c4862bc1ef20f06bbae6b618eef",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/execlists_vectors.py": "8d90283ca34e9a289af7389dedfdd543568e40530df77f74de55c989379b9a45",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/calypsi.py": "f2ef782b38e466b336ff7af2e7449fff1fa2b5bceca08590ff0a18f3b060cdf8",
+    "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s": "5787439cfd827cd620b9f0a5668aa3359489de007c8d17a17bd8b6b2bc1dea48",
+    "/usr/local/lib/calypsi-65816-5.18/include/stddef.h": "8a54f72e1ff0d3aaa6a54c1561f6d7a28b52bf7c4cf1c03503dbacfd8d4d09f5",
+    "/usr/local/lib/calypsi-65816-5.18/doc/pdf/Calypsi65816Guide.pdf": "4dc1f8a6bcfc6fce9b7a58c0e26b81ba30e0d3b1be30ed43d8500ac9ea78803f"
+  },
+  "crlf_checked": true,
+  "debug_release_identical": true,
+  "paired_mask_records": 270,
+  "executions_per_host": 540,
+  "comparison_exit": "Both Action-only qualification runs pass; foreign compiler results remain in the original analysis.",
+  "baseline": {
+    "/Users/michalkurcewicz/action/actionc-public-release/docs/benchmarks/65816-pointer-micro/slice6/measurements.csv": "d8539d913c567a2442882527de5c02d36696da6b5f0739c3a07e46c8ed899459",
+    "/Users/michalkurcewicz/action/actionc-public-release/docs/benchmarks/65816-pointer-micro/slice6/sizes.csv": "1df492bd5b5badb5ef822f880a80d6cdf5a15bfd0ecf83f848ed907243cad6d3"
+  },
+  "results": {
+    "/Users/michalkurcewicz/action/actionc-public-release/target/pointer-micro/slice7/lists/manifest.json": "81be314f7e858bd0a3042272b98ef3afe321952feee04ba5122d045f23d53573",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/pointer-micro/slice7/lists/debug.json": "bd934f0308705018e93d8916482d21814a7a9e3c16e501e4b526fa44713750f7",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/pointer-micro/slice7/lists/release.json": "bd934f0308705018e93d8916482d21814a7a9e3c16e501e4b526fa44713750f7",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/pointer-micro/slice7/lists/debug.log": "a3c1699e509874acccba557e16dfd47e895750b01d5c73a384ce72d6fb93a3d6",
+    "/Users/michalkurcewicz/action/actionc-public-release/target/pointer-micro/slice7/lists/release.log": "e17623b04298d3c6a9350e0da9b841e9e06f5e5f98f87785ed7b3df038d9c040"
+  },
+  "artifacts": [
+    {
+      "mode": "raw",
+      "hashes": {
+        "code.linked.lst": "60dc58cfacfe724397a62f996a23bfa94b0c62369f2b27f6b2184c19d96c9bb0",
+        "image.json": "1c7974efed2f5b4fd5cedc968d2dcc74b572b7282882213e3bff4965ce5232f4"
+      }
+    },
+    {
+      "mode": "optimized",
+      "hashes": {
+        "code.linked.lst": "57ee986cb085ea3ebbdff2731e607a707f5f51fea4a1301ae68cae935e7c6bf7",
+        "image.json": "ee74ee1ed37b09c12cfc9d885416076e4eee183b881bf7eadaf529077ecb6567"
+      }
+    }
+  ],
+  "report_tool_sha256": "ba3135d3d5c770ddd50f23142fa9fb7735ffadf6235bac670a0e97dd28f490f4",
+  "report_artifacts": {
+    "sizes.csv": "33c4f77c13f54e037aad505c618666862df49da1bc08873bad37142793617c19",
+    "delta.csv": "7638545d49aae01c2a576138f81ccdb9ca89ddf5a54a9d7b07f4b04e31491ba2",
+    "measurements.csv": "4276740dd68b17ffe5a27a905e2d273c14a71ed117209b4660c73992a6038208",
+    "actionc-raw.lst": "60dc58cfacfe724397a62f996a23bfa94b0c62369f2b27f6b2184c19d96c9bb0",
+    "actionc-optimized.lst": "57ee986cb085ea3ebbdff2731e607a707f5f51fea4a1301ae68cae935e7c6bf7"
+  }
+}

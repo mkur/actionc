@@ -15,6 +15,7 @@ a correctness oracle.
 | 4: zero-offset captured addresses | 3,404 | 3,330 | −60 in each mode | 76 / 148 |
 | 5: constant-offset captured addresses | 3,288 | 3,214 | −116 in each mode | 76 / 148 |
 | 6: single captured-pointer edges | 3,288 | 3,174 | unchanged raw / −40 optimized | 76 / 148 |
+| 7: acyclic captured-pointer edges | 3,288 | 3,140 | unchanged raw / −34 optimized | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -145,6 +146,27 @@ o65 placements. A two-task probe injects IRQ at every reached enabled loop
 instruction, re-enters the same routine in the dispatcher and injects NMI,
 checking results and domain guards. Both list oracle host runs pass all 270
 paired-mask records with identical results and actual LF/CRLF build equality.
+
+Slice 7 schedules complete three-byte assignments in dependency order, omits
+identities and retains one A-save word whenever any real move remains. Cycles,
+partial overlaps, constants and mixed widths keep the existing fallback. Only
+optimized FindName changes: 511→477 bytes. Optimized bodies total 2,600 bytes;
+guards remain 540. Per-vector cycles fall by up to 310, stack reads by 25 and
+stack writes by 30. DP traffic, frames, stack peaks and guard costs are unchanged.
+Raw output is unchanged. See [sizes](slice7/sizes.csv),
+[measurements](slice7/measurements.csv), [deltas](slice7/delta.csv),
+[raw code](slice7/actionc-raw.lst), [optimized code](slice7/actionc-optimized.lst)
+and [provenance](slice7/provenance.json).
+
+Qualification passed 224 emitter unit tests (one inventory ignored), 33 emission/
+o65 integration tests and 21 qualified VM tests in `pointer_edges`, `word_edges`,
+`checked_rewrites` and `state_tracking`. An exhaustive three-assignment oracle
+covers permutations, repeated sources, identities and cycles; separate rejection
+checks cover partial overlaps, late invalid homes and staging aliases before
+emission. Independent ca65 sequences compare complete registers, flags and
+non-staging memory with the bytewise fallback. Compiled multi-pointer backedges,
+two-task IRQ/NMI re-entry and two o65 placements pass. Both list oracle host runs
+pass all 270 paired-mask records with matching results and LF/CRLF artifacts.
 
 Reproduce a slice from its commit by building and copying the CLI to a stable
 path, then using the existing comparison builder:

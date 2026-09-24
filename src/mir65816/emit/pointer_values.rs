@@ -146,11 +146,13 @@ impl Builder<'_> {
         self.code.a16();
         if let Some(stage) = stage {
             self.code.byte(ByteOp::StaStack, stage);
-            for byte in [0, 1] {
-                load(self, plan.source, byte);
-                match plan.destination {
-                    PointerHome::Stack(at) => self.code.byte(ByteOp::StaStack, at + byte),
-                    PointerHome::DirectPage(at) => self.code.byte(ByteOp::StaDp, at + byte),
+            for (source, destination) in plan.scheduled() {
+                for byte in [0, 1] {
+                    load(self, source, byte);
+                    match destination {
+                        PointerHome::Stack(at) => self.code.byte(ByteOp::StaStack, at + byte),
+                        PointerHome::DirectPage(at) => self.code.byte(ByteOp::StaDp, at + byte),
+                    }
                 }
             }
             self.code.byte(ByteOp::LdaStack, stage);
@@ -158,7 +160,7 @@ impl Builder<'_> {
         // Match the byte fallback's complete A and N/Z, including hidden B.
         // C/V, X/Y and all environment state are preserved by these forms.
         self.code.a8();
-        load(self, plan.destination, 2);
+        load(self, plan.final_destination(), 2);
         self.code.a16();
         self.finish_edge(target, fallthrough);
         Ok(true)

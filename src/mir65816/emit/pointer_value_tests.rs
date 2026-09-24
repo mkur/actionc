@@ -384,3 +384,113 @@ fn captured_parameter_edges_share_exact_staging_between_allocation_and_emission(
         }
     }
 }
+
+#[test]
+fn multiple_pointer_edges_reorder_complete_moves_and_repair_original_final_state() {
+    let mut r = edge_routine();
+    r.temps.push((TempId(997), r.temps[0].1.clone()));
+    r.blocks
+        .last_mut()
+        .unwrap()
+        .params
+        .push((TempId(997), ByteSize::new(3)));
+    for (sources, destinations, order) in [
+        ([10, 20], [20, 30], vec![1, 0]),
+        ([10, 10], [20, 30], vec![0, 1]),
+        ([20, 30], [20, 30], vec![]),
+        ([10, 30], [20, 30], vec![0]),
+    ] {
+        for byte in [false, true] {
+            let mut b = builder(&r);
+            let first = input(&mut b, stack(sources[0]), stack(destinations[0]));
+            b.frame.temps.insert(TempId(996), stack(sources[1]));
+            b.frame.temps.insert(TempId(997), stack(destinations[1]));
+            b.frame.edge_copies = if order.is_empty() {
+                vec![]
+            } else {
+                vec![Slot {
+                    offset: 80,
+                    width: 2,
+                }]
+            };
+            b.blocks.insert(BlockId(99), b.code.label());
+            let edge = Mir65816Edge {
+                target: BlockId(99),
+                args: vec![first, Mir65816Value::Temp(TempId(996), ByteSize::new(3))],
+            };
+            if byte {
+                b.code.a8();
+            } else {
+                b.code.a16();
+            }
+            let at = b.code.position();
+            assert!(b.pointer_edge(&edge, false).unwrap());
+            let mut expected = if byte { vec![0xc2, 0x20] } else { vec![] };
+            if !order.is_empty() {
+                expected.extend([0x83, 80]);
+                for &i in &order {
+                    for offset in [0, 1] {
+                        expected.extend(encoding(stack(sources[i]).into(), true, offset));
+                        expected.extend(encoding(stack(destinations[i]).into(), false, offset));
+                    }
+                }
+                expected.extend([0xa3, 80]);
+            }
+            expected.extend([
+                0xe2,
+                0x20,
+                0xa3,
+                destinations[1] as u8 + 2,
+                0xc2,
+                0x20,
+                0x5c,
+                0,
+                0,
+                0,
+            ]);
+            assert_eq!(&b.code.code().bytes[at..], expected);
+        }
+    }
+}
+
+#[test]
+fn multiple_pointer_edges_preflight_every_home_before_mutation() {
+    let mut r = edge_routine();
+    r.temps.push((TempId(997), r.temps[0].1.clone()));
+    r.blocks
+        .last_mut()
+        .unwrap()
+        .params
+        .push((TempId(997), ByteSize::new(3)));
+    for (source, destination, stage, fallback) in [
+        (20, 10, 80, true),   // cycle
+        (21, 30, 80, true),   // partial source overlap
+        (40, 22, 80, true),   // partial destination overlap
+        (40, 30, 42, false),  // A-save overlaps a later source
+        (40, 30, 29, false),  // A-save overlaps a later destination
+        (254, 30, 80, false), // incomplete later source
+        (40, 254, 80, false), // incomplete later destination
+    ] {
+        let mut b = builder(&r);
+        let first = input(&mut b, stack(10), stack(20));
+        b.frame.temps.insert(TempId(996), stack(source));
+        b.frame.temps.insert(TempId(997), stack(destination));
+        b.frame.edge_copies = vec![Slot {
+            offset: stage,
+            width: 2,
+        }];
+        b.blocks.insert(BlockId(99), b.code.label());
+        let edge = Mir65816Edge {
+            target: BlockId(99),
+            args: vec![first, Mir65816Value::Temp(TempId(996), ByteSize::new(3))],
+        };
+        let before = format!("{:?}", b.code);
+        let result = b.pointer_edge(&edge, false);
+        if fallback {
+            assert_eq!(result, Ok(false));
+        } else {
+            assert!(result.is_err());
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}

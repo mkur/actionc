@@ -7,9 +7,13 @@ const SOURCE: &str = "BYTE POINTER input=$7100,output=$7200 \
         BYTE POINTER FUNC Work(BYTE POINTER seed) BYTE POINTER p p=seed \
         WHILE p#BYTE POINTER(2) DO p==+1 OD RETURN(p) \
         PROC Main() output=Work(input) RETURN";
-#[test]
-fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
-    let p = prepare(SOURCE, true);
+const MULTI_SOURCE: &str = "BYTE POINTER input=$7100,output=$7200 \
+        BYTE POINTER FUNC Work(BYTE POINTER seed) BYTE POINTER p,q p=seed q=seed \
+        WHILE p#BYTE POINTER(2) DO p==+1 q==+1 OD RETURN(q) \
+        PROC Main() output=Work(input) RETURN";
+
+fn check_backedges(source: &str, multiple: bool) {
+    let p = prepare(source, true);
     let c = p.compile(&layout()).unwrap();
     let r = p.mir.routines.iter().find(|r| r.name == "Work").unwrap();
     let m = c.machine.routines.iter().find(|m| m.id == r.id).unwrap();
@@ -20,15 +24,29 @@ fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
         let Mir65816Terminator::Goto(edge) = &block.terminator else {
             continue;
         };
-        let [Mir65816Value::Temp(src, bytes)] = edge.args.as_slice() else {
-            continue;
-        };
-        if bytes.get() != 3 {
+        if edge.args.is_empty() || multiple != (edge.args.len() > 1) {
             continue;
         }
         let target = r.blocks.iter().find(|b| b.id == edge.target).unwrap();
-        let src = m.frame.temps[src].stack().unwrap();
-        let dst = m.frame.temps[&target.params[0].0].stack().unwrap();
+        let Some(moves) = edge
+            .args
+            .iter()
+            .zip(&target.params)
+            .map(|(arg, &(dest, _))| {
+                let Mir65816Value::Temp(src, bytes) = arg else {
+                    return None;
+                };
+                (bytes.get() == 3).then(|| {
+                    (
+                        m.frame.temps[src].stack().unwrap().offset,
+                        m.frame.temps[&dest].stack().unwrap().offset,
+                    )
+                })
+            })
+            .collect::<Option<Vec<_>>>()
+        else {
+            continue;
+        };
         let span = &m.code.mir_spans[&(block.id, block.ops.len())];
         let transfer = m
             .code
@@ -39,8 +57,7 @@ fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
         sites.push((
             linked.address + span.start as u32,
             linked.address + m.code.labels[&transfer.target] as u32,
-            src.offset,
-            dst.offset,
+            moves,
         ));
     }
     assert!(!sites.is_empty());
@@ -55,18 +72,22 @@ fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
                     break;
                 }
                 if h.cpu.is_instruction_boundary()
-                    && let Some(&(_, target, src, dst)) = sites.iter().find(|s| s.0 == h.cpu.pc())
+                    && let Some((_, target, moves)) = sites.iter().find(|s| s.0 == h.cpu.pc())
                 {
                     let before = h.cpu.registers();
                     let s = u32::from(before.s);
-                    let value = h.bus.value(s + u32::from(src), 3);
+                    let values: Vec<_> = moves
+                        .iter()
+                        .map(|&(src, _)| h.bus.value(s + u32::from(src), 3))
+                        .collect();
+                    let value = *values.last().unwrap();
                     for _ in 0..1_000 {
                         h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
-                        if h.cpu.is_instruction_boundary() && h.cpu.pc() == target {
+                        if h.cpu.is_instruction_boundary() && h.cpu.pc() == *target {
                             break;
                         }
                     }
-                    assert_eq!(h.cpu.pc(), target);
+                    assert_eq!(h.cpu.pc(), *target);
                     let after = h.cpu.registers();
                     assert_eq!(after.a, (before.a & 0xff00) | (value >> 16) as u16);
                     assert_eq!(
@@ -79,7 +100,9 @@ fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
                         after.p & 0x82,
                         (bank & 0x80) | if bank == 0 { 2 } else { 0 }
                     );
-                    assert_eq!(h.bus.value(s + u32::from(dst), 3), value);
+                    for (&(_, dst), value) in moves.iter().zip(values) {
+                        assert_eq!(h.bus.value(s + u32::from(dst), 3), value);
+                    }
                     checked += 1;
                 } else {
                     h.cpu.tick(&mut h.bus, Inputs::default()).unwrap();
@@ -94,14 +117,23 @@ fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
 }
 
 #[test]
+fn single_pointer_backedges_preserve_full_register_state_and_live_bindings() {
+    check_backedges(SOURCE, false);
+}
+#[test]
+fn multiple_pointer_backedges_preserve_parallel_values_and_full_register_state() {
+    check_backedges(MULTI_SOURCE, true);
+}
+
+#[test]
 fn pointer_edge_state_save_survives_task_switching_and_reentrant_irq_calls() {
     use std::collections::BTreeSet;
     use support::context::*;
     let source = "MODULE TEST PUBLIC EXTERNAL PROC Yield() \
         VOLATILE BYTE irqAck=$7800 CARD taskA=$7000,taskB=$7002 BYTE current \
         TYPE Job=[BYTE POINTER item BYTE done BYTE POINTER result,peer] BYTE POINTER irqResult \
-        BYTE POINTER FUNC Walk(BYTE POINTER seed) BYTE POINTER p p=seed \
-        WHILE p#BYTE POINTER(2) DO p==+1 OD RETURN(p) \
+        BYTE POINTER FUNC Walk(BYTE POINTER seed) BYTE POINTER p,q p=seed q=seed \
+        WHILE p#BYTE POINTER(2) DO p==+1 q==+1 OD RETURN(q) \
         CARD FUNC Dispatch(CARD saved BYTE reason) irqAck=1 irqResult=Walk(BYTE POINTER($FFFFFF)) \
         IF current=0 THEN taskA=saved current=1 RETURN(taskB) FI taskB=saved current=0 RETURN(taskA) \
         PROC Task(Job POINTER work) work.result=Walk(work.item) work.done=1 \
@@ -175,8 +207,11 @@ fn pointer_edge_state_save_survives_task_switching_and_reentrant_irq_calls() {
 
 #[test]
 fn pointer_edge_frames_and_transfers_survive_o65_relocation() {
-    for optimize in [false, true] {
-        let bytes = o65::compile(SOURCE, optimize, vec![]);
+    for (source, optimize) in [SOURCE, MULTI_SOURCE]
+        .into_iter()
+        .flat_map(|s| [(s, false), (s, true)])
+    {
+        let bytes = o65::compile(source, optimize, vec![]);
         for variant in 0..2 {
             let placement = o65::placement(&bytes, variant, vec![o65::fault(variant)]);
             let image = actionc::mir65816::o65::relocate(&bytes, &placement).unwrap();
@@ -189,6 +224,108 @@ fn pointer_edge_frames_and_transfers_survive_o65_relocation() {
                     h.guards(mask);
                     assert_eq!(h.bus.value(0x7200, 3), 2);
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn independent_pointer_schedules_match_byte_staging_and_preserve_hidden_b() {
+    use actionc_vm::native65816::{Machine, Registers};
+    // Independent explicit orders include a chain requiring reverse order,
+    // repeated sources, a final identity, and all identities.
+    for (sources, order) in [
+        ([16, 20, 24], vec![0, 1, 2]),
+        ([16, 4, 8], vec![2, 1, 0]),
+        ([16, 16, 16], vec![0, 1, 2]),
+        ([16, 20, 12], vec![0, 1]),
+        ([4, 8, 12], vec![]),
+    ] {
+        let destinations = [4, 8, 12];
+        let mut old = String::from("sep #$20\n.a8\n");
+        for i in 0..3 {
+            for byte in 0..3 {
+                old.push_str(&format!(
+                    "lda {},s\nsta {},s\n",
+                    sources[i] + byte,
+                    64 + 4 * i + byte
+                ));
+            }
+        }
+        for i in 0..3 {
+            for byte in 0..3 {
+                old.push_str(&format!(
+                    "lda {},s\nsta {},s\n",
+                    64 + 4 * i + byte,
+                    destinations[i] + byte
+                ));
+            }
+        }
+        old.push_str("rep #$20\n.a16\nstp\nnop");
+        let old = assemble(&old, 0x040000);
+        let mut new = String::new();
+        if !order.is_empty() {
+            new.push_str("sta 64,s\n");
+            for i in order {
+                for byte in [0, 1] {
+                    new.push_str(&format!(
+                        "lda {},s\nsta {},s\n",
+                        sources[i] + byte,
+                        destinations[i] + byte
+                    ));
+                }
+            }
+            new.push_str("lda 64,s\n");
+        }
+        new.push_str("sep #$20\n.a8\nlda 14,s\nrep #$20\n.a16\nstp\nnop");
+        let new = assemble(&new, 0x040000);
+        for value in [0u32, 0xff, 0x100, 0xffff, 0x10000, 0x800000, 0xffffff] {
+            for p in (0..=255u8).filter(|p| p & 0x38 == 0) {
+                let initial = Registers {
+                    a: 0xabcd,
+                    x: 0x5678,
+                    y: 0x9abc,
+                    s: 0x5f80,
+                    d: 0x2000,
+                    dbr: 0,
+                    pbr: 4,
+                    pc: 0,
+                    p,
+                    emulation_mode: false,
+                };
+                let run = |code: &[u8]| {
+                    let mut bus = Bus::new();
+                    bus.map(0x040000, code, false);
+                    bus.map(0x4000, &[0xa5; 0x2000], true);
+                    for (i, at) in [4, 8, 12, 16, 20, 24].into_iter().enumerate() {
+                        let v = value ^ (0x12345 * i as u32);
+                        let at = usize::from(initial.s) + at;
+                        bus.ram[at..at + 3].copy_from_slice(&v.to_le_bytes()[..3]);
+                    }
+                    let mut cpu = Machine::start_at(initial);
+                    assert!(
+                        cpu.run_until(&mut bus, 500, |_| Inputs::default(), |c| c.is_stopped())
+                            .unwrap()
+                    );
+                    (
+                        cpu.registers(),
+                        cpu.cycles(),
+                        bus.ram[0x4000..0x6000].to_vec(),
+                    )
+                };
+                let (a, ac, amem) = run(&new);
+                let (b, bc, bmem) = run(&old);
+                assert_eq!(
+                    (a.a, a.x, a.y, a.s, a.d, a.dbr, a.p, a.emulation_mode),
+                    (b.a, b.x, b.y, b.s, b.d, b.dbr, b.p, b.emulation_mode)
+                );
+                assert!(ac < bc);
+                for i in 0..amem.len() {
+                    if !(0x1fc0..0x1fcb).contains(&i) {
+                        assert_eq!(amem[i], bmem[i]);
+                    }
+                }
+                assert_eq!(amem[0x1fc2], 0xa5); // no third staging byte
             }
         }
     }

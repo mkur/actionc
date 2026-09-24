@@ -447,19 +447,24 @@ final A/N/Z reload adds two stack-byte reads, one instruction and five cycles.
 Word loads read both bytes before the corresponding store. Private edge-copy
 access order may change; source-language memory access order remains unchanged.
 
-An edge with exactly one captured three-byte Temp/Param argument may use two
-overlapping A16 word copies between complete, identical or disjoint private
-stack/DP homes. Authoritative parameter homes, transient S movement, the target
-and every accessed byte pass preflight before emission. Partial overlaps,
-constants and multiple-argument edges retain their existing fallback.
-A nonidentity copy reserves one invocation-owned two-byte staging word to save
-the original full A. After copying offsets 0 and 1, it reloads that word, loads
-the destination bank byte in A8, and restores A16. This preserves the bytewise
-fallback's full A, including hidden B, and final N/Z. An identity reserves no
-staging and omits the copies, but retains the final bank-byte load and width
-repair. C/V, X/Y, S, D, DBR and I are preserved. Allocation, final verification
+Nonempty edges containing only captured three-byte Temp/Param arguments may use
+overlapping A16 word copies between complete private stack/DP homes. Destinations
+must be disjoint, and source/destination overlaps must be exact identities.
+After removing identities, a stable acyclic schedule consumes each complete
+source before another move overwrites it. Both word pieces of a pointer move
+finish together; they are never scheduled independently. Authoritative parameter
+homes, transient S movement, the target and every accessed byte pass preflight
+before emission. Cycles, partial overlaps, constants and mixed-width edges retain
+their existing fallback.
+An edge with any nonidentity moves reserves one invocation-owned two-byte staging
+word to save the original full A. After the scheduled copies, it reloads that
+word, loads the original final assignment's destination bank byte in A8, and
+restores A16. This preserves the bytewise fallback's full A, including hidden B,
+and final N/Z even when moves were reordered or the final assignment is an
+identity. All-identity edges reserve no staging and omit the copies, but retain
+the final bank-byte load and width repair. C/V, X/Y, S, D, DBR and I are preserved. Allocation, final verification
 and emission share the same checked copy/staging plan, including rejection of
-an A-save word overlapping either live pointer home. No fourth pointer byte,
+an A-save word overlapping any live pointer home. No fourth pointer byte,
 new DP reservation, external access, push or call is introduced.
 
 Empty edges validate the target and arity and restore A16 only when local mode
@@ -741,8 +746,8 @@ instruction sequence, including dead outputs that selection still writes. Block
 parameters, even unused ones, interfere with each other and successor live-ins.
 Required parallel-edge staging slots remain separate from all temporary homes
 and frame objects. Empty/direct word edges contribute no staging; selective word
-edges capture only endangered sources. A single direct three-byte edge reserves
-one two-byte A-save word unless it is an identity, which needs no staging.
+edges capture only endangered sources. A directly scheduled three-byte edge
+reserves one two-byte A-save word unless all moves are identities, which need no staging.
 Full word/byte fallbacks save every
 argument. Each shared slot has the maximum actual width needed at that capture
 ordinal, with multi-byte slots aligned evenly.

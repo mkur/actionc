@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-6 implemented and qualified; slices 7-12 pending. Baseline:
+Status: slices 1-7 implemented and qualified; slices 8-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -177,6 +177,13 @@ Check loop backedges, edge arguments that remain live, final stack bounds,
 identity moves, unsupported partial overlaps and unchanged fallback behavior.
 
 ### 7. Acyclic three-byte edge copies
+
+Implemented and qualified. Optimized FindName saves another 34 bytes; the list
+module totals 3,140 optimized bytes. Per-vector cycles improve by up to 310,
+without regressions; raw output is unchanged. Exhaustive three-move schedules,
+independent byte-staging comparisons, backedges, IRQ/NMI and o65 tests pass.
+All list vectors agree across host builds. See
+[slice 7](benchmarks/65816-pointer-micro/slice7/delta.csv).
 
 Extend the checked scheduler to multiple complete three-byte assignments.
 Remove identities and order transfers only when the entire schedule is safe.
