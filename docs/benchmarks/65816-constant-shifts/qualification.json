@@ -1,0 +1,112 @@
+{
+  "compiler_base_revision": "74731616a4d9599d1d98415e74c11d656412740e",
+  "implementation_state": "working tree; final source hashes bind the qualified change",
+  "scope": "MIR65816 selector only; no shared IR or ABI changes",
+  "root_checks": {
+    "unit": {
+      "passed": 214,
+      "ignored": 1,
+      "log_sha256": "4023de983d9d7351f3f6bea34e4d7ee6a1c65fc9c727542d8b2b4b96ba37a909"
+    },
+    "root": {
+      "passed": 69,
+      "ignored": 0,
+      "log_sha256": "a791b4b82ebf3d75f32a6455b45ee74b42b874aa377baa5d0a4464652ebaedb1"
+    }
+  },
+  "native_runs": {
+    "debug": {
+      "passed": 186,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-2tqtw312/manifest.json",
+      "manifest_sha256": "36100f53e3a948a85d67a010d48e061a74dfeb9d79f0fd1661c053babe9f2fee",
+      "artifact_count": 1043,
+      "targeted_irq_nmi_sites": {
+        "false": 551,
+        "true": 402
+      }
+    },
+    "release": {
+      "passed": 186,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-ydf_wz_8/manifest.json",
+      "manifest_sha256": "38f027a820b98ec2767aacc372b8fa311cb69d066eef81b3ad4ad5963705abd0",
+      "artifact_count": 1043,
+      "targeted_irq_nmi_sites": {
+        "false": 551,
+        "true": 402
+      }
+    }
+  },
+  "debug_release_inputs_identical": true,
+  "debug_release_input_count": 499,
+  "debug_release_artifacts_identical": true,
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "changed_source_inputs": {
+    "src/mir65816/emit/select.rs": "60c8770da80280eaeaf3e78fbfb6da1b4031d6c062c2e08136c874a843fb996a",
+    "src/mir65816/emit/shifts.rs": "a43c8780523f957777c72e33ba06a4e95e8afeb94dbbf346a19d680591848953",
+    "src/mir65816/emit/shift_tests.rs": "72274d80188c64bfec9bfdbd99193f46cf90f2122acc7ef1992bc1b014a6f1c3",
+    "tools/native65816-runtime-tests/tests/constant_shifts.rs": "eaa110bdc4b247e54a66e0d3496240e96098e4cf4533adad31bd7b4243b4dfc4",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "5463875ad32176fdd5c5cc5e6d6d497cd31739110a12f2fae94c6985ab420e2f",
+    "tests/fixtures/mir65816-state-boundary.txt": "25b3a7c424362cd9df98a5e5c475517ce51905fa269e3d9b7d0078b32351e9ff"
+  },
+  "measurement_tools": {
+    "target/constant-shifts/measure.py": "63c0839e47d72af6688354a37aab088f9cb58d5c08a44f5468ba16e5e0898074",
+    "target/constant-shifts/finalize_exec.py": "1f993b9dff4536fc39d6200d873ebf5b907ebe376607e54086aec5a488afcbc2",
+    "target/constant-shifts/summarize.py": "d44a39d4410f969b17a83343e92953b80b46cc7e76088b9083fc10e02aa93232",
+    "target/constant-shifts/qualification.py": "c99b911092147e608be272efca7c9652005d314d752cc385cf1d54f9e9d8ef60",
+    "target/exec-code-size-detail/probe/src/main.rs": "2d2e10ece9e94fc5a58cdf95af6328439a693567d16751b519432b8f8bacf635",
+    "target/guard-branches/build_exec.py": "c78f9795426eca90b4cbda022e172cdf3aff2cbdbfc664691bfe9d107c319af7"
+  },
+  "compiler_binaries": {
+    "actionc-after": "982bbae98cb7def50d4768dc2fddd6094340c47657f679620b75e5fdff467488",
+    "probe-after": "867064b9e2e5502df392df72b82b07b68c09cfcabf8955e144b3510d7c1596d8"
+  },
+  "small_corpus_and_dijkstra_final_binary_artifacts_identical_to_measured": {
+    "corpus": {
+      "artifact_count": 56,
+      "files_identical": 224,
+      "crlf_checked": true,
+      "final_manifest_sha256": "6d702832d0d8b7de40ccef46894960d1532cfddefae712beb8f8b798b395152c",
+      "measured_manifest_sha256": "33f1101918ce483c74185336ea7b3d73d68035ec39858071f851aa70a89660c6"
+    },
+    "dijkstra": {
+      "artifact_count": 4,
+      "files_identical": 24,
+      "crlf_checked": true,
+      "final_manifest_sha256": "fcb07f85eb3ed0622ac8d91c249c74d00ca239beaa65733a5b1d2e9c71a2ba94",
+      "measured_manifest_sha256": "80385f041d525871b700f6b7ced38029ee2fe9b8322132c79c20001fb198e269"
+    }
+  },
+  "snapshot": "Intentional target encoding update only: optimized wide_shift bytes, labels and spans; identical frames and all other fixtures.",
+  "corpus": {
+    "action_records": 132,
+    "action_executions_per_host": 264,
+    "host_modes": [
+      "debug",
+      "release"
+    ],
+    "all_action_records_correct": true,
+    "stack_peaks_unchanged": true,
+    "unaffected_records_identical": true,
+    "cycles_never_increase": true,
+    "debug_release_records_identical": true,
+    "known_unchanged_external_failure": [
+      {
+        "compiler": "vbcc",
+        "case": "unlink",
+        "mode": "optimized",
+        "vector": 0,
+        "errors": [
+          "memory $12ffff: expected $00, got $fc; last store PC $010030"
+        ]
+      }
+    ],
+    "comparison_exit_status": 101
+  },
+  "dijkstra": {
+    "scope": "original-0-50 only; both compilers and modes; both incoming I states",
+    "result_sha256": "420cf5f7bd6b8870227e8a1d3504de8245c6de34a6f7abd812bc0ba03758d033"
+  }
+}

@@ -878,6 +878,19 @@ fn native_call_arguments_and_ax_results_restore_at_every_reached_task_boundary()
 }
 
 #[test]
+fn constant_shifts_restore_residual_carries_and_loop_counters_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+            "LONGCARD FUNC ShiftWide(LONGCARD value) value==+1 RETURN((value LSH 7) RSH 7)\nCARD FUNC ShiftTail(SIZE value) value==+1 RETURN(CARD((value LSH 15) RSH 15))\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+CARD(ShiftWide(LONGCARD(work.seed)))-work.seed-1+ShiftTail(SIZE(work.seed))-work.seed-1\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["SHIFTWIDE", "SHIFTTAIL"], "constant-shifts");
+}
+
+#[test]
 fn signed_word_overflow_and_sign_decisions_restore_full_irq_nmi_state() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

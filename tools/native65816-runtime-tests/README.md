@@ -343,3 +343,10 @@ All 33 reference vectors run in raw/optimized modes with I clear and set. No
 interrupts are injected in this measurement; the existing preemption suite owns
 IRQ/NMI qualification. Only this affected backend target is needed when changing
 the comparison harness.
+
+The [constant-shift and index-scaling qualification](../../docs/benchmarks/65816-constant-shifts/README.md)
+adds all-width/count, ca65 word-chain and full 24-bit index tests. Run
+`--test constant_shifts --test preemption` for focused coverage. The shift
+preemption probe restores IRQ/NMI state at every reached instruction in both
+domains, including live residual carry chains and X16 counters. See the linked
+qualification record for full debug/release checks and frozen Exec measurements.

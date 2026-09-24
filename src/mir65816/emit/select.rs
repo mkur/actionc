@@ -42,6 +42,8 @@ mod arithmetic;
 mod call_copies;
 #[path = "parameter.rs"]
 mod parameter;
+#[path = "shifts.rs"]
+mod shifts;
 use super::tracked::*;
 
 #[cfg(test)]
@@ -1351,7 +1353,8 @@ impl Builder<'_> {
             if stride == 0 || stride >= 0x1000000 {
                 return Err("unsupported index stride".into());
             }
-            for bit in 0..(32 - stride.leading_zeros()) {
+            let bits = 32 - stride.leading_zeros();
+            for bit in 0..bits {
                 if stride & (1 << bit) != 0 {
                     self.code.op(Implied::Clc);
                     for i in 0..3 {
@@ -1360,9 +1363,13 @@ impl Builder<'_> {
                         self.code.byte(ByteOp::StaDp, PTR + i);
                     }
                 }
-                self.code.byte(ByteOp::AslDp, INDEX); // ASL / ROL, low byte first
-                self.code.byte(ByteOp::RolDp, INDEX + 1);
-                self.code.byte(ByteOp::RolDp, INDEX + 2);
+                // The final scaled index is dead. Pointer consumers establish
+                // their own flags; no carry from this scratch shift escapes.
+                if bit + 1 < bits {
+                    self.code.byte(ByteOp::AslDp, INDEX);
+                    self.code.byte(ByteOp::RolDp, INDEX + 1);
+                    self.code.byte(ByteOp::RolDp, INDEX + 2);
+                }
             }
         }
         if displacement >= 0x1000000 {
@@ -1654,7 +1661,8 @@ impl Builder<'_> {
             right,
             ..
         } = op
-            && self.word_binary(*dest, width(*bytes)?, *operation, left, right)?
+            && (self.constant_shift(*dest, width(*bytes)?, *operation, left, right)?
+                || self.word_binary(*dest, width(*bytes)?, *operation, left, right)?)
         {
             return Ok(());
         }

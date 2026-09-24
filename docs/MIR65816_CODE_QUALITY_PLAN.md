@@ -85,6 +85,14 @@ Frames, guards, ABI and bank-zero budgets are unchanged. See the
 [plan](MIR65816_LOCAL_RELAXATION_PLAN.md) and
 [measurements](benchmarks/65816-local-relaxation/README.md).
 
+Final index scaling and numeric constant shifts are now compact. Indexed
+addresses omit the unused last scratch shift; constant counts use byte moves,
+zero fill and bounded residual A8/A16 chains. Frozen Exec saves 3,481 raw /
+4,776 optimized executable bytes, reaching 395,040 optimized bytes. Dijkstra
+saves 91 / 90 bytes. Frames, guards and ABI contracts remain unchanged. See the
+[contract](MIR65816_CONSTANT_SHIFTS.md) and
+[qualification](benchmarks/65816-constant-shifts/README.md).
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are

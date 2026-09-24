@@ -1,0 +1,46 @@
+{
+  "crlf_checked": true,
+  "manifest_sha256": "fcb07f85eb3ed0622ac8d91c249c74d00ca239beaa65733a5b1d2e9c71a2ba94",
+  "artifacts": [
+    {
+      "case": "dijkstra",
+      "compiler": "actionc",
+      "mode": "raw",
+      "before": 5213,
+      "after": 5122,
+      "saved": 91,
+      "contracts_and_guards_unchanged": true,
+      "guards": 22,
+      "before_image_sha256": "80027e6922bf922e4ef6fc423a8170120edd5354ca580a2509c1912fffb078ef",
+      "after_image_sha256": "4b3ef0695e85db299e38de3541ed9194a42b92b597815114ee72b01f9282e577"
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "actionc",
+      "mode": "optimized",
+      "before": 4625,
+      "after": 4535,
+      "saved": 90,
+      "contracts_and_guards_unchanged": true,
+      "guards": 22,
+      "before_image_sha256": "35d0a9577da40ebc08752a5aef820b7060058222da09a291c51e2e10817f9c43",
+      "after_image_sha256": "7e7c74aa7937e6a6140fefbfeb86604bce89a49afef1f8cdd756ac5ff6e7fa2d"
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "vbcc",
+      "mode": "raw",
+      "before": 1697,
+      "after": 1697,
+      "saved": 0
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "before": 1477,
+      "after": 1477,
+      "saved": 0
+    }
+  ]
+}

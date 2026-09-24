@@ -385,7 +385,15 @@ to execute code or publish it in image/o65 formats.
   order and execute once, including when a reduced result is zero.
 - Logical left/right shifts operate at the typed width, including signed
   integer operands. A count at least the bit width produces zero, following NIR
-  semantics. The bounded shift loop uses only current-domain scratch.
+  semantics. Numeric constant counts use byte moves, zero fill and bounded
+  residual A8/A16 shifts; all input bytes needed by the result are captured
+  before destination writes. Variable counts retain the checked loop. Both
+  strategies use only current-domain scratch. See the
+  [constant-shift contract](MIR65816_CONSTANT_SHIFTS.md).
+- Indexed address scaling shifts its private 24-bit index only between stride
+  bits. The final accumulated pointer is authoritative; the discarded index
+  and shift flags have no consumer. Source accesses and pointer carries retain
+  their existing order and width.
 - Ordinary whole-aggregate copies preserve source-value semantics on overlap.
   Byte loops use full-width pointers and per-domain scratch; they make no calls
   or temporary stack pushes. Local initializers execute on each entry, with

@@ -118,8 +118,7 @@ optimized executable bytes on the frozen workload. Optimized executable size
 is now 497,262 bytes and XEX size 513,926. ABI v1, all guards, frame/home
 allocation and the existing payload-copy loop are preserved; added bank-zero
 reservation is zero. See the [measured results](benchmarks/65816-call-padding/README.md).
-Unused final index shifts remain unimplemented. Audit forecasts can overlap
-where they replace the same code.
+The audit's original forecasts can overlap where they replace the same code.
 The selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md) is complete:
 existing typed relaxation shortens the four conditionals in each guard, keeping
 both unconditional JMLs. It saves 37,248 raw / 37,120 optimized executable bytes
@@ -159,6 +158,15 @@ when their signed displacements fit. Frozen Exec saves another 17,902 raw /
 414,736-byte XEX. All 551 routine contracts and every guard remain intact. See
 the [plan](MIR65816_LOCAL_RELAXATION_PLAN.md) and
 [measurements](benchmarks/65816-local-relaxation/README.md).
+
+Unused final index shifts and numeric constant shifts are now implemented.
+Removing 394 dead three-byte index shifts saves 2,364 bytes in each mode;
+constant shifts and subsequent mode/jump simplification bring the total to
+3,481 raw / 4,776 optimized executable bytes. Optimized Exec is now 395,040
+executable bytes and a 409,872-byte XEX. All frames, guards, ABI homes and
+bank-zero reservations remain unchanged. See the
+[contract](MIR65816_CONSTANT_SHIFTS.md) and
+[measurements](benchmarks/65816-constant-shifts/README.md).
 
 1. **Compact address construction.** Reduce repeated pointer materialization,
    temporary copies and bytewise scaled-index expansion through ordinary

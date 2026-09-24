@@ -1,0 +1,25 @@
+{
+  "action_records": 132,
+  "action_executions_per_host": 264,
+  "host_modes": [
+    "debug",
+    "release"
+  ],
+  "all_action_records_correct": true,
+  "stack_peaks_unchanged": true,
+  "unaffected_records_identical": true,
+  "cycles_never_increase": true,
+  "debug_release_records_identical": true,
+  "known_unchanged_external_failure": [
+    {
+      "compiler": "vbcc",
+      "case": "unlink",
+      "mode": "optimized",
+      "vector": 0,
+      "errors": [
+        "memory $12ffff: expected $00, got $fc; last store PC $010030"
+      ]
+    }
+  ],
+  "comparison_exit_status": 101
+}
