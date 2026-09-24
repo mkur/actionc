@@ -233,3 +233,8 @@ For subsequent slices, use a fresh output directory and the preceding slice's
 committed report as `--baseline`. Keep all qualification inputs stable during
 each run. The reporter requires complete, successful Action records, identical
 host results and verified input/artifact hashes; it does not suppress failures.
+
+The [post-slice-8 checkpoint](checkpoint/README.md) records the complete corpus,
+Dijkstra and frozen Exec build comparison, including the raw Dijkstra cycle
+regression and unchanged bank-zero budgets. Full Exec qualification is deferred
+to the final implementation commit.

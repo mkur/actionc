@@ -1,0 +1,3 @@
+mode,case,cycles,stack_reads,stack_writes,dp_reads,dp_writes,metadata_reads,mode_switches,peak_below_entry_s
+raw,original-0-50,150847,204989,0,0,0,0,-2725,0
+optimized,original-0-50,-1292199,300678,-5442,0,0,0,-2725,0

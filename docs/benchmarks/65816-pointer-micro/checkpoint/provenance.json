@@ -1,0 +1,484 @@
+{
+  "scope": "Post-slice-8 compiler checkpoint. Exec build comparison only; no hosted Exec qualification.",
+  "compiler_revision": "843b3b0b",
+  "baseline_revision": "87feebf1",
+  "crlf_checked": true,
+  "corpus_paired_mask_records_per_host": 132,
+  "corpus_debug_release_identical": true,
+  "dijkstra_paired_mask_records_release": 66,
+  "qualifications": [
+    {
+      "log": "target/pointer-micro/checkpoint-debug.log",
+      "log_sha256": "948fc6c1797096ad8dd714cfa78a230dc07709e92295916c2d420b0d739e7bfe",
+      "manifest": "<repo>/tools/native65816-runtime-tests/target/qualification/run-odqarsw7/manifest.json",
+      "manifest_sha256": "c7e5f3028c7cf519f3713a9098cbade221bb087dfe2d7ded92e918fca9d42a42",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml"
+      ],
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 206,
+      "ignored": 4
+    },
+    {
+      "log": "target/pointer-micro/checkpoint-release.log",
+      "log_sha256": "2034ca230684a9727c337157902c5ae96e2f7118abbb08a07b5f2bb7c83a0572",
+      "manifest": "<repo>/tools/native65816-runtime-tests/target/qualification/run-pwlguyin/manifest.json",
+      "manifest_sha256": "ddcd1f91f74a9459ec5b6ef00ae99f50e8d90f4bf5769a84072a8ff0bb4575d2",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+        "--release"
+      ],
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 206,
+      "ignored": 4
+    },
+    {
+      "log": "target/pointer-micro/checkpoint/corpus-debug.log",
+      "log_sha256": "78fff7baa1c8c4f2425645a17c8e3af090b3ac0d4fb0afdc26dc8757b16e6e35",
+      "manifest": "<repo>/tools/native65816-runtime-tests/target/qualification/run-jwa8e6_f/manifest.json",
+      "manifest_sha256": "fa642612e4ea683baecd549d3151502b961615dc857c6295499ff383f616e9d6",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+        "--test",
+        "code_quality",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 1,
+      "ignored": 0
+    },
+    {
+      "log": "target/pointer-micro/checkpoint/corpus-release.log",
+      "log_sha256": "dde4a4ac72ddf8281fd77d2359e81a74b293239d2206866a8264a46a8c10c6cb",
+      "manifest": "<repo>/tools/native65816-runtime-tests/target/qualification/run-2z432j6m/manifest.json",
+      "manifest_sha256": "14178e5c82c2cb1e600f6ec7effd74da9f887e67466569af87ebb2312bf277ce",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+        "--release",
+        "--test",
+        "code_quality",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 1,
+      "ignored": 0
+    },
+    {
+      "log": "target/pointer-micro/checkpoint/dijkstra-release.log",
+      "log_sha256": "86392b74ae0beb7c5c46204968c330a409369ba4293b0bd1b58831413c26a644",
+      "manifest": "<repo>/tools/native65816-runtime-tests/target/qualification/run-qmldnfl3/manifest.json",
+      "manifest_sha256": "68673a381dd18c247687e9cafd036b994c83a04673efab52edeb9eccb08d7001",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+        "--release",
+        "--test",
+        "dijkstra",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 1,
+      "ignored": 0
+    }
+  ],
+  "exec_builds": [
+    {
+      "mode": "raw",
+      "matching_build_fields": [
+        "compiler_contract",
+        "abi_sha256",
+        "abi_assembly_sha256",
+        "source_sha256",
+        "platform_inputs",
+        "optimize",
+        "stack_checks",
+        "tasks",
+        "task_inputs",
+        "console_inputs",
+        "banked_inputs",
+        "memory_sha256",
+        "dos_mounts",
+        "exec_build"
+      ],
+      "bank_zero_budget": {
+        "fixed_runtime": 10560,
+        "idle": 1056,
+        "loading_excluding_os": 20368,
+        "loading_including_os": 57232,
+        "public": [
+          2080,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568
+        ],
+        "runtime_excluding_os": 24672,
+        "runtime_including_os": 61536
+      },
+      "bank_zero_budget_delta": 0,
+      "xex_bytes_before": 433774,
+      "xex_bytes_after": 421417,
+      "builds": [
+        {
+          "revision": "aaf37d5160875936eb4b5dce1f5162ced6acd933",
+          "binary_sha256": "7f41366e43b70c165f967df03a5a844f8e44e2d040ec637b7ba4ef117fc118ad",
+          "image_sha256": "2e666ab4221890316c1956b4ebaf8489690358fd47f11407b76489f366799ef3",
+          "xex_sha256": "80f795d07c8678fde9c99bd0b0db69d07d811fee2bcc33d42756ea03c1af916a",
+          "exec_build": {
+            "revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+            "dirty": true,
+            "display": "c3500c8-dirty",
+            "actionc_pin": "2d73c03a0cb02e1f9d5b54d49679d6c2c4d8d78d",
+            "task_capacity": 8,
+            "stack_checks": true,
+            "mount": {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            },
+            "strings": {
+              "banner": "Exec816 (c3500c8-dirty)\n\n",
+              "slots": "exec: 8 task slots\n",
+              "stackChecks": "exec: stack checks enabled\n",
+              "version": "Exec816 (c3500c8-dirty)\nactionc pin: 2d73c03\n",
+              "sioReady": "sio.device: ready, 57.6k profile\n",
+              "mountStart": "D1: mounting...\n"
+            }
+          },
+          "dos_mounts": [
+            {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            }
+          ],
+          "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b",
+          "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175"
+        },
+        {
+          "revision": "843b3b0b74a9f7be15dda84a43f84180acdef60d",
+          "binary_sha256": "830f3ea8d1b4806a98ebc79779497c4fe0b8c20f09a571e60e96ac1a43174bbf",
+          "image_sha256": "28bdc14e0de3e3035755c78e6eabd43f17d9dd293e011221eefc91aa30dcfab5",
+          "xex_sha256": "79e647754779283b95e08d22e46fba0707d2d355d15dfc4102208a52a2688dd7",
+          "exec_build": {
+            "revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+            "dirty": true,
+            "display": "c3500c8-dirty",
+            "actionc_pin": "2d73c03a0cb02e1f9d5b54d49679d6c2c4d8d78d",
+            "task_capacity": 8,
+            "stack_checks": true,
+            "mount": {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            },
+            "strings": {
+              "banner": "Exec816 (c3500c8-dirty)\n\n",
+              "slots": "exec: 8 task slots\n",
+              "stackChecks": "exec: stack checks enabled\n",
+              "version": "Exec816 (c3500c8-dirty)\nactionc pin: 2d73c03\n",
+              "sioReady": "sio.device: ready, 57.6k profile\n",
+              "mountStart": "D1: mounting...\n"
+            }
+          },
+          "dos_mounts": [
+            {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            }
+          ],
+          "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b",
+          "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175"
+        }
+      ]
+    },
+    {
+      "mode": "optimized",
+      "matching_build_fields": [
+        "compiler_contract",
+        "abi_sha256",
+        "abi_assembly_sha256",
+        "source_sha256",
+        "platform_inputs",
+        "optimize",
+        "stack_checks",
+        "tasks",
+        "task_inputs",
+        "console_inputs",
+        "banked_inputs",
+        "memory_sha256",
+        "dos_mounts",
+        "exec_build"
+      ],
+      "bank_zero_budget": {
+        "fixed_runtime": 10560,
+        "idle": 1056,
+        "loading_excluding_os": 20368,
+        "loading_including_os": 57232,
+        "public": [
+          2080,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568,
+          1568
+        ],
+        "runtime_excluding_os": 24672,
+        "runtime_including_os": 61536
+      },
+      "bank_zero_budget_delta": 0,
+      "xex_bytes_before": 400504,
+      "xex_bytes_after": 388039,
+      "builds": [
+        {
+          "revision": "aaf37d5160875936eb4b5dce1f5162ced6acd933",
+          "binary_sha256": "7f41366e43b70c165f967df03a5a844f8e44e2d040ec637b7ba4ef117fc118ad",
+          "image_sha256": "fc8844229578e582052134c31fd13f3e49b071cc1d2b24b9b67fb044c61b8482",
+          "xex_sha256": "cb1b10fdbeabb7240539bda0a1ff31cb10fe8798cd5256ca96c12faf66336d8a",
+          "exec_build": {
+            "revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+            "dirty": true,
+            "display": "c3500c8-dirty",
+            "actionc_pin": "2d73c03a0cb02e1f9d5b54d49679d6c2c4d8d78d",
+            "task_capacity": 8,
+            "stack_checks": true,
+            "mount": {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            },
+            "strings": {
+              "banner": "Exec816 (c3500c8-dirty)\n\n",
+              "slots": "exec: 8 task slots\n",
+              "stackChecks": "exec: stack checks enabled\n",
+              "version": "Exec816 (c3500c8-dirty)\nactionc pin: 2d73c03\n",
+              "sioReady": "sio.device: ready, 57.6k profile\n",
+              "mountStart": "D1: mounting...\n"
+            }
+          },
+          "dos_mounts": [
+            {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            }
+          ],
+          "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b",
+          "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175"
+        },
+        {
+          "revision": "843b3b0b74a9f7be15dda84a43f84180acdef60d",
+          "binary_sha256": "830f3ea8d1b4806a98ebc79779497c4fe0b8c20f09a571e60e96ac1a43174bbf",
+          "image_sha256": "153d4707225da11874e0b36ba4921f70fe45d07d06261236e9ec0a6a226dc6d3",
+          "xex_sha256": "2be59c2b5c67f5f67573782ae16cda4abd5ecf2c46921db61072c669af04fe08",
+          "exec_build": {
+            "revision": "c3500c813b76e4b1559960f13342c5bf5e015731",
+            "dirty": true,
+            "display": "c3500c8-dirty",
+            "actionc_pin": "2d73c03a0cb02e1f9d5b54d49679d6c2c4d8d78d",
+            "task_capacity": 8,
+            "stack_checks": true,
+            "mount": {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            },
+            "strings": {
+              "banner": "Exec816 (c3500c8-dirty)\n\n",
+              "slots": "exec: 8 task slots\n",
+              "stackChecks": "exec: stack checks enabled\n",
+              "version": "Exec816 (c3500c8-dirty)\nactionc pin: 2d73c03\n",
+              "sioReady": "sio.device: ready, 57.6k profile\n",
+              "mountStart": "D1: mounting...\n"
+            }
+          },
+          "dos_mounts": [
+            {
+              "profile": 4,
+              "boot": 1,
+              "format": 1,
+              "alias": "D1",
+              "unit": 49,
+              "sectors": 720,
+              "sector_bytes": 128
+            }
+          ],
+          "source_sha256": "c019ab20ac6fed83124062706896af12276fa0a3f99d235d0a2709d161ef914b",
+          "abi_sha256": "d8c329329c0c286e5c4673b5d638e8c3f685fb6c2ce71fad6b1f6bf764ca3175"
+        }
+      ]
+    }
+  ],
+  "input_hashes": {
+    "<repo>/target/wide-returns/corpus/manifest.json": "15629c8e4c38534a4d4cef4b3730647b5eb9bce544b0bec94371b9be234a74fc",
+    "<repo>/target/pointer-micro/checkpoint/corpus/manifest.json": "bc90116fb630cf5e938222ad2dda1a960fecf3a6f4ecfef014644cdb82df7e21",
+    "<repo>/target/wide-returns/corpus/identity/raw/actionc/image.json": "db5a3a947659f99768d2074dc1086692dc5d380afd2d7e38083918f1e3c598f2",
+    "<repo>/target/pointer-micro/checkpoint/corpus/identity/raw/actionc/image.json": "db5a3a947659f99768d2074dc1086692dc5d380afd2d7e38083918f1e3c598f2",
+    "<repo>/target/wide-returns/corpus/identity/optimized/actionc/image.json": "db5a3a947659f99768d2074dc1086692dc5d380afd2d7e38083918f1e3c598f2",
+    "<repo>/target/pointer-micro/checkpoint/corpus/identity/optimized/actionc/image.json": "db5a3a947659f99768d2074dc1086692dc5d380afd2d7e38083918f1e3c598f2",
+    "<repo>/target/wide-returns/corpus/add/raw/actionc/image.json": "b1fa5dcf0a4199664b43895b46a7e721b8067c22611d0e77b83361ec64bf4829",
+    "<repo>/target/pointer-micro/checkpoint/corpus/add/raw/actionc/image.json": "b1fa5dcf0a4199664b43895b46a7e721b8067c22611d0e77b83361ec64bf4829",
+    "<repo>/target/wide-returns/corpus/add/optimized/actionc/image.json": "b1fa5dcf0a4199664b43895b46a7e721b8067c22611d0e77b83361ec64bf4829",
+    "<repo>/target/pointer-micro/checkpoint/corpus/add/optimized/actionc/image.json": "b1fa5dcf0a4199664b43895b46a7e721b8067c22611d0e77b83361ec64bf4829",
+    "<repo>/target/wide-returns/corpus/subtract/raw/actionc/image.json": "2220639684790c7d8733d43a7710335c0c6f228735c672cd2292481ce6a7f661",
+    "<repo>/target/pointer-micro/checkpoint/corpus/subtract/raw/actionc/image.json": "2220639684790c7d8733d43a7710335c0c6f228735c672cd2292481ce6a7f661",
+    "<repo>/target/wide-returns/corpus/subtract/optimized/actionc/image.json": "2220639684790c7d8733d43a7710335c0c6f228735c672cd2292481ce6a7f661",
+    "<repo>/target/pointer-micro/checkpoint/corpus/subtract/optimized/actionc/image.json": "2220639684790c7d8733d43a7710335c0c6f228735c672cd2292481ce6a7f661",
+    "<repo>/target/wide-returns/corpus/constant_chain/raw/actionc/image.json": "19fb644c4a3389e574edbc5400b4fe632f1d828c767ac27cbf2590b39aaa1227",
+    "<repo>/target/pointer-micro/checkpoint/corpus/constant_chain/raw/actionc/image.json": "19fb644c4a3389e574edbc5400b4fe632f1d828c767ac27cbf2590b39aaa1227",
+    "<repo>/target/wide-returns/corpus/constant_chain/optimized/actionc/image.json": "ee01db79e6bdb7f6a9380963da936477dd2d54ec22d0ee728a6a6baf2928e8be",
+    "<repo>/target/pointer-micro/checkpoint/corpus/constant_chain/optimized/actionc/image.json": "ee01db79e6bdb7f6a9380963da936477dd2d54ec22d0ee728a6a6baf2928e8be",
+    "<repo>/target/wide-returns/corpus/maximum/raw/actionc/image.json": "413fe695036e6dca5c195f3b5aae5fe20d2396b3ec5aa0eebf7e7fe42564040c",
+    "<repo>/target/pointer-micro/checkpoint/corpus/maximum/raw/actionc/image.json": "413fe695036e6dca5c195f3b5aae5fe20d2396b3ec5aa0eebf7e7fe42564040c",
+    "<repo>/target/wide-returns/corpus/maximum/optimized/actionc/image.json": "413fe695036e6dca5c195f3b5aae5fe20d2396b3ec5aa0eebf7e7fe42564040c",
+    "<repo>/target/pointer-micro/checkpoint/corpus/maximum/optimized/actionc/image.json": "413fe695036e6dca5c195f3b5aae5fe20d2396b3ec5aa0eebf7e7fe42564040c",
+    "<repo>/target/wide-returns/corpus/wide_shift/raw/actionc/image.json": "9a4cf759f32c6ab1df458470207976dbadd61b666e372799ce90244cbb427d0b",
+    "<repo>/target/pointer-micro/checkpoint/corpus/wide_shift/raw/actionc/image.json": "9a4cf759f32c6ab1df458470207976dbadd61b666e372799ce90244cbb427d0b",
+    "<repo>/target/wide-returns/corpus/wide_shift/optimized/actionc/image.json": "3f9a3bd44ec82269af9153b2dea03b52cc8f185daa75d09b992d0cc83666b266",
+    "<repo>/target/pointer-micro/checkpoint/corpus/wide_shift/optimized/actionc/image.json": "3f9a3bd44ec82269af9153b2dea03b52cc8f185daa75d09b992d0cc83666b266",
+    "<repo>/target/wide-returns/corpus/loop_rotation/raw/actionc/image.json": "b52d2e98c3e6d035e1ca0902dae5d87fcbd7278ea488187069ef18c2c8a6fcd0",
+    "<repo>/target/pointer-micro/checkpoint/corpus/loop_rotation/raw/actionc/image.json": "b52d2e98c3e6d035e1ca0902dae5d87fcbd7278ea488187069ef18c2c8a6fcd0",
+    "<repo>/target/wide-returns/corpus/loop_rotation/optimized/actionc/image.json": "bdf499bb5fc505b7987b2260ee8c2f5139d01318e149f4d249f193813c909e88",
+    "<repo>/target/pointer-micro/checkpoint/corpus/loop_rotation/optimized/actionc/image.json": "bdf499bb5fc505b7987b2260ee8c2f5139d01318e149f4d249f193813c909e88",
+    "<repo>/target/wide-returns/corpus/sum_loop/raw/actionc/image.json": "a34f36d2366a07fed2737e4346feabfbee234939903933a2c40744955e076903",
+    "<repo>/target/pointer-micro/checkpoint/corpus/sum_loop/raw/actionc/image.json": "a34f36d2366a07fed2737e4346feabfbee234939903933a2c40744955e076903",
+    "<repo>/target/wide-returns/corpus/sum_loop/optimized/actionc/image.json": "6921df75bbd2a6f94656dd362a91e6007e00f9efc5a4b0203bfe106caca2a779",
+    "<repo>/target/pointer-micro/checkpoint/corpus/sum_loop/optimized/actionc/image.json": "6921df75bbd2a6f94656dd362a91e6007e00f9efc5a4b0203bfe106caca2a779",
+    "<repo>/target/wide-returns/corpus/recursive_sum/raw/actionc/image.json": "da6fa2a829b8423692e76eb71b6e58ff4a23b55725ff304fe408738e75231acb",
+    "<repo>/target/pointer-micro/checkpoint/corpus/recursive_sum/raw/actionc/image.json": "da6fa2a829b8423692e76eb71b6e58ff4a23b55725ff304fe408738e75231acb",
+    "<repo>/target/wide-returns/corpus/recursive_sum/optimized/actionc/image.json": "aa568330a1597c7f933e9f3a1bfa946bfd018fa773ce08d5f40ebb520996f443",
+    "<repo>/target/pointer-micro/checkpoint/corpus/recursive_sum/optimized/actionc/image.json": "aa568330a1597c7f933e9f3a1bfa946bfd018fa773ce08d5f40ebb520996f443",
+    "<repo>/target/wide-returns/corpus/direct_calls/raw/actionc/image.json": "f750c1d0e77edf2dbf1bb7284e9cb063568daa5bb1e8df1abdfbad870e423244",
+    "<repo>/target/pointer-micro/checkpoint/corpus/direct_calls/raw/actionc/image.json": "f750c1d0e77edf2dbf1bb7284e9cb063568daa5bb1e8df1abdfbad870e423244",
+    "<repo>/target/wide-returns/corpus/direct_calls/optimized/actionc/image.json": "f750c1d0e77edf2dbf1bb7284e9cb063568daa5bb1e8df1abdfbad870e423244",
+    "<repo>/target/pointer-micro/checkpoint/corpus/direct_calls/optimized/actionc/image.json": "f750c1d0e77edf2dbf1bb7284e9cb063568daa5bb1e8df1abdfbad870e423244",
+    "<repo>/target/wide-returns/corpus/byte_sum/raw/actionc/image.json": "46a09718f4ab1751dc9030e54644ddbe14cebbf874daf37f1a13e15236d5b143",
+    "<repo>/target/pointer-micro/checkpoint/corpus/byte_sum/raw/actionc/image.json": "7b3983e8c5db13d5bb1dee88f639953acd868db1965012647c70d4b9f59e9054",
+    "<repo>/target/wide-returns/corpus/byte_sum/optimized/actionc/image.json": "bede04643c4f68cb6427067b50dd587eea961893303d1c6179996be51bc4565e",
+    "<repo>/target/pointer-micro/checkpoint/corpus/byte_sum/optimized/actionc/image.json": "7823b229fc3853bdb9ff4b9307f4db05f66ec987f80f70053b331de0b95a1932",
+    "<repo>/target/wide-returns/corpus/record_field/raw/actionc/image.json": "08ecddd0b27a99cb65e8ef48808cc1081e3728eb67efaa1cd6707462b2403d26",
+    "<repo>/target/pointer-micro/checkpoint/corpus/record_field/raw/actionc/image.json": "08ecddd0b27a99cb65e8ef48808cc1081e3728eb67efaa1cd6707462b2403d26",
+    "<repo>/target/wide-returns/corpus/record_field/optimized/actionc/image.json": "08ecddd0b27a99cb65e8ef48808cc1081e3728eb67efaa1cd6707462b2403d26",
+    "<repo>/target/pointer-micro/checkpoint/corpus/record_field/optimized/actionc/image.json": "08ecddd0b27a99cb65e8ef48808cc1081e3728eb67efaa1cd6707462b2403d26",
+    "<repo>/target/wide-returns/corpus/unlink/raw/actionc/image.json": "2f77fb9f73bfa878ffd46d5caac3144e42e1ec0c51af704d5bf6a28a555a7146",
+    "<repo>/target/pointer-micro/checkpoint/corpus/unlink/raw/actionc/image.json": "e59c77a26d6b752f06d8ee6883cef39e2f8fa96e1e4be39b0ca0879fd6fef85a",
+    "<repo>/target/wide-returns/corpus/unlink/optimized/actionc/image.json": "4dde0cb23a7d4eaa9bddd1cdf46fde6478f6f732a1493d212950dc31c04907cf",
+    "<repo>/target/pointer-micro/checkpoint/corpus/unlink/optimized/actionc/image.json": "e7b53bb008ddf6d1673d3e6bc512c5298d3f8a43b9fbb207436f3ecb02a71b85",
+    "<repo>/target/wide-returns/corpus/forward_copy/raw/actionc/image.json": "73c1f49d34d0511f9a3f719180a4db9b9270bb26fcf7151ad632acaa2c63b570",
+    "<repo>/target/pointer-micro/checkpoint/corpus/forward_copy/raw/actionc/image.json": "a25cd2fb71d28cd347d473dd4e4d5eb3a45e3fb16ab3adb505b121bb3ef82058",
+    "<repo>/target/wide-returns/corpus/forward_copy/optimized/actionc/image.json": "7772f73461ccf8743d2d64b9ab830f9f4ef6ab3acfac9cee50e24cf53ba357de",
+    "<repo>/target/pointer-micro/checkpoint/corpus/forward_copy/optimized/actionc/image.json": "69c2a4b18dbf99dcf7b264b8df12ec310dabf2087172607f53d2fd78eb83ac89",
+    "<repo>/target/wide-returns/dijkstra/manifest.json": "c1dd4e2fbd6a7ac4f8a12be213a3382ea70ccad321377cc15e84c0f0601cb74d",
+    "<repo>/target/pointer-micro/checkpoint/dijkstra/manifest.json": "0827bc3d52e567bea81d85ca3969818b5b5453e175973854aaed63dd3bba006d",
+    "<repo>/target/wide-returns/dijkstra/actionc/raw/image.json": "4b3ef0695e85db299e38de3541ed9194a42b92b597815114ee72b01f9282e577",
+    "<repo>/target/pointer-micro/checkpoint/dijkstra/actionc/raw/image.json": "32f6d2fc38d2aae065ae7ef379055fa6d40b06b880d4fe6222537d206b259f41",
+    "<repo>/target/wide-returns/dijkstra/actionc/optimized/image.json": "7e7c74aa7937e6a6140fefbfeb86604bce89a49afef1f8cdd756ac5ff6e7fa2d",
+    "<repo>/target/pointer-micro/checkpoint/dijkstra/actionc/optimized/image.json": "6ad1f3a95a9b53bb24a6124133569e33140fe20139422aa6660dfb5bb39e5c8f",
+    "<repo>/target/pointer-micro/checkpoint/corpus-debug.json": "96f8516a29dd41df8e572673276aa922a6e9b27e025b2f5ea46f7ab951301fa9",
+    "<repo>/target/pointer-micro/checkpoint/corpus-release.json": "96f8516a29dd41df8e572673276aa922a6e9b27e025b2f5ea46f7ab951301fa9",
+    "<repo>/target/pointer-micro/checkpoint/corpus/action-only-manifest.json": "71dc77e696f9b61c15683a9786a58350482f362779d19dbe2659a1dba0c332c4",
+    "<repo>/target/pointer-micro/checkpoint/dijkstra-release.json": "083080ed228fc19e4e511fd0b5b59b7e3d39eada7ace3a2b7c3823b2940d7735",
+    "<repo>/docs/benchmarks/65816-constant-shifts/dijkstra-execution.json": "1010d03c14ec30cf8c2e00eaa4325f20e23382cabefbd245384c487f8a7308ba",
+    "<repo>/docs/benchmarks/65816-wide-returns/dijkstra-equality.json": "2d33af83934d9ba1e8d5b829d0bc4c22b2437056a78b6195d8e0d64be95c9d15",
+    "<repo>/docs/benchmarks/65816-captured-byte-returns/dijkstra-equality.json": "f68e8536ab1c72920c4e9b05e09f503cab5c06bf5ffc2b5c8716a355fa26d9bd",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-wide-returns-raw/build.json": "3be289992617411b6f3a7647f72f9706dc48d792c14d14ebee6fd35b0d7aec79",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-pointer-micro8-raw/build.json": "2e0b13660b623a338645b03960f0d702515f39312c64433b4b860a3459f07f9b",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-wide-returns-raw/memory.json": "4b7182a4ff3242475dba5a4e28052410a0fd51aa38b6ec17e93f62e7b33fb473",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-pointer-micro8-raw/memory.json": "4b7182a4ff3242475dba5a4e28052410a0fd51aa38b6ec17e93f62e7b33fb473",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-wide-returns-raw/program.a816.json": "2e666ab4221890316c1956b4ebaf8489690358fd47f11407b76489f366799ef3",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-pointer-micro8-raw/program.a816.json": "28bdc14e0de3e3035755c78e6eabd43f17d9dd293e011221eefc91aa30dcfab5",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-wide-returns-opt/build.json": "0762d6d64885a16cf5e1aaec87eb136c433b025e0d4208ff06df95a722cc0365",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-pointer-micro8-opt/build.json": "9213187c226027d1b34a8682d9fab4455dacef6279964b64079945802192ecd2",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-wide-returns-opt/memory.json": "4b7182a4ff3242475dba5a4e28052410a0fd51aa38b6ec17e93f62e7b33fb473",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-pointer-micro8-opt/memory.json": "4b7182a4ff3242475dba5a4e28052410a0fd51aa38b6ec17e93f62e7b33fb473",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-wide-returns-opt/program.a816.json": "fc8844229578e582052134c31fd13f3e49b071cc1d2b24b9b67fb044c61b8482",
+    "<home>/action/exec816/build/code-size-detail-20260923/exec/build/shell-pointer-micro8-opt/program.a816.json": "153d4707225da11874e0b36ba4921f70fe45d07d06261236e9ec0a6a226dc6d3",
+    "<repo>/tools/native65816-runtime-tests/target/qualification/run-odqarsw7/manifest.json": "c7e5f3028c7cf519f3713a9098cbade221bb087dfe2d7ded92e918fca9d42a42",
+    "<repo>/tools/native65816-runtime-tests/target/qualification/run-pwlguyin/manifest.json": "ddcd1f91f74a9459ec5b6ef00ae99f50e8d90f4bf5769a84072a8ff0bb4575d2",
+    "<repo>/tools/native65816-runtime-tests/target/qualification/run-jwa8e6_f/manifest.json": "fa642612e4ea683baecd549d3151502b961615dc857c6295499ff383f616e9d6",
+    "<repo>/tools/native65816-runtime-tests/target/qualification/run-2z432j6m/manifest.json": "14178e5c82c2cb1e600f6ec7effd74da9f887e67466569af87ebb2312bf277ce",
+    "<repo>/tools/native65816-runtime-tests/target/qualification/run-qmldnfl3/manifest.json": "68673a381dd18c247687e9cafd036b994c83a04673efab52edeb9eccb08d7001"
+  },
+  "report_tool_sha256": "f39fa795d985699a9c3545c8aa2dc3b5abbd1d8f17aebb5c01b4e1ab1b58f15c",
+  "report_hashes": {
+    "dijkstra-original-0-50-delta.csv": "599d82f12d968faee4d44b9235e63c646f40a97d4b2922278e6a8d0db246679d",
+    "sizes.csv": "a969fa37dd1e579d19394d9bf43709f9b491db6f12ee6af610e3b41f35aa3f09",
+    "dijkstra-results.csv": "217fb5a1d584c30e688b8433873ccaca8106b22f2380317f499ca343b1d0a59d",
+    "routine-sizes.csv": "adc5f74388ceb14263a24e37cdd7184965924d3696953da960e04964bdd43d32",
+    "corpus-results.csv": "c5e7afc437a8372bdab10d07232f024f2cdb51db939df720e49eb07eac9f67cf"
+  }
+}
