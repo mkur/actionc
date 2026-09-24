@@ -891,6 +891,26 @@ fn long_equality_restores_both_word_decisions_and_zero_tests_under_irq_nmi() {
 }
 
 #[test]
+fn native_long_add_sub_restore_low_word_carry_and_borrow_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+            "BYTE FUNC LongAddCheck(LONGCARD a,b,expected) RETURN((a+b)=expected)\nBYTE FUNC LongSubCheck(LONGCARD a,b,expected) RETURN((a-b)=expected)\nCARD FUNC Read(")
+            .replace("  work.done=1", r#"
+  work.result==+CARD(LongAddCheck(LONGCARD($FFFF),LONGCARD(1),LONGCARD($10000)))
+  work.result==+CARD(LongAddCheck(LONGCARD($FFFFFFFF),LONGCARD(1),LONGCARD(0)))
+  work.result==+CARD(LongAddCheck(LONGCARD(1),LONGCARD(1),LONGCARD(2)))
+  work.result==+CARD(LongSubCheck(LONGCARD($10000),LONGCARD(1),LONGCARD($FFFF)))
+  work.result==+CARD(LongSubCheck(LONGCARD(0),LONGCARD(1),LONGCARD($FFFFFFFF)))
+  work.result==+CARD(LongSubCheck(LONGCARD(2),LONGCARD(1),LONGCARD(1)))-6
+  work.done=1"#)
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["LONGADDCHECK", "LONGSUBCHECK"], "long-add-sub");
+}
+
+#[test]
 fn native_call_arguments_and_ax_results_restore_at_every_reached_task_boundary() {
     let original = fixture("preemption.act");
     for ty in ["ADDRESS", "LONGCARD"] {

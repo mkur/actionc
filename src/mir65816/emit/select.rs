@@ -42,6 +42,8 @@ use copies::acyclic_word_order;
 mod accumulator;
 #[path = "arithmetic.rs"]
 mod arithmetic;
+#[path = "long_arithmetic.rs"]
+mod long_arithmetic;
 #[path = "call_copies.rs"]
 mod call_copies;
 #[path = "parameter.rs"]
@@ -1702,6 +1704,7 @@ impl Builder<'_> {
         } = op
             && (self.constant_shift(*dest, width(*bytes)?, *operation, left, right)?
                 || self.captured_pointer_step(*dest, width(*bytes)?, *operation, left, right)?
+                || self.long_binary(*dest, width(*bytes)?, *operation, left, right)?
                 || self.word_binary(*dest, width(*bytes)?, *operation, left, right)?)
         {
             return Ok(());

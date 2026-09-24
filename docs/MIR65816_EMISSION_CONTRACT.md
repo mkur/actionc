@@ -525,6 +525,26 @@ It preserves the current allocation, call barriers, guards, and ABI. A volatile
 load captured in a private temp may feed word arithmetic; the original memory
 access itself is neither combined nor widened.
 
+Four-byte LONGCARD/LONGINT ADD/SUB may use two A16 ADC/SBC operations,
+low word first, writing each result word directly to its existing stack home.
+The first operation establishes carry/borrow with CLC/SEC; its store and the
+following high-word load preserve carry into the second operation. Arithmetic
+is modulo 2^32 for both types and relies on the decimal-clear ABI. The final
+A and N/Z/V describe the high-word operation, not a complete long result;
+no whole-temp accumulator identity or persistent arithmetic flags are recorded.
+
+Eligible sources are complete four-byte stack temps/parameters and numeric
+U8/U16/U24/U32 constants. Narrow constants zero-extend; signed widening of
+captured values remains an explicit Cast. Preflight checks both words of every
+source and destination, including the fourth byte after transient S movement,
+before changing code or mode knowledge. Each source home must be identical to
+or disjoint from the destination; partial overlaps and other legal unsupported
+forms retain the bytewise fallback. Malformed homes remain errors even when
+another operand is unsupported. Mutable parameters use their authoritative
+frame homes. No DP allocation, scratch, X/Y use, pushes, helper call, frame/ABI
+change or additional external access is introduced. Original volatile and
+aliased captures remain separate and unchanged. Guard policy is unaffected.
+
 Two-byte comparisons may use one native CMP for equality/inequality (signed or
 unsigned) and unsigned ordering, using the same checked word sources. The result
 must have an exact one-byte stack home. Materialized results are stored as 0 or 1

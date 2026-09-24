@@ -361,3 +361,9 @@ The [native wide return qualification](../../docs/benchmarks/65816-wide-returns/
 checks full A/X lanes, exact private reads, recursion, direct/indirect calls,
 relocation, volatile ordering and interrupt restoration. Run `--test wide_returns`
 and `--test preemption wide_returns_restore` through the qualified wrapper.
+
+The [native 32-bit Add/Sub measurements](../../docs/benchmarks/65816-long-arithmetic/README.md)
+cover two-word carry/borrow chains, signed/unsigned wraparound, constants and
+mutable parameters, external access order, call clobbers, ca65 encodings and
+o65 relocation. Run `--test long_arithmetic` in debug and release hosts, and
+`--release --test preemption native_long_add_sub` for the focused IRQ/NMI probe.
