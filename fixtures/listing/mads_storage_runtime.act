@@ -1,0 +1,12 @@
+; Shared declaration ranges, short final data rows, deferred storage and helpers.
+BYTE ARRAY x(192),y(192),c(192)
+BYTE ARRAY markers(11)=[1 2 3 4 5 6 7 8 9 10 11]
+INT ARRAY work(192)
+BYTE index=$0600,sink=$0601
+INT left=$0602,right=$0604,product=$0606
+
+PROC MainCase()
+  sink=x(index)+y(index)+c(index)+markers(index)
+  product=left*right
+  work(0)=left/right
+RETURN

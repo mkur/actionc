@@ -159,6 +159,7 @@ run_reorigin_case() {
   local origin_a="$6"
   local origin_b="$7"
   local codegen_source="${8:-ast}"
+  local runtime="${9:-cart}"
   local -a actionc_selection=(--mode "$mode")
   local -a emit_selection=(--profile "$profile" --backend "$backend")
   if [[ "$codegen_source" != ast ]]; then
@@ -169,6 +170,8 @@ run_reorigin_case() {
     )
     emit_selection+=(--codegen-source "$codegen_source")
   fi
+  actionc_selection+=(--runtime "$runtime")
+  emit_selection+=(--runtime "$runtime")
   local actionc_a="$oracle_dir/$name.a.actionc.xex"
   local actionc_b="$oracle_dir/$name.b.actionc.xex"
   local plain_a="$oracle_dir/$name.a.asm"
@@ -233,4 +236,13 @@ run_reorigin_case "arithmetic-optimized" "optimized" "modern" "classic" \
 run_reorigin_case "arithmetic-mir6502" "mir6502" "modern" "mir6502" \
   "fixtures/listing/mads_arithmetic_helpers.act" '$3000' '$41C7'
 
-echo "MADS listing oracle passed: 13 compiler cases, 44 assembled listings"
+for runtime in cart standalone; do
+  run_reorigin_case "storage-runtime-compatibility-$runtime" "compatibility" "legacy" "classic" \
+    "fixtures/listing/mads_storage_runtime.act" '$3000' '$41C7' ast "$runtime"
+  run_reorigin_case "storage-runtime-optimized-$runtime" "optimized" "modern" "classic" \
+    "fixtures/listing/mads_storage_runtime.act" '$3000' '$41C7' ast "$runtime"
+  run_reorigin_case "storage-runtime-mir6502-$runtime" "mir6502" "modern" "mir6502" \
+    "fixtures/listing/mads_storage_runtime.act" '$3000' '$41C7' ast "$runtime"
+done
+
+echo "MADS listing oracle passed: 19 compiler cases, 68 assembled listings"

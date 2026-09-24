@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+use actionc::runtime::Runtime;
 
 fn contract_fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -350,5 +351,109 @@ fn listing_variants_share_one_mads_compatible_assembly_syntax() {
                 || !bytes[..4].iter().all(u8::is_ascii_hexdigit)
                 || !bytes[4].is_ascii_whitespace()
         }));
+    }
+}
+
+#[test]
+fn storage_rows_and_runtime_names_are_consistent_across_modes() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/listing/mads_storage_runtime.act");
+    for mode in [
+        CompileMode::Compatibility,
+        CompileMode::Optimized,
+        CompileMode::Mir6502,
+    ] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let compiled = compile_file(
+                &fixture,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap_or_else(|error| panic!("{mode:?}/{runtime:?}: {error}"));
+            let listing = compiled.source_listing();
+            let lines = listing.lines().collect::<Vec<_>>();
+            let (origin, payload) = first_load_segment(compiled.object_bytes());
+            let mut array_offset = 0;
+            for (name, size) in [("x", 192), ("y", 192), ("c", 192), ("markers", 11)] {
+                let label = format!("global_{name}:");
+                let start = lines
+                    .iter()
+                    .position(|line| *line == label)
+                    .expect("array label");
+                let mut bytes = Vec::new();
+                for row in lines[start + 1..]
+                    .iter()
+                    .take_while(|line| line.trim_start().starts_with(".BYTE "))
+                {
+                    let (directive, comment) = row.split_once(';').expect("byte comment");
+                    let values = directive
+                        .trim()
+                        .strip_prefix(".BYTE ")
+                        .unwrap()
+                        .split(',')
+                        .map(|value| u8::from_str_radix(value.trim_start_matches('$'), 16).unwrap())
+                        .collect::<Vec<_>>();
+                    assert_eq!(
+                        values.len(),
+                        (size - bytes.len()).min(8),
+                        "{mode:?}/{runtime:?}: {row}"
+                    );
+                    assert!(comment.trim_start().starts_with(&format!(
+                        "${:04X}:",
+                        usize::from(origin) + array_offset + bytes.len()
+                    )));
+                    bytes.extend(values);
+                }
+                assert_eq!(bytes.len(), size, "{mode:?}/{runtime:?}: {name}");
+                assert_eq!(bytes, payload[array_offset..array_offset + size]);
+                array_offset += size;
+            }
+
+            // The first deferred array starts exactly at the saved segment end.
+            // Its label must be outside the last routine's visual boundary.
+            let last_end = lines
+                .iter()
+                .rposition(|line| line.starts_with("; ===== END PROC "))
+                .unwrap();
+            let deferred = lines[last_end + 1..]
+                .iter()
+                .find(|line| !line.is_empty())
+                .unwrap();
+            assert!(deferred.ends_with(':'), "{mode:?}/{runtime:?}: {deferred}");
+            assert!(deferred.starts_with("global_work") || deferred.starts_with("data_generated_"));
+            assert!(listing.contains("; ===== PROC MainCase "));
+            assert!(listing.contains("; ===== END PROC MainCase ====="));
+
+            assert!(
+                !listing.contains("M_ACTION_RUNTIME_"),
+                "{mode:?}/{runtime:?}: mangled runtime name"
+            );
+            for line in &lines {
+                if let Some(binding) = line.strip_prefix("; Runtime binding: ") {
+                    let (helper, _) = binding.split_once(" -> ").unwrap();
+                    assert_eq!(helper, helper.to_ascii_lowercase());
+                }
+                for spelling in ["MultI", "MULTI", "MultB", "MULTB", "DivI", "DIVI"] {
+                    assert!(!line.contains(spelling), "{mode:?}/{runtime:?}: {line}");
+                }
+            }
+            if runtime == Runtime::Standalone {
+                assert!(listing.contains("; Runtime binding: multi -> "));
+                for helper in ["multi", "multb"] {
+                    assert!(listing.contains(&format!("proc_syslib_{helper}:")));
+                    assert!(
+                        listing.contains(&format!("; ===== PROC ACTION.RUNTIME.SYSLIB::{helper} "))
+                    );
+                    assert!(listing.contains(&format!(
+                        "; ===== END PROC ACTION.RUNTIME.SYSLIB::{helper} ====="
+                    )));
+                    assert!(
+                        lines
+                            .iter()
+                            .any(|line| line.contains(&format!("JSR.A proc_syslib_{helper}"))
+                                && line.ends_with(&format!("; ACTION.RUNTIME.SYSLIB::{helper}")))
+                    );
+                }
+            }
+        }
     }
 }

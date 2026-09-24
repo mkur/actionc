@@ -233,17 +233,17 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
         let target = binding
             .address
             .map(|address| format!("${address:04X}"))
-            .unwrap_or_else(|| binding.implementation.clone());
+            .unwrap_or_else(|| runtime_display_name(&binding.implementation));
         lines.push(sanitize_assembly_comment(&format!(
             "; Runtime binding: {} -> {} [{}] ({}){}",
-            binding.helper,
+            binding.helper.to_ascii_lowercase(),
             target,
             binding.origin,
             binding.reason,
             binding
                 .suppressed_default
                 .as_ref()
-                .map(|default| format!("; suppresses {default}"))
+                .map(|default| format!("; suppresses {}", runtime_display_name(default)))
                 .unwrap_or_default()
         )));
     }
@@ -283,7 +283,8 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                 }
                 if let Some(name) = name {
                     lines.push(sanitize_assembly_comment(&format!(
-                        "; ===== DATA {name} ${address:04X} ====="
+                        "; ===== DATA {} ${address:04X} =====",
+                        runtime_display_name(&name)
                     )));
                 }
                 push_data_listing(
@@ -298,10 +299,10 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
         }
     }
 
+    append_trailing_boundary_comments(output, &boundary_comments, &mut lines);
     if let Some(end) = output.origin.checked_add(output.bytes.len() as u16) {
         display_symbols.push_definitions(end, &mut lines);
     }
-    append_trailing_boundary_comments(output, &boundary_comments, &mut lines);
     lines.push(String::new());
     lines.push("; Atari RUNAD segment.".to_string());
     lines.push("        ORG $02E2".to_string());
@@ -734,6 +735,16 @@ fn runtime_symbol_component(name: &str) -> Option<String> {
     None
 }
 
+// Keep runtime spelling consistent with assembly labels without exposing
+// classic's projection hashes. Application source names retain their spelling.
+fn runtime_display_name(name: &str) -> String {
+    let Some(component) = runtime_symbol_component(name) else {
+        return name.to_string();
+    };
+    let (module, routine) = component.split_once('_').expect("runtime module prefix");
+    format!("ACTION.RUNTIME.{}::{routine}", module.to_ascii_uppercase())
+}
+
 fn strip_semantic_hash(name: &str) -> &str {
     let Some((stem, suffix)) = name.rsplit_once('_') else {
         return name;
@@ -845,18 +856,51 @@ fn listing_items(
         .wrapping_add(u16::try_from(output.bytes.len()).unwrap_or(u16::MAX));
     let storage = storage_listing_ranges(output);
     let mut storage_index = 0;
+    let mut storage_end = cursor;
+    let boundaries = output
+        .map
+        .routine_ranges
+        .iter()
+        .flat_map(|range| [range.start, range.end])
+        .collect::<BTreeSet<_>>();
 
     while cursor < end {
-        if let Some(symbol) = storage.get(storage_index)
-            && symbol.address == cursor
+        // Symbol sizes can describe an array element, while initializer ranges
+        // cover its backing (or several declarations). Sweep their union so a
+        // short symbol range cannot hide the remaining initialized data.
+        let mut name = None;
+        while let Some(range) = storage.get(storage_index)
+            && range.address <= cursor
         {
-            items.push(ListingItem::Data {
-                address: symbol.address,
-                bytes: symbol.bytes.clone(),
-                name: Some(symbol.name.clone()),
-            });
-            cursor = symbol.address.saturating_add(symbol.bytes.len() as u16);
+            if range.address == cursor && name.is_none() {
+                name = Some(range.name.clone());
+            }
+            storage_end = storage_end.max(range.address.saturating_add(range.bytes.len() as u16));
             storage_index += 1;
+        }
+        if cursor < storage_end {
+            let data_end = storage_end
+                .min(end)
+                .min(
+                    storage
+                        .get(storage_index)
+                        .map_or(end, |range| range.address),
+                )
+                .min(
+                    boundaries
+                        .range(cursor.saturating_add(1)..)
+                        .next()
+                        .copied()
+                        .unwrap_or(end),
+                );
+            let offset = usize::from(cursor - output.origin);
+            let len = usize::from(data_end - cursor);
+            items.push(ListingItem::Data {
+                address: cursor,
+                bytes: output.bytes[offset..offset + len].to_vec(),
+                name,
+            });
+            cursor = data_end;
             continue;
         }
 
@@ -922,7 +966,6 @@ fn storage_listing_ranges(output: &CodegenOutput) -> Vec<StorageListingRange> {
         .collect::<Vec<_>>();
     ranges.extend(storage_source_listing_ranges(output));
     ranges.sort_by_key(|range| range.address);
-    ranges.dedup_by_key(|range| range.address);
     ranges
 }
 
@@ -1387,7 +1430,7 @@ fn routine_address_labels(output: &CodegenOutput) -> BTreeMap<u16, String> {
         .map
         .routine_addresses
         .iter()
-        .map(|routine| (routine.address, routine.name.clone()))
+        .map(|routine| (routine.address, runtime_display_name(&routine.name)))
         .collect()
 }
 
@@ -1429,15 +1472,15 @@ fn routine_boundary_comments(output: &CodegenOutput) -> BTreeMap<u16, Vec<String
             .entry(routine.start)
             .or_default()
             .push(format_routine_start_comment(
-                &routine.name,
+                &runtime_display_name(&routine.name),
                 routine.start,
                 routine.end,
                 entry,
             ));
-        comments
-            .entry(routine.end)
-            .or_default()
-            .push(format!("; ===== END PROC {} =====", routine.name));
+        comments.entry(routine.end).or_default().push(format!(
+            "; ===== END PROC {} =====",
+            runtime_display_name(&routine.name)
+        ));
     }
     comments
 }

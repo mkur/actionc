@@ -71,6 +71,19 @@ actionc samples/hello-world.act \
 source-location comments. The `actionc --listing <file>` output continues to
 use the source-annotated form through `CompiledProgram::source_listing()`.
 
+Literal storage bytes are grouped into rows of up to eight bytes in every
+backend, stopping at labels and relocations. Overlapping symbol and initializer
+ranges describe one data region; an array's element width must not truncate its
+initializer coverage. Routine-end comments precede labels at the following
+storage boundary, including deferred storage at the end of the saved segment.
+
+Runtime routine names use lowercase spelling consistently in binding headers,
+assembly labels, call annotations and routine-boundary comments. Comments keep
+the runtime module qualifier (for example, `ACTION.RUNTIME.SYSLIB::multi`) and
+omit classic's internal projection hashes. Application routine comments retain
+their source spelling. These are presentation rules; map identities and emitted
+binary bytes are unchanged.
+
 No new listing option or output path is added. The existing object/listing path
 collision checks and atomic-write behavior remain in effect.
 
