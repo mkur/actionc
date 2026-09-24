@@ -794,6 +794,19 @@ fn run_checked_fused_irq(h: &mut ContextHarness) -> (u32, u8) {
 }
 
 #[test]
+fn captured_byte_returns_restore_hidden_b_and_frame_teardown_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+            "BYTE FUNC ByteCapture(BYTE value) RETURN(value)\nBYTE FUNC ByteWork(BYTE value) value=ByteCapture(value) value==+1 RETURN(value)\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+CARD(ByteWork(BYTE(work.seed)))-work.seed-1\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["BYTECAPTURE", "BYTEWORK"], "captured-byte-return");
+}
+
+#[test]
 fn byte_constant_returns_restore_full_state_in_both_task_domains() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

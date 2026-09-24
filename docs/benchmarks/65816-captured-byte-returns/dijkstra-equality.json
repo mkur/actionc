@@ -1,0 +1,84 @@
+{
+  "crlf_checked": true,
+  "artifact_count": 4,
+  "files_byte_identical": 18,
+  "host_files_equal_after_path_normalization": 6,
+  "before_manifest_sha256": "fcb07f85eb3ed0622ac8d91c249c74d00ca239beaa65733a5b1d2e9c71a2ba94",
+  "after_manifest_sha256": "a47484c0eb4d33fa75c582e7f0f5b1c988290bafdf619ec70573080bf958cfbb",
+  "artifacts": [
+    {
+      "case": "dijkstra",
+      "compiler": "actionc",
+      "mode": "raw",
+      "code_bytes": 5122,
+      "execution_artifacts_identical": true,
+      "host_files_differ_only_in_build_path": [
+        "0.log"
+      ],
+      "after_file_hashes": {
+        "0.log": "72dccf2384a0faca01ab61f6643502d66b43285c9bbb212abd412128576f109c",
+        "code.linked.lst": "5e7bb086099b15aff7295a01ecf923572a5f94057e66d36d07259a02d972c562",
+        "image.json": "4b3ef0695e85db299e38de3541ed9194a42b92b597815114ee72b01f9282e577"
+      }
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "actionc",
+      "mode": "optimized",
+      "code_bytes": 4535,
+      "execution_artifacts_identical": true,
+      "host_files_differ_only_in_build_path": [
+        "0.log"
+      ],
+      "after_file_hashes": {
+        "0.log": "fd5e8695d95d343fac8d7470d24cf6e44fa97f8b53aceeb021be46cbe85ed6b7",
+        "code.linked.lst": "2d63f18d679839fc48f032545863ed4e3fd08e7b0ae96635ec22c1dc37923b45",
+        "image.json": "7e7c74aa7937e6a6140fefbfeb86604bce89a49afef1f8cdd756ac5ff6e7fa2d"
+      }
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "vbcc",
+      "mode": "raw",
+      "code_bytes": 1697,
+      "execution_artifacts_identical": true,
+      "host_files_differ_only_in_build_path": [
+        "code.lst",
+        "code.map"
+      ],
+      "after_file_hashes": {
+        "2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "1.log": "01a01a4a8b01d16ee922e489ee2a75d9c3bed5d4cecd4334d59ed55872f738c1",
+        "0.log": "406696289d642e3b68b2d332d5dc3876449c61e1e6be236414f5635cd6225ff1",
+        "code.o": "9872c8878e1cc02b22bee2e24da04bf431454ef71b1841017c07c5b09bc4e74b",
+        "code.asm": "435f6cdb4bf6d5f898549fac3ee4c70b372d24522246abf4b5fc987465574078",
+        "code.bin": "5fc0377e73f7706acd7c91879a45b81b421e6c799515f9b25501fde8d452b78b",
+        "code.linked.lst": "c54976d724f410df76948aaf2e48935bc31ba093bb28343e297c95bb5a6bbe0a",
+        "code.lst": "ed73561ec534879fe98623f7240b2428e2dc36b173a3f6ff849d130bbdd7882b",
+        "code.map": "7fc937718fd7da6c26e0fcbfee715f67a864967735d8a417ee2c35ea6030bebf"
+      }
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "code_bytes": 1477,
+      "execution_artifacts_identical": true,
+      "host_files_differ_only_in_build_path": [
+        "code.lst",
+        "code.map"
+      ],
+      "after_file_hashes": {
+        "2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "1.log": "23c4b62cc3eca5698635c61623342f79e972034b7a545b728edd402345ddef6f",
+        "0.log": "406696289d642e3b68b2d332d5dc3876449c61e1e6be236414f5635cd6225ff1",
+        "code.o": "8481783abd393221ce83bdfea2a7fe6d2eddd591b3fac521f89c18fffc795adb",
+        "code.asm": "ddd70f9c328cb032baacb8f833fcd2403d9f837e6356af78777d1e96398b7333",
+        "code.bin": "c2547a663664115062df888e3f932ea808600d191cd4297fdb3310406861103f",
+        "code.linked.lst": "f0601d65cb87c8a67b1a9a771798f8ed275b659e485ef53c31f93c71e864246d",
+        "code.lst": "654eca1c2e452e68ff10a56ef4829d08b0a8b106f8135623b19a468aa46e2bc9",
+        "code.map": "4286734b736e680459a809c4ad1133bfa4af6b171e04c32efe1ec66e1d8ddeef"
+      }
+    }
+  ]
+}

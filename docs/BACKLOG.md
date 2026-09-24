@@ -131,7 +131,7 @@ Direct BYTE constant returns are now implemented: a typed U8 constant with an
 `A8ZeroExtended` result home loads A16 directly and uses the existing frame
 teardown. Frozen Exec saves 8,626 raw / 9,424 optimized code bytes, reaching
 450,718 optimized executable bytes. Frames, guards, ABI and bank-zero storage
-are unchanged. Captured BYTE returns remain separate work. See the
+are unchanged. Captured BYTE returns are completed below. See the
 [measured results](benchmarks/65816-byte-returns/README.md).
 
 Native LONGCARD/LONGINT Eq/Ne and zero tests are now implemented. Captured
@@ -167,6 +167,14 @@ executable bytes and a 409,872-byte XEX. All frames, guards, ABI homes and
 bank-zero reservations remain unchanged. See the
 [contract](MIR65816_CONSTANT_SHIFTS.md) and
 [measurements](benchmarks/65816-constant-shifts/README.md).
+
+Captured BYTE returns now load the exact stack byte in A8 and zero-extend A16,
+without result scratch. The slice saves 2,392 raw / 2,083 optimized executable
+bytes, including secondary branch relaxation; optimized Exec is now 392,957
+executable bytes and a 407,735-byte XEX. Frames, guards and ABI contracts remain
+unchanged. Corpus and Dijkstra executable artifacts are byte-identical. See the
+[contract](MIR65816_CAPTURED_BYTE_RETURNS.md) and
+[qualification](benchmarks/65816-captured-byte-returns/README.md).
 
 1. **Compact address construction.** Reduce repeated pointer materialization,
    temporary copies and bytewise scaled-index expansion through ordinary

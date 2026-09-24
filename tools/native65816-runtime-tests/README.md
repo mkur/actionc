@@ -350,3 +350,9 @@ adds all-width/count, ca65 word-chain and full 24-bit index tests. Run
 preemption probe restores IRQ/NMI state at every reached instruction in both
 domains, including live residual carry chains and X16 counters. See the linked
 qualification record for full debug/release checks and frozen Exec measurements.
+
+The [captured BYTE return qualification](../../docs/benchmarks/65816-captured-byte-returns/README.md)
+checks exact one-byte return reads, zero-extended A16, zero/framed and mutable
+parameter homes, full scratch clobbers, relocated o65 and IRQ/NMI restoration.
+Run `--test captured_byte_returns` and
+`--test preemption captured_byte_returns` for the focused probes.

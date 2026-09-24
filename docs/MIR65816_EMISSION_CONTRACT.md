@@ -604,9 +604,18 @@ loads that constant directly with A16 `LDA #$00xx`. The full-width load defines
 both A bytes, including hidden B after an A8 predecessor. X is unspecified for
 BYTE results and is not initialized. This path uses the same A-preserving frame
 teardown and RTL, without DP result scratch, additional storage or memory reads.
-Other BYTE operands retain generic preparation; a narrow home is never widened
-by this selection. MIR65816 owns this target-specific return preparation; the
-public ABI, guards and SemIR/NIR contracts are unchanged.
+
+An exact BYTE stack temp or parameter uses an A8 load followed by A16
+`AND #$00FF`. The existing BYTE classifier preflights typed width and the
+one-byte displacement, including stack delta and authoritative mutable-parameter
+homes. The read never includes a neighboring byte. This path uses the same
+terminal-boundary mode restoration, frame release and RTL; it neither reads nor
+writes result scratch and does not initialize X. Unsupported operands/homes
+retain generic preparation. Source loads and call/alias/volatile ordering remain
+separate MIR operations. See the
+[captured BYTE return contract](MIR65816_CAPTURED_BYTE_RETURNS.md).
+MIR65816 owns these target-specific preparations; the public ABI, guards and
+SemIR/NIR contracts are unchanged.
 
 MIR65816 owns access-width and addressing selection. Ordinary scalar loads and
 stores may use sixteen-bit transfers plus a final byte. Three-byte transfers

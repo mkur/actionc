@@ -10,6 +10,10 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(super) mod word_tests;
 
 #[cfg(test)]
+#[path = "byte_return_tests.rs"]
+mod byte_return_tests;
+
+#[cfg(test)]
 #[path = "compare_tests.rs"]
 mod compare_tests;
 
@@ -2225,6 +2229,28 @@ impl Builder<'_> {
         // The shared teardown preserves A. X is unspecified for word results.
         Ok(true)
     }
+    fn captured_byte_return(&mut self, value: &Mir65816Value) -> Result<bool, String> {
+        if self.routine.result_home
+            != Some(Mir65816AbiHome::NativeResult(
+                abi::ResultLocation::A8ZeroExtended,
+            ))
+            || !matches!(value, Mir65816Value::Temp(..) | Mir65816Value::Param(_))
+        {
+            return Ok(false);
+        }
+        // Reuse exact-byte preflight, including current mutable parameter homes
+        // and the transient stack delta. Unsupported homes keep their fallback.
+        let Some(operand) = self.byte_operand(value)? else {
+            return Ok(false);
+        };
+        self.code.a8();
+        self.load_byte_operand(operand);
+        self.code.a16();
+        self.code.word(WordOp::AndImm, 0x00ff);
+        // Clear hidden B without reading a neighboring byte. Shared teardown
+        // preserves A; BYTE's ABI result does not require any X preparation.
+        Ok(true)
+    }
     fn return_value(&mut self, value: Option<&Mir65816Value>) -> Result<(), String> {
         if let Some(value) = value {
             let bytes = match self.routine.result_home {
@@ -2234,7 +2260,10 @@ impl Builder<'_> {
                 Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X16)) => 4,
                 _ => return Err("value return has no native result home".into()),
             };
-            if !self.byte_constant_return(value) && !self.word_return(value)? {
+            if !self.byte_constant_return(value)
+                && !self.captured_byte_return(value)?
+                && !self.word_return(value)?
+            {
                 self.code.a8();
                 self.code.byte(ByteOp::LdaImm, 0);
                 for i in 0..4 {

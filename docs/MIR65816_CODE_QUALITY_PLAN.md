@@ -45,7 +45,7 @@ returns as focused selection/layout opportunities. The
 is complete: 13,846 raw / 13,756 optimized executable bytes saved, with ABI v1,
 all guards, stack peaks and bank-zero reservations unchanged. Full native
 debug/release qualification, relocation, IRQ/NMI and CRLF checks pass.
-Captured BYTE returns remain deferred. No new allocation machinery or public
+Captured BYTE returns are completed below. No new allocation machinery or public
 ABI change is proposed.
 
 The user-selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md)
@@ -92,6 +92,13 @@ zero fill and bounded residual A8/A16 chains. Frozen Exec saves 3,481 raw /
 saves 91 / 90 bytes. Frames, guards and ABI contracts remain unchanged. See the
 [contract](MIR65816_CONSTANT_SHIFTS.md) and
 [qualification](benchmarks/65816-constant-shifts/README.md).
+
+Captured BYTE stack returns now load one byte and clear hidden B directly,
+removing result scratch preparation. Frozen Exec saves 2,392 raw / 2,083
+optimized executable bytes with unchanged frames, guards and ABI homes.
+The small corpus and Dijkstra executable artifacts are unchanged. See the
+[contract](MIR65816_CAPTURED_BYTE_RETURNS.md) and
+[qualification](benchmarks/65816-captured-byte-returns/README.md).
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.

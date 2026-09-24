@@ -1,0 +1,96 @@
+{
+  "compiler_base_revision": "2a3e90d1befe30854a53e6b45d3c0db49d17b621",
+  "implementation_state": "working tree; final source hashes bind the qualified change",
+  "scope": "MIR65816 captured BYTE return selection only; no shared IR or ABI changes",
+  "root_checks": {
+    "unit": {
+      "passed": 217,
+      "ignored": 1,
+      "log_sha256": "005109398cee3ac8be47f178eff128c57913591fcef4c2a85062330f5f23286a"
+    },
+    "root": {
+      "passed": 69,
+      "ignored": 0,
+      "log_sha256": "684da3330beadac612dfcd2654638f2abb49642daeefdd90db120ad924ee44e4"
+    }
+  },
+  "native_runs": {
+    "focused": {
+      "passed": 3,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-n5a_29ri/manifest.json",
+      "manifest_sha256": "bd4680f644924d3294e56477a07fea2971c80f0735de2a4ec70867583c4c094c",
+      "artifact_count": 60
+    },
+    "preemption": {
+      "passed": 1,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-o2bq6t0o/manifest.json",
+      "manifest_sha256": "e997aaa3aaf2bb4ca3060cc3af11d1859bb06571d181d892c1f36421f4e0839b",
+      "artifact_count": 10,
+      "targeted_irq_nmi_sites": {
+        "false": 196,
+        "true": 188
+      }
+    },
+    "debug": {
+      "passed": 190,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-zpp4kyf5/manifest.json",
+      "manifest_sha256": "c910c7559289e0db1dd6404853ce15dbe8f8c6d8723f61b0b5b89f81e3bed039",
+      "artifact_count": 1113,
+      "targeted_irq_nmi_sites": {
+        "false": 196,
+        "true": 188
+      }
+    },
+    "release": {
+      "passed": 190,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-f099yli7/manifest.json",
+      "manifest_sha256": "1137f8309c3e9a085f88dee99d5a3c66d27a17fa40bf68a0485b1f23e2aefad3",
+      "artifact_count": 1113,
+      "targeted_irq_nmi_sites": {
+        "false": 196,
+        "true": 188
+      }
+    }
+  },
+  "debug_release_inputs_identical": true,
+  "debug_release_input_count": 501,
+  "debug_release_artifacts_identical": true,
+  "focused_artifacts_identical_to_final": true,
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "changed_source_inputs": {
+    "src/mir65816/emit/select.rs": "dcc84efd9696e464ec541a90968a03179303ff4fd4a8d9fdd58a46bb02569fee",
+    "src/mir65816/emit/byte_return_tests.rs": "97086ebd47512e9b275ecf69ca364fc483dfd220234b0470a5d270fb2774c090",
+    "tools/native65816-runtime-tests/tests/captured_byte_returns.rs": "1283488124e69226441c4d985ea3aec077c4174d5646b05074f08925a923add9",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "d9e1b47cbbfe1018c543746ee9bdce94e85316668c23e5f54e5095c9591f8d83"
+  },
+  "measurement_tools": {
+    "target/captured-byte-returns/measure.py": "c92e9911b117b8add36945da543b54b226d90e591607de72d1ee61334e87364e",
+    "target/captured-byte-returns/finalize_exec.py": "f805ecf8b0ba9d617554bdeaf94a7454787ca8a423ab6d2bc2b772423ee397d1",
+    "target/captured-byte-returns/equality.py": "73770891e282fd078625c6145df567b0a53ace5faae67219ca3780c7f5ef0166",
+    "target/captured-byte-returns/qualification.py": "bf79ab4dc5e3f986804ed9a07ecee84e2bd35bd696dec58aeeec4f1994e494d2",
+    "target/exec-code-size-detail/probe/src/main.rs": "2d2e10ece9e94fc5a58cdf95af6328439a693567d16751b519432b8f8bacf635",
+    "target/guard-branches/build_exec.py": "c78f9795426eca90b4cbda022e172cdf3aff2cbdbfc664691bfe9d107c319af7"
+  },
+  "compiler_binaries": {
+    "actionc-after": "a412908f546ed236afe16a960df687861f8f9fcd05f10b57eef6808d1f74f1f7",
+    "probe-after": "ac28f4a97f65031d67ed82b5b86b320756ec919bfe5446933b40b1bbddca9398"
+  },
+  "snapshot": "Existing native emission snapshot passes unchanged.",
+  "measurements": {
+    "exec-results.json": {
+      "record_sha256": "d791d72277edf5f7c26179b7fcedc5ecc077c9181eff6a05983c252ebcaf856f"
+    },
+    "corpus-equality.json": {
+      "record_sha256": "3c87a9e6891cbe6bb7ec98dcb1ca66272eb45f53e14745d1521025459f0388eb"
+    },
+    "dijkstra-equality.json": {
+      "record_sha256": "f68e8536ab1c72920c4e9b05e09f503cab5c06bf5ffc2b5c8716a355fa26d9bd"
+    }
+  },
+  "benchmark_execution": "Not repeated: all Action and external benchmark executable artifacts are byte-identical to 2a3e90d1. Prior cycles/traffic and known external vbcc unlink failure remain applicable."
+}
