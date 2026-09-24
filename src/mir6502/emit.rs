@@ -5187,18 +5187,29 @@ fn split_value_as_word(ctx: &MirEmitContext<'_>, value: &MirValue) -> Option<(Mi
             MirValue::ConstU8((value & 0x00FF) as u8),
             MirValue::ConstU8((value >> 8) as u8),
         )),
-        MirValue::StaticAddr(id) => ctx.layout.static_address(*id).map(split_address),
-        MirValue::GlobalAddr(id) => ctx.layout.global_address(*id).map(split_address),
+        MirValue::StaticAddr(id) => ctx
+            .layout
+            .static_address(*id)
+            .map(|_| split_storage_address(MirMem::Static { id: *id, offset: 0 })),
+        MirValue::GlobalAddr(id) => ctx
+            .layout
+            .global_address(*id)
+            .map(|_| split_storage_address(MirMem::Global { id: *id, offset: 0 })),
         MirValue::RoutineAddr(id) => Some(split_routine_address(*id)),
         MirValue::Def(def) => Some((MirValue::Def(def.clone()), MirValue::ConstU8(0))),
         _ => None,
     }
 }
 
-fn split_address(address: u16) -> (MirValue, MirValue) {
+fn split_storage_address(mem: MirMem) -> (MirValue, MirValue) {
+    // Keep the storage identity until immediate emission resolves placement.
+    // Numeric bytes would lose low/high relocations for output-relative data.
     (
-        MirValue::ConstU8((address & 0x00FF) as u8),
-        MirValue::ConstU8((address >> 8) as u8),
+        MirValue::StorageAddrByte {
+            mem: mem.clone(),
+            byte: 0,
+        },
+        MirValue::StorageAddrByte { mem, byte: 1 },
     )
 }
 
@@ -6020,6 +6031,10 @@ fn unsupported_message(
         message: message.to_string(),
     });
 }
+
+#[cfg(test)]
+#[path = "relocation_tests.rs"]
+mod relocation_tests;
 
 #[cfg(test)]
 mod tests {

@@ -8,5 +8,5 @@ INT left=$0602,right=$0604,product=$0606
 PROC MainCase()
   sink=x(index)+y(index)+c(index)+markers(index)
   product=left*right
-  work(0)=left/right
+  work(index)=left/right
 RETURN
