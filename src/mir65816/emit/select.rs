@@ -1740,6 +1740,9 @@ impl Builder<'_> {
         {
             return Ok(());
         }
+        if self.reload_pointer_base(op)? {
+            return Ok(());
+        }
         if let Mir65816Op::Load {
             dest,
             width: bytes,

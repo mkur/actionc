@@ -1,0 +1,96 @@
+{
+  "scope": "Optimized emitted code before/after slice 12. Runtime differential uses the separately documented bytewise stack fallback.",
+  "before_compiler_sha256": "b384a2d8d6226a310882e325219ac2c6485363c0f39a57f08b6ae525333e5a5b",
+  "after_compiler_sha256": "25a25f921ba0bccaf3e69872996c50dfd2cbb1e078707a176c775ba30ecc056b",
+  "source_sha256": "92e14e618f0a5cdce9c0ea793b3625cda8f3f2f11171165daceca3d086dd0fe8",
+  "stages": [
+    {
+      "stage": "before",
+      "image_sha256": "1e54018847968ee6f67f7c0c47f8c9b96638b9dbc9d6fb1cc6c9c2adce0804b9",
+      "routine_bytes": 187,
+      "fixed_frame": 16,
+      "spill_bytes": 16,
+      "local_stack_peak": 16,
+      "temporaries": [
+        {
+          "id": 1,
+          "home": {
+            "kind": "stack",
+            "displacement": 2
+          },
+          "size": 3
+        },
+        {
+          "id": 3,
+          "home": {
+            "kind": "stack",
+            "displacement": 6
+          },
+          "size": 3
+        },
+        {
+          "id": 5,
+          "home": {
+            "kind": "stack",
+            "displacement": 10
+          },
+          "size": 3
+        },
+        {
+          "id": 12,
+          "home": {
+            "kind": "stack",
+            "displacement": 14
+          },
+          "size": 3
+        }
+      ]
+    },
+    {
+      "stage": "after",
+      "image_sha256": "f717bee98048d926dc8eb09fee8694c48390daea3a67d70f7b84ca93b798909c",
+      "routine_bytes": 135,
+      "fixed_frame": 0,
+      "spill_bytes": 0,
+      "local_stack_peak": 0,
+      "temporaries": [
+        {
+          "id": 1,
+          "home": {
+            "kind": "direct_page",
+            "offset": 3
+          },
+          "size": 3
+        },
+        {
+          "id": 3,
+          "home": {
+            "kind": "direct_page",
+            "offset": 6
+          },
+          "size": 3
+        },
+        {
+          "id": 5,
+          "home": {
+            "kind": "direct_page",
+            "offset": 0
+          },
+          "size": 3
+        },
+        {
+          "id": 12,
+          "home": {
+            "kind": "direct_page",
+            "offset": 0
+          },
+          "size": 3
+        }
+      ]
+    }
+  ],
+  "listing_hashes": {
+    "pressure-before.lst": "d4b8cfde98eb7778a7faa6d05a1eded8699d695efb015657c66c9d187360cc52",
+    "pressure-after.lst": "6b12badd46d53f0438051c4e247973af9bccbb91cce4245feac9d36236e447a4"
+  }
+}

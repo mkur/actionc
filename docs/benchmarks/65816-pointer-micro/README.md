@@ -17,6 +17,7 @@ a correctness oracle.
 | 6: single captured-pointer edges | 3,288 | 3,174 | unchanged raw / −40 optimized | 76 / 148 |
 | 7: acyclic captured-pointer edges | 3,288 | 3,140 | unchanged raw / −34 optimized | 76 / 148 |
 | 8: captured pointer increment/decrement | 3,288 | 3,106 | unchanged raw / −34 optimized | 76 / 148 |
+| 12: reuse dying bases under pointer pressure | 3,288 | 3,106 | unchanged | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -238,3 +239,45 @@ The [post-slice-8 checkpoint](checkpoint/README.md) records the complete corpus,
 Dijkstra and frozen Exec build comparison, including the raw Dijkstra cycle
 regression and unchanged bank-zero budgets. Full Exec qualification is deferred
 to the final implementation commit.
+
+Slice 9's [eligibility audit](../../MIR65816_REPEATED_ACCESS_ELIGIBILITY.md)
+keeps slices 10–11 deferred. Slice 12 instead preserves external accesses while
+avoiding stack fallback for a bounded pointer leaf: X16 holds the low word until
+the final bank-byte read, after which the dying base's private DP home is reused.
+The old allocation wins whenever three closed slots already suffice. There is
+no bank-zero reservation change, and the complete list module, its counters and
+private storage are unchanged from slice 8. All 270 paired-mask list records pass
+in both host profiles with identical results and actual LF/CRLF artifacts.
+
+The optimized [pressure probe](slice12/pressure.act) shrinks 187→135 bytes and
+its frame/spill/peak falls 16→0; four pointer temps occupy three existing DP slots.
+[Before code](slice12/pressure-before.lst), [after code](slice12/pressure-after.lst)
+and [pressure facts](slice12/pressure-summary.json) retain that comparison.
+The runtime differential separately forces bytewise stack selection, which is
+237 bytes and 637 caller cycles, versus 135 bytes and 434 caller cycles for the
+new optimized probe. That differential is not the previous compiler's cycle
+measurement. Banked and aliased graphs retain exact ascending external traces;
+canaries, both masks, two o65 placements and every reached task IRQ boundary
+with dispatcher re-entry and NMI pass.
+
+List [sizes](slice12/sizes.csv), [measurements](slice12/measurements.csv),
+[deltas](slice12/delta.csv), [raw code](slice12/actionc-raw.lst),
+[optimized code](slice12/actionc-optimized.lst) and [provenance](slice12/provenance.json)
+compare directly with slice 8. Slices 9–11 emit no intervening code.
+
+Final slice-12 qualification passes **237 native unit tests** (one opt-in
+inventory ignored), **69 integration/CLI tests** (four inventories ignored),
+**209 native runtime tests in release** (four measurements ignored) and all
+three focused debug reload tests. The complete release suite includes replay,
+physical-state, stack/domain, ABI and cross-platform fixture checks. Corrupt
+homes, live bases, changed operations, invalid extents and stack deltas are
+rejected before emission. See [qualification](slice12/qualification.json).
+
+The final frozen Exec build produces **identical JSON images and XEX files** to
+the slice-8 checkpoint in both modes. Executable totals remain 406,353 raw /
+373,603 optimized bytes, saving 12,123 / 12,231 from the original baseline.
+Guard bytes, all routine storage metrics and reserved bank-zero bytes are
+unchanged. [Build evidence](slice12/final-exec.json) and
+[per-routine metrics](slice12/final-exec-routines.csv) retain that equality.
+These are build checks; hosted Exec qualification and a production pin change
+remain separate, as specified by the plan.

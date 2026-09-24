@@ -744,12 +744,30 @@ Temporary locations explicitly distinguish stack and direct-page homes. The
 selector consumes a verified pointer-leaf plan when eligible. Its whitelist admits
 only a single bounded block of ordinary three-byte pointer loads/stores and a
 void return, with no indexes or calls. These operations may touch only their
-allocated homes and addressed memory, using A/Y/flags without extra scratch.
-Closed def/use intervals prevent reuse during a multi-instruction operation.
-Three ABI pointer slots (D+0, D+3, D+6) are allocated deterministically; pressure
-or an unsupported operation rejects the entire candidate before emission.
-The allocation verifier checks identities, widths, ownership, lifetime overlap
-and frame accounting. Pointer-leaf homes remain memory locations.
+allocated homes and addressed memory. The default sequence uses A/Y/flags and
+closed def/use intervals, with three deterministic ABI slots (D+0, D+3, D+6).
+
+If that assignment exceeds three slots, one bounded exception can avoid the
+whole-routine stack fallback: a three-byte indirect load may reuse its dying
+base's complete DP home. The verifier checks the exact defining load, last use,
+widths, identities, slot ownership, all other live ranges and frame accounting.
+Selection rechecks that exact operation before emitting any instruction. Calls,
+volatile accesses, indexes, joins, non-pointer values and function results remain
+outside the whitelist; unproved pressure still rejects the entire candidate.
+
+The exceptional sequence captures the low word in X16, then the bank byte in
+A8, before writing any destination byte. It writes the private bank byte first,
+then transfers X to A16 and writes the low word. External accesses retain their
+original low-word-plus-bank extent and order, including bank carry; no byte is
+repeated. The closed leaf has no X-resident value, call or result, and selection
+rejects a live loop-X contract or nonzero stack delta. Typed physical effects
+account for TAX/TXA and both accumulator widths. Flags and A/X are scratch at
+this boundary; all continuing MIR values reside in their checked homes.
+
+The smaller existing sequence wins whenever closed intervals already fit.
+This exception does not change generic whole-operation interference, stack/CFG
+allocation or the repeated-external-access gate. Pointer-leaf homes remain memory
+locations, and no bank-zero reservation is added.
 
 Other routines use invocation-owned stack temporaries with CFG-aware lifetime
 reuse. Backward fixed-point liveness includes indirect address bases, indexes,

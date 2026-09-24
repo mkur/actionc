@@ -1,0 +1,8 @@
+TYPE Node=[Node POINTER a,b,c]
+PROC Transform(Node POINTER p)
+  Node POINTER a,b,c
+  a=p.a b=p.b c=p.c
+  a.a=b b.a=c c.a=a
+RETURN
+Node POINTER input=$7100
+PROC Main() Transform(input) RETURN

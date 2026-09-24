@@ -6,6 +6,40 @@ use super::*;
 mod tests;
 
 impl Builder<'_> {
+    pub(super) fn reload_pointer_base(&mut self, op: &Mir65816Op) -> Result<bool, String> {
+        if !self.frame.pointer_reload(self.routine, op)? {
+            return Ok(false);
+        }
+        if self.loop_x.is_some() || self.code.delta() != 0 {
+            return Err("pointer reload conflicts with register/stack contract".into());
+        }
+        let Mir65816Op::Load { dest, address, .. } = op else {
+            unreachable!()
+        };
+        let Location::DirectPage(slot) = self.temp(*dest)? else {
+            unreachable!()
+        };
+        let source = Memory::Pointer {
+            slot: slot.offset as u8,
+            offset: address.displacement.get() as u16,
+        };
+        let destination = Memory::DirectPage(slot.offset);
+        self.check_transfer(source, destination, 3)?;
+        self.code.barrier();
+        // The original full base remains intact through the final external read.
+        // X16 owns the low word only inside this window; A8 then captures the bank.
+        // Both stores are private. No external byte is repeated or reordered.
+        self.code.a16();
+        self.load_memory(source, 0)?;
+        self.code.op(Implied::Tax);
+        self.code.a8();
+        self.load_memory(source, 2)?;
+        self.store_memory(destination, 2)?;
+        self.code.a16();
+        self.code.op(Implied::Txa);
+        self.store_memory(destination, 0)?;
+        Ok(true)
+    }
     pub(super) fn pointer_address(
         &mut self,
         dest: TempId,

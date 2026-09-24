@@ -1,0 +1,72 @@
+{
+  "scope": "Focused debug pointer reloads and complete final native release suite; fixed/o65, raw/optimized, IRQ/NMI. Full debug suite previously qualified at slice 8.",
+  "runs": [
+    {
+      "log": "slice12-vm.log",
+      "log_sha256": "ab2a8532d5e6462120b4da716373c965280445bda703bb3ce72cf9de7d5e47bf",
+      "qualification_manifest": "tools/native65816-runtime-tests/target/qualification/run-o3yf3wjk/manifest.json",
+      "qualification_manifest_sha256": "6707945e161282a0c3c79186fd6da12b58c82aa7da4e0d9b90b82bc1c6f80c78",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+        "--test",
+        "pointer_reload",
+        "--",
+        "--nocapture"
+      ],
+      "compiler_revision_at_start": "1391b652a5aa47485caff53939f66b22497eed74",
+      "qualified_source_hashes_match": true,
+      "qualified_input_count": 514,
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 3,
+      "ignored": 0
+    },
+    {
+      "log": "slice12-vm-release.log",
+      "log_sha256": "2c9460fb70132ed160e04f1b7da381fd3b41cce37044a979ee62f8b7532920d6",
+      "qualification_manifest": "tools/native65816-runtime-tests/target/qualification/run-f8nkgji4/manifest.json",
+      "qualification_manifest_sha256": "0fcf2244482ac9a9c760bd874df1e9f4e75e0c93dc087bf9d29c7bc98f193dfe",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--config",
+        "patch.\"https://github.com/mkur/actionc-vm.git\".actionc-w65c816.path=\"<repo>/tools/native65816-runtime-tests/target/qualified-vm-afd5efebc9f0d153/crates/w65c816\"",
+        "--manifest-path",
+        "<repo>/tools/native65816-runtime-tests/Cargo.toml",
+        "--release"
+      ],
+      "compiler_revision_at_start": "1391b652a5aa47485caff53939f66b22497eed74",
+      "qualified_source_hashes_match": true,
+      "qualified_input_count": 514,
+      "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+      "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+      "passed": 209,
+      "ignored": 4
+    }
+  ],
+  "checks": {
+    "slice12-unit-final.log": "b172dd1a43370d9ef981d6c146a8b7e36a8e8c60ae4ecf35aec3ab5e8db31c31",
+    "slice12-integration.log": "307a7594414299add69f08274768d3dc016c5efe3de74ea944a6b3eee37cd250"
+  },
+  "report_hashes": {
+    "pressure.act": "92e14e618f0a5cdce9c0ea793b3625cda8f3f2f11171165daceca3d086dd0fe8",
+    "provenance.json": "c8aaea632876a023a2c33c91c8ec01ed882846dce25827ec2e8b182a24a68903",
+    "sizes.csv": "5f70d214f73cca7e8e7c66ff991ed65115cb5177df2f3b6f982a0907251a5658",
+    "final-exec.json": "d11912eeea1458b209866a2ba10a82098d7d0ce403da7458ee7fd44d16b87bbd",
+    "pressure-summary.json": "114d812cae937d9f6f33a2913e5a3fd8a58fead67ba47feeac8576f0441d93f3",
+    "delta.csv": "dfc2312f2ecfd99d0596d4e8bea40d016bbca0f24f440411615bdb777a69ad49",
+    "measurements.csv": "a1e7b8f256d426534a0995d05eeb88e51d695385720039833ae3195b72ab3ab5",
+    "pressure-after.lst": "6b12badd46d53f0438051c4e247973af9bccbb91cce4245feac9d36236e447a4",
+    "actionc-raw.lst": "60dc58cfacfe724397a62f996a23bfa94b0c62369f2b27f6b2184c19d96c9bb0",
+    "actionc-optimized.lst": "6c749ab9244ac5fed2dc4be19dcf4d113b31f4dcba1491a981f52025b9c3b1cd",
+    "final-exec-routines.csv": "8dde38b79095bf0b805cbb7700d5971e1700068d8e9f4f6cf375a7a3ee3acf92",
+    "pressure-before.lst": "d4b8cfde98eb7778a7faa6d05a1eded8699d695efb015657c66c9d187360cc52"
+  }
+}

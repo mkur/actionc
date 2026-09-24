@@ -2,6 +2,12 @@
 
 Status: all five slices implemented and qualified in the emulator.
 
+The later [pointer micro slice 12](MIR65816_POINTER_MICRO_OPTIMIZATIONS_PLAN.md)
+adds a bounded dying-base reload exception when three closed slots would fail.
+The [emission contract](MIR65816_EMISSION_CONTRACT.md) specifies its full-value
+capture, X lifetime and verifier requirements. Existing fitting allocations keep
+their original sequence; the whole-operation rule below describes that default.
+
 | Slice | Status | Validation |
 | --- | --- | --- |
 | 1: reproducible reference | Complete | Native `pointer_allocation` target: generated/reference execution, aliasing, exact traces, LF/CRLF |

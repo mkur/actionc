@@ -764,7 +764,7 @@ fn pointer_allocation_proves_closed_lifetimes_and_rejects_corrupt_locations() {
             offset: 1,
             width: 3,
         }),
-        frame.temps[&ids[0]],
+        frame.temps[&ids[1]],
     ] {
         let mut corrupt = frame.clone();
         corrupt.temps.insert(ids[2], bad);
@@ -803,7 +803,7 @@ fn pointer_allocation_falls_back_for_pressure_and_unmodelled_scratch() {
     use mir65816::emit::AllocatedFrame;
     let declarations = "TYPE Link=[Link POINTER a Link POINTER b Link POINTER c] ";
     for source in [
-        "PROC Change(Link POINTER p) Link POINTER a,b,c a=p.a b=p.b c=p.c a.a=b b.a=c c.a=a RETURN",
+        "PROC Change(Link POINTER p) Link POINTER a,b,c a=p.a b=p.b c=p.c a.a=b b.a=c c.a=a p.a=c RETURN",
         "Link POINTER FUNC Follow(Link POINTER p) RETURN(p.a)",
         "PROC Barrier() RETURN PROC Change(Link POINTER p) p.a=p.b Barrier() RETURN",
         "PROC Change(Link POINTER p BYTE flag) IF flag THEN p.a=p.b FI RETURN",

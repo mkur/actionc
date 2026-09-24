@@ -1,7 +1,7 @@
 # Native 65816 pointer micro-optimization plan
 
 Status: slices 1-8 implemented and qualified; slice 9 audited; slices 10-11
-deferred by the eligibility gate; slice 12 pending. Baseline:
+deferred by the eligibility gate; slice 12 implemented and qualified. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -255,6 +255,18 @@ valid and no neighboring byte changes. Test aliases and interrupted execution;
 do not claim a multi-instruction pointer update is atomic.
 
 ### 12. Reuse a dead base and a short-lived register value
+
+Implemented for bounded pointer leaves that exceed the three-slot closed-lifetime
+budget. Selection captures the full replacement in X16/A8 before reusing the
+dying base. External accesses remain unchanged, so this does not depend on
+slices 10-11. The optimized pressure probe saves 52 bytes (187→135) and removes
+its 16-byte frame. All 237 native unit, 69 integration/CLI and 209 release VM
+tests pass; focused debug reload tests and both list oracle hosts also pass.
+[Final measurements](benchmarks/65816-pointer-micro/README.md) retain the evidence.
+Existing fitting allocations retain their smaller sequence.
+Remove therefore retains nine DP bytes and its 76-byte / 148-cycle body; the
+six-byte handwritten scratch footprint would cost extra instructions without
+the deferred external word transfers.
 
 Within one bounded, checked selection window, capture the complete replacement
 pointer before overwriting a dead address-base home. Add the short-lived X

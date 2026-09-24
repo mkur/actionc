@@ -407,6 +407,102 @@ fn leaf_intervals(routine: &Mir65816Routine) -> Option<BTreeMap<TempId, Interval
     Some(intervals)
 }
 
+/// The only whole-operation lifetime exception: an indirect three-byte load
+/// consumes its dying base completely before writing the replacement home.
+/// leaf_intervals already excludes calls, volatile accesses, indexes, non-pointer
+/// values, CFG joins and results. In that closed whitelist no value lives in X.
+fn reload_bases(
+    routine: &Mir65816Routine,
+    ranges: &BTreeMap<TempId, Interval>,
+) -> BTreeMap<TempId, TempId> {
+    routine.blocks[0]
+        .ops
+        .iter()
+        .enumerate()
+        .filter_map(|(at, op)| match op {
+            Mir65816Op::Load {
+                dest,
+                address:
+                    Mir65816Address {
+                        base: Mir65816AddressBase::Indirect(Mir65816Value::Temp(base, _)),
+                        ..
+                    },
+                ..
+            } if ranges[base].last == at && base != dest => Some((*dest, *base)),
+            _ => None,
+        })
+        .collect()
+}
+
+fn pointer_homes(
+    ranges: &BTreeMap<TempId, Interval>,
+    reloads: &BTreeMap<TempId, TempId>,
+) -> Option<BTreeMap<TempId, Location>> {
+    let mut ordered = ranges.iter().collect::<Vec<_>>();
+    ordered.sort_by_key(|(id, range)| (range.first, **id));
+    let mut occupied = [None; 3];
+    let mut temps = BTreeMap::new();
+    for (&id, range) in ordered {
+        let index = occupied
+            .iter()
+            .position(|entry: &Option<(TempId, usize)>| {
+                entry.is_none_or(|(_, last)| last < range.first)
+            })
+            .or_else(|| {
+                let base = reloads.get(&id)?;
+                occupied
+                    .iter()
+                    .position(|entry| *entry == Some((*base, range.first)))
+            })?;
+        occupied[index] = Some((id, range.last));
+        temps.insert(
+            id,
+            Location::DirectPage(Slot {
+                offset: POINTER_SLOTS[index],
+                width: 3,
+            }),
+        );
+    }
+    Some(temps)
+}
+
+impl AllocatedFrame {
+    /// Check the exact selected load and the entire bounded allocation before
+    /// allowing the low-word X handoff. Numeric coincident homes are insufficient.
+    pub(super) fn pointer_reload(
+        &self,
+        routine: &Mir65816Routine,
+        op: &Mir65816Op,
+    ) -> Result<bool, String> {
+        let Mir65816Op::Load {
+            dest,
+            address:
+                Mir65816Address {
+                    base: Mir65816AddressBase::Indirect(Mir65816Value::Temp(base, _)),
+                    ..
+                },
+            ..
+        } = op
+        else {
+            return Ok(false);
+        };
+        let Some(home @ Location::DirectPage(_)) = self.temps.get(dest) else {
+            return Ok(false);
+        };
+        if self.temps.get(base) != Some(home) {
+            return Ok(false);
+        }
+        self.verify_pointer_leaf(routine)?;
+        let ranges = leaf_intervals(routine).ok_or("pointer reload outside bounded leaf")?;
+        if reload_bases(routine, &ranges).get(dest) != Some(base)
+            || routine.blocks[0].ops.get(ranges[dest].first) != Some(op)
+        {
+            return Err("pointer reload does not consume its dying base".into());
+        }
+        Ok(true)
+    }
+}
+
 impl AllocatedFrame {
     /// Plan a bounded pointer leaf from verified native MIR. None selects the
     /// complete stack strategy, including when pressure exceeds three slots.
@@ -414,26 +510,13 @@ impl AllocatedFrame {
         let Some(intervals) = leaf_intervals(routine) else {
             return Ok(None);
         };
-        let mut ordered = intervals.iter().collect::<Vec<_>>();
-        ordered.sort_by_key(|(id, range)| (range.first, **id));
-        let mut occupied = [None; 3];
-        let mut temps = BTreeMap::new();
-        for (&id, range) in ordered {
-            let Some(index) = occupied
-                .iter()
-                .position(|last| last.is_none_or(|last| last < range.first))
-            else {
-                return Ok(None);
-            };
-            occupied[index] = Some(range.last);
-            temps.insert(
-                id,
-                Location::DirectPage(Slot {
-                    offset: POINTER_SLOTS[index],
-                    width: 3,
-                }),
-            );
-        }
+        // Preserve the smaller existing sequence whenever three closed slots
+        // suffice. Pay for X capture only to avoid a whole-routine stack fallback.
+        let Some(temps) = pointer_homes(&intervals, &BTreeMap::new())
+            .or_else(|| pointer_homes(&intervals, &reload_bases(routine, &intervals)))
+        else {
+            return Ok(None);
+        };
         let extent = abi::stack::fixed_extent(routine.frame.extent)
             .map_err(|e| e.to_string())?
             .get() as u16;
@@ -461,6 +544,7 @@ impl AllocatedFrame {
         {
             return Err("invalid direct-page frame accounting".into());
         }
+        let reloads = reload_bases(routine, &ranges);
         for (&id, range) in &ranges {
             let Some(Location::DirectPage(slot)) = self.temps.get(&id) else {
                 return Err("missing direct-page temporary location".into());
@@ -473,7 +557,12 @@ impl AllocatedFrame {
                     && range.first <= other_range.last
                     && other_range.first <= range.last
                 {
-                    return Err("overlapping direct-page temporary lifetimes".into());
+                    let reload = (range.first == other_range.last
+                        && reloads.get(&id) == Some(&other))
+                        || (other_range.first == range.last && reloads.get(&other) == Some(&id));
+                    if !reload {
+                        return Err("overlapping direct-page temporary lifetimes".into());
+                    }
                 }
             }
         }

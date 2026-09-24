@@ -588,3 +588,145 @@ fn pointer_steps_keep_unsupported_operands_and_partial_overlap_on_the_fallback()
         assert_eq!(format!("{:?}", b.code), before);
     }
 }
+
+fn pressure_program() -> Mir65816Program {
+    let source = "TYPE Link=[Link POINTER a,b,c] PROC Change(Link POINTER p) Link POINTER a,b,c a=p.a b=p.b c=p.c a.a=b b.a=c c.a=a RETURN";
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model = crate::semantic::analyze_with_options(
+        &ast,
+        crate::semantic::SemanticOptions::modern()
+            .with_target(crate::target::TargetId::Wdc65816Native),
+    )
+    .unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let nir = crate::nir::optimize_program_with_promotion(
+        &nir,
+        crate::nir::NirPromotionPolicy::Native65816,
+    )
+    .unwrap();
+    crate::mir65816::lower_program(&nir).unwrap()
+}
+
+#[test]
+fn pressured_pointer_reload_captures_both_parts_before_reusing_its_base() {
+    for offset in [0, 6, 65532] {
+        let mut p = pressure_program();
+        let r = &mut p.routines[0];
+        let last_load = r.blocks[0]
+            .ops
+            .iter()
+            .rposition(|op| matches!(op, Mir65816Op::Load { .. }))
+            .unwrap();
+        if let Mir65816Op::Load { address, .. } = &mut r.blocks[0].ops[last_load] {
+            address.displacement = ByteOffset::new(offset);
+        }
+        let frame = AllocatedFrame::pointer_leaf(r).unwrap().unwrap();
+        assert_eq!(frame.extent, 0);
+        let op = &r.blocks[0].ops[last_load];
+        assert!(frame.pointer_reload(r, op).unwrap());
+        for a8 in [false, true] {
+            let mut b = builder(r);
+            b.frame = frame.clone();
+            if a8 {
+                b.code.a8();
+            } else {
+                b.code.a16();
+            }
+            let start = b.code.position();
+            assert!(b.reload_pointer_base(op).unwrap());
+            let mut expected = if a8 { vec![0xc2, 0x20] } else { vec![] };
+            expected.extend([
+                0xa0,
+                offset as u8,
+                (offset >> 8) as u8,
+                0xb7,
+                0,
+                0xaa,
+                0xe2,
+                0x20,
+                0xa0,
+                (offset + 2) as u8,
+                ((offset + 2) >> 8) as u8,
+                0xb7,
+                0,
+                0x85,
+                2,
+                0xc2,
+                0x20,
+                0x8a,
+                0x85,
+                0,
+            ]);
+            assert_eq!(&b.code.code().bytes[start..], expected);
+        }
+    }
+}
+
+#[test]
+fn pointer_reload_rejects_live_bases_and_mismatched_windows_before_emission() {
+    let p = pressure_program();
+    let r = &p.routines[0];
+    let frame = AllocatedFrame::pointer_leaf(r).unwrap().unwrap();
+    let loads = r.blocks[0]
+        .ops
+        .iter()
+        .filter(|op| matches!(op, Mir65816Op::Load { .. }))
+        .collect::<Vec<_>>();
+    for variant in 0..7 {
+        let mut b = builder(r);
+        b.frame = frame.clone();
+        let mut op = loads[3].clone();
+        match variant {
+            0 => {
+                if let Mir65816Op::Load { volatile, .. } = &mut op {
+                    *volatile = true;
+                }
+            }
+            1 => {
+                if let Mir65816Op::Load { width, .. } = &mut op {
+                    *width = ByteSize::new(2);
+                }
+            }
+            2 => {
+                if let Mir65816Op::Load { address, .. } = &mut op {
+                    address.displacement = ByteOffset::new(65533);
+                }
+            }
+            3 => {
+                op = loads[1].clone();
+                if let Mir65816Op::Load { dest, .. } = op {
+                    b.frame.temps.insert(dest, dp(0));
+                }
+            }
+            4 => {
+                if let Mir65816Op::Load { dest, .. } = op {
+                    b.frame.temps.insert(dest, dp(7));
+                }
+                // Force a corrupt coincident source as well.
+                if let Mir65816Op::Load {
+                    address:
+                        Mir65816Address {
+                            base: Mir65816AddressBase::Indirect(Mir65816Value::Temp(base, _)),
+                            ..
+                        },
+                    ..
+                } = op
+                {
+                    b.frame.temps.insert(base, dp(7));
+                }
+            }
+            5 => b.code.test_delta(1),
+            6 => b.frame.spill_bytes = 2,
+            _ => unreachable!(),
+        }
+        let before = format!("{:?}", b.code);
+        assert!(b.reload_pointer_base(&op).is_err(), "variant {variant}");
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+    let mut b = builder(r);
+    b.frame = frame;
+    for op in &loads[..3] {
+        assert!(!b.reload_pointer_base(op).unwrap());
+    }
+    assert!(b.code.code().bytes.is_empty());
+}

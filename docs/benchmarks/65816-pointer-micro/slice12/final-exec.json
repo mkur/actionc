@@ -1,0 +1,76 @@
+{
+  "scope": "Final frozen Exec build comparison only. Hosted Exec qualification and pin migration remain separate per the plan.",
+  "source_revision": "c3500c8",
+  "baseline_compiler_revision": "843b3b0b",
+  "modes": [
+    {
+      "mode": "raw",
+      "executable_before": 406353,
+      "executable_after": 406353,
+      "images_identical": true,
+      "xex_identical": true,
+      "xex_bytes": 421417,
+      "guard_bytes": 62856,
+      "bank_zero_reservation_delta": 0,
+      "equal_build_fields": [
+        "compiler_contract",
+        "abi_sha256",
+        "abi_assembly_sha256",
+        "source_sha256",
+        "platform_inputs",
+        "stack_checks",
+        "tasks",
+        "task_inputs",
+        "console_inputs",
+        "banked_inputs",
+        "memory_sha256",
+        "dos_mounts",
+        "exec_build"
+      ],
+      "build_hashes": {
+        "before/program.a816.json": "28bdc14e0de3e3035755c78e6eabd43f17d9dd293e011221eefc91aa30dcfab5",
+        "before/program.xex": "79e647754779283b95e08d22e46fba0707d2d355d15dfc4102208a52a2688dd7",
+        "before/build.json": "2e0b13660b623a338645b03960f0d702515f39312c64433b4b860a3459f07f9b",
+        "after/program.a816.json": "28bdc14e0de3e3035755c78e6eabd43f17d9dd293e011221eefc91aa30dcfab5",
+        "after/program.xex": "79e647754779283b95e08d22e46fba0707d2d355d15dfc4102208a52a2688dd7",
+        "after/build.json": "ad86a44691c74135c6100f7431b5a1687ad1689d431c231893a6416b979e0642"
+      },
+      "compiler_binary_sha256": "31407eea5d9ad1cb612f85d2e28ebffb6122c8171b7c709d3a98679d4552e2c5"
+    },
+    {
+      "mode": "opt",
+      "executable_before": 373603,
+      "executable_after": 373603,
+      "images_identical": true,
+      "xex_identical": true,
+      "xex_bytes": 388039,
+      "guard_bytes": 62640,
+      "bank_zero_reservation_delta": 0,
+      "equal_build_fields": [
+        "compiler_contract",
+        "abi_sha256",
+        "abi_assembly_sha256",
+        "source_sha256",
+        "platform_inputs",
+        "stack_checks",
+        "tasks",
+        "task_inputs",
+        "console_inputs",
+        "banked_inputs",
+        "memory_sha256",
+        "dos_mounts",
+        "exec_build"
+      ],
+      "build_hashes": {
+        "before/program.a816.json": "153d4707225da11874e0b36ba4921f70fe45d07d06261236e9ec0a6a226dc6d3",
+        "before/program.xex": "2be59c2b5c67f5f67573782ae16cda4abd5ecf2c46921db61072c669af04fe08",
+        "before/build.json": "9213187c226027d1b34a8682d9fab4455dacef6279964b64079945802192ecd2",
+        "after/program.a816.json": "153d4707225da11874e0b36ba4921f70fe45d07d06261236e9ec0a6a226dc6d3",
+        "after/program.xex": "2be59c2b5c67f5f67573782ae16cda4abd5ecf2c46921db61072c669af04fe08",
+        "after/build.json": "3a31c45c9f18e3c4267aab31dbee8e6c8487a541961ea379f157eba1f3d3b41b"
+      },
+      "compiler_binary_sha256": "31407eea5d9ad1cb612f85d2e28ebffb6122c8171b7c709d3a98679d4552e2c5"
+    }
+  ],
+  "report_script_sha256": "87208e6764b0b15a49293555634a60e548aa53fae6cd850ddfbb8034ec71a902"
+}
