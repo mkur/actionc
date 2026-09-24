@@ -891,6 +891,19 @@ fn long_equality_restores_both_word_decisions_and_zero_tests_under_irq_nmi() {
 }
 
 #[test]
+fn native_constant_stores_restore_reused_a_and_bank_tail_under_irq_nmi() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n").replace("CARD FUNC Read(",
+            "CARD FUNC ConstantLong(CARD seed) LONGCARD value value=LONGCARD($12341234) RETURN(CARD(value)+seed)\nCARD FUNC ConstantNull(CARD seed) BYTE POINTER value value=BYTE POINTER(0) RETURN(CARD(ADDRESS(value))+seed)\nCARD FUNC Read(")
+            .replace("  work.done=1", "  work.result==+ConstantLong(work.seed)-$1234-work.seed+ConstantNull(work.seed)-work.seed\n  work.done=1")
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["CONSTANTLONG", "CONSTANTNULL"], "constant-stores");
+}
+
+#[test]
 fn native_long_add_sub_restore_low_word_carry_and_borrow_under_irq_nmi() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

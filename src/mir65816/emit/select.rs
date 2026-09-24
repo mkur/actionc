@@ -46,6 +46,8 @@ mod arithmetic;
 mod long_arithmetic;
 #[path = "call_copies.rs"]
 mod call_copies;
+#[path = "constant_stores.rs"]
+mod constant_stores;
 #[path = "parameter.rs"]
 mod parameter;
 #[path = "pointer_values.rs"]
@@ -1792,6 +1794,9 @@ impl Builder<'_> {
                 self.code.barrier();
                 let memory = self.prepare_address(address)?;
                 let bytes = width(*bytes)?;
+                if self.constant_store(memory, value, bytes, *volatile)? {
+                    return Ok(());
+                }
                 if let Some(source) = self.value_memory(value)?
                     && self.value_width(value)? >= bytes
                 {

@@ -367,3 +367,9 @@ cover two-word carry/borrow chains, signed/unsigned wraparound, constants and
 mutable parameters, external access order, call clobbers, ca65 encodings and
 o65 relocation. Run `--test long_arithmetic` in debug and release hosts, and
 `--release --test preemption native_long_add_sub` for the focused IRQ/NMI probe.
+
+The [native constant-store measurements](../../docs/benchmarks/65816-constant-stores/README.md)
+cover 16/24/32-bit immediates and NULL, exact external writes, bank and Y-offset
+boundaries, unchanged volatile byte instructions, ca65 encodings/cycles and o65
+relocation. Run `--test constant_stores` in debug and release hosts, and
+`--release --test preemption native_constant_stores` for the focused IRQ/NMI probe.

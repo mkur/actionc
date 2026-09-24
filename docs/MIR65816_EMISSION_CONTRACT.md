@@ -545,6 +545,26 @@ frame homes. No DP allocation, scratch, X/Y use, pushes, helper call, frame/ABI
 change or additional external access is introduced. Original volatile and
 aliased captures remain separate and unchanged. Guard policy is unaffected.
 
+Nonvolatile two-, three- and four-byte constant stores use A16 word pairs,
+with an exact A8 tail for three-byte destinations. Numeric constants, numeric
+addresses and NULL are eligible; source-width masking preserves bytewise
+truncation and zero extension. Signed widening remains an explicit Cast.
+Address preparation is unchanged. Selection then checks the complete resolved
+destination extent before emitting any constant-store prefix. Each destination
+byte is written once, in ascending order; no destination read, overlapping
+word, fourth pointer byte, scratch allocation or additional helper is introduced.
+
+An immediate is loaded once when both 32-bit halves match. The three-byte tail
+also reuses A's low byte when it matches the bank byte. Reuse is local to the
+operation: STA and destination LDY preserve A, and no ambient accumulator fact
+is consumed or published as a value identity. Three-byte stack/DP stores starting
+in A8 retain the byte path when a distinct bank byte would make the native
+sequence larger. Volatile stores retain their original byte instructions;
+symbolic source addresses retain their byte fixups. Symbolic destinations still
+use ordinary long-address relocations. All mode requests, loads and stores use
+the tracked emitter and its existing replay checks. No ABI, allocation, guard
+policy or external memory-access contract changes.
+
 Two-byte comparisons may use one native CMP for equality/inequality (signed or
 unsigned) and unsigned ordering, using the same checked word sources. The result
 must have an exact one-byte stack home. Materialized results are stored as 0 or 1
