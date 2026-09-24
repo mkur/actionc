@@ -44,7 +44,7 @@ returns as focused selection/layout opportunities. The
 is complete: 13,846 raw / 13,756 optimized executable bytes saved, with ABI v1,
 all guards, stack peaks and bank-zero reservations unchanged. Full native
 debug/release qualification, relocation, IRQ/NMI and CRLF checks pass.
-Four-byte equality and BYTE returns remain deferred. No new allocation
+Four-byte equality and captured BYTE returns remain deferred. No new allocation
 machinery or public ABI change is proposed.
 
 The user-selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md)
@@ -54,6 +54,11 @@ saves 37,248 raw / 37,120 optimized executable bytes, and Dijkstra saves 352 byt
 in each mode. Native debug/release, fault, IRQ/NMI, relocation and CRLF checks
 pass. See the [results](benchmarks/65816-guard-branches/README.md). Other guard
 and branch opportunities remain deferred.
+
+Direct BYTE constant returns now use A16 `LDA #$00xx`, followed by the shared
+frame teardown and RTL. This removes 19 bytes per eligible return: 8,626 raw /
+9,424 optimized bytes on frozen Exec, with unchanged allocation and guards.
+See the [results and qualification](benchmarks/65816-byte-returns/README.md).
 
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.

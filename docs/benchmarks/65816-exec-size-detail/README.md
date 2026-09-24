@@ -158,6 +158,11 @@ span is currently 31 bytes, or 33 when it also restores entry A16; preserve that
 entry restoration when required. BYTE results require zero-extended A16, while
 X is unspecified by ABI v1.
 
+This constant-only slice is now [implemented and measured](../65816-byte-returns/README.md):
+8,626 raw / 9,424 optimized bytes saved on the same frozen workload, with all
+frames, guards and ABI contracts retained. The original forecast above remains
+unchanged.
+
 Then consider the 160 captured BYTE returns and wider A/X returns separately.
 Do not widen a one-byte home read without proof of ownership of the extra byte.
 Keep the frame release, RTL, boundary mode and native return effects intact.

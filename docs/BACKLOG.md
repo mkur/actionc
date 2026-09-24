@@ -118,8 +118,8 @@ optimized executable bytes on the frozen workload. Optimized executable size
 is now 497,262 bytes and XEX size 513,926. ABI v1, all guards, frame/home
 allocation and the existing payload-copy loop are preserved; added bank-zero
 reservation is zero. See the [measured results](benchmarks/65816-call-padding/README.md).
-Native 32-bit Eq/Ne, direct BYTE constant returns and
-unused final index shifts remain unimplemented; their forecasts overlap where
+Native 32-bit Eq/Ne and unused final index shifts remain unimplemented;
+their forecasts overlap where
 they replace the same code.
 The selected [short guard-branch plan](MIR65816_GUARD_BRANCHES_PLAN.md) is complete:
 existing typed relaxation shortens the four conditionals in each guard, keeping
@@ -128,6 +128,13 @@ from the call-padding baseline. Optimized Exec is now 460,142 executable /
 476,142 XEX bytes; optimized Dijkstra is 4,850 bytes. All guards, allocation and
 ABI contracts remain. See the [measured results](benchmarks/65816-guard-branches/README.md).
 The older candidates below retain their original measurements.
+
+Direct BYTE constant returns are now implemented: a typed U8 constant with an
+`A8ZeroExtended` result home loads A16 directly and uses the existing frame
+teardown. Frozen Exec saves 8,626 raw / 9,424 optimized code bytes, reaching
+450,718 optimized executable bytes. Frames, guards, ABI and bank-zero storage
+are unchanged. Captured BYTE returns and native-width call copies remain
+separate work. See the [measured results](benchmarks/65816-byte-returns/README.md).
 
 1. **Broader local branch relaxation.** Extend the existing
    [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch

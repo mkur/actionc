@@ -1,0 +1,26 @@
+[
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "code_bytes": 5438,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "code_bytes": 4850,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "code_bytes": 1697,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "code_bytes": 1477,
+    "unchanged": true
+  }
+]

@@ -1,0 +1,60 @@
+{
+  "compiler_base_revision": "e1d4e8c3df0763593b426f82109b9ceb466c2d6f",
+  "implementation_state": "working tree; source hashes bind the qualified change",
+  "scope": "MIR65816 emitter only; no NIR, semantic, printer, ABI or other backend changes",
+  "root_checks": {
+    "unit": {
+      "passed": 197,
+      "ignored": 1,
+      "log_sha256": "8aa58e388cdb3ea7d973e5dc52dec1e1d415f131f986e01b3c498492a4654e01"
+    },
+    "root": {
+      "passed": 69,
+      "ignored": 0,
+      "log_sha256": "db639ed08542a77403efd27e792f8658206c6efb97e2167b33f07c629622f3df"
+    }
+  },
+  "native_runs": {
+    "focused": {
+      "passed": 3,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-v0u9f_h6/manifest.json",
+      "manifest_sha256": "306c8c72a033a0899cb5b38c668f0058e7d70e82c11db741df5c3399cdec36e4",
+      "artifact_count": 22
+    },
+    "debug": {
+      "passed": 172,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-algkxfa3/manifest.json",
+      "manifest_sha256": "da8026fad817f050a3827dac99c57ce9fd9171788f8982449cd1703c87fb100d",
+      "artifact_count": 861
+    },
+    "release": {
+      "passed": 172,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-l65fh4ae/manifest.json",
+      "manifest_sha256": "5f4060e98d98ec43d1929489af2fe60fd8706ea424bd8e6dc6eb874b28a2d0c8",
+      "artifact_count": 861
+    }
+  },
+  "measurement_tools": {
+    "target/byte-constant-returns/measure.py": "47b70f1dfb57f4bbaf6fc49031d63b4f2ceeb406094c47c8f5f8edea43555e60",
+    "target/byte-constant-returns/finalize_exec.py": "972f48094fc4a3c62934551cde518673f2c4b3fcf50568d8ba8ee14b5142c683"
+  },
+  "compiler_binaries": {
+    "actionc-before": "2d1977612ff60f011c715f0e5eb80b52c1d4509ac3ca3371a8aecdbec86f5937",
+    "actionc-after": "20a948246e3140ed74e0483e9a3b21816c1d46e6b3e2dfc08bcaa9b9db899628",
+    "probe-before": "3654bb544dcb5ebce339aefd907a9320a7ac7d9a851df209ad1269931cfbd91d",
+    "probe-after": "9be9dee72380b7abcd653f4f8c59dbd4c4c3e8759542820c845b20a3fb0d369a"
+  },
+  "changed_source_inputs": {
+    "src/mir65816/emit/select.rs": "c8029ce16024b5abf1b1e3e8e784a7de0989e970a127339ee6547d0e482b6fde",
+    "src/mir65816/emit/word_tests.rs": "fddac9013a262408275596ce602ac04bf05bdb92bf0b31317086d2376134a278",
+    "tools/native65816-runtime-tests/tests/byte_returns.rs": "81de4ee2ad752d7bf50f5da187f026c7bfdf994024851fff8d9759347d4a24ee",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "64988e976ec96ae64a93d4aa8d8b615198614477e14e7e0902d12707787a24cc"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "debug_release_inputs_identical": true,
+  "debug_release_artifacts_identical": true
+}

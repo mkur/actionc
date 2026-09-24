@@ -1,0 +1,106 @@
+[
+  {
+    "mode": "raw",
+    "routines": 551,
+    "constant_returns": 454,
+    "guards": 2328,
+    "routine_bytes_before": 483721,
+    "routine_bytes_after": 475095,
+    "code_bytes_saved": 8626,
+    "secondary_layout_savings": 0,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "other_instructions_and_metadata_rebasing_verified": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "hashes": {
+      "before-raw.image.json": "76b84b9b5310917191bcbc84a58b182fc3716a00f6f3653aef111cde2af491d7",
+      "before-raw.inventory.json": "7b7c1492195e8f5d04a8ef212ada8624a273324e4fef76616c83956dc63a6d7c",
+      "after-raw.image.json": "4cca97a438fa798b49b8f010f6023bebfed5a87cfabc0c81e456305f158ff586",
+      "after-raw.inventory.json": "cfa8d385267af14307dcc6fd0f332122bd62780fbb490a0d9d77ed7e37c2c7e8"
+    },
+    "executable_before": 491286,
+    "executable_after": 482660,
+    "xex_before": 507860,
+    "xex_after": 499090,
+    "ordinary_and_inventory_images_equal": true,
+    "source_platform_and_abi_inputs_equal": true,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "build_hashes": {
+      "before/program.a816.json": "cbc3a969af11c6190c3acd888e1abc11478c8d3b5149320e016df8eb7ce70fd5",
+      "before/program.xex": "b03da65db0052b395feac2f382ae3bf178626773fc73768f5b85f08ede0a7a0d",
+      "before/build.json": "d1ca7c3148a94a1d6c77b1d242eacb430c8e6bedbbc87cf41a4094ca68fbef94",
+      "after/program.a816.json": "2ad660dd4a7d7158e7b9fee65ac81537c8366ad0c8c388572672e515d4382d74",
+      "after/program.xex": "7fe854653abb472597cff66d7dd52f8bb12bc67af3d0fdb20fa35f6399a287d2",
+      "after/build.json": "2d3145e32b005fabbb4fba68546a46945180900d2b7c11f67ce205057464f9f9"
+    }
+  },
+  {
+    "mode": "opt",
+    "routines": 551,
+    "constant_returns": 496,
+    "guards": 2320,
+    "routine_bytes_before": 452577,
+    "routine_bytes_after": 443153,
+    "code_bytes_saved": 9424,
+    "secondary_layout_savings": 0,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "other_instructions_and_metadata_rebasing_verified": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "hashes": {
+      "before-opt.image.json": "3c13c44f653e07d3705e90f09bea11f2eedb3a746e65514a9d99a7a064309f92",
+      "before-opt.inventory.json": "e26492fd2d520fb00203044299fa188591446533b362f279e0b4ea7b8797eb44",
+      "after-opt.image.json": "f8dd4ed0e72fcf5bdc9a312a9fd2558060ce81cfadee7d3b0252f0f14c177532",
+      "after-opt.inventory.json": "8c5a70cf6a5b95cd248b55edd0c9f9b2b866d4f617333e428daee71795012fae"
+    },
+    "executable_before": 460142,
+    "executable_after": 450718,
+    "xex_before": 476142,
+    "xex_after": 466556,
+    "ordinary_and_inventory_images_equal": true,
+    "source_platform_and_abi_inputs_equal": true,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "build_hashes": {
+      "before/program.a816.json": "33e8ca1cf7ccc622079e79eec44e2d0836331b70b1d7c9f45701fe95c476394a",
+      "before/program.xex": "f0d859f7531d9694ac45cd0aecf4248c0d7c794692ae726d530bdec3dcf280c9",
+      "before/build.json": "92cb4bd99fdbc4955a99349a8abf8fcf03825285242e772f1cf8499d88e907ae",
+      "after/program.a816.json": "548fd62d595d152f089b416b8f548ba7355498c095367c6fae044fc4b8c5543f",
+      "after/program.xex": "6186f935a22ba09dac1e7b8740a48160641deece79fd25355ff3f7e58c3c2d95",
+      "after/build.json": "bcdd2e558d271f705b0e942d751fecd652a7cab0c61dc7c524cb0d7d191ca309"
+    }
+  }
+]

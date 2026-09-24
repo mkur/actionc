@@ -280,6 +280,98 @@ fn operation_dispatch_keeps_native_width_without_changing_allocations() {
 }
 
 #[test]
+fn byte_constant_returns_clear_hidden_b_and_share_frame_teardown() {
+    let mut p = program();
+    let r = &mut p.routines[0];
+    r.result_home = Some(Mir65816AbiHome::NativeResult(
+        abi::ResultLocation::A8ZeroExtended,
+    ));
+    for value in 0..=255 {
+        for frame in [0, builder(r).frame.extent] {
+            for a8 in [false, true] {
+                let mut b = builder(r);
+                b.frame.extent = frame;
+                b.code.test_frame(frame);
+                if a8 {
+                    b.code.a8();
+                } else {
+                    b.code.a16();
+                }
+                let prefix = b.code.code().bytes.len();
+                let before = b.frame.clone();
+                b.return_value(Some(&Mir65816Value::U8(value))).unwrap();
+                let mut expected = if a8 { vec![0xc2, 0x20] } else { vec![] };
+                expected.extend([0xa9, value, 0]);
+                if frame != 0 {
+                    expected.extend([
+                        0xa8,
+                        0x3b,
+                        0x18,
+                        0x69,
+                        frame as u8,
+                        (frame >> 8) as u8,
+                        0x1b,
+                        0x98,
+                    ]);
+                }
+                expected.push(0x6b);
+                assert_eq!(&b.code.code().bytes[prefix..], expected);
+                assert_eq!(b.frame.temps, before.temps);
+                assert_eq!(b.frame.edge_copies, before.edge_copies);
+                assert_eq!(
+                    (
+                        b.frame.extent,
+                        b.frame.spill_bytes,
+                        b.frame.peak_below_entry
+                    ),
+                    (before.extent, before.spill_bytes, before.peak_below_entry)
+                );
+                assert!(b.code.code().fixups.is_empty() && b.code.code().return_fixups.is_empty());
+            }
+        }
+    }
+}
+
+#[test]
+fn byte_constant_return_requires_exact_constant_and_authoritative_result_home() {
+    let mut p = program();
+    let r = &mut p.routines[0];
+    for home in [
+        None,
+        Some(abi::ResultLocation::A16),
+        Some(abi::ResultLocation::A16X8ZeroExtended),
+        Some(abi::ResultLocation::A16X16),
+    ] {
+        r.result_home = home.map(Mir65816AbiHome::NativeResult);
+        let mut b = builder(r);
+        b.code.a8();
+        let before = b.code.code().bytes.clone();
+        assert!(!b.byte_constant_return(&Mir65816Value::U8(255)));
+        b.code.a8();
+        assert_eq!(b.code.code().bytes, before);
+    }
+    r.result_home = Some(Mir65816AbiHome::NativeResult(
+        abi::ResultLocation::A8ZeroExtended,
+    ));
+    let (_, input, _) = operands(r);
+    for value in [
+        Mir65816Value::U16(255),
+        Mir65816Value::U24(255),
+        Mir65816Value::U32(255),
+        Mir65816Value::Null(ByteSize::ONE),
+        Mir65816Value::Param(r.frame.parameters[0].param),
+        input,
+    ] {
+        let mut b = builder(r);
+        b.code.a8();
+        let before = b.code.code().bytes.clone();
+        assert!(!b.byte_constant_return(&value));
+        b.code.a8();
+        assert_eq!(b.code.code().bytes, before);
+    }
+}
+
+#[test]
 fn word_returns_select_checked_sources_and_share_frame_teardown() {
     let p = program();
     let r = &p.routines[0];

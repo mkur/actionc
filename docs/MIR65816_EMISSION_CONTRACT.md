@@ -547,6 +547,15 @@ and is not cleared by this path. Both paths use the same frame teardown and RTL;
 nonzero-frame teardown preserves A through Y. Selected preparation uses no DP
 scratch, push, helper, or assumption about a preceding operation's register value.
 
+An authoritative `NativeResult(A8ZeroExtended)` return with a typed U8 constant
+loads that constant directly with A16 `LDA #$00xx`. The full-width load defines
+both A bytes, including hidden B after an A8 predecessor. X is unspecified for
+BYTE results and is not initialized. This path uses the same A-preserving frame
+teardown and RTL, without DP result scratch, additional storage or memory reads.
+Other BYTE operands retain generic preparation; a narrow home is never widened
+by this selection. MIR65816 owns this target-specific return preparation; the
+public ABI, guards and SemIR/NIR contracts are unchanged.
+
 MIR65816 owns access-width and addressing selection. Ordinary scalar loads and
 stores may use sixteen-bit transfers plus a final byte. Three-byte transfers
 between disjoint frame slots (or the same slot), and from a frame slot into

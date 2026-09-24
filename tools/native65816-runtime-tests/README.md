@@ -76,6 +76,7 @@ image v4 are used only when the raw arithmetic-fault dependency survives.
 | `arithmetic` | 1 | 72 boundary executions across BYTE/CARD/INT/SIZE/LONGCARD/LONGINT, checked against host arithmetic. |
 | `word_arithmetic` | 4 | Independent ca65 encodings, CARD/INT boundary cross-products, operand order and carry chains, volatile/aliased bank-crossing memory, live words across calls that clobber A/X/Y and all DP scratch. |
 | `word_returns` | 3 | Independent callers, signed/unsigned bits, mixed result lanes, zero/nonzero frames, clobbering calls, volatile/aliased bank-crossing loads, exact return-tail reads and no DP traffic. |
+| `byte_returns` | 2 | All 256 constants with full A16 zero extension, both I states and compiler modes, fixed images and two o65 placements, framed/branch returns, captured/direct/indirect fallbacks, independent ca65 tails, exact RTL reads and no tail writes or DP traffic. |
 | `word_comparisons` | 5 | All signed/unsigned word relations, stored/returned Boolean bytes, canaries, casts and operand orders, clobbering calls, exact volatile/stack traces, independent CMP encodings, and code/cycle/stack budgets. |
 | `empty_edges` | 3 | Compact Goto/Fallthrough/ordinary/fused transfers, both arms and widths, exact cycles, ca65 encodings, full register/flag preservation, no data traffic and decoder rejection cases. |
 | `word_edges` | 5 | Direct single-word and staged cyclic copies, typed edge-site evidence, repeated/unused arguments, live-ins, fallback, mutable parameters, ca65 encodings, overlapping homes, exact cycles/flags/traces and staging canaries. |
@@ -167,6 +168,11 @@ placements; its `.o65`, placement and metrics artifacts accompany the existing
 materialized comparison probe.
 
 ## Interrupt schedules and memory ownership
+
+The BYTE constant return probe in `preemption.rs` checks full IRQ and NMI
+restoration at each reached instruction of a zero-frame constant leaf and a
+framed conditional return in both task domains. It also runs the existing seeded
+IRQ/NMI schedules. Source instrumentation normalizes and checks LF/CRLF inputs.
 
 The two-task fixture uses task domains `$2000`/`$2100`, task stacks
 `$4000..$4FFF`/`$5000..$5FFF`, IRQ domain `$2300` and IRQ stack `$6000..$6FFF`.

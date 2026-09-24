@@ -794,6 +794,25 @@ fn run_checked_fused_irq(h: &mut ContextHarness) -> (u32, u8) {
 }
 
 #[test]
+fn byte_constant_returns_restore_full_state_in_both_task_domains() {
+    let original = fixture("preemption.act");
+    let modify = |s: &str| {
+        s.replace("\r\n", "\n")
+            .replace(
+                "CARD FUNC Read(",
+                "BYTE FUNC ByteConstant() RETURN(255)\nBYTE FUNC ByteFramed(CARD value) BYTE saved saved=BYTE(value) IF saved=13 THEN RETURN(128) FI RETURN(0)\nCARD FUNC Read(",
+            )
+            .replace(
+                "  work.done=1",
+                "  work.result==+CARD(ByteConstant())+CARD(ByteFramed(13))+CARD(ByteFramed(41))-383\n  work.done=1",
+            )
+    };
+    let source = modify(&original);
+    assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+    check_narrow_preemption(&source, ["BYTECONSTANT", "BYTEFRAMED"], "byte-return");
+}
+
+#[test]
 fn byte_comparisons_restore_full_state_at_each_reached_task_instruction() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

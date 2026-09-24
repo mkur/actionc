@@ -1,0 +1,394 @@
+[
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "identity",
+    "code_bytes": 35,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "identity",
+    "code_bytes": 5,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "identity",
+    "code_bytes": 35,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "identity",
+    "code_bytes": 2,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "add",
+    "code_bytes": 46,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "add",
+    "code_bytes": 8,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "add",
+    "code_bytes": 46,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "add",
+    "code_bytes": 8,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "subtract",
+    "code_bytes": 46,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "subtract",
+    "code_bytes": 8,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "subtract",
+    "code_bytes": 46,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "subtract",
+    "code_bytes": 5,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "constant_chain",
+    "code_bytes": 131,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "constant_chain",
+    "code_bytes": 9,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "constant_chain",
+    "code_bytes": 41,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "constant_chain",
+    "code_bytes": 6,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "maximum",
+    "code_bytes": 74,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "maximum",
+    "code_bytes": 17,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "maximum",
+    "code_bytes": 74,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "maximum",
+    "code_bytes": 12,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "wide_shift",
+    "code_bytes": 385,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "wide_shift",
+    "code_bytes": 73,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "wide_shift",
+    "code_bytes": 361,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "wide_shift",
+    "code_bytes": 57,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "loop_rotation",
+    "code_bytes": 154,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "loop_rotation",
+    "code_bytes": 65,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "loop_rotation",
+    "code_bytes": 110,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "loop_rotation",
+    "code_bytes": 37,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "sum_loop",
+    "code_bytes": 130,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "sum_loop",
+    "code_bytes": 32,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "sum_loop",
+    "code_bytes": 104,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "sum_loop",
+    "code_bytes": 22,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "recursive_sum",
+    "code_bytes": 170,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "recursive_sum",
+    "code_bytes": 29,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "recursive_sum",
+    "code_bytes": 155,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "recursive_sum",
+    "code_bytes": 28,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "direct_calls",
+    "code_bytes": 239,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "direct_calls",
+    "code_bytes": 35,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "direct_calls",
+    "code_bytes": 239,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "direct_calls",
+    "code_bytes": 24,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "byte_sum",
+    "code_bytes": 228,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "byte_sum",
+    "code_bytes": 68,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "byte_sum",
+    "code_bytes": 202,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "byte_sum",
+    "code_bytes": 35,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "record_field",
+    "code_bytes": 64,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "record_field",
+    "code_bytes": 25,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "record_field",
+    "code_bytes": 64,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "record_field",
+    "code_bytes": 10,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "unlink",
+    "code_bytes": 173,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "unlink",
+    "code_bytes": 121,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "unlink",
+    "code_bytes": 111,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "unlink",
+    "code_bytes": 77,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "raw",
+    "case": "forward_copy",
+    "code_bytes": 281,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "forward_copy",
+    "code_bytes": 79,
+    "unchanged": true
+  },
+  {
+    "compiler": "actionc",
+    "mode": "optimized",
+    "case": "forward_copy",
+    "code_bytes": 268,
+    "unchanged": true
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "forward_copy",
+    "code_bytes": 42,
+    "unchanged": true
+  }
+]

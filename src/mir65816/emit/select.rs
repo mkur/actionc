@@ -2083,6 +2083,23 @@ impl Builder<'_> {
         }
         Ok(())
     }
+    fn byte_constant_return(&mut self, value: &Mir65816Value) -> bool {
+        if self.routine.result_home
+            != Some(Mir65816AbiHome::NativeResult(
+                abi::ResultLocation::A8ZeroExtended,
+            ))
+        {
+            return false;
+        }
+        let Mir65816Value::U8(value) = value else {
+            return false;
+        };
+        self.code.a16();
+        self.code.word(WordOp::LdaImm, u16::from(*value));
+        // The full A16 load clears hidden B. Shared teardown preserves A;
+        // X is unspecified for BYTE results and needs no preparation.
+        true
+    }
     fn word_return(&mut self, value: &Mir65816Value) -> Result<bool, String> {
         if self.routine.result_home != Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16))
         {
@@ -2106,7 +2123,7 @@ impl Builder<'_> {
                 Some(Mir65816AbiHome::NativeResult(abi::ResultLocation::A16X16)) => 4,
                 _ => return Err("value return has no native result home".into()),
             };
-            if !self.word_return(value)? {
+            if !self.byte_constant_return(value) && !self.word_return(value)? {
                 self.code.a8();
                 self.code.byte(ByteOp::LdaImm, 0);
                 for i in 0..4 {
