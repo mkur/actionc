@@ -6,8 +6,9 @@ commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
 ## Evidence and objective
 
-The Exec816 `execlists.act` analysis covers twelve list operations from frozen
-Exec revision `c3500c8`. Optimized Action code occupies 3,557 bytes, including
+The [Exec816 list analysis](benchmarks/65816-execlists/README.md) covers twelve
+list operations from frozen Exec revision `c3500c8`. Optimized Action code
+occupies 3,557 bytes, including
 540 bytes of entry/call guards; the body total is 3,017 bytes. Equivalent
 optimized Calypsi code occupies 1,089 bytes, including 169 bytes of shared
 helpers. Its packed fields use `__far24`, with `__huge` working pointers to
@@ -227,8 +228,8 @@ For every implementation slice:
 3. Run the list-state oracle in both compiler modes and preserve complete
    memory/canary, result, stack, DP and interrupt-mask checks. Treat the known
    external vbcc failures as recorded failures, not expected-success exemptions.
-   Preserve the pending comparison tools/fixtures in a separate supporting
-   commit before relying on them as a reproducible implementation gate.
+   Use the committed comparison tools/fixtures and retain their artifact hashes
+   as the reproducible implementation gate.
 4. Record code bytes and cycles, including guard and helper accounting, plus
    stack/DP traffic and reservations. Attribute reductions to the current
    slice; distinguish encoding forecasts from measured changes.

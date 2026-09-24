@@ -1,0 +1,272 @@
+[
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_NEWLIST_B3502541",
+    "offset": 36,
+    "instructions": [
+      "010024  E2 20       SEP #$20",
+      "010026  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_NEWLIST_B3502541",
+    "offset": 105,
+    "instructions": [
+      "010069  A0 00 00    LDY #$0000",
+      "01006C  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_NEWLIST_B3502541",
+    "offset": 170,
+    "instructions": [
+      "0100AA  E2 20       SEP #$20",
+      "0100AC  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+    "offset": 44,
+    "instructions": [
+      "010199  A0 00 00    LDY #$0000",
+      "01019C  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+    "offset": 70,
+    "instructions": [
+      "0101B3  E2 20       SEP #$20",
+      "0101B5  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+    "offset": 44,
+    "instructions": [
+      "0102D7  A0 00 00    LDY #$0000",
+      "0102DA  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+    "offset": 86,
+    "instructions": [
+      "010301  E2 20       SEP #$20",
+      "010303  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+    "offset": 178,
+    "instructions": [
+      "01035D  A0 00 00    LDY #$0000",
+      "010360  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+    "offset": 262,
+    "instructions": [
+      "0103B1  A0 00 00    LDY #$0000",
+      "0103B4  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+    "offset": 86,
+    "instructions": [
+      "01041E  E2 20       SEP #$20",
+      "010420  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+    "offset": 155,
+    "instructions": [
+      "010463  A0 00 00    LDY #$0000",
+      "010466  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+    "offset": 239,
+    "instructions": [
+      "0104B7  A0 00 00    LDY #$0000",
+      "0104BA  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_INSERT_468B11BA",
+    "offset": 72,
+    "instructions": [
+      "010540  E2 20       SEP #$20",
+      "010542  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "empty_A8_excursion",
+    "routine": "M_EXECLISTS_INSERT_468B11BA",
+    "offset": 250,
+    "instructions": [
+      "0105F2  E2 20       SEP #$20",
+      "0105F4  C2 20       REP #$20"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_INSERT_468B11BA",
+    "offset": 447,
+    "instructions": [
+      "0106B7  A0 00 00    LDY #$0000",
+      "0106BA  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_INSERT_468B11BA",
+    "offset": 541,
+    "instructions": [
+      "010715  A0 00 00    LDY #$0000",
+      "010718  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_INSERT_468B11BA",
+    "offset": 625,
+    "instructions": [
+      "010769  A0 00 00    LDY #$0000",
+      "01076C  97 00       STA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+    "offset": 54,
+    "instructions": [
+      "0107B6  A0 00 00    LDY #$0000",
+      "0107B9  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+    "offset": 74,
+    "instructions": [
+      "0107CA  A0 00 00    LDY #$0000",
+      "0107CD  97 03       STA [$03],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+    "offset": 44,
+    "instructions": [
+      "010819  A0 00 00    LDY #$0000",
+      "01081C  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+    "offset": 78,
+    "instructions": [
+      "01083B  A0 00 00    LDY #$0000",
+      "01083E  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+    "offset": 44,
+    "instructions": [
+      "0109DD  A0 00 00    LDY #$0000",
+      "0109E0  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+    "offset": 98,
+    "instructions": [
+      "010A13  A0 00 00    LDY #$0000",
+      "010A16  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+    "offset": 354,
+    "instructions": [
+      "010B13  A0 00 00    LDY #$0000",
+      "010B16  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+    "offset": 44,
+    "instructions": [
+      "010BD4  A0 00 00    LDY #$0000",
+      "010BD7  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+    "offset": 98,
+    "instructions": [
+      "010C0A  A0 00 00    LDY #$0000",
+      "010C0D  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+    "offset": 246,
+    "instructions": [
+      "010C9E  A0 00 00    LDY #$0000",
+      "010CA1  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+    "offset": 265,
+    "instructions": [
+      "010CB1  A0 00 00    LDY #$0000",
+      "010CB4  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+    "offset": 295,
+    "instructions": [
+      "010CCF  A0 00 00    LDY #$0000",
+      "010CD2  B7 00       LDA [$00],Y"
+    ]
+  },
+  {
+    "kind": "zero_indexed_access",
+    "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+    "offset": 509,
+    "instructions": [
+      "010DA5  A0 00 00    LDY #$0000",
+      "010DA8  B7 00       LDA [$00],Y"
+    ]
+  }
+]

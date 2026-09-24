@@ -1,0 +1,27 @@
+mode,routine,action_bytes,action_guard_bytes,action_body_bytes,vbcc_bytes,calypsi_bytes,action_frame
+raw,NewList,259,27,232,96,100,12
+raw,NewMinList,122,54,68,19,5,8
+raw,IsListEmpty,179,27,152,62,43,12
+raw,IsMinListEmpty,139,54,85,27,5,8
+raw,AddHead,285,27,258,131,126,16
+raw,AddTail,304,27,277,144,156,16
+raw,Insert,648,81,567,227,261,16
+raw,Remove,171,27,144,121,91,6
+raw,RemHead,234,54,180,75,70,12
+raw,RemTail,234,54,180,89,100,12
+raw,Enqueue,495,81,414,206,165,20
+raw,FindName,565,27,538,242,238,22
+raw,Shared helpers,0,0,0,0,0,0
+optimized,NewList,243,27,216,75,52,12
+optimized,NewMinList,122,54,68,10,5,8
+optimized,IsListEmpty,179,27,152,48,34,12
+optimized,IsMinListEmpty,139,54,85,10,5,8
+optimized,AddHead,285,27,258,95,63,16
+optimized,AddTail,304,27,277,108,79,16
+optimized,Insert,648,81,567,182,180,16
+optimized,Remove,109,27,82,77,47,0
+optimized,RemHead,226,54,172,43,51,12
+optimized,RemTail,226,54,172,73,83,12
+optimized,Enqueue,503,81,422,161,126,20
+optimized,FindName,573,27,546,156,195,28
+optimized,Shared helpers,0,0,0,0,169,0

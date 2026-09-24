@@ -1,0 +1,1713 @@
+{
+  "frozen_image_sha256": "41de4b980b93af1408a04fcc90690c84a984e8540887dc25aaf737cd57858c7a",
+  "frozen_inventory_sha256": "ce3523709b3dbc8be6069cf12337fc310583cfaf4fb4803dc83339381ce58b7b",
+  "standalone_image_sha256": "be4d3101429faf1eb807025d3e0ccff5aba1492c1620ddf007914a3975711899",
+  "all_12_routines_match_frozen_machine_code_after_relocation": true,
+  "frame_and_home_contracts_equal": true,
+  "routines": [
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "bytes": 243,
+      "spans": {
+        "Load/3/Parameter": 28,
+        "AddressOf/3": 71,
+        "Cast/3->3/Pointer": 24,
+        "Store/3/LongIndirect": 83,
+        "Terminator/Return": 9
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_NEWMINLIST_A2695943",
+      "bytes": 122,
+      "spans": {
+        "Load/3/Parameter": 8,
+        "Cast/3->3/Pointer": 14,
+        "Call/Direct": 65,
+        "Terminator/Return": 7
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "bytes": 179,
+      "spans": {
+        "Load/3/Parameter": 18,
+        "Load/3/LongIndirect": 24,
+        "AddressOf/3": 45,
+        "Cast/3->3/Pointer": 12,
+        "Compare/3/false/Eq": 32,
+        "Terminator/Return": 20
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_ISMINLISTEMPTY_6D517164",
+      "bytes": 139,
+      "spans": {
+        "Load/3/Parameter": 8,
+        "Cast/3->3/Pointer": 14,
+        "Call/Direct": 71,
+        "Terminator/Return": 18
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "bytes": 285,
+      "spans": {
+        "Load/3/Parameter": 60,
+        "Load/3/LongIndirect": 24,
+        "Store/3/AutomaticFrame": 10,
+        "AddressOf/3": 26,
+        "Cast/3->3/Pointer": 12,
+        "Store/3/LongIndirect": 98,
+        "Load/3/AutomaticFrame": 18,
+        "Terminator/Return": 9
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "bytes": 304,
+      "spans": {
+        "Load/3/Parameter": 60,
+        "Load/3/LongIndirect": 24,
+        "Store/3/AutomaticFrame": 10,
+        "AddressOf/3": 45,
+        "Cast/3->3/Pointer": 12,
+        "Store/3/LongIndirect": 98,
+        "Load/3/AutomaticFrame": 18,
+        "Terminator/Return": 9
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "bytes": 648,
+      "spans": {
+        "Load/3/Parameter": 132,
+        "Compare/3/false/Eq": 68,
+        "Call/Direct": 154,
+        "Terminator/Return": 23,
+        "AddressOf/3": 71,
+        "Cast/3->3/Pointer": 24,
+        "Load/3/LongIndirect": 24,
+        "Store/3/AutomaticFrame": 10,
+        "Store/3/LongIndirect": 96,
+        "Load/3/AutomaticFrame": 18
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "bytes": 109,
+      "spans": {
+        "Load/3/Parameter": 8,
+        "Load/3/LongIndirect": 34,
+        "Store/3/LongIndirect": 36,
+        "Terminator/Return": 3
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "bytes": 226,
+      "spans": {
+        "Load/3/Parameter": 8,
+        "Load/3/LongIndirect": 48,
+        "Store/3/AutomaticFrame": 10,
+        "Compare/3/false/Eq": 20,
+        "Terminator/Return": 33,
+        "Load/3/AutomaticFrame": 16,
+        "Call/Direct": 63
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "bytes": 226,
+      "spans": {
+        "Load/3/Parameter": 8,
+        "Load/3/LongIndirect": 48,
+        "Store/3/AutomaticFrame": 10,
+        "Compare/3/false/Eq": 20,
+        "Terminator/Return": 33,
+        "Load/3/AutomaticFrame": 16,
+        "Call/Direct": 63
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "bytes": 503,
+      "spans": {
+        "Load/3/Parameter": 48,
+        "Load/3/LongIndirect": 96,
+        "Terminator/Goto": 63,
+        "Compare/3/false/Ne": 19,
+        "Load/1/LongIndirect": 36,
+        "Binary/1/Xor": 20,
+        "Compare/1/false/Gt": 13,
+        "Call/Direct": 166,
+        "Terminator/Return": 14
+      }
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "bytes": 573,
+      "spans": {
+        "Load/3/Parameter": 18,
+        "Load/3/LongIndirect": 96,
+        "Terminator/Goto": 172,
+        "Compare/3/false/Ne": 36,
+        "Terminator/Return": 33,
+        "Load/1/LongIndirect": 53,
+        "Compare/1/false/Eq": 25,
+        "Cast/3->3/PointerToInteger": 26,
+        "Binary/3/Add": 62,
+        "Cast/3->3/IntegerToPointer": 24
+      }
+    }
+  ],
+  "spans": [
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "AddressOf { dest: TempId(2), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 81,
+      "index": 1,
+      "kind": "AddressOf/3",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Cast { dest: TempId(3), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(2), ByteSize(3)) }",
+      "end": 93,
+      "index": 2,
+      "kind": "Cast/3->3/Pointer",
+      "start": 81
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(3), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 119,
+      "index": 3,
+      "kind": "Store/3/LongIndirect",
+      "start": 93
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Load { dest: TempId(4), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 129,
+      "index": 4,
+      "kind": "Load/3/Parameter",
+      "start": 119
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(4), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Null(ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 160,
+      "index": 5,
+      "kind": "Store/3/LongIndirect",
+      "start": 129
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Load { dest: TempId(5), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 170,
+      "index": 6,
+      "kind": "Load/3/Parameter",
+      "start": 160
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "AddressOf { dest: TempId(7), address: Mir65816Address { base: Indirect(Temp(TempId(5), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 196,
+      "index": 7,
+      "kind": "AddressOf/3",
+      "start": 170
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Cast { dest: TempId(8), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(7), ByteSize(3)) }",
+      "end": 208,
+      "index": 8,
+      "kind": "Cast/3->3/Pointer",
+      "start": 196
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(5), ByteSize(3))), displacement: ByteOffset(6), index: None, mode: LongIndirect }, value: Temp(TempId(8), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 234,
+      "index": 9,
+      "kind": "Store/3/LongIndirect",
+      "start": 208
+    },
+    {
+      "routine": "M_EXECLISTS_NEWLIST_B3502541",
+      "block": 0,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 243,
+      "index": 10,
+      "kind": "Terminator/Return",
+      "start": 234
+    },
+    {
+      "routine": "M_EXECLISTS_NEWMINLIST_A2695943",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_NEWMINLIST_A2695943",
+      "block": 0,
+      "description": "Cast { dest: TempId(1), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(0), ByteSize(3)) }",
+      "end": 50,
+      "index": 1,
+      "kind": "Cast/3->3/Pointer",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_NEWMINLIST_A2695943",
+      "block": 0,
+      "description": "Call { target: Direct(8), signature: Some(SignatureId(4291537177)), args: [Temp(TempId(1), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(3), transfer: Jsl, caller_cleanup_bytes: ByteSize(3) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(3), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 115,
+      "index": 2,
+      "kind": "Call/Direct",
+      "start": 50
+    },
+    {
+      "routine": "M_EXECLISTS_NEWMINLIST_A2695943",
+      "block": 0,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 122,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 115
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "Load { dest: TempId(2), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 70,
+      "index": 2,
+      "kind": "Load/3/Parameter",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "AddressOf { dest: TempId(3), address: Mir65816Address { base: Indirect(Temp(TempId(2), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 115,
+      "index": 3,
+      "kind": "AddressOf/3",
+      "start": 70
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "Cast { dest: TempId(4), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(3), ByteSize(3)) }",
+      "end": 127,
+      "index": 4,
+      "kind": "Cast/3->3/Pointer",
+      "start": 115
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "Compare { dest: TempId(5), width: ByteSize(3), signed: false, operation: Eq, left: Temp(TempId(1), ByteSize(3)), right: Temp(TempId(4), ByteSize(3)) }",
+      "end": 159,
+      "index": 5,
+      "kind": "Compare/3/false/Eq",
+      "start": 127
+    },
+    {
+      "routine": "M_EXECLISTS_ISLISTEMPTY_6EEB0796",
+      "block": 0,
+      "description": "Return { value: Some(Temp(TempId(5), ByteSize(1))), release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 179,
+      "index": 6,
+      "kind": "Terminator/Return",
+      "start": 159
+    },
+    {
+      "routine": "M_EXECLISTS_ISMINLISTEMPTY_6D517164",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_ISMINLISTEMPTY_6D517164",
+      "block": 0,
+      "description": "Cast { dest: TempId(1), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(0), ByteSize(3)) }",
+      "end": 50,
+      "index": 1,
+      "kind": "Cast/3->3/Pointer",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_ISMINLISTEMPTY_6D517164",
+      "block": 0,
+      "description": "Call { target: Direct(10), signature: Some(SignatureId(2296723095)), args: [Temp(TempId(1), ByteSize(3))], result: Some((TempId(2), ByteSize(1))), convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(3), transfer: Jsl, caller_cleanup_bytes: ByteSize(3) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }], result: Some(NativeResult(A8ZeroExtended)), outgoing_bytes: ByteSize(3), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 121,
+      "index": 2,
+      "kind": "Call/Direct",
+      "start": 50
+    },
+    {
+      "routine": "M_EXECLISTS_ISMINLISTEMPTY_6D517164",
+      "block": 0,
+      "description": "Return { value: Some(Temp(TempId(2), ByteSize(1))), release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 139,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 121
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, value: Temp(TempId(1), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 70,
+      "index": 2,
+      "kind": "Store/3/AutomaticFrame",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(2), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 78,
+      "index": 3,
+      "kind": "Load/3/Parameter",
+      "start": 70
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 86,
+      "index": 4,
+      "kind": "Load/3/Parameter",
+      "start": 78
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "AddressOf { dest: TempId(4), address: Mir65816Address { base: Indirect(Temp(TempId(3), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 112,
+      "index": 5,
+      "kind": "AddressOf/3",
+      "start": 86
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Cast { dest: TempId(5), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(4), ByteSize(3)) }",
+      "end": 124,
+      "index": 6,
+      "kind": "Cast/3->3/Pointer",
+      "start": 112
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(2), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Temp(TempId(5), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 150,
+      "index": 7,
+      "kind": "Store/3/LongIndirect",
+      "start": 124
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(6), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 160,
+      "index": 8,
+      "kind": "Load/3/Parameter",
+      "start": 150
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(7), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 168,
+      "index": 9,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 160
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(6), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(7), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 192,
+      "index": 10,
+      "kind": "Store/3/LongIndirect",
+      "start": 168
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(8), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 202,
+      "index": 11,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 192
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(9), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 210,
+      "index": 12,
+      "kind": "Load/3/Parameter",
+      "start": 202
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(8), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Temp(TempId(9), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 234,
+      "index": 13,
+      "kind": "Store/3/LongIndirect",
+      "start": 210
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(10), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 244,
+      "index": 14,
+      "kind": "Load/3/Parameter",
+      "start": 234
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Load { dest: TempId(11), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 252,
+      "index": 15,
+      "kind": "Load/3/Parameter",
+      "start": 244
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(10), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(11), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 276,
+      "index": 16,
+      "kind": "Store/3/LongIndirect",
+      "start": 252
+    },
+    {
+      "routine": "M_EXECLISTS_ADDHEAD_3AE3E6E4",
+      "block": 0,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 285,
+      "index": 17,
+      "kind": "Terminator/Return",
+      "start": 276
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(6), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, value: Temp(TempId(1), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 70,
+      "index": 2,
+      "kind": "Store/3/AutomaticFrame",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(2), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 78,
+      "index": 3,
+      "kind": "Load/3/Parameter",
+      "start": 70
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 86,
+      "index": 4,
+      "kind": "Load/3/Parameter",
+      "start": 78
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "AddressOf { dest: TempId(4), address: Mir65816Address { base: Indirect(Temp(TempId(3), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 131,
+      "index": 5,
+      "kind": "AddressOf/3",
+      "start": 86
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Cast { dest: TempId(5), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(4), ByteSize(3)) }",
+      "end": 143,
+      "index": 6,
+      "kind": "Cast/3->3/Pointer",
+      "start": 131
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(2), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(5), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 169,
+      "index": 7,
+      "kind": "Store/3/LongIndirect",
+      "start": 143
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(6), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 179,
+      "index": 8,
+      "kind": "Load/3/Parameter",
+      "start": 169
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(7), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 187,
+      "index": 9,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 179
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(6), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Temp(TempId(7), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 211,
+      "index": 10,
+      "kind": "Store/3/LongIndirect",
+      "start": 187
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(8), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 221,
+      "index": 11,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 211
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(9), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 229,
+      "index": 12,
+      "kind": "Load/3/Parameter",
+      "start": 221
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(8), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(9), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 253,
+      "index": 13,
+      "kind": "Store/3/LongIndirect",
+      "start": 229
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(10), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 263,
+      "index": 14,
+      "kind": "Load/3/Parameter",
+      "start": 253
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Load { dest: TempId(11), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 271,
+      "index": 15,
+      "kind": "Load/3/Parameter",
+      "start": 263
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(10), ByteSize(3))), displacement: ByteOffset(6), index: None, mode: LongIndirect }, value: Temp(TempId(11), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 295,
+      "index": 16,
+      "kind": "Store/3/LongIndirect",
+      "start": 271
+    },
+    {
+      "routine": "M_EXECLISTS_ADDTAIL_A1C0F364",
+      "block": 0,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 304,
+      "index": 17,
+      "kind": "Terminator/Return",
+      "start": 295
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(2)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 0,
+      "description": "Compare { dest: TempId(1), width: ByteSize(3), signed: false, operation: Eq, left: Temp(TempId(0), ByteSize(3)), right: Null(ByteSize(3)) }",
+      "end": 56,
+      "index": 1,
+      "kind": "Compare/3/false/Eq",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 1,
+      "description": "Load { dest: TempId(7), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 142,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 134
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 1,
+      "description": "Load { dest: TempId(8), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 150,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 142
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 1,
+      "description": "Call { target: Direct(12), signature: Some(SignatureId(1354438862)), args: [Temp(TempId(7), ByteSize(3)), Temp(TempId(8), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(6), transfer: Jsl, caller_cleanup_bytes: ByteSize(7) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }, StackArgument { offset: ByteOffset(3), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(7), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 227,
+      "index": 2,
+      "kind": "Call/Direct",
+      "start": 150
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 1,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 234,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 227
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 2,
+      "description": "Load { dest: TempId(2), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(2)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 64,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 56
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 2,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 72,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 64
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 2,
+      "description": "AddressOf { dest: TempId(4), address: Mir65816Address { base: Indirect(Temp(TempId(3), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 98,
+      "index": 2,
+      "kind": "AddressOf/3",
+      "start": 72
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 2,
+      "description": "Cast { dest: TempId(5), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(4), ByteSize(3)) }",
+      "end": 110,
+      "index": 3,
+      "kind": "Cast/3->3/Pointer",
+      "start": 98
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 2,
+      "description": "Compare { dest: TempId(6), width: ByteSize(3), signed: false, operation: Eq, left: Temp(TempId(2), ByteSize(3)), right: Temp(TempId(5), ByteSize(3)) }",
+      "end": 134,
+      "index": 4,
+      "kind": "Compare/3/false/Eq",
+      "start": 110
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 3,
+      "description": "Load { dest: TempId(9), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(2)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 242,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 234
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 3,
+      "description": "Load { dest: TempId(10), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 250,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 242
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 3,
+      "description": "AddressOf { dest: TempId(11), address: Mir65816Address { base: Indirect(Temp(TempId(10), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, width: ByteSize(3) }",
+      "end": 295,
+      "index": 2,
+      "kind": "AddressOf/3",
+      "start": 250
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 3,
+      "description": "Cast { dest: TempId(12), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: Pointer, value: Temp(TempId(11), ByteSize(3)) }",
+      "end": 307,
+      "index": 3,
+      "kind": "Cast/3->3/Pointer",
+      "start": 295
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 3,
+      "description": "Compare { dest: TempId(13), width: ByteSize(3), signed: false, operation: Eq, left: Temp(TempId(9), ByteSize(3)), right: Temp(TempId(12), ByteSize(3)) }",
+      "end": 331,
+      "index": 4,
+      "kind": "Compare/3/false/Eq",
+      "start": 307
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 4,
+      "description": "Load { dest: TempId(14), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 339,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 331
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 4,
+      "description": "Load { dest: TempId(15), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 347,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 339
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 4,
+      "description": "Call { target: Direct(13), signature: Some(SignatureId(1354438862)), args: [Temp(TempId(14), ByteSize(3)), Temp(TempId(15), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(6), transfer: Jsl, caller_cleanup_bytes: ByteSize(7) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }, StackArgument { offset: ByteOffset(3), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(7), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 424,
+      "index": 2,
+      "kind": "Call/Direct",
+      "start": 347
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 4,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 431,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 424
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(16), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(2)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 439,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 431
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(17), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(16), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 463,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 439
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Store { address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, value: Temp(TempId(17), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 473,
+      "index": 2,
+      "kind": "Store/3/AutomaticFrame",
+      "start": 463
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(18), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 481,
+      "index": 3,
+      "kind": "Load/3/Parameter",
+      "start": 473
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(19), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(2)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 489,
+      "index": 4,
+      "kind": "Load/3/Parameter",
+      "start": 481
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(18), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Temp(TempId(19), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 513,
+      "index": 5,
+      "kind": "Store/3/LongIndirect",
+      "start": 489
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(20), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 523,
+      "index": 6,
+      "kind": "Load/3/Parameter",
+      "start": 513
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(21), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 531,
+      "index": 7,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 523
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(20), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(21), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 555,
+      "index": 8,
+      "kind": "Store/3/LongIndirect",
+      "start": 531
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(22), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 565,
+      "index": 9,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 555
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(23), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 573,
+      "index": 10,
+      "kind": "Load/3/Parameter",
+      "start": 565
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(22), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Temp(TempId(23), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 597,
+      "index": 11,
+      "kind": "Store/3/LongIndirect",
+      "start": 573
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(24), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(2)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 607,
+      "index": 12,
+      "kind": "Load/3/Parameter",
+      "start": 597
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Load { dest: TempId(25), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 615,
+      "index": 13,
+      "kind": "Load/3/Parameter",
+      "start": 607
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(24), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(25), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 639,
+      "index": 14,
+      "kind": "Store/3/LongIndirect",
+      "start": 615
+    },
+    {
+      "routine": "M_EXECLISTS_INSERT_468B11BA",
+      "block": 5,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 648,
+      "index": 15,
+      "kind": "Terminator/Return",
+      "start": 639
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "block": 0,
+      "description": "Load { dest: TempId(8), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(8), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 52,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "block": 0,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(8), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 70,
+      "index": 2,
+      "kind": "Load/3/LongIndirect",
+      "start": 52
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(1), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, value: Temp(TempId(3), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 88,
+      "index": 3,
+      "kind": "Store/3/LongIndirect",
+      "start": 70
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: Indirect(Temp(TempId(3), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, value: Temp(TempId(1), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 106,
+      "index": 4,
+      "kind": "Store/3/LongIndirect",
+      "start": 88
+    },
+    {
+      "routine": "M_EXECLISTS_REMOVE_2E26C2C1",
+      "block": 0,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 109,
+      "index": 5,
+      "kind": "Terminator/Return",
+      "start": 106
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, value: Temp(TempId(1), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 70,
+      "index": 2,
+      "kind": "Store/3/AutomaticFrame",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 0,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(1), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 94,
+      "index": 3,
+      "kind": "Load/3/LongIndirect",
+      "start": 70
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 0,
+      "description": "Compare { dest: TempId(4), width: ByteSize(3), signed: false, operation: Eq, left: Temp(TempId(3), ByteSize(3)), right: Null(ByteSize(3)) }",
+      "end": 114,
+      "index": 4,
+      "kind": "Compare/3/false/Eq",
+      "start": 94
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 1,
+      "description": "Return { value: Some(Null(ByteSize(3))), release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 129,
+      "index": 0,
+      "kind": "Terminator/Return",
+      "start": 114
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 2,
+      "description": "Load { dest: TempId(5), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 137,
+      "index": 0,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 129
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 2,
+      "description": "Call { target: Direct(15), signature: Some(SignatureId(2932625977)), args: [Temp(TempId(5), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(3), transfer: Jsl, caller_cleanup_bytes: ByteSize(3) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(3), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 200,
+      "index": 1,
+      "kind": "Call/Direct",
+      "start": 137
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 2,
+      "description": "Load { dest: TempId(6), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 208,
+      "index": 2,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 200
+    },
+    {
+      "routine": "M_EXECLISTS_REMHEAD_F8063CE7",
+      "block": 2,
+      "description": "Return { value: Some(Temp(TempId(6), ByteSize(3))), release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 226,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 208
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(6), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 0,
+      "description": "Store { address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, value: Temp(TempId(1), ByteSize(3)), width: ByteSize(3), volatile: false }",
+      "end": 70,
+      "index": 2,
+      "kind": "Store/3/AutomaticFrame",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 0,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(1), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 94,
+      "index": 3,
+      "kind": "Load/3/LongIndirect",
+      "start": 70
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 0,
+      "description": "Compare { dest: TempId(4), width: ByteSize(3), signed: false, operation: Eq, left: Temp(TempId(3), ByteSize(3)), right: Null(ByteSize(3)) }",
+      "end": 114,
+      "index": 4,
+      "kind": "Compare/3/false/Eq",
+      "start": 94
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 1,
+      "description": "Return { value: Some(Null(ByteSize(3))), release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 129,
+      "index": 0,
+      "kind": "Terminator/Return",
+      "start": 114
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 2,
+      "description": "Load { dest: TempId(5), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 137,
+      "index": 0,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 129
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 2,
+      "description": "Call { target: Direct(15), signature: Some(SignatureId(2932625977)), args: [Temp(TempId(5), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(3), transfer: Jsl, caller_cleanup_bytes: ByteSize(3) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(3), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 200,
+      "index": 1,
+      "kind": "Call/Direct",
+      "start": 137
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 2,
+      "description": "Load { dest: TempId(6), width: ByteSize(3), address: Mir65816Address { base: AutomaticFrame(Mir65816FrameObjectId(0)), displacement: ByteOffset(0), index: None, mode: AutomaticFrame }, volatile: false }",
+      "end": 208,
+      "index": 2,
+      "kind": "Load/3/AutomaticFrame",
+      "start": 200
+    },
+    {
+      "routine": "M_EXECLISTS_REMTAIL_292EAA27",
+      "block": 2,
+      "description": "Return { value: Some(Temp(TempId(6), ByteSize(3))), release_frame_bytes: ByteSize(4), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 226,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 208
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 0,
+      "description": "Goto(Mir65816Edge { target: BlockId(1), args: [Temp(TempId(1), ByteSize(3))] })",
+      "end": 90,
+      "index": 2,
+      "kind": "Terminator/Goto",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 1,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(20), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 114,
+      "index": 0,
+      "kind": "Load/3/LongIndirect",
+      "start": 90
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 1,
+      "description": "Compare { dest: TempId(4), width: ByteSize(3), signed: false, operation: Ne, left: Temp(TempId(3), ByteSize(3)), right: Null(ByteSize(3)) }",
+      "end": 133,
+      "index": 1,
+      "kind": "Compare/3/false/Ne",
+      "start": 114
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 2,
+      "description": "Load { dest: TempId(5), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 141,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 133
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 2,
+      "description": "Load { dest: TempId(6), width: ByteSize(1), address: Mir65816Address { base: Indirect(Temp(TempId(5), ByteSize(3))), displacement: ByteOffset(7), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 158,
+      "index": 1,
+      "kind": "Load/1/LongIndirect",
+      "start": 141
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 2,
+      "description": "Binary { dest: TempId(7), width: ByteSize(1), signed: false, operation: Xor, left: Temp(TempId(6), ByteSize(1)), right: U8(128) }",
+      "end": 168,
+      "index": 2,
+      "kind": "Binary/1/Xor",
+      "start": 158
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 2,
+      "description": "Load { dest: TempId(9), width: ByteSize(1), address: Mir65816Address { base: Indirect(Temp(TempId(20), ByteSize(3))), displacement: ByteOffset(7), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 187,
+      "index": 3,
+      "kind": "Load/1/LongIndirect",
+      "start": 168
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 2,
+      "description": "Binary { dest: TempId(10), width: ByteSize(1), signed: false, operation: Xor, left: Temp(TempId(9), ByteSize(1)), right: U8(128) }",
+      "end": 197,
+      "index": 4,
+      "kind": "Binary/1/Xor",
+      "start": 187
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 2,
+      "description": "Compare { dest: TempId(11), width: ByteSize(1), signed: false, operation: Gt, left: Temp(TempId(7), ByteSize(1)), right: Temp(TempId(10), ByteSize(1)) }",
+      "end": 210,
+      "index": 5,
+      "kind": "Compare/1/false/Gt",
+      "start": 197
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 3,
+      "description": "Load { dest: TempId(18), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 411,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 403
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 3,
+      "description": "Load { dest: TempId(19), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 419,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 411
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 3,
+      "description": "Call { target: Direct(13), signature: Some(SignatureId(1354438862)), args: [Temp(TempId(18), ByteSize(3)), Temp(TempId(19), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(6), transfer: Jsl, caller_cleanup_bytes: ByteSize(7) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }, StackArgument { offset: ByteOffset(3), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(7), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 496,
+      "index": 2,
+      "kind": "Call/Direct",
+      "start": 419
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 3,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 503,
+      "index": 3,
+      "kind": "Terminator/Return",
+      "start": 496
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 4,
+      "description": "Load { dest: TempId(12), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 218,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 210
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 4,
+      "description": "Load { dest: TempId(13), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 226,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 218
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 4,
+      "description": "Load { dest: TempId(15), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(20), ByteSize(3))), displacement: ByteOffset(3), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 250,
+      "index": 2,
+      "kind": "Load/3/LongIndirect",
+      "start": 226
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 4,
+      "description": "Call { target: Direct(14), signature: Some(SignatureId(1107118635)), args: [Temp(TempId(12), ByteSize(3)), Temp(TempId(13), ByteSize(3)), Temp(TempId(15), ByteSize(3))], result: None, convention: Native, plan: Mir65816CallPlan { convention: TargetPublic, native: Some(NativeCallContract { boundary: BoundaryContract { decimal_clear: true, data_bank: 0, direct_page: CurrentExecutionDomain, irq_mask: Preserve }, argument_bytes: ByteSize(9), transfer: Jsl, caller_cleanup_bytes: ByteSize(9) }), arguments: [StackArgument { offset: ByteOffset(0), size: ByteSize(3), alignment: ByteSize(1) }, StackArgument { offset: ByteOffset(3), size: ByteSize(3), alignment: ByteSize(1) }, StackArgument { offset: ByteOffset(6), size: ByteSize(3), alignment: ByteSize(1) }], result: None, outgoing_bytes: ByteSize(9), code_pointer_width: ByteSize(3), call_form: FarJsl, mode_before: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, mode_after: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 }, activation: Fresh, net_stack_delta: 0 } }",
+      "end": 339,
+      "index": 3,
+      "kind": "Call/Direct",
+      "start": 250
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 4,
+      "description": "Return { value: None, release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 346,
+      "index": 4,
+      "kind": "Terminator/Return",
+      "start": 339
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 5,
+      "description": "Load { dest: TempId(17), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(20), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 370,
+      "index": 0,
+      "kind": "Load/3/LongIndirect",
+      "start": 346
+    },
+    {
+      "routine": "M_EXECLISTS_ENQUEUE_763E1E61",
+      "block": 5,
+      "description": "Goto(Mir65816Edge { target: BlockId(1), args: [Temp(TempId(17), ByteSize(3))] })",
+      "end": 403,
+      "index": 1,
+      "kind": "Terminator/Goto",
+      "start": 370
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 0,
+      "description": "Load { dest: TempId(0), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(0)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 36,
+      "index": 0,
+      "kind": "Load/3/Parameter",
+      "start": 28
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 0,
+      "description": "Load { dest: TempId(1), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(0), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 60,
+      "index": 1,
+      "kind": "Load/3/LongIndirect",
+      "start": 36
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 0,
+      "description": "Goto(Mir65816Edge { target: BlockId(1), args: [Temp(TempId(1), ByteSize(3))] })",
+      "end": 90,
+      "index": 2,
+      "kind": "Terminator/Goto",
+      "start": 60
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 1,
+      "description": "Load { dest: TempId(3), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(31), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 114,
+      "index": 0,
+      "kind": "Load/3/LongIndirect",
+      "start": 90
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 1,
+      "description": "Compare { dest: TempId(4), width: ByteSize(3), signed: false, operation: Ne, left: Temp(TempId(3), ByteSize(3)), right: Null(ByteSize(3)) }",
+      "end": 133,
+      "index": 1,
+      "kind": "Compare/3/false/Ne",
+      "start": 114
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 2,
+      "description": "Load { dest: TempId(6), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(31), ByteSize(3))), displacement: ByteOffset(8), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 157,
+      "index": 0,
+      "kind": "Load/3/LongIndirect",
+      "start": 133
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 2,
+      "description": "Load { dest: TempId(7), width: ByteSize(3), address: Mir65816Address { base: Parameter(ParamId(1)), displacement: ByteOffset(0), index: None, mode: Parameter }, volatile: false }",
+      "end": 167,
+      "index": 1,
+      "kind": "Load/3/Parameter",
+      "start": 157
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 2,
+      "description": "Compare { dest: TempId(9), width: ByteSize(3), signed: false, operation: Ne, left: Temp(TempId(6), ByteSize(3)), right: Null(ByteSize(3)) }",
+      "end": 184,
+      "index": 2,
+      "kind": "Compare/3/false/Ne",
+      "start": 167
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 3,
+      "description": "Return { value: Some(Null(ByteSize(3))), release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 573,
+      "index": 0,
+      "kind": "Terminator/Return",
+      "start": 558
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 4,
+      "description": "Goto(Mir65816Edge { target: BlockId(6), args: [Temp(TempId(6), ByteSize(3)), Temp(TempId(7), ByteSize(3))] })",
+      "end": 236,
+      "index": 0,
+      "kind": "Terminator/Goto",
+      "start": 184
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 5,
+      "description": "Load { dest: TempId(30), width: ByteSize(3), address: Mir65816Address { base: Indirect(Temp(TempId(31), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 525,
+      "index": 0,
+      "kind": "Load/3/LongIndirect",
+      "start": 501
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 5,
+      "description": "Goto(Mir65816Edge { target: BlockId(1), args: [Temp(TempId(30), ByteSize(3))] })",
+      "end": 558,
+      "index": 1,
+      "kind": "Terminator/Goto",
+      "start": 525
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 6,
+      "description": "Load { dest: TempId(11), width: ByteSize(1), address: Mir65816Address { base: Indirect(Temp(TempId(32), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 253,
+      "index": 0,
+      "kind": "Load/1/LongIndirect",
+      "start": 236
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 6,
+      "description": "Load { dest: TempId(13), width: ByteSize(1), address: Mir65816Address { base: Indirect(Temp(TempId(33), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 272,
+      "index": 1,
+      "kind": "Load/1/LongIndirect",
+      "start": 253
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 6,
+      "description": "Compare { dest: TempId(14), width: ByteSize(1), signed: false, operation: Eq, left: Temp(TempId(11), ByteSize(1)), right: Temp(TempId(13), ByteSize(1)) }",
+      "end": 285,
+      "index": 2,
+      "kind": "Compare/1/false/Eq",
+      "start": 272
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 7,
+      "description": "Load { dest: TempId(16), width: ByteSize(1), address: Mir65816Address { base: Indirect(Temp(TempId(32), ByteSize(3))), displacement: ByteOffset(0), index: None, mode: LongIndirect }, volatile: false }",
+      "end": 302,
+      "index": 0,
+      "kind": "Load/1/LongIndirect",
+      "start": 285
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 7,
+      "description": "Compare { dest: TempId(17), width: ByteSize(1), signed: false, operation: Eq, left: Temp(TempId(16), ByteSize(1)), right: U8(0) }",
+      "end": 314,
+      "index": 1,
+      "kind": "Compare/1/false/Eq",
+      "start": 302
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 8,
+      "description": "Goto(Mir65816Edge { target: BlockId(5), args: [] })",
+      "end": 501,
+      "index": 0,
+      "kind": "Terminator/Goto",
+      "start": 501
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 9,
+      "description": "Return { value: Some(Temp(TempId(31), ByteSize(3))), release_frame_bytes: ByteSize(0), form: FarRtl, restored_mode: Mir65816ModeState { native_mode: true, accumulator: Bits16, index: Bits16 } }",
+      "end": 332,
+      "index": 0,
+      "kind": "Terminator/Return",
+      "start": 314
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Cast { dest: TempId(20), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: PointerToInteger, value: Temp(TempId(32), ByteSize(3)) }",
+      "end": 346,
+      "index": 0,
+      "kind": "Cast/3->3/PointerToInteger",
+      "start": 332
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Binary { dest: TempId(22), width: ByteSize(3), signed: false, operation: Add, left: Temp(TempId(20), ByteSize(3)), right: U24(1) }",
+      "end": 377,
+      "index": 1,
+      "kind": "Binary/3/Add",
+      "start": 346
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Cast { dest: TempId(23), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: IntegerToPointer, value: Temp(TempId(22), ByteSize(3)) }",
+      "end": 389,
+      "index": 2,
+      "kind": "Cast/3->3/IntegerToPointer",
+      "start": 377
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Cast { dest: TempId(25), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: PointerToInteger, value: Temp(TempId(33), ByteSize(3)) }",
+      "end": 401,
+      "index": 3,
+      "kind": "Cast/3->3/PointerToInteger",
+      "start": 389
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Binary { dest: TempId(27), width: ByteSize(3), signed: false, operation: Add, left: Temp(TempId(25), ByteSize(3)), right: U24(1) }",
+      "end": 432,
+      "index": 4,
+      "kind": "Binary/3/Add",
+      "start": 401
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Cast { dest: TempId(28), from: ByteSize(3), from_signed: false, to: ByteSize(3), kind: IntegerToPointer, value: Temp(TempId(27), ByteSize(3)) }",
+      "end": 444,
+      "index": 5,
+      "kind": "Cast/3->3/IntegerToPointer",
+      "start": 432
+    },
+    {
+      "routine": "M_EXECLISTS_FINDNAME_2659CDBB",
+      "block": 10,
+      "description": "Goto(Mir65816Edge { target: BlockId(6), args: [Temp(TempId(23), ByteSize(3)), Temp(TempId(28), ByteSize(3))] })",
+      "end": 501,
+      "index": 6,
+      "kind": "Terminator/Goto",
+      "start": 444
+    }
+  ]
+}

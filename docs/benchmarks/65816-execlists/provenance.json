@@ -1,0 +1,185 @@
+{
+  "compiler_revision": "87feebf1552344bc6334cf60fcf2ca45ef4c6186",
+  "compiler_worktree_status": "",
+  "tools": {
+    "actionc": {
+      "path": "/Users/michalkurcewicz/action/actionc-public-release/target/wide-returns/actionc-after",
+      "sha256": "fa82955e787ab8db1133a60546479b8188dcaf2229c42714abf253d5e3fb4120"
+    },
+    "vbcc": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vbcc65816",
+      "sha256": "6405ba31d6eef5b35ac5d838c77eaef1c06e62cd792af83a4c20c141d357bc3e"
+    },
+    "vasm": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vasm6502_oldstyle",
+      "sha256": "5c8b7f787025c27f768ff171c72222ba576ad0ad1ad58b9710275fd215f6262b"
+    },
+    "vlink": {
+      "path": "/Users/michalkurcewicz/atari/vbcc/bin/vlink",
+      "sha256": "5134410f915b9825619b8127cf80507b24bff9eb7e539fd9b09046c309f65ce9"
+    },
+    "calypsi": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/cc65816",
+      "sha256": "32581974d919226e9e7054d890a39e934461806905b3ebc32b6002f32d3c2ee7"
+    },
+    "calypsi_as": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/as65816",
+      "sha256": "348e8f8485d4dfc92e04ea295bdc2f2fb18169658ab64e20158e03b5745fa594"
+    },
+    "calypsi_link": {
+      "path": "/usr/local/lib/calypsi-65816-5.18/bin/ln65816",
+      "sha256": "74738fc80ff249c726a6c19b7122969dbcbaf7fdb2579bca80440eea6152fb31"
+    }
+  },
+  "inputs": {
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/execlists/execlists.act": "db35ebcf7ce26ccb6d0aa1d5e9e024a21c5007b1683622eb6daacebcbc8fa0d4",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/execlists/main.act": "5649feb2b2a8c93c12c955c34d54b226eb36ea5b3bd4d628ca0c502826b4edf3",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/native65816-runtime-tests/tests/fixtures/execlists/execlists.c": "50e0837b621fd332ecbded9931aa425e17d8ecc5d8e2d9305cafcd0d6f861ad6",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/execlists.py": "5bebb8bc45bc806c2e8e725b77e3bdec68c65c4862bc1ef20f06bbae6b618eef",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/execlists_vectors.py": "8d90283ca34e9a289af7389dedfdd543568e40530df77f74de55c989379b9a45",
+    "/Users/michalkurcewicz/action/actionc-public-release/tools/compare65816/calypsi.py": "f2ef782b38e466b336ff7af2e7449fff1fa2b5bceca08590ff0a18f3b060cdf8",
+    "/usr/local/lib/calypsi-65816-5.18/src/lib/lowlevel/pseudoRegisters.s": "5787439cfd827cd620b9f0a5668aa3359489de007c8d17a17bd8b6b2bc1dea48",
+    "/usr/local/lib/calypsi-65816-5.18/include/stddef.h": "8a54f72e1ff0d3aaa6a54c1561f6d7a28b52bf7c4cf1c03503dbacfd8d4d09f5",
+    "/usr/local/lib/calypsi-65816-5.18/doc/pdf/Calypsi65816Guide.pdf": "4dc1f8a6bcfc6fce9b7a58c0e26b81ba30e0d3b1be30ed43d8500ac9ea78803f"
+  },
+  "crlf_checked": true,
+  "debug_release_identical": true,
+  "paired_mask_records": 810,
+  "executions_per_host": 1620,
+  "correct_records": {
+    "actionc/raw": 135,
+    "vbcc/raw": 121,
+    "calypsi/raw": 135,
+    "actionc/optimized": 135,
+    "vbcc/optimized": 81,
+    "calypsi/optimized": 135
+  },
+  "failed_records": {
+    "vbcc/raw/Insert": 2,
+    "vbcc/raw/RemHead": 1,
+    "vbcc/raw/RemTail": 2,
+    "vbcc/raw/Enqueue": 5,
+    "vbcc/raw/FindName": 4,
+    "vbcc/optimized/AddHead": 6,
+    "vbcc/optimized/Insert": 12,
+    "vbcc/optimized/Remove": 6,
+    "vbcc/optimized/RemHead": 5,
+    "vbcc/optimized/RemTail": 6,
+    "vbcc/optimized/Enqueue": 15,
+    "vbcc/optimized/FindName": 4
+  },
+  "comparison_exit": "Both cargo tests exit 101 for the retained incorrect vbcc results; the Python qualification wrapper exits 1.",
+  "observe_control_flow": false,
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "harness_sha256": "84b4be16a4dd1f82a4b5abd16e7a62cfb07fa8b54d4c3e868f00756581797cfb",
+  "qualification_runner_sha256": "f63aa6136f3461d58cd1abe2789f9925eb43431d260a7e903583a6fd47bdb716",
+  "report_tool_sha256": "e9cb3c47efc60f1b5db94cb4b0ee7c342276d890a26622bd03939feb6391ab3e",
+  "results": {
+    "manifest.json": "fcd5c77bc0858d3be523f96872673657af1960ea9c8f7835e0eafb7c958e75a2",
+    "debug.json": "5f5e3ab47249a08993a560200cbf65c138e62124781d496c0bcaa7fc3f6d26bd",
+    "release.json": "5f5e3ab47249a08993a560200cbf65c138e62124781d496c0bcaa7fc3f6d26bd",
+    "debug.log": "76876216b93abf9170bdc0528369030e5de1d451997b46bf57a9c51a7af49f16",
+    "release.log": "83843569646e663bca1eddefd211d51e01353bba1bda2d068592ae8eb66925ed"
+  },
+  "artifacts": [
+    {
+      "compiler": "actionc",
+      "mode": "raw",
+      "hashes": {
+        "code.linked.lst": "9f282b6bf881f11d0797ce870030dc65104f3721dfc317e6c5f26d2c59ac466e",
+        "image.json": "fc837b693ef87d454c8279cbbb8085fa79c295dd771dcaad453125a2f80eb789"
+      }
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "raw",
+      "hashes": {
+        "code.o": "86328fe4c652891a87d6261bb9d4445c65b6bff9ffa5840331b325700c097dde",
+        "code.asm": "1eaef19881d098e654a8cde4e461aee930a5871d70f711fded4ee1f6bb23370e",
+        "code.bin": "687c1aa1d5a96d28e79c6dc9a0444d80b738e6bcab7fa79613b937b5bee5ff2e",
+        "code.linked.lst": "9c0de88d5bb3558279bd9ec42172f02e6ef15de63bb9291a4dc56f48a010f7aa",
+        "code.lst": "e9fec4443cb508166d9f16b811c28b03ec663067e861146dc34e22771d36e2b0",
+        "code.map": "e8185d4d3c65774147a4027a4fc0c6e7ef1c145bc8ae1e2a51bf459b325ee505"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "raw",
+      "hashes": {
+        "code.o": "26c8dc1d0f75c24650d68eea814098d4c9ea12c8103869bbc7fb2ad1a0c67d48",
+        "code.s": "bc0968e36cbd474d258f72ff6a6434f68200ce51e4a798bc51237faad47223b5",
+        "code.bin": "b21d6181f6983a3669cac364932abae5a9abe8552b8f86ccda9ae569f1858726",
+        "registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "code.raw": "b21d6181f6983a3669cac364932abae5a9abe8552b8f86ccda9ae569f1858726",
+        "code.linked.lst": "cc64a976d89d16836f6c7d187c0d6cfc138e5d5ac006bb7e643da5d13b344509",
+        "code.lst": "3aafb9d968932b576369610fe04d00631e87c19977895245eb4bf5ba4c50bf49",
+        "code.elf": "7b20f3ebe58f59d2de3b2d762c25cf8103606599cad3085e4c744d86e2b9b90e",
+        "code.map": "707a76b237e3b394f08df1ef07368a5a8beae0218582a12b897681a27ef9d2f5"
+      }
+    },
+    {
+      "compiler": "actionc",
+      "mode": "optimized",
+      "hashes": {
+        "code.linked.lst": "88e469e3e34cfd9ea492f69a06bd74c88711a33db467dd190856d569a4285ae8",
+        "image.json": "be4d3101429faf1eb807025d3e0ccff5aba1492c1620ddf007914a3975711899"
+      }
+    },
+    {
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "hashes": {
+        "code.o": "6504b70d065e6319d730108af06a1f78fc6fa386396fd04bfec6798e66c15db2",
+        "code.asm": "e5952f382cdd6f0709c7570650ff3e357066b40ffd42ab1c890dad59d84744ac",
+        "code.bin": "ae25719c598dbf07bb3371b9393b041af79f75694fdbe20ef18368be03540966",
+        "code.linked.lst": "f7200fcfd6b7f065258af0b2b3ac2654621063920cbe53acb90b08428ddd22a9",
+        "code.lst": "7da11c0ffa378a758ad0c0914d2561e8a20c42481e4645b1f8102e4f2a7611e4",
+        "code.map": "d374634dde11bc0558b54ac43ea668f27ca6ca22708e19a3c65b3ab8e0b92ea1"
+      }
+    },
+    {
+      "compiler": "calypsi",
+      "mode": "optimized",
+      "hashes": {
+        "code.o": "716e73174f2670a0de30144f98d5d19dbc677721906f1e83279dd3f6db3474a3",
+        "code.s": "ad7639239c289e78cee0fe75ed5f3c6a8df6969ca8c2e29c69331bc9109c8ed0",
+        "code.bin": "53f1e556614678c753a6ae2e53111b86aec539ceaef2e7bd0f23d6cdc320a4ee",
+        "registers.o": "3b12c30aaad48b017f3825576adb42c75c6adc75399593d680cfd20851bcec98",
+        "code.raw": "53f1e556614678c753a6ae2e53111b86aec539ceaef2e7bd0f23d6cdc320a4ee",
+        "code.linked.lst": "e40f50c0a4b079f4aa0675e6195f3082eae1203a6569b1bd5f8d93f007ff841d",
+        "code.lst": "d227cf2a851a5aabd40b705b60290f575644fe84614fc510f5a8dec16166c922",
+        "code.elf": "41b43136c0f2581928a19410d2700b14c3d265b742c238a316b84863626c511c",
+        "code.map": "68d6c7c4719b15aa1559196e65a35b1c7dfc352f9eb7638804a5e3677909416f"
+      }
+    }
+  ],
+  "report_artifacts": {
+    "README.md": "c2ce978ed182dbf2b055bfac58f8b1e4a5992787c5db692f13e5ed0af2f21925",
+    "actionc-optimized.lst": "88e469e3e34cfd9ea492f69a06bd74c88711a33db467dd190856d569a4285ae8",
+    "actionc-raw.lst": "9f282b6bf881f11d0797ce870030dc65104f3721dfc317e6c5f26d2c59ac466e",
+    "calypsi-optimized.lst": "6cae5f4019ad789ab8b884623272b86bf1cb146ea59ec233cb370bdf3710c7b2",
+    "calypsi-raw.lst": "85382e706d965e871cf5ba253cc74592ab45c2f3bb0111b9b700b6fca68d0773",
+    "failures.json": "73e04abfc06030246800992dc261286fdcc2832b65b0753941f446ff7ab334ba",
+    "hand-null.s": "d8b862277656903fcc3641a5fb7ccb67237ea4cb9eeaa9ff8f2a980c60caf188",
+    "hand-probes.json": "f47b05ae11f83dab3afb52705c20d1a6d3419c476667238a4a5801ba7a90aab1",
+    "hand-remove.s": "cde38848666ea6adeaf5bdf46bccda95a66cf0b6363f653ff9b5f66c53f8ce44",
+    "local-candidates.json": "56ce99f5f1b372c02eb7616157f42833f185c13156fa28a141e967368c523840",
+    "measurements.csv": "6af0808d419b7f8551fd8864e81c98929827bdcd12a39313204624a244fc3708",
+    "operation-inventory.json": "43b75ed1912441f33b8e5b23d34c6a7fdb5004d00ce8be332f9cdb4610eb9e34",
+    "sizes.csv": "015e1046a18f7465aad64ed84f4a9d6e1facfc9aee19449da02503ad163d2aad",
+    "vbcc-optimized.lst": "f7200fcfd6b7f065258af0b2b3ac2654621063920cbe53acb90b08428ddd22a9",
+    "vbcc-raw.lst": "9c0de88d5bb3558279bd9ec42172f02e6ef15de63bb9291a4dc56f48a010f7aa"
+  },
+  "previous_action_vbcc_comparison": {
+    "binaries_unchanged": true,
+    "all_540_records_identical": true,
+    "results_sha256": "da1479ac5d8de3ec0fc4017760d91f22965ccd28b31fe151f136031e2097deed"
+  },
+  "default_observer_control": {
+    "paired_mask_records": 24,
+    "results_sha256": "5ed327b7f941ece7a9f7927797a2e2d4b308b78169b41ebfd70ec92fde877681",
+    "scope": "Prior wide_shift and unlink control, including the retained vbcc failure"
+  },
+  "operation_inventory_exporter_sha256": "032e61d57a5c022c068b63b3a98a3ca84099b172144e75495004d067a76549f8"
+}

@@ -1,0 +1,578 @@
+
+; execlists_layout
+01038E  03 00 06 00 .word   3,6,9,11,11,3,6,7
+010392  09 00 0B 00
+010396  0B 00 03 00
+01039A  06 00 07 00
+01039E  08 00 03 00 .word   8,3,6,9,10
+0103A2  06 00 09 00
+0103A6  0A 00
+
+; NewList
+0102D6  18          clc
+0102D7  A9 03 00    lda     ##3
+0102DA  22 28 04 01 jsl     long:`?L105`
+0102DE  A5 04       lda     dp:.tiny (_Dp+4)
+0102E0  87 00       sta     [.tiny _Dp]
+0102E2  A5 06       lda     dp:.tiny (_Dp+6)
+0102E4  E2 20       sep     #32
+0102E6  A0 02 00    ldy     ##2
+0102E9  97 00       sta     [.tiny _Dp],y
+0102EB  C2 20       rep     #32
+0102ED  18          clc
+0102EE  98          tya
+0102EF  1A          inc     a
+0102F0  22 28 04 01 jsl     long:`?L105`
+0102F4  A9 00 00    lda     ##0
+0102F7  87 04       sta     [.tiny (_Dp+4)]
+0102F9  22 38 04 01 jsl     long:`?L117`
+0102FD  22 3F 04 01 jsl     long:`?L111`
+010301  18          clc
+010302  A9 06 00    lda     ##6
+010305  22 A8 03 01 jsl     long:`?L104`
+010309  6B          rtl
+
+; NewMinList
+010456  22 D6 02 01 jsl     long:NewList
+01045A  6B          rtl
+
+; IsListEmpty
+01036C  18          clc
+01036D  A9 03 00    lda     ##3
+010370  22 28 04 01 jsl     long:`?L105`
+010374  A7 00       lda     [.tiny _Dp]
+010376  C5 04       cmp     dp:.tiny (_Dp+4)
+010378  D0 10       bne     `?L78`
+01037A  E2 20       sep     #32
+01037C  A0 02 00    ldy     ##2
+01037F  B7 00       lda     [.tiny _Dp],y
+010381  C5 06       cmp     dp:.tiny (_Dp+6)
+010383  C2 20       rep     #32
+010385  D0 03       bne     `?L78`
+010387  98          tya
+010388  3A          dec     a
+010389  6B          rtl
+01038A  A9 00 00    `?L78`:     lda     ##0
+01038D  6B          rtl
+
+; IsMinListEmpty
+010451  22 6C 03 01 jsl     long:IsListEmpty
+010455  6B          rtl
+
+; AddHead
+010297  D4 08       pei     dp:.tiny (_Dp+8)
+010299  D4 0A       pei     dp:.tiny (_Dp+10)
+01029B  D4 0C       pei     dp:.tiny (_Dp+12)
+01029D  D4 0E       pei     dp:.tiny (_Dp+14)
+01029F  22 1C 04 01 jsl     long:`?L106`
+0102A3  86 0A       stx     dp:.tiny (_Dp+10)
+0102A5  85 08       sta     dp:.tiny (_Dp+8)
+0102A7  18          clc
+0102A8  98          tya
+0102A9  1A          inc     a
+0102AA  22 04 04 01 jsl     long:`?L113`
+0102AE  22 DF 03 01 jsl     long:`?L112`
+0102B2  22 C0 03 01 jsl     long:`?L109`
+0102B6  22 EC 03 01 jsl     long:`?L115`
+0102BA  A5 04       lda     dp:.tiny (_Dp+4)
+0102BC  87 08       sta     [.tiny (_Dp+8)]
+0102BE  A5 06       lda     dp:.tiny (_Dp+6)
+0102C0  E2 20       sep     #32
+0102C2  97 08       sta     [.tiny (_Dp+8)],y
+0102C4  C2 20       rep     #32
+0102C6  A5 04       lda     dp:.tiny (_Dp+4)
+0102C8  87 00       sta     [.tiny _Dp]
+0102CA  A5 06       lda     dp:.tiny (_Dp+6)
+0102CC  E2 20       sep     #32
+0102CE  97 00       sta     [.tiny _Dp],y
+0102D0  C2 20       rep     #32
+0102D2  5C 6A 01 01 jmp     long:`?L23`
+
+; AddTail
+010248  D4 08       pei     dp:.tiny (_Dp+8)
+01024A  D4 0A       pei     dp:.tiny (_Dp+10)
+01024C  D4 0C       pei     dp:.tiny (_Dp+12)
+01024E  D4 0E       pei     dp:.tiny (_Dp+14)
+010250  18          clc
+010251  A9 06 00    lda     ##6
+010254  22 10 04 01 jsl     long:`?L107`
+010258  A0 02 00    ldy     ##2
+01025B  B7 08       lda     [.tiny (_Dp+8)],y
+01025D  29 FF 00    and     ##255
+010260  AA          tax
+010261  A7 08       lda     [.tiny (_Dp+8)]
+010263  86 0E       stx     dp:.tiny (_Dp+14)
+010265  85 0C       sta     dp:.tiny (_Dp+12)
+010267  18          clc
+010268  98          tya
+010269  1A          inc     a
+01026A  22 10 04 01 jsl     long:`?L107`
+01026E  22 C0 03 01 jsl     long:`?L109`
+010272  65 04       adc     dp:.tiny (_Dp+4)
+010274  85 08       sta     dp:.tiny (_Dp+8)
+010276  A9 00 00    lda     ##0
+010279  65 06       adc     dp:.tiny (_Dp+6)
+01027B  85 0A       sta     dp:.tiny (_Dp+10)
+01027D  22 D0 03 01 jsl     long:`?L110`
+010281  87 0C       sta     [.tiny (_Dp+12)]
+010283  A5 06       lda     dp:.tiny (_Dp+6)
+010285  E2 20       sep     #32
+010287  97 0C       sta     [.tiny (_Dp+12)],y
+010289  C2 20       rep     #32
+01028B  18          clc
+01028C  A9 06 00    lda     ##6
+01028F  22 A8 03 01 jsl     long:`?L104`
+010293  5C 6A 01 01 jmp     long:`?L23`
+
+; Insert
+0100C3  D4 08       pei     dp:.tiny (_Dp+8)
+0100C5  D4 0A       pei     dp:.tiny (_Dp+10)
+0100C7  D4 0C       pei     dp:.tiny (_Dp+12)
+0100C9  D4 0E       pei     dp:.tiny (_Dp+14)
+0100CB  A5 00       lda     dp:.tiny _Dp
+0100CD  85 08       sta     dp:.tiny (_Dp+8)
+0100CF  A5 02       lda     dp:.tiny (_Dp+2)
+0100D1  85 0A       sta     dp:.tiny (_Dp+10)
+0100D3  A5 04       lda     dp:.tiny (_Dp+4)
+0100D5  85 00       sta     dp:.tiny _Dp
+0100D7  A5 06       lda     dp:.tiny (_Dp+6)
+0100D9  85 02       sta     dp:.tiny (_Dp+2)
+0100DB  A3 0E       lda     14,s
+0100DD  85 0E       sta     dp:.tiny (_Dp+14)
+0100DF  A3 0C       lda     12,s
+0100E1  85 0C       sta     dp:.tiny (_Dp+12)
+0100E3  A5 0C       lda     dp:.tiny (_Dp+12)
+0100E5  05 0E       ora     dp:.tiny (_Dp+14)
+0100E7  F0 75       beq     `?L26`
+0100E9  A5 0C       lda     dp:.tiny (_Dp+12)
+0100EB  85 04       sta     dp:.tiny (_Dp+4)
+0100ED  A5 0E       lda     dp:.tiny (_Dp+14)
+0100EF  85 06       sta     dp:.tiny (_Dp+6)
+0100F1  A5 08       lda     dp:.tiny (_Dp+8)
+0100F3  C5 04       cmp     dp:.tiny (_Dp+4)
+0100F5  D0 06       bne     `?L25`
+0100F7  A5 0A       lda     dp:.tiny (_Dp+10)
+0100F9  C5 06       cmp     dp:.tiny (_Dp+6)
+0100FB  F0 61       beq     `?L26`
+0100FD  A5 08       lda     dp:.tiny (_Dp+8)
+0100FF  85 04       sta     dp:.tiny (_Dp+4)
+010101  A5 0A       lda     dp:.tiny (_Dp+10)
+010103  85 06       sta     dp:.tiny (_Dp+6)
+010105  18          clc
+010106  A9 03 00    lda     ##3
+010109  22 F8 03 01 jsl     long:`?L114`
+01010D  A5 04       lda     dp:.tiny (_Dp+4)
+01010F  C5 0C       cmp     dp:.tiny (_Dp+12)
+010111  D0 14       bne     `?L29`
+010113  A5 06       lda     dp:.tiny (_Dp+6)
+010115  C5 0E       cmp     dp:.tiny (_Dp+14)
+010117  D0 0E       bne     `?L29`
+010119  22 3F 04 01 jsl     long:`?L111`
+01011D  22 48 04 01 jsl     long:`?L108`
+010121  22 48 02 01 jsl     long:AddTail
+010125  80 43       bra     `?L23`
+010127  A0 02 00    ldy     ##2
+01012A  B7 0C       lda     [.tiny (_Dp+12)],y
+01012C  29 FF 00    and     ##255
+01012F  AA          tax
+010130  A7 0C       lda     [.tiny (_Dp+12)]
+010132  86 06       stx     dp:.tiny (_Dp+6)
+010134  85 04       sta     dp:.tiny (_Dp+4)
+010136  18          clc
+010137  98          tya
+010138  1A          inc     a
+010139  22 10 04 01 jsl     long:`?L107`
+01013D  22 D0 03 01 jsl     long:`?L110`
+010141  87 00       sta     [.tiny _Dp]
+010143  A5 06       lda     dp:.tiny (_Dp+6)
+010145  E2 20       sep     #32
+010147  97 00       sta     [.tiny _Dp],y
+010149  C2 20       rep     #32
+01014B  18          clc
+01014C  98          tya
+01014D  1A          inc     a
+01014E  22 F8 03 01 jsl     long:`?L114`
+010152  A5 00       lda     dp:.tiny _Dp
+010154  22 34 04 01 jsl     long:`?L116`
+010158  22 DF 03 01 jsl     long:`?L112`
+01015C  80 0C       bra     `?L23`
+01015E  22 3F 04 01 jsl     long:`?L111`
+010162  22 48 04 01 jsl     long:`?L108`
+010166  22 97 02 01 jsl     long:AddHead
+01016A  7A          ply
+01016B  84 0E       sty     dp:.tiny (_Dp+14)
+01016D  7A          ply
+01016E  84 0C       sty     dp:.tiny (_Dp+12)
+010170  7A          ply
+010171  84 0A       sty     dp:.tiny (_Dp+10)
+010173  7A          ply
+010174  84 08       sty     dp:.tiny (_Dp+8)
+010176  6B          rtl
+
+; Remove
+01033D  18          clc
+01033E  A9 03 00    lda     ##3
+010341  22 28 04 01 jsl     long:`?L105`
+010345  A0 02 00    ldy     ##2
+010348  B7 04       lda     [.tiny (_Dp+4)],y
+01034A  29 FF 00    and     ##255
+01034D  AA          tax
+01034E  A7 04       lda     [.tiny (_Dp+4)]
+010350  86 06       stx     dp:.tiny (_Dp+6)
+010352  85 04       sta     dp:.tiny (_Dp+4)
+010354  B7 00       lda     [.tiny _Dp],y
+010356  29 FF 00    and     ##255
+010359  AA          tax
+01035A  A7 00       lda     [.tiny _Dp]
+01035C  86 02       stx     dp:.tiny (_Dp+2)
+01035E  85 00       sta     dp:.tiny _Dp
+010360  22 34 04 01 jsl     long:`?L116`
+010364  18          clc
+010365  98          tya
+010366  1A          inc     a
+010367  22 A8 03 01 jsl     long:`?L104`
+01036B  6B          rtl
+
+; RemHead
+01030A  D4 08       pei     dp:.tiny (_Dp+8)
+01030C  D4 0A       pei     dp:.tiny (_Dp+10)
+01030E  22 1C 04 01 jsl     long:`?L106`
+010312  86 0A       stx     dp:.tiny (_Dp+10)
+010314  85 08       sta     dp:.tiny (_Dp+8)
+010316  A7 08       lda     [.tiny (_Dp+8)]
+010318  C9 00 00    cmp     ##0
+01031B  D0 10       bne     `?L39`
+01031D  E2 20       sep     #32
+01031F  B7 08       lda     [.tiny (_Dp+8)],y
+010321  C9 00       cmp     #0
+010323  C2 20       rep     #32
+010325  D0 06       bne     `?L39`
+010327  A9 00 00    lda     ##0
+01032A  AA          tax
+01032B  80 0C       bra     `?L37`
+01032D  22 48 04 01 jsl     long:`?L108`
+010331  22 3D 03 01 jsl     long:Remove
+010335  A6 0A       ldx     dp:.tiny (_Dp+10)
+010337  A5 08       lda     dp:.tiny (_Dp+8)
+010339  5C 41 02 01 jmp     long:`?L45`
+
+; RemTail
+0101F5  D4 08       pei     dp:.tiny (_Dp+8)
+0101F7  D4 0A       pei     dp:.tiny (_Dp+10)
+0101F9  18          clc
+0101FA  A9 06 00    lda     ##6
+0101FD  65 00       adc     dp:.tiny _Dp
+0101FF  85 00       sta     dp:.tiny _Dp
+010201  A9 00 00    lda     ##0
+010204  65 02       adc     dp:.tiny (_Dp+2)
+010206  85 02       sta     dp:.tiny (_Dp+2)
+010208  22 1C 04 01 jsl     long:`?L106`
+01020C  86 0A       stx     dp:.tiny (_Dp+10)
+01020E  85 08       sta     dp:.tiny (_Dp+8)
+010210  18          clc
+010211  98          tya
+010212  1A          inc     a
+010213  65 08       adc     dp:.tiny (_Dp+8)
+010215  85 00       sta     dp:.tiny _Dp
+010217  A9 00 00    lda     ##0
+01021A  65 0A       adc     dp:.tiny (_Dp+10)
+01021C  85 02       sta     dp:.tiny (_Dp+2)
+01021E  A7 00       lda     [.tiny _Dp]
+010220  C9 00 00    cmp     ##0
+010223  D0 10       bne     `?L47`
+010225  E2 20       sep     #32
+010227  B7 00       lda     [.tiny _Dp],y
+010229  C9 00       cmp     #0
+01022B  C2 20       rep     #32
+01022D  D0 06       bne     `?L47`
+01022F  A9 00 00    lda     ##0
+010232  AA          tax
+010233  80 0C       bra     `?L45`
+010235  22 48 04 01 jsl     long:`?L108`
+010239  22 3D 03 01 jsl     long:Remove
+01023D  A6 0A       ldx     dp:.tiny (_Dp+10)
+01023F  A5 08       lda     dp:.tiny (_Dp+8)
+010241  7A          ply
+010242  84 0A       sty     dp:.tiny (_Dp+10)
+010244  7A          ply
+010245  84 08       sty     dp:.tiny (_Dp+8)
+010247  6B          rtl
+
+; Enqueue
+010177  D4 08       pei     dp:.tiny (_Dp+8)
+010179  D4 0A       pei     dp:.tiny (_Dp+10)
+01017B  D4 0C       pei     dp:.tiny (_Dp+12)
+01017D  D4 0E       pei     dp:.tiny (_Dp+14)
+01017F  22 1C 04 01 jsl     long:`?L106`
+010183  86 0A       stx     dp:.tiny (_Dp+10)
+010185  85 08       sta     dp:.tiny (_Dp+8)
+010187  A7 08       lda     [.tiny (_Dp+8)]
+010189  C9 00 00    cmp     ##0
+01018C  D0 10       bne     `?L56`
+01018E  E2 20       sep     #32
+010190  B7 08       lda     [.tiny (_Dp+8)],y
+010192  C9 00       cmp     #0
+010194  C2 20       rep     #32
+010196  D0 06       bne     `?L56`
+010198  22 48 02 01 jsl     long:AddTail
+01019C  80 43       bra     `?L53`
+01019E  18          `?L56`:     clc
+01019F  A9 07 00    lda     ##7
+0101A2  65 08       adc     dp:.tiny (_Dp+8)
+0101A4  85 0C       sta     dp:.tiny (_Dp+12)
+0101A6  A9 00 00    lda     ##0
+0101A9  65 0A       adc     dp:.tiny (_Dp+10)
+0101AB  85 0E       sta     dp:.tiny (_Dp+14)
+0101AD  A9 80 00    lda     ##128
+0101B0  47 0C       eor     [.tiny (_Dp+12)]
+0101B2  48          pha
+0101B3  18          clc
+0101B4  A9 07 00    lda     ##7
+0101B7  22 04 04 01 jsl     long:`?L113`
+0101BB  A9 80 00    lda     ##128
+0101BE  47 0C       eor     [.tiny (_Dp+12)]
+0101C0  85 0C       sta     dp:.tiny (_Dp+12)
+0101C2  68          pla
+0101C3  E2 20       sep     #32
+0101C5  C5 0C       cmp     dp:.tiny (_Dp+12)
+0101C7  C2 20       rep     #32
+0101C9  B0 20       bcs     `?L58`
+0101CB  18          clc
+0101CC  98          tya
+0101CD  1A          inc     a
+0101CE  22 EC 03 01 jsl     long:`?L115`
+0101D2  B7 08       lda     [.tiny (_Dp+8)],y
+0101D4  29 FF 00    and     ##255
+0101D7  48          pha
+0101D8  A7 08       lda     [.tiny (_Dp+8)]
+0101DA  48          pha
+0101DB  22 C3 00 01 jsl     long:Insert
+0101DF  68          pla
+0101E0  68          pla
+0101E1  7A          ply
+0101E2  84 0E       sty     dp:.tiny (_Dp+14)
+0101E4  7A          ply
+0101E5  84 0C       sty     dp:.tiny (_Dp+12)
+0101E7  5C 41 02 01 jmp     long:`?L45`
+0101EB  B7 08       lda     [.tiny (_Dp+8)],y
+0101ED  29 FF 00    and     ##255
+0101F0  AA          tax
+0101F1  A7 08       lda     [.tiny (_Dp+8)]
+0101F3  80 8E       bra     `?L101`
+
+; FindName
+010000  D4 08       pei     dp:.tiny (_Dp+8)
+010002  D4 0A       pei     dp:.tiny (_Dp+10)
+010004  D4 0C       pei     dp:.tiny (_Dp+12)
+010006  3B          tsc
+010007  38          sec
+010008  E9 0C 00    sbc     ##12
+01000B  1B          tcs
+01000C  A5 04       lda     dp:.tiny (_Dp+4)
+01000E  83 01       sta     1,s
+010010  A5 06       lda     dp:.tiny (_Dp+6)
+010012  83 03       sta     3,s
+010014  22 1C 04 01 jsl     long:`?L106`
+010018  86 02       stx     dp:.tiny (_Dp+2)
+01001A  85 00       sta     dp:.tiny _Dp
+01001C  A7 00       lda     [.tiny _Dp]
+01001E  C9 00 00    cmp     ##0
+010021  D0 10       bne     `?L66`
+010023  E2 20       sep     #32
+010025  B7 00       lda     [.tiny _Dp],y
+010027  C9 00       cmp     #0
+010029  C2 20       rep     #32
+01002B  D0 06       bne     `?L66`
+01002D  A9 00 00    lda     ##0
+010030  AA          tax
+010031  80 43       bra     `?L63`
+010033  18          `?L66`:     clc
+010034  A9 08 00    lda     ##8
+010037  22 28 04 01 jsl     long:`?L105`
+01003B  B7 04       lda     [.tiny (_Dp+4)],y
+01003D  29 FF 00    and     ##255
+010040  AA          tax
+010041  A7 04       lda     [.tiny (_Dp+4)]
+010043  86 0A       stx     dp:.tiny (_Dp+10)
+010045  85 08       sta     dp:.tiny (_Dp+8)
+010047  A3 01       lda     1,s
+010049  83 05       sta     5,s
+01004B  A3 03       lda     3,s
+01004D  83 07       sta     7,s
+01004F  A5 08       lda     dp:.tiny (_Dp+8)
+010051  05 0A       ora     dp:.tiny (_Dp+10)
+010053  F0 5A       beq     `?L68`
+010055  A3 07       lda     7,s
+010057  85 06       sta     dp:.tiny (_Dp+6)
+010059  A3 05       lda     5,s
+01005B  85 04       sta     dp:.tiny (_Dp+4)
+01005D  A7 08       lda     [.tiny (_Dp+8)]
+01005F  85 0C       sta     dp:.tiny (_Dp+12)
+010061  A7 04       lda     [.tiny (_Dp+4)]
+010063  E2 20       sep     #32
+010065  C5 0C       cmp     dp:.tiny (_Dp+12)
+010067  C2 20       rep     #32
+010069  D0 44       bne     `?L68`
+01006B  A7 08       lda     [.tiny (_Dp+8)]
+01006D  29 FF 00    and     ##255
+010070  D0 13       bne     `?L74`
+010072  A6 02       ldx     dp:.tiny (_Dp+2)
+010074  A5 00       lda     dp:.tiny _Dp
+010076  A8          tay
+010077  3B          tsc
+010078  18          clc
+010079  69 0C 00    adc     ##12
+01007C  1B          tcs
+01007D  98          tya
+01007E  7A          ply
+01007F  84 0C       sty     dp:.tiny (_Dp+12)
+010081  5C 41 02 01 jmp     long:`?L45`
+010085  A6 0A       ldx     dp:.tiny (_Dp+10)
+010087  A5 08       lda     dp:.tiny (_Dp+8)
+010089  1A          inc     a
+01008A  D0 01       bne     `?L97`
+01008C  E8          inx
+01008D  83 05       `?L97`:     sta     5,s
+01008F  8A          txa
+010090  83 07       sta     7,s
+010092  A6 06       ldx     dp:.tiny (_Dp+6)
+010094  A5 04       lda     dp:.tiny (_Dp+4)
+010096  1A          inc     a
+010097  D0 01       bne     `?L99`
+010099  E8          inx
+01009A  83 09       `?L99`:     sta     9,s
+01009C  8A          txa
+01009D  83 0B       sta     11,s
+01009F  A3 07       lda     7,s
+0100A1  85 0A       sta     dp:.tiny (_Dp+10)
+0100A3  A3 05       lda     5,s
+0100A5  85 08       sta     dp:.tiny (_Dp+8)
+0100A7  A3 0B       lda     11,s
+0100A9  85 06       sta     dp:.tiny (_Dp+6)
+0100AB  A3 09       lda     9,s
+0100AD  80 AC       bra     `?L102`
+0100AF  B7 00       lda     [.tiny _Dp],y
+0100B1  29 FF 00    and     ##255
+0100B4  48          pha
+0100B5  A7 00       lda     [.tiny _Dp]
+0100B7  83 07       sta     7,s
+0100B9  68          pla
+0100BA  83 07       sta     7,s
+0100BC  85 02       sta     dp:.tiny (_Dp+2)
+0100BE  A3 05       lda     5,s
+0100C0  4C 1A 00    jmp     .kbank `?L103`
+
+; `?L104`
+0103A8  65 00       adc     dp:.tiny _Dp
+0103AA  85 00       sta     dp:.tiny _Dp
+0103AC  A9 00 00    lda     ##0
+0103AF  65 02       adc     dp:.tiny (_Dp+2)
+0103B1  85 02       sta     dp:.tiny (_Dp+2)
+0103B3  A5 04       lda     dp:.tiny (_Dp+4)
+0103B5  87 00       sta     [.tiny _Dp]
+0103B7  A5 06       lda     dp:.tiny (_Dp+6)
+0103B9  E2 20       sep     #32
+0103BB  97 00       sta     [.tiny _Dp],y
+0103BD  C2 20       rep     #32
+0103BF  6B          rtl
+
+; `?L105`
+010428  65 00       adc     dp:.tiny _Dp
+01042A  85 04       sta     dp:.tiny (_Dp+4)
+01042C  A9 00 00    lda     ##0
+01042F  65 02       adc     dp:.tiny (_Dp+2)
+010431  85 06       sta     dp:.tiny (_Dp+6)
+010433  6B          rtl
+
+; `?L106`
+01041C  A0 02 00    `?L106`:    ldy     ##2
+01041F  B7 00       lda     [.tiny _Dp],y
+010421  29 FF 00    and     ##255
+010424  AA          tax
+010425  A7 00       lda     [.tiny _Dp]
+010427  6B          rtl
+
+; `?L107`
+010410  65 00       adc     dp:.tiny _Dp
+010412  85 08       sta     dp:.tiny (_Dp+8)
+010414  A9 00 00    lda     ##0
+010417  65 02       adc     dp:.tiny (_Dp+2)
+010419  85 0A       sta     dp:.tiny (_Dp+10)
+01041B  6B          rtl
+
+; `?L108`
+010448  A5 08       lda     dp:.tiny (_Dp+8)
+01044A  85 00       sta     dp:.tiny _Dp
+01044C  A5 0A       lda     dp:.tiny (_Dp+10)
+01044E  85 02       sta     dp:.tiny (_Dp+2)
+010450  6B          rtl
+
+; `?L109`
+0103C0  A5 08       lda     dp:.tiny (_Dp+8)
+0103C2  87 04       sta     [.tiny (_Dp+4)]
+0103C4  A5 0A       lda     dp:.tiny (_Dp+10)
+0103C6  E2 20       sep     #32
+0103C8  97 04       sta     [.tiny (_Dp+4)],y
+0103CA  C2 20       rep     #32
+0103CC  18          clc
+0103CD  98          tya
+0103CE  1A          inc     a
+0103CF  6B          rtl
+
+; `?L110`
+0103D0  A5 0C       lda     dp:.tiny (_Dp+12)
+0103D2  87 08       sta     [.tiny (_Dp+8)]
+0103D4  A5 0E       lda     dp:.tiny (_Dp+14)
+0103D6  E2 20       sep     #32
+0103D8  97 08       sta     [.tiny (_Dp+8)],y
+0103DA  C2 20       rep     #32
+0103DC  A5 04       lda     dp:.tiny (_Dp+4)
+0103DE  6B          rtl
+
+; `?L111`
+01043F  A5 00       lda     dp:.tiny _Dp
+010441  85 04       sta     dp:.tiny (_Dp+4)
+010443  A5 02       lda     dp:.tiny (_Dp+2)
+010445  85 06       sta     dp:.tiny (_Dp+6)
+010447  6B          rtl
+
+; `?L112`
+0103DF  A5 00       lda     dp:.tiny _Dp
+0103E1  87 0C       sta     [.tiny (_Dp+12)]
+0103E3  A5 02       lda     dp:.tiny (_Dp+2)
+0103E5  E2 20       sep     #32
+0103E7  97 0C       sta     [.tiny (_Dp+12)],y
+0103E9  C2 20       rep     #32
+0103EB  6B          rtl
+
+; `?L113`
+010404  65 04       adc     dp:.tiny (_Dp+4)
+010406  85 0C       sta     dp:.tiny (_Dp+12)
+010408  A9 00 00    lda     ##0
+01040B  65 06       adc     dp:.tiny (_Dp+6)
+01040D  85 0E       sta     dp:.tiny (_Dp+14)
+01040F  6B          rtl
+
+; `?L114`
+0103F8  65 04       adc     dp:.tiny (_Dp+4)
+0103FA  85 04       sta     dp:.tiny (_Dp+4)
+0103FC  A9 00 00    lda     ##0
+0103FF  65 06       adc     dp:.tiny (_Dp+6)
+010401  85 06       sta     dp:.tiny (_Dp+6)
+010403  6B          rtl
+
+; `?L115`
+0103EC  65 08       adc     dp:.tiny (_Dp+8)
+0103EE  85 08       sta     dp:.tiny (_Dp+8)
+0103F0  A9 00 00    lda     ##0
+0103F3  65 0A       adc     dp:.tiny (_Dp+10)
+0103F5  85 0A       sta     dp:.tiny (_Dp+10)
+0103F7  6B          rtl
+
+; `?L116`
+010434  87 04       sta     [.tiny (_Dp+4)]
+010436  A5 02       lda     dp:.tiny (_Dp+2)
+010438  E2 20       `?L117`:    sep     #32
+01043A  97 04       sta     [.tiny (_Dp+4)],y
+01043C  C2 20       rep     #32
+01043E  6B          rtl

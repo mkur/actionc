@@ -46,6 +46,8 @@ fn execute(
     forwarded: &support::forwarding::Index,
 ) -> Value {
     let action = artifact["compiler"] == "actionc";
+    let calypsi = artifact["compiler"] == "calypsi";
+    assert!(action || calypsi || artifact["compiler"] == "vbcc");
     let mut bus = Bus::new();
     bus.single_word_edges = sites.clone();
     bus.forwarded_words = forwarded.clone();
@@ -99,7 +101,12 @@ fn execute(
     for (i, (argument, value)) in arguments.iter().zip(values).enumerate() {
         let value = number(value);
         let size = number(&argument["size"]) as usize;
-        if !action && i == 0 {
+        if calypsi && i < 2 {
+            // Normal Calypsi ABI: the first two huge pointers use
+            // _Dp[0..3] and _Dp[4..7], including the zero upper byte.
+            assert_eq!(size, 4, "Calypsi probe supports huge pointer arguments");
+            bus.ram[DP + 4 * i..DP + 4 * i + size].copy_from_slice(&value.to_le_bytes()[..size]);
+        } else if !action && !calypsi && i == 0 {
             registers.a = value as u16;
             if size > 2 {
                 registers.x = (value >> 16) as u16;
@@ -172,7 +179,14 @@ fn execute(
     let mut metadata_reads = 0u64;
     let mut padding_reads = 0u64;
     let mut dp_touched = BTreeSet::new();
-    let scratch_end = DP as u32 + if action { 64 } else { 80 };
+    let scratch_end = DP as u32
+        + if action {
+            64
+        } else if calypsi {
+            20
+        } else {
+            80
+        };
     for _ in 0..2_000_000 {
         if cpu.is_instruction_boundary() {
             let pc = cpu.pc();
@@ -287,6 +301,12 @@ fn execute(
     assert_eq!(returned.p & 0x3c, mask);
     if action {
         assert_eq!(&bus.ram[DP + 64..DP + 256], &original_dp[64..]);
+    } else if calypsi {
+        assert_eq!(
+            &bus.ram[DP + 8..DP + 256],
+            &original_dp[8..],
+            "Calypsi preserved pseudo-registers and memory beyond its register block"
+        );
     } else {
         assert_eq!(
             &bus.ram[DP + 32..DP + 56],
@@ -303,7 +323,19 @@ fn execute(
     );
     let result = match number(&case["returns"]) {
         0 => Value::Null,
+        1 => {
+            if action {
+                assert_eq!(returned.a >> 8, 0, "BYTE result must clear hidden B");
+            }
+            json!(returned.a & 0xff)
+        }
         2 => json!(returned.a),
+        3 => {
+            if action || calypsi {
+                assert_eq!(returned.x >> 8, 0, "24-bit result must clear X.high");
+            }
+            json!(u32::from(returned.a) | u32::from(returned.x & 0xff) << 16)
+        }
         4 => json!(u32::from(returned.a) | u32::from(returned.x) << 16),
         other => panic!("unsupported result width {other}"),
     };
@@ -328,7 +360,11 @@ fn execute(
             let actual = bus.ram[address + i];
             if actual != expected {
                 let at = (address + i) as u32;
-                errors.push(format!("memory ${at:06x}: expected ${expected:02x}, got ${actual:02x}; last store PC ${:06x}", last_memory_write[&at]));
+                let writer = last_memory_write
+                    .get(&at)
+                    .map(|pc| format!("${pc:06x}"))
+                    .unwrap_or_else(|| "none".into());
+                errors.push(format!("memory ${at:06x}: expected ${expected:02x}, got ${actual:02x}; last store PC {writer}"));
             }
         }
     }
@@ -426,10 +462,18 @@ fn execute_parallel_corpus() {
                 "edge evidence must match the saved compiler artifact"
             );
             let forwarded = support::forwarding::compiled(&p, &c);
-            let inventory: Vec<_> = support::control_flow::inventory(&p.mir, &c.machine, &saved)
-                .into_iter()
-                .filter(|s| contains(&artifact["code_ranges"], number(&s["pc"])))
-                .collect();
+            // The optional instruction inventory currently assumes one
+            // conditional dispatch per MIR terminator. Multiword pointer
+            // predicates can use several; execution and byte equality remain
+            // checked when a comparison opts out of this ancillary observer.
+            let inventory: Vec<_> = if manifest["observe_control_flow"] == false {
+                Vec::new()
+            } else {
+                support::control_flow::inventory(&p.mir, &c.machine, &saved)
+                    .into_iter()
+                    .filter(|s| contains(&artifact["code_ranges"], number(&s["pc"])))
+                    .collect()
+            };
             control.push(json!({"case": artifact["case"], "mode": artifact["mode"],
                 "sites": inventory}));
             let sites = support::word_edge::index(&p.mir, &c.machine, |id| {

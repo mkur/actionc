@@ -1,0 +1,990 @@
+[
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Insert",
+    "vector": 15,
+    "args": [
+      33024,
+      34048,
+      33280
+    ],
+    "errors": [
+      "memory $008101: expected $82, got $85; last store PC $010141",
+      "memory $008201: expected $85, got $83; last store PC none",
+      "memory $008204: expected $81, got $85; last store PC $01012d",
+      "memory $008304: expected $85, got $82; last store PC none",
+      "memory $008501: expected $83, got $82; last store PC $010112",
+      "memory $008504: expected $82, got $81; last store PC $0100fe"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Insert",
+    "vector": 16,
+    "args": [
+      33024,
+      34048,
+      33536
+    ],
+    "errors": [
+      "memory $008101: expected $82, got $85; last store PC $010141",
+      "memory $008107: expected $85, got $83; last store PC none",
+      "memory $008204: expected $81, got $85; last store PC $01012d",
+      "memory $008300: expected $00, got $03; last store PC none",
+      "memory $008301: expected $85, got $81; last store PC none",
+      "memory $008500: expected $03, got $00; last store PC $010112",
+      "memory $008501: expected $81, got $82; last store PC $010112",
+      "memory $008504: expected $83, got $81; last store PC $0100fe"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "RemHead",
+    "vector": 8,
+    "args": [
+      33024
+    ],
+    "errors": [
+      "scalar result: expected 33280, got 0",
+      "memory $008101: expected $83, got $82; last store PC none",
+      "memory $008304: expected $81, got $82; last store PC none"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "RemTail",
+    "vector": 7,
+    "args": [
+      33024
+    ],
+    "errors": [
+      "scalar result: expected 33280, got 0",
+      "memory $008100: expected $03, got $00; last store PC none",
+      "memory $008101: expected $81, got $82; last store PC none",
+      "memory $008107: expected $81, got $82; last store PC none"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "RemTail",
+    "vector": 8,
+    "args": [
+      33024
+    ],
+    "errors": [
+      "scalar result: expected 33536, got 0",
+      "memory $008107: expected $82, got $83; last store PC none",
+      "memory $008200: expected $03, got $00; last store PC none",
+      "memory $008201: expected $81, got $83; last store PC none"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Enqueue",
+    "vector": 12,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $0101d1",
+      "memory $008201: expected $85, got $83; last store PC none",
+      "memory $008304: expected $85, got $82; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $0101b6",
+      "memory $008401: expected $81, got $85; last store PC $0101b6",
+      "memory $008500: expected $00, got $03; last store PC $010185",
+      "memory $008501: expected $83, got $81; last store PC $010185",
+      "memory $008504: expected $82, got $84; last store PC $0101a2"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Enqueue",
+    "vector": 13,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $0101d1",
+      "memory $008201: expected $85, got $83; last store PC none",
+      "memory $008304: expected $85, got $82; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $0101b6",
+      "memory $008401: expected $81, got $85; last store PC $0101b6",
+      "memory $008500: expected $00, got $03; last store PC $010185",
+      "memory $008501: expected $83, got $81; last store PC $010185",
+      "memory $008504: expected $82, got $84; last store PC $0101a2"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Enqueue",
+    "vector": 14,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $0101d1",
+      "memory $008301: expected $85, got $84; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $0101b6",
+      "memory $008401: expected $81, got $85; last store PC $0101b6",
+      "memory $008404: expected $85, got $83; last store PC none",
+      "memory $008500: expected $00, got $03; last store PC $010185",
+      "memory $008501: expected $84, got $81; last store PC $010185",
+      "memory $008504: expected $83, got $84; last store PC $0101a2"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Enqueue",
+    "vector": 15,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $0101d1",
+      "memory $008301: expected $85, got $84; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $0101b6",
+      "memory $008401: expected $81, got $85; last store PC $0101b6",
+      "memory $008404: expected $85, got $83; last store PC none",
+      "memory $008500: expected $00, got $03; last store PC $010185",
+      "memory $008501: expected $84, got $81; last store PC $010185",
+      "memory $008504: expected $83, got $84; last store PC $0101a2"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "Enqueue",
+    "vector": 17,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $0101d1",
+      "memory $008301: expected $85, got $84; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $0101b6",
+      "memory $008401: expected $81, got $85; last store PC $0101b6",
+      "memory $008404: expected $85, got $83; last store PC none",
+      "memory $008500: expected $00, got $03; last store PC $010185",
+      "memory $008501: expected $84, got $81; last store PC $010185",
+      "memory $008504: expected $83, got $84; last store PC $0101a2"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "FindName",
+    "vector": 13,
+    "args": [
+      33024,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33280, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "FindName",
+    "vector": 14,
+    "args": [
+      33024,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33536, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "FindName",
+    "vector": 15,
+    "args": [
+      33024,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33792, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "raw",
+    "case": "FindName",
+    "vector": 17,
+    "args": [
+      33280,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33536, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "AddHead",
+    "vector": 0,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $01, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "AddHead",
+    "vector": 1,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $01, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "AddHead",
+    "vector": 2,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $01, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "AddHead",
+    "vector": 3,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $fe, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "AddHead",
+    "vector": 4,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $fe, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "AddHead",
+    "vector": 5,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $fe, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 0,
+    "args": [
+      1179905,
+      5637459,
+      0
+    ],
+    "errors": [
+      "memory $560556: expected $01, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 1,
+    "args": [
+      1179905,
+      5637459,
+      1179905
+    ],
+    "errors": [
+      "memory $560556: expected $01, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 3,
+    "args": [
+      1179905,
+      5637459,
+      2294289
+    ],
+    "errors": [
+      "memory $560556: expected $11, got $01; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 4,
+    "args": [
+      1179905,
+      5637459,
+      3408679
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 5,
+    "args": [
+      1179905,
+      5637459,
+      0
+    ],
+    "errors": [
+      "memory $560556: expected $01, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 6,
+    "args": [
+      1245182,
+      5637459,
+      0
+    ],
+    "errors": [
+      "memory $560556: expected $fe, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 7,
+    "args": [
+      1245182,
+      5637459,
+      1245182
+    ],
+    "errors": [
+      "memory $560556: expected $fe, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 9,
+    "args": [
+      1245182,
+      5637459,
+      2294289
+    ],
+    "errors": [
+      "memory $560556: expected $11, got $fe; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 10,
+    "args": [
+      1245182,
+      5637459,
+      3408679
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 11,
+    "args": [
+      1245182,
+      5637459,
+      0
+    ],
+    "errors": [
+      "memory $560556: expected $fe, got $00; last store PC $0100c5"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 15,
+    "args": [
+      33024,
+      34048,
+      33280
+    ],
+    "errors": [
+      "memory $008101: expected $82, got $85; last store PC $0100e3",
+      "memory $008201: expected $85, got $83; last store PC none",
+      "memory $008204: expected $81, got $85; last store PC $0100d7",
+      "memory $008304: expected $85, got $82; last store PC none",
+      "memory $008501: expected $83, got $82; last store PC $0100c2",
+      "memory $008504: expected $82, got $81; last store PC $0100b6"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Insert",
+    "vector": 16,
+    "args": [
+      33024,
+      34048,
+      33536
+    ],
+    "errors": [
+      "memory $008101: expected $82, got $85; last store PC $0100e3",
+      "memory $008107: expected $85, got $83; last store PC none",
+      "memory $008204: expected $81, got $85; last store PC $0100d7",
+      "memory $008300: expected $00, got $03; last store PC none",
+      "memory $008301: expected $85, got $81; last store PC none",
+      "memory $008500: expected $03, got $00; last store PC $0100c2",
+      "memory $008501: expected $81, got $82; last store PC $0100c2",
+      "memory $008504: expected $83, got $81; last store PC $0100b6"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Remove",
+    "vector": 0,
+    "args": [
+      2294289
+    ],
+    "errors": [
+      "memory $120104: expected $00, got $01; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Remove",
+    "vector": 1,
+    "args": [
+      3408679
+    ],
+    "errors": [
+      "memory $230214: expected $01, got $11; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Remove",
+    "vector": 2,
+    "args": [
+      4523069
+    ],
+    "errors": [
+      "memory $34032a: expected $11, got $27; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Remove",
+    "vector": 3,
+    "args": [
+      2294289
+    ],
+    "errors": [
+      "memory $130001: expected $00, got $fe; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Remove",
+    "vector": 4,
+    "args": [
+      3408679
+    ],
+    "errors": [
+      "memory $230214: expected $fe, got $11; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Remove",
+    "vector": 5,
+    "args": [
+      4523069
+    ],
+    "errors": [
+      "memory $34032a: expected $11, got $27; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemHead",
+    "vector": 1,
+    "args": [
+      1179905
+    ],
+    "errors": [
+      "memory $120104: expected $00, got $01; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemHead",
+    "vector": 2,
+    "args": [
+      1179905
+    ],
+    "errors": [
+      "memory $120104: expected $00, got $01; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemHead",
+    "vector": 4,
+    "args": [
+      1245182
+    ],
+    "errors": [
+      "memory $130001: expected $00, got $fe; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemHead",
+    "vector": 5,
+    "args": [
+      1245182
+    ],
+    "errors": [
+      "memory $130001: expected $00, got $fe; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemHead",
+    "vector": 8,
+    "args": [
+      33024
+    ],
+    "errors": [
+      "scalar result: expected 33280, got 0",
+      "memory $008101: expected $83, got $82; last store PC none",
+      "memory $008304: expected $81, got $82; last store PC none"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemTail",
+    "vector": 1,
+    "args": [
+      1179905
+    ],
+    "errors": [
+      "memory $120104: expected $00, got $01; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemTail",
+    "vector": 2,
+    "args": [
+      1179905
+    ],
+    "errors": [
+      "memory $230214: expected $01, got $11; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemTail",
+    "vector": 4,
+    "args": [
+      1245182
+    ],
+    "errors": [
+      "memory $130001: expected $00, got $fe; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemTail",
+    "vector": 5,
+    "args": [
+      1245182
+    ],
+    "errors": [
+      "memory $230214: expected $fe, got $11; last store PC $010240"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemTail",
+    "vector": 7,
+    "args": [
+      33024
+    ],
+    "errors": [
+      "scalar result: expected 33280, got 0",
+      "memory $008100: expected $03, got $00; last store PC none",
+      "memory $008101: expected $81, got $82; last store PC none",
+      "memory $008107: expected $81, got $82; last store PC none"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "RemTail",
+    "vector": 8,
+    "args": [
+      33024
+    ],
+    "errors": [
+      "scalar result: expected 33536, got 0",
+      "memory $008107: expected $82, got $83; last store PC none",
+      "memory $008200: expected $03, got $00; last store PC none",
+      "memory $008201: expected $81, got $83; last store PC none"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 0,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $11, got $01; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 1,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $11, got $01; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 2,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 3,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 5,
+    "args": [
+      1179905,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 6,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $11, got $fe; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 7,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $11, got $fe; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 8,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 9,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 11,
+    "args": [
+      1245182,
+      5637459
+    ],
+    "errors": [
+      "memory $560556: expected $27, got $11; last store PC $0101e7"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 12,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $01014f",
+      "memory $008201: expected $85, got $83; last store PC none",
+      "memory $008304: expected $85, got $82; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $010143",
+      "memory $008401: expected $81, got $85; last store PC $010143",
+      "memory $008500: expected $00, got $03; last store PC $01011a",
+      "memory $008501: expected $83, got $81; last store PC $01011a",
+      "memory $008504: expected $82, got $84; last store PC $010137"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 13,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $01014f",
+      "memory $008201: expected $85, got $83; last store PC none",
+      "memory $008304: expected $85, got $82; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $010143",
+      "memory $008401: expected $81, got $85; last store PC $010143",
+      "memory $008500: expected $00, got $03; last store PC $01011a",
+      "memory $008501: expected $83, got $81; last store PC $01011a",
+      "memory $008504: expected $82, got $84; last store PC $010137"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 14,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $01014f",
+      "memory $008301: expected $85, got $84; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $010143",
+      "memory $008401: expected $81, got $85; last store PC $010143",
+      "memory $008404: expected $85, got $83; last store PC none",
+      "memory $008500: expected $00, got $03; last store PC $01011a",
+      "memory $008501: expected $84, got $81; last store PC $01011a",
+      "memory $008504: expected $83, got $84; last store PC $010137"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 15,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $01014f",
+      "memory $008301: expected $85, got $84; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $010143",
+      "memory $008401: expected $81, got $85; last store PC $010143",
+      "memory $008404: expected $85, got $83; last store PC none",
+      "memory $008500: expected $00, got $03; last store PC $01011a",
+      "memory $008501: expected $84, got $81; last store PC $01011a",
+      "memory $008504: expected $83, got $84; last store PC $010137"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "Enqueue",
+    "vector": 17,
+    "args": [
+      33024,
+      34048
+    ],
+    "errors": [
+      "memory $008107: expected $84, got $85; last store PC $01014f",
+      "memory $008301: expected $85, got $84; last store PC none",
+      "memory $008400: expected $03, got $00; last store PC $010143",
+      "memory $008401: expected $81, got $85; last store PC $010143",
+      "memory $008404: expected $85, got $83; last store PC none",
+      "memory $008500: expected $00, got $03; last store PC $01011a",
+      "memory $008501: expected $84, got $81; last store PC $01011a",
+      "memory $008504: expected $83, got $84; last store PC $010137"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "FindName",
+    "vector": 13,
+    "args": [
+      33024,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33280, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "FindName",
+    "vector": 14,
+    "args": [
+      33024,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33536, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "FindName",
+    "vector": 15,
+    "args": [
+      33024,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33792, got 0"
+    ]
+  },
+  {
+    "compiler": "vbcc",
+    "mode": "optimized",
+    "case": "FindName",
+    "vector": 17,
+    "args": [
+      33280,
+      37632
+    ],
+    "errors": [
+      "scalar result: expected 33536, got 0"
+    ]
+  }
+]

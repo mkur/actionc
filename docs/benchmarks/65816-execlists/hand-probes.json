@@ -1,0 +1,60 @@
+[
+  {
+    "probe": "remove",
+    "source": "hand-remove.s",
+    "source_sha256": "cde38848666ea6adeaf5bdf46bccda95a66cf0b6363f653ff9b5f66c53f8ce44",
+    "executable_sha256": "12974ff7b81ccda63c5ce15a41fc28fa413e1a1532ee50ee048d67664f0634ce",
+    "results_sha256": "64a752349d1604294dbdf5d0201392fce3b74f083666d956aa175dde8e8bb651",
+    "log_sha256": "c9a9f477d95ad84c93d1e5f9485f67909ebc042af0f9db4df019fbbb7c4f4a33",
+    "paired_mask_records": 15,
+    "executions": 30,
+    "vectors": {
+      "Remove": 15
+    },
+    "all_correct": true,
+    "padding_reads": 0,
+    "cycles_including_adapter": {
+      "Remove": [
+        157
+      ]
+    },
+    "abi_note": "The test manifest uses compiler=calypsi only to select its argument lanes; all instructions are handwritten ca65 assembly.",
+    "routine_bytes": 50,
+    "adapter_bytes": 11,
+    "adapter_cycles": 36,
+    "routine_cycles": 121,
+    "scratch_bytes": 6
+  },
+  {
+    "probe": "null",
+    "source": "hand-null.s",
+    "source_sha256": "d8b862277656903fcc3641a5fb7ccb67237ea4cb9eeaa9ff8f2a980c60caf188",
+    "executable_sha256": "b19187cb5b80a49a39766f4ab08bff80465db54bc14b516e1167ee8a20b1aada",
+    "results_sha256": "578c37cf8c0d02ac99a535d5d610b1ed04a1e8f10d1d7fd3beb2152467f39be6",
+    "log_sha256": "8021b4bab9c2305706ef3a6436bf42e11006f0de1c018fd9c1b12cfcb54ee9af",
+    "paired_mask_records": 87,
+    "executions": 174,
+    "vectors": {
+      "CapturedDP": 29,
+      "CapturedStack": 29,
+      "Indirect": 29
+    },
+    "all_correct": true,
+    "padding_reads": 0,
+    "cycles_including_adapter": {
+      "CapturedDP": [
+        19,
+        20
+      ],
+      "CapturedStack": [
+        57,
+        58
+      ],
+      "Indirect": [
+        28,
+        29
+      ]
+    },
+    "abi_note": "The test manifest uses compiler=calypsi only to select its argument lanes; all instructions are handwritten ca65 assembly."
+  }
+]

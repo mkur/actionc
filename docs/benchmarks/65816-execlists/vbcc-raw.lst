@@ -1,0 +1,747 @@
+010000  5A          phy
+010001  5A          phy
+010002  85 3E       sta	r31
+010004  83 01       sta	1,s
+010006  8A          txa
+010007  83 03       sta	3,s
+010009  A3 01       lda	1,s
+01000B  85 4C       sta	btmp3
+01000D  A3 03       lda	3,s
+01000F  85 4E       sta	btmp3+2
+010011  18          clc
+010012  A3 01       lda	1,s
+010014  69 03 00    adc	#3
+010017  87 4C       sta	[btmp3]
+010019  E2 20       sep	#32
+01001B  A3 03       lda	3,s
+01001D  69 00       adc	#0
+01001F  A0 02 00    ldy	#2
+010022  97 4C       sta	[btmp3],y
+010024  18          clc
+010025  C2 20       rep	#32
+010027  A3 01       lda	1,s
+010029  69 03 00    adc	#3
+01002C  85 00       sta	r0
+01002E  A3 03       lda	3,s
+010030  69 00 00    adc	#0
+010033  85 02       sta	r0+2
+010035  A9 00 00    lda	#0
+010038  87 00       sta	[r0]
+01003A  E2 20       sep	#32
+01003C  A9 00       lda	#0
+01003E  97 00       sta	[r0],y
+010040  18          clc
+010041  C2 20       rep	#32
+010043  A3 01       lda	1,s
+010045  69 06 00    adc	#6
+010048  85 00       sta	r0
+01004A  A3 03       lda	3,s
+01004C  69 00 00    adc	#0
+01004F  85 02       sta	r0+2
+010051  A3 01       lda	1,s
+010053  87 00       sta	[r0]
+010055  E2 20       sep	#32
+010057  A3 03       lda	3,s
+010059  97 00       sta	[r0],y
+01005B  C2 20       rep	#32
+01005D  7A          ply
+01005E  7A          ply
+01005F  6B          rtl
+010060  5A          phy
+010061  5A          phy
+010062  85 3E       sta	r31
+010064  83 01       sta	1,s
+010066  8A          txa
+010067  83 03       sta	3,s
+010069  AA          tax
+01006A  A3 01       lda	1,s
+01006C  22 00 00 01 jsl	>_NewList
+010070  7A          ply
+010071  7A          ply
+010072  6B          rtl
+010073  5A          phy
+010074  5A          phy
+010075  85 3E       sta	r31
+010077  83 01       sta	1,s
+010079  8A          txa
+01007A  83 03       sta	3,s
+01007C  18          clc
+01007D  A3 01       lda	1,s
+01007F  69 03 00    adc	#3
+010082  85 00       sta	r0
+010084  A3 03       lda	3,s
+010086  69 00 00    adc	#0
+010089  85 02       sta	r0+2
+01008B  A3 01       lda	1,s
+01008D  85 4C       sta	btmp3
+01008F  A3 03       lda	3,s
+010091  85 4E       sta	btmp3+2
+010093  E2 20       sep	#32
+010095  A0 02 00    ldy	#2
+010098  B7 4C       lda	[btmp3],y
+01009A  C5 02       cmp	r0+2
+01009C  C2 20       rep	#32
+01009E  D0 06       bne	l11
+0100A0  A7 4C       lda	[btmp3]
+0100A2  C5 00       cmp	r0
+0100A4  F0 05       beq	l7
+0100A6  A9 00 00    lda	#0
+0100A9  80 03       bra	l8
+0100AB  A9 01 00    lda	#1
+0100AE  7A          ply
+0100AF  7A          ply
+0100B0  6B          rtl
+0100B1  5A          phy
+0100B2  5A          phy
+0100B3  85 3E       sta	r31
+0100B5  83 01       sta	1,s
+0100B7  8A          txa
+0100B8  83 03       sta	3,s
+0100BA  AA          tax
+0100BB  A3 01       lda	1,s
+0100BD  22 73 00 01 jsl	>_IsListEmpty
+0100C1  E2 20       sep	#32
+0100C3  85 00       sta	r0
+0100C5  C2 20       rep	#32
+0100C7  A5 00       lda	r0
+0100C9  7A          ply
+0100CA  7A          ply
+0100CB  6B          rtl
+0100CC  5A          phy
+0100CD  5A          phy
+0100CE  5A          phy
+0100CF  85 3E       sta	r31
+0100D1  83 01       sta	1,s
+0100D3  8A          txa
+0100D4  83 03       sta	3,s
+0100D6  A3 01       lda	1,s
+0100D8  85 4C       sta	btmp3
+0100DA  A3 03       lda	3,s
+0100DC  85 4E       sta	btmp3+2
+0100DE  A7 4C       lda	[btmp3]
+0100E0  83 04       sta	4,s
+0100E2  E2 20       sep	#32
+0100E4  A0 02 00    ldy	#2
+0100E7  B7 4C       lda	[btmp3],y
+0100E9  83 06       sta	6,s
+0100EB  18          clc
+0100EC  C2 20       rep	#32
+0100EE  A3 0A       lda	10,s
+0100F0  69 03 00    adc	#3
+0100F3  85 00       sta	r0
+0100F5  A3 0C       lda	12,s
+0100F7  69 00 00    adc	#0
+0100FA  85 02       sta	r0+2
+0100FC  A3 01       lda	1,s
+0100FE  87 00       sta	[r0]
+010100  E2 20       sep	#32
+010102  A3 03       lda	3,s
+010104  97 00       sta	[r0],y
+010106  C2 20       rep	#32
+010108  A3 0A       lda	10,s
+01010A  85 4C       sta	btmp3
+01010C  A3 0C       lda	12,s
+01010E  85 4E       sta	btmp3+2
+010110  A3 04       lda	4,s
+010112  87 4C       sta	[btmp3]
+010114  E2 20       sep	#32
+010116  A3 06       lda	6,s
+010118  97 4C       sta	[btmp3],y
+01011A  18          clc
+01011B  C2 20       rep	#32
+01011D  A3 04       lda	4,s
+01011F  69 03 00    adc	#3
+010122  85 00       sta	r0
+010124  A3 06       lda	6,s
+010126  69 00 00    adc	#0
+010129  85 02       sta	r0+2
+01012B  A3 0A       lda	10,s
+01012D  87 00       sta	[r0]
+01012F  E2 20       sep	#32
+010131  A3 0C       lda	12,s
+010133  97 00       sta	[r0],y
+010135  C2 20       rep	#32
+010137  A3 01       lda	1,s
+010139  85 4C       sta	btmp3
+01013B  A3 03       lda	3,s
+01013D  85 4E       sta	btmp3+2
+01013F  A3 0A       lda	10,s
+010141  87 4C       sta	[btmp3]
+010143  E2 20       sep	#32
+010145  A3 0C       lda	12,s
+010147  97 4C       sta	[btmp3],y
+010149  C2 20       rep	#32
+01014B  7A          ply
+01014C  7A          ply
+01014D  7A          ply
+01014E  6B          rtl
+01014F  5A          phy
+010150  5A          phy
+010151  5A          phy
+010152  85 3E       sta	r31
+010154  83 01       sta	1,s
+010156  8A          txa
+010157  83 03       sta	3,s
+010159  18          clc
+01015A  A3 01       lda	1,s
+01015C  69 06 00    adc	#6
+01015F  85 00       sta	r0
+010161  A3 03       lda	3,s
+010163  69 00 00    adc	#0
+010166  85 02       sta	r0+2
+010168  A7 00       lda	[r0]
+01016A  83 04       sta	4,s
+01016C  E2 20       sep	#32
+01016E  A0 02 00    ldy	#2
+010171  B7 00       lda	[r0],y
+010173  83 06       sta	6,s
+010175  C2 20       rep	#32
+010177  A3 0A       lda	10,s
+010179  85 4C       sta	btmp3
+01017B  A3 0C       lda	12,s
+01017D  85 4E       sta	btmp3+2
+01017F  18          clc
+010180  A3 01       lda	1,s
+010182  69 03 00    adc	#3
+010185  87 4C       sta	[btmp3]
+010187  E2 20       sep	#32
+010189  A3 03       lda	3,s
+01018B  69 00       adc	#0
+01018D  97 4C       sta	[btmp3],y
+01018F  18          clc
+010190  C2 20       rep	#32
+010192  A3 0A       lda	10,s
+010194  69 03 00    adc	#3
+010197  85 00       sta	r0
+010199  A3 0C       lda	12,s
+01019B  69 00 00    adc	#0
+01019E  85 02       sta	r0+2
+0101A0  A3 04       lda	4,s
+0101A2  87 00       sta	[r0]
+0101A4  E2 20       sep	#32
+0101A6  A3 06       lda	6,s
+0101A8  97 00       sta	[r0],y
+0101AA  C2 20       rep	#32
+0101AC  A3 04       lda	4,s
+0101AE  85 4C       sta	btmp3
+0101B0  A3 06       lda	6,s
+0101B2  85 4E       sta	btmp3+2
+0101B4  A3 0A       lda	10,s
+0101B6  87 4C       sta	[btmp3]
+0101B8  E2 20       sep	#32
+0101BA  A3 0C       lda	12,s
+0101BC  97 4C       sta	[btmp3],y
+0101BE  18          clc
+0101BF  C2 20       rep	#32
+0101C1  A3 01       lda	1,s
+0101C3  69 06 00    adc	#6
+0101C6  85 00       sta	r0
+0101C8  A3 03       lda	3,s
+0101CA  69 00 00    adc	#0
+0101CD  85 02       sta	r0+2
+0101CF  A3 0A       lda	10,s
+0101D1  87 00       sta	[r0]
+0101D3  E2 20       sep	#32
+0101D5  A3 0C       lda	12,s
+0101D7  97 00       sta	[r0],y
+0101D9  C2 20       rep	#32
+0101DB  7A          ply
+0101DC  7A          ply
+0101DD  7A          ply
+0101DE  6B          rtl
+0101DF  5A          phy
+0101E0  5A          phy
+0101E1  5A          phy
+0101E2  85 3E       sta	r31
+0101E4  83 01       sta	1,s
+0101E6  8A          txa
+0101E7  83 03       sta	3,s
+0101E9  A3 0E       lda	14,s
+0101EB  E2 20       sep	#32
+0101ED  03 10       ora	16,s
+0101EF  C2 20       rep	#32
+0101F1  F0 10       beq	l20
+0101F3  E2 20       sep	#32
+0101F5  A3 10       lda	16,s
+0101F7  C3 03       cmp	3,s
+0101F9  C2 20       rep	#32
+0101FB  D0 1A       bne	l21
+0101FD  A3 0E       lda	14,s
+0101FF  C3 01       cmp	1,s
+010201  D0 14       bne	l21
+010203  A3 0C       lda	12,s
+010205  48          pha
+010206  A3 0C       lda	12,s
+010208  48          pha
+010209  A3 07       lda	7,s
+01020B  AA          tax
+01020C  A3 05       lda	5,s
+01020E  22 CC 00 01 jsl	>_AddHead
+010212  7A          ply
+010213  7A          ply
+010214  4C BE 02    bra	l18
+010217  18          clc
+010218  A3 01       lda	1,s
+01021A  69 03 00    adc	#3
+01021D  85 00       sta	r0
+01021F  A3 03       lda	3,s
+010221  69 00 00    adc	#0
+010224  85 02       sta	r0+2
+010226  E2 20       sep	#32
+010228  A3 10       lda	16,s
+01022A  C5 02       cmp	r0+2
+01022C  C2 20       rep	#32
+01022E  D0 19       bne	l24
+010230  A3 0E       lda	14,s
+010232  C5 00       cmp	r0
+010234  D0 13       bne	l24
+010236  A3 0C       lda	12,s
+010238  48          pha
+010239  A3 0C       lda	12,s
+01023B  48          pha
+01023C  A3 07       lda	7,s
+01023E  AA          tax
+01023F  A3 05       lda	5,s
+010241  22 4F 01 01 jsl	>_AddTail
+010245  7A          ply
+010246  7A          ply
+010247  80 75       bra	l18
+010249  A3 0E       lda	14,s
+01024B  85 4C       sta	btmp3
+01024D  A3 10       lda	16,s
+01024F  85 4E       sta	btmp3+2
+010251  A7 4C       lda	[btmp3]
+010253  83 04       sta	4,s
+010255  E2 20       sep	#32
+010257  A0 02 00    ldy	#2
+01025A  B7 4C       lda	[btmp3],y
+01025C  83 06       sta	6,s
+01025E  18          clc
+01025F  C2 20       rep	#32
+010261  A3 0A       lda	10,s
+010263  69 03 00    adc	#3
+010266  85 00       sta	r0
+010268  A3 0C       lda	12,s
+01026A  69 00 00    adc	#0
+01026D  85 02       sta	r0+2
+01026F  A3 0E       lda	14,s
+010271  87 00       sta	[r0]
+010273  E2 20       sep	#32
+010275  A3 10       lda	16,s
+010277  97 00       sta	[r0],y
+010279  C2 20       rep	#32
+01027B  A3 0A       lda	10,s
+01027D  85 4C       sta	btmp3
+01027F  A3 0C       lda	12,s
+010281  85 4E       sta	btmp3+2
+010283  A3 04       lda	4,s
+010285  87 4C       sta	[btmp3]
+010287  E2 20       sep	#32
+010289  A3 06       lda	6,s
+01028B  97 4C       sta	[btmp3],y
+01028D  18          clc
+01028E  C2 20       rep	#32
+010290  A3 04       lda	4,s
+010292  69 03 00    adc	#3
+010295  85 00       sta	r0
+010297  A3 06       lda	6,s
+010299  69 00 00    adc	#0
+01029C  85 02       sta	r0+2
+01029E  A3 0A       lda	10,s
+0102A0  87 00       sta	[r0]
+0102A2  E2 20       sep	#32
+0102A4  A3 0C       lda	12,s
+0102A6  97 00       sta	[r0],y
+0102A8  C2 20       rep	#32
+0102AA  A3 0E       lda	14,s
+0102AC  85 4C       sta	btmp3
+0102AE  A3 10       lda	16,s
+0102B0  85 4E       sta	btmp3+2
+0102B2  A3 0A       lda	10,s
+0102B4  87 4C       sta	[btmp3]
+0102B6  E2 20       sep	#32
+0102B8  A3 0C       lda	12,s
+0102BA  97 4C       sta	[btmp3],y
+0102BC  C2 20       rep	#32
+0102BE  7A          ply
+0102BF  7A          ply
+0102C0  7A          ply
+0102C1  6B          rtl
+0102C2  85 38       sta	r28
+0102C4  3B          tsc
+0102C5  18          clc
+0102C6  69 F6 FF    adc	#-10
+0102C9  1B          tcs
+0102CA  A5 38       lda	r28
+0102CC  85 3E       sta	r31
+0102CE  83 01       sta	1,s
+0102D0  8A          txa
+0102D1  83 03       sta	3,s
+0102D3  18          clc
+0102D4  A3 01       lda	1,s
+0102D6  69 03 00    adc	#3
+0102D9  85 00       sta	r0
+0102DB  A3 03       lda	3,s
+0102DD  69 00 00    adc	#0
+0102E0  85 02       sta	r0+2
+0102E2  A7 00       lda	[r0]
+0102E4  83 04       sta	4,s
+0102E6  E2 20       sep	#32
+0102E8  A0 02 00    ldy	#2
+0102EB  B7 00       lda	[r0],y
+0102ED  83 06       sta	6,s
+0102EF  C2 20       rep	#32
+0102F1  A3 01       lda	1,s
+0102F3  85 4C       sta	btmp3
+0102F5  A3 03       lda	3,s
+0102F7  85 4E       sta	btmp3+2
+0102F9  A7 4C       lda	[btmp3]
+0102FB  83 07       sta	7,s
+0102FD  E2 20       sep	#32
+0102FF  B7 4C       lda	[btmp3],y
+010301  83 09       sta	9,s
+010303  C2 20       rep	#32
+010305  A3 04       lda	4,s
+010307  85 4C       sta	btmp3
+010309  A3 06       lda	6,s
+01030B  85 4E       sta	btmp3+2
+01030D  A3 07       lda	7,s
+01030F  87 4C       sta	[btmp3]
+010311  E2 20       sep	#32
+010313  A3 09       lda	9,s
+010315  97 4C       sta	[btmp3],y
+010317  18          clc
+010318  C2 20       rep	#32
+01031A  A3 07       lda	7,s
+01031C  69 03 00    adc	#3
+01031F  85 00       sta	r0
+010321  A3 09       lda	9,s
+010323  69 00 00    adc	#0
+010326  85 02       sta	r0+2
+010328  A3 04       lda	4,s
+01032A  87 00       sta	[r0]
+01032C  E2 20       sep	#32
+01032E  A3 06       lda	6,s
+010330  97 00       sta	[r0],y
+010332  C2 20       rep	#32
+010334  3B          tsc
+010335  18          clc
+010336  69 0A 00    adc	#10
+010339  1B          tcs
+01033A  6B          rtl
+01033B  5A          phy
+01033C  5A          phy
+01033D  5A          phy
+01033E  85 3E       sta	r31
+010340  83 01       sta	1,s
+010342  8A          txa
+010343  83 03       sta	3,s
+010345  A3 01       lda	1,s
+010347  85 4C       sta	btmp3
+010349  A3 03       lda	3,s
+01034B  85 4E       sta	btmp3+2
+01034D  A7 4C       lda	[btmp3]
+01034F  83 04       sta	4,s
+010351  E2 20       sep	#32
+010353  A0 02 00    ldy	#2
+010356  B7 4C       lda	[btmp3],y
+010358  83 06       sta	6,s
+01035A  C2 20       rep	#32
+01035C  A3 04       lda	4,s
+01035E  85 4C       sta	btmp3
+010360  A3 06       lda	6,s
+010362  85 4E       sta	btmp3+2
+010364  A7 4C       lda	[btmp3]
+010366  E2 20       sep	#32
+010368  17 4C       ora	[btmp3],y
+01036A  C2 20       rep	#32
+01036C  D0 06       bne	l30
+01036E  A2 00 00    ldx	#0
+010371  8A          txa
+010372  80 0E       bra	l27
+010374  A3 06       lda	6,s
+010376  AA          tax
+010377  A3 04       lda	4,s
+010379  22 C2 02 01 jsl	>_Remove
+01037D  A3 06       lda	6,s
+01037F  AA          tax
+010380  A3 04       lda	4,s
+010382  7A          ply
+010383  7A          ply
+010384  7A          ply
+010385  6B          rtl
+010386  5A          phy
+010387  5A          phy
+010388  5A          phy
+010389  85 3E       sta	r31
+01038B  83 01       sta	1,s
+01038D  8A          txa
+01038E  83 03       sta	3,s
+010390  18          clc
+010391  A3 01       lda	1,s
+010393  69 06 00    adc	#6
+010396  85 00       sta	r0
+010398  A3 03       lda	3,s
+01039A  69 00 00    adc	#0
+01039D  85 02       sta	r0+2
+01039F  A7 00       lda	[r0]
+0103A1  83 04       sta	4,s
+0103A3  E2 20       sep	#32
+0103A5  A0 02 00    ldy	#2
+0103A8  B7 00       lda	[r0],y
+0103AA  83 06       sta	6,s
+0103AC  18          clc
+0103AD  C2 20       rep	#32
+0103AF  A3 04       lda	4,s
+0103B1  69 03 00    adc	#3
+0103B4  85 00       sta	r0
+0103B6  A3 06       lda	6,s
+0103B8  69 00 00    adc	#0
+0103BB  85 02       sta	r0+2
+0103BD  A7 00       lda	[r0]
+0103BF  E2 20       sep	#32
+0103C1  17 00       ora	[r0],y
+0103C3  C2 20       rep	#32
+0103C5  D0 06       bne	l34
+0103C7  A2 00 00    ldx	#0
+0103CA  8A          txa
+0103CB  80 0E       bra	l31
+0103CD  A3 06       lda	6,s
+0103CF  AA          tax
+0103D0  A3 04       lda	4,s
+0103D2  22 C2 02 01 jsl	>_Remove
+0103D6  A3 06       lda	6,s
+0103D8  AA          tax
+0103D9  A3 04       lda	4,s
+0103DB  7A          ply
+0103DC  7A          ply
+0103DD  7A          ply
+0103DE  6B          rtl
+0103DF  5A          phy
+0103E0  5A          phy
+0103E1  5A          phy
+0103E2  85 3E       sta	r31
+0103E4  83 01       sta	1,s
+0103E6  8A          txa
+0103E7  83 03       sta	3,s
+0103E9  A3 01       lda	1,s
+0103EB  85 4C       sta	btmp3
+0103ED  A3 03       lda	3,s
+0103EF  85 4E       sta	btmp3+2
+0103F1  A7 4C       lda	[btmp3]
+0103F3  83 04       sta	4,s
+0103F5  E2 20       sep	#32
+0103F7  A0 02 00    ldy	#2
+0103FA  B7 4C       lda	[btmp3],y
+0103FC  83 06       sta	6,s
+0103FE  C2 20       rep	#32
+010400  80 7B       bra	l38
+010402  A3 0A       lda	10,s
+010404  85 00       sta	r0
+010406  A3 0C       lda	12,s
+010408  85 02       sta	r0+2
+01040A  A0 07 00    ldy	#7
+01040D  B7 00       lda	[r0],y ;am(7)
+01040F  29 FF 00    and	#255
+010412  49 80 00    eor	#128
+010415  85 3E       sta	r31
+010417  A3 04       lda	4,s
+010419  85 00       sta	r0
+01041B  A3 06       lda	6,s
+01041D  85 02       sta	r0+2
+01041F  B7 00       lda	[r0],y ;am(7)
+010421  29 FF 00    and	#255
+010424  85 04       sta	r2
+010426  49 80 00    eor	#128
+010429  85 04       sta	r2
+01042B  A5 3E       lda	r31
+01042D  AA          tax
+01042E  18          clc
+01042F  E5 04       sbc	r2
+010431  50 03       bvc	l45
+010433  49 00 80    eor	#32768
+010436  30 72       bmi	l44
+010438  8A          txa
+010439  18          clc
+01043A  A3 04       lda	4,s
+01043C  69 03 00    adc	#3
+01043F  85 00       sta	r0
+010441  A3 06       lda	6,s
+010443  69 00 00    adc	#0
+010446  85 02       sta	r0+2
+010448  A0 02 00    ldy	#2
+01044B  B7 00       lda	[r0],y
+01044D  48          pha
+01044E  A7 00       lda	[r0]
+010450  48          pha
+010451  A3 10       lda	16,s
+010453  48          pha
+010454  A3 10       lda	16,s
+010456  48          pha
+010457  A3 0B       lda	11,s
+010459  AA          tax
+01045A  A3 09       lda	9,s
+01045C  22 DF 01 01 jsl	>_Insert
+010460  7A          ply
+010461  7A          ply
+010462  7A          ply
+010463  7A          ply
+010464  80 40       bra	l35
+010466  A3 04       lda	4,s
+010468  85 4C       sta	btmp3
+01046A  A3 06       lda	6,s
+01046C  85 4E       sta	btmp3+2
+01046E  A7 4C       lda	[btmp3]
+010470  83 04       sta	4,s
+010472  E2 20       sep	#32
+010474  A0 02 00    ldy	#2
+010477  B7 4C       lda	[btmp3],y
+010479  83 06       sta	6,s
+01047B  C2 20       rep	#32
+01047D  A3 04       lda	4,s
+01047F  85 4C       sta	btmp3
+010481  A3 06       lda	6,s
+010483  85 4E       sta	btmp3+2
+010485  A7 4C       lda	[btmp3]
+010487  E2 20       sep	#32
+010489  A0 02 00    ldy	#2
+01048C  17 4C       ora	[btmp3],y
+01048E  C2 20       rep	#32
+010490  F0 03 4C 02 04 bne	l37
+010495  A3 0C       lda	12,s
+010497  48          pha
+010498  A3 0C       lda	12,s
+01049A  48          pha
+01049B  A3 07       lda	7,s
+01049D  AA          tax
+01049E  A3 05       lda	5,s
+0104A0  22 4F 01 01 jsl	>_AddTail
+0104A4  7A          ply
+0104A5  7A          ply
+0104A6  7A          ply
+0104A7  7A          ply
+0104A8  7A          ply
+0104A9  6B          rtl
+0104AA  8A          txa
+0104AB  80 B9       bra	l41
+0104AD  85 38       sta	r28
+0104AF  3B          tsc
+0104B0  18          clc
+0104B1  69 F4 FF    adc	#-12
+0104B4  1B          tcs
+0104B5  A5 38       lda	r28
+0104B7  85 3E       sta	r31
+0104B9  83 01       sta	1,s
+0104BB  8A          txa
+0104BC  83 03       sta	3,s
+0104BE  A3 01       lda	1,s
+0104C0  85 4C       sta	btmp3
+0104C2  A3 03       lda	3,s
+0104C4  85 4E       sta	btmp3+2
+0104C6  A7 4C       lda	[btmp3]
+0104C8  83 04       sta	4,s
+0104CA  E2 20       sep	#32
+0104CC  A0 02 00    ldy	#2
+0104CF  B7 4C       lda	[btmp3],y
+0104D1  83 06       sta	6,s
+0104D3  C2 20       rep	#32
+0104D5  4C 7A 05    bra	l49
+0104D8  18          clc
+0104D9  A3 04       lda	4,s
+0104DB  69 08 00    adc	#8
+0104DE  85 00       sta	r0
+0104E0  A3 06       lda	6,s
+0104E2  69 00 00    adc	#0
+0104E5  85 02       sta	r0+2
+0104E7  A7 00       lda	[r0]
+0104E9  83 07       sta	7,s
+0104EB  E2 20       sep	#32
+0104ED  A0 02 00    ldy	#2
+0104F0  B7 00       lda	[r0],y
+0104F2  83 09       sta	9,s
+0104F4  C2 20       rep	#32
+0104F6  A3 10       lda	16,s
+0104F8  83 0A       sta	10,s
+0104FA  E2 20       sep	#32
+0104FC  A3 12       lda	18,s
+0104FE  83 0C       sta	12,s
+010500  C2 20       rep	#32
+010502  A3 07       lda	7,s
+010504  E2 20       sep	#32
+010506  03 09       ora	9,s
+010508  C2 20       rep	#32
+01050A  F0 57       beq	l52
+01050C  80 3B       bra	l54
+01050E  A3 07       lda	7,s
+010510  85 4C       sta	btmp3
+010512  A3 09       lda	9,s
+010514  85 4E       sta	btmp3+2
+010516  E2 20       sep	#32
+010518  A7 4C       lda	[btmp3]
+01051A  C2 20       rep	#32
+01051C  D0 07       bne	l57
+01051E  A3 06       lda	6,s
+010520  AA          tax
+010521  A3 04       lda	4,s
+010523  80 71       bra	l46
+010525  18          clc
+010526  A3 07       lda	7,s
+010528  69 01 00    adc	#1
+01052B  83 07       sta	7,s
+01052D  E2 20       sep	#32
+01052F  A3 09       lda	9,s
+010531  69 00       adc	#0
+010533  83 09       sta	9,s
+010535  18          clc
+010536  C2 20       rep	#32
+010538  A3 0A       lda	10,s
+01053A  69 01 00    adc	#1
+01053D  83 0A       sta	10,s
+01053F  E2 20       sep	#32
+010541  A3 0C       lda	12,s
+010543  69 00       adc	#0
+010545  83 0C       sta	12,s
+010547  C2 20       rep	#32
+010549  A3 07       lda	7,s
+01054B  85 4C       sta	btmp3
+01054D  A3 09       lda	9,s
+01054F  85 4E       sta	btmp3+2
+010551  A3 0A       lda	10,s
+010553  85 48       sta	btmp2
+010555  A3 0C       lda	12,s
+010557  85 4A       sta	btmp2+2
+010559  E2 20       sep	#32
+01055B  A7 4C       lda	[btmp3]
+01055D  C7 48       cmp	[btmp2]
+01055F  C2 20       rep	#32
+010561  F0 AB       beq	l53
+010563  A3 04       lda	4,s
+010565  85 4C       sta	btmp3
+010567  A3 06       lda	6,s
+010569  85 4E       sta	btmp3+2
+01056B  A7 4C       lda	[btmp3]
+01056D  83 04       sta	4,s
+01056F  E2 20       sep	#32
+010571  A0 02 00    ldy	#2
+010574  B7 4C       lda	[btmp3],y
+010576  83 06       sta	6,s
+010578  C2 20       rep	#32
+01057A  A3 04       lda	4,s
+01057C  85 4C       sta	btmp3
+01057E  A3 06       lda	6,s
+010580  85 4E       sta	btmp3+2
+010582  A7 4C       lda	[btmp3]
+010584  E2 20       sep	#32
+010586  A0 02 00    ldy	#2
+010589  17 4C       ora	[btmp3],y
+01058B  C2 20       rep	#32
+01058D  F0 03 4C D8 04 bne	l48
+010592  A2 00 00    ldx	#0
+010595  8A          txa
+010596  A8          tay
+010597  3B          tsc
+010598  18          clc
+010599  69 0C 00    adc	#12
+01059C  1B          tcs
+01059D  98          tya
+01059E  6B          rtl

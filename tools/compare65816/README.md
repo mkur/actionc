@@ -425,3 +425,13 @@ The opt-in native `dijkstra` test checks all 33 existing C-derived vectors,
 including complete node/queue state, native pointer layouts, ABI restoration,
 stack canaries and protected record padding. It uses aggregate counters so the
 full 20-search benchmark does not retain billions of individual bus events.
+
+### Exec816 list primitives
+
+`execlists.py` builds a frozen `execlists.act` and its equivalent C module with
+Action, vbcc and Calypsi (default `/usr/local/bin`, override `--calypsi-bin`). It
+checks packed layouts, huge-pointer bank crossings, shared helper accounting
+and LF/CRLF output, and creates 135 list-state vectors. Use the existing qualified
+`code_quality` runner in both host modes,
+then `report_execlists.py`. This is separate from the small kernel corpus.
+See the [analysis, compiler failures and reproduction commands](../../docs/benchmarks/65816-execlists/README.md).
