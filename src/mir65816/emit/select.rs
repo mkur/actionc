@@ -433,10 +433,14 @@ pub(super) fn routine_with_replay(
         return Ok(MachineRoutine {
             id: routine.id,
             frame: b.frame,
-            code: super::layout::finalize(direct, true)?,
+            code: super::rewrite::zero_index::apply(
+                super::layout::finalize(direct, true)?,
+                _trace,
+            )?,
         });
     }
     let code = super::rewrite::pilot::apply(&direct, &candidates, _trace)?;
+    let code = super::rewrite::zero_index::apply(code, _trace)?;
     Ok(MachineRoutine {
         id: routine.id,
         frame: b.frame,

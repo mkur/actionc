@@ -1,7 +1,7 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: planned; implementation has not started. Baseline: `87feebf1`, after
-native 24/32-bit returns. Each numbered implementation slice is a separate
+Status: slice 1 implemented and qualified; slices 2-12 pending. Baseline:
+`87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
 ## Evidence and objective
@@ -56,6 +56,12 @@ Related foundations: [checked analysis and rewrites](MIR65816_ANALYSIS_REWRITE_F
 ## First group: addressing and private values
 
 ### 1. Zero-offset indirect accesses
+
+Implemented. The closed checked rewrite removes 23 zero-index setups in each
+list-module mode, saving 69 bytes. Optimized code is 3,488 bytes; Remove's body
+is 76 bytes / 148 cycles. All 135 vectors pass in both modes and both host
+builds, with unchanged memory traffic and storage. See the
+[slice measurements and qualification](benchmarks/65816-pointer-micro/README.md).
 
 Select `LDA/STA [dp]` for displacement zero. Remove an associated `LDY #0`
 only when machine liveness and effects prove its Y assignment and N/Z effects

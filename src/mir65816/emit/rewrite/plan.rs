@@ -8,6 +8,7 @@ use super::super::{
 /// attach custom effects or a proof callback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Rule {
+    ZeroIndex,
     #[cfg(test)]
     Identity,
     Adjacent {

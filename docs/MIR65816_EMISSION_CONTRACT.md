@@ -642,6 +642,16 @@ carry. Displacements that cannot accommodate a four-byte scalar within Y use
 explicit full-width pointer addition. Address formation and aggregate copies
 materialize any deferred displacement before consuming the pointer itself.
 
+An adjacent native `LDY #0; LDA/STA [pointer],Y` may become `LDA/STA [pointer]`
+through the closed zero-index rewrite. Both Y lanes must be dead after the
+access. Loads establish the same A/N/Z; stores additionally require dead N/Z,
+because their original flags came from LDY. The proof retains the complete
+indirect access, its width, ordering and barrier, including uncertain writes.
+It grants no general permission to remove memory definitions or cross compiler
+events, control-flow entries or environment changes. The checked driver
+revalidates each generation, replays selection and rebuilds branch layout
+before publication. Allocation and volatile access traces are unchanged.
+
 Accumulator-width knowledge is local to emitted instruction sequences and is
 discarded at labels. Scalar operations may retain their final width; calls and
 MIR control-flow boundaries restore sixteen-bit A. Procedure frame teardown

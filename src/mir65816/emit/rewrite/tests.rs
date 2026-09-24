@@ -7,6 +7,9 @@ use super::super::{
 use super::{context::*, driver::*, plan::*, rules};
 
 fn fixture(nops: usize, consume: bool) -> Code {
+    fixture_with(nops, consume, |_| {})
+}
+fn fixture_with(nops: usize, consume: bool, body: impl FnOnce(&mut TrackedEmitter65816)) -> Code {
     let p = crate::compiler::native65816::prepare_file(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tools/native65816-runtime-tests/tests/fixtures/code_quality/add.act"),
@@ -39,6 +42,7 @@ fn fixture(nops: usize, consume: bool) -> Code {
     };
     e.store_word(word);
     e.remember_word(temp, home);
+    body(&mut e);
     for _ in 0..nops {
         e.op(Implied::Nop);
     }
@@ -570,4 +574,96 @@ fn expansion_rejects_wrong_order_forms_bounds_and_nested_sites() {
     misleading.planning_blocker = Some("diagnostic cannot authorize".into());
     let result = super::pilot::apply(&projected, &[misleading], false).unwrap();
     replay::equivalent(&result, &projected).unwrap();
+}
+
+fn zero_index_fixture(op: ByteOp, byte: bool, live_y: bool, live_flags: bool) -> Code {
+    fixture_with(0, false, |e| {
+        if byte {
+            e.a8();
+        }
+        e.word(WordOp::LdyImm, 0);
+        e.byte(op, 0);
+        if live_y {
+            e.op(Implied::Tya);
+        }
+        if live_flags {
+            let end = e.label();
+            e.branch(Branch::Equal, end);
+            e.op(Implied::Nop);
+            e.mark(end);
+        }
+        e.a16();
+    })
+}
+fn zero_index_plan(code: &Code) -> Plan {
+    let s = code.selected.as_ref().unwrap();
+    let i = s
+        .records()
+        .iter()
+        .position(|r| {
+            matches!(
+                r.action,
+                Action::Instruction {
+                    form: Instruction::Word(WordOp::LdyImm, 0),
+                    ..
+                }
+            )
+        })
+        .unwrap();
+    super::zero_index::candidate(s, i).unwrap()
+}
+#[test]
+fn zero_index_preserves_load_flags_and_removes_only_dead_store_flags() {
+    for byte in [false, true] {
+        for op in [ByteOp::LdaIndirectY, ByteOp::StaIndirectY] {
+            for live_flags in [false, true] {
+                let mut code = zero_index_fixture(op, byte, false, live_flags);
+                let plan = zero_index_plan(&code);
+                if live_flags && op == ByteOp::StaIndirectY {
+                    assert!(reject(&code, &plan).contains("flags are live"));
+                } else {
+                    let before = code.bytes.len();
+                    assert_eq!(
+                        Driver::new(1).apply(&mut code, &plan, false),
+                        Proof::Proven(())
+                    );
+                    assert_eq!(code.bytes.len(), before - 3);
+                    code.selected.as_ref().unwrap().reconcile(&code).unwrap();
+                }
+            }
+            let code = zero_index_fixture(op, byte, true, false);
+            assert!(reject(&code, &zero_index_plan(&code)).contains("Y is live"));
+        }
+    }
+}
+#[test]
+fn zero_index_cannot_change_memory_or_swallow_events() {
+    let code = zero_index_fixture(ByteOp::StaIndirectY, false, false, false);
+    let p = zero_index_plan(&code);
+    for replacement in [
+        vec![],
+        vec![Instruction::Byte(ByteOp::StaIndirect, 1)],
+        vec![Instruction::Byte(ByteOp::LdaIndirect, 0)],
+        vec![Instruction::Byte(ByteOp::StaDp, 0)],
+    ] {
+        let mut bad = p.clone();
+        bad.replacement = replacement;
+        assert!(reject(&code, &bad).contains("preserve the complete indirect access"));
+    }
+    for offset in [1, 0xffff] {
+        let code = fixture_with(0, false, |e| {
+            e.word(WordOp::LdyImm, offset);
+            e.byte(ByteOp::LdaIndirectY, 0);
+        });
+        let after = super::zero_index::apply(code.clone(), false).unwrap();
+        unchanged(&code, &after);
+    }
+    let code = fixture_with(0, false, |e| {
+        e.word(WordOp::LdyImm, 0);
+        let label = e.label();
+        e.mark(label);
+        e.byte(ByteOp::LdaIndirectY, 0);
+    });
+    let after = super::zero_index::apply(code.clone(), false).unwrap();
+    unchanged(&code, &after);
 }

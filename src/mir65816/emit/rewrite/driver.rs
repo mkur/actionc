@@ -70,6 +70,13 @@ impl Driver {
             return Err("rewrite window/content mismatch".into());
         }
         let records = &selected.records()[start..=end];
+        // Only this closed proof can retain an indirect memory barrier inside a
+        // rewrite. It proves the complete access is preserved, including stores;
+        // no definition is removed and no general alias permission is granted.
+        let preserves_indirect = plan.rule == Rule::ZeroIndex;
+        if preserves_indirect {
+            super::zero_index::prove(&context, plan)?;
+        }
         let mut original = Vec::new();
         for (i, record) in (start..=end).zip(records) {
             let Action::Instruction { form, effects, .. } = &record.action else {
@@ -78,7 +85,7 @@ impl Driver {
             if record.parent.is_some()
                 || effects.control != Control::Next
                 || effects.environment_writes != 0
-                || effects.barrier
+                || (effects.barrier && !preserves_indirect)
                 || record.before != record.after
             {
                 return Err("protected instruction/environment in rewrite window".into());
@@ -98,7 +105,7 @@ impl Driver {
         if changed {
             for (i, record) in (start..=end).zip(records) {
                 for access in &context.facts.homes.accesses[&Node(i)] {
-                    if access.access != Access::Read {
+                    if access.access != Access::Read && !preserves_indirect {
                         if access.uncertain {
                             return Err("uncertain removed definition".into());
                         }
@@ -119,7 +126,7 @@ impl Driver {
                 let effects = instruction.effects(records[0].before.env);
                 if effects.environment_writes != 0
                     || effects.control != Control::Next
-                    || effects.barrier
+                    || (effects.barrier && !preserves_indirect)
                 {
                     return Err("protected replacement effects".into());
                 }
@@ -143,6 +150,7 @@ impl Driver {
         // Closed rules also validate replacement reads and live-state
         // equivalence. No arbitrary replacement wins through deadness alone.
         match plan.rule {
+            Rule::ZeroIndex => {} // Complete memory/live-state proof above.
             #[cfg(test)]
             Rule::Identity if original == plan.replacement => {}
             Rule::Adjacent {
