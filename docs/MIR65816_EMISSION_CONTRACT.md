@@ -660,7 +660,10 @@ between disjoint frame slots (or the same slot), and from a frame slot into
 owned direct-page pointer scratch, may instead use overlapping words at offsets
 zero and one. This touches no fourth byte; overlapping word transfers are never
 used to duplicate external or indirect accesses. Volatile loads and stores keep
-their exact ascending byte accesses.
+their exact ascending byte accesses. The
+[repeated-access eligibility audit](MIR65816_REPEATED_ACCESS_ELIGIBILITY.md)
+records the missing extent, observability, alias and concurrency proofs;
+nonvolatile external memory is not automatically eligible.
 
 Small indirect field displacements are carried by `[pointer],Y`, including bank
 carry. Displacements that cannot accommodate a four-byte scalar within Y use

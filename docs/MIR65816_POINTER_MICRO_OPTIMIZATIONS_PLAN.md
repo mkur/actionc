@@ -1,6 +1,7 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-8 implemented and qualified; slices 9-12 pending. Baseline:
+Status: slices 1-8 implemented and qualified; slice 9 audited; slices 10-11
+deferred by the eligibility gate; slice 12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -223,6 +224,11 @@ the second group. Do not extrapolate the list-module ratio to all of Exec.
 
 ### 9. Define eligibility for repeated external accesses
 
+Audit complete: [existing facts do not prove repeated external access safe](MIR65816_REPEATED_ACCESS_ELIGIBILITY.md). No new access is admitted. Slices 10-11
+need a separate verified shared-contract extension; absence of `volatile` is
+insufficient. Slice 12 may proceed independently while preserving exact external
+accesses.
+
 Specify which existing facts, if any, prove that overlapping word accesses to
 ordinary RAM may repeat the middle byte. Absence of a volatile marker alone
 does not establish every required property. Address extent, observable access
@@ -284,9 +290,11 @@ For every implementation slice:
    stack/DP traffic and reservations. Attribute reductions to the current
    slice; distinguish encoding forecasts from measured changes.
 5. Update the relevant emission/allocation contract and this plan's status,
-   then commit the bounded change. Broaden to full affected-backend qualification
-   for substantial emission changes and the group checkpoint; avoid repeating
-   passing unrelated suites. Keep qualification inputs stable during each run.
+   then commit the bounded change. Use focused checks for intermediate slices.
+   Reserve full Exec qualification for the final implementation commit; do not
+   repeat it per slice. The post-slice-8 measurement checkpoint includes frozen
+   Exec builds, not hosted Exec qualification. Keep qualification inputs stable
+   during each run.
 
 Use the [native qualification runner](../tools/native65816-runtime-tests/README.md).
 If slice 9 changes shared NIR/semantic/verifier/printer contracts, also run the
