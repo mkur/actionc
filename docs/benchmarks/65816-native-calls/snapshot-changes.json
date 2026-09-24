@@ -1,0 +1,26 @@
+[
+  {
+    "routine": "accumulator_forwarding.act/false/RoutineId(3)",
+    "before": 356,
+    "after": 326,
+    "saved": 30
+  },
+  {
+    "routine": "accumulator_forwarding.act/true/RoutineId(3)",
+    "before": 352,
+    "after": 322,
+    "saved": 30
+  },
+  {
+    "routine": "code_quality/recursive_sum.act/false/RoutineId(0)",
+    "before": 170,
+    "after": 159,
+    "saved": 11
+  },
+  {
+    "routine": "code_quality/recursive_sum.act/true/RoutineId(0)",
+    "before": 155,
+    "after": 144,
+    "saved": 11
+  }
+]

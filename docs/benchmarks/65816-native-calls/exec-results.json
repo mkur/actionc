@@ -1,0 +1,116 @@
+[
+  {
+    "mode": "raw",
+    "routines": 551,
+    "sites": 1777,
+    "changed_sites": 1072,
+    "argument_bytes_saved": 5155,
+    "result_capture_bytes_saved": 5712,
+    "guards": 2328,
+    "routine_bytes_before": 452593,
+    "routine_bytes_after": 441726,
+    "call_bytes_saved": 10867,
+    "secondary_layout_bytes_saved": 0,
+    "secondary_mode_bytes_saved": 0,
+    "code_bytes_saved": 10867,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "other_instructions_and_metadata_rebasing_verified": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "hashes": {
+      "before-raw.image.json": "78a67d9108b9e4680e022b24334c53c28dce7f5b3acdfb46eec2e764833e3a75",
+      "before-raw.inventory.json": "556b7f5da80c1a37fd7b9f527b590498bae5e7ff0609411bab2e7250a155e279",
+      "after-raw.image.json": "ebded138d7d4dce91eab52d5ebf929e934cc9e512f85f1cbffbf95484c1aac25",
+      "after-raw.inventory.json": "c6fea7d170410cc002d56e06edfd303d0a4d361615ad4b64dccdacb758238925"
+    },
+    "executable_before": 460158,
+    "executable_after": 449291,
+    "xex_before": 476140,
+    "xex_after": 465093,
+    "ordinary_and_inventory_images_equal": true,
+    "source_platform_and_abi_inputs_equal": true,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "build_hashes": {
+      "before/program.a816.json": "67cc8936bb098f54cf4c67978502199b8e6adcfb8d5cf0824e623453b45c9e6a",
+      "before/program.xex": "5c1f4ea9ca274acd59bbf7cf10ef777ce65c549b1cc27318a354a2f73d38927f",
+      "before/build.json": "4f3d5f2cc0143f2854b4deb400c6692a479fd3763d7b93ce294aa736da2dcb2e",
+      "after/program.a816.json": "6543fec67df392c31a2094d491c3599dc10f0aa4eafef4791bac1c3703475582",
+      "after/program.xex": "35ad54b701a80db74a9ffdae62fcc90c93637fc547e06c667b61e2f19f0b49ff",
+      "after/build.json": "74b667fa29530e096dffa6f68e1b917bdbb0e34e04965dd8b0ca0bd382879cca"
+    }
+  },
+  {
+    "mode": "opt",
+    "routines": 551,
+    "sites": 1769,
+    "changed_sites": 1067,
+    "argument_bytes_saved": 4597,
+    "result_capture_bytes_saved": 5684,
+    "guards": 2320,
+    "routine_bytes_before": 419789,
+    "routine_bytes_after": 409508,
+    "call_bytes_saved": 10281,
+    "secondary_layout_bytes_saved": 0,
+    "secondary_mode_bytes_saved": 0,
+    "code_bytes_saved": 10281,
+    "contracts_unchanged": true,
+    "guard_amount_order_unchanged": true,
+    "other_instructions_and_metadata_rebasing_verified": true,
+    "bank_zero_reserved_bytes_delta": 0,
+    "hashes": {
+      "before-opt.image.json": "7c4cbfc53260a75520f2b1403c1dbc691dccd6945dfcdcdf94c0c320654021ed",
+      "before-opt.inventory.json": "3c2f1b44e2cffe003d918e6dfd6e5487f57bd58a64f250be2f2fc4a91a42ae63",
+      "after-opt.image.json": "b026f0ca65729b15aedb011bff38b5667ea8df292a57ac513a44ed2f0267fd58",
+      "after-opt.inventory.json": "935d747a569303e8f99914b44497194473a18cd9d69208dde53522da49ffcc0d"
+    },
+    "executable_before": 427354,
+    "executable_after": 417073,
+    "xex_before": 442778,
+    "xex_after": 432299,
+    "ordinary_and_inventory_images_equal": true,
+    "source_platform_and_abi_inputs_equal": true,
+    "bank_zero_budget": {
+      "fixed_runtime": 10560,
+      "public": [
+        2080,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568,
+        1568
+      ],
+      "idle": 1056,
+      "runtime_excluding_os": 24672,
+      "loading_excluding_os": 20368,
+      "runtime_including_os": 61536,
+      "loading_including_os": 57232
+    },
+    "build_hashes": {
+      "before/program.a816.json": "70f9e00d218af4d4439cc195df094559c7fdcaf16618e22f631695ed9882ccac",
+      "before/program.xex": "cbf451f4ab6f1860625447e1dda255a3111d65278214b9c990a0691ce3e8044b",
+      "before/build.json": "d3066a10ca22b0d075e5bc4b588b1ee6cd3a0d02cb09a42d7a0ab243d7e773de",
+      "after/program.a816.json": "095ac3672d1b914112ca83d2edb77f4324655dfae18b076a5605dc6c90c19e43",
+      "after/program.xex": "ff46a8207dd9e6f25a6e53550466384c42962fc80fb1c37908dd66d72ebaa34a",
+      "after/build.json": "70f63bd62954f43aa892d559bec9ac058368f57f2d1e84a4dd0611e9974ae00e"
+    }
+  }
+]

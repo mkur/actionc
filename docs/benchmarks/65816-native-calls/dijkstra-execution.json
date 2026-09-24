@@ -1,0 +1,517 @@
+{
+  "scope": "targeted original-0-50 graph; both compilers, raw/optimized, both incoming I states; original benchmark and other vectors not rerun",
+  "filter": "original-0-50",
+  "records": [
+    {
+      "case": "original-0-50",
+      "compiler": "actionc",
+      "cycles": 114485364,
+      "dp_reads": 11039021,
+      "dp_writes": 10424013,
+      "errors": [],
+      "instructions": 29959587,
+      "interrupt_masks": [
+        0,
+        4
+      ],
+      "metadata_reads": 21844,
+      "mode": "raw",
+      "mode_switches": 2416230,
+      "peak_below_entry_s": 76,
+      "queue_stride": 10,
+      "routines": {
+        "Benchmark": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "ChecksumResult": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "Dequeue": {
+          "cycles": 496314,
+          "dp_reads": 21816,
+          "dp_writes": 25452,
+          "instructions": 114534,
+          "metadata_reads": 3636,
+          "mode_switches": 13635,
+          "stack_check_cycles": 22725,
+          "stack_reads": 49086,
+          "stack_writes": 41814
+        },
+        "Enqueue": {
+          "cycles": 18787022,
+          "dp_reads": 1257204,
+          "dp_writes": 849044,
+          "instructions": 4217970,
+          "metadata_reads": 3636,
+          "mode_switches": 517478,
+          "stack_check_cycles": 22725,
+          "stack_reads": 2291247,
+          "stack_writes": 1867640
+        },
+        "Find": {
+          "cycles": 88644077,
+          "dp_reads": 9050001,
+          "dp_writes": 8869517,
+          "instructions": 23835396,
+          "metadata_reads": 10916,
+          "mode_switches": 1754691,
+          "stack_check_cycles": 68225,
+          "stack_reads": 5249898,
+          "stack_writes": 4346658
+        },
+        "Init": {
+          "cycles": 6505640,
+          "dp_reads": 710000,
+          "dp_writes": 680000,
+          "instructions": 1774271,
+          "metadata_reads": 4,
+          "mode_switches": 130409,
+          "stack_check_cycles": 25,
+          "stack_reads": 371617,
+          "stack_writes": 261816
+        },
+        "Main": {
+          "cycles": 441,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 126,
+          "metadata_reads": 12,
+          "mode_switches": 17,
+          "stack_check_cycles": 75,
+          "stack_reads": 18,
+          "stack_writes": 29
+        },
+        "QueryLayout": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "QueueLength": {
+          "cycles": 51870,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 17290,
+          "metadata_reads": 3640,
+          "mode_switches": 0,
+          "stack_check_cycles": 22750,
+          "stack_reads": 2730,
+          "stack_writes": 1820
+        }
+      },
+      "stack_check_cycles": 136525,
+      "stack_reads": 7964596,
+      "stack_writes": 6519777
+    },
+    {
+      "case": "original-0-50",
+      "compiler": "actionc",
+      "cycles": 106290482,
+      "dp_reads": 11037206,
+      "dp_writes": 10422195,
+      "errors": [],
+      "instructions": 28516817,
+      "interrupt_masks": [
+        0,
+        4
+      ],
+      "metadata_reads": 21844,
+      "mode": "optimized",
+      "mode_switches": 2572822,
+      "peak_below_entry_s": 70,
+      "queue_stride": 10,
+      "routines": {
+        "Benchmark": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "ChecksumResult": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "Dequeue": {
+          "cycles": 496314,
+          "dp_reads": 21816,
+          "dp_writes": 25452,
+          "instructions": 114534,
+          "metadata_reads": 3636,
+          "mode_switches": 13635,
+          "stack_check_cycles": 22725,
+          "stack_reads": 49086,
+          "stack_writes": 41814
+        },
+        "Enqueue": {
+          "cycles": 18152017,
+          "dp_reads": 1257204,
+          "dp_writes": 849044,
+          "instructions": 4414770,
+          "metadata_reads": 3636,
+          "mode_switches": 719740,
+          "stack_check_cycles": 22725,
+          "stack_reads": 1680817,
+          "stack_writes": 1255392
+        },
+        "Find": {
+          "cycles": 81661278,
+          "dp_reads": 9048186,
+          "dp_writes": 8867699,
+          "instructions": 22337646,
+          "metadata_reads": 10916,
+          "mode_switches": 1749225,
+          "stack_check_cycles": 68225,
+          "stack_reads": 4317058,
+          "stack_writes": 2689850
+        },
+        "Init": {
+          "cycles": 5928562,
+          "dp_reads": 710000,
+          "dp_writes": 680000,
+          "instructions": 1632451,
+          "metadata_reads": 4,
+          "mode_switches": 90205,
+          "stack_check_cycles": 25,
+          "stack_reads": 310805,
+          "stack_writes": 160604
+        },
+        "Main": {
+          "cycles": 441,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 126,
+          "metadata_reads": 12,
+          "mode_switches": 17,
+          "stack_check_cycles": 75,
+          "stack_reads": 18,
+          "stack_writes": 29
+        },
+        "QueryLayout": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "QueueLength": {
+          "cycles": 51870,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 17290,
+          "metadata_reads": 3640,
+          "mode_switches": 0,
+          "stack_check_cycles": 22750,
+          "stack_reads": 2730,
+          "stack_writes": 1820
+        }
+      },
+      "stack_check_cycles": 136525,
+      "stack_reads": 6360514,
+      "stack_writes": 4149509
+    },
+    {
+      "case": "original-0-50",
+      "compiler": "vbcc",
+      "cycles": 76854481,
+      "dp_reads": 10898488,
+      "dp_writes": 10802504,
+      "errors": [],
+      "instructions": 19346512,
+      "interrupt_masks": [
+        0,
+        4
+      ],
+      "metadata_reads": 0,
+      "mode": "raw",
+      "mode_switches": 435446,
+      "peak_below_entry_s": 37,
+      "queue_stride": 9,
+      "routines": {
+        "Benchmark": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "ChecksumResult": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "Dequeue": {
+          "cycles": 269973,
+          "dp_reads": 21816,
+          "dp_writes": 27270,
+          "instructions": 57267,
+          "metadata_reads": 0,
+          "mode_switches": 3636,
+          "stack_check_cycles": 0,
+          "stack_reads": 17271,
+          "stack_writes": 12726
+        },
+        "Enqueue": {
+          "cycles": 11258530,
+          "dp_reads": 1233570,
+          "dp_writes": 836318,
+          "instructions": 2811450,
+          "metadata_reads": 0,
+          "mode_switches": 411800,
+          "stack_check_cycles": 0,
+          "stack_reads": 844499,
+          "stack_writes": 317943
+        },
+        "Find": {
+          "cycles": 22192032,
+          "dp_reads": 1475512,
+          "dp_writes": 2385422,
+          "instructions": 6254159,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 1483691,
+          "stack_writes": 657418
+        },
+        "Init": {
+          "cycles": 1405507,
+          "dp_reads": 140000,
+          "dp_writes": 180000,
+          "instructions": 361626,
+          "metadata_reads": 0,
+          "mode_switches": 20002,
+          "stack_check_cycles": 0,
+          "stack_reads": 100611,
+          "stack_writes": 50410
+        },
+        "Main": {
+          "cycles": 170,
+          "dp_reads": 0,
+          "dp_writes": 2,
+          "instructions": 38,
+          "metadata_reads": 0,
+          "mode_switches": 8,
+          "stack_check_cycles": 0,
+          "stack_reads": 5,
+          "stack_writes": 8
+        },
+        "QueryLayout": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "QueueLength": {
+          "cycles": 10920,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 1820,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 2730,
+          "stack_writes": 0
+        },
+        "mul": {
+          "cycles": 41717349,
+          "dp_reads": 8027590,
+          "dp_writes": 7373492,
+          "instructions": 9860152,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 305427,
+          "stack_writes": 0
+        }
+      },
+      "stack_check_cycles": 0,
+      "stack_reads": 2754234,
+      "stack_writes": 1038505
+    },
+    {
+      "case": "original-0-50",
+      "compiler": "vbcc",
+      "cycles": 62446761,
+      "dp_reads": 10651225,
+      "dp_writes": 8968606,
+      "errors": [],
+      "instructions": 15600240,
+      "interrupt_masks": [
+        0,
+        4
+      ],
+      "metadata_reads": 0,
+      "mode": "optimized",
+      "mode_switches": 231362,
+      "peak_below_entry_s": 45,
+      "queue_stride": 9,
+      "routines": {
+        "Benchmark": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "ChecksumResult": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "Dequeue": {
+          "cycles": 229068,
+          "dp_reads": 21816,
+          "dp_writes": 25452,
+          "instructions": 48177,
+          "metadata_reads": 0,
+          "mode_switches": 3636,
+          "stack_check_cycles": 0,
+          "stack_reads": 9999,
+          "stack_writes": 5454
+        },
+        "Enqueue": {
+          "cycles": 6206731,
+          "dp_reads": 1245379,
+          "dp_writes": 424522,
+          "instructions": 1576054,
+          "metadata_reads": 0,
+          "mode_switches": 207716,
+          "stack_check_cycles": 0,
+          "stack_reads": 8181,
+          "stack_writes": 4545
+        },
+        "Find": {
+          "cycles": 17818246,
+          "dp_reads": 2022240,
+          "dp_writes": 1827536,
+          "instructions": 4948780,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 746829,
+          "stack_writes": 657046
+        },
+        "Init": {
+          "cycles": 555081,
+          "dp_reads": 120600,
+          "dp_writes": 40804,
+          "instructions": 131620,
+          "metadata_reads": 0,
+          "mode_switches": 20002,
+          "stack_check_cycles": 0,
+          "stack_reads": 20005,
+          "stack_writes": 4
+        },
+        "Main": {
+          "cycles": 166,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 37,
+          "metadata_reads": 0,
+          "mode_switches": 8,
+          "stack_check_cycles": 0,
+          "stack_reads": 5,
+          "stack_writes": 8
+        },
+        "QueryLayout": {
+          "cycles": 0,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 0,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 0,
+          "stack_writes": 0
+        },
+        "QueueLength": {
+          "cycles": 10920,
+          "dp_reads": 0,
+          "dp_writes": 0,
+          "instructions": 1820,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 2730,
+          "stack_writes": 0
+        },
+        "mul": {
+          "cycles": 37626549,
+          "dp_reads": 7241190,
+          "dp_writes": 6650292,
+          "instructions": 8893752,
+          "metadata_reads": 0,
+          "mode_switches": 0,
+          "stack_check_cycles": 0,
+          "stack_reads": 275427,
+          "stack_writes": 0
+        }
+      },
+      "stack_check_cycles": 0,
+      "stack_reads": 1063176,
+      "stack_writes": 667057
+    }
+  ],
+  "result_sha256": "02442ab92b265db49dd0f6488c85e1e8122f0b0f98c984cf3e39aaf02d451d65"
+}

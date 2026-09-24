@@ -148,14 +148,33 @@ probe calls retain all register/flag inputs and unknown memory effects.
 
 Call construction checks the complete outgoing and transfer reservation before
 changing S, clears only alignment/tail padding, then defines each argument byte
-once through the existing value-byte writer. The verified stack argument homes,
+once. The verified stack argument homes,
 not their aggregate extent, identify payload: holes within that extent remain
-zero. No-argument calls retain their one-byte zero area. The A8 setup/zero load,
-source order and extension, indirect target capture, transfer, cleanup and
-result capture are unchanged. All bytes are initialized before transfer.
+zero. No-argument calls retain their one-byte zero area. The A8 padding setup,
+source order and extension, indirect target capture, transfer and cleanup are
+unchanged. All bytes are initialized before transfer.
 Caller home accesses retain the outgoing S delta and cannot overlap the fresh
 outgoing area. Context restoration may resume partially constructed arguments;
 no new helper, persistent scratch or interrupt-masking assumption is introduced.
+
+Call payload selection preflights captured temp/parameter homes and numeric
+constants against their declared widths, the complete outgoing extent and the
+prospective S delta. Native copies use A16 pairs and an A8 tail for three-byte
+values; they never read a fourth pointer byte or overlap outgoing stores.
+Symbolic and mixed-width operands keep bytewise fixups and extension behavior.
+A bounded two-state width choice minimizes encoded argument bytes, including
+mode changes and the next direct-transfer or indirect-target preparation width.
+It preserves declaration order and prefers the existing byte path on a tie.
+Source-memory reads remain separate MIR operations and keep their ordering.
+
+Result homes are checked against the declared ABI lanes before any call
+emission. After result-preserving caller cleanup, BYTE capture stores A's low
+byte, word capture stores A16, three-byte capture stores A16 plus X's low byte,
+and four-byte capture stores A16/X16. Captures write only their owned bytes,
+finish in A16 and introduce no DP staging or forwarding permission. Discarded
+results retain declared call effects but need no capture stores. Calls remain
+barriers and all guards, allocations and ABI stack costs are unchanged. See the
+[native call measurements](benchmarks/65816-native-calls/README.md).
 
 The state owns width-qualified immutable A/X/Y values, N/Z provenance, C/V,
 execution modes and environment, exact private stack-home generations, stack

@@ -38,6 +38,8 @@ use copies::acyclic_word_order;
 mod accumulator;
 #[path = "arithmetic.rs"]
 mod arithmetic;
+#[path = "call_copies.rs"]
+mod call_copies;
 #[path = "parameter.rs"]
 mod parameter;
 use super::tracked::*;
@@ -1642,8 +1644,6 @@ impl Builder<'_> {
             ..
         } = op
         {
-            self.code.barrier();
-            self.code.a16();
             return self.call(target, args, *result, plan);
         }
         if let Mir65816Op::Binary {
@@ -2103,6 +2103,8 @@ impl Builder<'_> {
         plan: &Mir65816CallPlan,
     ) -> Result<(), String> {
         let padding = outgoing_padding(&plan.arguments, plan.outgoing_bytes)?;
+        let arguments = self.call_arguments(args, plan, target)?;
+        let capture = self.call_result(result, plan)?;
         let direct = match target {
             Mir65816CallTarget::Direct(id) => Some(Target::Routine(RoutineId(*id))),
             Mir65816CallTarget::Helper(id) => Some(Target::Routine(*id)),
@@ -2120,6 +2122,16 @@ impl Builder<'_> {
             .transfer
             .peak_bytes()
             .get() as u16;
+        effects::CallContract::from_plan(
+            plan,
+            if direct.is_some() {
+                abi::FarTransfer::Jsl
+            } else {
+                abi::FarTransfer::StackRtl
+            },
+        )?;
+        self.code.barrier();
+        self.code.a16();
         self.check_stack(
             outgoing
                 .checked_add(transfer)
@@ -2132,20 +2144,8 @@ impl Builder<'_> {
         for displacement in padding {
             self.code.byte(ByteOp::StaStack, displacement);
         }
-        for (value, home) in args.iter().zip(&plan.arguments) {
-            let Mir65816AbiHome::StackArgument { offset, size, .. } = home else {
-                return Err("invalid outgoing home".into());
-            };
-            for i in 0..width(*size)? {
-                self.value_byte(value, i)?;
-                let d = abi::stack::access_displacement(
-                    ByteOffset::new(1 + offset.get() + u32::from(i)),
-                    ByteSize::ONE,
-                    ByteSize::ZERO,
-                )
-                .map_err(|e| e.to_string())?;
-                self.code.byte(ByteOp::StaStack, d.get() as u8);
-            }
+        for (value, argument) in args.iter().zip(&arguments) {
+            self.copy_call_argument(value, argument)?;
         }
         if let Some(target) = direct {
             self.code.a16();
@@ -2181,28 +2181,8 @@ impl Builder<'_> {
         }
         self.release(outgoing, true);
         assert_eq!(self.code.delta(), 0);
-        if let Some((id, bytes)) = result {
-            let bytes = width(bytes)?;
-            if self.temp(id)?.slot().width != bytes {
-                return Err("call result width mismatch".into());
-            }
-            self.code.a8();
-            self.save_byte(id, 0)?;
-            if bytes > 1 {
-                self.code.op(Implied::Xba);
-                self.save_byte(id, 1)?;
-            } // XBA
-            self.code.a16();
-            if bytes > 2 {
-                self.code.op(Implied::Txa);
-                self.code.a8();
-                self.save_byte(id, 2)?; // TXA
-                if bytes > 3 {
-                    self.code.op(Implied::Xba);
-                    self.save_byte(id, 3)?;
-                }
-                self.code.a16();
-            }
+        if let Some((home, bytes)) = capture {
+            self.capture_call_result(home, bytes)?;
         }
         Ok(())
     }

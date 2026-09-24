@@ -859,6 +859,25 @@ fn long_equality_restores_both_word_decisions_and_zero_tests_under_irq_nmi() {
 }
 
 #[test]
+fn native_call_arguments_and_ax_results_restore_at_every_reached_task_boundary() {
+    let original = fixture("preemption.act");
+    for ty in ["ADDRESS", "LONGCARD"] {
+        let modify = |s: &str| {
+            s.replace("\r\n", "\n").replace("CARD FUNC Read(", &format!(
+                "{ty} FUNC CopyEcho({ty} value) RETURN(value)\nCARD FUNC CopyWork(CARD value)\n{ty} saved\n{ty} FUNC POINTER cb({ty} arg)\nsaved=CopyEcho({ty}(LONGCARD($89ABCD00)+LONGCARD(value)))\ncb=@CopyEcho RETURN(CARD(cb(saved)))\nCARD FUNC Read("))
+                .replace("  work.done=1", "  work.result==+CopyWork(work.seed)-CARD($CD00)-work.seed\n  work.done=1")
+        };
+        let source = modify(&original);
+        assert_eq!(source, modify(&original.replace('\n', "\r\n")));
+        check_narrow_preemption(
+            &source,
+            ["COPYECHO", "COPYWORK"],
+            &format!("native-calls-{ty}"),
+        );
+    }
+}
+
+#[test]
 fn signed_word_overflow_and_sign_decisions_restore_full_irq_nmi_state() {
     let original = fixture("preemption.act");
     let modify = |s: &str| {

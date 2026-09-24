@@ -132,8 +132,8 @@ Direct BYTE constant returns are now implemented: a typed U8 constant with an
 `A8ZeroExtended` result home loads A16 directly and uses the existing frame
 teardown. Frozen Exec saves 8,626 raw / 9,424 optimized code bytes, reaching
 450,718 optimized executable bytes. Frames, guards, ABI and bank-zero storage
-are unchanged. Captured BYTE returns and native-width call copies remain
-separate work. See the [measured results](benchmarks/65816-byte-returns/README.md).
+are unchanged. Captured BYTE returns remain separate work. See the
+[measured results](benchmarks/65816-byte-returns/README.md).
 
 Native LONGCARD/LONGINT Eq/Ne and zero tests are now implemented. Captured
 low/high words compare in A16, with canonical BYTE results or sole-use branch
@@ -143,6 +143,14 @@ guards and ABI contracts remain unchanged, with no added bank-zero reservation.
 Long ordering retains its existing implementation. See the
 [plan](MIR65816_LONG_EQUALITY_PLAN.md) and
 [measured results](benchmarks/65816-long-equality/README.md).
+
+Native-width call arguments and result capture are implemented. Local width
+selection accounts for mode switches in mixed argument lists; result capture
+stores the declared A/X lanes directly. Frozen Exec saves another 10,867 raw /
+10,281 optimized code bytes, reaching 417,073 optimized executable bytes.
+Arguments, padding, allocation, ABI and all guards remain unchanged. See the
+[plan](MIR65816_NATIVE_CALL_COPIES_PLAN.md) and
+[measurements](benchmarks/65816-native-calls/README.md).
 
 1. **Broader local branch relaxation.** Extend the existing
    [layout finalizer](../src/mir65816/emit/layout.rs) beyond its selected dispatch

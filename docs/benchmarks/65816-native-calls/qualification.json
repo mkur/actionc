@@ -1,0 +1,92 @@
+{
+  "compiler_base_revision": "860a02f2472e87ff8ba821d27319e72105a42336",
+  "implementation_state": "working tree; source hashes bind the qualified change",
+  "scope": "MIR65816 selection and its tests only; no NIR, semantic, printer, ABI or other backend changes",
+  "root_checks": {
+    "unit": {
+      "passed": 205,
+      "ignored": 1,
+      "log_sha256": "7ff9304478bbc82b19915949d65b61c706b183e55485c34edad0e6b8989f449e",
+      "focused_followup_sha256": "0c52a1086e8dd1471d5d5c16d1affb8e46a06420e90c9b3241b9515219432295"
+    },
+    "root": {
+      "passed": 69,
+      "ignored": 0,
+      "log_sha256": "c14cae7ce501c65be922201e1f5006d7d350cbb95cba59250ba0dac58e8c55dd",
+      "snapshot_followup_sha256": "7418063952f68fcbc8e1d69b0c58282b073c1157e4147ce53db2053e4c429486",
+      "note": "Initial snapshot mismatch reviewed and updated; focused rerun passed. All seven other targets passed initially."
+    }
+  },
+  "native_runs": {
+    "baseline": {
+      "passed": 8,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-1legcm3y/manifest.json",
+      "manifest_sha256": "4b64dc9017dd41f988636b164066457cca74a926ef4106b7e812683f83d2d850",
+      "artifact_count": 49
+    },
+    "focused": {
+      "passed": 10,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-fj8z3xr4/manifest.json",
+      "manifest_sha256": "cbd19b506da0ed6b0274ac33f28dcd53806442c7e7a97a814dd67c1065f2f085",
+      "artifact_count": 145
+    },
+    "preemption": {
+      "passed": 1,
+      "ignored": 0,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-ca51bvy4/manifest.json",
+      "manifest_sha256": "cab0818f6b7b3dae53593570c2181f01eb9dab75f5b8dae29d58e18aa80c5065",
+      "artifact_count": 20
+    },
+    "debug": {
+      "passed": 181,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-fnj5_jlw/manifest.json",
+      "manifest_sha256": "8f21722cf52b36c9f84ac92fe8f18f9f3bcb2c52305f1dfaf0d36d96004f7679",
+      "artifact_count": 1033
+    },
+    "release": {
+      "passed": 181,
+      "ignored": 4,
+      "manifest": "tools/native65816-runtime-tests/target/qualification/run-oznpatbi/manifest.json",
+      "manifest_sha256": "0a5b2fe574591557514bf1a0f0e479ab0cfa1a9a9ce7d11594d0c5817c714fed",
+      "artifact_count": 1033
+    }
+  },
+  "changed_source_inputs": {
+    "src/mir65816/emit/select.rs": "6bc07c6237657620f4b118acec851c2f55e6912793a3cf9d4331a793e58aada6",
+    "src/mir65816/emit/call_copies.rs": "191e6e968e068a9c3397c8e6f0a2dac5309ccfe005f10370beb60d3c1c964a5d",
+    "src/mir65816/emit/call_copies_tests.rs": "dbc26ab13bc4c3f902d720cc5d6d71f96d3a1d4a00d63dd25dbf4f69bb21f94c",
+    "tools/native65816-runtime-tests/tests/call_copies.rs": "a7efd75d8967f3b4a8083eee8cc620f4192fe9303a4fa189f2ecb937a73603fd",
+    "tools/native65816-runtime-tests/tests/preemption.rs": "9cde28fa3bcff6e26595728d5815ac933bb751b8b1db53fceea821d40edf154a",
+    "tests/fixtures/mir65816-state-boundary.txt": "659724878d4d29e7f044747e88c0878055f902780fdfeb147cea2ff32c73a174"
+  },
+  "measurement_tools": {
+    "target/native-calls/measure.py": "a20f988571f84648362a1d30a75d6189d637b9dd7c2061c9be7d59217c2d43dd",
+    "target/native-calls/finalize_exec.py": "909f630cb25b01b7dff8ace696ef54da003ea5ecf34d53a1f9a9ae3cfa44523f",
+    "target/native-calls/summarize.py": "ecb2ec64251ee5b7a67e4165dca5276be8646952692b9ce947031df4f3300e25",
+    "target/native-calls/qualification.py": "23b4ae5bed7dcd5ec33ab8d1adefcac6012fd063a28a462ae00f94b7db6562d7",
+    "target/exec-code-size-detail/probe/src/main.rs": "019940e07bf214c0c24790bd467b496458547e7af0a590d56745d006d2d91343",
+    "target/guard-branches/build_exec.py": "c78f9795426eca90b4cbda022e172cdf3aff2cbdbfc664691bfe9d107c319af7"
+  },
+  "compiler_binaries": {
+    "actionc-before": "1c6d1c80aed5952e344e2c2e5e45a1fff304d61e49dc773c6b551d91be8203e7",
+    "actionc-after": "9321c4026a5a6cd9fa478d8eea3ea2611955e69826445037805fec86aa8a71be",
+    "probe-before": "695b4df753c055203fc605fe98be861a00f7aaf4f1585589af6daa857b3932a2",
+    "probe-after": "340de9142969504a67087c0427d99058fe4e056864ef9efe1a2961e0013d3e91"
+  },
+  "vm_base": "56ddc5c5de41f0e7294e87c440869550eaf53292",
+  "vm_patch_sha256": "afd5efebc9f0d153ef928c953af657af24cc5f059a1dca7482e3a3fa325f4cac",
+  "debug_release_inputs_identical": true,
+  "debug_release_input_count": 496,
+  "debug_release_artifacts_identical": true,
+  "focused_call_artifacts_identical_to_final": true,
+  "baseline_selector_matches_base_revision": true,
+  "extra_execution_checks": {
+    "corpus": "132 Action records in both debug/release; existing vbcc unlink failure remains (comparison exit 101)",
+    "dijkstra": "original-0-50, both compilers and modes, both I states; passed",
+    "corpus_results_sha256": "8f772e9de9aa351d7a15dbf3a417fafe1da7310228f2ef8f84257dbcd3200693",
+    "dijkstra_results_sha256": "ddf07f18d1c0ea9e66d8d63d75ab943b5298fb94a43f04aad8984d17c193566d"
+  }
+}

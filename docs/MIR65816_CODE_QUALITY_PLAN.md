@@ -68,6 +68,14 @@ Long ordering keeps its existing path. See the
 [plan](MIR65816_LONG_EQUALITY_PLAN.md) and
 [results and qualification](benchmarks/65816-long-equality/README.md).
 
+Native-width call payload copies and A/X result capture are complete. A bounded
+A8/A16 choice accounts for mode-switch costs within each argument sequence,
+keeping bytewise paths when widening would not save code. Frozen Exec saves
+10,867 raw / 10,281 optimized executable bytes from the long-equality baseline;
+Dijkstra saves 100 / 99 bytes. Layouts, frames, scratch reservations and guards
+are unchanged. See the [plan](MIR65816_NATIVE_CALL_COPIES_PLAN.md) and
+[measurements](benchmarks/65816-native-calls/README.md).
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are

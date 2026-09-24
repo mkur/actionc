@@ -1,0 +1,48 @@
+{
+  "crlf_checked": true,
+  "manifest_sha256": "1be3b7ceca7908e40a2f13d31bc2da312e1b385f057bacaf2d1599f4e0ecb545",
+  "artifacts": [
+    {
+      "case": "dijkstra",
+      "compiler": "actionc",
+      "mode": "raw",
+      "before": 5438,
+      "after": 5338,
+      "saved": 100,
+      "contracts_and_guard_amounts_unchanged": true,
+      "guards": 22,
+      "before_image_sha256": "c2e70a7b93b8c0aa9936080ca3faba88bd94edaa47248af21db4eaeb5c171f89",
+      "after_image_sha256": "f4de630b326394e51b2a6f814423d9db0573691e18ea2b27048b7ddbc8b1e025",
+      "image_unchanged": false
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "actionc",
+      "mode": "optimized",
+      "before": 4850,
+      "after": 4751,
+      "saved": 99,
+      "contracts_and_guard_amounts_unchanged": true,
+      "guards": 22,
+      "before_image_sha256": "5efebb04c2c99c8405892721440a0d7dcd1a5079300b553a6a1cbdc4266e7c60",
+      "after_image_sha256": "9892f1c562d077f999ac459a66d3def7ca2f74e1b9f2c69a5ae127a9274a00c4",
+      "image_unchanged": false
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "vbcc",
+      "mode": "raw",
+      "before": 1697,
+      "after": 1697,
+      "saved": 0
+    },
+    {
+      "case": "dijkstra",
+      "compiler": "vbcc",
+      "mode": "optimized",
+      "before": 1477,
+      "after": 1477,
+      "saved": 0
+    }
+  ]
+}
