@@ -108,6 +108,14 @@ unchanged. `wide_shift` saves 29 bytes and 44 cycles in each mode; Dijkstra is
 byte-identical. See the [contract](MIR65816_WIDE_RETURNS.md) and
 [qualification](benchmarks/65816-wide-returns/README.md).
 
+The next proposed work is the
+[pointer micro-optimization plan](MIR65816_POINTER_MICRO_OPTIMIZATIONS_PLAN.md),
+based on the Exec list analysis. It orders zero-offset indirect accesses,
+captured-pointer null reduction, native private copies/address arithmetic and
+three-byte edge transfers as separate commits. Repeated external accesses and
+instruction-level pointer-home reuse have explicit later proof gates.
+Implementation has not started.
+
 The [completed implementation plan](MIR65816_ANALYSIS_REWRITE_IMPLEMENTATION_PLAN.md)
 records module changes, commit boundaries and qualification gates.
 Its baseline gate and typed physical-effects slices are
