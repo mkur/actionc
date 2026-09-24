@@ -1656,6 +1656,16 @@ impl Builder<'_> {
         Ok(())
     }
     fn operation(&mut self, op: &Mir65816Op) -> Result<(), String> {
+        if let Mir65816Op::AddressOf {
+            dest,
+            address,
+            width,
+        } = op
+            && width.get() == 3
+            && self.pointer_address(*dest, address)?
+        {
+            return Ok(());
+        }
         if let Mir65816Op::Cast {
             dest,
             from,

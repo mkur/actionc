@@ -128,3 +128,84 @@ fn pointer_copy_rejects_incomplete_homes_atomically_and_keeps_overlap_fallback()
         assert!(b.code.code().bytes.is_empty());
     }
 }
+
+fn address(value: Mir65816Value, offset: u32) -> Mir65816Address {
+    Mir65816Address {
+        base: Mir65816AddressBase::Indirect(value),
+        displacement: ByteOffset::new(offset),
+        index: None,
+        mode: Mir65816AddressMode::LongIndirect,
+    }
+}
+#[test]
+fn zero_offset_address_formation_copies_disjoint_captures_without_scratch() {
+    let p = program();
+    for (src, dst) in [
+        (stack(250), stack(253)),
+        (dp(0), dp(3)),
+        (stack(253), dp(61)),
+        (dp(61), stack(253)),
+    ] {
+        for byte in [false, true] {
+            let mut b = builder(&p.routines[0]);
+            let value = input(&mut b, src, dst);
+            if byte {
+                b.code.a8();
+            } else {
+                b.code.a16();
+            }
+            let at = b.code.position();
+            assert!(b.pointer_address(TempId(999), &address(value, 0)).unwrap());
+            let mut expected = if byte { vec![0xc2, 0x20] } else { vec![] };
+            for i in [0, 1] {
+                expected.extend(encoding(src.into(), true, i));
+                expected.extend(encoding(dst.into(), false, i));
+            }
+            assert_eq!(&b.code.code().bytes[at..], expected);
+        }
+    }
+}
+#[test]
+fn zero_offset_address_formation_keeps_unsupported_bases_and_geometry_atomic() {
+    let p = program();
+    for problem in 0..8 {
+        let mut b = builder(&p.routines[0]);
+        let value = input(&mut b, stack(10), stack(20));
+        let mut addr = address(value, 0);
+        match problem {
+            0 => addr.displacement = ByteOffset::new(3),
+            1 => {
+                addr.index = Some(Mir65816Index {
+                    value: Mir65816Value::U16(1),
+                    stride: ByteSize::ONE,
+                })
+            }
+            2 => {
+                addr.base = Mir65816AddressBase::Parameter(p.routines[0].frame.parameters[0].param)
+            }
+            3 => addr.base = Mir65816AddressBase::Indirect(Mir65816Value::U24(0x123456)),
+            4 => {
+                b.frame.temps.insert(TempId(999), stack(10));
+            }
+            5 => {
+                b.frame.temps.insert(TempId(999), stack(11));
+            }
+            6 => {
+                b.frame.temps.insert(TempId(998), stack(254));
+            }
+            7 => {
+                b.frame.temps.insert(TempId(999), dp(62));
+            }
+            _ => unreachable!(),
+        }
+        b.code.a8();
+        let before = format!("{:?}", b.code);
+        let result = b.pointer_address(TempId(999), &addr);
+        if problem >= 6 {
+            assert!(result.is_err());
+        } else {
+            assert_eq!(result, Ok(false));
+        }
+        assert_eq!(format!("{:?}", b.code), before);
+    }
+}

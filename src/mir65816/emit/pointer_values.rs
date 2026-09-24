@@ -6,6 +6,31 @@ use super::*;
 mod tests;
 
 impl Builder<'_> {
+    pub(super) fn pointer_address(
+        &mut self,
+        dest: TempId,
+        address: &Mir65816Address,
+    ) -> Result<bool, String> {
+        let Mir65816AddressBase::Indirect(value) = &address.base else {
+            return Ok(false);
+        };
+        if address.index.is_some() || address.displacement.get() != 0 {
+            return Ok(false);
+        }
+        let Some((source, destination)) = self.pointer_copy_homes(dest, value)? else {
+            return Ok(false);
+        };
+        // Start with disjoint complete homes. Address formation does not read
+        // through the captured value, even when it is null or crosses a bank.
+        if matches!((source, destination), (Memory::Stack(a), Memory::Stack(b)) if a == b)
+            || matches!((source, destination), (Memory::DirectPage(a), Memory::DirectPage(b)) if a == b)
+        {
+            return Ok(false);
+        }
+        self.code.barrier();
+        self.transfer(source, destination, 3, true)?;
+        Ok(true)
+    }
     /// Shared with transfer(): overlapping word pieces are safe only for a
     /// whole identity or disjoint private homes, never a partial overlap.
     pub(super) fn private_pointer_geometry(source: Memory, destination: Memory) -> bool {

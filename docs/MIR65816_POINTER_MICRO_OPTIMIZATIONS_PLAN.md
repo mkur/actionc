@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-3 implemented and qualified; slices 4-12 pending. Baseline:
+Status: slices 1-4 implemented and qualified; slices 5-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -125,6 +125,11 @@ not a predicted saving. Check self-copies, partial-overlap fallback, mutable
 parameter homes, full byte extents and differing entry widths.
 
 ### 4. Captured-pointer AddressOf at offset zero
+
+Implemented and qualified. Both modes save 60 list-module bytes (3,330 optimized).
+All oracle vectors pass in both host builds; cycles improve by up to 62 with no
+regressions. Staging DP traffic falls while allocation stays unchanged. See
+[slice 4](benchmarks/65816-pointer-micro/slice4/delta.csv).
 
 Implement address formation from a captured pointer plus zero as a native
 private copy, avoiding the DP staging and bytewise address arithmetic. Start

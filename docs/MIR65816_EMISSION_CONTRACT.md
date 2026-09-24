@@ -673,6 +673,13 @@ selects A16 without an intervening A8 excursion. Partial overlaps, constants,
 symbolic values and width changes retain their prior cast paths. No external
 access is repeated, no fourth byte is touched, and allocation is unchanged.
 
+`AddressOf` with a captured indirect base, no index and displacement zero uses
+the same checked private transfer when its three-byte result home is disjoint
+from the complete base home. It forms the address without dereferencing the
+pointer or staging it through DP. Symbolic/object bases, indexed addresses,
+nonzero offsets and overlapping homes retain the general address path. This
+changes neither address meaning nor the closed-operation allocation contract.
+
 By-value aggregate interfaces, REAL, foreign code,
 unresolved runtime/builtin calls and source terminal exits have explicit
 diagnostics. Volatile aggregate copies are rejected: use a deliberate scalar

@@ -12,6 +12,7 @@ a correctness oracle.
 | 1: zero-offset indirect accesses | 3,566 | 3,488 | −69 in each mode | 76 / 148 |
 | 2: captured pointer null reduction | 3,524 | 3,446 | −42 in each mode | 76 / 148 |
 | 3: native three-byte casts | 3,464 | 3,390 | −60 raw / −56 optimized | 76 / 148 |
+| 4: zero-offset captured addresses | 3,404 | 3,330 | −60 in each mode | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -79,6 +80,26 @@ overlap fallback and atomic rejection. Runtime probes cover every pointer bit,
 neighboring canaries, volatile/alias ordering, calls and relocated wide returns.
 The list oracle passes all 270 paired-mask records in both host builds with
 identical results and LF/CRLF artifacts.
+
+Slice 4 forms captured zero-offset addresses directly in disjoint private
+homes. Optimized bodies total 2,790 bytes; guards remain 540. Per-vector cycles
+improve by up to 62 in each mode, with no regressions. DP reads drop by up to
+six bytes and DP writes by up to eight; stack reads stay equal and stack writes
+increase by at most two repeated private middle bytes. Frames, stack peaks and
+reservations are unchanged. [Sizes](slice4/sizes.csv),
+[measurements](slice4/measurements.csv), [deltas](slice4/delta.csv),
+[raw code](slice4/actionc-raw.lst), [optimized code](slice4/actionc-optimized.lst)
+and [provenance](slice4/provenance.json) retain the results.
+
+Four focused pointer-value unit tests and 33 emission/o65 integration tests pass.
+The qualified runner also passes 21 tests across `memory`, `checked_rewrites`,
+`pointer_values` and `state_tracking`; the new address fixture was corrected to
+use the language's required explicit pointer-to-ADDRESS cast and rerun with
+state tracking. Coverage includes disjoint homes, unsupported addressing and
+overlap fallback, incomplete extents, both entry widths, null/every pointer bit,
+no dereference during address formation, canaries and fixed/o65 trace checks.
+Both list oracle host runs pass all 270 paired-mask records, with equal results
+and actual LF/CRLF build equality.
 
 Reproduce a slice from its commit by building and copying the CLI to a stable
 path, then using the existing comparison builder:
