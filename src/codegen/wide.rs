@@ -39,6 +39,116 @@ impl WideHelper {
 }
 
 impl Generator {
+    fn constant_divmod_divisor(&self, expr: &Expr) -> Option<u32> {
+        let ty = self.expr_scalar_type(expr)?;
+        let bits = match &expr.kind {
+            ExprKind::Number(number) => u32::try_from(number.value?).ok()?,
+            ExprKind::Cast { expr: source, .. } => {
+                let bits = self.constant_divmod_divisor(source)?;
+                let from = self.expr_scalar_type(source)?;
+                if from.is_signed() && from.width_bytes() < ty.width_bytes() {
+                    let shift = 32 - from.width_bytes() * 8;
+                    ((bits as i32) << shift >> shift) as u32
+                } else {
+                    bits
+                }
+            }
+            _ if ty.width_bytes() <= 2 => u32::from(self.constant_u16(expr)?),
+            _ => return None,
+        };
+        Some(bits & (u32::MAX >> (32 - ty.width_bytes() * 8)))
+    }
+
+    pub(super) fn emit_modern_constant_unsigned_divmod_to_slot(
+        &mut self,
+        expr: &Expr,
+        slot: StorageSlot,
+    ) -> bool {
+        let ExprKind::Binary {
+            op: op @ (BinaryOp::Div | BinaryOp::Mod),
+            left,
+            right,
+        } = &expr.kind
+        else {
+            return false;
+        };
+        let Some(ty) = self.expr_scalar_type(expr) else {
+            return false;
+        };
+        if !self.profile.enables_modern_optimizations() || ty.is_signed() {
+            return false;
+        }
+        let width = ty.width_bytes();
+        // Preserve the diagnostic for unsupported legacy SET overrides.
+        let helper = if *op == BinaryOp::Div {
+            RuntimeHelperSlot::Div
+        } else {
+            RuntimeHelperSlot::Mod
+        };
+        if width <= 2
+            && self.runtime_helpers.target(helper) != RuntimeHelperTarget::Label(helper.owned_label())
+        {
+            return false;
+        }
+        // SemIR projects folded constants as typed literals. The narrow
+        // adapter also handles legacy DEFINEs without truncating wide values.
+        let divisor = self.constant_divmod_divisor(right);
+        let Some(divisor) = divisor.filter(|value| value.is_power_of_two()) else {
+            return false;
+        };
+        let work = RESULT.with_size(width);
+        // Capture the complete dividend once, even for MOD 1 or a projection
+        // that discards bytes. Calls and volatile/indirect reads still happen.
+        // Compute at the expression's width before converting to the consumer.
+        if !self.emit_expr_to_slot(left, work) {
+            return false;
+        }
+        if *op == BinaryOp::Mod {
+            for byte in 0..width {
+                let mask = ((divisor - 1) >> (byte * 8)) as u8;
+                if mask == 0xFF {
+                    continue;
+                }
+                self.emit_lda_slot_byte(work, byte);
+                self.emit_and_imm(mask);
+                self.emit_sta_slot_byte(work, byte);
+            }
+        } else {
+            let count = divisor.trailing_zeros() as u16;
+            let whole_bytes = count / 8;
+            if whole_bytes != 0 {
+                for byte in 0..width {
+                    if byte + whole_bytes < width {
+                        self.emit_lda_slot_byte(work, byte + whole_bytes);
+                    } else {
+                        self.emit_lda_imm(0);
+                    }
+                    self.emit_sta_slot_byte(work, byte);
+                }
+            }
+            for _ in 0..count % 8 {
+                for byte in (0..width.saturating_sub(whole_bytes)).rev() {
+                    self.emit_lda_slot_byte(work, byte);
+                    if byte + 1 == width - whole_bytes {
+                        self.emit_lsr_a();
+                    } else {
+                        self.emit_ror_a();
+                    }
+                    self.emit_sta_slot_byte(work, byte);
+                }
+            }
+        }
+        for byte in 0..slot.size {
+            if byte < width {
+                self.emit_lda_slot_byte(work, byte);
+            } else {
+                self.emit_lda_imm(0);
+            }
+            self.emit_sta_slot_byte(slot, byte);
+        }
+        true
+    }
+
     pub(super) fn expr_uses_wide_integer(&self, expr: &Expr) -> bool {
         let Some(ty) = self.expr_scalar_type(expr) else {
             return false;
@@ -140,6 +250,9 @@ impl Generator {
                 return false;
             }
             self.normalize_integer_result(ty);
+            return true;
+        }
+        if self.emit_modern_constant_unsigned_divmod_to_slot(expr, RESULT) {
             return true;
         }
         match &expr.kind {

@@ -96,6 +96,17 @@ and compound operations must use the same typed arithmetic rules where that
 operation is legal. Checked object-layout size arithmetic remains distinct
 from intentionally wrapping scalar arithmetic.
 
+### Constant power-of-two divisors
+
+Optimized classic and MIR6502 reduce unsigned division by a known power of two
+to a logical right shift, and unsigned MOD to a mask. This covers BYTE/CHAR,
+CARD and LONGCARD, including divisor 1. Computation uses the promoted operand
+width before any destination truncation or widening. The dividend is still
+evaluated once, including calls and complete volatile reads whose bytes the
+result discards. MIR may select an existing shift helper for larger shifts.
+Signed operations retain their quotient/remainder helpers; Compatibility
+retains its existing helper selection.
+
 ### Multiplication decision: do not change it accidentally
 
 Current multiplication always has an INT result, and NIR verifies that rule.

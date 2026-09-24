@@ -1440,6 +1440,7 @@ pub(super) fn materialize_program_with_reporting(
             &narrow_products.low_only_results,
             &mut peephole_stats,
         );
+        strength_reduce_constant_unsigned_divmod(routine, &mut peephole_stats);
         run_analyzed_widened_byte_shift_store_consumers(routine, &layout, &mut peephole_stats)?;
         lower_constant_word_shift_projections(routine, &layout, &mut peephole_stats);
         lower_small_constant_word_shifts(routine, &layout, &mut peephole_stats);
@@ -1844,6 +1845,50 @@ fn strength_reduce_constant_multiplications(
     }
 
     peephole_stats.record_many(routine.id, "constant-multiply-strength-reduction", reduced);
+}
+
+fn strength_reduce_constant_unsigned_divmod(
+    routine: &mut super::ir::MirRoutine,
+    peephole_stats: &mut MirPeepholeStats,
+) {
+    let mut reduced = 0;
+    for block in &mut routine.blocks {
+        for instruction in &mut block.ops {
+            let MirOp::Binary {
+                op: op @ (MirBinaryOp::UDiv | MirBinaryOp::UMod),
+                left,
+                right,
+                carry_in: None,
+                carry_out: MirCarryOut::Ignore,
+                ..
+            } = instruction
+            else {
+                continue;
+            };
+            let Some(divisor) = constant_value_u16(right).filter(|value| value.is_power_of_two())
+            else {
+                continue;
+            };
+            // A pointer-cell value may still read memory here. Retain the
+            // helper unless the complete dividend has already been captured.
+            if value_contains_pointer_cell(left) {
+                continue;
+            }
+            if *op == MirBinaryOp::UDiv {
+                *op = MirBinaryOp::Rsh;
+                *right = MirValue::ConstU8(divisor.trailing_zeros() as u8);
+            } else {
+                *op = MirBinaryOp::And;
+                *right = MirValue::ConstU16(divisor - 1);
+            }
+            reduced += 1;
+        }
+    }
+    peephole_stats.record_many(
+        routine.id,
+        "constant-unsigned-divmod-strength-reduction",
+        reduced,
+    );
 }
 
 fn strength_reduced_multiply_width(

@@ -631,6 +631,39 @@ impl Builder<'_> {
                 if let Some(left) = self.pair(left, None)
                     && let Some(right) = self.pair(right, None)
                 {
+                    if !is_signed(ty)
+                        && matches!(op, NirBinaryOp::Div | NirBinaryOp::Mod)
+                        && let [MirValue::ConstU16(lo), MirValue::ConstU16(hi)] = &right
+                    {
+                        let divisor = u32::from(*lo) | (u32::from(*hi) << 16);
+                        if divisor.is_power_of_two() {
+                            let pair = if *op == NirBinaryOp::Div {
+                                self.constant_shift(
+                                    MirBinaryOp::Rsh,
+                                    left,
+                                    divisor.trailing_zeros(),
+                                )
+                            } else {
+                                let mask = divisor - 1;
+                                [
+                                    self.binary(
+                                        MirBinaryOp::And,
+                                        left[0].clone(),
+                                        MirValue::ConstU16(mask as u16),
+                                        MirWidth::Word,
+                                    ),
+                                    self.binary(
+                                        MirBinaryOp::And,
+                                        left[1].clone(),
+                                        MirValue::ConstU16((mask >> 16) as u16),
+                                        MirWidth::Word,
+                                    ),
+                                ]
+                            };
+                            self.move_pair(*dest, pair);
+                            return true;
+                        }
+                    }
                     let pair = match op {
                         NirBinaryOp::Add | NirBinaryOp::Sub => {
                             self.add_sub(mir_binary_op(*op), left, right)

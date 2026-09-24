@@ -1505,6 +1505,11 @@ impl Generator {
         {
             return true;
         }
+        if matches!(op, BinaryOp::Div | BinaryOp::Mod)
+            && self.emit_modern_constant_unsigned_divmod_to_slot(expr, slot)
+        {
+            return true;
+        }
         if self.segment_storage
             && matches!(slot.size, 1 | 2)
             && self.emit_runtime_mul_add_sub_to_slot(*op, left, right, slot)

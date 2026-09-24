@@ -15,6 +15,9 @@ mod record_array_decay;
 #[path = "tests/arithmetic.rs"]
 mod arithmetic;
 
+#[path = "tests/power_two_divmod.rs"]
+mod power_two_divmod;
+
 #[path = "tests/call_arguments.rs"]
 mod call_arguments;
 
