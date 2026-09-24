@@ -675,10 +675,14 @@ access is repeated, no fourth byte is touched, and allocation is unchanged.
 
 `AddressOf` with a captured indirect base, no index and displacement zero uses
 the same checked private transfer when its three-byte result home is disjoint
-from the complete base home. It forms the address without dereferencing the
-pointer or staging it through DP. Symbolic/object bases, indexed addresses,
-nonzero offsets and overlapping homes retain the general address path. This
-changes neither address meaning nor the closed-operation allocation contract.
+from the complete base home. Positive displacements through 65,535 instead use
+A16 low-word addition followed by A8 bank addition with carry. Both homes are
+fully preflighted before emission; the low-word store and mode change retain
+carry, and the bank-byte result wraps modulo 24 bits. Address formation never
+dereferences the pointer or stages it through DP. Symbolic/object bases, indexed
+addresses, larger offsets and overlapping homes retain the general path. These
+forms change neither address meaning nor the closed-operation allocation
+contract, and make no atomic-update claim.
 
 By-value aggregate interfaces, REAL, foreign code,
 unresolved runtime/builtin calls and source terminal exits have explicit

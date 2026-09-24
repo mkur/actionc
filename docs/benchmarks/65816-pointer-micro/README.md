@@ -13,6 +13,7 @@ a correctness oracle.
 | 2: captured pointer null reduction | 3,524 | 3,446 | −42 in each mode | 76 / 148 |
 | 3: native three-byte casts | 3,464 | 3,390 | −60 raw / −56 optimized | 76 / 148 |
 | 4: zero-offset captured addresses | 3,404 | 3,330 | −60 in each mode | 76 / 148 |
+| 5: constant-offset captured addresses | 3,288 | 3,214 | −116 in each mode | 76 / 148 |
 
 Slice 1 removes 23 `LDY #0` instructions in each mode. Guards remain 540 bytes;
 optimized bodies total 2,948 bytes. Per-vector cycle changes range from −75 to
@@ -100,6 +101,25 @@ overlap fallback, incomplete extents, both entry widths, null/every pointer bit,
 no dereference during address formation, canaries and fixed/o65 trace checks.
 Both list oracle host runs pass all 270 paired-mask records, with equal results
 and actual LF/CRLF build equality.
+
+Slice 5 adds positive 16-bit offsets with an A16 low-word addition and A8 bank
+carry, modulo 24 bits. Optimized bodies total 2,674 bytes; guards remain 540.
+Per-vector cycles improve by up to 92 in both modes, with no regressions. Stack
+reads fall by up to two bytes, DP reads by twelve and DP writes by fourteen;
+stack writes, frames, peaks and reservations are unchanged. See
+[sizes](slice5/sizes.csv), [measurements](slice5/measurements.csv),
+[deltas](slice5/delta.csv), [raw code](slice5/actionc-raw.lst),
+[optimized code](slice5/actionc-optimized.lst) and [provenance](slice5/provenance.json).
+
+Qualification passed 217 emitter unit tests (one inventory ignored), 33 emission/
+o65 integration tests and 23 qualified VM tests in `pointer_values`, `memory`,
+`state_tracking` and `checked_rewrites`. Offsets 1, 3, 255, 256 and 65,535 cover
+low-word carry and full 24-bit wrap; 65,536 exercises the fallback. Canaries and
+both I states remain checked. A two-task probe injects IRQ at every reached
+enabled instruction in address formation, runs the same computation in the IRQ
+dispatcher and also injects NMI, checking complete results and domain guards.
+Both list oracle host runs pass all 270 paired-mask records with matching
+results and LF/CRLF artifacts.
 
 Reproduce a slice from its commit by building and copying the CLI to a stable
 path, then using the existing comparison builder:

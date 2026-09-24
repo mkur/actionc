@@ -14,7 +14,7 @@ impl Builder<'_> {
         let Mir65816AddressBase::Indirect(value) = &address.base else {
             return Ok(false);
         };
-        if address.index.is_some() || address.displacement.get() != 0 {
+        if address.index.is_some() || address.displacement.get() > u32::from(u16::MAX) {
             return Ok(false);
         }
         let Some((source, destination)) = self.pointer_copy_homes(dest, value)? else {
@@ -28,8 +28,32 @@ impl Builder<'_> {
             return Ok(false);
         }
         self.code.barrier();
-        self.transfer(source, destination, 3, true)?;
+        let offset = address.displacement.get() as u16;
+        if offset == 0 {
+            self.transfer(source, destination, 3, true)?;
+        } else {
+            self.pointer_add_constant(source, destination, offset)?;
+        }
         Ok(true)
+    }
+    /// Caller preflights both complete homes and their geometry. The low-word
+    /// store and mode change preserve carry into the bank-byte operation.
+    fn pointer_add_constant(
+        &mut self,
+        source: Memory,
+        destination: Memory,
+        offset: u16,
+    ) -> Result<(), String> {
+        self.code.a16();
+        self.load_memory(source, 0)?;
+        self.code.op(Implied::Clc);
+        self.code.word(WordOp::AdcImm, offset);
+        self.store_memory(destination, 0)?;
+        self.code.a8();
+        self.load_memory(source, 2)?;
+        self.code.byte(ByteOp::AdcImm, 0);
+        self.store_memory(destination, 2)?;
+        Ok(())
     }
     /// Shared with transfer(): overlapping word pieces are safe only for a
     /// whole identity or disjoint private homes, never a partial overlap.

@@ -173,7 +173,7 @@ fn zero_offset_address_formation_keeps_unsupported_bases_and_geometry_atomic() {
         let value = input(&mut b, stack(10), stack(20));
         let mut addr = address(value, 0);
         match problem {
-            0 => addr.displacement = ByteOffset::new(3),
+            0 => addr.displacement = ByteOffset::new(65536),
             1 => {
                 addr.index = Some(Mir65816Index {
                     value: Mir65816Value::U16(1),
@@ -207,5 +207,41 @@ fn zero_offset_address_formation_keeps_unsupported_bases_and_geometry_atomic() {
             assert_eq!(result, Ok(false));
         }
         assert_eq!(format!("{:?}", b.code), before);
+    }
+}
+
+#[test]
+fn constant_captured_addresses_select_a_word_and_one_bank_byte() {
+    let p = program();
+    for offset in [1, 3, 255, 256, 65535] {
+        for (src, dst) in [
+            (stack(250), stack(253)),
+            (dp(0), dp(3)),
+            (stack(253), dp(61)),
+        ] {
+            for byte in [false, true] {
+                let mut b = builder(&p.routines[0]);
+                let value = input(&mut b, src, dst);
+                if byte {
+                    b.code.a8();
+                } else {
+                    b.code.a16();
+                }
+                let at = b.code.position();
+                assert!(
+                    b.pointer_address(TempId(999), &address(value, offset))
+                        .unwrap()
+                );
+                let mut expected = if byte { vec![0xc2, 0x20] } else { vec![] };
+                expected.extend(encoding(src.into(), true, 0));
+                expected.extend([0x18, 0x69, offset as u8, (offset >> 8) as u8]);
+                expected.extend(encoding(dst.into(), false, 0));
+                expected.extend([0xe2, 0x20]);
+                expected.extend(encoding(src.into(), true, 2));
+                expected.extend([0x69, 0]);
+                expected.extend(encoding(dst.into(), false, 2));
+                assert_eq!(&b.code.code().bytes[at..], expected);
+            }
+        }
     }
 }

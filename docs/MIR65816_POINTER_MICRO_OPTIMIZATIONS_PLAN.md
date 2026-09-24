@@ -1,6 +1,6 @@
 # Native 65816 pointer micro-optimization plan
 
-Status: slices 1-4 implemented and qualified; slices 5-12 pending. Baseline:
+Status: slices 1-5 implemented and qualified; slices 6-12 pending. Baseline:
 `87feebf1`, after native 24/32-bit returns. Each numbered implementation slice is a separate
 commit. Prioritize emitted code size and report execution-cycle tradeoffs.
 
@@ -141,6 +141,12 @@ eight bytes per site. Empty width excursions disappear with replaced code and
 must not be counted again as separate savings.
 
 ### 5. Captured-pointer AddressOf at constant nonzero offsets
+
+Implemented and qualified. Both list modes save 116 bytes (3,214 optimized),
+with up to 92 fewer cycles per vector and no regressions. All oracle vectors
+pass in both host builds. Boundary and IRQ/NMI probes verify the live bank carry
+and modulo-24-bit result; larger/indexed/overlapping forms retain the fallback.
+See [slice 5](benchmarks/65816-pointer-micro/slice5/delta.csv).
 
 Extend slice 4 with native low-word addition and bank carry. Start with positive
 16-bit constants, keeping address movement modulo 2^24. Preflight the complete
