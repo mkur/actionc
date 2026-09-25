@@ -140,6 +140,29 @@ impl Generator {
             reason: "32-bit integer legalization".into(), origin: "compiler-owned 6502 arithmetic".into(),
             suppressed_default: None, kind: CodegenRuntimeBindingKind::CompilerHelper, license: None,
         }));
+        runtime_bindings.extend(self.used_sargs_overrides.iter().map(|target| {
+            let (implementation, address) = match target {
+                RuntimeHelperTarget::Absolute(address) => (
+                    format!("${:04X}", address.address()),
+                    Some(address.address()),
+                ),
+                RuntimeHelperTarget::Label(label) => (
+                    label.strip_prefix("routine:").unwrap_or(label).to_string(),
+                    self.emitter.labels.get(label)
+                        .map(|offset| origin.wrapping_add(*offset as u16)),
+                ),
+            };
+            CodegenRuntimeBinding {
+                helper: "SArgs".to_string(),
+                implementation,
+                address,
+                reason: "parameter-frame capture".to_string(),
+                origin: "application".to_string(),
+                suppressed_default: Some("Action! cartridge SArgs".to_string()),
+                kind: CodegenRuntimeBindingKind::LocalOverride,
+                license: None,
+            }
+        }));
         let mut classic_runtime_requirements: Vec<String> = self.used_default_runtime_helpers
             .iter()
             .map(|helper| {

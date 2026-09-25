@@ -1303,6 +1303,13 @@ impl Generator {
         span: Span,
     ) {
         debug_assert_runtime_helper_target_is_callable(&target);
+        if helper_slot == RuntimeHelperSlot::SArgs
+            && target != RuntimeHelperTarget::Absolute(runtime_helper::CARTRIDGE_SARGS)
+            && !target.is_default_standalone_slot(helper_slot)
+            && !self.used_sargs_overrides.contains(&target)
+        {
+            self.used_sargs_overrides.push(target.clone());
+        }
         if helper_slot.is_owned_division() || target.is_default_standalone_slot(helper_slot) {
             self.used_default_runtime_helpers.insert(helper_slot);
         }

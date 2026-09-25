@@ -7,6 +7,8 @@ use crate::codegen::{
 };
 use crate::map_query::MapQuery;
 
+mod sargs;
+
 pub(crate) fn format_link_plan(
     selected: &CodegenOutput,
     baseline: &CodegenOutput,
@@ -212,6 +214,7 @@ pub(crate) fn format_listing_with_boundaries(output: &CodegenOutput) -> String {
 fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> String {
     let boundary_comments = routine_boundary_comments(output);
     let instructions = disassemble_code_ranges(output);
+    let sargs = sargs::SArgsListing::from_output(output, &instructions);
     let items = listing_items(output, &instructions);
     let display_symbols = MadsDisplaySymbols::from_output(output, &instructions);
     let relocations = MadsRelocations::from_output(output);
@@ -258,6 +261,15 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                 if let Some(comments) = boundary_comments.get(&instruction.address) {
                     push_assembly_comments(&mut lines, comments);
                 }
+                if sargs.push_descriptor(
+                    &instruction,
+                    output,
+                    &display_symbols,
+                    &relocations,
+                    &mut lines,
+                ) {
+                    continue;
+                }
                 display_symbols.push_definitions(instruction.address, &mut lines);
                 if let Some(query) = &query {
                     push_source_comment(query, instruction.address, &mut last_source, &mut lines);
@@ -293,6 +305,7 @@ fn format_mads_listing(output: &CodegenOutput, source_text: Option<&str>) -> Str
                     &bytes,
                     &display_symbols,
                     &relocations,
+                    &sargs,
                     &mut lines,
                 );
             }
@@ -413,7 +426,7 @@ impl MadsDisplaySymbols {
                         .or_insert_with(|| name.clone());
                 }
             }
-            let end = symbol.address.saturating_add(symbol.size);
+            let end = symbol.address.saturating_add(storage_listing_size(symbol));
             let output_relative = relocation_targets
                 .iter()
                 .any(|target| *target >= symbol.address && *target < end);
@@ -947,6 +960,18 @@ struct StorageListingRange {
     name: String,
 }
 
+fn storage_listing_size(symbol: &crate::codegen::CodegenStorageSymbol) -> u16 {
+    // Classic array symbols describe the element width, but a parameter home
+    // contains a two-byte address even for BYTE/CHAR arrays.
+    if symbol.kind == CodegenSymbolKind::Parameter
+        && symbol.array == Some(crate::codegen::CodegenArrayStorage::Pointer)
+    {
+        2
+    } else {
+        symbol.size
+    }
+}
+
 fn storage_listing_ranges(output: &CodegenOutput) -> Vec<StorageListingRange> {
     let mut ranges = output
         .map
@@ -955,7 +980,7 @@ fn storage_listing_ranges(output: &CodegenOutput) -> Vec<StorageListingRange> {
         .filter(|symbol| !address_in_routine(output, symbol.address))
         .filter_map(|symbol| {
             let start = output_offset(output, symbol.address)?;
-            let end = start.saturating_add(symbol.size as usize);
+            let end = start.saturating_add(usize::from(storage_listing_size(symbol)));
             let bytes = output.bytes.get(start..end)?.to_vec();
             Some(StorageListingRange {
                 address: symbol.address,
@@ -1056,6 +1081,16 @@ fn inline_jsr_data_lengths(output: &CodegenOutput) -> BTreeMap<u16, usize> {
         // Action! r_Par consumes three inline parameter bytes after the JSR.
         .filter(|routine| routine.name.eq_ignore_ascii_case("r_Par"))
         .map(|routine| (routine.address, 3))
+        // Standalone and overridden helpers retain their ABI identity in the
+        // runtime bindings even when their implementation names change.
+        .chain(output.map.runtime_bindings.iter().filter_map(|binding| {
+            binding
+                .helper
+                .eq_ignore_ascii_case("SArgs")
+                .then_some(binding.address)
+                .flatten()
+                .map(|address| (address, 3))
+        }))
         .collect()
 }
 
@@ -1149,6 +1184,7 @@ fn push_data_listing(
     bytes: &[u8],
     display_symbols: &MadsDisplaySymbols,
     relocations: &MadsRelocations<'_>,
+    sargs: &sargs::SArgsListing,
     lines: &mut Vec<String>,
 ) {
     let Some(end) = address.checked_add(bytes.len() as u16) else {
@@ -1164,6 +1200,17 @@ fn push_data_listing(
     while cursor < end {
         display_symbols.push_definitions(cursor, lines);
         let offset = usize::from(cursor - address);
+        if let Some(width) = sargs.push_parameter(
+            output,
+            cursor,
+            &bytes[offset..],
+            display_symbols,
+            relocations,
+            lines,
+        ) {
+            cursor = cursor.saturating_add(width);
+            continue;
+        }
         if let Some(relocation) = relocations.at(cursor)
             && let Some(expression) =
                 relocation_expression(output, display_symbols, relocation, cursor)

@@ -1189,6 +1189,7 @@ struct Generator {
     runtime_error_target: RuntimeHelperTarget,
     uses_runtime_fault: bool,
     used_default_runtime_helpers: BTreeSet<RuntimeHelperSlot>,
+    used_sargs_overrides: Vec<RuntimeHelperTarget>,
     used_wide_helpers: BTreeSet<wide::WideHelper>,
     routine_assignment_targets: HashSet<String>,
     local_symbols: HashMap<String, StorageSlot>,

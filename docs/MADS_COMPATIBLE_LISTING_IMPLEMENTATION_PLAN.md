@@ -84,6 +84,23 @@ omit classic's internal projection hashes. Application routine comments retain
 their source spelling. These are presentation rules; map identities and emitted
 binary bytes are unchanged.
 
+SArgs calls identify their three-byte inline descriptor through the resolved
+runtime helper binding (or the cartridge ABI entry). A standalone
+`; Parameter frame follows: ...` comment precedes the payload, followed by a
+`.WORD` frame address and a `.BYTE` count. The count comment states the actual
+frame size in bytes; the encoded count remains size minus one. Both payload
+address comments start in the same column, including for long symbolic names.
+Word addresses retain their relocations, including paired MIR low/high fixups.
+
+Parameter names are attached only when the final signature and storage map
+agree with the descriptor's frame address and byte count. Those parameter homes
+use `.BYTE` or `.WORD` according to their physical width, with variable names
+in the comments. Array parameters occupy an address word. MIR's available
+BYTE/WORD type descriptions are retained rather than guessing a source type.
+If layout metadata is absent or inconsistent, the descriptor remains readable
+with a generic frame comment and its encoded size. These rules apply to both
+plain and source-annotated listings and do not change emitted program bytes.
+
 No new listing option or output path is added. The existing object/listing path
 collision checks and atomic-write behavior remain in effect.
 
@@ -356,7 +373,8 @@ Use three layers of tests.
 - Assert `.a` on low-valued absolute modes and `.z` on zero-page modes.
 - Assert internal labels are defined exactly once and external targets stay
   numeric.
-- Assert data and inline-call metadata use `.byte`.
+- Assert inline SArgs descriptors use `.WORD` plus `.BYTE`, with aligned
+  address comments and validated parameter names.
 - Assert comments contain only the allowed textual character set.
 - Assert repeated formatting is deterministic.
 - Assert boundary-only and source-annotated listings share identical assembly

@@ -730,7 +730,7 @@ fn native_real_core_arithmetic_compiles_with_both_backends_and_runtimes() {
                 "expected FADD call for {mode:?}/{runtime}"
             );
             let listing = compiled.source_listing();
-            assert!(listing.contains("ATARI_FPP_FADD"));
+            assert!(listing.contains("atari_fpp_fadd"));
             assert!(listing.contains("Atari OS ROM"));
         }
     }
